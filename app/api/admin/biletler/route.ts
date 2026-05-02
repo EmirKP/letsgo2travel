@@ -1,6 +1,25 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+type BiletRow = {
+  id: number;
+  nereden: string;
+  nereye: string;
+  ulke: string;
+  fiyat: string;
+  fiyat_sayi: number;
+  tarih: string;
+  vize: string;
+  ay: string;
+  havayolu: string;
+  sure: string;
+  bagaj: string;
+  etiket: string;
+  link: string;
+  aktif: boolean;
+  one_cikan: boolean;
+};
+
 function fiyatYaz(fiyat: number) {
   return `${new Intl.NumberFormat("tr-TR").format(fiyat)} TL`;
 }
@@ -9,7 +28,7 @@ function yetkiliMi(request: Request) {
   return request.headers.get("x-admin-password") === process.env.ADMIN_PASSWORD;
 }
 
-function biletDonustur(row: any) {
+function biletDonustur(row: BiletRow) {
   return {
     id: row.id,
     nereden: row.nereden,
@@ -30,21 +49,39 @@ function biletDonustur(row: any) {
   };
 }
 
-export async function PUT(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request) {
   if (!yetkiliMi(request)) {
     return NextResponse.json({ message: "Yetkisiz işlem." }, { status: 401 });
   }
 
-  const { id } = await context.params;
+  const { data, error } = await supabaseAdmin
+    .from("biletler")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json(
+      { message: "Biletler alınamadı.", error: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    biletler: (data as BiletRow[]).map(biletDonustur),
+  });
+}
+
+export async function POST(request: Request) {
+  if (!yetkiliMi(request)) {
+    return NextResponse.json({ message: "Yetkisiz işlem." }, { status: 401 });
+  }
+
   const body = await request.json();
   const fiyatSayi = Number(body.fiyatSayi);
 
   const { data, error } = await supabaseAdmin
     .from("biletler")
-    .update({
+    .insert({
       nereden: body.nereden,
       nereye: body.nereye,
       ulke: body.ulke,
@@ -61,45 +98,17 @@ export async function PUT(
       aktif: body.aktif ?? true,
       one_cikan: body.oneCikan ?? false,
     })
-    .eq("id", Number(id))
     .select()
     .single();
 
   if (error) {
     return NextResponse.json(
-      { message: "Bilet güncellenemedi.", error: error.message },
+      { message: "Bilet eklenemedi.", error: error.message },
       { status: 500 }
     );
   }
 
   return NextResponse.json({
-    bilet: biletDonustur(data),
-  });
-}
-
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  if (!yetkiliMi(request)) {
-    return NextResponse.json({ message: "Yetkisiz işlem." }, { status: 401 });
-  }
-
-  const { id } = await context.params;
-
-  const { error } = await supabaseAdmin
-    .from("biletler")
-    .delete()
-    .eq("id", Number(id));
-
-  if (error) {
-    return NextResponse.json(
-      { message: "Bilet silinemedi.", error: error.message },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({
-    message: "Bilet silindi.",
+    bilet: biletDonustur(data as BiletRow),
   });
 }

@@ -1,7 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-function biletDonustur(row: any) {
+type BiletRow = {
+  id: number;
+  nereden: string;
+  nereye: string;
+  ulke: string;
+  fiyat: string;
+  fiyat_sayi: number;
+  tarih: string;
+  vize: string;
+  ay: string;
+  havayolu: string;
+  sure: string;
+  bagaj: string;
+  etiket: string;
+  link: string;
+  aktif: boolean;
+  one_cikan: boolean;
+};
+
+function biletDonustur(row: BiletRow) {
   return {
     id: row.id,
     nereden: row.nereden,
@@ -38,6 +57,6 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    biletler: data.map(biletDonustur),
+    biletler: (data as BiletRow[]).map(biletDonustur),
   });
 }
