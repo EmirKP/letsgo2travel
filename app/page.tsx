@@ -190,17 +190,25 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [alarmMesaji, setAlarmMesaji] = useState("");
 
-  useEffect(() => {
-    const kayitliBiletler = localStorage.getItem(STORAGE_KEY);
+useEffect(() => {
+  async function biletleriYukle() {
+    try {
+      const response = await fetch("/api/biletler", {
+        cache: "no-store",
+      });
 
-    if (kayitliBiletler) {
-      try {
-        setBiletler(JSON.parse(kayitliBiletler));
-      } catch {
-        setBiletler(varsayilanBiletler);
+      const data = await response.json();
+
+      if (data.biletler) {
+        setBiletler(data.biletler);
       }
+    } catch {
+      setBiletler(varsayilanBiletler);
     }
-  }, []);
+  }
+
+  biletleriYukle();
+}, []);
 
   useEffect(() => {
     const kayitliFavoriler = localStorage.getItem("letsgo-favoriler");
