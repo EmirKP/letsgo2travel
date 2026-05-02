@@ -21,6 +21,12 @@ type Bilet = {
   link: string;
   aktif: boolean;
   oneCikan: boolean;
+  kategori: string;
+  aciklama: string;
+  ulkeEmoji: string;
+  sonKontrol: string;
+  kampanyaBitis: string;
+  tiklanma: number;
 };
 
 type BiletForm = {
@@ -38,6 +44,11 @@ type BiletForm = {
   link: string;
   aktif: boolean;
   oneCikan: boolean;
+  kategori: string;
+  aciklama: string;
+  ulkeEmoji: string;
+  sonKontrol: string;
+  kampanyaBitis: string;
 };
 
 const bosForm: BiletForm = {
@@ -55,10 +66,47 @@ const bosForm: BiletForm = {
   link: "https://www.skyscanner.com.tr/",
   aktif: true,
   oneCikan: false,
+  kategori: "Genel",
+  aciklama: "",
+  ulkeEmoji: "✈️",
+  sonKontrol: "Bugün",
+  kampanyaBitis: "",
 };
+
+const kategoriSecenekleri = [
+  "Genel",
+  "Avrupa",
+  "Balkan",
+  "Vizesiz",
+  "Hafta Sonu",
+  "Yaz Tatili",
+  "Kış Rotası",
+  "En Ucuz",
+  "Aile Rotası",
+];
+
+const aylar = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+];
 
 function fiyatYaz(fiyat: number) {
   return `${new Intl.NumberFormat("tr-TR").format(fiyat)} TL`;
+}
+
+function yuzdeHesapla(deger: number, toplam: number) {
+  if (!toplam) return 0;
+  return Math.round((deger / toplam) * 100);
 }
 
 export default function AdminPanel() {
@@ -72,6 +120,10 @@ export default function AdminPanel() {
   const [duzenlenenId, setDuzenlenenId] = useState<number | null>(null);
   const [form, setForm] = useState<BiletForm>(bosForm);
   const [arama, setArama] = useState("");
+  const [durumFiltresi, setDurumFiltresi] = useState("Tümü");
+  const [kategoriFiltresi, setKategoriFiltresi] = useState("Tümü");
+  const [siralama, setSiralama] = useState("son");
+  const [kopyaMesaji, setKopyaMesaji] = useState("");
 
   async function biletleriYukle(sifreDegeri: string) {
     setYukleniyor(true);
@@ -225,6 +277,11 @@ export default function AdminPanel() {
       link: bilet.link,
       aktif: bilet.aktif,
       oneCikan: bilet.oneCikan,
+      kategori: bilet.kategori || "Genel",
+      aciklama: bilet.aciklama || "",
+      ulkeEmoji: bilet.ulkeEmoji || "✈️",
+      sonKontrol: bilet.sonKontrol || "Bugün",
+      kampanyaBitis: bilet.kampanyaBitis || "",
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -265,9 +322,15 @@ export default function AdminPanel() {
     }
   }
 
-  async function biletAktifDegistir(bilet: Bilet) {
+  async function hizliGuncelle(bilet: Bilet, alan: "aktif" | "oneCikan") {
     setYukleniyor(true);
     setHata("");
+
+    const yeniBilet = {
+      ...bilet,
+      aktif: alan === "aktif" ? !bilet.aktif : bilet.aktif,
+      oneCikan: alan === "oneCikan" ? !bilet.oneCikan : bilet.oneCikan,
+    };
 
     try {
       const response = await fetch(`/api/admin/biletler/${bilet.id}`, {
@@ -276,16 +339,13 @@ export default function AdminPanel() {
           "Content-Type": "application/json",
           "x-admin-password": adminSifre,
         },
-        body: JSON.stringify({
-          ...bilet,
-          aktif: !bilet.aktif,
-        }),
+        body: JSON.stringify(yeniBilet),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Durum güncellenemedi.");
+        throw new Error(data.message || "Güncelleme yapılamadı.");
       }
 
       await biletleriYukle(adminSifre);
@@ -298,58 +358,186 @@ export default function AdminPanel() {
     }
   }
 
-  async function oneCikanDegistir(bilet: Bilet) {
-    setYukleniyor(true);
-    setHata("");
+  function instagramMetni(bilet: Bilet) {
+    return `✈️ ${bilet.nereden} → ${bilet.nereye}
 
-    try {
-      const response = await fetch(`/api/admin/biletler/${bilet.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": adminSifre,
-        },
-        body: JSON.stringify({
-          ...bilet,
-          oneCikan: !bilet.oneCikan,
-        }),
-      });
+📍 ${bilet.ulke}
+📅 ${bilet.tarih}
+💸 ${bilet.fiyat}
+🛂 ${bilet.vize}
+🎒 ${bilet.bagaj}
+🏷️ ${bilet.kategori}
 
-      const data = await response.json();
+Fiyatlar değişebilir. Son fiyatı satın alma sayfasında kontrol edin.
 
-      if (!response.ok) {
-        throw new Error(data.message || "Öne çıkarma güncellenemedi.");
-      }
+#letsgo2travel #ucuzbilet #seyahat #traveldeals`;
+  }
 
-      await biletleriYukle(adminSifre);
-    } catch (error) {
-      const mesaj =
-        error instanceof Error ? error.message : "Bir hata oluştu.";
-      setHata(mesaj);
-    } finally {
-      setYukleniyor(false);
-    }
+  function whatsappMetni(bilet: Bilet) {
+    return `✈️ Uçuş Fırsatı
+
+${bilet.nereden} → ${bilet.nereye}
+📍 ${bilet.ulke}
+📅 ${bilet.tarih}
+💸 ${bilet.fiyat}
+🛂 ${bilet.vize}
+
+Satın al: ${bilet.link}`;
+  }
+
+  async function metinKopyala(metin: string, mesaj: string) {
+    await navigator.clipboard.writeText(metin);
+    setKopyaMesaji(mesaj);
+    setTimeout(() => setKopyaMesaji(""), 2000);
+  }
+
+  function csvIndir() {
+    const basliklar = [
+      "ID",
+      "Nereden",
+      "Nereye",
+      "Ülke",
+      "Fiyat",
+      "Tarih",
+      "Vize",
+      "Ay",
+      "Kategori",
+      "Aktif",
+      "Öne Çıkan",
+      "Tıklanma",
+      "Link",
+    ];
+
+    const satirlar = biletler.map((bilet) => [
+      bilet.id,
+      bilet.nereden,
+      bilet.nereye,
+      bilet.ulke,
+      bilet.fiyat,
+      bilet.tarih,
+      bilet.vize,
+      bilet.ay,
+      bilet.kategori,
+      bilet.aktif ? "Aktif" : "Pasif",
+      bilet.oneCikan ? "Evet" : "Hayır",
+      bilet.tiklanma,
+      bilet.link,
+    ]);
+
+    const csv = [basliklar, ...satirlar]
+      .map((satir) => satir.map((hucre) => `"${hucre}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "letsgo2travel-biletler.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
   }
 
   const filtrelenmisBiletler = useMemo(() => {
-    return biletler.filter((bilet) => {
+    let sonuc = biletler.filter((bilet) => {
       const metin =
-        `${bilet.nereden} ${bilet.nereye} ${bilet.ulke} ${bilet.ay} ${bilet.vize} ${bilet.etiket}`.toLocaleLowerCase(
+        `${bilet.nereden} ${bilet.nereye} ${bilet.ulke} ${bilet.ay} ${bilet.vize} ${bilet.etiket} ${bilet.kategori}`.toLocaleLowerCase(
           "tr-TR"
         );
 
-      return metin.includes(arama.toLocaleLowerCase("tr-TR"));
+      const aramaUyuyor = metin.includes(arama.toLocaleLowerCase("tr-TR"));
+      const durumUyuyor =
+        durumFiltresi === "Tümü" ||
+        (durumFiltresi === "Aktif" && bilet.aktif) ||
+        (durumFiltresi === "Pasif" && !bilet.aktif) ||
+        (durumFiltresi === "Öne Çıkan" && bilet.oneCikan);
+
+      const kategoriUyuyor =
+        kategoriFiltresi === "Tümü" || bilet.kategori === kategoriFiltresi;
+
+      return aramaUyuyor && durumUyuyor && kategoriUyuyor;
     });
-  }, [arama, biletler]);
 
-  const toplamFiyat = biletler.reduce(
-    (toplam, bilet) => toplam + bilet.fiyatSayi,
-    0
-  );
+    if (siralama === "ucuz") {
+      sonuc = [...sonuc].sort((a, b) => a.fiyatSayi - b.fiyatSayi);
+    }
 
-  const ortalamaFiyat = biletler.length
-    ? Math.round(toplamFiyat / biletler.length)
-    : 0;
+    if (siralama === "pahali") {
+      sonuc = [...sonuc].sort((a, b) => b.fiyatSayi - a.fiyatSayi);
+    }
+
+    if (siralama === "tiklanma") {
+      sonuc = [...sonuc].sort((a, b) => b.tiklanma - a.tiklanma);
+    }
+
+    return sonuc;
+  }, [arama, biletler, durumFiltresi, kategoriFiltresi, siralama]);
+
+  const istatistik = useMemo(() => {
+    const toplam = biletler.length;
+    const aktif = biletler.filter((bilet) => bilet.aktif).length;
+    const pasif = biletler.filter((bilet) => !bilet.aktif).length;
+    const oneCikan = biletler.filter((bilet) => bilet.oneCikan).length;
+    const vizesiz = biletler.filter((bilet) => bilet.vize === "Vizesiz").length;
+    const toplamTiklanma = biletler.reduce(
+      (toplam, bilet) => toplam + Number(bilet.tiklanma || 0),
+      0
+    );
+
+    const toplamFiyat = biletler.reduce(
+      (toplam, bilet) => toplam + bilet.fiyatSayi,
+      0
+    );
+
+    const ortalamaFiyat = toplam ? Math.round(toplamFiyat / toplam) : 0;
+
+    const enUcuz = biletler.length
+      ? [...biletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
+      : null;
+
+    const enPahali = biletler.length
+      ? [...biletler].sort((a, b) => b.fiyatSayi - a.fiyatSayi)[0]
+      : null;
+
+    const enCokTiklanan = biletler.length
+      ? [...biletler].sort((a, b) => b.tiklanma - a.tiklanma)[0]
+      : null;
+
+    return {
+      toplam,
+      aktif,
+      pasif,
+      oneCikan,
+      vizesiz,
+      toplamTiklanma,
+      ortalamaFiyat,
+      enUcuz,
+      enPahali,
+      enCokTiklanan,
+    };
+  }, [biletler]);
+
+  const kategoriAnalizi = useMemo(() => {
+    return kategoriSecenekleri
+      .map((kategori) => ({
+        kategori,
+        adet: biletler.filter((bilet) => bilet.kategori === kategori).length,
+      }))
+      .filter((item) => item.adet > 0);
+  }, [biletler]);
+
+  const kalkisSehirleri = useMemo(() => {
+    const sehirler = Array.from(new Set(biletler.map((bilet) => bilet.nereden)));
+
+    return sehirler
+      .map((sehir) => ({
+        sehir,
+        adet: biletler.filter((bilet) => bilet.nereden === sehir).length,
+      }))
+      .sort((a, b) => b.adet - a.adet)
+      .slice(0, 6);
+  }, [biletler]);
 
   if (!girisYapildi) {
     return (
@@ -365,11 +553,11 @@ export default function AdminPanel() {
           />
 
           <h1 className="mt-6 text-center text-3xl font-black">
-            Admin Panel
+            Admin Panel V2
           </h1>
 
           <p className="mt-2 text-center text-slate-500">
-            Supabase veritabanına bağlı bilet yönetim paneli.
+            Gelişmiş bilet yönetimi ve istatistik paneli.
           </p>
 
           <label className="mt-8 block text-sm font-black text-slate-600">
@@ -420,14 +608,21 @@ export default function AdminPanel() {
             />
 
             <div>
-              <h1 className="text-xl font-black">Letsgo 2 Travel Admin</h1>
+              <h1 className="text-xl font-black">Letsgo 2 Travel Admin V2</h1>
               <p className="text-sm text-slate-500">
-                Gerçek veritabanı bağlantılı panel
+                Gelişmiş yönetim ve istatistik paneli
               </p>
             </div>
           </a>
 
           <div className="flex gap-3">
+            <button
+              onClick={csvIndir}
+              className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950 hover:bg-yellow-300"
+            >
+              CSV İndir
+            </button>
+
             <a
               href="/"
               className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
@@ -449,33 +644,127 @@ export default function AdminPanel() {
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-3xl bg-white p-6 shadow">
             <p className="text-sm font-black text-slate-500">Toplam fırsat</p>
-            <p className="mt-2 text-4xl font-black">{biletler.length}</p>
+            <p className="mt-2 text-4xl font-black">{istatistik.toplam}</p>
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow">
             <p className="text-sm font-black text-slate-500">Aktif fırsat</p>
+            <p className="mt-2 text-4xl font-black">{istatistik.aktif}</p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <p className="text-sm font-black text-slate-500">Toplam tıklanma</p>
             <p className="mt-2 text-4xl font-black">
-              {biletler.filter((bilet) => bilet.aktif).length}
+              {istatistik.toplamTiklanma}
             </p>
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow">
             <p className="text-sm font-black text-slate-500">Ortalama fiyat</p>
             <p className="mt-2 text-4xl font-black">
-              {fiyatYaz(ortalamaFiyat)}
+              {fiyatYaz(istatistik.ortalamaFiyat)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <div className="rounded-3xl bg-slate-950 p-6 text-white shadow">
+            <p className="text-sm font-black text-slate-400">En ucuz fırsat</p>
+            <p className="mt-2 text-2xl font-black">
+              {istatistik.enUcuz
+                ? `${istatistik.enUcuz.nereden} → ${istatistik.enUcuz.nereye}`
+                : "Yok"}
+            </p>
+            <p className="mt-1 text-yellow-300">
+              {istatistik.enUcuz?.fiyat || "—"}
             </p>
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow">
             <p className="text-sm font-black text-slate-500">Vizesiz fırsat</p>
-            <p className="mt-2 text-4xl font-black">
-              {biletler.filter((bilet) => bilet.vize === "Vizesiz").length}
+            <p className="mt-2 text-4xl font-black">{istatistik.vizesiz}</p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <p className="text-sm font-black text-slate-500">Öne çıkan</p>
+            <p className="mt-2 text-4xl font-black">{istatistik.oneCikan}</p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <p className="text-sm font-black text-slate-500">
+              En çok tıklanan
+            </p>
+            <p className="mt-2 text-xl font-black">
+              {istatistik.enCokTiklanan
+                ? `${istatistik.enCokTiklanan.nereden} → ${istatistik.enCokTiklanan.nereye}`
+                : "Yok"}
+            </p>
+            <p className="mt-1 text-slate-500">
+              {istatistik.enCokTiklanan?.tiklanma || 0} tıklanma
             </p>
           </div>
         </div>
 
-        {(hata || basariliMesaj) && (
-          <div className="mt-5">
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <h2 className="text-xl font-black">Kategori Dağılımı</h2>
+
+            <div className="mt-5 grid gap-4">
+              {kategoriAnalizi.map((item) => (
+                <div key={item.kategori}>
+                  <div className="mb-2 flex justify-between text-sm font-bold">
+                    <span>{item.kategori}</span>
+                    <span>{item.adet} fırsat</span>
+                  </div>
+
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div
+                      className="h-3 rounded-full bg-yellow-400"
+                      style={{
+                        width: `${yuzdeHesapla(item.adet, istatistik.toplam)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {kategoriAnalizi.length === 0 && (
+                <p className="text-slate-500">Henüz kategori verisi yok.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <h2 className="text-xl font-black">Kalkış Şehirleri</h2>
+
+            <div className="mt-5 grid gap-4">
+              {kalkisSehirleri.map((item) => (
+                <div key={item.sehir}>
+                  <div className="mb-2 flex justify-between text-sm font-bold">
+                    <span>{item.sehir}</span>
+                    <span>{item.adet} fırsat</span>
+                  </div>
+
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div
+                      className="h-3 rounded-full bg-slate-950"
+                      style={{
+                        width: `${yuzdeHesapla(item.adet, istatistik.toplam)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {kalkisSehirleri.length === 0 && (
+                <p className="text-slate-500">Henüz şehir verisi yok.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {(hata || basariliMesaj || kopyaMesaji) && (
+          <div className="mt-5 grid gap-3">
             {hata && (
               <p className="rounded-2xl bg-red-50 p-4 font-bold text-red-600">
                 {hata}
@@ -487,11 +776,17 @@ export default function AdminPanel() {
                 {basariliMesaj}
               </p>
             )}
+
+            {kopyaMesaji && (
+              <p className="rounded-2xl bg-yellow-50 p-4 font-bold text-yellow-800">
+                {kopyaMesaji}
+              </p>
+            )}
           </div>
         )}
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[420px_1fr]">
+      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[440px_1fr]">
         <form onSubmit={biletKaydet} className="rounded-3xl bg-white p-6 shadow">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
@@ -499,7 +794,7 @@ export default function AdminPanel() {
                 {duzenlenenId ? "Bileti Düzenle" : "Yeni Bilet Ekle"}
               </h2>
               <p className="text-sm text-slate-500">
-                Kaydedilen bilet Supabase veritabanına gider.
+                V2 form: kategori, açıklama, son kontrol ve sosyal metin uyumlu.
               </p>
             </div>
 
@@ -544,14 +839,28 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-black text-slate-500">Ülke</label>
-              <input
-                value={form.ulke}
-                onChange={(e) => formuGuncelle("ulke", e.target.value)}
-                placeholder="İtalya"
-                className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-              />
+            <div className="grid gap-4 sm:grid-cols-[80px_1fr]">
+              <div>
+                <label className="text-sm font-black text-slate-500">
+                  Bayrak
+                </label>
+                <input
+                  value={form.ulkeEmoji}
+                  onChange={(e) => formuGuncelle("ulkeEmoji", e.target.value)}
+                  placeholder="🇮🇹"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-black text-slate-500">Ülke</label>
+                <input
+                  value={form.ulke}
+                  onChange={(e) => formuGuncelle("ulke", e.target.value)}
+                  placeholder="İtalya"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -577,18 +886,9 @@ export default function AdminPanel() {
                   onChange={(e) => formuGuncelle("ay", e.target.value)}
                   className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
                 >
-                  <option>Ocak</option>
-                  <option>Şubat</option>
-                  <option>Mart</option>
-                  <option>Nisan</option>
-                  <option>Mayıs</option>
-                  <option>Haziran</option>
-                  <option>Temmuz</option>
-                  <option>Ağustos</option>
-                  <option>Eylül</option>
-                  <option>Ekim</option>
-                  <option>Kasım</option>
-                  <option>Aralık</option>
+                  {aylar.map((ay) => (
+                    <option key={ay}>{ay}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -620,39 +920,69 @@ export default function AdminPanel() {
 
               <div>
                 <label className="text-sm font-black text-slate-500">
-                  Etiket
+                  Kategori
                 </label>
-                <input
-                  value={form.etiket}
-                  onChange={(e) => formuGuncelle("etiket", e.target.value)}
-                  placeholder="Avrupa Fırsatı"
+                <select
+                  value={form.kategori}
+                  onChange={(e) => formuGuncelle("kategori", e.target.value)}
                   className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
+                >
+                  {kategoriSecenekleri.map((kategori) => (
+                    <option key={kategori}>{kategori}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div>
               <label className="text-sm font-black text-slate-500">
-                Havayolu
+                Etiket
               </label>
               <input
-                value={form.havayolu}
-                onChange={(e) => formuGuncelle("havayolu", e.target.value)}
-                placeholder="Pegasus / AJet"
+                value={form.etiket}
+                onChange={(e) => formuGuncelle("etiket", e.target.value)}
+                placeholder="Avrupa Fırsatı"
                 className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
               />
             </div>
 
             <div>
               <label className="text-sm font-black text-slate-500">
-                Uçuş Süresi
+                Kısa açıklama
               </label>
-              <input
-                value={form.sure}
-                onChange={(e) => formuGuncelle("sure", e.target.value)}
-                placeholder="2 saat 35 dk"
+              <textarea
+                value={form.aciklama}
+                onChange={(e) => formuGuncelle("aciklama", e.target.value)}
+                placeholder="Bu rota hafta sonu kaçamağı için uygun..."
+                rows={3}
                 className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
               />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-black text-slate-500">
+                  Havayolu
+                </label>
+                <input
+                  value={form.havayolu}
+                  onChange={(e) => formuGuncelle("havayolu", e.target.value)}
+                  placeholder="Pegasus / AJet"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-black text-slate-500">
+                  Uçuş Süresi
+                </label>
+                <input
+                  value={form.sure}
+                  onChange={(e) => formuGuncelle("sure", e.target.value)}
+                  placeholder="2 saat 35 dk"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
             </div>
 
             <div>
@@ -663,6 +993,34 @@ export default function AdminPanel() {
                 placeholder="Kabin bagajı dahil"
                 className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
               />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-black text-slate-500">
+                  Son kontrol
+                </label>
+                <input
+                  value={form.sonKontrol}
+                  onChange={(e) => formuGuncelle("sonKontrol", e.target.value)}
+                  placeholder="Bugün / 03.05.2026"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-black text-slate-500">
+                  Kampanya bitiş
+                </label>
+                <input
+                  value={form.kampanyaBitis}
+                  onChange={(e) =>
+                    formuGuncelle("kampanyaBitis", e.target.value)
+                  }
+                  placeholder="Stoklarla sınırlı"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+                />
+              </div>
             </div>
 
             <div>
@@ -717,7 +1075,7 @@ export default function AdminPanel() {
             <div>
               <h2 className="text-2xl font-black">Bilet Listesi</h2>
               <p className="text-sm text-slate-500">
-                Bu liste Supabase veritabanından gelir.
+                Arama, filtre, sosyal metin ve hızlı yönetim.
               </p>
             </div>
 
@@ -729,21 +1087,58 @@ export default function AdminPanel() {
             </button>
           </div>
 
-          <input
-            value={arama}
-            onChange={(e) => setArama(e.target.value)}
-            placeholder="Bilet ara..."
-            className="mb-5 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-          />
+          <div className="mb-5 grid gap-3 md:grid-cols-4">
+            <input
+              value={arama}
+              onChange={(e) => setArama(e.target.value)}
+              placeholder="Bilet ara..."
+              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400 md:col-span-2"
+            />
+
+            <select
+              value={durumFiltresi}
+              onChange={(e) => setDurumFiltresi(e.target.value)}
+              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+            >
+              <option>Tümü</option>
+              <option>Aktif</option>
+              <option>Pasif</option>
+              <option>Öne Çıkan</option>
+            </select>
+
+            <select
+              value={kategoriFiltresi}
+              onChange={(e) => setKategoriFiltresi(e.target.value)}
+              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+            >
+              <option>Tümü</option>
+              {kategoriSecenekleri.map((kategori) => (
+                <option key={kategori}>{kategori}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-5">
+            <select
+              value={siralama}
+              onChange={(e) => setSiralama(e.target.value)}
+              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+            >
+              <option value="son">Son eklenen</option>
+              <option value="ucuz">Önce en ucuz</option>
+              <option value="pahali">Önce en pahalı</option>
+              <option value="tiklanma">En çok tıklanan</option>
+            </select>
+          </div>
 
           <div className="grid gap-4">
             {filtrelenmisBiletler.map((bilet) => (
               <div key={bilet.id} className="rounded-2xl border bg-slate-50 p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div>
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-black text-yellow-800">
-                        {bilet.etiket}
+                        {bilet.ulkeEmoji} {bilet.kategori}
                       </span>
 
                       <span
@@ -761,6 +1156,10 @@ export default function AdminPanel() {
                           Öne çıkan
                         </span>
                       )}
+
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
+                        {bilet.tiklanma || 0} tıklanma
+                      </span>
                     </div>
 
                     <h3 className="mt-3 text-xl font-black">
@@ -772,9 +1171,22 @@ export default function AdminPanel() {
                     </p>
 
                     <p className="mt-2 text-2xl font-black">{bilet.fiyat}</p>
+
+                    {bilet.aciklama && (
+                      <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                        {bilet.aciklama}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-xs font-bold text-slate-500">
+                      Son kontrol: {bilet.sonKontrol || "Bugün"}
+                      {bilet.kampanyaBitis
+                        ? ` • Bitiş: ${bilet.kampanyaBitis}`
+                        : ""}
+                    </p>
                   </div>
 
-                  <div className="grid gap-2 sm:grid-cols-2 md:min-w-72">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:min-w-80">
                     <button
                       onClick={() => biletDuzenle(bilet)}
                       className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
@@ -790,17 +1202,41 @@ export default function AdminPanel() {
                     </button>
 
                     <button
-                      onClick={() => biletAktifDegistir(bilet)}
+                      onClick={() => hizliGuncelle(bilet, "aktif")}
                       className="rounded-xl bg-slate-200 px-4 py-3 text-sm font-black hover:bg-slate-300"
                     >
                       {bilet.aktif ? "Pasife Al" : "Aktif Yap"}
                     </button>
 
                     <button
-                      onClick={() => oneCikanDegistir(bilet)}
+                      onClick={() => hizliGuncelle(bilet, "oneCikan")}
                       className="rounded-xl bg-yellow-100 px-4 py-3 text-sm font-black text-yellow-800 hover:bg-yellow-200"
                     >
                       {bilet.oneCikan ? "Öneden Çıkar" : "Öne Çıkar"}
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        metinKopyala(
+                          instagramMetni(bilet),
+                          "Instagram metni kopyalandı."
+                        )
+                      }
+                      className="rounded-xl border px-4 py-3 text-sm font-black hover:border-yellow-400 hover:bg-yellow-50"
+                    >
+                      Instagram Metni
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        metinKopyala(
+                          whatsappMetni(bilet),
+                          "WhatsApp metni kopyalandı."
+                        )
+                      }
+                      className="rounded-xl border px-4 py-3 text-sm font-black hover:border-yellow-400 hover:bg-yellow-50"
+                    >
+                      WhatsApp Metni
                     </button>
                   </div>
                 </div>

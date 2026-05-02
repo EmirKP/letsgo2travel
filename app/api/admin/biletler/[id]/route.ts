@@ -18,6 +18,12 @@ type BiletRow = {
   link: string;
   aktif: boolean;
   one_cikan: boolean;
+  kategori: string;
+  aciklama: string;
+  ulke_emoji: string;
+  son_kontrol: string;
+  kampanya_bitis: string;
+  tiklanma: number;
 };
 
 function fiyatYaz(fiyat: number) {
@@ -46,6 +52,12 @@ function biletDonustur(row: BiletRow) {
     link: row.link,
     aktif: row.aktif,
     oneCikan: row.one_cikan,
+    kategori: row.kategori || "Genel",
+    aciklama: row.aciklama || "",
+    ulkeEmoji: row.ulke_emoji || "✈️",
+    sonKontrol: row.son_kontrol || "Bugün",
+    kampanyaBitis: row.kampanya_bitis || "",
+    tiklanma: row.tiklanma || 0,
   };
 }
 
@@ -79,6 +91,11 @@ export async function PUT(
       link: body.link || "https://www.skyscanner.com.tr/",
       aktif: body.aktif ?? true,
       one_cikan: body.oneCikan ?? false,
+      kategori: body.kategori || "Genel",
+      aciklama: body.aciklama || "",
+      ulke_emoji: body.ulkeEmoji || "✈️",
+      son_kontrol: body.sonKontrol || "Bugün",
+      kampanya_bitis: body.kampanyaBitis || "",
     })
     .eq("id", Number(id))
     .select()

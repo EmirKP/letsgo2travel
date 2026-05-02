@@ -18,6 +18,12 @@ type BiletRow = {
   link: string;
   aktif: boolean;
   one_cikan: boolean;
+  kategori: string;
+  aciklama: string;
+  ulke_emoji: string;
+  son_kontrol: string;
+  kampanya_bitis: string;
+  tiklanma: number;
 };
 
 function biletDonustur(row: BiletRow) {
@@ -38,6 +44,12 @@ function biletDonustur(row: BiletRow) {
     link: row.link,
     aktif: row.aktif,
     oneCikan: row.one_cikan,
+    kategori: row.kategori || "Genel",
+    aciklama: row.aciklama || "",
+    ulkeEmoji: row.ulke_emoji || "✈️",
+    sonKontrol: row.son_kontrol || "Bugün",
+    kampanyaBitis: row.kampanya_bitis || "",
+    tiklanma: row.tiklanma || 0,
   };
 }
 
