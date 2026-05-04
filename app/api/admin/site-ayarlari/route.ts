@@ -8,6 +8,7 @@ function yetkiliMi(request: Request) {
 function ayarDonustur(row: any) {
   return {
     id: row.id,
+
     siteBaslik: row.site_baslik,
     siteAltBaslik: row.site_alt_baslik,
 
@@ -20,7 +21,12 @@ function ayarDonustur(row: any) {
     whatsappLink: row.whatsapp_link,
 
     temaAdi: row.tema_adi,
+
     anaRenk: row.ana_renk,
+    yanRenk1: row.yan_renk_1 || "#2563EB",
+    yanRenk2: row.yan_renk_2 || "#FACC15",
+    yanRenk3: row.yan_renk_3 || "#10B981",
+
     koyuRenk: row.koyu_renk,
     arkaPlan: row.arka_plan,
     kartRenk: row.kart_renk,
@@ -85,7 +91,12 @@ export async function PUT(request: Request) {
       whatsapp_link: body.whatsappLink,
 
       tema_adi: body.temaAdi,
+
       ana_renk: body.anaRenk,
+      yan_renk_1: body.yanRenk1,
+      yan_renk_2: body.yanRenk2,
+      yan_renk_3: body.yanRenk3,
+
       koyu_renk: body.koyuRenk,
       arka_plan: body.arkaPlan,
       kart_renk: body.kartRenk,

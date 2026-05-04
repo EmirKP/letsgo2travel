@@ -69,22 +69,38 @@ function biletDonustur(row: BiletRow) {
   };
 }
 
-export async function GET() {
-  const { data, error } = await supabaseAdmin
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await context.params;
+
+  const { data: bilet, error } = await supabaseAdmin
     .from("biletler")
     .select("*")
+    .eq("detay_slug", slug)
     .eq("aktif", true)
-    .order("one_cikan", { ascending: false })
-    .order("created_at", { ascending: false });
+    .single();
 
   if (error) {
     return NextResponse.json(
-      { message: "Biletler alınamadı.", error: error.message },
-      { status: 500 }
+      { message: "Bilet bulunamadı.", error: error.message },
+      { status: 404 }
     );
   }
 
+  const detay = biletDonustur(bilet as BiletRow);
+
+  const { data: benzerler } = await supabaseAdmin
+    .from("biletler")
+    .select("*")
+    .eq("aktif", true)
+    .neq("id", detay.id)
+    .or(`kategori.eq.${detay.kategori},ulke.eq.${detay.ulke},nereden.eq.${detay.nereden}`)
+    .limit(4);
+
   return NextResponse.json({
-    biletler: (data as BiletRow[]).map(biletDonustur),
+    bilet: detay,
+    benzerler: ((benzerler || []) as BiletRow[]).map(biletDonustur),
   });
 }

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 function ayarDonustur(row: any) {
   return {
     id: row.id,
+
     siteBaslik: row.site_baslik,
     siteAltBaslik: row.site_alt_baslik,
 
@@ -16,7 +17,12 @@ function ayarDonustur(row: any) {
     whatsappLink: row.whatsapp_link,
 
     temaAdi: row.tema_adi,
+
     anaRenk: row.ana_renk,
+    yanRenk1: row.yan_renk_1 || "#2563EB",
+    yanRenk2: row.yan_renk_2 || "#FACC15",
+    yanRenk3: row.yan_renk_3 || "#10B981",
+
     koyuRenk: row.koyu_renk,
     arkaPlan: row.arka_plan,
     kartRenk: row.kart_renk,

@@ -15,7 +15,12 @@ type SiteAyarlari = {
   whatsappLink: string;
 
   temaAdi: string;
+
   anaRenk: string;
+  yanRenk1: string;
+  yanRenk2: string;
+  yanRenk3: string;
+
   koyuRenk: string;
   arkaPlan: string;
   kartRenk: string;
@@ -39,19 +44,24 @@ const varsayilanAyarlar: SiteAyarlari = {
   heroRozet: "Güncel uçuş fırsatları",
   heroBaslik: "Ucuz uçak bileti fırsatlarını tek yerde keşfet",
   heroAciklama:
-    "Yurt içi ve yurt dışı uygun fiyatlı uçuşları takip et. Fırsatı gör, favorilere ekle, paylaş ve bilet arama sayfasına yönlen.",
+    "Yurt içi ve yurt dışı uygun fiyatlı uçuşları takip et. Fırsatı gör, karşılaştır ve satın alma sayfasına yönlen.",
 
   instagramTr: "https://www.instagram.com/letsgo2travel_tr/",
   instagramEn: "https://www.instagram.com/letsgo2travel_en/",
   whatsappLink: "",
 
-  temaAdi: "Letsgo Klasik",
-  anaRenk: "#FACC15",
-  koyuRenk: "#020617",
-  arkaPlan: "#F1F5F9",
+  temaAdi: "Profesyonel Uçuş",
+
+  anaRenk: "#0B1F3A",
+  yanRenk1: "#2563EB",
+  yanRenk2: "#FACC15",
+  yanRenk3: "#10B981",
+
+  koyuRenk: "#07182E",
+  arkaPlan: "#F4F7FB",
   kartRenk: "#FFFFFF",
-  yaziRenk: "#0F172A",
-  butonYaziRenk: "#020617",
+  yaziRenk: "#0B1F3A",
+  butonYaziRenk: "#0B1F3A",
 
   gununFirsatiGoster: true,
   kategorilerGoster: true,
@@ -61,54 +71,57 @@ const varsayilanAyarlar: SiteAyarlari = {
   sssGoster: true,
 
   footerMetni:
-    "Ucuz uçak bileti fırsatlarını paylaşan bağımsız fırsat sitesi.",
+    "Ucuz uçak bileti fırsatlarını paylaşan bağımsız fırsat platformu.",
 };
 
 const temalar = [
   {
-    ad: "Letsgo Klasik",
-    anaRenk: "#FACC15",
+    ad: "Profesyonel Uçuş",
+    anaRenk: "#0B1F3A",
+    yanRenk1: "#2563EB",
+    yanRenk2: "#FACC15",
+    yanRenk3: "#10B981",
+    koyuRenk: "#07182E",
+    arkaPlan: "#F4F7FB",
+    kartRenk: "#FFFFFF",
+    yaziRenk: "#0B1F3A",
+    butonYaziRenk: "#0B1F3A",
+  },
+  {
+    ad: "Premium Gece",
+    anaRenk: "#020617",
+    yanRenk1: "#38BDF8",
+    yanRenk2: "#FACC15",
+    yanRenk3: "#22C55E",
     koyuRenk: "#020617",
-    arkaPlan: "#F1F5F9",
+    arkaPlan: "#E2E8F0",
     kartRenk: "#FFFFFF",
     yaziRenk: "#0F172A",
     butonYaziRenk: "#020617",
   },
   {
-    ad: "Premium Mavi",
-    anaRenk: "#38BDF8",
-    koyuRenk: "#020617",
+    ad: "Mavi Seyahat",
+    anaRenk: "#0F172A",
+    yanRenk1: "#0EA5E9",
+    yanRenk2: "#F97316",
+    yanRenk3: "#10B981",
+    koyuRenk: "#082F49",
     arkaPlan: "#E0F2FE",
     kartRenk: "#FFFFFF",
     yaziRenk: "#0F172A",
-    butonYaziRenk: "#020617",
+    butonYaziRenk: "#0F172A",
   },
   {
-    ad: "Turuncu Seyahat",
-    anaRenk: "#FB923C",
-    koyuRenk: "#1C1917",
-    arkaPlan: "#FFF7ED",
-    kartRenk: "#FFFFFF",
-    yaziRenk: "#1C1917",
-    butonYaziRenk: "#1C1917",
-  },
-  {
-    ad: "Yeşil Doğa",
-    anaRenk: "#22C55E",
-    koyuRenk: "#052E16",
-    arkaPlan: "#F0FDF4",
-    kartRenk: "#FFFFFF",
-    yaziRenk: "#052E16",
-    butonYaziRenk: "#052E16",
-  },
-  {
-    ad: "Minimal Beyaz",
+    ad: "Minimal Premium",
     anaRenk: "#111827",
+    yanRenk1: "#6366F1",
+    yanRenk2: "#F59E0B",
+    yanRenk3: "#059669",
     koyuRenk: "#111827",
-    arkaPlan: "#FFFFFF",
-    kartRenk: "#F9FAFB",
+    arkaPlan: "#F9FAFB",
+    kartRenk: "#FFFFFF",
     yaziRenk: "#111827",
-    butonYaziRenk: "#FFFFFF",
+    butonYaziRenk: "#111827",
   },
 ];
 
@@ -125,6 +138,7 @@ export default function AdminAyarlarPage() {
 
     if (kayitliSifre) {
       setSifre(kayitliSifre);
+
       ayarlariYukle(kayitliSifre).then((basarili) => {
         if (basarili) setGirisYapildi(true);
       });
@@ -149,7 +163,11 @@ export default function AdminAyarlarPage() {
         throw new Error(data.message || "Ayarlar alınamadı.");
       }
 
-      setAyarlar(data.ayarlar);
+      setAyarlar({
+        ...varsayilanAyarlar,
+        ...data.ayarlar,
+      });
+
       return true;
     } catch (error) {
       const mesaj =
@@ -193,6 +211,9 @@ export default function AdminAyarlarPage() {
       ...onceki,
       temaAdi: tema.ad,
       anaRenk: tema.anaRenk,
+      yanRenk1: tema.yanRenk1,
+      yanRenk2: tema.yanRenk2,
+      yanRenk3: tema.yanRenk3,
       koyuRenk: tema.koyuRenk,
       arkaPlan: tema.arkaPlan,
       kartRenk: tema.kartRenk,
@@ -203,6 +224,7 @@ export default function AdminAyarlarPage() {
 
   async function ayarlariKaydet(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     setYukleniyor(true);
     setHata("");
     setMesaj("");
@@ -223,7 +245,11 @@ export default function AdminAyarlarPage() {
         throw new Error(data.message || "Ayarlar kaydedilemedi.");
       }
 
-      setAyarlar(data.ayarlar);
+      setAyarlar({
+        ...varsayilanAyarlar,
+        ...data.ayarlar,
+      });
+
       setMesaj("Site ayarları kaydedildi.");
       setTimeout(() => setMesaj(""), 2500);
     } catch (error) {
@@ -244,7 +270,7 @@ export default function AdminAyarlarPage() {
         >
           <img
             src="/logo.png"
-            alt="Letsgo 2 Travel Logo"
+            alt="Letsgo 2 Travel"
             className="mx-auto h-24 w-auto"
           />
 
@@ -253,7 +279,7 @@ export default function AdminAyarlarPage() {
           </h1>
 
           <p className="mt-2 text-center text-slate-500">
-            Tema, renk ve ana sayfa yazılarını yönet.
+            Profesyonel renk sistemi ve görünüm ayarları.
           </p>
 
           <label className="mt-8 block text-sm font-black text-slate-600">
@@ -297,14 +323,14 @@ export default function AdminAyarlarPage() {
           <div className="flex items-center gap-3">
             <img
               src="/logo.png"
-              alt="Letsgo 2 Travel Logo"
+              alt="Letsgo 2 Travel"
               className="h-14 w-auto"
             />
 
             <div>
-              <h1 className="text-2xl font-black">Site Ayarları V3</h1>
+              <h1 className="text-2xl font-black">Site Ayarları V6</h1>
               <p className="text-sm text-slate-500">
-                Tema, renkler, ana sayfa metinleri ve görünüm kontrolü.
+                1 ana renk + 3 yan renk profesyonel tema sistemi.
               </p>
             </div>
           </div>
@@ -312,7 +338,8 @@ export default function AdminAyarlarPage() {
           <div className="flex flex-wrap gap-3">
             <a
               href="/admin"
-              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
+              className="rounded-xl px-4 py-3 text-sm font-black text-white"
+              style={{ backgroundColor: ayarlar.anaRenk }}
             >
               Admin Panel
             </a>
@@ -321,7 +348,7 @@ export default function AdminAyarlarPage() {
               href="/"
               className="rounded-xl px-4 py-3 text-sm font-black"
               style={{
-                backgroundColor: ayarlar.anaRenk,
+                backgroundColor: ayarlar.yanRenk2,
                 color: ayarlar.butonYaziRenk,
               }}
             >
@@ -339,7 +366,10 @@ export default function AdminAyarlarPage() {
             )}
 
             {mesaj && (
-              <p className="rounded-2xl bg-green-50 p-4 font-bold text-green-700">
+              <p
+                className="rounded-2xl p-4 font-bold text-white"
+                style={{ backgroundColor: ayarlar.yanRenk3 }}
+              >
                 {mesaj}
               </p>
             )}
@@ -351,41 +381,23 @@ export default function AdminAyarlarPage() {
             <h2 className="text-2xl font-black">Marka Bilgileri</h2>
 
             <div className="mt-5 grid gap-4">
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Site başlığı
-                </label>
-                <input
-                  value={ayarlar.siteBaslik}
-                  onChange={(e) => alanGuncelle("siteBaslik", e.target.value)}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="Site başlığı"
+                value={ayarlar.siteBaslik}
+                onChange={(v) => alanGuncelle("siteBaslik", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Alt başlık
-                </label>
-                <input
-                  value={ayarlar.siteAltBaslik}
-                  onChange={(e) =>
-                    alanGuncelle("siteAltBaslik", e.target.value)
-                  }
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="Alt başlık"
+                value={ayarlar.siteAltBaslik}
+                onChange={(v) => alanGuncelle("siteAltBaslik", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Footer metni
-                </label>
-                <textarea
-                  value={ayarlar.footerMetni}
-                  onChange={(e) => alanGuncelle("footerMetni", e.target.value)}
-                  rows={3}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Textarea
+                label="Footer metni"
+                value={ayarlar.footerMetni}
+                onChange={(v) => alanGuncelle("footerMetni", v)}
+              />
             </div>
           </section>
 
@@ -393,42 +405,23 @@ export default function AdminAyarlarPage() {
             <h2 className="text-2xl font-black">Ana Sayfa Hero</h2>
 
             <div className="mt-5 grid gap-4">
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Rozet yazısı
-                </label>
-                <input
-                  value={ayarlar.heroRozet}
-                  onChange={(e) => alanGuncelle("heroRozet", e.target.value)}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="Rozet yazısı"
+                value={ayarlar.heroRozet}
+                onChange={(v) => alanGuncelle("heroRozet", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Büyük başlık
-                </label>
-                <textarea
-                  value={ayarlar.heroBaslik}
-                  onChange={(e) => alanGuncelle("heroBaslik", e.target.value)}
-                  rows={3}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Textarea
+                label="Büyük başlık"
+                value={ayarlar.heroBaslik}
+                onChange={(v) => alanGuncelle("heroBaslik", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Açıklama
-                </label>
-                <textarea
-                  value={ayarlar.heroAciklama}
-                  onChange={(e) =>
-                    alanGuncelle("heroAciklama", e.target.value)
-                  }
-                  rows={4}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Textarea
+                label="Açıklama"
+                value={ayarlar.heroAciklama}
+                onChange={(v) => alanGuncelle("heroAciklama", v)}
+              />
             </div>
           </section>
 
@@ -436,44 +429,29 @@ export default function AdminAyarlarPage() {
             <h2 className="text-2xl font-black">Sosyal Medya</h2>
 
             <div className="mt-5 grid gap-4">
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Instagram Türkiye
-                </label>
-                <input
-                  value={ayarlar.instagramTr}
-                  onChange={(e) => alanGuncelle("instagramTr", e.target.value)}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="Instagram Türkiye"
+                value={ayarlar.instagramTr}
+                onChange={(v) => alanGuncelle("instagramTr", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Instagram English
-                </label>
-                <input
-                  value={ayarlar.instagramEn}
-                  onChange={(e) => alanGuncelle("instagramEn", e.target.value)}
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="Instagram English"
+                value={ayarlar.instagramEn}
+                onChange={(v) => alanGuncelle("instagramEn", v)}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  WhatsApp linki
-                </label>
-                <input
-                  value={ayarlar.whatsappLink}
-                  onChange={(e) => alanGuncelle("whatsappLink", e.target.value)}
-                  placeholder="https://whatsapp.com/channel/..."
-                  className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                />
-              </div>
+              <Input
+                label="WhatsApp linki"
+                value={ayarlar.whatsappLink}
+                onChange={(v) => alanGuncelle("whatsappLink", v)}
+                placeholder="https://whatsapp.com/channel/..."
+              />
             </div>
           </section>
 
           <section className="rounded-3xl bg-white p-6 shadow">
-            <h2 className="text-2xl font-black">Tema Seçimi</h2>
+            <h2 className="text-2xl font-black">Profesyonel Renk Sistemi</h2>
 
             <div className="mt-5">
               <label className="text-sm font-black text-slate-500">
@@ -492,52 +470,63 @@ export default function AdminAyarlarPage() {
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {[
-                ["anaRenk", "Ana renk"],
-                ["koyuRenk", "Koyu renk"],
-                ["arkaPlan", "Arka plan"],
-                ["kartRenk", "Kart rengi"],
-                ["yaziRenk", "Yazı rengi"],
-                ["butonYaziRenk", "Buton yazı rengi"],
-              ].map(([alan, label]) => (
-                <div key={alan}>
-                  <label className="text-sm font-black text-slate-500">
-                    {label}
-                  </label>
+              <ColorInput
+                label="Ana renk"
+                value={ayarlar.anaRenk}
+                onChange={(v) => alanGuncelle("anaRenk", v)}
+              />
 
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      type="color"
-                      value={ayarlar[alan as keyof SiteAyarlari] as string}
-                      onChange={(e) =>
-                        alanGuncelle(
-                          alan as keyof SiteAyarlari,
-                          e.target.value as any
-                        )
-                      }
-                      className="h-12 w-14 rounded-xl border"
-                    />
+              <ColorInput
+                label="Yan renk 1"
+                value={ayarlar.yanRenk1}
+                onChange={(v) => alanGuncelle("yanRenk1", v)}
+              />
 
-                    <input
-                      value={ayarlar[alan as keyof SiteAyarlari] as string}
-                      onChange={(e) =>
-                        alanGuncelle(
-                          alan as keyof SiteAyarlari,
-                          e.target.value as any
-                        )
-                      }
-                      className="w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-                    />
-                  </div>
-                </div>
-              ))}
+              <ColorInput
+                label="Yan renk 2"
+                value={ayarlar.yanRenk2}
+                onChange={(v) => alanGuncelle("yanRenk2", v)}
+              />
+
+              <ColorInput
+                label="Yan renk 3"
+                value={ayarlar.yanRenk3}
+                onChange={(v) => alanGuncelle("yanRenk3", v)}
+              />
+
+              <ColorInput
+                label="Arka plan"
+                value={ayarlar.arkaPlan}
+                onChange={(v) => alanGuncelle("arkaPlan", v)}
+              />
+
+              <ColorInput
+                label="Kart rengi"
+                value={ayarlar.kartRenk}
+                onChange={(v) => alanGuncelle("kartRenk", v)}
+              />
+
+              <ColorInput
+                label="Yazı rengi"
+                value={ayarlar.yaziRenk}
+                onChange={(v) => alanGuncelle("yaziRenk", v)}
+              />
+
+              <ColorInput
+                label="Buton yazı rengi"
+                value={ayarlar.butonYaziRenk}
+                onChange={(v) => alanGuncelle("butonYaziRenk", v)}
+              />
             </div>
 
-            <div className="mt-6 rounded-3xl p-6 text-white" style={{ backgroundColor: ayarlar.koyuRenk }}>
+            <div
+              className="mt-6 rounded-3xl p-6 text-white"
+              style={{ backgroundColor: ayarlar.anaRenk }}
+            >
               <p
                 className="inline-block rounded-full px-4 py-2 text-sm font-black"
                 style={{
-                  backgroundColor: ayarlar.anaRenk,
+                  backgroundColor: ayarlar.yanRenk2,
                   color: ayarlar.butonYaziRenk,
                 }}
               >
@@ -548,9 +537,28 @@ export default function AdminAyarlarPage() {
                 {ayarlar.heroBaslik}
               </h3>
 
-              <p className="mt-3 text-slate-300">
-                {ayarlar.heroAciklama}
-              </p>
+              <p className="mt-3 text-slate-200">{ayarlar.heroAciklama}</p>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <span
+                  className="rounded-xl px-4 py-3 font-black"
+                  style={{ backgroundColor: ayarlar.yanRenk1 }}
+                >
+                  Yan renk 1
+                </span>
+                <span
+                  className="rounded-xl px-4 py-3 font-black text-slate-950"
+                  style={{ backgroundColor: ayarlar.yanRenk2 }}
+                >
+                  Yan renk 2
+                </span>
+                <span
+                  className="rounded-xl px-4 py-3 font-black"
+                  style={{ backgroundColor: ayarlar.yanRenk3 }}
+                >
+                  Yan renk 3
+                </span>
+              </div>
             </div>
           </section>
 
@@ -558,31 +566,41 @@ export default function AdminAyarlarPage() {
             <h2 className="text-2xl font-black">Ana Sayfa Bölümleri</h2>
 
             <div className="mt-5 grid gap-4 md:grid-cols-3">
-              {[
-                ["gununFirsatiGoster", "Günün Fırsatı"],
-                ["kategorilerGoster", "Kategori Bölümleri"],
-                ["rehberlerGoster", "Gezi Rehberleri"],
-                ["fiyatAlarmGoster", "Fiyat Alarmı"],
-                ["sosyalMedyaGoster", "Sosyal Medya"],
-                ["sssGoster", "Sıkça Sorulan Sorular"],
-              ].map(([alan, label]) => (
-                <label
-                  key={alan}
-                  className="flex items-center gap-3 rounded-2xl bg-slate-100 p-4 font-bold"
-                >
-                  <input
-                    type="checkbox"
-                    checked={ayarlar[alan as keyof SiteAyarlari] as boolean}
-                    onChange={(e) =>
-                      alanGuncelle(
-                        alan as keyof SiteAyarlari,
-                        e.target.checked as any
-                      )
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
+              <CheckInput
+                label="Günün Fırsatı"
+                checked={ayarlar.gununFirsatiGoster}
+                onChange={(v) => alanGuncelle("gununFirsatiGoster", v)}
+              />
+
+              <CheckInput
+                label="Kategori Bölümleri"
+                checked={ayarlar.kategorilerGoster}
+                onChange={(v) => alanGuncelle("kategorilerGoster", v)}
+              />
+
+              <CheckInput
+                label="Gezi Rehberleri"
+                checked={ayarlar.rehberlerGoster}
+                onChange={(v) => alanGuncelle("rehberlerGoster", v)}
+              />
+
+              <CheckInput
+                label="Fiyat Alarmı"
+                checked={ayarlar.fiyatAlarmGoster}
+                onChange={(v) => alanGuncelle("fiyatAlarmGoster", v)}
+              />
+
+              <CheckInput
+                label="Sosyal Medya"
+                checked={ayarlar.sosyalMedyaGoster}
+                onChange={(v) => alanGuncelle("sosyalMedyaGoster", v)}
+              />
+
+              <CheckInput
+                label="Sıkça Sorulan Sorular"
+                checked={ayarlar.sssGoster}
+                onChange={(v) => alanGuncelle("sssGoster", v)}
+              />
             </div>
           </section>
 
@@ -591,7 +609,7 @@ export default function AdminAyarlarPage() {
               disabled={yukleniyor}
               className="w-full rounded-2xl px-6 py-5 text-lg font-black shadow disabled:opacity-60"
               style={{
-                backgroundColor: ayarlar.anaRenk,
+                backgroundColor: ayarlar.yanRenk2,
                 color: ayarlar.butonYaziRenk,
               }}
             >
@@ -601,5 +619,103 @@ export default function AdminAyarlarPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-black text-slate-500">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+      />
+    </div>
+  );
+}
+
+function Textarea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-black text-slate-500">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
+      />
+    </div>
+  );
+}
+
+function ColorInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-black text-slate-500">{label}</label>
+
+      <div className="mt-2 flex gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-12 w-14 rounded-xl border"
+        />
+
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-xl border px-4 py-3 font-bold outline-none focus:border-yellow-400"
+        />
+      </div>
+    </div>
+  );
+}
+
+function CheckInput({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-3 rounded-2xl bg-slate-100 p-4 font-bold">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
   );
 }

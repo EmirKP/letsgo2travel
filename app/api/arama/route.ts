@@ -108,17 +108,13 @@ export async function GET(request: Request) {
   let biletler = (data as BiletRow[]).map(biletDonustur);
 
   biletler = biletler.filter((bilet) => {
-    const kalkisMetni = temizle(
-      `${bilet.nereden} ${bilet.kalkisKodu}`
-    );
-
+    const kalkisMetni = temizle(`${bilet.nereden} ${bilet.kalkisKodu}`);
     const varisMetni = temizle(
       `${bilet.nereye} ${bilet.ulke} ${bilet.varisKodu}`
     );
 
     const neredenUyuyor = !nereden || kalkisMetni.includes(nereden);
     const nereyeUyuyor = !nereye || varisMetni.includes(nereye);
-
     const vizeUyuyor = vize === "Tümü" || bilet.vize === vize;
     const kategoriUyuyor = kategori === "Tümü" || bilet.kategori === kategori;
     const aktarmaUyuyor = aktarma === "Tümü" || bilet.aktarma === aktarma;
@@ -148,11 +144,30 @@ export async function GET(request: Request) {
 
   if (siralama === "en-iyi") {
     biletler = [...biletler].sort((a, b) => {
-      if (b.oneCikan !== a.oneCikan) return Number(b.oneCikan) - Number(a.oneCikan);
-      if (b.aramaPuani !== a.aramaPuani) return b.aramaPuani - a.aramaPuani;
+      if (b.oneCikan !== a.oneCikan) {
+        return Number(b.oneCikan) - Number(a.oneCikan);
+      }
+
+      if (b.aramaPuani !== a.aramaPuani) {
+        return b.aramaPuani - a.aramaPuani;
+      }
+
       return a.fiyatSayi - b.fiyatSayi;
     });
   }
+
+  await supabaseAdmin.from("arama_kayitlari").insert({
+    nereden: searchParams.get("nereden") || "",
+    nereye: searchParams.get("nereye") || "",
+    gidis_tarihi: searchParams.get("gidis") || "",
+    donus_tarihi: searchParams.get("donus") || "",
+    yolcu: searchParams.get("yolcu") || "1",
+    vize,
+    kategori,
+    aktarma,
+    maksimum_fiyat: maksimumFiyat,
+    sonuc_sayisi: biletler.length,
+  });
 
   return NextResponse.json({
     toplam: biletler.length,
