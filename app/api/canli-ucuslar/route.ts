@@ -129,8 +129,14 @@ function aviasalesLink({
   params.set("children", "0");
   params.set("infants", "0");
   params.set("trip_class", "0");
-  params.set("locale", "en");
-  params.set("one_way", returnDate ? "false" : "true");
+  params.set("locale", "tr");
+  params.set("currency", "try");
+
+  if (returnDate) {
+    params.set("oneway", "0");
+  } else {
+    params.set("oneway", "1");
+  }
 
   if (departDate) {
     params.set("depart_date", departDate.slice(0, 10));
