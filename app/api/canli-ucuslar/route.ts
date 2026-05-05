@@ -73,14 +73,10 @@ function normalize(value: string) {
 
 function kodBul(value: string) {
   const temiz = normalize(value);
-
   if (!temiz) return "";
 
   const upper = value.trim().toUpperCase();
-
-  if (/^[A-Z]{3}$/.test(upper)) {
-    return upper;
-  }
+  if (/^[A-Z]{3}$/.test(upper)) return upper;
 
   return sehirKodlari[temiz] || "";
 }
@@ -108,48 +104,37 @@ function aktarmaYaz(changes?: number) {
   return "Bilinmiyor";
 }
 
-function aviasalesLink({
+function detayLinkOlustur({
   origin,
   destination,
   departDate,
   returnDate,
+  price,
+  changes,
+  airline,
   marker,
 }: {
   origin: string;
   destination: string;
   departDate?: string;
   returnDate?: string;
+  price: number;
+  changes?: number;
+  airline?: string;
   marker: string;
 }) {
   const params = new URLSearchParams();
 
-  params.set("origin_iata", origin);
-  params.set("destination_iata", destination);
-  params.set("adults", "1");
-  params.set("children", "0");
-  params.set("infants", "0");
-  params.set("trip_class", "0");
-  params.set("locale", "tr");
-  params.set("currency", "try");
+  params.set("nereden", origin);
+  params.set("nereye", destination);
+  params.set("gidis", departDate || "");
+  params.set("donus", returnDate || "");
+  params.set("fiyat", String(price || 0));
+  params.set("aktarma", aktarmaYaz(changes));
+  params.set("havayolu", airline || "Aviasales");
+  params.set("marker", marker);
 
-  if (departDate) {
-    params.set("depart_date", departDate.slice(0, 10));
-  }
-
-  if (returnDate) {
-    params.set("return_date", returnDate.slice(0, 10));
-    params.set("oneway", "0");
-    params.set("one_way", "false");
-  } else {
-    params.set("oneway", "1");
-    params.set("one_way", "true");
-  }
-
-  if (marker) {
-    params.set("marker", marker);
-  }
-
-  return `https://www.aviasales.com/searches/new?${params.toString()}`;
+  return `/canli-ucus?${params.toString()}`;
 }
 
 function ucusOlustur({
@@ -192,11 +177,14 @@ function ucusOlustur({
     sinif: "Ekonomi",
     mesafe: "—",
     sonKontrol: tarihYaz(foundAt) || "Cache verisi",
-    link: aviasalesLink({
+    link: detayLinkOlustur({
       origin,
       destination,
       departDate,
       returnDate,
+      price,
+      changes,
+      airline,
       marker,
     }),
     kaynak: source,
@@ -376,7 +364,6 @@ async function cheapPrices({
     if (!value) return;
 
     const price = Number(value.price || 0);
-
     if (!price || price > maximumPrice) return;
 
     tickets.push(
