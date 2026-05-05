@@ -258,7 +258,7 @@ export default function AramaPage() {
   }
 
   function canliUcusAc(ucus: CanliUcus) {
-    window.open(ucus.link, "_blank", "noopener,noreferrer");
+    window.location.href = ucus.link;
   }
 
   async function fiyatAlarmiKur(e: FormEvent<HTMLFormElement>) {
@@ -365,20 +365,12 @@ export default function AramaPage() {
 
     const vizesiz = biletler.filter((bilet) => bilet.vize === "Vizesiz").length;
 
-    const ortalama = biletler.length
-      ? Math.round(
-          biletler.reduce((toplam, bilet) => toplam + bilet.fiyatSayi, 0) /
-            biletler.length
-        )
-      : 0;
-
     return {
       toplam: biletler.length,
       canliToplam: canliUcuslar.length,
       enUcuz,
       canliEnUcuz,
       vizesiz,
-      ortalama,
     };
   }, [biletler, canliUcuslar]);
 
@@ -424,7 +416,7 @@ export default function AramaPage() {
           </h2>
 
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Letsgo özel fırsatları ve Travelpayouts / Aviasales canlı cache
+            Letsgo özel fırsatları ve Travelpayouts / Aviasales cache
             fiyatlarını aynı ekranda gör.
           </p>
 
@@ -838,7 +830,7 @@ export default function AramaPage() {
                         onClick={() => canliUcusAc(ucus)}
                         className="mt-6 rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
                       >
-                        Fiyatı Gör
+                        Detayı Gör
                       </button>
                     </div>
                   </div>

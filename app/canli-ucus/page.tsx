@@ -1,13 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function fiyatYaz(value: string | null) {
   const fiyat = Number(value || 0);
   return `${new Intl.NumberFormat("tr-TR").format(fiyat || 0)} TL`;
 }
 
+function tarihYaz(value: string | null) {
+  if (!value) return "Belirsiz";
+
+  if (
+    value.includes("Oca") ||
+    value.includes("Şub") ||
+    value.includes("Mar") ||
+    value.includes("Nis") ||
+    value.includes("May") ||
+    value.includes("Haz") ||
+    value.includes("Tem") ||
+    value.includes("Ağu") ||
+    value.includes("Eyl") ||
+    value.includes("Eki") ||
+    value.includes("Kas") ||
+    value.includes("Ara")
+  ) {
+    return value;
+  }
+
+  try {
+    return new Intl.DateTimeFormat("tr-TR", {
+      dateStyle: "medium",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
 export default function CanliUcusPage() {
+  const [kopyalandi, setKopyalandi] = useState(false);
+
   const params = useMemo(() => {
     if (typeof window === "undefined") {
       return new URLSearchParams();
@@ -23,20 +54,29 @@ export default function CanliUcusPage() {
   const fiyat = params.get("fiyat") || "";
   const aktarma = params.get("aktarma") || "Bilinmiyor";
   const havayolu = params.get("havayolu") || "Aviasales";
-  const marker = params.get("marker") || "";
+  const kaynak = params.get("kaynak") || "Travelpayouts / Aviasales";
 
-  const aviasalesHome = marker
-    ? `https://www.aviasales.com/?marker=${encodeURIComponent(marker)}`
-    : "https://www.aviasales.com/";
+  const partnerLink = "https://www.aviasales.com/";
 
-  const aramaMetni = `${nereden} → ${nereye} | Gidiş: ${gidis || "Tarih yok"}${
-    donus ? ` | Dönüş: ${donus}` : ""
-  } | Fiyat: ${fiyatYaz(fiyat)} | ${aktarma}`;
+  const aramaMetni = `${nereden} → ${nereye}
+Gidiş: ${tarihYaz(gidis)}
+Dönüş: ${donus ? tarihYaz(donus) : "Tek yön / belirtilmedi"}
+Fiyat: ${fiyatYaz(fiyat)}
+Aktarma: ${aktarma}
+Havayolu: ${havayolu}
+Kaynak: ${kaynak}`;
 
-  async function kopyala() {
+  useEffect(() => {
+    if (!nereden || !nereye) {
+      window.location.href = "/arama";
+    }
+  }, [nereden, nereye]);
+
+  async function bilgileriKopyala() {
     try {
       await navigator.clipboard.writeText(aramaMetni);
-      alert("Uçuş bilgisi kopyalandı.");
+      setKopyalandi(true);
+      setTimeout(() => setKopyalandi(false), 2500);
     } catch {
       alert("Kopyalama yapılamadı.");
     }
@@ -44,13 +84,20 @@ export default function CanliUcusPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="border-b bg-white">
+      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <a href="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Letsgo 2 Travel" className="h-14 w-auto" />
+            <img
+              src="/logo.png"
+              alt="Letsgo 2 Travel"
+              className="h-14 w-auto"
+            />
+
             <div>
               <h1 className="text-xl font-black">Letsgo 2 Travel</h1>
-              <p className="text-sm text-slate-500">Canlı uçuş fiyat detayı</p>
+              <p className="text-sm text-slate-500">
+                Canlı uçuş fiyat detayı
+              </p>
             </div>
           </a>
 
@@ -63,10 +110,10 @@ export default function CanliUcusPage() {
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 px-5 py-12 text-white">
+      <section className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-5 py-14 text-white">
         <div className="mx-auto max-w-6xl">
           <p className="inline-block rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950">
-            Travelpayouts / Aviasales cache fiyatı
+            Canlı fiyat detayı
           </p>
 
           <h2 className="mt-6 text-4xl font-black md:text-6xl">
@@ -74,17 +121,29 @@ export default function CanliUcusPage() {
           </h2>
 
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Bu fiyat Travelpayouts / Aviasales Data API cache verisinden geldi.
-            Fiyatlar değişebilir; satın almadan önce son fiyatı kontrol et.
+            Bu fiyat Travelpayouts / Aviasales Data API cache verisinden
+            alınmıştır. Fiyatlar anlık değişebilir; satın almadan önce partner
+            sitede son fiyatı kontrol et.
           </p>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-5 py-10 lg:grid-cols-[1fr_360px]">
         <div className="rounded-3xl bg-white p-8 shadow">
-          <h3 className="text-3xl font-black">Uçuş Detayı</h3>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-blue-600">Rota bilgisi</p>
+              <h3 className="mt-1 text-3xl font-black">
+                {nereden} → {nereye}
+              </h3>
+            </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-black text-green-800">
+              {aktarma}
+            </span>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Kalkış</p>
               <p className="mt-2 text-2xl font-black">{nereden}</p>
@@ -97,12 +156,14 @@ export default function CanliUcusPage() {
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Gidiş tarihi</p>
-              <p className="mt-2 text-xl font-black">{gidis || "Belirsiz"}</p>
+              <p className="mt-2 text-xl font-black">{tarihYaz(gidis)}</p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Dönüş tarihi</p>
-              <p className="mt-2 text-xl font-black">{donus || "Tek yön"}</p>
+              <p className="mt-2 text-xl font-black">
+                {donus ? tarihYaz(donus) : "Tek yön / belirtilmedi"}
+              </p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
@@ -111,40 +172,51 @@ export default function CanliUcusPage() {
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Aktarma</p>
-              <p className="mt-2 text-xl font-black">{aktarma}</p>
+              <p className="text-sm font-black text-slate-500">Kaynak</p>
+              <p className="mt-2 text-xl font-black">{kaynak}</p>
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl bg-blue-50 p-5 text-blue-900">
-            <p className="font-black">Önemli bilgi</p>
-            <p className="mt-2 leading-7">
-              Aviasales dış bağlantıları bazen ülke/dil yönlendirmesi nedeniyle
-              boş form açabiliyor. Bu yüzden uçuş detayını önce Letsgo içinde
-              gösteriyoruz.
+          <div className="mt-8 rounded-3xl bg-blue-50 p-6 text-blue-950">
+            <h4 className="text-xl font-black">Aracı site notu</h4>
+            <p className="mt-3 leading-8">
+              Letsgo 2 Travel bu fiyatı karşılaştırma ve yönlendirme amacıyla
+              gösterir. Bilet satışı partner platformda yapılır. Partner sitede
+              fiyat, bagaj ve müsaitlik değişebilir.
+            </p>
+          </div>
+
+          <div className="mt-6 rounded-3xl bg-yellow-50 p-6 text-yellow-900">
+            <h4 className="text-xl font-black">
+              Partnerde nasıl kontrol edilir?
+            </h4>
+            <p className="mt-3 leading-8">
+              Aşağıdaki “Bilgileri Kopyala” butonuyla rota ve tarihi kopyala.
+              Sonra partner sitede aynı rota ve tarihi arayarak güncel fiyatı
+              kontrol et.
             </p>
           </div>
         </div>
 
         <aside className="h-fit rounded-3xl bg-slate-950 p-8 text-white shadow">
-          <p className="text-sm text-slate-400">Cache fiyat</p>
+          <p className="text-sm text-slate-400">Gösterilen cache fiyat</p>
           <p className="mt-2 text-5xl font-black">{fiyatYaz(fiyat)}</p>
 
           <div className="mt-6 grid gap-3">
             <button
-              onClick={kopyala}
-              className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950"
+              onClick={bilgileriKopyala}
+              className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
             >
-              Bilgileri Kopyala
+              {kopyalandi ? "Kopyalandı" : "Bilgileri Kopyala"}
             </button>
 
             <a
-              href={aviasalesHome}
+              href={partnerLink}
               target="_blank"
               rel="noreferrer"
               className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
             >
-              Aviasales Ana Sayfada Ara
+              Partner Sitede Ara
             </a>
 
             <a
@@ -156,8 +228,9 @@ export default function CanliUcusPage() {
           </div>
 
           <p className="mt-5 text-xs leading-6 text-slate-400">
-            Bu ekran bilet satışı yapmaz. Fiyat bilgisi yönlendirme ve
-            karşılaştırma amaçlıdır.
+            Otomatik Aviasales arama linkleri bazı ülkelerde boş form veya
+            hatalı yönlendirme açabildiği için güvenli aracı detay ekranı
+            kullanıyoruz.
           </p>
         </aside>
       </section>

@@ -73,10 +73,14 @@ function normalize(value: string) {
 
 function kodBul(value: string) {
   const temiz = normalize(value);
+
   if (!temiz) return "";
 
   const upper = value.trim().toUpperCase();
-  if (/^[A-Z]{3}$/.test(upper)) return upper;
+
+  if (/^[A-Z]{3}$/.test(upper)) {
+    return upper;
+  }
 
   return sehirKodlari[temiz] || "";
 }
@@ -112,7 +116,7 @@ function detayLinkOlustur({
   price,
   changes,
   airline,
-  marker,
+  source,
 }: {
   origin: string;
   destination: string;
@@ -121,7 +125,7 @@ function detayLinkOlustur({
   price: number;
   changes?: number;
   airline?: string;
-  marker: string;
+  source: string;
 }) {
   const params = new URLSearchParams();
 
@@ -132,7 +136,7 @@ function detayLinkOlustur({
   params.set("fiyat", String(price || 0));
   params.set("aktarma", aktarmaYaz(changes));
   params.set("havayolu", airline || "Aviasales");
-  params.set("marker", marker);
+  params.set("kaynak", source);
 
   return `/canli-ucus?${params.toString()}`;
 }
@@ -148,7 +152,6 @@ function ucusOlustur({
   airline,
   foundAt,
   source,
-  marker,
 }: {
   id: string;
   origin: string;
@@ -160,7 +163,6 @@ function ucusOlustur({
   airline?: string;
   foundAt?: string;
   source: string;
-  marker: string;
 }): CanliUcus {
   return {
     id,
@@ -185,7 +187,7 @@ function ucusOlustur({
       price,
       changes,
       airline,
-      marker,
+      source,
     }),
     kaynak: source,
   };
@@ -215,14 +217,12 @@ async function searchByPriceRange({
   maximumPrice,
   direct,
   token,
-  marker,
 }: {
   origin: string;
   destination: string;
   maximumPrice: number;
   direct: boolean;
   token: string;
-  marker: string;
 }) {
   const url = new URL(
     "https://api.travelpayouts.com/aviasales/v3/search_by_price_range"
@@ -264,8 +264,7 @@ async function searchByPriceRange({
         changes: ticket.number_of_changes,
         airline: ticket.airline,
         foundAt: ticket.found_at,
-        source: "Travelpayouts Search by Price",
-        marker,
+        source: "Travelpayouts / Aviasales",
       })
     )
     .filter((item: CanliUcus) => item.fiyatSayi > 0);
@@ -277,14 +276,12 @@ async function latestPrices({
   maximumPrice,
   direct,
   token,
-  marker,
 }: {
   origin: string;
   destination: string;
   maximumPrice: number;
   direct: boolean;
   token: string;
-  marker: string;
 }) {
   const url = new URL("https://api.travelpayouts.com/v2/prices/latest");
 
@@ -320,8 +317,7 @@ async function latestPrices({
         changes: ticket.number_of_changes,
         airline: ticket.airline,
         foundAt: ticket.found_at,
-        source: "Travelpayouts Latest Prices",
-        marker,
+        source: "Travelpayouts / Aviasales",
       })
     )
     .filter(
@@ -335,13 +331,11 @@ async function cheapPrices({
   destination,
   maximumPrice,
   token,
-  marker,
 }: {
   origin: string;
   destination: string;
   maximumPrice: number;
   token: string;
-  marker: string;
 }) {
   const url = new URL("https://api.travelpayouts.com/v1/prices/cheap");
 
@@ -364,6 +358,7 @@ async function cheapPrices({
     if (!value) return;
 
     const price = Number(value.price || 0);
+
     if (!price || price > maximumPrice) return;
 
     tickets.push(
@@ -377,8 +372,7 @@ async function cheapPrices({
         changes: value.transfers,
         airline: value.airline,
         foundAt: value.expires_at,
-        source: "Travelpayouts Cheapest Prices",
-        marker,
+        source: "Travelpayouts / Aviasales",
       })
     );
   });
@@ -390,7 +384,6 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   const token = process.env.TRAVELPAYOUTS_TOKEN;
-  const marker = process.env.TRAVELPAYOUTS_MARKER || "";
 
   if (!token) {
     return NextResponse.json(
@@ -432,7 +425,6 @@ export async function GET(request: Request) {
     maximumPrice,
     direct,
     token,
-    marker,
   });
 
   const results2 =
@@ -444,7 +436,6 @@ export async function GET(request: Request) {
           maximumPrice,
           direct,
           token,
-          marker,
         });
 
   const results3 =
@@ -455,7 +446,6 @@ export async function GET(request: Request) {
           destination,
           maximumPrice,
           token,
-          marker,
         });
 
   const allResults = [...results1, ...results2, ...results3];
