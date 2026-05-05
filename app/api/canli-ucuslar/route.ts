@@ -56,6 +56,7 @@ const sehirKodlari: Record<string, string> = {
   prag: "PRG",
   prague: "PRG",
   dubai: "DXB",
+  ankara: "ANK",
 };
 
 function normalize(value: string) {
@@ -72,10 +73,14 @@ function normalize(value: string) {
 
 function kodBul(value: string) {
   const temiz = normalize(value);
+
   if (!temiz) return "";
 
   const upper = value.trim().toUpperCase();
-  if (/^[A-Z]{3}$/.test(upper)) return upper;
+
+  if (/^[A-Z]{3}$/.test(upper)) {
+    return upper;
+  }
 
   return sehirKodlari[temiz] || "";
 }
@@ -118,21 +123,28 @@ function aviasalesLink({
 }) {
   const params = new URLSearchParams();
 
-  if (marker) params.set("marker", marker);
-
-  let path = `/search/${origin}`;
+  params.set("origin_iata", origin);
+  params.set("destination_iata", destination);
+  params.set("adults", "1");
+  params.set("children", "0");
+  params.set("infants", "0");
+  params.set("trip_class", "0");
+  params.set("locale", "en");
+  params.set("one_way", returnDate ? "false" : "true");
 
   if (departDate) {
-    path += departDate.replaceAll("-", "");
+    params.set("depart_date", departDate.slice(0, 10));
   }
-
-  path += destination;
 
   if (returnDate) {
-    path += returnDate.replaceAll("-", "");
+    params.set("return_date", returnDate.slice(0, 10));
   }
 
-  return `https://www.aviasales.com${path}?${params.toString()}`;
+  if (marker) {
+    params.set("marker", marker);
+  }
+
+  return `https://search.aviasales.com/flights/?${params.toString()}`;
 }
 
 function ucusOlustur({
@@ -251,7 +263,8 @@ async function searchByPriceRange({
       ucusOlustur({
         id: `range-${index}`,
         origin: ticket.origin || ticket.origin_airport || origin,
-        destination: ticket.destination || ticket.destination_airport || destination,
+        destination:
+          ticket.destination || ticket.destination_airport || destination,
         departDate: ticket.depart_date,
         returnDate: ticket.return_date,
         price: Number(ticket.value || 0),
@@ -358,6 +371,7 @@ async function cheapPrices({
     if (!value) return;
 
     const price = Number(value.price || 0);
+
     if (!price || price > maximumPrice) return;
 
     tickets.push(
@@ -396,7 +410,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const originRaw = searchParams.get("nereden") || searchParams.get("origin") || "";
+  const originRaw =
+    searchParams.get("nereden") || searchParams.get("origin") || "";
   const destinationRaw =
     searchParams.get("nereye") || searchParams.get("destination") || "";
 
@@ -470,7 +485,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     toplam: ucuslar.length,
     kaynak:
-      "Travelpayouts / Aviasales Data API cache verisi. Sonuç çıkmazsa bu rotada cache bulunmamış olabilir.",
+      "Travelpayouts / Aviasales Data API cache verisi. Fiyatlar değişebilir.",
     origin,
     destination,
     ucuslar,
