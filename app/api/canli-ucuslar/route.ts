@@ -22,6 +22,7 @@ type CanliUcus = {
 const sehirKodlari: Record<string, string> = {
   istanbul: "IST",
   ist: "IST",
+  sabiha: "SAW",
   saw: "SAW",
   ankara: "ANK",
   esenboga: "ESB",
@@ -56,7 +57,6 @@ const sehirKodlari: Record<string, string> = {
   prag: "PRG",
   prague: "PRG",
   dubai: "DXB",
-  ankara: "ANK",
 };
 
 function normalize(value: string) {
