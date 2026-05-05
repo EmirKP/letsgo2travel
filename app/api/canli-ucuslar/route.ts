@@ -132,25 +132,24 @@ function aviasalesLink({
   params.set("locale", "tr");
   params.set("currency", "try");
 
-  if (returnDate) {
-    params.set("oneway", "0");
-  } else {
-    params.set("oneway", "1");
-  }
-
   if (departDate) {
     params.set("depart_date", departDate.slice(0, 10));
   }
 
   if (returnDate) {
     params.set("return_date", returnDate.slice(0, 10));
+    params.set("oneway", "0");
+    params.set("one_way", "false");
+  } else {
+    params.set("oneway", "1");
+    params.set("one_way", "true");
   }
 
   if (marker) {
     params.set("marker", marker);
   }
 
-  return `https://search.aviasales.com/flights/?${params.toString()}`;
+  return `https://www.aviasales.com/searches/new?${params.toString()}`;
 }
 
 function ucusOlustur({
