@@ -35,6 +35,25 @@ type Bilet = {
   detaySlug: string;
 };
 
+type CanliUcus = {
+  id: string;
+  nereden: string;
+  nereye: string;
+  kalkisKodu: string;
+  varisKodu: string;
+  gidisTarihi: string;
+  donusTarihi: string;
+  fiyat: string;
+  fiyatSayi: number;
+  aktarma: string;
+  havayolu: string;
+  sinif: string;
+  mesafe: string;
+  sonKontrol: string;
+  link: string;
+  kaynak: string;
+};
+
 const kategoriler = [
   "Tümü",
   "Genel",
@@ -73,7 +92,12 @@ export default function AramaPage() {
   const [siralama, setSiralama] = useState("en-iyi");
 
   const [biletler, setBiletler] = useState<Bilet[]>([]);
+  const [canliUcuslar, setCanliUcuslar] = useState<CanliUcus[]>([]);
+  const [canliKaynak, setCanliKaynak] = useState("");
+  const [canliHata, setCanliHata] = useState("");
+
   const [yukleniyor, setYukleniyor] = useState(false);
+  const [canliYukleniyor, setCanliYukleniyor] = useState(false);
   const [hata, setHata] = useState("");
 
   const [alarmEmail, setAlarmEmail] = useState("");
@@ -110,7 +134,10 @@ export default function AramaPage() {
     const aktifSiralama = ozelDegerler?.siralama ?? siralama;
 
     setYukleniyor(true);
+    setCanliYukleniyor(true);
     setHata("");
+    setCanliHata("");
+    setCanliUcuslar([]);
 
     const params = new URLSearchParams({
       nereden: aktifNereden,
@@ -143,6 +170,39 @@ export default function AramaPage() {
       setHata(mesaj);
     } finally {
       setYukleniyor(false);
+    }
+
+    if (aktifNereden && aktifNereye) {
+      try {
+        const canliResponse = await fetch(
+          `/api/canli-ucuslar?${params.toString()}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const canliData = await canliResponse.json();
+
+        if (!canliResponse.ok) {
+          throw new Error(
+            canliData.message || "Canlı uçuş verisi alınamadı."
+          );
+        }
+
+        setCanliUcuslar(canliData.ucuslar || []);
+        setCanliKaynak(canliData.kaynak || "Travelpayouts / Aviasales");
+      } catch (error) {
+        const mesaj =
+          error instanceof Error
+            ? error.message
+            : "Canlı uçuş verisi alınamadı.";
+        setCanliHata(mesaj);
+      } finally {
+        setCanliYukleniyor(false);
+      }
+    } else {
+      setCanliYukleniyor(false);
+      setCanliUcuslar([]);
     }
   }
 
@@ -195,6 +255,10 @@ export default function AramaPage() {
     }
 
     window.open(bilet.link, "_blank", "noopener,noreferrer");
+  }
+
+  function canliUcusAc(ucus: CanliUcus) {
+    window.open(ucus.link, "_blank", "noopener,noreferrer");
   }
 
   async function fiyatAlarmiKur(e: FormEvent<HTMLFormElement>) {
@@ -295,6 +359,10 @@ export default function AramaPage() {
       ? [...biletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
       : null;
 
+    const canliEnUcuz = canliUcuslar.length
+      ? [...canliUcuslar].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
+      : null;
+
     const vizesiz = biletler.filter((bilet) => bilet.vize === "Vizesiz").length;
 
     const ortalama = biletler.length
@@ -306,11 +374,13 @@ export default function AramaPage() {
 
     return {
       toplam: biletler.length,
+      canliToplam: canliUcuslar.length,
       enUcuz,
+      canliEnUcuz,
       vizesiz,
       ortalama,
     };
-  }, [biletler]);
+  }, [biletler, canliUcuslar]);
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -346,16 +416,16 @@ export default function AramaPage() {
       <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-12 text-white">
         <div className="mx-auto max-w-7xl">
           <p className="inline-block rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950">
-            Skyscanner tarzı arama + Letsgo fırsatları
+            Skyscanner tarzı arama + canlı fiyat verisi
           </p>
 
           <h2 className="mt-5 max-w-4xl text-4xl font-black leading-tight md:text-6xl">
-            Ucuz uçuşları ara, fırsatları karşılaştır
+            Ucuz uçuşları ara, canlı fiyatları karşılaştır
           </h2>
 
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Letsgo 2 Travel, senin eklediğin ucuz uçuş fırsatlarını arama motoru
-            mantığıyla gösterir.
+            Letsgo özel fırsatları ve Travelpayouts / Aviasales canlı cache
+            fiyatlarını aynı ekranda gör.
           </p>
 
           <form
@@ -472,10 +542,12 @@ export default function AramaPage() {
               </select>
 
               <button
-                disabled={yukleniyor}
+                disabled={yukleniyor || canliYukleniyor}
                 className="rounded-2xl bg-yellow-400 px-6 py-4 font-black text-slate-950 transition hover:bg-yellow-300 disabled:opacity-60"
               >
-                {yukleniyor ? "Aranıyor..." : "Ucuz Bilet Ara"}
+                {yukleniyor || canliYukleniyor
+                  ? "Aranıyor..."
+                  : "Ucuz Bilet Ara"}
               </button>
             </div>
 
@@ -486,7 +558,7 @@ export default function AramaPage() {
               <input
                 type="range"
                 min="1000"
-                max="30000"
+                max="100000"
                 step="500"
                 value={maksimumFiyat}
                 onChange={(e) => setMaksimumFiyat(e.target.value)}
@@ -510,15 +582,29 @@ export default function AramaPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Sonuç</p>
+            <p className="text-sm font-black text-slate-500">Letsgo sonuç</p>
             <p className="mt-2 text-4xl font-black">{istatistik.toplam}</p>
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">En ucuz</p>
-            <p className="mt-2 text-4xl font-black">
+            <p className="text-sm font-black text-slate-500">Canlı sonuç</p>
+            <p className="mt-2 text-4xl font-black text-blue-600">
+              {istatistik.canliToplam}
+            </p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <p className="text-sm font-black text-slate-500">Canlı en ucuz</p>
+            <p className="mt-2 text-3xl font-black">
+              {istatistik.canliEnUcuz ? istatistik.canliEnUcuz.fiyat : "—"}
+            </p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow">
+            <p className="text-sm font-black text-slate-500">Letsgo en ucuz</p>
+            <p className="mt-2 text-3xl font-black">
               {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
             </p>
           </div>
@@ -527,18 +613,17 @@ export default function AramaPage() {
             <p className="text-sm font-black text-slate-500">Vizesiz</p>
             <p className="mt-2 text-4xl font-black">{istatistik.vizesiz}</p>
           </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Ortalama</p>
-            <p className="mt-2 text-4xl font-black">
-              {fiyatYaz(istatistik.ortalama)}
-            </p>
-          </div>
         </div>
 
         {hata && (
           <p className="mt-5 rounded-2xl bg-red-50 p-4 font-bold text-red-600">
             {hata}
+          </p>
+        )}
+
+        {canliHata && (
+          <p className="mt-5 rounded-2xl bg-orange-50 p-4 font-bold text-orange-700">
+            Canlı fiyat uyarısı: {canliHata}
           </p>
         )}
       </section>
@@ -583,8 +668,9 @@ export default function AramaPage() {
             Temizle
           </button>
 
-          <div className="mt-5 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
-            Canlı API bağlanınca bu ekran gerçek uçuş sonuçlarını da gösterecek.
+          <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
+            Canlı fiyatlar Travelpayouts / Aviasales cache verisinden gelir.
+            Fiyatlar değişebilir.
           </div>
 
           <form
@@ -636,132 +722,262 @@ export default function AramaPage() {
           </form>
         </aside>
 
-        <div className="grid gap-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="font-black text-yellow-600">Arama sonuçları</p>
-              <h2 className="text-3xl font-black">Uçuş Fırsatları</h2>
-            </div>
+        <div className="grid gap-10">
+          <section className="grid gap-5">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="font-black text-blue-600">
+                  Travelpayouts / Aviasales
+                </p>
+                <h2 className="text-3xl font-black">Canlı Uçuş Fiyatları</h2>
+              </div>
 
-            <p className="text-sm font-bold text-slate-500">
-              Fiyatlar değişebilir. Satın almadan önce son fiyatı kontrol et.
-            </p>
-          </div>
-
-          {yukleniyor ? (
-            <div className="rounded-3xl bg-white p-10 text-center shadow">
-              <p className="text-xl font-black">Fırsatlar aranıyor...</p>
-            </div>
-          ) : biletler.length === 0 ? (
-            <div className="rounded-3xl bg-white p-10 text-center shadow">
-              <h3 className="text-2xl font-black">Sonuç bulunamadı</h3>
-              <p className="mt-2 text-slate-500">
-                Farklı şehir, kategori veya fiyat deneyebilirsin.
+              <p className="max-w-xl text-sm font-bold text-slate-500 md:text-right">
+                {canliKaynak ||
+                  "Canlı sonuçlar için nereden ve nereye alanlarını doldur."}
               </p>
             </div>
-          ) : (
-            biletler.map((bilet) => (
-              <article
-                key={bilet.id}
-                className="overflow-hidden rounded-3xl bg-white shadow transition hover:-translate-y-1 hover:shadow-2xl"
-              >
-                <div className="grid gap-0 md:grid-cols-[1fr_250px]">
-                  <div className="p-6">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-black text-yellow-800">
-                        {bilet.ulkeEmoji} {bilet.kategori}
-                      </span>
 
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                        {bilet.vize}
-                      </span>
-
-                      {bilet.oneCikan && (
-                        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                          Öne çıkan
+            {canliYukleniyor ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow">
+                <p className="text-xl font-black">
+                  Canlı fiyatlar aranıyor...
+                </p>
+              </div>
+            ) : canliUcuslar.length === 0 ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow">
+                <h3 className="text-2xl font-black">
+                  Canlı uçuş sonucu bulunamadı
+                </h3>
+                <p className="mt-2 text-slate-500">
+                  Bu rota için Travelpayouts cache verisinde fiyat olmayabilir.
+                  Farklı rota veya daha yüksek maksimum fiyat dene.
+                </p>
+              </div>
+            ) : (
+              canliUcuslar.map((ucus) => (
+                <article
+                  key={ucus.id}
+                  className="overflow-hidden rounded-3xl bg-white shadow transition hover:-translate-y-1 hover:shadow-2xl"
+                >
+                  <div className="grid gap-0 md:grid-cols-[1fr_250px]">
+                    <div className="p-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-800">
+                          Canlı fiyat
                         </span>
-                      )}
-                    </div>
 
-                    <h3 className="mt-4 text-2xl font-black">
-                      {bilet.nereden} → {bilet.nereye}
-                    </h3>
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-green-800">
+                          {ucus.sinif}
+                        </span>
 
-                    <p className="mt-1 text-slate-500">
-                      {bilet.ulke} • {bilet.tarih}
-                    </p>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
+                          {ucus.aktarma}
+                        </span>
+                      </div>
 
-                    {bilet.aciklama && (
-                      <p className="mt-3 max-w-2xl text-slate-600">
-                        {bilet.aciklama}
+                      <h3 className="mt-4 text-2xl font-black">
+                        {ucus.kalkisKodu} → {ucus.varisKodu}
+                      </h3>
+
+                      <p className="mt-1 text-slate-500">
+                        Gidiş: {ucus.gidisTarihi || "Tarih yok"}
+                        {ucus.donusTarihi
+                          ? ` · Dönüş: ${ucus.donusTarihi}`
+                          : ""}
                       </p>
-                    )}
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                      <div className="rounded-2xl bg-slate-100 p-4">
-                        <p className="text-xs font-black text-slate-500">
-                          Havayolu
-                        </p>
-                        <p className="mt-1 font-bold">{bilet.havayolu}</p>
+                      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Havayolu
+                          </p>
+                          <p className="mt-1 font-bold">{ucus.havayolu}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Aktarma
+                          </p>
+                          <p className="mt-1 font-bold">{ucus.aktarma}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Mesafe
+                          </p>
+                          <p className="mt-1 font-bold">{ucus.mesafe}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Kaynak
+                          </p>
+                          <p className="mt-1 font-bold">Aviasales</p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl bg-slate-100 p-4">
-                        <p className="text-xs font-black text-slate-500">
-                          Süre
-                        </p>
-                        <p className="mt-1 font-bold">{bilet.sure}</p>
-                      </div>
-
-                      <div className="rounded-2xl bg-slate-100 p-4">
-                        <p className="text-xs font-black text-slate-500">
-                          Aktarma
-                        </p>
-                        <p className="mt-1 font-bold">{bilet.aktarma}</p>
-                      </div>
-
-                      <div className="rounded-2xl bg-slate-100 p-4">
-                        <p className="text-xs font-black text-slate-500">
-                          Sağlayıcı
-                        </p>
-                        <p className="mt-1 font-bold">{bilet.saglayici}</p>
-                      </div>
-                    </div>
-
-                    <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
-                      {bilet.bagaj} • Son kontrol: {bilet.sonKontrol}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col justify-between bg-slate-950 p-6 text-white">
-                    <div>
-                      <p className="text-sm text-slate-400">Başlayan fiyat</p>
-                      <p className="mt-1 text-4xl font-black">{bilet.fiyat}</p>
-
-                      <p className="mt-3 text-sm text-slate-400">
-                        {bilet.tiklanma || 0} kullanıcı ilgilendi
+                      <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
+                        Son kontrol: {ucus.sonKontrol} · Fiyatlar değişebilir.
                       </p>
                     </div>
 
-                    <div className="mt-6 grid gap-3">
+                    <div className="flex flex-col justify-between bg-blue-950 p-6 text-white">
+                      <div>
+                        <p className="text-sm text-blue-200">Canlı fiyat</p>
+                        <p className="mt-1 text-4xl font-black">
+                          {ucus.fiyat}
+                        </p>
+
+                        <p className="mt-3 text-sm text-blue-200">
+                          {ucus.kaynak}
+                        </p>
+                      </div>
+
                       <button
-                        onClick={() => satinAl(bilet)}
-                        className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
+                        onClick={() => canliUcusAc(ucus)}
+                        className="mt-6 rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
                       >
-                        Satın Al
+                        Fiyatı Gör
                       </button>
-
-                      <a
-                        href={`/ucak-bileti/${bilet.detaySlug}`}
-                        className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
-                      >
-                        Detay
-                      </a>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))
-          )}
+                </article>
+              ))
+            )}
+          </section>
+
+          <section className="grid gap-5">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="font-black text-yellow-600">Letsgo özel</p>
+                <h2 className="text-3xl font-black">Letsgo Uçuş Fırsatları</h2>
+              </div>
+
+              <p className="text-sm font-bold text-slate-500">
+                Senin admin panelden eklediğin özel fırsatlar.
+              </p>
+            </div>
+
+            {yukleniyor ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow">
+                <p className="text-xl font-black">Fırsatlar aranıyor...</p>
+              </div>
+            ) : biletler.length === 0 ? (
+              <div className="rounded-3xl bg-white p-10 text-center shadow">
+                <h3 className="text-2xl font-black">Sonuç bulunamadı</h3>
+                <p className="mt-2 text-slate-500">
+                  Farklı şehir, kategori veya fiyat deneyebilirsin.
+                </p>
+              </div>
+            ) : (
+              biletler.map((bilet) => (
+                <article
+                  key={bilet.id}
+                  className="overflow-hidden rounded-3xl bg-white shadow transition hover:-translate-y-1 hover:shadow-2xl"
+                >
+                  <div className="grid gap-0 md:grid-cols-[1fr_250px]">
+                    <div className="p-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-black text-yellow-800">
+                          {bilet.ulkeEmoji} {bilet.kategori}
+                        </span>
+
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
+                          {bilet.vize}
+                        </span>
+
+                        {bilet.oneCikan && (
+                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                            Öne çıkan
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="mt-4 text-2xl font-black">
+                        {bilet.nereden} → {bilet.nereye}
+                      </h3>
+
+                      <p className="mt-1 text-slate-500">
+                        {bilet.ulke} • {bilet.tarih}
+                      </p>
+
+                      {bilet.aciklama && (
+                        <p className="mt-3 max-w-2xl text-slate-600">
+                          {bilet.aciklama}
+                        </p>
+                      )}
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Havayolu
+                          </p>
+                          <p className="mt-1 font-bold">{bilet.havayolu}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Süre
+                          </p>
+                          <p className="mt-1 font-bold">{bilet.sure}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Aktarma
+                          </p>
+                          <p className="mt-1 font-bold">{bilet.aktarma}</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-100 p-4">
+                          <p className="text-xs font-black text-slate-500">
+                            Sağlayıcı
+                          </p>
+                          <p className="mt-1 font-bold">{bilet.saglayici}</p>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
+                        {bilet.bagaj} • Son kontrol: {bilet.sonKontrol}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col justify-between bg-slate-950 p-6 text-white">
+                      <div>
+                        <p className="text-sm text-slate-400">
+                          Başlayan fiyat
+                        </p>
+                        <p className="mt-1 text-4xl font-black">
+                          {bilet.fiyat}
+                        </p>
+
+                        <p className="mt-3 text-sm text-slate-400">
+                          {bilet.tiklanma || 0} kullanıcı ilgilendi
+                        </p>
+                      </div>
+
+                      <div className="mt-6 grid gap-3">
+                        <button
+                          onClick={() => satinAl(bilet)}
+                          className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
+                        >
+                          Satın Al
+                        </button>
+
+                        <a
+                          href={`/ucak-bileti/${bilet.detaySlug}`}
+                          className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
+                        >
+                          Detay
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
         </div>
       </section>
     </main>
