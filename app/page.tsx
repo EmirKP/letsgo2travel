@@ -62,10 +62,10 @@ type SiteAyarlari = {
   footerMetni?: string;
 };
 
-const varsayilanAyarlar: Required<SiteAyarlari> = {
+const ayarVarsayilan: Required<SiteAyarlari> = {
   siteBaslik: "Letsgo 2 Travel",
   siteAltBaslik: "Ucuz uçak bileti fırsatları",
-  heroRozet: "Ucuz uçuş fırsatları",
+  heroRozet: "Canlı fiyatlarla güvenli arama",
   heroBaslik: "Ucuz uçuşları kolayca bul",
   heroAciklama:
     "Şehir veya havalimanı seç, fırsatları karşılaştır, partner arama kutusuyla güncel fiyatı kontrol et.",
@@ -88,7 +88,7 @@ const varsayilanAyarlar: Required<SiteAyarlari> = {
   sosyalMedyaGoster: true,
   sssGoster: true,
   footerMetni:
-    "Letsgo 2 Travel, ucuz uçuş fırsatlarını ve partner fiyatlarını tek yerde takip etmene yardımcı olur.",
+    "Letsgo 2 Travel, en iyi uçuş fırsatlarını bulman için partner fiyatlarını ve kampanyaları tek yerde toplar.",
 };
 
 const havalimaniSecenekleri = [
@@ -126,22 +126,27 @@ const populerRotalar = [
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Roma (ROM) - Tüm Havalimanları",
-    etiket: "Avrupa",
+    fiyat: "Avrupa",
   },
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı",
-    etiket: "Vizesiz",
+    fiyat: "Vizesiz",
   },
   {
     nereden: "Ankara (ESB) - Esenboğa Havalimanı",
     nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı",
-    etiket: "Yakın rota",
+    fiyat: "Yakın rota",
   },
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Paris (PAR) - Tüm Havalimanları",
-    etiket: "Popüler",
+    fiyat: "Popüler",
+  },
+  {
+    nereden: "İzmir (ADB) - Adnan Menderes Havalimanı",
+    nereye: "İstanbul (IST) - İstanbul Havalimanı",
+    fiyat: "Sık aranan",
   },
 ];
 
@@ -160,8 +165,8 @@ function fiyatYaz(value: number) {
 }
 
 export default function Home() {
+  const [ayarlar, setAyarlar] = useState<Required<SiteAyarlari>>(ayarVarsayilan);
   const [biletler, setBiletler] = useState<Bilet[]>([]);
-  const [ayarlar, setAyarlar] = useState<Required<SiteAyarlari>>(varsayilanAyarlar);
   const [yukleniyor, setYukleniyor] = useState(true);
 
   const [nereden, setNereden] = useState("");
@@ -203,13 +208,13 @@ export default function Home() {
 
           if (ayarData.ayarlar) {
             setAyarlar({
-              ...varsayilanAyarlar,
+              ...ayarVarsayilan,
               ...ayarData.ayarlar,
             });
           }
         }
       } catch {
-        setAyarlar(varsayilanAyarlar);
+        setAyarlar(ayarVarsayilan);
       } finally {
         setYukleniyor(false);
       }
@@ -217,6 +222,39 @@ export default function Home() {
 
     yukle();
   }, []);
+
+  const aktifBiletler = useMemo(() => {
+    return biletler.filter((bilet) => bilet.aktif !== false);
+  }, [biletler]);
+
+  const bugununFirsatlari = useMemo(() => {
+    return [...aktifBiletler]
+      .sort((a, b) => {
+        if (a.oneCikan && !b.oneCikan) return -1;
+        if (!a.oneCikan && b.oneCikan) return 1;
+        return a.fiyatSayi - b.fiyatSayi;
+      })
+      .slice(0, 4);
+  }, [aktifBiletler]);
+
+  const popFirsatlar = useMemo(() => {
+    return [...aktifBiletler]
+      .sort((a, b) => (b.tiklanma || 0) - (a.tiklanma || 0))
+      .slice(0, 5);
+  }, [aktifBiletler]);
+
+  const istatistik = useMemo(() => {
+    const enUcuz = aktifBiletler.length
+      ? [...aktifBiletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
+      : null;
+
+    return {
+      toplam: aktifBiletler.length,
+      enUcuz,
+      vizesiz: aktifBiletler.filter((bilet) => bilet.vize === "Vizesiz").length,
+      ulkeSayisi: new Set(aktifBiletler.map((bilet) => bilet.ulke)).size,
+    };
+  }, [aktifBiletler]);
 
   function aramaYap(e?: FormEvent<HTMLFormElement>) {
     e?.preventDefault();
@@ -246,10 +284,10 @@ export default function Home() {
     window.location.href = `/arama?${params.toString()}`;
   }
 
-  function populerRotaAra(kalkis: string, varis: string) {
+  function rotaAra(neredenDeger: string, nereyeDeger: string) {
     const params = new URLSearchParams({
-      nereden: aramaDegeriTemizle(kalkis),
-      nereye: aramaDegeriTemizle(varis),
+      nereden: aramaDegeriTemizle(neredenDeger),
+      nereye: aramaDegeriTemizle(nereyeDeger),
     });
 
     window.location.href = `/arama?${params.toString()}`;
@@ -323,43 +361,6 @@ export default function Home() {
     }
   }
 
-  const aktifBiletler = useMemo(() => {
-    return biletler.filter((bilet) => bilet.aktif !== false);
-  }, [biletler]);
-
-  const gununFirsati = useMemo(() => {
-    const oneCikan = aktifBiletler.find((bilet) => bilet.oneCikan);
-
-    if (oneCikan) return oneCikan;
-
-    return aktifBiletler.length
-      ? [...aktifBiletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
-      : null;
-  }, [aktifBiletler]);
-
-  const enUcuzlar = useMemo(() => {
-    return [...aktifBiletler]
-      .sort((a, b) => a.fiyatSayi - b.fiyatSayi)
-      .slice(0, 6);
-  }, [aktifBiletler]);
-
-  const vizesizler = useMemo(() => {
-    return aktifBiletler.filter((bilet) => bilet.vize === "Vizesiz").slice(0, 3);
-  }, [aktifBiletler]);
-
-  const istatistik = useMemo(() => {
-    const enUcuz = aktifBiletler.length
-      ? [...aktifBiletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
-      : null;
-
-    return {
-      toplam: aktifBiletler.length,
-      enUcuz,
-      vizesiz: aktifBiletler.filter((bilet) => bilet.vize === "Vizesiz").length,
-      ulkeSayisi: new Set(aktifBiletler.map((bilet) => bilet.ulke)).size,
-    };
-  }, [aktifBiletler]);
-
   return (
     <main
       className="min-h-screen"
@@ -368,7 +369,10 @@ export default function Home() {
         color: ayarlar.yaziRenk,
       }}
     >
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl">
+      <header
+        className="sticky top-0 z-50 border-b border-white/10 text-white shadow-sm"
+        style={{ backgroundColor: ayarlar.anaRenk }}
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <a href="/" className="flex items-center gap-3">
             <img
@@ -377,144 +381,108 @@ export default function Home() {
               className="h-12 w-auto"
             />
 
-            <div>
-              <h1 className="text-xl font-black tracking-tight">
-                {ayarlar.siteBaslik}
-              </h1>
-              <p className="hidden text-sm font-semibold text-slate-500 sm:block">
-                {ayarlar.siteAltBaslik}
-              </p>
-            </div>
+            <span className="text-xl font-black tracking-tight">
+              {ayarlar.siteBaslik}
+            </span>
           </a>
 
-          <nav className="hidden items-center gap-6 text-sm font-black md:flex">
-            <a href="/arama" className="hover:opacity-70">
-              Uçuş Ara
+          <nav className="hidden items-center gap-7 text-sm font-black md:flex">
+            <a href="/arama" className="text-white/90 hover:text-white">
+              Uçuşlar
             </a>
-            <a href="#firsatlar" className="hover:opacity-70">
+            <a href="#firsatlar" className="text-white/90 hover:text-white">
               Fırsatlar
             </a>
-            <a href="#fiyat-alarmi" className="hover:opacity-70">
+            <a href="#populer-rotalar" className="text-white/90 hover:text-white">
+              Rotalar
+            </a>
+            <a href="#fiyat-alarmi" className="text-white/90 hover:text-white">
               Fiyat Alarmı
             </a>
-            <a href="/admin/dashboard" className="hover:opacity-70">
+            <a href="/admin/dashboard" className="text-white/90 hover:text-white">
               Admin
             </a>
           </nav>
 
           <a
             href="/arama"
-            className="rounded-2xl px-5 py-3 text-sm font-black shadow-sm transition hover:scale-[1.02]"
+            className="rounded-xl px-5 py-3 text-sm font-black shadow-lg transition hover:scale-[1.02]"
             style={{
-              backgroundColor: ayarlar.anaRenk,
+              backgroundColor: ayarlar.yanRenk1,
               color: "#FFFFFF",
             }}
           >
-            Ara
+            Uçuş Ara
           </a>
         </div>
       </header>
 
-      <section
-        className="relative overflow-hidden px-5 py-12 text-white md:py-20"
-        style={{
-          background: `linear-gradient(135deg, ${ayarlar.anaRenk}, ${ayarlar.koyuRenk})`,
-        }}
-      >
-        <div
-          className="absolute -right-20 top-10 h-80 w-80 rounded-full blur-3xl"
-          style={{ backgroundColor: `${ayarlar.yanRenk1}44` }}
-        />
-        <div
-          className="absolute -bottom-24 left-10 h-80 w-80 rounded-full blur-3xl"
-          style={{ backgroundColor: `${ayarlar.yanRenk2}33` }}
-        />
+      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50 to-white px-5 pb-16 pt-12">
+        <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-sky-100 to-transparent" />
 
         <div className="relative mx-auto max-w-7xl">
-          <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center">
-            <div>
+          <div className="grid gap-8 lg:grid-cols-[1fr_520px] lg:items-center">
+            <div className="pt-4">
               <p
                 className="inline-flex rounded-full px-4 py-2 text-sm font-black"
                 style={{
-                  backgroundColor: ayarlar.yanRenk2,
-                  color: ayarlar.butonYaziRenk,
+                  backgroundColor: `${ayarlar.yanRenk1}18`,
+                  color: ayarlar.yanRenk1,
                 }}
               >
-                ✈️ {ayarlar.heroRozet}
+                {ayarlar.heroRozet}
               </p>
 
-              <h2 className="mt-6 max-w-4xl text-4xl font-black leading-tight tracking-tight md:text-7xl">
+              <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-6xl">
                 {ayarlar.heroBaslik}
-              </h2>
+              </h1>
 
-              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
                 {ayarlar.heroAciklama}
               </p>
-
-              <div className="mt-7 flex flex-wrap gap-3">
-                <a
-                  href="/arama"
-                  className="rounded-2xl px-6 py-4 font-black shadow-lg transition hover:scale-[1.02]"
-                  style={{
-                    backgroundColor: ayarlar.yanRenk2,
-                    color: ayarlar.butonYaziRenk,
-                  }}
-                >
-                  Uçuş Ara
-                </a>
-
-                <a
-                  href="#firsatlar"
-                  className="rounded-2xl border border-white/20 bg-white/10 px-6 py-4 font-black text-white backdrop-blur transition hover:bg-white hover:text-slate-950"
-                >
-                  Fırsatları Gör
-                </a>
-              </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-              <div className="rounded-[1.5rem] bg-white p-6 text-slate-950">
-                <p className="text-sm font-black text-slate-500">
-                  Bugünün en iyi başlangıç fiyatı
-                </p>
+            <div className="relative hidden min-h-[260px] lg:block">
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-sky-100 via-white to-blue-100" />
 
-                <p className="mt-2 text-5xl font-black">
+              <img
+                src="/hero-plane.jpg"
+                alt="Uçak"
+                className="absolute right-0 top-6 h-64 w-full object-contain drop-shadow-2xl"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+
+              <div className="absolute bottom-8 right-8 rounded-3xl bg-white/80 p-5 shadow-xl backdrop-blur">
+                <p className="text-sm font-black text-slate-500">
+                  En ucuz başlangıç
+                </p>
+                <p className="mt-1 text-4xl font-black">
                   {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
                 </p>
-
-                <p className="mt-3 text-sm font-bold text-slate-500">
-                  {istatistik.enUcuz
-                    ? `${istatistik.enUcuz.nereden} → ${istatistik.enUcuz.nereye}`
-                    : "Fırsat eklenince burada görünür."}
-                </p>
-
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <HeroStat label="Fırsat" value={String(istatistik.toplam)} />
-                  <HeroStat label="Vizesiz" value={String(istatistik.vizesiz)} />
-                  <HeroStat label="Ülke" value={String(istatistik.ulkeSayisi)} />
-                </div>
               </div>
             </div>
           </div>
 
           <form
             onSubmit={aramaYap}
-            className="relative z-10 mt-10 rounded-[2rem] bg-white p-4 text-slate-950 shadow-2xl md:p-5"
+            className="relative z-10 mt-10 rounded-[2rem] bg-white p-5 shadow-2xl ring-1 ring-slate-200"
           >
-            <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="mb-5 flex flex-wrap items-center gap-3">
               <span
-                className="rounded-2xl px-4 py-2 text-sm font-black text-white"
+                className="rounded-xl px-5 py-3 text-sm font-black text-white"
                 style={{ backgroundColor: ayarlar.anaRenk }}
               >
                 ✈️ Uçuş
               </span>
 
-              <span className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-500">
-                Otel yakında
+              <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-500">
+                🏨 Otel
               </span>
 
-              <span className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-500">
-                Araç yakında
+              <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-500">
+                🚗 Araç
               </span>
             </div>
 
@@ -524,7 +492,7 @@ export default function Home() {
                 value={nereden}
                 onChange={setNereden}
                 placeholder="Şehir veya havalimanı"
-                listId="anasayfa-nereden"
+                listId="home-from-airports"
               />
 
               <SearchInput
@@ -532,7 +500,7 @@ export default function Home() {
                 value={nereye}
                 onChange={setNereye}
                 placeholder="Şehir veya havalimanı"
-                listId="anasayfa-nereye"
+                listId="home-to-airports"
               />
 
               <DateInput
@@ -547,14 +515,14 @@ export default function Home() {
                 onChange={setDonusTarihi}
               />
 
-              <div className="rounded-2xl border bg-slate-50 p-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-400">
                   Yolcu
                 </label>
 
                 <select
                   value={yolcu}
-                  onChange={(e) => setYolcu(e.target.value)}
+                  onChange={(event) => setYolcu(event.target.value)}
                   className="mt-1 w-full bg-transparent text-lg font-black outline-none"
                 >
                   <option>1</option>
@@ -565,41 +533,32 @@ export default function Home() {
               </div>
             </div>
 
-            <datalist id="anasayfa-nereden">
-              {havalimaniSecenekleri.map((secenek) => (
-                <option key={`from-${secenek}`} value={secenek} />
+            <datalist id="home-from-airports">
+              {havalimaniSecenekleri.map((item) => (
+                <option key={`from-${item}`} value={item} />
               ))}
             </datalist>
 
-            <datalist id="anasayfa-nereye">
-              {havalimaniSecenekleri.map((secenek) => (
-                <option key={`to-${secenek}`} value={secenek} />
+            <datalist id="home-to-airports">
+              {havalimaniSecenekleri.map((item) => (
+                <option key={`to-${item}`} value={item} />
               ))}
             </datalist>
 
-            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {populerRotalar.map((rota) => (
-                  <button
-                    key={`${rota.nereden}-${rota.nereye}`}
-                    type="button"
-                    onClick={() => populerRotaAra(rota.nereden, rota.nereye)}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-950 hover:text-white"
-                  >
-                    {aramaDegeriTemizle(rota.nereden)} →{" "}
-                    {aramaDegeriTemizle(rota.nereye)}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                <input type="checkbox" defaultChecked className="h-4 w-4" />
+                Havalimanlarını dahil et
+              </label>
 
               <button
                 className="rounded-2xl px-8 py-4 text-lg font-black shadow-lg transition hover:scale-[1.02]"
                 style={{
-                  backgroundColor: ayarlar.yanRenk2,
-                  color: ayarlar.butonYaziRenk,
+                  backgroundColor: ayarlar.anaRenk,
+                  color: "#FFFFFF",
                 }}
               >
-                Ucuz Bilet Ara
+                Uçuş ara →
               </button>
             </div>
           </form>
@@ -608,127 +567,82 @@ export default function Home() {
 
       <section className="mx-auto max-w-7xl px-5 py-8">
         <div className="grid gap-4 md:grid-cols-4">
-          <MetricCard title="Aktif fırsat" value={yukleniyor ? "..." : String(istatistik.toplam)} />
-          <MetricCard title="En ucuz" value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"} />
-          <MetricCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
-          <MetricCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
+          <StatCard
+            title="Aktif fırsat"
+            value={yukleniyor ? "..." : String(istatistik.toplam)}
+          />
+          <StatCard
+            title="En ucuz fiyat"
+            value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
+          />
+          <StatCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
+          <StatCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
         </div>
       </section>
 
-      {ayarlar.gununFirsatiGoster && gununFirsati && (
-        <section className="mx-auto max-w-7xl px-5 py-8">
-          <div
-            className="overflow-hidden rounded-[2rem] shadow-xl"
-            style={{ backgroundColor: ayarlar.anaRenk }}
-          >
-            <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
-              <div className="p-8 text-white md:p-10">
-                <p
-                  className="inline-block rounded-full px-4 py-2 text-sm font-black"
-                  style={{
-                    backgroundColor: ayarlar.yanRenk2,
-                    color: ayarlar.butonYaziRenk,
-                  }}
-                >
-                  🔥 Günün Fırsatı
-                </p>
-
-                <h2 className="mt-6 text-4xl font-black md:text-5xl">
-                  {gununFirsati.nereden} → {gununFirsati.nereye}
-                </h2>
-
-                <p className="mt-3 text-lg text-slate-300">
-                  {gununFirsati.ulkeEmoji} {gununFirsati.ulke} ·{" "}
-                  {gununFirsati.tarih} · {gununFirsati.vize}
-                </p>
-
-                {gununFirsati.aciklama && (
-                  <p className="mt-5 max-w-2xl leading-8 text-slate-300">
-                    {gununFirsati.aciklama}
-                  </p>
-                )}
-
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <button
-                    onClick={() => satinAl(gununFirsati)}
-                    className="rounded-2xl px-6 py-4 font-black transition hover:scale-[1.02]"
-                    style={{
-                      backgroundColor: ayarlar.yanRenk2,
-                      color: ayarlar.butonYaziRenk,
-                    }}
-                  >
-                    Satın Al
-                  </button>
-
-                  <a
-                    href={`/ucak-bileti/${gununFirsati.detaySlug}`}
-                    className="rounded-2xl border border-white/20 px-6 py-4 font-black text-white hover:bg-white hover:text-slate-950"
-                  >
-                    Detayları Gör
-                  </a>
-                </div>
-              </div>
-
-              <aside className="bg-white p-8">
-                <p className="text-sm font-black text-slate-500">
-                  Başlayan fiyat
-                </p>
-
-                <p className="mt-2 text-6xl font-black">
-                  {gununFirsati.fiyat}
-                </p>
-
-                <div className="mt-6 grid gap-3 text-sm">
-                  <InfoLine label="Havayolu" value={gununFirsati.havayolu} />
-                  <InfoLine label="Süre" value={gununFirsati.sure} />
-                  <InfoLine label="Bagaj" value={gununFirsati.bagaj} />
-                  <InfoLine label="Son kontrol" value={gununFirsati.sonKontrol} />
-                </div>
-              </aside>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section id="firsatlar" className="mx-auto max-w-7xl px-5 py-8">
-        <SectionTitle
-          eyebrow="Fırsatlar"
-          title="Öne çıkan ucuz uçuşlar"
-          link="/arama"
+        <SectionHeader
+          eyebrow="Bugünün fırsatları"
+          title="Sınırlı süreli ucuz uçuşlar"
+          href="/arama"
         />
 
-        {enUcuzlar.length === 0 ? (
-          <EmptyCard text="Henüz aktif fırsat yok." />
+        {bugununFirsatlari.length === 0 ? (
+          <EmptyState />
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {enUcuzlar.map((bilet) => (
-              <BiletKarti
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {bugununFirsatlari.map((bilet) => (
+              <DealCard
                 key={bilet.id}
                 bilet={bilet}
-                ayarlar={ayarlar}
-                onSatinAl={satinAl}
+                onSatinAl={() => satinAl(bilet)}
               />
             ))}
           </div>
         )}
       </section>
 
-      {vizesizler.length > 0 && (
+      <section id="populer-rotalar" className="mx-auto max-w-7xl px-5 py-8">
+        <SectionHeader eyebrow="Popüler rotalar" title="En çok aranan uçuş rotaları" />
+
+        <div className="grid gap-3 md:grid-cols-5">
+          {populerRotalar.map((rota) => (
+            <button
+              key={`${rota.nereden}-${rota.nereye}`}
+              onClick={() => rotaAra(rota.nereden, rota.nereye)}
+              className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+            >
+              <p className="font-black">
+                {aramaDegeriTemizle(rota.nereden)} →{" "}
+                {aramaDegeriTemizle(rota.nereye)}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">{rota.fiyat}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {popFirsatlar.length > 0 && (
         <section className="mx-auto max-w-7xl px-5 py-8">
-          <SectionTitle
-            eyebrow="Vizesiz"
-            title="Vizesiz uçuş fırsatları"
-            link="/arama?vize=Vizesiz"
+          <SectionHeader
+            eyebrow="Öne çıkan"
+            title="Kullanıcıların ilgilendiği fırsatlar"
+            href="/arama"
           />
 
-          <div className="grid gap-5 md:grid-cols-3">
-            {vizesizler.map((bilet) => (
-              <BiletKarti
+          <div className="grid gap-4 md:grid-cols-5">
+            {popFirsatlar.map((bilet) => (
+              <button
                 key={bilet.id}
-                bilet={bilet}
-                ayarlar={ayarlar}
-                onSatinAl={satinAl}
-              />
+                onClick={() => satinAl(bilet)}
+                className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <p className="font-black">
+                  {bilet.nereden} → {bilet.nereye}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">{bilet.ulke}</p>
+                <p className="mt-3 text-2xl font-black">{bilet.fiyat}</p>
+              </button>
             ))}
           </div>
         </section>
@@ -736,9 +650,12 @@ export default function Home() {
 
       {ayarlar.fiyatAlarmGoster && (
         <section id="fiyat-alarmi" className="mx-auto max-w-7xl px-5 py-10">
-          <div className="grid gap-6 overflow-hidden rounded-[2rem] bg-white p-8 shadow-xl lg:grid-cols-[1fr_380px] lg:items-center">
+          <div className="grid gap-6 rounded-[2rem] bg-white p-8 shadow-xl lg:grid-cols-[1fr_380px] lg:items-center">
             <div>
-              <p className="font-black" style={{ color: ayarlar.yanRenk3 }}>
+              <p
+                className="font-black"
+                style={{ color: ayarlar.yanRenk3 }}
+              >
                 Fiyat Alarmı
               </p>
 
@@ -747,8 +664,8 @@ export default function Home() {
               </h2>
 
               <p className="mt-3 max-w-3xl leading-8 text-slate-600">
-                Nereden ve nereye alanlarını doldur, hedef fiyatını yaz.
-                Talebin admin paneline düşer.
+                Nereden ve nereye alanlarını doldur, hedef fiyatını yaz. Talep
+                admin paneline düşer.
               </p>
             </div>
 
@@ -762,7 +679,7 @@ export default function Home() {
 
               <input
                 value={alarmEmail}
-                onChange={(e) => setAlarmEmail(e.target.value)}
+                onChange={(event) => setAlarmEmail(event.target.value)}
                 type="email"
                 placeholder="ornek@mail.com"
                 className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-blue-500"
@@ -774,7 +691,7 @@ export default function Home() {
 
               <input
                 value={alarmMaksimumFiyat}
-                onChange={(e) => setAlarmMaksimumFiyat(e.target.value)}
+                onChange={(event) => setAlarmMaksimumFiyat(event.target.value)}
                 type="number"
                 placeholder="3000"
                 className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-blue-500"
@@ -803,28 +720,30 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-5 py-10">
         <div className="grid gap-5 md:grid-cols-3">
           <FeatureCard
-            icon="🔍"
-            title="Kolay arama"
-            text="Şehir veya havalimanı seçerek hızlıca rota oluştur."
+            icon="🔎"
+            title="Canlı fiyat verisi"
+            text="Partner ve havayolu kaynaklarından gelen fiyatları tek yerde kontrol et."
           />
+
           <FeatureCard
-            icon="💸"
-            title="Fiyat karşılaştır"
-            text="Letsgo fırsatları ve canlı partner fiyatlarını birlikte kontrol et."
+            icon="⚡"
+            title="Hızlı karşılaştırma"
+            text="En uygun rotayı, fiyatı ve fırsatı daha hızlı bul."
           />
+
           <FeatureCard
             icon="🔔"
             title="Fiyat alarmı"
-            text="Hedef fiyatını belirle, fırsat düşünce takip et."
+            text="İstediğin rota için hedef fiyat belirle, fırsatı takip et."
           />
         </div>
       </section>
 
       <footer
-        className="mt-10 px-5 py-10 text-white"
+        className="mt-10 px-5 py-12 text-white"
         style={{ backgroundColor: ayarlar.anaRenk }}
       >
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_280px]">
+        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1fr_220px_220px_320px]">
           <div>
             <div className="flex items-center gap-3">
               <img
@@ -832,36 +751,57 @@ export default function Home() {
                 alt="Letsgo 2 Travel"
                 className="h-14 w-auto"
               />
-
-              <div>
-                <h2 className="text-xl font-black">{ayarlar.siteBaslik}</h2>
-                <p className="text-sm text-slate-400">
-                  {ayarlar.siteAltBaslik}
-                </p>
-              </div>
+              <h2 className="text-xl font-black">{ayarlar.siteBaslik}</h2>
             </div>
 
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400">
+            <p className="mt-5 max-w-sm text-sm leading-7 text-slate-400">
               {ayarlar.footerMetni}
             </p>
-
-            <p className="mt-3 text-xs text-slate-500">
-              Bilet fiyatları değişebilir. Satın almadan önce son fiyatı,
-              bagaj şartlarını ve müsaitliği kontrol edin.
-            </p>
           </div>
+
+          <FooterLinks
+            title="Keşfet"
+            links={[
+              ["Uçuşlar", "/arama"],
+              ["Fırsatlar", "#firsatlar"],
+              ["Rotalar", "#populer-rotalar"],
+              ["Fiyat Alarmı", "#fiyat-alarmi"],
+            ]}
+          />
+
+          <FooterLinks
+            title="Yönetim"
+            links={[
+              ["Dashboard", "/admin/dashboard"],
+              ["Bilet Admin", "/admin"],
+              ["Site Ayarları", "/admin/ayarlar"],
+              ["Fiyat Alarmları", "/admin/fiyat-alarmlari"],
+            ]}
+          />
 
           <div>
-            <p className="font-black">Hızlı Bağlantılar</p>
+            <p className="font-black">Bilgilendirme</p>
+            <p className="mt-4 text-sm leading-7 text-slate-400">
+              Bilet fiyatları değişebilir. Satın almadan önce son fiyatı, bagaj
+              şartlarını ve müsaitliği partner sitede kontrol edin.
+            </p>
 
-            <div className="mt-4 grid gap-3 text-sm font-bold text-slate-300">
-              <a href="/arama">Uçuş Ara</a>
-              <a href="/admin/dashboard">Admin Dashboard</a>
-              <a href="/admin">Bilet Admin</a>
-              <a href="/admin/ayarlar">Site Ayarları</a>
-              <a href="/admin/fiyat-alarmlari">Fiyat Alarmları</a>
+            <div className="mt-5 flex flex-wrap gap-2 text-xs font-black text-slate-300">
+              <span className="rounded-full bg-white/10 px-3 py-2">
+                Güvenli bağlantı
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-2">
+                Partner fiyatları
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-2">
+                Fiyat alarmı
+              </span>
             </div>
           </div>
+        </div>
+
+        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 pt-6 text-sm text-slate-500">
+          © 2026 Letsgo 2 Travel. Tüm hakları saklıdır.
         </div>
       </footer>
     </main>
@@ -882,14 +822,14 @@ function SearchInput({
   listId: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-slate-50 p-3">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <label className="text-xs font-black uppercase tracking-wider text-slate-400">
         {label}
       </label>
 
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         list={listId}
         className="mt-1 w-full bg-transparent text-lg font-black outline-none placeholder:text-slate-300"
@@ -908,14 +848,14 @@ function DateInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border bg-slate-50 p-3">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
       <label className="text-xs font-black uppercase tracking-wider text-slate-400">
         {label}
       </label>
 
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         type="date"
         className="mt-1 w-full bg-transparent text-base font-black outline-none"
       />
@@ -923,40 +863,23 @@ function DateInput({
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+function StatCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-100 p-4 text-center">
-      <p className="text-2xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-bold text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-function MetricCard({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="rounded-[1.5rem] border border-slate-200/70 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
       <p className="text-sm font-black text-slate-500">{title}</p>
-      <p className="mt-2 text-4xl font-black">{value}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
     </div>
   );
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <p>
-      <span className="font-black">{label}:</span> {value}
-    </p>
-  );
-}
-
-function SectionTitle({
+function SectionHeader({
   eyebrow,
   title,
-  link,
+  href,
 }: {
   eyebrow: string;
   title: string;
-  link?: string;
+  href?: string;
 }) {
   return (
     <div className="mb-6 flex items-end justify-between gap-4">
@@ -965,8 +888,8 @@ function SectionTitle({
         <h2 className="text-3xl font-black tracking-tight">{title}</h2>
       </div>
 
-      {link && (
-        <a href={link} className="hidden font-black text-slate-600 md:block">
+      {href && (
+        <a href={href} className="hidden font-black text-blue-600 md:block">
           Tümünü gör →
         </a>
       )}
@@ -974,11 +897,68 @@ function SectionTitle({
   );
 }
 
-function EmptyCard({ text }: { text: string }) {
+function DealCard({
+  bilet,
+  onSatinAl,
+}: {
+  bilet: Bilet;
+  onSatinAl: () => void;
+}) {
   return (
-    <div className="rounded-3xl bg-white p-10 text-center shadow">
-      <p className="font-black">{text}</p>
-    </div>
+    <article className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-xl">
+      <div className="h-32 bg-gradient-to-br from-sky-100 via-white to-blue-100 p-4">
+        <div className="flex h-full items-end justify-between">
+          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-700 shadow">
+            {bilet.ulkeEmoji} {bilet.ulke}
+          </span>
+
+          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-700 shadow">
+            {bilet.vize}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black">
+              {bilet.nereden} → {bilet.nereye}
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {bilet.tarih}
+            </p>
+          </div>
+
+          <p className="text-right text-2xl font-black">{bilet.fiyat}</p>
+        </div>
+
+        <div className="mt-4 grid gap-2 text-sm text-slate-600">
+          <p>
+            <span className="font-black">Havayolu:</span> {bilet.havayolu}
+          </p>
+          <p>
+            <span className="font-black">Süre:</span> {bilet.sure}
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={onSatinAl}
+            className="rounded-xl bg-yellow-400 px-4 py-3 font-black text-slate-950 hover:bg-yellow-300"
+          >
+            Satın Al
+          </button>
+
+          <a
+            href={`/ucak-bileti/${bilet.detaySlug}`}
+            className="rounded-xl border border-slate-200 px-4 py-3 text-center font-black hover:bg-slate-950 hover:text-white"
+          >
+            Detay
+          </a>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -992,106 +972,46 @@ function FeatureCard({
   text: string;
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-slate-200/70 bg-white p-6 shadow-sm">
-      <p className="text-3xl">{icon}</p>
-      <h3 className="mt-4 text-xl font-black">{title}</h3>
+    <div className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
+        {icon}
+      </div>
+
+      <h3 className="mt-5 text-xl font-black">{title}</h3>
       <p className="mt-2 leading-7 text-slate-500">{text}</p>
     </div>
   );
 }
 
-function BiletKarti({
-  bilet,
-  ayarlar,
-  onSatinAl,
+function EmptyState() {
+  return (
+    <div className="rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-200">
+      <h3 className="text-2xl font-black">Henüz fırsat yok</h3>
+      <p className="mt-2 text-slate-500">
+        Admin panelden bilet ekleyince burada görünecek.
+      </p>
+    </div>
+  );
+}
+
+function FooterLinks({
+  title,
+  links,
 }: {
-  bilet: Bilet;
-  ayarlar: Required<SiteAyarlari>;
-  onSatinAl: (bilet: Bilet) => void;
+  title: string;
+  links: [string, string][];
 }) {
   return (
-    <article
-      className="group overflow-hidden rounded-[1.7rem] border border-slate-200/70 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
-      style={{ backgroundColor: ayarlar.kartRenk }}
-    >
-      <div className="p-5">
-        <div className="flex flex-wrap gap-2">
-          <span
-            className="rounded-full px-3 py-1 text-xs font-black"
-            style={{
-              backgroundColor: `${ayarlar.yanRenk2}33`,
-              color: ayarlar.yaziRenk,
-            }}
-          >
-            {bilet.ulkeEmoji} {bilet.kategori}
-          </span>
+    <div>
+      <p className="font-black">{title}</p>
 
-          <span
-            className="rounded-full px-3 py-1 text-xs font-black text-white"
-            style={{
-              backgroundColor:
-                bilet.vize === "Vizesiz" ? ayarlar.yanRenk3 : ayarlar.yanRenk1,
-            }}
-          >
-            {bilet.vize}
-          </span>
-
-          {bilet.oneCikan && (
-            <span
-              className="rounded-full px-3 py-1 text-xs font-black text-white"
-              style={{ backgroundColor: ayarlar.anaRenk }}
-            >
-              Öne çıkan
-            </span>
-          )}
-        </div>
-
-        <h3 className="mt-5 text-2xl font-black tracking-tight">
-          {bilet.nereden} → {bilet.nereye}
-        </h3>
-
-        <p className="mt-1 text-sm font-semibold text-slate-500">
-          {bilet.ulke} · {bilet.tarih}
-        </p>
-
-        <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-            Başlayan fiyat
-          </p>
-
-          <p className="mt-1 text-4xl font-black">{bilet.fiyat}</p>
-        </div>
-
-        <div className="mt-5 grid gap-2 text-sm">
-          <InfoLine label="Havayolu" value={bilet.havayolu} />
-          <InfoLine label="Süre" value={bilet.sure} />
-          <InfoLine label="Bagaj" value={bilet.bagaj} />
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <button
-            onClick={() => onSatinAl(bilet)}
-            className="rounded-2xl px-4 py-3 font-black transition hover:scale-[1.02]"
-            style={{
-              backgroundColor: ayarlar.yanRenk2,
-              color: ayarlar.butonYaziRenk,
-            }}
-          >
-            Satın Al
-          </button>
-
-          <a
-            href={`/ucak-bileti/${bilet.detaySlug}`}
-            className="rounded-2xl border px-4 py-3 text-center font-black transition hover:bg-slate-950 hover:text-white"
-            style={{
-              borderColor: `${ayarlar.anaRenk}33`,
-              color: ayarlar.anaRenk,
-            }}
-          >
-            Detay
+      <div className="mt-4 grid gap-3 text-sm font-bold text-slate-400">
+        {links.map(([label, href]) => (
+          <a key={label} href={href} className="hover:text-white">
+            {label}
           </a>
-        </div>
+        ))}
       </div>
-    </article>
+    </div>
   );
 }
