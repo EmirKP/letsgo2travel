@@ -1,13 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-function fiyatYaz(value: string | null) {
+type Detay = {
+  nereden: string;
+  nereye: string;
+  gidis: string;
+  donus: string;
+  fiyat: string;
+  aktarma: string;
+  havayolu: string;
+  kaynak: string;
+};
+
+const bosDetay: Detay = {
+  nereden: "",
+  nereye: "",
+  gidis: "",
+  donus: "",
+  fiyat: "",
+  aktarma: "Bilinmiyor",
+  havayolu: "Aviasales",
+  kaynak: "Travelpayouts / Aviasales",
+};
+
+function fiyatYaz(value: string) {
   const fiyat = Number(value || 0);
   return `${new Intl.NumberFormat("tr-TR").format(fiyat || 0)} TL`;
 }
 
-function tarihYaz(value: string | null) {
+function tarihYaz(value: string) {
   if (!value) return "Belirsiz";
 
   if (
@@ -37,40 +59,53 @@ function tarihYaz(value: string | null) {
 }
 
 export default function CanliUcusPage() {
+  const [detay, setDetay] = useState<Detay>(bosDetay);
   const [kopyalandi, setKopyalandi] = useState(false);
-
-  const params = useMemo(() => {
-    if (typeof window === "undefined") {
-      return new URLSearchParams();
-    }
-
-    return new URLSearchParams(window.location.search);
-  }, []);
-
-  const nereden = params.get("nereden") || "";
-  const nereye = params.get("nereye") || "";
-  const gidis = params.get("gidis") || "";
-  const donus = params.get("donus") || "";
-  const fiyat = params.get("fiyat") || "";
-  const aktarma = params.get("aktarma") || "Bilinmiyor";
-  const havayolu = params.get("havayolu") || "Aviasales";
-  const kaynak = params.get("kaynak") || "Travelpayouts / Aviasales";
-
-  const partnerLink = "https://www.aviasales.com/";
-
-  const aramaMetni = `${nereden} → ${nereye}
-Gidiş: ${tarihYaz(gidis)}
-Dönüş: ${donus ? tarihYaz(donus) : "Tek yön / belirtilmedi"}
-Fiyat: ${fiyatYaz(fiyat)}
-Aktarma: ${aktarma}
-Havayolu: ${havayolu}
-Kaynak: ${kaynak}`;
+  const widgetRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!nereden || !nereye) {
+    const params = new URLSearchParams(window.location.search);
+
+    const yeniDetay: Detay = {
+      nereden: params.get("nereden") || "",
+      nereye: params.get("nereye") || "",
+      gidis: params.get("gidis") || "",
+      donus: params.get("donus") || "",
+      fiyat: params.get("fiyat") || "",
+      aktarma: params.get("aktarma") || "Bilinmiyor",
+      havayolu: params.get("havayolu") || "Aviasales",
+      kaynak: params.get("kaynak") || "Travelpayouts / Aviasales",
+    };
+
+    if (!yeniDetay.nereden || !yeniDetay.nereye) {
       window.location.href = "/arama";
+      return;
     }
-  }, [nereden, nereye]);
+
+    setDetay(yeniDetay);
+  }, []);
+
+  useEffect(() => {
+    if (!widgetRef.current) return;
+
+    widgetRef.current.innerHTML = "";
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.charset = "utf-8";
+    script.src =
+      "https://tpemd.com/content?currency=try&trs=525614&shmarker=725223&show_hotels=true&powered_by=true&locale=tr&searchUrl=search.jetradar.com&primary_override=%2332a8dd&color_button=%2332a8dd&color_icons=%2332a8dd&dark=%23262626&light=%23FFFFFF&secondary=%23FFFFFF&special=%23C4C4C4&color_focused=%2332a8dd&border_radius=0&plain=false&promo_id=7879&campaign_id=100";
+
+    widgetRef.current.appendChild(script);
+  }, []);
+
+  const aramaMetni = `${detay.nereden} → ${detay.nereye}
+Gidiş: ${tarihYaz(detay.gidis)}
+Dönüş: ${detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"}
+Fiyat: ${fiyatYaz(detay.fiyat)}
+Aktarma: ${detay.aktarma}
+Havayolu: ${detay.havayolu}
+Kaynak: ${detay.kaynak}`;
 
   async function bilgileriKopyala() {
     try {
@@ -117,13 +152,13 @@ Kaynak: ${kaynak}`;
           </p>
 
           <h2 className="mt-6 text-4xl font-black md:text-6xl">
-            {nereden} → {nereye}
+            {detay.nereden} → {detay.nereye}
           </h2>
 
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
             Bu fiyat Travelpayouts / Aviasales Data API cache verisinden
-            alınmıştır. Fiyatlar anlık değişebilir; satın almadan önce partner
-            sitede son fiyatı kontrol et.
+            alınmıştır. Fiyatlar değişebilir; satın almadan önce aşağıdaki
+            partner arama kutusundan güncel fiyatı kontrol et.
           </p>
         </div>
       </section>
@@ -134,46 +169,48 @@ Kaynak: ${kaynak}`;
             <div>
               <p className="font-black text-blue-600">Rota bilgisi</p>
               <h3 className="mt-1 text-3xl font-black">
-                {nereden} → {nereye}
+                {detay.nereden} → {detay.nereye}
               </h3>
             </div>
 
             <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-black text-green-800">
-              {aktarma}
+              {detay.aktarma}
             </span>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Kalkış</p>
-              <p className="mt-2 text-2xl font-black">{nereden}</p>
+              <p className="mt-2 text-2xl font-black">{detay.nereden}</p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Varış</p>
-              <p className="mt-2 text-2xl font-black">{nereye}</p>
+              <p className="mt-2 text-2xl font-black">{detay.nereye}</p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Gidiş tarihi</p>
-              <p className="mt-2 text-xl font-black">{tarihYaz(gidis)}</p>
+              <p className="mt-2 text-xl font-black">
+                {tarihYaz(detay.gidis)}
+              </p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Dönüş tarihi</p>
               <p className="mt-2 text-xl font-black">
-                {donus ? tarihYaz(donus) : "Tek yön / belirtilmedi"}
+                {detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"}
               </p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Havayolu</p>
-              <p className="mt-2 text-xl font-black">{havayolu}</p>
+              <p className="mt-2 text-xl font-black">{detay.havayolu}</p>
             </div>
 
             <div className="rounded-2xl bg-slate-100 p-5">
               <p className="text-sm font-black text-slate-500">Kaynak</p>
-              <p className="mt-2 text-xl font-black">{kaynak}</p>
+              <p className="mt-2 text-xl font-black">{detay.kaynak}</p>
             </div>
           </div>
 
@@ -188,19 +225,19 @@ Kaynak: ${kaynak}`;
 
           <div className="mt-6 rounded-3xl bg-yellow-50 p-6 text-yellow-900">
             <h4 className="text-xl font-black">
-              Partnerde nasıl kontrol edilir?
+              Partnerde nasıl arayacaksın?
             </h4>
             <p className="mt-3 leading-8">
-              Aşağıdaki “Bilgileri Kopyala” butonuyla rota ve tarihi kopyala.
-              Sonra partner sitede aynı rota ve tarihi arayarak güncel fiyatı
-              kontrol et.
+              Aşağıdaki arama kutusunda kalkış, varış ve tarihleri girip Search
+              butonuna bas. Böylece partner tarafında güncel fiyatları
+              kontrol edebilirsin.
             </p>
           </div>
         </div>
 
         <aside className="h-fit rounded-3xl bg-slate-950 p-8 text-white shadow">
           <p className="text-sm text-slate-400">Gösterilen cache fiyat</p>
-          <p className="mt-2 text-5xl font-black">{fiyatYaz(fiyat)}</p>
+          <p className="mt-2 text-5xl font-black">{fiyatYaz(detay.fiyat)}</p>
 
           <div className="mt-6 grid gap-3">
             <button
@@ -211,12 +248,10 @@ Kaynak: ${kaynak}`;
             </button>
 
             <a
-              href={partnerLink}
-              target="_blank"
-              rel="noreferrer"
+              href="#partner-arama"
               className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
             >
-              Partner Sitede Ara
+              Partner Arama Kutusuna Git
             </a>
 
             <a
@@ -228,11 +263,28 @@ Kaynak: ${kaynak}`;
           </div>
 
           <p className="mt-5 text-xs leading-6 text-slate-400">
-            Otomatik Aviasales arama linkleri bazı ülkelerde boş form veya
-            hatalı yönlendirme açabildiği için güvenli aracı detay ekranı
-            kullanıyoruz.
+            Bu sayfa bilet satışı yapmaz. Fiyatlar yönlendirme ve karşılaştırma
+            amaçlıdır.
           </p>
         </aside>
+      </section>
+
+      <section id="partner-arama" className="mx-auto max-w-6xl px-5 pb-16">
+        <div className="rounded-3xl bg-white p-6 shadow">
+          <div className="mb-5">
+            <p className="font-black text-blue-600">
+              Travelpayouts / Aviasales
+            </p>
+            <h3 className="text-3xl font-black">Partner Arama Kutusu</h3>
+            <p className="mt-2 text-slate-500">
+              Rota ve tarihleri girerek partner tarafta güncel uçuşları ara.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border bg-white p-3">
+            <div ref={widgetRef} />
+          </div>
+        </div>
       </section>
     </main>
   );
