@@ -150,10 +150,6 @@ function aramaDegeriTemizle(value: string) {
   return value.trim();
 }
 
-function formatFiyat(value: number) {
-  return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`;
-}
-
 export default function Home() {
   const [ayarlar, setAyarlar] =
     useState<Required<SiteAyarlari>>(varsayilanAyarlar);
@@ -274,13 +270,16 @@ export default function Home() {
       await fetch(`/api/biletler/${bilet.id}/click`, {
         method: "POST",
       });
-    } catch {}
+    } catch {
+      // Tıklanma kaydı hata verse bile kullanıcı yönlenir.
+    }
 
     window.open(bilet.link, "_blank", "noopener,noreferrer");
   }
 
   async function fiyatAlarmiKur(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     setAlarmMesaji("");
 
     if (!alarmEmail.trim()) {
@@ -289,7 +288,9 @@ export default function Home() {
     }
 
     if (!nereden.trim() || !nereye.trim()) {
-      setAlarmMesaji("Fiyat alarmı için önce nereden ve nereye alanlarını doldur.");
+      setAlarmMesaji(
+        "Fiyat alarmı için önce nereden ve nereye alanlarını doldur."
+      );
       return;
     }
 
@@ -335,121 +336,67 @@ export default function Home() {
   }
 
   return (
-    <main
-      className="min-h-screen"
-      style={{
-        backgroundColor: ayarlar.arkaPlan,
-        color: ayarlar.yaziRenk,
-      }}
-    >
-      <header
-        className="sticky top-0 z-50 border-b border-white/10 text-white"
-        style={{ backgroundColor: ayarlar.anaRenk }}
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <a href="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Letsgo 2 Travel" className="h-12 w-auto" />
-            <span className="text-xl font-black tracking-tight">
-              {ayarlar.siteBaslik}
-            </span>
+    <main className="letsgo-page">
+      <header className="letsgo-header">
+        <div className="letsgo-container letsgo-header-inner">
+          <a href="/" className="letsgo-logo">
+            <img src="/logo.png" alt="Letsgo 2 Travel" />
+            <span className="letsgo-logo-title">{ayarlar.siteBaslik}</span>
           </a>
 
-          <nav className="hidden items-center gap-7 text-sm font-black md:flex">
-            <a href="/arama" className="text-white/90 hover:text-white">
-              Uçuşlar
-            </a>
-            <a href="#firsatlar" className="text-white/90 hover:text-white">
-              Fırsatlar
-            </a>
-            <a href="#populer-rotalar" className="text-white/90 hover:text-white">
-              Rotalar
-            </a>
-            <a href="#fiyat-alarmi" className="text-white/90 hover:text-white">
-              Fiyat Alarmı
-            </a>
-            <a href="/admin/dashboard" className="text-white/90 hover:text-white">
-              Admin
-            </a>
+          <nav className="letsgo-nav">
+            <a href="/arama">Uçuşlar</a>
+            <a href="#firsatlar">Fırsatlar</a>
+            <a href="#populer-rotalar">Rotalar</a>
+            <a href="#fiyat-alarmi">Fiyat Alarmı</a>
+            <a href="/admin/dashboard">Admin</a>
           </nav>
 
-          <a
-            href="/arama"
-            className="rounded-xl px-5 py-3 text-sm font-black shadow-lg transition hover:scale-[1.02]"
-            style={{
-              backgroundColor: ayarlar.yanRenk1,
-              color: "#FFFFFF",
-            }}
-          >
+          <a href="/arama" className="letsgo-header-cta">
             Uçuş Ara
           </a>
         </div>
       </header>
 
-      <section className="relative overflow-hidden bg-gradient-to-b from-sky-100 via-white to-white px-5 pb-16 pt-12">
-        <div className="absolute right-0 top-0 hidden h-[360px] w-[55%] rounded-bl-[5rem] bg-gradient-to-br from-sky-200 via-blue-100 to-white lg:block" />
+      <section className="letsgo-hero">
+        <div className="letsgo-container">
+          <div className="letsgo-hero-grid">
+            <div>
+              <p className="letsgo-hero-badge">{ayarlar.heroRozet}</p>
 
-        <div className="relative mx-auto max-w-7xl">
-          <div className="grid gap-8 lg:grid-cols-[1fr_520px] lg:items-center">
-            <div className="pt-4">
-              <p
-                className="inline-flex rounded-full px-4 py-2 text-sm font-black"
-                style={{
-                  backgroundColor: `${ayarlar.yanRenk1}18`,
-                  color: ayarlar.yanRenk1,
-                }}
-              >
-                {ayarlar.heroRozet}
-              </p>
+              <h1 className="letsgo-hero-title">{ayarlar.heroBaslik}</h1>
 
-              <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-6xl">
-                {ayarlar.heroBaslik}
-              </h1>
+              <p className="letsgo-hero-text">{ayarlar.heroAciklama}</p>
 
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-                {ayarlar.heroAciklama}
-              </p>
+              <div className="letsgo-hero-actions">
+                <a href="/arama" className="letsgo-primary-button">
+                  Uçuş Ara
+                </a>
+
+                <a href="#firsatlar" className="letsgo-secondary-button">
+                  Fırsatları Gör
+                </a>
+              </div>
             </div>
 
-            <div className="relative hidden min-h-[260px] lg:block">
-              <div className="absolute inset-0 rounded-[2rem] bg-white/40 backdrop-blur" />
-
-              <div className="absolute right-8 top-10 text-[180px] leading-none drop-shadow-2xl">
-                ✈️
-              </div>
-
-              <div className="absolute bottom-8 right-8 rounded-3xl bg-white/90 p-5 shadow-xl backdrop-blur">
-                <p className="text-sm font-black text-slate-500">
-                  En ucuz başlangıç
-                </p>
-                <p className="mt-1 text-4xl font-black">
+            <div className="letsgo-plane-box">
+              <div className="letsgo-hero-price">
+                <p className="letsgo-hero-price-label">En ucuz başlangıç</p>
+                <p className="letsgo-hero-price-value">
                   {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
                 </p>
               </div>
             </div>
           </div>
 
-          <form
-            onSubmit={aramaYap}
-            className="relative z-10 mt-10 rounded-[2rem] bg-white p-5 shadow-2xl ring-1 ring-slate-200"
-          >
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              <span
-                className="rounded-xl px-5 py-3 text-sm font-black text-white"
-                style={{ backgroundColor: ayarlar.anaRenk }}
-              >
-                ✈️ Uçuş
-              </span>
-
-              <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-500">
-                🏨 Otel
-              </span>
-
-              <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-500">
-                🚗 Araç
-              </span>
+          <form onSubmit={aramaYap} className="letsgo-search-card">
+            <div className="letsgo-tabs">
+              <span className="letsgo-tab-active">✈️ Uçuş</span>
+              <span className="letsgo-tab-muted">🏨 Otel yakında</span>
+              <span className="letsgo-tab-muted">🚗 Araç yakında</span>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_170px_170px_130px]">
+            <div className="letsgo-search-grid">
               <SearchInput
                 label="Nereden"
                 value={nereden}
@@ -478,15 +425,11 @@ export default function Home() {
                 onChange={setDonusTarihi}
               />
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-                  Yolcu
-                </label>
-
+              <div className="letsgo-field">
+                <label>Yolcu</label>
                 <select
                   value={yolcu}
                   onChange={(event) => setYolcu(event.target.value)}
-                  className="mt-1 w-full bg-transparent text-lg font-black outline-none"
                 >
                   <option>1</option>
                   <option>2</option>
@@ -508,241 +451,233 @@ export default function Home() {
               ))}
             </datalist>
 
-            <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
-                <input type="checkbox" defaultChecked className="h-4 w-4" />
+            <div className="letsgo-search-bottom">
+              <label className="letsgo-checkbox-label">
+                <input type="checkbox" defaultChecked />
                 Havalimanlarını dahil et
               </label>
 
-              <button
-                className="rounded-2xl px-8 py-4 text-lg font-black shadow-lg transition hover:scale-[1.02]"
-                style={{
-                  backgroundColor: ayarlar.anaRenk,
-                  color: "#FFFFFF",
-                }}
-              >
-                Uçuş ara →
-              </button>
+              <button className="letsgo-primary-button">Uçuş ara →</button>
             </div>
           </form>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="grid gap-4 md:grid-cols-4">
-          <StatCard title="Aktif fırsat" value={yukleniyor ? "..." : String(istatistik.toplam)} />
-          <StatCard title="En ucuz fiyat" value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"} />
-          <StatCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
-          <StatCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
+      <section className="letsgo-section">
+        <div className="letsgo-container">
+          <div className="letsgo-stats-grid">
+            <StatCard
+              title="Aktif fırsat"
+              value={yukleniyor ? "..." : String(istatistik.toplam)}
+            />
+            <StatCard
+              title="En ucuz fiyat"
+              value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
+            />
+            <StatCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
+            <StatCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
+          </div>
         </div>
       </section>
 
-      <section id="firsatlar" className="mx-auto max-w-7xl px-5 py-8">
-        <SectionHeader
-          eyebrow="Bugünün fırsatları"
-          title="Sınırlı süreli ucuz uçuşlar"
-          href="/arama"
-        />
+      <section id="firsatlar" className="letsgo-section">
+        <div className="letsgo-container">
+          <SectionHeader
+            eyebrow="Bugünün fırsatları"
+            title="Sınırlı süreli ucuz uçuşlar"
+            href="/arama"
+          />
 
-        {bugununFirsatlari.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {bugununFirsatlari.map((bilet) => (
-              <DealCard
-                key={bilet.id}
-                bilet={bilet}
-                onSatinAl={() => satinAl(bilet)}
-              />
-            ))}
-          </div>
-        )}
+          {bugununFirsatlari.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="letsgo-deal-grid">
+              {bugununFirsatlari.map((bilet) => (
+                <DealCard
+                  key={bilet.id}
+                  bilet={bilet}
+                  onSatinAl={() => satinAl(bilet)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
-      <section id="populer-rotalar" className="mx-auto max-w-7xl px-5 py-8">
-        <SectionHeader eyebrow="Popüler rotalar" title="En çok aranan uçuş rotaları" />
+      <section id="populer-rotalar" className="letsgo-section">
+        <div className="letsgo-container">
+          <SectionHeader
+            eyebrow="Popüler rotalar"
+            title="En çok aranan uçuş rotaları"
+          />
 
-        <div className="grid gap-3 md:grid-cols-4">
-          {populerRotalar.map((rota) => (
-            <button
-              key={`${rota.nereden}-${rota.nereye}`}
-              onClick={() => rotaAra(rota.nereden, rota.nereye)}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-            >
-              <p className="font-black">
-                {aramaDegeriTemizle(rota.nereden)} → {aramaDegeriTemizle(rota.nereye)}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">{rota.aciklama}</p>
-            </button>
-          ))}
+          <div className="letsgo-route-grid">
+            {populerRotalar.map((rota) => (
+              <button
+                key={`${rota.nereden}-${rota.nereye}`}
+                onClick={() => rotaAra(rota.nereden, rota.nereye)}
+                className="letsgo-route-card letsgo-hover"
+              >
+                <p className="letsgo-route-title">
+                  {aramaDegeriTemizle(rota.nereden)} →{" "}
+                  {aramaDegeriTemizle(rota.nereye)}
+                </p>
+                <p className="letsgo-route-desc">{rota.aciklama}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       {populerFirsatlar.length > 0 && (
-        <section className="mx-auto max-w-7xl px-5 py-8">
-          <SectionHeader
-            eyebrow="Öne çıkan"
-            title="Kullanıcıların ilgilendiği fırsatlar"
-            href="/arama"
-          />
+        <section className="letsgo-section">
+          <div className="letsgo-container">
+            <SectionHeader
+              eyebrow="Öne çıkan"
+              title="Kullanıcıların ilgilendiği fırsatlar"
+              href="/arama"
+            />
 
-          <div className="grid gap-4 md:grid-cols-5">
-            {populerFirsatlar.map((bilet) => (
-              <button
-                key={bilet.id}
-                onClick={() => satinAl(bilet)}
-                className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <p className="font-black">
-                  {bilet.nereden} → {bilet.nereye}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">{bilet.ulke}</p>
-                <p className="mt-3 text-2xl font-black">{bilet.fiyat}</p>
-              </button>
-            ))}
+            <div className="letsgo-popular-grid">
+              {populerFirsatlar.map((bilet) => (
+                <button
+                  key={bilet.id}
+                  onClick={() => satinAl(bilet)}
+                  className="letsgo-simple-card letsgo-hover"
+                >
+                  <p className="letsgo-simple-card-title">
+                    {bilet.nereden} → {bilet.nereye}
+                  </p>
+                  <p className="letsgo-simple-card-text">{bilet.ulke}</p>
+                  <p className="letsgo-simple-card-price">{bilet.fiyat}</p>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       {ayarlar.fiyatAlarmGoster && (
-        <section id="fiyat-alarmi" className="mx-auto max-w-7xl px-5 py-10">
-          <div className="grid gap-6 rounded-[2rem] bg-white p-8 shadow-xl lg:grid-cols-[1fr_380px] lg:items-center">
-            <div>
-              <p className="font-black" style={{ color: ayarlar.yanRenk3 }}>
-                Fiyat Alarmı
-              </p>
+        <section id="fiyat-alarmi" className="letsgo-section">
+          <div className="letsgo-container">
+            <div className="letsgo-alert-box">
+              <div>
+                <p className="letsgo-alert-eyebrow">Fiyat Alarmı</p>
 
-              <h2 className="mt-2 text-3xl font-black">
-                Fiyat düşünce fırsatı kaçırma
-              </h2>
+                <h2 className="letsgo-alert-title">
+                  Fiyat düşünce fırsatı kaçırma
+                </h2>
 
-              <p className="mt-3 max-w-3xl leading-8 text-slate-600">
-                Nereden ve nereye alanlarını doldur, hedef fiyatını yaz. Talep
-                admin paneline düşer.
-              </p>
-            </div>
-
-            <form onSubmit={fiyatAlarmiKur} className="rounded-3xl bg-slate-100 p-5">
-              <label className="text-sm font-black text-slate-500">
-                E-posta adresin
-              </label>
-
-              <input
-                value={alarmEmail}
-                onChange={(event) => setAlarmEmail(event.target.value)}
-                type="email"
-                placeholder="ornek@mail.com"
-                className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-blue-500"
-              />
-
-              <label className="mt-4 block text-sm font-black text-slate-500">
-                Maksimum fiyat
-              </label>
-
-              <input
-                value={alarmMaksimumFiyat}
-                onChange={(event) => setAlarmMaksimumFiyat(event.target.value)}
-                type="number"
-                placeholder="3000"
-                className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-blue-500"
-              />
-
-              <button
-                disabled={alarmYukleniyor}
-                className="mt-4 w-full rounded-xl px-4 py-3 font-black text-white disabled:opacity-60"
-                style={{ backgroundColor: ayarlar.yanRenk3 }}
-              >
-                {alarmYukleniyor ? "Kaydediliyor..." : "Fiyat Alarmı Kur"}
-              </button>
-
-              {alarmMesaji && (
-                <p className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-slate-700">
-                  {alarmMesaji}
+                <p className="letsgo-alert-text">
+                  Nereden ve nereye alanlarını doldur, hedef fiyatını yaz. Talep
+                  admin paneline düşer.
                 </p>
-              )}
-            </form>
+              </div>
+
+              <form onSubmit={fiyatAlarmiKur} className="letsgo-alert-form">
+                <label>E-posta adresin</label>
+                <input
+                  value={alarmEmail}
+                  onChange={(event) => setAlarmEmail(event.target.value)}
+                  type="email"
+                  placeholder="ornek@mail.com"
+                />
+
+                <label>Maksimum fiyat</label>
+                <input
+                  value={alarmMaksimumFiyat}
+                  onChange={(event) =>
+                    setAlarmMaksimumFiyat(event.target.value)
+                  }
+                  type="number"
+                  placeholder="3000"
+                />
+
+                <button disabled={alarmYukleniyor}>
+                  {alarmYukleniyor ? "Kaydediliyor..." : "Fiyat Alarmı Kur"}
+                </button>
+
+                {alarmMesaji && <p className="letsgo-message">{alarmMesaji}</p>}
+              </form>
+            </div>
           </div>
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-5 py-10">
-        <div className="grid gap-5 md:grid-cols-3">
-          <FeatureCard
-            icon="🔎"
-            title="Canlı fiyat verisi"
-            text="Partner ve havayolu kaynaklarından gelen fiyatları tek yerde kontrol et."
-          />
+      <section className="letsgo-section">
+        <div className="letsgo-container">
+          <div className="letsgo-feature-grid">
+            <FeatureCard
+              icon="🔎"
+              title="Canlı fiyat verisi"
+              text="Partner ve havayolu kaynaklarından gelen fiyatları tek yerde kontrol et."
+            />
 
-          <FeatureCard
-            icon="⚡"
-            title="Hızlı karşılaştırma"
-            text="En uygun rotayı, fiyatı ve fırsatı daha hızlı bul."
-          />
+            <FeatureCard
+              icon="⚡"
+              title="Hızlı karşılaştırma"
+              text="En uygun rotayı, fiyatı ve fırsatı daha hızlı bul."
+            />
 
-          <FeatureCard
-            icon="🔔"
-            title="Fiyat alarmı"
-            text="İstediğin rota için hedef fiyat belirle, fırsatı takip et."
-          />
+            <FeatureCard
+              icon="🔔"
+              title="Fiyat alarmı"
+              text="İstediğin rota için hedef fiyat belirle, fırsatı takip et."
+            />
+          </div>
         </div>
       </section>
 
-      <footer className="mt-10 px-5 py-12 text-white" style={{ backgroundColor: ayarlar.anaRenk }}>
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1fr_220px_220px_320px]">
-          <div>
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Letsgo 2 Travel" className="h-14 w-auto" />
-              <h2 className="text-xl font-black">{ayarlar.siteBaslik}</h2>
+      <footer className="letsgo-footer">
+        <div className="letsgo-container">
+          <div className="letsgo-footer-grid">
+            <div>
+              <div className="letsgo-footer-logo">
+                <img src="/logo.png" alt="Letsgo 2 Travel" />
+                <h2 className="letsgo-footer-title">{ayarlar.siteBaslik}</h2>
+              </div>
+
+              <p className="letsgo-footer-text">{ayarlar.footerMetni}</p>
             </div>
 
-            <p className="mt-5 max-w-sm text-sm leading-7 text-slate-400">
-              {ayarlar.footerMetni}
-            </p>
-          </div>
+            <FooterLinks
+              title="Keşfet"
+              links={[
+                ["Uçuşlar", "/arama"],
+                ["Fırsatlar", "#firsatlar"],
+                ["Rotalar", "#populer-rotalar"],
+                ["Fiyat Alarmı", "#fiyat-alarmi"],
+              ]}
+            />
 
-          <FooterLinks
-            title="Keşfet"
-            links={[
-              ["Uçuşlar", "/arama"],
-              ["Fırsatlar", "#firsatlar"],
-              ["Rotalar", "#populer-rotalar"],
-              ["Fiyat Alarmı", "#fiyat-alarmi"],
-            ]}
-          />
+            <FooterLinks
+              title="Yönetim"
+              links={[
+                ["Dashboard", "/admin/dashboard"],
+                ["Bilet Admin", "/admin"],
+                ["Site Ayarları", "/admin/ayarlar"],
+                ["Fiyat Alarmları", "/admin/fiyat-alarmlari"],
+              ]}
+            />
 
-          <FooterLinks
-            title="Yönetim"
-            links={[
-              ["Dashboard", "/admin/dashboard"],
-              ["Bilet Admin", "/admin"],
-              ["Site Ayarları", "/admin/ayarlar"],
-              ["Fiyat Alarmları", "/admin/fiyat-alarmlari"],
-            ]}
-          />
+            <div>
+              <p className="letsgo-footer-heading">Bilgilendirme</p>
+              <p className="letsgo-footer-text">
+                Bilet fiyatları değişebilir. Satın almadan önce son fiyatı, bagaj
+                şartlarını ve müsaitliği partner sitede kontrol edin.
+              </p>
 
-          <div>
-            <p className="font-black">Bilgilendirme</p>
-            <p className="mt-4 text-sm leading-7 text-slate-400">
-              Bilet fiyatları değişebilir. Satın almadan önce son fiyatı, bagaj
-              şartlarını ve müsaitliği partner sitede kontrol edin.
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2 text-xs font-black text-slate-300">
-              <span className="rounded-full bg-white/10 px-3 py-2">
-                Güvenli bağlantı
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-2">
-                Partner fiyatları
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-2">
-                Fiyat alarmı
-              </span>
+              <div className="letsgo-footer-pills">
+                <span className="letsgo-footer-pill">Güvenli bağlantı</span>
+                <span className="letsgo-footer-pill">Partner fiyatları</span>
+                <span className="letsgo-footer-pill">Fiyat alarmı</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 pt-6 text-sm text-slate-500">
-          © 2026 Letsgo 2 Travel. Tüm hakları saklıdır.
+          <div className="letsgo-footer-bottom">
+            © 2026 Letsgo 2 Travel. Tüm hakları saklıdır.
+          </div>
         </div>
       </footer>
     </main>
@@ -763,17 +698,14 @@ function SearchInput({
   listId: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-        {label}
-      </label>
+    <div className="letsgo-field">
+      <label>{label}</label>
 
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         list={listId}
-        className="mt-1 w-full bg-transparent text-lg font-black outline-none placeholder:text-slate-300"
       />
     </div>
   );
@@ -789,16 +721,13 @@ function DateInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
-        {label}
-      </label>
+    <div className="letsgo-field">
+      <label>{label}</label>
 
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type="date"
-        className="mt-1 w-full bg-transparent text-base font-black outline-none"
       />
     </div>
   );
@@ -806,9 +735,9 @@ function DateInput({
 
 function StatCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <p className="text-sm font-black text-slate-500">{title}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
+    <div className="letsgo-stat-card">
+      <p className="letsgo-stat-label">{title}</p>
+      <p className="letsgo-stat-value">{value}</p>
     </div>
   );
 }
@@ -823,14 +752,14 @@ function SectionHeader({
   href?: string;
 }) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-4">
+    <div className="letsgo-section-header">
       <div>
-        <p className="font-black text-blue-600">{eyebrow}</p>
-        <h2 className="text-3xl font-black tracking-tight">{title}</h2>
+        <p className="letsgo-eyebrow">{eyebrow}</p>
+        <h2 className="letsgo-section-title">{title}</h2>
       </div>
 
       {href && (
-        <a href={href} className="hidden font-black text-blue-600 md:block">
+        <a href={href} className="letsgo-section-link">
           Tümünü gör →
         </a>
       )}
@@ -846,54 +775,47 @@ function DealCard({
   onSatinAl: () => void;
 }) {
   return (
-    <article className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-xl">
-      <div className="h-32 bg-gradient-to-br from-sky-100 via-white to-blue-100 p-4">
-        <div className="flex h-full items-end justify-between">
-          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-700 shadow">
+    <article className="letsgo-card letsgo-hover">
+      <div className="letsgo-deal-image">
+        <div className="letsgo-deal-image-inner">
+          <span className="letsgo-badge">
             {bilet.ulkeEmoji} {bilet.ulke}
           </span>
 
-          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-slate-700 shadow">
-            {bilet.vize}
-          </span>
+          <span className="letsgo-badge">{bilet.vize}</span>
         </div>
       </div>
 
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3">
+      <div className="letsgo-deal-body">
+        <div className="letsgo-deal-top">
           <div>
-            <h3 className="text-lg font-black">
+            <h3 className="letsgo-deal-title">
               {bilet.nereden} → {bilet.nereye}
             </h3>
 
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {bilet.tarih}
-            </p>
+            <p className="letsgo-deal-date">{bilet.tarih}</p>
           </div>
 
-          <p className="text-right text-2xl font-black">{bilet.fiyat}</p>
+          <p className="letsgo-deal-price">{bilet.fiyat}</p>
         </div>
 
-        <div className="mt-4 grid gap-2 text-sm text-slate-600">
+        <div className="letsgo-deal-info">
           <p>
-            <span className="font-black">Havayolu:</span> {bilet.havayolu}
+            <span>Havayolu:</span> {bilet.havayolu}
           </p>
           <p>
-            <span className="font-black">Süre:</span> {bilet.sure}
+            <span>Süre:</span> {bilet.sure}
           </p>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button
-            onClick={onSatinAl}
-            className="rounded-xl bg-yellow-400 px-4 py-3 font-black text-slate-950 hover:bg-yellow-300"
-          >
+        <div className="letsgo-deal-actions">
+          <button onClick={onSatinAl} className="letsgo-card-button-yellow">
             Satın Al
           </button>
 
           <a
             href={`/ucak-bileti/${bilet.detaySlug}`}
-            className="rounded-xl border border-slate-200 px-4 py-3 text-center font-black hover:bg-slate-950 hover:text-white"
+            className="letsgo-card-button-dark"
           >
             Detay
           </a>
@@ -913,22 +835,19 @@ function FeatureCard({
   text: string;
 }) {
   return (
-    <div className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
-        {icon}
-      </div>
-
-      <h3 className="mt-5 text-xl font-black">{title}</h3>
-      <p className="mt-2 leading-7 text-slate-500">{text}</p>
+    <div className="letsgo-feature-card">
+      <div className="letsgo-feature-icon">{icon}</div>
+      <h3 className="letsgo-feature-title">{title}</h3>
+      <p className="letsgo-feature-text">{text}</p>
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-200">
-      <h3 className="text-2xl font-black">Henüz fırsat yok</h3>
-      <p className="mt-2 text-slate-500">
+    <div className="letsgo-empty">
+      <h3 className="letsgo-empty-title">Henüz fırsat yok</h3>
+      <p className="letsgo-empty-text">
         Admin panelden bilet ekleyince burada görünecek.
       </p>
     </div>
@@ -944,11 +863,11 @@ function FooterLinks({
 }) {
   return (
     <div>
-      <p className="font-black">{title}</p>
+      <p className="letsgo-footer-heading">{title}</p>
 
-      <div className="mt-4 grid gap-3 text-sm font-bold text-slate-400">
+      <div className="letsgo-footer-links">
         {links.map(([label, href]) => (
-          <a key={label} href={href} className="hover:text-white">
+          <a key={label} href={href}>
             {label}
           </a>
         ))}
