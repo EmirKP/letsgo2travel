@@ -60,7 +60,7 @@ function tarihYaz(value: string) {
 
 export default function CanliUcusPage() {
   const [detay, setDetay] = useState<Detay>(bosDetay);
-  const [kopyalandi, setKopyalandi] = useState(false);
+  const [kopyaMesaji, setKopyaMesaji] = useState("");
   const widgetRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function CanliUcusPage() {
     widgetRef.current.appendChild(script);
   }, []);
 
-  const aramaMetni = `${detay.nereden} → ${detay.nereye}
+  const tumBilgi = `${detay.nereden} → ${detay.nereye}
 Gidiş: ${tarihYaz(detay.gidis)}
 Dönüş: ${detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"}
 Fiyat: ${fiyatYaz(detay.fiyat)}
@@ -107,11 +107,11 @@ Aktarma: ${detay.aktarma}
 Havayolu: ${detay.havayolu}
 Kaynak: ${detay.kaynak}`;
 
-  async function bilgileriKopyala() {
+  async function kopyala(metin: string, mesaj: string) {
     try {
-      await navigator.clipboard.writeText(aramaMetni);
-      setKopyalandi(true);
-      setTimeout(() => setKopyalandi(false), 2500);
+      await navigator.clipboard.writeText(metin);
+      setKopyaMesaji(mesaj);
+      setTimeout(() => setKopyaMesaji(""), 2500);
     } catch {
       alert("Kopyalama yapılamadı.");
     }
@@ -160,77 +160,116 @@ Kaynak: ${detay.kaynak}`;
             alınmıştır. Fiyatlar değişebilir; satın almadan önce aşağıdaki
             partner arama kutusundan güncel fiyatı kontrol et.
           </p>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm text-slate-300">Cache fiyat</p>
+              <p className="mt-1 text-3xl font-black">
+                {fiyatYaz(detay.fiyat)}
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm text-slate-300">Gidiş</p>
+              <p className="mt-1 text-xl font-black">{tarihYaz(detay.gidis)}</p>
+            </div>
+
+            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm text-slate-300">Dönüş</p>
+              <p className="mt-1 text-xl font-black">
+                {detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"}
+              </p>
+            </div>
+
+            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
+              <p className="text-sm text-slate-300">Aktarma</p>
+              <p className="mt-1 text-xl font-black">{detay.aktarma}</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-6 px-5 py-10 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-3xl bg-white p-8 shadow">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-black text-blue-600">Rota bilgisi</p>
-              <h3 className="mt-1 text-3xl font-black">
-                {detay.nereden} → {detay.nereye}
-              </h3>
+        <div className="grid gap-6">
+          <div className="rounded-3xl bg-white p-8 shadow">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="font-black text-blue-600">Rota bilgisi</p>
+                <h3 className="mt-1 text-3xl font-black">
+                  {detay.nereden} → {detay.nereye}
+                </h3>
+              </div>
+
+              <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-black text-green-800">
+                {detay.aktarma}
+              </span>
             </div>
 
-            <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-black text-green-800">
-              {detay.aktarma}
-            </span>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Kalkış</p>
-              <p className="mt-2 text-2xl font-black">{detay.nereden}</p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Varış</p>
-              <p className="mt-2 text-2xl font-black">{detay.nereye}</p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Gidiş tarihi</p>
-              <p className="mt-2 text-xl font-black">
-                {tarihYaz(detay.gidis)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Dönüş tarihi</p>
-              <p className="mt-2 text-xl font-black">
-                {detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Havayolu</p>
-              <p className="mt-2 text-xl font-black">{detay.havayolu}</p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-100 p-5">
-              <p className="text-sm font-black text-slate-500">Kaynak</p>
-              <p className="mt-2 text-xl font-black">{detay.kaynak}</p>
+            <div className="mt-8 grid gap-4 md:grid-cols-2">
+              <InfoCard title="Kalkış" value={detay.nereden} />
+              <InfoCard title="Varış" value={detay.nereye} />
+              <InfoCard title="Gidiş tarihi" value={tarihYaz(detay.gidis)} />
+              <InfoCard
+                title="Dönüş tarihi"
+                value={
+                  detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"
+                }
+              />
+              <InfoCard title="Havayolu" value={detay.havayolu} />
+              <InfoCard title="Kaynak" value={detay.kaynak} />
             </div>
           </div>
 
-          <div className="mt-8 rounded-3xl bg-blue-50 p-6 text-blue-950">
+          <div className="rounded-3xl bg-white p-8 shadow">
+            <p className="font-black text-blue-600">Partner arama rehberi</p>
+            <h3 className="mt-1 text-3xl font-black">
+              Widget’a şu bilgileri gir
+            </h3>
+
+            <div className="mt-6 grid gap-3">
+              <CopyRow
+                label="Kalkış"
+                value={detay.nereden}
+                onCopy={() => kopyala(detay.nereden, "Kalkış kodu kopyalandı")}
+              />
+
+              <CopyRow
+                label="Varış"
+                value={detay.nereye}
+                onCopy={() => kopyala(detay.nereye, "Varış kodu kopyalandı")}
+              />
+
+              <CopyRow
+                label="Gidiş"
+                value={tarihYaz(detay.gidis)}
+                onCopy={() => kopyala(tarihYaz(detay.gidis), "Gidiş tarihi kopyalandı")}
+              />
+
+              <CopyRow
+                label="Dönüş"
+                value={detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"}
+                onCopy={() =>
+                  kopyala(
+                    detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi",
+                    "Dönüş tarihi kopyalandı"
+                  )
+                }
+              />
+            </div>
+
+            {kopyaMesaji && (
+              <p className="mt-5 rounded-2xl bg-green-50 p-4 font-black text-green-700">
+                {kopyaMesaji}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl bg-blue-50 p-6 text-blue-950">
             <h4 className="text-xl font-black">Aracı site notu</h4>
             <p className="mt-3 leading-8">
               Letsgo 2 Travel bu fiyatı karşılaştırma ve yönlendirme amacıyla
               gösterir. Bilet satışı partner platformda yapılır. Partner sitede
               fiyat, bagaj ve müsaitlik değişebilir.
-            </p>
-          </div>
-
-          <div className="mt-6 rounded-3xl bg-yellow-50 p-6 text-yellow-900">
-            <h4 className="text-xl font-black">
-              Partnerde nasıl arayacaksın?
-            </h4>
-            <p className="mt-3 leading-8">
-              Aşağıdaki arama kutusunda kalkış, varış ve tarihleri girip Search
-              butonuna bas. Böylece partner tarafında güncel fiyatları
-              kontrol edebilirsin.
             </p>
           </div>
         </div>
@@ -241,10 +280,10 @@ Kaynak: ${detay.kaynak}`;
 
           <div className="mt-6 grid gap-3">
             <button
-              onClick={bilgileriKopyala}
+              onClick={() => kopyala(tumBilgi, "Tüm uçuş bilgileri kopyalandı")}
               className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
             >
-              {kopyalandi ? "Kopyalandı" : "Bilgileri Kopyala"}
+              Tüm Bilgileri Kopyala
             </button>
 
             <a
@@ -277,7 +316,8 @@ Kaynak: ${detay.kaynak}`;
             </p>
             <h3 className="text-3xl font-black">Partner Arama Kutusu</h3>
             <p className="mt-2 text-slate-500">
-              Rota ve tarihleri girerek partner tarafta güncel uçuşları ara.
+              Yukarıdaki rota ve tarihleri girerek partner tarafta güncel
+              uçuşları ara.
             </p>
           </div>
 
@@ -287,5 +327,40 @@ Kaynak: ${detay.kaynak}`;
         </div>
       </section>
     </main>
+  );
+}
+
+function InfoCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-100 p-5">
+      <p className="text-sm font-black text-slate-500">{title}</p>
+      <p className="mt-2 text-xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function CopyRow({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-slate-100 p-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="text-xs font-black uppercase text-slate-500">{label}</p>
+        <p className="mt-1 text-xl font-black">{value}</p>
+      </div>
+
+      <button
+        onClick={onCopy}
+        className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
+      >
+        Kopyala
+      </button>
+    </div>
   );
 }

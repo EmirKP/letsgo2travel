@@ -68,11 +68,52 @@ const kategoriler = [
 ];
 
 const populerAramalar = [
-  { nereden: "İstanbul", nereye: "Roma", etiket: "Avrupa kaçamağı" },
-  { nereden: "İstanbul", nereye: "Saraybosna", etiket: "Vizesiz favori" },
-  { nereden: "Ankara", nereye: "Bakü", etiket: "Yakın rota" },
-  { nereden: "İstanbul", nereye: "Paris", etiket: "Popüler şehir" },
+  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Roma (ROM) - Tüm Havalimanları", etiket: "Avrupa kaçamağı" },
+  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı", etiket: "Vizesiz favori" },
+  { nereden: "Ankara (ESB) - Esenboğa Havalimanı", nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı", etiket: "Yakın rota" },
+  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Paris (PAR) - Tüm Havalimanları", etiket: "Popüler şehir" },
 ];
+
+const havalimaniSecenekleri = [
+  "İstanbul (IST) - İstanbul Havalimanı",
+  "İstanbul (SAW) - Sabiha Gökçen Havalimanı",
+  "Ankara (ANK) - Tüm Havalimanları",
+  "Ankara (ESB) - Esenboğa Havalimanı",
+  "İzmir (IZM) - Tüm Havalimanları",
+  "İzmir (ADB) - Adnan Menderes Havalimanı",
+  "Antalya (AYT) - Antalya Havalimanı",
+  "Bodrum (BJV) - Milas Bodrum Havalimanı",
+  "Dalaman (DLM) - Dalaman Havalimanı",
+  "Adana (ADA) - Şakirpaşa Havalimanı",
+  "Trabzon (TZX) - Trabzon Havalimanı",
+
+  "Roma (ROM) - Tüm Havalimanları",
+  "Roma (FCO) - Fiumicino Havalimanı",
+  "Paris (PAR) - Tüm Havalimanları",
+  "Paris (CDG) - Charles de Gaulle Havalimanı",
+  "Bakü (BAK) - Tüm Havalimanları",
+  "Bakü (GYD) - Haydar Aliyev Havalimanı",
+  "Saraybosna (SJJ) - Sarajevo Havalimanı",
+  "Londra (LON) - Tüm Havalimanları",
+  "Amsterdam (AMS) - Schiphol Havalimanı",
+  "Berlin (BER) - Berlin Brandenburg Havalimanı",
+  "Madrid (MAD) - Madrid Barajas Havalimanı",
+  "Barcelona (BCN) - El Prat Havalimanı",
+  "Milano (MIL) - Tüm Havalimanları",
+  "Viyana (VIE) - Vienna Havalimanı",
+  "Prag (PRG) - Václav Havel Havalimanı",
+  "Dubai (DXB) - Dubai Havalimanı",
+];
+
+function aramaDegeriTemizle(value: string) {
+  const kod = value.match(/\(([A-Z]{3})\)/);
+
+  if (kod?.[1]) {
+    return kod[1];
+  }
+
+  return value;
+}
 
 function fiyatYaz(fiyat: number) {
   return `${new Intl.NumberFormat("tr-TR").format(fiyat || 0)} TL`;
@@ -140,8 +181,8 @@ export default function AramaPage() {
     setCanliUcuslar([]);
 
     const params = new URLSearchParams({
-      nereden: aktifNereden,
-      nereye: aktifNereye,
+      nereden: aramaDegeriTemizle(aktifNereden),
+      nereye: aramaDegeriTemizle(aktifNereye),
       gidis: aktifGidis,
       donus: aktifDonus,
       yolcu: aktifYolcu,
@@ -292,8 +333,8 @@ export default function AramaPage() {
         },
         body: JSON.stringify({
           email: alarmEmail,
-          nereden,
-          nereye,
+          nereden: aramaDegeriTemizle(nereden),
+          nereye: aramaDegeriTemizle(nereye),
           maksimumFiyat: Number(alarmMaksimumFiyat),
           gidisTarihi,
           donusTarihi,
@@ -395,11 +436,11 @@ export default function AramaPage() {
             <a href="/arama" className="text-yellow-600">
               Uçuş Ara
             </a>
+            <a href="/admin/dashboard" className="hover:text-yellow-600">
+              Dashboard
+            </a>
             <a href="/admin" className="hover:text-yellow-600">
               Admin
-            </a>
-            <a href="/admin/fiyat-alarmlari" className="hover:text-yellow-600">
-              Fiyat Alarmları
             </a>
           </nav>
         </div>
@@ -408,16 +449,16 @@ export default function AramaPage() {
       <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-12 text-white">
         <div className="mx-auto max-w-7xl">
           <p className="inline-block rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950">
-            Skyscanner tarzı arama + canlı fiyat verisi
+            Skyscanner tarzı arama + havalimanı önerileri
           </p>
 
           <h2 className="mt-5 max-w-4xl text-4xl font-black leading-tight md:text-6xl">
-            Ucuz uçuşları ara, canlı fiyatları karşılaştır
+            Şehir veya havalimanı seç, ucuz uçuşları karşılaştır
           </h2>
 
           <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Letsgo özel fırsatları ve Travelpayouts / Aviasales cache
-            fiyatlarını aynı ekranda gör.
+            İstanbul, Sabiha Gökçen, Roma Fiumicino, Paris CDG gibi şehir ve
+            havalimanı önerileriyle daha profesyonel arama deneyimi.
           </p>
 
           <form
@@ -432,9 +473,16 @@ export default function AramaPage() {
                 <input
                   value={nereden}
                   onChange={(e) => setNereden(e.target.value)}
-                  placeholder="İstanbul, Ankara..."
+                  placeholder="Şehir veya havalimanı yaz..."
+                  list="nereden-havalimanlari"
                   className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
                 />
+
+                <datalist id="nereden-havalimanlari">
+                  {havalimaniSecenekleri.map((secenek) => (
+                    <option key={secenek} value={secenek} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -444,9 +492,16 @@ export default function AramaPage() {
                 <input
                   value={nereye}
                   onChange={(e) => setNereye(e.target.value)}
-                  placeholder="Roma, Bakü, Paris..."
+                  placeholder="Şehir veya havalimanı yaz..."
+                  list="nereye-havalimanlari"
                   className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
                 />
+
+                <datalist id="nereye-havalimanlari">
+                  {havalimaniSecenekleri.map((secenek) => (
+                    <option key={secenek} value={secenek} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -566,7 +621,8 @@ export default function AramaPage() {
                 onClick={() => populerAramaYap(arama.nereden, arama.nereye)}
                 className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white hover:text-slate-950"
               >
-                {arama.nereden} → {arama.nereye} · {arama.etiket}
+                {aramaDegeriTemizle(arama.nereden)} →{" "}
+                {aramaDegeriTemizle(arama.nereye)} · {arama.etiket}
               </button>
             ))}
           </div>
@@ -661,8 +717,8 @@ export default function AramaPage() {
           </button>
 
           <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
-            Canlı fiyatlar Travelpayouts / Aviasales cache verisinden gelir.
-            Fiyatlar değişebilir.
+            Havalimanı seçersen API’ye otomatik IATA kodu gider. Örnek:
+            İstanbul Havalimanı → IST.
           </div>
 
           <form
@@ -780,33 +836,10 @@ export default function AramaPage() {
                       </p>
 
                       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Havayolu
-                          </p>
-                          <p className="mt-1 font-bold">{ucus.havayolu}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Aktarma
-                          </p>
-                          <p className="mt-1 font-bold">{ucus.aktarma}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Mesafe
-                          </p>
-                          <p className="mt-1 font-bold">{ucus.mesafe}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Kaynak
-                          </p>
-                          <p className="mt-1 font-bold">Aviasales</p>
-                        </div>
+                        <BilgiKutusu label="Havayolu" value={ucus.havayolu} />
+                        <BilgiKutusu label="Aktarma" value={ucus.aktarma} />
+                        <BilgiKutusu label="Mesafe" value={ucus.mesafe} />
+                        <BilgiKutusu label="Kaynak" value="Aviasales" />
                       </div>
 
                       <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
@@ -901,33 +934,10 @@ export default function AramaPage() {
                       )}
 
                       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Havayolu
-                          </p>
-                          <p className="mt-1 font-bold">{bilet.havayolu}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Süre
-                          </p>
-                          <p className="mt-1 font-bold">{bilet.sure}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Aktarma
-                          </p>
-                          <p className="mt-1 font-bold">{bilet.aktarma}</p>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-100 p-4">
-                          <p className="text-xs font-black text-slate-500">
-                            Sağlayıcı
-                          </p>
-                          <p className="mt-1 font-bold">{bilet.saglayici}</p>
-                        </div>
+                        <BilgiKutusu label="Havayolu" value={bilet.havayolu} />
+                        <BilgiKutusu label="Süre" value={bilet.sure} />
+                        <BilgiKutusu label="Aktarma" value={bilet.aktarma} />
+                        <BilgiKutusu label="Sağlayıcı" value={bilet.saglayici} />
                       </div>
 
                       <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
@@ -973,5 +983,14 @@ export default function AramaPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function BilgiKutusu({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-100 p-4">
+      <p className="text-xs font-black text-slate-500">{label}</p>
+      <p className="mt-1 font-bold">{value}</p>
+    </div>
   );
 }

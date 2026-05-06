@@ -325,87 +325,88 @@ export default function Home() {
   function BiletKarti({ bilet }: { bilet: Bilet }) {
     return (
       <article
-        className="rounded-3xl p-5 shadow transition hover:-translate-y-1 hover:shadow-2xl"
+        className="group overflow-hidden rounded-[1.7rem] border border-slate-200/70 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
         style={{ backgroundColor: ayarlar.kartRenk }}
       >
-        <div className="flex flex-wrap gap-2">
-          <span
-            className="rounded-full px-3 py-1 text-xs font-black"
-            style={{
-              backgroundColor: `${ayarlar.yanRenk2}33`,
-              color: ayarlar.yaziRenk,
-            }}
-          >
-            {bilet.ulkeEmoji} {bilet.kategori}
-          </span>
-
-          <span
-            className="rounded-full px-3 py-1 text-xs font-black text-white"
-            style={{
-              backgroundColor:
-                bilet.vize === "Vizesiz" ? ayarlar.yanRenk3 : ayarlar.yanRenk1,
-            }}
-          >
-            {bilet.vize}
-          </span>
-
-          {bilet.oneCikan && (
+        <div className="p-5">
+          <div className="flex flex-wrap gap-2">
             <span
               className="rounded-full px-3 py-1 text-xs font-black"
               style={{
-                backgroundColor: ayarlar.anaRenk,
-                color: "#ffffff",
+                backgroundColor: `${ayarlar.yanRenk2}33`,
+                color: ayarlar.yaziRenk,
               }}
             >
-              Öne çıkan
+              {bilet.ulkeEmoji} {bilet.kategori}
             </span>
-          )}
-        </div>
 
-        <h3 className="mt-4 text-2xl font-black">
-          {bilet.nereden} → {bilet.nereye}
-        </h3>
+            <span
+              className="rounded-full px-3 py-1 text-xs font-black text-white"
+              style={{
+                backgroundColor:
+                  bilet.vize === "Vizesiz" ? ayarlar.yanRenk3 : ayarlar.yanRenk1,
+              }}
+            >
+              {bilet.vize}
+            </span>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {bilet.ulke} · {bilet.tarih}
-        </p>
+            {bilet.oneCikan && (
+              <span
+                className="rounded-full px-3 py-1 text-xs font-black"
+                style={{
+                  backgroundColor: ayarlar.anaRenk,
+                  color: "#ffffff",
+                }}
+              >
+                Öne çıkan
+              </span>
+            )}
+          </div>
 
-        <p className="mt-4 text-4xl font-black">{bilet.fiyat}</p>
+          <h3 className="mt-5 text-2xl font-black tracking-tight">
+            {bilet.nereden} → {bilet.nereye}
+          </h3>
 
-        <div className="mt-5 grid gap-2 text-sm">
-          <p>
-            <span className="font-black">Havayolu:</span> {bilet.havayolu}
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {bilet.ulke} · {bilet.tarih}
           </p>
-          <p>
-            <span className="font-black">Süre:</span> {bilet.sure}
-          </p>
-          <p>
-            <span className="font-black">Bagaj:</span> {bilet.bagaj}
-          </p>
-        </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <button
-            onClick={() => satinAl(bilet)}
-            className="rounded-xl px-4 py-3 font-black"
-            style={{
-              backgroundColor: ayarlar.yanRenk2,
-              color: ayarlar.butonYaziRenk,
-            }}
-          >
-            Satın Al
-          </button>
+          <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Başlayan fiyat
+            </p>
+            <p className="mt-1 text-4xl font-black">{bilet.fiyat}</p>
+          </div>
 
-          <a
-            href={`/ucak-bileti/${bilet.detaySlug}`}
-            className="rounded-xl border px-4 py-3 text-center font-black"
-            style={{
-              borderColor: `${ayarlar.anaRenk}33`,
-              color: ayarlar.anaRenk,
-            }}
-          >
-            Detay
-          </a>
+          <div className="mt-5 grid gap-2 text-sm">
+            <InfoLine label="Havayolu" value={bilet.havayolu} />
+            <InfoLine label="Süre" value={bilet.sure} />
+            <InfoLine label="Bagaj" value={bilet.bagaj} />
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => satinAl(bilet)}
+              className="rounded-2xl px-4 py-3 font-black transition hover:scale-[1.02]"
+              style={{
+                backgroundColor: ayarlar.yanRenk2,
+                color: ayarlar.butonYaziRenk,
+              }}
+            >
+              Satın Al
+            </button>
+
+            <a
+              href={`/ucak-bileti/${bilet.detaySlug}`}
+              className="rounded-2xl border px-4 py-3 text-center font-black transition hover:bg-slate-950 hover:text-white"
+              style={{
+                borderColor: `${ayarlar.anaRenk}33`,
+                color: ayarlar.anaRenk,
+              }}
+            >
+              Detay
+            </a>
+          </div>
         </div>
       </article>
     );
@@ -419,22 +420,28 @@ export default function Home() {
         color: ayarlar.yaziRenk,
       }}
     >
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <a href="/" className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Letsgo 2 Travel Logo"
-              className="h-14 w-auto"
-            />
+            <div className="rounded-2xl bg-slate-950/5 p-2">
+              <img
+                src="/logo.png"
+                alt="Letsgo 2 Travel Logo"
+                className="h-12 w-auto"
+              />
+            </div>
 
             <div>
-              <h1 className="text-xl font-black">{ayarlar.siteBaslik}</h1>
-              <p className="text-sm text-slate-500">{ayarlar.siteAltBaslik}</p>
+              <h1 className="text-xl font-black tracking-tight">
+                {ayarlar.siteBaslik}
+              </h1>
+              <p className="text-sm font-semibold text-slate-500">
+                {ayarlar.siteAltBaslik}
+              </p>
             </div>
           </a>
 
-          <nav className="hidden gap-6 text-sm font-black md:flex">
+          <nav className="hidden items-center gap-6 text-sm font-black md:flex">
             <a href="/" style={{ color: ayarlar.anaRenk }}>
               Ana Sayfa
             </a>
@@ -442,38 +449,42 @@ export default function Home() {
               Uçuş Ara
             </a>
             <a href={ayarlar.instagramTr} target="_blank" rel="noreferrer">
-              Instagram TR
+              Instagram
             </a>
-            <a href="/admin" className="hover:opacity-70">
+            <a
+              href="/admin/dashboard"
+              className="rounded-full bg-slate-950 px-4 py-2 text-white"
+            >
               Admin
-            </a>
-            <a href="/admin/fiyat-alarmlari" className="hover:opacity-70">
-              Alarmlar
             </a>
           </nav>
         </div>
       </header>
 
       <section
-        className="px-5 py-12 text-white md:py-16"
+        className="relative overflow-hidden px-5 pb-16 pt-12 text-white md:pb-24 md:pt-20"
         style={{
-          background: `linear-gradient(135deg, ${ayarlar.anaRenk}, ${ayarlar.koyuRenk})`,
+          background: `radial-gradient(circle at top left, ${ayarlar.yanRenk1}55, transparent 35%), linear-gradient(135deg, ${ayarlar.anaRenk}, ${ayarlar.koyuRenk})`,
         }}
       >
-        <div className="mx-auto max-w-7xl">
+        <div className="absolute -right-24 top-10 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -bottom-24 left-20 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
+
+        <div className="relative mx-auto max-w-7xl">
           <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center">
             <div>
               <p
-                className="inline-block rounded-full px-4 py-2 text-sm font-black"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black shadow-lg"
                 style={{
                   backgroundColor: ayarlar.yanRenk2,
                   color: ayarlar.butonYaziRenk,
                 }}
               >
+                <span>✈️</span>
                 {ayarlar.heroRozet}
               </p>
 
-              <h2 className="mt-6 max-w-4xl text-4xl font-black leading-tight md:text-6xl">
+              <h2 className="mt-6 max-w-4xl text-4xl font-black leading-tight tracking-tight md:text-7xl">
                 {ayarlar.heroBaslik}
               </h2>
 
@@ -484,7 +495,7 @@ export default function Home() {
               <div className="mt-7 flex flex-wrap gap-3">
                 <a
                   href="/arama"
-                  className="rounded-xl px-6 py-4 font-black"
+                  className="rounded-2xl px-6 py-4 font-black shadow-lg transition hover:scale-[1.02]"
                   style={{
                     backgroundColor: ayarlar.yanRenk2,
                     color: ayarlar.butonYaziRenk,
@@ -495,48 +506,33 @@ export default function Home() {
 
                 <a
                   href="#firsatlar"
-                  className="rounded-xl border border-white/20 px-6 py-4 font-black text-white hover:bg-white hover:text-slate-950"
+                  className="rounded-2xl border border-white/20 bg-white/10 px-6 py-4 font-black text-white backdrop-blur transition hover:bg-white hover:text-slate-950"
                 >
                   Fırsatları Gör
                 </a>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
+            <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
               <img
                 src="/logo.png"
                 alt="Letsgo 2 Travel"
-                className="mx-auto h-40 w-auto"
+                className="mx-auto h-36 w-auto"
               />
 
-              <div className="mt-6 rounded-2xl bg-slate-950/70 p-5">
+              <div className="mt-6 rounded-[1.5rem] bg-slate-950/70 p-5">
                 <p className="font-black" style={{ color: ayarlar.yanRenk2 }}>
-                  Profesyonel uçuş arama deneyimi
+                  Aracı uçuş fırsat platformu
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Arama kutusu, fiyat alarmı ve senin seçtiğin ucuz uçuş
-                  fırsatları aynı platformda.
+                  Senin özel fırsatların, canlı cache fiyatlar ve partner arama
+                  kutusu tek deneyimde birleşir.
                 </p>
 
                 <div className="mt-5 grid grid-cols-3 gap-3">
-                  <div
-                    className="rounded-xl p-3 text-center text-sm font-black"
-                    style={{ backgroundColor: ayarlar.yanRenk1 }}
-                  >
-                    Ara
-                  </div>
-                  <div
-                    className="rounded-xl p-3 text-center text-sm font-black text-slate-950"
-                    style={{ backgroundColor: ayarlar.yanRenk2 }}
-                  >
-                    Fırsat
-                  </div>
-                  <div
-                    className="rounded-xl p-3 text-center text-sm font-black"
-                    style={{ backgroundColor: ayarlar.yanRenk3 }}
-                  >
-                    Alarm
-                  </div>
+                  <MiniPill label="Ara" color={ayarlar.yanRenk1} />
+                  <MiniPill label="Fırsat" color={ayarlar.yanRenk2} dark />
+                  <MiniPill label="Alarm" color={ayarlar.yanRenk3} />
                 </div>
               </div>
             </div>
@@ -544,65 +540,34 @@ export default function Home() {
 
           <form
             onSubmit={aramaYap}
-            className="mt-10 rounded-3xl bg-white p-4 text-slate-950 shadow-2xl md:p-6"
+            className="relative z-10 mt-10 rounded-[2rem] border border-white/10 bg-white p-4 text-slate-950 shadow-2xl md:p-5"
           >
-            <div className="grid gap-4 md:grid-cols-5">
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Nereden?
-                </label>
-                <input
-                  value={nereden}
-                  onChange={(e) => setNereden(e.target.value)}
-                  placeholder="İstanbul, Ankara..."
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none"
-                />
-              </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_170px_170px_120px]">
+              <SearchInput
+                label="Nereden?"
+                value={nereden}
+                onChange={setNereden}
+                placeholder="İstanbul, Ankara..."
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Nereye?
-                </label>
-                <input
-                  value={nereye}
-                  onChange={(e) => setNereye(e.target.value)}
-                  placeholder="Roma, Paris, Bakü..."
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none"
-                />
-              </div>
+              <SearchInput
+                label="Nereye?"
+                value={nereye}
+                onChange={setNereye}
+                placeholder="Roma, Paris, Bakü..."
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Gidiş
-                </label>
-                <input
-                  value={gidisTarihi}
-                  onChange={(e) => setGidisTarihi(e.target.value)}
-                  type="date"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none"
-                />
-              </div>
+              <DateInput label="Gidiş" value={gidisTarihi} onChange={setGidisTarihi} />
+              <DateInput label="Dönüş" value={donusTarihi} onChange={setDonusTarihi} />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Dönüş
-                </label>
-                <input
-                  value={donusTarihi}
-                  onChange={(e) => setDonusTarihi(e.target.value)}
-                  type="date"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-black text-slate-500">
+              <div className="rounded-2xl border bg-slate-50 p-3">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-400">
                   Yolcu
                 </label>
                 <select
                   value={yolcu}
                   onChange={(e) => setYolcu(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none"
+                  className="mt-1 w-full bg-transparent text-lg font-black outline-none"
                 >
                   <option>1</option>
                   <option>2</option>
@@ -612,66 +577,40 @@ export default function Home() {
               </div>
             </div>
 
-            <button
-              className="mt-4 w-full rounded-2xl px-6 py-5 text-lg font-black md:w-auto"
-              style={{
-                backgroundColor: ayarlar.yanRenk2,
-                color: ayarlar.butonYaziRenk,
-              }}
-            >
-              Ucuz Bilet Ara
-            </button>
-          </form>
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {populerRotalar.map((rota) => (
+                  <button
+                    key={`${rota.nereden}-${rota.nereye}`}
+                    type="button"
+                    onClick={() => populerRotaAra(rota.nereden, rota.nereye)}
+                    className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-950 hover:text-white"
+                  >
+                    {rota.nereden} → {rota.nereye}
+                  </button>
+                ))}
+              </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            {populerRotalar.map((rota) => (
               <button
-                key={`${rota.nereden}-${rota.nereye}`}
-                onClick={() => populerRotaAra(rota.nereden, rota.nereye)}
-                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white hover:text-slate-950"
+                className="rounded-2xl px-8 py-4 text-lg font-black shadow-lg transition hover:scale-[1.02]"
+                style={{
+                  backgroundColor: ayarlar.yanRenk2,
+                  color: ayarlar.butonYaziRenk,
+                }}
               >
-                {rota.nereden} → {rota.nereye} · {rota.etiket}
+                Ucuz Bilet Ara
               </button>
-            ))}
-          </div>
+            </div>
+          </form>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-8">
         <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Aktif fırsat</p>
-            <p className="mt-2 text-4xl font-black">
-              {yukleniyor ? "..." : istatistik.toplam}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">En ucuz fiyat</p>
-            <p className="mt-2 text-4xl font-black">
-              {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Vizesiz rota</p>
-            <p
-              className="mt-2 text-4xl font-black"
-              style={{ color: ayarlar.yanRenk3 }}
-            >
-              {istatistik.vizesiz}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Ülke sayısı</p>
-            <p
-              className="mt-2 text-4xl font-black"
-              style={{ color: ayarlar.yanRenk1 }}
-            >
-              {istatistik.ulkeSayisi}
-            </p>
-          </div>
+          <MetricCard title="Aktif fırsat" value={yukleniyor ? "..." : String(istatistik.toplam)} />
+          <MetricCard title="En ucuz fiyat" value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"} />
+          <MetricCard title="Vizesiz rota" value={String(istatistik.vizesiz)} color={ayarlar.yanRenk3} />
+          <MetricCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} color={ayarlar.yanRenk1} />
         </div>
       </section>
 
@@ -711,7 +650,7 @@ export default function Home() {
                 <div className="mt-8 flex flex-wrap gap-3">
                   <button
                     onClick={() => satinAl(gununFirsati)}
-                    className="rounded-xl px-6 py-4 font-black"
+                    className="rounded-2xl px-6 py-4 font-black transition hover:scale-[1.02]"
                     style={{
                       backgroundColor: ayarlar.yanRenk2,
                       color: ayarlar.butonYaziRenk,
@@ -722,7 +661,7 @@ export default function Home() {
 
                   <a
                     href={`/ucak-bileti/${gununFirsati.detaySlug}`}
-                    className="rounded-xl border border-white/20 px-6 py-4 font-black text-white hover:bg-white hover:text-slate-950"
+                    className="rounded-2xl border border-white/20 px-6 py-4 font-black text-white hover:bg-white hover:text-slate-950"
                   >
                     Detayları Gör
                   </a>
@@ -738,22 +677,10 @@ export default function Home() {
                 </p>
 
                 <div className="mt-6 grid gap-3 text-sm">
-                  <p>
-                    <span className="font-black">Havayolu:</span>{" "}
-                    {gununFirsati.havayolu}
-                  </p>
-                  <p>
-                    <span className="font-black">Süre:</span>{" "}
-                    {gununFirsati.sure}
-                  </p>
-                  <p>
-                    <span className="font-black">Bagaj:</span>{" "}
-                    {gununFirsati.bagaj}
-                  </p>
-                  <p>
-                    <span className="font-black">Son kontrol:</span>{" "}
-                    {gununFirsati.sonKontrol}
-                  </p>
+                  <InfoLine label="Havayolu" value={gununFirsati.havayolu} />
+                  <InfoLine label="Süre" value={gununFirsati.sure} />
+                  <InfoLine label="Bagaj" value={gununFirsati.bagaj} />
+                  <InfoLine label="Son kontrol" value={gununFirsati.sonKontrol} />
                 </div>
               </aside>
             </div>
@@ -762,23 +689,15 @@ export default function Home() {
       )}
 
       <section id="firsatlar" className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <p className="font-black" style={{ color: ayarlar.yanRenk1 }}>
-              En ucuzlar
-            </p>
-            <h2 className="text-3xl font-black">Öne çıkan ucuz uçuşlar</h2>
-          </div>
-
-          <a href="/arama" className="hidden font-black text-slate-600 md:block">
-            Tümünü gör →
-          </a>
-        </div>
+        <SectionTitle
+          eyebrow="En ucuzlar"
+          title="Öne çıkan ucuz uçuşlar"
+          link="/arama"
+          color={ayarlar.yanRenk1}
+        />
 
         {enUcuzlar.length === 0 ? (
-          <div className="rounded-3xl bg-white p-10 text-center shadow">
-            <p className="font-black">Henüz aktif fırsat yok.</p>
-          </div>
+          <EmptyCard text="Henüz aktif fırsat yok." />
         ) : (
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {enUcuzlar.map((bilet) => (
@@ -790,12 +709,11 @@ export default function Home() {
 
       {vizesizler.length > 0 && (
         <section className="mx-auto max-w-7xl px-5 py-8">
-          <div className="mb-6">
-            <p className="font-black" style={{ color: ayarlar.yanRenk3 }}>
-              Vizesiz
-            </p>
-            <h2 className="text-3xl font-black">Vizesiz uçuş fırsatları</h2>
-          </div>
+          <SectionTitle
+            eyebrow="Vizesiz"
+            title="Vizesiz uçuş fırsatları"
+            color={ayarlar.yanRenk3}
+          />
 
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {vizesizler.map((bilet) => (
@@ -808,23 +726,12 @@ export default function Home() {
       {ayarlar.kategorilerGoster &&
         kategoriGruplari.map((grup) => (
           <section key={grup.kategori} className="mx-auto max-w-7xl px-5 py-8">
-            <div className="mb-6 flex items-end justify-between">
-              <div>
-                <p className="font-black" style={{ color: ayarlar.yanRenk1 }}>
-                  Kategori
-                </p>
-                <h2 className="text-3xl font-black">
-                  {grup.kategori} fırsatları
-                </h2>
-              </div>
-
-              <a
-                href={`/arama?kategori=${encodeURIComponent(grup.kategori)}`}
-                className="hidden font-black text-slate-600 md:block"
-              >
-                Kategoriyi gör →
-              </a>
-            </div>
+            <SectionTitle
+              eyebrow="Kategori"
+              title={`${grup.kategori} fırsatları`}
+              link={`/arama?kategori=${encodeURIComponent(grup.kategori)}`}
+              color={ayarlar.yanRenk1}
+            />
 
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               {grup.biletler.map((bilet) => (
@@ -836,7 +743,7 @@ export default function Home() {
 
       {ayarlar.fiyatAlarmGoster && (
         <section className="mx-auto max-w-7xl px-5 py-10">
-          <div className="grid gap-6 rounded-[2rem] bg-white p-8 shadow lg:grid-cols-[1fr_380px] lg:items-center">
+          <div className="grid gap-6 overflow-hidden rounded-[2rem] bg-white p-8 shadow-xl lg:grid-cols-[1fr_380px] lg:items-center">
             <div>
               <p className="font-black" style={{ color: ayarlar.yanRenk3 }}>
                 Fiyat Alarmı
@@ -850,10 +757,7 @@ export default function Home() {
               </p>
             </div>
 
-            <form
-              onSubmit={fiyatAlarmiKur}
-              className="rounded-3xl bg-slate-100 p-5"
-            >
+            <form onSubmit={fiyatAlarmiKur} className="rounded-3xl bg-slate-100 p-5">
               <label className="text-sm font-black text-slate-500">
                 E-posta adresin
               </label>
@@ -902,29 +806,9 @@ export default function Home() {
 
       <section className="mx-auto max-w-7xl px-5 py-10">
         <div className="grid gap-5 md:grid-cols-3">
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-3xl">🔍</p>
-            <h3 className="mt-4 text-xl font-black">Ara</h3>
-            <p className="mt-2 text-slate-500">
-              Nereden, nereye ve tarih bilgilerini girerek fırsatları keşfet.
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-3xl">💸</p>
-            <h3 className="mt-4 text-xl font-black">Karşılaştır</h3>
-            <p className="mt-2 text-slate-500">
-              En ucuz, en iyi ve popüler fırsatları tek ekranda gör.
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-3xl">✈️</p>
-            <h3 className="mt-4 text-xl font-black">Yönlen</h3>
-            <p className="mt-2 text-slate-500">
-              Satın al butonuyla ilgili bilet sayfasına yönlen.
-            </p>
-          </div>
+          <FeatureCard icon="🔍" title="Ara" text="Nereden, nereye ve tarih bilgilerini girerek fırsatları keşfet." />
+          <FeatureCard icon="💸" title="Karşılaştır" text="En ucuz, en iyi ve popüler fırsatları tek ekranda gör." />
+          <FeatureCard icon="✈️" title="Yönlen" text="Fırsatı seç, detayları kontrol et ve partner tarafında aramaya devam et." />
         </div>
       </section>
 
@@ -969,7 +853,8 @@ export default function Home() {
               <a href={ayarlar.instagramEn} target="_blank" rel="noreferrer">
                 Instagram EN
               </a>
-              <a href="/admin">Admin Panel</a>
+              <a href="/admin/dashboard">Admin Dashboard</a>
+              <a href="/admin">Bilet Admin</a>
               <a href="/admin/fiyat-alarmlari">Fiyat Alarmları</a>
               <a href="/admin/ayarlar">Site Ayarları</a>
             </div>
@@ -977,5 +862,158 @@ export default function Home() {
         </div>
       </footer>
     </main>
+  );
+}
+
+function SearchInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="rounded-2xl border bg-slate-50 p-3">
+      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full bg-transparent text-lg font-black outline-none placeholder:text-slate-300"
+      />
+    </div>
+  );
+}
+
+function DateInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border bg-slate-50 p-3">
+      <label className="text-xs font-black uppercase tracking-wider text-slate-400">
+        {label}
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        type="date"
+        className="mt-1 w-full bg-transparent text-base font-black outline-none"
+      />
+    </div>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  color,
+}: {
+  title: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200/70 bg-white p-6 shadow-sm">
+      <p className="text-sm font-black text-slate-500">{title}</p>
+      <p className="mt-2 text-4xl font-black" style={{ color }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <p>
+      <span className="font-black">{label}:</span> {value}
+    </p>
+  );
+}
+
+function MiniPill({
+  label,
+  color,
+  dark,
+}: {
+  label: string;
+  color: string;
+  dark?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl p-3 text-center text-sm font-black ${
+        dark ? "text-slate-950" : "text-white"
+      }`}
+      style={{ backgroundColor: color }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  link,
+  color,
+}: {
+  eyebrow: string;
+  title: string;
+  link?: string;
+  color: string;
+}) {
+  return (
+    <div className="mb-6 flex items-end justify-between">
+      <div>
+        <p className="font-black" style={{ color }}>
+          {eyebrow}
+        </p>
+        <h2 className="text-3xl font-black tracking-tight">{title}</h2>
+      </div>
+
+      {link && (
+        <a href={link} className="hidden font-black text-slate-600 md:block">
+          Tümünü gör →
+        </a>
+      )}
+    </div>
+  );
+}
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-3xl bg-white p-10 text-center shadow">
+      <p className="font-black">{text}</p>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  text,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200/70 bg-white p-6 shadow-sm">
+      <p className="text-3xl">{icon}</p>
+      <h3 className="mt-4 text-xl font-black">{title}</h3>
+      <p className="mt-2 text-slate-500">{text}</p>
+    </div>
   );
 }
