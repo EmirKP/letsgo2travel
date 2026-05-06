@@ -1,17 +1,20 @@
-import TravelpayoutsWidget from "@/components/TravelpayoutsWidget";
-
 export default function FlightsPage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-2 text-3xl font-bold">
-        Ucuz Uçak Bileti Ara
-      </h1>
+    <main className="min-h-screen bg-slate-100 px-5 py-10 text-slate-950">
+      <section className="mx-auto max-w-4xl rounded-3xl bg-white p-8 shadow">
+        <h1 className="text-3xl font-black">Uçuş Arama</h1>
 
-      <p className="mb-6 text-gray-600">
-        Türkiye ve dünyadaki uçuşları karşılaştır, uygun bileti bul.
-      </p>
+        <p className="mt-3 text-slate-600">
+          Uçuş aramak için ana arama sayfasını kullan.
+        </p>
 
-      <TravelpayoutsWidget />
+        <a
+          href="/arama"
+          className="mt-6 inline-block rounded-xl bg-yellow-400 px-6 py-4 font-black text-slate-950"
+        >
+          Arama Sayfasına Git
+        </a>
+      </section>
     </main>
   );
 }
