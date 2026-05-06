@@ -67,13 +67,6 @@ const kategoriler = [
   "Aile Rotası",
 ];
 
-const populerAramalar = [
-  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Roma (ROM) - Tüm Havalimanları", etiket: "Avrupa kaçamağı" },
-  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı", etiket: "Vizesiz favori" },
-  { nereden: "Ankara (ESB) - Esenboğa Havalimanı", nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı", etiket: "Yakın rota" },
-  { nereden: "İstanbul (IST) - İstanbul Havalimanı", nereye: "Paris (PAR) - Tüm Havalimanları", etiket: "Popüler şehir" },
-];
-
 const havalimaniSecenekleri = [
   "İstanbul (IST) - İstanbul Havalimanı",
   "İstanbul (SAW) - Sabiha Gökçen Havalimanı",
@@ -86,7 +79,6 @@ const havalimaniSecenekleri = [
   "Dalaman (DLM) - Dalaman Havalimanı",
   "Adana (ADA) - Şakirpaşa Havalimanı",
   "Trabzon (TZX) - Trabzon Havalimanı",
-
   "Roma (ROM) - Tüm Havalimanları",
   "Roma (FCO) - Fiumicino Havalimanı",
   "Paris (PAR) - Tüm Havalimanları",
@@ -105,18 +97,37 @@ const havalimaniSecenekleri = [
   "Dubai (DXB) - Dubai Havalimanı",
 ];
 
+const populerAramalar = [
+  {
+    nereden: "İstanbul (IST) - İstanbul Havalimanı",
+    nereye: "Roma (ROM) - Tüm Havalimanları",
+    etiket: "Avrupa",
+  },
+  {
+    nereden: "İstanbul (IST) - İstanbul Havalimanı",
+    nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı",
+    etiket: "Vizesiz",
+  },
+  {
+    nereden: "Ankara (ESB) - Esenboğa Havalimanı",
+    nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı",
+    etiket: "Yakın rota",
+  },
+  {
+    nereden: "İstanbul (IST) - İstanbul Havalimanı",
+    nereye: "Paris (PAR) - Tüm Havalimanları",
+    etiket: "Popüler",
+  },
+];
+
 function aramaDegeriTemizle(value: string) {
   const kod = value.match(/\(([A-Z]{3})\)/);
-
-  if (kod?.[1]) {
-    return kod[1];
-  }
-
-  return value;
+  if (kod?.[1]) return kod[1];
+  return value.trim();
 }
 
-function fiyatYaz(fiyat: number) {
-  return `${new Intl.NumberFormat("tr-TR").format(fiyat || 0)} TL`;
+function fiyatYaz(value: number) {
+  return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`;
 }
 
 export default function AramaPage() {
@@ -135,11 +146,11 @@ export default function AramaPage() {
   const [biletler, setBiletler] = useState<Bilet[]>([]);
   const [canliUcuslar, setCanliUcuslar] = useState<CanliUcus[]>([]);
   const [canliKaynak, setCanliKaynak] = useState("");
-  const [canliHata, setCanliHata] = useState("");
 
   const [yukleniyor, setYukleniyor] = useState(false);
   const [canliYukleniyor, setCanliYukleniyor] = useState(false);
   const [hata, setHata] = useState("");
+  const [canliHata, setCanliHata] = useState("");
 
   const [alarmEmail, setAlarmEmail] = useState("");
   const [alarmMaksimumFiyat, setAlarmMaksimumFiyat] = useState("5000");
@@ -217,9 +228,7 @@ export default function AramaPage() {
       try {
         const canliResponse = await fetch(
           `/api/canli-ucuslar?${params.toString()}`,
-          {
-            cache: "no-store",
-          }
+          { cache: "no-store" }
         );
 
         const canliData = await canliResponse.json();
@@ -292,7 +301,7 @@ export default function AramaPage() {
         method: "POST",
       });
     } catch {
-      // Tıklanma kaydı hata verirse bile kullanıcı yönlenir.
+      // Kullanıcı yönlendirmesi devam eder.
     }
 
     window.open(bilet.link, "_blank", "noopener,noreferrer");
@@ -416,126 +425,96 @@ export default function AramaPage() {
   }, [biletler, canliUcuslar]);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <a href="/" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Letsgo 2 Travel" className="h-14 w-auto" />
-            <div>
-              <h1 className="text-xl font-black">Letsgo 2 Travel</h1>
-              <p className="text-sm text-slate-500">
-                Ucuz uçuş arama ve fırsat platformu
-              </p>
-            </div>
+    <main className="letsgo-page">
+      <header className="letsgo-header">
+        <div className="letsgo-container letsgo-header-inner">
+          <a href="/" className="letsgo-logo">
+            <img src="/logo.png" alt="Letsgo 2 Travel" />
+            <span className="letsgo-logo-title">Letsgo 2 Travel</span>
           </a>
 
-          <nav className="hidden gap-6 text-sm font-black md:flex">
-            <a href="/" className="hover:text-yellow-600">
-              Ana Sayfa
-            </a>
-            <a href="/arama" className="text-yellow-600">
-              Uçuş Ara
-            </a>
-            <a href="/admin/dashboard" className="hover:text-yellow-600">
-              Dashboard
-            </a>
-            <a href="/admin" className="hover:text-yellow-600">
-              Admin
-            </a>
+          <nav className="letsgo-nav">
+            <a href="/">Ana Sayfa</a>
+            <a href="/arama">Uçuşlar</a>
+            <a href="/admin/dashboard">Dashboard</a>
+            <a href="/admin">Admin</a>
           </nav>
+
+          <a href="#sonuclar" className="letsgo-header-cta">
+            Sonuçlar
+          </a>
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-12 text-white">
-        <div className="mx-auto max-w-7xl">
-          <p className="inline-block rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950">
-            Skyscanner tarzı arama + havalimanı önerileri
-          </p>
+      <section className="letsgo-hero">
+        <div className="letsgo-container">
+          <div className="letsgo-hero-grid">
+            <div>
+              <p className="letsgo-hero-badge">
+                ✈️ Profesyonel uçuş arama
+              </p>
 
-          <h2 className="mt-5 max-w-4xl text-4xl font-black leading-tight md:text-6xl">
-            Şehir veya havalimanı seç, ucuz uçuşları karşılaştır
-          </h2>
+              <h1 className="letsgo-hero-title">
+                Ucuz uçuşları karşılaştır
+              </h1>
 
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            İstanbul, Sabiha Gökçen, Roma Fiumicino, Paris CDG gibi şehir ve
-            havalimanı önerileriyle daha profesyonel arama deneyimi.
-          </p>
+              <p className="letsgo-hero-text">
+                Şehir veya havalimanı seç, Letsgo fırsatlarını ve canlı partner
+                fiyatlarını aynı ekranda gör.
+              </p>
+            </div>
 
-          <form
-            onSubmit={aramaYap}
-            className="mt-8 rounded-3xl bg-white p-4 text-slate-950 shadow-2xl md:p-6"
-          >
-            <div className="grid gap-4 md:grid-cols-5">
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Nereden?
-                </label>
-                <input
-                  value={nereden}
-                  onChange={(e) => setNereden(e.target.value)}
-                  placeholder="Şehir veya havalimanı yaz..."
-                  list="nereden-havalimanlari"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-                />
-
-                <datalist id="nereden-havalimanlari">
-                  {havalimaniSecenekleri.map((secenek) => (
-                    <option key={secenek} value={secenek} />
-                  ))}
-                </datalist>
+            <div className="letsgo-plane-box">
+              <div className="letsgo-hero-price">
+                <p className="letsgo-hero-price-label">Canlı en ucuz</p>
+                <p className="letsgo-hero-price-value">
+                  {istatistik.canliEnUcuz ? istatistik.canliEnUcuz.fiyat : "—"}
+                </p>
               </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Nereye?
-                </label>
-                <input
-                  value={nereye}
-                  onChange={(e) => setNereye(e.target.value)}
-                  placeholder="Şehir veya havalimanı yaz..."
-                  list="nereye-havalimanlari"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-                />
+          <form onSubmit={aramaYap} className="letsgo-search-card">
+            <div className="letsgo-tabs">
+              <span className="letsgo-tab-active">✈️ Uçuş</span>
+              <span className="letsgo-tab-muted">🏨 Otel yakında</span>
+              <span className="letsgo-tab-muted">🚗 Araç yakında</span>
+            </div>
 
-                <datalist id="nereye-havalimanlari">
-                  {havalimaniSecenekleri.map((secenek) => (
-                    <option key={secenek} value={secenek} />
-                  ))}
-                </datalist>
-              </div>
+            <div className="letsgo-search-grid">
+              <SearchInput
+                label="Nereden"
+                value={nereden}
+                onChange={setNereden}
+                placeholder="Şehir veya havalimanı"
+                listId="arama-from-airports"
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Gidiş
-                </label>
-                <input
-                  value={gidisTarihi}
-                  onChange={(e) => setGidisTarihi(e.target.value)}
-                  type="date"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-                />
-              </div>
+              <SearchInput
+                label="Nereye"
+                value={nereye}
+                onChange={setNereye}
+                placeholder="Şehir veya havalimanı"
+                listId="arama-to-airports"
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Dönüş
-                </label>
-                <input
-                  value={donusTarihi}
-                  onChange={(e) => setDonusTarihi(e.target.value)}
-                  type="date"
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-                />
-              </div>
+              <DateInput
+                label="Gidiş"
+                value={gidisTarihi}
+                onChange={setGidisTarihi}
+              />
 
-              <div>
-                <label className="text-sm font-black text-slate-500">
-                  Yolcu
-                </label>
+              <DateInput
+                label="Dönüş"
+                value={donusTarihi}
+                onChange={setDonusTarihi}
+              />
+
+              <div className="letsgo-field">
+                <label>Yolcu</label>
                 <select
                   value={yolcu}
-                  onChange={(e) => setYolcu(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
+                  onChange={(event) => setYolcu(event.target.value)}
                 >
                   <option>1</option>
                   <option>2</option>
@@ -545,81 +524,105 @@ export default function AramaPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-5">
-              <select
-                value={vize}
-                onChange={(e) => setVize(e.target.value)}
-                className="rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-              >
-                <option>Tümü</option>
-                <option>Vizesiz</option>
-                <option>Vizeli</option>
-              </select>
+            <datalist id="arama-from-airports">
+              {havalimaniSecenekleri.map((item) => (
+                <option key={`from-${item}`} value={item} />
+              ))}
+            </datalist>
 
-              <select
-                value={kategori}
-                onChange={(e) => setKategori(e.target.value)}
-                className="rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-              >
-                {kategoriler.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
+            <datalist id="arama-to-airports">
+              {havalimaniSecenekleri.map((item) => (
+                <option key={`to-${item}`} value={item} />
+              ))}
+            </datalist>
 
-              <select
-                value={aktarma}
-                onChange={(e) => setAktarma(e.target.value)}
-                className="rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-              >
-                <option>Tümü</option>
-                <option>Aktarmasız</option>
-                <option>1 Aktarma</option>
-                <option>Farketmez</option>
-              </select>
+            <div className="letsgo-search-grid" style={{ marginTop: 12 }}>
+              <div className="letsgo-field">
+                <label>Vize</label>
+                <select value={vize} onChange={(e) => setVize(e.target.value)}>
+                  <option>Tümü</option>
+                  <option>Vizesiz</option>
+                  <option>Vizeli</option>
+                </select>
+              </div>
 
-              <select
-                value={siralama}
-                onChange={(e) => setSiralama(e.target.value)}
-                className="rounded-2xl border px-4 py-4 font-bold outline-none focus:border-yellow-400"
-              >
-                <option value="en-iyi">En iyi</option>
-                <option value="en-ucuz">En ucuz</option>
-                <option value="en-hizli">En hızlı</option>
-                <option value="populer">Popüler</option>
-              </select>
+              <div className="letsgo-field">
+                <label>Kategori</label>
+                <select
+                  value={kategori}
+                  onChange={(e) => setKategori(e.target.value)}
+                >
+                  {kategoriler.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="letsgo-field">
+                <label>Aktarma</label>
+                <select
+                  value={aktarma}
+                  onChange={(e) => setAktarma(e.target.value)}
+                >
+                  <option>Tümü</option>
+                  <option>Aktarmasız</option>
+                  <option>1 Aktarma</option>
+                  <option>Farketmez</option>
+                </select>
+              </div>
+
+              <div className="letsgo-field">
+                <label>Sıralama</label>
+                <select
+                  value={siralama}
+                  onChange={(e) => setSiralama(e.target.value)}
+                >
+                  <option value="en-iyi">En iyi</option>
+                  <option value="en-ucuz">En ucuz</option>
+                  <option value="en-hizli">En hızlı</option>
+                  <option value="populer">Popüler</option>
+                </select>
+              </div>
+
+              <div className="letsgo-field">
+                <label>Maksimum</label>
+                <select
+                  value={maksimumFiyat}
+                  onChange={(e) => setMaksimumFiyat(e.target.value)}
+                >
+                  <option value="5000">5.000 TL</option>
+                  <option value="10000">10.000 TL</option>
+                  <option value="30000">30.000 TL</option>
+                  <option value="50000">50.000 TL</option>
+                  <option value="100000">100.000 TL</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="letsgo-search-bottom">
+              <label className="letsgo-checkbox-label">
+                <input type="checkbox" defaultChecked />
+                Havalimanlarını dahil et
+              </label>
 
               <button
                 disabled={yukleniyor || canliYukleniyor}
-                className="rounded-2xl bg-yellow-400 px-6 py-4 font-black text-slate-950 transition hover:bg-yellow-300 disabled:opacity-60"
+                className="letsgo-primary-button"
               >
                 {yukleniyor || canliYukleniyor
                   ? "Aranıyor..."
-                  : "Ucuz Bilet Ara"}
+                  : "Ucuz bilet ara →"}
               </button>
-            </div>
-
-            <div className="mt-5">
-              <label className="text-sm font-black text-slate-500">
-                Maksimum fiyat: {fiyatYaz(Number(maksimumFiyat))}
-              </label>
-              <input
-                type="range"
-                min="1000"
-                max="100000"
-                step="500"
-                value={maksimumFiyat}
-                onChange={(e) => setMaksimumFiyat(e.target.value)}
-                className="mt-2 w-full"
-              />
             </div>
           </form>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 10 }}>
             {populerAramalar.map((arama) => (
               <button
                 key={`${arama.nereden}-${arama.nereye}`}
                 onClick={() => populerAramaYap(arama.nereden, arama.nereye)}
-                className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white hover:text-slate-950"
+                className="letsgo-secondary-button"
+                style={{ padding: "10px 14px", fontSize: 13 }}
               >
                 {aramaDegeriTemizle(arama.nereden)} →{" "}
                 {aramaDegeriTemizle(arama.nereye)} · {arama.etiket}
@@ -629,368 +632,355 @@ export default function AramaPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="grid gap-4 md:grid-cols-5">
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Letsgo sonuç</p>
-            <p className="mt-2 text-4xl font-black">{istatistik.toplam}</p>
+      <section className="letsgo-section">
+        <div className="letsgo-container">
+          <div className="letsgo-stats-grid">
+            <StatCard title="Letsgo sonuç" value={String(istatistik.toplam)} />
+            <StatCard
+              title="Canlı sonuç"
+              value={String(istatistik.canliToplam)}
+            />
+            <StatCard
+              title="Canlı en ucuz"
+              value={istatistik.canliEnUcuz ? istatistik.canliEnUcuz.fiyat : "—"}
+            />
+            <StatCard
+              title="Letsgo en ucuz"
+              value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
+            />
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Canlı sonuç</p>
-            <p className="mt-2 text-4xl font-black text-blue-600">
-              {istatistik.canliToplam}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Canlı en ucuz</p>
-            <p className="mt-2 text-3xl font-black">
-              {istatistik.canliEnUcuz ? istatistik.canliEnUcuz.fiyat : "—"}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Letsgo en ucuz</p>
-            <p className="mt-2 text-3xl font-black">
-              {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Vizesiz</p>
-            <p className="mt-2 text-4xl font-black">{istatistik.vizesiz}</p>
-          </div>
+          {hata && <p className="letsgo-message">{hata}</p>}
+          {canliHata && <p className="letsgo-message">Canlı fiyat: {canliHata}</p>}
         </div>
-
-        {hata && (
-          <p className="mt-5 rounded-2xl bg-red-50 p-4 font-bold text-red-600">
-            {hata}
-          </p>
-        )}
-
-        {canliHata && (
-          <p className="mt-5 rounded-2xl bg-orange-50 p-4 font-bold text-orange-700">
-            Canlı fiyat uyarısı: {canliHata}
-          </p>
-        )}
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[280px_1fr]">
-        <aside className="h-fit rounded-3xl bg-white p-6 shadow">
-          <h3 className="text-xl font-black">Filtre Özeti</h3>
+      <section id="sonuclar" className="letsgo-section">
+        <div className="letsgo-container">
+          <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 28 }}>
+            <aside className="letsgo-card" style={{ padding: 22, height: "fit-content" }}>
+              <h3 style={{ fontSize: 22, fontWeight: 950 }}>Filtre Özeti</h3>
 
-          <div className="mt-5 grid gap-3 text-sm">
-            <p>
-              <span className="font-black">Nereden:</span> {nereden || "Tümü"}
-            </p>
-            <p>
-              <span className="font-black">Nereye:</span> {nereye || "Tümü"}
-            </p>
-            <p>
-              <span className="font-black">Gidiş:</span>{" "}
-              {gidisTarihi || "Seçilmedi"}
-            </p>
-            <p>
-              <span className="font-black">Dönüş:</span>{" "}
-              {donusTarihi || "Seçilmedi"}
-            </p>
-            <p>
-              <span className="font-black">Vize:</span> {vize}
-            </p>
-            <p>
-              <span className="font-black">Kategori:</span> {kategori}
-            </p>
-            <p>
-              <span className="font-black">Aktarma:</span> {aktarma}
-            </p>
-            <p>
-              <span className="font-black">Yolcu:</span> {yolcu}
-            </p>
-          </div>
-
-          <button
-            onClick={temizle}
-            className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 font-black text-white"
-          >
-            Temizle
-          </button>
-
-          <div className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
-            Havalimanı seçersen API’ye otomatik IATA kodu gider. Örnek:
-            İstanbul Havalimanı → IST.
-          </div>
-
-          <form
-            onSubmit={fiyatAlarmiKur}
-            className="mt-5 rounded-2xl bg-slate-100 p-4"
-          >
-            <h3 className="text-lg font-black">Fiyat Alarmı Kur</h3>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Bu rota için hedef fiyatını yaz. Talep admin paneline düşer.
-            </p>
-
-            <label className="mt-4 block text-sm font-black text-slate-500">
-              E-posta
-            </label>
-
-            <input
-              value={alarmEmail}
-              onChange={(e) => setAlarmEmail(e.target.value)}
-              type="email"
-              placeholder="ornek@mail.com"
-              className="mt-2 w-full rounded-xl border bg-white px-4 py-3 outline-none focus:border-yellow-400"
-            />
-
-            <label className="mt-4 block text-sm font-black text-slate-500">
-              Maksimum fiyat
-            </label>
-
-            <input
-              value={alarmMaksimumFiyat}
-              onChange={(e) => setAlarmMaksimumFiyat(e.target.value)}
-              type="number"
-              placeholder="3000"
-              className="mt-2 w-full rounded-xl border bg-white px-4 py-3 outline-none focus:border-yellow-400"
-            />
-
-            <button
-              disabled={alarmYukleniyor}
-              className="mt-4 w-full rounded-xl bg-yellow-400 px-4 py-3 font-black text-slate-950 disabled:opacity-60"
-            >
-              {alarmYukleniyor ? "Kaydediliyor..." : "Fiyat Alarmı Kur"}
-            </button>
-
-            {alarmMesaji && (
-              <p className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-slate-700">
-                {alarmMesaji}
-              </p>
-            )}
-          </form>
-        </aside>
-
-        <div className="grid gap-10">
-          <section className="grid gap-5">
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="font-black text-blue-600">
-                  Travelpayouts / Aviasales
-                </p>
-                <h2 className="text-3xl font-black">Canlı Uçuş Fiyatları</h2>
+              <div style={{ marginTop: 18, display: "grid", gap: 12, fontSize: 14 }}>
+                <p><b>Nereden:</b> {nereden || "Tümü"}</p>
+                <p><b>Nereye:</b> {nereye || "Tümü"}</p>
+                <p><b>Gidiş:</b> {gidisTarihi || "Seçilmedi"}</p>
+                <p><b>Dönüş:</b> {donusTarihi || "Seçilmedi"}</p>
+                <p><b>Vize:</b> {vize}</p>
+                <p><b>Kategori:</b> {kategori}</p>
+                <p><b>Aktarma:</b> {aktarma}</p>
+                <p><b>Yolcu:</b> {yolcu}</p>
               </div>
 
-              <p className="max-w-xl text-sm font-bold text-slate-500 md:text-right">
-                {canliKaynak ||
-                  "Canlı sonuçlar için nereden ve nereye alanlarını doldur."}
-              </p>
-            </div>
+              <button
+                onClick={temizle}
+                className="letsgo-primary-button"
+                style={{ width: "100%", marginTop: 20 }}
+              >
+                Temizle
+              </button>
 
-            {canliYukleniyor ? (
-              <div className="rounded-3xl bg-white p-10 text-center shadow">
-                <p className="text-xl font-black">
-                  Canlı fiyatlar aranıyor...
-                </p>
-              </div>
-            ) : canliUcuslar.length === 0 ? (
-              <div className="rounded-3xl bg-white p-10 text-center shadow">
-                <h3 className="text-2xl font-black">
-                  Canlı uçuş sonucu bulunamadı
+              <form onSubmit={fiyatAlarmiKur} className="letsgo-alert-form" style={{ marginTop: 20 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>
+                  Fiyat Alarmı
                 </h3>
-                <p className="mt-2 text-slate-500">
-                  Bu rota için Travelpayouts cache verisinde fiyat olmayabilir.
-                  Farklı rota veya daha yüksek maksimum fiyat dene.
+
+                <label>E-posta</label>
+                <input
+                  value={alarmEmail}
+                  onChange={(e) => setAlarmEmail(e.target.value)}
+                  type="email"
+                  placeholder="ornek@mail.com"
+                />
+
+                <label>Maksimum fiyat</label>
+                <input
+                  value={alarmMaksimumFiyat}
+                  onChange={(e) => setAlarmMaksimumFiyat(e.target.value)}
+                  type="number"
+                  placeholder="5000"
+                />
+
+                <button disabled={alarmYukleniyor}>
+                  {alarmYukleniyor ? "Kaydediliyor..." : "Alarm Kur"}
+                </button>
+
+                {alarmMesaji && <p className="letsgo-message">{alarmMesaji}</p>}
+              </form>
+            </aside>
+
+            <div style={{ display: "grid", gap: 44 }}>
+              <section>
+                <SectionHeader
+                  eyebrow="Travelpayouts / Aviasales"
+                  title="Canlı Uçuş Fiyatları"
+                />
+
+                <p style={{ marginBottom: 18, color: "#64748b", fontWeight: 700 }}>
+                  {canliKaynak ||
+                    "Canlı sonuçlar için nereden ve nereye alanlarını doldur."}
                 </p>
-              </div>
-            ) : (
-              canliUcuslar.map((ucus) => (
-                <article
-                  key={ucus.id}
-                  className="overflow-hidden rounded-3xl bg-white shadow transition hover:-translate-y-1 hover:shadow-2xl"
-                >
-                  <div className="grid gap-0 md:grid-cols-[1fr_250px]">
-                    <div className="p-6">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-800">
-                          Canlı fiyat
-                        </span>
 
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-green-800">
-                          {ucus.sinif}
-                        </span>
-
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                          {ucus.aktarma}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-4 text-2xl font-black">
-                        {ucus.kalkisKodu} → {ucus.varisKodu}
-                      </h3>
-
-                      <p className="mt-1 text-slate-500">
-                        Gidiş: {ucus.gidisTarihi || "Tarih yok"}
-                        {ucus.donusTarihi
-                          ? ` · Dönüş: ${ucus.donusTarihi}`
-                          : ""}
-                      </p>
-
-                      <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                        <BilgiKutusu label="Havayolu" value={ucus.havayolu} />
-                        <BilgiKutusu label="Aktarma" value={ucus.aktarma} />
-                        <BilgiKutusu label="Mesafe" value={ucus.mesafe} />
-                        <BilgiKutusu label="Kaynak" value="Aviasales" />
-                      </div>
-
-                      <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-800">
-                        Son kontrol: {ucus.sonKontrol} · Fiyatlar değişebilir.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col justify-between bg-blue-950 p-6 text-white">
-                      <div>
-                        <p className="text-sm text-blue-200">Canlı fiyat</p>
-                        <p className="mt-1 text-4xl font-black">
-                          {ucus.fiyat}
-                        </p>
-
-                        <p className="mt-3 text-sm text-blue-200">
-                          {ucus.kaynak}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => canliUcusAc(ucus)}
-                        className="mt-6 rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
-                      >
-                        Detayı Gör
-                      </button>
-                    </div>
+                {canliYukleniyor ? (
+                  <EmptyState title="Canlı fiyatlar aranıyor..." />
+                ) : canliUcuslar.length === 0 ? (
+                  <EmptyState title="Canlı uçuş sonucu bulunamadı" />
+                ) : (
+                  <div style={{ display: "grid", gap: 18 }}>
+                    {canliUcuslar.map((ucus) => (
+                      <CanliUcusCard
+                        key={ucus.id}
+                        ucus={ucus}
+                        onOpen={() => canliUcusAc(ucus)}
+                      />
+                    ))}
                   </div>
-                </article>
-              ))
-            )}
-          </section>
+                )}
+              </section>
 
-          <section className="grid gap-5">
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="font-black text-yellow-600">Letsgo özel</p>
-                <h2 className="text-3xl font-black">Letsgo Uçuş Fırsatları</h2>
-              </div>
+              <section>
+                <SectionHeader
+                  eyebrow="Letsgo özel"
+                  title="Letsgo Uçuş Fırsatları"
+                />
 
-              <p className="text-sm font-bold text-slate-500">
-                Senin admin panelden eklediğin özel fırsatlar.
-              </p>
+                {yukleniyor ? (
+                  <EmptyState title="Fırsatlar aranıyor..." />
+                ) : biletler.length === 0 ? (
+                  <EmptyState title="Sonuç bulunamadı" />
+                ) : (
+                  <div style={{ display: "grid", gap: 18 }}>
+                    {biletler.map((bilet) => (
+                      <BiletCard
+                        key={bilet.id}
+                        bilet={bilet}
+                        onBuy={() => satinAl(bilet)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
-
-            {yukleniyor ? (
-              <div className="rounded-3xl bg-white p-10 text-center shadow">
-                <p className="text-xl font-black">Fırsatlar aranıyor...</p>
-              </div>
-            ) : biletler.length === 0 ? (
-              <div className="rounded-3xl bg-white p-10 text-center shadow">
-                <h3 className="text-2xl font-black">Sonuç bulunamadı</h3>
-                <p className="mt-2 text-slate-500">
-                  Farklı şehir, kategori veya fiyat deneyebilirsin.
-                </p>
-              </div>
-            ) : (
-              biletler.map((bilet) => (
-                <article
-                  key={bilet.id}
-                  className="overflow-hidden rounded-3xl bg-white shadow transition hover:-translate-y-1 hover:shadow-2xl"
-                >
-                  <div className="grid gap-0 md:grid-cols-[1fr_250px]">
-                    <div className="p-6">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-black text-yellow-800">
-                          {bilet.ulkeEmoji} {bilet.kategori}
-                        </span>
-
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
-                          {bilet.vize}
-                        </span>
-
-                        {bilet.oneCikan && (
-                          <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                            Öne çıkan
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="mt-4 text-2xl font-black">
-                        {bilet.nereden} → {bilet.nereye}
-                      </h3>
-
-                      <p className="mt-1 text-slate-500">
-                        {bilet.ulke} • {bilet.tarih}
-                      </p>
-
-                      {bilet.aciklama && (
-                        <p className="mt-3 max-w-2xl text-slate-600">
-                          {bilet.aciklama}
-                        </p>
-                      )}
-
-                      <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                        <BilgiKutusu label="Havayolu" value={bilet.havayolu} />
-                        <BilgiKutusu label="Süre" value={bilet.sure} />
-                        <BilgiKutusu label="Aktarma" value={bilet.aktarma} />
-                        <BilgiKutusu label="Sağlayıcı" value={bilet.saglayici} />
-                      </div>
-
-                      <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
-                        {bilet.bagaj} • Son kontrol: {bilet.sonKontrol}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col justify-between bg-slate-950 p-6 text-white">
-                      <div>
-                        <p className="text-sm text-slate-400">
-                          Başlayan fiyat
-                        </p>
-                        <p className="mt-1 text-4xl font-black">
-                          {bilet.fiyat}
-                        </p>
-
-                        <p className="mt-3 text-sm text-slate-400">
-                          {bilet.tiklanma || 0} kullanıcı ilgilendi
-                        </p>
-                      </div>
-
-                      <div className="mt-6 grid gap-3">
-                        <button
-                          onClick={() => satinAl(bilet)}
-                          className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
-                        >
-                          Satın Al
-                        </button>
-
-                        <a
-                          href={`/ucak-bileti/${bilet.detaySlug}`}
-                          className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
-                        >
-                          Detay
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))
-            )}
-          </section>
+          </div>
         </div>
       </section>
     </main>
   );
 }
 
-function BilgiKutusu({ label, value }: { label: string; value: string }) {
+function SearchInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  listId,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  listId: string;
+}) {
   return (
-    <div className="rounded-2xl bg-slate-100 p-4">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <p className="mt-1 font-bold">{value}</p>
+    <div className="letsgo-field">
+      <label>{label}</label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        list={listId}
+      />
+    </div>
+  );
+}
+
+function DateInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="letsgo-field">
+      <label>{label}</label>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        type="date"
+      />
+    </div>
+  );
+}
+
+function StatCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="letsgo-stat-card">
+      <p className="letsgo-stat-label">{title}</p>
+      <p className="letsgo-stat-value">{value}</p>
+    </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="letsgo-section-header">
+      <div>
+        <p className="letsgo-eyebrow">{eyebrow}</p>
+        <h2 className="letsgo-section-title">{title}</h2>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ title }: { title?: string }) {
+  return (
+    <div className="letsgo-empty">
+      <h3 className="letsgo-empty-title">{title || "Henüz sonuç yok"}</h3>
+      <p className="letsgo-empty-text">
+        Farklı rota, tarih veya daha yüksek maksimum fiyat deneyebilirsin.
+      </p>
+    </div>
+  );
+}
+
+function CanliUcusCard({
+  ucus,
+  onOpen,
+}: {
+  ucus: CanliUcus;
+  onOpen: () => void;
+}) {
+  return (
+    <article className="letsgo-card letsgo-hover">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px" }}>
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <span className="letsgo-badge">Canlı fiyat</span>
+            <span className="letsgo-badge">{ucus.sinif}</span>
+            <span className="letsgo-badge">{ucus.aktarma}</span>
+          </div>
+
+          <h3 style={{ marginTop: 16, fontSize: 26, fontWeight: 950 }}>
+            {ucus.kalkisKodu} → {ucus.varisKodu}
+          </h3>
+
+          <p style={{ marginTop: 6, color: "#64748b", fontWeight: 700 }}>
+            Gidiş: {ucus.gidisTarihi || "Tarih yok"}
+            {ucus.donusTarihi ? ` · Dönüş: ${ucus.donusTarihi}` : ""}
+          </p>
+
+          <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            <MiniInfo label="Havayolu" value={ucus.havayolu} />
+            <MiniInfo label="Aktarma" value={ucus.aktarma} />
+            <MiniInfo label="Mesafe" value={ucus.mesafe} />
+            <MiniInfo label="Kaynak" value="Aviasales" />
+          </div>
+        </div>
+
+        <aside
+          style={{
+            background: "#061733",
+            color: "white",
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <p style={{ color: "#cbd5e1", fontWeight: 800 }}>Canlı fiyat</p>
+            <p style={{ marginTop: 6, fontSize: 36, fontWeight: 950 }}>
+              {ucus.fiyat}
+            </p>
+          </div>
+
+          <button onClick={onOpen} className="letsgo-yellow-button">
+            Detayı Gör
+          </button>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+function BiletCard({ bilet, onBuy }: { bilet: Bilet; onBuy: () => void }) {
+  return (
+    <article className="letsgo-card letsgo-hover">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px" }}>
+        <div style={{ padding: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <span className="letsgo-badge">
+              {bilet.ulkeEmoji} {bilet.kategori}
+            </span>
+            <span className="letsgo-badge">{bilet.vize}</span>
+            {bilet.oneCikan && <span className="letsgo-badge">Öne çıkan</span>}
+          </div>
+
+          <h3 style={{ marginTop: 16, fontSize: 26, fontWeight: 950 }}>
+            {bilet.nereden} → {bilet.nereye}
+          </h3>
+
+          <p style={{ marginTop: 6, color: "#64748b", fontWeight: 700 }}>
+            {bilet.ulke} · {bilet.tarih}
+          </p>
+
+          <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            <MiniInfo label="Havayolu" value={bilet.havayolu} />
+            <MiniInfo label="Süre" value={bilet.sure} />
+            <MiniInfo label="Aktarma" value={bilet.aktarma} />
+            <MiniInfo label="Sağlayıcı" value={bilet.saglayici} />
+          </div>
+        </div>
+
+        <aside
+          style={{
+            background: "#061733",
+            color: "white",
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <p style={{ color: "#cbd5e1", fontWeight: 800 }}>Başlayan fiyat</p>
+            <p style={{ marginTop: 6, fontSize: 36, fontWeight: 950 }}>
+              {bilet.fiyat}
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gap: 10 }}>
+            <button onClick={onBuy} className="letsgo-yellow-button">
+              Satın Al
+            </button>
+
+            <a
+              href={`/ucak-bileti/${bilet.detaySlug}`}
+              className="letsgo-secondary-button"
+            >
+              Detay
+            </a>
+          </div>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ borderRadius: 18, background: "#f1f5f9", padding: 14 }}>
+      <p style={{ color: "#64748b", fontSize: 12, fontWeight: 950 }}>{label}</p>
+      <p style={{ marginTop: 4, fontWeight: 900 }}>{value}</p>
     </div>
   );
 }
