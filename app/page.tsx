@@ -62,25 +62,25 @@ type SiteAyarlari = {
   footerMetni?: string;
 };
 
-const ayarVarsayilan: Required<SiteAyarlari> = {
+const varsayilanAyarlar: Required<SiteAyarlari> = {
   siteBaslik: "Letsgo 2 Travel",
   siteAltBaslik: "Ucuz uçak bileti fırsatları",
   heroRozet: "Canlı fiyatlarla güvenli arama",
   heroBaslik: "Ucuz uçuşları kolayca bul",
   heroAciklama:
-    "Şehir veya havalimanı seç, fırsatları karşılaştır, partner arama kutusuyla güncel fiyatı kontrol et.",
+    "Şehir veya havalimanı seç, uygun uçuşları karşılaştır, partner fiyatlarını kontrol et.",
   instagramTr: "https://www.instagram.com/letsgo2travel_tr/",
   instagramEn: "https://www.instagram.com/letsgo2travel_en/",
   whatsappLink: "",
-  anaRenk: "#071A33",
-  yanRenk1: "#2563EB",
-  yanRenk2: "#FACC15",
+  anaRenk: "#061733",
+  yanRenk1: "#1473E6",
+  yanRenk2: "#FFD21F",
   yanRenk3: "#10B981",
   koyuRenk: "#031126",
-  arkaPlan: "#F4F7FB",
+  arkaPlan: "#F3F7FC",
   kartRenk: "#FFFFFF",
-  yaziRenk: "#071A33",
-  butonYaziRenk: "#071A33",
+  yaziRenk: "#061733",
+  butonYaziRenk: "#061733",
   gununFirsatiGoster: true,
   kategorilerGoster: true,
   rehberlerGoster: true,
@@ -88,7 +88,7 @@ const ayarVarsayilan: Required<SiteAyarlari> = {
   sosyalMedyaGoster: true,
   sssGoster: true,
   footerMetni:
-    "Letsgo 2 Travel, en iyi uçuş fırsatlarını bulman için partner fiyatlarını ve kampanyaları tek yerde toplar.",
+    "Letsgo 2 Travel, uygun uçuş fırsatlarını ve partner fiyatlarını tek yerde takip etmene yardımcı olur.",
 };
 
 const havalimaniSecenekleri = [
@@ -103,7 +103,6 @@ const havalimaniSecenekleri = [
   "Dalaman (DLM) - Dalaman Havalimanı",
   "Adana (ADA) - Şakirpaşa Havalimanı",
   "Trabzon (TZX) - Trabzon Havalimanı",
-
   "Roma (ROM) - Tüm Havalimanları",
   "Roma (FCO) - Fiumicino Havalimanı",
   "Paris (PAR) - Tüm Havalimanları",
@@ -126,46 +125,38 @@ const populerRotalar = [
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Roma (ROM) - Tüm Havalimanları",
-    fiyat: "Avrupa",
+    aciklama: "Avrupa fırsatı",
   },
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı",
-    fiyat: "Vizesiz",
+    aciklama: "Vizesiz rota",
   },
   {
     nereden: "Ankara (ESB) - Esenboğa Havalimanı",
     nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı",
-    fiyat: "Yakın rota",
+    aciklama: "Yakın rota",
   },
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Paris (PAR) - Tüm Havalimanları",
-    fiyat: "Popüler",
-  },
-  {
-    nereden: "İzmir (ADB) - Adnan Menderes Havalimanı",
-    nereye: "İstanbul (IST) - İstanbul Havalimanı",
-    fiyat: "Sık aranan",
+    aciklama: "Popüler rota",
   },
 ];
 
 function aramaDegeriTemizle(value: string) {
   const kod = value.match(/\(([A-Z]{3})\)/);
-
-  if (kod?.[1]) {
-    return kod[1];
-  }
-
+  if (kod?.[1]) return kod[1];
   return value.trim();
 }
 
-function fiyatYaz(value: number) {
+function formatFiyat(value: number) {
   return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`;
 }
 
 export default function Home() {
-  const [ayarlar, setAyarlar] = useState<Required<SiteAyarlari>>(ayarVarsayilan);
+  const [ayarlar, setAyarlar] =
+    useState<Required<SiteAyarlari>>(varsayilanAyarlar);
   const [biletler, setBiletler] = useState<Bilet[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
 
@@ -188,7 +179,6 @@ export default function Home() {
         const biletResponse = await fetch("/api/biletler", {
           cache: "no-store",
         });
-
         const biletData = await biletResponse.json();
 
         if (Array.isArray(biletData.biletler)) {
@@ -208,13 +198,13 @@ export default function Home() {
 
           if (ayarData.ayarlar) {
             setAyarlar({
-              ...ayarVarsayilan,
+              ...varsayilanAyarlar,
               ...ayarData.ayarlar,
             });
           }
         }
       } catch {
-        setAyarlar(ayarVarsayilan);
+        setAyarlar(varsayilanAyarlar);
       } finally {
         setYukleniyor(false);
       }
@@ -237,7 +227,7 @@ export default function Home() {
       .slice(0, 4);
   }, [aktifBiletler]);
 
-  const popFirsatlar = useMemo(() => {
+  const populerFirsatlar = useMemo(() => {
     return [...aktifBiletler]
       .sort((a, b) => (b.tiklanma || 0) - (a.tiklanma || 0))
       .slice(0, 5);
@@ -261,33 +251,19 @@ export default function Home() {
 
     const params = new URLSearchParams();
 
-    if (nereden.trim()) {
-      params.set("nereden", aramaDegeriTemizle(nereden));
-    }
-
-    if (nereye.trim()) {
-      params.set("nereye", aramaDegeriTemizle(nereye));
-    }
-
-    if (gidisTarihi) {
-      params.set("gidis", gidisTarihi);
-    }
-
-    if (donusTarihi) {
-      params.set("donus", donusTarihi);
-    }
-
-    if (yolcu) {
-      params.set("yolcu", yolcu);
-    }
+    if (nereden.trim()) params.set("nereden", aramaDegeriTemizle(nereden));
+    if (nereye.trim()) params.set("nereye", aramaDegeriTemizle(nereye));
+    if (gidisTarihi) params.set("gidis", gidisTarihi);
+    if (donusTarihi) params.set("donus", donusTarihi);
+    if (yolcu) params.set("yolcu", yolcu);
 
     window.location.href = `/arama?${params.toString()}`;
   }
 
-  function rotaAra(neredenDeger: string, nereyeDeger: string) {
+  function rotaAra(kalkis: string, varis: string) {
     const params = new URLSearchParams({
-      nereden: aramaDegeriTemizle(neredenDeger),
-      nereye: aramaDegeriTemizle(nereyeDeger),
+      nereden: aramaDegeriTemizle(kalkis),
+      nereye: aramaDegeriTemizle(varis),
     });
 
     window.location.href = `/arama?${params.toString()}`;
@@ -298,16 +274,13 @@ export default function Home() {
       await fetch(`/api/biletler/${bilet.id}/click`, {
         method: "POST",
       });
-    } catch {
-      // Tıklanma kaydı başarısız olsa bile yönlendirme devam eder.
-    }
+    } catch {}
 
     window.open(bilet.link, "_blank", "noopener,noreferrer");
   }
 
   async function fiyatAlarmiKur(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
     setAlarmMesaji("");
 
     if (!alarmEmail.trim()) {
@@ -370,17 +343,12 @@ export default function Home() {
       }}
     >
       <header
-        className="sticky top-0 z-50 border-b border-white/10 text-white shadow-sm"
+        className="sticky top-0 z-50 border-b border-white/10 text-white"
         style={{ backgroundColor: ayarlar.anaRenk }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
           <a href="/" className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Letsgo 2 Travel"
-              className="h-12 w-auto"
-            />
-
+            <img src="/logo.png" alt="Letsgo 2 Travel" className="h-12 w-auto" />
             <span className="text-xl font-black tracking-tight">
               {ayarlar.siteBaslik}
             </span>
@@ -417,8 +385,8 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50 to-white px-5 pb-16 pt-12">
-        <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-sky-100 to-transparent" />
+      <section className="relative overflow-hidden bg-gradient-to-b from-sky-100 via-white to-white px-5 pb-16 pt-12">
+        <div className="absolute right-0 top-0 hidden h-[360px] w-[55%] rounded-bl-[5rem] bg-gradient-to-br from-sky-200 via-blue-100 to-white lg:block" />
 
         <div className="relative mx-auto max-w-7xl">
           <div className="grid gap-8 lg:grid-cols-[1fr_520px] lg:items-center">
@@ -443,18 +411,13 @@ export default function Home() {
             </div>
 
             <div className="relative hidden min-h-[260px] lg:block">
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-sky-100 via-white to-blue-100" />
+              <div className="absolute inset-0 rounded-[2rem] bg-white/40 backdrop-blur" />
 
-              <img
-                src="/hero-plane.jpg"
-                alt="Uçak"
-                className="absolute right-0 top-6 h-64 w-full object-contain drop-shadow-2xl"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                }}
-              />
+              <div className="absolute right-8 top-10 text-[180px] leading-none drop-shadow-2xl">
+                ✈️
+              </div>
 
-              <div className="absolute bottom-8 right-8 rounded-3xl bg-white/80 p-5 shadow-xl backdrop-blur">
+              <div className="absolute bottom-8 right-8 rounded-3xl bg-white/90 p-5 shadow-xl backdrop-blur">
                 <p className="text-sm font-black text-slate-500">
                   En ucuz başlangıç
                 </p>
@@ -567,14 +530,8 @@ export default function Home() {
 
       <section className="mx-auto max-w-7xl px-5 py-8">
         <div className="grid gap-4 md:grid-cols-4">
-          <StatCard
-            title="Aktif fırsat"
-            value={yukleniyor ? "..." : String(istatistik.toplam)}
-          />
-          <StatCard
-            title="En ucuz fiyat"
-            value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
-          />
+          <StatCard title="Aktif fırsat" value={yukleniyor ? "..." : String(istatistik.toplam)} />
+          <StatCard title="En ucuz fiyat" value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"} />
           <StatCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
           <StatCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
         </div>
@@ -605,7 +562,7 @@ export default function Home() {
       <section id="populer-rotalar" className="mx-auto max-w-7xl px-5 py-8">
         <SectionHeader eyebrow="Popüler rotalar" title="En çok aranan uçuş rotaları" />
 
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-4">
           {populerRotalar.map((rota) => (
             <button
               key={`${rota.nereden}-${rota.nereye}`}
@@ -613,16 +570,15 @@ export default function Home() {
               className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
             >
               <p className="font-black">
-                {aramaDegeriTemizle(rota.nereden)} →{" "}
-                {aramaDegeriTemizle(rota.nereye)}
+                {aramaDegeriTemizle(rota.nereden)} → {aramaDegeriTemizle(rota.nereye)}
               </p>
-              <p className="mt-1 text-sm text-slate-500">{rota.fiyat}</p>
+              <p className="mt-1 text-sm text-slate-500">{rota.aciklama}</p>
             </button>
           ))}
         </div>
       </section>
 
-      {popFirsatlar.length > 0 && (
+      {populerFirsatlar.length > 0 && (
         <section className="mx-auto max-w-7xl px-5 py-8">
           <SectionHeader
             eyebrow="Öne çıkan"
@@ -631,7 +587,7 @@ export default function Home() {
           />
 
           <div className="grid gap-4 md:grid-cols-5">
-            {popFirsatlar.map((bilet) => (
+            {populerFirsatlar.map((bilet) => (
               <button
                 key={bilet.id}
                 onClick={() => satinAl(bilet)}
@@ -652,10 +608,7 @@ export default function Home() {
         <section id="fiyat-alarmi" className="mx-auto max-w-7xl px-5 py-10">
           <div className="grid gap-6 rounded-[2rem] bg-white p-8 shadow-xl lg:grid-cols-[1fr_380px] lg:items-center">
             <div>
-              <p
-                className="font-black"
-                style={{ color: ayarlar.yanRenk3 }}
-              >
+              <p className="font-black" style={{ color: ayarlar.yanRenk3 }}>
                 Fiyat Alarmı
               </p>
 
@@ -669,10 +622,7 @@ export default function Home() {
               </p>
             </div>
 
-            <form
-              onSubmit={fiyatAlarmiKur}
-              className="rounded-3xl bg-slate-100 p-5"
-            >
+            <form onSubmit={fiyatAlarmiKur} className="rounded-3xl bg-slate-100 p-5">
               <label className="text-sm font-black text-slate-500">
                 E-posta adresin
               </label>
@@ -700,9 +650,7 @@ export default function Home() {
               <button
                 disabled={alarmYukleniyor}
                 className="mt-4 w-full rounded-xl px-4 py-3 font-black text-white disabled:opacity-60"
-                style={{
-                  backgroundColor: ayarlar.yanRenk3,
-                }}
+                style={{ backgroundColor: ayarlar.yanRenk3 }}
               >
                 {alarmYukleniyor ? "Kaydediliyor..." : "Fiyat Alarmı Kur"}
               </button>
@@ -739,18 +687,11 @@ export default function Home() {
         </div>
       </section>
 
-      <footer
-        className="mt-10 px-5 py-12 text-white"
-        style={{ backgroundColor: ayarlar.anaRenk }}
-      >
+      <footer className="mt-10 px-5 py-12 text-white" style={{ backgroundColor: ayarlar.anaRenk }}>
         <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1fr_220px_220px_320px]">
           <div>
             <div className="flex items-center gap-3">
-              <img
-                src="/logo.png"
-                alt="Letsgo 2 Travel"
-                className="h-14 w-auto"
-              />
+              <img src="/logo.png" alt="Letsgo 2 Travel" className="h-14 w-auto" />
               <h2 className="text-xl font-black">{ayarlar.siteBaslik}</h2>
             </div>
 
