@@ -196,7 +196,7 @@ export default function AramaPage() {
                     <div className="v13-result-main">
                       <div className="v13-result-top"><div><h3>{bilet.nereden} → {bilet.nereye}</h3><p>{bilet.aciklama || `${bilet.ulke} rotası için fırsat.`}</p></div><strong>{bilet.fiyat}</strong></div>
                       <div className="v13-meta"><span>{bilet.kategori}</span><span>{bilet.vize}</span><span>{bilet.havayolu}</span><span>{bilet.sure}</span><span>{bilet.sonKontrol}</span></div>
-                      <div className="v13-card-actions"><button onClick={() => satinAl(bilet)}>Partner fiyatını aç</button><a href={`/canli-ucus?${liveParams.toString()}`}>Canlı kontrol</a><a href={`/ucak-bileti/${bilet.detaySlug}`}>Detay</a></div>
+                      <div className="v13-card-actions"><button onClick={() => satinAl(bilet)}>Partner fiyatını aç</button><a href={`/fiyat-kontrolu?${liveParams.toString()}`}>Fiyat Kontrolü</a><a href={`/ucak-bileti/${bilet.detaySlug}`}>Detay</a></div>
                     </div>
                   </article>
                 );
@@ -212,5 +212,5 @@ export default function AramaPage() {
 }
 
 function Header() {
-  return <header className="v13-header"><div className="v13-container v13-header-inner"><a className="v13-brand" href="/"><img src="/logo.png" alt="Letsgo 2 Travel" /></a><nav className="v13-nav"><a href="/">Ana sayfa</a><a href="/flights">Fırsatlar</a><a href="/canli-ucus">Canlı uçuşlar</a><a href="/arama">Uçuş ara</a></nav><a className="v13-admin" href="/admin">Admin Panel</a></div></header>;
+  return <header className="v13-header"><div className="v13-container v13-header-inner"><a className="v13-brand" href="/"><img src="/logo.png" alt="Letsgo 2 Travel" /></a><nav className="v13-nav"><a href="/">Ana sayfa</a><a href="/flights">Fırsatlar</a><a href="/fiyat-kontrolu">Fiyat Kontrolü</a><a href="/arama">Uçuş ara</a></nav><a className="v13-admin" href="/admin">Admin Panel</a></div></header>;
 }

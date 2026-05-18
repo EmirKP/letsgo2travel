@@ -112,7 +112,7 @@ const kategoriKartlari = [
   { baslik: "Avrupa kaçamakları", metin: "Roma, Paris, Prag ve Viyana gibi kısa şehir tatilleri.", ikon: "🌍", link: "/flights?kategori=Avrupa" },
   { baslik: "Vizesiz rotalar", metin: "Balkanlar ve Kafkasya için pasaportla kolay seyahat.", ikon: "🛂", link: "/flights?kategori=Vizesiz" },
   { baslik: "Hafta sonu", metin: "2-3 günlük hızlı kaçamaklar için kompakt rota fikirleri.", ikon: "🧳", link: "/flights?kategori=Hafta Sonu" },
-  { baslik: "Canlı kontrol", metin: "Rota gir, Travelpayouts/Aviasales cache fiyatını sorgula.", ikon: "📡", link: "/canli-ucus" },
+  { baslik: "Fiyat Kontrolü", metin: "Rota gir, Travelpayouts / Aviasales son bulunan fiyatları kontrol et.", ikon: "📡", link: "/fiyat-kontrolu" },
 ];
 
 function bugun() {
@@ -235,7 +235,7 @@ export default function HomePage() {
             </p>
             <div className="v13-hero-actions">
               <a href="#arama" className="v13-btn yellow">Hemen uçuş ara</a>
-              <a href="/canli-ucus" className="v13-btn ghost">Canlı fiyat kontrolü</a>
+              <a href="/fiyat-kontrolu" className="v13-btn ghost">Fiyat Kontrolü</a>
             </div>
           </div>
 
@@ -279,7 +279,7 @@ export default function HomePage() {
         <div className="v13-container v13-stats-grid">
           <Stat title="Yayındaki fırsat" value={yukleniyor ? "—" : String(vitrindekiFirsatlar.length)} />
           <Stat title="En düşük fiyat" value={enUcuz?.fiyat || "—"} />
-          <Stat title="Canlı kontrol" value="API + partner" />
+          <Stat title="Fiyat Kontrolü" value="Travelpayouts hazır" />
           <Stat title="Fiyat alarmı" value="Takip sistemi" />
         </div>
       </section>
@@ -330,7 +330,7 @@ export default function HomePage() {
                     <div className="v13-deal-title"><h3>{firsat.nereden} → {firsat.nereye}</h3><b>{firsat.fiyat}</b></div>
                     <p>{firsat.aciklama || `${firsat.ulke || firsat.nereye} rotası için güncel uçuş fırsatı.`}</p>
                     <div className="v13-meta"><span>{firsat.ay || "Sezon"}</span><span>{firsat.vize || "Vize durumu"}</span><span>{firsat.sonKontrol || "Bugün"}</span></div>
-                    <div className="v13-card-actions"><a href={rotaAramaLinki(firsat)}>Aramada aç</a><a href={`/canli-ucus?nereden=${firsat.kalkisKodu || "IST"}&nereye=${firsat.varisKodu || "ROM"}&gidis=${bugun()}&donus=${gunEkle(bugun(), 7)}&maksimumFiyat=30000`}>Canlı kontrol</a></div>
+                    <div className="v13-card-actions"><a href={rotaAramaLinki(firsat)}>Aramada aç</a><a href={`/fiyat-kontrolu?nereden=${firsat.kalkisKodu || "IST"}&nereye=${firsat.varisKodu || "ROM"}&gidis=${bugun()}&donus=${gunEkle(bugun(), 7)}&maksimumFiyat=30000`}>Fiyat Kontrolü</a></div>
                   </div>
                 </article>
               );
@@ -382,7 +382,7 @@ function Header() {
         <nav className="v13-nav">
           <a href="/">Ana sayfa</a>
           <a href="/flights">Fırsatlar</a>
-          <a href="/canli-ucus">Canlı uçuşlar</a>
+          <a href="/fiyat-kontrolu">Fiyat Kontrolü</a>
           <a href="/arama">Uçuş ara</a>
         </nav>
         <a className="v13-admin" href="/admin">Admin Panel</a>
@@ -400,7 +400,7 @@ function Footer() {
     <footer className="v13-footer">
       <div className="v13-container v13-footer-grid">
         <div><img src="/logo.png" alt="Letsgo 2 Travel" /><p>Ucuz uçuş fırsatları, rota kartları, fiyat alarmı ve canlı partner kontrolü.</p></div>
-        <div><h4>Site</h4><a href="/arama">Uçuş ara</a><a href="/flights">Fırsatlar</a><a href="/canli-ucus">Canlı uçuşlar</a></div>
+        <div><h4>Site</h4><a href="/arama">Uçuş ara</a><a href="/flights">Fırsatlar</a><a href="/fiyat-kontrolu">Fiyat Kontrolü</a></div>
         <div><h4>Popüler</h4><a href="/flights?kategori=Avrupa">Avrupa</a><a href="/flights?kategori=Vizesiz">Vizesiz</a><a href="/flights?kategori=En Ucuz">En ucuz</a></div>
         <div><h4>Not</h4><p>Fiyatlar değişebilir. Son fiyat satın alma sayfasında kontrol edilmelidir.</p></div>
       </div>

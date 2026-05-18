@@ -4508,3 +4508,302 @@ select {
     max-height: calc(100vh - 260px);
   }
 }
+
+/* V17 - Travelpayouts / Aviasales fiyat kontrol ekranı */
+.duffel-page {
+  min-height: 100vh;
+  background: #eef4fb;
+  color: #071633;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+.duffel-container {
+  width: min(100% - 56px, 1480px);
+  margin: 0 auto;
+}
+
+.duffel-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #071633;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+
+.duffel-header-inner {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.duffel-brand img { height: 48px; width: auto; display: block; }
+.duffel-header nav { display: flex; align-items: center; gap: 30px; }
+.duffel-header nav a { color: rgba(255,255,255,0.86); font-weight: 950; text-decoration: none; font-size: 16px; }
+.duffel-header nav a:hover { color: #ffca1a; }
+.duffel-admin { min-height: 48px; padding: 0 24px; border-radius: 16px; background: #1a73e8; color: white; display: inline-flex; align-items: center; font-weight: 950; text-decoration: none; }
+
+.duffel-hero {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255,202,26,0.22), transparent 28%),
+    linear-gradient(135deg, #071633 0%, #0b3477 100%);
+  color: white;
+  padding: 56px 0 112px;
+}
+
+.duffel-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: center;
+  gap: 30px;
+}
+
+.duffel-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.20);
+  color: #ffca1a;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.duffel-hero h1 {
+  margin: 18px 0 0;
+  max-width: 880px;
+  font-size: clamp(48px, 5vw, 86px);
+  line-height: 0.94;
+  letter-spacing: -0.07em;
+  font-weight: 1000;
+}
+
+.duffel-hero p {
+  max-width: 780px;
+  margin: 22px 0 0;
+  color: rgba(255,255,255,0.82);
+  line-height: 1.7;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.duffel-hero-card {
+  border-radius: 34px;
+  background: rgba(255,255,255,0.94);
+  color: #071633;
+  padding: 30px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.22);
+}
+
+.duffel-hero-card span, .duffel-hero-card small { display: block; color: #61708d; font-weight: 850; line-height: 1.6; }
+.duffel-hero-card strong { display: block; margin: 6px 0; font-size: 44px; letter-spacing: -0.055em; font-weight: 1000; }
+
+.duffel-search-wrap { margin-top: -64px; position: relative; z-index: 10; }
+.duffel-search-card {
+  border-radius: 34px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(7, 22, 51, 0.16);
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(210px, 1.3fr) 54px minmax(210px, 1.3fr) repeat(5, minmax(140px, 0.75fr)) 180px;
+  gap: 12px;
+  align-items: end;
+}
+
+.duffel-search-card .airport-picker-label,
+.duffel-field span {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+  font-weight: 950;
+  font-size: 13px;
+}
+
+.duffel-search-card .airport-picker-control,
+.duffel-field input,
+.duffel-field select {
+  height: 66px;
+  border: 1px solid #d9e4f3;
+  border-radius: 18px;
+  background: white;
+  color: #071633;
+  padding: 0 16px;
+  font-weight: 950;
+  font-size: 16px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.0);
+}
+
+.duffel-field input, .duffel-field select { width: 100%; outline: 0; }
+.duffel-search-card .airport-picker-control:hover,
+.duffel-field input:focus,
+.duffel-field select:focus { border-color: #1a73e8; box-shadow: 0 0 0 4px rgba(26,115,232,0.10); }
+
+.duffel-swap {
+  height: 54px;
+  width: 54px;
+  border: 2px solid #d9e4f3;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #071633;
+  font-size: 24px;
+  font-weight: 950;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.duffel-submit {
+  height: 66px;
+  border: 0;
+  border-radius: 20px;
+  background: #071633;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 1000;
+  cursor: pointer;
+  box-shadow: 0 20px 44px rgba(7,22,51,0.24);
+}
+
+.duffel-results-section { padding: 34px 0 80px; }
+.duffel-results-grid { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 24px; align-items: start; }
+.duffel-sidebar { position: sticky; top: 100px; }
+.duffel-filter-box { background: #fff; border: 1px solid #d9e4f3; border-radius: 28px; padding: 22px; box-shadow: 0 16px 40px rgba(7,22,51,0.07); }
+.duffel-alert { width: 100%; height: 50px; border: 0; border-radius: 16px; background: #e6edf6; color: #071633; font-weight: 950; font-size: 15px; cursor: pointer; margin-bottom: 22px; }
+.duffel-filter-box h3 { margin: 22px 0 12px; font-size: 20px; letter-spacing: -0.03em; }
+.duffel-filter-box label { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; color: #17223a; font-weight: 850; }
+.duffel-filter-box label input { width: 20px; height: 20px; accent-color: #1a73e8; margin-right: 8px; }
+.duffel-filter-box label small { margin-left: auto; color: #6b7a96; font-size: 12px; font-weight: 850; }
+.duffel-muted { color: #61708d; line-height: 1.65; font-weight: 750; }
+
+.duffel-date-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin-bottom: 22px;
+  background: white;
+  border: 1px solid #d9e4f3;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.duffel-date-strip button {
+  min-height: 76px;
+  border: 0;
+  border-right: 1px solid #d9e4f3;
+  background: #ffffff;
+  color: #071633;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  gap: 5px;
+}
+.duffel-date-strip button:last-child { border-right: 0; }
+.duffel-date-strip button.active { background: #dfefff; }
+.duffel-date-strip span { font-weight: 850; }
+.duffel-date-strip b { font-weight: 1000; color: #007c89; }
+
+.duffel-results-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+.duffel-results-head span { color: #63728d; font-weight: 900; }
+.duffel-results-head h2 { margin: 4px 0 0; font-size: clamp(34px, 3vw, 56px); letter-spacing: -0.06em; line-height: 1; }
+.duffel-results-head select { height: 48px; border-radius: 14px; border: 1px solid #cbd8ea; padding: 0 16px; font-weight: 900; }
+
+.duffel-rank-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #fff;
+  border: 1px solid #d9e4f3;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.duffel-rank-row button {
+  min-height: 84px;
+  border: 0;
+  border-right: 1px solid #d9e4f3;
+  background: white;
+  text-align: left;
+  padding: 16px 20px;
+  cursor: pointer;
+}
+.duffel-rank-row button:last-child { border-right: 0; }
+.duffel-rank-row button.active { background: #071633; color: white; }
+.duffel-rank-row span, .duffel-rank-row small { display: block; color: inherit; opacity: .76; font-weight: 800; }
+.duffel-rank-row b { display: block; font-size: 24px; font-weight: 1000; letter-spacing: -0.04em; }
+
+.duffel-note, .duffel-error, .duffel-empty {
+  border-radius: 20px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  font-weight: 850;
+}
+.duffel-note.demo { background: #fff7dd; border: 1px solid #ffe08a; color: #7a5700; }
+.duffel-note.live { background: #eafaf3; border: 1px solid #a8efcf; color: #07603e; }
+.duffel-error { background: #fff1f1; border: 1px solid #ffcaca; color: #b42318; }
+.duffel-empty { background: #fff; border: 1px dashed #cbd8ea; color: #60708d; }
+
+.duffel-offer-list { display: grid; gap: 14px; }
+.duffel-offer-card {
+  background: #ffffff;
+  border: 1px solid #d9e4f3;
+  border-radius: 26px;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 250px;
+  gap: 0;
+  overflow: hidden;
+  box-shadow: 0 14px 40px rgba(7,22,51,0.07);
+}
+.duffel-airline { padding: 24px; display: flex; align-items: center; gap: 14px; border-right: 1px solid #edf2f7; }
+.duffel-logo-bubble { width: 56px; height: 56px; border-radius: 18px; background: #eef5ff; color: #1a73e8; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.duffel-airline strong { display: block; font-weight: 950; }
+.duffel-airline small { display: block; margin-top: 6px; color: #61708d; font-weight: 800; }
+.duffel-itinerary { padding: 20px 24px; display: grid; gap: 14px; align-content: center; }
+.duffel-leg { display: grid; grid-template-columns: 80px minmax(140px, 1fr) 80px; align-items: center; gap: 14px; }
+.duffel-time { display: grid; justify-items: center; gap: 2px; }
+.duffel-time b { font-size: 26px; font-weight: 750; letter-spacing: -0.04em; }
+.duffel-time span { color: #61708d; font-weight: 950; }
+.duffel-line { display: grid; grid-template-rows: auto 12px auto; text-align: center; color: #61708d; font-weight: 850; }
+.duffel-line i { height: 2px; background: linear-gradient(90deg, #cbd8ea, #1a73e8, #cbd8ea); position: relative; }
+.duffel-line i:after { content: "✈"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); color: #1a73e8; background: #fff; padding: 0 6px; font-style: normal; }
+.duffel-line em { color: #007c89; font-style: normal; }
+.duffel-green { background: #eafaf3; color: #07603e; border-radius: 12px; padding: 9px 12px; font-weight: 850; font-size: 13px; }
+
+.duffel-price-panel { padding: 22px; border-left: 1px solid #edf2f7; display: grid; align-content: center; gap: 8px; position: relative; }
+.duffel-heart { position: absolute; right: 18px; top: 18px; border: 0; background: white; color: #071633; font-size: 26px; cursor: pointer; }
+.duffel-price-panel strong { display: block; font-size: 34px; font-weight: 1000; letter-spacing: -0.055em; }
+.duffel-price-panel small { color: #61708d; font-weight: 850; }
+.duffel-price-panel span { background: #f1f5fb; color: #495a78; border-radius: 12px; padding: 9px 10px; font-size: 13px; font-weight: 850; }
+.duffel-offer-btn { height: 54px; border: 0; border-radius: 14px; background: #071633; color: white; font-weight: 1000; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+
+@media (max-width: 1280px) {
+  .duffel-search-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .duffel-swap { display: none; }
+  .duffel-submit { grid-column: 1 / -1; }
+  .duffel-results-grid, .duffel-hero-grid { grid-template-columns: 1fr; }
+  .duffel-sidebar { position: static; }
+}
+
+@media (max-width: 820px) {
+  .duffel-container { width: min(100% - 28px, 1480px); }
+  .duffel-header-inner { flex-wrap: wrap; padding: 12px 0; }
+  .duffel-header nav { order: 3; width: 100%; overflow-x: auto; gap: 18px; padding-bottom: 4px; }
+  .duffel-brand img { height: 38px; }
+  .duffel-hero { padding: 36px 0 92px; }
+  .duffel-hero h1 { font-size: 42px; }
+  .duffel-search-card { grid-template-columns: 1fr; border-radius: 24px; }
+  .duffel-date-strip, .duffel-rank-row { grid-template-columns: 1fr; }
+  .duffel-date-strip button, .duffel-rank-row button { border-right: 0; border-bottom: 1px solid #d9e4f3; }
+  .duffel-results-head { align-items: flex-start; flex-direction: column; }
+  .duffel-offer-card { grid-template-columns: 1fr; }
+  .duffel-airline, .duffel-price-panel { border: 0; border-bottom: 1px solid #edf2f7; }
+  .duffel-leg { grid-template-columns: 68px minmax(120px, 1fr) 68px; }
+  .duffel-time b { font-size: 22px; }
+}
