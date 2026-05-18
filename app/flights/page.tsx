@@ -2,214 +2,169 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Rota = {
-  id?: number;
+type Firsat = {
+  id: number;
   nereden: string;
   nereye: string;
-  rota: string;
+  ulke: string;
   fiyat: string;
-  fiyatSayi?: number;
+  fiyatSayi: number;
+  tarih: string;
+  vize: string;
+  ay: string;
+  havayolu: string;
+  sure: string;
+  bagaj: string;
   etiket: string;
+  kategori: string;
   aciklama: string;
-  ikon: string;
-  kalkisKodu?: string;
-  varisKodu?: string;
-  detaySlug?: string;
-  gorselUrl?: string;
+  ulkeEmoji: string;
+  sonKontrol: string;
+  tiklanma: number;
+  kalkisKodu: string;
+  varisKodu: string;
+  aktarma: string;
+  detaySlug: string;
+  gorselUrl: string;
+  oneCikan: boolean;
+  gidisTarihi?: string | null;
+  donusTarihi?: string | null;
 };
 
-const demoRotalar: Rota[] = [
-  {
-    nereden: "İstanbul",
-    nereye: "Roma",
-    rota: "İstanbul → Roma",
-    fiyat: "2.499 TL",
-    fiyatSayi: 2499,
-    etiket: "Avrupa",
-    aciklama: "Kültür, tarih ve kısa şehir kaçamağı için güçlü rota.",
-    ikon: "🇮🇹",
-    kalkisKodu: "IST",
-    varisKodu: "ROM",
-  },
-  {
-    nereden: "İstanbul",
-    nereye: "Saraybosna",
-    rota: "İstanbul → Saraybosna",
-    fiyat: "1.899 TL",
-    fiyatSayi: 1899,
-    etiket: "Vizesiz",
-    aciklama: "Balkan atmosferi ve kolay seyahat planı isteyenler için.",
-    ikon: "🇧🇦",
-    kalkisKodu: "IST",
-    varisKodu: "SJJ",
-  },
-  {
-    nereden: "Ankara",
-    nereye: "Bakü",
-    rota: "Ankara → Bakü",
-    fiyat: "2.199 TL",
-    fiyatSayi: 2199,
-    etiket: "Yakın rota",
-    aciklama: "Kısa uçuş süresi ve dönemsel kampanya takibi için uygun.",
-    ikon: "🇦🇿",
-    kalkisKodu: "ESB",
-    varisKodu: "GYD",
-  },
+const fallback: Firsat[] = [
+  { id: 1, nereden: "İstanbul", nereye: "Roma", ulke: "İtalya", fiyat: "2.499 TL", fiyatSayi: 2499, tarih: "Haziran", vize: "Vizeli", ay: "Haziran", havayolu: "Partner", sure: "2 sa 35 dk", bagaj: "Kabin bagajı", etiket: "Şehir", kategori: "Avrupa", aciklama: "Kısa Avrupa kaçamağı için öne çıkan rota.", ulkeEmoji: "🇮🇹", sonKontrol: "Bugün", tiklanma: 0, kalkisKodu: "IST", varisKodu: "ROM", aktarma: "Farketmez", detaySlug: "istanbul-roma", gorselUrl: "", oneCikan: true },
+  { id: 2, nereden: "İstanbul", nereye: "Saraybosna", ulke: "Bosna Hersek", fiyat: "1.899 TL", fiyatSayi: 1899, tarih: "Haziran", vize: "Vizesiz", ay: "Haziran", havayolu: "Partner", sure: "1 sa 55 dk", bagaj: "Kabin bagajı", etiket: "Balkan", kategori: "Vizesiz", aciklama: "Vizesiz Balkan rotası arayanlara uygun seçenek.", ulkeEmoji: "🇧🇦", sonKontrol: "Bugün", tiklanma: 0, kalkisKodu: "IST", varisKodu: "SJJ", aktarma: "Farketmez", detaySlug: "istanbul-saraybosna", gorselUrl: "", oneCikan: true },
 ];
 
-function rotaGorselSinifi(value: string) {
+const kategoriler = ["Tümü", "Avrupa", "Vizesiz", "Balkan", "Hafta Sonu", "Yaz Tatili", "En Ucuz", "Aile Rotası", "Premium"];
+
+function rotaSinifi(value: string) {
   const metin = value.toLocaleLowerCase("tr-TR");
   if (metin.includes("roma") || metin.includes("italya")) return "roma";
+  if (metin.includes("paris") || metin.includes("fransa")) return "paris";
   if (metin.includes("saraybosna") || metin.includes("bosna")) return "saraybosna";
   if (metin.includes("bakü") || metin.includes("baku") || metin.includes("azerbaycan")) return "baku";
   if (metin.includes("dubai")) return "dubai";
-  if (metin.includes("paris") || metin.includes("fransa")) return "paris";
-  return "default";
+  if (metin.includes("antalya") || metin.includes("bodrum") || metin.includes("dalaman")) return "summer";
+  return "generic";
 }
 
-function rotaGorselStyle(url?: string) {
+function gorselStyle(url?: string) {
   if (!url?.trim()) return undefined;
-  return {
-    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.72)), url(${url})`,
-  };
+  return { backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.05), rgba(2, 6, 23, 0.76)), url(${url})`, backgroundSize: "cover", backgroundPosition: "center" };
 }
 
-function aramaLinki(rota: Rota) {
+function aramaLinki(item: Firsat) {
   const params = new URLSearchParams({
-    nereden: rota.kalkisKodu || rota.nereden,
-    nereye: rota.varisKodu || rota.nereye,
+    nereden: item.kalkisKodu || item.nereden,
+    nereye: item.varisKodu || item.nereye,
+    gidis: item.gidisTarihi || "",
+    donus: "",
+    yolcu: "1",
     maksimumFiyat: "30000",
     siralama: "en-iyi",
     vize: "Tümü",
     kategori: "Tümü",
     aktarma: "Tümü",
-    yolcu: "1",
-  });
-
+  } as Record<string, string>);
   return `/arama?${params.toString()}`;
 }
 
 export default function FlightsPage() {
-  const [rotalar, setRotalar] = useState<Rota[]>([]);
+  const [firsatlar, setFirsatlar] = useState<Firsat[]>([]);
+  const [kategori, setKategori] = useState("Tümü");
+  const [vize, setVize] = useState("Tümü");
+  const [siralama, setSiralama] = useState("onecikan");
+  const [arama, setArama] = useState("");
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [aktifKategori, setAktifKategori] = useState("Tümü");
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setKategori(sp.get("kategori") || "Tümü");
+  }, []);
 
   useEffect(() => {
     let aktif = true;
-
     async function yukle() {
       try {
-        const response = await fetch("/api/one-cikan-rotalar", { cache: "no-store" });
+        const response = await fetch("/api/firsatlar", { cache: "no-store" });
         const data = await response.json();
         if (!aktif) return;
-        setRotalar(Array.isArray(data.rotalar) ? data.rotalar : []);
+        setFirsatlar(Array.isArray(data.firsatlar) ? data.firsatlar : []);
       } catch {
-        if (aktif) setRotalar([]);
+        if (aktif) setFirsatlar([]);
       } finally {
         if (aktif) setYukleniyor(false);
       }
     }
-
     yukle();
-
-    return () => {
-      aktif = false;
-    };
+    return () => { aktif = false; };
   }, []);
 
-  const tumRotalar = rotalar.length > 0 ? rotalar : demoRotalar;
-  const kategoriler = useMemo(() => ["Tümü", ...Array.from(new Set(tumRotalar.map((rota) => rota.etiket).filter(Boolean)))], [tumRotalar]);
-  const filtreliRotalar = aktifKategori === "Tümü" ? tumRotalar : tumRotalar.filter((rota) => rota.etiket === aktifKategori);
+  const tumFirsatlar = firsatlar.length ? firsatlar : fallback;
+  const filtreli = useMemo(() => {
+    let sonuc = tumFirsatlar.filter((item) => {
+      const metin = `${item.nereden} ${item.nereye} ${item.ulke} ${item.kategori} ${item.havayolu}`.toLocaleLowerCase("tr-TR");
+      const aramaUyuyor = !arama || metin.includes(arama.toLocaleLowerCase("tr-TR"));
+      const kategoriUyuyor = kategori === "Tümü" || item.kategori === kategori;
+      const vizeUyuyor = vize === "Tümü" || item.vize === vize;
+      return aramaUyuyor && kategoriUyuyor && vizeUyuyor;
+    });
+    if (siralama === "enucuz") sonuc = [...sonuc].sort((a, b) => a.fiyatSayi - b.fiyatSayi);
+    if (siralama === "populer") sonuc = [...sonuc].sort((a, b) => (b.tiklanma || 0) - (a.tiklanma || 0));
+    if (siralama === "onecikan") sonuc = [...sonuc].sort((a, b) => Number(b.oneCikan) - Number(a.oneCikan));
+    return sonuc;
+  }, [arama, kategori, siralama, tumFirsatlar, vize]);
+
+  const enUcuz = [...tumFirsatlar].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0];
 
   return (
-    <main className="letsgo-page flights-page-v11">
-      <header className="letsgo-header">
-        <div className="letsgo-container letsgo-header-inner">
-          <a href="/" className="letsgo-logo">
-            <img src="/logo.png" alt="Letsgo 2 Travel" />
-            <span className="letsgo-logo-title">Letsgo 2 Travel</span>
-          </a>
-
-          <nav className="letsgo-nav">
-            <a href="/">Ana Sayfa</a>
-            <a href="/arama">Uçuş Ara</a>
-            <a href="/flights">Fırsatlar</a>
-            <a href="/admin">Admin</a>
-          </nav>
-
-          <a href="/arama" className="letsgo-header-cta">Uçuş Ara</a>
+    <main className="l2t-v12-page">
+      <header className="v12-header">
+        <div className="v12-container v12-header-inner">
+          <a href="/" className="v12-brand"><img src="/logo.png" alt="Letsgo 2 Travel" /></a>
+          <nav className="v12-nav"><a href="/">Ana sayfa</a><a href="/arama">Uçuş ara</a><a href="/admin">Admin</a></nav>
+          <a href="/arama" className="v12-admin-link">Arama aç</a>
         </div>
       </header>
 
-      <section className="letsgo-hero flights-hero-v11">
-        <div className="letsgo-container">
-          <div className="letsgo-hero-grid">
-            <div>
-              <p className="letsgo-hero-badge">🧭 Rota vitrini</p>
-              <h1 className="letsgo-hero-title">Yayındaki fırsatları daha düzenli keşfet</h1>
-              <p className="letsgo-hero-text">
-                Admin panelde eklediğin aktif ve görselli rotalar burada vitrin sayfası olarak görünür.
-                Kullanıcı buradan hızlıca arama veya detay sayfasına geçer.
-              </p>
-              <div className="letsgo-hero-actions">
-                <a href="/arama" className="letsgo-yellow-button">Arama sayfasına git</a>
-                <a href="/admin" className="letsgo-secondary-button">Admin panel</a>
-              </div>
-            </div>
-
-            <div className="letsgo-plane-box flights-plane-v11">
-              <div className="letsgo-hero-price">
-                <p className="letsgo-hero-price-label">Vitrindeki rota</p>
-                <p className="letsgo-hero-price-value">{tumRotalar.length}</p>
-              </div>
-            </div>
+      <section className="v12-subhero">
+        <div className="v12-container v12-subhero-grid">
+          <div>
+            <span className="v12-pill">✈️ Fırsat vitrini</span>
+            <h1>Yayındaki uçuş fırsatlarını kategoriye göre keşfet.</h1>
+            <p>Admin panelde aktif olan rotalar burada görselli kartlar halinde listelenir.</p>
+            <div className="v12-proof-row"><span><b>{tumFirsatlar.length}</b> fırsat</span><span><b>{enUcuz?.fiyat || "—"}</b> en düşük fiyat</span><span><b>{filtreli.length}</b> sonuç</span></div>
           </div>
+          <div className="v12-subhero-card"><strong>Son kontrol</strong><span>Fiyatlar değişebilir; partner sayfasında doğrulanmalıdır.</span></div>
         </div>
       </section>
 
-      <section className="letsgo-section">
-        <div className="letsgo-container">
-          <div className="flights-toolbar-v11">
-            <div>
-              <p className="letsgo-eyebrow">Fırsat filtreleri</p>
-              <h2 className="letsgo-section-title">Rota kartları</h2>
-            </div>
-            <div className="flights-chip-row-v11">
-              {kategoriler.map((kategori) => (
-                <button
-                  key={kategori}
-                  type="button"
-                  onClick={() => setAktifKategori(kategori)}
-                  className={kategori === aktifKategori ? "active" : ""}
-                >
-                  {kategori}
-                </button>
-              ))}
-            </div>
+      <section className="v12-section">
+        <div className="v12-container">
+          <div className="v12-toolbar">
+            <input value={arama} onChange={(e) => setArama(e.target.value)} placeholder="Şehir, ülke, rota ara..." />
+            <select value={kategori} onChange={(e) => setKategori(e.target.value)}>{kategoriler.map((k) => <option key={k}>{k}</option>)}</select>
+            <select value={vize} onChange={(e) => setVize(e.target.value)}><option>Tümü</option><option>Vizesiz</option><option>Vizeli</option></select>
+            <select value={siralama} onChange={(e) => setSiralama(e.target.value)}><option value="onecikan">Öne çıkan</option><option value="enucuz">En ucuz</option><option value="populer">Popüler</option></select>
           </div>
 
-          {yukleniyor && <p className="letsgo-message">Fırsatlar yükleniyor...</p>}
+          {yukleniyor && <div className="v12-loading">Fırsatlar yükleniyor...</div>}
 
-          <div className="flights-grid-v11">
-            {filtreliRotalar.map((rota) => {
-              const sinif = rotaGorselSinifi(`${rota.nereye} ${rota.etiket}`);
+          <div className="v12-deal-grid catalog">
+            {filtreli.map((item) => {
+              const sinif = rotaSinifi(`${item.nereye} ${item.ulke} ${item.kategori}`);
               return (
-                <article key={rota.detaySlug || rota.rota} className="flights-card-v11 letsgo-hover">
-                  <div className={`flights-card-visual-v11 l2t-route-visual-${sinif}`} style={rotaGorselStyle(rota.gorselUrl)}>
-                    <span>{rota.ikon}</span>
-                    <strong>{rota.rota}</strong>
-                  </div>
-                  <div className="flights-card-body-v11">
-                    <div className="flights-card-top-v11">
-                      <span>{rota.etiket}</span>
-                      <b>{rota.fiyat}</b>
-                    </div>
-                    <h3>{rota.rota}</h3>
-                    <p>{rota.aciklama}</p>
-                    <div className="flights-card-actions-v11">
-                      <a href={aramaLinki(rota)}>Aramada aç</a>
-                      {rota.detaySlug ? <a href={`/ucak-bileti/${rota.detaySlug}`}>Detay</a> : <a href="/arama">Detay</a>}
-                    </div>
+                <article className="v12-deal-card" key={item.id}>
+                  <a href={`/ucak-bileti/${item.detaySlug}`} className={`v12-deal-visual v12-route-${sinif}`} style={gorselStyle(item.gorselUrl)}>
+                    <div className="v12-deal-badges"><span>{item.ulkeEmoji} {item.kategori}</span>{item.oneCikan && <span>Öne çıkan</span>}</div>
+                    <strong>{item.nereden} → {item.nereye}</strong>
+                  </a>
+                  <div className="v12-deal-body">
+                    <div className="v12-deal-price-row"><small>{item.ay} · {item.vize}</small><b>{item.fiyat}</b></div>
+                    <p>{item.aciklama}</p>
+                    <div className="v12-deal-meta"><span>{item.havayolu}</span><span>{item.sure}</span><span>{item.sonKontrol}</span></div>
+                    <div className="v12-deal-actions"><a href={aramaLinki(item)}>Aramada aç</a><a href={`/ucak-bileti/${item.detaySlug}`}>Detay</a></div>
                   </div>
                 </article>
               );
