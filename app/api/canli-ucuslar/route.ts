@@ -383,20 +383,39 @@ async function cheapPrices({
   return tickets;
 }
 
+function fallbackUcuslar(origin: string, destination: string, maximumPrice: number): CanliUcus[] {
+  const today = new Date();
+  const depart1 = new Date(today);
+  depart1.setDate(today.getDate() + 12);
+  const return1 = new Date(depart1);
+  return1.setDate(depart1.getDate() + 5);
+  const depart2 = new Date(today);
+  depart2.setDate(today.getDate() + 22);
+  const return2 = new Date(depart2);
+  return2.setDate(depart2.getDate() + 6);
+
+  const prices = [2499, 3150, 4290].filter((price) => price <= maximumPrice);
+
+  return prices.map((price, index) =>
+    ucusOlustur({
+      id: `demo-${index}`,
+      origin,
+      destination,
+      departDate: (index === 0 ? depart1 : depart2).toISOString(),
+      returnDate: (index === 0 ? return1 : return2).toISOString(),
+      price,
+      changes: index === 0 ? 0 : 1,
+      airline: index === 0 ? "Partner" : "Aviasales",
+      foundAt: today.toISOString(),
+      source: "Örnek akış / Travelpayouts token eklenince canlı cache veri gelir",
+    })
+  );
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   const token = process.env.TRAVELPAYOUTS_TOKEN;
-
-  if (!token) {
-    return NextResponse.json(
-      {
-        message:
-          "TRAVELPAYOUTS_TOKEN eksik. Vercel Environment Variables içine eklemen gerekiyor.",
-      },
-      { status: 500 }
-    );
-  }
 
   const originRaw =
     searchParams.get("nereden") || searchParams.get("origin") || "";
@@ -421,6 +440,17 @@ export async function GET(request: Request) {
   const maximumPrice = Number(searchParams.get("maksimumFiyat") || 50000);
   const aktarma = searchParams.get("aktarma") || "Tümü";
   const direct = aktarma === "Aktarmasız";
+
+  if (!token) {
+    const demoUcuslar = fallbackUcuslar(origin, destination, maximumPrice);
+    return NextResponse.json({
+      toplam: demoUcuslar.length,
+      kaynak: "TRAVELPAYOUTS_TOKEN Vercel Environment Variables içinde yok. Sayfa boş kalmasın diye örnek akış gösteriliyor; token eklenince gerçek Travelpayouts / Aviasales cache verisi gelir.",
+      origin,
+      destination,
+      ucuslar: demoUcuslar,
+    });
+  }
 
   const results1 = await searchByPriceRange({
     origin,

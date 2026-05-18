@@ -36,12 +36,36 @@ type Bilet = {
   gorselUrl: string;
 };
 
-const havalimaniSecenekleri = ["İstanbul (IST)", "İstanbul (SAW)", "Ankara (ESB)", "İzmir (ADB)", "Antalya (AYT)", "Roma (ROM)", "Paris (PAR)", "Saraybosna (SJJ)", "Bakü (GYD)", "Dubai (DXB)", "Amsterdam (AMS)", "Berlin (BER)"];
+type Airport = { code: string; city: string; name: string; country: string };
+
+const airports: Airport[] = [
+  { code: "IST", city: "İstanbul", name: "İstanbul Havalimanı", country: "Türkiye" },
+  { code: "SAW", city: "İstanbul", name: "Sabiha Gökçen", country: "Türkiye" },
+  { code: "ESB", city: "Ankara", name: "Esenboğa", country: "Türkiye" },
+  { code: "ADB", city: "İzmir", name: "Adnan Menderes", country: "Türkiye" },
+  { code: "AYT", city: "Antalya", name: "Antalya Havalimanı", country: "Türkiye" },
+  { code: "ROM", city: "Roma", name: "Tüm Havalimanları", country: "İtalya" },
+  { code: "PAR", city: "Paris", name: "Tüm Havalimanları", country: "Fransa" },
+  { code: "SJJ", city: "Saraybosna", name: "Sarajevo", country: "Bosna Hersek" },
+  { code: "GYD", city: "Bakü", name: "Haydar Aliyev", country: "Azerbaycan" },
+  { code: "DXB", city: "Dubai", name: "Dubai Havalimanı", country: "BAE" },
+  { code: "AMS", city: "Amsterdam", name: "Schiphol", country: "Hollanda" },
+  { code: "BER", city: "Berlin", name: "Brandenburg", country: "Almanya" },
+  { code: "PRG", city: "Prag", name: "Václav Havel", country: "Çekya" },
+  { code: "VIE", city: "Viyana", name: "Vienna Intl.", country: "Avusturya" },
+  { code: "BCN", city: "Barselona", name: "El Prat", country: "İspanya" },
+];
+
 const kategoriler = ["Tümü", "Genel", "Avrupa", "Balkan", "Vizesiz", "Hafta Sonu", "Yaz Tatili", "Kış Rotası", "En Ucuz", "Aile Rotası", "Premium"];
 
 function bugun() { return new Date().toISOString().slice(0, 10); }
-function birHaftaSonra() { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10); }
-function aramaDegeriTemizle(value: string) { const kod = value.match(/\(([A-Z]{3})\)/); return kod?.[1] || value.trim(); }
+function gunEkle(value: string, days: number) { const d = value ? new Date(`${value}T12:00:00`) : new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); }
+function normalizeCode(value: string | null, fallback: string) {
+  if (!value) return fallback;
+  const match = value.match(/[A-Z]{3}/i);
+  const code = match?.[0]?.toUpperCase();
+  return code && airports.some((a) => a.code === code) ? code : fallback;
+}
 function rotaSinifi(value: string) {
   const metin = value.toLocaleLowerCase("tr-TR");
   if (metin.includes("roma") || metin.includes("italya")) return "roma";
@@ -49,19 +73,19 @@ function rotaSinifi(value: string) {
   if (metin.includes("saraybosna") || metin.includes("bosna")) return "saraybosna";
   if (metin.includes("bakü") || metin.includes("baku") || metin.includes("azerbaycan")) return "baku";
   if (metin.includes("dubai")) return "dubai";
+  if (metin.includes("antalya") || metin.includes("bodrum") || metin.includes("dalaman")) return "summer";
   return "generic";
 }
 function gorselStyle(url?: string) {
   if (!url?.trim()) return undefined;
-  return { backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.78)), url(${url})`, backgroundSize: "cover", backgroundPosition: "center" };
+  return { backgroundImage: `linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.78)), url(${url})`, backgroundSize: "cover", backgroundPosition: "center" };
 }
-function fiyatYaz(value: number) { return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`; }
 
 export default function AramaPage() {
-  const [nereden, setNereden] = useState("İstanbul (IST)");
-  const [nereye, setNereye] = useState("Roma (ROM)");
+  const [nereden, setNereden] = useState("IST");
+  const [nereye, setNereye] = useState("ROM");
   const [gidis, setGidis] = useState(bugun());
-  const [donus, setDonus] = useState(birHaftaSonra());
+  const [donus, setDonus] = useState(gunEkle(bugun(), 7));
   const [yolcu, setYolcu] = useState("1");
   const [vize, setVize] = useState("Tümü");
   const [kategori, setKategori] = useState("Tümü");
@@ -75,8 +99,33 @@ export default function AramaPage() {
   const [alarmMaksimumFiyat, setAlarmMaksimumFiyat] = useState("5000");
   const [alarmMesaji, setAlarmMesaji] = useState("");
 
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const today = bugun();
+    const urlGidis = sp.get("gidis") || today;
+    const safeGidis = urlGidis < today ? today : urlGidis;
+    const urlDonus = sp.get("donus") || gunEkle(safeGidis, 7);
+    const safeDonus = urlDonus < safeGidis ? gunEkle(safeGidis, 7) : urlDonus;
+    setNereden(normalizeCode(sp.get("nereden"), "IST"));
+    setNereye(normalizeCode(sp.get("nereye"), "ROM"));
+    setGidis(safeGidis);
+    setDonus(safeDonus);
+    setYolcu(sp.get("yolcu") || "1");
+    setVize(sp.get("vize") || "Tümü");
+    setKategori(sp.get("kategori") || "Tümü");
+    setAktarma(sp.get("aktarma") || "Tümü");
+    setMaksimumFiyat(sp.get("maksimumFiyat") || "30000");
+    setSiralama(sp.get("siralama") || "en-iyi");
+  }, []);
+
+  useEffect(() => {
+    const today = bugun();
+    if (gidis < today) setGidis(today);
+    if (donus < gidis) setDonus(gunEkle(gidis, 7));
+  }, [gidis, donus]);
+
   const params = useMemo(() => new URLSearchParams({
-    nereden: aramaDegeriTemizle(nereden), nereye: aramaDegeriTemizle(nereye), gidis, donus, yolcu, vize, kategori, aktarma, maksimumFiyat, siralama,
+    nereden, nereye, gidis, donus, yolcu, vize, kategori, aktarma, maksimumFiyat, siralama,
   }), [aktarma, donus, gidis, kategori, maksimumFiyat, nereden, nereye, siralama, vize, yolcu]);
 
   async function aramaYap(e?: FormEvent<HTMLFormElement>) {
@@ -95,34 +144,17 @@ export default function AramaPage() {
     } finally { setYukleniyor(false); }
   }
 
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    setNereden(sp.get("nereden") || "İstanbul (IST)");
-    setNereye(sp.get("nereye") || "Roma (ROM)");
-    setGidis(sp.get("gidis") || bugun());
-    setDonus(sp.get("donus") || birHaftaSonra());
-    setYolcu(sp.get("yolcu") || "1");
-    setVize(sp.get("vize") || "Tümü");
-    setKategori(sp.get("kategori") || "Tümü");
-    setAktarma(sp.get("aktarma") || "Tümü");
-    setMaksimumFiyat(sp.get("maksimumFiyat") || "30000");
-    setSiralama(sp.get("siralama") || "en-iyi");
-    setTimeout(() => aramaYap(), 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { setTimeout(() => aramaYap(), 0); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function satinAl(bilet: Bilet) {
     try { await fetch(`/api/admin/biletler/${bilet.id}/click`, { method: "POST" }); } catch {}
-    window.open(bilet.link, "_blank", "noopener,noreferrer");
+    if (bilet.link) window.open(bilet.link, "_blank", "noopener,noreferrer");
   }
 
   async function alarmKaydet(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setAlarmMesaji("");
     try {
-      const response = await fetch("/api/fiyat-alarmi", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: alarmEmail, nereden: aramaDegeriTemizle(nereden), nereye: aramaDegeriTemizle(nereye), maksimumFiyat: Number(alarmMaksimumFiyat), gidisTarihi: gidis, donusTarihi: donus, yolcu }),
-      });
+      const response = await fetch("/api/fiyat-alarmi", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: alarmEmail, nereden, nereye, maksimumFiyat: Number(alarmMaksimumFiyat), gidisTarihi: gidis, donusTarihi: donus, yolcu }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Alarm kaydedilemedi.");
       setAlarmMesaji("Fiyat alarmı kaydedildi. Admin panelden takip edebilirsin.");
@@ -133,39 +165,73 @@ export default function AramaPage() {
   const enUcuz = biletler.length ? [...biletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0] : null;
 
   return (
-    <main className="l2t-v12-page">
-      <header className="v12-header"><div className="v12-container v12-header-inner"><a href="/" className="v12-brand"><img src="/logo.png" alt="Letsgo 2 Travel" /></a><nav className="v12-nav"><a href="/">Ana sayfa</a><a href="/flights">Fırsatlar</a><a href="/admin">Admin</a></nav><span>🌐 TR</span></div></header>
+    <main className="v13-page light">
+      <Header />
 
-      <section className="v12-subhero search"><div className="v12-container v12-subhero-grid"><div><span className="v12-pill">🔎 Akıllı rota arama</span><h1>Uçuş fırsatlarını filtrele, karşılaştır ve kontrol et.</h1><p>Admin panelde eklenen aktif fırsatlar, arama kriterlerine göre burada listelenir.</p><div className="v12-proof-row"><span><b>{biletler.length}</b> sonuç</span><span><b>{enUcuz?.fiyat || "—"}</b> en ucuz</span><span><b>{maksimumFiyat} TL</b> üst limit</span></div></div><div className="v12-subhero-card"><strong>Güven notu</strong><span>Letsgo 2 Travel bilgilendirme ve yönlendirme platformudur. Son fiyatı partner sayfasında doğrula.</span></div></div></section>
-
-      <section className="v12-section"><div className="v12-container v12-search-page-grid">
-        <form onSubmit={aramaYap} className="v12-filter-panel">
-          <h2>Arama bilgileri</h2>
-          <label><span>Nereden</span><input value={nereden} onChange={(e) => setNereden(e.target.value)} list="airports" /></label>
-          <label><span>Nereye</span><input value={nereye} onChange={(e) => setNereye(e.target.value)} list="airports" /></label>
-          <div className="v12-two"><label><span>Gidiş</span><input type="date" value={gidis} onChange={(e) => setGidis(e.target.value)} /></label><label><span>Dönüş</span><input type="date" value={donus} onChange={(e) => setDonus(e.target.value)} /></label></div>
-          <div className="v12-two"><label><span>Yolcu</span><select value={yolcu} onChange={(e) => setYolcu(e.target.value)}><option value="1">1 yolcu</option><option value="2">2 yolcu</option><option value="3">3 yolcu</option></select></label><label><span>Maks. fiyat</span><input value={maksimumFiyat} onChange={(e) => setMaksimumFiyat(e.target.value)} /></label></div>
-          <label><span>Kategori</span><select value={kategori} onChange={(e) => setKategori(e.target.value)}>{kategoriler.map((k) => <option key={k}>{k}</option>)}</select></label>
-          <div className="v12-two"><label><span>Vize</span><select value={vize} onChange={(e) => setVize(e.target.value)}><option>Tümü</option><option>Vizesiz</option><option>Vizeli</option></select></label><label><span>Aktarma</span><select value={aktarma} onChange={(e) => setAktarma(e.target.value)}><option>Tümü</option><option>Aktarmasız</option><option>1 Aktarma</option></select></label></div>
-          <label><span>Sıralama</span><select value={siralama} onChange={(e) => setSiralama(e.target.value)}><option value="en-iyi">En iyi</option><option value="en-ucuz">En ucuz</option><option value="populer">Popüler</option><option value="en-hizli">En hızlı</option></select></label>
-          <button>{yukleniyor ? "Aranıyor..." : "Fırsatları getir"}</button>
-          <datalist id="airports">{havalimaniSecenekleri.map((item) => <option key={item} value={item} />)}</datalist>
-        </form>
-
-        <div className="v12-results-area">
-          {hata && <div className="v12-error">{hata}</div>}
-          <div className="v12-results-head"><div><span className="v12-kicker">Arama sonuçları</span><h2>{biletler.length} fırsat bulundu</h2></div><a href="/flights" className="v12-text-link">Vitrine dön →</a></div>
-          {yukleniyor && <div className="v12-loading">Sonuçlar yükleniyor...</div>}
-          <div className="v12-result-list">
-            {biletler.map((bilet) => {
-              const sinif = rotaSinifi(`${bilet.nereye} ${bilet.ulke} ${bilet.kategori}`);
-              return <article key={bilet.id} className="v12-result-card"><a href={`/ucak-bileti/${bilet.detaySlug}`} className={`v12-result-img v12-route-${sinif}`} style={gorselStyle(bilet.gorselUrl)}><span>{bilet.ulkeEmoji}</span></a><div className="v12-result-body"><div className="v12-result-title"><h3>{bilet.nereden} → {bilet.nereye}</h3><b>{bilet.fiyat}</b></div><p>{bilet.aciklama || `${bilet.ulke} rotası için fırsat.`}</p><div className="v12-deal-meta"><span>{bilet.kategori}</span><span>{bilet.vize}</span><span>{bilet.havayolu}</span><span>{bilet.sure}</span><span>{bilet.sonKontrol}</span></div><div className="v12-deal-actions"><button onClick={() => satinAl(bilet)}>Son fiyatı kontrol et</button><a href={`/ucak-bileti/${bilet.detaySlug}`}>Detay sayfası</a></div></div></article>;
-            })}
-          </div>
-
-          <form id="fiyat-alarmi" onSubmit={alarmKaydet} className="v12-alarm-box"><div><span className="v12-kicker">Fiyat alarmı</span><h2>Bu rota için hedef fiyat bırak</h2><p>Uygun fiyat yakalamak istediğin rotayı admin panelden takip edebilirsin.</p></div><input value={alarmEmail} onChange={(e) => setAlarmEmail(e.target.value)} placeholder="E-posta adresin" /><input value={alarmMaksimumFiyat} onChange={(e) => setAlarmMaksimumFiyat(e.target.value)} placeholder="Maksimum fiyat" /><button>Alarm oluştur</button>{alarmMesaji && <small>{alarmMesaji}</small>}</form>
+      <section className="v13-search-hero">
+        <div className="v13-container">
+          <span className="v13-pill">🔎 Uçuş arama</span>
+          <h1>Rota fırsatlarını temiz filtrelerle bul.</h1>
+          <p>Geçmiş tarih seçilemez. Havalimanları kısa ve okunabilir seçim kutularıyla düzenlendi.</p>
         </div>
-      </div></section>
+      </section>
+
+      <section className="v13-section top-tight">
+        <div className="v13-container v13-search-layout">
+          <form onSubmit={aramaYap} className="v13-filter-panel">
+            <h2>Arama bilgileri</h2>
+            <AirportSelect label="Nereden" value={nereden} onChange={setNereden} />
+            <AirportSelect label="Nereye" value={nereye} onChange={setNereye} />
+            <div className="v13-two">
+              <label className="v13-field"><span>Gidiş</span><input type="date" value={gidis} min={bugun()} onChange={(e) => setGidis(e.target.value)} /></label>
+              <label className="v13-field"><span>Dönüş</span><input type="date" value={donus} min={gidis || bugun()} onChange={(e) => setDonus(e.target.value)} /></label>
+            </div>
+            <div className="v13-two">
+              <label className="v13-field"><span>Yolcu</span><select value={yolcu} onChange={(e) => setYolcu(e.target.value)}><option value="1">1 yolcu</option><option value="2">2 yolcu</option><option value="3">3 yolcu</option><option value="4">4 yolcu</option></select></label>
+              <label className="v13-field"><span>Maks. fiyat</span><input value={maksimumFiyat} onChange={(e) => setMaksimumFiyat(e.target.value.replace(/\D/g, ""))} /></label>
+            </div>
+            <label className="v13-field"><span>Kategori</span><select value={kategori} onChange={(e) => setKategori(e.target.value)}>{kategoriler.map((k) => <option key={k}>{k}</option>)}</select></label>
+            <div className="v13-two"><label className="v13-field"><span>Vize</span><select value={vize} onChange={(e) => setVize(e.target.value)}><option>Tümü</option><option>Vizesiz</option><option>Vizeli</option></select></label><label className="v13-field"><span>Aktarma</span><select value={aktarma} onChange={(e) => setAktarma(e.target.value)}><option>Tümü</option><option>Aktarmasız</option><option>1 Aktarma</option></select></label></div>
+            <label className="v13-field"><span>Sıralama</span><select value={siralama} onChange={(e) => setSiralama(e.target.value)}><option value="en-iyi">En iyi</option><option value="en-ucuz">En ucuz</option><option value="populer">Popüler</option><option value="en-hizli">En hızlı</option></select></label>
+            <button className="v13-search-btn full">{yukleniyor ? "Aranıyor..." : "Fırsatları getir"}</button>
+          </form>
+
+          <div className="v13-results-area">
+            <div className="v13-results-toolbar"><div><span className="v13-kicker">Sonuçlar</span><h2>{biletler.length} fırsat bulundu</h2></div><div className="v13-result-summary"><span>En ucuz: <b>{enUcuz?.fiyat || "—"}</b></span><a href="/flights">Vitrine dön →</a></div></div>
+            {hata && <div className="v13-error">{hata}</div>}
+            {yukleniyor && <div className="v13-loading">Sonuçlar yükleniyor...</div>}
+            {!yukleniyor && biletler.length === 0 && <div className="v13-empty"><h3>Bu filtrelerle fırsat bulunamadı.</h3><p>Fiyat limitini artır veya kategori/vize filtresini “Tümü” yap.</p></div>}
+
+            <div className="v13-result-list">
+              {biletler.map((bilet) => {
+                const sinif = rotaSinifi(`${bilet.nereye} ${bilet.ulke} ${bilet.kategori}`);
+                const liveParams = new URLSearchParams({ nereden: bilet.kalkisKodu || nereden, nereye: bilet.varisKodu || nereye, gidis, donus, maksimumFiyat });
+                return (
+                  <article key={bilet.id} className="v13-result-card">
+                    <a href={`/ucak-bileti/${bilet.detaySlug}`} className={`v13-result-img v12-route-${sinif}`} style={gorselStyle(bilet.gorselUrl)}><span>{bilet.ulkeEmoji || "✈️"}</span></a>
+                    <div className="v13-result-main">
+                      <div className="v13-result-top"><div><h3>{bilet.nereden} → {bilet.nereye}</h3><p>{bilet.aciklama || `${bilet.ulke} rotası için fırsat.`}</p></div><strong>{bilet.fiyat}</strong></div>
+                      <div className="v13-meta"><span>{bilet.kategori}</span><span>{bilet.vize}</span><span>{bilet.havayolu}</span><span>{bilet.sure}</span><span>{bilet.sonKontrol}</span></div>
+                      <div className="v13-card-actions"><button onClick={() => satinAl(bilet)}>Partner fiyatını aç</button><a href={`/canli-ucus?${liveParams.toString()}`}>Canlı kontrol</a><a href={`/ucak-bileti/${bilet.detaySlug}`}>Detay</a></div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <form id="fiyat-alarmi" onSubmit={alarmKaydet} className="v13-alarm-box"><div><span className="v13-kicker">Fiyat alarmı</span><h2>Bu rota için hedef fiyat bırak</h2><p>Uygun fiyat yakalamak istediğin rotayı admin panelden takip edebilirsin.</p></div><input value={alarmEmail} onChange={(e) => setAlarmEmail(e.target.value)} placeholder="E-posta adresin" /><input value={alarmMaksimumFiyat} onChange={(e) => setAlarmMaksimumFiyat(e.target.value.replace(/\D/g, ""))} placeholder="Maksimum fiyat" /><button>Alarm oluştur</button>{alarmMesaji && <small>{alarmMesaji}</small>}</form>
+          </div>
+        </div>
+      </section>
     </main>
   );
+}
+
+function Header() {
+  return <header className="v13-header"><div className="v13-container v13-header-inner"><a className="v13-brand" href="/"><img src="/logo.png" alt="Letsgo 2 Travel" /></a><nav className="v13-nav"><a href="/">Ana sayfa</a><a href="/flights">Fırsatlar</a><a href="/canli-ucus">Canlı uçuşlar</a><a href="/arama">Uçuş ara</a></nav><a className="v13-admin" href="/admin">Admin Panel</a></div></header>;
+}
+
+function AirportSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const selected = airports.find((item) => item.code === value);
+  return <label className="v13-field airport"><span>{label}</span><select value={value} onChange={(e) => onChange(e.target.value)}>{airports.map((airport) => <option key={airport.code} value={airport.code}>{airport.city} ({airport.code}) - {airport.name}</option>)}</select><small>{selected ? `${selected.name} · ${selected.country}` : value}</small></label>;
 }

@@ -26,11 +26,35 @@ type Firsat = {
   varisKodu?: string;
   aktarma?: string;
   saglayici?: string;
-  aramaPuani?: number;
   detaySlug?: string;
   gorselUrl?: string;
   oneCikan?: boolean;
 };
+
+type Airport = {
+  code: string;
+  city: string;
+  name: string;
+  country: string;
+};
+
+const airports: Airport[] = [
+  { code: "IST", city: "İstanbul", name: "İstanbul Havalimanı", country: "Türkiye" },
+  { code: "SAW", city: "İstanbul", name: "Sabiha Gökçen", country: "Türkiye" },
+  { code: "ESB", city: "Ankara", name: "Esenboğa", country: "Türkiye" },
+  { code: "ADB", city: "İzmir", name: "Adnan Menderes", country: "Türkiye" },
+  { code: "AYT", city: "Antalya", name: "Antalya Havalimanı", country: "Türkiye" },
+  { code: "ROM", city: "Roma", name: "Tüm Havalimanları", country: "İtalya" },
+  { code: "PAR", city: "Paris", name: "Tüm Havalimanları", country: "Fransa" },
+  { code: "SJJ", city: "Saraybosna", name: "Sarajevo", country: "Bosna Hersek" },
+  { code: "GYD", city: "Bakü", name: "Haydar Aliyev", country: "Azerbaycan" },
+  { code: "DXB", city: "Dubai", name: "Dubai Havalimanı", country: "BAE" },
+  { code: "AMS", city: "Amsterdam", name: "Schiphol", country: "Hollanda" },
+  { code: "BER", city: "Berlin", name: "Brandenburg", country: "Almanya" },
+  { code: "PRG", city: "Prag", name: "Václav Havel", country: "Çekya" },
+  { code: "VIE", city: "Viyana", name: "Vienna Intl.", country: "Avusturya" },
+  { code: "BCN", city: "Barselona", name: "El Prat", country: "İspanya" },
+];
 
 const fallbackFirsatlar: Firsat[] = [
   {
@@ -46,8 +70,7 @@ const fallbackFirsatlar: Firsat[] = [
     havayolu: "Partner",
     sure: "2 sa 35 dk",
     bagaj: "Kabin bagajı",
-    etiket: "Şehir kaçamağı",
-    aciklama: "Roma, kısa Avrupa tatili planlayanlar için güçlü bir rota.",
+    aciklama: "Kısa Avrupa tatili planlayanlar için şehir kaçamağı fırsatı.",
     ulkeEmoji: "🇮🇹",
     sonKontrol: "Bugün",
     detaySlug: "istanbul-roma",
@@ -68,8 +91,7 @@ const fallbackFirsatlar: Firsat[] = [
     havayolu: "Partner",
     sure: "1 sa 55 dk",
     bagaj: "Kabin bagajı",
-    etiket: "Balkan rotası",
-    aciklama: "Pasaportla kolay seyahat edilebilen ekonomik Balkan seçeneği.",
+    aciklama: "Pasaportla kolay seyahat edilebilen ekonomik Balkan rotası.",
     ulkeEmoji: "🇧🇦",
     sonKontrol: "Bugün",
     detaySlug: "istanbul-saraybosna",
@@ -84,13 +106,12 @@ const fallbackFirsatlar: Firsat[] = [
     ulke: "Azerbaycan",
     fiyat: "2.199 TL",
     fiyatSayi: 2199,
-    kategori: "Yakın rota",
+    kategori: "Vizesiz",
     vize: "Vizesiz",
     ay: "Temmuz",
     havayolu: "Partner",
     sure: "2 sa 20 dk",
     bagaj: "Kabin bagajı",
-    etiket: "Kardeş ülke",
     aciklama: "Kısa uçuş ve kültürel yakınlıkla öne çıkan rota.",
     ulkeEmoji: "🇦🇿",
     sonKontrol: "Bugün",
@@ -98,68 +119,28 @@ const fallbackFirsatlar: Firsat[] = [
     kalkisKodu: "ESB",
     varisKodu: "GYD",
   },
-  {
-    id: 4,
-    nereden: "İstanbul",
-    nereye: "Dubai",
-    ulke: "BAE",
-    fiyat: "4.999 TL",
-    fiyatSayi: 4999,
-    kategori: "Popüler",
-    vize: "Vizeli",
-    ay: "Eylül",
-    havayolu: "Partner",
-    sure: "4 sa 25 dk",
-    bagaj: "Kabin bagajı",
-    etiket: "Lüks şehir",
-    aciklama: "Şehir tatili ve aktarmalı uçuş kombinasyonları için popüler.",
-    ulkeEmoji: "🇦🇪",
-    sonKontrol: "Bugün",
-    detaySlug: "istanbul-dubai",
-    kalkisKodu: "IST",
-    varisKodu: "DXB",
-  },
 ];
 
-const havalimaniSecenekleri = [
-  "İstanbul (IST) - İstanbul Havalimanı",
-  "İstanbul (SAW) - Sabiha Gökçen Havalimanı",
-  "Ankara (ESB) - Esenboğa Havalimanı",
-  "İzmir (ADB) - Adnan Menderes Havalimanı",
-  "Antalya (AYT) - Antalya Havalimanı",
-  "Roma (ROM) - Tüm Havalimanları",
-  "Paris (PAR) - Tüm Havalimanları",
-  "Saraybosna (SJJ) - Sarajevo Havalimanı",
-  "Bakü (GYD) - Haydar Aliyev Havalimanı",
-  "Dubai (DXB) - Dubai Havalimanı",
-  "Amsterdam (AMS) - Schiphol Havalimanı",
-  "Berlin (BER) - Berlin Brandenburg Havalimanı",
-  "Prag (PRG) - Václav Havel Havalimanı",
-  "Viyana (VIE) - Vienna Havalimanı",
-  "Barselona (BCN) - El Prat Havalimanı",
-];
-
-const rotaKategorileri = [
-  { ikon: "🌍", baslik: "Avrupa kaçamakları", metin: "Roma, Paris, Prag ve Viyana gibi şehir tatilleri.", link: "/flights?kategori=Avrupa" },
-  { ikon: "🛂", baslik: "Vizesiz rotalar", metin: "Balkanlar, Kafkasya ve pasaportla gidilebilen yakın rotalar.", link: "/flights?kategori=Vizesiz" },
-  { ikon: "🏖️", baslik: "Yaz tatili", metin: "Deniz, güneş ve kısa tatil planları için sezonluk fırsatlar.", link: "/flights?kategori=Yaz Tatili" },
-  { ikon: "💸", baslik: "En ucuz fırsatlar", metin: "Bütçe odaklı kullanıcılar için düşük fiyatlı uçuşlar.", link: "/flights?kategori=En Ucuz" },
+const kategoriKartlari = [
+  { baslik: "Avrupa kaçamakları", metin: "Roma, Paris, Prag ve Viyana gibi kısa şehir tatilleri.", ikon: "🌍", link: "/flights?kategori=Avrupa" },
+  { baslik: "Vizesiz rotalar", metin: "Balkanlar ve Kafkasya için pasaportla kolay seyahat.", ikon: "🛂", link: "/flights?kategori=Vizesiz" },
+  { baslik: "Hafta sonu", metin: "2-3 günlük hızlı kaçamaklar için kompakt rota fikirleri.", ikon: "🧳", link: "/flights?kategori=Hafta Sonu" },
+  { baslik: "Canlı kontrol", metin: "Rota gir, Travelpayouts/Aviasales cache fiyatını sorgula.", ikon: "📡", link: "/canli-ucus" },
 ];
 
 function bugun() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function ikiHaftaSonra() {
-  const tarih = new Date();
-  tarih.setDate(tarih.getDate() + 14);
-  return tarih.toISOString().slice(0, 10);
+function gunEkle(value: string, days: number) {
+  const date = value ? new Date(`${value}T12:00:00`) : new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
-function aramaDegeriTemizle(value: string) {
-  const kod = value.match(/\(([A-Z]{3})\)/);
-  if (kod?.[1]) return kod[1];
-  return value.trim();
+function airportLabel(code: string) {
+  const item = airports.find((airport) => airport.code === code);
+  return item ? `${item.city} (${item.code})` : code;
 }
 
 function rotaSinifi(value: string) {
@@ -176,21 +157,37 @@ function rotaSinifi(value: string) {
 function gorselStyle(url?: string) {
   if (!url?.trim()) return undefined;
   return {
-    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.08), rgba(2, 6, 23, 0.74)), url(${url})`,
+    backgroundImage: `linear-gradient(180deg, rgba(6, 23, 51, 0.06), rgba(6, 23, 51, 0.76)), url(${url})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
   };
 }
 
-function slugLink(firsat: Firsat) {
-  return firsat.detaySlug ? `/ucak-bileti/${firsat.detaySlug}` : "/arama";
+function detayLink(firsat: Firsat) {
+  return firsat.detaySlug ? `/ucak-bileti/${firsat.detaySlug}` : "/flights";
+}
+
+function rotaAramaLinki(firsat: Firsat) {
+  const params = new URLSearchParams({
+    nereden: firsat.kalkisKodu || "IST",
+    nereye: firsat.varisKodu || "ROM",
+    gidis: bugun(),
+    donus: gunEkle(bugun(), 7),
+    yolcu: "1",
+    maksimumFiyat: "30000",
+    siralama: "en-iyi",
+    vize: "Tümü",
+    kategori: "Tümü",
+    aktarma: "Tümü",
+  });
+  return `/arama?${params.toString()}`;
 }
 
 export default function HomePage() {
-  const [nereden, setNereden] = useState("İstanbul (IST) - İstanbul Havalimanı");
-  const [nereye, setNereye] = useState("Roma (ROM) - Tüm Havalimanları");
+  const [from, setFrom] = useState("IST");
+  const [to, setTo] = useState("ROM");
   const [gidis, setGidis] = useState(bugun());
-  const [donus, setDonus] = useState(ikiHaftaSonra());
+  const [donus, setDonus] = useState(gunEkle(bugun(), 14));
   const [yolcu, setYolcu] = useState("1");
   const [firsatlar, setFirsatlar] = useState<Firsat[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -201,8 +198,7 @@ export default function HomePage() {
       try {
         const response = await fetch("/api/firsatlar", { cache: "no-store" });
         const data = await response.json();
-        if (!aktif) return;
-        setFirsatlar(Array.isArray(data.firsatlar) ? data.firsatlar : []);
+        if (aktif) setFirsatlar(Array.isArray(data.firsatlar) ? data.firsatlar : []);
       } catch {
         if (aktif) setFirsatlar([]);
       } finally {
@@ -210,19 +206,22 @@ export default function HomePage() {
       }
     }
     yukle();
-    return () => {
-      aktif = false;
-    };
+    return () => { aktif = false; };
   }, []);
 
-  const vitrindekiFirsatlar = firsatlar.length ? firsatlar.slice(0, 8) : fallbackFirsatlar;
+  useEffect(() => {
+    const today = bugun();
+    if (gidis < today) setGidis(today);
+    if (donus < gidis) setDonus(gunEkle(gidis, 7));
+  }, [gidis, donus]);
+
+  const vitrindekiFirsatlar = firsatlar.length ? firsatlar.slice(0, 6) : fallbackFirsatlar;
   const enUcuz = [...vitrindekiFirsatlar].sort((a, b) => (a.fiyatSayi || 999999) - (b.fiyatSayi || 999999))[0];
-  const vizesizSayisi = vitrindekiFirsatlar.filter((item) => item.vize === "Vizesiz" || item.kategori === "Vizesiz").length;
 
   const aramaLinki = useMemo(() => {
     const params = new URLSearchParams({
-      nereden: aramaDegeriTemizle(nereden),
-      nereye: aramaDegeriTemizle(nereye),
+      nereden: from,
+      nereye: to,
       gidis,
       donus,
       yolcu,
@@ -233,178 +232,101 @@ export default function HomePage() {
       aktarma: "Tümü",
     });
     return `/arama?${params.toString()}`;
-  }, [nereden, nereye, gidis, donus, yolcu]);
+  }, [from, to, gidis, donus, yolcu]);
 
   function aramaYap(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     window.location.href = aramaLinki;
   }
 
-  function rotaAramaLinki(firsat: Firsat) {
-    const params = new URLSearchParams({
-      nereden: firsat.kalkisKodu || firsat.nereden,
-      nereye: firsat.varisKodu || firsat.nereye,
-      gidis,
-      donus,
-      yolcu,
-      maksimumFiyat: "30000",
-      siralama: "en-iyi",
-      vize: "Tümü",
-      kategori: "Tümü",
-      aktarma: "Tümü",
-    });
-    return `/arama?${params.toString()}`;
-  }
-
   return (
-    <main className="l2t-v12-page">
-      <header className="v12-header">
-        <div className="v12-container v12-header-inner">
-          <a href="/" className="v12-brand" aria-label="Letsgo 2 Travel ana sayfa">
-            <img src="/logo.png" alt="Letsgo 2 Travel" />
-          </a>
-          <nav className="v12-nav" aria-label="Ana menü">
-            <a href="/arama">Uçuş Ara</a>
-            <a href="/flights">Fırsatlar</a>
-            <a href="#nasil-calisir">Nasıl çalışır?</a>
-            <a href="#fiyat-alarmi">Fiyat alarmı</a>
-          </nav>
-          <div className="v12-header-actions">
-            <span>🌐 TR</span>
-            <a href="/admin" className="v12-admin-link">Admin Panel</a>
-          </div>
-        </div>
-      </header>
+    <main className="v13-page">
+      <Header />
 
-      <section className="v12-hero">
-        <div className="v12-container v12-hero-grid">
-          <div className="v12-hero-copy">
-            <div className="v12-pill">✈️ Uçuş fırsatı · rota vitrini · fiyat alarmı</div>
-            <h1>Ucuz uçak bileti fırsatlarını tek ekranda yakala.</h1>
+      <section className="v13-hero">
+        <div className="v13-container v13-hero-grid">
+          <div className="v13-hero-copy">
+            <span className="v13-pill">✈️ Uçuş fırsat platformu</span>
+            <h1>Ucuz uçak bileti fırsatlarını daha akıllı keşfet.</h1>
             <p>
-              Letsgo 2 Travel; rota fırsatlarını, admin panelden eklenen kampanyaları ve
-              partner fiyat kontrolünü daha düzenli gösteren seyahat fırsat platformudur.
+              Letsgo 2 Travel; rota fırsatlarını, fiyat alarmını ve canlı partner kontrolünü tek ekranda toparlayan seyahat fırsat platformudur.
             </p>
-            <div className="v12-hero-actions">
-              <a href={aramaLinki} className="v12-primary-btn">Hemen uçuş ara</a>
-              <a href="/flights" className="v12-secondary-btn">Fırsat vitrinini aç</a>
-            </div>
-            <div className="v12-proof-row">
-              <span><b>{vitrindekiFirsatlar.length}</b> yayındaki rota</span>
-              <span><b>{vizesizSayisi}</b> vizesiz seçenek</span>
-              <span><b>{enUcuz?.fiyat || "—"}</b> en düşük vitrin fiyatı</span>
+            <div className="v13-hero-actions">
+              <a href="#arama" className="v13-btn yellow">Hemen uçuş ara</a>
+              <a href="/canli-ucus" className="v13-btn ghost">Canlı fiyat kontrolü</a>
             </div>
           </div>
 
-          <div className="v12-hero-media">
-            <div className="v12-plane-card">
-              <div className="v12-floating-card top">
-                <small>Bugünün odağı</small>
-                <strong>{enUcuz?.nereden || "İstanbul"} → {enUcuz?.nereye || "Roma"}</strong>
-              </div>
-              <div className="v12-floating-card bottom">
-                <small>Başlayan fiyatlarla</small>
-                <strong>{enUcuz?.fiyat || "1.899 TL"}</strong>
-              </div>
+          <div className="v13-hero-card">
+            <div className="v13-plane-visual">
+              <div className="v13-floating-card top"><small>Bugünün odağı</small><strong>{enUcuz?.nereden || "İstanbul"} → {enUcuz?.nereye || "Roma"}</strong></div>
+              <div className="v13-floating-card bottom"><small>Başlayan fiyat</small><strong>{enUcuz?.fiyat || "2.499 TL"}</strong></div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div className="v12-container">
-          <form onSubmit={aramaYap} className="v12-search-shell">
-            <div className="v12-tabs">
-              <button type="button" className="active">✈ Uçuş</button>
-              <button type="button">🏨 Otel yakında</button>
-              <button type="button">🚗 Araç yakında</button>
-            </div>
-            <div className="v12-search-grid">
-              <label>
-                <span>Nereden</span>
-                <input value={nereden} onChange={(e) => setNereden(e.target.value)} list="from-airports" />
-              </label>
-              <button
-                type="button"
-                className="v12-swap-btn"
-                onClick={() => {
-                  setNereden(nereye);
-                  setNereye(nereden);
-                }}
-                aria-label="Rota değiştir"
-              >
-                ⇄
-              </button>
-              <label>
-                <span>Nereye</span>
-                <input value={nereye} onChange={(e) => setNereye(e.target.value)} list="to-airports" />
-              </label>
-              <label>
-                <span>Gidiş</span>
-                <input value={gidis} onChange={(e) => setGidis(e.target.value)} type="date" />
-              </label>
-              <label>
-                <span>Dönüş</span>
-                <input value={donus} onChange={(e) => setDonus(e.target.value)} type="date" />
-              </label>
-              <label>
-                <span>Yolcu</span>
-                <select value={yolcu} onChange={(e) => setYolcu(e.target.value)}>
-                  <option value="1">1 yolcu</option>
-                  <option value="2">2 yolcu</option>
-                  <option value="3">3 yolcu</option>
-                  <option value="4">4 yolcu</option>
-                </select>
-              </label>
-              <button type="submit" className="v12-search-btn">Fırsat ara →</button>
-            </div>
-            <div className="v12-search-note">
-              <span>Son fiyatı partner sayfasında kontrol et.</span>
-              <span>Fiyatlar anlık değişebilir.</span>
-              <span>Admin panelden eklenen rotalar vitrinde görünür.</span>
-            </div>
-            <datalist id="from-airports">{havalimaniSecenekleri.map((item) => <option key={`from-${item}`} value={item} />)}</datalist>
-            <datalist id="to-airports">{havalimaniSecenekleri.map((item) => <option key={`to-${item}`} value={item} />)}</datalist>
+      <section id="arama" className="v13-search-shell">
+        <div className="v13-container">
+          <form className="v13-search-box" onSubmit={aramaYap}>
+            <AirportSelect label="Nereden" value={from} onChange={setFrom} />
+            <AirportSelect label="Nereye" value={to} onChange={setTo} />
+            <label className="v13-field compact">
+              <span>Gidiş</span>
+              <input type="date" value={gidis} min={bugun()} onChange={(e) => setGidis(e.target.value)} />
+            </label>
+            <label className="v13-field compact">
+              <span>Dönüş</span>
+              <input type="date" value={donus} min={gidis || bugun()} onChange={(e) => setDonus(e.target.value)} />
+            </label>
+            <label className="v13-field compact">
+              <span>Yolcu</span>
+              <select value={yolcu} onChange={(e) => setYolcu(e.target.value)}>
+                <option value="1">1 yolcu</option>
+                <option value="2">2 yolcu</option>
+                <option value="3">3 yolcu</option>
+                <option value="4">4 yolcu</option>
+              </select>
+            </label>
+            <button className="v13-search-btn">Fırsat ara →</button>
           </form>
         </div>
       </section>
 
-      <section className="v12-section" id="firsatlar">
-        <div className="v12-container">
-          <div className="v12-section-head">
+      <section className="v13-section">
+        <div className="v13-container v13-stats-grid">
+          <Stat title="Yayındaki fırsat" value={yukleniyor ? "—" : String(vitrindekiFirsatlar.length)} />
+          <Stat title="En düşük fiyat" value={enUcuz?.fiyat || "—"} />
+          <Stat title="Canlı kontrol" value="API + partner" />
+          <Stat title="Fiyat alarmı" value="Takip sistemi" />
+        </div>
+      </section>
+
+      <section className="v13-section" id="firsatlar">
+        <div className="v13-container">
+          <div className="v13-section-head">
             <div>
-              <span className="v12-kicker">Admin panelden gelen fırsatlar</span>
-              <h2>Yayındaki rota kartları</h2>
-              <p>{yukleniyor ? "Fırsatlar yükleniyor..." : firsatlar.length ? "Bu kartlar Supabase ve admin panelinden canlı gelir." : "Henüz canlı rota yok; örnek kartlar gösteriliyor."}</p>
+              <span className="v13-kicker">Vitrin</span>
+              <h2>Öne çıkan uçuş fırsatları</h2>
+              <p>{yukleniyor ? "Fırsatlar yükleniyor..." : "Admin panelden eklenen aktif rotalar burada daha temiz kartlarla görünür."}</p>
             </div>
-            <a href="/flights" className="v12-text-link">Tüm fırsatları gör →</a>
+            <a href="/flights" className="v13-link">Tüm fırsatları gör →</a>
           </div>
 
-          <div className="v12-deal-grid">
+          <div className="v13-deal-grid">
             {vitrindekiFirsatlar.map((firsat) => {
               const sinif = rotaSinifi(`${firsat.nereye} ${firsat.ulke} ${firsat.kategori}`);
               return (
-                <article key={firsat.id || firsat.detaySlug || `${firsat.nereden}-${firsat.nereye}`} className="v12-deal-card">
-                  <a href={slugLink(firsat)} className={`v12-deal-visual v12-route-${sinif}`} style={gorselStyle(firsat.gorselUrl)}>
-                    <div className="v12-deal-badges">
-                      <span>{firsat.ulkeEmoji || "✈️"} {firsat.kategori || firsat.vize || "Fırsat"}</span>
-                      {firsat.oneCikan && <span>Öne çıkan</span>}
-                    </div>
-                    <strong>{firsat.nereden} → {firsat.nereye}</strong>
+                <article className="v13-deal-card" key={firsat.id || `${firsat.nereden}-${firsat.nereye}`}>
+                  <a href={detayLink(firsat)} className={`v13-deal-image v12-route-${sinif}`} style={gorselStyle(firsat.gorselUrl)}>
+                    <span>{firsat.ulkeEmoji || "✈️"} {firsat.kategori || "Fırsat"}</span>
+                    {firsat.oneCikan && <em>Öne çıkan</em>}
                   </a>
-                  <div className="v12-deal-body">
-                    <div className="v12-deal-price-row">
-                      <small>Başlayan fiyatlarla</small>
-                      <b>{firsat.fiyat}</b>
-                    </div>
+                  <div className="v13-deal-content">
+                    <div className="v13-deal-title"><h3>{firsat.nereden} → {firsat.nereye}</h3><b>{firsat.fiyat}</b></div>
                     <p>{firsat.aciklama || `${firsat.ulke || firsat.nereye} rotası için güncel uçuş fırsatı.`}</p>
-                    <div className="v12-deal-meta">
-                      <span>{firsat.ay || "Sezon"}</span>
-                      <span>{firsat.havayolu || "Partner"}</span>
-                      <span>{firsat.sonKontrol || "Bugün"}</span>
-                    </div>
-                    <div className="v12-deal-actions">
-                      <a href={rotaAramaLinki(firsat)}>Aramada aç</a>
-                      <a href={slugLink(firsat)}>Detay</a>
-                    </div>
+                    <div className="v13-meta"><span>{firsat.ay || "Sezon"}</span><span>{firsat.vize || "Vize durumu"}</span><span>{firsat.sonKontrol || "Bugün"}</span></div>
+                    <div className="v13-card-actions"><a href={rotaAramaLinki(firsat)}>Aramada aç</a><a href={`/canli-ucus?nereden=${firsat.kalkisKodu || "IST"}&nereye=${firsat.varisKodu || "ROM"}&gidis=${bugun()}&donus=${gunEkle(bugun(), 7)}&maksimumFiyat=30000`}>Canlı kontrol</a></div>
                   </div>
                 </article>
               );
@@ -413,19 +335,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="v12-section v12-dark-band">
-        <div className="v12-container v12-band-grid">
-          <div>
-            <span className="v12-kicker light">Kategori vitrini</span>
-            <h2>Site sadece bilet göstermesin; rota fikri de versin.</h2>
-            <p>
-              Kullanıcı ana sayfada hızlı karar verebilsin diye fırsatları kategoriye,
-              vize durumuna ve tatil amacına göre gruplayalım.
-            </p>
+      <section className="v13-section soft">
+        <div className="v13-container">
+          <div className="v13-section-head centered">
+            <span className="v13-kicker">Keşfet</span>
+            <h2>Rota bulmayı kolaylaştıran alanlar</h2>
+            <p>Site sadece liste göstermesin; kullanıcıya ne arayacağını da anlatsın.</p>
           </div>
-          <div className="v12-category-grid">
-            {rotaKategorileri.map((item) => (
-              <a href={item.link} key={item.baslik} className="v12-category-card">
+          <div className="v13-category-grid">
+            {kategoriKartlari.map((item) => (
+              <a href={item.link} className="v13-category-card" key={item.baslik}>
                 <span>{item.ikon}</span>
                 <strong>{item.baslik}</strong>
                 <small>{item.metin}</small>
@@ -435,56 +354,67 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="v12-section" id="nasil-calisir">
-        <div className="v12-container">
-          <div className="v12-section-head centered">
-            <span className="v12-kicker">Nasıl çalışır?</span>
-            <h2>3 adımda doğru fırsata yönlen</h2>
-            <p>Letsgo 2 Travel bilet satmaz; fırsatı gösterir, kullanıcıyı doğru kontrol sayfasına yönlendirir.</p>
+      <section className="v13-section">
+        <div className="v13-container v13-info-band">
+          <div>
+            <span className="v13-kicker">Güven notu</span>
+            <h2>Bilet satışı partner/havayolu tarafında tamamlanır.</h2>
+            <p>Letsgo 2 Travel fiyatları ve rotaları bilgilendirme amacıyla listeler. Satın almadan önce son fiyatı, bagajı ve müsaitliği partner sayfasında kontrol etmek gerekir.</p>
           </div>
-          <div className="v12-steps">
-            <div><b>1</b><strong>Rota seç</strong><p>Şehir veya havalimanı seçerek arama başlat.</p></div>
-            <div><b>2</b><strong>Fırsatı incele</strong><p>Admin panelden eklenen kampanya ve rota kartlarını karşılaştır.</p></div>
-            <div><b>3</b><strong>Son fiyatı kontrol et</strong><p>Satın alma öncesi partner/havayolu sayfasındaki güncel fiyatı doğrula.</p></div>
-          </div>
+          <a href="/arama" className="v13-btn dark">Fırsat ara →</a>
         </div>
       </section>
 
-      <section className="v12-section" id="fiyat-alarmi">
-        <div className="v12-container v12-alert-cta">
-          <div>
-            <span className="v12-kicker">Fiyat alarmı</span>
-            <h2>İstediğin rota için hedef fiyat bırak.</h2>
-            <p>Arama sayfasından fiyat alarmı oluşturan kullanıcıları admin panelde takip edebilirsin.</p>
-          </div>
-          <a href="/arama#fiyat-alarmi" className="v12-primary-btn">Alarm oluştur →</a>
-        </div>
-      </section>
-
-      <footer className="v12-footer">
-        <div className="v12-container v12-footer-grid">
-          <div>
-            <img src="/logo.png" alt="Letsgo 2 Travel" />
-            <p>Ucuz uçuş fikirleri, rota kartları, fiyat alarmı ve partner yönlendirme platformu.</p>
-          </div>
-          <div>
-            <h4>Site</h4>
-            <a href="/arama">Uçuş ara</a>
-            <a href="/flights">Fırsatlar</a>
-            <a href="/canli-ucus">Canlı kontrol</a>
-          </div>
-          <div>
-            <h4>Popüler</h4>
-            <a href="/flights?kategori=Avrupa">Avrupa</a>
-            <a href="/flights?kategori=Vizesiz">Vizesiz</a>
-            <a href="/flights?kategori=En Ucuz">En ucuz</a>
-          </div>
-          <div>
-            <h4>Not</h4>
-            <p>Fiyatlar değişebilir. Son fiyat satın alma/partner sayfasında kontrol edilmelidir.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
+  );
+}
+
+function Header() {
+  return (
+    <header className="v13-header">
+      <div className="v13-container v13-header-inner">
+        <a className="v13-brand" href="/"><img src="/logo.png" alt="Letsgo 2 Travel" /></a>
+        <nav className="v13-nav">
+          <a href="/">Ana sayfa</a>
+          <a href="/flights">Fırsatlar</a>
+          <a href="/canli-ucus">Canlı uçuşlar</a>
+          <a href="/arama">Uçuş ara</a>
+        </nav>
+        <a className="v13-admin" href="/admin">Admin Panel</a>
+      </div>
+    </header>
+  );
+}
+
+function AirportSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const selected = airports.find((item) => item.code === value);
+  return (
+    <label className="v13-field airport">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {airports.map((airport) => (
+          <option key={airport.code} value={airport.code}>{airport.city} ({airport.code}) - {airport.name}</option>
+        ))}
+      </select>
+      <small>{selected ? `${selected.name} · ${selected.country}` : airportLabel(value)}</small>
+    </label>
+  );
+}
+
+function Stat({ title, value }: { title: string; value: string }) {
+  return <div className="v13-stat-card"><span>{title}</span><strong>{value}</strong></div>;
+}
+
+function Footer() {
+  return (
+    <footer className="v13-footer">
+      <div className="v13-container v13-footer-grid">
+        <div><img src="/logo.png" alt="Letsgo 2 Travel" /><p>Ucuz uçuş fırsatları, rota kartları, fiyat alarmı ve canlı partner kontrolü.</p></div>
+        <div><h4>Site</h4><a href="/arama">Uçuş ara</a><a href="/flights">Fırsatlar</a><a href="/canli-ucus">Canlı uçuşlar</a></div>
+        <div><h4>Popüler</h4><a href="/flights?kategori=Avrupa">Avrupa</a><a href="/flights?kategori=Vizesiz">Vizesiz</a><a href="/flights?kategori=En Ucuz">En ucuz</a></div>
+        <div><h4>Not</h4><p>Fiyatlar değişebilir. Son fiyat satın alma sayfasında kontrol edilmelidir.</p></div>
+      </div>
+    </footer>
   );
 }
