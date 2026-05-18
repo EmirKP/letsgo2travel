@@ -466,7 +466,7 @@ export default function AdminPanel() {
               <div className="admin12-form-section">
                 <h3>Görsel, SEO ve link</h3>
                 <div className="admin12-form-grid one">
-                  <label><span>Görsel URL</span><input value={form.gorselUrl} onChange={(e) => formGuncelle("gorselUrl", e.target.value)} placeholder="https://...jpg" /></label>
+                  <label><span>Görsel URL</span><input value={form.gorselUrl} onChange={(e) => formGuncelle("gorselUrl", e.target.value)} placeholder="Boş bırakırsan otomatik rota görseli kullanılır" /></label>
                   <label><span>Partner / kontrol linki</span><input value={form.link} onChange={(e) => formGuncelle("link", e.target.value)} /></label>
                   <label><span>Detay slug</span><input value={form.detaySlug} onChange={(e) => formGuncelle("detaySlug", e.target.value)} placeholder={slugOlustur(form.nereden, form.nereye)} /></label>
                   <label><span>Açıklama</span><textarea value={form.aciklama} onChange={(e) => formGuncelle("aciklama", e.target.value)} /></label>
@@ -519,7 +519,7 @@ export default function AdminPanel() {
                     <div className="admin12-row-title"><strong>{bilet.nereden} → {bilet.nereye}</strong><b>{bilet.fiyat}</b></div>
                     <p>{bilet.aciklama || `${bilet.ulke} rotası için fırsat.`}</p>
                     <div className="admin12-row-tags">
-                      <span>{bilet.kategori}</span><span>{bilet.vize}</span><span>{bilet.havayolu}</span><span>{bilet.tiklanma} tık</span>{!bilet.gorselUrl && <span className="warn">Görsel yok</span>}{bilet.oneCikan && <span>Öne çıkan</span>}
+                      <span>{bilet.kategori}</span><span>{bilet.vize}</span><span>{bilet.havayolu}</span><span>{bilet.tiklanma} tık</span>{!bilet.gorselUrl && <span className="warn">Otomatik görsel</span>}{bilet.oneCikan && <span>Öne çıkan</span>}
                     </div>
                   </div>
                   <div className="admin12-row-actions">

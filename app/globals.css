@@ -4109,3 +4109,402 @@ select {
   .v13-live-price { align-items: stretch; }
   .v13-footer-grid { grid-template-columns: 1fr; }
 }
+
+/* V14 - gerçek dosya içi rota görselleri */
+.v13-deal-image,
+.v13-result-img,
+.v12-deal-visual,
+.admin12-preview-img,
+.admin12-row-img,
+.detail-route-visual,
+.l2t-deal-image,
+.letsgo-ticket-visual,
+.admin-route-visual {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+.v12-route-roma,
+.l2t-route-visual-roma {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)),
+    url('/travel-images/route-roma.jpg') !important;
+}
+
+.v12-route-paris,
+.l2t-route-visual-paris {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)),
+    url('/travel-images/route-paris.jpg') !important;
+}
+
+.v12-route-saraybosna,
+.l2t-route-visual-saraybosna {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)),
+    url('/travel-images/route-saraybosna.jpg') !important;
+}
+
+.v12-route-baku,
+.l2t-route-visual-baku {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)),
+    url('/travel-images/route-baku.jpg') !important;
+}
+
+.v12-route-dubai,
+.l2t-route-visual-dubai {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)),
+    url('/travel-images/route-dubai.jpg') !important;
+}
+
+.v12-route-summer,
+.l2t-route-visual-summer {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.02), rgba(6, 23, 51, 0.60)),
+    url('/travel-images/route-summer.jpg') !important;
+}
+
+.v12-route-generic,
+.l2t-route-visual-generic,
+.l2t-route-visual-default {
+  background-image:
+    linear-gradient(180deg, rgba(6, 23, 51, 0.02), rgba(6, 23, 51, 0.68)),
+    url('/travel-images/route-generic.jpg') !important;
+}
+
+.v13-live-summary {
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,.94), rgba(255,255,255,.82)),
+    url('/travel-images/live-flights.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.v14-visual-section {
+  padding: 74px 0 34px;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 202, 26, 0.13), transparent 28rem),
+    linear-gradient(180deg, #f3f7fd, #eef5ff);
+}
+
+.v14-visual-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr;
+  gap: 18px;
+}
+
+.v14-visual-card {
+  min-height: 340px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 26px;
+  border-radius: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 22px 58px rgba(15, 23, 42, 0.16);
+}
+
+.v14-visual-card:first-child {
+  min-height: 430px;
+}
+
+.v14-visual-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 15%, rgba(255, 202, 26, 0.24), transparent 24%),
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(6, 23, 51, 0.34));
+  pointer-events: none;
+}
+
+.v14-visual-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.v14-visual-card span {
+  width: max-content;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #071633;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.v14-visual-card strong {
+  margin-top: 18px;
+  font-size: clamp(32px, 4vw, 58px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  font-weight: 950;
+}
+
+.v14-visual-card small {
+  margin-top: 10px;
+  color: rgba(255,255,255,.84);
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+@media (max-width: 980px) {
+  .v14-visual-grid { grid-template-columns: 1fr; }
+  .v14-visual-card,
+  .v14-visual-card:first-child { min-height: 300px; }
+}
+
+/* V15: Skyscanner tarzı havalimanı arama kutusu */
+.airport-picker {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  z-index: 20;
+}
+
+.airport-picker-label {
+  color: #62718f;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.airport-picker-control {
+  width: 100%;
+  height: 58px;
+  border: 1px solid #d9e4f3;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #071633;
+  padding: 0 14px 0 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.airport-picker-control:hover,
+.airport-picker-control.active {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.10);
+}
+
+.airport-picker-main {
+  font-size: 16px;
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.airport-picker-code {
+  min-width: 46px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef5ff;
+  color: #115bd8;
+  font-weight: 950;
+  font-size: 13px;
+}
+
+.airport-picker-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 10px);
+  background: #ffffff;
+  border: 1px solid #d9e4f3;
+  border-radius: 24px;
+  box-shadow: 0 34px 80px rgba(6, 23, 51, 0.22);
+  padding: 12px;
+  z-index: 9999;
+  min-width: min(520px, 92vw);
+  overflow: hidden;
+}
+
+.airport-picker-search-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 34px;
+  align-items: center;
+  height: 56px;
+  border: 2px solid #1a73e8;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 0 8px;
+  margin-bottom: 10px;
+}
+
+.airport-picker-search-row span {
+  color: #60708d;
+  font-size: 20px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.airport-picker-search-row input {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #071633;
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.airport-picker-search-row button {
+  border: 0;
+  background: #eef2f7;
+  color: #34445f;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.airport-picker-list {
+  max-height: 420px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding-right: 2px;
+}
+
+.airport-picker-option {
+  border: 0;
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #071633;
+  cursor: pointer;
+  text-align: left;
+}
+
+.airport-picker-option:hover,
+.airport-picker-option.highlight {
+  background: #f1f6ff;
+}
+
+.airport-picker-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2f7;
+  color: #6b7280;
+  font-size: 19px;
+  font-weight: 950;
+}
+
+.airport-picker-icon.airport {
+  background: #e8f1ff;
+  color: #1a73e8;
+}
+
+.airport-picker-icon.city {
+  background: #fff5d8;
+  color: #a66a00;
+}
+
+.airport-picker-icon.country {
+  background: #eefcf6;
+  color: #08784e;
+}
+
+.airport-picker-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.airport-picker-text strong {
+  font-size: 16px;
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.airport-picker-text small {
+  color: #56657f;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.airport-picker-badge {
+  min-width: 44px;
+  height: 34px;
+  border-radius: 999px;
+  background: #071633;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+
+.airport-picker-empty {
+  padding: 20px;
+  color: #657491;
+  font-weight: 850;
+}
+
+.airport-picker-footnote {
+  border-top: 1px solid #eef2f7;
+  margin-top: 10px;
+  padding: 10px 6px 2px;
+  color: #657491;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.v13-filter-panel .airport-picker {
+  z-index: 40;
+}
+
+.v13-filter-panel .airport-picker-menu {
+  min-width: min(560px, calc(100vw - 40px));
+}
+
+@media (max-width: 760px) {
+  .airport-picker-menu {
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    top: 96px;
+    min-width: 0;
+    max-height: calc(100vh - 130px);
+  }
+  .airport-picker-list {
+    max-height: calc(100vh - 260px);
+  }
+}

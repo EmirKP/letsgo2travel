@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import AirportPicker from "@/app/components/AirportPicker";
 
 type Firsat = {
   id?: number;
@@ -31,30 +32,6 @@ type Firsat = {
   oneCikan?: boolean;
 };
 
-type Airport = {
-  code: string;
-  city: string;
-  name: string;
-  country: string;
-};
-
-const airports: Airport[] = [
-  { code: "IST", city: "İstanbul", name: "İstanbul Havalimanı", country: "Türkiye" },
-  { code: "SAW", city: "İstanbul", name: "Sabiha Gökçen", country: "Türkiye" },
-  { code: "ESB", city: "Ankara", name: "Esenboğa", country: "Türkiye" },
-  { code: "ADB", city: "İzmir", name: "Adnan Menderes", country: "Türkiye" },
-  { code: "AYT", city: "Antalya", name: "Antalya Havalimanı", country: "Türkiye" },
-  { code: "ROM", city: "Roma", name: "Tüm Havalimanları", country: "İtalya" },
-  { code: "PAR", city: "Paris", name: "Tüm Havalimanları", country: "Fransa" },
-  { code: "SJJ", city: "Saraybosna", name: "Sarajevo", country: "Bosna Hersek" },
-  { code: "GYD", city: "Bakü", name: "Haydar Aliyev", country: "Azerbaycan" },
-  { code: "DXB", city: "Dubai", name: "Dubai Havalimanı", country: "BAE" },
-  { code: "AMS", city: "Amsterdam", name: "Schiphol", country: "Hollanda" },
-  { code: "BER", city: "Berlin", name: "Brandenburg", country: "Almanya" },
-  { code: "PRG", city: "Prag", name: "Václav Havel", country: "Çekya" },
-  { code: "VIE", city: "Viyana", name: "Vienna Intl.", country: "Avusturya" },
-  { code: "BCN", city: "Barselona", name: "El Prat", country: "İspanya" },
-];
 
 const fallbackFirsatlar: Firsat[] = [
   {
@@ -77,6 +54,7 @@ const fallbackFirsatlar: Firsat[] = [
     kalkisKodu: "IST",
     varisKodu: "ROM",
     oneCikan: true,
+    gorselUrl: "/travel-images/route-roma.jpg",
   },
   {
     id: 2,
@@ -98,6 +76,7 @@ const fallbackFirsatlar: Firsat[] = [
     kalkisKodu: "IST",
     varisKodu: "SJJ",
     oneCikan: true,
+    gorselUrl: "/travel-images/route-saraybosna.jpg",
   },
   {
     id: 3,
@@ -118,7 +97,15 @@ const fallbackFirsatlar: Firsat[] = [
     detaySlug: "ankara-baku",
     kalkisKodu: "ESB",
     varisKodu: "GYD",
+    gorselUrl: "/travel-images/route-baku.jpg",
   },
+];
+
+
+const gorselVitrini = [
+  { baslik: "Paris", metin: "Avrupa şehir kaçamağı", gorsel: "/travel-images/route-paris.jpg", link: "/flights?kategori=Avrupa" },
+  { baslik: "Saraybosna", metin: "Vizesiz Balkan rotası", gorsel: "/travel-images/route-saraybosna.jpg", link: "/flights?kategori=Vizesiz" },
+  { baslik: "Dubai", metin: "Modern şehir ve tatil", gorsel: "/travel-images/route-dubai.jpg", link: "/flights?kategori=Dubai" },
 ];
 
 const kategoriKartlari = [
@@ -136,11 +123,6 @@ function gunEkle(value: string, days: number) {
   const date = value ? new Date(`${value}T12:00:00`) : new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
-}
-
-function airportLabel(code: string) {
-  const item = airports.find((airport) => airport.code === code);
-  return item ? `${item.city} (${item.code})` : code;
 }
 
 function rotaSinifi(value: string) {
@@ -269,8 +251,8 @@ export default function HomePage() {
       <section id="arama" className="v13-search-shell">
         <div className="v13-container">
           <form className="v13-search-box" onSubmit={aramaYap}>
-            <AirportSelect label="Nereden" value={from} onChange={setFrom} />
-            <AirportSelect label="Nereye" value={to} onChange={setTo} />
+            <AirportPicker label="Nereden" value={from} onChange={setFrom} />
+            <AirportPicker label="Nereye" value={to} onChange={setTo} />
             <label className="v13-field compact">
               <span>Gidiş</span>
               <input type="date" value={gidis} min={bugun()} onChange={(e) => setGidis(e.target.value)} />
@@ -299,6 +281,28 @@ export default function HomePage() {
           <Stat title="En düşük fiyat" value={enUcuz?.fiyat || "—"} />
           <Stat title="Canlı kontrol" value="API + partner" />
           <Stat title="Fiyat alarmı" value="Takip sistemi" />
+        </div>
+      </section>
+
+      <section className="v14-visual-section">
+        <div className="v13-container">
+          <div className="v13-section-head">
+            <div>
+              <span className="v13-kicker">Görsel keşif</span>
+              <h2>Rotaları sadece liste değil, seyahat vitrini gibi göster.</h2>
+              <p>Bu görseller dosyanın içine eklendi. Görsel URL boş olsa bile site otomatik kaliteli rota görseli gösterir.</p>
+            </div>
+            <a href="/flights" className="v13-link">Görselli fırsatları aç →</a>
+          </div>
+          <div className="v14-visual-grid">
+            {gorselVitrini.map((item) => (
+              <a className="v14-visual-card" href={item.link} key={item.baslik} style={{ backgroundImage: `linear-gradient(180deg, rgba(6, 23, 51, 0.04), rgba(6, 23, 51, 0.70)), url(${item.gorsel})` }}>
+                <span>✈️ Letsgo 2 Travel</span>
+                <strong>{item.baslik}</strong>
+                <small>{item.metin}</small>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -384,21 +388,6 @@ function Header() {
         <a className="v13-admin" href="/admin">Admin Panel</a>
       </div>
     </header>
-  );
-}
-
-function AirportSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const selected = airports.find((item) => item.code === value);
-  return (
-    <label className="v13-field airport">
-      <span>{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {airports.map((airport) => (
-          <option key={airport.code} value={airport.code}>{airport.city} ({airport.code}) - {airport.name}</option>
-        ))}
-      </select>
-      <small>{selected ? `${selected.name} · ${selected.country}` : airportLabel(value)}</small>
-    </label>
   );
 }
 

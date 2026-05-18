@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import AirportPicker from "@/app/components/AirportPicker";
+import { getAirportByCode } from "@/lib/airports";
 
 type CanliUcus = {
   id: string;
@@ -21,29 +23,10 @@ type CanliUcus = {
   kaynak: string;
 };
 
-type Airport = { code: string; city: string; name: string; country: string };
-
-const airports: Airport[] = [
-  { code: "IST", city: "İstanbul", name: "İstanbul Havalimanı", country: "Türkiye" },
-  { code: "SAW", city: "İstanbul", name: "Sabiha Gökçen", country: "Türkiye" },
-  { code: "ESB", city: "Ankara", name: "Esenboğa", country: "Türkiye" },
-  { code: "ADB", city: "İzmir", name: "Adnan Menderes", country: "Türkiye" },
-  { code: "AYT", city: "Antalya", name: "Antalya Havalimanı", country: "Türkiye" },
-  { code: "ROM", city: "Roma", name: "Tüm Havalimanları", country: "İtalya" },
-  { code: "PAR", city: "Paris", name: "Tüm Havalimanları", country: "Fransa" },
-  { code: "SJJ", city: "Saraybosna", name: "Sarajevo", country: "Bosna Hersek" },
-  { code: "GYD", city: "Bakü", name: "Haydar Aliyev", country: "Azerbaycan" },
-  { code: "DXB", city: "Dubai", name: "Dubai Havalimanı", country: "BAE" },
-  { code: "AMS", city: "Amsterdam", name: "Schiphol", country: "Hollanda" },
-  { code: "BER", city: "Berlin", name: "Brandenburg", country: "Almanya" },
-  { code: "PRG", city: "Prag", name: "Václav Havel", country: "Çekya" },
-  { code: "VIE", city: "Viyana", name: "Vienna Intl.", country: "Avusturya" },
-  { code: "BCN", city: "Barselona", name: "El Prat", country: "İspanya" },
-];
 
 function bugun() { return new Date().toISOString().slice(0, 10); }
 function gunEkle(value: string, days: number) { const d = value ? new Date(`${value}T12:00:00`) : new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); }
-function normalizeCode(value: string | null, fallback: string) { const match = value?.match(/[A-Z]{3}/i); const code = match?.[0]?.toUpperCase(); return code && airports.some((a) => a.code === code) ? code : fallback; }
+function normalizeCode(value: string | null, fallback: string) { const match = value?.match(/[A-Z]{2,4}/i); const code = match?.[0]?.toUpperCase(); return code && getAirportByCode(code) ? code : fallback; }
 function fiyatFormat(value: number) { return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`; }
 
 export default function CanliUcusPage() {
@@ -120,8 +103,8 @@ export default function CanliUcusPage() {
         <div className="v13-container v13-live-layout">
           <form className="v13-filter-panel" onSubmit={sorgula}>
             <h2>Canlı sorgu</h2>
-            <AirportSelect label="Nereden" value={nereden} onChange={setNereden} />
-            <AirportSelect label="Nereye" value={nereye} onChange={setNereye} />
+            <AirportPicker label="Nereden" value={nereden} onChange={setNereden} />
+            <AirportPicker label="Nereye" value={nereye} onChange={setNereye} />
             <div className="v13-two"><label className="v13-field"><span>Gidiş</span><input type="date" min={bugun()} value={gidis} onChange={(e) => setGidis(e.target.value)} /></label><label className="v13-field"><span>Dönüş</span><input type="date" min={gidis || bugun()} value={donus} onChange={(e) => setDonus(e.target.value)} /></label></div>
             <label className="v13-field"><span>Maksimum fiyat</span><input value={maksimumFiyat} onChange={(e) => setMaksimumFiyat(e.target.value.replace(/\D/g, ""))} /></label>
             <label className="v13-field"><span>Aktarma</span><select value={aktarma} onChange={(e) => setAktarma(e.target.value)}><option>Tümü</option><option>Aktarmasız</option><option>1 Aktarma</option></select></label>
@@ -154,9 +137,4 @@ export default function CanliUcusPage() {
 
 function Header() {
   return <header className="v13-header"><div className="v13-container v13-header-inner"><a className="v13-brand" href="/"><img src="/logo.png" alt="Letsgo 2 Travel" /></a><nav className="v13-nav"><a href="/">Ana sayfa</a><a href="/flights">Fırsatlar</a><a href="/canli-ucus">Canlı uçuşlar</a><a href="/arama">Uçuş ara</a></nav><a className="v13-admin" href="/admin">Admin Panel</a></div></header>;
-}
-
-function AirportSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const selected = airports.find((item) => item.code === value);
-  return <label className="v13-field airport"><span>{label}</span><select value={value} onChange={(e) => onChange(e.target.value)}>{airports.map((airport) => <option key={airport.code} value={airport.code}>{airport.city} ({airport.code}) - {airport.name}</option>)}</select><small>{selected ? `${selected.name} · ${selected.country}` : value}</small></label>;
 }
