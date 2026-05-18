@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-const populerRotalar = [
+const demoRotalar = [
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
     nereye: "Roma (ROM) - Tüm Havalimanları",
@@ -44,6 +44,38 @@ const populerRotalar = [
     ikon: "🇦🇪",
   },
 ];
+
+type AnasayfaRotasi = {
+  id?: number;
+  nereden: string;
+  nereye: string;
+  rota: string;
+  fiyat: string;
+  etiket: string;
+  aciklama: string;
+  gorselSinifi?: string;
+  gorselUrl?: string;
+  ikon: string;
+  detaySlug?: string;
+  kalkisKodu?: string;
+  varisKodu?: string;
+};
+
+function rotaGorselSinifi(metin: string) {
+  const temiz = metin.toLocaleLowerCase("tr-TR");
+  if (temiz.includes("roma") || temiz.includes("italya")) return "roma";
+  if (temiz.includes("saraybosna") || temiz.includes("bosna")) return "saraybosna";
+  if (temiz.includes("bakü") || temiz.includes("baku") || temiz.includes("azerbaycan")) return "baku";
+  if (temiz.includes("dubai")) return "dubai";
+  return "default";
+}
+
+function rotaGorselStyle(url?: string) {
+  if (!url?.trim()) return undefined;
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.06), rgba(2, 6, 23, 0.66)), url(${url})`,
+  };
+}
 
 const havalimaniSecenekleri = [
   "İstanbul (IST) - İstanbul Havalimanı",
@@ -111,6 +143,33 @@ export default function HomePage() {
   const [gidis, setGidis] = useState(bugun());
   const [donus, setDonus] = useState(birHaftaSonra());
   const [yolcu, setYolcu] = useState("1");
+  const [adminRotalari, setAdminRotalari] = useState<AnasayfaRotasi[]>([]);
+  const [rotalarYukleniyor, setRotalarYukleniyor] = useState(true);
+
+  useEffect(() => {
+    let aktif = true;
+
+    async function rotalariYukle() {
+      try {
+        const response = await fetch("/api/one-cikan-rotalar", { cache: "no-store" });
+        const data = await response.json();
+        if (!aktif) return;
+        setAdminRotalari(Array.isArray(data.rotalar) ? data.rotalar : []);
+      } catch {
+        if (aktif) setAdminRotalari([]);
+      } finally {
+        if (aktif) setRotalarYukleniyor(false);
+      }
+    }
+
+    rotalariYukle();
+
+    return () => {
+      aktif = false;
+    };
+  }, []);
+
+  const gosterilecekRotalar: AnasayfaRotasi[] = adminRotalari.length > 0 ? adminRotalari : demoRotalar;
 
   const aramaLinki = useMemo(() => {
     const params = new URLSearchParams({
@@ -134,7 +193,7 @@ export default function HomePage() {
     window.location.href = aramaLinki;
   }
 
-  function hizliRotaAc(rota: (typeof populerRotalar)[number]) {
+  function hizliRotaAc(rota: AnasayfaRotasi) {
     const params = new URLSearchParams({
       nereden: aramaDegeriTemizle(rota.nereden),
       nereye: aramaDegeriTemizle(rota.nereye),
@@ -309,24 +368,31 @@ export default function HomePage() {
         <div className="l2t-container">
           <div className="l2t-section-head">
             <div>
-              <p className="l2t-mini-kicker">Öne çıkan rota kartları</p>
-              <h2 className="l2t-section-title">Popüler uçuş fikirleri</h2>
+              <p className="l2t-mini-kicker">Admin panelden gelen rota kartları</p>
+              <h2 className="l2t-section-title">Yayındaki uçuş fırsatları</h2>
               <p className="l2t-section-subtitle">
-                Bu kartlara basınca rota hazır şekilde arama sayfası açılır.
+                Admin panelde eklediğin görsel ve rota bilgileri burada otomatik görünür.
               </p>
             </div>
             <a href="/arama" className="l2t-link">Tüm arama sayfası →</a>
           </div>
 
+          <div className="l2t-home-admin-note">
+            {rotalarYukleniyor ? "Rotalar yükleniyor..." : adminRotalari.length > 0 ? "Bu kartlar admin paneldeki aktif fırsatlardan gelir." : "Henüz admin rotası yok; örnek kartlar gösteriliyor."}
+          </div>
+
           <div className="l2t-deals-grid l2t-deals-grid-v6">
-            {populerRotalar.map((rota) => (
+            {gosterilecekRotalar.map((rota) => (
               <button
                 type="button"
-                key={rota.rota}
+                key={rota.detaySlug || rota.rota}
                 onClick={() => hizliRotaAc(rota)}
                 className="l2t-deal-card l2t-deal-card-v6"
               >
-                <div className={`l2t-deal-image l2t-route-visual-${rota.gorselSinifi}`}>
+                <div
+                  className={`l2t-deal-image l2t-route-visual-${rota.gorselSinifi || rotaGorselSinifi(`${rota.nereye} ${rota.etiket}`)}`}
+                  style={rotaGorselStyle(rota.gorselUrl)}
+                >
                   <span>{rota.ikon}</span>
                   <strong>{rota.rota}</strong>
                 </div>
