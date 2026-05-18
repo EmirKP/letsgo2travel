@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -32,6 +35,7 @@ type BiletRow = {
   gidis_tarihi?: string | null;
   donus_tarihi?: string | null;
   detay_slug?: string;
+  gorsel_url?: string | null;
 };
 
 function biletDonustur(row: BiletRow) {
@@ -66,6 +70,7 @@ function biletDonustur(row: BiletRow) {
     gidisTarihi: row.gidis_tarihi,
     donusTarihi: row.donus_tarihi,
     detaySlug: row.detay_slug || `${row.nereden}-${row.nereye}-${row.id}`,
+    gorselUrl: row.gorsel_url || "",
   };
 }
 

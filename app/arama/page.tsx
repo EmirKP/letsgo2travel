@@ -33,6 +33,7 @@ type Bilet = {
   gidisTarihi: string | null;
   donusTarihi: string | null;
   detaySlug: string;
+  gorselUrl: string;
 };
 
 type CanliUcus = {
@@ -97,6 +98,17 @@ const havalimaniSecenekleri = [
   "Dubai (DXB) - Dubai Havalimanı",
 ];
 
+
+function rotaGorselStyle(url?: string) {
+  if (!url) return undefined;
+
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.72)), url(${url})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
+}
+
 const populerAramalar = [
   {
     nereden: "İstanbul (IST) - İstanbul Havalimanı",
@@ -128,6 +140,18 @@ function aramaDegeriTemizle(value: string) {
 
 function fiyatYaz(value: number) {
   return `${new Intl.NumberFormat("tr-TR").format(value || 0)} TL`;
+}
+
+function rotaGorselSinifi(value: string) {
+  const metin = value.toLocaleLowerCase("tr-TR");
+
+  if (metin.includes("roma") || metin.includes("italya") || metin.includes("fco")) return "roma";
+  if (metin.includes("saraybosna") || metin.includes("bosna") || metin.includes("sjj")) return "saraybosna";
+  if (metin.includes("bakü") || metin.includes("baku") || metin.includes("azerbaycan") || metin.includes("gyd")) return "baku";
+  if (metin.includes("dubai") || metin.includes("dxb")) return "dubai";
+  if (metin.includes("paris") || metin.includes("fransa") || metin.includes("cdg")) return "paris";
+
+  return "generic";
 }
 
 export default function AramaPage() {
@@ -297,7 +321,7 @@ export default function AramaPage() {
 
   async function satinAl(bilet: Bilet) {
     try {
-      await fetch(`/api/biletler/${bilet.id}/click`, {
+      await fetch(`/api/admin/biletler/${bilet.id}/click`, {
         method: "POST",
       });
     } catch {
@@ -913,10 +937,17 @@ function CanliUcusCard({
 }
 
 function BiletCard({ bilet, onBuy }: { bilet: Bilet; onBuy: () => void }) {
+  const gorselSinifi = rotaGorselSinifi(`${bilet.nereye} ${bilet.ulke} ${bilet.kategori}`);
+
   return (
     <article className="letsgo-card letsgo-hover">
       <div style={{ display: "grid", gridTemplateColumns: "1fr 260px" }}>
         <div style={{ padding: 24 }}>
+          <div className={`letsgo-ticket-visual l2t-route-visual-${gorselSinifi}`} style={rotaGorselStyle(bilet.gorselUrl)}>
+            <span>{bilet.ulkeEmoji}</span>
+            <strong>{bilet.nereden} → {bilet.nereye}</strong>
+          </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             <span className="letsgo-badge">
               {bilet.ulkeEmoji} {bilet.kategori}

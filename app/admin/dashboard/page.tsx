@@ -14,6 +14,7 @@ type Bilet = {
   aktif: boolean;
   oneCikan: boolean;
   tiklanma: number;
+  gorselUrl?: string;
 };
 
 function fiyatYaz(value: number) {
@@ -31,7 +32,16 @@ export default function AdminDashboardPage() {
       setHata("");
 
       try {
-        const response = await fetch("/api/biletler", {
+        const adminSifre = localStorage.getItem("letsgo-admin-password") || "";
+
+        if (!adminSifre) {
+          throw new Error("Önce /admin sayfasından admin şifresiyle giriş yap.");
+        }
+
+        const response = await fetch("/api/admin/biletler", {
+          headers: {
+            "x-admin-password": adminSifre,
+          },
           cache: "no-store",
         });
 

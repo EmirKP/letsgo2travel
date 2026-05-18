@@ -118,223 +118,440 @@ Kaynak: ${detay.kaynak}`;
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <a href="/" className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Letsgo 2 Travel"
-              className="h-14 w-auto"
-            />
-
-            <div>
-              <h1 className="text-xl font-black">Letsgo 2 Travel</h1>
-              <p className="text-sm text-slate-500">
-                Canlı uçuş fiyat detayı
-              </p>
-            </div>
+    <main className="letsgo-page">
+      <header className="letsgo-header">
+        <div className="letsgo-container letsgo-header-inner">
+          <a href="/" className="letsgo-logo">
+            <img src="/logo.png" alt="Letsgo 2 Travel" />
+            <span className="letsgo-logo-title">Letsgo 2 Travel</span>
           </a>
 
-          <a
-            href="/arama"
-            className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
-          >
+          <nav className="letsgo-nav">
+            <a href="/">Ana Sayfa</a>
+            <a href="/arama">Uçuş Ara</a>
+            <a href="#partner-arama">Partner Arama</a>
+            <a href="/admin/dashboard">Admin</a>
+          </nav>
+
+          <a href="/arama" className="letsgo-header-cta">
             Aramaya Dön
           </a>
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-5 py-14 text-white">
-        <div className="mx-auto max-w-6xl">
-          <p className="inline-block rounded-full bg-yellow-400 px-4 py-2 text-sm font-black text-slate-950">
-            Canlı fiyat detayı
-          </p>
+      <section className="letsgo-hero">
+        <div className="letsgo-container">
+          <div className="letsgo-hero-grid">
+            <div>
+              <p className="letsgo-hero-badge">✈️ Canlı uçuş fiyat detayı</p>
 
-          <h2 className="mt-6 text-4xl font-black md:text-6xl">
-            {detay.nereden} → {detay.nereye}
-          </h2>
+              <h1 className="letsgo-hero-title">
+                {detay.nereden} → {detay.nereye}
+              </h1>
 
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-300">
-            Bu fiyat Travelpayouts / Aviasales Data API cache verisinden
-            alınmıştır. Fiyatlar değişebilir; satın almadan önce aşağıdaki
-            partner arama kutusundan güncel fiyatı kontrol et.
-          </p>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm text-slate-300">Cache fiyat</p>
-              <p className="mt-1 text-3xl font-black">
-                {fiyatYaz(detay.fiyat)}
+              <p className="letsgo-hero-text">
+                Bu fiyat Travelpayouts / Aviasales cache verisinden alınmıştır.
+                Fiyatlar değişebilir. Satın almadan önce partner arama
+                kutusundan güncel fiyatı kontrol et.
               </p>
+
+              <div className="letsgo-hero-actions">
+                <a href="#partner-arama" className="letsgo-primary-button">
+                  Partnerde Ara
+                </a>
+
+                <button
+                  onClick={() =>
+                    kopyala(tumBilgi, "Tüm uçuş bilgileri kopyalandı")
+                  }
+                  className="letsgo-secondary-button"
+                >
+                  Bilgileri Kopyala
+                </button>
+              </div>
             </div>
 
-            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm text-slate-300">Gidiş</p>
-              <p className="mt-1 text-xl font-black">{tarihYaz(detay.gidis)}</p>
-            </div>
-
-            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm text-slate-300">Dönüş</p>
-              <p className="mt-1 text-xl font-black">
-                {detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"}
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm text-slate-300">Aktarma</p>
-              <p className="mt-1 text-xl font-black">{detay.aktarma}</p>
+            <div className="letsgo-plane-box">
+              <div className="letsgo-hero-price">
+                <p className="letsgo-hero-price-label">Gösterilen cache fiyat</p>
+                <p className="letsgo-hero-price-value">
+                  {fiyatYaz(detay.fiyat)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-5 py-10 lg:grid-cols-[1fr_360px]">
-        <div className="grid gap-6">
-          <div className="rounded-3xl bg-white p-8 shadow">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="font-black text-blue-600">Rota bilgisi</p>
-                <h3 className="mt-1 text-3xl font-black">
-                  {detay.nereden} → {detay.nereye}
-                </h3>
+      <section className="letsgo-section">
+        <div className="letsgo-container">
+          <div className="letsgo-stats-grid">
+            <StatCard title="Kalkış" value={detay.nereden || "—"} />
+            <StatCard title="Varış" value={detay.nereye || "—"} />
+            <StatCard title="Gidiş" value={tarihYaz(detay.gidis)} />
+            <StatCard
+              title="Dönüş"
+              value={detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="letsgo-section">
+        <div className="letsgo-container">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) 360px",
+              gap: 28,
+              alignItems: "start",
+            }}
+            className="canli-detail-grid"
+          >
+            <div style={{ display: "grid", gap: 24 }}>
+              <div className="letsgo-card" style={{ padding: 28 }}>
+                <div className="letsgo-section-header">
+                  <div>
+                    <p className="letsgo-eyebrow">Rota bilgisi</p>
+                    <h2 className="letsgo-section-title">
+                      {detay.nereden} → {detay.nereye}
+                    </h2>
+                  </div>
+
+                  <span className="letsgo-badge">{detay.aktarma}</span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 14,
+                  }}
+                  className="canli-info-grid"
+                >
+                  <InfoCard title="Kalkış" value={detay.nereden} />
+                  <InfoCard title="Varış" value={detay.nereye} />
+                  <InfoCard title="Gidiş tarihi" value={tarihYaz(detay.gidis)} />
+                  <InfoCard
+                    title="Dönüş tarihi"
+                    value={
+                      detay.donus
+                        ? tarihYaz(detay.donus)
+                        : "Tek yön / belirtilmedi"
+                    }
+                  />
+                  <InfoCard title="Havayolu" value={detay.havayolu} />
+                  <InfoCard title="Kaynak" value={detay.kaynak} />
+                </div>
               </div>
 
-              <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-black text-green-800">
-                {detay.aktarma}
-              </span>
+              <div className="letsgo-card" style={{ padding: 28 }}>
+                <p className="letsgo-eyebrow">Partner arama rehberi</p>
+                <h2 className="letsgo-section-title">
+                  Widget’a şu bilgileri gir
+                </h2>
+
+                <p
+                  style={{
+                    marginTop: 10,
+                    color: "#64748b",
+                    lineHeight: 1.7,
+                    fontWeight: 700,
+                  }}
+                >
+                  Partner arama kutusunda aynı rota ve tarihleri girerek güncel
+                  fiyatı kontrol et. Aşağıdaki alanları tek tek
+                  kopyalayabilirsin.
+                </p>
+
+                <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
+                  <CopyRow
+                    label="Kalkış"
+                    value={detay.nereden}
+                    onCopy={() =>
+                      kopyala(detay.nereden, "Kalkış bilgisi kopyalandı")
+                    }
+                  />
+
+                  <CopyRow
+                    label="Varış"
+                    value={detay.nereye}
+                    onCopy={() =>
+                      kopyala(detay.nereye, "Varış bilgisi kopyalandı")
+                    }
+                  />
+
+                  <CopyRow
+                    label="Gidiş"
+                    value={tarihYaz(detay.gidis)}
+                    onCopy={() =>
+                      kopyala(tarihYaz(detay.gidis), "Gidiş tarihi kopyalandı")
+                    }
+                  />
+
+                  <CopyRow
+                    label="Dönüş"
+                    value={
+                      detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"
+                    }
+                    onCopy={() =>
+                      kopyala(
+                        detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi",
+                        "Dönüş tarihi kopyalandı"
+                      )
+                    }
+                  />
+                </div>
+
+                {kopyaMesaji && <p className="letsgo-message">{kopyaMesaji}</p>}
+              </div>
+
+              <div className="letsgo-alert-box">
+                <div>
+                  <p className="letsgo-alert-eyebrow">Aracı site notu</p>
+
+                  <h2 className="letsgo-alert-title">
+                    Bilet satışı partner tarafta yapılır
+                  </h2>
+
+                  <p className="letsgo-alert-text">
+                    Letsgo 2 Travel bu fiyatı karşılaştırma ve yönlendirme
+                    amacıyla gösterir. Partner sitede fiyat, bagaj ve müsaitlik
+                    değişebilir. Satın almadan önce son kontrolü mutlaka yap.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    borderRadius: 28,
+                    background: "#f1f5f9",
+                    padding: 22,
+                  }}
+                >
+                  <p style={{ color: "#64748b", fontWeight: 950 }}>
+                    Gösterilen fiyat
+                  </p>
+
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 40,
+                      fontWeight: 950,
+                      letterSpacing: "-0.04em",
+                    }}
+                  >
+                    {fiyatYaz(detay.fiyat)}
+                  </p>
+
+                  <p
+                    style={{
+                      marginTop: 10,
+                      color: "#64748b",
+                      lineHeight: 1.6,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Bu tutar cache veridir. Partner arama kutusunda güncel
+                    fiyatı tekrar kontrol et.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              <InfoCard title="Kalkış" value={detay.nereden} />
-              <InfoCard title="Varış" value={detay.nereye} />
-              <InfoCard title="Gidiş tarihi" value={tarihYaz(detay.gidis)} />
-              <InfoCard
-                title="Dönüş tarihi"
-                value={
-                  detay.donus ? tarihYaz(detay.donus) : "Tek yön / belirtilmedi"
-                }
-              />
-              <InfoCard title="Havayolu" value={detay.havayolu} />
-              <InfoCard title="Kaynak" value={detay.kaynak} />
-            </div>
-          </div>
+            <aside className="letsgo-card" style={{ padding: 24 }}>
+              <p className="letsgo-stat-label">Cache fiyat</p>
 
-          <div className="rounded-3xl bg-white p-8 shadow">
-            <p className="font-black text-blue-600">Partner arama rehberi</p>
-            <h3 className="mt-1 text-3xl font-black">
-              Widget’a şu bilgileri gir
-            </h3>
-
-            <div className="mt-6 grid gap-3">
-              <CopyRow
-                label="Kalkış"
-                value={detay.nereden}
-                onCopy={() => kopyala(detay.nereden, "Kalkış kodu kopyalandı")}
-              />
-
-              <CopyRow
-                label="Varış"
-                value={detay.nereye}
-                onCopy={() => kopyala(detay.nereye, "Varış kodu kopyalandı")}
-              />
-
-              <CopyRow
-                label="Gidiş"
-                value={tarihYaz(detay.gidis)}
-                onCopy={() => kopyala(tarihYaz(detay.gidis), "Gidiş tarihi kopyalandı")}
-              />
-
-              <CopyRow
-                label="Dönüş"
-                value={detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi"}
-                onCopy={() =>
-                  kopyala(
-                    detay.donus ? tarihYaz(detay.donus) : "Belirtilmedi",
-                    "Dönüş tarihi kopyalandı"
-                  )
-                }
-              />
-            </div>
-
-            {kopyaMesaji && (
-              <p className="mt-5 rounded-2xl bg-green-50 p-4 font-black text-green-700">
-                {kopyaMesaji}
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 44,
+                  lineHeight: 1,
+                  fontWeight: 950,
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                {fiyatYaz(detay.fiyat)}
               </p>
-            )}
-          </div>
 
-          <div className="rounded-3xl bg-blue-50 p-6 text-blue-950">
-            <h4 className="text-xl font-black">Aracı site notu</h4>
-            <p className="mt-3 leading-8">
-              Letsgo 2 Travel bu fiyatı karşılaştırma ve yönlendirme amacıyla
-              gösterir. Bilet satışı partner platformda yapılır. Partner sitede
-              fiyat, bagaj ve müsaitlik değişebilir.
-            </p>
-          </div>
-        </div>
+              <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
+                <button
+                  onClick={() =>
+                    kopyala(tumBilgi, "Tüm uçuş bilgileri kopyalandı")
+                  }
+                  className="letsgo-yellow-button"
+                  style={{ width: "100%" }}
+                >
+                  Tüm Bilgileri Kopyala
+                </button>
 
-        <aside className="h-fit rounded-3xl bg-slate-950 p-8 text-white shadow">
-          <p className="text-sm text-slate-400">Gösterilen cache fiyat</p>
-          <p className="mt-2 text-5xl font-black">{fiyatYaz(detay.fiyat)}</p>
+                <a
+                  href="#partner-arama"
+                  className="letsgo-primary-button"
+                  style={{ width: "100%" }}
+                >
+                  Partner Arama Kutusuna Git
+                </a>
 
-          <div className="mt-6 grid gap-3">
-            <button
-              onClick={() => kopyala(tumBilgi, "Tüm uçuş bilgileri kopyalandı")}
-              className="rounded-xl bg-yellow-400 px-5 py-4 font-black text-slate-950 hover:bg-yellow-300"
-            >
-              Tüm Bilgileri Kopyala
-            </button>
+                <a
+                  href="/arama"
+                  className="letsgo-secondary-button"
+                  style={{ width: "100%" }}
+                >
+                  Başka Uçuş Ara
+                </a>
+              </div>
 
-            <a
-              href="#partner-arama"
-              className="rounded-xl border border-white/20 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
-            >
-              Partner Arama Kutusuna Git
-            </a>
-
-            <a
-              href="/arama"
-              className="rounded-xl bg-white/10 px-5 py-4 text-center font-black hover:bg-white hover:text-slate-950"
-            >
-              Başka Uçuş Ara
-            </a>
-          </div>
-
-          <p className="mt-5 text-xs leading-6 text-slate-400">
-            Bu sayfa bilet satışı yapmaz. Fiyatlar yönlendirme ve karşılaştırma
-            amaçlıdır.
-          </p>
-        </aside>
-      </section>
-
-      <section id="partner-arama" className="mx-auto max-w-6xl px-5 pb-16">
-        <div className="rounded-3xl bg-white p-6 shadow">
-          <div className="mb-5">
-            <p className="font-black text-blue-600">
-              Travelpayouts / Aviasales
-            </p>
-            <h3 className="text-3xl font-black">Partner Arama Kutusu</h3>
-            <p className="mt-2 text-slate-500">
-              Yukarıdaki rota ve tarihleri girerek partner tarafta güncel
-              uçuşları ara.
-            </p>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border bg-white p-3">
-            <div ref={widgetRef} />
+              <div
+                style={{
+                  marginTop: 22,
+                  borderRadius: 22,
+                  background: "#eaf5ff",
+                  padding: 16,
+                  color: "#061733",
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  fontWeight: 750,
+                }}
+              >
+                Bu sayfa bilet satışı yapmaz. Fiyatlar yönlendirme ve
+                karşılaştırma amaçlıdır.
+              </div>
+            </aside>
           </div>
         </div>
       </section>
+
+      <section id="partner-arama" className="letsgo-section">
+        <div className="letsgo-container">
+          <div className="letsgo-card" style={{ padding: 28 }}>
+            <div className="letsgo-section-header">
+              <div>
+                <p className="letsgo-eyebrow">Travelpayouts / Aviasales</p>
+                <h2 className="letsgo-section-title">Partner Arama Kutusu</h2>
+              </div>
+            </div>
+
+            <p
+              style={{
+                maxWidth: 760,
+                color: "#64748b",
+                lineHeight: 1.8,
+                fontWeight: 700,
+              }}
+            >
+              Aşağıdaki partner arama kutusundan rota ve tarihleri girerek
+              güncel fiyatı kontrol edebilirsin. Widget açılır menü veya takvim
+              genişlerse kutu içinde kaydırma yapılabilir.
+            </p>
+
+            <div
+              style={{
+                marginTop: 22,
+                width: "100%",
+                maxWidth: "100%",
+                overflow: "auto",
+                borderRadius: 28,
+                border: "1px solid #e2e8f0",
+                background: "#ffffff",
+                padding: 14,
+                minHeight: 220,
+              }}
+            >
+              <div ref={widgetRef} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="letsgo-footer">
+        <div className="letsgo-container">
+          <div className="letsgo-footer-grid">
+            <div>
+              <div className="letsgo-footer-logo">
+                <img src="/logo.png" alt="Letsgo 2 Travel" />
+                <h2 className="letsgo-footer-title">Letsgo 2 Travel</h2>
+              </div>
+
+              <p className="letsgo-footer-text">
+                Uygun uçuş fırsatlarını ve partner fiyatlarını tek yerde takip
+                etmene yardımcı olur.
+              </p>
+            </div>
+
+            <FooterLinks
+              title="Keşfet"
+              links={[
+                ["Ana Sayfa", "/"],
+                ["Uçuş Ara", "/arama"],
+                ["Partner Arama", "#partner-arama"],
+              ]}
+            />
+
+            <FooterLinks
+              title="Yönetim"
+              links={[
+                ["Dashboard", "/admin/dashboard"],
+                ["Bilet Admin", "/admin"],
+                ["Fiyat Alarmları", "/admin/fiyat-alarmlari"],
+              ]}
+            />
+
+            <div>
+              <p className="letsgo-footer-heading">Bilgilendirme</p>
+              <p className="letsgo-footer-text">
+                Bilet fiyatları değişebilir. Satın almadan önce son fiyatı,
+                bagaj şartlarını ve müsaitliği partner sitede kontrol edin.
+              </p>
+
+              <div className="letsgo-footer-pills">
+                <span className="letsgo-footer-pill">Partner fiyatları</span>
+                <span className="letsgo-footer-pill">Cache veri</span>
+                <span className="letsgo-footer-pill">Aracı sayfa</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="letsgo-footer-bottom">
+            © 2026 Letsgo 2 Travel. Tüm hakları saklıdır.
+          </div>
+        </div>
+      </footer>
+
+      <style jsx>{`
+        @media (max-width: 1100px) {
+          .canli-detail-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .canli-info-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </main>
+  );
+}
+
+function StatCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="letsgo-stat-card">
+      <p className="letsgo-stat-label">{title}</p>
+      <p className="letsgo-stat-value">{value}</p>
+    </div>
   );
 }
 
 function InfoCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-100 p-5">
-      <p className="text-sm font-black text-slate-500">{title}</p>
-      <p className="mt-2 text-xl font-black">{value}</p>
+    <div
+      style={{
+        borderRadius: 20,
+        background: "#f1f5f9",
+        padding: 18,
+      }}
+    >
+      <p style={{ color: "#64748b", fontSize: 13, fontWeight: 950 }}>{title}</p>
+      <p style={{ marginTop: 8, fontSize: 20, fontWeight: 950 }}>{value}</p>
     </div>
   );
 }
@@ -349,18 +566,62 @@ function CopyRow({
   onCopy: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-slate-100 p-4 md:flex-row md:items-center md:justify-between">
+    <div
+      style={{
+        display: "flex",
+        gap: 14,
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderRadius: 20,
+        background: "#f1f5f9",
+        padding: 16,
+      }}
+    >
       <div>
-        <p className="text-xs font-black uppercase text-slate-500">{label}</p>
-        <p className="mt-1 text-xl font-black">{value}</p>
+        <p
+          style={{
+            color: "#64748b",
+            fontSize: 12,
+            fontWeight: 950,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </p>
+
+        <p style={{ marginTop: 4, fontSize: 20, fontWeight: 950 }}>{value}</p>
       </div>
 
       <button
         onClick={onCopy}
-        className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
+        className="letsgo-primary-button"
+        style={{ padding: "11px 16px", borderRadius: 14 }}
       >
         Kopyala
       </button>
+    </div>
+  );
+}
+
+function FooterLinks({
+  title,
+  links,
+}: {
+  title: string;
+  links: [string, string][];
+}) {
+  return (
+    <div>
+      <p className="letsgo-footer-heading">{title}</p>
+
+      <div className="letsgo-footer-links">
+        {links.map(([label, href]) => (
+          <a key={label} href={href}>
+            {label}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

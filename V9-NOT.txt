@@ -1,0 +1,16 @@
+Letsgo 2 Travel V9
+
+Bu sürümde:
+- Admin panelde rota görsel URL alanı eklendi.
+- Görsel URL girersen admin kartında, arama sonucunda ve detay sayfasında gerçek görsel görünür.
+- Görsel URL boş kalırsa sistem eski premium renkli rota görselini kullanır.
+- CSV çıktısına görsel URL alanı eklendi.
+- Build testi dummy env ile başarılı geçti.
+
+ÇOK ÖNEMLİ SQL:
+Supabase SQL Editor'de supabase-grants.sql dosyasındaki V9 kısmını bir kere çalıştır:
+
+ALTER TABLE public.biletler
+ADD COLUMN IF NOT EXISTS gorsel_url text DEFAULT '';
+
+.env.local dosyanı silme. Zip içine güvenlik için .env.local koyulmadı.

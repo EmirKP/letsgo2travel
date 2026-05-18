@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -32,6 +35,7 @@ type BiletRow = {
   gidis_tarihi?: string | null;
   donus_tarihi?: string | null;
   detay_slug?: string;
+  gorsel_url?: string | null;
 };
 
 function fiyatYaz(fiyat: number) {
@@ -94,6 +98,7 @@ function biletDonustur(row: BiletRow) {
     gidisTarihi: row.gidis_tarihi,
     donusTarihi: row.donus_tarihi,
     detaySlug: row.detay_slug || slugOlustur(row.nereden, row.nereye, row.id),
+    gorselUrl: row.gorsel_url || "",
   };
 }
 
@@ -163,6 +168,7 @@ export async function POST(request: Request) {
       donus_tarihi: tarihVeyaNull(body.donusTarihi),
       detay_slug:
         body.detaySlug || slugOlustur(body.nereden || "", body.nereye || ""),
+      gorsel_url: body.gorselUrl || "",
     })
     .select()
     .single();

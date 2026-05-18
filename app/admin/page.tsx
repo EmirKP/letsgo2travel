@@ -37,6 +37,7 @@ type Bilet = {
   gidisTarihi: string | null;
   donusTarihi: string | null;
   detaySlug: string;
+  gorselUrl: string;
 };
 
 type BiletForm = {
@@ -69,6 +70,7 @@ type BiletForm = {
   gidisTarihi: string;
   donusTarihi: string;
   detaySlug: string;
+  gorselUrl: string;
 };
 
 const bosForm: BiletForm = {
@@ -101,6 +103,7 @@ const bosForm: BiletForm = {
   gidisTarihi: "",
   donusTarihi: "",
   detaySlug: "",
+  gorselUrl: "",
 };
 
 const kategoriSecenekleri = [
@@ -134,6 +137,29 @@ const aktarmaSecenekleri = ["Farketmez", "Aktarmasız", "1 Aktarma", "2+ Aktarma
 
 function fiyatYaz(fiyat: number) {
   return `${new Intl.NumberFormat("tr-TR").format(fiyat)} TL`;
+}
+
+function rotaGorselSinifi(value: string) {
+  const metin = value.toLocaleLowerCase("tr-TR");
+
+  if (metin.includes("roma") || metin.includes("italya") || metin.includes("fco")) return "roma";
+  if (metin.includes("saraybosna") || metin.includes("bosna") || metin.includes("sjj")) return "saraybosna";
+  if (metin.includes("bakü") || metin.includes("baku") || metin.includes("azerbaycan") || metin.includes("gyd")) return "baku";
+  if (metin.includes("dubai") || metin.includes("dxb")) return "dubai";
+  if (metin.includes("paris") || metin.includes("fransa") || metin.includes("cdg")) return "paris";
+
+  return "generic";
+}
+
+
+function rotaGorselStyle(url?: string) {
+  if (!url) return undefined;
+
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.72)), url(${url})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
 }
 
 function slugOlustur(nereden: string, nereye: string) {
@@ -337,6 +363,7 @@ export default function AdminPanel() {
       gidisTarihi: bilet.gidisTarihi || "",
       donusTarihi: bilet.donusTarihi || "",
       detaySlug: bilet.detaySlug || "",
+      gorselUrl: bilet.gorselUrl || "",
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -468,6 +495,7 @@ ${bilet.link}`;
       "Öne Çıkan",
       "Tıklanma",
       "Detay Slug",
+      "Görsel URL",
       "Link",
     ];
 
@@ -489,6 +517,7 @@ ${bilet.link}`;
       bilet.oneCikan ? "Evet" : "Hayır",
       bilet.tiklanma,
       bilet.detaySlug,
+      bilet.gorselUrl,
       bilet.link,
     ]);
 
@@ -607,11 +636,11 @@ ${bilet.link}`;
           />
 
           <h1 className="mt-6 text-center text-3xl font-black">
-            Admin Panel V4
+            Admin Panel
           </h1>
 
           <p className="mt-2 text-center text-slate-500">
-            Skyscanner tarzı arama ve fırsat yönetim merkezi.
+            Uçuş fırsatlarını kolayca ekle, düzenle ve takip et.
           </p>
 
           <label className="mt-8 block text-sm font-black text-slate-600">
@@ -654,9 +683,9 @@ ${bilet.link}`;
             />
 
             <div>
-              <h1 className="text-xl font-black">Letsgo 2 Travel Admin V4</h1>
+              <h1 className="text-xl font-black">Letsgo 2 Travel Admin</h1>
               <p className="text-sm text-slate-500">
-                Uçuş arama, fırsat, istatistik ve içerik yönetimi.
+                Uçuş fırsatı, rota kartı, sosyal medya metni ve istatistik yönetimi.
               </p>
             </div>
           </a>
@@ -668,6 +697,13 @@ ${bilet.link}`;
             >
               CSV İndir
             </button>
+
+            <a
+              href="/admin/dashboard"
+              className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white"
+            >
+              Dashboard
+            </a>
 
             <a
               href="/admin/ayarlar"
@@ -808,7 +844,7 @@ ${bilet.link}`;
                 {duzenlenenId ? "Bileti Düzenle" : "Yeni Uçuş Fırsatı Ekle"}
               </h2>
               <p className="text-sm text-slate-500">
-                Skyscanner tarzı arama için detaylı alanlar.
+                Rota bilgisi, fiyat, link ve görseli tek yerden yönet.
               </p>
             </div>
 
@@ -906,6 +942,17 @@ ${bilet.link}`;
             </div>
 
             <Input label="Detay URL slug" value={form.detaySlug} onChange={(v) => formGuncelle("detaySlug", v)} placeholder="istanbul-roma" />
+
+            <Input label="Rota görsel URL" value={form.gorselUrl} onChange={(v) => formGuncelle("gorselUrl", v)} placeholder="https://.../roma.jpg" />
+
+            {form.gorselUrl && (
+              <div
+                className="admin-image-preview"
+                style={{ backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.08), rgba(2, 6, 23, 0.58)), url(${form.gorselUrl})` }}
+              >
+                <span>Görsel önizleme</span>
+              </div>
+            )}
 
             <Input label="Satın al linki" value={form.link} onChange={(v) => formGuncelle("link", v)} placeholder="Affiliate / satın alma linki" />
 
@@ -1005,8 +1052,16 @@ ${bilet.link}`;
           </div>
 
           <div className="grid gap-4">
-            {filtrelenmisBiletler.map((bilet) => (
+            {filtrelenmisBiletler.map((bilet) => {
+              const gorselSinifi = rotaGorselSinifi(`${bilet.nereye} ${bilet.ulke} ${bilet.kategori}`);
+
+              return (
               <article key={bilet.id} className="rounded-2xl border bg-slate-50 p-4">
+                <div className={`admin-route-visual l2t-route-visual-${gorselSinifi}`} style={rotaGorselStyle(bilet.gorselUrl)}>
+                  <span>{bilet.ulkeEmoji}</span>
+                  <strong>{bilet.nereden} → {bilet.nereye}</strong>
+                </div>
+
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div>
                     <div className="flex flex-wrap gap-2">
@@ -1084,7 +1139,7 @@ ${bilet.link}`;
                       onClick={() => hizliGuncelle(bilet, "oneCikan")}
                       className="rounded-xl bg-yellow-100 px-4 py-3 text-sm font-black text-yellow-800"
                     >
-                      {bilet.oneCikan ? "Öneden Çıkar" : "Öne Çıkar"}
+                      {bilet.oneCikan ? "Öne Çıkarmayı Kaldır" : "Öne Çıkar"}
                     </button>
 
                     <a
@@ -1129,7 +1184,8 @@ ${bilet.link}`;
                   </div>
                 </div>
               </article>
-            ))}
+              );
+            })}
 
             {filtrelenmisBiletler.length === 0 && (
               <div className="rounded-2xl bg-slate-100 p-8 text-center">

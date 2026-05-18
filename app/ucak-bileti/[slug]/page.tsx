@@ -3,6 +3,30 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+
+function rotaGorselSinifi(value: string) {
+  const metin = value.toLocaleLowerCase("tr-TR");
+
+  if (metin.includes("roma") || metin.includes("italya") || metin.includes("fco")) return "roma";
+  if (metin.includes("saraybosna") || metin.includes("bosna") || metin.includes("sjj")) return "saraybosna";
+  if (metin.includes("bakü") || metin.includes("baku") || metin.includes("azerbaycan") || metin.includes("gyd")) return "baku";
+  if (metin.includes("dubai") || metin.includes("dxb")) return "dubai";
+  if (metin.includes("paris") || metin.includes("fransa") || metin.includes("cdg")) return "paris";
+
+  return "generic";
+}
+
+
+function rotaGorselStyle(url?: string) {
+  if (!url) return undefined;
+
+  return {
+    backgroundImage: `linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.72)), url(${url})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
+}
+
 type Bilet = {
   id: number;
   nereden: string;
@@ -34,6 +58,7 @@ type Bilet = {
   gidisTarihi: string | null;
   donusTarihi: string | null;
   detaySlug: string;
+  gorselUrl: string;
 };
 
 export default function BiletDetayPage() {
@@ -81,7 +106,7 @@ export default function BiletDetayPage() {
 
   async function satinAl(seciliBilet: Bilet) {
     try {
-      await fetch(`/api/biletler/${seciliBilet.id}/click`, {
+      await fetch(`/api/admin/biletler/${seciliBilet.id}/click`, {
         method: "POST",
       });
     } catch {
@@ -150,6 +175,8 @@ ${typeof window !== "undefined" ? window.location.href : ""}`;
       </main>
     );
   }
+
+  const gorselSinifi = rotaGorselSinifi(`${bilet.nereye} ${bilet.ulke} ${bilet.kategori}`);
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -241,7 +268,12 @@ ${typeof window !== "undefined" ? window.location.href : ""}`;
           </div>
 
           <aside className="rounded-3xl bg-white p-6 text-slate-950 shadow-2xl">
-            <p className="text-sm font-black text-slate-500">Başlayan fiyat</p>
+            <div className={`detail-route-visual l2t-route-visual-${gorselSinifi}`} style={rotaGorselStyle(bilet.gorselUrl)}>
+              <span>{bilet.ulkeEmoji}</span>
+              <strong>{bilet.nereden} → {bilet.nereye}</strong>
+            </div>
+
+            <p className="mt-5 text-sm font-black text-slate-500">Başlayan fiyat</p>
             <p className="mt-2 text-5xl font-black">{bilet.fiyat}</p>
 
             <p className="mt-4 rounded-2xl bg-yellow-50 p-4 text-sm font-bold text-yellow-800">

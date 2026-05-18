@@ -1,95 +1,49 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
-type Bilet = {
-  id: number;
-  nereden: string;
-  nereye: string;
-  ulke: string;
-  fiyat: string;
-  fiyatSayi: number;
-  tarih: string;
-  vize: string;
-  ay: string;
-  havayolu: string;
-  sure: string;
-  bagaj: string;
-  etiket: string;
-  link: string;
-  aktif: boolean;
-  oneCikan: boolean;
-  kategori: string;
-  aciklama: string;
-  ulkeEmoji: string;
-  sonKontrol: string;
-  kampanyaBitis: string;
-  tiklanma: number;
-  kalkisKodu: string;
-  varisKodu: string;
-  aktarma: string;
-  saglayici: string;
-  aramaPuani: number;
-  gidisTarihi: string | null;
-  donusTarihi: string | null;
-  detaySlug: string;
-};
-
-type SiteAyarlari = {
-  siteBaslik?: string;
-  siteAltBaslik?: string;
-  heroRozet?: string;
-  heroBaslik?: string;
-  heroAciklama?: string;
-  instagramTr?: string;
-  instagramEn?: string;
-  whatsappLink?: string;
-  anaRenk?: string;
-  yanRenk1?: string;
-  yanRenk2?: string;
-  yanRenk3?: string;
-  koyuRenk?: string;
-  arkaPlan?: string;
-  kartRenk?: string;
-  yaziRenk?: string;
-  butonYaziRenk?: string;
-  gununFirsatiGoster?: boolean;
-  kategorilerGoster?: boolean;
-  rehberlerGoster?: boolean;
-  fiyatAlarmGoster?: boolean;
-  sosyalMedyaGoster?: boolean;
-  sssGoster?: boolean;
-  footerMetni?: string;
-};
-
-const varsayilanAyarlar: Required<SiteAyarlari> = {
-  siteBaslik: "Letsgo 2 Travel",
-  siteAltBaslik: "Ucuz uçak bileti fırsatları",
-  heroRozet: "Canlı fiyatlarla güvenli arama",
-  heroBaslik: "Ucuz uçuşları kolayca bul",
-  heroAciklama:
-    "Şehir veya havalimanı seç, uygun uçuşları karşılaştır, partner fiyatlarını kontrol et.",
-  instagramTr: "https://www.instagram.com/letsgo2travel_tr/",
-  instagramEn: "https://www.instagram.com/letsgo2travel_en/",
-  whatsappLink: "",
-  anaRenk: "#061733",
-  yanRenk1: "#1473E6",
-  yanRenk2: "#FFD21F",
-  yanRenk3: "#10B981",
-  koyuRenk: "#031126",
-  arkaPlan: "#F3F7FC",
-  kartRenk: "#FFFFFF",
-  yaziRenk: "#061733",
-  butonYaziRenk: "#061733",
-  gununFirsatiGoster: true,
-  kategorilerGoster: true,
-  rehberlerGoster: true,
-  fiyatAlarmGoster: true,
-  sosyalMedyaGoster: true,
-  sssGoster: true,
-  footerMetni:
-    "Letsgo 2 Travel, uygun uçuş fırsatlarını ve partner fiyatlarını tek yerde takip etmene yardımcı olur.",
-};
+const populerRotalar = [
+  {
+    nereden: "İstanbul (IST) - İstanbul Havalimanı",
+    nereye: "Roma (ROM) - Tüm Havalimanları",
+    rota: "İstanbul → Roma",
+    fiyat: "2.499 TL",
+    etiket: "Avrupa",
+    aciklama: "Hafta sonu kaçamakları ve kültür rotaları için güçlü seçenek.",
+    gorselSinifi: "roma",
+    ikon: "🇮🇹",
+  },
+  {
+    nereden: "İstanbul (SAW) - Sabiha Gökçen Havalimanı",
+    nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı",
+    rota: "İstanbul → Saraybosna",
+    fiyat: "1.899 TL",
+    etiket: "Vizesiz",
+    aciklama: "Pasaportla kolay seyahat edilebilecek Balkan rotası.",
+    gorselSinifi: "saraybosna",
+    ikon: "🇧🇦",
+  },
+  {
+    nereden: "Ankara (ESB) - Esenboğa Havalimanı",
+    nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı",
+    rota: "Ankara → Bakü",
+    fiyat: "2.199 TL",
+    etiket: "Yakın rota",
+    aciklama: "Kısa uçuş süresi ve dönemsel kampanyalarla öne çıkar.",
+    gorselSinifi: "baku",
+    ikon: "🇦🇿",
+  },
+  {
+    nereden: "İstanbul (IST) - İstanbul Havalimanı",
+    nereye: "Dubai (DXB) - Dubai Havalimanı",
+    rota: "İstanbul → Dubai",
+    fiyat: "4.999 TL",
+    etiket: "Popüler",
+    aciklama: "Alışveriş, şehir tatili ve aktarmalı seyahatler için tercih edilir.",
+    gorselSinifi: "dubai",
+    ikon: "🇦🇪",
+  },
+];
 
 const havalimaniSecenekleri = [
   "İstanbul (IST) - İstanbul Havalimanı",
@@ -104,10 +58,7 @@ const havalimaniSecenekleri = [
   "Adana (ADA) - Şakirpaşa Havalimanı",
   "Trabzon (TZX) - Trabzon Havalimanı",
   "Roma (ROM) - Tüm Havalimanları",
-  "Roma (FCO) - Fiumicino Havalimanı",
   "Paris (PAR) - Tüm Havalimanları",
-  "Paris (CDG) - Charles de Gaulle Havalimanı",
-  "Bakü (BAK) - Tüm Havalimanları",
   "Bakü (GYD) - Haydar Aliyev Havalimanı",
   "Saraybosna (SJJ) - Sarajevo Havalimanı",
   "Londra (LON) - Tüm Havalimanları",
@@ -115,32 +66,26 @@ const havalimaniSecenekleri = [
   "Berlin (BER) - Berlin Brandenburg Havalimanı",
   "Madrid (MAD) - Madrid Barajas Havalimanı",
   "Barcelona (BCN) - El Prat Havalimanı",
-  "Milano (MIL) - Tüm Havalimanları",
   "Viyana (VIE) - Vienna Havalimanı",
   "Prag (PRG) - Václav Havel Havalimanı",
   "Dubai (DXB) - Dubai Havalimanı",
 ];
 
-const populerRotalar = [
+const avantajlar = [
   {
-    nereden: "İstanbul (IST) - İstanbul Havalimanı",
-    nereye: "Roma (ROM) - Tüm Havalimanları",
-    aciklama: "Avrupa fırsatı",
+    ikon: "⚡",
+    baslik: "Hızlı karşılaştırma",
+    metin: "Letsgo fırsatlarını ve canlı partner fiyatlarını tek ekranda gör.",
   },
   {
-    nereden: "İstanbul (IST) - İstanbul Havalimanı",
-    nereye: "Saraybosna (SJJ) - Sarajevo Havalimanı",
-    aciklama: "Vizesiz rota",
+    ikon: "🔔",
+    baslik: "Fiyat alarmı",
+    metin: "İstediğin rota için hedef fiyat bırak, admin panelden talepleri takip et.",
   },
   {
-    nereden: "Ankara (ESB) - Esenboğa Havalimanı",
-    nereye: "Bakü (GYD) - Haydar Aliyev Havalimanı",
-    aciklama: "Yakın rota",
-  },
-  {
-    nereden: "İstanbul (IST) - İstanbul Havalimanı",
-    nereye: "Paris (PAR) - Tüm Havalimanları",
-    aciklama: "Popüler rota",
+    ikon: "🧭",
+    baslik: "Rota odaklı içerik",
+    metin: "Vizesiz, Avrupa, Balkan ve yaz rotalarını daha düzenli sun.",
   },
 ];
 
@@ -150,728 +95,349 @@ function aramaDegeriTemizle(value: string) {
   return value.trim();
 }
 
-export default function Home() {
-  const [ayarlar, setAyarlar] =
-    useState<Required<SiteAyarlari>>(varsayilanAyarlar);
-  const [biletler, setBiletler] = useState<Bilet[]>([]);
-  const [yukleniyor, setYukleniyor] = useState(true);
+function bugun() {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  const [nereden, setNereden] = useState("");
-  const [nereye, setNereye] = useState("");
-  const [gidisTarihi, setGidisTarihi] = useState("");
-  const [donusTarihi, setDonusTarihi] = useState("");
+function birHaftaSonra() {
+  const tarih = new Date();
+  tarih.setDate(tarih.getDate() + 7);
+  return tarih.toISOString().slice(0, 10);
+}
+
+export default function HomePage() {
+  const [nereden, setNereden] = useState("İstanbul (IST) - İstanbul Havalimanı");
+  const [nereye, setNereye] = useState("Roma (ROM) - Tüm Havalimanları");
+  const [gidis, setGidis] = useState(bugun());
+  const [donus, setDonus] = useState(birHaftaSonra());
   const [yolcu, setYolcu] = useState("1");
 
-  const [alarmEmail, setAlarmEmail] = useState("");
-  const [alarmMaksimumFiyat, setAlarmMaksimumFiyat] = useState("5000");
-  const [alarmMesaji, setAlarmMesaji] = useState("");
-  const [alarmYukleniyor, setAlarmYukleniyor] = useState(false);
+  const aramaLinki = useMemo(() => {
+    const params = new URLSearchParams({
+      nereden: aramaDegeriTemizle(nereden),
+      nereye: aramaDegeriTemizle(nereye),
+      gidis,
+      donus,
+      yolcu,
+      maksimumFiyat: "30000",
+      siralama: "en-iyi",
+      vize: "Tümü",
+      kategori: "Tümü",
+      aktarma: "Tümü",
+    });
 
-  useEffect(() => {
-    async function yukle() {
-      setYukleniyor(true);
+    return `/arama?${params.toString()}`;
+  }, [nereden, nereye, gidis, donus, yolcu]);
 
-      try {
-        const biletResponse = await fetch("/api/biletler", {
-          cache: "no-store",
-        });
-        const biletData = await biletResponse.json();
-
-        if (Array.isArray(biletData.biletler)) {
-          setBiletler(biletData.biletler);
-        }
-      } catch {
-        setBiletler([]);
-      }
-
-      try {
-        const ayarResponse = await fetch("/api/site-ayarlari", {
-          cache: "no-store",
-        });
-
-        if (ayarResponse.ok) {
-          const ayarData = await ayarResponse.json();
-
-          if (ayarData.ayarlar) {
-            setAyarlar({
-              ...varsayilanAyarlar,
-              ...ayarData.ayarlar,
-            });
-          }
-        }
-      } catch {
-        setAyarlar(varsayilanAyarlar);
-      } finally {
-        setYukleniyor(false);
-      }
-    }
-
-    yukle();
-  }, []);
-
-  const aktifBiletler = useMemo(() => {
-    return biletler.filter((bilet) => bilet.aktif !== false);
-  }, [biletler]);
-
-  const bugununFirsatlari = useMemo(() => {
-    return [...aktifBiletler]
-      .sort((a, b) => {
-        if (a.oneCikan && !b.oneCikan) return -1;
-        if (!a.oneCikan && b.oneCikan) return 1;
-        return a.fiyatSayi - b.fiyatSayi;
-      })
-      .slice(0, 4);
-  }, [aktifBiletler]);
-
-  const populerFirsatlar = useMemo(() => {
-    return [...aktifBiletler]
-      .sort((a, b) => (b.tiklanma || 0) - (a.tiklanma || 0))
-      .slice(0, 5);
-  }, [aktifBiletler]);
-
-  const istatistik = useMemo(() => {
-    const enUcuz = aktifBiletler.length
-      ? [...aktifBiletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi)[0]
-      : null;
-
-    return {
-      toplam: aktifBiletler.length,
-      enUcuz,
-      vizesiz: aktifBiletler.filter((bilet) => bilet.vize === "Vizesiz").length,
-      ulkeSayisi: new Set(aktifBiletler.map((bilet) => bilet.ulke)).size,
-    };
-  }, [aktifBiletler]);
-
-  function aramaYap(e?: FormEvent<HTMLFormElement>) {
-    e?.preventDefault();
-
-    const params = new URLSearchParams();
-
-    if (nereden.trim()) params.set("nereden", aramaDegeriTemizle(nereden));
-    if (nereye.trim()) params.set("nereye", aramaDegeriTemizle(nereye));
-    if (gidisTarihi) params.set("gidis", gidisTarihi);
-    if (donusTarihi) params.set("donus", donusTarihi);
-    if (yolcu) params.set("yolcu", yolcu);
-
-    window.location.href = `/arama?${params.toString()}`;
+  function aramaYap(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    window.location.href = aramaLinki;
   }
 
-  function rotaAra(kalkis: string, varis: string) {
+  function hizliRotaAc(rota: (typeof populerRotalar)[number]) {
     const params = new URLSearchParams({
-      nereden: aramaDegeriTemizle(kalkis),
-      nereye: aramaDegeriTemizle(varis),
+      nereden: aramaDegeriTemizle(rota.nereden),
+      nereye: aramaDegeriTemizle(rota.nereye),
+      gidis,
+      donus,
+      yolcu,
+      maksimumFiyat: "30000",
+      siralama: "en-iyi",
+      vize: "Tümü",
+      kategori: "Tümü",
+      aktarma: "Tümü",
     });
 
     window.location.href = `/arama?${params.toString()}`;
   }
 
-  async function satinAl(bilet: Bilet) {
-    try {
-      await fetch(`/api/biletler/${bilet.id}/click`, {
-        method: "POST",
-      });
-    } catch {
-      // Tıklanma kaydı hata verse bile kullanıcı yönlenir.
-    }
-
-    window.open(bilet.link, "_blank", "noopener,noreferrer");
-  }
-
-  async function fiyatAlarmiKur(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    setAlarmMesaji("");
-
-    if (!alarmEmail.trim()) {
-      setAlarmMesaji("Lütfen e-posta adresini yaz.");
-      return;
-    }
-
-    if (!nereden.trim() || !nereye.trim()) {
-      setAlarmMesaji(
-        "Fiyat alarmı için önce nereden ve nereye alanlarını doldur."
-      );
-      return;
-    }
-
-    if (!alarmMaksimumFiyat || Number(alarmMaksimumFiyat) < 1) {
-      setAlarmMesaji("Maksimum fiyat yazmalısın.");
-      return;
-    }
-
-    setAlarmYukleniyor(true);
-
-    try {
-      const response = await fetch("/api/fiyat-alarmi", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: alarmEmail,
-          nereden: aramaDegeriTemizle(nereden),
-          nereye: aramaDegeriTemizle(nereye),
-          maksimumFiyat: Number(alarmMaksimumFiyat),
-          gidisTarihi,
-          donusTarihi,
-          yolcu,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Fiyat alarmı kurulamadı.");
-      }
-
-      setAlarmEmail("");
-      setAlarmMesaji("Fiyat alarmı kaydedildi. Talep admin panelde görünecek.");
-    } catch (error) {
-      const mesaj =
-        error instanceof Error ? error.message : "Bir hata oluştu.";
-      setAlarmMesaji(mesaj);
-    } finally {
-      setAlarmYukleniyor(false);
-    }
-  }
-
   return (
-    <main className="letsgo-page">
-      <header className="letsgo-header">
-        <div className="letsgo-container letsgo-header-inner">
-          <a href="/" className="letsgo-logo">
+    <main className="l2t-page">
+      <header className="l2t-header">
+        <div className="l2t-container l2t-header-inner">
+          <a href="/" className="l2t-logo" aria-label="Letsgo 2 Travel ana sayfa">
             <img src="/logo.png" alt="Letsgo 2 Travel" />
-            <span className="letsgo-logo-title">{ayarlar.siteBaslik}</span>
           </a>
 
-          <nav className="letsgo-nav">
-            <a href="/arama">Uçuşlar</a>
+          <nav className="l2t-nav" aria-label="Ana menü">
+            <a href="/arama">Uçuş Ara</a>
             <a href="#firsatlar">Fırsatlar</a>
-            <a href="#populer-rotalar">Rotalar</a>
-            <a href="#fiyat-alarmi">Fiyat Alarmı</a>
-            <a href="/admin/dashboard">Admin</a>
+            <a href="#nasil-calisir">Nasıl çalışır?</a>
+            <a href="/admin/dashboard">Dashboard</a>
           </nav>
 
-          <a href="/arama" className="letsgo-header-cta">
-            Uçuş Ara
-          </a>
+          <div className="l2t-header-right">
+            <span className="l2t-lang">🌐 TR</span>
+            <a href="/admin" className="l2t-login-btn">
+              Admin Panel
+            </a>
+          </div>
         </div>
       </header>
 
-      <section className="letsgo-hero">
-        <div className="letsgo-container">
-          <div className="letsgo-hero-grid">
-            <div>
-              <p className="letsgo-hero-badge">{ayarlar.heroRozet}</p>
+      <section className="l2t-hero l2t-hero-v6">
+        <div className="l2t-container">
+          <div className="l2t-badge">✈️ Letsgo 2 Travel · Uçuş fırsat platformu</div>
 
-              <h1 className="letsgo-hero-title">{ayarlar.heroBaslik}</h1>
+          <div className="l2t-hero-grid">
+            <div className="l2t-hero-left">
+              <h1 className="l2t-hero-title">
+                Ucuz uçak bileti fırsatlarını tek ekranda keşfet
+              </h1>
+              <p className="l2t-hero-text">
+                Rota seç, Letsgo fırsatlarını gör, canlı partner fiyatlarını karşılaştır
+                ve uygun bilet sayfasına hızlıca yönlen.
+              </p>
 
-              <p className="letsgo-hero-text">{ayarlar.heroAciklama}</p>
-
-              <div className="letsgo-hero-actions">
-                <a href="/arama" className="letsgo-primary-button">
-                  Uçuş Ara
+              <div className="l2t-hero-actions">
+                <a href={aramaLinki} className="l2t-hero-primary">
+                  Hemen uçuş ara
                 </a>
-
-                <a href="#firsatlar" className="letsgo-secondary-button">
-                  Fırsatları Gör
+                <a href="#firsatlar" className="l2t-hero-secondary">
+                  Popüler rotaları gör
                 </a>
+              </div>
+
+              <div className="l2t-trust-row">
+                <span>Canlı fiyat</span>
+                <span>Fiyat alarmı</span>
+                <span>Admin yönetimi</span>
               </div>
             </div>
 
-            <div className="letsgo-plane-box">
-              <div className="letsgo-hero-price">
-                <p className="letsgo-hero-price-label">En ucuz başlangıç</p>
-                <p className="letsgo-hero-price-value">
-                  {istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
-                </p>
+            <div className="l2t-hero-visual">
+              <div className="l2t-floating-card top">
+                <small>Bugünün odağı</small>
+                <strong>Avrupa & vizesiz rotalar</strong>
+              </div>
+              <div className="l2t-floating-card bottom">
+                <small>Başlayan fiyatlarla</small>
+                <strong>1.899 TL</strong>
               </div>
             </div>
           </div>
 
-          <form onSubmit={aramaYap} className="letsgo-search-card">
-            <div className="letsgo-tabs">
-              <span className="letsgo-tab-active">✈️ Uçuş</span>
-              <span className="letsgo-tab-muted">🏨 Otel yakında</span>
-              <span className="letsgo-tab-muted">🚗 Araç yakında</span>
+          <form onSubmit={aramaYap} className="l2t-search-card l2t-search-card-v6">
+            <div className="l2t-tabs">
+              <button type="button" className="l2t-tab active">✈ Uçuş</button>
+              <button type="button" className="l2t-tab">🏨 Otel yakında</button>
+              <button type="button" className="l2t-tab">🚗 Araç yakında</button>
             </div>
 
-            <div className="letsgo-search-grid">
-              <SearchInput
-                label="Nereden"
-                value={nereden}
-                onChange={setNereden}
-                placeholder="Şehir veya havalimanı"
-                listId="home-from-airports"
-              />
-
-              <SearchInput
-                label="Nereye"
-                value={nereye}
-                onChange={setNereye}
-                placeholder="Şehir veya havalimanı"
-                listId="home-to-airports"
-              />
-
-              <DateInput
-                label="Gidiş"
-                value={gidisTarihi}
-                onChange={setGidisTarihi}
-              />
-
-              <DateInput
-                label="Dönüş"
-                value={donusTarihi}
-                onChange={setDonusTarihi}
-              />
-
-              <div className="letsgo-field">
-                <label>Yolcu</label>
-                <select
-                  value={yolcu}
-                  onChange={(event) => setYolcu(event.target.value)}
-                >
-                  <option>1</option>
-                  <option>2</option>
-                  <option>3</option>
-                  <option>4</option>
-                </select>
+            <div className="l2t-search-grid">
+              <div className="l2t-field">
+                <label>Nereden</label>
+                <input
+                  value={nereden}
+                  onChange={(event) => setNereden(event.target.value)}
+                  list="from-airports"
+                  placeholder="Şehir veya havalimanı"
+                />
+                <small>Örn. İstanbul, SAW, Ankara</small>
               </div>
+
+              <div className="l2t-switch-wrap">
+                <button
+                  type="button"
+                  className="l2t-switch-btn"
+                  onClick={() => {
+                    setNereden(nereye);
+                    setNereye(nereden);
+                  }}
+                  aria-label="Kalkış ve varış yerini değiştir"
+                >
+                  ⇄
+                </button>
+              </div>
+
+              <div className="l2t-field">
+                <label>Nereye</label>
+                <input
+                  value={nereye}
+                  onChange={(event) => setNereye(event.target.value)}
+                  list="to-airports"
+                  placeholder="Şehir veya havalimanı"
+                />
+                <small>Örn. Roma, Dubai, Saraybosna</small>
+              </div>
+
+              <div className="l2t-field small">
+                <label>Gidiş</label>
+                <input value={gidis} onChange={(event) => setGidis(event.target.value)} type="date" />
+              </div>
+
+              <div className="l2t-field small">
+                <label>Dönüş</label>
+                <input value={donus} onChange={(event) => setDonus(event.target.value)} type="date" />
+              </div>
+
+              <div className="l2t-field small">
+                <label>Yolcu</label>
+                <select value={yolcu} onChange={(event) => setYolcu(event.target.value)}>
+                  <option value="1">1 yolcu</option>
+                  <option value="2">2 yolcu</option>
+                  <option value="3">3 yolcu</option>
+                  <option value="4">4 yolcu</option>
+                </select>
+                <small>Ekonomi</small>
+              </div>
+
+              <button type="submit" className="l2t-search-btn">Uçuş ara →</button>
             </div>
 
-            <datalist id="home-from-airports">
+            <datalist id="from-airports">
               {havalimaniSecenekleri.map((item) => (
                 <option key={`from-${item}`} value={item} />
               ))}
             </datalist>
 
-            <datalist id="home-to-airports">
+            <datalist id="to-airports">
               {havalimaniSecenekleri.map((item) => (
                 <option key={`to-${item}`} value={item} />
               ))}
             </datalist>
 
-            <div className="letsgo-search-bottom">
-              <label className="letsgo-checkbox-label">
-                <input type="checkbox" defaultChecked />
-                Havalimanlarını dahil et
-              </label>
-
-              <button className="letsgo-primary-button">Uçuş ara →</button>
+            <div className="l2t-search-note">
+              <span>Rota seç, arama sayfasında fırsatları karşılaştır.</span>
+              <span>Son fiyatı partner sayfasında güvenli şekilde kontrol et.</span>
             </div>
           </form>
         </div>
       </section>
 
-      <section className="letsgo-section">
-        <div className="letsgo-container">
-          <div className="letsgo-stats-grid">
-            <StatCard
-              title="Aktif fırsat"
-              value={yukleniyor ? "..." : String(istatistik.toplam)}
-            />
-            <StatCard
-              title="En ucuz fiyat"
-              value={istatistik.enUcuz ? istatistik.enUcuz.fiyat : "—"}
-            />
-            <StatCard title="Vizesiz rota" value={String(istatistik.vizesiz)} />
-            <StatCard title="Ülke sayısı" value={String(istatistik.ulkeSayisi)} />
-          </div>
-        </div>
-      </section>
-
-      <section id="firsatlar" className="letsgo-section">
-        <div className="letsgo-container">
-          <SectionHeader
-            eyebrow="Bugünün fırsatları"
-            title="Sınırlı süreli ucuz uçuşlar"
-            href="/arama"
-          />
-
-          {bugununFirsatlari.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="letsgo-deal-grid">
-              {bugununFirsatlari.map((bilet) => (
-                <DealCard
-                  key={bilet.id}
-                  bilet={bilet}
-                  onSatinAl={() => satinAl(bilet)}
-                />
-              ))}
+      <section id="firsatlar" className="l2t-section l2t-section-v6">
+        <div className="l2t-container">
+          <div className="l2t-section-head">
+            <div>
+              <p className="l2t-mini-kicker">Öne çıkan rota kartları</p>
+              <h2 className="l2t-section-title">Popüler uçuş fikirleri</h2>
+              <p className="l2t-section-subtitle">
+                Bu kartlara basınca rota hazır şekilde arama sayfası açılır.
+              </p>
             </div>
-          )}
-        </div>
-      </section>
+            <a href="/arama" className="l2t-link">Tüm arama sayfası →</a>
+          </div>
 
-      <section id="populer-rotalar" className="letsgo-section">
-        <div className="letsgo-container">
-          <SectionHeader
-            eyebrow="Popüler rotalar"
-            title="En çok aranan uçuş rotaları"
-          />
-
-          <div className="letsgo-route-grid">
+          <div className="l2t-deals-grid l2t-deals-grid-v6">
             {populerRotalar.map((rota) => (
               <button
-                key={`${rota.nereden}-${rota.nereye}`}
-                onClick={() => rotaAra(rota.nereden, rota.nereye)}
-                className="letsgo-route-card letsgo-hover"
+                type="button"
+                key={rota.rota}
+                onClick={() => hizliRotaAc(rota)}
+                className="l2t-deal-card l2t-deal-card-v6"
               >
-                <p className="letsgo-route-title">
-                  {aramaDegeriTemizle(rota.nereden)} →{" "}
-                  {aramaDegeriTemizle(rota.nereye)}
-                </p>
-                <p className="letsgo-route-desc">{rota.aciklama}</p>
+                <div className={`l2t-deal-image l2t-route-visual-${rota.gorselSinifi}`}>
+                  <span>{rota.ikon}</span>
+                  <strong>{rota.rota}</strong>
+                </div>
+                <div className="l2t-deal-body">
+                  <div className="l2t-deal-route-row">
+                    <strong>{rota.rota}</strong>
+                    <span>{rota.etiket}</span>
+                  </div>
+                  <p className="l2t-route-description">{rota.aciklama}</p>
+                  <div className="l2t-deal-meta-row">
+                    <small>Başlayan fiyatlarla</small>
+                    <div className="l2t-deal-price-box">
+                      <strong>{rota.fiyat}</strong>
+                      <small>Kontrol et</small>
+                    </div>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
         </div>
       </section>
 
-      {populerFirsatlar.length > 0 && (
-        <section className="letsgo-section">
-          <div className="letsgo-container">
-            <SectionHeader
-              eyebrow="Öne çıkan"
-              title="Kullanıcıların ilgilendiği fırsatlar"
-              href="/arama"
-            />
-
-            <div className="letsgo-popular-grid">
-              {populerFirsatlar.map((bilet) => (
-                <button
-                  key={bilet.id}
-                  onClick={() => satinAl(bilet)}
-                  className="letsgo-simple-card letsgo-hover"
-                >
-                  <p className="letsgo-simple-card-title">
-                    {bilet.nereden} → {bilet.nereye}
-                  </p>
-                  <p className="letsgo-simple-card-text">{bilet.ulke}</p>
-                  <p className="letsgo-simple-card-price">{bilet.fiyat}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {ayarlar.fiyatAlarmGoster && (
-        <section id="fiyat-alarmi" className="letsgo-section">
-          <div className="letsgo-container">
-            <div className="letsgo-alert-box">
-              <div>
-                <p className="letsgo-alert-eyebrow">Fiyat Alarmı</p>
-
-                <h2 className="letsgo-alert-title">
-                  Fiyat düşünce fırsatı kaçırma
-                </h2>
-
-                <p className="letsgo-alert-text">
-                  Nereden ve nereye alanlarını doldur, hedef fiyatını yaz. Talep
-                  admin paneline düşer.
-                </p>
+      <section id="nasil-calisir" className="l2t-section">
+        <div className="l2t-container">
+          <div className="l2t-feature-strip">
+            {avantajlar.map((item) => (
+              <div className="l2t-feature-item" key={item.baslik}>
+                <div className="l2t-feature-icon">{item.ikon}</div>
+                <div>
+                  <h3>{item.baslik}</h3>
+                  <p>{item.metin}</p>
+                </div>
               </div>
-
-              <form onSubmit={fiyatAlarmiKur} className="letsgo-alert-form">
-                <label>E-posta adresin</label>
-                <input
-                  value={alarmEmail}
-                  onChange={(event) => setAlarmEmail(event.target.value)}
-                  type="email"
-                  placeholder="ornek@mail.com"
-                />
-
-                <label>Maksimum fiyat</label>
-                <input
-                  value={alarmMaksimumFiyat}
-                  onChange={(event) =>
-                    setAlarmMaksimumFiyat(event.target.value)
-                  }
-                  type="number"
-                  placeholder="3000"
-                />
-
-                <button disabled={alarmYukleniyor}>
-                  {alarmYukleniyor ? "Kaydediliyor..." : "Fiyat Alarmı Kur"}
-                </button>
-
-                {alarmMesaji && <p className="letsgo-message">{alarmMesaji}</p>}
-              </form>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="letsgo-section">
-        <div className="letsgo-container">
-          <div className="letsgo-feature-grid">
-            <FeatureCard
-              icon="🔎"
-              title="Canlı fiyat verisi"
-              text="Partner ve havayolu kaynaklarından gelen fiyatları tek yerde kontrol et."
-            />
-
-            <FeatureCard
-              icon="⚡"
-              title="Hızlı karşılaştırma"
-              text="En uygun rotayı, fiyatı ve fırsatı daha hızlı bul."
-            />
-
-            <FeatureCard
-              icon="🔔"
-              title="Fiyat alarmı"
-              text="İstediğin rota için hedef fiyat belirle, fırsatı takip et."
-            />
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="letsgo-footer">
-        <div className="letsgo-container">
-          <div className="letsgo-footer-grid">
-            <div>
-              <div className="letsgo-footer-logo">
-                <img src="/logo.png" alt="Letsgo 2 Travel" />
-                <h2 className="letsgo-footer-title">{ayarlar.siteBaslik}</h2>
-              </div>
-
-              <p className="letsgo-footer-text">{ayarlar.footerMetni}</p>
+      <section className="l2t-section">
+        <div className="l2t-container">
+          <div className="l2t-partner-box l2t-partner-box-v6">
+            <div className="l2t-partner-left">
+              <div className="l2t-mini-kicker">Gelir modeli</div>
+              <h2>Partner yönlendirmesi hazır</h2>
+              <p>
+                Kullanıcı önce senin sitende rota seçer; sonra uygun fiyatı görmek için
+                partner arama veya bilet detay bağlantısına yönlenir.
+              </p>
             </div>
 
-            <FooterLinks
-              title="Keşfet"
-              links={[
-                ["Uçuşlar", "/arama"],
-                ["Fırsatlar", "#firsatlar"],
-                ["Rotalar", "#populer-rotalar"],
-                ["Fiyat Alarmı", "#fiyat-alarmi"],
-              ]}
-            />
-
-            <FooterLinks
-              title="Yönetim"
-              links={[
-                ["Dashboard", "/admin/dashboard"],
-                ["Bilet Admin", "/admin"],
-                ["Site Ayarları", "/admin/ayarlar"],
-                ["Fiyat Alarmları", "/admin/fiyat-alarmlari"],
-              ]}
-            />
-
-            <div>
-              <p className="letsgo-footer-heading">Bilgilendirme</p>
-              <p className="letsgo-footer-text">
-                Bilet fiyatları değişebilir. Satın almadan önce son fiyatı, bagaj
-                şartlarını ve müsaitliği partner sitede kontrol edin.
-              </p>
-
-              <div className="letsgo-footer-pills">
-                <span className="letsgo-footer-pill">Güvenli bağlantı</span>
-                <span className="letsgo-footer-pill">Partner fiyatları</span>
-                <span className="letsgo-footer-pill">Fiyat alarmı</span>
+            <div className="l2t-partner-right">
+              <div className="l2t-partner-top">
+                <h3>Aviasales / Travelpayouts</h3>
+                <span>Affiliate uyumlu yapı</span>
+              </div>
+              <div className="l2t-partner-bottom-grid">
+                <div className="l2t-field">
+                  <label>Arama</label>
+                  <input value="Canlı fiyat + Letsgo fırsatı" readOnly />
+                </div>
+                <div className="l2t-field">
+                  <label>Yönetim</label>
+                  <input value="Admin panel" readOnly />
+                </div>
+                <div className="l2t-field">
+                  <label>Gelir</label>
+                  <input value="Partner link" readOnly />
+                </div>
+                <a href="/arama" className="l2t-partner-btn l2t-partner-link">Aramayı aç</a>
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="letsgo-footer-bottom">
-            © 2026 Letsgo 2 Travel. Tüm hakları saklıdır.
+      <footer className="l2t-footer">
+        <div className="l2t-container l2t-footer-grid">
+          <div>
+            <img src="/logo.png" alt="Letsgo 2 Travel" className="l2t-footer-logo" />
+            <p className="l2t-footer-text">
+              Letsgo 2 Travel; ucuz uçuş fikirlerini, rota kartlarını ve partner
+              yönlendirmelerini tek çatı altında sunan seyahat fırsat platformudur.
+            </p>
+            <small className="l2t-copy">© 2026 Letsgo 2 Travel.</small>
+          </div>
+          <div>
+            <h4>Site</h4>
+            <ul>
+              <li><a href="/arama">Uçuş ara</a></li>
+              <li><a href="/flights">Uçuşlar</a></li>
+              <li><a href="/canli-ucus">Canlı uçuş</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Yönetim</h4>
+            <ul>
+              <li><a href="/admin">Bilet admin</a></li>
+              <li><a href="/admin/dashboard">Dashboard</a></li>
+              <li><a href="/admin/ayarlar">Site ayarları</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Not</h4>
+            <p className="l2t-footer-text small">
+              Fiyatlar değişebilir. Son fiyat satın alma veya partner yönlendirme
+              sayfasında kontrol edilmelidir.
+            </p>
           </div>
         </div>
       </footer>
     </main>
-  );
-}
-
-function SearchInput({
-  label,
-  value,
-  onChange,
-  placeholder,
-  listId,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  listId: string;
-}) {
-  return (
-    <div className="letsgo-field">
-      <label>{label}</label>
-
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        list={listId}
-      />
-    </div>
-  );
-}
-
-function DateInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="letsgo-field">
-      <label>{label}</label>
-
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        type="date"
-      />
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="letsgo-stat-card">
-      <p className="letsgo-stat-label">{title}</p>
-      <p className="letsgo-stat-value">{value}</p>
-    </div>
-  );
-}
-
-function SectionHeader({
-  eyebrow,
-  title,
-  href,
-}: {
-  eyebrow: string;
-  title: string;
-  href?: string;
-}) {
-  return (
-    <div className="letsgo-section-header">
-      <div>
-        <p className="letsgo-eyebrow">{eyebrow}</p>
-        <h2 className="letsgo-section-title">{title}</h2>
-      </div>
-
-      {href && (
-        <a href={href} className="letsgo-section-link">
-          Tümünü gör →
-        </a>
-      )}
-    </div>
-  );
-}
-
-function DealCard({
-  bilet,
-  onSatinAl,
-}: {
-  bilet: Bilet;
-  onSatinAl: () => void;
-}) {
-  return (
-    <article className="letsgo-card letsgo-hover">
-      <div className="letsgo-deal-image">
-        <div className="letsgo-deal-image-inner">
-          <span className="letsgo-badge">
-            {bilet.ulkeEmoji} {bilet.ulke}
-          </span>
-
-          <span className="letsgo-badge">{bilet.vize}</span>
-        </div>
-      </div>
-
-      <div className="letsgo-deal-body">
-        <div className="letsgo-deal-top">
-          <div>
-            <h3 className="letsgo-deal-title">
-              {bilet.nereden} → {bilet.nereye}
-            </h3>
-
-            <p className="letsgo-deal-date">{bilet.tarih}</p>
-          </div>
-
-          <p className="letsgo-deal-price">{bilet.fiyat}</p>
-        </div>
-
-        <div className="letsgo-deal-info">
-          <p>
-            <span>Havayolu:</span> {bilet.havayolu}
-          </p>
-          <p>
-            <span>Süre:</span> {bilet.sure}
-          </p>
-        </div>
-
-        <div className="letsgo-deal-actions">
-          <button onClick={onSatinAl} className="letsgo-card-button-yellow">
-            Satın Al
-          </button>
-
-          <a
-            href={`/ucak-bileti/${bilet.detaySlug}`}
-            className="letsgo-card-button-dark"
-          >
-            Detay
-          </a>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  text,
-}: {
-  icon: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="letsgo-feature-card">
-      <div className="letsgo-feature-icon">{icon}</div>
-      <h3 className="letsgo-feature-title">{title}</h3>
-      <p className="letsgo-feature-text">{text}</p>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="letsgo-empty">
-      <h3 className="letsgo-empty-title">Henüz fırsat yok</h3>
-      <p className="letsgo-empty-text">
-        Admin panelden bilet ekleyince burada görünecek.
-      </p>
-    </div>
-  );
-}
-
-function FooterLinks({
-  title,
-  links,
-}: {
-  title: string;
-  links: [string, string][];
-}) {
-  return (
-    <div>
-      <p className="letsgo-footer-heading">{title}</p>
-
-      <div className="letsgo-footer-links">
-        {links.map(([label, href]) => (
-          <a key={label} href={href}>
-            {label}
-          </a>
-        ))}
-      </div>
-    </div>
   );
 }
