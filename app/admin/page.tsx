@@ -646,6 +646,40 @@ export default function AdminPanel() {
               </div>
             </section>
 
+            <section className="mt-5 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-[32px] bg-white p-6 shadow-xl">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-blue-600">Yayın kontrol merkezi</p>
+                    <h2 className="mt-1 text-2xl font-black tracking-tight">Ana sayfaya çıkmadan önce kontrol et</h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">Görseli, fiyatı, tarih yazısını ve linki eksiksiz olan fırsatlar kullanıcıya daha güven verir.</p>
+                  </div>
+                  <span className="rounded-2xl bg-blue-50 px-4 py-3 text-2xl">🧭</span>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                  <AdminCheck label="Aktif fırsat sayısı" value={`${istatistik.aktif} yayın`} ok={istatistik.aktif > 0} />
+                  <AdminCheck label="Görselli fırsatlar" value={`${istatistik.gorselli} kart`} ok={istatistik.gorselli > 0} />
+                  <AdminCheck label="Öne çıkan vitrin" value={`${istatistik.oneCikan} rota`} ok={istatistik.oneCikan > 0} />
+                  <AdminCheck label="Tıklanma ölçümü" value={`${istatistik.toplamTiklanma} tıklama`} ok={istatistik.toplamTiklanma > 0} />
+                </div>
+              </div>
+
+              <div className="rounded-[32px] bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-6 text-white shadow-xl">
+                <p className="text-sm font-black text-yellow-300">İçerik üretim asistanı</p>
+                <h2 className="mt-1 text-3xl font-black tracking-tight">Tek kayıttan site + sosyal medya içeriği</h2>
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-7 text-slate-300">
+                  Her rota kartında Instagram ve WhatsApp metni hazır. Görsel URL ekleyince aynı rota ana sayfa, fırsatlar sayfası, arama sonucu ve detay sayfasında aynı premium görünümle çalışır.
+                </p>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <AdminPromo title="1" text="Rota + fiyat gir" />
+                  <AdminPromo title="2" text="Görsel URL ekle" />
+                  <AdminPromo title="3" text="Öne çıkar ve paylaş" />
+                </div>
+              </div>
+            </section>
+
             <section className="mt-6 grid gap-6 xl:grid-cols-[520px_1fr]">
               <form id="yeni" onSubmit={biletKaydet} className="rounded-[32px] bg-white p-6 shadow-xl">
                 <div className="mb-6 flex items-start justify-between gap-4">
@@ -916,6 +950,29 @@ function Toggle({ checked, onChange, title, sub }: { checked: boolean; onChange:
       </span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5" />
     </label>
+  );
+}
+
+function AdminCheck({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-3xl bg-slate-50 p-4">
+      <div>
+        <p className="text-sm font-black text-slate-700">{label}</p>
+        <p className="mt-1 text-xs font-bold text-slate-500">{value}</p>
+      </div>
+      <span className={`rounded-full px-3 py-2 text-xs font-black ${ok ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"}`}>
+        {ok ? "Tamam" : "Eksik"}
+      </span>
+    </div>
+  );
+}
+
+function AdminPromo({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-3xl bg-white/10 p-4">
+      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-yellow-400 text-lg font-black text-slate-950">{title}</span>
+      <p className="mt-3 text-sm font-black leading-6 text-white">{text}</p>
+    </div>
   );
 }
 

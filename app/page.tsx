@@ -121,6 +121,41 @@ const avantajlar = [
   },
 ];
 
+const vitrinKategorileri = [
+  { ikon: "🌍", baslik: "Avrupa kaçamakları", metin: "Roma, Paris, Viyana ve Prag gibi şehir rotalarını öne çıkar." },
+  { ikon: "🛂", baslik: "Vizesiz rotalar", metin: "Balkanlar, Kafkasya ve yakın coğrafya fırsatlarını ayrı vitrine taşı." },
+  { ikon: "🏖️", baslik: "Yaz tatili", metin: "Antalya, Bodrum, Dalaman ve Akdeniz uçuşlarını sezonluk göster." },
+  { ikon: "💸", baslik: "En ucuz fırsatlar", metin: "Kullanıcıyı hızlıca düşük fiyatlı kampanya kartlarına yönlendir." },
+];
+
+const editoryalKartlar = [
+  {
+    etiket: "Rota rehberi",
+    baslik: "Hafta sonu için kısa Avrupa rotaları",
+    metin: "2-3 günlük kaçamak planlayan kullanıcılar için hızlı karar kartları.",
+    link: "/flights",
+  },
+  {
+    etiket: "Fiyat takibi",
+    baslik: "Uygun fiyat yakalama mantığı",
+    metin: "Arama sayfası ve fiyat alarmı ile kullanıcıyı sitede daha uzun tut.",
+    link: "/arama",
+  },
+  {
+    etiket: "Canlı kontrol",
+    baslik: "Son fiyatı partner sayfasında doğrula",
+    metin: "Satın alma öncesi son fiyat kontrolünü net şekilde anlatan güven alanı.",
+    link: "/canli-ucus?nereden=IST&nereye=ROM&gidis=2026-06-12&donus=2026-06-18&fiyat=2499&aktarma=Aktarmasız&havayolu=Partner&kaynak=Travelpayouts",
+  },
+];
+
+const guvenSinyalleri = [
+  "Fiyatlar değişebilir uyarısı",
+  "Partner yönlendirme mantığı",
+  "Admin panelden canlı içerik",
+  "Görselli rota kartları",
+];
+
 function aramaDegeriTemizle(value: string) {
   const kod = value.match(/\(([A-Z]{3})\)/);
   if (kod?.[1]) return kod[1];
@@ -411,6 +446,61 @@ export default function HomePage() {
                   </div>
                 </div>
               </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="l2t-section l2t-showcase-section">
+        <div className="l2t-container">
+          <div className="l2t-showcase-grid">
+            <div className="l2t-showcase-panel dark">
+              <p className="l2t-mini-kicker light">Seyahat vitrini</p>
+              <h2>Fırsatları kategoriye göre daha profesyonel sun</h2>
+              <p>
+                Kullanıcı sadece bilet görmesin; vizesiz, Avrupa, yaz tatili ve en ucuz gibi
+                net başlıklarla sitede daha kolay yön bulsun.
+              </p>
+              <div className="l2t-showcase-tags">
+                {guvenSinyalleri.map((item) => (
+                  <span key={item}>{item}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="l2t-category-grid">
+              {vitrinKategorileri.map((item) => (
+                <a href="/flights" className="l2t-category-card" key={item.baslik}>
+                  <span>{item.ikon}</span>
+                  <strong>{item.baslik}</strong>
+                  <small>{item.metin}</small>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="l2t-section">
+        <div className="l2t-container">
+          <div className="l2t-editorial-head">
+            <div>
+              <p className="l2t-mini-kicker">Yan sayfa deneyimi</p>
+              <h2 className="l2t-section-title">Kullanıcıyı sadece ana sayfada bırakma</h2>
+              <p className="l2t-section-subtitle">
+                Rota vitrini, arama sayfası ve canlı kontrol sayfası artık aynı marka diliyle çalışır.
+              </p>
+            </div>
+            <a href="/flights" className="l2t-link">Fırsat vitrinini aç →</a>
+          </div>
+
+          <div className="l2t-editorial-grid">
+            {editoryalKartlar.map((item) => (
+              <a href={item.link} className="l2t-editorial-card" key={item.baslik}>
+                <span>{item.etiket}</span>
+                <strong>{item.baslik}</strong>
+                <p>{item.metin}</p>
+              </a>
             ))}
           </div>
         </div>
