@@ -3453,3 +3453,70 @@ main { background: transparent; }
     animation: none !important;
   }
 }
+/* Visa Center Layouts */
+.l2t-visa-grid { display: grid; gap: 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 24px; }
+@media (max-width: 1040px) { .l2t-visa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .l2t-visa-grid { grid-template-columns: 1fr; } }
+.l2t-page-hero { text-align: center; max-width: 760px; margin: 0 auto 48px; }
+.l2t-page-hero h1 { font-size: clamp(2.25rem, 4vw, 2.8rem); font-weight: 900; margin-bottom: 16px; color: var(--l2t-text); }
+.l2t-page-hero p { color: var(--l2t-soft); line-height: 1.6; }
+.l2t-card-title { font-size: 1.25rem; font-weight: 800; color: var(--l2t-text); margin: 0 0 4px; }
+.l2t-card-subtitle { font-size: 0.875rem; color: var(--l2t-gold); font-weight: 800; margin-bottom: 4px; }
+.l2t-card-muted { font-size: 0.75rem; color: var(--l2t-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+.l2t-status-box { padding: 16px; border-radius: var(--l2t-radius-sm); background: var(--l2t-card-strong); border: 1px solid var(--l2t-border); margin-bottom: 24px; flex-grow: 1; display: flex; flex-direction: column; }
+.l2t-status-label { font-size: 0.75rem; font-weight: 800; color: var(--l2t-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.l2t-status-val { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.l2t-dot { width: 8px; height: 8px; border-radius: 50%; }
+.l2t-dot-pulse { animation: l2t-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+@keyframes l2t-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.l2t-color-available { color: #34D399; }
+.l2t-bg-available { background: #34D399; }
+.l2t-color-moderate { color: #FBBF24; }
+.l2t-bg-moderate { background: #FBBF24; }
+.l2t-color-critical { color: #F87171; }
+.l2t-bg-critical { background: #F87171; }
+.l2t-color-none { color: #9CA3AF; }
+.l2t-bg-none { background: #9CA3AF; }
+
+/* Profile Verifications Layouts */
+.l2t-profile-grid { display: grid; gap: 32px; grid-template-columns: 1fr 1fr; margin-top: 32px; }
+@media (max-width: 900px) { .l2t-profile-grid { grid-template-columns: 1fr; } }
+.l2t-form-group { margin-bottom: 24px; }
+.l2t-form-label { display: block; color: var(--l2t-soft); font-weight: 800; font-size: 0.875rem; margin-bottom: 8px; }
+.l2t-file-drop { border: 2px dashed var(--l2t-border); border-radius: var(--l2t-radius-sm); padding: 16px; background: var(--l2t-card-strong); transition: border-color 0.2s; }
+.l2t-file-drop:hover { border-color: rgba(255, 199, 44, 0.5); }
+.l2t-file-input { width: 100%; font-size: 0.875rem; color: var(--l2t-soft); cursor: pointer; }
+.l2t-file-input::file-selector-button { margin-right: 16px; padding: 8px 16px; border-radius: 99px; border: none; font-size: 0.875rem; font-weight: 700; background: var(--l2t-gold); color: var(--l2t-night); cursor: pointer; transition: background 0.2s; }
+.l2t-file-input::file-selector-button:hover { background: var(--l2t-gold-hover); }
+.l2t-hint { font-size: 0.75rem; color: var(--l2t-muted); margin-top: 8px; line-height: 1.6; }
+.l2t-alert { padding: 16px; border-radius: var(--l2t-radius-sm); margin-bottom: 24px; font-weight: 800; border: 1px solid transparent; }
+.l2t-alert-danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #FCA5A5; }
+.l2t-alert-success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #6EE7B7; }
+.l2t-alert-warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #FCD34D; }
+.l2t-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.l2t-card-footer { font-size: 0.875rem; color: var(--l2t-muted); display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--l2t-border); }
+.l2t-card-note { margin-top: 8px; font-size: 0.875rem; background: var(--l2t-card-strong); padding: 12px; border-radius: var(--l2t-radius-sm); border: 1px solid var(--l2t-border); }
+/* Admin Dogrulamalar Layouts */
+.l2t-admin-stats-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 32px; }
+@media (max-width: 900px) { .l2t-admin-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.l2t-admin-stat-card { padding: 20px; text-align: center; }
+.l2t-admin-stat-label { display: block; color: var(--l2t-soft); font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.l2t-admin-stat-val { font-size: 1.875rem; font-weight: 800; }
+.l2t-filter-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; background: var(--l2t-card-strong); padding: 8px; border-radius: var(--l2t-radius-sm); border: 1px solid var(--l2t-border); width: max-content; }
+.l2t-filter-btn { padding: 8px 20px; border-radius: 8px; font-weight: 800; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer; }
+.l2t-filter-btn-active { background: var(--l2t-gold); color: var(--l2t-night); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+.l2t-filter-btn-inactive { background: transparent; color: var(--l2t-soft); }
+.l2t-filter-btn-inactive:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.l2t-admin-main-grid { display: grid; gap: 32px; grid-template-columns: 1.2fr 0.8fr; align-items: start; }
+@media (max-width: 1040px) { .l2t-admin-main-grid { grid-template-columns: 1fr; } }
+.l2t-preview-box { background: var(--l2t-night); border: 1px solid var(--l2t-border); border-radius: var(--l2t-radius-sm); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; overflow: hidden; position: relative; min-height: 250px; }
+.l2t-preview-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.l2t-preview-tag { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; backdrop-filter: blur(4px); }
+.l2t-button-success { background: #059669; color: #fff; border: none; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2); }
+.l2t-button-success:hover:not(:disabled) { background: #10B981; transform: translateY(-2px); }
+.l2t-admin-actions { display: flex; gap: 12px; }
+.l2t-admin-actions > button { flex: 1; }
+.l2t-admin-item-title { font-size: 1.25rem; font-weight: 800; color: var(--l2t-text); margin: 0; }
+.l2t-admin-item-id { color: var(--l2t-soft); font-size: 0.875rem; margin: 4px 0 0; }
+.l2t-admin-item-footer { font-size: 0.875rem; color: var(--l2t-muted); display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--l2t-border); padding-top: 12px; margin-top: 16px; }
+.l2t-admin-panel-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 16px; color: #fff; border-bottom: 1px solid var(--l2t-border); padding-bottom: 12px; }

@@ -111,8 +111,8 @@ export default function AdminDogrulamalarPage() {
 
   if (loading) {
     return (
-      <div className="l2t-admin-shell l2t-wrap flex items-center justify-center">
-        <p className="text-xl text-[var(--l2t-soft)] animate-pulse">Yükleniyor...</p>
+      <div className="l2t-admin-shell l2t-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontSize: "1.25rem", color: "var(--l2t-soft)", animation: "l2t-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}>Yükleniyor...</p>
       </div>
     );
   }
@@ -125,66 +125,66 @@ export default function AdminDogrulamalarPage() {
       </div>
       
       {toast && (
-        <div className={`p-4 mb-6 rounded-lg font-bold border ${toast.type === 'error' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+        <div className={`l2t-alert ${toast.type === 'error' ? 'l2t-alert-danger' : 'l2t-alert-success'}`}>
           {toast.msg}
         </div>
       )}
 
       {/* İstatistik Kartları */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Bekleyen</span>
-          <strong className="text-3xl text-[var(--l2t-gold)]">{stats.pending}</strong>
+      <div className="l2t-admin-stats-grid">
+        <div className="l2t-glass-card l2t-admin-stat-card">
+          <span className="l2t-admin-stat-label">Bekleyen</span>
+          <strong className="l2t-admin-stat-val" style={{ color: "var(--l2t-gold)" }}>{stats.pending}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Onaylanan</span>
-          <strong className="text-3xl text-[var(--l2t-success)]">{stats.approved}</strong>
+        <div className="l2t-glass-card l2t-admin-stat-card">
+          <span className="l2t-admin-stat-label">Onaylanan</span>
+          <strong className="l2t-admin-stat-val" style={{ color: "var(--l2t-success)" }}>{stats.approved}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Reddedilen</span>
-          <strong className="text-3xl text-[var(--l2t-danger)]">{stats.rejected}</strong>
+        <div className="l2t-glass-card l2t-admin-stat-card">
+          <span className="l2t-admin-stat-label">Reddedilen</span>
+          <strong className="l2t-admin-stat-val" style={{ color: "var(--l2t-danger)" }}>{stats.rejected}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Toplam</span>
-          <strong className="text-3xl text-[var(--l2t-text)]">{stats.total}</strong>
+        <div className="l2t-glass-card l2t-admin-stat-card">
+          <span className="l2t-admin-stat-label">Toplam</span>
+          <strong className="l2t-admin-stat-val" style={{ color: "var(--l2t-text)" }}>{stats.total}</strong>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6 bg-[var(--l2t-card-strong)] p-2 rounded-xl border border-[var(--l2t-border)] w-max">
+      <div className="l2t-filter-bar">
         {['pending', 'approved', 'rejected', 'all'].map(f => (
           <button 
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-5 py-2 rounded-lg font-bold text-sm transition-all ${filter === f ? 'bg-[var(--l2t-gold)] text-[var(--l2t-night)] shadow-md' : 'text-[var(--l2t-soft)] hover:text-white hover:bg-white/5'}`}
+            className={`l2t-filter-btn ${filter === f ? 'l2t-filter-btn-active' : 'l2t-filter-btn-inactive'}`}
           >
             {f === 'all' ? 'Tümü' : f === 'pending' ? 'Bekleyenler' : f === 'approved' ? 'Onaylananlar' : 'Reddedilenler'}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
+      <div className="l2t-admin-main-grid">
         {/* Başvurular Listesi */}
-        <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {filteredData.map(v => (
-            <div key={v.id} className="l2t-glass-card p-5 flex flex-col gap-4 transition-transform hover:-translate-y-1 hover:border-[var(--l2t-gold)]/30">
-              <div className="flex justify-between items-start">
+            <div key={v.id} className="l2t-glass-card l2t-card" style={{ padding: "20px" }}>
+              <div className="l2t-card-header">
                 <div>
-                  <h3 className="text-xl font-bold text-[var(--l2t-text)] m-0">{v.country_name || v.country_code}</h3>
-                  <p className="text-[var(--l2t-soft)] text-sm mt-1 mb-0">ID: {shortenId(v.user_id)}</p>
+                  <h3 className="l2t-admin-item-title">{v.country_name || v.country_code}</h3>
+                  <p className="l2t-admin-item-id">ID: {shortenId(v.user_id)}</p>
                 </div>
                 <span className={`l2t-badge ${v.status === 'pending' ? 'l2t-badge-pending' : v.status === 'approved' ? 'l2t-badge-approved' : 'l2t-badge-rejected'}`}>
                   {v.status === 'pending' ? 'Beklemede' : v.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                 </span>
               </div>
               
-              <div className="text-sm text-[var(--l2t-muted)] flex justify-between items-center border-t border-[var(--l2t-border)] pt-3">
+              <div className="l2t-admin-item-footer">
                 <span>Başvuru: {new Date(v.created_at).toLocaleString('tr-TR')}</span>
                 
                 {v.status === 'pending' && (
                   <button 
                     onClick={() => handlePreview(v.id)}
                     disabled={previewLoading}
-                    className="l2t-button l2t-button-gold !py-2 !px-4 !text-sm"
+                    className="l2t-button l2t-button-gold l2t-btn-small"
                   >
                     Belgeyi İncele
                   </button>
@@ -192,14 +192,14 @@ export default function AdminDogrulamalarPage() {
               </div>
               
               {v.user_note && (
-                <div className="text-sm bg-[var(--l2t-card-strong)] p-3 rounded-lg border border-[var(--l2t-border)] mt-1">
-                  <strong className="text-[var(--l2t-gold)]">Not:</strong> {v.user_note}
+                <div className="l2t-card-note mt-1">
+                  <strong style={{ color: "var(--l2t-gold)" }}>Not:</strong> {v.user_note}
                 </div>
               )}
             </div>
           ))}
           {filteredData.length === 0 && (
-            <div className="l2t-glass-card p-10 text-center text-[var(--l2t-muted)]">
+            <div className="l2t-glass-card" style={{ padding: "40px", textAlign: "center", color: "var(--l2t-muted)" }}>
               Bu kategoride başvuru bulunmuyor.
             </div>
           )}
@@ -207,36 +207,37 @@ export default function AdminDogrulamalarPage() {
 
         {/* Detay & İşlem Paneli */}
         {previewUrl && (
-          <div className="l2t-admin-card sticky top-24 shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-white border-b border-[var(--l2t-border)] pb-3">Belge İnceleme Paneli</h2>
+          <div className="l2t-admin-card" style={{ position: "sticky", top: "96px", boxShadow: "var(--l2t-shadow-lg)" }}>
+            <h2 className="l2t-admin-panel-title">Belge İnceleme Paneli</h2>
             
-            <div className="bg-[var(--l2t-night)] border border-[var(--l2t-border)] rounded-xl flex items-center justify-center mb-6 overflow-hidden relative" style={{ minHeight: "250px" }}>
-              <img src={previewUrl} alt="Kanıt" className="max-w-full max-h-full object-contain" />
-              <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">Signed URL (5 Dk)</div>
+            <div className="l2t-preview-box">
+              <img src={previewUrl} alt="Kanıt" className="l2t-preview-img" />
+              <div className="l2t-preview-tag">Signed URL (5 Dk)</div>
             </div>
             
-            <div className="mb-5">
-              <label className="block text-sm font-bold text-[var(--l2t-soft)] mb-2">Admin Notu (Zorunlu veya İsteğe Bağlı)</label>
+            <div className="l2t-form-group">
+              <label className="l2t-form-label">Admin Notu (Zorunlu veya İsteğe Bağlı)</label>
               <textarea 
-                className="l2t-form-control min-h-[100px] resize-y"
+                className="l2t-form-control"
+                style={{ minHeight: "100px", resize: "vertical" }}
                 value={adminNote}
                 onChange={e => setAdminNote(e.target.value)}
                 placeholder="Reddediyorsanız sebebi zorunludur..."
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="l2t-admin-actions">
               <button 
                 onClick={() => handleAction('approve')}
                 disabled={actionLoading}
-                className="l2t-button flex-1 bg-emerald-600 text-white hover:bg-emerald-500 hover:-translate-y-1 shadow-lg shadow-emerald-500/20"
+                className="l2t-button l2t-button-success"
               >
                 Onayla & Yetki Ver
               </button>
               <button 
                 onClick={() => handleAction('reject')}
                 disabled={actionLoading}
-                className="l2t-button l2t-button-danger flex-1"
+                className="l2t-button l2t-button-danger"
               >
                 Reddet
               </button>

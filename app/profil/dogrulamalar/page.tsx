@@ -85,7 +85,7 @@ export default function DogrulamalarPage() {
     }
   }
 
-  if (loading) return <div className="l2t-wrap l2t-page text-center"><p className="text-[var(--l2t-soft)] animate-pulse">Yükleniyor...</p></div>;
+  if (loading) return <div className="l2t-wrap l2t-page" style={{ textAlign: "center" }}><p style={{ color: "var(--l2t-soft)", animation: "l2t-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }}>Yükleniyor...</p></div>;
 
   return (
     <div className="l2t-wrap l2t-page">
@@ -96,21 +96,22 @@ export default function DogrulamalarPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-8 mt-8">
+      <div className="l2t-profile-grid">
         {/* Form */}
-        <div className="l2t-glass-card p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Yeni Doğrulama Talebi</h2>
+        <div className="l2t-glass-card" style={{ padding: "32px" }}>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--l2t-text)", marginBottom: "24px", marginTop: "0" }}>Yeni Doğrulama Talebi</h2>
           
-          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-lg mb-6 font-bold">{error}</div>}
-          {success && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-lg mb-6 font-bold">{success}</div>}
+          {error && <div className="l2t-alert l2t-alert-danger">{error}</div>}
+          {success && <div className="l2t-alert l2t-alert-success">{success}</div>}
           
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Ülke Seç</label>
+          <form onSubmit={handleSubmit}>
+            <div className="l2t-form-group">
+              <label className="l2t-form-label">Ülke Seç</label>
               <select 
-                className="l2t-form-control appearance-none" 
+                className="l2t-form-control" 
                 value={countryCode} 
                 onChange={e => setCountryCode(e.target.value)}
+                style={{ appearance: "none" }}
               >
                 <option value="">-- Seçiniz --</option>
                 {COUNTRIES.map(c => (
@@ -119,25 +120,26 @@ export default function DogrulamalarPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Kanıt Belgesi / Fotoğraf</label>
-              <div className="border-2 border-dashed border-[var(--l2t-border)] rounded-xl p-4 bg-[var(--l2t-card-strong)] hover:border-[var(--l2t-gold)]/50 transition-colors">
+            <div className="l2t-form-group">
+              <label className="l2t-form-label">Kanıt Belgesi / Fotoğraf</label>
+              <div className="l2t-file-drop">
                 <input 
                   type="file" 
                   accept=".jpg,.jpeg,.png,.webp,.pdf"
                   onChange={e => setFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-[var(--l2t-soft)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--l2t-gold)] file:text-[var(--l2t-night)] hover:file:bg-[var(--l2t-gold-hover)] cursor-pointer"
+                  className="l2t-file-input"
                 />
               </div>
-              <p className="text-xs text-[var(--l2t-muted)] mt-2 leading-relaxed">
+              <p className="l2t-hint">
                 Maks 5MB. PNR zorunlu değil, ikna edici fotoğraf yeterli. Sadece inceleme içindir, herkese açık gösterilmez.
               </p>
             </div>
 
-            <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Not (Opsiyonel)</label>
+            <div className="l2t-form-group">
+              <label className="l2t-form-label">Not (Opsiyonel)</label>
               <textarea 
-                className="l2t-form-control min-h-[100px] resize-y" 
+                className="l2t-form-control" 
+                style={{ minHeight: "100px", resize: "vertical" }}
                 rows={3} 
                 value={note}
                 onChange={e => setNote(e.target.value)}
@@ -145,7 +147,7 @@ export default function DogrulamalarPage() {
               />
             </div>
 
-            <button type="submit" disabled={submitting} className="l2t-button l2t-button-gold w-full mt-2">
+            <button type="submit" disabled={submitting} className="l2t-button l2t-button-gold" style={{ width: "100%", marginTop: "8px" }}>
               {submitting ? 'Gönderiliyor...' : 'Doğrulama Gönder'}
             </button>
           </form>
@@ -153,27 +155,27 @@ export default function DogrulamalarPage() {
 
         {/* Geçmiş Başvurular */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-6">Başvurularım</h2>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--l2t-text)", marginBottom: "24px", marginTop: "0" }}>Başvurularım</h2>
           {verifications.length === 0 ? (
-            <div className="l2t-glass-card p-8 text-center text-[var(--l2t-muted)] border-dashed">
+            <div className="l2t-glass-card" style={{ padding: "32px", textAlign: "center", color: "var(--l2t-muted)", borderStyle: "dashed" }}>
               Henüz bir başvurunuz yok.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {verifications.map(v => (
-                <div key={v.id} className="l2t-glass-card p-5 flex flex-col gap-3 transition-transform hover:-translate-y-1">
-                  <div className="flex justify-between items-start">
-                    <span className="font-bold text-white text-lg">{v.country_name}</span>
+                <div key={v.id} className="l2t-glass-card l2t-card" style={{ padding: "20px" }}>
+                  <div className="l2t-card-header">
+                    <span style={{ fontWeight: "800", color: "var(--l2t-text)", fontSize: "1.125rem" }}>{v.country_name}</span>
                     <span className={`l2t-badge ${v.status === 'pending' ? 'l2t-badge-pending' : v.status === 'approved' ? 'l2t-badge-approved' : 'l2t-badge-rejected'}`}>
                       {v.status === 'pending' ? 'Beklemede' : v.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                     </span>
                   </div>
-                  <div className="text-sm text-[var(--l2t-muted)] flex justify-between items-center pt-2 border-t border-[var(--l2t-border)]">
+                  <div className="l2t-card-footer">
                     Tarih: {new Date(v.created_at).toLocaleDateString('tr-TR')}
                   </div>
                   {v.admin_note && (
-                    <div className="mt-2 text-sm bg-[var(--l2t-card-strong)] p-3 rounded-lg border border-[var(--l2t-border)]">
-                      <strong className="text-[var(--l2t-gold)]">Yönetici Notu:</strong> {v.admin_note}
+                    <div className="l2t-card-note">
+                      <strong style={{ color: "var(--l2t-gold)" }}>Yönetici Notu:</strong> {v.admin_note}
                     </div>
                   )}
                 </div>
