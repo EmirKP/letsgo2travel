@@ -7,9 +7,9 @@ export default function VerifiedTravelerSection() {
   return (
     <section className="py-16 px-4 md:px-8 max-w-7xl mx-auto">
       <div className="text-center mb-12">
-        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Gerçekten gidenlerden gerçek seyahat bilgisi</h2>
+        <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Belgeli Gezgin Topluluğu<br/><span style={{fontSize: "0.7em", opacity: 0.9, fontWeight: 600}}>Sadece gerçekten gidenler cevap yazsın.</span></h2>
         <p className="text-gray-400 max-w-2xl mx-auto">
-          Bir ülkeye gittiğini doğrulayan gezginler, o ülke hakkında soru cevaplayabilir, vize ve giriş deneyimlerini paylaşabilir. Böylece sadece resmi bilgiyi değil, sahada yaşanan gerçek tecrübeleri de görürsün.
+          Bir ülkeye gittiğini belgeleyen kullanıcılar, o ülke hakkında deneyim paylaşabilir. Böylece forumda tahmin değil, gerçek saha bilgisi öne çıkar.
         </p>
       </div>
 

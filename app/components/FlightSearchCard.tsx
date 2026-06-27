@@ -229,7 +229,7 @@ export default function FlightSearchCard() {
           </div>
 
           <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
-            <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Gidiş</span>
+            <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Gidiş tarihi</span>
             <input
               key={`depart-${minDateStr}`}
               type="date"
@@ -258,7 +258,7 @@ export default function FlightSearchCard() {
             </div>
           ) : (
             <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
-              <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Dönüş</span>
+              <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Dönüş tarihi</span>
               <input
                 key={`return-${departDate}-${minDateStr}`}
                 type="date"
@@ -297,7 +297,7 @@ export default function FlightSearchCard() {
           </label>
 
           <a
-            className={`l2t-btn${!isValid ? " l2t-btn-disabled" : ""}`}
+            className={`l2t-flight-submit${!isValid ? " l2t-btn-disabled" : ""}`}
             href={isValid ? href : undefined}
             target="_blank"
             rel="noreferrer"
@@ -305,25 +305,17 @@ export default function FlightSearchCard() {
               height: "100%", 
               minHeight: "68px",
               padding: "0 28px", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center", 
-              gap: "10px",
-              background: "linear-gradient(135deg, #1476f2 0%, #0b5bce 100%)", 
-              color: "#fff", 
-              fontWeight: "800", 
-              borderRadius: "16px", 
-              textDecoration: "none", 
-              fontSize: "1.2rem", 
-              border: "none", 
-              boxShadow: "0 8px 24px rgba(20,118,242,0.25)",
-              transition: "all 0.2s ease"
+              textDecoration: "none",
+              fontSize: "1.2rem"
             }}
-            onMouseOver={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(20,118,242,0.35)"; } }}
-            onMouseOut={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(20,118,242,0.25)"; } }}
           >
              Ara <Search size={20} />
           </a>
+        </div>
+        <div style={{ textAlign: "center", marginTop: "12px" }}>
+          <span style={{ fontSize: "0.75rem", color: "var(--l2t-soft)", fontWeight: "500", opacity: 0.8 }}>
+            Fiyatlar Aviasales iş ortaklığı üzerinden karşılaştırılır.
+          </span>
         </div>
       </section>
 

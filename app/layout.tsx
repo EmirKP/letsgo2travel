@@ -7,8 +7,6 @@ import BottomNav from "./components/BottomNav";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#06183A",
   viewportFit: "cover",
 };
