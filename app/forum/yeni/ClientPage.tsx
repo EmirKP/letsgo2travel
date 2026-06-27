@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, PenTool, AlertCircle, Info, Loader2, CheckCircle2, AlertTriangle, User } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
-import { COUNTRIES } from "@/lib/countries/countryData";
 
 // Form bileşeni - Sadece giriş yapmış kullanıcılar için render edilecek
 function NewTopicForm({ session }: { session: any }) {
@@ -114,41 +113,41 @@ function NewTopicForm({ session }: { session: any }) {
   };
 
   return (
-    <div className="l2t-page" style={{ minHeight: "80vh", background: "#f8fafc", paddingBottom: "80px", paddingTop: "40px" }}>
-      <div className="l2t-wrap" style={{ maxWidth: "800px", margin: "0 auto", padding: "0 20px" }}>
+    <div className="l2t-page">
+      <div className="l2t-wrap" style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px" }}>
         
-        <Link href="/forum" style={{ color: "#64748B", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px", fontSize: "0.95rem", fontWeight: "500" }}>
+        <Link href="/forum" style={{ color: "var(--l2t-soft)", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px", fontSize: "0.95rem", fontWeight: "600" }}>
           <ArrowLeft size={16} /> Foruma Dön
         </Link>
 
         <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px" }}>
-          <div style={{ width: "56px", height: "56px", background: "linear-gradient(135deg, #10B981, #059669)", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", boxShadow: "0 8px 24px rgba(16,185,129,0.25)" }}>
+          <div style={{ width: "56px", height: "56px", background: "linear-gradient(135deg, var(--l2t-gold), #d97706)", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--l2t-night)", boxShadow: "0 8px 24px rgba(245,158,11,0.2)" }}>
             <PenTool size={28} />
           </div>
           <div>
-            <h1 style={{ fontSize: "2rem", color: "var(--l2t-navy)", margin: 0, fontWeight: "800" }}>Yeni Konu Aç</h1>
+            <h1 style={{ fontSize: "2rem", color: "var(--l2t-text)", margin: 0, fontWeight: "800" }}>Yeni Konu Aç</h1>
             <p style={{ color: "var(--l2t-soft)", margin: "4px 0 0", fontSize: "0.95rem" }}>Deneyimini paylaş veya topluluğa sor.</p>
           </div>
         </div>
 
         {/* Uyarı */}
-        <div style={{ background: "#EFF6FF", borderLeft: "4px solid var(--l2t-blue)", padding: "16px 20px", borderRadius: "0 12px 12px 0", marginBottom: "24px", display: "flex", gap: "12px" }}>
+        <div style={{ background: "rgba(14, 165, 233, 0.1)", borderLeft: "4px solid var(--l2t-blue)", padding: "16px 20px", borderRadius: "0 12px 12px 0", marginBottom: "24px", display: "flex", gap: "12px" }}>
           <Info size={20} color="var(--l2t-blue)" style={{ flexShrink: 0, marginTop: "2px" }} />
-          <p style={{ margin: 0, color: "#1E3A8A", fontSize: "0.9rem", lineHeight: "1.6" }}>
-            Lütfen konuyu açmadan önce <Link href="/topluluk-kurallari" style={{ color: "var(--l2t-blue)", fontWeight: "600" }}>Topluluk Kuralları</Link>'nı okuyun. 
+          <p style={{ margin: 0, color: "var(--l2t-blue)", fontSize: "0.9rem", lineHeight: "1.6" }}>
+            Lütfen konuyu açmadan önce <Link href="/topluluk-kurallari" style={{ color: "var(--l2t-text)", fontWeight: "600" }}>Topluluk Kuralları</Link>'nı okuyun. 
             Telefon numarası, TC Kimlik No gibi kişisel verilerinizi paylaşmayın.
           </p>
         </div>
 
         {error && (
-          <div style={{ background: "#FEF2F2", borderLeft: "4px solid #EF4444", padding: "16px 20px", borderRadius: "0 12px 12px 0", marginBottom: "24px", color: "#991B1B", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ background: "rgba(239, 68, 68, 0.1)", borderLeft: "4px solid var(--l2t-danger)", padding: "16px 20px", borderRadius: "0 12px 12px 0", marginBottom: "24px", color: "var(--l2t-danger)", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "12px", fontWeight: "600" }}>
             <AlertTriangle size={20} /> {error}
           </div>
         )}
 
         {success && (
-          <div style={{ background: "#ECFDF5", borderLeft: "4px solid #10B981", padding: "20px", borderRadius: "12px", marginBottom: "24px", color: "#065F46", fontSize: "1rem", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 12px rgba(16,185,129,0.1)" }}>
-            <CheckCircle2 size={28} color="#10B981" /> 
+          <div style={{ background: "rgba(16, 185, 129, 0.1)", borderLeft: "4px solid var(--l2t-success)", padding: "20px", borderRadius: "12px", marginBottom: "24px", color: "var(--l2t-success)", fontSize: "1rem", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 12px rgba(16,185,129,0.1)", fontWeight: "600" }}>
+            <CheckCircle2 size={28} /> 
             <div>
               <strong style={{ display: "block", marginBottom: "4px" }}>Başarılı!</strong>
               {success} Yönlendiriliyorsunuz...
@@ -156,19 +155,19 @@ function NewTopicForm({ session }: { session: any }) {
           </div>
         )}
 
-        <div style={{ background: "#fff", padding: "40px", borderRadius: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.03)" }}>
+        <div className="l2t-glass-card" style={{ padding: "40px" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             
             {/* Kategori ve Ülke */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-navy)" }}>Kategori Seç *</label>
+                <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Kategori Seç *</label>
                 <select 
                   value={category} 
                   onChange={e => setCategory(e.target.value)}
                   disabled={isSubmitting || !!success}
                   required
-                  style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", fontSize: "1rem", color: "var(--l2t-navy)", background: "#fff", appearance: "none" }}
+                  className="l2t-form-control appearance-none"
                 >
                   <option value="" disabled>Kategori seçiniz</option>
                   {forumCategories.map((cat, i) => (
@@ -178,12 +177,12 @@ function NewTopicForm({ session }: { session: any }) {
               </div>
               
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-navy)" }}>Ülke (Opsiyonel)</label>
+                <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Ülke (Opsiyonel)</label>
                 <select 
                   value={country} 
                   onChange={e => setCountry(e.target.value)}
                   disabled={isSubmitting || !!success}
-                  style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", fontSize: "1rem", color: "var(--l2t-navy)", background: "#fff", appearance: "none" }}
+                  className="l2t-form-control appearance-none"
                 >
                   <option value="">İlgili ülkeyi seçiniz</option>
                   {popularCountries.map((c, i) => (
@@ -195,7 +194,7 @@ function NewTopicForm({ session }: { session: any }) {
 
             {/* Başlık */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-navy)" }}>Konu Başlığı *</label>
+              <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Konu Başlığı *</label>
               <input 
                 type="text" 
                 value={title}
@@ -205,16 +204,14 @@ function NewTopicForm({ session }: { session: any }) {
                 required
                 minLength={5}
                 maxLength={100}
-                style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", fontSize: "1rem", color: "var(--l2t-navy)" }}
-                onFocus={e => e.target.style.borderColor = "var(--l2t-blue)"}
-                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                className="l2t-form-control"
               />
-              <span style={{ fontSize: "0.8rem", color: "#94a3b8", textAlign: "right" }}>{title.length}/100</span>
+              <span style={{ fontSize: "0.8rem", color: "var(--l2t-muted)", textAlign: "right" }}>{title.length}/100</span>
             </div>
 
             {/* İçerik */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-navy)" }}>İçerik *</label>
+              <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>İçerik *</label>
               <textarea 
                 value={content}
                 onChange={e => setContent(e.target.value)}
@@ -222,22 +219,21 @@ function NewTopicForm({ session }: { session: any }) {
                 placeholder="Sorunuzu veya deneyiminizi detaylıca anlatın..."
                 required
                 minLength={20}
-                style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", fontSize: "1rem", color: "var(--l2t-navy)", minHeight: "200px", resize: "vertical", fontFamily: "inherit" }}
-                onFocus={e => e.target.style.borderColor = "var(--l2t-blue)"}
-                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                className="l2t-form-control"
+                style={{ minHeight: "200px", resize: "vertical" }}
               ></textarea>
-              <span style={{ fontSize: "0.8rem", color: "#94a3b8", textAlign: "right" }}>En az 20 karakter</span>
+              <span style={{ fontSize: "0.8rem", color: "var(--l2t-muted)", textAlign: "right" }}>En az 20 karakter</span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "24px", borderTop: "1px solid #f1f5f9" }}>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748B", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "24px", borderTop: "1px solid var(--l2t-border)" }}>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--l2t-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
                 <AlertCircle size={14} /> Konu açarak kuralları kabul etmiş sayılırsınız.
               </p>
               <button 
                 type="submit" 
                 disabled={isSubmitting || !!success}
-                className="l2t-btn" 
-                style={{ background: "#10B981", color: "#fff", padding: "14px 32px", border: "none", borderRadius: "100px", fontSize: "1.05rem", fontWeight: "600", cursor: (isSubmitting || !!success) ? "not-allowed" : "pointer", boxShadow: "0 10px 20px rgba(16,185,129,0.2)", display: "flex", alignItems: "center", gap: "8px", opacity: (isSubmitting || !!success) ? 0.7 : 1 }}
+                className="l2t-button l2t-button-gold" 
+                style={{ cursor: (isSubmitting || !!success) ? "not-allowed" : "pointer", opacity: (isSubmitting || !!success) ? 0.7 : 1, display: "flex", gap: "8px" }}
               >
                 {isSubmitting ? <><Loader2 size={18} className="animate-spin" /> Gönderiliyor...</> : "Gönder"}
               </button>
@@ -268,25 +264,24 @@ export default function NewTopicPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // SSR ve ilk render'da session olmadığı için direkt bu ekran döner. Asla boş render olmaz.
   if (!session) {
     return (
-      <div className="l2t-page" style={{ minHeight: "80vh", background: "#f8fafc", paddingBottom: "80px", paddingTop: "40px" }}>
-        <div className="l2t-wrap" style={{ maxWidth: "600px", margin: "0 auto", padding: "0 20px" }}>
-          <Link href="/forum" style={{ color: "#64748B", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px", fontSize: "0.95rem", fontWeight: "500" }}>
+      <div className="l2t-page">
+        <div className="l2t-wrap" style={{ maxWidth: "600px", margin: "0 auto", padding: "40px 20px" }}>
+          <Link href="/forum" style={{ color: "var(--l2t-soft)", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px", fontSize: "0.95rem", fontWeight: "600" }}>
             <ArrowLeft size={16} /> Foruma Dön
           </Link>
-          <div style={{ background: "#fff", padding: "48px 32px", borderRadius: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.03)", textAlign: "center", border: "1px solid #e2e8f0" }}>
+          <div className="l2t-glass-card" style={{ padding: "48px 32px", textAlign: "center" }}>
             <User size={64} color="var(--l2t-soft)" style={{ margin: "0 auto 24px" }} />
-            <h1 style={{ fontSize: "1.8rem", color: "var(--l2t-navy)", fontWeight: "800", marginBottom: "16px" }}>Giriş Yapmanız Gerekiyor</h1>
+            <h1 style={{ fontSize: "1.8rem", color: "var(--l2t-text)", fontWeight: "800", marginBottom: "16px" }}>Giriş Yapmanız Gerekiyor</h1>
             <p style={{ color: "var(--l2t-soft)", marginBottom: "32px", fontSize: "1.05rem", lineHeight: "1.6" }}>
               Yeni bir konu açmak ve deneyimlerinizi toplulukla paylaşmak için lütfen giriş yapın veya ücretsiz kayıt olun.
             </p>
             <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/auth/login" className="l2t-btn" style={{ background: "var(--l2t-blue)", color: "#fff", padding: "14px 40px", fontSize: "1.1rem" }}>
+              <Link href="/auth/login" className="l2t-button l2t-button-blue">
                 Giriş yap
               </Link>
-              <Link href="/auth/register" className="l2t-btn" style={{ background: "#fff", color: "var(--l2t-navy)", border: "1px solid #e2e8f0", padding: "14px 40px", fontSize: "1.1rem" }}>
+              <Link href="/auth/register" className="l2t-button" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--l2t-border)", color: "var(--l2t-text)" }}>
                 Hesap oluştur
               </Link>
             </div>
@@ -297,7 +292,7 @@ export default function NewTopicPage() {
   }
 
   return (
-    <Suspense fallback={<div className="l2t-page" style={{ minHeight: "80vh", display: "flex", justifyContent: "center", alignItems: "center" }}><Loader2 className="animate-spin" size={40} color="var(--l2t-blue)" /></div>}>
+    <Suspense fallback={<div className="l2t-page" style={{ minHeight: "80vh", display: "flex", justifyContent: "center", alignItems: "center" }}><Loader2 className="animate-spin" size={40} color="var(--l2t-gold)" /></div>}>
       <NewTopicForm session={session} />
     </Suspense>
   );

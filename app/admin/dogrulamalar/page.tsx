@@ -97,95 +97,146 @@ export default function AdminDogrulamalarPage() {
 
   const filteredData = verifications.filter(v => filter === "all" || v.status === filter);
 
-  if (loading) return <div className="p-8 text-white">Yükleniyor...</div>;
+  const stats = {
+    total: verifications.length,
+    pending: verifications.filter(v => v.status === "pending").length,
+    approved: verifications.filter(v => v.status === "approved").length,
+    rejected: verifications.filter(v => v.status === "rejected").length,
+  };
+
+  function shortenId(id: string) {
+    if (!id) return "";
+    return id.substring(0, 8) + "..." + id.substring(id.length - 4);
+  }
+
+  if (loading) {
+    return (
+      <div className="l2t-admin-shell l2t-wrap flex items-center justify-center">
+        <p className="text-xl text-[var(--l2t-soft)] animate-pulse">Yükleniyor...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 bg-[#040C1A] min-h-screen text-white">
-      <h1 className="text-3xl font-bold mb-6">Gezgin Doğrulamaları (Belgeli Gezgin)</h1>
+    <div className="l2t-admin-shell l2t-wrap">
+      <div className="l2t-page-head">
+        <h1>Gezgin Doğrulamaları</h1>
+        <p>Belgeli Gezgin başvurularını incele, onayla veya reddet.</p>
+      </div>
       
       {toast && (
-        <div className={`p-4 mb-4 rounded ${toast.type === 'error' ? 'bg-red-500/20 text-red-200' : 'bg-green-500/20 text-green-200'}`}>
+        <div className={`p-4 mb-6 rounded-lg font-bold border ${toast.type === 'error' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
           {toast.msg}
         </div>
       )}
 
-      <div className="flex gap-4 mb-8">
+      {/* İstatistik Kartları */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="l2t-glass-card p-5 text-center">
+          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Bekleyen</span>
+          <strong className="text-3xl text-[var(--l2t-gold)]">{stats.pending}</strong>
+        </div>
+        <div className="l2t-glass-card p-5 text-center">
+          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Onaylanan</span>
+          <strong className="text-3xl text-[var(--l2t-success)]">{stats.approved}</strong>
+        </div>
+        <div className="l2t-glass-card p-5 text-center">
+          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Reddedilen</span>
+          <strong className="text-3xl text-[var(--l2t-danger)]">{stats.rejected}</strong>
+        </div>
+        <div className="l2t-glass-card p-5 text-center">
+          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Toplam</span>
+          <strong className="text-3xl text-[var(--l2t-text)]">{stats.total}</strong>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-6 bg-[var(--l2t-card-strong)] p-2 rounded-xl border border-[var(--l2t-border)] w-max">
         {['pending', 'approved', 'rejected', 'all'].map(f => (
           <button 
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded font-bold ${filter === f ? 'bg-[#F5B81B] text-black' : 'bg-white/10 text-white'}`}
+            className={`px-5 py-2 rounded-lg font-bold text-sm transition-all ${filter === f ? 'bg-[var(--l2t-gold)] text-[var(--l2t-night)] shadow-md' : 'text-[var(--l2t-soft)] hover:text-white hover:bg-white/5'}`}
           >
             {f === 'all' ? 'Tümü' : f === 'pending' ? 'Bekleyenler' : f === 'approved' ? 'Onaylananlar' : 'Reddedilenler'}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
+        {/* Başvurular Listesi */}
         <div className="space-y-4">
           {filteredData.map(v => (
-            <div key={v.id} className="bg-white/5 border border-white/10 p-4 rounded-lg flex flex-col gap-2">
-              <div className="flex justify-between">
-                <strong className="text-lg text-[#F5B81B]">{v.country_name || v.country_code}</strong>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${v.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' : v.status === 'approved' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                  {v.status}
+            <div key={v.id} className="l2t-glass-card p-5 flex flex-col gap-4 transition-transform hover:-translate-y-1 hover:border-[var(--l2t-gold)]/30">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold text-[var(--l2t-text)] m-0">{v.country_name || v.country_code}</h3>
+                  <p className="text-[var(--l2t-soft)] text-sm mt-1 mb-0">ID: {shortenId(v.user_id)}</p>
+                </div>
+                <span className={`l2t-badge ${v.status === 'pending' ? 'l2t-badge-pending' : v.status === 'approved' ? 'l2t-badge-approved' : 'l2t-badge-rejected'}`}>
+                  {v.status === 'pending' ? 'Beklemede' : v.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                 </span>
               </div>
-              <div className="text-sm text-gray-400">
-                Tarih: {new Date(v.created_at).toLocaleString('tr-TR')} <br/>
-                Kullanıcı: {v.user_id}
+              
+              <div className="text-sm text-[var(--l2t-muted)] flex justify-between items-center border-t border-[var(--l2t-border)] pt-3">
+                <span>Başvuru: {new Date(v.created_at).toLocaleString('tr-TR')}</span>
+                
+                {v.status === 'pending' && (
+                  <button 
+                    onClick={() => handlePreview(v.id)}
+                    disabled={previewLoading}
+                    className="l2t-button l2t-button-gold !py-2 !px-4 !text-sm"
+                  >
+                    Belgeyi İncele
+                  </button>
+                )}
               </div>
+              
               {v.user_note && (
-                <div className="text-sm bg-black/40 p-2 rounded mt-2 border border-white/5">
-                  <strong>Not:</strong> {v.user_note}
+                <div className="text-sm bg-[var(--l2t-card-strong)] p-3 rounded-lg border border-[var(--l2t-border)] mt-1">
+                  <strong className="text-[var(--l2t-gold)]">Not:</strong> {v.user_note}
                 </div>
-              )}
-              {v.status === 'pending' && (
-                <button 
-                  onClick={() => handlePreview(v.id)}
-                  disabled={previewLoading}
-                  className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm w-max"
-                >
-                  Belgeyi İncele & İşlem Yap
-                </button>
               )}
             </div>
           ))}
-          {filteredData.length === 0 && <div className="text-gray-500">Kayıt bulunamadı.</div>}
+          {filteredData.length === 0 && (
+            <div className="l2t-glass-card p-10 text-center text-[var(--l2t-muted)]">
+              Bu kategoride başvuru bulunmuyor.
+            </div>
+          )}
         </div>
 
         {/* Detay & İşlem Paneli */}
         {previewUrl && (
-          <div className="bg-white/5 border border-white/10 p-6 rounded-lg sticky top-6 self-start">
-            <h2 className="text-xl font-bold mb-4 border-b border-white/10 pb-2">Belge Önizleme</h2>
+          <div className="l2t-admin-card sticky top-24 shadow-2xl">
+            <h2 className="text-xl font-bold mb-4 text-white border-b border-[var(--l2t-border)] pb-3">Belge İnceleme Paneli</h2>
             
-            <div className="bg-black/50 aspect-video rounded flex items-center justify-center mb-6 overflow-hidden">
+            <div className="bg-[var(--l2t-night)] border border-[var(--l2t-border)] rounded-xl flex items-center justify-center mb-6 overflow-hidden relative" style={{ minHeight: "250px" }}>
               <img src={previewUrl} alt="Kanıt" className="max-w-full max-h-full object-contain" />
+              <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">Signed URL (5 Dk)</div>
             </div>
             
-            <div className="mb-4">
-              <label className="block text-sm text-gray-300 mb-1">Admin Notu (Kullanıcı Görecek)</label>
+            <div className="mb-5">
+              <label className="block text-sm font-bold text-[var(--l2t-soft)] mb-2">Admin Notu (Zorunlu veya İsteğe Bağlı)</label>
               <textarea 
-                className="w-full bg-black/40 border border-white/20 rounded p-2 text-white" 
-                rows={3}
+                className="l2t-form-control min-h-[100px] resize-y"
                 value={adminNote}
                 onChange={e => setAdminNote(e.target.value)}
                 placeholder="Reddediyorsanız sebebi zorunludur..."
               />
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button 
                 onClick={() => handleAction('approve')}
                 disabled={actionLoading}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold"
+                className="l2t-button flex-1 bg-emerald-600 text-white hover:bg-emerald-500 hover:-translate-y-1 shadow-lg shadow-emerald-500/20"
               >
-                Onayla
+                Onayla & Yetki Ver
               </button>
               <button 
                 onClick={() => handleAction('reject')}
                 disabled={actionLoading}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded font-bold"
+                className="l2t-button l2t-button-danger flex-1"
               >
                 Reddet
               </button>

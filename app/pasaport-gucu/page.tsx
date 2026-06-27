@@ -99,18 +99,18 @@ Object.entries(VISA_DATA).forEach(([alpha3, status]) => {
 });
 
 const STATUS_COLOR: Record<string, string> = {
-  home: "#0EA5E9",
-  id_card: "#14B8A6",
-  free: "#22C55E",
+  home: "#06B6D4",
+  id_card: "#10B981",
+  free: "#34D399",
   evisa: "#60A5FA",
-  on_arrival: "#93C5FD",
+  on_arrival: "#3B82F6",
   required: "#F87171",
 };
 
 const STATUS_BADGE_COLOR: Record<string, string> = {
-  home: "#0EA5E9",
-  id_card: "#14B8A6",
-  free: "#22C55E",
+  home: "#06B6D4",
+  id_card: "#10B981",
+  free: "#34D399",
   evisa: "#60A5FA",
   on_arrival: "#3B82F6",
   required: "#EF4444",
@@ -210,9 +210,9 @@ export default function PassportPowerPage() {
   }, [search, visaFilter]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--l2t-bg)", color: "var(--l2t-navy)" }}>
+    <div className="l2t-page">
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, var(--l2t-navy), #1476f2)", position: "relative", padding: "60px 0 40px", overflow: "hidden" }}>
+      <div style={{ background: "transparent", position: "relative", padding: "100px 0 40px", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1, backgroundImage: "url('https://images.unsplash.com/photo-1574704381710-424a49106093?auto=format&fit=crop&w=2000&q=80')", backgroundSize: "cover", backgroundPosition: "center" }} />
         <div className="l2t-wrap" style={{ display: "flex", alignItems: "center", gap: "40px", position: "relative", zIndex: 10, flexWrap: "wrap" }}>
           {/* Passport Image with Glow */}
@@ -233,25 +233,25 @@ export default function PassportPowerPage() {
               </h1>
             </div>
             <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              <div className="glass-panel" style={{ padding: "12px 24px", background: "rgba(255,255,255,0.1)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff" }}>
+              <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
                 <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Dünya Sıralaması</div>
-                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#F59E0B" }}>#{STATS.rank}</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--l2t-gold)" }}>#{STATS.rank}</div>
               </div>
-              <div className="glass-panel" style={{ padding: "12px 24px", background: "rgba(255,255,255,0.1)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff" }}>
+              <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
                 <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Hareketlilik Skoru</div>
-                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#10B981" }}>{STATS.mobility}</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--l2t-success)" }}>{STATS.mobility}</div>
               </div>
             </div>
             <div style={{ marginTop: "24px" }}>
-              <button className="l2t-btn" onClick={() => alert("Diğer pasaport verileri hazırlanıyor...")} style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: "100px", padding: "10px 24px", cursor: "pointer" }}>
-                <Globe size={18} style={{ marginRight: "8px" }} /> Pasaport Değiştir
+              <button className="l2t-button l2t-button-blue" onClick={() => alert("Diğer pasaport verileri hazırlanıyor...")}>
+                <Globe size={18} style={{ marginRight: "4px" }} /> Pasaport Değiştir
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="l2t-wrap" style={{ paddingTop: "40px", paddingBottom: "60px" }}>
+      <div className="l2t-wrap" style={{ paddingTop: "20px", paddingBottom: "60px" }}>
         <style dangerouslySetInnerHTML={{__html: `
           .passport-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; align-items: start; }
           @media (max-width: 900px) { .passport-grid { grid-template-columns: 1fr; } }
@@ -261,17 +261,10 @@ export default function PassportPowerPage() {
           {/* Sol: Harita + İstatistikler */}
           <div>
             {/* Harita */}
-            <div style={{
-              background: "#e0f2fe",
-              borderRadius: "24px",
-              border: "1px solid rgba(0,0,0,0.05)",
-              overflow: "hidden",
-              position: "relative",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.08)"
-            }}>
+            <div className="l2t-glass-card" style={{ position: "relative", overflow: "hidden" }}>
               <ComposableMap
                 projectionConfig={{ scale: 140 }}
-                style={{ width: "100%", height: "420px", background: "#e0f2fe" }}
+                style={{ width: "100%", height: "420px", background: "transparent" }}
               >
                 <ZoomableGroup zoom={1}>
                   <Geographies geography={GEO_URL}>
@@ -299,7 +292,7 @@ export default function PassportPowerPage() {
                               setSelectedCountry({ name: geo.properties.name, status: STATUS_LABEL[status], alpha3 });
                             }}
                             style={{
-                              default: { fill: STATUS_COLOR[status], stroke: "#bae6fd", strokeWidth: 0.3, outline: "none" },
+                              default: { fill: STATUS_COLOR[status], stroke: "var(--l2t-navy)", strokeWidth: 0.3, outline: "none" },
                               hover: { fill: STATUS_COLOR[status], filter: "brightness(0.9)", outline: "none", cursor: "pointer" },
                               pressed: { outline: "none" },
                             }}
@@ -318,19 +311,19 @@ export default function PassportPowerPage() {
                   top: "16px",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  background: "rgba(255,255,255,0.95)",
-                  color: "var(--l2t-navy)",
+                  background: "var(--l2t-card-strong)",
+                  color: "var(--l2t-text)",
                   padding: "12px 20px",
                   borderRadius: "12px",
                   fontSize: "0.95rem",
                   fontWeight: "700",
                   pointerEvents: "none",
                   whiteSpace: "nowrap",
-                  border: "1px solid rgba(0,0,0,0.05)",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                  border: "1px solid var(--l2t-border)",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
                   backdropFilter: "blur(10px)"
                 }}>
-                  {tooltip.name} — <span style={{ color: "var(--l2t-soft)", fontWeight: "500" }}>{tooltip.status}</span>
+                  {tooltip.name} — <span style={{ color: "var(--l2t-gold)", fontWeight: "500" }}>{tooltip.status}</span>
                 </div>
               )}
 
@@ -343,30 +336,30 @@ export default function PassportPowerPage() {
                   bottom: "0",
                   width: "100%",
                   maxWidth: "320px",
-                  background: "rgba(255,255,255,0.95)",
+                  background: "var(--l2t-card-strong)",
                   backdropFilter: "blur(10px)",
-                  borderLeft: "1px solid rgba(0,0,0,0.05)",
-                  boxShadow: "-10px 0 30px rgba(0,0,0,0.1)",
+                  borderLeft: "1px solid var(--l2t-border)",
+                  boxShadow: "-10px 0 30px rgba(0,0,0,0.4)",
                   padding: "24px",
                   display: "flex",
                   flexDirection: "column",
                   zIndex: 20
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-                    <h3 style={{ margin: 0, fontSize: "1.4rem", color: "var(--l2t-navy)", fontWeight: "800" }}>{selectedCountry.name}</h3>
+                    <h3 style={{ margin: 0, fontSize: "1.4rem", color: "var(--l2t-text)", fontWeight: "800" }}>{selectedCountry.name}</h3>
                     <button onClick={() => setSelectedCountry(null)} style={{ background: "transparent", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--l2t-soft)" }}>✕</button>
                   </div>
-                  <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "12px", marginBottom: "16px", display: "inline-block" }}>
+                  <div style={{ background: "rgba(255,255,255,0.05)", padding: "12px", borderRadius: "12px", marginBottom: "16px", display: "inline-block", border: "1px solid var(--l2t-border)" }}>
                     <span style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", display: "block", marginBottom: "4px" }}>Vize Durumu</span>
-                    <strong style={{ color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{selectedCountry.status}</strong>
+                    <strong style={{ color: "var(--l2t-gold)", fontSize: "1.1rem" }}>{selectedCountry.status}</strong>
                   </div>
-                  <div style={{ background: "rgba(245, 158, 11, 0.1)", padding: "12px", borderRadius: "12px", color: "#b45309", fontSize: "0.85rem", marginBottom: "24px" }}>
+                  <div style={{ background: "rgba(245, 158, 11, 0.1)", padding: "12px", borderRadius: "12px", color: "var(--l2t-gold)", fontSize: "0.85rem", marginBottom: "24px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
                     <AlertTriangle size={14} style={{ marginBottom: "4px", display: "block" }} />
                     Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
                   </div>
                   <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Link href="/akilli-plan" style={{ background: "#F59E0B", color: "var(--l2t-navy)", padding: "12px", borderRadius: "12px", textAlign: "center", fontWeight: "700", textDecoration: "none" }}>Bu Ülke İçin Rota Oluştur</Link>
-                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} style={{ background: "transparent", border: "1px solid var(--l2t-navy)", color: "var(--l2t-navy)", padding: "12px", borderRadius: "12px", textAlign: "center", fontWeight: "700", textDecoration: "none" }}>Uçak Bileti Ara</Link>
+                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold w-full text-center">Bu Ülke İçin Rota Oluştur</Link>
+                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue w-full text-center">Uçak Bileti Ara</Link>
                   </div>
                 </div>
               )}
@@ -375,43 +368,42 @@ export default function PassportPowerPage() {
             {/* Renk Açıklamaları */}
             <div style={{ display: "flex", gap: "16px", marginTop: "16px", flexWrap: "wrap" }}>
               {[
-                { color: "#0ea5e9", label: "Türkiye", count: 1 },
-                { color: "#f59e0b", label: "Kimlikle", count: STATS.id_card },
-                { color: "#10b981", label: "Vizesiz", count: STATS.free },
-                { color: "#8b5cf6", label: "E-Vize", count: STATS.evisa },
-                { color: "#3b82f6", label: "Kapıda Vize", count: STATS.on_arrival },
-                { color: "#cbd5e1", label: "Vize Gerekli", count: STATS.required },
+                { color: "#06B6D4", label: "Türkiye", count: 1 },
+                { color: "#10B981", label: "Kimlikle", count: STATS.id_card },
+                { color: "#34D399", label: "Vizesiz", count: STATS.free },
+                { color: "#60A5FA", label: "E-Vize", count: STATS.evisa },
+                { color: "#3B82F6", label: "Kapıda Vize", count: STATS.on_arrival },
+                { color: "#EF4444", label: "Vize Gerekli", count: STATS.required },
               ].map((item) => (
-                <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#fff", padding: "8px 16px", borderRadius: "100px", border: "1px solid rgba(0,0,0,0.05)", boxShadow: "0 2px 10px rgba(0,0,0,0.02)" }}>
+                <div key={item.label} className="l2t-glass-card" style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderRadius: "100px" }}>
                   <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: item.color }} />
-                  <span style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", fontWeight: "600" }}>{item.label}</span>
+                  <span style={{ fontSize: "0.85rem", color: "var(--l2t-text)", fontWeight: "600" }}>{item.label}</span>
                   <span style={{ fontSize: "0.85rem", fontWeight: "800", color: item.color }}>{item.count}</span>
                 </div>
               ))}
             </div>
 
             {/* İstatistik Çubukları */}
-            <div style={{ background: "#fff", borderRadius: "24px", border: "1px solid rgba(0,0,0,0.05)", padding: "32px", marginTop: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.02)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(245, 158, 11, 0.1)", padding: "12px 16px", borderRadius: "12px", color: "#b45309", marginBottom: "24px", fontSize: "0.85rem", fontWeight: "600" }}>
-                <AlertTriangle size={16} color="#f59e0b" />
+            <div className="l2t-glass-card" style={{ padding: "32px", marginTop: "24px" }}>
+              <div className="l2t-info-box" style={{ marginBottom: "24px", fontSize: "0.85rem", fontWeight: "600" }}>
                 Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
               </div>
               <h3 style={{ margin: "0 0 24px", fontSize: "0.95rem", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "700" }}>
                 Türkiye Pasaport Vize Gereksinimleri
               </h3>
               {[
-                { label: "MOBILITY SCORE", value: STATS.mobility, max: 200, color: "#f59e0b" },
-                { label: "KİMLİKLE", value: STATS.id_card, max: 200, color: "#f59e0b" },
-                { label: "VİZESİZ", value: STATS.free, max: 200, color: "#10b981" },
-                { label: "E-VİZE", value: STATS.evisa, max: 200, color: "#8b5cf6" },
-                { label: "KAPIDA VİZE", value: STATS.on_arrival, max: 200, color: "#3b82f6" },
-                { label: "VİZE GEREKLİ", value: STATS.required, max: 200, color: "#cbd5e1" },
+                { label: "MOBILITY SCORE", value: STATS.mobility, max: 200, color: "var(--l2t-gold)" },
+                { label: "KİMLİKLE", value: STATS.id_card, max: 200, color: "var(--l2t-success)" },
+                { label: "VİZESİZ", value: STATS.free, max: 200, color: "#34D399" },
+                { label: "E-VİZE", value: STATS.evisa, max: 200, color: "#60A5FA" },
+                { label: "KAPIDA VİZE", value: STATS.on_arrival, max: 200, color: "#3B82F6" },
+                { label: "VİZE GEREKLİ", value: STATS.required, max: 200, color: "var(--l2t-danger)" },
               ].map((stat) => (
                 <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
-                  <div style={{ width: "120px", fontSize: "0.8rem", color: "var(--l2t-navy)", fontWeight: "700", flexShrink: 0 }}>
+                  <div style={{ width: "120px", fontSize: "0.8rem", color: "var(--l2t-text)", fontWeight: "700", flexShrink: 0 }}>
                     {stat.label}
                   </div>
-                  <div style={{ flex: 1, height: "10px", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
+                  <div style={{ flex: 1, height: "10px", background: "rgba(255,255,255,0.05)", borderRadius: "10px", overflow: "hidden" }}>
                     <div style={{
                       height: "100%",
                       width: `${(stat.value / stat.max) * 100}%`,
@@ -429,9 +421,9 @@ export default function PassportPowerPage() {
           </div>
 
           {/* Sağ: Ülke Listesi */}
-          <div style={{ background: "#fff", borderRadius: "24px", border: "1px solid rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 40px rgba(0,0,0,0.05)" }}>
+          <div className="l2t-glass-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Başlık */}
-            <div style={{ padding: "24px", borderBottom: "1px solid #f1f5f9" }}>
+            <div style={{ padding: "24px", borderBottom: "1px solid var(--l2t-border)" }}>
               <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "16px" }}>
                 Vize Durumları
               </div>
@@ -450,8 +442,8 @@ export default function PassportPowerPage() {
                     key={f.id}
                     onClick={() => setVisaFilter(f.id)}
                     style={{
-                      background: visaFilter === f.id ? "var(--l2t-navy)" : "#f1f5f9",
-                      color: visaFilter === f.id ? "#fff" : "var(--l2t-soft)",
+                      background: visaFilter === f.id ? "var(--l2t-gold)" : "rgba(255,255,255,0.05)",
+                      color: visaFilter === f.id ? "var(--l2t-night)" : "var(--l2t-soft)",
                       border: "none",
                       borderRadius: "100px",
                       padding: "8px 16px",
@@ -468,33 +460,20 @@ export default function PassportPowerPage() {
 
               {/* Arama */}
               <div style={{ position: "relative" }}>
-                <Search size={16} color="var(--l2t-soft)" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
+                <Search size={16} color="var(--l2t-gold)" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
                 <input
                   type="text"
                   placeholder="Ülke ara..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  style={{
-                    width: "100%",
-                    background: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "100px",
-                    padding: "12px 14px 12px 40px",
-                    color: "var(--l2t-navy)",
-                    fontSize: "0.95rem",
-                    fontWeight: "600",
-                    outline: "none",
-                    boxSizing: "border-box",
-                    transition: "border 0.2s"
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = "var(--l2t-blue)"}
-                  onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+                  className="l2t-form-control"
+                  style={{ paddingLeft: "40px" }}
                 />
               </div>
             </div>
 
             {/* Tablo Başlıkları */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", padding: "12px 24px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", padding: "12px 24px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--l2t-border)" }}>
               <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "1px" }}>Ülke</span>
               <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--l2t-soft)", textAlign: "center", textTransform: "uppercase", letterSpacing: "1px" }}>Vize Durumu</span>
             </div>
@@ -510,14 +489,14 @@ export default function PassportPowerPage() {
                       display: "grid",
                       gridTemplateColumns: "1fr 120px",
                       padding: "16px 24px",
-                      borderBottom: "1px solid #f1f5f9",
+                      borderBottom: "1px solid var(--l2t-border)",
                       alignItems: "center",
                       transition: "background 0.15s",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <span style={{ fontSize: "0.95rem", color: "var(--l2t-navy)", fontWeight: "600" }}>{country.name}</span>
+                    <span style={{ fontSize: "0.95rem", color: "var(--l2t-text)", fontWeight: "600" }}>{country.name}</span>
                     <div style={{
                       background: STATUS_BADGE_COLOR[status] || STATUS_COLOR[status],
                       color: "#fff",
@@ -542,35 +521,32 @@ export default function PassportPowerPage() {
         {/* Alt İstatistik Kartları */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "16px", marginTop: "24px" }}>
           {[
-            { icon: <TrendingUp size={20} />, label: "Mobility Score", value: STATS.mobility, color: "#D49D19" },
-            { icon: <CheckCircle size={20} />, label: "Vizesiz", value: STATS.free, color: "#2C9B38" },
-            { icon: <Globe size={20} />, label: "Varışta Vize", value: STATS.on_arrival, color: "#306AB5" },
-            { icon: <FileText size={20} />, label: "E-Vize", value: STATS.evisa, color: "#D49D19" },
-            { icon: <AlertTriangle size={20} />, label: "Vize Gerekli", value: STATS.required, color: "#AF2A2A" },
+            { icon: <TrendingUp size={20} />, label: "Mobility Score", value: STATS.mobility, color: "var(--l2t-gold)" },
+            { icon: <CheckCircle size={20} />, label: "Vizesiz", value: STATS.free, color: "var(--l2t-success)" },
+            { icon: <Globe size={20} />, label: "Varışta Vize", value: STATS.on_arrival, color: "#3B82F6" },
+            { icon: <FileText size={20} />, label: "E-Vize", value: STATS.evisa, color: "#60A5FA" },
+            { icon: <AlertTriangle size={20} />, label: "Vize Gerekli", value: STATS.required, color: "var(--l2t-danger)" },
           ].map((stat) => (
-            <div key={stat.label} style={{
-              background: "#161B22",
-              border: "1px solid #30363D",
-              borderRadius: "12px",
+            <div key={stat.label} className="l2t-glass-card" style={{
               padding: "16px",
               display: "flex",
               flexDirection: "column",
               gap: "8px",
             }}>
               <div style={{ color: stat.color }}>{stat.icon}</div>
-              <div style={{ fontSize: "0.75rem", color: "#8B949E", textTransform: "uppercase", letterSpacing: "0.5px" }}>{stat.label}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{stat.label}</div>
               <div style={{ fontSize: "2rem", fontWeight: "900", color: stat.color, lineHeight: 1 }}>{stat.value}</div>
             </div>
           ))}
         </div>
         
         {/* AI CTA */}
-        <div style={{ marginTop: "32px", padding: "24px", background: "linear-gradient(135deg, #161B22, #0D1117)", border: "1px solid #30363D", borderRadius: "16px", color: "#E6EDF3", display: "flex", flexDirection: "column", gap: "16px", alignItems: "flex-start" }}>
+        <div className="l2t-glass-card" style={{ marginTop: "32px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", alignItems: "flex-start" }}>
           <div>
-            <h3 style={{ fontSize: "1.3rem", fontWeight: "700", marginBottom: "8px", color: "#C8A96E" }}>Pasaport Gücünü Keşfettin, Şimdi Sıra Rotada!</h3>
-            <p style={{ color: "#8B949E", fontSize: "1rem", margin: 0 }}>Vize durumu ve bütçene göre sana en uygun rotayı yapay zeka asistanımızla saniyeler içinde planla.</p>
+            <h3 style={{ fontSize: "1.3rem", fontWeight: "700", marginBottom: "8px", color: "var(--l2t-gold)" }}>Pasaport Gücünü Keşfettin, Şimdi Sıra Rotada!</h3>
+            <p style={{ color: "var(--l2t-soft)", fontSize: "1rem", margin: 0 }}>Vize durumu ve bütçene göre sana en uygun rotayı yapay zeka asistanımızla saniyeler içinde planla.</p>
           </div>
-          <Link href="/akilli-plan" style={{ background: "#C8A96E", color: "#0D1117", padding: "12px 24px", borderRadius: "8px", fontWeight: "700", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+          <Link href="/akilli-plan" className="l2t-button l2t-button-gold">
             <Plane size={18} /> Rota Planı Oluştur
           </Link>
         </div>
