@@ -1,0 +1,174 @@
+/* Belgeli Gezgin & Vize Merkezi Ortak Stilleri */
+/* Premium Night Blue + LetsGo Gold (Yellow) konseptine uygun */
+
+.l2t-belgeli-gezgin-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.l2t-belgeli-gezgin-card {
+  background: rgba(6, 24, 58, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.l2t-belgeli-gezgin-card:hover {
+  border-color: rgba(245, 184, 27, 0.3);
+  transform: translateY(-2px);
+}
+
+.l2t-belgeli-gezgin-title {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.l2t-belgeli-gezgin-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.l2t-belgeli-gezgin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
+  background: var(--l2t-blue, #F5B81B);
+  color: var(--l2t-navy, #06183A);
+  font-weight: 600;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  font-size: 0.95rem;
+}
+
+.l2t-belgeli-gezgin-btn:hover {
+  background: var(--l2t-blue-2, #FFD15C);
+  transform: translateY(-1px);
+}
+
+.l2t-belgeli-gezgin-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  color: var(--l2t-blue, #F5B81B);
+  font-weight: 600;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--l2t-blue, #F5B81B);
+  font-size: 0.95rem;
+}
+
+.l2t-belgeli-gezgin-btn-outline:hover {
+  background: rgba(245, 184, 27, 0.1);
+}
+
+/* Form Elemanları */
+.l2t-belgeli-gezgin-input,
+.l2t-belgeli-gezgin-textarea,
+.l2t-belgeli-gezgin-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #fff;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.l2t-belgeli-gezgin-input:focus,
+.l2t-belgeli-gezgin-textarea:focus,
+.l2t-belgeli-gezgin-select:focus {
+  outline: none;
+  border-color: var(--l2t-blue, #F5B81B);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Vize Durumu Renkleri */
+.l2t-visa-kimlikle { color: #10B981; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+.l2t-visa-vizesiz { color: #34D399; background: rgba(52, 211, 153, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+.l2t-visa-evize { color: #60A5FA; background: rgba(96, 165, 250, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+.l2t-visa-kapida { color: #FBBF24; background: rgba(251, 191, 36, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+.l2t-visa-gerekli { color: #EF4444; background: rgba(239, 68, 68, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+.l2t-visa-bilgiyok { color: #9CA3AF; background: rgba(156, 163, 175, 0.1); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;}
+
+/* Randevu Durumu Renkleri */
+.l2t-apt-bilgiyok { color: #9CA3AF; }
+.l2t-apt-zor { color: #EF4444; }
+.l2t-apt-araara { color: #FBBF24; }
+.l2t-apt-bulundu { color: #10B981; }
+.l2t-apt-manuel { color: #60A5FA; }
+
+/* Grid Layouts */
+.l2t-belgeli-gezgin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .l2t-belgeli-gezgin-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .l2t-belgeli-gezgin-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+/* Badge (Rozet) Styles */
+.l2t-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(245, 184, 27, 0.15);
+  color: var(--l2t-blue, #F5B81B);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(245, 184, 27, 0.3);
+}
+
+/* Status Badges */
+.l2t-status-pending { background: rgba(251, 191, 36, 0.1); color: #FBBF24; border: 1px solid rgba(251, 191, 36, 0.2); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;}
+.l2t-status-approved { background: rgba(16, 185, 129, 0.1); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;}
+.l2t-status-rejected { background: rgba(239, 68, 68, 0.1); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;}
+
+/* Uyarı Notu (Legal) */
+.l2t-legal-notice {
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid rgba(255, 255, 255, 0.2);
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 0 0.5rem 0.5rem 0;
+  margin-top: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .l2t-belgeli-gezgin-card {
+    transition: none;
+  }
+  .l2t-belgeli-gezgin-card:hover {
+    transform: none;
+  }
+}

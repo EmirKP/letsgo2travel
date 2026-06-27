@@ -1,181 +1,58 @@
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { aviasalesUrl } from "@/lib/affiliate";
+import { createSearchAnswer, parseTravelSearch } from "@/lib/ai-search-parser";
+import { createTripPlan } from "@/lib/ai-trip-planner";
 
-type BiletRow = {
-  id: number;
-  nereden: string;
-  nereye: string;
-  ulke: string;
-  fiyat: string;
-  fiyat_sayi: number;
-  tarih: string;
-  vize: string;
-  ay: string;
-  havayolu: string;
-  sure: string;
-  bagaj: string;
-  etiket: string;
-  link: string;
-  aktif: boolean;
-  one_cikan: boolean;
-  kategori?: string;
-  aciklama?: string;
-  ulke_emoji?: string;
-  son_kontrol?: string;
-  kampanya_bitis?: string;
-  tiklanma?: number;
-  kalkis_kodu?: string;
-  varis_kodu?: string;
-  aktarma?: string;
-  saglayici?: string;
-  arama_puani?: number;
-  gidis_tarihi?: string | null;
-  donus_tarihi?: string | null;
-  detay_slug?: string;
-  gorsel_url?: string | null;
-};
+async function askOpenAI(query: string) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
 
-function temizle(metin: string) {
-  return metin
-    .toLocaleLowerCase("tr-TR")
-    .replaceAll("ı", "i")
-    .replaceAll("ğ", "g")
-    .replaceAll("ü", "u")
-    .replaceAll("ş", "s")
-    .replaceAll("ö", "o")
-    .replaceAll("ç", "c");
-}
-
-function biletDonustur(row: BiletRow) {
-  return {
-    id: row.id,
-    nereden: row.nereden,
-    nereye: row.nereye,
-    ulke: row.ulke,
-    fiyat: row.fiyat,
-    fiyatSayi: row.fiyat_sayi,
-    tarih: row.tarih,
-    vize: row.vize,
-    ay: row.ay,
-    havayolu: row.havayolu,
-    sure: row.sure,
-    bagaj: row.bagaj,
-    etiket: row.etiket,
-    link: row.link,
-    aktif: row.aktif,
-    oneCikan: row.one_cikan,
-    kategori: row.kategori || "Genel",
-    aciklama: row.aciklama || "",
-    ulkeEmoji: row.ulke_emoji || "✈️",
-    sonKontrol: row.son_kontrol || "Bugün",
-    kampanyaBitis: row.kampanya_bitis || "",
-    tiklanma: row.tiklanma || 0,
-    kalkisKodu: row.kalkis_kodu || "",
-    varisKodu: row.varis_kodu || "",
-    aktarma: row.aktarma || "Farketmez",
-    saglayici: row.saglayici || "Letsgo 2 Travel",
-    aramaPuani: row.arama_puani || 80,
-    gidisTarihi: row.gidis_tarihi,
-    donusTarihi: row.donus_tarihi,
-    detaySlug: row.detay_slug || `${row.nereden}-${row.nereye}-${row.id}`,
-    gorselUrl: row.gorsel_url || "",
-  };
-}
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-
-  const nereden = temizle(searchParams.get("nereden") || "");
-  const nereye = temizle(searchParams.get("nereye") || "");
-  const vize = searchParams.get("vize") || "Tümü";
-  const kategori = searchParams.get("kategori") || "Tümü";
-  const aktarma = searchParams.get("aktarma") || "Tümü";
-  const maksimumFiyat = Number(searchParams.get("maksimumFiyat") || 999999);
-  const siralama = searchParams.get("siralama") || "en-iyi";
-
-  const { data, error } = await supabaseAdmin
-    .from("biletler")
-    .select("*")
-    .eq("aktif", true)
-    .order("one_cikan", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json(
-      { message: "Arama sonuçları alınamadı.", error: error.message },
-      { status: 500 }
-    );
-  }
-
-  let biletler = (data as BiletRow[]).map(biletDonustur);
-
-  biletler = biletler.filter((bilet) => {
-    const kalkisMetni = temizle(`${bilet.nereden} ${bilet.kalkisKodu}`);
-    const varisMetni = temizle(
-      `${bilet.nereye} ${bilet.ulke} ${bilet.varisKodu}`
-    );
-
-    const neredenUyuyor = !nereden || kalkisMetni.includes(nereden);
-    const nereyeUyuyor = !nereye || varisMetni.includes(nereye);
-    const vizeUyuyor = vize === "Tümü" || bilet.vize === vize;
-    const kategoriUyuyor = kategori === "Tümü" || bilet.kategori === kategori;
-    const aktarmaUyuyor = aktarma === "Tümü" || bilet.aktarma === aktarma;
-    const fiyatUyuyor = bilet.fiyatSayi <= maksimumFiyat;
-
-    return (
-      neredenUyuyor &&
-      nereyeUyuyor &&
-      vizeUyuyor &&
-      kategoriUyuyor &&
-      aktarmaUyuyor &&
-      fiyatUyuyor
-    );
-  });
-
-  if (siralama === "en-ucuz") {
-    biletler = [...biletler].sort((a, b) => a.fiyatSayi - b.fiyatSayi);
-  }
-
-  if (siralama === "en-hizli") {
-    biletler = [...biletler].sort((a, b) => a.sure.localeCompare(b.sure));
-  }
-
-  if (siralama === "populer") {
-    biletler = [...biletler].sort((a, b) => b.tiklanma - a.tiklanma);
-  }
-
-  if (siralama === "en-iyi") {
-    biletler = [...biletler].sort((a, b) => {
-      if (b.oneCikan !== a.oneCikan) {
-        return Number(b.oneCikan) - Number(a.oneCikan);
-      }
-
-      if (b.aramaPuani !== a.aramaPuani) {
-        return b.aramaPuani - a.aramaPuani;
-      }
-
-      return a.fiyatSayi - b.fiyatSayi;
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Sen Letsgo2Travel için Türkçe premium rota asistanısın. Kısa, net, satışa yönlendiren, hedeflenen yer için 1-2 'Neden burası?' ve 'Mutlaka gidilmesi gereken 1 mekan/restoran' tavsiyesi içeren zengin bir yanıt üret. Okuması keyifli, emojilerle süslenmiş 3-4 cümlelik bir metin olsun.",
+          },
+          { role: "user", content: query },
+        ],
+        temperature: 0.4,
+      }),
     });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content || null;
+  } catch {
+    return null;
   }
+}
 
-  await supabaseAdmin.from("arama_kayitlari").insert({
-    nereden: searchParams.get("nereden") || "",
-    nereye: searchParams.get("nereye") || "",
-    gidis_tarihi: searchParams.get("gidis") || "",
-    donus_tarihi: searchParams.get("donus") || "",
-    yolcu: searchParams.get("yolcu") || "1",
-    vize,
-    kategori,
-    aktarma,
-    maksimum_fiyat: maksimumFiyat,
-    sonuc_sayisi: biletler.length,
-  });
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => null)) as { query?: string } | null;
+  const query = body?.query?.trim() || "vizesiz uygun rota";
+  const intent = parseTravelSearch(query);
+  const aiAnswer = await askOpenAI(query);
+  const url = aviasalesUrl({ origin: intent.originCode, destination: intent.destinationCode });
+  const plan = createTripPlan(query);
 
   return NextResponse.json({
-    toplam: biletler.length,
-    biletler,
+    answer: aiAnswer || createSearchAnswer(intent),
+    intent,
+    url,
+    planPreview: {
+      destination: plan.destination,
+      score: plan.score,
+      budgetText: plan.budgetText,
+      tags: plan.tags,
+      tips: plan.smartTips.slice(0, 3),
+    },
   });
 }

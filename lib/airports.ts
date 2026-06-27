@@ -1,289 +1,214 @@
-export type AirportType = "country" | "city" | "airport";
-
-export type AirportOption = {
+export type LocationItem = {
   id: string;
-  code: string;
-  displayCode: string;
-  city: string;
   name: string;
-  country: string;
-  countryCode: string;
-  type: AirportType;
-  popular?: boolean;
+  type: "country" | "city" | "anywhere";
+  countryName?: string;
+  code: string;
 };
 
-export const AIRPORT_OPTIONS: AirportOption[] = [
-  { id: 'country-TR', type: 'country', code: 'IST', displayCode: 'TR', city: 'Türkiye', name: 'Ülke genelinde ara', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'country-GB', type: 'country', code: 'LON', displayCode: 'GB', city: 'Birleşik Krallık', name: 'Ülke genelinde ara', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'country-DE', type: 'country', code: 'BER', displayCode: 'DE', city: 'Almanya', name: 'Ülke genelinde ara', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'country-FR', type: 'country', code: 'PAR', displayCode: 'FR', city: 'Fransa', name: 'Ülke genelinde ara', country: 'Fransa', countryCode: 'FR', popular: false },
-  { id: 'country-IT', type: 'country', code: 'ROM', displayCode: 'IT', city: 'İtalya', name: 'Ülke genelinde ara', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'country-ES', type: 'country', code: 'MAD', displayCode: 'ES', city: 'İspanya', name: 'Ülke genelinde ara', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'country-GR', type: 'country', code: 'ATH', displayCode: 'GR', city: 'Yunanistan', name: 'Ülke genelinde ara', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'country-US', type: 'country', code: 'NYC', displayCode: 'US', city: 'Amerika Birleşik Devletleri', name: 'Ülke genelinde ara', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'country-AE', type: 'country', code: 'DXB', displayCode: 'AE', city: 'Birleşik Arap Emirlikleri', name: 'Ülke genelinde ara', country: 'BAE', countryCode: 'AE', popular: false },
-  { id: 'city-IST-Istanbul', type: 'city', code: 'IST', displayCode: 'IST', city: 'İstanbul', name: 'Herhangi biri', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-IST-Istanbul', type: 'airport', code: 'IST', displayCode: 'IST', city: 'İstanbul', name: 'İstanbul Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-SAW-Istanbul', type: 'airport', code: 'SAW', displayCode: 'SAW', city: 'İstanbul', name: 'Sabiha Gökçen', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'city-ANK-Ankara', type: 'city', code: 'ANK', displayCode: 'ANK', city: 'Ankara', name: 'Herhangi biri', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-ESB-Ankara', type: 'airport', code: 'ESB', displayCode: 'ESB', city: 'Ankara', name: 'Esenboğa', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-ADB-Izmir', type: 'airport', code: 'ADB', displayCode: 'ADB', city: 'İzmir', name: 'Adnan Menderes', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-AYT-Antalya', type: 'airport', code: 'AYT', displayCode: 'AYT', city: 'Antalya', name: 'Antalya Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: true },
-  { id: 'airport-DLM-Dalaman', type: 'airport', code: 'DLM', displayCode: 'DLM', city: 'Dalaman', name: 'Dalaman Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-BJV-Bodrum', type: 'airport', code: 'BJV', displayCode: 'BJV', city: 'Bodrum', name: 'Milas-Bodrum', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-COV-Çukurova', type: 'airport', code: 'COV', displayCode: 'COV', city: 'Çukurova', name: 'Çukurova Uluslararası', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ADA-Adana', type: 'airport', code: 'ADA', displayCode: 'ADA', city: 'Adana', name: 'Adana Şakirpaşa', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-TZX-Trabzon', type: 'airport', code: 'TZX', displayCode: 'TZX', city: 'Trabzon', name: 'Trabzon Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ASR-Kayseri', type: 'airport', code: 'ASR', displayCode: 'ASR', city: 'Kayseri', name: 'Erkilet', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-GZT-Gaziantep', type: 'airport', code: 'GZT', displayCode: 'GZT', city: 'Gaziantep', name: 'Gaziantep Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-DIY-Diyarbakir', type: 'airport', code: 'DIY', displayCode: 'DIY', city: 'Diyarbakır', name: 'Diyarbakır Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ERZ-Erzurum', type: 'airport', code: 'ERZ', displayCode: 'ERZ', city: 'Erzurum', name: 'Erzurum Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-EZS-Elaziğ', type: 'airport', code: 'EZS', displayCode: 'EZS', city: 'Elazığ', name: 'Elazığ Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-MLX-Malatya', type: 'airport', code: 'MLX', displayCode: 'MLX', city: 'Malatya', name: 'Erhaç', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-VAN-Van', type: 'airport', code: 'VAN', displayCode: 'VAN', city: 'Van', name: 'Ferit Melen', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-BAL-Batman', type: 'airport', code: 'BAL', displayCode: 'BAL', city: 'Batman', name: 'Batman Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-MSR-Muş', type: 'airport', code: 'MSR', displayCode: 'MSR', city: 'Muş', name: 'Muş Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-KSY-Kars', type: 'airport', code: 'KSY', displayCode: 'KSY', city: 'Kars', name: 'Harakani', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-IGD-Iğdir', type: 'airport', code: 'IGD', displayCode: 'IGD', city: 'Iğdır', name: 'Şehit Bülent Aydın', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-MQM-Mardin', type: 'airport', code: 'MQM', displayCode: 'MQM', city: 'Mardin', name: 'Mardin Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-NKT-Şirnak', type: 'airport', code: 'NKT', displayCode: 'NKT', city: 'Şırnak', name: 'Şerafettin Elçi', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-GNY-Şanliurfa', type: 'airport', code: 'GNY', displayCode: 'GNY', city: 'Şanlıurfa', name: 'GAP', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-KYA-Konya', type: 'airport', code: 'KYA', displayCode: 'KYA', city: 'Konya', name: 'Konya Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-SZF-Samsun', type: 'airport', code: 'SZF', displayCode: 'SZF', city: 'Samsun', name: 'Çarşamba', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ONQ-Zonguldak', type: 'airport', code: 'ONQ', displayCode: 'ONQ', city: 'Zonguldak', name: 'Çaycuma', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-KZR-Kütahya', type: 'airport', code: 'KZR', displayCode: 'KZR', city: 'Kütahya', name: 'Zafer', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ISE-Isparta', type: 'airport', code: 'ISE', displayCode: 'ISE', city: 'Isparta', name: 'Süleyman Demirel', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-EDO-Balikesir', type: 'airport', code: 'EDO', displayCode: 'EDO', city: 'Balıkesir', name: 'Edremit Koca Seyit', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-CKZ-Çanakkale', type: 'airport', code: 'CKZ', displayCode: 'CKZ', city: 'Çanakkale', name: 'Çanakkale Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-AOE-Eskişehir', type: 'airport', code: 'AOE', displayCode: 'AOE', city: 'Eskişehir', name: 'Hasan Polatkan', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-TEQ-Tekirdağ', type: 'airport', code: 'TEQ', displayCode: 'TEQ', city: 'Tekirdağ', name: 'Çorlu', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-HTY-Hatay', type: 'airport', code: 'HTY', displayCode: 'HTY', city: 'Hatay', name: 'Hatay Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-OGU-Ordu-Giresun', type: 'airport', code: 'OGU', displayCode: 'OGU', city: 'Ordu-Giresun', name: 'Ordu-Giresun', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-NOP-Sinop', type: 'airport', code: 'NOP', displayCode: 'NOP', city: 'Sinop', name: 'Sinop Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-AJI-Ağri', type: 'airport', code: 'AJI', displayCode: 'AJI', city: 'Ağrı', name: 'Ağrı Ahmed-i Hani', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-BGG-Bingöl', type: 'airport', code: 'BGG', displayCode: 'BGG', city: 'Bingöl', name: 'Bingöl Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-SXZ-Siirt', type: 'airport', code: 'SXZ', displayCode: 'SXZ', city: 'Siirt', name: 'Siirt Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ADF-Adiyaman', type: 'airport', code: 'ADF', displayCode: 'ADF', city: 'Adıyaman', name: 'Adıyaman Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-KCM-Kahramanmaraş', type: 'airport', code: 'KCM', displayCode: 'KCM', city: 'Kahramanmaraş', name: 'Kahramanmaraş Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-NAV-Nevşehir', type: 'airport', code: 'NAV', displayCode: 'NAV', city: 'Nevşehir', name: 'Kapadokya', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-USQ-Uşak', type: 'airport', code: 'USQ', displayCode: 'USQ', city: 'Uşak', name: 'Uşak Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-VAS-Sivas', type: 'airport', code: 'VAS', displayCode: 'VAS', city: 'Sivas', name: 'Nuri Demirağ', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-ERC-Erzincan', type: 'airport', code: 'ERC', displayCode: 'ERC', city: 'Erzincan', name: 'Erzincan Havalimanı', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'airport-YEI-Bursa', type: 'airport', code: 'YEI', displayCode: 'YEI', city: 'Bursa', name: 'Yenişehir', country: 'Türkiye', countryCode: 'TR', popular: false },
-  { id: 'city-LON-Londra', type: 'city', code: 'LON', displayCode: 'LON', city: 'Londra', name: 'Herhangi biri', country: 'Birleşik Krallık', countryCode: 'GB', popular: true },
-  { id: 'airport-LHR-Londra', type: 'airport', code: 'LHR', displayCode: 'LHR', city: 'Londra', name: 'Heathrow', country: 'Birleşik Krallık', countryCode: 'GB', popular: true },
-  { id: 'airport-LGW-Londra', type: 'airport', code: 'LGW', displayCode: 'LGW', city: 'Londra', name: 'Gatwick', country: 'Birleşik Krallık', countryCode: 'GB', popular: true },
-  { id: 'airport-STN-Londra', type: 'airport', code: 'STN', displayCode: 'STN', city: 'Londra', name: 'Stansted', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'airport-LTN-Londra', type: 'airport', code: 'LTN', displayCode: 'LTN', city: 'Londra', name: 'Luton', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'airport-LCY-Londra', type: 'airport', code: 'LCY', displayCode: 'LCY', city: 'Londra', name: 'City', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'city-PAR-Paris', type: 'city', code: 'PAR', displayCode: 'PAR', city: 'Paris', name: 'Herhangi biri', country: 'Fransa', countryCode: 'FR', popular: true },
-  { id: 'airport-CDG-Paris', type: 'airport', code: 'CDG', displayCode: 'CDG', city: 'Paris', name: 'Charles de Gaulle', country: 'Fransa', countryCode: 'FR', popular: true },
-  { id: 'airport-ORY-Paris', type: 'airport', code: 'ORY', displayCode: 'ORY', city: 'Paris', name: 'Orly', country: 'Fransa', countryCode: 'FR', popular: true },
-  { id: 'airport-BVA-Paris', type: 'airport', code: 'BVA', displayCode: 'BVA', city: 'Paris', name: 'Beauvais-Tillé', country: 'Fransa', countryCode: 'FR', popular: false },
-  { id: 'city-ROM-Roma', type: 'city', code: 'ROM', displayCode: 'ROM', city: 'Roma', name: 'Herhangi biri', country: 'İtalya', countryCode: 'IT', popular: true },
-  { id: 'airport-FCO-Roma', type: 'airport', code: 'FCO', displayCode: 'FCO', city: 'Roma', name: 'Fiumicino', country: 'İtalya', countryCode: 'IT', popular: true },
-  { id: 'airport-CIA-Roma', type: 'airport', code: 'CIA', displayCode: 'CIA', city: 'Roma', name: 'Ciampino', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'city-MIL-Milano', type: 'city', code: 'MIL', displayCode: 'MIL', city: 'Milano', name: 'Herhangi biri', country: 'İtalya', countryCode: 'IT', popular: true },
-  { id: 'airport-MXP-Milano', type: 'airport', code: 'MXP', displayCode: 'MXP', city: 'Milano', name: 'Malpensa', country: 'İtalya', countryCode: 'IT', popular: true },
-  { id: 'airport-LIN-Milano', type: 'airport', code: 'LIN', displayCode: 'LIN', city: 'Milano', name: 'Linate', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-BGY-Milano-Bergamo', type: 'airport', code: 'BGY', displayCode: 'BGY', city: 'Milano/Bergamo', name: 'Orio al Serio', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-VCE-Venedik', type: 'airport', code: 'VCE', displayCode: 'VCE', city: 'Venedik', name: 'Marco Polo', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-BLQ-Bologna', type: 'airport', code: 'BLQ', displayCode: 'BLQ', city: 'Bologna', name: 'Guglielmo Marconi', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-NAP-Napoli', type: 'airport', code: 'NAP', displayCode: 'NAP', city: 'Napoli', name: 'Capodichino', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-CTA-Katanya', type: 'airport', code: 'CTA', displayCode: 'CTA', city: 'Katanya', name: 'Fontanarossa', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-PMO-Palermo', type: 'airport', code: 'PMO', displayCode: 'PMO', city: 'Palermo', name: 'Falcone Borsellino', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'airport-PSA-Pisa', type: 'airport', code: 'PSA', displayCode: 'PSA', city: 'Pisa', name: 'Galileo Galilei', country: 'İtalya', countryCode: 'IT', popular: false },
-  { id: 'city-BER-Berlin', type: 'city', code: 'BER', displayCode: 'BER', city: 'Berlin', name: 'Brandenburg', country: 'Almanya', countryCode: 'DE', popular: true },
-  { id: 'airport-FRA-Frankfurt', type: 'airport', code: 'FRA', displayCode: 'FRA', city: 'Frankfurt', name: 'Frankfurt am Main', country: 'Almanya', countryCode: 'DE', popular: true },
-  { id: 'airport-MUC-Münih', type: 'airport', code: 'MUC', displayCode: 'MUC', city: 'Münih', name: 'Franz Josef Strauss', country: 'Almanya', countryCode: 'DE', popular: true },
-  { id: 'airport-DUS-Düsseldorf', type: 'airport', code: 'DUS', displayCode: 'DUS', city: 'Düsseldorf', name: 'Düsseldorf Havalimanı', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'airport-CGN-Köln-Bonn', type: 'airport', code: 'CGN', displayCode: 'CGN', city: 'Köln/Bonn', name: 'Köln Bonn', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'airport-HAM-Hamburg', type: 'airport', code: 'HAM', displayCode: 'HAM', city: 'Hamburg', name: 'Hamburg Havalimanı', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'airport-STR-Stuttgart', type: 'airport', code: 'STR', displayCode: 'STR', city: 'Stuttgart', name: 'Stuttgart Havalimanı', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'airport-NUE-Nürnberg', type: 'airport', code: 'NUE', displayCode: 'NUE', city: 'Nürnberg', name: 'Nürnberg Havalimanı', country: 'Almanya', countryCode: 'DE', popular: false },
-  { id: 'airport-AMS-Amsterdam', type: 'airport', code: 'AMS', displayCode: 'AMS', city: 'Amsterdam', name: 'Schiphol', country: 'Hollanda', countryCode: 'NL', popular: true },
-  { id: 'airport-RTM-Rotterdam', type: 'airport', code: 'RTM', displayCode: 'RTM', city: 'Rotterdam', name: 'The Hague', country: 'Hollanda', countryCode: 'NL', popular: false },
-  { id: 'airport-EIN-Eindhoven', type: 'airport', code: 'EIN', displayCode: 'EIN', city: 'Eindhoven', name: 'Eindhoven Havalimanı', country: 'Hollanda', countryCode: 'NL', popular: false },
-  { id: 'city-BRU-Brüksel', type: 'city', code: 'BRU', displayCode: 'BRU', city: 'Brüksel', name: 'Herhangi biri', country: 'Belçika', countryCode: 'BE', popular: true },
-  { id: 'airport-CRL-Brüksel-Charleroi', type: 'airport', code: 'CRL', displayCode: 'CRL', city: 'Brüksel/Charleroi', name: 'Charleroi', country: 'Belçika', countryCode: 'BE', popular: false },
-  { id: 'airport-ZRH-Zürih', type: 'airport', code: 'ZRH', displayCode: 'ZRH', city: 'Zürih', name: 'Zürich', country: 'İsviçre', countryCode: 'CH', popular: true },
-  { id: 'airport-GVA-Cenevre', type: 'airport', code: 'GVA', displayCode: 'GVA', city: 'Cenevre', name: 'Geneva', country: 'İsviçre', countryCode: 'CH', popular: false },
-  { id: 'airport-BSL-Basel', type: 'airport', code: 'BSL', displayCode: 'BSL', city: 'Basel', name: 'EuroAirport', country: 'İsviçre', countryCode: 'CH', popular: false },
-  { id: 'airport-VIE-Viyana', type: 'airport', code: 'VIE', displayCode: 'VIE', city: 'Viyana', name: 'Vienna Intl.', country: 'Avusturya', countryCode: 'AT', popular: true },
-  { id: 'airport-SZG-Salzburg', type: 'airport', code: 'SZG', displayCode: 'SZG', city: 'Salzburg', name: 'Salzburg', country: 'Avusturya', countryCode: 'AT', popular: false },
-  { id: 'airport-PRG-Prag', type: 'airport', code: 'PRG', displayCode: 'PRG', city: 'Prag', name: 'Václav Havel', country: 'Çekya', countryCode: 'CZ', popular: true },
-  { id: 'airport-BUD-Budapeşte', type: 'airport', code: 'BUD', displayCode: 'BUD', city: 'Budapeşte', name: 'Ferenc Liszt', country: 'Macaristan', countryCode: 'HU', popular: true },
-  { id: 'airport-WAW-Varşova', type: 'airport', code: 'WAW', displayCode: 'WAW', city: 'Varşova', name: 'Chopin', country: 'Polonya', countryCode: 'PL', popular: true },
-  { id: 'airport-KRK-Krakow', type: 'airport', code: 'KRK', displayCode: 'KRK', city: 'Krakow', name: 'John Paul II', country: 'Polonya', countryCode: 'PL', popular: false },
-  { id: 'airport-GDN-Gdansk', type: 'airport', code: 'GDN', displayCode: 'GDN', city: 'Gdansk', name: 'Lech Walesa', country: 'Polonya', countryCode: 'PL', popular: false },
-  { id: 'airport-BCN-Barselona', type: 'airport', code: 'BCN', displayCode: 'BCN', city: 'Barselona', name: 'El Prat', country: 'İspanya', countryCode: 'ES', popular: true },
-  { id: 'airport-MAD-Madrid', type: 'airport', code: 'MAD', displayCode: 'MAD', city: 'Madrid', name: 'Barajas', country: 'İspanya', countryCode: 'ES', popular: true },
-  { id: 'airport-AGP-Malaga', type: 'airport', code: 'AGP', displayCode: 'AGP', city: 'Malaga', name: 'Costa del Sol', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-VLC-Valensiya', type: 'airport', code: 'VLC', displayCode: 'VLC', city: 'Valensiya', name: 'Valencia', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-ALC-Alicante', type: 'airport', code: 'ALC', displayCode: 'ALC', city: 'Alicante', name: 'Alicante-Elche', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-PMI-Palma-de-Mallorca', type: 'airport', code: 'PMI', displayCode: 'PMI', city: 'Palma de Mallorca', name: 'Palma', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-IBZ-Ibiza', type: 'airport', code: 'IBZ', displayCode: 'IBZ', city: 'Ibiza', name: 'Ibiza', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-LPA-Gran-Canaria', type: 'airport', code: 'LPA', displayCode: 'LPA', city: 'Gran Canaria', name: 'Las Palmas', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-TFS-Tenerife', type: 'airport', code: 'TFS', displayCode: 'TFS', city: 'Tenerife', name: 'Tenerife South', country: 'İspanya', countryCode: 'ES', popular: false },
-  { id: 'airport-LIS-Lizbon', type: 'airport', code: 'LIS', displayCode: 'LIS', city: 'Lizbon', name: 'Humberto Delgado', country: 'Portekiz', countryCode: 'PT', popular: true },
-  { id: 'airport-OPO-Porto', type: 'airport', code: 'OPO', displayCode: 'OPO', city: 'Porto', name: 'Francisco Sá Carneiro', country: 'Portekiz', countryCode: 'PT', popular: false },
-  { id: 'airport-FAO-Faro', type: 'airport', code: 'FAO', displayCode: 'FAO', city: 'Faro', name: 'Faro', country: 'Portekiz', countryCode: 'PT', popular: false },
-  { id: 'airport-ATH-Atina', type: 'airport', code: 'ATH', displayCode: 'ATH', city: 'Atina', name: 'Eleftherios Venizelos', country: 'Yunanistan', countryCode: 'GR', popular: true },
-  { id: 'airport-SKG-Selanik', type: 'airport', code: 'SKG', displayCode: 'SKG', city: 'Selanik', name: 'Makedonia', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-HER-Kandiye', type: 'airport', code: 'HER', displayCode: 'HER', city: 'Kandiye', name: 'Heraklion', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-RHO-Rodos', type: 'airport', code: 'RHO', displayCode: 'RHO', city: 'Rodos', name: 'Diagoras', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-JTR-Santorini', type: 'airport', code: 'JTR', displayCode: 'JTR', city: 'Santorini', name: 'Santorini', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-JMK-Mikonos', type: 'airport', code: 'JMK', displayCode: 'JMK', city: 'Mikonos', name: 'Mykonos', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-CFU-Korfu', type: 'airport', code: 'CFU', displayCode: 'CFU', city: 'Korfu', name: 'Ioannis Kapodistrias', country: 'Yunanistan', countryCode: 'GR', popular: false },
-  { id: 'airport-TIA-Tiran', type: 'airport', code: 'TIA', displayCode: 'TIA', city: 'Tiran', name: 'Nënë Tereza', country: 'Arnavutluk', countryCode: 'AL', popular: true },
-  { id: 'airport-SKP-Üsküp', type: 'airport', code: 'SKP', displayCode: 'SKP', city: 'Üsküp', name: 'Skopje', country: 'Kuzey Makedonya', countryCode: 'MK', popular: true },
-  { id: 'airport-OHD-Ohri', type: 'airport', code: 'OHD', displayCode: 'OHD', city: 'Ohri', name: 'Ohrid', country: 'Kuzey Makedonya', countryCode: 'MK', popular: false },
-  { id: 'airport-PRN-Priştine', type: 'airport', code: 'PRN', displayCode: 'PRN', city: 'Priştine', name: 'Adem Jashari', country: 'Kosova', countryCode: 'XK', popular: true },
-  { id: 'airport-SJJ-Saraybosna', type: 'airport', code: 'SJJ', displayCode: 'SJJ', city: 'Saraybosna', name: 'Sarajevo', country: 'Bosna Hersek', countryCode: 'BA', popular: true },
-  { id: 'airport-BNX-Banja-Luka', type: 'airport', code: 'BNX', displayCode: 'BNX', city: 'Banja Luka', name: 'Banja Luka', country: 'Bosna Hersek', countryCode: 'BA', popular: false },
-  { id: 'airport-TGD-Podgorica', type: 'airport', code: 'TGD', displayCode: 'TGD', city: 'Podgorica', name: 'Podgorica', country: 'Karadağ', countryCode: 'ME', popular: false },
-  { id: 'airport-TIV-Tivat', type: 'airport', code: 'TIV', displayCode: 'TIV', city: 'Tivat', name: 'Tivat', country: 'Karadağ', countryCode: 'ME', popular: false },
-  { id: 'airport-BEG-Belgrad', type: 'airport', code: 'BEG', displayCode: 'BEG', city: 'Belgrad', name: 'Nikola Tesla', country: 'Sırbistan', countryCode: 'RS', popular: true },
-  { id: 'airport-ZAG-Zagreb', type: 'airport', code: 'ZAG', displayCode: 'ZAG', city: 'Zagreb', name: 'Franjo Tudman', country: 'Hırvatistan', countryCode: 'HR', popular: false },
-  { id: 'airport-SPU-Split', type: 'airport', code: 'SPU', displayCode: 'SPU', city: 'Split', name: 'Split', country: 'Hırvatistan', countryCode: 'HR', popular: false },
-  { id: 'airport-DBV-Dubrovnik', type: 'airport', code: 'DBV', displayCode: 'DBV', city: 'Dubrovnik', name: 'Dubrovnik', country: 'Hırvatistan', countryCode: 'HR', popular: false },
-  { id: 'airport-LJU-Ljubljana', type: 'airport', code: 'LJU', displayCode: 'LJU', city: 'Ljubljana', name: 'Jože Pučnik', country: 'Slovenya', countryCode: 'SI', popular: false },
-  { id: 'airport-SOF-Sofya', type: 'airport', code: 'SOF', displayCode: 'SOF', city: 'Sofya', name: 'Sofia', country: 'Bulgaristan', countryCode: 'BG', popular: true },
-  { id: 'airport-VAR-Varna', type: 'airport', code: 'VAR', displayCode: 'VAR', city: 'Varna', name: 'Varna', country: 'Bulgaristan', countryCode: 'BG', popular: false },
-  { id: 'airport-BOJ-Burgaz', type: 'airport', code: 'BOJ', displayCode: 'BOJ', city: 'Burgaz', name: 'Burgas', country: 'Bulgaristan', countryCode: 'BG', popular: false },
-  { id: 'airport-OTP-Bükreş', type: 'airport', code: 'OTP', displayCode: 'OTP', city: 'Bükreş', name: 'Henri Coandă', country: 'Romanya', countryCode: 'RO', popular: true },
-  { id: 'airport-CLJ-Cluj-Napoca', type: 'airport', code: 'CLJ', displayCode: 'CLJ', city: 'Cluj-Napoca', name: 'Avram Iancu', country: 'Romanya', countryCode: 'RO', popular: false },
-  { id: 'airport-IAS-Yaş', type: 'airport', code: 'IAS', displayCode: 'IAS', city: 'Yaş', name: 'Iași', country: 'Romanya', countryCode: 'RO', popular: false },
-  { id: 'airport-TSR-Timișoara', type: 'airport', code: 'TSR', displayCode: 'TSR', city: 'Timișoara', name: 'Traian Vuia', country: 'Romanya', countryCode: 'RO', popular: false },
-  { id: 'airport-CPH-Kopenhag', type: 'airport', code: 'CPH', displayCode: 'CPH', city: 'Kopenhag', name: 'Kastrup', country: 'Danimarka', countryCode: 'DK', popular: true },
-  { id: 'airport-OSL-Oslo', type: 'airport', code: 'OSL', displayCode: 'OSL', city: 'Oslo', name: 'Gardermoen', country: 'Norveç', countryCode: 'NO', popular: true },
-  { id: 'airport-ARN-Stockholm', type: 'airport', code: 'ARN', displayCode: 'ARN', city: 'Stockholm', name: 'Arlanda', country: 'İsveç', countryCode: 'SE', popular: true },
-  { id: 'airport-GOT-Göteborg', type: 'airport', code: 'GOT', displayCode: 'GOT', city: 'Göteborg', name: 'Landvetter', country: 'İsveç', countryCode: 'SE', popular: false },
-  { id: 'airport-HEL-Helsinki', type: 'airport', code: 'HEL', displayCode: 'HEL', city: 'Helsinki', name: 'Vantaa', country: 'Finlandiya', countryCode: 'FI', popular: true },
-  { id: 'airport-KEF-Reykjavik', type: 'airport', code: 'KEF', displayCode: 'KEF', city: 'Reykjavik', name: 'Keflavik', country: 'İzlanda', countryCode: 'IS', popular: false },
-  { id: 'airport-DUB-Dublin', type: 'airport', code: 'DUB', displayCode: 'DUB', city: 'Dublin', name: 'Dublin', country: 'İrlanda', countryCode: 'IE', popular: true },
-  { id: 'airport-EDI-Edinburgh', type: 'airport', code: 'EDI', displayCode: 'EDI', city: 'Edinburgh', name: 'Edinburgh', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'airport-MAN-Manchester', type: 'airport', code: 'MAN', displayCode: 'MAN', city: 'Manchester', name: 'Manchester', country: 'Birleşik Krallık', countryCode: 'GB', popular: true },
-  { id: 'airport-BHX-Birmingham', type: 'airport', code: 'BHX', displayCode: 'BHX', city: 'Birmingham', name: 'Birmingham', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'airport-GLA-Glasgow', type: 'airport', code: 'GLA', displayCode: 'GLA', city: 'Glasgow', name: 'Glasgow', country: 'Birleşik Krallık', countryCode: 'GB', popular: false },
-  { id: 'city-DXB-Dubai', type: 'city', code: 'DXB', displayCode: 'DXB', city: 'Dubai', name: 'Herhangi biri', country: 'BAE', countryCode: 'AE', popular: true },
-  { id: 'airport-DWC-Dubai', type: 'airport', code: 'DWC', displayCode: 'DWC', city: 'Dubai', name: 'Al Maktoum', country: 'BAE', countryCode: 'AE', popular: false },
-  { id: 'airport-AUH-Abu-Dhabi', type: 'airport', code: 'AUH', displayCode: 'AUH', city: 'Abu Dhabi', name: 'Zayed Uluslararası', country: 'BAE', countryCode: 'AE', popular: true },
-  { id: 'airport-SHJ-Sharjah', type: 'airport', code: 'SHJ', displayCode: 'SHJ', city: 'Sharjah', name: 'Sharjah', country: 'BAE', countryCode: 'AE', popular: false },
-  { id: 'airport-DOH-Doha', type: 'airport', code: 'DOH', displayCode: 'DOH', city: 'Doha', name: 'Hamad', country: 'Katar', countryCode: 'QA', popular: true },
-  { id: 'airport-KWI-Kuveyt', type: 'airport', code: 'KWI', displayCode: 'KWI', city: 'Kuveyt', name: 'Kuwait Intl.', country: 'Kuveyt', countryCode: 'KW', popular: false },
-  { id: 'airport-BAH-Bahreyn', type: 'airport', code: 'BAH', displayCode: 'BAH', city: 'Bahreyn', name: 'Bahrain Intl.', country: 'Bahreyn', countryCode: 'BH', popular: false },
-  { id: 'airport-MCT-Muscat', type: 'airport', code: 'MCT', displayCode: 'MCT', city: 'Muscat', name: 'Muscat Intl.', country: 'Umman', countryCode: 'OM', popular: false },
-  { id: 'airport-TLV-Tel-Aviv', type: 'airport', code: 'TLV', displayCode: 'TLV', city: 'Tel Aviv', name: 'Ben Gurion', country: 'İsrail', countryCode: 'IL', popular: false },
-  { id: 'airport-AMM-Amman', type: 'airport', code: 'AMM', displayCode: 'AMM', city: 'Amman', name: 'Queen Alia', country: 'Ürdün', countryCode: 'JO', popular: false },
-  { id: 'airport-BEY-Beyrut', type: 'airport', code: 'BEY', displayCode: 'BEY', city: 'Beyrut', name: 'Rafic Hariri', country: 'Lübnan', countryCode: 'LB', popular: false },
-  { id: 'airport-RUH-Riyad', type: 'airport', code: 'RUH', displayCode: 'RUH', city: 'Riyad', name: 'King Khalid', country: 'Suudi Arabistan', countryCode: 'SA', popular: false },
-  { id: 'airport-JED-Cidde', type: 'airport', code: 'JED', displayCode: 'JED', city: 'Cidde', name: 'King Abdulaziz', country: 'Suudi Arabistan', countryCode: 'SA', popular: false },
-  { id: 'airport-MED-Medine', type: 'airport', code: 'MED', displayCode: 'MED', city: 'Medine', name: 'Prince Mohammad bin Abdulaziz', country: 'Suudi Arabistan', countryCode: 'SA', popular: false },
-  { id: 'airport-GYD-Bakü', type: 'airport', code: 'GYD', displayCode: 'GYD', city: 'Bakü', name: 'Heydar Aliyev', country: 'Azerbaycan', countryCode: 'AZ', popular: true },
-  { id: 'airport-TBS-Tiflis', type: 'airport', code: 'TBS', displayCode: 'TBS', city: 'Tiflis', name: 'Tbilisi', country: 'Gürcistan', countryCode: 'GE', popular: true },
-  { id: 'airport-KUT-Kutaisi', type: 'airport', code: 'KUT', displayCode: 'KUT', city: 'Kutaisi', name: 'David the Builder', country: 'Gürcistan', countryCode: 'GE', popular: false },
-  { id: 'airport-EVN-Erivan', type: 'airport', code: 'EVN', displayCode: 'EVN', city: 'Erivan', name: 'Zvartnots', country: 'Ermenistan', countryCode: 'AM', popular: false },
-  { id: 'airport-CAI-Kahire', type: 'airport', code: 'CAI', displayCode: 'CAI', city: 'Kahire', name: 'Cairo Intl.', country: 'Mısır', countryCode: 'EG', popular: true },
-  { id: 'airport-HRG-Hurgada', type: 'airport', code: 'HRG', displayCode: 'HRG', city: 'Hurgada', name: 'Hurghada', country: 'Mısır', countryCode: 'EG', popular: false },
-  { id: 'airport-SSH-Şarm-El-Şeyh', type: 'airport', code: 'SSH', displayCode: 'SSH', city: 'Şarm El Şeyh', name: 'Sharm El Sheikh', country: 'Mısır', countryCode: 'EG', popular: false },
-  { id: 'airport-CMN-Kazablanka', type: 'airport', code: 'CMN', displayCode: 'CMN', city: 'Kazablanka', name: 'Mohammed V', country: 'Fas', countryCode: 'MA', popular: false },
-  { id: 'airport-RAK-Marakeş', type: 'airport', code: 'RAK', displayCode: 'RAK', city: 'Marakeş', name: 'Menara', country: 'Fas', countryCode: 'MA', popular: false },
-  { id: 'airport-TUN-Tunus', type: 'airport', code: 'TUN', displayCode: 'TUN', city: 'Tunus', name: 'Carthage', country: 'Tunus', countryCode: 'TN', popular: false },
-  { id: 'airport-ALG-Cezayir', type: 'airport', code: 'ALG', displayCode: 'ALG', city: 'Cezayir', name: 'Houari Boumediene', country: 'Cezayir', countryCode: 'DZ', popular: false },
-  { id: 'airport-NBO-Nairobi', type: 'airport', code: 'NBO', displayCode: 'NBO', city: 'Nairobi', name: 'Jomo Kenyatta', country: 'Kenya', countryCode: 'KE', popular: false },
-  { id: 'airport-CPT-Cape-Town', type: 'airport', code: 'CPT', displayCode: 'CPT', city: 'Cape Town', name: 'Cape Town Intl.', country: 'Güney Afrika', countryCode: 'ZA', popular: false },
-  { id: 'airport-JNB-Johannesburg', type: 'airport', code: 'JNB', displayCode: 'JNB', city: 'Johannesburg', name: 'O.R. Tambo', country: 'Güney Afrika', countryCode: 'ZA', popular: false },
-  { id: 'airport-BKK-Bangkok', type: 'airport', code: 'BKK', displayCode: 'BKK', city: 'Bangkok', name: 'Suvarnabhumi', country: 'Tayland', countryCode: 'TH', popular: true },
-  { id: 'airport-DMK-Bangkok', type: 'airport', code: 'DMK', displayCode: 'DMK', city: 'Bangkok', name: 'Don Mueang', country: 'Tayland', countryCode: 'TH', popular: false },
-  { id: 'airport-HKT-Phuket', type: 'airport', code: 'HKT', displayCode: 'HKT', city: 'Phuket', name: 'Phuket', country: 'Tayland', countryCode: 'TH', popular: true },
-  { id: 'airport-SIN-Singapur', type: 'airport', code: 'SIN', displayCode: 'SIN', city: 'Singapur', name: 'Changi', country: 'Singapur', countryCode: 'SG', popular: true },
-  { id: 'airport-KUL-Kuala-Lumpur', type: 'airport', code: 'KUL', displayCode: 'KUL', city: 'Kuala Lumpur', name: 'KLIA', country: 'Malezya', countryCode: 'MY', popular: false },
-  { id: 'airport-CGK-Cakarta', type: 'airport', code: 'CGK', displayCode: 'CGK', city: 'Cakarta', name: 'Soekarno-Hatta', country: 'Endonezya', countryCode: 'ID', popular: false },
-  { id: 'airport-DPS-Bali', type: 'airport', code: 'DPS', displayCode: 'DPS', city: 'Bali', name: 'Ngurah Rai', country: 'Endonezya', countryCode: 'ID', popular: true },
-  { id: 'airport-MNL-Manila', type: 'airport', code: 'MNL', displayCode: 'MNL', city: 'Manila', name: 'Ninoy Aquino', country: 'Filipinler', countryCode: 'PH', popular: false },
-  { id: 'airport-HAN-Hanoi', type: 'airport', code: 'HAN', displayCode: 'HAN', city: 'Hanoi', name: 'Noi Bai', country: 'Vietnam', countryCode: 'VN', popular: false },
-  { id: 'airport-SGN-Ho-Chi-Minh-City', type: 'airport', code: 'SGN', displayCode: 'SGN', city: 'Ho Chi Minh City', name: 'Tan Son Nhat', country: 'Vietnam', countryCode: 'VN', popular: false },
-  { id: 'airport-HKG-Hong-Kong', type: 'airport', code: 'HKG', displayCode: 'HKG', city: 'Hong Kong', name: 'Hong Kong Intl.', country: 'Hong Kong', countryCode: 'HK', popular: true },
-  { id: 'airport-TPE-Taipei', type: 'airport', code: 'TPE', displayCode: 'TPE', city: 'Taipei', name: 'Taoyuan', country: 'Tayvan', countryCode: 'TW', popular: false },
-  { id: 'airport-NRT-Tokyo', type: 'airport', code: 'NRT', displayCode: 'NRT', city: 'Tokyo', name: 'Narita', country: 'Japonya', countryCode: 'JP', popular: true },
-  { id: 'airport-HND-Tokyo', type: 'airport', code: 'HND', displayCode: 'HND', city: 'Tokyo', name: 'Haneda', country: 'Japonya', countryCode: 'JP', popular: true },
-  { id: 'airport-KIX-Osaka', type: 'airport', code: 'KIX', displayCode: 'KIX', city: 'Osaka', name: 'Kansai', country: 'Japonya', countryCode: 'JP', popular: false },
-  { id: 'airport-ICN-Seul', type: 'airport', code: 'ICN', displayCode: 'ICN', city: 'Seul', name: 'Incheon', country: 'Güney Kore', countryCode: 'KR', popular: true },
-  { id: 'airport-PEK-Pekin', type: 'airport', code: 'PEK', displayCode: 'PEK', city: 'Pekin', name: 'Capital', country: 'Çin', countryCode: 'CN', popular: false },
-  { id: 'airport-PKX-Pekin', type: 'airport', code: 'PKX', displayCode: 'PKX', city: 'Pekin', name: 'Daxing', country: 'Çin', countryCode: 'CN', popular: false },
-  { id: 'airport-PVG-Şanghay', type: 'airport', code: 'PVG', displayCode: 'PVG', city: 'Şanghay', name: 'Pudong', country: 'Çin', countryCode: 'CN', popular: false },
-  { id: 'airport-CAN-Guangzhou', type: 'airport', code: 'CAN', displayCode: 'CAN', city: 'Guangzhou', name: 'Baiyun', country: 'Çin', countryCode: 'CN', popular: false },
-  { id: 'airport-DEL-Delhi', type: 'airport', code: 'DEL', displayCode: 'DEL', city: 'Delhi', name: 'Indira Gandhi', country: 'Hindistan', countryCode: 'IN', popular: false },
-  { id: 'airport-BOM-Mumbai', type: 'airport', code: 'BOM', displayCode: 'BOM', city: 'Mumbai', name: 'Chhatrapati Shivaji', country: 'Hindistan', countryCode: 'IN', popular: false },
-  { id: 'airport-BLR-Bengaluru', type: 'airport', code: 'BLR', displayCode: 'BLR', city: 'Bengaluru', name: 'Kempegowda', country: 'Hindistan', countryCode: 'IN', popular: false },
-  { id: 'airport-MLE-Malé', type: 'airport', code: 'MLE', displayCode: 'MLE', city: 'Malé', name: 'Velana', country: 'Maldivler', countryCode: 'MV', popular: true },
-  { id: 'airport-CMB-Kolombo', type: 'airport', code: 'CMB', displayCode: 'CMB', city: 'Kolombo', name: 'Bandaranaike', country: 'Sri Lanka', countryCode: 'LK', popular: false },
-  { id: 'airport-JFK-New-York', type: 'airport', code: 'JFK', displayCode: 'JFK', city: 'New York', name: 'John F. Kennedy', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-EWR-New-York', type: 'airport', code: 'EWR', displayCode: 'EWR', city: 'New York', name: 'Newark Liberty', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-LGA-New-York', type: 'airport', code: 'LGA', displayCode: 'LGA', city: 'New York', name: 'LaGuardia', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-LAX-Los-Angeles', type: 'airport', code: 'LAX', displayCode: 'LAX', city: 'Los Angeles', name: 'Los Angeles Intl.', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-SFO-San-Francisco', type: 'airport', code: 'SFO', displayCode: 'SFO', city: 'San Francisco', name: 'San Francisco Intl.', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-ORD-Chicago', type: 'airport', code: 'ORD', displayCode: 'ORD', city: 'Chicago', name: 'O’Hare', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-MIA-Miami', type: 'airport', code: 'MIA', displayCode: 'MIA', city: 'Miami', name: 'Miami Intl.', country: 'ABD', countryCode: 'US', popular: true },
-  { id: 'airport-ATL-Atlanta', type: 'airport', code: 'ATL', displayCode: 'ATL', city: 'Atlanta', name: 'Hartsfield-Jackson', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-BOS-Boston', type: 'airport', code: 'BOS', displayCode: 'BOS', city: 'Boston', name: 'Logan', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-DFW-Dallas', type: 'airport', code: 'DFW', displayCode: 'DFW', city: 'Dallas', name: 'Dallas/Fort Worth', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-IAH-Houston', type: 'airport', code: 'IAH', displayCode: 'IAH', city: 'Houston', name: 'George Bush', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-SEA-Seattle', type: 'airport', code: 'SEA', displayCode: 'SEA', city: 'Seattle', name: 'Tacoma', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-LAS-Las-Vegas', type: 'airport', code: 'LAS', displayCode: 'LAS', city: 'Las Vegas', name: 'Harry Reid', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-MCO-Orlando', type: 'airport', code: 'MCO', displayCode: 'MCO', city: 'Orlando', name: 'Orlando Intl.', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-IAD-Washington', type: 'airport', code: 'IAD', displayCode: 'IAD', city: 'Washington', name: 'Dulles', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-DCA-Washington', type: 'airport', code: 'DCA', displayCode: 'DCA', city: 'Washington', name: 'Reagan National', country: 'ABD', countryCode: 'US', popular: false },
-  { id: 'airport-YYZ-Toronto', type: 'airport', code: 'YYZ', displayCode: 'YYZ', city: 'Toronto', name: 'Pearson', country: 'Kanada', countryCode: 'CA', popular: true },
-  { id: 'airport-YUL-Montreal', type: 'airport', code: 'YUL', displayCode: 'YUL', city: 'Montreal', name: 'Trudeau', country: 'Kanada', countryCode: 'CA', popular: false },
-  { id: 'airport-YVR-Vancouver', type: 'airport', code: 'YVR', displayCode: 'YVR', city: 'Vancouver', name: 'Vancouver Intl.', country: 'Kanada', countryCode: 'CA', popular: false },
-  { id: 'airport-MEX-Mexico-City', type: 'airport', code: 'MEX', displayCode: 'MEX', city: 'Mexico City', name: 'Benito Juárez', country: 'Meksika', countryCode: 'MX', popular: false },
-  { id: 'airport-CUN-Cancún', type: 'airport', code: 'CUN', displayCode: 'CUN', city: 'Cancún', name: 'Cancún', country: 'Meksika', countryCode: 'MX', popular: true },
-  { id: 'airport-GRU-São-Paulo', type: 'airport', code: 'GRU', displayCode: 'GRU', city: 'São Paulo', name: 'Guarulhos', country: 'Brezilya', countryCode: 'BR', popular: false },
-  { id: 'airport-GIG-Rio-de-Janeiro', type: 'airport', code: 'GIG', displayCode: 'GIG', city: 'Rio de Janeiro', name: 'Galeão', country: 'Brezilya', countryCode: 'BR', popular: false },
-  { id: 'airport-EZE-Buenos-Aires', type: 'airport', code: 'EZE', displayCode: 'EZE', city: 'Buenos Aires', name: 'Ezeiza', country: 'Arjantin', countryCode: 'AR', popular: false },
-  { id: 'airport-SCL-Santiago', type: 'airport', code: 'SCL', displayCode: 'SCL', city: 'Santiago', name: 'Arturo Merino Benítez', country: 'Şili', countryCode: 'CL', popular: false },
-  { id: 'airport-BOG-Bogotá', type: 'airport', code: 'BOG', displayCode: 'BOG', city: 'Bogotá', name: 'El Dorado', country: 'Kolombiya', countryCode: 'CO', popular: false },
-  { id: 'airport-LIM-Lima', type: 'airport', code: 'LIM', displayCode: 'LIM', city: 'Lima', name: 'Jorge Chávez', country: 'Peru', countryCode: 'PE', popular: false },
-  { id: 'airport-SYD-Sidney', type: 'airport', code: 'SYD', displayCode: 'SYD', city: 'Sidney', name: 'Kingsford Smith', country: 'Avustralya', countryCode: 'AU', popular: true },
-  { id: 'airport-MEL-Melbourne', type: 'airport', code: 'MEL', displayCode: 'MEL', city: 'Melbourne', name: 'Tullamarine', country: 'Avustralya', countryCode: 'AU', popular: false },
-  { id: 'airport-BNE-Brisbane', type: 'airport', code: 'BNE', displayCode: 'BNE', city: 'Brisbane', name: 'Brisbane', country: 'Avustralya', countryCode: 'AU', popular: false },
-  { id: 'airport-PER-Perth', type: 'airport', code: 'PER', displayCode: 'PER', city: 'Perth', name: 'Perth', country: 'Avustralya', countryCode: 'AU', popular: false },
-  { id: 'airport-AKL-Auckland', type: 'airport', code: 'AKL', displayCode: 'AKL', city: 'Auckland', name: 'Auckland Intl.', country: 'Yeni Zelanda', countryCode: 'NZ', popular: false },
+export const GLOBAL_LOCATIONS: LocationItem[] = [
+  { id: "ANY", name: "Tüm dünyayı keşfedin", type: "anywhere", code: "" },
+  
+  // Türkiye
+  { id: "TR", name: "Türkiye", type: "country", code: "TR" },
+  { id: "IST", name: "İstanbul", type: "city", countryName: "Türkiye", code: "IST" },
+  { id: "SAW", name: "Sabiha Gökçen", type: "city", countryName: "Türkiye", code: "SAW" },
+  { id: "AYT", name: "Antalya", type: "city", countryName: "Türkiye", code: "AYT" },
+  { id: "ESB", name: "Ankara", type: "city", countryName: "Türkiye", code: "ESB" },
+  { id: "ADB", name: "İzmir", type: "city", countryName: "Türkiye", code: "ADB" },
+  { id: "ADA", name: "Adana", type: "city", countryName: "Türkiye", code: "ADA" },
+  { id: "TZX", name: "Trabzon", type: "city", countryName: "Türkiye", code: "TZX" },
+
+  // Avrupa (Kapsamlı)
+  { id: "GR", name: "Yunanistan", type: "country", code: "GR" },
+  { id: "ATH", name: "Atina", type: "city", countryName: "Yunanistan", code: "ATH" },
+  { id: "SKG", name: "Selanik", type: "city", countryName: "Yunanistan", code: "SKG" },
+  { id: "JTR", name: "Santorini", type: "city", countryName: "Yunanistan", code: "JTR" },
+  { id: "JMK", name: "Mikonos", type: "city", countryName: "Yunanistan", code: "JMK" },
+
+  { id: "BG", name: "Bulgaristan", type: "country", code: "BG" },
+  { id: "SOF", name: "Sofya", type: "city", countryName: "Bulgaristan", code: "SOF" },
+  
+  { id: "RO", name: "Romanya", type: "country", code: "RO" },
+  { id: "OTP", name: "Bükreş", type: "city", countryName: "Romanya", code: "OTP" },
+  
+  { id: "MK", name: "Kuzey Makedonya", type: "country", code: "MK" },
+  { id: "SKP", name: "Üsküp", type: "city", countryName: "Kuzey Makedonya", code: "SKP" },
+  
+  { id: "AL", name: "Arnavutluk", type: "country", code: "AL" },
+  { id: "TIA", name: "Tiran", type: "city", countryName: "Arnavutluk", code: "TIA" },
+  
+  { id: "XK", name: "Kosova", type: "country", code: "XK" },
+  { id: "PRN", name: "Priştine", type: "city", countryName: "Kosova", code: "PRN" },
+
+  { id: "CY", name: "Kıbrıs", type: "country", code: "CY" },
+  { id: "LCA", name: "Larnaka", type: "city", countryName: "Kıbrıs", code: "LCA" },
+  { id: "ECN", name: "Lefkoşa (Ercan)", type: "city", countryName: "KKTC", code: "ECN" },
+
+  { id: "IT", name: "İtalya", type: "country", code: "IT" },
+  { id: "ROM", name: "Roma", type: "city", countryName: "İtalya", code: "ROM" },
+  { id: "MIL", name: "Milano", type: "city", countryName: "İtalya", code: "MIL" },
+  { id: "VCE", name: "Venedik", type: "city", countryName: "İtalya", code: "VCE" },
+  { id: "NAP", name: "Napoli", type: "city", countryName: "İtalya", code: "NAP" },
+
+  { id: "FR", name: "Fransa", type: "country", code: "FR" },
+  { id: "PAR", name: "Paris", type: "city", countryName: "Fransa", code: "PAR" },
+  { id: "NCE", name: "Nice", type: "city", countryName: "Fransa", code: "NCE" },
+  { id: "MRS", name: "Marsilya", type: "city", countryName: "Fransa", code: "MRS" },
+
+  { id: "DE", name: "Almanya", type: "country", code: "DE" },
+  { id: "BER", name: "Berlin", type: "city", countryName: "Almanya", code: "BER" },
+  { id: "MUC", name: "Münih", type: "city", countryName: "Almanya", code: "MUC" },
+  { id: "FRA", name: "Frankfurt", type: "city", countryName: "Almanya", code: "FRA" },
+  { id: "DUS", name: "Düsseldorf", type: "city", countryName: "Almanya", code: "DUS" },
+  { id: "HAM", name: "Hamburg", type: "city", countryName: "Almanya", code: "HAM" },
+
+  { id: "ES", name: "İspanya", type: "country", code: "ES" },
+  { id: "MAD", name: "Madrid", type: "city", countryName: "İspanya", code: "MAD" },
+  { id: "BCN", name: "Barselona", type: "city", countryName: "İspanya", code: "BCN" },
+  { id: "AGP", name: "Malaga", type: "city", countryName: "İspanya", code: "AGP" },
+
+  { id: "NL", name: "Hollanda", type: "country", code: "NL" },
+  { id: "AMS", name: "Amsterdam", type: "city", countryName: "Hollanda", code: "AMS" },
+
+  { id: "BE", name: "Belçika", type: "country", code: "BE" },
+  { id: "BRU", name: "Brüksel", type: "city", countryName: "Belçika", code: "BRU" },
+
+  { id: "GB", name: "Birleşik Krallık", type: "country", code: "GB" },
+  { id: "LON", name: "Londra", type: "city", countryName: "Birleşik Krallık", code: "LON" },
+  { id: "MAN", name: "Manchester", type: "city", countryName: "Birleşik Krallık", code: "MAN" },
+
+  { id: "CH", name: "İsviçre", type: "country", code: "CH" },
+  { id: "ZRH", name: "Zürih", type: "city", countryName: "İsviçre", code: "ZRH" },
+  { id: "GVA", name: "Cenevre", type: "city", countryName: "İsviçre", code: "GVA" },
+
+  { id: "AT", name: "Avusturya", type: "country", code: "AT" },
+  { id: "VIE", name: "Viyana", type: "city", countryName: "Avusturya", code: "VIE" },
+
+  { id: "CZ", name: "Çekya", type: "country", code: "CZ" },
+  { id: "PRG", name: "Prag", type: "city", countryName: "Çekya", code: "PRG" },
+
+  { id: "HU", name: "Macaristan", type: "country", code: "HU" },
+  { id: "BUD", name: "Budapeşte", type: "city", countryName: "Macaristan", code: "BUD" },
+
+  { id: "PL", name: "Polonya", type: "country", code: "PL" },
+  { id: "WAW", name: "Varşova", type: "city", countryName: "Polonya", code: "WAW" },
+
+  { id: "SE", name: "İsveç", type: "country", code: "SE" },
+  { id: "STO", name: "Stokholm", type: "city", countryName: "İsveç", code: "STO" },
+
+  { id: "NO", name: "Norveç", type: "country", code: "NO" },
+  { id: "OSL", name: "Oslo", type: "city", countryName: "Norveç", code: "OSL" },
+
+  { id: "DK", name: "Danimarka", type: "country", code: "DK" },
+  { id: "CPH", name: "Kopenhag", type: "city", countryName: "Danimarka", code: "CPH" },
+
+  { id: "FI", name: "Finlandiya", type: "country", code: "FI" },
+  { id: "HEL", name: "Helsinki", type: "city", countryName: "Finlandiya", code: "HEL" },
+
+  { id: "RS", name: "Sırbistan", type: "country", code: "RS" },
+  { id: "BEG", name: "Belgrad", type: "city", countryName: "Sırbistan", code: "BEG" },
+
+  { id: "BA", name: "Bosna Hersek", type: "country", code: "BA" },
+  { id: "SJJ", name: "Saraybosna", type: "city", countryName: "Bosna Hersek", code: "SJJ" },
+
+  { id: "ME", name: "Karadağ", type: "country", code: "ME" },
+  { id: "TGD", name: "Podgoritsa", type: "city", countryName: "Karadağ", code: "TGD" },
+  { id: "TIV", name: "Tivat", type: "city", countryName: "Karadağ", code: "TIV" },
+
+  // Asya & Orta Doğu
+  { id: "AZ", name: "Azerbaycan", type: "country", code: "AZ" },
+  { id: "GYD", name: "Bakü", type: "city", countryName: "Azerbaycan", code: "GYD" },
+  
+  { id: "GE", name: "Gürcistan", type: "country", code: "GE" },
+  { id: "TBS", name: "Tiflis", type: "city", countryName: "Gürcistan", code: "TBS" },
+  { id: "BUS", name: "Batum", type: "city", countryName: "Gürcistan", code: "BUS" },
+
+  { id: "AE", name: "Birleşik Arap Emirlikleri", type: "country", code: "AE" },
+  { id: "DXB", name: "Dubai", type: "city", countryName: "B.A.E.", code: "DXB" },
+  { id: "AUH", name: "Abu Dabi", type: "city", countryName: "B.A.E.", code: "AUH" },
+
+  { id: "QA", name: "Katar", type: "country", code: "QA" },
+  { id: "DOH", name: "Doha", type: "city", countryName: "Katar", code: "DOH" },
+
+  { id: "SA", name: "Suudi Arabistan", type: "country", code: "SA" },
+  { id: "RUH", name: "Riyad", type: "city", countryName: "Suudi Arabistan", code: "RUH" },
+  { id: "JED", name: "Cidde", type: "city", countryName: "Suudi Arabistan", code: "JED" },
+
+  { id: "IL", name: "İsrail", type: "country", code: "IL" },
+  { id: "TLV", name: "Tel Aviv", type: "city", countryName: "İsrail", code: "TLV" },
+
+  { id: "JP", name: "Japonya", type: "country", code: "JP" },
+  { id: "TYO", name: "Tokyo", type: "city", countryName: "Japonya", code: "TYO" },
+
+  { id: "KR", name: "Güney Kore", type: "country", code: "KR" },
+  { id: "SEL", name: "Seul", type: "city", countryName: "Güney Kore", code: "SEL" },
+
+  { id: "CN", name: "Çin", type: "country", code: "CN" },
+  { id: "BJS", name: "Pekin", type: "city", countryName: "Çin", code: "BJS" },
+  { id: "SHA", name: "Şanghay", type: "city", countryName: "Çin", code: "SHA" },
+
+  { id: "IN", name: "Hindistan", type: "country", code: "IN" },
+  { id: "DEL", name: "Yeni Delhi", type: "city", countryName: "Hindistan", code: "DEL" },
+  { id: "BOM", name: "Mumbai", type: "city", countryName: "Hindistan", code: "BOM" },
+
+  { id: "TH", name: "Tayland", type: "country", code: "TH" },
+  { id: "BKK", name: "Bangkok", type: "city", countryName: "Tayland", code: "BKK" },
+  { id: "HKT", name: "Phuket", type: "city", countryName: "Tayland", code: "HKT" },
+
+  { id: "ID", name: "Endonezya", type: "country", code: "ID" },
+  { id: "DPS", name: "Bali", type: "city", countryName: "Endonezya", code: "DPS" },
+  { id: "JKT", name: "Cakarta", type: "city", countryName: "Endonezya", code: "JKT" },
+
+  { id: "SG", name: "Singapur", type: "country", code: "SG" },
+  { id: "SIN", name: "Singapur", type: "city", countryName: "Singapur", code: "SIN" },
+
+  { id: "MY", name: "Malezya", type: "country", code: "MY" },
+  { id: "KUL", name: "Kuala Lumpur", type: "city", countryName: "Malezya", code: "KUL" },
+
+  // Afrika
+  { id: "EG", name: "Mısır", type: "country", code: "EG" },
+  { id: "CAI", name: "Kahire", type: "city", countryName: "Mısır", code: "CAI" },
+  { id: "SSH", name: "Şarm El-Şeyh", type: "city", countryName: "Mısır", code: "SSH" },
+  
+  { id: "MA", name: "Fas", type: "country", code: "MA" },
+  { id: "CMN", name: "Kazablanka", type: "city", countryName: "Fas", code: "CMN" },
+  { id: "RAK", name: "Marakeş", type: "city", countryName: "Fas", code: "RAK" },
+
+  { id: "ZA", name: "Güney Afrika", type: "country", code: "ZA" },
+  { id: "CPT", name: "Cape Town", type: "city", countryName: "Güney Afrika", code: "CPT" },
+
+  // Amerika Kıtası
+  { id: "US", name: "Amerika Birleşik Devletleri", type: "country", code: "US" },
+  { id: "NYC", name: "New York", type: "city", countryName: "ABD", code: "NYC" },
+  { id: "LAX", name: "Los Angeles", type: "city", countryName: "ABD", code: "LAX" },
+  { id: "MIA", name: "Miami", type: "city", countryName: "ABD", code: "MIA" },
+  { id: "SFO", name: "San Francisco", type: "city", countryName: "ABD", code: "SFO" },
+  { id: "WAS", name: "Washington", type: "city", countryName: "ABD", code: "WAS" },
+
+  { id: "CA", name: "Kanada", type: "country", code: "CA" },
+  { id: "YTO", name: "Toronto", type: "city", countryName: "Kanada", code: "YTO" },
+  { id: "YVR", name: "Vancouver", type: "city", countryName: "Kanada", code: "YVR" },
+
+  { id: "MX", name: "Meksika", type: "country", code: "MX" },
+  { id: "MEX", name: "Mexico City", type: "city", countryName: "Meksika", code: "MEX" },
+  { id: "CUN", name: "Cancun", type: "city", countryName: "Meksika", code: "CUN" },
+
+  { id: "BR", name: "Brezilya", type: "country", code: "BR" },
+  { id: "SAO", name: "Sao Paulo", type: "city", countryName: "Brezilya", code: "SAO" },
+  { id: "RIO", name: "Rio de Janeiro", type: "city", countryName: "Brezilya", code: "RIO" },
+
+  { id: "AR", name: "Arjantin", type: "country", code: "AR" },
+  { id: "BUE", name: "Buenos Aires", type: "city", countryName: "Arjantin", code: "BUE" },
+
+  { id: "CO", name: "Kolombiya", type: "country", code: "CO" },
+  { id: "BOG", name: "Bogota", type: "city", countryName: "Kolombiya", code: "BOG" },
+
+  // Okyanusya
+  { id: "AU", name: "Avustralya", type: "country", code: "AU" },
+  { id: "SYD", name: "Sidney", type: "city", countryName: "Avustralya", code: "SYD" },
+  { id: "MEL", name: "Melbourne", type: "city", countryName: "Avustralya", code: "MEL" },
+
+  { id: "NZ", name: "Yeni Zelanda", type: "country", code: "NZ" },
+  { id: "AKL", name: "Auckland", type: "city", countryName: "Yeni Zelanda", code: "AKL" }
 ];
-
-
-export function normalizeAirportText(value: string) {
-  return value
-    .toLocaleLowerCase("tr-TR")
-    .replaceAll("ı", "i")
-    .replaceAll("ğ", "g")
-    .replaceAll("ü", "u")
-    .replaceAll("ş", "s")
-    .replaceAll("ö", "o")
-    .replaceAll("ç", "c")
-    .replaceAll("â", "a")
-    .replaceAll("î", "i")
-    .replaceAll("û", "u");
-}
-
-export function airportLabel(option: AirportOption) {
-  if (option.type === "country") return `${option.city} (${option.displayCode})`;
-  if (option.type === "city") return `${option.city} (${option.displayCode})`;
-  return `${option.city} ${option.name} (${option.displayCode})`;
-}
-
-export function getAirportByCode(code: string) {
-  const normalized = code?.toUpperCase();
-  return AIRPORT_OPTIONS.find((item) => item.code === normalized || item.displayCode === normalized);
-}
-
-export function getAirportDisplay(code: string) {
-  const item = getAirportByCode(code);
-  return item ? airportLabel(item) : code;
-}
-
-export function airportSearchHaystack(option: AirportOption) {
-  return normalizeAirportText(`${option.city} ${option.name} ${option.country} ${option.countryCode} ${option.code} ${option.displayCode}`);
-}

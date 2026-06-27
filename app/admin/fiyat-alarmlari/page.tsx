@@ -1,577 +1,184 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
+import { BellRing, Trash2, Search, Filter } from "lucide-react";
 
-type FiyatAlarmi = {
-  id: number;
-  email: string;
-  nereden: string;
-  nereye: string;
-  maksimumFiyat: number;
-  gidisTarihi: string;
-  donusTarihi: string;
-  yolcu: string;
-  durum: string;
-  notlar: string;
-  createdAt: string;
-};
+type Subscriber = { id: string; email: string; created_at?: string; origin_label?: string; destination_label?: string; target_price?: number; is_active?: boolean };
 
-type AramaKaydi = {
-  id: number;
-  nereden: string;
-  nereye: string;
-  gidisTarihi: string;
-  donusTarihi: string;
-  yolcu: string;
-  vize: string;
-  kategori: string;
-  aktarma: string;
-  maksimumFiyat: number;
-  sonucSayisi: number;
-  createdAt: string;
-};
-
-const durumlar = ["Yeni", "Takipte", "Bilgilendirildi", "Kapatıldı"];
-
-function fiyatYaz(fiyat: number) {
-  return `${new Intl.NumberFormat("tr-TR").format(fiyat || 0)} TL`;
-}
-
-function tarihYaz(tarih: string) {
-  if (!tarih) return "—";
-
-  try {
-    return new Intl.DateTimeFormat("tr-TR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(tarih));
-  } catch {
-    return tarih;
-  }
-}
-
-export default function FiyatAlarmlariPage() {
-  const [girisYapildi, setGirisYapildi] = useState(false);
-  const [sifre, setSifre] = useState("");
-  const [alarmlar, setAlarmlar] = useState<FiyatAlarmi[]>([]);
-  const [aramalar, setAramalar] = useState<AramaKaydi[]>([]);
-  const [yukleniyor, setYukleniyor] = useState(false);
-  const [hata, setHata] = useState("");
-  const [mesaj, setMesaj] = useState("");
-  const [durumFiltresi, setDurumFiltresi] = useState("Tümü");
-  const [arama, setArama] = useState("");
-
-  async function verileriYukle(sifreDegeri: string) {
-    setYukleniyor(true);
-    setHata("");
-
-    try {
-      const response = await fetch("/api/admin/fiyat-alarmlari", {
-        headers: {
-          "x-admin-password": sifreDegeri,
-        },
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Veriler alınamadı.");
-      }
-
-      setAlarmlar(data.alarmlar || []);
-      setAramalar(data.aramalar || []);
-      return true;
-    } catch (error) {
-      const mesaj =
-        error instanceof Error ? error.message : "Bir hata oluştu.";
-      setHata(mesaj);
-      return false;
-    } finally {
-      setYukleniyor(false);
-    }
-  }
+export default function PriceAlertsAdminPage() {
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   useEffect(() => {
-    const kayitliSifre = localStorage.getItem("letsgo-admin-password");
-
-    if (kayitliSifre) {
-      setSifre(kayitliSifre);
-      verileriYukle(kayitliSifre).then((basarili) => {
-        if (basarili) setGirisYapildi(true);
-      });
-    }
+    load();
   }, []);
 
-  async function girisYap(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    const basarili = await verileriYukle(sifre);
-
-    if (basarili) {
-      setGirisYapildi(true);
-      localStorage.setItem("letsgo-admin-password", sifre);
-    } else {
-      setHata("Şifre yanlış olabilir.");
-    }
-  }
-
-  async function alarmGuncelle(
-    alarm: FiyatAlarmi,
-    yeniDurum: string,
-    yeniNotlar?: string
-  ) {
-    setYukleniyor(true);
-    setHata("");
-    setMesaj("");
-
+  async function load() {
+    setIsLoading(true);
+    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
-      const response = await fetch(`/api/admin/fiyat-alarmlari/${alarm.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": sifre,
-        },
-        body: JSON.stringify({
-          durum: yeniDurum,
-          notlar: yeniNotlar ?? alarm.notlar,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Alarm güncellenemedi.");
-      }
-
-      await verileriYukle(sifre);
-      setMesaj("Fiyat alarmı güncellendi.");
-      setTimeout(() => setMesaj(""), 2200);
-    } catch (error) {
-      const mesaj =
-        error instanceof Error ? error.message : "Bir hata oluştu.";
-      setHata(mesaj);
+      const response = await fetch("/api/admin/fiyat-alarmlari", { headers: { "x-admin-password": legacyPass } });
+      const data = (await response.json()) as { data?: Subscriber[]; error?: string };
+      setSubscribers(data.data || []);
+      if (data.error) setMessage(data.error);
+    } catch (e) {
+      setMessage("Veriler yüklenirken bir hata oluştu.");
     } finally {
-      setYukleniyor(false);
+      setIsLoading(false);
     }
   }
 
-  async function alarmSil(id: number) {
-    const eminMi = confirm("Bu fiyat alarmını silmek istediğine emin misin?");
-    if (!eminMi) return;
-
-    setYukleniyor(true);
-    setHata("");
-
+  async function handleDelete(id: string) {
+    if (!window.confirm("Bu alarmı silmek istediğinize emin misiniz?")) return;
+    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
-      const response = await fetch(`/api/admin/fiyat-alarmlari/${id}`, {
+      const res = await fetch("/api/admin/fiyat-alarmlari", {
         method: "DELETE",
-        headers: {
-          "x-admin-password": sifre,
-        },
+        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        body: JSON.stringify({ id })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Alarm silinemedi.");
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Silme işlemi başarısız.");
+      } else {
+        setSubscribers(prev => prev.filter(s => s.id !== id));
+        setMessage("Kayıt başarıyla silindi.");
       }
-
-      await verileriYukle(sifre);
-      setMesaj("Fiyat alarmı silindi.");
-      setTimeout(() => setMesaj(""), 2200);
-    } catch (error) {
-      const mesaj =
-        error instanceof Error ? error.message : "Bir hata oluştu.";
-      setHata(mesaj);
-    } finally {
-      setYukleniyor(false);
+    } catch (e) {
+      setMessage("Silme işlemi başarısız (bağlantı hatası).");
     }
   }
 
-  const filtrelenmisAlarmlar = useMemo(() => {
-    return alarmlar.filter((alarm) => {
-      const metin = `${alarm.email} ${alarm.nereden} ${alarm.nereye} ${alarm.durum}`.toLocaleLowerCase(
-        "tr-TR"
-      );
-
-      const aramaUyuyor = metin.includes(arama.toLocaleLowerCase("tr-TR"));
-      const durumUyuyor =
-        durumFiltresi === "Tümü" || alarm.durum === durumFiltresi;
-
-      return aramaUyuyor && durumUyuyor;
-    });
-  }, [alarmlar, arama, durumFiltresi]);
-
-  const popülerRotalar = useMemo(() => {
-    const sayac = new Map<string, number>();
-
-    aramalar.forEach((kayit) => {
-      const rota = `${kayit.nereden || "Tümü"} → ${kayit.nereye || "Tümü"}`;
-      sayac.set(rota, (sayac.get(rota) || 0) + 1);
-    });
-
-    return Array.from(sayac.entries())
-      .map(([rota, adet]) => ({ rota, adet }))
-      .sort((a, b) => b.adet - a.adet)
-      .slice(0, 8);
-  }, [aramalar]);
-
-  const istatistik = useMemo(() => {
-    const yeni = alarmlar.filter((alarm) => alarm.durum === "Yeni").length;
-    const takipte = alarmlar.filter((alarm) => alarm.durum === "Takipte").length;
-    const kapali = alarmlar.filter(
-      (alarm) => alarm.durum === "Kapatıldı"
-    ).length;
-
-    const ortalamaMaksimum = alarmlar.length
-      ? Math.round(
-          alarmlar.reduce(
-            (toplam, alarm) => toplam + Number(alarm.maksimumFiyat || 0),
-            0
-          ) / alarmlar.length
-        )
-      : 0;
-
-    return {
-      toplamAlarm: alarmlar.length,
-      yeni,
-      takipte,
-      kapali,
-      toplamArama: aramalar.length,
-      ortalamaMaksimum,
-    };
-  }, [alarmlar, aramalar]);
-
-  if (!girisYapildi) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5">
-        <form
-          onSubmit={girisYap}
-          className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
-        >
-          <img
-            src="/logo.png"
-            alt="Letsgo 2 Travel"
-            className="mx-auto h-24 w-auto"
-          />
-
-          <h1 className="mt-6 text-center text-3xl font-black">
-            Fiyat Alarmları
-          </h1>
-
-          <p className="mt-2 text-center text-slate-500">
-            Kullanıcı talepleri ve arama istatistikleri.
-          </p>
-
-          <label className="mt-8 block text-sm font-black text-slate-600">
-            Admin şifresi
-          </label>
-
-          <input
-            value={sifre}
-            onChange={(e) => setSifre(e.target.value)}
-            type="password"
-            className="mt-2 w-full rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-          />
-
-          {hata && (
-            <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-600">
-              {hata}
-            </p>
-          )}
-
-          <button
-            disabled={yukleniyor}
-            className="mt-5 w-full rounded-xl bg-yellow-400 px-5 py-3 font-black text-slate-950 disabled:opacity-60"
-          >
-            {yukleniyor ? "Kontrol ediliyor..." : "Giriş Yap"}
-          </button>
-        </form>
-      </main>
-    );
+  async function handleToggleStatus(id: string, currentStatus: boolean) {
+    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
+    const newStatus = !currentStatus;
+    try {
+      const res = await fetch("/api/admin/fiyat-alarmlari", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        body: JSON.stringify({ id, is_active: newStatus })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Güncelleme başarısız.");
+      } else {
+        setSubscribers(prev => prev.map(s => s.id === id ? { ...s, is_active: newStatus } : s));
+      }
+    } catch (e) {
+      setMessage("Güncelleme başarısız (bağlantı hatası).");
+    }
   }
+
+  const filteredSubscribers = subscribers.filter(s => {
+    const statusVal = s.is_active ? "aktif" : "pasif";
+    if (filterStatus !== "all" && statusVal !== filterStatus) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return s.email?.toLowerCase().includes(q) || s.origin_label?.toLowerCase().includes(q) || s.destination_label?.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <a href="/admin" className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="Letsgo 2 Travel"
-              className="h-14 w-auto"
-            />
+    <section className="l2t-page l2t-wrap" style={{ minHeight: "80vh", padding: "40px 0" }}>
+      <div className="l2t-page-head" style={{ marginBottom: "40px" }}>
+        <a href="/admin" style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--l2t-soft)", textDecoration: "none", marginBottom: "16px", fontWeight: "600", fontSize: "0.95rem" }} className="hover-tilt">
+          ← Admin Paneline Dön
+        </a>
+        <p className="l2t-kicker">Kullanıcı Bildirimleri</p>
+        <h1 style={{ fontSize: "2.5rem", color: "var(--l2t-navy)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
+          <BellRing size={36} color="#d97706" /> Fiyat Alarmları
+        </h1>
+        <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Kullanıcıların fiyat alarmlarını ve rotalarını yönet.</p>
+      </div>
 
-            <div>
-              <h1 className="text-xl font-black">Fiyat Alarmları V5</h1>
-              <p className="text-sm text-slate-500">
-                Kullanıcı talepleri ve arama analizleri
-              </p>
+      <div className="glass-panel" style={{ background: "#fff", borderRadius: "24px", overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.05)" }}>
+        <div style={{ padding: "24px 32px", borderBottom: "1px solid var(--l2t-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+          <h2 style={{ margin: 0, fontSize: "1.3rem", color: "var(--l2t-navy)" }}>Kayıtlı Alarmlar ({subscribers.length})</h2>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <Search size={16} color="var(--l2t-muted)" style={{ position: "absolute", left: "12px" }} />
+              <input 
+                placeholder="E-posta veya rota ara..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ padding: "10px 10px 10px 36px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", width: "220px" }} 
+              />
             </div>
-          </a>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => verileriYukle(sifre)}
-              className="rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-slate-950"
+            <select 
+              value={filterStatus} 
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ padding: "10px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", background: "#fff", color: "var(--l2t-navy)", fontWeight: "600", outline: "none" }}
             >
-              Yenile
-            </button>
-
-            <a
-              href="/admin"
-              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
-            >
-              Admin Panel
-            </a>
-
-            <a
-              href="/"
-              className="rounded-xl bg-slate-200 px-4 py-3 text-sm font-black"
-            >
-              Siteyi Gör
-            </a>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-5 py-8">
-        <div className="grid gap-4 md:grid-cols-5">
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Toplam alarm</p>
-            <p className="mt-2 text-4xl font-black">
-              {istatistik.toplamAlarm}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Yeni</p>
-            <p className="mt-2 text-4xl font-black">{istatistik.yeni}</p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Takipte</p>
-            <p className="mt-2 text-4xl font-black">{istatistik.takipte}</p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <p className="text-sm font-black text-slate-500">Arama kaydı</p>
-            <p className="mt-2 text-4xl font-black">
-              {istatistik.toplamArama}
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-slate-950 p-6 text-white shadow">
-            <p className="text-sm font-black text-slate-400">
-              Ortalama hedef fiyat
-            </p>
-            <p className="mt-2 text-3xl font-black">
-              {fiyatYaz(istatistik.ortalamaMaksimum)}
-            </p>
-          </div>
-        </div>
-
-        {(hata || mesaj) && (
-          <div className="mt-5">
-            {hata && (
-              <p className="rounded-2xl bg-red-50 p-4 font-bold text-red-600">
-                {hata}
-              </p>
-            )}
-
-            {mesaj && (
-              <p className="rounded-2xl bg-green-50 p-4 font-bold text-green-700">
-                {mesaj}
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[1fr_420px]">
-        <div className="rounded-3xl bg-white p-6 shadow">
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-2xl font-black">Fiyat Alarmı Talepleri</h2>
-              <p className="text-sm text-slate-500">
-                Kullanıcıların istediği rotaları ve hedef fiyatları buradan takip et.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-5 grid gap-3 md:grid-cols-3">
-            <input
-              value={arama}
-              onChange={(e) => setArama(e.target.value)}
-              placeholder="E-posta, rota veya durum ara..."
-              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400 md:col-span-2"
-            />
-
-            <select
-              value={durumFiltresi}
-              onChange={(e) => setDurumFiltresi(e.target.value)}
-              className="rounded-xl border px-4 py-3 outline-none focus:border-yellow-400"
-            >
-              <option>Tümü</option>
-              {durumlar.map((durum) => (
-                <option key={durum}>{durum}</option>
-              ))}
+              <option value="all">Tümü</option>
+              <option value="aktif">Aktif</option>
+              <option value="pasif">Pasif</option>
             </select>
           </div>
-
-          <div className="grid gap-4">
-            {filtrelenmisAlarmlar.map((alarm) => (
-              <article
-                key={alarm.id}
-                className="rounded-2xl border bg-slate-50 p-4"
-              >
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-black text-yellow-800">
-                        {alarm.durum}
-                      </span>
-
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
-                        {tarihYaz(alarm.createdAt)}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-3 text-xl font-black">
-                      {alarm.nereden} → {alarm.nereye}
-                    </h3>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      {alarm.email} · {alarm.yolcu} yolcu
-                    </p>
-
-                    <p className="mt-3 text-3xl font-black">
-                      Hedef: {fiyatYaz(alarm.maksimumFiyat)}
-                    </p>
-
-                    <p className="mt-2 text-sm text-slate-600">
-                      Gidiş: {alarm.gidisTarihi || "Seçilmedi"} · Dönüş:{" "}
-                      {alarm.donusTarihi || "Seçilmedi"}
-                    </p>
-
-                    {alarm.notlar && (
-                      <p className="mt-3 rounded-2xl bg-white p-3 text-sm font-bold text-slate-600">
-                        Not: {alarm.notlar}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2 xl:min-w-80">
-                    {durumlar.map((durum) => (
-                      <button
-                        key={durum}
-                        onClick={() => alarmGuncelle(alarm, durum)}
-                        className={
-                          alarm.durum === durum
-                            ? "rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
-                            : "rounded-xl bg-slate-200 px-4 py-3 text-sm font-black"
-                        }
-                      >
-                        {durum}
-                      </button>
-                    ))}
-
-                    <button
-                      onClick={() => {
-                        const yeniNot = prompt(
-                          "Bu alarm için not yaz:",
-                          alarm.notlar || ""
-                        );
-
-                        if (yeniNot !== null) {
-                          alarmGuncelle(alarm, alarm.durum, yeniNot);
-                        }
-                      }}
-                      className="rounded-xl border px-4 py-3 text-sm font-black"
-                    >
-                      Not Ekle
-                    </button>
-
-                    <button
-                      onClick={() => alarmSil(alarm.id)}
-                      className="rounded-xl bg-red-100 px-4 py-3 text-sm font-black text-red-600"
-                    >
-                      Sil
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-
-            {filtrelenmisAlarmlar.length === 0 && (
-              <div className="rounded-2xl bg-slate-100 p-8 text-center">
-                <p className="font-black">Fiyat alarmı bulunamadı.</p>
-              </div>
-            )}
-          </div>
         </div>
 
-        <aside className="grid h-fit gap-6">
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <h2 className="text-2xl font-black">Popüler Aramalar</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Kullanıcıların en çok aradığı rotalar.
-            </p>
+        {message && <div style={{ padding: "16px 32px", background: "#fee2e2", color: "#991b1b", borderBottom: "1px solid var(--l2t-border)" }}>{message}</div>}
 
-            <div className="mt-5 grid gap-3">
-              {popülerRotalar.map((rota) => (
-                <div
-                  key={rota.rota}
-                  className="rounded-2xl bg-slate-100 p-4"
-                >
-                  <div className="flex justify-between gap-3">
-                    <p className="font-black">{rota.rota}</p>
-                    <p className="font-black text-yellow-700">
-                      {rota.adet} kez
-                    </p>
-                  </div>
-                </div>
-              ))}
-
-              {popülerRotalar.length === 0 && (
-                <p className="text-sm text-slate-500">
-                  Henüz arama kaydı yok.
-                </p>
+        <div className="l2t-table-wrap" style={{ border: "none", boxShadow: "none", borderRadius: 0, margin: 0 }}>
+          <table className="l2t-table" style={{ minWidth: "900px", width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                <th style={{ padding: "16px 32px", color: "var(--l2t-soft)", fontWeight: "600" }}>Kullanıcı (E-posta)</th>
+                <th style={{ padding: "16px", color: "var(--l2t-soft)", fontWeight: "600" }}>Rota</th>
+                <th style={{ padding: "16px", color: "var(--l2t-soft)", fontWeight: "600" }}>Hedef Fiyat</th>
+                <th style={{ padding: "16px", color: "var(--l2t-soft)", fontWeight: "600" }}>Tarih</th>
+                <th style={{ padding: "16px", color: "var(--l2t-soft)", fontWeight: "600" }}>Durum</th>
+                <th style={{ padding: "16px 32px", textAlign: "right", color: "var(--l2t-soft)", fontWeight: "600" }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "var(--l2t-soft)" }}>
+                    <div style={{ display: "inline-block", width: "24px", height: "24px", border: "2px solid var(--l2t-blue)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                  </td>
+                </tr>
+              ) : filteredSubscribers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: "60px", textAlign: "center", color: "var(--l2t-soft)" }}>
+                    <BellRing size={48} color="#e2e8f0" style={{ marginBottom: "16px" }} />
+                    <p style={{ margin: 0, fontSize: "1.1rem" }}>Kayıt bulunamadı.</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredSubscribers.map((subscriber) => (
+                  <tr key={subscriber.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "16px 32px", fontWeight: "600", color: "var(--l2t-navy)" }}>{subscriber.email}</td>
+                    <td style={{ padding: "16px", color: "var(--l2t-soft)" }}>
+                      {subscriber.origin_label && subscriber.destination_label ? `${subscriber.origin_label} → ${subscriber.destination_label}` : "-"}
+                    </td>
+                    <td style={{ padding: "16px", fontWeight: "600", color: "#059669" }}>
+                      {subscriber.target_price ? `${subscriber.target_price.toLocaleString("tr-TR")} ₺ Altı` : "%5 Düşüş"}
+                    </td>
+                    <td style={{ padding: "16px", color: "var(--l2t-soft)" }}>{subscriber.created_at ? new Date(subscriber.created_at).toLocaleDateString("tr-TR") : "-"}</td>
+                    <td style={{ padding: "16px" }}>
+                      <button 
+                        onClick={() => handleToggleStatus(subscriber.id, subscriber.is_active || false)}
+                        style={{ border: "none", cursor: "pointer", padding: "4px 10px", background: !subscriber.is_active ? '#fee2e2' : '#dcfce3', color: !subscriber.is_active ? '#991b1b' : '#065f46', borderRadius: "12px", fontSize: "0.8rem", fontWeight: "700" }}
+                      >
+                        {!subscriber.is_active ? 'Pasif' : 'Aktif'}
+                      </button>
+                    </td>
+                    <td style={{ padding: "16px 32px", textAlign: "right" }}>
+                      <button onClick={() => handleDelete(subscriber.id)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#ef4444", padding: "8px" }} className="hover-tilt">
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow">
-            <h2 className="text-2xl font-black">Son Aramalar</h2>
-
-            <div className="mt-5 grid gap-3">
-              {aramalar.slice(0, 12).map((kayit) => (
-                <div key={kayit.id} className="rounded-2xl border p-4">
-                  <p className="font-black">
-                    {kayit.nereden || "Tümü"} → {kayit.nereye || "Tümü"}
-                  </p>
-
-                  <p className="mt-1 text-xs font-bold text-slate-500">
-                    {kayit.sonucSayisi} sonuç · {kayit.kategori} ·{" "}
-                    {kayit.vize}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    {tarihYaz(kayit.createdAt)}
-                  </p>
-                </div>
-              ))}
-
-              {aramalar.length === 0 && (
-                <p className="text-sm text-slate-500">
-                  Henüz arama kaydı yok.
-                </p>
-              )}
-            </div>
-          </div>
-        </aside>
-      </section>
-    </main>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }

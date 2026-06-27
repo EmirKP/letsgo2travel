@@ -1,18 +1,24 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+let cachedClient: SupabaseClient | null = null;
 
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL eksik.");
+export function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+
+  if (!url || !key || url.includes("BURAYA_") || key.includes("BURAYA_")) {
+    return null;
+  }
+
+  if (!cachedClient) {
+    cachedClient = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  return cachedClient;
 }
 
-if (!supabaseSecretKey) {
-  throw new Error("SUPABASE_SECRET_KEY eksik.");
+export function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD || "";
 }
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-  auth: {
-    persistSession: false,
-  },
-});

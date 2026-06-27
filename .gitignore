@@ -43,3 +43,6 @@ next-env.d.ts
 # local archives
 *.rar
 *.zip
+
+.vercel
+.env*.local
