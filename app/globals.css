@@ -39,9 +39,12 @@
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  background: linear-gradient(180deg, var(--l2t-night) 0%, var(--l2t-navy) 100%);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(6, 182, 212, 0.16), transparent 28%),
+    radial-gradient(circle at 80% 0%, rgba(255, 199, 44, 0.10), transparent 24%),
+    linear-gradient(180deg, #081A31 0%, #0B1D35 42%, #071426 100%);
   background-attachment: fixed;
-  color: var(--l2t-text);
+  color: #F8FAFC;
   font-family: 'Inter', Arial, Helvetica, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
@@ -53,11 +56,11 @@ main { min-height: 75vh; }
 
 /* Global utility classes for premium design system */
 .l2t-glass-card {
-  background: var(--l2t-card);
-  border: 1px solid var(--l2t-border);
-  box-shadow: var(--l2t-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.085), rgba(255,255,255,0.045));
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.24);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-radius: var(--l2t-radius);
 }
 .l2t-admin-shell {
@@ -335,8 +338,7 @@ main { min-height: 75vh; }
   .l2t-article-image { height: 240px; }
 }
 
-/* ── Light-theme body baseline override ── */
-html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
+/* ── Light-theme body baseline override removed ── */
 
 .l2t-card {
   min-height: 100%;
@@ -520,17 +522,18 @@ html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
 
 /* ── Duplicate :root removed — canonical variables are at top of file ── */
 
-html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
+html, body { /* handled in root */ }
 main { background: transparent; }
 .l2t-wrap { width: min(var(--l2t-wrap), calc(100% - 56px)); }
 .l2t-section { padding: 32px 0; }
 .l2t-page { padding: 56px 0; }
 
 .l2t-header {
-  background: linear-gradient(180deg, #06183A 0%, #04132D 100%);
+  background: rgba(8, 26, 49, 0.4);
   border-bottom: 1px solid rgba(255, 255, 255, .08);
-  box-shadow: 0 8px 24px rgba(3, 16, 38, .2);
-  backdrop-filter: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 .l2t-header-inner { height: 58px; gap: 22px; }
 .l2t-brand { min-width: 232px; }
@@ -669,8 +672,12 @@ main { background: transparent; }
 }
 
 .l2t-search-card {
-  padding: 12px 18px 16px;
-  border-radius: 12px;
+  padding: 18px 24px 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255,255,255,0.4);
+  backdrop-filter: blur(8px);
 }
 .l2t-flight-widget { min-height: auto; }
 .l2t-search-tabs {
@@ -769,10 +776,17 @@ main { background: transparent; }
   align-items: center;
   justify-content: center;
   border-radius: 9px;
-  color: #FFFFFF;
-  background: linear-gradient(135deg, #071746, #031132);
+  color: var(--l2t-night);
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-hover));
   font-weight: 950;
-  box-shadow: 0 14px 24px rgba(4, 19, 50, .22);
+  box-shadow: 0 14px 24px rgba(255, 199, 44, 0.25);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.l2t-flight-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(255, 199, 44, 0.35);
 }
 .l2t-airport-check {
   display: inline-flex;
@@ -1807,11 +1821,13 @@ main { background: transparent; }
   position: absolute;
   top: 100%; left: 50%;
   transform: translateX(-50%);
-  background: #FFFFFF;
+  background: rgba(8, 26, 49, 0.96);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 14px;
   min-width: 200px;
   padding: 8px;
-  box-shadow: 0 20px 40px rgba(0,0,0,.15);
+  box-shadow: var(--l2t-shadow-lg);
+  backdrop-filter: blur(12px);
   z-index: 100;
 }
 .l2t-dropdown a {
