@@ -167,7 +167,8 @@ function NewTopicForm({ session }: { session: any }) {
                   onChange={e => setCategory(e.target.value)}
                   disabled={isSubmitting || !!success}
                   required
-                  className="l2t-form-control appearance-none"
+                  className="l2t-form-control"
+                  style={{ appearance: "none" }}
                 >
                   <option value="" disabled>Kategori seçiniz</option>
                   {forumCategories.map((cat, i) => (
@@ -182,7 +183,8 @@ function NewTopicForm({ session }: { session: any }) {
                   value={country} 
                   onChange={e => setCountry(e.target.value)}
                   disabled={isSubmitting || !!success}
-                  className="l2t-form-control appearance-none"
+                  className="l2t-form-control"
+                  style={{ appearance: "none" }}
                 >
                   <option value="">İlgili ülkeyi seçiniz</option>
                   {popularCountries.map((c, i) => (

@@ -358,8 +358,8 @@ export default function PassportPowerPage() {
                     Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
                   </div>
                   <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold w-full text-center">Bu Ülke İçin Rota Oluştur</Link>
-                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue w-full text-center">Uçak Bileti Ara</Link>
+                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold" style={{ width: "100%", textAlign: "center" }}>Bu Ülke İçin Rota Oluştur</Link>
+                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue" style={{ width: "100%", textAlign: "center" }}>Uçak Bileti Ara</Link>
                   </div>
                 </div>
               )}
