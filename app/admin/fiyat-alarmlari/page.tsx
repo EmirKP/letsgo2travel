@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BellRing, CheckCircle2, Clock, Mail, PauseCircle, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Clock, Mail, PauseCircle, PlayCircle, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
 
 type PriceAlertStatus = "active" | "paused" | "triggered" | "error" | "cancelled" | string;
 
@@ -84,6 +84,7 @@ export default function PriceAlertsAdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [isCheckingNow, setIsCheckingNow] = useState(false);
 
   useEffect(() => {
     load();
@@ -116,6 +117,28 @@ export default function PriceAlertsAdminPage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Güncelleme başarısız.");
   }
+  async function runManualPriceCheck() {
+    if (!window.confirm("Aktif fiyat alarmları şimdi kontrol edilsin mi?")) return;
+    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
+    setIsCheckingNow(true);
+    setMessage("Fiyat kontrolü çalışıyor...");
+    try {
+      const res = await fetch("/api/admin/fiyat-alarmlari/run-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        body: JSON.stringify({ limit: 80 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || "Fiyat kontrolü çalıştırılamadı.");
+      setMessage(`Kontrol tamamlandı: ${data.processedAlerts || 0} alarm işlendi, ${data.notifiedAlerts || 0} bildirim gönderildi.`);
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Fiyat kontrolü çalıştırılamadı.");
+    } finally {
+      setIsCheckingNow(false);
+    }
+  }
+
 
   async function handleCancel(id: string) {
     if (!window.confirm("Bu fiyat alarmını iptal etmek istediğine emin misin?")) return;
@@ -210,6 +233,9 @@ export default function PriceAlertsAdminPage() {
         <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--l2t-border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14 }}>
           <h2 style={{ margin: 0, fontSize: "1.25rem", color: "var(--l2t-navy)" }}>Kayıtlı Alarmlar ({filteredAlerts.length})</h2>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={runManualPriceCheck} disabled={isCheckingNow} style={{ display: "inline-flex", alignItems: "center", gap: 7, border: "1px solid #f59e0b", background: "linear-gradient(135deg,#FFB400,#FF6B35)", borderRadius: 12, padding: "10px 13px", color: "#06183A", fontWeight: 900, cursor: isCheckingNow ? "wait" : "pointer", opacity: isCheckingNow ? 0.72 : 1 }}>
+              <PlayCircle size={15} /> {isCheckingNow ? "Kontrol ediliyor" : "Şimdi kontrol et"}
+            </button>
             <button onClick={load} style={{ display: "inline-flex", alignItems: "center", gap: 7, border: "1px solid #e2e8f0", background: "#fff", borderRadius: 12, padding: "10px 13px", color: "var(--l2t-navy)", fontWeight: 800, cursor: "pointer" }}>
               <RefreshCw size={15} /> Yenile
             </button>

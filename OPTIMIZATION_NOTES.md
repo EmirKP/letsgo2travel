@@ -74,3 +74,11 @@ git push origin main
 - Misafir kullanıcılar için mailde tek tıkla iptal endpoint'i eklendi: `/api/flight-alerts/[id]/unsubscribe?token=...`.
 - Cron endpoint'i `CRON_SECRET` ile korunur ve başarısız API/mail durumlarını admin panelde görünür hale getirir.
 - Admin fiyat alarmı ekranı son fiyat, son kontrol, mail durumu ve hata mesajlarını gösterecek şekilde yenilendi.
+
+## Fiyat Alarmı Otomatik Kontrol Güncellemesi
+- Vercel Cron `0 */6 * * *` olarak ayarlandı; fiyat alarmları 6 saatte bir kontrol edilir.
+- `/api/cron/check-price-alerts` cron endpoint'i `CRON_SECRET` ile korunur.
+- Fiyat kontrol mantığı `lib/price-alert-cron.ts` içine taşındı; hem Vercel Cron hem admin manuel kontrol aynı motoru kullanır.
+- `/api/admin/fiyat-alarmlari/run-check` eklendi; admin panelinden manuel fiyat kontrolü başlatılabilir.
+- `/admin/fiyat-alarmlari` ekranına “Şimdi kontrol et” butonu eklendi.
+- API fiyat verisi gelmezse alarm hemen ölmez; 3 hatadan sonra `error` durumuna alınır, ara denemeler loglanır.
