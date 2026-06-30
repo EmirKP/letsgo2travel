@@ -64,6 +64,16 @@ export default async function AdminReportsPage() {
   const topDestinations = Object.entries(countBy(clicks.map((click) => click.destination || "Belirtilmedi"))).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const sourceStats = Object.entries(countBy(clicks.map((click) => click.source_page || "Belirtilmedi"))).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
+  const reportCardStyle = {
+    background: "linear-gradient(180deg, rgba(14, 42, 92, 0.96), rgba(6, 24, 58, 0.98))",
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    color: "#FFFFFF",
+    boxShadow: "0 18px 50px rgba(0, 0, 0, 0.22)",
+  } as const;
+
+  const mutedStyle = { color: "rgba(255, 255, 255, 0.72)" } as const;
+  const dividerStyle = { borderBottom: "1px solid rgba(255, 255, 255, 0.1)" } as const;
+
   return (
     <div className="l2t-page l2t-wrap" style={{ minHeight: "80vh", padding: "48px 20px" }}>
       <Link href="/admin/dashboard" className="l2t-btn l2t-btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "24px" }}>
@@ -73,8 +83,8 @@ export default async function AdminReportsPage() {
       <div className="l2t-section-head" style={{ alignItems: "flex-start" }}>
         <div>
           <p className="l2t-kicker">Beta rapor merkezi</p>
-          <h1 style={{ color: "var(--l2t-navy)", marginBottom: "8px" }}>Affiliate ve Moderasyon Raporları</h1>
-          <p style={{ color: "var(--l2t-soft)", maxWidth: "760px" }}>
+          <h1 style={{ color: "#FFFFFF", marginBottom: "8px" }}>Affiliate ve Moderasyon Raporları</h1>
+          <p style={{ color: "rgba(255, 255, 255, 0.78)", maxWidth: "760px" }}>
             Son 7 günde affiliate yönlendirmeleri, kaynak sayfalar ve moderasyon kayıtlarını takip et. Bu ekran SQL migration çalıştıysa otomatik veri göstermeye başlar.
           </p>
         </div>
@@ -90,66 +100,66 @@ export default async function AdminReportsPage() {
       ) : null}
 
       <div className="l2t-card-grid l2t-card-grid-3" style={{ marginBottom: "28px" }}>
-        <article className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
+        <article className="l2t-card" style={reportCardStyle}>
           <div className="l2t-card-icon" style={{ background: "#EEF7FF", color: "#1476F2" }}><MousePointerClick size={24} /></div>
-          <h3>Affiliate tıklamaları</h3>
-          <p style={{ fontSize: "2rem", fontWeight: 900, color: "var(--l2t-navy)", margin: "8px 0" }}>{clicks.length}</p>
-          <span style={{ color: "var(--l2t-soft)" }}>Son 7 gün</span>
+          <h3 style={{ color: "#FFFFFF" }}>Affiliate tıklamaları</h3>
+          <p style={{ fontSize: "2rem", fontWeight: 900, color: "#FFB400", margin: "8px 0" }}>{clicks.length}</p>
+          <span style={mutedStyle}>Son 7 gün</span>
         </article>
 
-        <article className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
+        <article className="l2t-card" style={reportCardStyle}>
           <div className="l2t-card-icon" style={{ background: "#F0FFF4", color: "#10B981" }}><BarChart3 size={24} /></div>
-          <h3>En çok yönlenen partner</h3>
-          <p style={{ fontSize: "2rem", fontWeight: 900, color: "var(--l2t-navy)", margin: "8px 0", textTransform: "capitalize" }}>{providerStats[0]?.[0] || "Veri yok"}</p>
-          <span style={{ color: "var(--l2t-soft)" }}>{providerStats[0]?.[1] || 0} tıklama</span>
+          <h3 style={{ color: "#FFFFFF" }}>En çok yönlenen partner</h3>
+          <p style={{ fontSize: "2rem", fontWeight: 900, color: "#FFB400", margin: "8px 0", textTransform: "capitalize" }}>{providerStats[0]?.[0] || "Veri yok"}</p>
+          <span style={mutedStyle}>{providerStats[0]?.[1] || 0} tıklama</span>
         </article>
 
-        <article className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
+        <article className="l2t-card" style={reportCardStyle}>
           <div className="l2t-card-icon" style={{ background: "#FFF5E6", color: "#F59E0B" }}><ShieldCheck size={24} /></div>
-          <h3>Moderasyon işlemleri</h3>
-          <p style={{ fontSize: "2rem", fontWeight: 900, color: "var(--l2t-navy)", margin: "8px 0" }}>{moderationLogs.length}</p>
-          <span style={{ color: "var(--l2t-soft)" }}>Son 7 gün kayıtları</span>
+          <h3 style={{ color: "#FFFFFF" }}>Moderasyon işlemleri</h3>
+          <p style={{ fontSize: "2rem", fontWeight: 900, color: "#FFB400", margin: "8px 0" }}>{moderationLogs.length}</p>
+          <span style={mutedStyle}>Son 7 gün kayıtları</span>
         </article>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
-        <section className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
-          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px" }}>Partner dağılımı</h2>
+        <section className="l2t-card" style={reportCardStyle}>
+          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "#FFFFFF" }}>Partner dağılımı</h2>
           {providerStats.length ? providerStats.map(([provider, count]) => (
-            <div key={provider} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", padding: "10px 0", textTransform: "capitalize" }}>
+            <div key={provider} style={{ display: "flex", justifyContent: "space-between", ...dividerStyle, padding: "10px 0", textTransform: "capitalize" }}>
               <span>{provider}</span><strong>{count}</strong>
             </div>
-          )) : <p style={{ color: "var(--l2t-soft)" }}>Henüz tıklama yok.</p>}
+          )) : <p style={mutedStyle}>Henüz tıklama yok.</p>}
         </section>
 
-        <section className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
-          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px" }}>Popüler destinasyonlar</h2>
+        <section className="l2t-card" style={reportCardStyle}>
+          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "#FFFFFF" }}>Popüler destinasyonlar</h2>
           {topDestinations.length ? topDestinations.map(([destination, count]) => (
-            <div key={destination} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", padding: "10px 0" }}>
+            <div key={destination} style={{ display: "flex", justifyContent: "space-between", ...dividerStyle, padding: "10px 0" }}>
               <span>{destination}</span><strong>{count}</strong>
             </div>
-          )) : <p style={{ color: "var(--l2t-soft)" }}>Veri geldikçe burada görünecek.</p>}
+          )) : <p style={mutedStyle}>Veri geldikçe burada görünecek.</p>}
         </section>
 
-        <section className="l2t-card" style={{ border: "1px solid #e2e8f0" }}>
-          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px" }}>Kaynak sayfalar</h2>
+        <section className="l2t-card" style={reportCardStyle}>
+          <h2 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "#FFFFFF" }}>Kaynak sayfalar</h2>
           {sourceStats.length ? sourceStats.map(([source, count]) => (
-            <div key={source} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", padding: "10px 0" }}>
+            <div key={source} style={{ display: "flex", justifyContent: "space-between", ...dividerStyle, padding: "10px 0" }}>
               <span style={{ overflowWrap: "anywhere" }}>{source}</span><strong>{count}</strong>
             </div>
-          )) : <p style={{ color: "var(--l2t-soft)" }}>Tıklamalar başladığında kaynaklar listelenir.</p>}
+          )) : <p style={mutedStyle}>Tıklamalar başladığında kaynaklar listelenir.</p>}
         </section>
       </div>
 
-      <section className="l2t-card" style={{ border: "1px solid #e2e8f0", marginTop: "20px" }}>
-        <h2 style={{ fontSize: "1.2rem", marginBottom: "16px" }}>Son moderasyon kayıtları</h2>
+      <section className="l2t-card" style={{ ...reportCardStyle, marginTop: "20px" }}>
+        <h2 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "#FFFFFF" }}>Son moderasyon kayıtları</h2>
         {moderationLogs.length ? moderationLogs.map((log, index) => (
-          <div key={`${log.created_at}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", borderBottom: "1px solid #f1f5f9", padding: "12px 0" }}>
+          <div key={`${log.created_at}-${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", ...dividerStyle, padding: "12px 0" }}>
             <strong>{log.action}</strong>
             <span>{log.target_type}</span>
-            <span style={{ color: "var(--l2t-soft)" }}>{new Date(log.created_at).toLocaleDateString("tr-TR")}</span>
+            <span style={mutedStyle}>{new Date(log.created_at).toLocaleDateString("tr-TR")}</span>
           </div>
-        )) : <p style={{ color: "var(--l2t-soft)" }}>Henüz moderasyon kaydı yok.</p>}
+        )) : <p style={mutedStyle}>Henüz moderasyon kaydı yok.</p>}
       </section>
     </div>
   );
