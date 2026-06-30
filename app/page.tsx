@@ -7,7 +7,7 @@ import SurpriseButton from "./components/SurpriseButton";
 import AISearchBox from "./components/AISearchBox";
 import VerifiedTravelerSection from "@/components/home/VerifiedTravelerSection";
 import { getBlogPosts, getCountryGuides, getFlightDeals } from "@/lib/data";
-import { siteSettings, withUtm } from "@/lib/affiliate";
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import { formatFromPrice } from "@/lib/prices";
 import { Ticket, Flame, Plane, Hotel, Wifi, MapPin, Sparkles, CheckCircle2, Globe, Wallet, ChevronRight, Clock } from "lucide-react";
 
@@ -99,11 +99,11 @@ export default async function HomePage() {
                 <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #1476f2, #0b5bce)", color: "#fff" }}><Plane size={24} /></div>
                 <span>Uçak</span>
               </Link>
-              <a href={withUtm(siteSettings.bookingAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-app-shortcut hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-app-shortcut hover-tilt">
                 <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)", color: "#fff" }}><Hotel size={24} /></div>
                 <span>Otel</span>
               </a>
-              <a href={withUtm(siteSettings.airaloAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-app-shortcut hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-app-shortcut hover-tilt">
                 <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff" }}><Wifi size={24} /></div>
                 <span>eSIM</span>
               </a>
@@ -115,7 +115,7 @@ export default async function HomePage() {
                 <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #EF4444, #B91C1C)", color: "#fff" }}><Ticket size={24} /></div>
                 <span>Fırsatlar</span>
               </Link>
-              <a href={withUtm(siteSettings.getYourGuideAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-app-shortcut hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-app-shortcut hover-tilt">
                 <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #F43F5E, #BE123C)", color: "#fff" }}><MapPin size={24} /></div>
                 <span>Turlar</span>
               </a>
@@ -390,7 +390,7 @@ export default async function HomePage() {
           </div>
           <div className="l2t-card-grid l2t-card-grid-3">
             <ScrollReveal delay={0.1}>
-              <a href={withUtm("https://www.aviasales.com/search?origin_iata=IST")} target="_blank" rel="noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "aviasales", url: "https://www.aviasales.com/search?origin_iata=IST", sourcePage: "home_affiliate_card" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
                 <div className="l2t-card-icon" style={{ background: "#EEF7FF", color: "#1476F2" }}><Plane size={24} /></div>
                 <h3>Uçak Bileti</h3>
                 <p>Yüzlerce havayolu ve partner fiyatını anlık karşılaştır, en ucuz uçuşu bul.</p>
@@ -398,7 +398,7 @@ export default async function HomePage() {
               </a>
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
-              <a href={withUtm(siteSettings.bookingAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
                 <div className="l2t-card-icon" style={{ background: "#FFF5E6", color: "#F59E0B" }}><Hotel size={24} /></div>
                 <h3>Otel Bul</h3>
                 <p>Konum, puan ve iptal esnekliğine göre en iyi oteli karşılaştır.</p>
@@ -406,7 +406,7 @@ export default async function HomePage() {
               </a>
             </ScrollReveal>
             <ScrollReveal delay={0.3}>
-              <a href={withUtm(siteSettings.airaloAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
+              <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
                 <div className="l2t-card-icon" style={{ background: "#F0FFF4", color: "#10B981" }}><Wifi size={24} /></div>
                 <h3>eSIM Al</h3>
                 <p>Varıştan önce internet paketini hazırla, havalimanında hemen bağlan.</p>

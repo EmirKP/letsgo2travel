@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { getCountryGuides, getBlogPosts } from '@/lib/data';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://letsgo2travel.com";
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.com.tr").replace(/\/$/, "");
 
   const countries = await getCountryGuides();
   const blogs = await getBlogPosts();

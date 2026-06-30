@@ -1,4 +1,4 @@
-import { aviasalesUrl, siteSettings, withUtm } from "./affiliate";
+import { aviasalesUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export type AiTripDay = {
   day: string;
@@ -199,10 +199,38 @@ export function createTripPlan(query: string): AiTripPlan {
     smartTips: destination.highlights,
     warnings: ["Fiyatlar tahmini değerlerdir.", "Uçuş fiyatları anlık değişebilir."],
     affiliateLinks: {
-      flights: aviasalesUrl({ origin: originCode, destination: destination.code }),
-      hotels: withUtm(siteSettings.bookingAffiliateUrl, "letsgo2travel_ai"),
-      esim: withUtm(siteSettings.airaloAffiliateUrl, "letsgo2travel_ai"),
-      tours: withUtm(siteSettings.getYourGuideAffiliateUrl, "letsgo2travel_ai"),
+      flights: trackedAffiliateUrl({
+        provider: "aviasales",
+        url: aviasalesUrl({ origin: originCode, destination: destination.code }),
+        source: "letsgo2travel_ai",
+        sourcePage: "ai_trip_planner",
+        destination: destination.code,
+        campaign: "ai_plan",
+      }),
+      hotels: trackedAffiliateUrl({
+        provider: "booking",
+        url: siteSettings.bookingAffiliateUrl,
+        source: "letsgo2travel_ai",
+        sourcePage: "ai_trip_planner",
+        destination: destination.name,
+        campaign: "ai_plan",
+      }),
+      esim: trackedAffiliateUrl({
+        provider: "airalo",
+        url: siteSettings.airaloAffiliateUrl,
+        source: "letsgo2travel_ai",
+        sourcePage: "ai_trip_planner",
+        destination: destination.name,
+        campaign: "ai_plan",
+      }),
+      tours: trackedAffiliateUrl({
+        provider: "getyourguide",
+        url: siteSettings.getYourGuideAffiliateUrl,
+        source: "letsgo2travel_ai",
+        sourcePage: "ai_trip_planner",
+        destination: destination.name,
+        campaign: "ai_plan",
+      }),
     },
   };
 }

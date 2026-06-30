@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plane, Hotel, Wifi, MapPin, Clock, Wallet, Globe, Info, AlertTriangle, Calendar, Users } from "lucide-react";
-import { siteSettings, withUtm } from "@/lib/affiliate";
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import { formatFromPrice, PRICE_NOTE } from "@/lib/prices";
 
 export const metadata: Metadata = {
@@ -116,13 +116,13 @@ export default function BAESayfasi() {
           <Link href={`/ucak-bileti-ara?to=Dubai`} className="l2t-btn" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
             <Plane size={18} /> Uçak Bileti Ara
           </Link>
-          <a href={withUtm(siteSettings.bookingAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
+          <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, destination: "Dubai", sourcePage: "uae_guide" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
             <Hotel size={18} /> Otel Bul
           </a>
-          <a href={withUtm(siteSettings.airaloAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
+          <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, destination: "Dubai", sourcePage: "uae_guide" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
             <Wifi size={18} /> eSIM Al
           </a>
-          <a href={withUtm(siteSettings.getYourGuideAffiliateUrl)} target="_blank" rel="noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
+          <a href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, destination: "Dubai", sourcePage: "uae_guide" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
             <MapPin size={18} /> Tur & Aktivite
           </a>
         </div>

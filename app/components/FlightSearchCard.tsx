@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Plane, MapPin, Calendar, Users, ArrowRightLeft, Globe2, Flag, Search, BellRing } from "lucide-react";
-import { aviasalesUrl } from "@/lib/affiliate";
+import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
 import { GLOBAL_LOCATIONS, type LocationItem } from "@/lib/airports";
 import PriceAlertForm from "./PriceAlertForm";
 
@@ -83,11 +83,19 @@ export default function FlightSearchCard() {
     return () => clearTimeout(timer);
   }, [destSearch, isDestOpen]);
 
-  const href = aviasalesUrl({
+  const rawFlightUrl = aviasalesUrl({
     origin: originObj?.code || "IST",
     destination: destinationObj?.code || undefined,
     departDate,
     returnDate: tripType === "gidis_donus" ? returnDate : undefined,
+  });
+
+  const href = affiliateRedirectUrl({
+    provider: "aviasales",
+    url: rawFlightUrl,
+    destination: destinationObj?.code || destinationObj?.name || "anywhere",
+    sourcePage: "flight_search_card",
+    campaign: "flight_search",
   });
 
   const isValid = originObj !== null;
@@ -300,7 +308,7 @@ export default function FlightSearchCard() {
             className={`l2t-btn${!isValid ? " l2t-btn-disabled" : ""}`}
             href={isValid ? href : undefined}
             target="_blank"
-            rel="noreferrer"
+            rel="nofollow sponsored noreferrer"
             style={{ 
               height: "100%", 
               minHeight: "68px",

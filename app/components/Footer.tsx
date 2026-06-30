@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { siteSettings } from "@/lib/affiliate";
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 export default function Footer() {
   return (
@@ -38,9 +38,9 @@ export default function Footer() {
         </div>
         <div>
           <h3>Partnerler</h3>
-          <a href={siteSettings.bookingAffiliateUrl} target="_blank" rel="noreferrer">Oteller (Booking)</a>
-          <a href={siteSettings.airaloAffiliateUrl} target="_blank" rel="noreferrer">eSIM (Airalo)</a>
-          <a href={siteSettings.getYourGuideAffiliateUrl} target="_blank" rel="noreferrer">Tur & Aktivite</a>
+          <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "footer" })} target="_blank" rel="nofollow sponsored noreferrer">Oteller (Booking)</a>
+          <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "footer" })} target="_blank" rel="nofollow sponsored noreferrer">eSIM (Airalo)</a>
+          <a href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "footer" })} target="_blank" rel="nofollow sponsored noreferrer">Tur & Aktivite</a>
           <Link href="/sitemap.xml">Sitemap</Link>
           <Link href="/rss.xml">RSS Feed</Link>
         </div>

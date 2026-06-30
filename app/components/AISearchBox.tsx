@@ -104,7 +104,7 @@ export default function AISearchBox() {
             )}
 
             <div className="ai-action-row l2t-ai-fade">
-              <a href={result.url} target="_blank" rel="noreferrer" className="l2t-btn ai-cta-btn">
+              <a href={result.url} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn ai-cta-btn">
                 <Plane size={18} /> Canlı Bilet Ara
               </a>
               <button className="ai-reset-btn" onClick={() => setResult(null)}>

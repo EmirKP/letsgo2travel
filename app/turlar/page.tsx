@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { siteSettings, withUtm } from "@/lib/affiliate";
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 export const metadata: Metadata = { title: "Turlar ve Aktiviteler", description: "Şehir turları, müze biletleri ve günlük aktiviteler." };
 
@@ -17,7 +17,7 @@ export default function ToursPage() {
           <p className="l2t-kicker">Aktiviteler</p>
           <h1>Gittiğin şehirde zamanı daha iyi kullan</h1>
           <p className="l2t-lead">Turlar ve aktiviteler sayfası, uçuş ve otelden sonra üçüncü gelir kanalı olarak çalışır. Kullanıcı, planına uygun deneyimi seçmek için partner sayfasına yönlenir.</p>
-          <a className="l2t-btn" href={withUtm(siteSettings.getYourGuideAffiliateUrl)} target="_blank" rel="noreferrer">Aktiviteleri incele</a>
+          <a className="l2t-btn" href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "tours_page" })} target="_blank" rel="nofollow sponsored noreferrer">Aktiviteleri incele</a>
         </div>
         <div className="l2t-feature-list">
           <article><strong>Zaman kazandırır</strong><span>Popüler aktiviteleri önceden planlama avantajı sunar.</span></article>

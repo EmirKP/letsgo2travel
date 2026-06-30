@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCheapestPrice } from "@/lib/travelpayouts";
 import { sendMail, generatePriceDropEmailHtml } from "@/lib/mail";
-import { aviasalesUrl } from "@/lib/affiliate";
+import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
+import { siteUrl } from "@/lib/structured-data";
 
 // This endpoint is protected by a secret key to prevent unauthorized cron executions.
 // It groups active alerts by route and date, fetches the current price, and evaluates
@@ -136,12 +137,18 @@ export async function GET(request: Request) {
 
       // Send Notification
       if (shouldNotify && alert.notify_email) {
-        const ctaUrl = aviasalesUrl({
-          origin: alert.origin_code,
+        const ctaUrl = siteUrl(affiliateRedirectUrl({
+          provider: "aviasales",
+          url: aviasalesUrl({
+            origin: alert.origin_code,
+            destination: alert.destination_code,
+            departDate: alert.departure_date,
+            returnDate: alert.return_date
+          }),
           destination: alert.destination_code,
-          departDate: alert.departure_date,
-          returnDate: alert.return_date
-        });
+          sourcePage: "price_alert_email",
+          campaign: "price_alert",
+        }));
 
         const html = generatePriceDropEmailHtml({
           originLabel: alert.origin_label,

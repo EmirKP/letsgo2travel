@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing, Plane, Calendar, X, ArrowRight } from "lucide-react";
-import { aviasalesUrl } from "@/lib/affiliate";
+import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
 
 interface Alert {
   id: string;
@@ -110,7 +110,13 @@ export default function UserPriceAlertsPage() {
       ) : (
         <div style={{ display: "grid", gap: "16px" }}>
           {alerts.map(alert => {
-            const link = aviasalesUrl({ origin: alert.origin_code, destination: alert.destination_code, departDate: alert.departure_date });
+            const link = affiliateRedirectUrl({
+              provider: "aviasales",
+              url: aviasalesUrl({ origin: alert.origin_code, destination: alert.destination_code, departDate: alert.departure_date }),
+              destination: alert.destination_code,
+              sourcePage: "profile_price_alerts",
+              campaign: "price_alert",
+            });
             return (
               <div key={alert.id} className="glass-panel" style={{ padding: "20px", borderRadius: "16px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "20px", opacity: alert.is_active ? 1 : 0.6 }}>
                 <div>
@@ -132,7 +138,7 @@ export default function UserPriceAlertsPage() {
                 </div>
 
                 <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                  <a href={link} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "#1476f2", fontWeight: "600", fontSize: "0.9rem", padding: "8px 16px", background: "#eef2ff", borderRadius: "8px" }}>
+                  <a href={link} target="_blank" rel="nofollow sponsored noreferrer" style={{ textDecoration: "none", color: "#1476f2", fontWeight: "600", fontSize: "0.9rem", padding: "8px 16px", background: "#eef2ff", borderRadius: "8px" }}>
                     Biletlere Bak
                   </a>
                   <button 

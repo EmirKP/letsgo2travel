@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import FlightSearchCard from "../components/FlightSearchCard";
 import { getFlightDeals } from "@/lib/data";
-import { aviasalesUrl, siteSettings } from "@/lib/affiliate";
+import { affiliateRedirectUrl } from "@/lib/affiliate";
 
 export const metadata: Metadata = {
   title: "Canlı Uçuş Arama — Ucuz Bilet Bul",
@@ -39,9 +39,9 @@ export default async function LiveFlightsPage() {
           {cheapest.map((deal) => (
             <a
               key={deal.id}
-              href={deal.affiliate_url}
+              href={affiliateRedirectUrl({ provider: "aviasales", url: deal.affiliate_url, destination: deal.destination_code || deal.destination, sourcePage: "live_flights", campaign: "live_flights" })}
               target="_blank"
-              rel="noreferrer"
+              rel="nofollow sponsored noreferrer"
               className="l2t-card"
               style={{ display: "block", textDecoration: "none" }}
             >

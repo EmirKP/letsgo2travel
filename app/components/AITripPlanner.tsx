@@ -239,7 +239,7 @@ export default function AITripPlanner() {
 
           <div className="l2t-ai-cta-grid" style={{ marginTop: "32px", paddingTop: "24px", borderTop: "1px solid #e2e8f0" }}>
             {ctaLinks.map((item) => (
-              <a key={item.label} href={item.href} target="_blank" rel="noreferrer" style={{ background: "#fff", border: "1px solid #cbd5e1", color: "var(--l2t-navy)", textAlign: "center", padding: "12px", borderRadius: "8px", fontWeight: "600", textDecoration: "none", transition: "all 0.2s" }}
+              <a key={item.label} href={item.href} target="_blank" rel="nofollow sponsored noreferrer" style={{ background: "#fff", border: "1px solid #cbd5e1", color: "var(--l2t-navy)", textAlign: "center", padding: "12px", borderRadius: "8px", fontWeight: "600", textDecoration: "none", transition: "all 0.2s" }}
                 onMouseOver={(e) => { e.currentTarget.style.background = "var(--l2t-navy)"; e.currentTarget.style.color = "#fff"; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--l2t-navy)"; }}
               >{item.label} →</a>

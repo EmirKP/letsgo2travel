@@ -44,3 +44,18 @@ git push origin main
 - `/ulke-rehberi/azerbaycan`
 - `/blog/ucuz-ucak-bileti-bulma-taktikleri`
 - `/admin/login`
+
+## Phase 2 — Affiliate ölçüm ve admin raporlama
+
+- Tüm ana affiliate çıkışları `/go/[provider]` redirect rotasına bağlandı.
+- `/go/[provider]` güvenli domain whitelist kullanır; açık redirect riski azaltıldı.
+- `affiliate_clicks` tablosuna provider, destinasyon, kaynak sayfa, kampanya, user-agent ve hashlenmiş IP kaydı atılır.
+- Affiliate linklerine `rel="nofollow sponsored noreferrer"` eklendi.
+- `/admin/raporlar` sayfası gerçek rapor ekranına dönüştürüldü:
+  - Son 7 gün affiliate tıklamaları
+  - En çok yönlenen partner
+  - Popüler destinasyonlar
+  - Kaynak sayfalar
+  - Son moderasyon kayıtları
+- `/api/health` eklendi. Env, Supabase, AI ve SQL durumunu hızlı kontrol eder.
+- `robots.txt` içinde `/go/` disallow edildi; yönlendirme sayfaları SEO indexine girmesin.

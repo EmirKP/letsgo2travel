@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { siteSettings, withUtm } from "@/lib/affiliate";
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 export const metadata: Metadata = { title: "Yurt Dışı eSIM", description: "Yurt dışı internet için eSIM paketleri ve öneriler." };
 
@@ -17,7 +17,7 @@ export default function EsimPage() {
           <p className="l2t-kicker">Yurt dışı internet</p>
           <h1>eSIM ile seyahate internet hazır başla</h1>
           <p className="l2t-lead">Fiziksel SIM kart arama, mağaza bulma ve dil problemi yaşama riskini azalt. Kullanıcıyı affiliate bağlantılı eSIM sayfasına net bir fayda anlatımıyla yönlendir.</p>
-          <a className="l2t-btn" href={withUtm(siteSettings.airaloAffiliateUrl)} target="_blank" rel="noreferrer">eSIM paketlerini gör</a>
+          <a className="l2t-btn" href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "esim_page" })} target="_blank" rel="nofollow sponsored noreferrer">eSIM paketlerini gör</a>
         </div>
         <div className="l2t-feature-list">
           <article><strong>Hızlı kurulum</strong><span>QR kod veya uygulama ile etkinleştirme.</span></article>

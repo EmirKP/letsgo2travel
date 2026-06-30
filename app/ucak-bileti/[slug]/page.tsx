@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDealBySlug, getFlightDeals } from "@/lib/data";
-import { siteSettings, withUtm } from "@/lib/affiliate";
+import { affiliateRedirectUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import JsonLd from "@/app/components/JsonLd";
 import { flightDealSchema } from "@/lib/structured-data";
 
@@ -27,6 +27,14 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
   const deal = await getDealBySlug(slug);
   if (!deal) notFound();
 
+  const flightUrl = affiliateRedirectUrl({
+    provider: "aviasales",
+    url: deal.affiliate_url,
+    destination: deal.destination_code || deal.destination,
+    sourcePage: `flight_deal_${deal.slug}`,
+    campaign: "flight_deal",
+  });
+
   return (
     <section className="l2t-page l2t-wrap">
       <JsonLd data={flightDealSchema(deal)} />
@@ -50,13 +58,13 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
           {deal.price.toLocaleString("tr-TR")} {deal.currency}
         </div>
         <div className="l2t-hero-actions">
-          <a href={deal.affiliate_url} target="_blank" rel="noreferrer" className="l2t-btn">
+          <a href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn">
             ✈ Canlı fiyatı kontrol et
           </a>
           <a
-            href={withUtm(siteSettings.bookingAffiliateUrl)}
+            href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, destination: deal.destination, sourcePage: `flight_deal_${deal.slug}` })}
             target="_blank"
-            rel="noreferrer"
+            rel="nofollow sponsored noreferrer"
             className="l2t-btn l2t-btn-ghost"
             style={{ color: "#ffffff", borderColor: "rgba(255,255,255,.28)" }}
           >
@@ -87,7 +95,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
       {/* Affiliate kartlar */}
       <div className="l2t-card-grid l2t-card-grid-3" style={{ marginTop: "24px" }}>
-        <a className="l2t-card l2t-affiliate-card" href={deal.affiliate_url} target="_blank" rel="noreferrer">
+        <a className="l2t-card l2t-affiliate-card" href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer">
           <div className="l2t-card-icon">✈</div>
           <h3>Uçuşu ara</h3>
           <p>Aviasales üzerinden {deal.origin} → {deal.destination} için canlı fiyatları gör.</p>
@@ -96,9 +104,9 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
         <a
           className="l2t-card l2t-affiliate-card"
-          href={withUtm(siteSettings.bookingAffiliateUrl)}
+          href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, destination: deal.destination, sourcePage: `flight_deal_${deal.slug}` })}
           target="_blank"
-          rel="noreferrer"
+          rel="nofollow sponsored noreferrer"
         >
           <div className="l2t-card-icon">🏨</div>
           <h3>Otel bul</h3>
@@ -108,9 +116,9 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
         <a
           className="l2t-card l2t-affiliate-card"
-          href={withUtm(siteSettings.airaloAffiliateUrl)}
+          href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, destination: deal.destination, sourcePage: `flight_deal_${deal.slug}` })}
           target="_blank"
-          rel="noreferrer"
+          rel="nofollow sponsored noreferrer"
         >
           <div className="l2t-card-icon">📶</div>
           <h3>eSIM al</h3>

@@ -1,5 +1,5 @@
 import type { BlogPost, CountryGuide, FlightDeal } from "./types";
-import { aviasalesUrl, siteSettings } from "./affiliate";
+import { aviasalesUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export const flightDeals: FlightDeal[] = [
   {
@@ -385,18 +385,18 @@ export const affiliateCards = [
     title: "eSIM internet",
     text: "Yurt dışında fiziksel SIM kart aramadan internet paketini seyahatten önce hazırla.",
     cta: "eSIM paketlerini gör",
-    href: siteSettings.airaloAffiliateUrl,
+    href: trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "affiliate_cards" }),
   },
   {
     title: "Otel arama",
     text: "Konum, yorum, iptal esnekliği ve fiyat dengesine göre konaklama seçeneklerini karşılaştır.",
     cta: "Otelleri karşılaştır",
-    href: siteSettings.bookingAffiliateUrl,
+    href: trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "affiliate_cards" }),
   },
   {
     title: "Turlar & aktiviteler",
     text: "Şehir turu, müze bileti, tekne turu ve günlük aktivite seçeneklerini keşfet.",
     cta: "Aktiviteleri incele",
-    href: siteSettings.getYourGuideAffiliateUrl,
+    href: trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "affiliate_cards" }),
   },
 ];
