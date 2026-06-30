@@ -131,15 +131,15 @@ async function getReportData() {
 
   const forumReports = ((forumResult.data || []) as ForumReport[]).map((report) => ({ ...report, targetContent: null }));
 
-  const enhancedForumReports = await Promise.all(
-    forumReports.map(async (report) => {
+  const enhancedForumReports: ForumReport[] = await Promise.all(
+    forumReports.map(async (report): Promise<ForumReport> => {
       if (report.target_type === "topic") {
         const { data } = await supabase
           .from("forum_topics")
           .select("title,content,author_name,status")
           .eq("id", report.target_id)
           .maybeSingle();
-        return { ...report, targetContent: data || null };
+        return { ...report, targetContent: data ? { ...data, topic_id: null } : null };
       }
 
       if (report.target_type === "reply") {
