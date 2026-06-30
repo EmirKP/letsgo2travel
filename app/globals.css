@@ -3528,3 +3528,263 @@ main { background: transparent; }
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* Ülke rehberi dönüşüm/CTA blokları */
+.l2t-guide-quick-actions,
+.l2t-visa-conversion-actions,
+.l2t-passport-cta-actions,
+.l2t-country-action-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.l2t-guide-quick-actions {
+  margin: -8px 0 28px;
+}
+
+.l2t-guide-quick-actions a,
+.l2t-visa-conversion-actions a,
+.l2t-passport-cta-actions a,
+.l2t-country-action-footer a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--l2t-text);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+.l2t-guide-quick-actions a:first-child,
+.l2t-visa-conversion-actions a:first-child,
+.l2t-passport-cta-actions a:first-child,
+.l2t-country-action-footer a:first-child {
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-coral));
+  color: var(--l2t-night);
+  border-color: transparent;
+}
+
+.l2t-guide-seo-band,
+.l2t-visa-conversion-band,
+.l2t-passport-cta-card,
+.l2t-country-action-panel {
+  margin: 28px auto 34px;
+  padding: clamp(22px, 4vw, 34px);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(14, 42, 92, 0.88), rgba(6, 24, 58, 0.94));
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
+
+.l2t-guide-seo-band {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.l2t-guide-seo-band h2,
+.l2t-visa-conversion-band h2,
+.l2t-passport-cta-card h3,
+.l2t-country-action-copy h2 {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.l2t-guide-seo-band p,
+.l2t-visa-conversion-band p,
+.l2t-passport-cta-card p,
+.l2t-country-action-copy p {
+  margin: 0;
+  color: var(--l2t-muted);
+  line-height: 1.7;
+}
+
+.l2t-guide-seo-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.l2t-guide-seo-items span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  color: #fff;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.10);
+  font-weight: 800;
+}
+
+.l2t-country-card-conversion {
+  padding: 0;
+  overflow: hidden;
+}
+
+.l2t-country-card-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 170px;
+  padding: 22px 22px 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.l2t-country-card-actions,
+.l2t-visa-card-actions {
+  display: grid;
+  grid-template-columns: 1.1fr 0.85fr 0.9fr;
+  gap: 8px;
+  padding: 0 18px 18px;
+}
+
+.l2t-country-card-actions a,
+.l2t-visa-card-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 900;
+  color: var(--l2t-night);
+  background: rgba(255, 180, 0, 0.14);
+  border: 1px solid rgba(255, 180, 0, 0.34);
+}
+
+.l2t-country-card-actions a:first-child,
+.l2t-visa-card-actions a:first-child {
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-coral));
+  color: var(--l2t-night);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.l2t-visa-conversion-band,
+.l2t-passport-cta-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+}
+
+.l2t-country-action-panel {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.75fr) minmax(0, 1.25fr);
+  gap: 24px;
+}
+
+.l2t-country-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.l2t-country-action-card {
+  min-height: 156px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.l2t-country-action-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 180, 0, 0.45);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.l2t-country-action-card-primary {
+  background: linear-gradient(135deg, rgba(255, 180, 0, 0.22), rgba(255, 107, 53, 0.14));
+  border-color: rgba(255, 180, 0, 0.36);
+}
+
+.l2t-country-action-card-community {
+  background: rgba(46, 204, 113, 0.12);
+  border-color: rgba(46, 204, 113, 0.26);
+}
+
+.l2t-country-action-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--l2t-night);
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-coral));
+}
+
+.l2t-country-action-card strong {
+  font-size: 1.04rem;
+  color: #fff;
+}
+
+.l2t-country-action-card small {
+  color: rgba(255,255,255,0.72);
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.l2t-country-action-card em {
+  margin-top: auto;
+  color: var(--l2t-gold);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.l2t-country-action-footer {
+  grid-column: 1 / -1;
+  padding-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .l2t-guide-seo-band,
+  .l2t-visa-conversion-band,
+  .l2t-passport-cta-card,
+  .l2t-country-action-panel {
+    grid-template-columns: 1fr;
+  }
+  .l2t-country-action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .l2t-guide-seo-items,
+  .l2t-country-action-grid,
+  .l2t-country-card-actions,
+  .l2t-visa-card-actions {
+    grid-template-columns: 1fr;
+  }
+  .l2t-guide-quick-actions a,
+  .l2t-visa-conversion-actions a,
+  .l2t-passport-cta-actions a,
+  .l2t-country-action-footer a {
+    width: 100%;
+  }
+  .l2t-country-action-card:hover {
+    transform: none;
+  }
+}

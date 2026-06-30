@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plane, Clock, MapPin, Ticket, Search } from "lucide-react";
+import { Plane, Clock, MapPin, Search, MessageCircle, ShieldCheck, BellRing } from "lucide-react";
 
 const VISA_GROUPS = [
   { id: "all", label: "Tümü" },
@@ -74,6 +74,19 @@ export default function VisaFreePage() {
         <p style={{ color: "var(--l2t-soft)", fontSize: "1.05rem" }}>Vize istemeyen, kimlikle gidilebilen veya daha kolay giriş imkanı sunan ülkeleri keşfet.</p>
       </div>
 
+      <div className="l2t-visa-conversion-band">
+        <div>
+          <p className="l2t-kicker">Hızlı karar</p>
+          <h2>Vizesiz rotayı seç, biletini ve gezgin yorumlarını hemen kontrol et.</h2>
+          <p>Bu sayfadaki her karttan direkt rehbere, foruma veya uçak bileti aramaya geçebilirsin.</p>
+        </div>
+        <div className="l2t-visa-conversion-actions">
+          <Link href="/pasaport-gucu"><ShieldCheck size={16} /> Pasaport gücünü gör</Link>
+          <Link href="/fiyat-kontrolu"><BellRing size={16} /> Fiyat alarmı kur</Link>
+          <Link href="/forum"><MessageCircle size={16} /> Gezginlere sor</Link>
+        </div>
+      </div>
+
       {/* Arama */}
       <div style={{ position: "relative", marginBottom: "20px", maxWidth: "480px" }}>
         <Search size={18} color="#94a3b8" style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }} />
@@ -133,13 +146,12 @@ export default function VisaFreePage() {
                   <div style={{ marginLeft: "auto", fontSize: "0.85rem", color: "var(--l2t-navy)", fontWeight: "700" }}>~{c.price.toLocaleString("tr-TR")} ₺+</div>
                 </div>
               </Link>
-              <div style={{ padding: "0 20px 20px", display: "flex", gap: "8px" }}>
-                <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(c.name)}`} className="l2t-btn" style={{ flex: 1, padding: "10px", fontSize: "0.85rem", display: "flex", justifyContent: "center", alignItems: "center", gap: "6px" }}>
+              <div className="l2t-visa-card-actions">
+                <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(c.name)}`} className="l2t-btn">
                   <Plane size={14} /> Bilet Ara
                 </Link>
-                <Link href={`/ulke-rehberi/${c.slug}`} className="l2t-btn l2t-btn-outline" style={{ flex: 1, padding: "10px", fontSize: "0.85rem", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                  Rehberi Gör
-                </Link>
+                <Link href={`/ulke-rehberi/${c.slug}`}>Rehber</Link>
+                <Link href={`/forum/ulke/${c.slug}`}><MessageCircle size={14} /> Yorumlar</Link>
               </div>
             </div>
           ))}

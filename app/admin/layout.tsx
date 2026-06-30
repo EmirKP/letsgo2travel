@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       } else if (isSupabaseAuth && path !== '/admin/login') {
         // Rol bazlı sayfa yetki kontrolleri
-        if (path.startsWith('/admin/ayarlar') || path.startsWith('/admin/kullanicilar')) {
+        if (path.startsWith('/admin/ayarlar') || path.startsWith('/admin/kullanicilar') || path.startsWith('/admin/affiliate-raporlari')) {
           if (!['admin', 'super_admin'].includes(role)) {
             setAuthMessage("Site ayarları ve kullanıcı yönetimi için yetkiniz yok.");
             setIsAuthorized(false);

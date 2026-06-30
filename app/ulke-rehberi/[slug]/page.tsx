@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Plane, Hotel, Wifi, Calendar, Clock, Wallet, CheckCircle2, Info } from "lucide-react";
-import { affiliateRedirectUrl, aviasalesUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import { Calendar, Clock, Wallet, CheckCircle2, Info } from "lucide-react";
 import { getCountryBySlug, getCountryGuides } from "@/lib/data";
 import ScrollReveal from "@/app/components/ScrollReveal";
 import CountryFavicon from "@/app/components/CountryFavicon";
 import CountryHero from "@/app/components/CountryHero";
 import JsonLd from "@/app/components/JsonLd";
+import CountryGuideCtas from "@/app/components/CountryGuideCtas";
 import { countryGuideSchema } from "@/lib/structured-data";
 
 export async function generateStaticParams() {
@@ -28,15 +28,6 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const country = await getCountryBySlug(slug);
   if (!country) notFound();
-
-  const rawFlightUrl = aviasalesUrl({ destination: country.airport_code });
-  const flightUrl = affiliateRedirectUrl({
-    provider: "aviasales",
-    url: rawFlightUrl,
-    destination: country.airport_code || country.country_name,
-    sourcePage: `country_guide_${country.slug}`,
-    campaign: "country_guide",
-  });
 
   return (
     <section className="bento-page-wrap">
@@ -116,44 +107,7 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
 
       </div>
 
-      {/* ══ AFFILIATE CTA GRID ══ */}
-      <div className="l2t-wrap" style={{ marginTop: "40px", marginBottom: "80px" }}>
-        <h2 style={{ color: "#081533", marginBottom: "20px", fontSize: "1.8rem" }}>Seyahat Planını Tamamla</h2>
-        <div className="l2t-card-grid l2t-card-grid-3">
-          <ScrollReveal delay={0.1}>
-            <a className="l2t-card l2t-affiliate-card hover-tilt" href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer">
-              <div className="l2t-card-icon" style={{ background: "#EEF7FF", color: "#1476F2" }}><Plane size={24} /></div>
-              <h3>Uçak Bileti</h3>
-              <p>{country.country_name} için en ucuz uçuşları anında karşılaştır.</p>
-              <span className="l2t-btn l2t-btn-small">Bilet Ara →</span>
-            </a>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.2}>
-            <a className="l2t-card l2t-affiliate-card hover-tilt" href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, destination: country.country_name, sourcePage: `country_guide_${country.slug}` })} target="_blank" rel="nofollow sponsored noreferrer">
-              <div className="l2t-card-icon" style={{ background: "#FFF5E6", color: "#F59E0B" }}><Hotel size={24} /></div>
-              <h3>Otel Bul</h3>
-              <p>Konum, yorum ve iptal esnekliğine göre otelleri karşılaştır.</p>
-              <span className="l2t-btn l2t-btn-small">Otellere Bak →</span>
-            </a>
-          </ScrollReveal>
-
-          <ScrollReveal delay={0.3}>
-            <a className="l2t-card l2t-affiliate-card hover-tilt" href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, destination: country.country_name, sourcePage: `country_guide_${country.slug}` })} target="_blank" rel="nofollow sponsored noreferrer">
-              <div className="l2t-card-icon" style={{ background: "#F0FFF4", color: "#10B981" }}><Wifi size={24} /></div>
-              <h3>eSIM Al</h3>
-              <p>{country.country_name} için internet paketini seyahatten önce hazırla.</p>
-              <span className="l2t-btn l2t-btn-small">eSIM Al →</span>
-            </a>
-          </ScrollReveal>
-        </div>
-
-        <div style={{ marginTop: "32px", textAlign: "center" }}>
-          <Link href="/ulke-rehberi" className="l2t-text-link" style={{ fontSize: "1.1rem" }}>
-            ← Tüm Rehberlere Dön
-          </Link>
-        </div>
-      </div>
+      <CountryGuideCtas country={country} />
 
       {/* ══ TOPLULUK VE YEREL ARAÇLAR ══ */}
       <div className="l2t-wrap" style={{ marginTop: "40px", marginBottom: "80px", display: "grid", gridTemplateColumns: "1fr 2fr", gap: "32px", alignItems: "start" }}>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Plane } from "lucide-react";
+import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Plane, Hotel, Wifi, MessageCircle, BellRing } from "lucide-react";
 import Link from "next/link";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -358,8 +358,8 @@ export default function PassportPowerPage() {
                     Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
                   </div>
                   <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold w-full text-center">Bu Ülke İçin Rota Oluştur</Link>
-                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue w-full text-center">Uçak Bileti Ara</Link>
+                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-gold w-full text-center">Uçak Bileti Ara</Link>
+                    <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`} className="l2t-button l2t-button-blue w-full text-center">Gezgin Yorumları</Link>
                   </div>
                 </div>
               )}
@@ -540,15 +540,20 @@ export default function PassportPowerPage() {
           ))}
         </div>
         
-        {/* AI CTA */}
-        <div className="l2t-glass-card" style={{ marginTop: "32px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", alignItems: "flex-start" }}>
+        {/* Seyahat CTA */}
+        <div className="l2t-passport-cta-card">
           <div>
-            <h3 style={{ fontSize: "1.3rem", fontWeight: "700", marginBottom: "8px", color: "var(--l2t-gold)" }}>Pasaport Gücünü Keşfettin, Şimdi Sıra Rotada!</h3>
-            <p style={{ color: "var(--l2t-soft)", fontSize: "1rem", margin: 0 }}>Vize durumu ve bütçene göre sana en uygun rotayı yapay zeka asistanımızla saniyeler içinde planla.</p>
+            <p className="l2t-kicker">Vize durumunu gördün</p>
+            <h3>Şimdi seyahat adımını seç</h3>
+            <p>Pasaport gücü sayfasından çıkan kullanıcıyı bilet, otel, eSIM ve gezgin yorumlarına yönlendiriyoruz.</p>
           </div>
-          <Link href="/akilli-plan" className="l2t-button l2t-button-gold">
-            <Plane size={18} /> Rota Planı Oluştur
-          </Link>
+          <div className="l2t-passport-cta-actions">
+            <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçak bileti ara</Link>
+            <Link href="/oteller"><Hotel size={18} /> Otel bak</Link>
+            <Link href="/esim"><Wifi size={18} /> eSIM al</Link>
+            <Link href="/forum"><MessageCircle size={18} /> Gezginlere sor</Link>
+            <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı kur</Link>
+          </div>
         </div>
 
       </div>
