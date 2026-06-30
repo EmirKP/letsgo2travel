@@ -13,6 +13,8 @@ function NewTopicForm({ session }: { session: any }) {
   
   const [title, setTitle] = useState(searchParams?.get("title") || "");
   const [content, setContent] = useState("");
+  const initialCountrySlug = searchParams?.get("country") || "";
+  const initialCountryName = searchParams?.get("countryName") || "";
   
   const initialCategorySlug = searchParams?.get("kategori");
   let defaultCategory = "";
@@ -22,7 +24,7 @@ function NewTopicForm({ session }: { session: any }) {
   else if (initialCategorySlug === "ulke-bazli-sorunlar") defaultCategory = "Ülke Bazlı Sorunlar";
 
   const [category, setCategory] = useState(defaultCategory);
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState(initialCountryName || "");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,22 @@ function NewTopicForm({ session }: { session: any }) {
     "Genel / Ülke Bağımsız", "Almanya", "Birleşik Arap Emirlikleri", "Sırbistan", 
     "Karadağ", "Bosna-Hersek", "Gürcistan", "Kosova", "İtalya", "Fransa", "Yunanistan"
   ];
+
+  const countryOptions = initialCountryName && !popularCountries.includes(initialCountryName)
+    ? [initialCountryName, ...popularCountries]
+    : popularCountries;
+
+  const normalizeCountrySlug = (text: string) => {
+    const trMap: Record<string, string> = {
+      'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
+      'Ç': 'C', 'Ğ': 'G', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U'
+    };
+    return text
+      .replace(/[çğıöşüÇĞİÖŞÜ]/g, match => trMap[match] || match)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  };
 
   const generateSlug = (text: string) => {
     const trMap: Record<string, string> = {
@@ -73,13 +91,16 @@ function NewTopicForm({ session }: { session: any }) {
 
     try {
       const generatedSlug = generateSlug(title);
+      const selectedCountrySlug = country && country !== "Genel / Ülke Bağımsız"
+        ? (initialCountrySlug || normalizeCountrySlug(country))
+        : null;
       const { error: dbError } = await supabase.from("forum_topics").insert([
         {
           slug: generatedSlug,
           title: title.trim(),
           content: content.trim(),
           category: category,
-          country_slug: country === "Genel / Ülke Bağımsız" ? null : generateSlug(country).split('-')[0],
+          country_slug: selectedCountrySlug,
           author_id: session.user.id,
           author_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "Gezgin",
           status: "pending"
@@ -102,7 +123,10 @@ function NewTopicForm({ session }: { session: any }) {
         setCategory("");
         setCountry("");
         setTimeout(() => {
-          router.push("/forum");
+          const selectedCountrySlug = country && country !== "Genel / Ülke Bağımsız"
+            ? (initialCountrySlug || normalizeCountrySlug(country))
+            : "";
+          router.push(selectedCountrySlug ? `/forum/ulke/${selectedCountrySlug}` : "/forum");
         }, 3000);
       }
     } catch (err: any) {
@@ -185,7 +209,7 @@ function NewTopicForm({ session }: { session: any }) {
                   className="l2t-form-control appearance-none"
                 >
                   <option value="">İlgili ülkeyi seçiniz</option>
-                  {popularCountries.map((c, i) => (
+                  {countryOptions.map((c, i) => (
                     <option key={i} value={c}>{c}</option>
                   ))}
                 </select>

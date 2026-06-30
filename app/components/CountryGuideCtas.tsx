@@ -46,6 +46,7 @@ function getYourGuideLink(country: CountryGuide) {
 
 export default function CountryGuideCtas({ country }: { country: CountryGuide }) {
   const forumHref = `/forum/ulke/${country.slug}`;
+  const askHref = `/forum/yeni?country=${encodeURIComponent(country.slug)}&countryName=${encodeURIComponent(country.country_name)}&kategori=ulke-bazli-sorunlar&title=${encodeURIComponent(`${country.country_name} hakkında soru sormak istiyorum`)}`;
   const verifyHref = `/profil/dogrulama?country=${encodeURIComponent(country.slug)}`;
   const priceAlertHref = `/fiyat-kontrolu?to=${encodeURIComponent(country.airport_code || country.country_name)}`;
 
@@ -105,6 +106,7 @@ export default function CountryGuideCtas({ country }: { country: CountryGuide })
 
       <div className="l2t-country-action-footer">
         <Link href={priceAlertHref}><BellRing size={16} /> Fiyat alarmı kur</Link>
+        <Link href={askHref}><MessageCircle size={16} /> Bu ülke hakkında soru sor</Link>
         <Link href="/vizesiz-ulkeler"><MapPinned size={16} /> Benzer kolay rotaları gör</Link>
       </div>
     </section>

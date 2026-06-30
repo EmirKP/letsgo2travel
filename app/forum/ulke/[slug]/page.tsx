@@ -1,84 +1,179 @@
 import Link from "next/link";
-import { ArrowLeft, MessageSquare, PenTool, MapPin, Users } from "lucide-react";
+import { ArrowLeft, MessageSquare, PenTool, MapPin, Users, BadgeCheck, ShieldCheck, Trophy, Compass, Clock, CheckCircle2, HelpCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase-client";
+import { getCountryBySlug } from "@/lib/data";
+
+export const dynamic = "force-dynamic";
+
+type ForumTopicRow = {
+  id: string | number;
+  title: string;
+  category: string | null;
+  country_slug: string | null;
+  author_name: string | null;
+  created_at: string | null;
+};
+
+function countryNameFromSlug(slug: string) {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function dateLabel(value?: string | null) {
+  if (!value) return "Yeni";
+  try {
+    return new Date(value).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return "Yeni";
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
+  const { slug } = await params;
+  const country = await getCountryBySlug(slug);
+  const countryName = country?.country_name || countryNameFromSlug(slug);
+
   return {
-    title: `${resolvedParams.slug.replace(/-/g, ' ').toUpperCase()} | Forum & Kullanıcı Deneyimleri`,
-    description: `${resolvedParams.slug} hakkında gezginlerin soruları ve deneyimleri.`,
+    title: `${countryName} Forum & Doğrulanmış Gezgin Deneyimleri | LetsGo2Travel`,
+    description: `${countryName} hakkında soru sor, doğrulanmış gezgin deneyimlerini oku ve seyahat planını toplulukla netleştir.`,
   };
 }
 
 export default async function CountryForumPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
-  const slug = resolvedParams.slug;
-  const countryName = slug.charAt(0).toUpperCase() + slug.slice(1);
+  const { slug } = await params;
+  const country = await getCountryBySlug(slug);
+  const countryName = country?.country_name || countryNameFromSlug(slug);
+  const askHref = `/forum/yeni?country=${encodeURIComponent(slug)}&countryName=${encodeURIComponent(countryName)}&kategori=ulke-bazli-sorunlar&title=${encodeURIComponent(`${countryName} hakkında soru sormak istiyorum`)}`;
+  const verifyHref = `/profil/dogrulama?country=${encodeURIComponent(slug)}`;
 
-  // Dummy topics for specific country
-  const countryTopics = [
-    { id: "102", title: `${countryName} sınır kapısında yaşadığım sorun ve çözümüm`, category: "Ülke Bazlı Sorunlar", replies: 4, author: "EmreT", date: "5 saat önce" },
-    { id: "105", title: `${countryName} için en iyi ve uygun fiyatlı eSIM hangisi?`, category: "eSIM & İnternet", replies: 1, author: "GezginYolcu", date: "1 gün önce" },
+  const { data: topics } = await supabase
+    .from("forum_topics")
+    .select("id,title,category,country_slug,author_name,created_at")
+    .eq("status", "published")
+    .eq("country_slug", slug)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  const countryTopics = (topics || []) as ForumTopicRow[];
+
+  const starterQuestions = [
+    `${countryName} girişte dönüş bileti soruyor mu?`,
+    `${countryName} için günlük harcama ortalama ne kadar?`,
+    `${countryName} havalimanından merkeze en güvenli ulaşım nedir?`,
+    `${countryName} ilk kez gidecekler nelere dikkat etmeli?`,
   ];
 
   return (
-    <div className="l2t-page" style={{ minHeight: "80vh", background: "#f8fafc", paddingBottom: "80px" }}>
-      
-      {/* Hero */}
-      <div style={{ background: "var(--l2t-navy)", padding: "40px 20px", color: "#fff", textAlign: "center" }}>
-        <div className="l2t-wrap" style={{ maxWidth: "800px", margin: "0 auto" }}>
-          <Link href="/forum" style={{ color: "rgba(255,255,255,0.7)", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "16px", fontSize: "0.95rem" }}>
-            <ArrowLeft size={16} /> Tüm Foruma Dön
+    <div className="l2t-page l2t-country-forum-page">
+      <section className="l2t-country-forum-hero">
+        <div className="l2t-wrap l2t-country-forum-hero-inner">
+          <Link href="/forum" className="l2t-country-forum-back">
+            <ArrowLeft size={16} /> Tüm foruma dön
           </Link>
-          <h1 style={{ fontSize: "2rem", fontWeight: "800", margin: "0 0 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" }}>
-            <MapPin size={28} color="#10B981" /> {countryName} Topluluğu
-          </h1>
-          <p style={{ fontSize: "1.05rem", color: "rgba(255,255,255,0.8)", margin: "0 auto 24px", maxWidth: "600px", lineHeight: "1.6" }}>
-            {countryName} seyahatiniz için diğer kullanıcıların deneyimlerini okuyun veya kendi sorunuzu sorun.
+
+          <div className="l2t-country-forum-eyebrow">
+            <MapPin size={16} /> Ülke topluluğu
+          </div>
+
+          <h1>{country?.emoji ? `${country.emoji} ` : ""}{countryName} gezgin topluluğu</h1>
+          <p>
+            {countryName} için vize, giriş, ulaşım, internet, güvenlik ve bütçe sorularını gezginlere sor. Doğrulanmış kullanıcı cevapları daha güvenilir şekilde öne çıkar.
           </p>
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
-            <Link href="/forum/yeni" className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "12px 24px", fontSize: "1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "8px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.2)" }}>
-              <PenTool size={18} /> {countryName} Hakkında Soru Sor
+
+          <div className="l2t-country-forum-actions">
+            <Link href={askHref} className="l2t-country-forum-primary">
+              <PenTool size={18} /> {countryName} hakkında soru sor
             </Link>
-            <Link href={`/rehber-merkezi/ulke/${slug}`} className="l2t-btn l2t-btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: "100px", padding: "12px 24px" }}>
-              Rehberlere Göz At
+            <Link href={verifyHref} className="l2t-country-forum-secondary">
+              <ShieldCheck size={18} /> Bu ülkeyi doğrula
+            </Link>
+            <Link href={`/ulke-rehberi/${slug}`} className="l2t-country-forum-secondary">
+              <Compass size={18} /> Rehberi oku
             </Link>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="l2t-wrap" style={{ maxWidth: "800px", margin: "40px auto 0", padding: "0 20px" }}>
-        
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {countryTopics.map((topic) => (
-            <Link key={topic.id} href={`/forum/${topic.id}`} style={{ textDecoration: "none" }}>
-              <div style={{ background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", transition: "all 0.2s" }} className="hover-tilt">
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
-                  <div>
-                    <h3 style={{ margin: "0 0 8px", color: "var(--l2t-navy)", fontSize: "1.15rem", fontWeight: "700", lineHeight: "1.4" }}>
-                      {topic.title}
-                    </h3>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", fontSize: "0.85rem", color: "#64748B" }}>
-                      <span style={{ background: "#F1F5F9", padding: "4px 10px", borderRadius: "100px", color: "#475569", fontWeight: "600" }}>{topic.category}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Users size={14} /> {topic.author}</span>
-                      <span>{topic.date}</span>
-                    </div>
-                  </div>
-                  <div style={{ background: "#EFF6FF", color: "var(--l2t-blue)", padding: "8px 16px", borderRadius: "12px", display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: "1.1rem", fontWeight: "800" }}>{topic.replies}</span>
-                    <span style={{ fontSize: "0.75rem", fontWeight: "600" }}>Cevap</span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-          {countryTopics.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px", background: "#fff", borderRadius: "16px", color: "#64748B" }}>
-              Bu ülke için henüz konu açılmamış. İlk soran siz olun!
+      <main className="l2t-wrap l2t-country-forum-layout">
+        <aside className="l2t-country-forum-sidebar">
+          {country && (
+            <div className="l2t-country-forum-info-card">
+              <span className="l2t-country-forum-info-icon"><CheckCircle2 size={20} /></span>
+              <strong>Vize durumu</strong>
+              <p>{country.visa_status}</p>
+              <small>{country.visa_note}</small>
             </div>
           )}
-        </div>
 
-      </div>
+          <div className="l2t-country-forum-info-card">
+            <span className="l2t-country-forum-info-icon"><BadgeCheck size={20} /></span>
+            <strong>Doğrulanmış gezgin</strong>
+            <p>Gittiği ülkeyi belgeleyen kullanıcıların cevapları toplulukta daha güvenli kabul edilir.</p>
+            <Link href={verifyHref}>Doğrulama başlat →</Link>
+          </div>
+
+          <div className="l2t-country-forum-info-card">
+            <span className="l2t-country-forum-info-icon"><Trophy size={20} /></span>
+            <strong>Kaşifler Ligi</strong>
+            <p>Ülke doğrulayan kullanıcılar ligde puan kazanır ve profillerinde gezdiği ülkeleri gösterebilir.</p>
+            <Link href="/kasifler-ligi">Ligi gör →</Link>
+          </div>
+        </aside>
+
+        <section className="l2t-country-forum-content">
+          <div className="l2t-country-forum-section-head">
+            <div>
+              <p className="l2t-kicker">Forum akışı</p>
+              <h2>{countryName} hakkında son sorular</h2>
+            </div>
+            <Link href={askHref}>Yeni soru sor <PenTool size={16} /></Link>
+          </div>
+
+          {countryTopics.length > 0 ? (
+            <div className="l2t-country-forum-topic-list">
+              {countryTopics.map((topic) => (
+                <Link key={topic.id} href={`/forum/${topic.id}`} className="l2t-country-forum-topic-card">
+                  <div>
+                    <span className="l2t-country-forum-topic-category">{topic.category || "Ülke Bazlı Sorunlar"}</span>
+                    <h3>{topic.title}</h3>
+                    <div className="l2t-country-forum-topic-meta">
+                      <span><Users size={14} /> {topic.author_name || "Gezgin"}</span>
+                      <span><Clock size={14} /> {dateLabel(topic.created_at)}</span>
+                    </div>
+                  </div>
+                  <span className="l2t-country-forum-topic-action">İncele →</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="l2t-country-forum-empty">
+              <MessageSquare size={42} />
+              <h3>Bu ülke için henüz yayınlanmış soru yok.</h3>
+              <p>İlk soruyu sen sor. Cevaplar geldikçe bu sayfa ülkeye özel deneyim arşivine dönüşür.</p>
+              <Link href={askHref}>İlk soruyu sor</Link>
+            </div>
+          )}
+
+          <div className="l2t-country-forum-starters">
+            <div className="l2t-country-forum-section-head compact">
+              <div>
+                <p className="l2t-kicker">Hazır soru fikirleri</p>
+                <h2>Tek tıkla konu başlat</h2>
+              </div>
+            </div>
+            <div className="l2t-country-forum-starter-grid">
+              {starterQuestions.map((title) => (
+                <Link key={title} href={`/forum/yeni?country=${encodeURIComponent(slug)}&countryName=${encodeURIComponent(countryName)}&kategori=ulke-bazli-sorunlar&title=${encodeURIComponent(title)}`}>
+                  <HelpCircle size={17} /> {title}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

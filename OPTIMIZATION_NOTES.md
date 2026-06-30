@@ -59,3 +59,10 @@ git push origin main
   - Son moderasyon kayıtları
 - `/api/health` eklendi. Env, Supabase, AI ve SQL durumunu hızlı kontrol eder.
 - `robots.txt` içinde `/go/` disallow edildi; yönlendirme sayfaları SEO indexine girmesin.
+
+## Ülke Rehberi + Forum + Doğrulanmış Gezgin Bağlantısı
+- Ülke rehberi detaylarına `CountryCommunityPanel` eklendi.
+- Her ülke sayfasından ülkeye özel forum, soru sorma, ülke doğrulama ve Kaşifler Ligi bağlantıları öne çıkarıldı.
+- `/forum/ulke/[slug]` sayfası ülke bazlı gerçek forum konularını listeleyecek şekilde güçlendirildi.
+- Yeni konu açma formu URL parametreleriyle ülke ve başlık ön doldurmayı destekler hale getirildi.
+- Ülke forum sayfalarına vize özeti, doğrulama CTA'sı, Kaşifler Ligi bağlantısı ve hazır soru şablonları eklendi.
