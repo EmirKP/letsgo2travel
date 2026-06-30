@@ -1,6 +1,6 @@
-import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { verifyAlertToken } from "@/lib/price-alerts";
 
 async function getCurrentUser(request: Request, supabase: any) {
   const authHeader = request.headers.get("Authorization");
@@ -8,6 +8,32 @@ async function getCurrentUser(request: Request, supabase: any) {
   const token = authHeader.replace("Bearer ", "");
   const { data: { user } } = await supabase.auth.getUser(token);
   return user;
+}
+
+async function assertAlertAccess(request: Request, supabase: any, id: string, token?: string | null) {
+  const { data: alertData, error: fetchError } = await supabase
+    .from("flight_price_alerts")
+    .select("user_id, manage_token_hash, manage_token_expires_at")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !alertData) return { ok: false, status: 404, error: "Alarm bulunamadı." };
+
+  if (alertData.user_id) {
+    const currentUser = await getCurrentUser(request, supabase);
+    if (!currentUser) return { ok: false, status: 401, error: "Oturum gerekli." };
+    if (alertData.user_id !== currentUser.id) return { ok: false, status: 403, error: "Yetkisiz işlem." };
+    return { ok: true, alertData };
+  }
+
+  if (!token) return { ok: false, status: 401, error: "Token eksik." };
+  const validToken = verifyAlertToken({
+    plainToken: token,
+    storedHash: alertData.manage_token_hash,
+    expiresAt: alertData.manage_token_expires_at,
+  });
+  if (!validToken) return { ok: false, status: 401, error: "Geçersiz veya süresi dolmuş token." };
+  return { ok: true, alertData };
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,31 +44,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const resolvedParams = await params;
     const body = await request.json();
     const { is_active, target_price, threshold_percent, notify_email, notify_push } = body;
+    const access = await assertAlertAccess(request, supabase, resolvedParams.id);
 
-    const { data: alertData, error: fetchError } = await supabase
-      .from("flight_price_alerts")
-      .select("user_id")
-      .eq("id", resolvedParams.id)
-      .single();
-
-    if (fetchError || !alertData) {
-      return NextResponse.json({ error: "Alarm bulunamadı." }, { status: 404 });
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    if (alertData.user_id) {
-      const currentUser = await getCurrentUser(request, supabase);
-      if (!currentUser) {
-        return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
-      }
-      if (alertData.user_id !== currentUser.id) {
-        return NextResponse.json({ error: "Yetkisiz işlem." }, { status: 403 });
-      }
-    } else {
-      return NextResponse.json({ error: "Misafir alarmları bu menüden güncellenemez." }, { status: 403 });
+    const updatePayload: Record<string, unknown> = {};
+    if (is_active !== undefined) {
+      updatePayload.is_active = is_active;
+      updatePayload.status = is_active ? "active" : "paused";
     }
-
-    const updatePayload: any = {};
-    if (is_active !== undefined) updatePayload.is_active = is_active;
     if (target_price !== undefined) updatePayload.target_price = target_price;
     if (threshold_percent !== undefined) updatePayload.threshold_percent = threshold_percent;
     if (notify_email !== undefined) updatePayload.notify_email = notify_email;
@@ -58,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ success: true, message: "Alarm güncellendi." });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 }
@@ -71,57 +83,23 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const resolvedParams = await params;
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
-    
-    const { data: alertData, error: fetchError } = await supabase
-      .from("flight_price_alerts")
-      .select("user_id, manage_token_hash, manage_token_expires_at")
-      .eq("id", resolvedParams.id)
-      .single();
+    const access = await assertAlertAccess(request, supabase, resolvedParams.id, token);
 
-    if (fetchError || !alertData) {
-      return NextResponse.json({ error: "Alarm bulunamadı." }, { status: 404 });
-    }
-
-    if (alertData.user_id) {
-       const currentUser = await getCurrentUser(request, supabase);
-       if (!currentUser) {
-         return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
-       }
-       if (alertData.user_id !== currentUser.id) {
-         return NextResponse.json({ error: "Yetkisiz işlem." }, { status: 403 });
-       }
-    } else {
-       if (!token) {
-         return NextResponse.json({ error: "Token eksik." }, { status: 401 });
-       }
-       
-       if (alertData.manage_token_expires_at && new Date(alertData.manage_token_expires_at) < new Date()) {
-         return NextResponse.json({ error: "Token süresi dolmuş." }, { status: 401 });
-       }
-
-       if (!alertData.manage_token_hash) {
-         return NextResponse.json({ error: "Alarm token'ı bulunamadı." }, { status: 400 });
-       }
-       
-       const hashedTokenBuffer = crypto.createHash("sha256").update(token).digest();
-       const storedHashBuffer = Buffer.from(alertData.manage_token_hash, 'hex');
-       
-       if (hashedTokenBuffer.length !== storedHashBuffer.length || !crypto.timingSafeEqual(hashedTokenBuffer, storedHashBuffer)) {
-         return NextResponse.json({ error: "Geçersiz token." }, { status: 401 });
-       }
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const { error: updateError } = await supabase
       .from("flight_price_alerts")
-      .update({ is_active: false })
+      .update({ is_active: false, status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", resolvedParams.id);
 
     if (updateError) {
-      return NextResponse.json({ error: "Silme işlemi başarısız." }, { status: 500 });
+      return NextResponse.json({ error: "Alarm kapatılamadı." }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: "Alarm kapatıldı." });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 }

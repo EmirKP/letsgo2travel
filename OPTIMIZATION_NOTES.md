@@ -66,3 +66,11 @@ git push origin main
 - `/forum/ulke/[slug]` sayfası ülke bazlı gerçek forum konularını listeleyecek şekilde güçlendirildi.
 - Yeni konu açma formu URL parametreleriyle ülke ve başlık ön doldurmayı destekler hale getirildi.
 - Ülke forum sayfalarına vize özeti, doğrulama CTA'sı, Kaşifler Ligi bağlantısı ve hazır soru şablonları eklendi.
+
+## Fiyat Alarmı ve Mail Sistemi Güçlendirme
+- `flight_price_alerts` için durum alanları eklendi: `active`, `paused`, `triggered`, `error`, `cancelled`.
+- Fiyat kontrol logları `flight_price_alert_logs` tablosunda tutulur.
+- Mail gönderim sonuçları `mail_delivery_logs` tablosunda tutulur.
+- Misafir kullanıcılar için mailde tek tıkla iptal endpoint'i eklendi: `/api/flight-alerts/[id]/unsubscribe?token=...`.
+- Cron endpoint'i `CRON_SECRET` ile korunur ve başarısız API/mail durumlarını admin panelde görünür hale getirir.
+- Admin fiyat alarmı ekranı son fiyat, son kontrol, mail durumu ve hata mesajlarını gösterecek şekilde yenilendi.
