@@ -7,7 +7,7 @@ export const CACHE_TIMES = {
   PRIVATE_NO_STORE: "private, no-store, max-age=0",
 } as const;
 
-export function cachedJson<T>(data: T, cacheControl = CACHE_TIMES.CONTENT_LIST, init?: ResponseInit) {
+export function cachedJson<T>(data: T, cacheControl: string = CACHE_TIMES.CONTENT_LIST, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("Cache-Control", cacheControl);
   headers.set("CDN-Cache-Control", cacheControl);
