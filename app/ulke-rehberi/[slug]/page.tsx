@@ -7,6 +7,8 @@ import { getCountryBySlug, getCountryGuides } from "@/lib/data";
 import ScrollReveal from "@/app/components/ScrollReveal";
 import CountryFavicon from "@/app/components/CountryFavicon";
 import CountryHero from "@/app/components/CountryHero";
+import JsonLd from "@/app/components/JsonLd";
+import { countryGuideSchema } from "@/lib/structured-data";
 
 export async function generateStaticParams() {
   const countries = await getCountryGuides();
@@ -31,6 +33,7 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
 
   return (
     <section className="bento-page-wrap">
+      <JsonLd data={countryGuideSchema(country)} />
       <CountryFavicon emoji={country.emoji} />
       
       {/* ══ BENTO HERO ══ */}

@@ -3,6 +3,8 @@ import "./globals.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
+import JsonLd from "./components/JsonLd";
+import { organizationSchema } from "@/lib/structured-data";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -14,7 +16,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.com.tr"),
   title: {
     default: "Letsgo2Travel | Ucuz Uçak Bileti, Vizesiz Rotalar ve Seyahat Rehberi",
     template: "%s | Letsgo2Travel",
@@ -24,9 +26,16 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Letsgo2Travel",
     description: "Ucuz uçuşlar ve vizesiz seyahat rotaları tek yerde.",
-    images: ["/plane-hero.webp"],
+    images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "Letsgo2Travel" }],
   },
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -38,6 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="tr">
       <body>
+        <JsonLd data={organizationSchema()} />
         <Header />
         <main>{children}</main>
         <Footer />

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDealBySlug, getFlightDeals } from "@/lib/data";
 import { siteSettings, withUtm } from "@/lib/affiliate";
+import JsonLd from "@/app/components/JsonLd";
+import { flightDealSchema } from "@/lib/structured-data";
 
 export async function generateStaticParams() {
   const deals = await getFlightDeals();
@@ -27,6 +29,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
   return (
     <section className="l2t-page l2t-wrap">
+      <JsonLd data={flightDealSchema(deal)} />
       {/* Hero — light tema uyumlu */}
       <div
         className="l2t-detail-hero"

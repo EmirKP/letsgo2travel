@@ -2,20 +2,22 @@
 @import "../styles/l2t-belgeli-gezgin.css";
 
 :root {
-  --l2t-night: #071426;
-  --l2t-navy: #0B1D35;
-  --l2t-deep: #102A4C;
+  --l2t-night: #06183A;
+  --l2t-navy: #06183A;
+  --l2t-deep: #0E2A5C;
   --l2t-card: rgba(255, 255, 255, 0.06);
   --l2t-card-strong: rgba(255, 255, 255, 0.10);
   --l2t-border: rgba(255, 255, 255, 0.12);
-  --l2t-gold: #FFC72C;
-  --l2t-gold-hover: #FFD95A;
+  --l2t-gold: #FFB400;
+  --l2t-gold-hover: #FF6B35;
   --l2t-cyan: #06B6D4;
+  --l2t-coral: #FF6B35;
+  --l2t-card-light: #F7F9FC;
   --l2t-text: #F8FAFC;
   --l2t-muted: #AFC0D6;
-  --l2t-danger: #EF4444;
-  --l2t-success: #10B981;
-  --l2t-warning: #F59E0B;
+  --l2t-danger: #E63946;
+  --l2t-success: #2ECC71;
+  --l2t-warning: #FFB400;
 
   --l2t-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   --l2t-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
@@ -107,7 +109,7 @@ main { min-height: 75vh; }
 }
 .l2t-button:disabled { opacity: 0.6; cursor: not-allowed; }
 .l2t-button-gold {
-  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-hover));
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-coral));
   color: var(--l2t-night);
   box-shadow: 0 8px 24px rgba(255, 199, 44, 0.25);
 }
@@ -3459,12 +3461,7 @@ main { background: transparent; }
    Performance patch: smoother scrolling and lighter first load
    ────────────────────────────────────────────── */
 .l2t-page-transition {
-  animation: l2t-page-fade 0.22s ease both;
-}
-
-@keyframes l2t-page-fade {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  contain: paint;
 }
 
 .l2t-reveal {
@@ -3516,3 +3513,18 @@ main { background: transparent; }
 
 .l2t-ai-fade { animation: l2t-ai-fade-in 0.22s ease both; }
 @keyframes l2t-ai-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Beta performans: mobil cihazlarda ağır blur/hover efektlerini azalt */
+@media (max-width: 768px) {
+  .l2t-glass-card,
+  .l2t-ai-box,
+  .l2t-search-card,
+  .l2t-card,
+  .l2t-content-card,
+  .l2t-cta-band,
+  .l2t-map-card,
+  .glass-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

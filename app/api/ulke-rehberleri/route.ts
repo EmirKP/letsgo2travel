@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { getCountryGuides } from "@/lib/data";
+import { CACHE_TIMES, cachedJson } from "@/lib/http-cache";
 
 export async function GET() {
   const countries = await getCountryGuides();
-  return NextResponse.json({ data: countries });
+  return cachedJson({ data: countries }, CACHE_TIMES.STATIC_REFERENCE);
 }

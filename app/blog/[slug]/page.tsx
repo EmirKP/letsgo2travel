@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getBlogBySlug, getBlogPosts } from "@/lib/data";
+import JsonLd from "@/app/components/JsonLd";
+import { articleSchema } from "@/lib/structured-data";
 
 export async function generateStaticParams() {
   const posts = await getBlogPosts();
@@ -19,6 +21,7 @@ export default async function BlogDetailPage({ params }: { params: Promise<{ slu
   if (!post) notFound();
   return (
     <article className="l2t-page l2t-wrap l2t-article">
+      <JsonLd data={articleSchema(post)} />
       <img className="l2t-article-image" src={post.image_url || "/travel-images/discover.jpg"} alt="" />
       <p className="l2t-kicker">{post.category} · {post.read_time}</p>
       <h1>{post.title}</h1>

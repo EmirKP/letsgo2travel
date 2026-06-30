@@ -1,98 +1,149 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-export const maxDuration = 60; // Max execution time for Vercel Hobby
+export const maxDuration = 60;
 
-// Simple in-memory rate limit for AI route (Not fully persistent in serverless, but helps against basic spam)
-const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function normalizeInput(body: any) {
+  return {
+    origin: String(body?.origin || "Belirtilmedi").slice(0, 80),
+    days: String(body?.days || "Belirtilmedi").slice(0, 40),
+    month: String(body?.month || "Belirtilmedi").slice(0, 40),
+    budget: String(body?.budget || "Belirtilmedi").slice(0, 60),
+    accommodation: String(body?.accommodation || "Belirtilmedi").slice(0, 60),
+    who: String(body?.who || "Belirtilmedi").slice(0, 60),
+    tempo: String(body?.tempo || "Belirtilmedi").slice(0, 60),
+    vibe: Array.isArray(body?.vibe) ? body.vibe.map((v: any) => String(v).slice(0, 40)).slice(0, 8) : [],
+    visa: String(body?.visa || "Belirtilmedi").slice(0, 60),
+  };
+}
+
+function requestHash(input: Record<string, unknown>) {
+  return crypto.createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
+async function getCachedPlan(hash: string) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("ai_plan_cache")
+      .select("output_json")
+      .eq("request_hash", hash)
+      .maybeSingle();
+
+    if (error || !data?.output_json) return null;
+    return data.output_json;
+  } catch {
+    return null;
+  }
+}
+
+async function saveCachedPlan(hash: string, input: Record<string, unknown>, output: unknown) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+
+  try {
+    await supabase.from("ai_plan_cache").upsert({
+      request_hash: hash,
+      input_json: input,
+      output_json: output,
+      updated_at: new Date().toISOString(),
+    });
+  } catch {
+    // Cache hatası kullanıcı cevabını engellemesin.
+  }
+}
+
+function fallbackResponse() {
+  return NextResponse.json(
+    { success: true, data: null, isFallback: true },
+    { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+  );
+}
 
 export async function POST(req: Request) {
   try {
-    // 1. Rate Limiting Check
-    const ip = req.headers.get("x-forwarded-for") || "unknown-ip";
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown-ip";
     const now = Date.now();
     const rateLimitInfo = rateLimitMap.get(ip);
-    
+
     if (rateLimitInfo && now < rateLimitInfo.resetTime) {
       if (rateLimitInfo.count >= 5) {
-        // En fazla 5 istek / 1 dakika
         return NextResponse.json(
-          { error: "Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin." }, 
-          { status: 429 }
+          { error: "Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin." },
+          { status: 429, headers: { "Cache-Control": "private, no-store, max-age=0" } }
         );
       }
       rateLimitInfo.count++;
     } else {
-      rateLimitMap.set(ip, { count: 1, resetTime: now + 60000 }); // 1 min window
+      rateLimitMap.set(ip, { count: 1, resetTime: now + 60_000 });
     }
 
-    // 2. Feature Flag & Key Check
-    const aiEnabled = process.env.AI_PLAN_ENABLED === "true";
-    const apiKey = process.env.GEMINI_API_KEY;
+    const body = await req.json().catch(() => ({}));
+    const input = normalizeInput(body);
+    const hash = requestHash(input);
 
-    const body = await req.json();
-    
-    // If feature flag is false or no API key, return a designated fallback signal so client uses fallback data safely
+    const cached = await getCachedPlan(hash);
+    if (cached) {
+      return NextResponse.json(
+        { success: true, data: cached, isFallback: false, cached: true },
+        { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+      );
+    }
+
+    const aiEnabled = process.env.AI_PLAN_ENABLED === "true";
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
     if (!aiEnabled || !apiKey) {
-      return NextResponse.json({ success: true, data: null, isFallback: true });
+      return fallbackResponse();
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash"; // Varsayılan olarak çalışan modeli kullanıyoruz
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
     const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `
       Sen profesyonel bir seyahat danışmanısın. Kullanıcının verdiği seçimlere göre, en iyi 3 farklı rota seçeneği oluştur.
       Yanıtını SADECE geçerli bir JSON olarak ver. Markdown (\`\`\`json ... \`\`\`) KULLANMA. Doğrudan JSON objesi döndür.
-      KESİNLİKLE "canlı fiyat", "garanti giriş" veya "kesin vize bilgisi" gibi iddialarda bulunma. Fiyatların ve kuralların tahmini olduğunu belirtmeye gerek yok, biz arayüzde belirteceğiz. Sadece istenen yapıyı ver.
-      
-      Kullanıcı Seçimleri:
-      - Çıkış Noktası: ${body.origin || "Belirtilmedi"}
-      - Süre: ${body.days || "Belirtilmedi"}
-      - Dönem: ${body.month || "Belirtilmedi"}
-      - Bütçe: ${body.budget || "Belirtilmedi"}
-      - Konaklama: ${body.accommodation || "Belirtilmedi"}
-      - Kiminle: ${body.who || "Belirtilmedi"}
-      - Tempo: ${body.tempo || "Belirtilmedi"}
-      - Seyahat Tipi: ${body.vibe && body.vibe.length > 0 ? body.vibe.join(", ") : "Belirtilmedi"}
-      - Vize Tercihi: ${body.visa || "Belirtilmedi"}
+      KESİNLİKLE "canlı fiyat", "garanti giriş" veya "kesin vize bilgisi" gibi iddialarda bulunma.
 
-      Lütfen aşağıdaki JSON formatına birebir uy:
+      Kullanıcı Seçimleri:
+      - Çıkış Noktası: ${input.origin}
+      - Süre: ${input.days}
+      - Dönem: ${input.month}
+      - Bütçe: ${input.budget}
+      - Konaklama: ${input.accommodation}
+      - Kiminle: ${input.who}
+      - Tempo: ${input.tempo}
+      - Seyahat Tipi: ${input.vibe.length > 0 ? input.vibe.join(", ") : "Belirtilmedi"}
+      - Vize Tercihi: ${input.visa}
+
+      JSON formatı:
       {
         "summary": "Bu seçimlere göre kısa, samimi genel bir değerlendirme (max 2 cümle).",
         "routes": [
           {
-            "name": "Şehir Adı (örn: Saraybosna)",
-            "country": "Ülke (örn: Bosna Hersek)",
-            "cityOrRegion": "Arama için şehir veya bölge adı (örn: Sarajevo)",
-            "why": "Bu rota bu kullanıcı için neden uygun? (1 paragraf)",
+            "name": "Şehir Adı",
+            "country": "Ülke",
+            "cityOrRegion": "Arama için şehir veya bölge adı",
+            "why": "Bu rota bu kullanıcı için neden uygun?",
             "visaStatus": "Vizesiz / Kimlikle / Schengen vb.",
-            "estimatedBudget": "Tahmini bütçe (örn: 10.000 - 15.000 TL)",
-            "idealDuration": "İdeal süre (örn: 3 gün)",
-            "bestFor": "Kimin için uygun (örn: İlk kez yurt dışı, Kültür gezisi)",
+            "estimatedBudget": "Tahmini bütçe",
+            "idealDuration": "İdeal süre",
+            "bestFor": "Kimin için uygun",
             "difficulty": "Kolay / Orta / Zor",
             "firstTimeFriendly": true,
             "transportEase": "Kolay / Orta",
-            "safetyNote": "Güvenlik veya dikkat edilmesi gerekenler (kısa).",
-            "scores": {
-              "budget": 9,
-              "visaEase": 10,
-              "firstTime": 9,
-              "transport": 8,
-              "overall": 90
-            },
-            "dailyPlan": [
-              "1. Gün: ...",
-              "2. Gün: ..."
-            ],
-            "warnings": [
-              "Hava durumu ile ilgili not..."
-            ],
-            "cta": {
-              "flightSearchText": "Bu rota için bilet ara",
-              "guideText": "Rehberi gör",
-              "forumText": "Forumda sor"
-            }
+            "safetyNote": "Kısa güvenlik notu.",
+            "scores": { "budget": 9, "visaEase": 10, "firstTime": 9, "transport": 8, "overall": 90 },
+            "dailyPlan": ["1. Gün: ...", "2. Gün: ..."],
+            "warnings": ["Hava durumu ile ilgili not..."],
+            "cta": { "flightSearchText": "Bu rota için bilet ara", "guideText": "Rehberi gör", "forumText": "Forumda sor" }
           }
         ]
       }
@@ -100,13 +151,12 @@ export async function POST(req: Request) {
 
     const result = await model.generateContent(prompt);
     let textResult = result.response.text().trim();
-    
-    // 3. Response Validation & Parsing
-    if (textResult.startsWith("\`\`\`json")) {
-      textResult = textResult.replace(/^\`\`\`json\n/, "").replace(/\n\`\`\`$/, "");
+
+    if (textResult.startsWith("```json")) {
+      textResult = textResult.replace(/^```json\n/, "").replace(/\n```$/, "");
     }
-    if (textResult.startsWith("\`\`\`")) {
-      textResult = textResult.replace(/^\`\`\`\n/, "").replace(/\n\`\`\`$/, "");
+    if (textResult.startsWith("```")) {
+      textResult = textResult.replace(/^```\n/, "").replace(/\n```$/, "");
     }
 
     let jsonData;
@@ -114,21 +164,22 @@ export async function POST(req: Request) {
       jsonData = JSON.parse(textResult);
     } catch (parseError) {
       console.error("AI JSON Parse Error:", parseError);
-      return NextResponse.json({ success: true, data: null, isFallback: true });
+      return fallbackResponse();
     }
 
-    // 4. Data sanitization
     if (!jsonData.routes || !Array.isArray(jsonData.routes)) {
-      return NextResponse.json({ success: true, data: null, isFallback: true });
+      return fallbackResponse();
     }
 
-    // En fazla 3 rota sınırı
     jsonData.routes = jsonData.routes.slice(0, 3);
+    await saveCachedPlan(hash, input, jsonData);
 
-    return NextResponse.json({ success: true, data: jsonData, isFallback: false });
+    return NextResponse.json(
+      { success: true, data: jsonData, isFallback: false, cached: false },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    );
   } catch (error: any) {
     console.error("AI Route Error:", error);
-    // Explicitly return fallback mode on error so client side triggers its own fallback safely
-    return NextResponse.json({ success: true, data: null, isFallback: true });
+    return fallbackResponse();
   }
 }
