@@ -9,7 +9,7 @@ import VerifiedTravelerSection from "@/components/home/VerifiedTravelerSection";
 import { getBlogPosts, getCountryGuides, getFlightDeals } from "@/lib/data";
 import { siteSettings, withUtm } from "@/lib/affiliate";
 import { formatFromPrice } from "@/lib/prices";
-import { Ticket, Flame, Plane, Hotel, Wifi, MapPin, Sparkles, CheckCircle2, Globe, Wallet, ChevronRight, Clock, Search } from "lucide-react";
+import { Ticket, Flame, Plane, Hotel, Wifi, MapPin, Sparkles, CheckCircle2, Globe, Wallet, ChevronRight, Clock } from "lucide-react";
 
 const routeHighlights = [
   { image: "/destinations/baku.jpg", city: "Bakü", tag: "Kimlikle", time: "2s 45dk", price: formatFromPrice("baku") },
@@ -49,7 +49,7 @@ export default async function HomePage() {
       <section className="hp-hero" style={{ position: "relative", overflow: "hidden", display: "flex", alignItems: "center" }}>
         <div className="hp-hero-bg" style={{ 
           zIndex: 0, 
-          backgroundImage: 'linear-gradient(to right, rgba(6, 20, 51, 0.9) 0%, rgba(6, 20, 51, 0.6) 50%, rgba(6, 20, 51, 0.2) 100%), url("https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=2000&auto=format&fit=crop")',
+          backgroundImage: 'linear-gradient(to right, rgba(6, 20, 51, 0.9) 0%, rgba(6, 20, 51, 0.6) 50%, rgba(6, 20, 51, 0.2) 100%), url("/plane-hero.webp")',
           backgroundSize: "cover",
           backgroundPosition: "center",
           position: "absolute",
@@ -68,30 +68,28 @@ export default async function HomePage() {
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={30}>
-              <h1 style={{ textAlign: "left", fontSize: "clamp(2rem, 5vw, 3.5rem)", textShadow: "0 4px 24px rgba(0,0,0,0.4)", lineHeight: "1.1", color: "#fff", marginBottom: "20px" }}>
-                Ucuz uçuşu bul,<br />
-                vize durumunu gör,<br />
-                <em>gerçek gezginlerden bilgi al.</em>
+              <h1 style={{ textAlign: "left", fontSize: "clamp(2rem, 5vw, 4rem)", textShadow: "0 4px 24px rgba(0,0,0,0.4)", lineHeight: "1.1", color: "#fff", marginBottom: "20px" }}>
+                Seçimlerini yap,<br />
+                <em>rotaları görelim.</em>
               </h1>
             </ScrollReveal>
             
             <ScrollReveal delay={0.3} yOffset={20}>
               <p className="l2t-hide-mobile" style={{ margin: "0 0 32px", textAlign: "left", fontSize: "1.2rem", textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-                LetsGo2Travel; uçak bileti fırsatlarını, Türk pasaportuna göre vize durumlarını ve gerçekten giden gezginlerin doğrulanmış deneyimlerini bir araya getirir.
+                IST ve SAW çıkışlı yüzlerce fiyatı karşılaştır.
+                Vize rehberi, fiyat alarmı ve AI asistanıyla tek platformda.
               </p>
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={20}>
               <div className="hp-hero-buttons l2t-hide-mobile" style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                <Link href="#bilet-ara" className="l2t-btn" style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-hover))", color: "var(--l2t-navy)" }}>
-                  <Search size={18} /> Bilet Ara
+                <Link href="/kampanyalar" className="l2t-btn" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Ticket size={18} /> Fırsatları Gör
                 </Link>
                 <Link href="/vizesiz-ulkeler" className="l2t-btn l2t-btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", borderColor: "rgba(255,255,255,0.3)", color: "#fff" }}>
-                  <Globe size={18} /> Vizesiz Rotaları Gör
+                  <Globe size={18} /> Vizesiz ülkeler
                 </Link>
-                <div style={{ transform: "scale(0.9)", transformOrigin: "left center" }}>
-                  <SurpriseButton />
-                </div>
+                <SurpriseButton />
               </div>
             </ScrollReveal>
 
@@ -200,6 +198,11 @@ export default async function HomePage() {
         </ScrollReveal>
       </section>
 
+      {/* ═══ BELGELİ GEZGİN ═══════════════════════════════════════════════ */}
+      <div style={{ background: "#040C1A", marginTop: "4rem", paddingTop: "2rem", paddingBottom: "2rem" }}>
+        <VerifiedTravelerSection />
+      </div>
+
       {/* ═══ AI ROTA DANIŞMANI (Senaryo Kartları) ═════════════════════════ */}
       <section className="l2t-wrap" style={{ marginTop: "60px", scrollMarginTop: "100px" }} id="akilli-plan">
         <ScrollReveal delay={0.1}>
@@ -269,11 +272,6 @@ export default async function HomePage() {
         </ScrollReveal>
       </section>
 
-      {/* ═══ BELGELİ GEZGİN ═══════════════════════════════════════════════ */}
-      <div style={{ marginTop: "60px", marginBottom: "40px" }}>
-        <VerifiedTravelerSection />
-      </div>
-
       {/* ═══ NEDEN LETSGO2TRAVEL ═══════════════════════════════════════ */}
       <section className="l2t-wrap hp-why-grid" style={{ marginTop: "80px" }}>
         {whyItems.map((item, i) => (
@@ -328,7 +326,7 @@ export default async function HomePage() {
                   href={`/ulke-rehberi/${country.slug}`}
                   className="country-card hover-tilt"
                   style={{
-                    backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 60%, transparent 100%), url(${country.hero_image_url || "https://images.unsplash.com/photo-1500835556837-99ac94a94552?q=80&w=600&auto=format&fit=crop"})`,
+                    backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 60%, transparent 100%), url(${country.hero_image_url || "/travel-images/discover.jpg"})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     minHeight: "320px",

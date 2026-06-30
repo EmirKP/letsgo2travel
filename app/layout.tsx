@@ -7,6 +7,8 @@ import BottomNav from "./components/BottomNav";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: "#06183A",
   viewportFit: "cover",
 };
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Letsgo2Travel",
     description: "Ucuz uçuşlar ve vizesiz seyahat rotaları tek yerde.",
-    images: ["/plane-hero.png"],
+    images: ["/plane-hero.webp"],
   },
   manifest: "/manifest.json",
   appleWebApp: {

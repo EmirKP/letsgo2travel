@@ -213,12 +213,12 @@ export default function PassportPowerPage() {
     <div className="l2t-page">
       {/* Header */}
       <div style={{ background: "transparent", position: "relative", padding: "100px 0 40px", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1, backgroundImage: "url('https://images.unsplash.com/photo-1574704381710-424a49106093?auto=format&fit=crop&w=2000&q=80')", backgroundSize: "cover", backgroundPosition: "center" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1, backgroundImage: "url('/travel-images/discover.jpg')", backgroundSize: "cover", backgroundPosition: "center" }} />
         <div className="l2t-wrap" style={{ display: "flex", alignItems: "center", gap: "40px", position: "relative", zIndex: 10, flexWrap: "wrap" }}>
           {/* Passport Image with Glow */}
           <div style={{ position: "relative", width: "160px", height: "220px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%", transform: "translate(-50%, -50%)", background: "radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)", filter: "blur(20px)" }} />
-            <img src="/turkish-passport.png" alt="Türkiye Pasaportu" style={{ width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))", position: "relative", zIndex: 2 }} />
+            <img src="/turkish-passport.webp" alt="Türkiye Pasaportu" width={160} height={220} decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))", position: "relative", zIndex: 2 }} />
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
@@ -358,8 +358,8 @@ export default function PassportPowerPage() {
                     Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
                   </div>
                   <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold" style={{ width: "100%", textAlign: "center" }}>Bu Ülke İçin Rota Oluştur</Link>
-                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue" style={{ width: "100%", textAlign: "center" }}>Uçak Bileti Ara</Link>
+                    <Link href="/akilli-plan" className="l2t-button l2t-button-gold w-full text-center">Bu Ülke İçin Rota Oluştur</Link>
+                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-blue w-full text-center">Uçak Bileti Ara</Link>
                   </div>
                 </div>
               )}

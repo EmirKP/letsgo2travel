@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import TripDashboard from "./TripDashboard";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase-client";
 
-import { Sparkles, Map, Globe, ShieldCheck, Heart, BookOpen, Calculator, Wifi, Hotel, Compass, Activity, Ticket, Plane, User, MessageSquare, Trophy } from "lucide-react";
+import { Sparkles, Map, Globe, ShieldCheck, BookOpen, Calculator, Wifi, Hotel, Compass, Ticket, Plane, User, MessageSquare, Trophy } from "lucide-react";
+
+const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
 const navItems = [
   { href: "/", label: "Bilet Ara", icon: Plane },
@@ -48,7 +50,7 @@ export default function Header() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [pathname]);
+  }, []);
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/" && pathname.startsWith(href));
@@ -134,14 +136,9 @@ export default function Header() {
             </Link>
           )}
 
-          <button onClick={() => {
-            const audio = new Audio("https://cdn.freesound.org/previews/341/341680_5858296-lq.mp3");
-            audio.volume = 0.3;
-            audio.play().catch(() => {});
-            setTimeout(() => { window.location.href = "/kampanyalar"; }, 400);
-          }} className="l2t-btn l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <Link href="/kampanyalar" className="l2t-btn l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
             <Plane size={16} /> Bilet Ara
-          </button>
+          </Link>
 
           <button
             className="l2t-burger l2t-hide-mobile"

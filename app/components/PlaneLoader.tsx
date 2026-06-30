@@ -2,19 +2,12 @@
 
 import { Compass, Plane, Sparkles, Activity } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 
 const loadingTexts = [
   "Rota seçenekleri analiz ediliyor...",
   "Bütçe ve seyahat süresi eşleşiyor...",
   "Şehir önerileri hazırlanıyor...",
   "Plan kartların oluşturuluyor..."
-];
-
-const chips = [
-  "Rota",
-  "Bütçe",
-  "Keşif"
 ];
 
 export default function PlaneLoader({ 

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import confetti from "canvas-confetti";
 import type { FlightDeal } from "@/lib/types";
 import { Heart, Flame, ThumbsUp } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
@@ -18,6 +17,22 @@ const campaignDestinationImages: Record<string, string[]> = {
   LON: ["/destinations/london.jpg", "/destinations/london-bridge.jpg", "/destinations/london-eye.jpg"]
 };
 
+let currentUserPromise: Promise<any> | null = null;
+
+async function getCurrentUserOnce() {
+  if (!currentUserPromise) {
+    currentUserPromise = supabase.auth.getSession().then(({ data }) => data.session?.user ?? null);
+  }
+  return currentUserPromise;
+}
+
+type ConfettiOptions = Parameters<typeof import("canvas-confetti")>[0];
+
+async function runConfetti(options: ConfettiOptions) {
+  const confetti = (await import("canvas-confetti")) as unknown as typeof import("canvas-confetti");
+  confetti(options);
+}
+
 export default function DealCard({ deal }: { deal: FlightDeal }) {
   const [hoverIndex, setHoverIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -28,21 +43,12 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
   const router = useRouter();
 
   useEffect(() => {
-    const checkUserAndFav = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        const { data } = await supabase
-          .from('user_favorites')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('bilet_id', deal.id)
-          .maybeSingle();
-        if (data) setIsFavorite(true);
-      }
-    };
-    checkUserAndFav();
-  }, [deal.id]);
+    let active = true;
+    getCurrentUserOnce().then((currentUser) => {
+      if (active && currentUser) setUser(currentUser);
+    });
+    return () => { active = false; };
+  }, []);
 
   const images = campaignDestinationImages[deal.destination_code] || [deal.image_url || "/travel-images/route-generic.jpg"];
 
@@ -71,9 +77,9 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
       await supabase.from('user_favorites').delete().eq('user_id', user.id).eq('bilet_id', deal.id);
       setIsFavorite(false);
     } else {
-      await supabase.from('user_favorites').insert([{ user_id: user.id, bilet_id: deal.id }]);
+      await supabase.from('user_favorites').upsert([{ user_id: user.id, bilet_id: deal.id }], { onConflict: 'user_id,bilet_id' });
       setIsFavorite(true);
-      confetti({
+      runConfetti({
         particleCount: 40,
         spread: 60,
         origin: { y: 0.8 },
@@ -86,8 +92,8 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
     e.preventDefault();
     setIsTorn(true);
     
-    // Confetti effect
-    confetti({
+    // Confetti effect is loaded only after click, not in the initial page bundle.
+    runConfetti({
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },
@@ -96,7 +102,7 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
 
     // Simulate navigation after animation
     setTimeout(() => {
-      window.location.href = `/ucak-bileti/${deal.slug}`;
+      router.push(`/ucak-bileti/${deal.slug}`);
     }, 1000);
   };
 

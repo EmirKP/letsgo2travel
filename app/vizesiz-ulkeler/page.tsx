@@ -39,17 +39,17 @@ const VISA_LABELS: Record<string, string> = {
 };
 
 const COUNTRIES = [
-  { id: 1, name: "Bosna Hersek", slug: "bosna-hersek", region: "Balkanlar", emoji: "🇧🇦", visa: "vizesiz", duration: "1s 50dk", stay: "30 gün", price: 1200, img: "https://images.unsplash.com/photo-1583587002014-998ce2fb623c?q=80&w=600&auto=format&fit=crop" },
-  { id: 2, name: "Karadağ", slug: "karadag", region: "Balkanlar", emoji: "🇲🇪", visa: "vizesiz", duration: "1s 45dk", stay: "30 gün", price: 2200, img: "https://images.unsplash.com/photo-1570103569875-1f4a742c1e0e?q=80&w=600&auto=format&fit=crop" },
-  { id: 3, name: "Sırbistan", slug: "sirbistan", region: "Balkanlar", emoji: "🇷🇸", visa: "vizesiz", duration: "1s 40dk", stay: "30 gün", price: 1400, img: "https://images.unsplash.com/photo-1605330089852-c840212e3e5c?q=80&w=600&auto=format&fit=crop" },
-  { id: 4, name: "Üsküp", slug: "uskup", region: "Balkanlar", emoji: "🇲🇰", visa: "vizesiz", duration: "1s 35dk", stay: "90 gün", price: 1000, img: "https://images.unsplash.com/photo-1622397960087-4ada5cab7d62?q=80&w=600&auto=format&fit=crop" },
-  { id: 5, name: "Gürcistan", slug: "gurcistan", region: "Kafkasya", emoji: "🇬🇪", visa: "kimlikle", duration: "2s 10dk", stay: "365 gün", price: 1600, img: "https://images.unsplash.com/photo-1565019053911-3fb3706041ec?q=80&w=600&auto=format&fit=crop" },
-  { id: 6, name: "Azerbaycan", slug: "azerbaycan", region: "Kafkasya", emoji: "🇦🇿", visa: "kimlikle", duration: "2s 45dk", stay: "90 gün", price: 1800, img: "https://images.unsplash.com/photo-1600181514647-6f7c8da8d5ee?q=80&w=600&auto=format&fit=crop" },
-  { id: 7, name: "KKTC", slug: "kktc", region: "Akdeniz", emoji: "🇨🇾", visa: "kimlikle", duration: "1s 30dk", stay: "Sınırsız", price: 1200, img: "https://images.unsplash.com/photo-1588665796013-0979bfb5b0ce?q=80&w=600&auto=format&fit=crop" },
-  { id: 8, name: "Mısır", slug: "misir", region: "Kuzey Afrika", emoji: "🇪🇬", visa: "kapida-vize", duration: "2s 15dk", stay: "30 gün", price: 3500, img: "https://images.unsplash.com/photo-1572252009286-268acec5ca0a?q=80&w=600&auto=format&fit=crop" },
-  { id: 9, name: "BAE (Dubai)", slug: "bae", region: "Orta Doğu", emoji: "🇦🇪", visa: "e-vize", duration: "4s 10dk", stay: "30 gün", price: 2400, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=600&auto=format&fit=crop" },
-  { id: 10, name: "Japonya", slug: "japonya", region: "Uzak Doğu", emoji: "🇯🇵", visa: "vizesiz", duration: "11s 30dk", stay: "90 gün", price: 18000, img: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=600&auto=format&fit=crop" },
-  { id: 11, name: "Maldivler", slug: "maldivler", region: "Uzak Doğu", emoji: "🇲🇻", visa: "kapida-vize", duration: "8s", stay: "30 gün", price: 14000, img: "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?q=80&w=600&auto=format&fit=crop" },
+  { id: 1, name: "Bosna Hersek", slug: "bosna-hersek", region: "Balkanlar", emoji: "🇧🇦", visa: "vizesiz", duration: "1s 50dk", stay: "30 gün", price: 1200, img: "/travel-images/route-saraybosna.jpg" },
+  { id: 2, name: "Karadağ", slug: "karadag", region: "Balkanlar", emoji: "🇲🇪", visa: "vizesiz", duration: "1s 45dk", stay: "30 gün", price: 2200, img: "/travel-images/route-generic.jpg" },
+  { id: 3, name: "Sırbistan", slug: "sirbistan", region: "Balkanlar", emoji: "🇷🇸", visa: "vizesiz", duration: "1s 40dk", stay: "30 gün", price: 1400, img: "/travel-images/route-generic.jpg" },
+  { id: 4, name: "Üsküp", slug: "uskup", region: "Balkanlar", emoji: "🇲🇰", visa: "vizesiz", duration: "1s 35dk", stay: "90 gün", price: 1000, img: "/travel-images/route-generic.jpg" },
+  { id: 5, name: "Gürcistan", slug: "gurcistan", region: "Kafkasya", emoji: "🇬🇪", visa: "kimlikle", duration: "2s 10dk", stay: "365 gün", price: 1600, img: "/travel-images/route-baku.jpg" },
+  { id: 6, name: "Azerbaycan", slug: "azerbaycan", region: "Kafkasya", emoji: "🇦🇿", visa: "kimlikle", duration: "2s 45dk", stay: "90 gün", price: 1800, img: "/travel-images/route-baku.jpg" },
+  { id: 7, name: "KKTC", slug: "kktc", region: "Akdeniz", emoji: "🇨🇾", visa: "kimlikle", duration: "1s 30dk", stay: "Sınırsız", price: 1200, img: "/travel-images/route-summer.jpg" },
+  { id: 8, name: "Mısır", slug: "misir", region: "Kuzey Afrika", emoji: "🇪🇬", visa: "kapida-vize", duration: "2s 15dk", stay: "30 gün", price: 3500, img: "/travel-images/route-generic.jpg" },
+  { id: 9, name: "BAE (Dubai)", slug: "bae", region: "Orta Doğu", emoji: "🇦🇪", visa: "e-vize", duration: "4s 10dk", stay: "30 gün", price: 2400, img: "/travel-images/route-dubai.jpg" },
+  { id: 10, name: "Japonya", slug: "japonya", region: "Uzak Doğu", emoji: "🇯🇵", visa: "vizesiz", duration: "11s 30dk", stay: "90 gün", price: 18000, img: "/travel-images/route-generic.jpg" },
+  { id: 11, name: "Maldivler", slug: "maldivler", region: "Uzak Doğu", emoji: "🇲🇻", visa: "kapida-vize", duration: "8s", stay: "30 gün", price: 14000, img: "/travel-images/route-summer.jpg" },
 ];
 
 export default function VisaFreePage() {

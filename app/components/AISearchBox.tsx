@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, Plane, MapPin, Wallet, Info } from "lucide-react";
+import { Sparkles, Send, Plane, MapPin, Wallet } from "lucide-react";
 
 type SearchResponse = {
   answer: string;
@@ -55,15 +54,9 @@ export default function AISearchBox() {
   return (
     <div className="ai-chat-container">
       {/* Çıktı Ekranı */}
-      <AnimatePresence mode="wait">
+      <div>
         {!result && !loading ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="ai-empty-state"
-          >
+          <div className="ai-empty-state l2t-ai-fade">
             <Sparkles size={32} className="ai-sparkle-icon" />
             <h3>Nereye gitmek istiyorsun?</h3>
             <p>Bütçeni, vize durumunu veya hayalindeki tatili yaz.</p>
@@ -74,37 +67,21 @@ export default function AISearchBox() {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </div>
         ) : loading ? (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="ai-loading-state"
-          >
+          <div className="ai-loading-state l2t-ai-fade">
             <div className="ai-loader-pulse"></div>
             <span>Yapay zeka rotanı planlıyor...</span>
-          </motion.div>
+          </div>
         ) : result ? (
-          <motion.div
-            key="result"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="ai-result-panel"
-          >
+          <div className="ai-result-panel l2t-ai-fade">
             <div className="ai-answer-text">
               <Sparkles size={18} />
               <p>{result.answer}</p>
             </div>
 
             {result.planPreview && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="ai-bento-grid"
-              >
+<div className="ai-bento-grid l2t-ai-fade">
                 <div className="ai-bento-card score-card">
                   <span className="bento-label">Uyum Skoru</span>
                   <strong className="bento-value">%{result.planPreview.score}</strong>
@@ -117,36 +94,26 @@ export default function AISearchBox() {
                   <span className="bento-label"><Wallet size={14} /> Bütçe</span>
                   <strong className="bento-value">{result.planPreview.budgetText}</strong>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {result.planPreview?.tags?.length && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="ai-tags-row"
-              >
+              <div className="ai-tags-row l2t-ai-fade">
                 {result.planPreview.tags.map((tag) => <span key={tag}>{tag}</span>)}
-              </motion.div>
+              </div>
             )}
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="ai-action-row"
-            >
+            <div className="ai-action-row l2t-ai-fade">
               <a href={result.url} target="_blank" rel="noreferrer" className="l2t-btn ai-cta-btn">
                 <Plane size={18} /> Canlı Bilet Ara
               </a>
               <button className="ai-reset-btn" onClick={() => setResult(null)}>
                 Yeni Arama
               </button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         ) : null}
-      </AnimatePresence>
+      </div>
 
       {/* Girdi Alanı */}
       <form onSubmit={onSubmit} className="ai-input-form">

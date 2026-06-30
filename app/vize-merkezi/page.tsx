@@ -36,56 +36,54 @@ export default async function VizeMerkeziPage() {
 
   return (
     <div className="l2t-wrap l2t-page">
-      <div className="l2t-page-hero">
-        <h1>Vize Merkezi</h1>
-        <p>
+      <div className="l2t-page-head text-center max-w-3xl mx-auto mb-12">
+        <h1 className="text-4xl font-extrabold text-[var(--l2t-text)] mb-4">Vize Merkezi</h1>
+        <p className="text-[var(--l2t-soft)] mx-auto">
           Güncel randevu durumları, gerekli belgeler ve gerçek gezgin deneyimleriyle vize süreçlerini yakından takip edin.
         </p>
       </div>
 
-      <div className="l2t-visa-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayPages.map((p: any) => (
-          <div key={p.id} className="l2t-glass-card l2t-card">
-            <div className="l2t-card-body" style={{ padding: "24px" }}>
-              <h2 className="l2t-card-title">{p.country_name}</h2>
-              <div className="l2t-card-subtitle">{p.visa_title}</div>
-              <div className="l2t-card-muted">{p.visa_type}</div>
-              
-              <div className="l2t-status-box">
-                <div className="l2t-status-label">Randevu Durumu</div>
-                {p.appointment_status ? (
-                  <span className={`l2t-status-val ${
-                    p.appointment_status === 'available' ? 'l2t-color-available' :
-                    p.appointment_status === 'moderate' ? 'l2t-color-moderate' :
-                    p.appointment_status === 'critical' ? 'l2t-color-critical' : 'l2t-color-none'
-                  }`}>
-                    <span className={`l2t-dot ${
-                      p.appointment_status === 'available' ? 'l2t-bg-available' :
-                      p.appointment_status === 'moderate' ? 'l2t-bg-moderate' :
-                      p.appointment_status === 'critical' ? 'l2t-bg-critical l2t-dot-pulse' : 'l2t-bg-none'
-                    }`}></span>
-                    {APPOINTMENT_STATUS_INFO[p.appointment_status as AppointmentStatus]?.label || 'Bilgi Yok'}
-                  </span>
-                ) : (
-                  <span className="l2t-status-val l2t-color-none">Bilgi Yok</span>
-                )}
-              </div>
-
-              {hasData && p.slug ? (
-                <Link href={`/vize-merkezi/${p.slug}`} className="l2t-button l2t-button-gold" style={{ width: "100%", marginTop: "auto" }}>
-                  Detayları Gör
-                </Link>
+          <div key={p.id} className="l2t-glass-card p-6 flex flex-col transition-transform hover:-translate-y-1">
+            <h2 className="text-xl font-bold text-[var(--l2t-text)] mb-1">{p.country_name}</h2>
+            <div className="text-sm text-[var(--l2t-gold)] font-bold mb-1">{p.visa_title}</div>
+            <div className="text-xs text-[var(--l2t-muted)] mb-4 uppercase tracking-wider">{p.visa_type}</div>
+            
+            <div className="mb-6 flex-grow p-4 rounded-xl bg-[var(--l2t-card-strong)] border border-[var(--l2t-border)]">
+              <div className="text-xs font-bold text-[var(--l2t-soft)] mb-2 uppercase tracking-wide">Randevu Durumu</div>
+              {p.appointment_status ? (
+                <span className={`inline-flex items-center gap-1.5 font-bold ${
+                  p.appointment_status === 'available' ? 'text-emerald-400' :
+                  p.appointment_status === 'moderate' ? 'text-yellow-400' :
+                  p.appointment_status === 'critical' ? 'text-red-400' : 'text-gray-400'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    p.appointment_status === 'available' ? 'bg-emerald-400' :
+                    p.appointment_status === 'moderate' ? 'bg-yellow-400' :
+                    p.appointment_status === 'critical' ? 'bg-red-400 animate-pulse' : 'bg-gray-400'
+                  }`}></span>
+                  {APPOINTMENT_STATUS_INFO[p.appointment_status as AppointmentStatus]?.label || 'Bilgi Yok'}
+                </span>
               ) : (
-                <button disabled className="l2t-button" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--l2t-muted)", width: "100%", marginTop: "auto", cursor: "not-allowed" }}>
-                  Yakında Hazırlanıyor
-                </button>
+                <span className="text-gray-400 font-bold">Bilgi Yok</span>
               )}
             </div>
+
+            {hasData && p.slug ? (
+              <Link href={`/vize-merkezi/${p.slug}`} className="l2t-button l2t-button-gold w-full text-center">
+                Detayları Gör
+              </Link>
+            ) : (
+              <button disabled className="l2t-button bg-white/5 text-[var(--l2t-muted)] border border-white/10 w-full text-center cursor-not-allowed">
+                Yakında Hazırlanıyor
+              </button>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="l2t-info-box" style={{ maxWidth: "800px", margin: "48px auto 0" }}>
+      <div className="l2t-info-box mt-12 mx-auto max-w-4xl text-sm leading-relaxed">
         <strong>Yasal Uyarı:</strong> Bu sayfadaki bilgiler ve kullanıcı yorumları bilgilendirme amaçlıdır. Vize kuralları, belge listeleri ve randevu süreçleri sürekli olarak değişebilir. Başvurunuzu yapmadan önce resmi konsolosluk, aracı kurum ve yetkili makamların güncel duyurularını her zaman kontrol ediniz.
       </div>
     </div>

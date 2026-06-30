@@ -15,7 +15,7 @@ export default function BAESayfasi() {
       {/* Hero */}
       <div style={{ position: "relative", height: "320px", overflow: "hidden", marginBottom: "32px" }}>
         <img
-          src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=1600&auto=format&fit=crop"
+          src="/travel-images/route-dubai.jpg"
           alt="Dubai skyline"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />

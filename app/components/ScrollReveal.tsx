@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 export default function ScrollReveal({
   children,
@@ -14,19 +13,42 @@ export default function ScrollReveal({
   yOffset?: number;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "-50px 0px", threshold: 0.08 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: yOffset }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{
-        duration: 0.7,
-        ease: [0.21, 0.47, 0.32, 0.98], // Apple-like smooth spring ease
-        delay: delay,
-      }}
+    <div
+      ref={ref}
+      className={`l2t-reveal${visible ? " l2t-reveal-visible" : ""}${className ? ` ${className}` : ""}`}
+      style={{
+        "--l2t-reveal-y": `${yOffset}px`,
+        "--l2t-reveal-delay": `${Math.max(0, delay) * 1000}ms`,
+      } as React.CSSProperties}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

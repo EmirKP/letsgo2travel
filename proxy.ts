@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
-  // Sadece /admin rotalarını koruyoruz
+export function proxy(request: NextRequest) {
+  // Next.js 16: middleware yerine proxy convention kullanılıyor. Sadece /admin rotalarını koruyoruz
   if (request.nextUrl.pathname.startsWith('/admin')) {
     // /admin/login sayfasına erişimi serbest bırak
     if (request.nextUrl.pathname === '/admin/login') {
