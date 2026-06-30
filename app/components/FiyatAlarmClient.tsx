@@ -3,26 +3,34 @@
 import { useState } from "react";
 
 const POPULAR_ROUTES = [
-  { label: "IST → DXB (Dubai)", origin: "IST", dest: "DXB" },
-  { label: "IST → GYD (Bakü)", origin: "IST", dest: "GYD" },
-  { label: "SAW → TBS (Tiflis)", origin: "SAW", dest: "TBS" },
-  { label: "IST → SJJ (Saraybosna)", origin: "IST", dest: "SJJ" },
-  { label: "IST → FCO (Roma)", origin: "IST", dest: "FCO" },
-  { label: "IST → TIA (Tiran)", origin: "IST", dest: "TIA" },
+  { label: "IST → DXB (Dubai)", origin: "IST", dest: "DXB", destinationLabel: "Dubai" },
+  { label: "IST → GYD (Bakü)", origin: "IST", dest: "GYD", destinationLabel: "Bakü" },
+  { label: "SAW → TBS (Tiflis)", origin: "SAW", dest: "TBS", destinationLabel: "Tiflis" },
+  { label: "IST → SJJ (Saraybosna)", origin: "IST", dest: "SJJ", destinationLabel: "Saraybosna" },
+  { label: "IST → FCO (Roma)", origin: "IST", dest: "FCO", destinationLabel: "Roma" },
+  { label: "IST → TIA (Tiran)", origin: "IST", dest: "TIA", destinationLabel: "Tiran" },
 ];
+
+function defaultDepartureDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
 
 export default function FiyatAlarmClient() {
   const [form, setForm] = useState({
     email: "",
     origin: "IST",
     destination: "",
+    destinationLabel: "",
+    departureDate: defaultDepartureDate(),
     targetPrice: "",
   });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  function setRoute(origin: string, dest: string) {
-    setForm((f) => ({ ...f, origin, destination: dest }));
+  function setRoute(origin: string, dest: string, destinationLabel: string) {
+    setForm((f) => ({ ...f, origin, destination: dest, destinationLabel }));
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -30,19 +38,26 @@ export default function FiyatAlarmClient() {
     if (!form.email || !form.destination) return;
     setStatus("loading");
     try {
-      const res = await fetch("/api/newsletter", {
+      const res = await fetch("/api/flight-alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email,
-          // Ek bilgi olarak route ve hedef fiyat gönderiliyor
-          note: `Alarm: ${form.origin}→${form.destination}${form.targetPrice ? ` @${form.targetPrice}TL` : ""}`,
+          originCode: form.origin,
+          originLabel: form.origin,
+          destinationCode: form.destination,
+          destinationLabel: form.destinationLabel || form.destination,
+          departureDate: form.departureDate,
+          targetPrice: form.targetPrice ? Number(form.targetPrice) : null,
+          tripType: "one_way",
+          adults: 1,
+          cabinClass: "economy",
         }),
       });
       const data = (await res.json()) as { message?: string; error?: string };
       if (res.ok) {
         setStatus("success");
-        setMessage(data.message || "Alarm kaydedildi!");
+        setMessage(data.message || "Fiyat alarmın kuruldu. Onay maili gönderildi.");
         setForm((f) => ({ ...f, email: "", targetPrice: "" }));
       } else {
         setStatus("error");
@@ -70,7 +85,7 @@ export default function FiyatAlarmClient() {
                 key={r.dest}
                 type="button"
                 className={`l2t-chip${form.destination === r.dest ? " l2t-chip-active" : ""}`}
-                onClick={() => setRoute(r.origin, r.dest)}
+                onClick={() => setRoute(r.origin, r.dest, r.destinationLabel)}
               >
                 {r.label}
               </button>
@@ -104,13 +119,23 @@ export default function FiyatAlarmClient() {
               <input
                 type="text"
                 value={form.destination}
-                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value.toUpperCase().slice(0, 3) }))}
+                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value.toUpperCase().slice(0, 3), destinationLabel: "" }))}
                 placeholder="DXB, GYD..."
                 maxLength={3}
                 required
               />
             </label>
           </div>
+
+          <label className="l2t-alarm-field">
+            <span>Gidiş tarihi</span>
+            <input
+              type="date"
+              value={form.departureDate}
+              onChange={(e) => setForm((f) => ({ ...f, departureDate: e.target.value }))}
+              required
+            />
+          </label>
 
           <label className="l2t-alarm-field">
             <span>Hedef fiyat (TL) — opsiyonel</span>

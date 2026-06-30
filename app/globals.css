@@ -1034,11 +1034,11 @@ main { background: transparent; }
 .l2t-footer a:hover { color: #FFFFFF; }
 .l2t-footer-logo { filter: drop-shadow(0 8px 14px rgba(0,0,0,.18)); }
 
-.l2t-page-head h1,
+.l2t-page-head h1 { color: #F8FAFC; }
+.l2t-page-head p:not(.l2t-kicker) { color: rgba(248, 250, 252, 0.78); }
 .l2t-detail-hero h1,
 .l2t-article h1,
 .l2t-split h1 { color: #081533; }
-.l2t-page-head p:not(.l2t-kicker),
 .l2t-detail-hero p,
 .l2t-article p,
 .l2t-feature-list span,
@@ -4198,4 +4198,34 @@ main { background: transparent; }
   .l2t-country-forum-topic-action {
     align-self: flex-start;
   }
+}
+
+
+/* Uçak bileti sayfası fiyat alarmı görünür alan */
+.l2t-flight-alert-section {
+  margin-top: 34px;
+  padding: 26px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 180, 0, 0.08));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+.l2t-flight-alert-section .l2t-section-head {
+  margin-bottom: 20px;
+}
+.l2t-flight-alert-section .l2t-section-head h2 {
+  margin: 8px 0 8px;
+  color: #FFFFFF;
+  font-size: clamp(1.45rem, 2.6vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+.l2t-flight-alert-section .l2t-section-head p {
+  margin: 0;
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.65;
+}
+.l2t-flight-alert-section .l2t-alarm-form-card,
+.l2t-flight-alert-section .l2t-alarm-info {
+  background: rgba(255, 255, 255, 0.96);
 }
