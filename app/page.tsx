@@ -109,30 +109,29 @@ export default async function HomePage() {
           {/* Sol: Metinler */}
           <div className="hp-hero-copy">
             <ScrollReveal delay={0.1} yOffset={20}>
-              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Türkiye çıkışlı en ucuz uçuşlar</span>
+              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Uçuş + vize + gerçek gezgin bilgisi</span>
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={30}>
-              <h1 style={{ textAlign: "left", fontSize: "clamp(2rem, 5vw, 4rem)", textShadow: "0 4px 24px rgba(0,0,0,0.4)", lineHeight: "1.1", color: "#fff", marginBottom: "20px" }}>
-                Seçimlerini yap,<br />
-                <em>rotaları görelim.</em>
+              <h1 style={{ textAlign: "left", fontSize: "clamp(2rem, 5vw, 4rem)", textShadow: "0 4px 24px rgba(0,0,0,0.34)", lineHeight: "1.1", color: "#fff", marginBottom: "20px" }}>
+                Ucuz uçuşu bul,<br />
+                <em>vize durumunu gör.</em>
               </h1>
             </ScrollReveal>
             
             <ScrollReveal delay={0.3} yOffset={20}>
               <p className="l2t-hide-mobile" style={{ margin: "0 0 32px", textAlign: "left", fontSize: "1.2rem", textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-                IST ve SAW çıkışlı yüzlerce fiyatı karşılaştır.
-                Vize rehberi, fiyat alarmı ve AI asistanıyla tek platformda.
+                Türkiye çıkışlı uçuş fırsatlarını, Türk pasaportuna göre vize durumlarını ve gerçekten giden gezginlerin deneyimlerini tek yerde karşılaştır.
               </p>
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={20}>
               <div className="hp-hero-buttons l2t-hide-mobile" style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                <Link href="/kampanyalar" className="l2t-btn" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Ticket size={18} /> Fırsatları Gör
+                <Link href="/#bilet-ara" className="l2t-btn" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Plane size={18} /> Ucuz bilet ara
                 </Link>
                 <Link href="/vizesiz-ulkeler" className="l2t-btn l2t-btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", borderColor: "rgba(255,255,255,0.3)", color: "#fff" }}>
-                  <Globe size={18} /> Vizesiz ülkeler
+                  <Globe size={18} /> Vizesiz rota bul
                 </Link>
                 <SurpriseButton />
               </div>
@@ -248,7 +247,7 @@ export default async function HomePage() {
         <div className="l2t-conversion-head">
           <span><Users size={16} /> Seyahate tek akıştan başla</span>
           <h2>Aradığın rota, vize bilgisi ve gerçek gezgin deneyimi aynı yerde.</h2>
-          <p>LetsGo2Travel ana sayfası artık kullanıcıyı doğrudan bilet arama, fiyat alarmı, vizesiz rota, ülke rehberi ve forum akışına götürür.</p>
+          <p>Bilet arama, fiyat alarmı, vizesiz rota, ülke rehberi ve forum akışı tek ekranda birleşir.</p>
         </div>
         <div className="l2t-conversion-grid">
           {conversionItems.map((item) => (

@@ -4763,3 +4763,425 @@ body {
     min-height: auto;
   }
 }
+
+
+/* ─────────────────────────────────────────────────────────────
+   LetsGo2Travel Tasarım Düzeltme V2
+   Seyahat sitesi için daha ferah: lacivert güven, okyanus ferahlığı,
+   gün batımı gold ana aksiyon, kum/sky arka plan.
+────────────────────────────────────────────────────────────── */
+:root {
+  --l2t-night: #071A33;
+  --l2t-navy: #0B2341;
+  --l2t-deep: #12385F;
+  --l2t-ocean: #0E7C86;
+  --l2t-ocean-soft: #DDF6F7;
+  --l2t-gold: #F2B84B;
+  --l2t-gold-deep: #D99A26;
+  --l2t-gold-hover: #E2A532;
+  --l2t-gold-soft: #FFF3D8;
+  --l2t-sand: #FFF8EA;
+  --l2t-sky: #EAF7FF;
+  --l2t-page-bg: #F6FAFD;
+  --l2t-card: #FFFFFF;
+  --l2t-card-strong: #F9FCFF;
+  --l2t-white: #FFFFFF;
+  --l2t-ink: #162238;
+  --l2t-text: #162238;
+  --l2t-soft: #53677F;
+  --l2t-muted: #6C7E92;
+  --l2t-border: #DDE9F3;
+  --l2t-blue: var(--l2t-ocean);
+  --l2t-blue-2: var(--l2t-ocean);
+  --l2t-cyan: var(--l2t-ocean);
+  --l2t-cyan-soft: var(--l2t-ocean-soft);
+  --l2t-success: #169B6B;
+  --l2t-danger: #D24B4B;
+  --l2t-warning: var(--l2t-gold);
+  --l2t-shadow: 0 14px 34px rgba(11, 35, 65, 0.09);
+  --l2t-shadow-lg: 0 24px 70px rgba(11, 35, 65, 0.16);
+  --l2t-radius: 22px;
+  --l2t-radius-sm: 14px;
+}
+
+html,
+body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(234, 247, 255, 0.95), transparent 30%),
+    radial-gradient(circle at 88% 6%, rgba(255, 243, 216, 0.85), transparent 30%),
+    linear-gradient(180deg, #FBFDFF 0%, #F6FAFD 48%, #FFFFFF 100%) !important;
+  color: var(--l2t-ink) !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(11, 35, 65, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 35, 65, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,.4), transparent 62%);
+}
+
+/* Genel tipografi ve bölüm nefesi */
+.l2t-wrap { width: min(1180px, calc(100% - 36px)) !important; }
+.l2t-section { padding: 64px 0 !important; }
+.l2t-section-head { align-items: flex-end !important; margin-bottom: 26px !important; }
+.l2t-section-head h2,
+.l2t-cta-band h2,
+.hp-ai-copy h2 {
+  color: var(--l2t-navy) !important;
+  letter-spacing: -0.04em !important;
+}
+.l2t-lead,
+.l2t-muted,
+.l2t-disclaimer,
+.l2t-section-head p:not(.l2t-kicker),
+.hp-ai-copy p { color: var(--l2t-soft) !important; }
+.l2t-kicker,
+.l2t-text-link { color: var(--l2t-ocean) !important; }
+
+/* Header: koyu ama boğucu değil, CTA net */
+.l2t-header {
+  background: rgba(7, 26, 51, 0.94) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 12px 28px rgba(7, 26, 51, 0.18) !important;
+}
+.l2t-header-inner { height: 72px !important; }
+.l2t-nav a { color: rgba(255,255,255,.86) !important; }
+.l2t-nav a:hover { color: var(--l2t-gold) !important; }
+.l2t-header-cta,
+.l2t-login-btn {
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-deep)) !important;
+  color: var(--l2t-night) !important;
+  box-shadow: 0 12px 24px rgba(242, 184, 75, 0.24) !important;
+}
+
+/* Buton sistemi: gold birincil, ocean ikincil */
+.l2t-btn,
+.l2t-button-gold,
+.l2t-flight-submit,
+.l2t-aviasales-box .l2t-flight-submit {
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-deep)) !important;
+  color: var(--l2t-night) !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 14px 30px rgba(242, 184, 75, 0.25) !important;
+}
+.l2t-btn:hover,
+.l2t-button-gold:hover:not(:disabled),
+.l2t-flight-submit:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 18px 40px rgba(242, 184, 75, 0.34) !important;
+}
+.l2t-btn-ghost,
+.l2t-btn-outline,
+.l2t-button-blue,
+.hp-hero-buttons .l2t-btn-outline {
+  background: rgba(255,255,255,0.92) !important;
+  color: var(--l2t-navy) !important;
+  border: 1px solid rgba(255,255,255,.75) !important;
+  box-shadow: 0 14px 30px rgba(7, 26, 51, 0.16) !important;
+}
+.l2t-text-link:hover { color: var(--l2t-gold-deep) !important; }
+
+/* Kartlar: cam/neon yerine temiz seyahat kartı */
+.l2t-glass-card,
+.glass-panel,
+.l2t-card,
+.l2t-content-card,
+.l2t-cta-band,
+.l2t-map-card,
+.l2t-empty-state,
+.l2t-popular-routes,
+.l2t-partner-panel,
+.l2t-trust-strip,
+.l2t-planner-section,
+.l2t-trust-panel,
+.l2t-table-wrap,
+.l2t-admin-form,
+.l2t-admin-list,
+.l2t-ai-box,
+.l2t-search-card,
+.l2t-split > div:first-child,
+.l2t-feature-list,
+.l2t-ai-command-copy,
+.l2t-ai-planner-card,
+.l2t-smart-scenario-card,
+.l2t-route-matrix article,
+.l2t-checklist-card,
+.l2t-editorial-grid article,
+.hp-why-card {
+  background: rgba(255,255,255,0.94) !important;
+  border: 1px solid var(--l2t-border) !important;
+  box-shadow: var(--l2t-shadow) !important;
+  color: var(--l2t-ink) !important;
+}
+.l2t-card:hover,
+.l2t-country-card:hover,
+.l2t-conversion-card:hover,
+.hp-why-card:hover {
+  border-color: rgba(14, 124, 134, 0.28) !important;
+  box-shadow: 0 20px 46px rgba(11, 35, 65, 0.14) !important;
+}
+.hover-tilt:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 20px 46px rgba(11, 35, 65, 0.14) !important;
+}
+.glow-card::before { display: none !important; }
+
+/* Formlar: okunabilir zemin */
+.l2t-form-control,
+.l2t-ai-form input,
+.l2t-newsletter input,
+.l2t-inline-form input,
+.l2t-form-grid input,
+.l2t-admin-form input,
+.l2t-booking-field input,
+.l2t-booking-field select,
+.l2t-form-grid select,
+.l2t-admin-form select,
+textarea {
+  background: #FFFFFF !important;
+  color: var(--l2t-ink) !important;
+  border: 1px solid var(--l2t-border) !important;
+}
+.l2t-form-control:focus,
+.l2t-ai-form input:focus,
+.l2t-newsletter input:focus,
+.l2t-form-grid input:focus,
+.l2t-booking-field input:focus,
+.l2t-booking-field select:focus {
+  border-color: rgba(14, 124, 134, 0.55) !important;
+  box-shadow: 0 0 0 4px rgba(14, 124, 134, 0.11) !important;
+}
+
+/* Hero: premium seyahat hissi, daha az siyah, daha çok gökyüzü */
+.hp-hero {
+  min-height: 700px !important;
+  padding: 72px 0 118px !important;
+  background: var(--l2t-night) !important;
+}
+.hp-hero::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 160px;
+  background: linear-gradient(180deg, transparent, #F6FAFD 88%) !important;
+  pointer-events: none;
+}
+.hp-hero-bg {
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  background-image:
+    linear-gradient(100deg, rgba(7, 26, 51, .96) 0%, rgba(9, 43, 79, .82) 42%, rgba(9, 43, 79, .28) 72%, rgba(255,248,234,.10) 100%),
+    url('/plane-hero.webp') !important;
+  background-size: cover !important;
+  background-position: center right !important;
+}
+.hp-hero-inner {
+  grid-template-columns: minmax(0, 0.98fr) minmax(350px, .72fr) !important;
+  gap: 56px !important;
+}
+.hp-hero-copy h1 {
+  max-width: 760px !important;
+  font-size: clamp(2.55rem, 5vw, 4.95rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.06em !important;
+  text-shadow: 0 18px 42px rgba(0,0,0,.28) !important;
+}
+.hp-hero-copy h1 em {
+  color: var(--l2t-gold) !important;
+}
+.hp-hero-copy p {
+  max-width: 660px !important;
+  color: rgba(255,255,255,.84) !important;
+  text-shadow: 0 10px 24px rgba(0,0,0,.24) !important;
+}
+.hp-badge {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #FFF0C9 !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.14) !important;
+}
+.hp-qr-card {
+  background: rgba(255,255,255,.14) !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  box-shadow: 0 16px 34px rgba(0,0,0,.16) !important;
+}
+.hp-qr-tag {
+  background: rgba(255,255,255,.18) !important;
+  color: #FFFFFF !important;
+}
+.floating-ticket {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(255,255,255,.72) !important;
+  box-shadow: 0 24px 60px rgba(5, 16, 34, .22) !important;
+}
+
+/* Arama kartı: hero altından temiz şekilde çıkar */
+.hp-search-wrap {
+  margin-top: -76px !important;
+}
+.hp-search-wrap .l2t-search-card,
+.l2t-aviasales-box,
+.l2t-flight-card {
+  border-radius: 26px !important;
+  border: 1px solid rgba(221, 233, 243, 0.95) !important;
+  box-shadow: 0 24px 58px rgba(11, 35, 65, 0.16) !important;
+}
+.l2t-search-tab-active,
+.l2t-tab-active {
+  background: var(--l2t-navy) !important;
+  color: #FFFFFF !important;
+  border-color: rgba(242,184,75,.24) !important;
+  box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 10px 22px rgba(11, 35, 65, 0.14) !important;
+}
+.l2t-search-tab-active svg,
+.l2t-tab-active svg { color: var(--l2t-gold) !important; }
+
+/* Mobil ana kısayollar: rainbow ikonlar kaldırıldı */
+.l2t-app-shortcut-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+.l2t-app-shortcut {
+  background: rgba(255,255,255,.94) !important;
+  color: var(--l2t-navy) !important;
+  border: 1px solid rgba(255,255,255,.70) !important;
+  box-shadow: 0 14px 32px rgba(7, 26, 51, 0.16) !important;
+}
+.l2t-app-shortcut .shortcut-icon,
+.shortcut-icon {
+  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-deep)) !important;
+  color: var(--l2t-night) !important;
+}
+.l2t-app-shortcut:nth-child(3n) .shortcut-icon {
+  background: linear-gradient(135deg, var(--l2t-ocean), #36B9C1) !important;
+  color: #FFFFFF !important;
+}
+
+/* Ana dönüşüm paneli: sarı patlama azaltıldı, daha premium */
+.l2t-conversion-panel {
+  margin-top: 34px !important;
+  padding: clamp(22px, 3vw, 34px) !important;
+  border: 1px solid rgba(221,233,243,.95) !important;
+  border-radius: 30px !important;
+  background:
+    radial-gradient(circle at top left, rgba(234, 247, 255, .95), transparent 38%),
+    radial-gradient(circle at bottom right, rgba(255, 243, 216, .90), transparent 34%),
+    #FFFFFF !important;
+  box-shadow: var(--l2t-shadow-lg) !important;
+}
+.l2t-conversion-head span {
+  color: var(--l2t-ocean) !important;
+  background: var(--l2t-ocean-soft) !important;
+  border: 1px solid rgba(14, 124, 134, .18) !important;
+}
+.l2t-conversion-head h2 { color: var(--l2t-navy) !important; }
+.l2t-conversion-card {
+  background: rgba(255,255,255,.90) !important;
+  border: 1px solid var(--l2t-border) !important;
+}
+.l2t-conversion-icon,
+.l2t-card-icon,
+.hp-why-icon {
+  background: var(--l2t-sand) !important;
+  color: var(--l2t-ocean) !important;
+  border: 1px solid rgba(242,184,75,.18) !important;
+}
+.l2t-conversion-card small { color: var(--l2t-ocean) !important; }
+
+/* Ülke kartları: siyah overlay yerine lacivert + okunurluk */
+.country-card,
+.l2t-country-card {
+  box-shadow: 0 22px 54px rgba(11, 35, 65, .16) !important;
+  border: 1px solid rgba(255,255,255,.42) !important;
+}
+.country-card {
+  background-color: var(--l2t-navy) !important;
+}
+.visa-badge {
+  background: rgba(255,255,255,.90) !important;
+  color: var(--l2t-navy) !important;
+  border: 1px solid rgba(255,255,255,.55) !important;
+}
+
+/* AI alanı: koyu neon değil, temiz premium band */
+.hp-ai-section,
+.hp-ai-section.glass-panel {
+  margin: 72px 0 !important;
+  background:
+    linear-gradient(135deg, rgba(7, 26, 51, .97), rgba(18, 56, 95, .94)) !important;
+  border: 0 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.08), inset 0 -1px rgba(255,255,255,.08) !important;
+}
+.hp-ai-copy h2 { color: #FFFFFF !important; }
+.hp-ai-copy p { color: rgba(255,255,255,.74) !important; }
+.hp-ai-badge,
+.l2t-ai-badge,
+.l2t-live-badge,
+.l2t-ai-planner-head strong {
+  color: var(--l2t-navy) !important;
+  background: var(--l2t-gold-soft) !important;
+  border: 1px solid rgba(242,184,75,.26) !important;
+}
+.hp-ai-box-wrap {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+}
+
+/* Belgeli gezgin/footer: lacivert ama okunur */
+.l2t-verified-band,
+.l2t-footer {
+  background: linear-gradient(180deg, #08203D 0%, #071A33 100%) !important;
+  color: #FFFFFF !important;
+}
+.l2t-verified-band p,
+.l2t-footer p,
+.l2t-footer li,
+.l2t-footer span { color: rgba(255,255,255,.74) !important; }
+.l2t-footer a:hover { color: var(--l2t-gold) !important; }
+
+/* Mobil düzen: hero iki kolon zorlamasın, kartlar taşmasın */
+@media (max-width: 900px) {
+  .l2t-wrap { width: min(100% - 28px, 1180px) !important; }
+  .hp-hero {
+    min-height: auto !important;
+    padding: 42px 0 104px !important;
+  }
+  .hp-hero-inner {
+    display: block !important;
+    text-align: left !important;
+    padding-top: 24px !important;
+  }
+  .hp-hero-copy h1 {
+    text-align: left !important;
+    font-size: clamp(2.25rem, 12vw, 3.6rem) !important;
+  }
+  .hp-hero-copy p { text-align: left !important; }
+  .hp-search-wrap { margin-top: -62px !important; }
+  .l2t-section { padding: 44px 0 !important; }
+  .l2t-section-head { display: block !important; }
+  .l2t-conversion-grid,
+  .hp-why-grid,
+  .l2t-card-grid-4,
+  .l2t-card-grid-3,
+  .l2t-country-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .l2t-app-shortcut-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .l2t-conversion-panel { padding: 18px !important; border-radius: 24px !important; }
+  .l2t-conversion-card { min-height: auto !important; }
+}
