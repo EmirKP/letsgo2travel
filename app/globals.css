@@ -337,7 +337,7 @@ main { min-height: 75vh; }
   .l2t-article-image { height: 240px; }
 }
 
-/* ── Light-theme body baseline override ── */
+/* â”€â”€ Light-theme body baseline override â”€â”€ */
 html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
 
 .l2t-card {
@@ -520,7 +520,7 @@ html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
   .l2t-header-actions .l2t-btn-ghost { display: none; }
 }
 
-/* ── Duplicate :root removed — canonical variables are at top of file ── */
+/* â”€â”€ Duplicate :root removed â€” canonical variables are at top of file â”€â”€ */
 
 html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
 main { background: transparent; }
@@ -1419,7 +1419,7 @@ main { background: transparent; }
   font-weight: 800;
 }
 .l2t-checklist-card li::before {
-  content: "✓";
+  content: "âœ“";
   position: absolute;
   left: 13px;
   top: 50%;
@@ -1479,11 +1479,11 @@ main { background: transparent; }
   .l2t-ai-planner-form .l2t-btn { width: 100%; }
 }
 
-/* ══════════════════════════════════════
-   NEW COMPONENT STYLES — Functional Update
-   ══════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   NEW COMPONENT STYLES â€” Functional Update
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Header: aktif link + dropdown ── */
+/* â”€â”€ Header: aktif link + dropdown â”€â”€ */
 .l2t-nav a.l2t-nav-active,
 .l2t-nav-dropdown-trigger.l2t-nav-active {
   color: #FFFFFF !important;
@@ -1571,7 +1571,7 @@ main { background: transparent; }
 }
 .l2t-login-btn:hover { background: rgba(255,255,255,.18); }
 
-/* ── FlightSearchCard: quick routes ── */
+/* â”€â”€ FlightSearchCard: quick routes â”€â”€ */
 .l2t-flight-quick-routes {
   display: flex;
   flex-wrap: wrap;
@@ -1600,7 +1600,7 @@ main { background: transparent; }
 .l2t-flight-quick-routes button:hover { border-color: var(--l2t-blue); color: var(--l2t-blue); background: #EEF7FF; }
 .l2t-btn-disabled { opacity: .5; pointer-events: none; cursor: not-allowed; }
 
-/* ── Kampanyalar: stats + filter bar ── */
+/* â”€â”€ Kampanyalar: stats + filter bar â”€â”€ */
 .l2t-stats-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1684,7 +1684,7 @@ main { background: transparent; }
 .l2t-deal-list .l2t-card-image { height: 100%; min-height: 90px; border-radius: 14px 0 0 14px; }
 .l2t-deal-list .l2t-card-body { min-height: auto; padding: 12px 16px; }
 
-/* ── Harita: bölge blokları ── */
+/* â”€â”€ Harita: bÃ¶lge bloklarÄ± â”€â”€ */
 .l2t-region-block { margin-bottom: 36px; }
 .l2t-region-header {
   display: flex;
@@ -1706,7 +1706,7 @@ main { background: transparent; }
 .l2t-region-header p { margin: 0; color: var(--l2t-muted); font-size: .87rem; }
 .l2t-map-cta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
 
-/* ── Fiyat Alarmı ── */
+/* â”€â”€ Fiyat AlarmÄ± â”€â”€ */
 .l2t-alarm-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .85fr); gap: 22px; align-items: start; }
 .l2t-alarm-form-card { background: #FFFFFF; border: 1px solid var(--l2t-border); border-radius: 18px; box-shadow: var(--l2t-shadow); padding: 28px; }
 .l2t-alarm-form-card h2 { margin: 0 0 8px; font-size: 1.4rem; color: var(--l2t-ink); letter-spacing: -.025em; }
@@ -1735,7 +1735,7 @@ main { background: transparent; }
 .l2t-alarm-tips ul { margin: 0; padding-left: 18px; }
 .l2t-alarm-tips li { color: var(--l2t-soft); font-size: .84rem; line-height: 1.65; margin-bottom: 5px; }
 
-/* ── Vize rehberi ── */
+/* â”€â”€ Vize rehberi â”€â”€ */
 .l2t-visa-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
 .l2t-visa-type-card { background: #FFFFFF; border: 1px solid var(--l2t-border); border-radius: 16px; box-shadow: var(--l2t-shadow); padding: 22px; transition: transform .18s, box-shadow .18s; }
 .l2t-visa-type-card:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(8,28,63,.13); }
@@ -1748,17 +1748,17 @@ main { background: transparent; }
 .l2t-faq-item h3 { margin: 0 0 8px; color: var(--l2t-ink); font-size: 1rem; font-weight: 800; }
 .l2t-faq-item p { margin: 0; color: var(--l2t-soft); line-height: 1.65; font-size: .9rem; }
 
-/* ── Hero actions ── */
+/* â”€â”€ Hero actions â”€â”€ */
 .l2t-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
 
-/* ── Trust strip (canlı uçuş) ── */
+/* â”€â”€ Trust strip (canlÄ± uÃ§uÅŸ) â”€â”€ */
 .l2t-trust-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .l2t-trust-strip article { display: flex; gap: 14px; align-items: flex-start; padding: 18px; background: #FFFFFF; border: 1px solid var(--l2t-border); border-radius: 14px; box-shadow: var(--l2t-shadow); }
 .l2t-trust-strip article > span { font-size: 1.5rem; flex-shrink: 0; }
 .l2t-trust-strip h3 { margin: 0 0 5px; color: var(--l2t-ink); font-size: .95rem; }
 .l2t-trust-strip p { margin: 0; color: var(--l2t-soft); font-size: .86rem; line-height: 1.55; }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 1040px) {
   .l2t-stats-strip { grid-template-columns: repeat(2, 1fr); }
   .l2t-visa-type-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1779,11 +1779,11 @@ main { background: transparent; }
   .l2t-nav-dropdown { left: -80px; transform: none; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    NEW HOME PAGE & HEADER STYLES
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Logo ── */
+/* â”€â”€ Logo â”€â”€ */
 .l2t-logo-text {
   font-size: 1.6rem;
   font-weight: 900;
@@ -1863,7 +1863,7 @@ main { background: transparent; }
   .l2t-mobile-cta { display: inline-flex; margin-top: 20px; justify-content: center; }
 }
 
-/* ── Hero ── */
+/* â”€â”€ Hero â”€â”€ */
 .hp-hero {
   position: relative;
   background: var(--l2t-navy);
@@ -1960,7 +1960,7 @@ main { background: transparent; }
   .hp-quick-routes { display: none; }
 }
 
-/* ── Search Overlap ── */
+/* â”€â”€ Search Overlap â”€â”€ */
 .hp-search-wrap {
   margin-top: -40px;
   position: relative;
@@ -1970,7 +1970,7 @@ main { background: transparent; }
   box-shadow: 0 20px 40px rgba(0,0,0,.15);
 }
 
-/* ── Neden Biz Grid ── */
+/* â”€â”€ Neden Biz Grid â”€â”€ */
 .hp-why-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1998,7 +1998,7 @@ main { background: transparent; }
 @media (max-width: 1024px) { .hp-why-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .hp-why-grid { grid-template-columns: 1fr; } }
 
-/* ── AI Section ── */
+/* â”€â”€ AI Section â”€â”€ */
 .hp-ai-section {
   background: linear-gradient(135deg, #0A1F4A, #061433);
   padding: 80px 0;
@@ -2046,11 +2046,11 @@ main { background: transparent; }
   .hp-ai-copy { text-align: center; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    WOW-FACTOR & PREMIUM EFFECTS
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Hover Tilt & Animations ── */
+/* â”€â”€ Hover Tilt & Animations â”€â”€ */
 .hover-tilt {
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
   will-change: transform;
@@ -2060,7 +2060,7 @@ main { background: transparent; }
   box-shadow: 0 25px 50px rgba(8, 21, 51, 0.15) !important;
 }
 
-/* ── Glassmorphism (Cam Efekti) ── */
+/* â”€â”€ Glassmorphism (Cam Efekti) â”€â”€ */
 .glass-panel {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(16px);
@@ -2075,7 +2075,7 @@ main { background: transparent; }
   border-bottom: 1px solid rgba(255,255,255,0.1) !important;
 }
 
-/* ── Glow / Neon Efektleri ── */
+/* â”€â”€ Glow / Neon Efektleri â”€â”€ */
 .glow-card {
   position: relative;
 }
@@ -2101,7 +2101,7 @@ main { background: transparent; }
   100% { background-position: 0 0; }
 }
 
-/* ── Hero Mobile Adjustments for Globe ── */
+/* â”€â”€ Hero Mobile Adjustments for Globe â”€â”€ */
 @media (max-width: 900px) {
   .hp-hero {
     min-height: auto;
@@ -2125,9 +2125,9 @@ main { background: transparent; }
   }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    AI CHAT INTERFACE
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .ai-chat-container {
   display: flex;
   flex-direction: column;
@@ -2341,9 +2341,9 @@ main { background: transparent; }
   .ai-action-row .ai-cta-btn { justify-content: center; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    BENTO GRID LAYOUT (COUNTRY DETAIL)
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .bento-page-wrap {
   background: #F8FBFF;
   min-height: 100vh;
@@ -2483,9 +2483,9 @@ main { background: transparent; }
   .bento-article { grid-column: span 1; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TRIP DASHBOARD (SLIDE DRAWER)
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .trip-dash-btn {
   position: relative;
   background: rgba(255,255,255,.05);
@@ -2618,9 +2618,9 @@ main { background: transparent; }
 }
 .trip-remove-btn:hover { background: rgba(239,68,68,.3); color: #FCA5A5; }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    AI TRIP PLANNER (QUIZ UI)
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .planner-card {
   padding: 60px 40px;
   border-radius: 32px;
@@ -2676,9 +2676,9 @@ main { background: transparent; }
   .planner-card { padding: 40px 20px; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    PASSPORT 3D ART & NEON UI
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .passport-book-3d {
   perspective: 1000px;
   width: 260px;
@@ -2749,9 +2749,9 @@ main { background: transparent; }
   z-index: 1;
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    FLOATING TICKETS (HERO SECTION)
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .hp-floating-art {
   position: relative;
   width: 100%;
@@ -2828,7 +2828,7 @@ main { background: transparent; }
   100% { transform: translateY(-20px) rotate(var(--rot, 0deg)); }
 }
 
-/* ── MOBILE APP BOTTOM NAVIGATION & SAFE AREA ── */
+/* â”€â”€ MOBILE APP BOTTOM NAVIGATION & SAFE AREA â”€â”€ */
 @media (max-width: 680px) {
   body {
     padding-bottom: calc(70px + env(safe-area-inset-bottom, 20px));
@@ -3457,9 +3457,9 @@ main { background: transparent; }
 }
 
 
-/* ──────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Performance patch: smoother scrolling and lighter first load
-   ────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .l2t-page-transition {
   contain: paint;
 }
@@ -3514,7 +3514,7 @@ main { background: transparent; }
 .l2t-ai-fade { animation: l2t-ai-fade-in 0.22s ease both; }
 @keyframes l2t-ai-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Beta performans: mobil cihazlarda ağır blur/hover efektlerini azalt */
+/* Beta performans: mobil cihazlarda aÄŸÄ±r blur/hover efektlerini azalt */
 @media (max-width: 768px) {
   .l2t-glass-card,
   .l2t-ai-box,
@@ -3529,7 +3529,7 @@ main { background: transparent; }
   }
 }
 
-/* Ülke rehberi dönüşüm/CTA blokları */
+/* Ãœlke rehberi dÃ¶nÃ¼ÅŸÃ¼m/CTA bloklarÄ± */
 .l2t-guide-quick-actions,
 .l2t-visa-conversion-actions,
 .l2t-passport-cta-actions,
@@ -3789,7 +3789,7 @@ main { background: transparent; }
   }
 }
 
-/* Ülke rehberi + forum + doğrulanmış gezgin bağlantısı */
+/* Ãœlke rehberi + forum + doÄŸrulanmÄ±ÅŸ gezgin baÄŸlantÄ±sÄ± */
 .l2t-community-panel {
   margin-top: 34px;
   margin-bottom: 80px;
@@ -4201,7 +4201,7 @@ main { background: transparent; }
 }
 
 
-/* Uçak bileti sayfası fiyat alarmı görünür alan */
+/* UÃ§ak bileti sayfasÄ± fiyat alarmÄ± gÃ¶rÃ¼nÃ¼r alan */
 .l2t-flight-alert-section {
   margin-top: 34px;
   padding: 26px;
@@ -4230,7 +4230,7 @@ main { background: transparent; }
   background: rgba(255, 255, 255, 0.96);
 }
 
-/* Ülke rehberi SEO içerik blokları */
+/* Ãœlke rehberi SEO iÃ§erik bloklarÄ± */
 .l2t-country-seo-block {
   margin-top: 34px;
   margin-bottom: 32px;
@@ -4443,10 +4443,10 @@ main { background: transparent; }
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   LetsGo2Travel kurumsal renk sistemi + ana sayfa dönüşüm akışı
-   Gece laciverti ana zemin, LetsGo sarısı ana CTA rengidir.
-────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   LetsGo2Travel kurumsal renk sistemi + ana sayfa dÃ¶nÃ¼ÅŸÃ¼m akÄ±ÅŸÄ±
+   Gece laciverti ana zemin, LetsGo sarÄ±sÄ± ana CTA rengidir.
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --l2t-night: #071A33;
   --l2t-navy: #0B1D35;
@@ -4765,11 +4765,11 @@ body {
 }
 
 
-/* ─────────────────────────────────────────────────────────────
-   LetsGo2Travel Tasarım Düzeltme V2
-   Seyahat sitesi için daha ferah: lacivert güven, okyanus ferahlığı,
-   gün batımı gold ana aksiyon, kum/sky arka plan.
-────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   LetsGo2Travel TasarÄ±m DÃ¼zeltme V2
+   Seyahat sitesi iÃ§in daha ferah: lacivert gÃ¼ven, okyanus ferahlÄ±ÄŸÄ±,
+   gÃ¼n batÄ±mÄ± gold ana aksiyon, kum/sky arka plan.
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --l2t-night: #071A33;
   --l2t-navy: #0B2341;
@@ -4826,7 +4826,7 @@ body::before {
   mask-image: linear-gradient(180deg, rgba(0,0,0,.4), transparent 62%);
 }
 
-/* Genel tipografi ve bölüm nefesi */
+/* Genel tipografi ve bÃ¶lÃ¼m nefesi */
 .l2t-wrap { width: min(1180px, calc(100% - 36px)) !important; }
 .l2t-section { padding: 64px 0 !important; }
 .l2t-section-head { align-items: flex-end !important; margin-bottom: 26px !important; }
@@ -4844,7 +4844,7 @@ body::before {
 .l2t-kicker,
 .l2t-text-link { color: var(--l2t-ocean) !important; }
 
-/* Header: koyu ama boğucu değil, CTA net */
+/* Header: koyu ama boÄŸucu deÄŸil, CTA net */
 .l2t-header {
   background: rgba(7, 26, 51, 0.94) !important;
   backdrop-filter: blur(18px) !important;
@@ -4890,7 +4890,7 @@ body::before {
 }
 .l2t-text-link:hover { color: var(--l2t-gold-deep) !important; }
 
-/* Kartlar: cam/neon yerine temiz seyahat kartı */
+/* Kartlar: cam/neon yerine temiz seyahat kartÄ± */
 .l2t-glass-card,
 .glass-panel,
 .l2t-card,
@@ -4961,7 +4961,7 @@ textarea {
   box-shadow: 0 0 0 4px rgba(14, 124, 134, 0.11) !important;
 }
 
-/* Hero: premium seyahat hissi, daha az siyah, daha çok gökyüzü */
+/* Hero: premium seyahat hissi, daha az siyah, daha Ã§ok gÃ¶kyÃ¼zÃ¼ */
 .hp-hero {
   min-height: 700px !important;
   padding: 72px 0 118px !important;
@@ -5026,7 +5026,7 @@ textarea {
   box-shadow: 0 24px 60px rgba(5, 16, 34, .22) !important;
 }
 
-/* Arama kartı: hero altından temiz şekilde çıkar */
+/* Arama kartÄ±: hero altÄ±ndan temiz ÅŸekilde Ã§Ä±kar */
 .hp-search-wrap {
   margin-top: -76px !important;
 }
@@ -5047,7 +5047,7 @@ textarea {
 .l2t-search-tab-active svg,
 .l2t-tab-active svg { color: var(--l2t-gold) !important; }
 
-/* Mobil ana kısayollar: rainbow ikonlar kaldırıldı */
+/* Mobil ana kÄ±sayollar: rainbow ikonlar kaldÄ±rÄ±ldÄ± */
 .l2t-app-shortcut-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 12px !important;
@@ -5068,7 +5068,7 @@ textarea {
   color: #FFFFFF !important;
 }
 
-/* Ana dönüşüm paneli: sarı patlama azaltıldı, daha premium */
+/* Ana dÃ¶nÃ¼ÅŸÃ¼m paneli: sarÄ± patlama azaltÄ±ldÄ±, daha premium */
 .l2t-conversion-panel {
   margin-top: 34px !important;
   padding: clamp(22px, 3vw, 34px) !important;
@@ -5099,7 +5099,7 @@ textarea {
 }
 .l2t-conversion-card small { color: var(--l2t-ocean) !important; }
 
-/* Ülke kartları: siyah overlay yerine lacivert + okunurluk */
+/* Ãœlke kartlarÄ±: siyah overlay yerine lacivert + okunurluk */
 .country-card,
 .l2t-country-card {
   box-shadow: 0 22px 54px rgba(11, 35, 65, .16) !important;
@@ -5114,7 +5114,7 @@ textarea {
   border: 1px solid rgba(255,255,255,.55) !important;
 }
 
-/* AI alanı: koyu neon değil, temiz premium band */
+/* AI alanÄ±: koyu neon deÄŸil, temiz premium band */
 .hp-ai-section,
 .hp-ai-section.glass-panel {
   margin: 72px 0 !important;
@@ -5151,7 +5151,7 @@ textarea {
 .l2t-footer span { color: rgba(255,255,255,.74) !important; }
 .l2t-footer a:hover { color: var(--l2t-gold) !important; }
 
-/* Mobil düzen: hero iki kolon zorlamasın, kartlar taşmasın */
+/* Mobil dÃ¼zen: hero iki kolon zorlamasÄ±n, kartlar taÅŸmasÄ±n */
 @media (max-width: 900px) {
   .l2t-wrap { width: min(100% - 28px, 1180px) !important; }
   .hp-hero {
@@ -5186,10 +5186,10 @@ textarea {
   .l2t-conversion-card { min-height: auto !important; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL DESIGN SYSTEM V3
    Header, typography, palette and AI planner polish
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root {
   --l2t-navy: #08213D;
   --l2t-night: #06172D;
@@ -5302,7 +5302,7 @@ h1, h2, h3,
   border: 1px solid rgba(255,255,255,.36) !important;
 }
 
-/* Fix the “Daha Fazla” menu: labels visible, no giant blank white panel */
+/* Fix the â€œDaha Fazlaâ€ menu: labels visible, no giant blank white panel */
 .l2t-nav-dropdown-wrap { position: relative !important; }
 .l2t-dropdown {
   top: calc(100% + 12px) !important;
@@ -5560,11 +5560,11 @@ h1, h2, h3,
   .l2t-search-tab { min-width: 128px !important; }
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    LetsGo2Travel typography reset V4
-   Amaç: mide bulandıran ağır/oyuncak font hissini kaldırmak.
-   Dış Google font yok; temiz sistem fontu var.
-   ───────────────────────────────────────────── */
+   AmaÃ§: mide bulandÄ±ran aÄŸÄ±r/oyuncak font hissini kaldÄ±rmak.
+   DÄ±ÅŸ Google font yok; temiz sistem fontu var.
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --l2t-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
   --l2t-font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
@@ -5615,7 +5615,7 @@ p, li, small, span, label {
   letter-spacing: 0 !important;
 }
 
-/* Header: daha sakin, kurumsal, sıkışmayan yazı */
+/* Header: daha sakin, kurumsal, sÄ±kÄ±ÅŸmayan yazÄ± */
 .l2t-logo-text {
   font-family: var(--l2t-font-heading) !important;
   font-weight: 750 !important;
@@ -5641,7 +5641,7 @@ p, li, small, span, label {
   letter-spacing: 0 !important;
 }
 
-/* Dropdown: yazılar kaybolmasın, boş beyaz panel gibi durmasın */
+/* Dropdown: yazÄ±lar kaybolmasÄ±n, boÅŸ beyaz panel gibi durmasÄ±n */
 .l2t-dropdown {
   width: 260px !important;
   min-width: 260px !important;
@@ -5671,7 +5671,7 @@ p, li, small, span, label {
   color: var(--l2t-blue-clean) !important;
 }
 
-/* Hero: devasa afiş hissini azalt, premium seyahat sitesi gibi yap */
+/* Hero: devasa afiÅŸ hissini azalt, premium seyahat sitesi gibi yap */
 .hp-hero,
 .l2t-home-hero {
   background: linear-gradient(135deg, #071D35 0%, #0E3A60 58%, #DFF4FF 100%) !important;
@@ -5708,7 +5708,7 @@ p, li, small, span, label {
   letter-spacing: 0 !important;
 }
 
-/* Butonlar: daha az oyuncak, daha güvenilir */
+/* Butonlar: daha az oyuncak, daha gÃ¼venilir */
 .l2t-btn,
 .hp-btn-primary,
 .l2t-button-gold {
@@ -5732,7 +5732,7 @@ p, li, small, span, label {
   box-shadow: 0 8px 18px rgba(8, 29, 53, .08) !important;
 }
 
-/* Kart ve içerik yazıları: okunur ve sakin */
+/* Kart ve iÃ§erik yazÄ±larÄ±: okunur ve sakin */
 .l2t-card h3,
 .l2t-content-card h3,
 .l2t-country-card h3,
@@ -5765,7 +5765,7 @@ p, li, small, span, label {
   color: var(--l2t-blue-clean) !important;
 }
 
-/* Arama sekmeleri: okunur, abartısız */
+/* Arama sekmeleri: okunur, abartÄ±sÄ±z */
 .l2t-search-tab {
   min-height: 52px !important;
   border-radius: 18px !important;
@@ -5780,7 +5780,7 @@ p, li, small, span, label {
   box-shadow: inset 0 -3px 0 #F2B93B, 0 12px 22px rgba(8,33,61,.18) !important;
 }
 
-/* AI alanı: beyaz üstü beyaz / gölge karmaşası bitir */
+/* AI alanÄ±: beyaz Ã¼stÃ¼ beyaz / gÃ¶lge karmaÅŸasÄ± bitir */
 .planner-card.text-center h1,
 .planner-card.text-center h2 {
   font-weight: 700 !important;
@@ -5805,12 +5805,12 @@ p, li, small, span, label {
 }
 
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL DESIGN FIX V5
    Hero ticket separation, cleaner badge, stable dropdown
-   ══════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* Hero sağdaki biletleri üst üste binmeyen temiz düzene al */
+/* Hero saÄŸdaki biletleri Ã¼st Ã¼ste binmeyen temiz dÃ¼zene al */
 .hp-floating-art {
   height: 430px !important;
   max-width: 520px !important;
@@ -5877,7 +5877,7 @@ p, li, small, span, label {
   font-size: 1.54rem !important;
 }
 
-/* Hero rozeti: büyük cam kapsül yerine daha sakin premium etiket */
+/* Hero rozeti: bÃ¼yÃ¼k cam kapsÃ¼l yerine daha sakin premium etiket */
 .hp-badge,
 .l2t-live-badge {
   display: inline-flex !important;
@@ -5905,7 +5905,7 @@ p, li, small, span, label {
   flex: 0 0 14px !important;
 }
 
-/* Daha Fazla dropdown: butondan menüye inerken kapanmasın */
+/* Daha Fazla dropdown: butondan menÃ¼ye inerken kapanmasÄ±n */
 .l2t-nav-dropdown-wrap {
   position: relative !important;
   padding-bottom: 12px !important;
@@ -5934,7 +5934,7 @@ p, li, small, span, label {
   color: var(--l2t-ocean-deep) !important;
 }
 
-/* Header sıkışmasını azalt */
+/* Header sÄ±kÄ±ÅŸmasÄ±nÄ± azalt */
 .l2t-nav-link,
 .l2t-nav a {
   padding-left: 9px !important;
@@ -5964,10 +5964,10 @@ p, li, small, span, label {
   .hp-badge { display: none !important; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL BRAND YELLOW V6
-   Sabit marka sarısı: #FFDF00
-   ══════════════════════════════════════ */
+   Sabit marka sarÄ±sÄ±: #FFDF00
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root {
   --l2t-gold: #FFDF00 !important;
   --l2t-gold-deep: #E6C700 !important;
@@ -5978,7 +5978,7 @@ p, li, small, span, label {
   --l2t-blue-2: #E6C700 !important;
 }
 
-/* Sarı CTA'larda turuncuya kayan eski tonları kır */
+/* SarÄ± CTA'larda turuncuya kayan eski tonlarÄ± kÄ±r */
 .l2t-button-gold,
 .l2t-btn-primary,
 .hp-cta-primary,
@@ -5997,7 +5997,7 @@ p, li, small, span, label {
   color: #071B33 !important;
 }
 
-/* Hero rozetinde artık kirli turuncu değil, temiz marka sarısı */
+/* Hero rozetinde artÄ±k kirli turuncu deÄŸil, temiz marka sarÄ±sÄ± */
 .hp-badge,
 .l2t-live-badge {
   background: rgba(255, 223, 0, .14) !important;
@@ -6019,10 +6019,10 @@ p, li, small, span, label {
 }
 
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL PREMIUM BALANCE V7
-   Sarı marka imzası: #FFDF00; site genelinde ferah lacivert/beyaz denge
-   ══════════════════════════════════════ */
+   SarÄ± marka imzasÄ±: #FFDF00; site genelinde ferah lacivert/beyaz denge
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root {
   --l2t-navy: #071B33 !important;
   --l2t-night: #071B33 !important;
@@ -6040,7 +6040,7 @@ p, li, small, span, label {
   --l2t-muted-clean: #64758A !important;
 }
 
-/* Sarı: sadece CTA ve küçük marka vurgusu. Link/mavi sistem tekrar teal kalsın. */
+/* SarÄ±: sadece CTA ve kÃ¼Ã§Ã¼k marka vurgusu. Link/mavi sistem tekrar teal kalsÄ±n. */
 .l2t-text-link,
 .l2t-kicker,
 .l2t-card small,
@@ -6084,7 +6084,7 @@ p, li, small, span, label {
   box-shadow: 0 8px 18px rgba(8, 29, 53, .08) !important;
 }
 
-/* Hero rozeti: cam kapsül yerine küçük premium eyebrow */
+/* Hero rozeti: cam kapsÃ¼l yerine kÃ¼Ã§Ã¼k premium eyebrow */
 .hp-badge,
 .l2t-live-badge {
   padding: 0 0 0 11px !important;
@@ -6108,7 +6108,7 @@ p, li, small, span, label {
   height: 14px !important;
 }
 
-/* Hero biletleri: iç içe geçmesin; temiz, aralıklı premium liste */
+/* Hero biletleri: iÃ§ iÃ§e geÃ§mesin; temiz, aralÄ±klÄ± premium liste */
 .hp-floating-art {
   display: flex !important;
   flex-direction: column !important;
@@ -6161,7 +6161,7 @@ p, li, small, span, label {
 .hp-floating-art .t2 .tic-body h2,
 .t2 .tic-body h2 { font-size: 1.62rem !important; }
 
-/* Daha Fazla dropdown: butondan menüye inerken kapanmasın */
+/* Daha Fazla dropdown: butondan menÃ¼ye inerken kapanmasÄ±n */
 .l2t-nav-dropdown-wrap {
   position: relative !important;
   padding-bottom: 26px !important;
@@ -6194,7 +6194,7 @@ p, li, small, span, label {
   color: #0E7A8A !important;
 }
 
-/* Search tab aktif çizgi ve marka vurgusu temiz sarı olsun */
+/* Search tab aktif Ã§izgi ve marka vurgusu temiz sarÄ± olsun */
 .l2t-search-tab-active,
 .l2t-tab-active {
   box-shadow: inset 0 -3px 0 #FFDF00, 0 12px 22px rgba(8,33,61,.18) !important;
@@ -6228,12 +6228,12 @@ p, li, small, span, label {
 }
 
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL PREMIUM COLOR SYSTEM V8
    Hedef: 10/10 premium seyahat hissi
-   Ana görüntü: beyaz ferahlık + lacivert güven + #FFDF00 net marka aksiyonu
-   Sarı sadece CTA/aktif vurgu; bilgi/link okyanus tonu.
-   ══════════════════════════════════════ */
+   Ana gÃ¶rÃ¼ntÃ¼: beyaz ferahlÄ±k + lacivert gÃ¼ven + #FFDF00 net marka aksiyonu
+   SarÄ± sadece CTA/aktif vurgu; bilgi/link okyanus tonu.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root {
   --l2t-navy: #071B33 !important;
   --l2t-night: #06172D !important;
@@ -6328,7 +6328,7 @@ body::before { display: none !important; }
   box-shadow: 0 10px 20px rgba(255, 223, 0, .20) !important;
 }
 
-/* Dropdown: kapanma ve okunurluk problemi olmadan premium menü */
+/* Dropdown: kapanma ve okunurluk problemi olmadan premium menÃ¼ */
 .l2t-nav-dropdown-wrap {
   position: relative !important;
   padding-bottom: 30px !important;
@@ -6372,7 +6372,7 @@ body::before { display: none !important; }
   color: var(--l2t-ocean-deep) !important;
 }
 
-/* Hero: koyu ama pahalı görünen editorial alan; sarı sadece vurgu */
+/* Hero: koyu ama pahalÄ± gÃ¶rÃ¼nen editorial alan; sarÄ± sadece vurgu */
 .hp-hero,
 .l2t-home-hero,
 .l2t-hero {
@@ -6419,7 +6419,7 @@ body::before { display: none !important; }
   letter-spacing: .05em !important;
 }
 
-/* Hero sağ biletleri: beyaz kart, sarısız, sakin */
+/* Hero saÄŸ biletleri: beyaz kart, sarÄ±sÄ±z, sakin */
 .hp-floating-art {
   gap: 16px !important;
   min-height: 460px !important;
@@ -6449,7 +6449,7 @@ body::before { display: none !important; }
   color: var(--l2t-muted) !important;
 }
 
-/* Ana buton sistemi: düz sarı, pahalı ve net; gradient yok */
+/* Ana buton sistemi: dÃ¼z sarÄ±, pahalÄ± ve net; gradient yok */
 .l2t-btn,
 .l2t-button-gold,
 .l2t-btn-primary,
@@ -6536,7 +6536,7 @@ body::before { display: none !important; }
   color: var(--l2t-ocean-deep) !important;
 }
 
-/* Dönüşüm paneli: sarı radyal yok, premium beyaz kart */
+/* DÃ¶nÃ¼ÅŸÃ¼m paneli: sarÄ± radyal yok, premium beyaz kart */
 .l2t-conversion-panel {
   background: #FFFFFF !important;
   border: 1px solid var(--l2t-border) !important;
@@ -6565,7 +6565,7 @@ body::before { display: none !important; }
   box-shadow: none !important;
 }
 
-/* Arama sekmeleri: aktif lacivert + ince sarı çizgi */
+/* Arama sekmeleri: aktif lacivert + ince sarÄ± Ã§izgi */
 .l2t-search-tab {
   background: #FFFFFF !important;
   color: var(--l2t-ink) !important;
@@ -6602,7 +6602,7 @@ body::before { display: none !important; }
   box-shadow: 0 0 0 4px rgba(8, 126, 139, .10) !important;
 }
 
-/* AI band ve footer: sadece burada lacivert güçlü kullanılabilir */
+/* AI band ve footer: sadece burada lacivert gÃ¼Ã§lÃ¼ kullanÄ±labilir */
 .hp-ai-section,
 .hp-ai-section.glass-panel,
 .l2t-verified-band,
@@ -6638,11 +6638,11 @@ body::before { display: none !important; }
   }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL PREMIUM RENK V9
-   Not: V8 fazla beyaz/steril kaldı. Bu katman beyazı kırar,
-   lacivert derinliği geri getirir ve #FFDF00'u sadece imza/CTA yapar.
-   ══════════════════════════════════════ */
+   Not: V8 fazla beyaz/steril kaldÄ±. Bu katman beyazÄ± kÄ±rar,
+   lacivert derinliÄŸi geri getirir ve #FFDF00'u sadece imza/CTA yapar.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root {
   --l2t-night: #06172D;
   --l2t-navy: #081B33;
@@ -6682,7 +6682,7 @@ main {
   background: transparent !important;
 }
 
-/* Header koyu kalmalı; siteye premium omurga verir. */
+/* Header koyu kalmalÄ±; siteye premium omurga verir. */
 .l2t-header {
   background: rgba(6, 23, 45, .96) !important;
   border-bottom: 1px solid rgba(255,255,255,.10) !important;
@@ -6699,7 +6699,7 @@ main {
   color: var(--l2t-gold) !important;
 }
 
-/* Hero: beyaz değil, markanın ana vitrini koyu lacivert. */
+/* Hero: beyaz deÄŸil, markanÄ±n ana vitrini koyu lacivert. */
 .hp-hero,
 .l2t-home-hero {
   background: linear-gradient(135deg, #06172D 0%, #092544 54%, #0B5160 100%) !important;
@@ -6738,7 +6738,7 @@ main {
   border-left: 3px solid var(--l2t-gold) !important;
 }
 
-/* Arama kutusu hâlâ açık; ama düz beyaz değil, sıcak premium yüzey. */
+/* Arama kutusu hÃ¢lÃ¢ aÃ§Ä±k; ama dÃ¼z beyaz deÄŸil, sÄ±cak premium yÃ¼zey. */
 .l2t-search-card,
 .l2t-aviasales-box,
 .l2t-partner-panel {
@@ -6758,7 +6758,7 @@ main {
   box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 14px 28px rgba(6, 23, 45, .18) !important;
 }
 
-/* Genel kartlar: saf beyaz yerine kırık beyaz / gökyüzü / kum dengesi. */
+/* Genel kartlar: saf beyaz yerine kÄ±rÄ±k beyaz / gÃ¶kyÃ¼zÃ¼ / kum dengesi. */
 .l2t-card,
 .l2t-content-card,
 .l2t-country-card,
@@ -6802,7 +6802,7 @@ main {
   border-color: var(--l2t-border) !important;
 }
 
-/* Ana dönüşüm paneli renkli omurga: beyazlıktan çıkış noktası. */
+/* Ana dÃ¶nÃ¼ÅŸÃ¼m paneli renkli omurga: beyazlÄ±ktan Ã§Ä±kÄ±ÅŸ noktasÄ±. */
 .l2t-conversion-panel {
   background:
     radial-gradient(circle at top left, rgba(255, 223, 0, .16), transparent 34%),
@@ -6849,7 +6849,7 @@ main {
   border-color: rgba(255, 223, 0, .28) !important;
 }
 
-/* Buton: sarı sadece aksiyon. */
+/* Buton: sarÄ± sadece aksiyon. */
 .l2t-btn,
 .l2t-button-gold,
 .l2t-btn-primary,
@@ -6878,7 +6878,7 @@ main {
   border: 1px solid var(--l2t-border) !important;
 }
 
-/* İkonlarda sarı boğmasın; teal destek rengi kalsın. */
+/* Ä°konlarda sarÄ± boÄŸmasÄ±n; teal destek rengi kalsÄ±n. */
 .l2t-card-icon,
 .hp-why-icon,
 .shortcut-icon,
@@ -6897,7 +6897,7 @@ main {
   color: var(--l2t-ocean-deep) !important;
 }
 
-/* Güven / AI / footer gibi bantlarda lacivert kullanılacak. */
+/* GÃ¼ven / AI / footer gibi bantlarda lacivert kullanÄ±lacak. */
 .hp-ai-section,
 .hp-ai-section.glass-panel,
 .l2t-verified-band,
@@ -6942,11 +6942,11 @@ main {
   .l2t-conversion-panel { border-radius: 24px !important; }
 }
 
-/* ══════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LETSGO2TRAVEL LOGO / HEADER VISIBILITY FIX V10
-   v8'den kalan beyaz header renk override'ı koyu header üzerinde logoyu görünmez yapıyordu.
-   Logo artık koyu header üzerinde net beyaz + #FFDF00 marka sarısı olarak sabitlendi.
-   ══════════════════════════════════════ */
+   v8'den kalan beyaz header renk override'Ä± koyu header Ã¼zerinde logoyu gÃ¶rÃ¼nmez yapÄ±yordu.
+   Logo artÄ±k koyu header Ã¼zerinde net beyaz + #FFDF00 marka sarÄ±sÄ± olarak sabitlendi.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .l2t-header .l2t-brand,
 .l2t-header .l2t-logo-text {
   display: inline-flex !important;
@@ -7014,7 +7014,7 @@ main {
   .l2t-header .l2t-logo-plane svg { width: 18px !important; height: 18px !important; }
 }
 /* === L2T RENK BALANSI V14 START === */
-/* Sadece renk/kontrast dÃ¼zeltmesi. Layout, font, hero yerleÅŸimi ve component yapÄ±sÄ±na dokunmaz. */
+/* Sadece renk/kontrast dÃƒÂ¼zeltmesi. Layout, font, hero yerleÃ…Å¸imi ve component yapÃ„Â±sÃ„Â±na dokunmaz. */
 :root {
   --l2t-night: #07182D !important;
   --l2t-navy: #0B1D35 !important;
@@ -7027,20 +7027,20 @@ main {
   --l2t-surface: #FFFFFF !important;
   --l2t-bg: #F5F8FC !important;
 
-  /* Neon sarÄ± yerine premium bal/gold tonu */
+  /* Neon sarÃ„Â± yerine premium bal/gold tonu */
   --l2t-gold: #E9B949 !important;
   --l2t-gold-deep: #C99724 !important;
   --l2t-gold-hover: #D6A633 !important;
   --l2t-gold-soft: rgba(233, 185, 73, 0.15) !important;
   --l2t-yellow: #E9B949 !important;
 
-  /* Ana aksiyon rengi: gÃ¼ven veren uÃ§uÅŸ mavisi */
+  /* Ana aksiyon rengi: gÃƒÂ¼ven veren uÃƒÂ§uÃ…Å¸ mavisi */
   --l2t-blue: #2563EB !important;
   --l2t-blue-2: #1D4ED8 !important;
   --l2t-primary: #2563EB !important;
   --l2t-primary-hover: #1D4ED8 !important;
 
-  /* Turuncu patlamalarÄ± kapatmak iÃ§in yumuÅŸak destek tonu */
+  /* Turuncu patlamalarÃ„Â± kapatmak iÃƒÂ§in yumuÃ…Å¸ak destek tonu */
   --l2t-coral: #D6A633 !important;
   --l2t-success: #10B981 !important;
 
@@ -7054,7 +7054,7 @@ body {
   color: var(--l2t-text) !important;
 }
 
-/* Header koyu ve temiz kalsÄ±n */
+/* Header koyu ve temiz kalsÃ„Â±n */
 .l2t-header {
   background: linear-gradient(180deg, #0B1D35 0%, #07182D 100%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -7082,7 +7082,7 @@ body {
   background: var(--l2t-gold) !important;
 }
 
-/* Ana butonlar: sarÄ± deÄŸil mavi. Daha gÃ¼venli ve daha premium. */
+/* Ana butonlar: sarÃ„Â± deÃ„Å¸il mavi. Daha gÃƒÂ¼venli ve daha premium. */
 .l2t-btn:not(.l2t-btn-outline):not(.l2t-btn-ghost),
 .l2t-header-cta,
 .hp-hero-buttons .l2t-btn:not(.l2t-btn-outline),
@@ -7122,7 +7122,7 @@ body {
   box-shadow: none !important;
 }
 
-/* BaÅŸlÄ±ktaki neon sarÄ±yÄ± bal/gold tonuna Ã§eker. */
+/* BaÃ…Å¸lÃ„Â±ktaki neon sarÃ„Â±yÃ„Â± bal/gold tonuna ÃƒÂ§eker. */
 .hp-hero-copy h1 em,
 .hp-qr-price,
 .l2t-logo-two,
@@ -7133,7 +7133,7 @@ body {
   color: var(--l2t-gold) !important;
 }
 
-/* Hero badge daha az baÄŸÄ±rÄ±r. */
+/* Hero badge daha az baÃ„Å¸Ã„Â±rÃ„Â±r. */
 .hp-badge,
 .l2t-ai-badge {
   background: rgba(255, 255, 255, 0.08) !important;
@@ -7147,7 +7147,7 @@ body {
   color: var(--l2t-gold) !important;
 }
 
-/* Rota chipleri: sarÄ± fiyatlar artÄ±k patlamaz. */
+/* Rota chipleri: sarÃ„Â± fiyatlar artÃ„Â±k patlamaz. */
 .hp-qr-card {
   background: rgba(255, 255, 255, 0.12) !important;
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
@@ -7159,7 +7159,7 @@ body {
   color: rgba(255, 255, 255, 0.92) !important;
 }
 
-/* Kartlar ve arama alanÄ±: temiz beyaz + yumuÅŸak gÃ¶lge */
+/* Kartlar ve arama alanÃ„Â±: temiz beyaz + yumuÃ…Å¸ak gÃƒÂ¶lge */
 .l2t-search-card,
 .l2t-card,
 .l2t-content-card,
@@ -7180,7 +7180,7 @@ body {
   box-shadow: var(--l2t-shadow-lg) !important;
 }
 
-/* Aktif tab ve kÃ¼Ã§Ã¼k vurgu alanlarÄ± neon deÄŸil, sakin gold */
+/* Aktif tab ve kÃƒÂ¼ÃƒÂ§ÃƒÂ¼k vurgu alanlarÃ„Â± neon deÃ„Å¸il, sakin gold */
 .l2t-tab-active,
 .l2t-pill-active,
 .l2t-nav-dropdown a:hover,
@@ -7194,7 +7194,7 @@ body {
   color: var(--l2t-blue) !important;
 }
 
-/* Form focus rengi mavi: daha ciddi ve gÃ¼venli. */
+/* Form focus rengi mavi: daha ciddi ve gÃƒÂ¼venli. */
 input:focus,
 select:focus,
 textarea:focus {
@@ -7203,7 +7203,7 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10) !important;
 }
 
-/* Eski sarÄ±/turuncu gradientleri baÄŸÄ±rmasÄ±n. */
+/* Eski sarÃ„Â±/turuncu gradientleri baÃ„Å¸Ã„Â±rmasÃ„Â±n. */
 .l2t-passport-cta-actions a:first-child,
 .l2t-community-hero-actions a:first-child,
 .l2t-country-forum-hero-actions a:first-child,
@@ -7215,7 +7215,7 @@ textarea:focus {
   box-shadow: 0 14px 30px rgba(37, 99, 235, 0.22) !important;
 }
 
-/* FÄ±rsat ve uyarÄ± etiketlerinde turuncu deÄŸil gold. */
+/* FÃ„Â±rsat ve uyarÃ„Â± etiketlerinde turuncu deÃ„Å¸il gold. */
 [style*="var(--l2t-gold)"],
 [style*="var(--l2t-gold-deep)"] {
   color: var(--l2t-gold);
@@ -7232,3 +7232,81 @@ textarea:focus {
   }
 }
 /* === L2T RENK BALANSI V14 END === */
+
+/* === L2T KONTRAST FIX V14B START === */
+/* Sadece görünmeyen yazı/kontrast düzeltmesi. Layout'a dokunmaz. */
+
+.l2t-conversion-panel {
+  background:
+    linear-gradient(135deg, #FFFFFF 0%, #F8FBFF 58%, #FFF8E1 100%) !important;
+  color: #172033 !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+.l2t-conversion-head,
+.l2t-conversion-head h2 {
+  color: #0B1D35 !important;
+}
+
+.l2t-conversion-head p {
+  color: #64748B !important;
+}
+
+.l2t-conversion-head span {
+  background: rgba(233, 185, 73, 0.14) !important;
+  color: #0B1D35 !important;
+  border-color: rgba(233, 185, 73, 0.35) !important;
+}
+
+.l2t-conversion-card {
+  background: #FFFFFF !important;
+  color: #172033 !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08) !important;
+}
+
+.l2t-conversion-card strong,
+.l2t-conversion-card h3,
+.l2t-conversion-card h4 {
+  color: #0B1D35 !important;
+}
+
+.l2t-conversion-card p {
+  color: #64748B !important;
+}
+
+.l2t-conversion-card small {
+  color: #C99724 !important;
+}
+
+.l2t-conversion-icon {
+  background: linear-gradient(135deg, #E9B949, #C99724) !important;
+  color: #0B1D35 !important;
+}
+
+.l2t-conversion-icon svg {
+  color: #0B1D35 !important;
+}
+
+/* Renk fix sonrası beyaz kartlarda beyaz yazı kalmasın */
+.l2t-card,
+.l2t-content-card,
+.l2t-search-card {
+  color: #172033 !important;
+}
+
+.l2t-card h2,
+.l2t-card h3,
+.l2t-card strong,
+.l2t-content-card h2,
+.l2t-content-card h3,
+.l2t-content-card strong {
+  color: #0B1D35 !important;
+}
+
+.l2t-card p,
+.l2t-content-card p {
+  color: #64748B !important;
+}
+
+/* === L2T KONTRAST FIX V14B END === */
