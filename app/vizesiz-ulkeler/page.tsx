@@ -158,6 +158,29 @@ export default function VisaFreePage() {
         </div>
       )}
 
+      <section className="l2t-visa-seo-content-band" aria-labelledby="visa-free-seo-title">
+        <p className="l2t-kicker">Vizesiz rota seçimi</p>
+        <h2 id="visa-free-seo-title">Vizesiz ülke seçerken nelere dikkat edilmeli?</h2>
+        <p>
+          Vizesiz veya kimlikle gidilebilen ülkeler hızlı karar vermeyi kolaylaştırır; fakat toplam maliyet sadece uçak biletinden oluşmaz.
+          Konaklama, şehir içi ulaşım, sezon, internet ihtiyacı ve girişte sorulabilecek belgeler birlikte değerlendirilmelidir.
+        </p>
+        <div className="l2t-visa-seo-content-grid">
+          <article>
+            <h3>Kimlikle mi, pasaportla mı?</h3>
+            <p>Kimlikle gidilebilen rotalarda yeni tip T.C. kimlik kartı gerekir. Pasaportla gidilen vizesiz rotalarda geçerlilik süresi kontrol edilmelidir.</p>
+          </article>
+          <article>
+            <h3>Ucuz bilet nasıl yakalanır?</h3>
+            <p>Hafta içi uçuşları, alternatif havalimanlarını ve fiyat alarmını birlikte kullanmak daha iyi fiyat yakalama ihtimalini artırır.</p>
+          </article>
+          <article>
+            <h3>Gezgin yorumları neden önemli?</h3>
+            <p>Forumdaki ülke başlıkları, girişte sorulan belgeler ve şehir içi pratikleri gibi güncel deneyimleri görmene yardımcı olur.</p>
+          </article>
+        </div>
+      </section>
+
       <div style={{ marginTop: "32px", padding: "20px 24px", background: "#FFFBEB", border: "1px solid #FEF08A", borderRadius: "16px" }}>
         <p style={{ margin: 0, color: "#92400E", fontSize: "0.9rem", lineHeight: 1.6 }}>
           <strong>⚠️ Önemli:</strong> Vize ve giriş şartları değişebilir. Seyahatten önce resmi konsolosluk, havayolu ve sınır kapısı kurallarını kontrol etmek gerekmektedir. Bu sayfa bilgilendirme amaçlıdır.

@@ -55,6 +55,30 @@ export default async function CountryGuidesPage() {
           </article>
         ))}
       </div>
+
+
+      <section className="l2t-country-guides-content-band" aria-labelledby="country-guides-seo-title">
+        <p className="l2t-kicker">SEO rehber merkezi</p>
+        <h2 id="country-guides-seo-title">Ülke seçerken sadece vize durumuna bakma</h2>
+        <p>
+          Vizesiz veya kimlikle gidilebilen bir ülke seçmek önemli ama tek başına yeterli değil. Uçuş süresi,
+          toplam bütçe, şehir içi ulaşım, sezon yoğunluğu ve gerçek gezgin yorumları da rota kararını doğrudan etkiler.
+        </p>
+        <div className="l2t-country-guides-content-grid">
+          <article>
+            <h3>Vize ve giriş kontrolü</h3>
+            <p>Her rehberde vize notu, kimlikle giriş kolaylığı ve seyahat öncesi kontrol edilmesi gereken belge hatırlatmaları bulunur.</p>
+          </article>
+          <article>
+            <h3>Bütçe ve fiyat alarmı</h3>
+            <p>Ortalama bilet fiyatını gördükten sonra hedef fiyat belirleyebilir, fiyat düştüğünde e-posta bildirimi alabilirsin.</p>
+          </article>
+          <article>
+            <h3>Doğrulanmış gezgin ağı</h3>
+            <p>Ülke forumlarından giden gezginlerin güncel deneyimlerine geçebilir, kendi seyahatini doğrulayıp cevap yazabilirsin.</p>
+          </article>
+        </div>
+      </section>
     </section>
   );
 }

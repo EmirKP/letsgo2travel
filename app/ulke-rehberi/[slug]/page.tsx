@@ -9,6 +9,7 @@ import CountryHero from "@/app/components/CountryHero";
 import JsonLd from "@/app/components/JsonLd";
 import CountryGuideCtas from "@/app/components/CountryGuideCtas";
 import CountryCommunityPanel from "@/app/components/CountryCommunityPanel";
+import CountrySeoContent from "@/app/components/CountrySeoContent";
 import { countryGuideSchema } from "@/lib/structured-data";
 
 export async function generateStaticParams() {
@@ -108,6 +109,7 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
 
       </div>
 
+      <CountrySeoContent country={country} />
       <CountryGuideCtas country={country} />
       <CountryCommunityPanel country={country} />
       

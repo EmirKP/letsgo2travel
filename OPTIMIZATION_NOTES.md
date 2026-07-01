@@ -82,3 +82,14 @@ git push origin main
 - `/api/admin/fiyat-alarmlari/run-check` eklendi; admin panelinden manuel fiyat kontrolü başlatılabilir.
 - `/admin/fiyat-alarmlari` ekranına “Şimdi kontrol et” butonu eklendi.
 - API fiyat verisi gelmezse alarm hemen ölmez; 3 hatadan sonra `error` durumuna alınır, ara denemeler loglanır.
+
+## Ülke Rehberi SEO İçerik Geliştirmesi
+
+- `lib/country-seo-content.ts` eklendi.
+- Ülke rehberi detay sayfalarına arama niyeti odaklı içerik blokları eklendi.
+- Azerbaycan, Bosna Hersek, Karadağ, Gürcistan, Arnavutluk, Sırbistan ve Kosova için özel SEO metinleri ve SSS cevapları hazırlandı.
+- Diğer ülke rehberleri için güvenli fallback içerik ve otomatik SSS üretimi eklendi.
+- Ülke detay schema yapısındaki FAQPage artık yeni SEO içeriklerinden besleniyor.
+- `/ulke-rehberi` ana sayfasına SEO rehber merkezi açıklama bandı eklendi.
+- `/vizesiz-ulkeler` sayfasına vizesiz rota seçimi açıklama/SSS niteliğinde içerik bandı eklendi.
+- Yeni CSS sınıfları mobil uyumlu şekilde `app/globals.css` sonuna eklendi.

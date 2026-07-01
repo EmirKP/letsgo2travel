@@ -1,4 +1,5 @@
 import type { BlogPost, CountryGuide, FlightDeal } from "./types";
+import { getCountrySeoContent } from "./country-seo-content";
 
 const DEFAULT_SITE_URL = "https://letsgo2travel.com.tr";
 
@@ -36,6 +37,8 @@ export function breadcrumbSchema(items: Array<{ name: string; path: string }>) {
 }
 
 export function countryGuideSchema(country: CountryGuide) {
+  const seo = getCountrySeoContent(country);
+
   return [
     breadcrumbSchema([
       { name: "Ana Sayfa", path: "/" },
@@ -46,7 +49,7 @@ export function countryGuideSchema(country: CountryGuide) {
       "@context": "https://schema.org",
       "@type": "TravelGuide",
       name: `${country.country_name} Seyahat Rehberi`,
-      description: country.visa_note,
+      description: `${country.visa_note} ${seo.searchTitle}`,
       url: siteUrl(`/ulke-rehberi/${country.slug}`),
       image: siteUrl(country.hero_image_url || "/travel-images/discover.jpg"),
       about: {
@@ -58,24 +61,14 @@ export function countryGuideSchema(country: CountryGuide) {
     {
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: `${country.country_name} Türk vatandaşlarından vize istiyor mu?`,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: country.visa_note,
-          },
+      mainEntity: seo.faq.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.answer,
         },
-        {
-          "@type": "Question",
-          name: `${country.country_name} uçuş süresi ne kadar?`,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: `Türkiye çıkışlı uçuşlarda ortalama süre ${country.flight_duration}.`,
-          },
-        },
-      ],
+      })),
     },
   ];
 }
