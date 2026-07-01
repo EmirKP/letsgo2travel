@@ -5803,3 +5803,163 @@ p, li, small, span, label {
   .l2t-nav a { font-size: .88rem !important; }
   .l2t-search-tab { min-width: 120px !important; }
 }
+
+
+/* ══════════════════════════════════════
+   LETSGO2TRAVEL DESIGN FIX V5
+   Hero ticket separation, cleaner badge, stable dropdown
+   ══════════════════════════════════════ */
+
+/* Hero sağdaki biletleri üst üste binmeyen temiz düzene al */
+.hp-floating-art {
+  height: 430px !important;
+  max-width: 520px !important;
+  margin-left: auto !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+.hp-floating-art .floating-ticket,
+.floating-ticket {
+  width: 252px !important;
+  min-height: 126px !important;
+  padding: 18px 20px !important;
+  border-radius: 24px !important;
+  animation: none !important;
+  backdrop-filter: blur(18px) !important;
+}
+.hp-floating-art .floating-ticket .tic-head,
+.floating-ticket .tic-head {
+  margin-bottom: 14px !important;
+  padding-bottom: 10px !important;
+  color: #5D6F84 !important;
+  opacity: 1 !important;
+  border-bottom: 1px dashed rgba(93,111,132,.20) !important;
+}
+.hp-floating-art .floating-ticket .tic-body h2,
+.floating-ticket .tic-body h2 {
+  font-size: 1.74rem !important;
+  letter-spacing: -.04em !important;
+  color: var(--l2t-navy) !important;
+}
+.hp-floating-art .floating-ticket .tic-body p,
+.floating-ticket .tic-body p {
+  color: #7A8798 !important;
+  opacity: 1 !important;
+}
+.hp-floating-art .t1,
+.t1 {
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  z-index: 3 !important;
+}
+.hp-floating-art .t2,
+.t2 {
+  top: 148px !important;
+  right: 0 !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  z-index: 2 !important;
+}
+.hp-floating-art .t3,
+.t3 {
+  top: 292px !important;
+  left: 74px !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  z-index: 4 !important;
+}
+.hp-floating-art .t2 .tic-body h2 {
+  font-size: 1.54rem !important;
+}
+
+/* Hero rozeti: büyük cam kapsül yerine daha sakin premium etiket */
+.hp-badge,
+.l2t-live-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  max-width: max-content !important;
+  padding: 8px 13px !important;
+  border-radius: 999px !important;
+  background: rgba(244,178,63,.13) !important;
+  border: 1px solid rgba(244,178,63,.24) !important;
+  color: #FFE9B5 !important;
+  font-size: .82rem !important;
+  font-weight: 650 !important;
+  line-height: 1.2 !important;
+  letter-spacing: .01em !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(10px) !important;
+}
+.hp-badge svg,
+.l2t-live-badge svg {
+  color: #F7C45B !important;
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 14px !important;
+}
+
+/* Daha Fazla dropdown: butondan menüye inerken kapanmasın */
+.l2t-nav-dropdown-wrap {
+  position: relative !important;
+  padding-bottom: 12px !important;
+  margin-bottom: -12px !important;
+}
+.l2t-dropdown {
+  top: calc(100% + 4px) !important;
+  pointer-events: auto !important;
+}
+.l2t-dropdown::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -14px;
+  height: 14px;
+}
+.l2t-dropdown a,
+.l2t-dropdown a[role="menuitem"] {
+  color: #122033 !important;
+  text-decoration: none !important;
+}
+.l2t-dropdown a:hover,
+.l2t-dropdown-active {
+  background: #EEF7FF !important;
+  color: var(--l2t-ocean-deep) !important;
+}
+
+/* Header sıkışmasını azalt */
+.l2t-nav-link,
+.l2t-nav a {
+  padding-left: 9px !important;
+  padding-right: 9px !important;
+}
+.l2t-header-right {
+  gap: 8px !important;
+}
+
+@media (max-width: 1080px) {
+  .hp-floating-art {
+    max-width: 460px !important;
+    height: 400px !important;
+  }
+  .hp-floating-art .floating-ticket,
+  .floating-ticket {
+    width: 224px !important;
+  }
+  .hp-floating-art .t2,
+  .t2 { top: 140px !important; }
+  .hp-floating-art .t3,
+  .t3 { top: 274px !important; left: 54px !important; }
+}
+
+@media (max-width: 900px) {
+  .hp-floating-art { display: none !important; }
+  .hp-badge { display: none !important; }
+}

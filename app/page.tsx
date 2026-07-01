@@ -109,7 +109,7 @@ export default async function HomePage() {
           {/* Sol: Metinler */}
           <div className="hp-hero-copy">
             <ScrollReveal delay={0.1} yOffset={20}>
-              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Uçuş + vize + gerçek gezgin bilgisi</span>
+              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Türk pasaportuna göre akıllı rota</span>
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={30}>

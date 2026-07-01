@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase-client";
 
@@ -34,7 +34,21 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const moreCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
+
+  const openMoreMenu = () => {
+    if (moreCloseTimer.current) {
+      clearTimeout(moreCloseTimer.current);
+      moreCloseTimer.current = null;
+    }
+    setMoreOpen(true);
+  };
+
+  const closeMoreMenuSoon = () => {
+    if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
+    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 220);
+  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -88,8 +102,8 @@ export default function Header() {
           {/* Daha fazla dropdown */}
           <div
             className="l2t-nav-dropdown-wrap"
-            onMouseEnter={() => setMoreOpen(true)}
-            onMouseLeave={() => setMoreOpen(false)}
+            onMouseEnter={openMoreMenu}
+            onMouseLeave={closeMoreMenuSoon}
           >
             <button
               type="button"
@@ -100,7 +114,7 @@ export default function Header() {
               Daha Fazla <span className="l2t-caret">▾</span>
             </button>
             {moreOpen && (
-              <div className="l2t-dropdown" role="menu">
+              <div className="l2t-dropdown" role="menu" onMouseEnter={openMoreMenu} onMouseLeave={closeMoreMenuSoon}>
                 {moreItems.map((item) => {
                   const Icon = item.icon;
                   return (
