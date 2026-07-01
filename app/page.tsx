@@ -109,7 +109,7 @@ export default async function HomePage() {
           {/* Sol: Metinler */}
           <div className="hp-hero-copy">
             <ScrollReveal delay={0.1} yOffset={20}>
-              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Türk pasaportuna göre akıllı rota</span>
+              <span className="hp-badge l2t-hide-mobile"><Plane size={14} style={{ marginRight: "6px" }} /> Türk pasaportuna göre</span>
             </ScrollReveal>
             
             <ScrollReveal delay={0.2} yOffset={30}>
@@ -205,7 +205,7 @@ export default async function HomePage() {
 
           {/* Sağ: Havada Süzülen Premium Biletler (Floating Tickets) */}
           <ScrollReveal delay={0.3} yOffset={0}>
-            <div className="hp-floating-art l2t-hide-mobile" style={{ transform: "scale(1.1)" }}>
+            <div className="hp-floating-art l2t-hide-mobile">
               <div className="floating-ticket t1" style={{ backdropFilter: "blur(16px)", background: "rgba(255,255,255,0.85)" }}>
                 <div className="tic-head"><span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--l2t-navy)" }}><Plane size={14} /> Gidiş</span> <small style={{ color: "var(--l2t-soft)" }}>THY</small></div>
                 <div className="tic-body">

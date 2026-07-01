@@ -47,7 +47,7 @@ export default function Header() {
 
   const closeMoreMenuSoon = () => {
     if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
-    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 220);
+    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 750);
   };
 
   useEffect(() => {
@@ -108,6 +108,8 @@ export default function Header() {
             <button
               type="button"
               className={`l2t-nav-link l2t-nav-dropdown-trigger${moreItems.some((h) => isActive(h.href)) ? " l2t-nav-active" : ""}`}
+              onMouseEnter={openMoreMenu}
+              onFocus={openMoreMenu}
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
             >

@@ -6017,3 +6017,212 @@ p, li, small, span, label {
 .l2t-tab-active {
   box-shadow: inset 0 -3px 0 #FFDF00, 0 10px 22px rgba(11, 29, 53, 0.14) !important;
 }
+
+
+/* ══════════════════════════════════════
+   LETSGO2TRAVEL PREMIUM BALANCE V7
+   Sarı marka imzası: #FFDF00; site genelinde ferah lacivert/beyaz denge
+   ══════════════════════════════════════ */
+:root {
+  --l2t-navy: #071B33 !important;
+  --l2t-night: #071B33 !important;
+  --l2t-deep: #0E2A47 !important;
+  --l2t-gold: #FFDF00 !important;
+  --l2t-gold-deep: #E6C700 !important;
+  --l2t-gold-hover: #FFE733 !important;
+  --l2t-gold-soft: #FFF8B8 !important;
+  --l2t-blue: #0E7A8A !important;
+  --l2t-blue-2: #08A6B8 !important;
+  --l2t-ocean: #08A6B8 !important;
+  --l2t-ocean-deep: #0E7A8A !important;
+  --l2t-page-bg: #F6FAFD !important;
+  --l2t-ink-clean: #102033 !important;
+  --l2t-muted-clean: #64758A !important;
+}
+
+/* Sarı: sadece CTA ve küçük marka vurgusu. Link/mavi sistem tekrar teal kalsın. */
+.l2t-text-link,
+.l2t-kicker,
+.l2t-card small,
+.l2t-country-card small,
+.l2t-filter-label,
+.l2t-alarm-quick-routes > span {
+  color: var(--l2t-ocean-deep) !important;
+}
+
+.l2t-btn,
+.l2t-button-gold,
+.l2t-btn-primary,
+.hp-cta-primary,
+.hp-btn-primary,
+.l2t-mobile-fab,
+.l2t-nav-cta,
+.l2t-header-right .l2t-btn:not(.l2t-btn-outline) {
+  background: linear-gradient(135deg, #FFDF00 0%, #E6C700 100%) !important;
+  color: #071B33 !important;
+  border: 1px solid rgba(7, 27, 51, .08) !important;
+  box-shadow: 0 12px 26px rgba(255, 223, 0, .18) !important;
+}
+.l2t-btn:hover,
+.l2t-button-gold:hover:not(:disabled),
+.l2t-btn-primary:hover:not(:disabled),
+.hp-cta-primary:hover,
+.hp-btn-primary:hover,
+.l2t-nav-cta:hover {
+  background: linear-gradient(135deg, #FFE733 0%, #FFDF00 100%) !important;
+  color: #071B33 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 16px 32px rgba(255, 223, 0, .22) !important;
+}
+.l2t-btn-ghost,
+.l2t-btn-outline,
+.hp-btn-ghost,
+.l2t-header-right .l2t-btn-outline {
+  background: rgba(255,255,255,.96) !important;
+  color: #071B33 !important;
+  border: 1px solid #DCE7F3 !important;
+  box-shadow: 0 8px 18px rgba(8, 29, 53, .08) !important;
+}
+
+/* Hero rozeti: cam kapsül yerine küçük premium eyebrow */
+.hp-badge,
+.l2t-live-badge {
+  padding: 0 0 0 11px !important;
+  min-height: auto !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 3px solid #FFDF00 !important;
+  color: rgba(255,255,255,.82) !important;
+  font-size: .78rem !important;
+  font-weight: 650 !important;
+  letter-spacing: .055em !important;
+  text-transform: uppercase !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.hp-badge svg,
+.l2t-live-badge svg {
+  color: #FFDF00 !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Hero biletleri: iç içe geçmesin; temiz, aralıklı premium liste */
+.hp-floating-art {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 18px !important;
+  height: auto !important;
+  min-height: 470px !important;
+  width: min(100%, 540px) !important;
+  max-width: 540px !important;
+  margin-left: auto !important;
+  padding: 12px 0 !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+.hp-floating-art .floating-ticket,
+.floating-ticket {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: auto !important;
+  transform: none !important;
+  width: 300px !important;
+  min-height: 124px !important;
+  padding: 18px 20px !important;
+  background: rgba(255,255,255,.92) !important;
+  border: 1px solid rgba(255,255,255,.70) !important;
+  box-shadow: 0 18px 42px rgba(7, 27, 51, .18) !important;
+}
+.hp-floating-art .t1,
+.t1 { align-self: flex-start !important; }
+.hp-floating-art .t2,
+.t2 { align-self: flex-end !important; margin-top: -2px !important; }
+.hp-floating-art .t3,
+.t3 { align-self: center !important; margin-top: -2px !important; }
+.hp-floating-art .floating-ticket .tic-head,
+.floating-ticket .tic-head {
+  font-size: .85rem !important;
+  margin-bottom: 10px !important;
+  padding-bottom: 9px !important;
+}
+.hp-floating-art .floating-ticket .tic-body h2,
+.floating-ticket .tic-body h2 {
+  font-size: 1.72rem !important;
+  font-weight: 760 !important;
+  letter-spacing: -.035em !important;
+}
+.hp-floating-art .t2 .tic-body h2,
+.t2 .tic-body h2 { font-size: 1.62rem !important; }
+
+/* Daha Fazla dropdown: butondan menüye inerken kapanmasın */
+.l2t-nav-dropdown-wrap {
+  position: relative !important;
+  padding-bottom: 26px !important;
+  margin-bottom: -26px !important;
+}
+.l2t-dropdown {
+  top: calc(100% - 2px) !important;
+  right: 0 !important;
+  pointer-events: auto !important;
+  z-index: 3000 !important;
+}
+.l2t-dropdown::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: -30px !important;
+  height: 30px !important;
+  background: transparent !important;
+}
+.l2t-dropdown a,
+.l2t-dropdown a[role="menuitem"] {
+  color: #102033 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.l2t-dropdown a:hover,
+.l2t-dropdown-active {
+  background: #EEF7FF !important;
+  color: #0E7A8A !important;
+}
+
+/* Search tab aktif çizgi ve marka vurgusu temiz sarı olsun */
+.l2t-search-tab-active,
+.l2t-tab-active {
+  box-shadow: inset 0 -3px 0 #FFDF00, 0 12px 22px rgba(8,33,61,.18) !important;
+}
+.l2t-home-copy h1 em,
+.hp-hero-copy h1 em,
+.l2t-hero-copy h1 em,
+.l2t-home-copy h1 span,
+.hp-hero-copy h1 span,
+.hp-qr-price,
+.l2t-route-price,
+.l2t-logo-two,
+.l2t-logo-plane {
+  color: #FFDF00 !important;
+}
+
+@media (max-width: 1180px) {
+  .hp-floating-art {
+    width: 440px !important;
+    min-height: 430px !important;
+    gap: 14px !important;
+  }
+  .hp-floating-art .floating-ticket,
+  .floating-ticket { width: 260px !important; }
+}
+
+@media (max-width: 900px) {
+  .hp-floating-art { display: none !important; }
+  .hp-badge,
+  .l2t-live-badge { display: none !important; }
+}
