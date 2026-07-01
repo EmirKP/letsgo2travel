@@ -5559,3 +5559,247 @@ h1, h2, h3,
   .l2t-search-card { border-radius: 22px !important; }
   .l2t-search-tab { min-width: 128px !important; }
 }
+
+/* ─────────────────────────────────────────────
+   LetsGo2Travel typography reset V4
+   Amaç: mide bulandıran ağır/oyuncak font hissini kaldırmak.
+   Dış Google font yok; temiz sistem fontu var.
+   ───────────────────────────────────────────── */
+:root {
+  --l2t-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+  --l2t-font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+  --l2t-ink-clean: #102033;
+  --l2t-muted-clean: #5D6F86;
+  --l2t-navy-clean: #071D35;
+  --l2t-blue-clean: #0A6EA8;
+  --l2t-gold-clean: #E8A91D;
+  --l2t-sand-clean: #F8FBFF;
+}
+
+html,
+body {
+  font-family: var(--l2t-font-body) !important;
+  font-size: 16px;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: var(--l2t-ink-clean) !important;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--l2t-font-body) !important;
+  letter-spacing: 0 !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.l2t-home-copy h1,
+.hp-hero-copy h1,
+.l2t-hero-copy h1,
+.l2t-page-head h1,
+.l2t-detail-hero h1,
+.planner-card h1,
+.planner-card h2,
+.l2t-section-head h2 {
+  font-family: var(--l2t-font-heading) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.026em !important;
+  text-shadow: none !important;
+}
+
+p, li, small, span, label {
+  letter-spacing: 0 !important;
+}
+
+/* Header: daha sakin, kurumsal, sıkışmayan yazı */
+.l2t-logo-text {
+  font-family: var(--l2t-font-heading) !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.02em !important;
+}
+.l2t-nav-link,
+.l2t-nav a,
+.l2t-nav-dropdown-trigger,
+.l2t-mobile-link {
+  font-family: var(--l2t-font-body) !important;
+  font-size: .92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+.l2t-header-right .l2t-btn,
+.l2t-btn,
+.hp-btn-primary,
+.hp-btn-ghost,
+.l2t-search-tab,
+.planner-card button {
+  font-family: var(--l2t-font-body) !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Dropdown: yazılar kaybolmasın, boş beyaz panel gibi durmasın */
+.l2t-dropdown {
+  width: 260px !important;
+  min-width: 260px !important;
+  max-width: 280px !important;
+  padding: 10px !important;
+  background: #FFFFFF !important;
+  border: 1px solid #DCE7F3 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 45px rgba(8, 29, 53, .20) !important;
+}
+.l2t-dropdown a,
+.l2t-dropdown a[role="menuitem"] {
+  display: flex !important;
+  color: var(--l2t-ink-clean) !important;
+  font-size: .92rem !important;
+  font-weight: 600 !important;
+  min-height: 40px !important;
+  padding: 9px 11px !important;
+  line-height: 1.2 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.l2t-dropdown a svg { color: #60748C !important; stroke: currentColor !important; }
+.l2t-dropdown a:hover,
+.l2t-dropdown-active {
+  background: #F1F7FC !important;
+  color: var(--l2t-blue-clean) !important;
+}
+
+/* Hero: devasa afiş hissini azalt, premium seyahat sitesi gibi yap */
+.hp-hero,
+.l2t-home-hero {
+  background: linear-gradient(135deg, #071D35 0%, #0E3A60 58%, #DFF4FF 100%) !important;
+}
+.l2t-home-copy h1,
+.hp-hero-copy h1,
+.l2t-hero-copy h1 {
+  font-size: clamp(2.35rem, 5.2vw, 4.35rem) !important;
+  line-height: 1.06 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  color: #FFFFFF !important;
+  max-width: 850px !important;
+}
+.l2t-home-copy h1 em,
+.hp-hero-copy h1 em,
+.l2t-hero-copy h1 em,
+.l2t-home-copy h1 span,
+.hp-hero-copy h1 span {
+  color: #F2B93B !important;
+}
+.l2t-home-copy p:not(.l2t-live-badge),
+.hp-hero-copy p,
+.l2t-hero-copy p:not(.l2t-kicker) {
+  font-size: clamp(1rem, 1.45vw, 1.14rem) !important;
+  line-height: 1.68 !important;
+  font-weight: 400 !important;
+  color: rgba(255,255,255,.82) !important;
+}
+.l2t-live-badge,
+.hp-badge {
+  font-size: .86rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Butonlar: daha az oyuncak, daha güvenilir */
+.l2t-btn,
+.hp-btn-primary,
+.l2t-button-gold {
+  background: linear-gradient(135deg, #F2B93B, #D99215) !important;
+  color: #071D35 !important;
+  border-radius: 14px !important;
+  font-weight: 650 !important;
+  box-shadow: 0 10px 22px rgba(217, 146, 21, .20) !important;
+}
+.l2t-btn:hover,
+.hp-btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 14px 28px rgba(217, 146, 21, .24) !important;
+}
+.l2t-btn-ghost,
+.l2t-btn-outline,
+.hp-btn-ghost {
+  background: rgba(255,255,255,.96) !important;
+  color: #071D35 !important;
+  border: 1px solid #DCE7F3 !important;
+  box-shadow: 0 8px 18px rgba(8, 29, 53, .08) !important;
+}
+
+/* Kart ve içerik yazıları: okunur ve sakin */
+.l2t-card h3,
+.l2t-content-card h3,
+.l2t-country-card h3,
+.hp-why-card h3,
+.l2t-conversion-card h3,
+.l2t-affiliate-card h3,
+.l2t-mini-card h3 {
+  font-weight: 650 !important;
+  letter-spacing: -0.012em !important;
+  color: var(--l2t-ink-clean) !important;
+}
+.l2t-card p,
+.l2t-content-card p,
+.l2t-country-card p,
+.hp-why-card p,
+.l2t-conversion-card p,
+.l2t-lead,
+.l2t-disclaimer {
+  font-weight: 400 !important;
+  color: var(--l2t-muted-clean) !important;
+  line-height: 1.66 !important;
+}
+.l2t-kicker,
+.l2t-card-topline,
+.l2t-filter-label,
+.l2t-alarm-quick-routes > span {
+  font-size: .76rem !important;
+  font-weight: 650 !important;
+  letter-spacing: .06em !important;
+  color: var(--l2t-blue-clean) !important;
+}
+
+/* Arama sekmeleri: okunur, abartısız */
+.l2t-search-tab {
+  min-height: 52px !important;
+  border-radius: 18px !important;
+  color: #20324A !important;
+  background: #FFFFFF !important;
+  font-size: .98rem !important;
+  box-shadow: 0 6px 16px rgba(8, 29, 53, .08) !important;
+}
+.l2t-search-tab-active {
+  background: #071D35 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 -3px 0 #F2B93B, 0 12px 22px rgba(8,33,61,.18) !important;
+}
+
+/* AI alanı: beyaz üstü beyaz / gölge karmaşası bitir */
+.planner-card.text-center h1,
+.planner-card.text-center h2 {
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+.planner-card.text-center p {
+  font-weight: 400 !important;
+  color: rgba(255,255,255,.78) !important;
+}
+
+@media (max-width: 900px) {
+  .l2t-home-copy h1,
+  .hp-hero-copy h1,
+  .l2t-hero-copy h1 {
+    font-size: clamp(2.05rem, 9vw, 3.05rem) !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.024em !important;
+  }
+  .l2t-nav-link,
+  .l2t-nav a { font-size: .88rem !important; }
+  .l2t-search-tab { min-width: 120px !important; }
+}

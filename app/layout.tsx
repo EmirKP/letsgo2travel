@@ -1,23 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
 import JsonLd from "./components/JsonLd";
 import { organizationSchema } from "@/lib/structured-data";
-
-const manrope = Manrope({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-l2t-body",
-  display: "swap",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-l2t-display",
-  display: "swap",
-});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -59,7 +46,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
-      <body className={`${manrope.variable} ${jakarta.variable}`}>
+      <body>
         <JsonLd data={organizationSchema()} />
         <Header />
         <main>{children}</main>
