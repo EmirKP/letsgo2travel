@@ -144,7 +144,7 @@ export default function FlightSearchCard() {
       {/* Top Tabs */}
       <div className="l2t-search-tabs" style={{ display: "flex", gap: "12px", marginBottom: "20px", overflowX: "auto", width: "100%", justifyContent: "center" }}>
         <button type="button" className="l2t-tab-active">
-          <Plane size={20} style={{ color: "#1476f2" }} /> Uçak bileti
+          <Plane size={20} style={{ color: "var(--l2t-gold-deep)" }} /> Uçak bileti
         </button>
         <a href="/oteller" className="l2t-tab-inactive">
           <MapPin size={20} /> Otel
@@ -170,8 +170,8 @@ export default function FlightSearchCard() {
                 fontWeight: type.id === tripType ? "700" : "600",
                 fontSize: "0.95rem",
                 cursor: "pointer",
-                background: type.id === tripType ? "#eef2ff" : "transparent",
-                color: type.id === tripType ? "#1476f2" : "#64748b",
+                background: type.id === tripType ? "var(--l2t-gold-soft)" : "transparent",
+                color: type.id === tripType ? "var(--l2t-gold-deep)" : "#64748b",
                 transition: "all 0.2s ease",
               }}
               onMouseOver={(e) => { if (type.id !== tripType) e.currentTarget.style.background = "#f1f5f9" }}
@@ -185,7 +185,7 @@ export default function FlightSearchCard() {
         {/* The Search Row */}
         <div className="l2t-flight-row">
           
-          <div ref={originRef} style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", position: "relative", zIndex: isOriginOpen ? 20 : 1, transition: "background 0.2s, border 0.2s" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
+          <div ref={originRef} style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", position: "relative", zIndex: isOriginOpen ? 20 : 1, transition: "background 0.2s, border 0.2s" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid var(--l2t-gold-deep)"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(245,184,46,0.14)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
             <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><MapPin size={12} /> Nereden</span>
             <input
               value={originSearch}
@@ -209,14 +209,14 @@ export default function FlightSearchCard() {
             type="button"
             className="l2t-swap-btn"
             onClick={handleSwap}
-            style={{ width: "42px", height: "42px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, margin: "0 -20px", color: "#1476f2", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", transition: "all 0.2s ease" }}
+            style={{ width: "42px", height: "42px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, margin: "0 -20px", color: "var(--l2t-gold-deep)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", transition: "all 0.2s ease" }}
             onMouseOver={(e) => { e.currentTarget.style.transform = "rotate(180deg) scale(1.05)"; e.currentTarget.style.boxShadow = "0 8px 16px rgba(0,0,0,0.1)"; }}
             onMouseOut={(e) => { e.currentTarget.style.transform = "rotate(0) scale(1)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
           >
             <ArrowRightLeft size={18} strokeWidth={2.5} />
           </button>
 
-          <div ref={destRef} style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", position: "relative", zIndex: isDestOpen ? 19 : 1, transition: "background 0.2s, border 0.2s" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
+          <div ref={destRef} style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", position: "relative", zIndex: isDestOpen ? 19 : 1, transition: "background 0.2s, border 0.2s" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid var(--l2t-gold-deep)"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(245,184,46,0.14)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
             <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><MapPin size={12} /> Nereye</span>
             <input
               value={destSearch}
@@ -236,7 +236,7 @@ export default function FlightSearchCard() {
             )}
           </div>
 
-          <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
+          <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid var(--l2t-gold-deep)"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(245,184,46,0.14)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
             <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Gidiş</span>
             <input
               key={`depart-${minDateStr}`}
@@ -259,13 +259,13 @@ export default function FlightSearchCard() {
             <div 
               onClick={() => setTripType("gidis_donus")}
               style={{ border: "1px dashed #cbd5e1", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", cursor: "pointer", background: "rgba(248,250,252,0.5)", transition: "all 0.2s" }}
-              onMouseOver={(e) => { e.currentTarget.style.background = "#eef2ff"; e.currentTarget.style.borderColor = "#1476f2"; }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "var(--l2t-gold-soft)"; e.currentTarget.style.borderColor = "var(--l2t-gold-deep)"; }}
               onMouseOut={(e) => { e.currentTarget.style.background = "rgba(248,250,252,0.5)"; e.currentTarget.style.borderColor = "#cbd5e1"; }}
             >
-              <span style={{ fontSize: "0.95rem", color: "#1476f2", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}>+ Dönüş Ekle</span>
+              <span style={{ fontSize: "0.95rem", color: "var(--l2t-gold-deep)", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}>+ Dönüş Ekle</span>
             </div>
           ) : (
-            <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
+            <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid var(--l2t-gold-deep)"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(245,184,46,0.14)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
               <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Calendar size={12} /> Dönüş</span>
               <input
                 key={`return-${departDate}-${minDateStr}`}
@@ -286,7 +286,7 @@ export default function FlightSearchCard() {
             </label>
           )}
 
-          <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid #1476f2"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(20,118,242,0.1)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
+          <label style={{ background: "#f8fafc", border: "1px solid transparent", borderRadius: "16px", padding: "12px 16px", display: "flex", flexDirection: "column", transition: "all 0.2s", cursor: "pointer" }} onFocus={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.border = "1px solid var(--l2t-gold-deep)"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(245,184,46,0.14)"; }} onBlur={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.border = "1px solid transparent"; e.currentTarget.style.boxShadow = "none"; }}>
             <span style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: "4px", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}><Users size={12} /> Yolcular</span>
             <select
               value={`${passengers}-${cabin}`}
@@ -317,18 +317,18 @@ export default function FlightSearchCard() {
               alignItems: "center", 
               justifyContent: "center", 
               gap: "10px",
-              background: "linear-gradient(135deg, #1476f2 0%, #0b5bce 100%)", 
+              background: "linear-gradient(135deg, var(--l2t-gold-deep) 0%, var(--l2t-gold) 100%)", 
               color: "#fff", 
               fontWeight: "800", 
               borderRadius: "16px", 
               textDecoration: "none", 
               fontSize: "1.2rem", 
               border: "none", 
-              boxShadow: "0 8px 24px rgba(20,118,242,0.25)",
+              boxShadow: "0 8px 24px rgba(245,184,46,0.26)",
               transition: "all 0.2s ease"
             }}
-            onMouseOver={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(20,118,242,0.35)"; } }}
-            onMouseOut={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(20,118,242,0.25)"; } }}
+            onMouseOver={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 28px rgba(245,184,46,0.36)"; } }}
+            onMouseOut={(e) => { if(isValid) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(245,184,46,0.26)"; } }}
           >
              Ara <Search size={20} />
           </a>
@@ -343,7 +343,7 @@ export default function FlightSearchCard() {
               style={{ background: "transparent", border: "1px solid var(--l2t-border)", borderRadius: "100px", padding: "10px 20px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "var(--l2t-navy)", fontWeight: "600", fontSize: "0.95rem", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}
               className="hover-tilt"
             >
-              <BellRing size={18} color="#d97706" /> Bu rota için fiyat alarmı kur
+              <BellRing size={18} color="var(--l2t-gold-deep)" /> Bu rota için fiyat alarmı kur
             </button>
           ) : (
             <div style={{ width: "100%", maxWidth: "500px", animation: "fadeIn 0.3s ease" }}>
