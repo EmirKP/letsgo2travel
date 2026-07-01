@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -7,25 +6,12 @@ import BottomNav from "./components/BottomNav";
 import JsonLd from "./components/JsonLd";
 import { organizationSchema } from "@/lib/structured-data";
 
-
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
-});
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-heading",
-  display: "swap",
-});
-
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0F172A",
+  themeColor: "#06183A",
   viewportFit: "cover",
 };
 
@@ -36,10 +22,10 @@ export const metadata: Metadata = {
     template: "%s | Letsgo2Travel",
   },
   description:
-    "Sinematik seyahat rehberleri, profesyonel lokasyon danışmanlığı, uçak bileti fırsatları ve akıllı rota planlama.",
+    "Ucuz uçak bileti kampanyaları, vizesiz ülkeler, ülke rehberleri, otel, eSIM ve tur seçenekleri için premium seyahat asistanı.",
   openGraph: {
     title: "Letsgo2Travel",
-    description: "Sinematik rota rehberleri, lokasyon danışmanlığı ve akıllı seyahat planlama tek yerde.",
+    description: "Ucuz uçuşlar ve vizesiz seyahat rotaları tek yerde.",
     images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "Letsgo2Travel" }],
   },
   manifest: "/manifest.json",
@@ -59,7 +45,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="tr" className={`${montserrat.variable} ${playfair.variable}`}>
+    <html lang="tr">
       <body>
         <JsonLd data={organizationSchema()} />
         <Header />
