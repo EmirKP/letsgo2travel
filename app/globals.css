@@ -6941,3 +6941,75 @@ main {
   }
   .l2t-conversion-panel { border-radius: 24px !important; }
 }
+
+/* ══════════════════════════════════════
+   LETSGO2TRAVEL LOGO / HEADER VISIBILITY FIX V10
+   v8'den kalan beyaz header renk override'ı koyu header üzerinde logoyu görünmez yapıyordu.
+   Logo artık koyu header üzerinde net beyaz + #FFDF00 marka sarısı olarak sabitlendi.
+   ══════════════════════════════════════ */
+.l2t-header .l2t-brand,
+.l2t-header .l2t-logo-text {
+  display: inline-flex !important;
+  align-items: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  min-width: max-content !important;
+  text-decoration: none !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+.l2t-header .l2t-logo-text {
+  font-size: clamp(1.28rem, 1.45vw, 1.52rem) !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.025em !important;
+  white-space: nowrap !important;
+  text-shadow: 0 8px 20px rgba(0, 0, 0, .22) !important;
+}
+
+.l2t-header .l2t-logo-lets,
+.l2t-header .l2t-logo-travel {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+
+.l2t-header .l2t-logo-two,
+.l2t-header .l2t-logo-plane,
+.l2t-header .l2t-logo-plane svg {
+  color: #FFDF00 !important;
+  stroke: #FFDF00 !important;
+  -webkit-text-fill-color: #FFDF00 !important;
+}
+
+.l2t-header .l2t-logo-plane {
+  display: inline-flex !important;
+  align-items: center !important;
+  margin-left: 4px !important;
+  transform: rotate(-10deg) translateY(1px) !important;
+}
+
+.l2t-header .l2t-brand:hover .l2t-logo-lets,
+.l2t-header .l2t-brand:hover .l2t-logo-travel {
+  color: rgba(255,255,255,.92) !important;
+  -webkit-text-fill-color: rgba(255,255,255,.92) !important;
+}
+
+.l2t-header .l2t-brand:hover .l2t-logo-two,
+.l2t-header .l2t-brand:hover .l2t-logo-plane,
+.l2t-header .l2t-brand:hover .l2t-logo-plane svg {
+  color: #FFE84A !important;
+  stroke: #FFE84A !important;
+  -webkit-text-fill-color: #FFE84A !important;
+}
+
+@media (max-width: 1180px) {
+  .l2t-header .l2t-brand { min-width: 176px !important; }
+  .l2t-header .l2t-logo-text { font-size: 1.24rem !important; }
+}
+
+@media (max-width: 760px) {
+  .l2t-header .l2t-brand { min-width: 152px !important; }
+  .l2t-header .l2t-logo-text { font-size: 1.12rem !important; }
+  .l2t-header .l2t-logo-plane svg { width: 18px !important; height: 18px !important; }
+}
