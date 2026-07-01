@@ -47,7 +47,7 @@ export default function Header() {
 
   const closeMoreMenuSoon = () => {
     if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
-    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 750);
+    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 1200);
   };
 
   useEffect(() => {
