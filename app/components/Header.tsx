@@ -45,9 +45,9 @@ export default function Header() {
     setMoreOpen(true);
   };
 
-  const scheduleMoreMenuClose = () => {
+  const closeMoreMenuSoon = () => {
     if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
-    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 240);
+    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 1200);
   };
 
   useEffect(() => {
@@ -103,18 +103,20 @@ export default function Header() {
           <div
             className="l2t-nav-dropdown-wrap"
             onMouseEnter={openMoreMenu}
-            onMouseLeave={scheduleMoreMenuClose}
+            onMouseLeave={closeMoreMenuSoon}
           >
             <button
               type="button"
               className={`l2t-nav-link l2t-nav-dropdown-trigger${moreItems.some((h) => isActive(h.href)) ? " l2t-nav-active" : ""}`}
+              onMouseEnter={openMoreMenu}
+              onFocus={openMoreMenu}
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
             >
               Daha Fazla <span className="l2t-caret">▾</span>
             </button>
             {moreOpen && (
-              <div className="l2t-dropdown" role="menu" onMouseEnter={openMoreMenu} onMouseLeave={scheduleMoreMenuClose}>
+              <div className="l2t-dropdown" role="menu" onMouseEnter={openMoreMenu} onMouseLeave={closeMoreMenuSoon}>
                 {moreItems.map((item) => {
                   const Icon = item.icon;
                   return (
