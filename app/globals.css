@@ -5963,3 +5963,57 @@ p, li, small, span, label {
   .hp-floating-art { display: none !important; }
   .hp-badge { display: none !important; }
 }
+
+/* ══════════════════════════════════════
+   LETSGO2TRAVEL BRAND YELLOW V6
+   Sabit marka sarısı: #FFDF00
+   ══════════════════════════════════════ */
+:root {
+  --l2t-gold: #FFDF00 !important;
+  --l2t-gold-deep: #E6C700 !important;
+  --l2t-gold-hover: #F2D200 !important;
+  --l2t-gold-soft: #FFF8B8 !important;
+  --l2t-warning: #FFDF00 !important;
+  --l2t-blue: #FFDF00 !important;
+  --l2t-blue-2: #E6C700 !important;
+}
+
+/* Sarı CTA'larda turuncuya kayan eski tonları kır */
+.l2t-button-gold,
+.l2t-btn-primary,
+.hp-cta-primary,
+.shortcut-icon,
+.l2t-mobile-fab,
+.l2t-nav-cta {
+  background: linear-gradient(135deg, #FFDF00 0%, #E6C700 100%) !important;
+  color: #071B33 !important;
+}
+
+.l2t-button-gold:hover:not(:disabled),
+.l2t-btn-primary:hover:not(:disabled),
+.hp-cta-primary:hover,
+.l2t-nav-cta:hover {
+  background: linear-gradient(135deg, #FFE733 0%, #FFDF00 100%) !important;
+  color: #071B33 !important;
+}
+
+/* Hero rozetinde artık kirli turuncu değil, temiz marka sarısı */
+.hp-badge,
+.l2t-live-badge {
+  background: rgba(255, 223, 0, .14) !important;
+  border-color: rgba(255, 223, 0, .34) !important;
+  color: #FFF2A0 !important;
+}
+
+.hp-badge svg,
+.l2t-live-badge svg,
+.l2t-tab-active svg,
+.hp-qr-price,
+.l2t-logo-two,
+.l2t-logo-plane {
+  color: #FFDF00 !important;
+}
+
+.l2t-tab-active {
+  box-shadow: inset 0 -3px 0 #FFDF00, 0 10px 22px rgba(11, 29, 53, 0.14) !important;
+}
