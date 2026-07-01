@@ -5185,3 +5185,377 @@ textarea {
   .l2t-conversion-panel { padding: 18px !important; border-radius: 24px !important; }
   .l2t-conversion-card { min-height: auto !important; }
 }
+
+/* ══════════════════════════════════════
+   LETSGO2TRAVEL DESIGN SYSTEM V3
+   Header, typography, palette and AI planner polish
+   ══════════════════════════════════════ */
+:root {
+  --l2t-navy: #08213D;
+  --l2t-night: #06172D;
+  --l2t-deep: #0E315B;
+  --l2t-ocean: #0EA5A8;
+  --l2t-ocean-deep: #0E7490;
+  --l2t-gold: #F4B23F;
+  --l2t-gold-deep: #D89012;
+  --l2t-sand: #FFF7E7;
+  --l2t-sky: #F2FAFF;
+  --l2t-page-bg: #F6FAFD;
+  --l2t-card: #FFFFFF;
+  --l2t-card-strong: #FFFFFF;
+  --l2t-border: #DDE8F2;
+  --l2t-ink: #122033;
+  --l2t-text: #122033;
+  --l2t-soft: #5B6C82;
+  --l2t-muted: #7A8798;
+  --l2t-blue: var(--l2t-ocean-deep);
+  --l2t-blue-2: var(--l2t-ocean);
+  --l2t-cyan: var(--l2t-ocean);
+  --l2t-shadow: 0 14px 34px rgba(11, 35, 65, .10);
+  --l2t-shadow-lg: 0 22px 54px rgba(11, 35, 65, .14);
+  --l2t-radius: 22px;
+  --l2t-radius-sm: 14px;
+  --l2t-font-body: var(--font-l2t-body), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --l2t-font-display: var(--font-l2t-display), var(--l2t-font-body);
+}
+
+html,
+body {
+  background: linear-gradient(180deg, #F3FAFF 0%, #F8FBFE 42%, #FFFFFF 100%) !important;
+  color: var(--l2t-ink) !important;
+  font-family: var(--l2t-font-body) !important;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3,
+.l2t-logo-text,
+.l2t-home-copy h1,
+.hp-hero-copy h1,
+.l2t-page-head h1,
+.l2t-board-title {
+  font-family: var(--l2t-font-display) !important;
+  letter-spacing: -.035em;
+}
+
+/* Header: crowded dark bar -> clean premium navigation */
+.l2t-header {
+  background: rgba(8, 33, 61, .96) !important;
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: 0 10px 28px rgba(3, 16, 38, .18) !important;
+  backdrop-filter: blur(14px) !important;
+}
+.l2t-header-inner {
+  height: 64px !important;
+  gap: 16px !important;
+}
+.l2t-brand { min-width: 194px !important; }
+.l2t-logo-text {
+  font-size: 1.34rem !important;
+  font-weight: 850 !important;
+  letter-spacing: -.045em !important;
+}
+.l2t-logo-two,
+.l2t-logo-plane { color: var(--l2t-gold) !important; }
+.l2t-nav {
+  gap: 6px !important;
+  min-width: 0 !important;
+  justify-content: flex-start !important;
+}
+.l2t-nav-link,
+.l2t-nav a {
+  min-height: 38px !important;
+  padding: 8px 10px !important;
+  border-radius: 999px !important;
+  color: rgba(255,255,255,.78) !important;
+  font-size: .9rem !important;
+  font-weight: 760 !important;
+  white-space: nowrap !important;
+}
+.l2t-nav-link:hover,
+.l2t-nav a:hover,
+.l2t-nav-link.l2t-nav-active,
+.l2t-nav a.l2t-nav-active,
+.l2t-nav-dropdown-trigger.l2t-nav-active {
+  background: rgba(255,255,255,.10) !important;
+  color: #FFFFFF !important;
+}
+.l2t-nav a.l2t-nav-active::after { display: none !important; }
+.l2t-nav-dropdown-trigger {
+  border: 1px solid transparent !important;
+}
+.l2t-header-right .l2t-btn,
+.l2t-header-right .l2t-btn-outline {
+  height: 42px !important;
+  border-radius: 999px !important;
+  padding: 0 15px !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+}
+.l2t-header-right .l2t-btn:not(.l2t-btn-outline) {
+  background: linear-gradient(135deg, #F7C45B, #E6A11B) !important;
+  color: #071C35 !important;
+}
+.l2t-header-right .l2t-btn-outline {
+  background: #FFFFFF !important;
+  color: #071C35 !important;
+  border: 1px solid rgba(255,255,255,.36) !important;
+}
+
+/* Fix the “Daha Fazla” menu: labels visible, no giant blank white panel */
+.l2t-nav-dropdown-wrap { position: relative !important; }
+.l2t-dropdown {
+  top: calc(100% + 12px) !important;
+  left: auto !important;
+  right: 0 !important;
+  transform: none !important;
+  width: 248px !important;
+  min-width: 248px !important;
+  padding: 8px !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.98) !important;
+  border: 1px solid #DDE8F2 !important;
+  box-shadow: 0 24px 60px rgba(5, 20, 38, .24) !important;
+  z-index: 1500 !important;
+}
+.l2t-dropdown a,
+.l2t-dropdown a[role="menuitem"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  color: #122033 !important;
+  font-size: .92rem !important;
+  font-weight: 760 !important;
+  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-indent: 0 !important;
+  opacity: 1 !important;
+}
+.l2t-dropdown a svg {
+  flex: 0 0 17px !important;
+  color: #536A83 !important;
+  stroke: currentColor !important;
+}
+.l2t-dropdown a:hover,
+.l2t-dropdown-active {
+  background: #EFF7FF !important;
+  color: #0E7490 !important;
+}
+
+/* Hero: less childish, more premium travel brand */
+.hp-hero,
+.l2t-home-hero {
+  background: linear-gradient(135deg, #08213D 0%, #123A63 58%, #E8F6FF 100%) !important;
+}
+.hp-hero-bg,
+.l2t-home-hero-bg {
+  opacity: 1 !important;
+}
+.l2t-hero-bg,
+.l2t-home-hero-bg {
+  background:
+    linear-gradient(90deg, rgba(8,33,61,.94) 0%, rgba(8,33,61,.82) 38%, rgba(8,33,61,.38) 70%, rgba(8,33,61,.10) 100%),
+    url('/plane-hero.webp') center right/cover no-repeat !important;
+}
+.l2t-home-copy h1,
+.hp-hero-copy h1,
+.l2t-hero-copy h1 {
+  color: #FFFFFF !important;
+  font-weight: 820 !important;
+  font-size: clamp(2.55rem, 6vw, 5.1rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -.055em !important;
+  text-shadow: none !important;
+}
+.l2t-home-copy h1 em,
+.hp-hero-copy h1 em,
+.l2t-hero-copy h1 em,
+.l2t-home-copy h1 span,
+.hp-hero-copy h1 span {
+  color: #F7C45B !important;
+}
+.l2t-home-copy p:not(.l2t-live-badge),
+.hp-hero-copy p,
+.l2t-hero-copy p:not(.l2t-kicker) {
+  color: rgba(255,255,255,.84) !important;
+  font-size: clamp(1rem, 1.6vw, 1.18rem) !important;
+  line-height: 1.66 !important;
+  max-width: 720px !important;
+}
+.l2t-live-badge,
+.hp-badge {
+  background: rgba(255,255,255,.12) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  box-shadow: none !important;
+}
+.hp-qr-card,
+.l2t-route-card {
+  background: rgba(255,255,255,.14) !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 28px rgba(4,17,34,.18) !important;
+}
+.hp-qr-price,
+.l2t-route-price { color: #F7C45B !important; }
+
+/* Search card and tabs: inactive hotel tab readable */
+.l2t-search-card {
+  background: rgba(255,255,255,.97) !important;
+  border: 1px solid rgba(221,232,242,.95) !important;
+  border-radius: 26px !important;
+  box-shadow: 0 22px 56px rgba(7, 29, 54, .18) !important;
+  color: #122033 !important;
+}
+.l2t-search-tabs {
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+.l2t-search-tab {
+  min-width: 142px !important;
+  min-height: 54px !important;
+  padding: 0 22px !important;
+  border-radius: 999px !important;
+  border: 1px solid #DDE8F2 !important;
+  background: #FFFFFF !important;
+  color: #122033 !important;
+  box-shadow: 0 8px 18px rgba(7,29,54,.08) !important;
+  opacity: 1 !important;
+}
+.l2t-search-tab svg { color: currentColor !important; stroke: currentColor !important; }
+.l2t-search-tab-active {
+  background: #08213D !important;
+  color: #FFFFFF !important;
+  border-color: #08213D !important;
+  box-shadow: inset 0 -3px 0 #F7C45B, 0 12px 22px rgba(8,33,61,.20) !important;
+}
+.l2t-booking-field span,
+.l2t-booking-field small,
+.l2t-form-grid label { color: #5B6C82 !important; }
+.l2t-booking-field input,
+.l2t-booking-field select,
+.l2t-ai-form input,
+.l2t-newsletter input,
+.l2t-inline-form input,
+.l2t-form-grid input,
+.l2t-admin-form input {
+  background: #FFFFFF !important;
+  color: #122033 !important;
+  border-color: #D7E3F1 !important;
+}
+
+/* AI planner page: glass-panel had !important and made white text invisible */
+.l2t-page .planner-card.glass-panel,
+.planner-card.text-center.glass-panel {
+  background: linear-gradient(135deg, rgba(8,33,61,.98), rgba(14,49,91,.96)) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  box-shadow: 0 28px 70px rgba(7, 29, 54, .24) !important;
+  border-radius: 28px !important;
+}
+.planner-card h1,
+.planner-card h2,
+.planner-card h3,
+.planner-card p,
+.planner-card span { color: inherit; }
+.planner-card.text-center h1,
+.planner-card.text-center h2 {
+  color: #FFFFFF !important;
+  text-shadow: none !important;
+  font-weight: 820 !important;
+}
+.planner-card.text-center p { color: rgba(255,255,255,.78) !important; }
+.planner-card.text-center > div p,
+.planner-card.text-center button { position: relative; z-index: 1; }
+.planner-opt-btn {
+  border-radius: 18px !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.planner-card.text-center button:not(.l2t-btn) {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #FFFFFF !important;
+}
+.planner-card.text-center button:not(.l2t-btn):hover {
+  background: rgba(255,255,255,.16) !important;
+  border-color: rgba(247,196,91,.65) !important;
+}
+
+/* Cards and panels: airy travel-site rhythm */
+.l2t-card,
+.l2t-content-card,
+.l2t-country-card,
+.hp-why-card,
+.l2t-conversion-card,
+.l2t-affiliate-card,
+.l2t-mini-card,
+.l2t-trust-strip article,
+.l2t-alarm-form-card,
+.l2t-alarm-info {
+  background: #FFFFFF !important;
+  color: #122033 !important;
+  border: 1px solid #DDE8F2 !important;
+  box-shadow: 0 14px 34px rgba(11, 35, 65, .09) !important;
+}
+.l2t-card p,
+.l2t-content-card p,
+.l2t-country-card p,
+.hp-why-card p,
+.l2t-conversion-card p { color: #5B6C82 !important; }
+.l2t-kicker,
+.l2t-text-link,
+.l2t-card small,
+.l2t-country-card small { color: #0E7490 !important; }
+.l2t-btn {
+  background: linear-gradient(135deg, #F7C45B, #E4A11E) !important;
+  color: #071C35 !important;
+  border-radius: 999px !important;
+  font-weight: 850 !important;
+  box-shadow: 0 12px 26px rgba(228,161,30,.18) !important;
+}
+.l2t-btn-ghost,
+.l2t-btn-outline {
+  background: #FFFFFF !important;
+  color: #08213D !important;
+  border: 1px solid #DDE8F2 !important;
+  box-shadow: 0 10px 22px rgba(7, 29, 54, .08) !important;
+}
+
+/* Remove some aggressive gimmicks that made the UI feel unstable */
+.hover-tilt:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 18px 40px rgba(11,35,65,.12) !important;
+}
+.glow-card::before { display: none !important; }
+
+@media (max-width: 1120px) {
+  .l2t-brand { min-width: 170px !important; }
+  .l2t-logo-text { font-size: 1.18rem !important; }
+  .l2t-nav-link,
+  .l2t-nav a { font-size: .84rem !important; padding: 8px 8px !important; }
+  .l2t-header-right { gap: 8px !important; }
+}
+
+@media (max-width: 900px) {
+  .l2t-header-inner { height: 62px !important; }
+  .l2t-mobile-nav {
+    background: rgba(8,33,61,.98) !important;
+    border-top: 1px solid rgba(255,255,255,.10) !important;
+  }
+  .l2t-home-copy h1,
+  .hp-hero-copy h1,
+  .l2t-hero-copy h1 {
+    font-size: clamp(2.35rem, 10.5vw, 3.55rem) !important;
+  }
+  .l2t-search-card { border-radius: 22px !important; }
+  .l2t-search-tab { min-width: 128px !important; }
+}
