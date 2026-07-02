@@ -7249,3 +7249,110 @@ $end = "/* === L2T RENK BALANSI V14 END === */
   stroke: #0B1D35 !important;
 }
 /* === L2T PANEL KONTRAST FIX V16 END === */
+
+
+/* === L2T BOOKING SARI V17 START === */
+/* Sadece sarı vurgu tonunu Booking tarzı #FFB700 çizgisine çeker. Layout/font/component yapısına dokunmaz. */
+:root {
+  --l2t-gold: #FFB700 !important;
+  --l2t-gold-deep: #E6A300 !important;
+  --l2t-gold-hover: #FFC533 !important;
+  --l2t-gold-soft: #FFF2C2 !important;
+  --l2t-warning: #FFB700 !important;
+  --l2t-yellow: #FFB700 !important;
+}
+
+/* Ana sarı CTA ve vurgu alanları */
+.l2t-button-gold,
+.l2t-btn-primary,
+.hp-cta-primary,
+.hp-btn-primary,
+.l2t-mobile-fab,
+.l2t-nav-cta,
+.l2t-flight-submit,
+.l2t-aviasales-box .l2t-flight-submit,
+.l2t-conversion-icon,
+.shortcut-icon,
+.hp-why-icon,
+.l2t-card-icon,
+.l2t-search-tab-active,
+.l2t-tab-active {
+  background: #FFB700 !important;
+  color: #071B33 !important;
+  border-color: rgba(255, 183, 0, 0.42) !important;
+  box-shadow: 0 14px 30px rgba(255, 183, 0, 0.22) !important;
+}
+
+.l2t-button-gold:hover:not(:disabled),
+.l2t-btn-primary:hover:not(:disabled),
+.hp-cta-primary:hover,
+.hp-btn-primary:hover,
+.l2t-nav-cta:hover,
+.l2t-flight-submit:hover,
+.l2t-aviasales-box .l2t-flight-submit:hover {
+  background: #E6A300 !important;
+  color: #071B33 !important;
+  box-shadow: 0 18px 36px rgba(230, 163, 0, 0.28) !important;
+}
+
+/* Sarı metin vurguları */
+.l2t-logo-text strong,
+.l2t-logo-text .accent,
+.l2t-brand strong,
+.hp-title-accent,
+.hp-hero-title strong,
+.hp-hero-title em,
+.l2t-price,
+.l2t-route-price,
+.l2t-card small,
+.l2t-conversion-card small,
+.l2t-footer a:hover,
+.l2t-mobile-active {
+  color: #FFB700 !important;
+  -webkit-text-fill-color: #FFB700 !important;
+}
+
+/* Sarı çizgi / border / badge */
+.hp-eyebrow,
+.l2t-kicker,
+.l2t-chip-highlight,
+.l2t-conversion-head span,
+.l2t-route-chip,
+.l2t-search-shell,
+.l2t-search-card {
+  border-color: rgba(255, 183, 0, 0.45) !important;
+}
+
+.l2t-search-tab-active,
+.l2t-tab-active {
+  box-shadow: inset 0 -3px 0 #FFB700, 0 12px 28px rgba(7, 27, 51, 0.16) !important;
+}
+
+/* Açık sarı zemin gereken yerler */
+.l2t-badge-gold,
+.l2t-conversion-head span,
+.hp-eyebrow {
+  background: rgba(255, 183, 0, 0.14) !important;
+  color: #071B33 !important;
+}
+
+/* Eski neon sarı RGBA etkilerini Booking sarısına yaklaştır */
+.l2t-conversion-panel .l2t-conversion-card:hover,
+.l2t-mobile-active {
+  border-color: rgba(255, 183, 0, 0.34) !important;
+}
+
+/* Sarı ikonlarda SVG stroke net kalsın */
+.l2t-conversion-icon svg,
+.l2t-conversion-icon path,
+.shortcut-icon svg,
+.shortcut-icon path,
+.hp-why-icon svg,
+.hp-why-icon path,
+.l2t-card-icon svg,
+.l2t-card-icon path {
+  color: #071B33 !important;
+  stroke: #071B33 !important;
+}
+/* === L2T BOOKING SARI V17 END === */
+
