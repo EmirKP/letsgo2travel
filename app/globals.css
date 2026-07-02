@@ -7156,3 +7156,96 @@ $end = "/* === L2T RENK BALANSI V14 END === */
 
 /* === L2T HAZIR RENK KONTRAST V15 END === */
 
+
+/* === L2T PANEL KONTRAST FIX V16 START === */
+/* Ana sayfadaki "Seyahate tek akıştan başla" bölümünde koyu zemin / görünmeyen yazı sorununu düzeltir. Layout'a dokunmaz. */
+
+.l2t-conversion-panel {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(233, 185, 73, 0.14), transparent 34%),
+    linear-gradient(135deg, #FFFFFF 0%, #F8FBFF 58%, #FFF8E6 100%) !important;
+  color: #172033 !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.09) !important;
+  isolation: isolate !important;
+}
+
+.l2t-conversion-panel,
+.l2t-conversion-panel * {
+  text-shadow: none !important;
+}
+
+.l2t-conversion-panel::before,
+.l2t-conversion-panel::after {
+  opacity: 0 !important;
+  display: none !important;
+}
+
+.l2t-conversion-head,
+.l2t-conversion-head *,
+.l2t-conversion-card,
+.l2t-conversion-card *,
+.l2t-conversion-grid,
+.l2t-conversion-grid * {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.l2t-conversion-head span {
+  background: rgba(233, 185, 73, 0.14) !important;
+  color: #0B1D35 !important;
+  -webkit-text-fill-color: #0B1D35 !important;
+  border: 1px solid rgba(233, 185, 73, 0.38) !important;
+}
+
+.l2t-conversion-head h1,
+.l2t-conversion-head h2,
+.l2t-conversion-head h3,
+.l2t-conversion-card strong,
+.l2t-conversion-card h3,
+.l2t-conversion-card h4 {
+  color: #0B1D35 !important;
+  -webkit-text-fill-color: #0B1D35 !important;
+}
+
+.l2t-conversion-head p,
+.l2t-conversion-card p {
+  color: #5B6C82 !important;
+  -webkit-text-fill-color: #5B6C82 !important;
+}
+
+.l2t-conversion-card {
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #172033 !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.l2t-conversion-card:hover {
+  background: #FFFFFF !important;
+  border-color: rgba(37, 99, 235, 0.24) !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.11) !important;
+}
+
+.l2t-conversion-card small,
+.l2t-conversion-card a {
+  color: #2563EB !important;
+  -webkit-text-fill-color: #2563EB !important;
+}
+
+.l2t-conversion-icon {
+  background: #E9B949 !important;
+  color: #0B1D35 !important;
+  border: 1px solid rgba(11, 29, 53, 0.08) !important;
+  box-shadow: 0 10px 22px rgba(233, 185, 73, 0.20) !important;
+}
+
+.l2t-conversion-icon svg,
+.l2t-conversion-icon path {
+  color: #0B1D35 !important;
+  stroke: #0B1D35 !important;
+}
+/* === L2T PANEL KONTRAST FIX V16 END === */
