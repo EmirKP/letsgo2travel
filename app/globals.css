@@ -7356,3 +7356,173 @@ $end = "/* === L2T RENK BALANSI V14 END === */
 }
 /* === L2T BOOKING SARI V17 END === */
 
+/* === L2T GECIS VE SARI TON FIX V18 START === */
+/* Sadece renk tonu ve keskin arka plan geçişlerini düzeltir. Layout/component yapısına dokunmaz. */
+:root {
+  --l2t-gold: #F6C343 !important;
+  --l2t-gold-deep: #DFA900 !important;
+  --l2t-gold-hover: #EAB308 !important;
+  --l2t-gold-soft: #FFF4D1 !important;
+  --l2t-warning: #F6C343 !important;
+  --l2t-yellow: #F6C343 !important;
+}
+
+/* Hero ile arama alanı arasındaki keskin dikey/sert geçişleri yumuşat */
+.hp-hero {
+  overflow: visible !important;
+}
+
+.hp-hero::after {
+  height: 260px !important;
+  bottom: -96px !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 29, 53, 0) 0%,
+      rgba(232, 242, 250, 0.50) 42%,
+      rgba(246, 250, 253, 0.96) 78%,
+      #F6FAFD 100%
+    ) !important;
+  pointer-events: none !important;
+}
+
+.hp-search-wrap {
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+.hp-search-wrap::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: -115px !important;
+  width: 100vw !important;
+  height: 245px !important;
+  transform: translateX(-50%) !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+  background:
+    radial-gradient(circle at 8% 40%, rgba(255, 244, 209, 0.34), transparent 34%),
+    radial-gradient(circle at 92% 45%, rgba(221, 246, 247, 0.46), transparent 36%),
+    linear-gradient(180deg, rgba(246, 250, 253, 0) 0%, rgba(246, 250, 253, 0.96) 46%, #F6FAFD 100%) !important;
+}
+
+.hp-search-wrap .l2t-search-card,
+.l2t-aviasales-box,
+.l2t-flight-card {
+  background: #FFFFFF !important;
+  box-shadow: 0 22px 54px rgba(11, 35, 65, 0.14) !important;
+}
+
+/* Sarıyı turuncudan uzaklaştır: daha açık, daha sakin, cırtlamayan gold */
+.l2t-button-gold,
+.l2t-btn-primary,
+.hp-cta-primary,
+.hp-btn-primary,
+.l2t-mobile-fab,
+.l2t-nav-cta,
+.l2t-header-cta,
+.l2t-flight-submit,
+.l2t-aviasales-box .l2t-flight-submit,
+.l2t-conversion-icon,
+.shortcut-icon,
+.hp-why-icon,
+.l2t-card-icon,
+.l2t-search-tab-active,
+.l2t-tab-active {
+  background: #F6C343 !important;
+  color: #071B33 !important;
+  border-color: rgba(246, 195, 67, 0.40) !important;
+  box-shadow: 0 14px 30px rgba(246, 195, 67, 0.20) !important;
+}
+
+.l2t-button-gold:hover:not(:disabled),
+.l2t-btn-primary:hover:not(:disabled),
+.hp-cta-primary:hover,
+.hp-btn-primary:hover,
+.l2t-nav-cta:hover,
+.l2t-header-cta:hover,
+.l2t-flight-submit:hover,
+.l2t-aviasales-box .l2t-flight-submit:hover {
+  background: #EAB308 !important;
+  color: #071B33 !important;
+  box-shadow: 0 18px 36px rgba(234, 179, 8, 0.25) !important;
+}
+
+/* Logo ve Bilet Ara turuncuya kaymasın: sarı-gold, temiz kalsın */
+.l2t-logo-two,
+.l2t-logo-plane,
+.l2t-logo-text strong,
+.l2t-logo-text .accent,
+.l2t-brand strong,
+.l2t-brand .accent {
+  color: #F6C343 !important;
+  stroke: #F6C343 !important;
+  -webkit-text-fill-color: #F6C343 !important;
+}
+
+.l2t-header-cta,
+.l2t-nav-cta,
+.l2t-mobile-fab {
+  background: #F6C343 !important;
+  color: #071B33 !important;
+}
+
+/* Sarı metin vurguları aynı tona çekildi; turuncu hissi azaltıldı */
+.hp-title-accent,
+.hp-hero-title strong,
+.hp-hero-title em,
+.hp-hero-copy h1 em,
+.l2t-price,
+.l2t-route-price,
+.hp-qr-price,
+.l2t-footer a:hover,
+.l2t-mobile-active {
+  color: #F6C343 !important;
+  -webkit-text-fill-color: #F6C343 !important;
+}
+
+.l2t-search-tab-active,
+.l2t-tab-active {
+  box-shadow: inset 0 -3px 0 #F6C343, 0 12px 28px rgba(7, 27, 51, 0.14) !important;
+}
+
+.l2t-badge-gold,
+.l2t-conversion-head span,
+.hp-eyebrow,
+.hp-badge {
+  background: rgba(246, 195, 67, 0.13) !important;
+  border-color: rgba(246, 195, 67, 0.28) !important;
+  color: #071B33 !important;
+}
+
+/* CTA ve ikon SVG'lerinde yazı/ikon net kalsın */
+.l2t-button-gold svg,
+.l2t-button-gold path,
+.l2t-btn-primary svg,
+.l2t-btn-primary path,
+.l2t-header-cta svg,
+.l2t-header-cta path,
+.l2t-nav-cta svg,
+.l2t-nav-cta path,
+.l2t-flight-submit svg,
+.l2t-flight-submit path,
+.l2t-conversion-icon svg,
+.l2t-conversion-icon path,
+.shortcut-icon svg,
+.shortcut-icon path,
+.hp-why-icon svg,
+.hp-why-icon path,
+.l2t-card-icon svg,
+.l2t-card-icon path {
+  color: #071B33 !important;
+  stroke: #071B33 !important;
+}
+
+/* Koyu hero üstünde rozet yazısı okunur kalsın */
+.hp-hero .hp-badge,
+.hp-hero .hp-eyebrow {
+  color: #FFF2BF !important;
+}
+
+/* === L2T GECIS VE SARI TON FIX V18 END === */
