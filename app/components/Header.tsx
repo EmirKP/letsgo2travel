@@ -2,36 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase-client";
 
 import { Sparkles, Globe, ShieldCheck, BookOpen, Ticket, Plane, User, MessageSquare, Trophy, FileText } from "lucide-react";
 import LanguageSelector from "./LanguageSelector";
+import { getL2tDictionary, type L2tLocale } from "@/lib/i18n";
 
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
 const navItems = [
-  { href: "/", label: "Bilet Ara", icon: Plane },
-  { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
-  { href: "/pasaport-gucu", label: "Pasaport Gücü", icon: ShieldCheck },
-  { href: "/akilli-plan", label: "Rota Asistanı", icon: Sparkles },
-  { href: "/forum", label: "Forum", icon: MessageSquare }
-];
+  { href: "/", labelKey: "flights", icon: Plane },
+  { href: "/kampanyalar", labelKey: "deals", icon: Ticket },
+  { href: "/pasaport-gucu", labelKey: "passport", icon: ShieldCheck },
+  { href: "/rota-asistani", labelKey: "assistant", icon: Sparkles },
+  { href: "/forum", labelKey: "forum", icon: MessageSquare }
+] as const;
 
 const moreItems = [
-  { href: "/vizesiz-ulkeler", label: "Vizesiz Ülkeler", icon: Globe },
-  { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
-  { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
-  { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
-  { href: "/topluluk-kurallari", label: "Topluluk Kuralları", icon: ShieldCheck },
-];
+  { href: "/vizesiz-ulkeler", labelKey: "visaFree", icon: Globe },
+  { href: "/vize-merkezi", labelKey: "visaCenter", icon: FileText },
+  { href: "/kasifler-ligi", labelKey: "explorers", icon: Trophy },
+  { href: "/rehber-merkezi", labelKey: "guideCenter", icon: BookOpen },
+  { href: "/topluluk-kurallari", labelKey: "communityRules", icon: ShieldCheck },
+] as const;
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [locale, setLocale] = useState<L2tLocale>("tr");
   const pathname = usePathname();
+  const dict = useMemo(() => getL2tDictionary(locale), [locale]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("l2t-locale") as L2tLocale | null;
+    if (saved === "tr" || saved === "en") setLocale(saved);
+
+    const localeHandler = (event: Event) => {
+      const custom = event as CustomEvent<L2tLocale>;
+      if (custom.detail === "tr" || custom.detail === "en") setLocale(custom.detail);
+    };
+    window.addEventListener("l2t-locale-change", localeHandler);
+    return () => window.removeEventListener("l2t-locale-change", localeHandler);
+  }, []);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -50,12 +65,12 @@ export default function Header() {
   }, []);
 
   const isActive = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href));
+    pathname === href || (href !== "/" && pathname.startsWith(href)) ||
+    (href === "/rota-asistani" && pathname.startsWith("/akilli-plan"));
 
   return (
     <header className="l2t-header">
       <div className="l2t-wrap l2t-header-inner">
-        {/* Logo */}
         <Link href="/" className="l2t-brand" aria-label="Letsgo2Travel">
           <span className="l2t-logo-text">
             <span className="l2t-logo-lets">Letsgo</span>
@@ -65,7 +80,6 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Desktop nav */}
         <nav className="l2t-nav" aria-label="Ana menü">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -74,15 +88,13 @@ export default function Header() {
                 key={item.href}
                 href={item.href}
                 className={`l2t-nav-link${isActive(item.href) ? " l2t-nav-active" : ""}`}
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
                 <Icon size={16} />
-                {item.label}
+                {dict.nav[item.labelKey]}
               </Link>
             );
           })}
 
-          {/* Daha fazla dropdown */}
           <div
             className="l2t-nav-dropdown-wrap"
             onMouseEnter={() => setMoreOpen(true)}
@@ -94,7 +106,7 @@ export default function Header() {
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
             >
-              Daha Fazla <span className="l2t-caret">▾</span>
+              {dict.nav.more} <span className="l2t-caret">▾</span>
             </button>
             {moreOpen && (
               <div className="l2t-dropdown" role="menu">
@@ -107,10 +119,9 @@ export default function Header() {
                       role="menuitem"
                       className={isActive(item.href) ? "l2t-dropdown-active" : ""}
                       onClick={() => setMoreOpen(false)}
-                      style={{ display: "flex", alignItems: "center", gap: "8px" }}
                     >
-                      <Icon size={16} color="var(--l2t-soft)" />
-                      {item.label}
+                      <Icon size={16} />
+                      {dict.nav[item.labelKey]}
                     </Link>
                   );
                 })}
@@ -119,23 +130,21 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Sağ Alan */}
-        <div className="l2t-header-right" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="l2t-header-right">
           <TripDashboard />
           <LanguageSelector />
-          
           {isLoggedIn ? (
-            <Link href="/profil" className="l2t-btn l2t-btn-outline l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-              <User size={16} /> Profil
+            <Link href="/profil" className="l2t-btn l2t-btn-outline l2t-profile-link">
+              <User size={16} /> {dict.nav.profile}
             </Link>
           ) : (
-            <Link href="/auth/login" className="l2t-btn l2t-btn-outline l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-              <User size={16} /> Giriş
+            <Link href="/auth/login" className="l2t-btn l2t-btn-outline l2t-profile-link">
+              <User size={16} /> {dict.nav.login}
             </Link>
           )}
 
           <button
-            className="l2t-burger l2t-hide-mobile"
+            className="l2t-burger"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Menü"
             aria-expanded={mobileOpen}
@@ -145,7 +154,6 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobil menü */}
       {mobileOpen && (
         <nav className="l2t-mobile-nav" aria-label="Mobil menü">
           {[...navItems, ...moreItems].map((item) => {
@@ -156,10 +164,9 @@ export default function Header() {
                 href={item.href}
                 className={`l2t-mobile-link${isActive(item.href) ? " l2t-mobile-active" : ""}`}
                 onClick={() => setMobileOpen(false)}
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
                 <Icon size={18} />
-                {item.label}
+                {dict.nav[item.labelKey]}
               </Link>
             );
           })}

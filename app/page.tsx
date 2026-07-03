@@ -4,7 +4,7 @@ import DealCard from "./components/DealCard";
 import NewsletterForm from "./components/NewsletterForm";
 import ScrollReveal from "./components/ScrollReveal";
 import SurpriseButton from "./components/SurpriseButton";
-import HeroDynamicLine from "./components/HeroDynamicLine";
+import HomeHeroCopy from "./components/HomeHeroCopy";
 import HomeDealsTicker from "./components/HomeDealsTicker";
 import AISearchBox from "./components/AISearchBox";
 import VerifiedTravelerSection from "@/components/home/VerifiedTravelerSection";
@@ -21,7 +21,7 @@ const routeHighlights = [
 ];
 
 const whyItems = [
-  { icon: <Flame size={24} color="#F59E0B" />, title: "Anlık fiyat karşılaştırma", text: "Yüzlerce havayolu ve partner fiyatını tek ekranda gör." },
+  { icon: <Flame size={24} color="var(--l2t-gold)" />, title: "Anlık fiyat karşılaştırma", text: "Yüzlerce havayolu ve partner fiyatını tek ekranda gör." },
   { icon: <CheckCircle2 size={24} color="#10B981" />, title: "Vize rehberi dahil", text: "Her rota için vize durumu, gerekli belgeler ve ipuçları." },
   { icon: <Ticket size={24} color="#1476F2" />, title: "Fiyat alarmı", text: "Hedef fiyatını belirle, düştüğünde anında e-posta al." },
   { icon: <Sparkles size={24} color="#8B5CF6" />, title: "Rota Asistanı", text: "Seçimlerini yap, seyahat planını saniyeler içinde al." },
@@ -53,37 +53,8 @@ export default async function HomePage() {
         <div className="l2t-hero-orbit" aria-hidden="true" />
 
         <div className="l2t-wrap hp-hero-inner l2t-hero-discovery-grid">
-          <div className="hp-hero-copy">
-            <ScrollReveal delay={0.1} yOffset={20}>
-              <span className="hp-badge l2t-hide-mobile"><Globe size={14} style={{ marginRight: "6px" }} /> Premium travel discovery platformu</span>
-            </ScrollReveal>
-
-            <ScrollReveal delay={0.2} yOffset={30}>
-              <h1 style={{ textAlign: "left", fontSize: "clamp(2.35rem, 5vw, 4.7rem)", textShadow: "0 6px 26px rgba(0,0,0,0.34)", lineHeight: "1.05", color: "#fff", marginBottom: "18px" }}>
-                Dünyayı keşfetmeye<br />buradan başla.
-              </h1>
-            </ScrollReveal>
-
-            <ScrollReveal delay={0.25} yOffset={18}>
-              <HeroDynamicLine />
-            </ScrollReveal>
-
-            <ScrollReveal delay={0.3} yOffset={20}>
-              <p className="l2t-hide-mobile" style={{ margin: "18px 0 30px", textAlign: "left", fontSize: "1.14rem", textShadow: "0 2px 10px rgba(0,0,0,0.35)", maxWidth: "680px" }}>
-                Pasaportuna göre rota keşfet, gerçek gezgin deneyimlerinden ilham al ve uçuş fırsatlarını tek akışta yakala.
-              </p>
-            </ScrollReveal>
-
-            <ScrollReveal delay={0.34} yOffset={20}>
-              <div className="hp-hero-buttons l2t-hide-mobile" style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center" }}>
-                <Link href="#bilet-ara" className="l2t-btn" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Ticket size={18} /> Bilet ara
-                </Link>
-                <Link href="/vizesiz-ulkeler" className="l2t-btn l2t-btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", borderColor: "rgba(255,255,255,0.28)", color: "#fff" }}>
-                  <Globe size={18} /> Vizesiz rotaları gör
-                </Link>
-              </div>
-            </ScrollReveal>
+          <div>
+            <HomeHeroCopy />
 
             <div className="l2t-mobile-only l2t-app-shortcut-grid">
               <Link href="/#bilet-ara" className="l2t-app-shortcut hover-tilt">
@@ -91,7 +62,7 @@ export default async function HomePage() {
                 <span>Uçak</span>
               </Link>
               <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-app-shortcut hover-tilt">
-                <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, #E9B949, #C99724)", color: "#0B1D35" }}><Hotel size={24} /></div>
+                <div className="shortcut-icon" style={{ background: "linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-soft))", color: "#0B1D35" }}><Hotel size={24} /></div>
                 <span>Otel</span>
               </a>
               <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-app-shortcut hover-tilt">
@@ -127,7 +98,7 @@ export default async function HomePage() {
                   <strong>Belgeli Gezgin</strong>
                   <small>Gerçek deneyimlerle karar ver</small>
                 </Link>
-                <Link href="/akilli-plan" className="l2t-live-panel-card">
+                <Link href="/rota-asistani" className="l2t-live-panel-card">
                   <Sparkles size={20} />
                   <strong>Rota Asistanı</strong>
                   <small>Bütçe ve tarza göre rota üret</small>
@@ -159,7 +130,7 @@ export default async function HomePage() {
       <section className="l2t-wrap" style={{ marginTop: "60px", scrollMarginTop: "100px" }} id="akilli-plan">
         <ScrollReveal delay={0.1}>
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(245,158,11,0.1)", color: "#F59E0B", padding: "6px 16px", borderRadius: "100px", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "16px" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(245,158,11,0.1)", color: "var(--l2t-gold)", padding: "6px 16px", borderRadius: "100px", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "16px" }}>
               <Sparkles size={16} /> Rota Asistanı
             </div>
             <h2 style={{ fontSize: "clamp(2rem, 4vw, 2.8rem)", color: "var(--l2t-navy)", margin: "0 0 16px", fontWeight: "800", letterSpacing: "-0.03em" }}>3 dakikada seyahat fikrini netleştir</h2>
@@ -170,44 +141,44 @@ export default async function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px", marginBottom: "32px" }}>
           {/* Preset Card 1 */}
           <ScrollReveal delay={0.2}>
-            <Link href="/akilli-plan?preset=ucuz-vizesiz" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
+            <Link href="/rota-asistani?preset=ucuz-vizesiz" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
               <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#EEF7FF", color: "#1476F2", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
                 <Wallet size={24} />
               </div>
               <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", margin: "0 0 8px", fontWeight: "700" }}>10.000 TL altı vizesiz rota</h3>
               <p style={{ color: "var(--l2t-soft)", fontSize: "0.95rem", margin: "0 0 16px", lineHeight: "1.5" }}>Avrupa'da veya çevremizde düşük bütçeyle gezilebilecek en iyi vizesiz alternatifler.</p>
-              <div style={{ display: "flex", alignItems: "center", color: "#F59E0B", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
+              <div style={{ display: "flex", alignItems: "center", color: "var(--l2t-gold)", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
             </Link>
           </ScrollReveal>
 
           {/* Preset Card 2 */}
           <ScrollReveal delay={0.3}>
-            <Link href="/akilli-plan?preset=kimlikle-haftasonu" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
+            <Link href="/rota-asistani?preset=kimlikle-haftasonu" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
               <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#F0FFF4", color: "#10B981", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
                 <Clock size={24} />
               </div>
               <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", margin: "0 0 8px", fontWeight: "700" }}>Kimlikle gidilen hafta sonu</h3>
               <p style={{ color: "var(--l2t-soft)", fontSize: "0.95rem", margin: "0 0 16px", lineHeight: "1.5" }}>Pasaporta ihtiyaç duymadan sadece kimlikle gidip dönebileceğiniz pratik rotalar.</p>
-              <div style={{ display: "flex", alignItems: "center", color: "#F59E0B", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
+              <div style={{ display: "flex", alignItems: "center", color: "var(--l2t-gold)", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
             </Link>
           </ScrollReveal>
 
           {/* Preset Card 3 */}
           <ScrollReveal delay={0.4}>
-            <Link href="/akilli-plan?preset=ilk-kez-yurtdisi" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
-              <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#FFF5E6", color: "#F59E0B", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
+            <Link href="/rota-asistani?preset=ilk-kez-yurtdisi" className="glass-panel hover-tilt" style={{ display: "block", textDecoration: "none", padding: "24px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", background: "#fff", height: "100%" }}>
+              <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#FFF5E6", color: "var(--l2t-gold)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
                 <Plane size={24} />
               </div>
               <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", margin: "0 0 8px", fontWeight: "700" }}>İlk kez yurt dışı için kolay rota</h3>
               <p style={{ color: "var(--l2t-soft)", fontSize: "0.95rem", margin: "0 0 16px", lineHeight: "1.5" }}>Ulaşımı kolay, güvenli ve yabancılık çekmeyeceğiniz başlangıç seviyesi ülkeler.</p>
-              <div style={{ display: "flex", alignItems: "center", color: "#F59E0B", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
+              <div style={{ display: "flex", alignItems: "center", color: "var(--l2t-gold)", fontWeight: "600", fontSize: "0.9rem", gap: "6px" }}>Rota Asistanı ile Planla <ChevronRight size={16} /></div>
             </Link>
           </ScrollReveal>
         </div>
 
         <ScrollReveal delay={0.5}>
           <div style={{ textAlign: "center" }}>
-            <Link href="/akilli-plan" className="l2t-btn" style={{ 
+            <Link href="/rota-asistani" className="l2t-btn" style={{ 
               background: "linear-gradient(135deg, var(--l2t-navy), #061433)", 
               color: "#fff", 
               border: "none", 
@@ -218,7 +189,7 @@ export default async function HomePage() {
               gap: "8px",
               boxShadow: "0 8px 20px rgba(6,20,51,0.2)"
             }}>
-              <Sparkles size={18} color="#F59E0B" /> Kendi Özel Planını Oluştur
+              <Sparkles size={18} color="var(--l2t-gold)" /> Kendi Özel Planını Oluştur
             </Link>
           </div>
         </ScrollReveal>
@@ -243,7 +214,7 @@ export default async function HomePage() {
           <div className="l2t-section-head">
             <div>
               <p className="l2t-kicker">Bugünün fırsatları</p>
-              <h2 style={{ color: "var(--l2t-navy)" }}>En ucuz uçak bileti kampanyaları</h2>
+              <h2 style={{ color: "var(--l2t-navy)" }}>Popüler uçuş fırsatları</h2>
             </div>
             <Link href="/kampanyalar" className="l2t-text-link">Tümünü gör →</Link>
           </div>
@@ -264,9 +235,9 @@ export default async function HomePage() {
         <section className="l2t-section l2t-wrap">
           <div className="l2t-section-head">
             <div>
-              <p className="l2t-kicker">Vize derdi olmadan</p>
-              <h2 style={{ color: "var(--l2t-navy)" }}>Türkler için en kolay rotalar</h2>
-              <p style={{ color: "var(--l2t-soft)" }}>Kimlikle ve vizesiz giriş yapılabilen ülkeler — uçuş süresi ve fiyatıyla birlikte.</p>
+              <p className="l2t-kicker">Kolay giriş rotaları</p>
+              <h2 style={{ color: "var(--l2t-navy)" }}>Pasaportuna göre kolay rotalar</h2>
+              <p style={{ color: "var(--l2t-soft)" }}>Kimlikle, vizesiz veya kolay vize seçenekleriyle keşfedilebilen rotalar.</p>
             </div>
             <Link href="/ulke-rehberi" className="l2t-text-link">Tüm rehberler →</Link>
           </div>
@@ -317,11 +288,10 @@ export default async function HomePage() {
         <section className="hp-ai-section glass-panel">
           <div className="l2t-wrap hp-ai-inner">
             <div className="hp-ai-copy">
-              <span className="hp-ai-badge" style={{ display: "flex", alignItems: "center", gap: "6px" }}><Sparkles size={16} /> AI Asistan</span>
-              <h2>"Vizesiz hafta sonu nereye gidebilirim?" gibi aramalara cevap ver</h2>
+              <span className="hp-ai-badge" style={{ display: "flex", alignItems: "center", gap: "6px" }}><Sparkles size={16} /> Rota Asistanı</span>
+              <h2>Seyahat fikrini rotaya dönüştür</h2>
               <p>
-                Doğal Türkçe yaz — sistem sana rota önerisi, bütçe analizi
-                ve uçuş linkini anında hazırlar.
+                Kısa bir seyahat fikri yaz; Rota Asistanı bütçe, vize durumu ve uçuş yönlendirmesiyle planı netleştirir.
               </p>
             </div>
             <div className="hp-ai-box-wrap glow-card">
@@ -345,13 +315,13 @@ export default async function HomePage() {
               <a href={trackedAffiliateUrl({ provider: "aviasales", url: "https://www.aviasales.com/search?origin_iata=IST", sourcePage: "home_affiliate_card" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
                 <div className="l2t-card-icon" style={{ background: "#EEF7FF", color: "#1476F2" }}><Plane size={24} /></div>
                 <h3>Uçak Bileti</h3>
-                <p>Yüzlerce havayolu ve partner fiyatını anlık karşılaştır, en ucuz uçuşu bul.</p>
+                <p>Yüzlerce havayolu ve partner fiyatını karşılaştır, uygun uçuş seçeneklerini gör.</p>
                 <span className="l2t-btn l2t-btn-small">Bilet ara →</span>
               </a>
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
               <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "home_mobile_shortcut" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-card l2t-affiliate-card hover-tilt">
-                <div className="l2t-card-icon" style={{ background: "#FFF5E6", color: "#F59E0B" }}><Hotel size={24} /></div>
+                <div className="l2t-card-icon" style={{ background: "#FFF5E6", color: "var(--l2t-gold)" }}><Hotel size={24} /></div>
                 <h3>Otel Bul</h3>
                 <p>Konum, puan ve iptal esnekliğine göre en iyi oteli karşılaştır.</p>
                 <span className="l2t-btn l2t-btn-small">Otellere bak →</span>
@@ -375,8 +345,8 @@ export default async function HomePage() {
           <div className="l2t-cta-band glass-panel glow-card">
             <div>
               <p className="l2t-kicker">Bülten</p>
-              <h2>Yeni fırsatları kaçırma</h2>
-              <p>Ucuz bilet, vizesiz rota ve seyahat rehberi yayınlandığında e-posta al.</p>
+              <h2>Yeni rota ve fırsatları kaçırma</h2>
+              <p>Uçuş fırsatları, pasaport gücü güncellemeleri ve yeni ülke rehberleri yayınlandığında e-posta al.</p>
             </div>
             <NewsletterForm />
           </div>

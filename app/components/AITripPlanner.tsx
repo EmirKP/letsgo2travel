@@ -98,13 +98,13 @@ export default function AITripPlanner() {
 
   const handleShareWhatsApp = () => {
     if (!plan) return;
-    const text = `Let's Go 2 Travel AI ile harika bir rota çizdim! İstikamet: ${plan.destination}. Sen de göz at: https://letsgo2travel.vercel.app`;
+    const text = `LetsGo2Travel Rota Asistanı ile harika bir rota çizdim! İstikamet: ${plan.destination}. Sen de göz at: https://letsgo2travel.vercel.app`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const handleShareTwitter = () => {
     if (!plan) return;
-    const text = `Let's Go 2 Travel AI ile ${plan.destination} için harika bir seyahat rotası oluşturdum! Sen de dene: https://letsgo2travel.vercel.app #Seyahat #LetsGo2Travel`;
+    const text = `LetsGo2Travel Rota Asistanı ile ${plan.destination} için harika bir seyahat rotası oluşturdum! Sen de dene: https://letsgo2travel.vercel.app #Seyahat #LetsGo2Travel`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -112,7 +112,7 @@ export default function AITripPlanner() {
     <div className="l2t-ai-planner-card">
       <div className="l2t-ai-planner-head">
         <div>
-          <span className="l2t-ai-mini-label">AI trip builder</span>
+          <span className="l2t-ai-mini-label">Rota Asistanı</span>
           <h3>Seyahati tek cümleden plana çevir</h3>
         </div>
         <strong>{mode || "Hazır"}</strong>
@@ -120,7 +120,7 @@ export default function AITripPlanner() {
 
       <form onSubmit={generatePlan} className="l2t-ai-planner-form">
         <textarea value={query} onChange={(event) => setQuery(event.target.value)} rows={3} placeholder="Örn: 3 günlük vizesiz, ucuz, hafta sonu rotası" />
-        <button className="l2t-btn" disabled={loading}>{loading ? "Planlanıyor..." : "AI plan oluştur"}</button>
+        <button className="l2t-btn" disabled={loading}>{loading ? "Planlanıyor..." : "Rota planı oluştur"}</button>
       </form>
 
       <div className="l2t-ai-chip-row" style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "16px" }}>
@@ -271,7 +271,7 @@ export default function AITripPlanner() {
       ) : (
         <div className="l2t-ai-empty-preview">
           <Sparkles size={32} color="var(--l2t-blue)" />
-          <p>Örneklerden birini seç veya kendi cümleni yaz. AI; rota, bütçe, vize, mini plan ve affiliate yönlendirmelerini tek kartta çıkarır.</p>
+          <p>Örneklerden birini seç veya kendi cümleni yaz. Rota Asistanı; rota, bütçe, vize, mini plan ve seyahat yönlendirmelerini tek kartta çıkarır.</p>
         </div>
       )}
     </div>

@@ -104,7 +104,7 @@ const STATUS_COLOR: Record<string, string> = {
   free: "#34D399",
   evisa: "#60A5FA",
   on_arrival: "#3B82F6",
-  required: "#F87171",
+  required: "#BE123C",
 };
 
 const STATUS_BADGE_COLOR: Record<string, string> = {
@@ -113,7 +113,7 @@ const STATUS_BADGE_COLOR: Record<string, string> = {
   free: "#34D399",
   evisa: "#60A5FA",
   on_arrival: "#3B82F6",
-  required: "#EF4444",
+  required: "#BE123C",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -229,12 +229,12 @@ export default function PassportPowerPage() {
                 </svg>
               </div>
               <h1 style={{ margin: 0, fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: "800", color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,0.2)", lineHeight: "1.1" }}>
-                Türkiye Pasaport Gücü
+                Seçili Pasaport: Türkiye
               </h1>
             </div>
             <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
               <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
-                <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Dünya Sıralaması</div>
+                <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Mobilite Sıralaması</div>
                 <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--l2t-gold)" }}>#{STATS.rank}</div>
               </div>
               <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
@@ -244,7 +244,7 @@ export default function PassportPowerPage() {
             </div>
             <div style={{ marginTop: "24px" }}>
               <button className="l2t-button l2t-button-blue" onClick={() => alert("Diğer pasaport verileri hazırlanıyor...")}>
-                <Globe size={18} style={{ marginRight: "4px" }} /> Pasaport Değiştir
+                <Globe size={18} style={{ marginRight: "4px" }} /> Pasaport Seç
               </button>
             </div>
           </div>
@@ -373,7 +373,7 @@ export default function PassportPowerPage() {
                 { color: "#34D399", label: "Vizesiz", count: STATS.free },
                 { color: "#60A5FA", label: "E-Vize", count: STATS.evisa },
                 { color: "#3B82F6", label: "Kapıda Vize", count: STATS.on_arrival },
-                { color: "#EF4444", label: "Vize Gerekli", count: STATS.required },
+                { color: "#BE123C", label: "Vize Gerekli", count: STATS.required },
               ].map((item) => (
                 <div key={item.label} className="l2t-glass-card" style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderRadius: "100px" }}>
                   <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: item.color }} />

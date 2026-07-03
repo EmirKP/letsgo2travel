@@ -33,8 +33,8 @@ export default function HakkimizdaPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "32px" }}>
           {[
             { icon: <Plane size={24} color="var(--l2t-blue)" />, title: "Uçak Bileti", text: "Yüzlerce havayolu ve partner fiyatını karşılaştır, en uygun fırsatı bul." },
-            { icon: <Globe size={24} color="#10B981" />, title: "Vizesiz Rotalar", text: "Türk pasaportuyla kolayca gidilebilen destinasyonlar." },
-            { icon: <Sparkles size={24} color="#F59E0B" />, title: "AI Asistan", text: "Bütçene uygun rotayı saniyeler içinde planla." },
+            { icon: <Globe size={24} color="#10B981" />, title: "Vizesiz Rotalar", text: "Pasaportuna göre kolayca keşfedilebilen destinasyonlar." },
+            { icon: <Sparkles size={24} color="var(--l2t-gold)" />, title: "Rota Asistanı", text: "Bütçene uygun rotayı saniyeler içinde planla." },
             { icon: <Shield size={24} color="#8B5CF6" />, title: "Güvenilir Bilgi", text: "Vize ve giriş bilgileri düzenli güncellenir." },
           ].map((item, i) => (
             <div key={i} style={{ background: "#f8fafc", borderRadius: "16px", padding: "24px", border: "1px solid #e2e8f0" }}>

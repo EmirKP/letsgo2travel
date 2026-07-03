@@ -18,18 +18,21 @@ export const l2tDictionaries = {
       login: "Giriş"
     },
     hero: {
-      title: "Dünyayı keşfetmeye buradan başla.",
-      subtitle: "Pasaportuna göre rota keşfet, gerçek gezgin deneyimlerinden ilham al ve uçuş fırsatlarını tek akışta yakala.",
+      eyebrow: "Premium seyahat keşif platformu",
+      title: "Dünyayı keşfet, rotanı akıllıca planla.",
+      subtitle: "Uçuş arama, pasaport gücü, ülke rehberleri, gerçek gezgin deneyimleri ve Rota Asistanı tek akışta buluşur.",
       ctaPrimary: "Bilet ara",
-      ctaSecondary: "Vizesiz rotaları gör",
+      ctaSecondary: "Pasaport Gücü",
       dynamicLines: [
-        "Pasaportuna göre rotaları keşfet.",
-        "Gerçek gezginlerin deneyimlerinden ilham al.",
-        "Bütçene uygun yeni ülkeler bul.",
-        "Vizesiz, kimlikle veya e-vize ile gidilebilecek rotaları gör.",
-        "Bugünün uçuş fırsatlarını yakala.",
-        "Sıradaki ülken seni bekliyor."
+        "Bugün pasaportun seni nereye götürebilir?",
+        "Vizesiz ve kolay giriş rotalarını keşfet.",
+        "Gerçek gezgin deneyimlerinden ilham al.",
+        "Uçuşunu ara, rotanı planla.",
+        "Pasaport gücünü gör, dünyaya açıl."
       ]
+    },
+    footer: {
+      intro: "Uçuş arama, pasaport gücü, ülke rehberleri, gerçek gezgin deneyimleri ve Rota Asistanı’nı bir araya getiren premium seyahat keşif platformu."
     }
   },
   en: {
@@ -49,18 +52,21 @@ export const l2tDictionaries = {
       login: "Sign in"
     },
     hero: {
-      title: "Start discovering the world from here.",
-      subtitle: "Discover routes based on your passport, get inspired by real traveler experiences and catch flight deals in one flow.",
+      eyebrow: "Premium travel discovery platform",
+      title: "Discover the world and plan smarter routes.",
+      subtitle: "Flight search, passport power, country guides, real traveler experiences and Route Assistant come together in one flow.",
       ctaPrimary: "Search flights",
-      ctaSecondary: "See visa-free routes",
+      ctaSecondary: "Passport Power",
       dynamicLines: [
-        "Discover routes based on your passport.",
+        "Where can your passport take you today?",
+        "Explore visa-free and easy-entry routes.",
         "Get inspired by real traveler experiences.",
-        "Find new countries for your budget.",
-        "See routes available visa-free, with ID or e-visa.",
-        "Catch today’s flight deals.",
-        "Your next country is waiting."
+        "Search flights and plan your route.",
+        "See your passport power and open the world."
       ]
+    },
+    footer: {
+      intro: "A premium travel discovery platform combining flight search, passport power, country guides, real traveler experiences and Route Assistant."
     }
   }
 } as const;

@@ -109,13 +109,13 @@ const PremiumLoading = () => {
         <div style={{ position: "relative", width: "120px", height: "120px", marginBottom: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: "2px dashed rgba(6,182,212,0.3)", animation: "spin 8s linear infinite" }} />
           <div style={{ position: "absolute", width: "100%", height: "100%", animation: "spin 3s linear infinite" }}>
-            <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", color: "#F59E0B", filter: "drop-shadow(0 0 8px rgba(245,158,11,0.6))" }}>
+            <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", color: "var(--l2t-gold)", filter: "drop-shadow(0 0 8px rgba(245,158,11,0.6))" }}>
               <Plane size={28} />
             </div>
             {/* Light trail */}
             <div style={{ position: "absolute", top: "4px", left: "50%", width: "40px", height: "4px", background: "linear-gradient(90deg, transparent, rgba(245,158,11,0.4))", transform: "translateX(-50%) rotate(90deg)", transformOrigin: "left" }} />
           </div>
-          <Sparkles size={32} color="#06B6D4" style={{ opacity: 0.8 }} />
+          <Sparkles size={32} color="var(--l2t-cyan)" style={{ opacity: 0.8 }} />
         </div>
 
         <h2 style={{ color: "#fff", fontSize: "1.8rem", fontWeight: "800", marginBottom: "12px", textAlign: "center" }}>
@@ -124,7 +124,7 @@ const PremiumLoading = () => {
         
         {/* Progress Bar */}
         <div style={{ width: "100%", maxWidth: "400px", height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginBottom: "32px" }}>
-          <div style={{ height: "100%", width: `${progressPercent}%`, background: "linear-gradient(90deg, #06B6D4, #F59E0B)", transition: "width 0.3s ease-out", borderRadius: "10px" }} />
+          <div style={{ height: "100%", width: `${progressPercent}%`, background: "linear-gradient(90deg, var(--l2t-cyan), var(--l2t-gold))", transition: "width 0.3s ease-out", borderRadius: "10px" }} />
         </div>
 
         {/* Travel Tips with Fade */}
@@ -317,16 +317,16 @@ export default function AIPlannerPage() {
 
   const renderWelcome = () => (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="planner-card text-center glass-panel" style={{ background: "rgba(10, 31, 74, 0.95)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)", padding: "50px 20px" }}>
-      <Sparkles size={56} color="#F59E0B" style={{ margin: "0 auto 24px" }} />
+      <Sparkles size={56} color="var(--l2t-gold)" style={{ margin: "0 auto 24px" }} />
       <h1 style={{ fontSize: "2.8rem", color: "#fff", marginBottom: "16px", fontWeight: "800", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Akıllı Seyahat Planlayıcı</h1>
       <p style={{ color: "#cbd5e1", fontSize: "1.15rem", marginBottom: "40px", lineHeight: 1.6, maxWidth: "600px", margin: "0 auto 40px" }}>
-        Metin yazmakla uğraşma. Seçimlerini yap, AI senin için en iyi rotaları ve gün gün planı hazırlasın.
+        Metin yazmakla uğraşma. Seçimlerini yap, Rota Asistanı senin için en iyi rotaları ve gün gün planı hazırlasın.
       </p>
       
       <button 
         className="l2t-btn" 
         onClick={() => nextStep("origin")} 
-        style={{ fontSize: "1.2rem", padding: "18px 40px", width: "100%", maxWidth: "320px", background: "#F59E0B", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)", borderRadius: "100px", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", margin: "0 auto" }}>
+        style={{ fontSize: "1.2rem", padding: "18px 40px", width: "100%", maxWidth: "320px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)", borderRadius: "100px", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", margin: "0 auto" }}>
         Adım Adım Planla <ChevronRight size={20} />
       </button>
 
@@ -370,7 +370,7 @@ export default function AIPlannerPage() {
   );
 
   const getBtnStyle = (isSelected: boolean, isLastOdd: boolean) => ({
-    border: isSelected ? "2px solid #F59E0B" : "2px solid rgba(255,255,255,0.1)",
+    border: isSelected ? "2px solid var(--l2t-gold)" : "2px solid rgba(255,255,255,0.1)",
     background: isSelected ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)",
     color: "#fff",
     transition: "all 0.2s ease",
@@ -383,7 +383,7 @@ export default function AIPlannerPage() {
       <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
         {["İstanbul", "Sabiha Gökçen", "Ankara", "İzmir", "Antalya", "Diğer Türkiye"].map((opt, idx, arr) => (
           <button key={opt} className={`planner-opt-btn ${answers.origin === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.origin === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "20px", minHeight: "44px" }} onClick={() => nextStep("time", "origin", opt)}>
-            <Plane size={28} color={answers.origin === opt ? "#F59E0B" : "rgba(255,255,255,0.5)"} />
+            <Plane size={28} color={answers.origin === opt ? "var(--l2t-gold)" : "rgba(255,255,255,0.5)"} />
             <span style={{ fontWeight: 700, marginTop: "12px", fontSize: "1.05rem" }}>{opt}</span>
           </button>
         ))}
@@ -413,7 +413,7 @@ export default function AIPlannerPage() {
         ))}
       </div>
 
-      <button className="l2t-btn" disabled={!answers.days || !answers.month} style={{ width: "100%", padding: "16px", minHeight: "44px", background: "#F59E0B", color: "var(--l2t-navy)", border: "none", opacity: (!answers.days || !answers.month) ? 0.5 : 1 }} onClick={() => nextStep("budget")}>Devam Et</button>
+      <button className="l2t-btn" disabled={!answers.days || !answers.month} style={{ width: "100%", padding: "16px", minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.days || !answers.month) ? 0.5 : 1 }} onClick={() => nextStep("budget")}>Devam Et</button>
     </motion.div>
   );
 
@@ -441,7 +441,7 @@ export default function AIPlannerPage() {
 
       <div style={{ display: "flex", gap: "12px" }}>
         <button className="l2t-btn l2t-btn-ghost" style={{ padding: "16px", flex: 1, minHeight: "44px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "transparent" }} onClick={() => nextStep("time")}>Geri</button>
-        <button className="l2t-btn" disabled={!answers.budget || !answers.accommodation} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "#F59E0B", color: "var(--l2t-navy)", border: "none", opacity: (!answers.budget || !answers.accommodation) ? 0.5 : 1 }} onClick={() => nextStep("who")}>Devam Et</button>
+        <button className="l2t-btn" disabled={!answers.budget || !answers.accommodation} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.budget || !answers.accommodation) ? 0.5 : 1 }} onClick={() => nextStep("who")}>Devam Et</button>
       </div>
     </motion.div>
   );
@@ -470,7 +470,7 @@ export default function AIPlannerPage() {
 
       <div style={{ display: "flex", gap: "12px" }}>
         <button className="l2t-btn l2t-btn-ghost" style={{ padding: "16px", flex: 1, minHeight: "44px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "transparent" }} onClick={() => nextStep("budget")}>Geri</button>
-        <button className="l2t-btn" disabled={!answers.who || !answers.tempo} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "#F59E0B", color: "var(--l2t-navy)", border: "none", opacity: (!answers.who || !answers.tempo) ? 0.5 : 1 }} onClick={() => nextStep("vibe")}>Devam Et</button>
+        <button className="l2t-btn" disabled={!answers.who || !answers.tempo} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.who || !answers.tempo) ? 0.5 : 1 }} onClick={() => nextStep("vibe")}>Devam Et</button>
       </div>
     </motion.div>
   );
@@ -660,7 +660,7 @@ export default function AIPlannerPage() {
               setLastPromptStr("");
               generatePlan(answers);
             }} 
-            style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", minWidth: "200px" }}
+            style={{ background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", minWidth: "200px" }}
           >
             <Sparkles size={18} style={{ marginRight: "8px" }} /> Aramayı Yenile
           </button>
@@ -694,7 +694,7 @@ export default function AIPlannerPage() {
         {step === "result" && renderResult()}
       </AnimatePresence>
       <style dangerouslySetInnerHTML={{__html: `
-        .planner-opt-btn:hover { border-color: #F59E0B !important; background: rgba(255,255,255,0.1) !important; transform: translateY(-4px); }
+        .planner-opt-btn:hover { border-color: var(--l2t-gold) !important; background: rgba(255,255,255,0.1) !important; transform: translateY(-4px); }
       `}} />
     </div>
   );
