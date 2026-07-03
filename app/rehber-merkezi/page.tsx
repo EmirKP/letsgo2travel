@@ -129,7 +129,7 @@ export default function GuideCenterPage() {
             <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "1.05rem", margin: 0 }}>Vize gereksinimlerini ve bütçeni seç, yapay zeka senin için saniyeler içinde mükemmel bir rota çıkarsın.</p>
           </div>
           <Link href="/akilli-plan" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
-            Yapay Zeka ile Planla
+            Rota Asistanı ile Planla
           </Link>
         </div>
 

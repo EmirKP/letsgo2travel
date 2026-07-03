@@ -2,53 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase-client";
 
-import { Sparkles, Map, Globe, ShieldCheck, BookOpen, Calculator, Wifi, Hotel, Compass, Ticket, Plane, User, MessageSquare, Trophy } from "lucide-react";
+import { Sparkles, Globe, ShieldCheck, BookOpen, Ticket, Plane, User, MessageSquare, Trophy, FileText } from "lucide-react";
+import LanguageSelector from "./LanguageSelector";
 
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
 const navItems = [
   { href: "/", label: "Bilet Ara", icon: Plane },
   { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
-  { href: "/vizesiz-ulkeler", label: "Vizesiz Ülkeler", icon: Globe },
-  { href: "/akilli-plan", label: "AI Planlayıcı", icon: Sparkles },
+  { href: "/pasaport-gucu", label: "Pasaport Gücü", icon: ShieldCheck },
+  { href: "/akilli-plan", label: "Rota Asistanı", icon: Sparkles },
   { href: "/forum", label: "Forum", icon: MessageSquare }
 ];
 
 const moreItems = [
-  { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
-  { href: "/pasaport-gucu", label: "Pasaport Gücü", icon: ShieldCheck },
+  { href: "/vizesiz-ulkeler", label: "Vizesiz Ülkeler", icon: Globe },
+  { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
-  { href: "/blog", label: "Blog", icon: BookOpen },
-  { href: "/harita", label: "Harita", icon: Map },
-  { href: "/esim", label: "eSIM", icon: Wifi },
-  { href: "/oteller", label: "Oteller", icon: Hotel },
-  { href: "/turlar", label: "Turlar", icon: Compass },
-  { href: "/butce-hesapla", label: "Bütçe Hesapla", icon: Calculator },
+  { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
+  { href: "/topluluk-kurallari", label: "Topluluk Kuralları", icon: ShieldCheck },
 ];
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const moreCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
-
-  const openMoreMenu = () => {
-    if (moreCloseTimer.current) {
-      clearTimeout(moreCloseTimer.current);
-      moreCloseTimer.current = null;
-    }
-    setMoreOpen(true);
-  };
-
-  const closeMoreMenuSoon = () => {
-    if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
-    moreCloseTimer.current = setTimeout(() => setMoreOpen(false), 1200);
-  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -102,21 +85,19 @@ export default function Header() {
           {/* Daha fazla dropdown */}
           <div
             className="l2t-nav-dropdown-wrap"
-            onMouseEnter={openMoreMenu}
-            onMouseLeave={closeMoreMenuSoon}
+            onMouseEnter={() => setMoreOpen(true)}
+            onMouseLeave={() => setMoreOpen(false)}
           >
             <button
               type="button"
               className={`l2t-nav-link l2t-nav-dropdown-trigger${moreItems.some((h) => isActive(h.href)) ? " l2t-nav-active" : ""}`}
-              onMouseEnter={openMoreMenu}
-              onFocus={openMoreMenu}
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
             >
               Daha Fazla <span className="l2t-caret">▾</span>
             </button>
             {moreOpen && (
-              <div className="l2t-dropdown" role="menu" onMouseEnter={openMoreMenu} onMouseLeave={closeMoreMenuSoon}>
+              <div className="l2t-dropdown" role="menu">
                 {moreItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -141,6 +122,7 @@ export default function Header() {
         {/* Sağ Alan */}
         <div className="l2t-header-right" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <TripDashboard />
+          <LanguageSelector />
           
           {isLoggedIn ? (
             <Link href="/profil" className="l2t-btn l2t-btn-outline l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -151,10 +133,6 @@ export default function Header() {
               <User size={16} /> Giriş
             </Link>
           )}
-
-          <Link href="/kampanyalar" className="l2t-btn l2t-hide-mobile" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Plane size={16} /> Bilet Ara
-          </Link>
 
           <button
             className="l2t-burger l2t-hide-mobile"

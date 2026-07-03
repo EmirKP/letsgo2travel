@@ -180,7 +180,7 @@ export default function AITripPlanner() {
         <div className="l2t-ai-plan-result">
           <div className="l2t-ai-score-card">
             <div>
-              <span>AI rota skoru</span>
+              <span>Rota skoru</span>
               <strong>%{plan.score}</strong>
             </div>
             <div>
