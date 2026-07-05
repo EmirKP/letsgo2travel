@@ -2,38 +2,37 @@
 @import "../styles/l2t-belgeli-gezgin.css";
 
 :root {
-  --l2t-night: #06183A;
-  --l2t-navy: #06183A;
-  --l2t-deep: #0E2A5C;
-  --l2t-card: rgba(255, 255, 255, 0.06);
-  --l2t-card-strong: rgba(255, 255, 255, 0.10);
-  --l2t-border: rgba(255, 255, 255, 0.12);
-  --l2t-gold: #FFB400;
-  --l2t-gold-hover: #FF6B35;
-  --l2t-cyan: #06B6D4;
-  --l2t-coral: #FF6B35;
-  --l2t-card-light: #F7F9FC;
-  --l2t-text: #F8FAFC;
-  --l2t-muted: #AFC0D6;
+  --l2t-navy: #021232;
+  --l2t-navy-2: #061E42;
+  --l2t-blue: #1A6FDA;
+  --l2t-blue-2: #0B7CFF;
+  --l2t-sky: #74B0E9;
+  --l2t-bg: #F6FAFF;
+  --l2t-bg-soft: #EAF3FC;
+  --l2t-card: #FFFFFF;
+  --l2t-border: #DDE7F2;
+  --l2t-text: #071B33;
+  --l2t-muted: #5F6B7A;
+  --l2t-gold: #F6C445;
+  --l2t-gold-soft: #FFE08A;
+  
   --l2t-danger: #E63946;
   --l2t-success: #2ECC71;
-  --l2t-warning: #FFB400;
-
-  --l2t-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --l2t-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
-  --l2t-radius: 18px;
+  
+  --l2t-shadow: 0 12px 40px rgba(2, 18, 50, 0.08);
+  --l2t-shadow-lg: 0 20px 60px rgba(2, 18, 50, 0.12);
+  --l2t-radius: 20px;
   --l2t-radius-sm: 12px;
   --l2t-wrap: 1380px;
 
-  /* Legacy fallbacks */
-  --l2t-page-bg: var(--l2t-night);
-  --l2t-sky: var(--l2t-navy);
-  --l2t-white: var(--l2t-deep);
-  --l2t-ink: var(--l2t-text);
-  --l2t-soft: var(--l2t-muted);
-  --l2t-blue: var(--l2t-gold);
-  --l2t-blue-2: var(--l2t-gold-hover);
-  --l2t-cyan-soft: var(--l2t-cyan);
+  /* Fallback aliases if used elsewhere */
+  --l2t-night: var(--l2t-navy);
+  --l2t-deep: var(--l2t-navy-2);
+  --l2t-card-strong: #FFFFFF;
+  --l2t-card-light: var(--l2t-bg-soft);
+  --l2t-white: #FFFFFF;
+  --l2t-cyan: var(--l2t-blue);
+  --l2t-coral: var(--l2t-blue-2);
 }
 .l2t-mobile-only { display: none !important; }
 
@@ -41,7 +40,7 @@
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  background: linear-gradient(180deg, var(--l2t-night) 0%, var(--l2t-navy) 100%);
+  background: var(--l2t-bg);
   background-attachment: scroll;
   color: var(--l2t-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, Helvetica, sans-serif;
@@ -58,8 +57,6 @@ main { min-height: 75vh; }
   background: var(--l2t-card);
   border: 1px solid var(--l2t-border);
   box-shadow: var(--l2t-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--l2t-radius);
 }
 .l2t-admin-shell {
@@ -165,7 +162,7 @@ main { min-height: 75vh; }
 .l2t-disclaimer { color: var(--l2t-muted); font-size: .88rem; line-height: 1.65; }
 .l2t-text-link { color: var(--l2t-blue); font-weight: 800; }
 
-.l2t-header { position: sticky; top: 0; z-index: 999; transform: translate3d(0,0,0); background: linear-gradient(180deg, #06183A 0%, #04132D 100%); border-bottom: 1px solid rgba(255,255,255,.08); box-shadow: 0 4px 18px rgba(3,16,38,.18); }
+.l2t-header { position: sticky; top: 0; z-index: 999; transform: translate3d(0,0,0); background: var(--l2t-navy); border-bottom: 1px solid rgba(255,255,255,.05); box-shadow: 0 4px 18px rgba(2,18,50,.20); }
 .l2t-header-inner { height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 22px; }
 .l2t-brand { display: flex; align-items: center; min-width: 190px; }
 .l2t-brand-logo { width: 190px; height: auto; object-fit: contain; }
@@ -176,16 +173,16 @@ main { min-height: 75vh; }
 .l2t-menu-btn { display: none; border: 1px solid rgba(255,255,255,.18); color: #fff; background: rgba(255,255,255,.1); border-radius: 10px; padding: 9px 12px; }
 .l2t-mobile-panel { display: none; }
 
-.l2t-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; border-radius: 10px; padding: 13px 22px; background: linear-gradient(135deg, #F5B81B, #E0A800); color: var(--l2t-navy); font-weight: 900; box-shadow: 0 8px 22px rgba(245, 184, 27, .22); transition: transform .18s ease, box-shadow .18s ease; }
-.l2t-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(245, 184, 27, .30); }
+.l2t-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; border-radius: 10px; padding: 13px 22px; background: linear-gradient(135deg, var(--l2t-blue-2), var(--l2t-blue)); color: #fff; font-weight: 900; box-shadow: 0 8px 22px rgba(26, 111, 218, 0.22); transition: transform .18s ease, box-shadow .18s ease; }
+.l2t-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(26, 111, 218, 0.30); }
 .l2t-btn:disabled { opacity: .65; cursor: not-allowed; }
 .l2t-btn-small { padding: 9px 14px; font-size: .88rem; border-radius: 8px; }
 .l2t-btn-wide { width: 100%; }
 .l2t-btn-ghost { background: transparent; color: var(--l2t-gold); border: 1px solid var(--l2t-gold); box-shadow: var(--l2t-shadow); }
 
 .l2t-hero { min-height: 720px; position: relative; overflow: hidden; display: flex; align-items: center; }
-.l2t-hero-bg { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,24,44,.98) 0%, rgba(8,24,44,.88) 38%, rgba(8,24,44,.28) 100%), url('/plane-hero.webp') center right/cover no-repeat; transform: scale(1.02); }
-.l2t-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 180px; background: linear-gradient(180deg, transparent, var(--l2t-navy)); }
+.l2t-hero-bg { position: absolute; inset: 0; background: linear-gradient(180deg, var(--l2t-bg-soft) 0%, var(--l2t-bg) 100%); transform: scale(1.02); }
+.l2t-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 180px; background: linear-gradient(180deg, transparent, var(--l2t-bg)); }
 .l2t-hero-grid { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .8fr); gap: 42px; align-items: center; padding: 110px 0 150px; }
 .l2t-hero-copy h1, .l2t-page-head h1 { margin: 0; max-width: 760px; font-size: clamp(2.55rem, 5vw, 5.25rem); line-height: .98; letter-spacing: -.055em; }
 .l2t-hero-copy p:not(.l2t-kicker) { color: var(--l2t-soft); max-width: 650px; font-size: 1.18rem; line-height: 1.75; }
@@ -243,7 +240,7 @@ main { min-height: 75vh; }
 .l2t-newsletter { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
 .l2t-newsletter p { grid-column: 1 / -1; margin: 0; color: var(--l2t-muted); }
 
-.l2t-footer { margin-top: 30px; padding: 48px 0; border-top: 0; background: linear-gradient(180deg, #06183A 0%, #04132D 100%); color: #FFFFFF; }
+.l2t-footer { margin-top: 30px; padding: 48px 0; border-top: 0; background: var(--l2t-navy); color: #FFFFFF; }
 .l2t-footer-grid { display: grid; grid-template-columns: 1.4fr repeat(3, .7fr); gap: 28px; }
 .l2t-footer-logo { width: 210px; margin-bottom: 16px; }
 .l2t-footer h3 { margin: 0 0 14px; color: #FFFFFF; }
@@ -1792,7 +1789,7 @@ main { background: transparent; }
   letter-spacing: -.03em;
 }
 .l2t-logo-lets { color: #FFFFFF; }
-.l2t-logo-two { color: var(--l2t-gold); margin: 0 1px; }
+.l2t-logo-two { color: var(--l2t-blue); margin: 0 1px; }
 .l2t-logo-travel { color: #FFFFFF; }
 .l2t-logo-plane { color: var(--l2t-gold); font-size: 1.4rem; margin-left: 2px; transform: rotate(-10deg); }
 
@@ -8589,27 +8586,27 @@ body {
 .l2t-language-option.is-active { background: #EEF6FA !important; color: #071B33 !important; }
 
 .l2t-hero-animated {
-  background: linear-gradient(135deg, #071B33 0%, #0B2A4A 55%, #123D5A 100%) !important;
-  color: #FFFFFF !important;
+  background: linear-gradient(180deg, var(--l2t-bg-soft) 0%, var(--l2t-bg) 100%) !important;
+  color: var(--l2t-navy) !important;
 }
 
 .l2t-hero-glow {
   background:
-    radial-gradient(circle at 16% 18%, rgba(246,196,69,.30), transparent 28%),
-    radial-gradient(circle at 82% 20%, rgba(25,198,211,.18), transparent 30%),
-    linear-gradient(135deg, #071B33 0%, #0B2A4A 55%, #123D5A 100%) !important;
+    radial-gradient(circle at 16% 18%, rgba(246,196,69,.15), transparent 28%),
+    radial-gradient(circle at 82% 20%, rgba(26,111,218,.10), transparent 30%),
+    linear-gradient(180deg, var(--l2t-bg-soft) 0%, var(--l2t-bg) 100%) !important;
 }
 
 .l2t-hero-orbit {
-  border-color: rgba(246,196,69,.22) !important;
+  border-color: rgba(26,111,218,.10) !important;
 }
 
 .l2t-hero-main-title {
-  color: #FFFFFF !important;
+  color: var(--l2t-navy) !important;
   font-size: clamp(2.35rem, 5vw, 4.7rem) !important;
   line-height: 1.04 !important;
   letter-spacing: -.055em !important;
-  text-shadow: 0 8px 30px rgba(0,0,0,.34) !important;
+  text-shadow: none !important;
   max-width: 780px !important;
   margin: 0 0 18px !important;
   text-align: left !important;

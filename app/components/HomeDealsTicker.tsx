@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Clock3, TrendingUp } from "lucide-react";
+import { ArrowUpRight, ArrowRight, Clock3, TrendingUp } from "lucide-react";
 import { formatFromPrice } from "@/lib/prices";
 
 type Deal = {
@@ -41,7 +41,10 @@ export default function HomeDealsTicker({ deals }: { deals: Deal[] }) {
             <span className="l2t-live-kicker"><TrendingUp size={15} /> Son taranan fırsatlar</span>
             <h2>Popüler rotalarda fiyat sinyalleri</h2>
           </div>
-          <span className="l2t-live-update"><Clock3 size={14} /> Cache / mevcut veri</span>
+          <div className="l2t-ticker-head">
+            <span className="l2t-live-update"><Clock3 size={14} /> Yakın tarihli fiyat sinyalleri</span>
+            <Link href="/kampanyalar" className="l2t-ticker-link">Tüm fırsatlar <ArrowRight size={14} /></Link>
+          </div>
         </div>
 
         {items.length > 0 ? (

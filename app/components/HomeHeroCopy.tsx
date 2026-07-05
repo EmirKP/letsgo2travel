@@ -30,7 +30,7 @@ export default function HomeHeroCopy() {
       </ScrollReveal>
 
       <ScrollReveal delay={0.2} yOffset={30}>
-        <h1 className="l2t-hero-main-title">{dict.hero.title}</h1>
+        <h1 className="l2t-hero-main-title">Pasaportuna göre dünyayı keşfet</h1>
       </ScrollReveal>
 
       <ScrollReveal delay={0.25} yOffset={18}>
@@ -38,16 +38,16 @@ export default function HomeHeroCopy() {
       </ScrollReveal>
 
       <ScrollReveal delay={0.3} yOffset={20}>
-        <p className="l2t-hero-subtitle l2t-hide-mobile">{dict.hero.subtitle}</p>
+        <p className="l2t-hero-subtitle l2t-hide-mobile" style={{ color: "var(--l2t-text)" }}>Pasaport gücü, vize durumu, rota önerileri, gerçek gezgin deneyimleri ve uçuş arama tek yerde.</p>
       </ScrollReveal>
 
       <ScrollReveal delay={0.34} yOffset={20}>
         <div className="hp-hero-buttons l2t-hide-mobile">
           <Link href="/pasaport-gucu" className="l2t-btn l2t-hero-primary-cta">
-            <ShieldCheck size={18} /> {dict.hero.ctaPrimary}
+            <ShieldCheck size={18} /> Pasaportuna göre keşfet
           </Link>
-          <Link href="/rota-asistani" className="l2t-btn l2t-btn-outline l2t-hero-secondary-cta">
-            <Sparkles size={18} /> {dict.hero.ctaSecondary}
+          <Link href="/rota-asistani" className="l2t-btn l2t-btn-ghost l2t-hero-secondary-cta" style={{ background: "transparent", border: "1px solid var(--l2t-blue)", color: "var(--l2t-blue)", boxShadow: "none" }}>
+            <Sparkles size={18} /> Rota Asistanı'nı aç
           </Link>
         </div>
       </ScrollReveal>
