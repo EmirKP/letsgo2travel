@@ -18,14 +18,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.com.tr"),
   title: {
-    default: "Letsgo2Travel | Ucuz Uçak Bileti, Vizesiz Rotalar ve Seyahat Rehberi",
-    template: "%s | Letsgo2Travel",
+    default: "LetsGo2Travel | Pasaport Gücü, Rota Asistanı ve Global Seyahat Keşfi",
+    template: "%s | LetsGo2Travel",
   },
   description:
-    "Ucuz uçak bileti kampanyaları, vizesiz ülkeler, ülke rehberleri, otel, eSIM ve tur seçenekleri için premium seyahat asistanı.",
+    "Pasaport gücü, rota asistanı, gerçek gezgin deneyimleri ve uçuş aramayı tek yerde birleştiren seyahat keşif platformu.",
   openGraph: {
-    title: "Letsgo2Travel",
-    description: "Ucuz uçuşlar ve vizesiz seyahat rotaları tek yerde.",
+    title: "LetsGo2Travel",
+    description: "Pasaport gücü, rota planlama ve gerçek gezgin deneyimleri tek yerde.",
     images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "Letsgo2Travel" }],
   },
   manifest: "/manifest.json",

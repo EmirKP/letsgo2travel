@@ -2,8 +2,8 @@ import Link from "next/link";
 import { MessageSquare, MapPin, Search, ChevronRight, PenTool, Flame, Users, AlertCircle, CheckSquare, ArrowRight } from "lucide-react";
 
 export const metadata = {
-  title: "Forum & Topluluk | Letsgo2Travel",
-  description: "Gezginlerle soru-cevap, ülke sorunları, vize deneyimleri.",
+  title: "Forum ve Topluluk | LetsGo2Travel",
+  description: "Gerçek gezgin deneyimlerini oku, soru sor ve ülke bazlı seyahat pratiklerini keşfet.",
 };
 
 const forumCategories = [
@@ -151,7 +151,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
                 )}
                 <div style={{ background: "#fff", padding: "60px 20px", borderRadius: "16px", border: "1px solid #e2e8f0", textAlign: "center" }}>
                   <CheckSquare size={48} color="#cbd5e1" style={{ margin: "0 auto 16px" }} />
-                  <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", marginBottom: "8px" }}>Bu kategoride henüz konu yok.</h3>
+                  <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", marginBottom: "8px" }}>İlk soruyu sen sor — aşağıdaki şablonlardan biriyle başla.</h3>
                   <p style={{ color: "var(--l2t-soft)", marginBottom: "24px" }}>İlk soruyu soran veya deneyimini paylaşan sen ol!</p>
                   <Link href={`/forum/yeni?kategori=${currentCategorySlug}`} className="l2t-btn" style={{ background: "var(--l2t-blue)", color: "#fff", padding: "12px 24px", borderRadius: "100px", textDecoration: "none", display: "inline-flex", fontWeight: "600", position: "relative", zIndex: 20 }}>
                     Bu Kategoride Konu Aç

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
-export const metadata: Metadata = { title: "Otel Bul", description: "Seyahat rotana göre otel ve konaklama seçenekleri." };
+export const metadata: Metadata = { title: "Otel Bul | LetsGo2Travel", description: "Seyahat rotana göre otel ve konaklama seçeneklerini karşılaştır." };
 
 const hotelTips = [
   { title: "Konum", text: "İlk kez gidilen şehirlerde metro, merkez ve güvenli bölge dengesi önemlidir." },
@@ -16,7 +16,7 @@ export default function HotelsPage() {
         <div>
           <p className="l2t-kicker">Konaklama</p>
           <h1>Otelini yorum, konum ve fiyat dengesine göre seç</h1>
-          <p className="l2t-lead">Bu sayfa, kullanıcının uçak biletinden sonra en doğal ikinci ihtiyacı olan konaklamaya geçiş yapmasını sağlar. Booking affiliate linkin `.env` içine eklendiğinde gelir akışı çalışır.</p>
+          <p className="l2t-lead">Seyahat rotana göre konum, fiyat ve yorum kalitesi açısından en iyi otelleri keşfet ve karşılaştır.</p>
           <a className="l2t-btn" href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "hotels_page" })} target="_blank" rel="nofollow sponsored noreferrer">Otelleri karşılaştır</a>
         </div>
         <div className="l2t-feature-list">

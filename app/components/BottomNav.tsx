@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Ticket, Search, Globe, User } from "lucide-react";
+import { Home, Search, Globe, User, Sparkles } from "lucide-react";
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -19,9 +19,9 @@ export default function BottomNav() {
         <span>Ana Sayfa</span>
       </Link>
       
-      <Link href="/kampanyalar" className={`l2t-bn-item ${isActive("/kampanyalar") ? "l2t-bn-active" : ""}`}>
-        <Ticket size={22} />
-        <span>Fırsatlar</span>
+      <Link href="/pasaport-gucu" className={`l2t-bn-item ${isActive("/pasaport-gucu") ? "l2t-bn-active" : ""}`}>
+        <Globe size={22} />
+        <span>Pasaport</span>
       </Link>
       
       <Link href="/#bilet-ara" className="l2t-bn-item l2t-bn-search">
@@ -31,9 +31,9 @@ export default function BottomNav() {
         <span>Bilet Ara</span>
       </Link>
       
-      <Link href="/vizesiz-ulkeler" className={`l2t-bn-item ${isActive("/vizesiz-ulkeler") ? "l2t-bn-active" : ""}`}>
-        <Globe size={22} />
-        <span>Vizesiz</span>
+      <Link href="/rota-asistani" className={`l2t-bn-item ${isActive("/rota-asistani") ? "l2t-bn-active" : ""}`}>
+        <Sparkles size={22} />
+        <span>Rota</span>
       </Link>
       
       <Link href="/profil" className={`l2t-bn-item ${isActive("/profil") ? "l2t-bn-active" : ""}`}>

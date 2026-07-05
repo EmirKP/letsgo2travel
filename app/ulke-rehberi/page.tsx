@@ -4,8 +4,8 @@ import { BellRing, Compass, MessageCircle, Plane, ShieldCheck } from "lucide-rea
 import { getCountryGuides } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "Ülke Rehberi",
-  description: "Ülkelerin vize, uçuş, sezon, bütçe ve doğrulanmış gezgin notlarını gösteren Letsgo2Travel rehberi.",
+  title: "Ülke Rehberleri | LetsGo2Travel",
+  description: "Ülkelerin vize, uçuş, sezon, bütçe ve doğrulanmış gezgin notlarını keşfet.",
 };
 
 export default async function CountryGuidesPage() {

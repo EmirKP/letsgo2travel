@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Globe, ShieldCheck, Ticket } from "lucide-react";
+import { Globe, ShieldCheck, Sparkles } from "lucide-react";
 import { getL2tDictionary, type L2tLocale } from "@/lib/i18n";
 import HeroDynamicLine from "./HeroDynamicLine";
 import ScrollReveal from "./ScrollReveal";
@@ -43,11 +43,11 @@ export default function HomeHeroCopy() {
 
       <ScrollReveal delay={0.34} yOffset={20}>
         <div className="hp-hero-buttons l2t-hide-mobile">
-          <Link href="#bilet-ara" className="l2t-btn l2t-hero-primary-cta">
-            <Ticket size={18} /> {dict.hero.ctaPrimary}
+          <Link href="/pasaport-gucu" className="l2t-btn l2t-hero-primary-cta">
+            <ShieldCheck size={18} /> {dict.hero.ctaPrimary}
           </Link>
-          <Link href="/pasaport-gucu" className="l2t-btn l2t-btn-outline l2t-hero-secondary-cta">
-            <ShieldCheck size={18} /> {dict.hero.ctaSecondary}
+          <Link href="/rota-asistani" className="l2t-btn l2t-btn-outline l2t-hero-secondary-cta">
+            <Sparkles size={18} /> {dict.hero.ctaSecondary}
           </Link>
         </div>
       </ScrollReveal>

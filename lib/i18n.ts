@@ -21,8 +21,8 @@ export const l2tDictionaries = {
       eyebrow: "Premium seyahat keşif platformu",
       title: "Dünyayı keşfet, rotanı akıllıca planla.",
       subtitle: "Uçuş arama, pasaport gücü, ülke rehberleri, gerçek gezgin deneyimleri ve Rota Asistanı tek akışta buluşur.",
-      ctaPrimary: "Bilet ara",
-      ctaSecondary: "Pasaport Gücü",
+      ctaPrimary: "Pasaportuna göre keşfet",
+      ctaSecondary: "Rota Asistanı'nı aç",
       dynamicLines: [
         "Bugün pasaportun seni nereye götürebilir?",
         "Vizesiz ve kolay giriş rotalarını keşfet.",
@@ -55,8 +55,8 @@ export const l2tDictionaries = {
       eyebrow: "Premium travel discovery platform",
       title: "Discover the world and plan smarter routes.",
       subtitle: "Flight search, passport power, country guides, real traveler experiences and Route Assistant come together in one flow.",
-      ctaPrimary: "Search flights",
-      ctaSecondary: "Passport Power",
+      ctaPrimary: "Discover by passport",
+      ctaSecondary: "Open Route Assistant",
       dynamicLines: [
         "Where can your passport take you today?",
         "Explore visa-free and easy-entry routes.",

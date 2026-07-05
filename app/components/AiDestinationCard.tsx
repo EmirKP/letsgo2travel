@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { AiRouteResult } from "../akilli-plan/page";
+import { AiRouteResult } from "../rota-asistani/page";
 
 const destinationImages: Record<string, string[]> = {
   prag: ["/destinations/prague/charles-bridge.jpg", "/destinations/prague/astronomical-clock.jpg", "/destinations/prague/prague-castle.jpg"],

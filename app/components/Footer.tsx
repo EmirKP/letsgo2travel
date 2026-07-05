@@ -8,7 +8,7 @@ export default function Footer() {
         <div>
           <img src="/logo.png" alt="Letsgo2Travel" className="l2t-footer-logo" width={210} height={45} loading="lazy" decoding="async" />
           <p className="l2t-muted" style={{ marginBottom: "12px" }}>
-            Uçuş arama, pasaport gücü, ülke rehberleri, gerçek gezgin deneyimleri ve Rota Asistanı’nı bir araya getiren premium seyahat keşif platformu.
+            Pasaport gücü, rota planlama ve gerçek gezgin deneyimleri tek yerde.
           </p>
           <p className="l2t-disclaimer" style={{ marginTop: "12px", padding: "12px", background: "rgba(0,0,0,0.05)", borderRadius: "8px", fontSize: "0.8rem", lineHeight: "1.5" }}>
             🔗 LetsGo2Travel bazı bağlantılardan komisyon kazanabilir. Bu, kullanıcıya ek maliyet oluşturmaz.
@@ -16,12 +16,12 @@ export default function Footer() {
         </div>
         <div>
           <h3>Hızlı Menü</h3>
-          <Link href="/">Bilet Ara</Link>
-          <Link href="/kampanyalar">Fırsatlar</Link>
           <Link href="/pasaport-gucu">Pasaport Gücü</Link>
           <Link href="/rota-asistani">Rota Asistanı</Link>
-          <Link href="/vizesiz-ulkeler">Vizesiz Ülkeler</Link>
           <Link href="/forum">Forum</Link>
+          <Link href="/kampanyalar">Fırsatlar</Link>
+          <Link href="/">Bilet Ara</Link>
+          <Link href="/vizesiz-ulkeler">Vizesiz Ülkeler</Link>
           <Link href="/blog">Blog</Link>
         </div>
         <div>

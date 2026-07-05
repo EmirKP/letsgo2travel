@@ -1,7 +1,7 @@
 import ClientPage from "./ClientPage";
 import { Suspense } from "react";
 import Link from "next/link";
-import { User, MapPin, Bell } from "lucide-react";
+import { User, MapPin, Bell, MessageSquare, Award, Sparkles, Heart } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -28,23 +28,53 @@ function ProfilFallback() {
             <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", marginBottom: "16px", fontWeight: "700" }}>Premium Özellikler</h3>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.7 }}>
+              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.8 }}>
                 <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <MapPin size={24} color="#94a3b8" />
+                  <Heart size={24} color="#ef4444" />
                 </div>
                 <div>
-                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Özel Rotalar</strong>
-                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Kaydettiğin rotaları görmek için giriş yap.</span>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Favori rotalar</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Kaydettiğin kampanyaları tek yerde yönet.</span>
                 </div>
               </div>
 
-              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.7 }}>
+              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.8 }}>
                 <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Bell size={24} color="#94a3b8" />
+                  <Bell size={24} color="#f59e0b" />
                 </div>
                 <div>
-                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Fiyat Alarmları</strong>
-                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Bilet fiyatları düştüğünde haberin olsun.</span>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Fiyat alarmları</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Bilet fiyatları düştüğünde anında haberin olsun.</span>
+                </div>
+              </div>
+
+              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.8 }}>
+                <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MessageSquare size={24} color="var(--l2t-blue)" />
+                </div>
+                <div>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Forum geçmişi</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Sorduğun sorulara ve verdiğin yanıtlara kolayca ulaş.</span>
+                </div>
+              </div>
+
+              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.8 }}>
+                <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Award size={24} color="var(--l2t-gold)" />
+                </div>
+                <div>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Doğrulanmış gezgin rozetleri</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Gezdiğin rotalara göre profilinde başarı rozetleri biriktir.</span>
+                </div>
+              </div>
+
+              <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.8 }}>
+                <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={24} color="#8b5cf6" />
+                </div>
+                <div>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Kaydedilen Rota Asistanı planları</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Oluşturduğun seyahat programlarına dilediğin zaman dön.</span>
                 </div>
               </div>
             </div>

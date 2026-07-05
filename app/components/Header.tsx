@@ -13,14 +13,14 @@ import { getL2tDictionary, type L2tLocale } from "@/lib/i18n";
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
 const navItems = [
-  { href: "/", labelKey: "flights", icon: Plane },
-  { href: "/kampanyalar", labelKey: "deals", icon: Ticket },
   { href: "/pasaport-gucu", labelKey: "passport", icon: ShieldCheck },
   { href: "/rota-asistani", labelKey: "assistant", icon: Sparkles },
-  { href: "/forum", labelKey: "forum", icon: MessageSquare }
+  { href: "/forum", labelKey: "forum", icon: MessageSquare },
+  { href: "/kampanyalar", labelKey: "deals", icon: Ticket }
 ] as const;
 
 const moreItems = [
+  { href: "/", labelKey: "flights", icon: Plane },
   { href: "/vizesiz-ulkeler", labelKey: "visaFree", icon: Globe },
   { href: "/vize-merkezi", labelKey: "visaCenter", icon: FileText },
   { href: "/kasifler-ligi", labelKey: "explorers", icon: Trophy },

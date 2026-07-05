@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import FlightSearchCard from "../components/FlightSearchCard";
 import FiyatAlarmClient from "../components/FiyatAlarmClient";
 
-export const metadata: Metadata = { title: "Uçak Bileti Ara", description: "Letsgo2Travel uçak bileti arama yönlendirme ekranı." };
+export const metadata: Metadata = { title: "Uçak Bileti Ara", description: "Bilet fiyatlarını karşılaştır ve fiyat alarmı kur." };
 
 export default function SearchFlightPage() {
   return (

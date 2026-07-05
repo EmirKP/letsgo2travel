@@ -38,6 +38,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/akilli-plan",
+        destination: "/rota-asistani",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

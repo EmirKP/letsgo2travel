@@ -91,7 +91,7 @@ export default async function HomePage() {
                 <Link href="/kampanyalar" className="l2t-live-panel-card">
                   <Flame size={20} />
                   <strong>Bugünün Fırsatları</strong>
-                  <small>Cache’den gelen uygun fiyat sinyalleri</small>
+                  <small>Yakın tarihli fiyat sinyalleri</small>
                 </Link>
                 <Link href="/profil/dogrulama" className="l2t-live-panel-card">
                   <CheckCircle2 size={20} />

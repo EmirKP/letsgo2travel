@@ -545,7 +545,7 @@ export default function PassportPowerPage() {
           <div>
             <p className="l2t-kicker">Vize durumunu gördün</p>
             <h3>Şimdi seyahat adımını seç</h3>
-            <p>Pasaport gücü sayfasından çıkan kullanıcıyı bilet, otel, eSIM ve gezgin yorumlarına yönlendiriyoruz.</p>
+            <p>Pasaportunun gücünü öğrendin, seyahat planına başla.</p>
           </div>
           <div className="l2t-passport-cta-actions">
             <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçak bileti ara</Link>

@@ -4,8 +4,8 @@ import { routePrices } from "@/lib/prices";
 import KampanyalarClient from "../components/KampanyalarClient";
 
 export const metadata: Metadata = {
-  title: "Ucuz Uçak Bileti Kampanyaları",
-  description: "Vize türü, bölge ve fiyata göre filtrelenebilir ucuz uçak bileti fırsatları.",
+  title: "Öne Çıkan Uçuş Fırsatları",
+  description: "Yakın tarihli uçuş fırsatlarını, vize türünü ve son kontrol zamanını tek ekranda karşılaştır.",
 };
 
 const campaignNotes = [
@@ -37,7 +37,7 @@ export default async function CampaignsPage() {
     <section className="l2t-page l2t-wrap">
       <div className="l2t-page-head">
         <p className="l2t-kicker">Kampanyalar</p>
-        <h1>Ucuz uçak bileti fırsatları</h1>
+        <h1>Öne Çıkan Uçuş Fırsatları</h1>
         <p>Bölge ve vize türüne göre filtrele, fiyata göre sırala.</p>
       </div>
 

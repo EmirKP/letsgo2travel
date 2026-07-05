@@ -147,7 +147,7 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
         <div style={{ marginTop: "12px", background: "rgba(0,0,0,0.02)", borderRadius: "8px", padding: "10px", border: "1px solid rgba(0,0,0,0.05)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "6px", fontWeight: "700" }}>
             <span style={{ color: deal.price < 2500 ? "#10B981" : deal.price < 4500 ? "#F59E0B" : "#EF4444", display: "flex", alignItems: "center", gap: "4px" }}>
-              {deal.price < 2500 ? <><Flame size={14} /> Harika Fiyat (Al!)</> : deal.price < 4500 ? <><ThumbsUp size={14} /> Normal Seviye</> : "Ortalamanın Üzeri"}
+              {deal.price < 2500 ? <><Flame size={14} /> Öne çıkan fiyat</> : deal.price < 4500 ? <><ThumbsUp size={14} /> Normal Seviye</> : "Ortalamanın Üzeri"}
             </span>
           </div>
           <div style={{ width: "100%", height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden", display: "flex" }}>
@@ -156,11 +156,16 @@ export default function DealCard({ deal }: { deal: FlightDeal }) {
           </div>
         </div>
 
-        <div className="l2t-deal-bottom" style={{ marginTop: "16px", position: "relative" }}>
+        <div className="l2t-deal-bottom" style={{ marginTop: "16px", position: "relative", alignItems: "center" }}>
           {isTorn && (
             <div style={{ position: "absolute", top: "50%", left: "0", width: "100%", borderTop: "2px dashed #94a3b8", zIndex: 10, animation: "tear 0.5s forwards" }}></div>
           )}
-          <strong style={{ fontSize: "1.4rem", color: "var(--l2t-navy)" }}>{deal.price.toLocaleString("tr-TR")} {deal.currency}</strong>
+          <div>
+            <strong style={{ fontSize: "1.4rem", color: "var(--l2t-navy)", display: "block" }}>{deal.price.toLocaleString("tr-TR")} {deal.currency}</strong>
+            <small style={{ color: "var(--l2t-muted)", fontSize: "0.7rem", marginTop: "2px", display: "block" }}>
+              Son kontrol: {deal.created_at ? new Date(deal.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : "Yakın tarihli fiyat sinyali"}
+            </small>
+          </div>
           <button onClick={handleBuyClick} disabled={deal.active === false} className="l2t-btn l2t-btn-small" style={{ background: deal.active === false ? "#94a3b8" : (deal.price < 2500 ? "#10B981" : "var(--l2t-blue)"), border: "none", position: "relative", zIndex: 11, cursor: deal.active === false ? "not-allowed" : "pointer" }}>
             {isTorn ? "Bilet Yırtıldı!" : (deal.active === false ? "Tükendi" : "Detay")}
           </button>
