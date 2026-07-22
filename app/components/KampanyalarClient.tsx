@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { LayoutGrid, List } from "lucide-react";
 import DealCard from "../components/DealCard";
 import type { FlightDeal } from "@/lib/types";
-import { LayoutGrid, List } from "lucide-react";
+import styles from "./KampanyalarClient.module.css";
 
-const REGIONS = ["Tümü", "Balkanlar", "Kafkasya", "Avrupa", "Orta Doğu"];
 const VISA_TYPES = [
   { label: "Tümü", value: "" },
   { label: "Vizesiz", value: "vizesiz" },
@@ -21,110 +21,98 @@ export default function KampanyalarClient({ deals }: { deals: FlightDeal[] }) {
   const [view, setView] = useState<"grid" | "list">("grid");
 
   const filtered = useMemo(() => {
-    let result = [...deals];
-    if (region !== "Tümü") result = result.filter((d) => d.region === region);
-    if (visa) result = result.filter((d) => d.visa_type === visa);
-    if (sort === "price") result.sort((a, b) => a.price - b.price);
-    return result;
+    const result = deals.filter((deal) => {
+      if (region !== "Tümü" && deal.region !== region) return false;
+      if (visa && deal.visa_type !== visa) return false;
+      return true;
+    });
+
+    return [...result].sort((a, b) => {
+      if (sort === "region") return a.region.localeCompare(b.region, "tr");
+      return a.price - b.price;
+    });
   }, [deals, region, visa, sort]);
 
-  const availableRegions = ["Tümü", ...Array.from(new Set(deals.map((d) => d.region)))];
+  const availableRegions = ["Tümü", ...Array.from(new Set(deals.map((deal) => deal.region)))];
 
   return (
-    <div>
-      {/* Filter Bar */}
-      <div className="l2t-filter-bar">
-        {/* Bölge filtreleme */}
-        <div className="l2t-filter-group">
-          <span className="l2t-filter-label">Bölge</span>
-          <div className="l2t-filter-chips">
-            {availableRegions.map((r) => (
+    <div className={styles.panel}>
+      <div className={styles.filterBar}>
+        <div className={styles.group}>
+          <span className={styles.label}>Bölge</span>
+          <div className={styles.chips}>
+            {availableRegions.map((item) => (
               <button
-                key={r}
+                key={item}
                 type="button"
-                className={`l2t-chip${region === r ? " l2t-chip-active" : ""}`}
-                onClick={() => setRegion(r)}
+                className={`${styles.chip} ${region === item ? styles.chipActive : ""}`}
+                onClick={() => setRegion(item)}
               >
-                {r}
+                {item}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Vize tipi */}
-        <div className="l2t-filter-group">
-          <span className="l2t-filter-label">Vize türü</span>
-          <div className="l2t-filter-chips">
-            {VISA_TYPES.map((v) => (
+        <div className={styles.group}>
+          <span className={styles.label}>Vize türü</span>
+          <div className={styles.chips}>
+            {VISA_TYPES.map((item) => (
               <button
-                key={v.value}
+                key={item.value}
                 type="button"
-                className={`l2t-chip${visa === v.value ? " l2t-chip-active" : ""}`}
-                onClick={() => setVisa(v.value)}
+                className={`${styles.chip} ${visa === item.value ? styles.chipActive : ""}`}
+                onClick={() => setVisa(item.value)}
               >
-                {v.label}
+                {item.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Sıralama + Görünüm */}
-        <div className="l2t-filter-actions">
+        <div className={styles.actions}>
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value as "price" | "region")}
-            className="l2t-filter-select"
-            aria-label="Sıralama"
+            onChange={(event) => setSort(event.target.value as "price" | "region")}
+            className={styles.select}
+            aria-label="Fırsatları sırala"
           >
             <option value="price">Fiyata göre ↑</option>
             <option value="region">Bölgeye göre</option>
           </select>
           <button
             type="button"
-            className={`l2t-view-btn${view === "grid" ? " l2t-view-btn-active" : ""}`}
+            className={`${styles.viewButton} ${view === "grid" ? styles.viewActive : ""}`}
             onClick={() => setView("grid")}
-            aria-label="Grid görünüm"
-            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            aria-label="Kart görünümü"
           >
             <LayoutGrid size={18} />
           </button>
           <button
             type="button"
-            className={`l2t-view-btn${view === "list" ? " l2t-view-btn-active" : ""}`}
+            className={`${styles.viewButton} ${view === "list" ? styles.viewActive : ""}`}
             onClick={() => setView("list")}
-            aria-label="Liste görünüm"
-            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            aria-label="Liste görünümü"
           >
             <List size={18} />
           </button>
         </div>
       </div>
 
-      {/* Sonuç bilgisi */}
-      <p className="l2t-filter-result">
-        <strong>{filtered.length} fırsat toplam, {filtered.filter(d => d.active !== false).length} aktif</strong>
-
+      <p className={styles.result}>
+        <strong>{filtered.length} fırsat, {filtered.filter((deal) => deal.active !== false).length} aktif</strong>
         {region !== "Tümü" && <> · {region}</>}
-        {visa && <> · {VISA_TYPES.find((v) => v.value === visa)?.label}</>}
+        {visa && <> · {VISA_TYPES.find((item) => item.value === visa)?.label}</>}
       </p>
 
-      {/* Kartlar */}
       {filtered.length === 0 ? (
-        <div className="l2t-empty-state">
+        <div className={styles.empty}>
           <p>Bu filtreye uyan fırsat bulunamadı.</p>
-          <button
-            type="button"
-            className="l2t-btn l2t-btn-small"
-            onClick={() => { setRegion("Tümü"); setVisa(""); }}
-          >
-            Filtreleri temizle
-          </button>
+          <button type="button" onClick={() => { setRegion("Tümü"); setVisa(""); }}>Filtreleri temizle</button>
         </div>
       ) : (
-        <div className={view === "grid" ? "l2t-card-grid l2t-card-grid-4" : "l2t-deal-list"}>
-          {filtered.map((deal) => (
-            <DealCard key={deal.id} deal={deal} />
-          ))}
+        <div className={view === "grid" ? styles.grid : styles.list}>
+          {filtered.map((deal) => <DealCard key={deal.id} deal={deal} />)}
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail, Plane } from "lucide-react";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import styles from "./Footer.module.css";
 
 const productLinks = [
   ["Pasaport Gücü", "/pasaport-gucu"],
@@ -22,22 +23,31 @@ const legalLinks = [
 
 export default function Footer() {
   return (
-    <footer className="l2t-footer l2t-footer-v24">
-      <div className="l2t-wrap l2t-footer-main-v24">
-        <div className="l2t-footer-brand-v24">
-          <Link href="/" className="l2t-brand-v24"><span>Letsgo</span><b>2</b><span>Travel</span><Plane size={19} /></Link>
+    <footer className={styles.footer}>
+      <div className={styles.main}>
+        <div className={styles.brandBlock}>
+          <Link href="/" className={styles.brand}>
+            <span>Letsgo</span><b>2</b><span>Travel</span><Plane size={19} />
+          </Link>
           <p>Pasaport gücü, rota planlama, fiyat takibi ve gerçek gezgin deneyimleri tek seyahat platformunda.</p>
           <a href={`mailto:${siteSettings.supportEmail}`}><Mail size={16} /> {siteSettings.supportEmail}</a>
         </div>
-        <div className="l2t-footer-column-v24"><h3>Keşfet</h3>{productLinks.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}</div>
-        <div className="l2t-footer-column-v24"><h3>Yasal</h3>{legalLinks.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}</div>
-        <div className="l2t-footer-column-v24"><h3>Partnerler</h3>
-          <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "footer_v24" })} target="_blank" rel="nofollow sponsored noreferrer">Booking · Otel</a>
-          <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "footer_v24" })} target="_blank" rel="nofollow sponsored noreferrer">Airalo · eSIM</a>
-          <a href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "footer_v24" })} target="_blank" rel="nofollow sponsored noreferrer">GetYourGuide · Tur</a>
+        <div className={styles.column}>
+          <h3>Keşfet</h3>
+          {productLinks.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}
+        </div>
+        <div className={styles.column}>
+          <h3>Yasal</h3>
+          {legalLinks.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}
+        </div>
+        <div className={styles.column}>
+          <h3>Partnerler</h3>
+          <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, sourcePage: "footer_sprint3" })} target="_blank" rel="nofollow sponsored noreferrer">Booking · Otel</a>
+          <a href={trackedAffiliateUrl({ provider: "airalo", url: siteSettings.airaloAffiliateUrl, sourcePage: "footer_sprint3" })} target="_blank" rel="nofollow sponsored noreferrer">Airalo · eSIM</a>
+          <a href={trackedAffiliateUrl({ provider: "getyourguide", url: siteSettings.getYourGuideAffiliateUrl, sourcePage: "footer_sprint3" })} target="_blank" rel="nofollow sponsored noreferrer">GetYourGuide · Tur</a>
         </div>
       </div>
-      <div className="l2t-wrap l2t-footer-bottom-v24">
+      <div className={styles.bottom}>
         <span>© {new Date().getFullYear()} LetsGo2Travel</span>
         <span>Fiyat ve vize bilgilerini seyahat öncesinde resmi kaynaklardan doğrulayın.</span>
       </div>

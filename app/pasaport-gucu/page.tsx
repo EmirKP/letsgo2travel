@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Plane, Hotel, Wifi, MessageCircle, BellRing } from "lucide-react";
 import Link from "next/link";
+import styles from "./passport.module.css";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -204,11 +205,11 @@ export default function PassportPowerPage() {
   }, [search, visaFilter]);
 
   return (
-    <div className="l2t-passport-v27">
-      <section className="l2t-passport-v27-hero">
-        <div className="l2t-wrap l2t-passport-v27-hero-grid">
-          <div className="l2t-passport-v27-book">
-            <div className="l2t-passport-v27-book-bg" aria-hidden="true" />
+    <div className={styles.page}>
+      <section className={styles.hero}>
+        <div className={styles.heroGrid}>
+          <div className={styles.passportVisual}>
+            <div className={styles.visualGlow} aria-hidden="true" />
             <Image
               src="/turkish-passport.webp"
               alt="Türkiye Cumhuriyeti pasaportu"
@@ -216,17 +217,17 @@ export default function PassportPowerPage() {
               height={260}
               priority
             />
-            <span>Türkiye</span>
+            <span className={styles.countryPill}>Türkiye</span>
           </div>
 
-          <div className="l2t-passport-v27-summary">
-            <p className="l2t-passport-v27-eyebrow"><Globe size={16} /> Pasaport merkezi</p>
+          <div className={styles.summary}>
+            <p className={styles.eyebrow}><Globe size={16} /> Pasaport merkezi</p>
             <h1>Türkiye pasaportu</h1>
-            <p className="l2t-passport-v27-lead">
+            <p className={styles.lead}>
               Kimlikle, vizesiz, e-Vize ve kapıda vize seçeneklerini tek ekranda karşılaştır.
             </p>
 
-            <div className="l2t-passport-v27-scoreline">
+            <div className={styles.scoreline}>
               <div>
                 <span>Kolay erişim</span>
                 <strong>{STATS.mobility} ülke</strong>
@@ -241,11 +242,11 @@ export default function PassportPowerPage() {
               </div>
             </div>
 
-            <div className="l2t-passport-v27-hero-actions">
-              <Link href="/vizesiz-ulkeler" className="l2t-passport-v27-primary">
+            <div className={styles.heroActions}>
+              <Link href="/vizesiz-ulkeler" className={styles.primaryAction}>
                 Vizesiz ülkeleri keşfet <Plane size={17} />
               </Link>
-              <Link href="/rota-asistani?preset=kimlikle-haftasonu" className="l2t-passport-v27-secondary">
+              <Link href="/rota-asistani?preset=kimlikle-haftasonu" className={styles.secondaryAction}>
                 Bana rota oluştur
               </Link>
             </div>
@@ -253,16 +254,16 @@ export default function PassportPowerPage() {
         </div>
       </section>
 
-      <main className="l2t-wrap l2t-passport-v27-main">
-        <section className="l2t-passport-v27-overview" aria-label="Pasaport özeti">
+      <main className={styles.main}>
+        <section className={styles.overview} aria-label="Pasaport özeti">
           {[
             { icon: <CheckCircle size={20} />, label: "Kimlikle", value: STATS.id_card, tone: "identity" },
             { icon: <Globe size={20} />, label: "Vizesiz", value: STATS.free, tone: "free" },
             { icon: <FileText size={20} />, label: "Kolay vize", value: STATS.evisa + STATS.on_arrival, tone: "easy" },
             { icon: <AlertTriangle size={20} />, label: "Vize gerekli", value: STATS.required, tone: "required" },
           ].map((item) => (
-            <article key={item.label} className="l2t-passport-v27-overview-card" data-tone={item.tone}>
-              <span>{item.icon}</span>
+            <article key={item.label} className={styles.overviewCard} data-tone={item.tone}>
+              <span className={styles.overviewIcon}>{item.icon}</span>
               <div>
                 <small>{item.label}</small>
                 <strong>{item.value} ülke</strong>
@@ -271,14 +272,14 @@ export default function PassportPowerPage() {
           ))}
         </section>
 
-        <section className="l2t-passport-v27-explorer">
-          <header className="l2t-passport-v27-explorer-head">
-            <div>
-              <p className="l2t-passport-v27-eyebrow"><TrendingUp size={16} /> Ülke erişim haritası</p>
+        <section className={styles.explorer}>
+          <header className={styles.explorerHead}>
+            <div className={styles.sectionHead}>
+              <p className={styles.eyebrow}><TrendingUp size={16} /> Ülke erişim haritası</p>
               <h2>Nereye, hangi koşulla gidebilirsin?</h2>
               <p>Haritadaki bir ülkeye dokun veya aşağıdaki listeden filtrele.</p>
             </div>
-            <div className="l2t-passport-v27-search">
+            <div className={styles.search}>
               <Search size={18} aria-hidden="true" />
               <input
                 type="search"
@@ -290,7 +291,7 @@ export default function PassportPowerPage() {
             </div>
           </header>
 
-          <div className="l2t-passport-v27-filters" role="group" aria-label="Vize durumuna göre filtrele">
+          <div className={styles.filters} role="group" aria-label="Vize durumuna göre filtrele">
             {[
               { id: "all", label: "Tümü" },
               { id: "id_card", label: "Kimlikle" },
@@ -302,7 +303,7 @@ export default function PassportPowerPage() {
               <button
                 key={filter.id}
                 type="button"
-                className={visaFilter === filter.id ? "is-active" : ""}
+                className={`${styles.filterButton} ${visaFilter === filter.id ? styles.filterActive : ""}`}
                 onClick={() => setVisaFilter(filter.id)}
               >
                 {filter.label}
@@ -310,10 +311,10 @@ export default function PassportPowerPage() {
             ))}
           </div>
 
-          <div className="l2t-passport-v27-content-grid">
-            <div className="l2t-passport-v27-map-column">
-              <div className="l2t-passport-v27-map-card">
-                <ComposableMap projectionConfig={{ scale: 140 }} className="l2t-passport-v27-map">
+          <div className={styles.contentGrid}>
+            <div className={styles.mapColumn}>
+              <div className={styles.mapCard}>
+                <ComposableMap projectionConfig={{ scale: 140 }} className={styles.map}>
                   <ZoomableGroup zoom={1}>
                     <Geographies geography={GEO_URL}>
                       {({ geographies }) =>
@@ -353,18 +354,18 @@ export default function PassportPowerPage() {
                 </ComposableMap>
 
                 {tooltip && !selectedCountry && (
-                  <div className="l2t-passport-v27-tooltip">
+                  <div className={styles.tooltip}>
                     <strong>{tooltip.name}</strong>
                     <span>{tooltip.status}</span>
                   </div>
                 )}
 
                 {selectedCountry && (
-                  <aside className="l2t-passport-v27-country-panel">
-                    <button type="button" className="l2t-passport-v27-close" onClick={() => setSelectedCountry(null)} aria-label="Ülke detayını kapat">×</button>
+                  <aside className={styles.countryPanel}>
+                    <button type="button" className={styles.close} onClick={() => setSelectedCountry(null)} aria-label="Ülke detayını kapat">×</button>
                     <small>Seçili ülke</small>
                     <h3>{selectedCountry.name}</h3>
-                    <span className="l2t-passport-v27-status" data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
+                    <span className={styles.status} data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
                     <p>Giriş koşulları değişebilir. Seyahatten önce resmi temsilcilik ve havayolu kaynaklarını kontrol et.</p>
                     <div>
                       <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`}>Uçak bileti ara</Link>
@@ -374,7 +375,7 @@ export default function PassportPowerPage() {
                 )}
               </div>
 
-              <div className="l2t-passport-v27-legend" aria-label="Harita açıklamaları">
+              <div className={styles.legend} aria-label="Harita açıklamaları">
                 {[
                   { status: "home", label: "Türkiye", count: 1 },
                   { status: "id_card", label: "Kimlikle", count: STATS.id_card },
@@ -383,19 +384,19 @@ export default function PassportPowerPage() {
                   { status: "on_arrival", label: "Kapıda", count: STATS.on_arrival },
                   { status: "required", label: "Vize gerekli", count: STATS.required },
                 ].map((item) => (
-                  <span key={item.status} data-status={item.status}>
+                  <span key={item.status} data-status={item.status} className={styles.legendItem}>
                     <i /> {item.label} <strong>{item.count}</strong>
                   </span>
                 ))}
               </div>
 
-              <div className="l2t-passport-v27-note">
+              <div className={styles.note}>
                 <AlertTriangle size={18} />
                 <p><strong>Bilgilendirme:</strong> Vize ve giriş koşulları değişebilir. Satın alma ve seyahat öncesinde resmi kaynaklardan doğrulama yap.</p>
               </div>
             </div>
 
-            <article className="l2t-passport-v27-list-card">
+            <article className={styles.listCard}>
               <header>
                 <div>
                   <small>Sonuçlar</small>
@@ -404,19 +405,19 @@ export default function PassportPowerPage() {
                 <span>{visaFilter === "all" ? "Tüm durumlar" : "Filtreli"}</span>
               </header>
 
-              <div className="l2t-passport-v27-list-head" aria-hidden="true">
+              <div className={styles.listHead} aria-hidden="true">
                 <span>Ülke</span>
                 <span>Giriş durumu</span>
               </div>
 
-              <div className="l2t-passport-v27-country-list">
+              <div className={styles.countryList}>
                 {filteredCountries.map((country) => {
                   const status = VISA_DATA[country.alpha3] || "required";
                   return (
                     <button
                       type="button"
                       key={country.alpha3}
-                      className="l2t-passport-v27-country-row"
+                      className={styles.countryRow}
                       onClick={() => setSelectedCountry({ name: country.name, status: STATUS_LABEL[status], statusKey: status, alpha3: country.alpha3 })}
                     >
                       <span>{country.name}</span>
@@ -427,19 +428,19 @@ export default function PassportPowerPage() {
               </div>
 
               {filteredCountries.length === 0 && (
-                <div className="l2t-passport-v27-empty">Aramana uygun ülke bulunamadı.</div>
+                <div className={styles.empty}>Aramana uygun ülke bulunamadı.</div>
               )}
             </article>
           </div>
         </section>
 
-        <section className="l2t-passport-v27-next">
+        <section className={styles.next}>
           <div>
-            <p className="l2t-passport-v27-eyebrow">Sıradaki adım</p>
+            <p className={styles.eyebrow}>Sıradaki adım</p>
             <h2>Pasaportuna uygun seyahati planla</h2>
             <p>Uçuş, konaklama, internet ve fiyat alarmı araçlarına tek yerden devam et.</p>
           </div>
-          <div className="l2t-passport-v27-next-links">
+          <div className={styles.nextLinks}>
             <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçuş ara</Link>
             <Link href="/oteller"><Hotel size={18} /> Otel bul</Link>
             <Link href="/esim"><Wifi size={18} /> eSIM</Link>

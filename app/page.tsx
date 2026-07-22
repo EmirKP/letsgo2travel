@@ -109,11 +109,8 @@ const quickActions = [
 export default async function HomePage() {
   const [rawDeals, countries] = await Promise.all([getFlightDeals(), getCountryGuides()]);
 
-  const deals = rawDeals.map((deal) =>
-    deal.destination === "Dubai" || deal.destination_code === "DXB"
-      ? { ...deal, visa_type: "e-vize" as const, price: 2400 }
-      : deal,
-  );
+  // Ana sayfa ve kampanyalar aynı fırsat kaynağını kullanır.
+  const deals = rawDeals;
 
   const popularCountries = countries.filter((country) => country.is_popular).slice(0, 6);
   const activeDeals = deals.filter((deal) => deal.active !== false).slice(0, 3);

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import LanguageSelector from "./LanguageSelector";
+import styles from "./Header.module.css";
 
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
@@ -57,40 +58,64 @@ export default function Header() {
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href));
 
   return (
-    <header className="l2t-header l2t-header-v24">
-      <div className="l2t-wrap l2t-header-inner-v24">
-        <Link href="/" className="l2t-brand-v24" aria-label="LetsGo2Travel ana sayfa">
+    <header className={styles.header}>
+      <div className={styles.inner}>
+        <Link href="/" className={styles.brand} aria-label="LetsGo2Travel ana sayfa">
           <span>Letsgo</span><b>2</b><span>Travel</span><Plane size={20} />
         </Link>
 
-        <nav className="l2t-desktop-nav-v24" aria-label="Ana menü">
+        <nav className={styles.desktopNav} aria-label="Ana menü">
           {primaryNav.map(({ href, label, icon: Icon }) => (
-            <Link href={href} key={href} className={isActive(href) ? "is-active" : ""}><Icon size={16} />{label}</Link>
+            <Link
+              href={href}
+              key={href}
+              className={`${styles.navLink} ${isActive(href) ? styles.active : ""}`}
+            >
+              <Icon size={16} />{label}
+            </Link>
           ))}
         </nav>
 
-        <div className="l2t-header-actions-v24">
-          <div className="l2t-desktop-only-v24"><TripDashboard /></div>
-          <div className="l2t-desktop-only-v24"><LanguageSelector /></div>
-          <Link href={isLoggedIn ? "/profil" : "/auth/login"} className="l2t-account-link-v24"><User size={17} /><span>{isLoggedIn ? "Profil" : "Giriş"}</span></Link>
-          <button type="button" className="l2t-menu-trigger-v24" onClick={() => setMenuOpen((current) => !current)} aria-label="Menüyü aç veya kapat" aria-expanded={menuOpen}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
+        <div className={styles.actions}>
+          <div className={styles.desktopOnly}><TripDashboard /></div>
+          <div className={styles.desktopOnly}><LanguageSelector /></div>
+          <Link href={isLoggedIn ? "/profil" : "/auth/login"} className={styles.account}>
+            <User size={17} /><span>{isLoggedIn ? "Profil" : "Giriş"}</span>
+          </Link>
+          <button
+            type="button"
+            className={styles.menuTrigger}
+            onClick={() => setMenuOpen((current) => !current)}
+            aria-label="Menüyü aç veya kapat"
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
       </div>
 
       {menuOpen && (
-        <div className="l2t-mobile-drawer-v24">
-          <div className="l2t-wrap">
-            <div className="l2t-mobile-drawer-primary">
+        <div className={styles.drawer}>
+          <div className={styles.drawerInner}>
+            <div className={styles.drawerPrimary}>
               {primaryNav.map(({ href, label, icon: Icon }) => (
-                <Link href={href} key={href} className={isActive(href) ? "is-active" : ""}><Icon size={19} /><span>{label}</span></Link>
+                <Link
+                  href={href}
+                  key={href}
+                  className={`${styles.drawerLink} ${isActive(href) ? styles.active : ""}`}
+                >
+                  <Icon size={19} /><span>{label}</span>
+                </Link>
               ))}
             </div>
-            <div className="l2t-mobile-drawer-secondary">
+            <div className={styles.drawerSecondary}>
               {secondaryNav.map(({ href, label, icon: Icon }) => (
-                <Link href={href} key={href}><Icon size={18} /><span>{label}</span></Link>
+                <Link href={href} key={href} className={styles.drawerLink}>
+                  <Icon size={18} /><span>{label}</span>
+                </Link>
               ))}
             </div>
-            <div className="l2t-mobile-drawer-tools"><TripDashboard /><LanguageSelector /></div>
+            <div className={styles.drawerTools}><TripDashboard /><LanguageSelector /></div>
           </div>
         </div>
       )}

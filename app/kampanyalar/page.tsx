@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { BadgeDollarSign, Globe2, Layers3, PlaneTakeoff } from "lucide-react";
 import { getFlightDeals } from "@/lib/data";
-import { routePrices } from "@/lib/prices";
 import KampanyalarClient from "../components/KampanyalarClient";
+import styles from "./campaigns.module.css";
 
 export const metadata: Metadata = {
   title: "Öne Çıkan Uçuş Fırsatları",
@@ -15,68 +16,52 @@ const campaignNotes = [
 ];
 
 export default async function CampaignsPage() {
-  let deals = await getFlightDeals();
+  const deals = await getFlightDeals();
+  const activeDeals = deals.filter((deal) => deal.active !== false);
+  const cheap = activeDeals.filter((deal) => deal.price <= 4000);
+  const visaFree = activeDeals.filter((deal) => ["vizesiz", "kimlikle"].includes(deal.visa_type));
+  const regionCount = new Set(deals.map((deal) => deal.region)).size;
 
-  // Fiyatları prices.ts'ten al ve eski tarihli olanları pasifleştir
-  deals = deals.map(deal => {
-    const priceKey = Object.keys(routePrices).find(k => routePrices[k].label === deal.destination);
-    const updatedPrice = priceKey ? routePrices[priceKey].fromPrice : deal.price;
-    const isExpired = deal.travel_period?.includes("Geçmiş") || deal.travel_period === "İlkbahar - Sonbahar";
-    
-    return {
-      ...deal,
-      price: updatedPrice,
-      active: !isExpired
-    };
-  });
-
-  const cheap = deals.filter((deal) => deal.price <= 4000 && deal.active !== false);
-  const visaFree = deals.filter((deal) => ["vizesiz", "kimlikle"].includes(deal.visa_type) && deal.active !== false);
+  const stats = [
+    { icon: PlaneTakeoff, value: activeDeals.length, label: "Aktif fırsat" },
+    { icon: BadgeDollarSign, value: cheap.length, label: "4.000 TL altı" },
+    { icon: Globe2, value: visaFree.length, label: "Vizesiz / kimlikle" },
+    { icon: Layers3, value: regionCount, label: "Bölge" },
+  ];
 
   return (
-    <section className="l2t-page l2t-wrap">
-      <div className="l2t-page-head">
-        <p className="l2t-kicker">Kampanyalar</p>
-        <h1>Öne Çıkan Uçuş Fırsatları</h1>
-        <p>Bölge ve vize türüne göre filtrele, fiyata göre sırala.</p>
-      </div>
+    <div className={styles.page}>
+      <div className={styles.inner}>
+        <header className={styles.head}>
+          <p className={styles.kicker}>Kampanyalar</p>
+          <h1>Öne çıkan uçuş fırsatları</h1>
+          <p>Bölge ve vize türüne göre filtrele, fiyatları karşılaştır ve uygun rotaya devam et.</p>
+        </header>
 
-      {/* İstatistik şeridi */}
-      <div className="l2t-stats-strip">
-        <div className="l2t-stat-item">
-          <strong>{deals.filter(d => d.active !== false).length}</strong>
-          <span>Aktif fırsat</span>
-        </div>
-        <div className="l2t-stat-item">
-          <strong>{cheap.length}</strong>
-          <span>4.000 TL altı</span>
-        </div>
-        <div className="l2t-stat-item">
-          <strong>{visaFree.length}</strong>
-          <span>Vizesiz / kimlikle</span>
-        </div>
-        <div className="l2t-stat-item">
-          <strong>{Array.from(new Set(deals.map((d) => d.region))).length}</strong>
-          <span>Bölge</span>
+        <section className={styles.stats} aria-label="Fırsat özeti">
+          {stats.map(({ icon: Icon, value, label }) => (
+            <article className={styles.stat} key={label}>
+              <span className={styles.statIcon}><Icon size={20} /></span>
+              <div><strong>{value}</strong><span>{label}</span></div>
+            </article>
+          ))}
+        </section>
+
+        <KampanyalarClient deals={deals} />
+
+        <section className={styles.notes} aria-label="Fiyat karşılaştırma ipuçları">
+          {campaignNotes.map((note) => (
+            <article className={styles.note} key={note.title}>
+              <h3>{note.title}</h3>
+              <p>{note.text}</p>
+            </article>
+          ))}
+        </section>
+
+        <div className={styles.disclaimer}>
+          <strong>Fiyat notu:</strong> Ana sayfa ve kampanyalar artık aynı fırsat verisini kullanır. Fiyatlar dönemsel olarak değişebilir; son tutarı yönlendirilen canlı arama ekranında doğrula.
         </div>
       </div>
-
-      {/* Filtreli kampanya listesi */}
-      <KampanyalarClient deals={deals} />
-
-      {/* Notlar */}
-      <div className="l2t-comparison-grid" style={{ marginTop: "32px" }}>
-        {campaignNotes.map((note) => (
-          <article className="l2t-comparison-card" key={note.title}>
-            <h3>{note.title}</h3>
-            <p>{note.text}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="l2t-soft-band">
-        <p><strong>Fiyat notu:</strong> Fiyatlar dönemsel olarak değişebilir. Güncel fiyat için arama yapın. Letsgo2Travel fırsatı öne çıkarır; son fiyatı her zaman yönlendirilen canlı arama ekranında kontrol etmek gerekir.</p>
-      </div>
-    </section>
+    </div>
   );
 }
