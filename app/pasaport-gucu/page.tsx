@@ -120,7 +120,7 @@ const STATUS_LABEL: Record<VisaStatus, string> = {
   required: "Vize Gerekli",
 };
 
-// Tüm ülkelerin arama listesi
+// Arama ve sonuç bölümünde gösterilen ülke listesi
 const COUNTRY_LIST: { name: string; alpha3: string }[] = [
   { name: "Türkiye", alpha3: "TUR" }, { name: "Almanya", alpha3: "DEU" }, { name: "Fransa", alpha3: "FRA" }, { name: "İspanya", alpha3: "ESP" },
   { name: "İtalya", alpha3: "ITA" }, { name: "Yunanistan", alpha3: "GRC" }, { name: "Portekiz", alpha3: "PRT" },
@@ -155,14 +155,19 @@ const COUNTRY_LIST: { name: string; alpha3: string }[] = [
   { name: "Estonya", alpha3: "EST" }, { name: "Yeni Kaledonya (Fiji)", alpha3: "FJI" },
 ];
 
+const PASSPORT_COUNTRIES = COUNTRY_LIST.filter((country) => country.alpha3 !== "TUR");
+
 const STATS = {
-  mobility: Object.values(VISA_DATA).filter(v => v !== "required" && v !== "home").length,
-  id_card: Object.values(VISA_DATA).filter(v => v === "id_card").length,
-  free: Object.values(VISA_DATA).filter(v => v === "free").length,
-  on_arrival: Object.values(VISA_DATA).filter(v => v === "on_arrival").length,
-  evisa: Object.values(VISA_DATA).filter(v => v === "evisa").length,
-  required: Object.values(VISA_DATA).filter(v => v === "required").length,
-  rank: 40,
+  total: PASSPORT_COUNTRIES.length,
+  mobility: PASSPORT_COUNTRIES.filter((country) => {
+    const status = VISA_DATA[country.alpha3] || "required";
+    return status !== "required";
+  }).length,
+  id_card: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "id_card").length,
+  free: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "free").length,
+  on_arrival: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "on_arrival").length,
+  evisa: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "evisa").length,
+  required: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "required").length,
 };
 
 export default function PassportPowerPage() {
@@ -183,7 +188,7 @@ export default function PassportPowerPage() {
       home: 6
     };
 
-    const list = COUNTRY_LIST.filter((c) => {
+    const list = PASSPORT_COUNTRIES.filter((c) => {
       const matchSearch = c.name.toLowerCase().includes(q);
       if (!matchSearch) return false;
       if (visaFilter === "all") return true;
@@ -233,8 +238,8 @@ export default function PassportPowerPage() {
                 <strong>{STATS.mobility} ülke</strong>
               </div>
               <div>
-                <span>Dünya sıralaması</span>
-                <strong>#{STATS.rank}</strong>
+                <span>Listelenen ülke</span>
+                <strong>{STATS.total} ülke</strong>
               </div>
               <div>
                 <span>Kimlikle giriş</span>
@@ -400,7 +405,7 @@ export default function PassportPowerPage() {
               <header>
                 <div>
                   <small>Sonuçlar</small>
-                  <h3>{filteredCountries.length} ülke gösteriliyor</h3>
+                  <h3>{filteredCountries.length} / {STATS.total} ülke gösteriliyor</h3>
                 </div>
                 <span>{visaFilter === "all" ? "Tüm durumlar" : "Filtreli"}</span>
               </header>

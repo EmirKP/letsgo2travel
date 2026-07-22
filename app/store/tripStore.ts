@@ -13,6 +13,8 @@ export type SavedTrip = {
 
 type TripStore = {
   savedTrips: SavedTrip[];
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   addTrip: (trip: Omit<SavedTrip, "id" | "savedAt">) => void;
   removeTrip: (id: string) => void;
   clearTrips: () => void;
@@ -22,6 +24,8 @@ export const useTripStore = create<TripStore>()(
   persist(
     (set) => ({
       savedTrips: [],
+      hasHydrated: false,
+      setHasHydrated: (value) => set({ hasHydrated: value }),
       addTrip: (trip) =>
         set((state) => {
           const existing = state.savedTrips.find((savedTrip) => savedTrip.url === trip.url && savedTrip.title === trip.title);
@@ -54,6 +58,10 @@ export const useTripStore = create<TripStore>()(
     {
       name: "l2t-trip-storage",
       version: 2,
+      partialize: (state) => ({ savedTrips: state.savedTrips }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

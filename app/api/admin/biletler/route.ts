@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { getFlightDeals } from "@/lib/data";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
   if (!supabase) return NextResponse.json({ data: { ...body, id: Date.now(), active: true }, message: "Demo mod: Supabase bağlı değil." });
   const { data, error } = await supabase.from("biletler").insert(body).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidateTag("flight-deals", "max");
   return NextResponse.json({ data });
 }
 

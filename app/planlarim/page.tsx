@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { ArrowRight, Bookmark, Compass, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
 import { useTripStore } from "../store/tripStore";
 import styles from "./plans.module.css";
@@ -15,12 +14,11 @@ const fallbackImages = [
 ];
 
 export default function SavedPlansPage() {
-  const [mounted, setMounted] = useState(false);
   const savedTrips = useTripStore((state) => state.savedTrips);
+  const hasHydrated = useTripStore((state) => state.hasHydrated);
   const removeTrip = useTripStore((state) => state.removeTrip);
   const clearTrips = useTripStore((state) => state.clearTrips);
 
-  useEffect(() => setMounted(true), []);
 
   return (
     <div className={styles.page}>
@@ -33,9 +31,7 @@ export default function SavedPlansPage() {
       </section>
 
       <section className={styles.content}>
-        {!mounted ? (
-          <div className={styles.skeleton} aria-label="Planlar yükleniyor" />
-        ) : savedTrips.length === 0 ? (
+        {!hasHydrated || savedTrips.length === 0 ? (
           <div className={styles.empty}>
             <div className={styles.emptyCopy}>
               <span className={styles.emptyIcon}><Compass size={32} /></span>

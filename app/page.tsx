@@ -24,60 +24,63 @@ import HomeDealPreview from "./components/home/HomeDealPreview";
 import { getCountryGuides, getFlightDeals } from "@/lib/data";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import { formatFromPrice } from "@/lib/prices";
+import type { FlightDeal } from "@/lib/types";
 import styles from "./home.module.css";
 
-const routeHighlights = [
-  {
-    image: "/destinations/italy/venice-hero-v26.jpg",
-    city: "Venedik",
-    country: "İtalya",
-    tag: "Şehir kaçamağı",
-    time: "2s 40dk",
-    price: "Fiyatları gör",
-    href: "/ulke-rehberi/italya",
-    size: "tall",
-  },
-  {
-    image: "/destinations/bosnia/mostar-hero-v26.jpg",
-    city: "Mostar",
-    country: "Bosna Hersek",
-    tag: "Vizesiz",
-    time: "2s",
-    price: formatFromPrice("sarajevo"),
-    href: "/ulke-rehberi/bosna-hersek",
-    size: "wide",
-  },
-  {
-    image: "/destinations/dubai-marina.jpg",
-    city: "Dubai",
-    country: "BAE",
-    tag: "e-Vize",
-    time: "4s",
-    price: formatFromPrice("dubai"),
-    href: "/ulke-rehberi/bae",
-    size: "standard",
-  },
-  {
-    image: "/destinations/prague/charles-bridge.jpg",
-    city: "Prag",
-    country: "Çekya",
-    tag: "Schengen",
-    time: "2s 45dk",
-    price: "Fiyatları gör",
-    href: "/ulke-rehberi/cekya",
-    size: "standard",
-  },
-  {
-    image: "/destinations/paris-eiffel.jpg",
-    city: "Paris",
-    country: "Fransa",
-    tag: "Schengen",
-    time: "3s 40dk",
-    price: "Fiyatları gör",
-    href: "/ulke-rehberi/fransa",
-    size: "wide",
-  },
-];
+function getRouteHighlights(deals: FlightDeal[]) {
+  return [
+    {
+      image: "/destinations/italy/colosseum.jpg",
+      city: "Roma",
+      country: "İtalya",
+      tag: "Şehir kaçamağı",
+      time: "2s 40dk",
+      price: formatFromPrice("rome", deals),
+      href: "/ulke-rehberi/italya",
+      size: "tall",
+    },
+    {
+      image: "/destinations/bosnia/sarajevo.jpg",
+      city: "Saraybosna",
+      country: "Bosna Hersek",
+      tag: "Vizesiz",
+      time: "2s",
+      price: formatFromPrice("sarajevo", deals),
+      href: "/ulke-rehberi/bosna-hersek",
+      size: "wide",
+    },
+    {
+      image: "/destinations/dubai-marina.jpg",
+      city: "Dubai",
+      country: "BAE",
+      tag: "e-Vize",
+      time: "4s",
+      price: formatFromPrice("dubai", deals),
+      href: "/ulke-rehberi/bae",
+      size: "standard",
+    },
+    {
+      image: "/destinations/prague/charles-bridge.jpg",
+      city: "Prag",
+      country: "Çekya",
+      tag: "Schengen",
+      time: "2s 45dk",
+      price: formatFromPrice("prague", deals),
+      href: "/ulke-rehberi/cekya",
+      size: "standard",
+    },
+    {
+      image: "/destinations/paris-eiffel.jpg",
+      city: "Paris",
+      country: "Fransa",
+      tag: "Schengen",
+      time: "3s 40dk",
+      price: "Fiyatları gör",
+      href: "/ulke-rehberi/fransa",
+      size: "wide",
+    },
+  ];
+}
 
 const quickActions = [
   {
@@ -111,6 +114,7 @@ export default async function HomePage() {
 
   // Ana sayfa ve kampanyalar aynı fırsat kaynağını kullanır.
   const deals = rawDeals;
+  const routeHighlights = getRouteHighlights(deals);
 
   const popularCountries = countries.filter((country) => country.is_popular).slice(0, 6);
   const activeDeals = deals.filter((deal) => deal.active !== false).slice(0, 3);

@@ -3,13 +3,16 @@ import Link from "next/link";
 import { Plane, Hotel, Wifi, MapPin, Clock, Wallet, Globe, Info, AlertTriangle, Calendar, Users } from "lucide-react";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import { formatFromPrice, PRICE_NOTE } from "@/lib/prices";
+import { getFlightDeals } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "BAE (Dubai / Abu Dabi) Seyahat Rehberi 2024",
+  title: "BAE (Dubai / Abu Dabi) Seyahat Rehberi",
   description: "Türk vatandaşları için BAE, Dubai ve Abu Dabi seyahat rehberi. Vize durumu, gezi ipuçları, bütçe ve hâtikle bilgileri.",
 };
 
-export default function BAESayfasi() {
+export default async function BAESayfasi() {
+  const deals = await getFlightDeals();
+
   return (
     <div className="l2t-page" style={{ paddingBottom: "80px" }}>
       {/* Hero */}
@@ -35,7 +38,7 @@ export default function BAESayfasi() {
           <div>
             <h2 style={{ fontSize: "1.1rem", color: "#9A3412", fontWeight: "800", margin: "0 0 8px" }}>Vize Bilgisi: Türkiye Pasaportu Sahipleri</h2>
             <p style={{ margin: "0 0 8px", color: "#7C2D12", fontSize: "0.95rem", lineHeight: 1.6 }}>
-              <strong>Türk vatandaşları BAE'ye (Dubai dahil) vizesiz giremez.</strong> Bordo pasaport sahipleri için e-Vize (online vize) başvurusu gerekmektedir.
+              <strong>Türk vatandaşları BAE’ye (Dubai dahil) vizesiz giremez.</strong> Bordo pasaport sahipleri için e-Vize (online vize) başvurusu gerekmektedir.
               Vize genellikle 30 günlüktür ve BAE Resmi Vize Portali üzerine başvurulabilir.
             </p>
             <p style={{ margin: 0, color: "#9A3412", fontSize: "0.85rem", fontWeight: "600" }}>
@@ -66,7 +69,7 @@ export default function BAESayfasi() {
         <div style={{ background: "#EFF6FF", borderRadius: "16px", padding: "20px 24px", marginBottom: "24px" }}>
           <h2 style={{ fontSize: "1.1rem", color: "var(--l2t-navy)", fontWeight: "800", margin: "0 0 12px" }}>Tahmini Başlangıç Fiyatları</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-            <div><span style={{ fontSize: "0.85rem", color: "#64748B" }}>Uçak Bileti</span><br /><strong style={{ fontSize: "1.2rem", color: "var(--l2t-navy)" }}>{formatFromPrice("dubai")}</strong></div>
+            <div><span style={{ fontSize: "0.85rem", color: "#64748B" }}>Uçak Bileti</span><br /><strong style={{ fontSize: "1.2rem", color: "var(--l2t-navy)" }}>{formatFromPrice("dubai", deals)}</strong></div>
             <div><span style={{ fontSize: "0.85rem", color: "#64748B" }}>Ortalama Otel (Gecelik)</span><br /><strong style={{ fontSize: "1.2rem", color: "var(--l2t-navy)" }}>4.000 TL+</strong></div>
           </div>
           <p style={{ margin: "12px 0 0", fontSize: "0.8rem", color: "#64748B" }}>{PRICE_NOTE}</p>
@@ -94,11 +97,11 @@ export default function BAESayfasi() {
         <div style={{ background: "#FFFBEB", border: "1px solid #FEF08A", borderRadius: "16px", padding: "20px 24px", marginBottom: "24px" }}>
           <h2 style={{ fontSize: "1.1rem", color: "#92400E", fontWeight: "800", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "8px" }}><Info size={18} /> Önemli Notlar</h2>
           <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
-            <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>BAE'de alkol tüketime dair kısıtlamalar mevcuttur; kamuya açık yerlerde alkol yasaktır.</li>
+            <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>BAE’de alkol tüketime dair kısıtlamalar mevcuttur; kamuya açık yerlerde alkol yasaktır.</li>
             <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>Ramadan döneminde gündüzleri kamuya açık alanlarda yemek/içmek yasaktır.</li>
             <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>Kamera için gizlilik kurallarına dikkat edin; özel mülkleri izinsiz fotoğraflamayın.</li>
             <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>Güvenlik düzeyi genel olarak yüksektir; turistler için güvenli bir destinasyondur.</li>
-            <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>Para birimi olarak AED kullanılır; Türk Lirası dönüsümü için döviz bürolari ve ATM'ler mevcuttur.</li>
+            <li style={{ fontSize: "0.9rem", color: "#92400E", lineHeight: 1.6 }}>Para birimi olarak AED kullanılır; Türk Lirası dönüsümü için döviz bürolari ve ATM’ler mevcuttur.</li>
           </ul>
         </div>
 

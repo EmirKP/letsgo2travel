@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Clock3, TrendingUp } from "lucide-react";
-import { formatFromPrice } from "@/lib/prices";
 import styles from "./HomeDealsTicker.module.css";
 
 type Deal = {
@@ -10,6 +9,7 @@ type Deal = {
   origin?: string;
   origin_code?: string;
   price?: number;
+  currency?: string;
   visa_type?: string;
 };
 
@@ -53,7 +53,10 @@ export default function HomeDealsTicker({ deals }: { deals: Deal[] }) {
           <div className={styles.grid}>
             {items.map((deal, index) => {
               const destination = deal.destination || "Rota";
-              const price = deal.price ? `${deal.price.toLocaleString("tr-TR")} TL` : formatFromPrice(destination.toLowerCase());
+              const currency = deal.currency === "TRY" || !deal.currency ? "TL" : deal.currency;
+              const price = deal.price
+                ? `${deal.price.toLocaleString("tr-TR")} ${currency}`
+                : "Fiyatı gör";
               return (
                 <Link href="/kampanyalar" className={styles.card} key={`${deal.id ?? destination}-${index}`}>
                   <span className={styles.flag}>{flags[destination] || "🌍"}</span>
