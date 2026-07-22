@@ -1,23 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useId, useRef, useState } from "react";
 import type { L2tLocale } from "@/lib/i18n";
+import styles from "./LanguageSelector.module.css";
 
-const languages: Array<{ code: L2tLocale; flag: string; label: string; short: string }> = [
-  { code: "tr", flag: "🇹🇷", label: "Türkçe", short: "TR" },
-  { code: "en", flag: "🇺🇸", label: "English", short: "EN" },
+const languages: Array<{
+  code: L2tLocale;
+  flag: string;
+  alt: string;
+  label: string;
+  short: string;
+}> = [
+  { code: "tr", flag: "/flags/tr.svg", alt: "Türkiye bayrağı", label: "Türkçe", short: "TR" },
+  { code: "en", flag: "/flags/us.svg", alt: "Amerika Birleşik Devletleri bayrağı", label: "English", short: "EN" },
 ];
 
 export default function LanguageSelector() {
   const [open, setOpen] = useState(false);
   const [locale, setLocale] = useState<L2tLocale>("tr");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
 
   useEffect(() => {
     const saved = window.localStorage.getItem("l2t-locale") as L2tLocale | null;
     if (saved === "tr" || saved === "en") setLocale(saved);
   }, []);
 
-  const active = languages.find((lang) => lang.code === locale) ?? languages[0];
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  const active = languages.find((language) => language.code === locale) ?? languages[0];
 
   const selectLocale = (code: L2tLocale) => {
     setLocale(code);
@@ -27,32 +53,46 @@ export default function LanguageSelector() {
   };
 
   return (
-    <div className="l2t-language-switcher">
+    <div className={styles.switcher} ref={rootRef}>
       <button
         type="button"
-        className="l2t-language-trigger"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Dil seç"
+        className={styles.trigger}
+        onClick={() => setOpen((current) => !current)}
+        aria-label={`Dil seçimi: ${active.label}`}
         aria-expanded={open}
+        aria-controls={menuId}
+        aria-haspopup="menu"
       >
-        <span className="l2t-language-flag">{active.flag}</span>
-        <span className="l2t-language-short">{active.short}</span>
-        <span className="l2t-language-caret">▾</span>
+        <span className={styles.flagFrame} aria-hidden="true">
+          <Image className={styles.flag} src={active.flag} alt="" width={24} height={16} priority />
+        </span>
+        <span className={styles.short}>{active.short}</span>
+        <span className={styles.caret} aria-hidden="true">▾</span>
       </button>
+
       {open && (
-        <div className="l2t-language-menu" role="menu">
-          {languages.map((lang) => (
-            <button
-              type="button"
-              key={lang.code}
-              className={lang.code === locale ? "l2t-language-option is-active" : "l2t-language-option"}
-              onClick={() => selectLocale(lang.code)}
-              role="menuitem"
-            >
-              <span>{lang.flag}</span>
-              <span>{lang.label}</span>
-            </button>
-          ))}
+        <div className={styles.menu} id={menuId} role="menu" aria-label="Dil seçenekleri">
+          {languages.map((language) => {
+            const isActive = language.code === locale;
+            return (
+              <button
+                type="button"
+                key={language.code}
+                className={`${styles.option} ${isActive ? styles.optionActive : ""}`}
+                onClick={() => selectLocale(language.code)}
+                role="menuitemradio"
+                aria-checked={isActive}
+              >
+                <span className={styles.flagFrame}>
+                  <Image className={styles.flag} src={language.flag} alt={language.alt} width={24} height={16} />
+                </span>
+                <span>{language.label}</span>
+                <span className={isActive ? styles.check : styles.code} aria-hidden="true">
+                  {isActive ? "✓" : language.short}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -100,7 +100,7 @@ export default function KampanyalarClient({ deals }: { deals: FlightDeal[] }) {
       </div>
 
       <p className={styles.result}>
-        <strong>{filtered.length} fırsat, {filtered.filter((deal) => deal.active !== false).length} aktif</strong>
+        <strong>{filtered.length} fırsat gösteriliyor</strong>
         {region !== "Tümü" && <> · {region}</>}
         {visa && <> · {VISA_TYPES.find((item) => item.value === visa)?.label}</>}
       </p>
@@ -112,7 +112,7 @@ export default function KampanyalarClient({ deals }: { deals: FlightDeal[] }) {
         </div>
       ) : (
         <div className={view === "grid" ? styles.grid : styles.list}>
-          {filtered.map((deal) => <DealCard key={deal.id} deal={deal} />)}
+          {filtered.map((deal) => <DealCard key={deal.id} deal={deal} view={view} />)}
         </div>
       )}
     </div>

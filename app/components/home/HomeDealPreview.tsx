@@ -26,6 +26,10 @@ function visaLabel(value: string) {
   return "Vize gerekli";
 }
 
+function displayCurrency(currency: string) {
+  return !currency || currency.toUpperCase() === "TRY" ? "TL" : currency.toUpperCase();
+}
+
 export default function HomeDealPreview({ deal }: { deal: FlightDeal }) {
   const checkedAt = deal.created_at
     ? new Date(deal.created_at).toLocaleString("tr-TR", {
@@ -63,7 +67,7 @@ export default function HomeDealPreview({ deal }: { deal: FlightDeal }) {
         <p>{deal.travel_period || "Esnek seyahat tarihleri"} · {deal.trip_type || "Gidiş dönüş"}</p>
         <div className={styles.footer}>
           <div>
-            <strong>{deal.price.toLocaleString("tr-TR")} {deal.currency}</strong>
+            <strong>{deal.price.toLocaleString("tr-TR")} {displayCurrency(deal.currency)}</strong>
             <small><Clock3 size={13} /> {checkedAt}</small>
           </div>
           <span className={styles.open}><ArrowUpRight size={18} /></span>

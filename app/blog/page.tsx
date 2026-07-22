@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getBlogPosts } from "@/lib/data";
 
-export const metadata: Metadata = { title: "Blog", description: "Letsgo2Travel seyahat blogu ve rehber içerikleri." };
+export const metadata: Metadata = { title: "Blog", description: "LetsGo2Travel seyahat blogu ve rehber içerikleri." };
 
 export default async function BlogPage() {
   const posts = await getBlogPosts();
@@ -16,7 +16,7 @@ export default async function BlogPage() {
       <div style={{ background: "linear-gradient(135deg, #1476f2, #0A1F4A)", borderRadius: "24px", padding: "32px", marginBottom: "40px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "24px", color: "#fff", boxShadow: "0 10px 30px rgba(20,118,242,0.15)" }}>
         <div style={{ flex: "1 1 300px" }}>
           <h2 style={{ fontSize: "1.5rem", color: "#fff", fontWeight: "800", marginBottom: "8px" }}>Okumak Yerine Hızlı Plan İster misin?</h2>
-          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "1.05rem", margin: 0 }}>Blog okumaya vaktin yoksa, yapay zeka asistanımız bütçene ve tarzına en uygun 3 rotayı saniyeler içinde oluştursun.</p>
+          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "1.05rem", margin: 0 }}>Blog okumaya vaktin yoksa, Rota Asistanı bütçene ve tarzına uygun 3 rota hazırlasın.</p>
         </div>
         <Link href="/rota-asistani" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", whiteSpace: "nowrap", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
           Hızlı Plan Oluştur

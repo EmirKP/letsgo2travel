@@ -4,7 +4,7 @@ import { BellRing, Compass, MessageCircle, Plane, ShieldCheck } from "lucide-rea
 import { getCountryGuides } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "Ülke Rehberleri | LetsGo2Travel",
+  title: "Ülke Rehberleri",
   description: "Ülkelerin vize, uçuş, sezon, bütçe ve doğrulanmış gezgin notlarını keşfet.",
 };
 
@@ -27,7 +27,7 @@ export default async function CountryGuidesPage() {
 
       <div className="l2t-guide-seo-band">
         <div>
-          <p className="l2t-kicker">SEO + güven</p>
+          <p className="l2t-kicker">Karar desteği</p>
           <h2>Her rehberde karar vermeni kolaylaştıran bilgiler</h2>
         </div>
         <div className="l2t-guide-seo-items">
@@ -57,9 +57,9 @@ export default async function CountryGuidesPage() {
       </div>
 
 
-      <section className="l2t-country-guides-content-band" aria-labelledby="country-guides-seo-title">
-        <p className="l2t-kicker">SEO rehber merkezi</p>
-        <h2 id="country-guides-seo-title">Ülke seçerken sadece vize durumuna bakma</h2>
+      <section className="l2t-country-guides-content-band" aria-labelledby="country-guides-planning-title">
+        <p className="l2t-kicker">Planlama notları</p>
+        <h2 id="country-guides-planning-title">Ülke seçerken sadece vize durumuna bakma</h2>
         <p>
           Vizesiz veya kimlikle gidilebilen bir ülke seçmek önemli ama tek başına yeterli değil. Uçuş süresi,
           toplam bütçe, şehir içi ulaşım, sezon yoğunluğu ve gerçek gezgin yorumları da rota kararını doğrudan etkiler.

@@ -179,7 +179,7 @@
   margin-top: 16px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .desktopNav { display: none; }
   .inner { justify-content: space-between; }
   .menuTrigger { display: grid; }

@@ -9,7 +9,6 @@ import {
   Bookmark,
   Calculator,
   FileText,
-  Globe,
   Menu,
   MessageSquare,
   Plane,
@@ -34,7 +33,6 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
-  { href: "/vizesiz-ulkeler", label: "Vizesiz Ülkeler", icon: Globe },
   { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
   { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
@@ -61,7 +59,7 @@ export default function Header() {
     <header className={styles.header}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand} aria-label="LetsGo2Travel ana sayfa">
-          <span>Letsgo</span><b>2</b><span>Travel</span><Plane size={20} />
+          <span>LetsGo</span><b>2</b><span>Travel</span><Plane size={20} />
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Ana menü">

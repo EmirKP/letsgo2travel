@@ -1,0 +1,114 @@
+.switcher {
+  position: relative;
+  z-index: 1100;
+}
+
+.trigger {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-primary);
+  box-shadow: 0 5px 16px rgba(10, 44, 63, 0.05);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 820;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, var(--color-border));
+  background: var(--color-secondary-soft);
+  box-shadow: 0 8px 22px rgba(10, 44, 63, 0.09);
+}
+
+.flagFrame {
+  width: 24px;
+  height: 16px;
+  flex: 0 0 24px;
+  overflow: hidden;
+  display: inline-flex;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(10, 44, 63, 0.12);
+}
+
+.flag {
+  width: 24px;
+  height: 16px;
+  display: block;
+  object-fit: cover;
+}
+
+.short {
+  letter-spacing: 0.04em;
+}
+
+.caret {
+  color: var(--color-text-muted);
+  transition: transform 160ms ease;
+}
+
+.trigger[aria-expanded="true"] .caret {
+  transform: rotate(180deg);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 184px;
+  padding: 8px;
+  border: 1px solid rgba(10, 44, 63, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 22px 50px rgba(7, 27, 51, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.option {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 790;
+  text-align: left;
+}
+
+.option:hover,
+.optionActive {
+  background: var(--color-secondary-soft);
+  color: var(--color-primary);
+}
+
+.code {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 860;
+  letter-spacing: 0.06em;
+}
+
+.check {
+  color: var(--color-secondary);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 720px) {
+  .trigger { min-height: 40px; }
+  .menu { left: 0; right: auto; }
+}

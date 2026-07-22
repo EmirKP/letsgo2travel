@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "LetsGo2Travel",
     description: "Pasaport gücü, rota planlama ve gerçek gezgin deneyimleri tek yerde.",
-    images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "Letsgo2Travel" }],
+    images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "LetsGo2Travel seyahat platformu" }],
   },
   manifest: "/manifest.webmanifest",
   applicationName: "LetsGo2Travel",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Letsgo2Travel",
+    title: "LetsGo2Travel",
   },
 };
 

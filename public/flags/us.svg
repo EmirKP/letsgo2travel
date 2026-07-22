@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16" role="img" aria-labelledby="title">
+  <title>Amerika Birleşik Devletleri bayrağı</title>
+  <defs><clipPath id="r"><rect width="24" height="16" rx="2"/></clipPath></defs>
+  <g clip-path="url(#r)">
+    <rect width="24" height="16" fill="#fff"/>
+    <g fill="#B22234">
+      <rect width="24" height="1.23" y="0"/><rect width="24" height="1.23" y="2.46"/><rect width="24" height="1.23" y="4.92"/><rect width="24" height="1.23" y="7.38"/><rect width="24" height="1.23" y="9.84"/><rect width="24" height="1.23" y="12.3"/><rect width="24" height="1.23" y="14.76"/>
+    </g>
+    <rect width="10.5" height="8.62" fill="#3C3B6E"/>
+    <g fill="#fff">
+      <circle cx="1" cy="1" r=".3"/><circle cx="3" cy="1" r=".3"/><circle cx="5" cy="1" r=".3"/><circle cx="7" cy="1" r=".3"/><circle cx="9" cy="1" r=".3"/>
+      <circle cx="2" cy="2.2" r=".3"/><circle cx="4" cy="2.2" r=".3"/><circle cx="6" cy="2.2" r=".3"/><circle cx="8" cy="2.2" r=".3"/>
+      <circle cx="1" cy="3.4" r=".3"/><circle cx="3" cy="3.4" r=".3"/><circle cx="5" cy="3.4" r=".3"/><circle cx="7" cy="3.4" r=".3"/><circle cx="9" cy="3.4" r=".3"/>
+      <circle cx="2" cy="4.6" r=".3"/><circle cx="4" cy="4.6" r=".3"/><circle cx="6" cy="4.6" r=".3"/><circle cx="8" cy="4.6" r=".3"/>
+      <circle cx="1" cy="5.8" r=".3"/><circle cx="3" cy="5.8" r=".3"/><circle cx="5" cy="5.8" r=".3"/><circle cx="7" cy="5.8" r=".3"/><circle cx="9" cy="5.8" r=".3"/>
+      <circle cx="2" cy="7" r=".3"/><circle cx="4" cy="7" r=".3"/><circle cx="6" cy="7" r=".3"/><circle cx="8" cy="7" r=".3"/>
+    </g>
+  </g>
+</svg>
