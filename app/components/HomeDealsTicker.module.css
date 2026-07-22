@@ -1,0 +1,30 @@
+.section { margin-top: 1rem; }
+.panel { padding: 1.15rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1.35rem; background: linear-gradient(135deg, #071d2b, #0e3146); box-shadow: 0 20px 48px rgba(7,29,43,.14); }
+.head { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: .85rem; }
+.kicker { display: inline-flex; align-items: center; gap: .4rem; color: #d4b15f; font-size: .66rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.head h2 { margin: .35rem 0 0; color: #fff; font-size: clamp(1.2rem,2vw,1.55rem); letter-spacing: -.035em; }
+.headMeta { display: flex; align-items: center; gap: .8rem; }
+.headMeta > span,
+.headMeta a { display: inline-flex; align-items: center; gap: .35rem; font-size: .65rem; }
+.headMeta > span { color: rgba(255,255,255,.55); }
+.headMeta a { color: #cde8f0; font-weight: 800; text-decoration: none; }
+.grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .55rem; }
+.card { min-width: 0; display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: .55rem; padding: .7rem; border: 1px solid rgba(255,255,255,.1); border-radius: .9rem; background: rgba(255,255,255,.06); color: #fff; text-decoration: none; transition: transform .2s ease, background .2s ease; }
+.card:hover { transform: translateY(-2px); background: rgba(255,255,255,.1); }
+.flag { width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: .65rem; background: rgba(255,255,255,.1); font-size: 1.05rem; }
+.route { min-width: 0; display: grid; gap: .12rem; }
+.route strong { overflow: hidden; font-size: .73rem; white-space: nowrap; text-overflow: ellipsis; }
+.route small { overflow: hidden; color: rgba(255,255,255,.52); font-size: .58rem; white-space: nowrap; text-overflow: ellipsis; }
+.price { color: #f2d892; font-size: .7rem; font-weight: 850; white-space: nowrap; }
+.visa { padding: .28rem .45rem; border-radius: 999px; background: rgba(121,185,208,.14); color: #d6edf3; font-size: .55rem; font-weight: 800; white-space: nowrap; }
+.card > svg { color: rgba(255,255,255,.48); }
+.empty { padding: 1rem; border-radius: .8rem; background: rgba(255,255,255,.06); color: rgba(255,255,255,.62); font-size: .75rem; }
+@media (max-width: 1120px) {
+  .grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 680px) {
+  .head { align-items: flex-start; flex-direction: column; gap: .6rem; }
+  .grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: .25rem; }
+  .card { flex: 0 0 min(300px,82vw); scroll-snap-align: start; }
+  .headMeta > span { display: none; }
+}

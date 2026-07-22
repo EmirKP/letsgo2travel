@@ -1,236 +1,221 @@
 "use client";
 
-import { useState } from "react";
-import { Calculator, Wallet, Utensils, Bus, Ticket, MapPin, CalendarDays, Coins, BedDouble, Plane, Info, CheckCircle2, Navigation } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
+import { useMemo, useState } from "react";
+import {
+  ArrowRight,
+  BedDouble,
+  Bus,
+  Calculator,
+  CalendarDays,
+  CheckCircle2,
+  Coffee,
+  Info,
+  MapPin,
+  Plane,
+  Sparkles,
+  Ticket,
+  Users,
+  Wallet,
+} from "lucide-react";
 
-// Mock Data for Cities (Daily costs in Euro/USD)
-const cityData: Record<string, { currency: string, rateToTRY: number, budget: { hotel: number, food: number, transport: number, tickets: number, flight: number }, mid: { hotel: number, food: number, transport: number, tickets: number, flight: number }, luxury: { hotel: number, food: number, transport: number, tickets: number, flight: number } }> = {
-  "Roma, İtalya": { currency: "€", rateToTRY: 37.5, budget: { hotel: 40, food: 25, transport: 5, tickets: 10, flight: 150 }, mid: { hotel: 90, food: 55, transport: 15, tickets: 25, flight: 200 }, luxury: { hotel: 250, food: 120, transport: 40, tickets: 60, flight: 350 } },
-  "Paris, Fransa": { currency: "€", rateToTRY: 37.5, budget: { hotel: 50, food: 30, transport: 8, tickets: 15, flight: 150 }, mid: { hotel: 120, food: 70, transport: 20, tickets: 35, flight: 200 }, luxury: { hotel: 300, food: 150, transport: 50, tickets: 80, flight: 350 } },
-  "Belgrad, Sırbistan": { currency: "€", rateToTRY: 37.5, budget: { hotel: 25, food: 15, transport: 3, tickets: 5, flight: 100 }, mid: { hotel: 50, food: 35, transport: 10, tickets: 15, flight: 130 }, luxury: { hotel: 120, food: 80, transport: 25, tickets: 40, flight: 200 } },
-  "Dubai, BAE": { currency: "$", rateToTRY: 34.2, budget: { hotel: 40, food: 20, transport: 10, tickets: 15, flight: 200 }, mid: { hotel: 100, food: 60, transport: 25, tickets: 50, flight: 250 }, luxury: { hotel: 350, food: 150, transport: 80, tickets: 120, flight: 400 } },
-  "Tiflis, Gürcistan": { currency: "$", rateToTRY: 34.2, budget: { hotel: 20, food: 12, transport: 2, tickets: 5, flight: 100 }, mid: { hotel: 45, food: 25, transport: 8, tickets: 12, flight: 150 }, luxury: { hotel: 100, food: 60, transport: 20, tickets: 30, flight: 250 } },
+type TravelStyle = "economy" | "balanced" | "comfort";
+
+type CityBudget = {
+  image: string;
+  country: string;
+  visa: string;
+  daily: Record<TravelStyle, { hotel: number; food: number; transport: number; activities: number }>;
+  flight: Record<TravelStyle, number>;
 };
 
+const cityBudgets: Record<string, CityBudget> = {
+  "Saraybosna": {
+    image: "/destinations/bosnia/sarajevo.jpg",
+    country: "Bosna Hersek",
+    visa: "Vizesiz",
+    daily: {
+      economy: { hotel: 1300, food: 700, transport: 180, activities: 250 },
+      balanced: { hotel: 2300, food: 1200, transport: 350, activities: 600 },
+      comfort: { hotel: 4200, food: 2200, transport: 750, activities: 1200 },
+    },
+    flight: { economy: 4200, balanced: 6000, comfort: 9500 },
+  },
+  "Tiflis": {
+    image: "/destinations/georgia/tbilisi.jpg",
+    country: "Gürcistan",
+    visa: "Kimlikle",
+    daily: {
+      economy: { hotel: 1400, food: 650, transport: 150, activities: 250 },
+      balanced: { hotel: 2500, food: 1200, transport: 350, activities: 650 },
+      comfort: { hotel: 4800, food: 2300, transport: 850, activities: 1300 },
+    },
+    flight: { economy: 4500, balanced: 6500, comfort: 10500 },
+  },
+  "Bakü": {
+    image: "/destinations/baku-flame.jpg",
+    country: "Azerbaycan",
+    visa: "Kimlikle",
+    daily: {
+      economy: { hotel: 1700, food: 800, transport: 180, activities: 300 },
+      balanced: { hotel: 3000, food: 1450, transport: 450, activities: 750 },
+      comfort: { hotel: 5600, food: 2800, transport: 1000, activities: 1600 },
+    },
+    flight: { economy: 5200, balanced: 7500, comfort: 12000 },
+  },
+  "Belgrad": {
+    image: "/destinations/serbia/belgrade-fortress.jpg",
+    country: "Sırbistan",
+    visa: "Vizesiz",
+    daily: {
+      economy: { hotel: 1800, food: 900, transport: 220, activities: 350 },
+      balanced: { hotel: 3200, food: 1600, transport: 480, activities: 800 },
+      comfort: { hotel: 5800, food: 3000, transport: 1100, activities: 1700 },
+    },
+    flight: { economy: 5200, balanced: 7800, comfort: 12500 },
+  },
+  "Roma": {
+    image: "/destinations/italy/colosseum.jpg",
+    country: "İtalya",
+    visa: "Schengen",
+    daily: {
+      economy: { hotel: 3200, food: 1500, transport: 430, activities: 900 },
+      balanced: { hotel: 5600, food: 2700, transport: 850, activities: 1800 },
+      comfort: { hotel: 10000, food: 5000, transport: 1900, activities: 3800 },
+    },
+    flight: { economy: 6500, balanced: 9500, comfort: 16000 },
+  },
+  "Dubai": {
+    image: "/destinations/dubai-palm.jpg",
+    country: "BAE",
+    visa: "e-Vize",
+    daily: {
+      economy: { hotel: 3600, food: 1800, transport: 800, activities: 1200 },
+      balanced: { hotel: 6500, food: 3400, transport: 1600, activities: 3000 },
+      comfort: { hotel: 14500, food: 7000, transport: 4200, activities: 7500 },
+    },
+    flight: { economy: 8000, balanced: 12000, comfort: 22000 },
+  },
+};
+
+const styleLabels: Record<TravelStyle, { title: string; text: string }> = {
+  economy: { title: "Ekonomik", text: "Temel konfor, uygun konaklama ve kontrollü harcama." },
+  balanced: { title: "Dengeli", text: "İyi konum, rahat yemek bütçesi ve birkaç ücretli aktivite." },
+  comfort: { title: "Konforlu", text: "Daha iyi konaklama, esnek ulaşım ve geniş aktivite bütçesi." },
+};
+
+function formatTry(value: number) {
+  return `${Math.round(value).toLocaleString("tr-TR")} TL`;
+}
+
 export default function BudgetCalculatorPage() {
-  const [city, setCity] = useState("Roma, İtalya");
+  const [city, setCity] = useState("Saraybosna");
   const [days, setDays] = useState(3);
   const [people, setPeople] = useState(1);
-  const [style, setStyle] = useState<"budget" | "mid" | "luxury">("mid");
+  const [style, setStyle] = useState<TravelStyle>("balanced");
   const [includeFlight, setIncludeFlight] = useState(true);
   const [includeHotel, setIncludeHotel] = useState(true);
-  const [isCalculated, setIsCalculated] = useState(false);
 
-  const calculateBudget = () => {
-    setIsCalculated(true);
-  };
+  const selected = cityBudgets[city];
+  const costs = selected.daily[style];
 
-  const data = cityData[city];
-  const costs = data[style];
-  
-  // calculations
-  const dailyPerPerson = costs.food + costs.transport + costs.tickets + (includeHotel ? costs.hotel : 0);
-  const flightPerPerson = includeFlight ? costs.flight : 0;
-  
-  const totalPerPerson = (dailyPerPerson * days) + flightPerPerson;
-  const totalTrip = totalPerPerson * people;
-  const totalTRY = totalTrip * data.rateToTRY;
+  const summary = useMemo(() => {
+    const hotel = includeHotel ? costs.hotel * days * people : 0;
+    const food = costs.food * days * people;
+    const transport = costs.transport * days * people;
+    const activities = costs.activities * days * people;
+    const flight = includeFlight ? selected.flight[style] * people : 0;
+    const total = hotel + food + transport + activities + flight;
+    const buffer = Math.round(total * .12);
 
-  const getStyleText = () => {
-    if (style === "budget") return "Bu rota düşük bütçeli seyahat veya sırt çantalı gezginler için hesaplanmıştır.";
-    if (style === "mid") return "Bu seyahat orta seviye konforlu ve dengeli bir bütçeye uygundur.";
-    return "Bu hesaplama premium ve lüks bir deneyim beklentisine göre yapılmıştır.";
-  };
+    return { hotel, food, transport, activities, flight, total, buffer, safeTotal: total + buffer };
+  }, [costs, days, includeFlight, includeHotel, people, selected.flight, style]);
+
+  const assistantHref = `/rota-asistani?budget=${encodeURIComponent(`${summary.safeTotal.toLocaleString("tr-TR")} TL altı`)}&visa=${encodeURIComponent(selected.visa)}&days=${encodeURIComponent(`${days} gün`)}`;
 
   return (
-    <div className="l2t-page l2t-wrap" style={{ padding: "40px 20px" }}>
-      <div className="planner-header" style={{ textAlign: "center", marginBottom: "40px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(245, 158, 11, 0.1)", padding: "8px 16px", borderRadius: "20px", color: "#F59E0B", fontWeight: "600", marginBottom: "16px" }}>
-          <Calculator size={20} />
-          <span>Profesyonel Seyahat Bütçe Planlayıcı</span>
+    <div className="l2t-budget-v25-page">
+      <section className="l2t-budget-v25-hero">
+        <div className="l2t-wrap l2t-budget-v25-hero-grid">
+          <div>
+            <span className="l2t-v25-kicker"><Calculator size={15} /> Seyahat bütçe planlayıcı</span>
+            <h1>Yola çıkmadan toplam maliyeti yaklaşık olarak gör.</h1>
+            <p>Şehir, kişi sayısı, gün ve seyahat tarzını seç. Uçuş, konaklama, yemek, ulaşım ve aktiviteleri tek tabloda hesapla.</p>
+          </div>
+          <div className="l2t-budget-v25-hero-photo">
+            <Image src={selected.image} alt={`${city} seyahat görünümü`} fill priority sizes="(max-width: 800px) 92vw, 44vw" />
+            <span><MapPin size={15} /> {city}, {selected.country}</span>
+          </div>
         </div>
-        <h1 style={{ fontSize: "2.5rem", color: "var(--l2t-navy)", marginBottom: "16px" }}>Seyahatin Ne Kadara Mal Olur?</h1>
-        <p style={{ color: "var(--l2t-soft)", fontSize: "1.1rem", maxWidth: "600px", margin: "0 auto" }}>
-          Gideceğin ülkeyi, gün ve kişi sayısını seç; uçaktan otele, yemekten şehir içi ulaşıma kadar tüm detayları anında hesaplayalım.
-        </p>
-      </div>
+      </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "32px", alignItems: "start", maxWidth: "1000px", margin: "0 auto", paddingBottom: "60px" }}>
-        
-        {/* Form Paneli */}
-        <div className="glass-panel" style={{ padding: "32px", borderRadius: "24px", background: "#fff" }}>
-          <h2 style={{ fontSize: "1.5rem", color: "var(--l2t-navy)", marginBottom: "24px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Wallet color="var(--l2t-blue)" /> Seyahat Parametreleri
-          </h2>
-
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "var(--l2t-navy)" }}>
-              <MapPin size={16} style={{ display: "inline", marginRight: "4px" }} /> Hedef Şehir
-            </label>
-            <select 
-              className="l2t-input" 
-              value={city} 
-              onChange={(e) => { setCity(e.target.value); setIsCalculated(false); }}
-              style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #ddd", fontSize: "1rem", outline: "none", background: "#f8fafc" }}
-            >
-              {Object.keys(cityData).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+      <section className="l2t-wrap l2t-budget-v25-shell">
+        <div className="l2t-budget-v25-form-card">
+          <div className="l2t-budget-v25-card-head">
+            <span><Wallet size={21} /></span>
+            <div><small>Plan bilgileri</small><h2>Seyahatini tanımla</h2></div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "20px" }}>
-            <div>
-              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "var(--l2t-navy)" }}>
-                <CalendarDays size={16} style={{ display: "inline", marginRight: "4px" }} /> Gün
+          <div className="l2t-budget-v25-fields">
+            <label>
+              <span><MapPin size={16} /> Hedef şehir</span>
+              <select value={city} onChange={(event) => setCity(event.target.value)}>
+                {Object.entries(cityBudgets).map(([name, data]) => <option key={name} value={name}>{name}, {data.country}</option>)}
+              </select>
+            </label>
+            <div className="l2t-budget-v25-two-fields">
+              <label>
+                <span><CalendarDays size={16} /> Gün</span>
+                <input type="number" min={1} max={30} value={days} onChange={(event) => setDays(Math.max(1, Math.min(30, Number(event.target.value) || 1)))} />
               </label>
-              <input type="number" min="1" value={days} onChange={(e) => { setDays(parseInt(e.target.value) || 1); setIsCalculated(false); }} style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #ddd", fontSize: "1rem", outline: "none", background: "#f8fafc" }} />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "var(--l2t-navy)" }}>
-                <Coins size={16} style={{ display: "inline", marginRight: "4px" }} /> Kişi
+              <label>
+                <span><Users size={16} /> Kişi</span>
+                <input type="number" min={1} max={10} value={people} onChange={(event) => setPeople(Math.max(1, Math.min(10, Number(event.target.value) || 1)))} />
               </label>
-              <input type="number" min="1" value={people} onChange={(e) => { setPeople(parseInt(e.target.value) || 1); setIsCalculated(false); }} style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "1px solid #ddd", fontSize: "1rem", outline: "none", background: "#f8fafc" }} />
             </div>
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: "var(--l2t-navy)" }}>Seyahat Tarzı</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-              <button onClick={() => { setStyle("budget"); setIsCalculated(false); }} className={`l2t-btn ${style === "budget" ? "" : "l2t-btn-outline"}`} style={{ padding: "10px", fontSize: "0.9rem" }}>Ekonomik</button>
-              <button onClick={() => { setStyle("mid"); setIsCalculated(false); }} className={`l2t-btn ${style === "mid" ? "" : "l2t-btn-outline"}`} style={{ padding: "10px", fontSize: "0.9rem" }}>Dengeli</button>
-              <button onClick={() => { setStyle("luxury"); setIsCalculated(false); }} className={`l2t-btn ${style === "luxury" ? "" : "l2t-btn-outline"}`} style={{ padding: "10px", fontSize: "0.9rem" }}>Lüks</button>
-            </div>
+          <fieldset className="l2t-budget-v25-style-select">
+            <legend>Seyahat tarzı</legend>
+            {Object.entries(styleLabels).map(([key, value]) => (
+              <button type="button" key={key} className={style === key ? "is-active" : ""} onClick={() => setStyle(key as TravelStyle)}>
+                <strong>{value.title}</strong><small>{value.text}</small>
+              </button>
+            ))}
+          </fieldset>
+
+          <div className="l2t-budget-v25-toggles">
+            <label><input type="checkbox" checked={includeFlight} onChange={(event) => setIncludeFlight(event.target.checked)} /><span><Plane size={17} /> Uçuş dahil</span></label>
+            <label><input type="checkbox" checked={includeHotel} onChange={(event) => setIncludeHotel(event.target.checked)} /><span><BedDouble size={17} /> Konaklama dahil</span></label>
           </div>
 
-          <div style={{ marginBottom: "32px", display: "flex", flexDirection: "column", gap: "12px" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "var(--l2t-navy)", fontWeight: "600" }}>
-              <input type="checkbox" checked={includeFlight} onChange={(e) => { setIncludeFlight(e.target.checked); setIsCalculated(false); }} style={{ width: "18px", height: "18px", accentColor: "#1476f2" }} />
-              Uçak bileti hesaba dahil edilsin
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "var(--l2t-navy)", fontWeight: "600" }}>
-              <input type="checkbox" checked={includeHotel} onChange={(e) => { setIncludeHotel(e.target.checked); setIsCalculated(false); }} style={{ width: "18px", height: "18px", accentColor: "#1476f2" }} />
-              Konaklama hesaba dahil edilsin
-            </label>
+          <div className="l2t-budget-v25-info"><Info size={17} /><p>Hesaplama yaklaşık planlama aralığıdır. Fiyatlar tarih, kur, doluluk ve kişisel tercihlere göre değişebilir.</p></div>
+        </div>
+
+        <aside className="l2t-budget-v25-result-card">
+          <div className="l2t-budget-v25-result-top">
+            <span>{selected.visa}</span>
+            <small>{people} kişi · {days} gün · {styleLabels[style].title}</small>
+            <h2>{formatTry(summary.safeTotal)}</h2>
+            <p>Önerilen güvenli toplam bütçe</p>
           </div>
 
-          <button onClick={calculateBudget} className="l2t-btn" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", background: "linear-gradient(135deg, #1476f2, #0A1F4A)" }}>
-            Bütçemi Hesapla 🚀
-          </button>
-        </div>
+          <div className="l2t-budget-v25-breakdown">
+            <div><span><Plane size={17} /> Uçuş</span><strong>{formatTry(summary.flight)}</strong></div>
+            <div><span><BedDouble size={17} /> Konaklama</span><strong>{formatTry(summary.hotel)}</strong></div>
+            <div><span><Coffee size={17} /> Yeme içme</span><strong>{formatTry(summary.food)}</strong></div>
+            <div><span><Bus size={17} /> Şehir içi ulaşım</span><strong>{formatTry(summary.transport)}</strong></div>
+            <div><span><Ticket size={17} /> Aktivite</span><strong>{formatTry(summary.activities)}</strong></div>
+            <div className="is-buffer"><span><CheckCircle2 size={17} /> Esneklik payı</span><strong>{formatTry(summary.buffer)}</strong></div>
+          </div>
 
-        {/* Sonuç Paneli */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          <AnimatePresence>
-            {isCalculated ? (
-              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel glow-card" style={{ padding: "32px", borderRadius: "24px", background: "linear-gradient(135deg, #10B981, #059669)", color: "#fff" }}>
-                <h3 style={{ fontSize: "1.2rem", opacity: 0.9, marginBottom: "8px" }}>Toplam Tahmini Bütçe</h3>
-                <div style={{ fontSize: "3.5rem", fontWeight: "800", marginBottom: "4px", lineHeight: "1" }}>
-                  {data.currency}{totalTrip.toLocaleString()}
-                </div>
-                <div style={{ fontSize: "1.2rem", opacity: 0.9, marginBottom: "24px" }}>
-                  ≈ {totalTRY.toLocaleString("tr-TR")} TL <span style={{ fontSize: "0.9rem", opacity: 0.8 }}>({people} kişi, {days} gün)</span>
-                </div>
-                
-                <div style={{ background: "rgba(255,255,255,0.15)", padding: "16px", borderRadius: "16px", fontSize: "0.95rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <span>Günlük Ortalama (Toplam):</span>
-                    <strong>{data.currency}{Math.round(totalTrip / days)}</strong>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>Kişi Başı Günlük (Uçuş Hariç):</span>
-                    <strong>{data.currency}{dailyPerPerson}</strong>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "24px", display: "flex", gap: "8px", alignItems: "flex-start", fontSize: "0.85rem", opacity: 0.9 }}>
-                  <Info size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
-                  <p style={{ margin: 0 }}>Bu hesaplama tahmini bilgilendirme amaçlıdır. Uçak bileti, otel ve ülke içi fiyatlar tarihe, sezona ve erken rezervasyon durumuna göre değişiklik gösterebilir.</p>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="glass-panel" style={{ padding: "32px", borderRadius: "24px", background: "#f8fafc", color: "var(--l2t-soft)", display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "250px", textAlign: "center", border: "2px dashed #cbd5e1" }}>
-                Sonuçları görmek için bilgileri girip "Hesapla" butonuna bas.
-              </div>
-            )}
-          </AnimatePresence>
-
-          {isCalculated && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-panel" style={{ padding: "32px", borderRadius: "24px", background: "#fff" }}>
-              <div style={{ marginBottom: "24px" }}>
-                <h3 style={{ fontSize: "1.3rem", color: "var(--l2t-navy)", marginBottom: "4px", fontWeight: "800" }}>Detaylı Harcama Kırılımı</h3>
-                <p style={{ color: "var(--l2t-soft)", fontSize: "0.9rem", margin: 0 }}>Kişi başı yaklaşık maliyetler ({data.currency})</p>
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                {includeFlight && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-                    <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#1476f2" }}><Plane size={24}/></div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: "700", color: "var(--l2t-navy)" }}>Uçak Bileti</div>
-                      <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)" }}>Gidiş-dönüş tahmini ortalama bilet</div>
-                    </div>
-                    <div style={{ fontWeight: "800", color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{data.currency}{flightPerPerson}</div>
-                  </div>
-                )}
-                
-                {includeHotel && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-                    <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#8b5cf6" }}><BedDouble size={24}/></div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: "700", color: "var(--l2t-navy)" }}>Konaklama (Günlük)</div>
-                      <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)" }}>Otelin kişi başına düşen gecelik payı</div>
-                    </div>
-                    <div style={{ fontWeight: "800", color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{data.currency}{costs.hotel}</div>
-                  </div>
-                )}
-
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-                  <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center", color: "#f59e0b" }}><Utensils size={24}/></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "700", color: "var(--l2t-navy)" }}>Yeme & İçme (Günlük)</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)" }}>Kahvaltı, kahve molası ve akşam yemeği</div>
-                  </div>
-                  <div style={{ fontWeight: "800", color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{data.currency}{costs.food}</div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-                  <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", color: "#10b981" }}><Bus size={24}/></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "700", color: "var(--l2t-navy)" }}>Şehir İçi Ulaşım (Günlük)</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)" }}>Metro, otobüs veya kısa mesafe taksi</div>
-                  </div>
-                  <div style={{ fontWeight: "800", color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{data.currency}{costs.transport}</div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "#fdf2f8", display: "flex", alignItems: "center", justifyContent: "center", color: "#ec4899" }}><Ticket size={24}/></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "700", color: "var(--l2t-navy)" }}>Müze & Aktivite (Günlük)</div>
-                    <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)" }}>Müze girişleri, turlar veya etkinlikler</div>
-                  </div>
-                  <div style={{ fontWeight: "800", color: "var(--l2t-navy)", fontSize: "1.1rem" }}>{data.currency}{costs.tickets}</div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: "24px", padding: "16px", background: "#f8fafc", borderRadius: "12px", fontSize: "0.9rem", color: "var(--l2t-navy)", display: "flex", gap: "12px" }}>
-                 <CheckCircle2 size={20} color="#10B981" style={{ flexShrink: 0 }} />
-                 {getStyleText()}
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "32px" }}>
-                 <Link href="/ucak-bileti-ara" className="l2t-btn" style={{ padding: "14px", textDecoration: "none", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
-                    <Plane size={18} /> Uçuş Ara
-                 </Link>
-                 <Link href="/akilli-plan" className="l2t-btn l2t-btn-outline" style={{ padding: "14px", textDecoration: "none", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", borderColor: "var(--l2t-navy)", color: "var(--l2t-navy)" }}>
-                    <Navigation size={18} /> Bu Bütçeyle Rota Çiz
-                 </Link>
-              </div>
-            </motion.div>
-          )}
-
-        </div>
-      </div>
+          <div className="l2t-budget-v25-actions">
+            <Link href={assistantHref}><Sparkles size={18} /> Bu bütçeyle rota oluştur <ArrowRight size={17} /></Link>
+            <Link href="/#bilet-ara"><Plane size={18} /> Uçuşları kontrol et</Link>
+          </div>
+        </aside>
+      </section>
     </div>
   );
 }

@@ -18,7 +18,7 @@ export default async function BlogPage() {
           <h2 style={{ fontSize: "1.5rem", color: "#fff", fontWeight: "800", marginBottom: "8px" }}>Okumak Yerine Hızlı Plan İster misin?</h2>
           <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "1.05rem", margin: 0 }}>Blog okumaya vaktin yoksa, yapay zeka asistanımız bütçene ve tarzına en uygun 3 rotayı saniyeler içinde oluştursun.</p>
         </div>
-        <Link href="/akilli-plan" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", whiteSpace: "nowrap", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
+        <Link href="/rota-asistani" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", whiteSpace: "nowrap", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
           Hızlı Plan Oluştur
         </Link>
       </div>

@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getDealBySlug, getFlightDeals } from "@/lib/data";
+import { getDealBySlug } from "@/lib/data";
 import { affiliateRedirectUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import JsonLd from "@/app/components/JsonLd";
 import { flightDealSchema } from "@/lib/structured-data";
 
-export async function generateStaticParams() {
-  const deals = await getFlightDeals();
-  return deals.map((deal) => ({ slug: deal.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

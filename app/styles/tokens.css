@@ -1,0 +1,60 @@
+/* LetsGo2Travel foundation tokens — new work must use these variables. */
+:root {
+  --color-page: #f2f6f7;
+  --color-page-deep: #e5eef1;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f8fbfb;
+  --color-text: #0c2436;
+  --color-text-muted: #5c7180;
+  --color-primary: #0a2c3f;
+  --color-primary-hover: #123f55;
+  --color-secondary: #16778b;
+  --color-secondary-soft: #dceef1;
+  --color-accent: #d0a53d;
+  --color-border: #c9d8de;
+  --color-success: #168065;
+  --color-warning: #b7791f;
+  --color-danger: #c44b59;
+
+  --font-sans: "Aptos", "Segoe UI Variable", "Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: clamp(1.8rem, 4vw, 2.5rem);
+  --font-size-display: clamp(2.35rem, 6vw, 4.8rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-pill: 999px;
+  --shadow-card: 0 18px 46px rgba(10, 44, 63, 0.09);
+  --shadow-focus: 0 0 0 4px rgba(22, 119, 139, 0.22);
+  --container-width: 1380px;
+
+  /* Compatibility aliases while pages are migrated. */
+  --l2t-page-bg: var(--color-page);
+  --l2t-page: var(--color-page);
+  --l2t-page-deep: var(--color-page-deep);
+  --l2t-surface: var(--color-surface);
+  --l2t-ink: var(--color-text);
+  --l2t-muted: var(--color-text-muted);
+  --l2t-line: var(--color-border);
+  --l2t-navy-calm: var(--color-primary);
+  --l2t-navy-soft-2: var(--color-primary-hover);
+  --l2t-blue-calm: var(--color-secondary);
+  --l2t-surface-blue: var(--color-secondary-soft);
+  --l2t-gold-calm: var(--color-accent);
+}

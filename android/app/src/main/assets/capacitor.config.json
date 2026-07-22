@@ -1,0 +1,46 @@
+{
+	"appId": "tr.com.letsgo2travel.app",
+	"appName": "LetsGo2Travel",
+	"webDir": "mobile-dist",
+	"backgroundColor": "#F5F7F9",
+	"appendUserAgent": " LetsGo2TravelNative/1.0",
+	"loggingBehavior": "debug",
+	"zoomEnabled": true,
+	"server": {
+		"url": "https://www.letsgo2travel.com.tr",
+		"cleartext": false,
+		"androidScheme": "https",
+		"iosScheme": "capacitor",
+		"allowNavigation": [
+			"www.letsgo2travel.com.tr",
+			"letsgo2travel.com.tr"
+		],
+		"errorPath": "index.html"
+	},
+	"android": {
+		"backgroundColor": "#F5F7F9",
+		"allowMixedContent": false,
+		"webContentsDebuggingEnabled": false
+	},
+	"ios": {
+		"backgroundColor": "#F5F7F9",
+		"contentInset": "automatic",
+		"scrollEnabled": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 1500,
+			"launchAutoHide": true,
+			"backgroundColor": "#0D2D47",
+			"showSpinner": false,
+			"androidScaleType": "CENTER_CROP",
+			"splashFullScreen": true,
+			"splashImmersive": true
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#FFFFFF",
+			"overlaysWebView": false
+		}
+	}
+}

@@ -1,17 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./styles/legacy-consolidated.css";
+import "./styles/tokens.css";
+import "./styles/foundation.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
 import JsonLd from "./components/JsonLd";
+import PwaRegister from "./components/PwaRegister";
+import NativeAppBridge from "./components/NativeAppBridge";
 import { organizationSchema } from "@/lib/structured-data";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#06183A",
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: "#0A2C3F",
   viewportFit: "cover",
 };
 
@@ -28,7 +33,9 @@ export const metadata: Metadata = {
     description: "Pasaport gücü, rota planlama ve gerçek gezgin deneyimleri tek yerde.",
     images: [{ url: "/plane-hero.webp", width: 1200, height: 630, alt: "Letsgo2Travel" }],
   },
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
+  applicationName: "LetsGo2Travel",
+  formatDetection: { telephone: false },
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -48,6 +55,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="tr">
       <body>
         <JsonLd data={organizationSchema()} />
+        <PwaRegister />
+        <NativeAppBridge />
         <Header />
         <main>{children}</main>
         <Footer />

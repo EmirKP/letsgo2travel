@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LetsGo2Travel</string>
+    <string name="title_activity_main">LetsGo2Travel</string>
+    <string name="package_name">tr.com.letsgo2travel.app</string>
+    <string name="custom_url_scheme">tr.com.letsgo2travel.app</string>
+</resources>

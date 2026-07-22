@@ -128,7 +128,7 @@ export default function GuideCenterPage() {
             <h2 style={{ fontSize: "1.5rem", color: "#fff", fontWeight: "800", marginBottom: "8px" }}>Nereye Gideceğini Hala Bilmiyor Musun?</h2>
             <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "1.05rem", margin: 0 }}>Vize gereksinimlerini ve bütçeni seç, yapay zeka senin için saniyeler içinde mükemmel bir rota çıkarsın.</p>
           </div>
-          <Link href="/akilli-plan" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
+          <Link href="/rota-asistani" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245,158,11,0.4)" }}>
             Rota Asistanı ile Planla
           </Link>
         </div>

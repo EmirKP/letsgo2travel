@@ -1,9 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { User, Lock, Mail, ArrowRight, Plane, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  BellRing,
+  CheckCircle,
+  Compass,
+  Lock,
+  Mail,
+  Plane,
+  ShieldCheck,
+  User,
+} from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09A6.4 6.4 0 0 1 5.49 12c0-.73.13-1.43.35-2.09V7.07H2.18A10.9 10.9 0 0 0 1 12c0 1.78.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+  );
+}
+
+function AuthStory() {
+  return (
+    <aside className="l2t-auth-story" aria-label="LetsGo2Travel üyelik avantajları">
+      <Link href="/" className="l2t-auth-brand" aria-label="LetsGo2Travel ana sayfa">
+        <span><Plane size={23} /></span>
+        <strong>LetsGo<span>2</span>Travel</strong>
+      </Link>
+
+      <div className="l2t-auth-story-copy">
+        <p className="l2t-auth-eyebrow">Ücretsiz üyelik</p>
+        <h1>Seyahat planlarını tek hesapta biriktir.</h1>
+        <p>
+          Rotalarını kaydet, ilgilendiğin uçuşlara alarm kur ve topluluk
+          deneyimlerine tüm cihazlarından ulaş.
+        </p>
+      </div>
+
+      <div className="l2t-auth-benefits">
+        <div>
+          <span><BellRing size={19} /></span>
+          <p><strong>Fiyat alarmı</strong><small>Fırsatları kaçırmadan takip et.</small></p>
+        </div>
+        <div>
+          <span><Compass size={19} /></span>
+          <p><strong>Akıllı rota</strong><small>Planlarını kaydet ve geliştir.</small></p>
+        </div>
+        <div>
+          <span><ShieldCheck size={19} /></span>
+          <p><strong>Tek hesap</strong><small>Web ve uygulamada devam et.</small></p>
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -18,353 +76,190 @@ export default function RegisterPage() {
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setError("");
+
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const redirectTo = Capacitor.isNativePlatform()
+        ? "tr.com.letsgo2travel.app://auth/callback"
+        : `${siteUrl}/auth/callback`;
+
       const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${siteUrl}/auth/callback`,
-        },
+        provider: "google",
+        options: { redirectTo },
       });
 
-      if (authError) {
-        throw authError;
-      }
-    } catch (err: any) {
-      console.error(err);
+      if (authError) throw authError;
+    } catch (caughtError: unknown) {
+      console.error(caughtError);
       setError("Google ile kayıt başlatılamadı. Lütfen tekrar deneyin.");
       setIsGoogleLoading(false);
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
-    if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalıdır.");
-      setLoading(false);
-      return;
-    }
-
-    const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name, username: username },
-      },
-    });
-
-    if (authError) {
-      if (authError.message.includes("already registered")) {
-        setError("Bu e-posta adresi zaten kayıtlı. Giriş yapmayı deneyin.");
-      } else {
-        setError("Kayıt başarısız: " + authError.message);
+    try {
+      if (password.length < 6) {
+        setError("Şifre en az 6 karakter olmalıdır.");
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    setSuccess(true);
-    setLoading(false);
+      const { error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name.trim(), username: username.trim() },
+        },
+      });
+
+      if (authError) {
+        setError(
+          authError.message.includes("already registered")
+            ? "Bu e-posta adresi zaten kayıtlı. Giriş yapmayı deneyin."
+            : `Kayıt başarısız: ${authError.message}`,
+        );
+        return;
+      }
+
+      setSuccess(true);
+    } catch (caughtError: unknown) {
+      console.error(caughtError);
+      setError("Kayıt sırasında beklenmeyen bir sorun oluştu.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #F0FFF4 0%, #DCFCE7 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "40px 20px",
-      }}>
-        <div style={{
-          textAlign: "center",
-          background: "#fff",
-          borderRadius: "24px",
-          padding: "48px 40px",
-          maxWidth: "420px",
-          boxShadow: "0 20px 60px rgba(16,185,129,0.1)",
-        }}>
-          <div style={{
-            width: "72px",
-            height: "72px",
-            background: "#10B981",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 24px",
-          }}>
-            <CheckCircle size={40} color="#fff" />
-          </div>
-          <h2 style={{ color: "#065F46", fontSize: "1.5rem", fontWeight: "800", margin: "0 0 12px" }}>
-            Hesabın Oluşturuldu!
-          </h2>
-          <p style={{ color: "#6B7280", marginBottom: "32px" }}>
-            Kaydını onaylamak için e-posta adresine bir doğrulama linki gönderdik. Lütfen e-postanı kontrol et.
+      <main className="l2t-auth-page">
+        <section className="l2t-auth-success" aria-live="polite">
+          <span className="l2t-auth-success-icon"><CheckCircle size={38} /></span>
+          <p className="l2t-auth-eyebrow">Kayıt tamamlandı</p>
+          <h1>Hesabın oluşturuldu</h1>
+          <p>
+            Kaydını onaylamak için <strong>{email}</strong> adresine doğrulama
+            bağlantısı gönderdik. Gelen kutunu ve gereksiz klasörünü kontrol et.
           </p>
-          <Link
-            href="/auth/login"
-            style={{
-              display: "inline-block",
-              background: "#10B981",
-              color: "#fff",
-              padding: "14px 32px",
-              borderRadius: "12px",
-              fontWeight: "700",
-              textDecoration: "none",
-            }}
-          >
-            Giriş Yap
+          <Link href="/auth/login" className="l2t-auth-success-link">
+            <span>Giriş ekranına dön</span><ArrowRight size={18} />
           </Link>
-        </div>
-      </div>
+        </section>
+      </main>
     );
   }
 
+  const isBusy = loading || isGoogleLoading;
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #F8FBFF 0%, #EEF4FF 100%)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px 20px",
-    }}>
-      <div style={{
-        width: "100%",
-        maxWidth: "420px",
-        background: "#fff",
-        borderRadius: "24px",
-        padding: "48px 40px",
-        boxShadow: "0 20px 60px rgba(20,118,242,0.08)",
-        border: "1px solid rgba(20,118,242,0.08)",
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div style={{
-            width: "64px",
-            height: "64px",
-            background: "linear-gradient(135deg, #1476F2, #0f5ec9)",
-            borderRadius: "16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 20px",
-            boxShadow: "0 8px 24px rgba(20,118,242,0.25)",
-          }}>
-            <Plane size={30} color="#fff" />
+    <main className="l2t-auth-page">
+      <section className="l2t-auth-shell l2t-auth-shell-register" aria-labelledby="register-title">
+        <AuthStory />
+
+        <div className="l2t-auth-panel">
+          <div className="l2t-auth-panel-head">
+            <span className="l2t-auth-mobile-mark"><Plane size={24} /></span>
+            <p>LetsGo2Travel&apos;a katıl</p>
+            <h2 id="register-title">Ücretsiz hesap oluştur</h2>
+            <span>Bir dakikadan kısa sürede seyahat profilini oluşturmaya başla.</span>
           </div>
-          <h1 style={{ fontSize: "1.7rem", color: "#061433", fontWeight: "800", margin: "0 0 8px" }}>
-            Hesap Oluştur
-          </h1>
-          <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: 0 }}>
-            Letsgo2Travel topluluğuna katıl.
+
+          <form onSubmit={handleRegister} className="l2t-auth-form l2t-auth-register-form">
+            <label className="l2t-auth-field">
+              <span>Ad soyad</span>
+              <span className="l2t-auth-input-wrap">
+                <User size={18} />
+                <input
+                  type="text"
+                  autoComplete="name"
+                  required
+                  placeholder="Adın ve soyadın"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </span>
+            </label>
+
+            <label className="l2t-auth-field">
+              <span>Kullanıcı adı</span>
+              <span className="l2t-auth-input-wrap">
+                <User size={18} />
+                <input
+                  type="text"
+                  autoComplete="username"
+                  required
+                  minLength={3}
+                  placeholder="Toplulukta görünecek ad"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+              </span>
+            </label>
+
+            <label className="l2t-auth-field">
+              <span>E-posta adresi</span>
+              <span className="l2t-auth-input-wrap">
+                <Mail size={18} />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  required
+                  placeholder="ornek@email.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </span>
+            </label>
+
+            <label className="l2t-auth-field">
+              <span>Şifre</span>
+              <span className="l2t-auth-input-wrap">
+                <Lock size={18} />
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  placeholder="En az 6 karakter"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </span>
+            </label>
+
+            {error ? (
+              <div className="l2t-auth-error" role="alert">
+                <AlertCircle size={17} />
+                <span>{error}</span>
+              </div>
+            ) : null}
+
+            <button type="submit" className="l2t-auth-submit" disabled={isBusy}>
+              <span>{loading ? "Hesabın oluşturuluyor..." : "Hesap oluştur"}</span>
+              {!loading ? <ArrowRight size={19} /> : null}
+            </button>
+          </form>
+
+          <div className="l2t-auth-divider"><span>veya</span></div>
+
+          <button type="button" className="l2t-auth-google" onClick={handleGoogleLogin} disabled={isBusy}>
+            {isGoogleLoading ? <span>Google&apos;a yönlendiriliyor...</span> : <><GoogleMark /><span>Google ile devam et</span></>}
+          </button>
+
+          <p className="l2t-auth-register">
+            Zaten hesabın var mı? <Link href="/auth/login">Giriş yap</Link>
+          </p>
+
+          <p className="l2t-auth-legal">
+            Kayıt olarak <Link href="/kullanim-sartlari">Kullanım Şartları</Link> ve
+            <Link href="/gizlilik-politikasi"> Gizlilik Politikası</Link>&apos;nı kabul etmiş olursun.
           </p>
         </div>
-
-        <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Name */}
-          <div style={{ position: "relative" }}>
-            <User size={18} color="#94a3b8" style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }} />
-            <input
-              type="text"
-              required
-              placeholder="Ad Soyad"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 14px 14px 46px",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                fontSize: "1rem",
-                outline: "none",
-                color: "#061433",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "#1476F2")}
-              onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-            />
-          </div>
-
-          {/* Username */}
-          <div style={{ position: "relative" }}>
-            <User size={18} color="#94a3b8" style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }} />
-            <input
-              type="text"
-              required
-              placeholder="Kullanıcı Adı"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 14px 14px 46px",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                fontSize: "1rem",
-                outline: "none",
-                color: "#061433",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "#1476F2")}
-              onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-            />
-          </div>
-
-          {/* Email */}
-          <div style={{ position: "relative" }}>
-            <Mail size={18} color="#94a3b8" style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }} />
-            <input
-              type="email"
-              required
-              placeholder="E-posta adresi"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 14px 14px 46px",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                fontSize: "1rem",
-                outline: "none",
-                color: "#061433",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "#1476F2")}
-              onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-            />
-          </div>
-
-          {/* Password */}
-          <div style={{ position: "relative" }}>
-            <Lock size={18} color="#94a3b8" style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }} />
-            <input
-              type="password"
-              required
-              placeholder="Şifre (en az 6 karakter)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px 14px 14px 46px",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                fontSize: "1rem",
-                outline: "none",
-                color: "#061433",
-                boxSizing: "border-box",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "#1476F2")}
-              onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              background: "#FEF2F2",
-              border: "1px solid #FCA5A5",
-              color: "#DC2626",
-              padding: "12px 16px",
-              borderRadius: "10px",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
-              <AlertCircle size={16} />
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || isGoogleLoading}
-            style={{
-              width: "100%",
-              padding: "14px",
-              background: loading || isGoogleLoading ? "#94a3b8" : "linear-gradient(135deg, #1476F2, #0f5ec9)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              fontSize: "1rem",
-              fontWeight: "700",
-              cursor: loading || isGoogleLoading ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              transition: "all 0.2s",
-              marginTop: "8px",
-            }}
-          >
-            {loading ? "Oluşturuluyor..." : <><span>Hesap Oluştur</span><ArrowRight size={20} /></>}
-          </button>
-        </form>
-
-        <div style={{ display: "flex", alignItems: "center", margin: "24px 0" }}>
-          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }}></div>
-          <span style={{ padding: "0 12px", color: "#94a3b8", fontSize: "0.85rem", fontWeight: "600" }}>VEYA</span>
-          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }}></div>
-        </div>
-
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading || isGoogleLoading}
-          style={{
-            width: "100%",
-            padding: "14px",
-            background: "#fff",
-            color: "#334155",
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            fontSize: "1rem",
-            fontWeight: "600",
-            cursor: loading || isGoogleLoading ? "not-allowed" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "12px",
-            transition: "all 0.2s",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-          }}
-          onMouseOver={(e) => {
-            if (!loading && !isGoogleLoading) e.currentTarget.style.background = "#f8fafc";
-          }}
-          onMouseOut={(e) => {
-            if (!loading && !isGoogleLoading) e.currentTarget.style.background = "#fff";
-          }}
-        >
-          {isGoogleLoading ? (
-            <span style={{ color: "#64748B" }}>Yönlendiriliyor...</span>
-          ) : (
-            <>
-              <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              <span>Google ile devam et</span>
-            </>
-          )}
-        </button>
-
-        <div style={{ textAlign: "center", marginTop: "32px", fontSize: "0.9rem", color: "#94a3b8" }}>
-          Zaten hesabın var mı?{" "}
-          <Link href="/auth/login" style={{ color: "#1476F2", fontWeight: "700", textDecoration: "none" }}>
-            Giriş Yap
-          </Link>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

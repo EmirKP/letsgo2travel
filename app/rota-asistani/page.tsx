@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Sparkles, Map, Building, Wallet, Plane, CheckCircle2, 
-  ChevronRight, Globe2, CalendarDays, Coins, Heart, Users, MapPin, 
-  AlertTriangle, ArrowRight, ExternalLink, MessageSquare, BookOpen, Clock,
-  Calendar, Info, AlertCircle, Compass
+import {
+  Sparkles, Wallet, Plane, CheckCircle2, ChevronRight, Users, MapPin,
+  MessageSquare, BookOpen, Clock, Info, Compass
 } from "lucide-react";
-import SaveTripButton from "../components/SaveTripButton";
 import Link from "next/link";
+import Image from "next/image";
 import PlaneLoader from "../components/PlaneLoader";
 import AiDestinationCard from "../components/AiDestinationCard";
 
@@ -50,108 +48,6 @@ export interface AiPlanResponse {
 
 type Step = "welcome" | "origin" | "time" | "budget" | "who" | "vibe" | "loading" | "result" | "error";
 
-const PremiumLoading = () => {
-  const [tipIndex, setTipIndex] = useState(0);
-  const [progressStep, setProgressStep] = useState(0);
-  const [progressPercent, setProgressPercent] = useState(0);
-
-  const tips = [
-    "Pasaport geçerliliğini seyahatten önce kontrol etmek iyi bir fikirdir.",
-    "El bagajındaki sıvılar için havayolu kurallarını kontrol etmeyi unutma.",
-    "Hafta içi uçuşlarda zaman zaman daha uygun fiyatlar bulunabilir.",
-    "eSIM, yurt dışında internet kullanımı için pratik bir alternatif olabilir.",
-    "Vizesiz ülkelerde bile giriş kuralları dönemsel olarak değişebilir.",
-    "Erken planlama, konaklama ve uçuş seçeneklerini artırabilir.",
-    "Balkan rotalarında şehirler arası otobüs sık tercih edilen bir seçenektir.",
-    "Seyahat sigortası bazı ülkelerde girişte istenebilir."
-  ];
-
-  const steps = [
-    "Tercihlerin analiz ediliyor...",
-    "Vize kolaylığına göre rotalar süzülüyor...",
-    "Bütçene uygun destinasyonlar karşılaştırılıyor...",
-    "Seyahat tarzına uygun şehirler seçiliyor...",
-    "Rota önerileri hazırlanıyor..."
-  ];
-
-  useEffect(() => {
-    const tipInterval = setInterval(() => {
-      setTipIndex(prev => (prev + 1) % tips.length);
-    }, 3000);
-    
-    const stepInterval = setInterval(() => {
-      setProgressStep(prev => Math.min(prev + 1, steps.length - 1));
-    }, 2000);
-
-    const progressInterval = setInterval(() => {
-      setProgressPercent(prev => {
-        if (prev >= 98) return prev;
-        const increment = Math.random() * 5 + 1;
-        return Math.min(prev + increment, 98);
-      });
-    }, 300);
-
-    return () => {
-      clearInterval(tipInterval);
-      clearInterval(stepInterval);
-      clearInterval(progressInterval);
-    };
-  }, []);
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="planner-card glass-panel" style={{ padding: "60px 20px", background: "linear-gradient(135deg, rgba(6,20,51,0.95), rgba(4,19,45,0.98))", color: "#fff", position: "relative", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "24px" }}>
-      {/* Background Glow */}
-      <div style={{ position: "absolute", top: "-50%", left: "-50%", width: "200%", height: "200%", background: "radial-gradient(circle at center, rgba(6,182,212,0.1) 0%, transparent 60%)", pointerEvents: "none", animation: "spin 20s linear infinite" }} />
-      
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-        
-        {/* Orbital Airplane Animation */}
-        <div style={{ position: "relative", width: "120px", height: "120px", marginBottom: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%", border: "2px dashed rgba(6,182,212,0.3)", animation: "spin 8s linear infinite" }} />
-          <div style={{ position: "absolute", width: "100%", height: "100%", animation: "spin 3s linear infinite" }}>
-            <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", color: "var(--l2t-gold)", filter: "drop-shadow(0 0 8px rgba(245,158,11,0.6))" }}>
-              <Plane size={28} />
-            </div>
-            {/* Light trail */}
-            <div style={{ position: "absolute", top: "4px", left: "50%", width: "40px", height: "4px", background: "linear-gradient(90deg, transparent, rgba(245,158,11,0.4))", transform: "translateX(-50%) rotate(90deg)", transformOrigin: "left" }} />
-          </div>
-          <Sparkles size={32} color="var(--l2t-cyan)" style={{ opacity: 0.8 }} />
-        </div>
-
-        <h2 style={{ color: "#fff", fontSize: "1.8rem", fontWeight: "800", marginBottom: "12px", textAlign: "center" }}>
-          {steps[progressStep]}
-        </h2>
-        
-        {/* Progress Bar */}
-        <div style={{ width: "100%", maxWidth: "400px", height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "10px", overflow: "hidden", marginBottom: "32px" }}>
-          <div style={{ height: "100%", width: `${progressPercent}%`, background: "linear-gradient(90deg, var(--l2t-cyan), var(--l2t-gold))", transition: "width 0.3s ease-out", borderRadius: "10px" }} />
-        </div>
-
-        {/* Travel Tips with Fade */}
-        <div style={{ height: "60px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={tipIndex}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5 }}
-              style={{ color: "#94a3b8", fontSize: "1rem", lineHeight: "1.5", maxWidth: "480px", textAlign: "center", margin: 0 }}
-            >
-              <Info size={16} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-              {tips[tipIndex]}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-
-      </div>
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-      `}} />
-    </motion.div>
-  );
-};
-
 export default function AIPlannerPage() {
   const [step, setStep] = useState<Step>("welcome");
   
@@ -168,7 +64,6 @@ export default function AIPlannerPage() {
   });
   
   const [result, setResult] = useState<AiPlanResponse | null>(null);
-  const [loadingMsg, setLoadingMsg] = useState("Seçimlerine göre en mantıklı rotalar hazırlanıyor...");
   const [isFallback, setIsFallback] = useState(false);
   const [lastPromptStr, setLastPromptStr] = useState("");
   const [cooldown, setCooldown] = useState(false);
@@ -178,22 +73,35 @@ export default function AIPlannerPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const preset = searchParams.get("preset");
+    let initialAnswers: typeof answers | null = null;
+
     if (preset === "ucuz-vizesiz") {
-      setAnswers({ origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Ucuz rota", "Vizesiz rota"], visa: "Sadece vizesiz" });
-      setStep("loading");
+      initialAnswers = { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Ucuz rota", "Vizesiz rota"], visa: "Sadece vizesiz" };
     } else if (preset === "kimlikle-haftasonu") {
-      setAnswers({ origin: "Sabiha Gökçen", days: "2 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Kimlikle gidilebilen rota"], visa: "Kimlikle gidilenler" });
-      setStep("loading");
+      initialAnswers = { origin: "Sabiha Gökçen", days: "2 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Kimlikle gidilebilen rota"], visa: "Kimlikle gidilenler" };
     } else if (preset === "ilk-kez-yurtdisi") {
-      setAnswers({ origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Rahat gezi", vibe: ["İlk kez yurt dışı", "Güvenli aile rotası"], visa: "Sadece vizesiz" });
-      setStep("loading");
+      initialAnswers = { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Rahat gezi", vibe: ["İlk kez yurt dışı", "Güvenli aile rotası"], visa: "Sadece vizesiz" };
     } else if (searchParams.get("budget")) {
-      const budget = searchParams.get("budget") || "";
-      const visa = searchParams.get("visa") || "";
-      const days = searchParams.get("days") || "";
-      setAnswers({ origin: "İstanbul", days: days, month: "Fark etmez", budget: budget, accommodation: "Orta seviye", who: "Belirtilmedi", tempo: "Orta tempo", vibe: [], visa: visa });
-      setStep("loading");
+      initialAnswers = {
+        origin: "İstanbul",
+        days: searchParams.get("days") || "3 gün",
+        month: "Fark etmez",
+        budget: searchParams.get("budget") || "15.000 TL altı",
+        accommodation: "Orta seviye",
+        who: "Belirtilmedi",
+        tempo: "Orta tempo",
+        vibe: [],
+        visa: searchParams.get("visa") || "Fark etmez",
+      };
     }
+
+    if (initialAnswers) {
+      setAnswers(initialAnswers);
+      setStep("loading");
+      void generatePlan(initialAnswers);
+    }
+    // Query parameters are read once when the planner opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const nextStep = (next: Step, key?: string, value?: any) => {
@@ -220,7 +128,7 @@ export default function AIPlannerPage() {
     });
   };
 
-  const generatePlan = async (finalAnswers: typeof answers) => {
+  async function generatePlan(finalAnswers: typeof answers) {
     const promptStr = JSON.stringify(finalAnswers);
     
     // Cooldown & cache check
@@ -263,16 +171,16 @@ export default function AIPlannerPage() {
     } catch (error) {
       console.error("Plan generation error:", error);
       // Generate client-side fallback just in case the server fails to return its own fallback
-      setResult(getFallbackData(finalAnswers));
+      setResult(getFallbackData());
       setIsFallback(true);
     } finally {
       setSelectedRoute(null);
       setStep("result");
       setIsRefreshing(false);
     }
-  };
+  }
 
-  const getFallbackData = (ans: typeof answers): AiPlanResponse => {
+  const getFallbackData = (): AiPlanResponse => {
     return {
       summary: "Seçimlerine göre en uygun rotaları hazırladık.",
       routes: [
@@ -315,76 +223,128 @@ export default function AIPlannerPage() {
     };
   };
 
-  const renderWelcome = () => (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="planner-card text-center glass-panel" style={{ background: "rgba(10, 31, 74, 0.95)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)", padding: "50px 20px" }}>
-      <Sparkles size={56} color="var(--l2t-gold)" style={{ margin: "0 auto 24px" }} />
-      <h1 style={{ fontSize: "2.8rem", color: "#fff", marginBottom: "16px", fontWeight: "800", textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>Rota Asistanı ile seyahat fikrini netleştir</h1>
-      <p style={{ color: "#cbd5e1", fontSize: "1.15rem", marginBottom: "40px", lineHeight: 1.6, maxWidth: "600px", margin: "0 auto 40px" }}>
-        Bütçe, süre, vize tercihi ve seyahat tarzına göre sana uygun rotaları önerelim.
-      </p>
-      
-      <button 
-        className="l2t-btn" 
-        onClick={() => nextStep("origin")} 
-        style={{ fontSize: "1.2rem", padding: "18px 40px", width: "100%", maxWidth: "320px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)", borderRadius: "100px", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", margin: "0 auto" }}>
-        Adım Adım Planla <ChevronRight size={20} />
-      </button>
+  const quickStarts = [
+    { label: "İlk kez yurt dışına çıkacağım", detail: "Kolay ve güvenli başlangıç", data: { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Rahat gezi", vibe: ["İlk kez yurt dışı", "Güvenli aile rotası"], visa: "Sadece vizesiz" } },
+    { label: "10.000 TL altı vizesiz rota", detail: "Bütçe dostu seçenekler", data: { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Ucuz rota", "Vizesiz rota"], visa: "Sadece vizesiz" } },
+    { label: "Sevgilimle romantik rota", detail: "4 günlük şehir kaçamağı", data: { origin: "İstanbul", days: "4 gün", month: "Gelecek ay", budget: "25.000 TL altı", accommodation: "Konforlu", who: "Sevgilimle", tempo: "Rahat gezi", vibe: ["Romantik rota"], visa: "Vize olabilir" } },
+    { label: "Arkadaşlarla Balkan rotası", detail: "Vizesiz ve hareketli", data: { origin: "İstanbul", days: "4 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Dolu dolu gezi", vibe: ["Ucuz rota", "Gece hayatı"], visa: "Sadece vizesiz" } },
+    { label: "Ailemle güvenli rota", detail: "Rahat tempo ve konfor", data: { origin: "İstanbul", days: "5 gün", month: "Yaz", budget: "Bütçe önemli değil", accommodation: "Konforlu", who: "Ailemle", tempo: "Rahat gezi", vibe: ["Güvenli aile rotası"], visa: "Fark etmez" } },
+    { label: "Kimlikle hafta sonu", detail: "Pasaportsuz kısa kaçamak", data: { origin: "Sabiha Gökçen", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Kimlikle gidilebilen rota"], visa: "Kimlikle gidilenler" } },
+    { label: "Deniz tatili istiyorum", detail: "Vizesiz yaz rotaları", data: { origin: "İstanbul", days: "1 hafta", month: "Yaz", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Sevgilimle", tempo: "Rahat gezi", vibe: ["Deniz tatili"], visa: "Sadece vizesiz" } },
+    { label: "Hafta sonu kaçamağı", detail: "2 günde keşfedilecek şehir", data: { origin: "İstanbul", days: "2 gün", month: "Bu ay", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Tek başıma", tempo: "Orta tempo", vibe: ["Kültür gezisi"], visa: "Sadece vizesiz" } },
+  ];
 
-      <div style={{ marginTop: "48px" }}>
-        <p style={{ color: "#94a3b8", fontSize: "0.95rem", marginBottom: "16px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "600" }}>Veya Hazır Seçeneklerden Başla</p>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px" }}>
-          {[
-            { label: "İlk kez yurt dışına çıkacağım", data: { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Rahat gezi", vibe: ["İlk kez yurt dışı", "Güvenli aile rotası"], visa: "Sadece vizesiz" } },
-            { label: "10.000 TL altı vizesiz rota", data: { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Ucuz rota", "Vizesiz rota"], visa: "Sadece vizesiz" } },
-            { label: "Sevgilimle romantik rota", data: { origin: "İstanbul", days: "4 gün", month: "Gelecek ay", budget: "25.000 TL altı", accommodation: "Konforlu", who: "Sevgilimle", tempo: "Rahat gezi", vibe: ["Romantik rota"], visa: "Vize olabilir" } },
-            { label: "Arkadaşlarla ucuz Balkan rotası", data: { origin: "İstanbul", days: "4 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "En uygun", who: "Arkadaşlarla", tempo: "Dolu dolu gezi", vibe: ["Ucuz rota", "Gece hayatı"], visa: "Sadece vizesiz" } },
-            { label: "Ailemle güvenli rota", data: { origin: "İstanbul", days: "5 gün", month: "Yaz", budget: "Bütçe önemli değil", accommodation: "Konforlu", who: "Ailemle", tempo: "Rahat gezi", vibe: ["Güvenli aile rotası"], visa: "Fark etmez" } },
-            { label: "Kimlikle gidilebilen rota", data: { origin: "Sabiha Gökçen", days: "3 gün", month: "Fark etmez", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Orta tempo", vibe: ["Kimlikle gidilebilen rota"], visa: "Kimlikle gidilenler" } },
-            { label: "Deniz tatili istiyorum", data: { origin: "İstanbul", days: "1 hafta", month: "Yaz", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Sevgilimle", tempo: "Rahat gezi", vibe: ["Deniz tatili"], visa: "Sadece vizesiz" } },
-            { label: "Hafta sonu kaçamağı", data: { origin: "İstanbul", days: "2 gün", month: "Bu ay", budget: "10.000 TL altı", accommodation: "Orta seviye", who: "Tek başıma", tempo: "Orta tempo", vibe: ["Kültür gezisi"], visa: "Sadece vizesiz" } }
-          ].map((chip, idx) => (
-            <button 
-              key={idx} 
+  const renderWelcome = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -18 }}
+      className="l2t-route-v27-welcome"
+    >
+      <div className="l2t-route-v27-welcome-copy">
+        <p className="l2t-route-v27-eyebrow"><Sparkles size={16} /> Kişisel rota asistanı</p>
+        <h1>Sana uygun rotayı birlikte oluşturalım.</h1>
+        <p>
+          Çıkış noktanı, bütçeni, süreni ve seyahat tarzını seç. Sana gerçekten uygulanabilir rotalar hazırlayalım.
+        </p>
+
+        <button type="button" className="l2t-route-v27-primary" onClick={() => nextStep("origin")}>
+          Rotamı oluşturmaya başla <ChevronRight size={19} />
+        </button>
+
+        <div className="l2t-route-v27-benefits">
+          <span><CheckCircle2 size={17} /> Vize tercihine göre</span>
+          <span><Wallet size={17} /> Bütçene göre</span>
+          <span><Clock size={17} /> Gün sayına göre</span>
+        </div>
+      </div>
+
+      <div className="l2t-route-v27-visual">
+        <Image
+          src="/destinations/bosnia/sarajevo.jpg"
+          alt="Saraybosna şehir manzarası"
+          fill
+          priority
+          sizes="(max-width: 900px) 100vw, 46vw"
+        />
+        <div className="l2t-route-v27-visual-shade" />
+        <span className="l2t-route-v27-photo-label">Örnek kişisel sonuç</span>
+        <div className="l2t-route-v27-preview-card">
+          <small>İstanbul çıkışlı · 4 gün</small>
+          <h2>3 vizesiz rota bulundu</h2>
+          <div>
+            <span>Saraybosna</span>
+            <span>Tiflis</span>
+            <span>Bakü</span>
+          </div>
+          <strong>10.000–15.000 TL aralığı</strong>
+        </div>
+      </div>
+
+      <section className="l2t-route-v27-presets">
+        <header>
+          <div>
+            <p className="l2t-route-v27-eyebrow">Hızlı başlangıç</p>
+            <h2>Hazır senaryolardan biriyle başla</h2>
+          </div>
+          <span>Seçimini daha sonra değiştirebilirsin.</span>
+        </header>
+        <div className="l2t-route-v27-preset-grid">
+          {quickStarts.map((preset) => (
+            <button
+              type="button"
+              key={preset.label}
               onClick={() => {
-                setAnswers(chip.data);
-                nextStep("loading");
-                generatePlan(chip.data);
+                setAnswers(preset.data);
+                setStep("loading");
+                void generatePlan(preset.data);
               }}
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "10px 16px", borderRadius: "100px", fontSize: "0.9rem", transition: "all 0.2s", cursor: "pointer", minHeight: "44px" }}
-              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
             >
-              {chip.label}
+              <Compass size={19} />
+              <span>
+                <strong>{preset.label}</strong>
+                <small>{preset.detail}</small>
+              </span>
+              <ChevronRight size={17} />
             </button>
           ))}
         </div>
-      </div>
+      </section>
     </motion.div>
   );
 
-  const StepHeader = ({ title, stepNum }: { title: string, stepNum: number }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
-      <h2 style={{ fontSize: "1.8rem", color: "#fff", margin: 0, fontWeight: "800" }}>{title}</h2>
-      <span style={{ background: "rgba(255,255,255,0.1)", color: "#fff", padding: "4px 12px", borderRadius: "100px", fontSize: "0.85rem", fontWeight: "600" }}>Adım {stepNum}/5</span>
-    </div>
+  const StepHeader = ({ title, stepNum }: { title: string; stepNum: number }) => (
+    <>
+      <div className="l2t-route-v27-step-head">
+        <div>
+          <p>Rota Asistanı</p>
+          <h2>{title}</h2>
+        </div>
+        <span>Adım {stepNum}/5</span>
+      </div>
+      <div className="l2t-route-v27-progress" aria-label={`Planlama ilerlemesi yüzde ${stepNum * 20}`}>
+        <span style={{ width: `${stepNum * 20}%` }} />
+      </div>
+    </>
   );
 
-  const getBtnStyle = (isSelected: boolean, isLastOdd: boolean) => ({
-    border: isSelected ? "2px solid var(--l2t-gold)" : "2px solid rgba(255,255,255,0.1)",
-    background: isSelected ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.05)",
-    color: "#fff",
-    transition: "all 0.2s ease",
-    gridColumn: isLastOdd ? "span 2" : "auto"
-  });
+  const optionClass = (isSelected: boolean, isWide = false) =>
+    `planner-opt-btn${isSelected ? " selected" : ""}${isWide ? " is-wide" : ""}`;
 
   const renderOrigin = () => (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="planner-card glass-panel" style={{ padding: "40px" }}>
+    <motion.div initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -35 }} className="planner-card l2t-route-v27-step-card">
       <StepHeader title="Nereden çıkıyorsun?" stepNum={1} />
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        {["İstanbul", "Sabiha Gökçen", "Ankara", "İzmir", "Antalya", "Diğer Türkiye"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.origin === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.origin === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "20px", minHeight: "44px" }} onClick={() => nextStep("time", "origin", opt)}>
-            <Plane size={28} color={answers.origin === opt ? "var(--l2t-gold)" : "rgba(255,255,255,0.5)"} />
-            <span style={{ fontWeight: 700, marginTop: "12px", fontSize: "1.05rem" }}>{opt}</span>
+      <p className="l2t-route-v27-step-desc">Sana uygun uçuş seçeneklerini ve yakın rotaları buna göre sıralayacağız.</p>
+      <div className="planner-options l2t-route-v27-options is-two">
+        {["İstanbul", "Sabiha Gökçen", "Ankara", "İzmir", "Antalya", "Diğer Türkiye"].map((option, index, options) => (
+          <button
+            type="button"
+            key={option}
+            className={optionClass(answers.origin === option, index === options.length - 1 && options.length % 2 !== 0)}
+            onClick={() => nextStep("time", "origin", option)}
+          >
+            <Plane size={23} />
+            <span>{option}</span>
           </button>
         ))}
       </div>
@@ -392,120 +352,122 @@ export default function AIPlannerPage() {
   );
 
   const renderTime = () => (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="planner-card glass-panel" style={{ padding: "40px" }}>
-      <StepHeader title="Seyahat Süresi ve Dönemi" stepNum={2} />
-      
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Kaç gün sürecek?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "32px" }}>
-        {["2 gün", "3 gün", "4 gün", "5 gün", "1 hafta"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.days === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.days === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, days: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+    <motion.div initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -35 }} className="planner-card l2t-route-v27-step-card">
+      <StepHeader title="Süre ve dönem" stepNum={2} />
+      <div className="l2t-route-v27-field-group">
+        <h3>Kaç gün sürecek?</h3>
+        <div className="planner-options l2t-route-v27-options is-two">
+          {["2 gün", "3 gün", "4 gün", "5 gün", "1 hafta"].map((option, index, options) => (
+            <button type="button" key={option} className={optionClass(answers.days === option, index === options.length - 1 && options.length % 2 !== 0)} onClick={() => setAnswers({ ...answers, days: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Ne zaman gideceksin?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "32px" }}>
-        {["Bu ay", "Gelecek ay", "Yaz", "Kış", "Bahar", "Fark etmez"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.month === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.month === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, month: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+      <div className="l2t-route-v27-field-group">
+        <h3>Ne zaman gideceksin?</h3>
+        <div className="planner-options l2t-route-v27-options is-two">
+          {["Bu ay", "Gelecek ay", "Yaz", "Kış", "Bahar", "Fark etmez"].map((option) => (
+            <button type="button" key={option} className={optionClass(answers.month === option)} onClick={() => setAnswers({ ...answers, month: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <button className="l2t-btn" disabled={!answers.days || !answers.month} style={{ width: "100%", padding: "16px", minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.days || !answers.month) ? 0.5 : 1 }} onClick={() => nextStep("budget")}>Devam Et</button>
+      <div className="l2t-route-v27-step-actions is-single">
+        <button type="button" className="is-primary" disabled={!answers.days || !answers.month} onClick={() => nextStep("budget")}>Devam et <ChevronRight size={18} /></button>
+      </div>
     </motion.div>
   );
 
   const renderBudget = () => (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="planner-card glass-panel" style={{ padding: "40px" }}>
-      <StepHeader title="Bütçe ve Konaklama" stepNum={3} />
-      
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Kişi başı bütçen?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "32px" }}>
-        {["7.500 TL altı", "10.000 TL altı", "15.000 TL altı", "25.000 TL altı", "Bütçe önemli değil"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.budget === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.budget === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, budget: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+    <motion.div initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -35 }} className="planner-card l2t-route-v27-step-card">
+      <StepHeader title="Bütçe ve konaklama" stepNum={3} />
+      <div className="l2t-route-v27-field-group">
+        <h3>Kişi başı bütçen?</h3>
+        <div className="planner-options l2t-route-v27-options is-two">
+          {["7.500 TL altı", "10.000 TL altı", "15.000 TL altı", "25.000 TL altı", "Bütçe önemli değil"].map((option, index, options) => (
+            <button type="button" key={option} className={optionClass(answers.budget === option, index === options.length - 1 && options.length % 2 !== 0)} onClick={() => setAnswers({ ...answers, budget: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Konaklama tercihin?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "32px" }}>
-        {["En uygun", "Orta seviye", "Konforlu", "Fark etmez"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.accommodation === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.accommodation === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, accommodation: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+      <div className="l2t-route-v27-field-group">
+        <h3>Konaklama tercihin?</h3>
+        <div className="planner-options l2t-route-v27-options is-two">
+          {["En uygun", "Orta seviye", "Konforlu", "Fark etmez"].map((option) => (
+            <button type="button" key={option} className={optionClass(answers.accommodation === option)} onClick={() => setAnswers({ ...answers, accommodation: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <div style={{ display: "flex", gap: "12px" }}>
-        <button className="l2t-btn l2t-btn-ghost" style={{ padding: "16px", flex: 1, minHeight: "44px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "transparent" }} onClick={() => nextStep("time")}>Geri</button>
-        <button className="l2t-btn" disabled={!answers.budget || !answers.accommodation} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.budget || !answers.accommodation) ? 0.5 : 1 }} onClick={() => nextStep("who")}>Devam Et</button>
+      <div className="l2t-route-v27-step-actions">
+        <button type="button" className="is-secondary" onClick={() => nextStep("time")}>Geri</button>
+        <button type="button" className="is-primary" disabled={!answers.budget || !answers.accommodation} onClick={() => nextStep("who")}>Devam et <ChevronRight size={18} /></button>
       </div>
     </motion.div>
   );
 
   const renderWho = () => (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="planner-card glass-panel" style={{ padding: "40px" }}>
-      <StepHeader title="Kiminle ve Tempo" stepNum={4} />
-      
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Kiminle gidiyorsun?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "32px" }}>
-        {["Tek başıma", "Sevgilimle", "Arkadaşlarla", "Ailemle"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.who === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.who === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, who: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+    <motion.div initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -35 }} className="planner-card l2t-route-v27-step-card">
+      <StepHeader title="Yolculuk şekli" stepNum={4} />
+      <div className="l2t-route-v27-field-group">
+        <h3>Kiminle gidiyorsun?</h3>
+        <div className="planner-options l2t-route-v27-options is-two">
+          {["Tek başıma", "Sevgilimle", "Arkadaşlarla", "Ailemle"].map((option) => (
+            <button type="button" key={option} className={optionClass(answers.who === option)} onClick={() => setAnswers({ ...answers, who: option })}>
+              <Users size={21} /><span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Nasıl bir tempo istiyorsun?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px", marginBottom: "32px" }}>
-        {["Rahat gezi", "Orta tempo", "Dolu dolu gezi"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.tempo === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.tempo === opt, false), padding: "16px", minHeight: "44px" }} onClick={() => setAnswers({...answers, tempo: opt})}>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{opt}</span>
-          </button>
-        ))}
+      <div className="l2t-route-v27-field-group">
+        <h3>Nasıl bir tempo istiyorsun?</h3>
+        <div className="planner-options l2t-route-v27-options is-three">
+          {["Rahat gezi", "Orta tempo", "Dolu dolu gezi"].map((option) => (
+            <button type="button" key={option} className={optionClass(answers.tempo === option)} onClick={() => setAnswers({ ...answers, tempo: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <div style={{ display: "flex", gap: "12px" }}>
-        <button className="l2t-btn l2t-btn-ghost" style={{ padding: "16px", flex: 1, minHeight: "44px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "transparent" }} onClick={() => nextStep("budget")}>Geri</button>
-        <button className="l2t-btn" disabled={!answers.who || !answers.tempo} style={{ padding: "16px", flex: 2, minHeight: "44px", background: "var(--l2t-gold)", color: "var(--l2t-navy)", border: "none", opacity: (!answers.who || !answers.tempo) ? 0.5 : 1 }} onClick={() => nextStep("vibe")}>Devam Et</button>
+      <div className="l2t-route-v27-step-actions">
+        <button type="button" className="is-secondary" onClick={() => nextStep("budget")}>Geri</button>
+        <button type="button" className="is-primary" disabled={!answers.who || !answers.tempo} onClick={() => nextStep("vibe")}>Devam et <ChevronRight size={18} /></button>
       </div>
     </motion.div>
   );
 
   const renderVibe = () => (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="planner-card glass-panel" style={{ padding: "40px" }}>
-      <StepHeader title="Seyahat Tipi ve Vize" stepNum={5} />
-      
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "8px", color: "rgba(255,255,255,0.9)" }}>Seyahat tipi (Birden fazla seçebilirsin)</h3>
-      <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.9rem", marginBottom: "16px" }}>Sana en uygun temaları işaretle.</p>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "32px" }}>
-        {[
-          "İlk kez yurt dışı", "Vizesiz rota", "Kimlikle gidilebilen rota", 
-          "Ucuz rota", "Deniz tatili", "Kültür gezisi", 
-          "Gece hayatı", "Romantik rota", "Güvenli aile rotası", "Fotoğraf/video çekilecek rota"
-        ].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.vibe.includes(opt) ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.vibe.includes(opt), idx === arr.length - 1 && arr.length % 2 !== 0), padding: "12px 8px", minHeight: "44px" }} onClick={() => toggleVibe(opt)}>
-            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{opt}</span>
-          </button>
-        ))}
+    <motion.div initial={{ opacity: 0, x: 35 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -35 }} className="planner-card l2t-route-v27-step-card">
+      <StepHeader title="Seyahat tarzı ve vize" stepNum={5} />
+      <div className="l2t-route-v27-field-group">
+        <h3>Seyahat tipin</h3>
+        <p>Birden fazla tema seçebilirsin.</p>
+        <div className="planner-options l2t-route-v27-options is-two is-compact">
+          {["İlk kez yurt dışı", "Vizesiz rota", "Kimlikle gidilebilen rota", "Ucuz rota", "Deniz tatili", "Kültür gezisi", "Gece hayatı", "Romantik rota", "Güvenli aile rotası", "Fotoğraf/video çekilecek rota"].map((option) => (
+            <button type="button" key={option} className={optionClass(answers.vibe.includes(option))} onClick={() => toggleVibe(option)}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <h3 style={{ fontSize: "1.2rem", marginBottom: "16px", color: "rgba(255,255,255,0.9)" }}>Vize tercihin?</h3>
-      <div className="planner-options" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "32px" }}>
-        {["Sadece vizesiz", "Kimlikle gidilenler", "e-Vize olabilir", "Vize olabilir", "Fark etmez"].map((opt, idx, arr) => (
-          <button key={opt} className={`planner-opt-btn ${answers.visa === opt ? 'selected' : ''}`} style={{ ...getBtnStyle(answers.visa === opt, idx === arr.length - 1 && arr.length % 2 !== 0), padding: "12px 8px", minHeight: "44px" }} onClick={() => setAnswers({...answers, visa: opt})}>
-            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{opt}</span>
-          </button>
-        ))}
+      <div className="l2t-route-v27-field-group">
+        <h3>Vize tercihin?</h3>
+        <div className="planner-options l2t-route-v27-options is-two is-compact">
+          {["Sadece vizesiz", "Kimlikle gidilenler", "e-Vize olabilir", "Vize olabilir", "Fark etmez"].map((option, index, options) => (
+            <button type="button" key={option} className={optionClass(answers.visa === option, index === options.length - 1 && options.length % 2 !== 0)} onClick={() => setAnswers({ ...answers, visa: option })}>
+              <span>{option}</span>
+            </button>
+          ))}
+        </div>
       </div>
-
-      <div style={{ display: "flex", gap: "12px" }}>
-        <button className="l2t-btn l2t-btn-ghost" style={{ padding: "16px", flex: 1, minHeight: "44px", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "transparent" }} onClick={() => nextStep("who")}>Geri</button>
-        <button className="l2t-btn" disabled={answers.vibe.length === 0 || !answers.visa} style={{ padding: "16px", flex: 2, background: "#10b981", color: "#fff", border: "none", minHeight: "44px", opacity: (answers.vibe.length === 0 || !answers.visa) ? 0.5 : 1 }} onClick={() => nextStep("loading")}>
-          <Sparkles size={20} style={{ marginRight: "8px" }} /> Plan Oluştur
+      <div className="l2t-route-v27-step-actions">
+        <button type="button" className="is-secondary" onClick={() => nextStep("who")}>Geri</button>
+        <button type="button" className="is-primary" disabled={answers.vibe.length === 0 || !answers.visa} onClick={() => nextStep("loading")}>
+          <Sparkles size={18} /> Planı oluştur
         </button>
       </div>
     </motion.div>
@@ -682,20 +644,19 @@ export default function AIPlannerPage() {
   };
 
   return (
-    <div className="l2t-page l2t-wrap" style={{ minHeight: "90vh", padding: "40px 20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <AnimatePresence mode="wait">
-        {step === "welcome" && renderWelcome()}
-        {step === "origin" && renderOrigin()}
-        {step === "time" && renderTime()}
-        {step === "budget" && renderBudget()}
-        {step === "who" && renderWho()}
-        {step === "vibe" && renderVibe()}
-        {step === "loading" && renderLoading()}
-        {step === "result" && renderResult()}
-      </AnimatePresence>
-      <style dangerouslySetInnerHTML={{__html: `
-        .planner-opt-btn:hover { border-color: var(--l2t-gold) !important; background: rgba(255,255,255,0.1) !important; transform: translateY(-4px); }
-      `}} />
+    <div className="l2t-page l2t-route-v27">
+      <div className="l2t-wrap l2t-route-v27-stage">
+        <AnimatePresence mode="wait">
+          {step === "welcome" && renderWelcome()}
+          {step === "origin" && renderOrigin()}
+          {step === "time" && renderTime()}
+          {step === "budget" && renderBudget()}
+          {step === "who" && renderWho()}
+          {step === "vibe" && renderVibe()}
+          {step === "loading" && renderLoading()}
+          {step === "result" && renderResult()}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

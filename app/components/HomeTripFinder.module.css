@@ -1,0 +1,48 @@
+.section {
+  margin-top: clamp(4.8rem, 8vw, 7rem);
+  padding: clamp(4.5rem, 8vw, 7rem) 0;
+  background:
+    radial-gradient(circle at 12% 22%, rgba(121,185,208,.14), transparent 28%),
+    linear-gradient(135deg, #071d2b, #0d3348);
+}
+.shell { display: grid; grid-template-columns: minmax(330px,.78fr) minmax(0,1.22fr); align-items: center; gap: clamp(2.5rem,6vw,5.2rem); }
+.intro { color: #fff; }
+.kicker { display: inline-flex; align-items: center; gap: .42rem; color: #d4b15f; font-size: .72rem; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+.intro h2 { margin: .9rem 0 1rem; color: #fff; font-size: clamp(2.4rem,4.6vw,4.35rem); line-height: .99; letter-spacing: -.06em; }
+.intro > p { margin: 0; color: rgba(255,255,255,.68); line-height: 1.7; }
+.controls { display: grid; gap: .65rem; margin-top: 1.6rem; }
+.controls label { display: grid; grid-template-columns: minmax(140px,.7fr) 1fr; align-items: center; gap: .7rem; padding: .55rem .6rem .55rem .85rem; border: 1px solid rgba(255,255,255,.11); border-radius: .95rem; background: rgba(255,255,255,.06); }
+.controls label > span { display: flex; align-items: center; gap: .45rem; color: rgba(255,255,255,.72); font-size: .72rem; font-weight: 780; }
+.controls select { width: 100%; min-height: 2.7rem; padding: 0 .75rem; border: 0; border-radius: .7rem; outline: 0; background: #fff; color: #102637; font-size: .75rem; font-weight: 780; }
+.aiLink { min-height: 3rem; display: inline-flex; align-items: center; gap: .48rem; margin-top: 1rem; padding: 0 1rem; border-radius: 999px; background: #d4b15f; color: #102637; font-size: .76rem; font-weight: 850; text-decoration: none; transition: transform .2s ease; }
+.aiLink:hover { transform: translateY(-2px); }
+.note { display: block; margin-top: .75rem; color: rgba(255,255,255,.4); font-size: .62rem; line-height: 1.45; }
+.results { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; align-items: stretch; }
+.matchCard { min-width: 0; overflow: hidden; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,.12); border-radius: 1.25rem; background: rgba(255,255,255,.94); box-shadow: 0 20px 45px rgba(0,0,0,.16); }
+.featured { transform: translateY(-10px); }
+.matchImage { position: relative; min-height: 205px; overflow: hidden; }
+.matchImage img { object-fit: cover; transition: transform .5s ease; }
+.matchCard:hover .matchImage img { transform: scale(1.045); }
+.rank { position: absolute; z-index: 2; top: .8rem; left: .8rem; padding: .38rem .58rem; border-radius: 999px; background: rgba(255,255,255,.9); color: #071d2b; font-size: .58rem; font-weight: 850; backdrop-filter: blur(8px); }
+.matchImage button { position: absolute; z-index: 2; top: .75rem; right: .75rem; width: 2.3rem; height: 2.3rem; display: grid; place-items: center; border: 1px solid rgba(7,29,43,.08); border-radius: 50%; background: rgba(255,255,255,.92); color: #071d2b; cursor: pointer; }
+.matchBody { display: flex; flex: 1; flex-direction: column; padding: 1rem; }
+.matchTitleRow { display: flex; align-items: start; justify-content: space-between; gap: .7rem; }
+.matchTitleRow > div { min-width: 0; }
+.matchTitleRow small { color: #667987; font-size: .64rem; }
+.matchTitleRow h3 { margin: .12rem 0 0; color: #071d2b; font-size: 1.25rem; letter-spacing: -.035em; }
+.matchTitleRow > span { padding: .33rem .52rem; border-radius: 999px; background: #e9f4f7; color: #0e5269; font-size: .58rem; font-weight: 850; white-space: nowrap; }
+.matchBody > p { margin: .75rem 0 0; color: #667987; font-size: .72rem; line-height: 1.55; }
+.matchStats { display: flex; flex-wrap: wrap; gap: .4rem .7rem; margin-top: .85rem; color: #506773; font-size: .62rem; }
+.matchStats span { display: inline-flex; align-items: center; gap: .3rem; }
+.matchBody > a { display: inline-flex; align-items: center; gap: .35rem; margin-top: auto; padding-top: 1rem; color: #071d2b; font-size: .72rem; font-weight: 850; text-decoration: none; }
+@media (max-width: 1080px) {
+  .shell { grid-template-columns: 1fr; }
+  .intro { max-width: 760px; }
+}
+@media (max-width: 720px) {
+  .section { padding: 3.8rem 0; }
+  .controls label { grid-template-columns: 1fr; gap: .45rem; }
+  .results { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: .7rem 0; }
+  .matchCard { flex: 0 0 min(305px,84vw); scroll-snap-align: start; }
+  .featured { transform: none; }
+}

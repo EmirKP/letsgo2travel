@@ -1,86 +1,41 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Sparkles, Map, ChevronRight, Compass } from "lucide-react";
-import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowRight, CalendarDays, Compass, ShieldCheck, Sparkles, Wallet } from "lucide-react";
 
 export default function RouteWizardPage() {
   const router = useRouter();
+  const [budget, setBudget] = useState("15.000 TL altı");
+  const [visa, setVisa] = useState("Sadece vizesiz");
+  const [days, setDays] = useState("3 gün");
 
-  const [budget, setBudget] = useState("");
-  const [visa, setVisa] = useState("");
-  const [days, setDays] = useState("");
-
-  const handleFastSearch = () => {
-    router.push(`/akilli-plan?budget=${encodeURIComponent(budget)}&visa=${encodeURIComponent(visa)}&days=${encodeURIComponent(days)}`);
+  const startPlanning = () => {
+    const query = new URLSearchParams({ budget, visa, days });
+    router.push(`/rota-asistani?${query.toString()}`);
   };
 
   return (
-    <div className="l2t-page l2t-wrap" style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        className="glass-panel" 
-        style={{ width: "100%", maxWidth: "600px", padding: "50px 40px", borderRadius: "24px", background: "rgba(10, 31, 74, 0.95)", color: "#fff", textAlign: "center", boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
-      >
-        <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "rgba(245, 158, 11, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-          <Compass size={40} color="#F59E0B" />
-        </div>
-        
-        <h1 style={{ fontSize: "2.5rem", marginBottom: "16px", fontWeight: "800", color: "#fff" }}>Hızlı Rota Bul</h1>
-        <p style={{ fontSize: "1.1rem", color: "#cbd5e1", marginBottom: "32px", lineHeight: "1.6" }}>
-          Birkaç seçim yap, sana uygun rotaları hemen görelim. Detayları Akıllı Rota Danışmanı halledecek.
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "32px", textAlign: "left" }}>
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "#94a3b8" }}>Bütçen Nasıl?</label>
-            <select className="l2t-input" value={budget} onChange={(e) => setBudget(e.target.value)} style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}>
-              <option value="" disabled style={{color: "#000"}}>Seçiniz...</option>
-              <option value="10.000 TL altı" style={{color: "#000"}}>Düşük (10.000 TL altı)</option>
-              <option value="15.000 TL - 25.000 TL arası" style={{color: "#000"}}>Orta (15.000 - 25.000 TL)</option>
-              <option value="Bütçe önemli değil" style={{color: "#000"}}>Yüksek (Bütçe önemli değil)</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "#94a3b8" }}>Vize Durumu</label>
-            <select className="l2t-input" value={visa} onChange={(e) => setVisa(e.target.value)} style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}>
-              <option value="" disabled style={{color: "#000"}}>Seçiniz...</option>
-              <option value="Sadece vizesiz" style={{color: "#000"}}>Sadece Vizesiz / Kimlikle</option>
-              <option value="Schengen vizem var" style={{color: "#000"}}>Schengen vizem var</option>
-              <option value="Fark etmez, vize alabilirim" style={{color: "#000"}}>Fark etmez, vize alabilirim</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "#94a3b8" }}>Seyahat Süresi</label>
-            <select className="l2t-input" value={days} onChange={(e) => setDays(e.target.value)} style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}>
-              <option value="" disabled style={{color: "#000"}}>Seçiniz...</option>
-              <option value="2-3 gün (Hafta sonu)" style={{color: "#000"}}>2-3 gün (Hafta sonu)</option>
-              <option value="1 hafta" style={{color: "#000"}}>1 hafta</option>
-              <option value="Daha uzun" style={{color: "#000"}}>Daha uzun</option>
-            </select>
-          </div>
+    <div className="l2t-route-wizard-v25">
+      <div className="l2t-wrap l2t-route-wizard-shell">
+        <div className="l2t-route-wizard-photo">
+          <Image src="/travel-images/route-saraybosna.jpg" alt="Saraybosna seyahat rotası" fill priority sizes="(max-width: 850px) 92vw, 48vw" />
+          <div><span><Compass size={17} /> Hızlı rota bul</span><strong>Üç seçimle seyahat fikrini netleştir.</strong></div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <button 
-            className="l2t-btn" 
-            onClick={handleFastSearch}
-            disabled={!budget || !visa || !days}
-            style={{ fontSize: "1.2rem", padding: "18px 40px", width: "100%", background: "#F59E0B", color: "var(--l2t-navy)", border: "none", boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)", borderRadius: "100px", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", opacity: (!budget || !visa || !days) ? 0.5 : 1, cursor: (!budget || !visa || !days) ? "not-allowed" : "pointer" }}
-          >
-            Hızlı Öneri Al <ChevronRight size={20} />
-          </button>
-          
-          <Link href="/akilli-plan" style={{ color: "#94a3b8", fontSize: "0.95rem", textDecoration: "underline" }}>
-            Veya daha detaylı planla (Akıllı Asistan)
-          </Link>
+        <div className="l2t-route-wizard-form">
+          <span className="l2t-v25-kicker"><Sparkles size={15} /> Hızlı başlangıç</span>
+          <h1>Sana uygun rotayı birlikte bulalım.</h1>
+          <p>Bütçeni, giriş tercihini ve gün sayısını seç. Rota Asistanı ayrıntılı önerileri hazırlasın.</p>
+
+          <label><span><Wallet size={17} /> Bütçe</span><select value={budget} onChange={(event) => setBudget(event.target.value)}><option>10.000 TL altı</option><option>15.000 TL altı</option><option>25.000 TL altı</option><option>Bütçe önemli değil</option></select></label>
+          <label><span><ShieldCheck size={17} /> Giriş tercihi</span><select value={visa} onChange={(event) => setVisa(event.target.value)}><option>Kimlikle gidilenler</option><option>Sadece vizesiz</option><option>e-Vize olabilir</option><option>Fark etmez</option></select></label>
+          <label><span><CalendarDays size={17} /> Süre</span><select value={days} onChange={(event) => setDays(event.target.value)}><option>2 gün</option><option>3 gün</option><option>5 gün</option><option>1 hafta</option></select></label>
+
+          <button type="button" onClick={startPlanning}>Rota önerilerini hazırla <ArrowRight size={18} /></button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

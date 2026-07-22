@@ -1,0 +1,25 @@
+.button { border: 1px solid transparent; border-radius: var(--radius-pill); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); font-weight: 800; cursor: pointer; transition: transform .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease; }
+.button:hover:not(:disabled) { transform: translateY(-1px); }
+.button:disabled { cursor: not-allowed; opacity: .55; }
+.primary { background: var(--color-primary); color: white; }
+.primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+.secondary { background: var(--color-secondary); color: white; }
+.outline { background: transparent; border-color: var(--color-border); color: var(--color-primary); }
+.danger { background: var(--color-danger); color: white; }
+.sm { min-height: 2.25rem; padding: .5rem .9rem; font-size: var(--font-size-sm); }
+.md { min-height: 2.75rem; padding: .7rem 1.15rem; }
+.lg { min-height: 3.25rem; padding: .85rem 1.4rem; font-size: var(--font-size-lg); }
+.fullWidth { width: 100%; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.interactive { transition: transform .2s ease, box-shadow .2s ease; }
+.interactive:hover { transform: translateY(-2px); }
+.badge { display: inline-flex; align-items: center; border-radius: var(--radius-pill); padding: .3rem .65rem; font-size: var(--font-size-xs); font-weight: 800; }
+.neutral { background: var(--color-secondary-soft); color: var(--color-primary); }
+.success { background: color-mix(in srgb, var(--color-success) 14%, white); color: var(--color-success); }
+.warning { background: color-mix(in srgb, var(--color-warning) 14%, white); color: var(--color-warning); }
+.danger { background: color-mix(in srgb, var(--color-danger) 14%, white); color: var(--color-danger); }
+.field { display: grid; gap: var(--space-2); }
+.label { font-size: var(--font-size-sm); font-weight: 750; color: var(--color-text); }
+.input { width: 100%; min-height: 2.85rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); padding: .7rem .85rem; }
+.inputError { border-color: var(--color-danger); }
+.error { color: var(--color-danger); font-size: var(--font-size-sm); }

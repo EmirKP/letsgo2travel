@@ -7,6 +7,7 @@ export type SavedTrip = {
   title: string;
   subtitle: string;
   url: string;
+  image?: string;
   savedAt: number;
 };
 
@@ -14,6 +15,7 @@ type TripStore = {
   savedTrips: SavedTrip[];
   addTrip: (trip: Omit<SavedTrip, "id" | "savedAt">) => void;
   removeTrip: (id: string) => void;
+  clearTrips: () => void;
 };
 
 export const useTripStore = create<TripStore>()(
@@ -21,19 +23,37 @@ export const useTripStore = create<TripStore>()(
     (set) => ({
       savedTrips: [],
       addTrip: (trip) =>
-        set((state) => ({
-          savedTrips: [
-            { ...trip, id: Math.random().toString(36).substr(2, 9), savedAt: Date.now() },
-            ...state.savedTrips,
-          ],
-        })),
+        set((state) => {
+          const existing = state.savedTrips.find((savedTrip) => savedTrip.url === trip.url && savedTrip.title === trip.title);
+          if (existing) {
+            return {
+              savedTrips: [
+                { ...existing, ...trip, savedAt: Date.now() },
+                ...state.savedTrips.filter((savedTrip) => savedTrip.id !== existing.id),
+              ],
+            };
+          }
+
+          return {
+            savedTrips: [
+              {
+                ...trip,
+                id: globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 11),
+                savedAt: Date.now(),
+              },
+              ...state.savedTrips,
+            ],
+          };
+        }),
       removeTrip: (id) =>
         set((state) => ({
-          savedTrips: state.savedTrips.filter((t) => t.id !== id),
+          savedTrips: state.savedTrips.filter((trip) => trip.id !== id),
         })),
+      clearTrips: () => set({ savedTrips: [] }),
     }),
     {
       name: "l2t-trip-storage",
-    }
-  )
+      version: 2,
+    },
+  ),
 );

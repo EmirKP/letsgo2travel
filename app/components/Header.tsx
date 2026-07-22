@@ -2,175 +2,97 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import {
+  BookOpen,
+  Bookmark,
+  Calculator,
+  FileText,
+  Globe,
+  Menu,
+  MessageSquare,
+  Plane,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  Trophy,
+  User,
+  X,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
-
-import { Sparkles, Globe, ShieldCheck, BookOpen, Ticket, Plane, User, MessageSquare, Trophy, FileText } from "lucide-react";
 import LanguageSelector from "./LanguageSelector";
-import { getL2tDictionary, type L2tLocale } from "@/lib/i18n";
 
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
-const navItems = [
-  { href: "/pasaport-gucu", labelKey: "passport", icon: ShieldCheck },
-  { href: "/rota-asistani", labelKey: "assistant", icon: Sparkles },
-  { href: "/forum", labelKey: "forum", icon: MessageSquare },
-  { href: "/kampanyalar", labelKey: "deals", icon: Ticket }
-] as const;
+const primaryNav = [
+  { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
+  { href: "/rota-asistani", label: "Rota Asistanı", icon: Sparkles },
+  { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
+  { href: "/forum", label: "Topluluk", icon: MessageSquare },
+];
 
-const moreItems = [
-  { href: "/", labelKey: "flights", icon: Plane },
-  { href: "/vizesiz-ulkeler", labelKey: "visaFree", icon: Globe },
-  { href: "/vize-merkezi", labelKey: "visaCenter", icon: FileText },
-  { href: "/kasifler-ligi", labelKey: "explorers", icon: Trophy },
-  { href: "/rehber-merkezi", labelKey: "guideCenter", icon: BookOpen },
-  { href: "/topluluk-kurallari", labelKey: "communityRules", icon: ShieldCheck },
-] as const;
+const secondaryNav = [
+  { href: "/vizesiz-ulkeler", label: "Vizesiz Ülkeler", icon: Globe },
+  { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
+  { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
+  { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
+  { href: "/butce-hesapla", label: "Bütçe Hesapla", icon: Calculator },
+  { href: "/planlarim", label: "Planlarım", icon: Bookmark },
+];
 
 export default function Header() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [locale, setLocale] = useState<L2tLocale>("tr");
   const pathname = usePathname();
-  const dict = useMemo(() => getL2tDictionary(locale), [locale]);
+
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("l2t-locale") as L2tLocale | null;
-    if (saved === "tr" || saved === "en") setLocale(saved);
-
-    const localeHandler = (event: Event) => {
-      const custom = event as CustomEvent<L2tLocale>;
-      if (custom.detail === "tr" || custom.detail === "en") setLocale(custom.detail);
-    };
-    window.addEventListener("l2t-locale-change", localeHandler);
-    return () => window.removeEventListener("l2t-locale-change", localeHandler);
+    void supabase.auth.getSession().then(({ data }) => setIsLoggedIn(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setIsLoggedIn(Boolean(session)));
+    return () => data.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
-    };
-    checkSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsLoggedIn(!!session);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href)) ||
-    (href === "/rota-asistani" && pathname.startsWith("/akilli-plan"));
+  const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href));
 
   return (
-    <header className="l2t-header">
-      <div className="l2t-wrap l2t-header-inner">
-        <Link href="/" className="l2t-brand" aria-label="Letsgo2Travel">
-          <span className="l2t-logo-text">
-            <span className="l2t-logo-lets">Letsgo</span>
-            <span className="l2t-logo-two">2</span>
-            <span className="l2t-logo-travel">Travel</span>
-            <span className="l2t-logo-plane"><Plane size={24} style={{ display: "inline-block", verticalAlign: "middle" }} /></span>
-          </span>
+    <header className="l2t-header l2t-header-v24">
+      <div className="l2t-wrap l2t-header-inner-v24">
+        <Link href="/" className="l2t-brand-v24" aria-label="LetsGo2Travel ana sayfa">
+          <span>Letsgo</span><b>2</b><span>Travel</span><Plane size={20} />
         </Link>
 
-        <nav className="l2t-nav" aria-label="Ana menü">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`l2t-nav-link${isActive(item.href) ? " l2t-nav-active" : ""}`}
-              >
-                <Icon size={16} />
-                {dict.nav[item.labelKey]}
-              </Link>
-            );
-          })}
-
-          <div
-            className="l2t-nav-dropdown-wrap"
-            onMouseEnter={() => setMoreOpen(true)}
-            onMouseLeave={() => setMoreOpen(false)}
-          >
-            <button
-              type="button"
-              className={`l2t-nav-link l2t-nav-dropdown-trigger${moreItems.some((h) => isActive(h.href)) ? " l2t-nav-active" : ""}`}
-              onClick={() => setMoreOpen((v) => !v)}
-              aria-expanded={moreOpen}
-            >
-              {dict.nav.more} <span className="l2t-caret">▾</span>
-            </button>
-            {moreOpen && (
-              <div className="l2t-dropdown" role="menu">
-                {moreItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      role="menuitem"
-                      className={isActive(item.href) ? "l2t-dropdown-active" : ""}
-                      onClick={() => setMoreOpen(false)}
-                    >
-                      <Icon size={16} />
-                      {dict.nav[item.labelKey]}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        <nav className="l2t-desktop-nav-v24" aria-label="Ana menü">
+          {primaryNav.map(({ href, label, icon: Icon }) => (
+            <Link href={href} key={href} className={isActive(href) ? "is-active" : ""}><Icon size={16} />{label}</Link>
+          ))}
         </nav>
 
-        <div className="l2t-header-right">
-          <TripDashboard />
-          <LanguageSelector />
-          {isLoggedIn ? (
-            <Link href="/profil" className="l2t-btn l2t-btn-outline l2t-profile-link">
-              <User size={16} /> {dict.nav.profile}
-            </Link>
-          ) : (
-            <Link href="/auth/login" className="l2t-btn l2t-btn-outline l2t-profile-link">
-              <User size={16} /> {dict.nav.login}
-            </Link>
-          )}
-
-          <button
-            className="l2t-burger"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Menü"
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? "✕" : "☰"}
-          </button>
+        <div className="l2t-header-actions-v24">
+          <div className="l2t-desktop-only-v24"><TripDashboard /></div>
+          <div className="l2t-desktop-only-v24"><LanguageSelector /></div>
+          <Link href={isLoggedIn ? "/profil" : "/auth/login"} className="l2t-account-link-v24"><User size={17} /><span>{isLoggedIn ? "Profil" : "Giriş"}</span></Link>
+          <button type="button" className="l2t-menu-trigger-v24" onClick={() => setMenuOpen((current) => !current)} aria-label="Menüyü aç veya kapat" aria-expanded={menuOpen}>{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
       </div>
 
-      {mobileOpen && (
-        <nav className="l2t-mobile-nav" aria-label="Mobil menü">
-          {[...navItems, ...moreItems].map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`l2t-mobile-link${isActive(item.href) ? " l2t-mobile-active" : ""}`}
-                onClick={() => setMobileOpen(false)}
-              >
-                <Icon size={18} />
-                {dict.nav[item.labelKey]}
-              </Link>
-            );
-          })}
-        </nav>
+      {menuOpen && (
+        <div className="l2t-mobile-drawer-v24">
+          <div className="l2t-wrap">
+            <div className="l2t-mobile-drawer-primary">
+              {primaryNav.map(({ href, label, icon: Icon }) => (
+                <Link href={href} key={href} className={isActive(href) ? "is-active" : ""}><Icon size={19} /><span>{label}</span></Link>
+              ))}
+            </div>
+            <div className="l2t-mobile-drawer-secondary">
+              {secondaryNav.map(({ href, label, icon: Icon }) => (
+                <Link href={href} key={href}><Icon size={18} /><span>{label}</span></Link>
+              ))}
+            </div>
+            <div className="l2t-mobile-drawer-tools"><TripDashboard /><LanguageSelector /></div>
+          </div>
+        </div>
       )}
     </header>
   );

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#061A33" />
+  <title>LetsGo2Travel</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff;background:#061a33}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,#123f70,#061a33 55%)}
+    main{width:min(440px,100%);text-align:center}.mark{width:82px;height:82px;display:grid;place-items:center;margin:0 auto 22px;border-radius:25px;color:#061a33;background:#f3c84b;font-size:36px;font-weight:900;box-shadow:0 20px 55px rgba(0,0,0,.25)}
+    h1{font-size:30px;letter-spacing:-.05em;margin:0 0 10px}p{color:rgba(255,255,255,.68);line-height:1.6;margin:0 0 24px}.loader{width:100%;height:7px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.1)}.loader::after{content:"";display:block;width:45%;height:100%;border-radius:inherit;background:#f3c84b;animation:move 1.2s ease-in-out infinite alternate}.hint{display:block;margin-top:14px;color:rgba(255,255,255,.45);font-size:12px}@keyframes move{to{transform:translateX(125%)}}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">2</div>
+    <h1>LetsGo2Travel</h1>
+    <p>Seyahat kontrol merkezin hazırlanıyor.</p>
+    <div class="loader" aria-label="Yükleniyor"></div>
+    <small class="hint">Bağlantı kurulamazsa internet erişimini kontrol et.</small>
+  </main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Plane, Hotel, Wifi, MessageCircle, BellRing } from "lucide-react";
@@ -9,7 +10,9 @@ const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
 
 // Türk pasaportu ile vize durumu (ISO 3166-1 numeric kodları)
 // Kaynak: Passportindex.org verileri baz alınmıştır
-const VISA_DATA: Record<string, "free" | "on_arrival" | "evisa" | "required" | "home" | "id_card"> = {
+type VisaStatus = "free" | "on_arrival" | "evisa" | "required" | "home" | "id_card";
+
+const VISA_DATA: Record<string, VisaStatus> = {
   // --- KENDİ ÜLKESİ ---
   TUR: "home",
 
@@ -89,34 +92,25 @@ const ALPHA3_TO_NUMERIC: Record<string, string> = {
   YEM:"887",ZMB:"894",ZWE:"716",XKX:"383",
 };
 
-const NUMERIC_TO_STATUS: Record<string, "free" | "on_arrival" | "evisa" | "required" | "home" | "id_card"> = {};
+const NUMERIC_TO_STATUS: Record<string, VisaStatus> = {};
 Object.entries(VISA_DATA).forEach(([alpha3, status]) => {
   const numeric = ALPHA3_TO_NUMERIC[alpha3];
   if (numeric) {
-    NUMERIC_TO_STATUS[numeric] = status as any;
-    NUMERIC_TO_STATUS[numeric.padStart(3, '0')] = status as any;
+    NUMERIC_TO_STATUS[numeric] = status;
+    NUMERIC_TO_STATUS[numeric.padStart(3, '0')] = status;
   }
 });
 
-const STATUS_COLOR: Record<string, string> = {
-  home: "#06B6D4",
-  id_card: "#10B981",
-  free: "#34D399",
-  evisa: "#60A5FA",
-  on_arrival: "#3B82F6",
-  required: "#BE123C",
+const STATUS_COLOR: Record<VisaStatus, string> = {
+  home: "#0E7490",
+  id_card: "#159A74",
+  free: "#58B99B",
+  evisa: "#73A9D7",
+  on_arrival: "#4C7FB3",
+  required: "#D56A76",
 };
 
-const STATUS_BADGE_COLOR: Record<string, string> = {
-  home: "#06B6D4",
-  id_card: "#10B981",
-  free: "#34D399",
-  evisa: "#60A5FA",
-  on_arrival: "#3B82F6",
-  required: "#BE123C",
-};
-
-const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<VisaStatus, string> = {
   home: "Türkiye",
   id_card: "Kimlikle",
   free: "Vizesiz",
@@ -174,7 +168,7 @@ export default function PassportPowerPage() {
   const [search, setSearch] = useState("");
   const [visaFilter, setVisaFilter] = useState("all");
   const [tooltip, setTooltip] = useState<{ name: string; status: string } | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<{ name: string; status: string; alpha3: string } | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<{ name: string; status: string; statusKey: VisaStatus; alpha3: string } | null>(null);
 
   const filteredCountries = useMemo(() => {
     const q = search.toLowerCase();
@@ -188,7 +182,7 @@ export default function PassportPowerPage() {
       home: 6
     };
 
-    let list = COUNTRY_LIST.filter((c) => {
+    const list = COUNTRY_LIST.filter((c) => {
       const matchSearch = c.name.toLowerCase().includes(q);
       if (!matchSearch) return false;
       if (visaFilter === "all") return true;
@@ -210,353 +204,250 @@ export default function PassportPowerPage() {
   }, [search, visaFilter]);
 
   return (
-    <div className="l2t-page">
-      {/* Header */}
-      <div style={{ background: "transparent", position: "relative", padding: "100px 0 40px", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.1, backgroundImage: "url('/travel-images/discover.jpg')", backgroundSize: "cover", backgroundPosition: "center" }} />
-        <div className="l2t-wrap" style={{ display: "flex", alignItems: "center", gap: "40px", position: "relative", zIndex: 10, flexWrap: "wrap" }}>
-          {/* Passport Image with Glow */}
-          <div style={{ position: "relative", width: "160px", height: "220px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%", transform: "translate(-50%, -50%)", background: "radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)", filter: "blur(20px)" }} />
-            <img src="/turkish-passport.webp" alt="Türkiye Pasaportu" width={160} height={220} decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))", position: "relative", zIndex: 2 }} />
+    <div className="l2t-passport-v27">
+      <section className="l2t-passport-v27-hero">
+        <div className="l2t-wrap l2t-passport-v27-hero-grid">
+          <div className="l2t-passport-v27-book">
+            <div className="l2t-passport-v27-book-bg" aria-hidden="true" />
+            <Image
+              src="/turkish-passport.webp"
+              alt="Türkiye Cumhuriyeti pasaportu"
+              width={190}
+              height={260}
+              priority
+            />
+            <span>Türkiye</span>
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div style={{ background: "#C8102E", color: "#fff", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(200,16,46,0.4)" }}>
-                <svg viewBox="0 0 100 100" width="20" height="20">
-                  <path d="M55,20 A30,30 0 1,0 55,80 A24,24 0 1,1 55,20 Z" fill="#fff" />
-                  <polygon points="65,38 70,48 83,48 72,55 76,68 65,60 54,68 58,55 47,48 60,48" fill="#fff" />
-                </svg>
+
+          <div className="l2t-passport-v27-summary">
+            <p className="l2t-passport-v27-eyebrow"><Globe size={16} /> Pasaport merkezi</p>
+            <h1>Türkiye pasaportu</h1>
+            <p className="l2t-passport-v27-lead">
+              Kimlikle, vizesiz, e-Vize ve kapıda vize seçeneklerini tek ekranda karşılaştır.
+            </p>
+
+            <div className="l2t-passport-v27-scoreline">
+              <div>
+                <span>Kolay erişim</span>
+                <strong>{STATS.mobility} ülke</strong>
               </div>
-              <h1 style={{ margin: 0, fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: "800", color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,0.2)", lineHeight: "1.1" }}>
-                Seçili Pasaport: Türkiye
-              </h1>
+              <div>
+                <span>Dünya sıralaması</span>
+                <strong>#{STATS.rank}</strong>
+              </div>
+              <div>
+                <span>Kimlikle giriş</span>
+                <strong>{STATS.id_card} ülke</strong>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
-                <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Mobilite Sıralaması</div>
-                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--l2t-gold)" }}>#{STATS.rank}</div>
-              </div>
-              <div className="l2t-glass-card" style={{ padding: "12px 24px", color: "var(--l2t-text)" }}>
-                <div style={{ fontSize: "0.85rem", opacity: 0.8, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Hareketlilik Skoru</div>
-                <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--l2t-success)" }}>{STATS.mobility}</div>
-              </div>
-            </div>
-            <div style={{ marginTop: "24px" }}>
-              <button className="l2t-button l2t-button-blue" onClick={() => alert("Diğer pasaport verileri hazırlanıyor...")}>
-                <Globe size={18} style={{ marginRight: "4px" }} /> Pasaport Seç
-              </button>
+
+            <div className="l2t-passport-v27-hero-actions">
+              <Link href="/vizesiz-ulkeler" className="l2t-passport-v27-primary">
+                Vizesiz ülkeleri keşfet <Plane size={17} />
+              </Link>
+              <Link href="/rota-asistani?preset=kimlikle-haftasonu" className="l2t-passport-v27-secondary">
+                Bana rota oluştur
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="l2t-wrap" style={{ paddingTop: "20px", paddingBottom: "60px" }}>
-        <style dangerouslySetInnerHTML={{__html: `
-          .passport-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; align-items: start; }
-          @media (max-width: 900px) { .passport-grid { grid-template-columns: 1fr; } }
-        `}} />
-        <div className="passport-grid">
-
-          {/* Sol: Harita + İstatistikler */}
-          <div>
-            {/* Harita */}
-            <div className="l2t-glass-card" style={{ position: "relative", overflow: "hidden" }}>
-              <ComposableMap
-                projectionConfig={{ scale: 140 }}
-                style={{ width: "100%", height: "420px", background: "transparent" }}
-              >
-                <ZoomableGroup zoom={1}>
-                  <Geographies geography={GEO_URL}>
-                    {({ geographies }) =>
-                      geographies.map((geo) => {
-                        const id = geo.id as string;
-                        let status: any = "required";
-                        
-                        if (id === "792") {
-                          status = "home";
-                        } else if (id && NUMERIC_TO_STATUS[id]) {
-                          status = NUMERIC_TO_STATUS[id];
-                        } else if (geo.properties.name === "Kosovo") {
-                          status = VISA_DATA["XKX"] || "free";
-                        }
-                        
-                        return (
-                          <Geography
-                            key={geo.rsmKey}
-                            geography={geo}
-                            onMouseEnter={() => setTooltip({ name: geo.properties.name, status: STATUS_LABEL[status] })}
-                            onMouseLeave={() => setTooltip(null)}
-                            onClick={() => {
-                              const alpha3 = Object.keys(ALPHA3_TO_NUMERIC).find(k => ALPHA3_TO_NUMERIC[k] === id) || "";
-                              setSelectedCountry({ name: geo.properties.name, status: STATUS_LABEL[status], alpha3 });
-                            }}
-                            style={{
-                              default: { fill: STATUS_COLOR[status], stroke: "var(--l2t-navy)", strokeWidth: 0.3, outline: "none" },
-                              hover: { fill: STATUS_COLOR[status], filter: "brightness(0.9)", outline: "none", cursor: "pointer" },
-                              pressed: { outline: "none" },
-                            }}
-                          />
-                        );
-                      })
-                    }
-                  </Geographies>
-                </ZoomableGroup>
-              </ComposableMap>
-
-              {/* Tooltip */}
-              {tooltip && !selectedCountry && (
-                <div style={{
-                  position: "absolute",
-                  top: "16px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "var(--l2t-card-strong)",
-                  color: "var(--l2t-text)",
-                  padding: "12px 20px",
-                  borderRadius: "12px",
-                  fontSize: "0.95rem",
-                  fontWeight: "700",
-                  pointerEvents: "none",
-                  whiteSpace: "nowrap",
-                  border: "1px solid var(--l2t-border)",
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
-                  backdropFilter: "blur(10px)"
-                }}>
-                  {tooltip.name} — <span style={{ color: "var(--l2t-gold)", fontWeight: "500" }}>{tooltip.status}</span>
-                </div>
-              )}
-
-              {/* Detay Paneli */}
-              {selectedCountry && (
-                <div style={{
-                  position: "absolute",
-                  top: "0",
-                  right: "0",
-                  bottom: "0",
-                  width: "100%",
-                  maxWidth: "320px",
-                  background: "var(--l2t-card-strong)",
-                  backdropFilter: "blur(10px)",
-                  borderLeft: "1px solid var(--l2t-border)",
-                  boxShadow: "-10px 0 30px rgba(0,0,0,0.4)",
-                  padding: "24px",
-                  display: "flex",
-                  flexDirection: "column",
-                  zIndex: 20
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-                    <h3 style={{ margin: 0, fontSize: "1.4rem", color: "var(--l2t-text)", fontWeight: "800" }}>{selectedCountry.name}</h3>
-                    <button onClick={() => setSelectedCountry(null)} style={{ background: "transparent", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--l2t-soft)" }}>✕</button>
-                  </div>
-                  <div style={{ background: "rgba(255,255,255,0.05)", padding: "12px", borderRadius: "12px", marginBottom: "16px", display: "inline-block", border: "1px solid var(--l2t-border)" }}>
-                    <span style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", display: "block", marginBottom: "4px" }}>Vize Durumu</span>
-                    <strong style={{ color: "var(--l2t-gold)", fontSize: "1.1rem" }}>{selectedCountry.status}</strong>
-                  </div>
-                  <div style={{ background: "rgba(245, 158, 11, 0.1)", padding: "12px", borderRadius: "12px", color: "var(--l2t-gold)", fontSize: "0.85rem", marginBottom: "24px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
-                    <AlertTriangle size={14} style={{ marginBottom: "4px", display: "block" }} />
-                    Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
-                  </div>
-                  <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`} className="l2t-button l2t-button-gold w-full text-center">Uçak Bileti Ara</Link>
-                    <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`} className="l2t-button l2t-button-blue w-full text-center">Gezgin Yorumları</Link>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Renk Açıklamaları */}
-            <div style={{ display: "flex", gap: "16px", marginTop: "16px", flexWrap: "wrap" }}>
-              {[
-                { color: "#06B6D4", label: "Türkiye", count: 1 },
-                { color: "#10B981", label: "Kimlikle", count: STATS.id_card },
-                { color: "#34D399", label: "Vizesiz", count: STATS.free },
-                { color: "#60A5FA", label: "E-Vize", count: STATS.evisa },
-                { color: "#3B82F6", label: "Kapıda Vize", count: STATS.on_arrival },
-                { color: "#BE123C", label: "Vize Gerekli", count: STATS.required },
-              ].map((item) => (
-                <div key={item.label} className="l2t-glass-card" style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderRadius: "100px" }}>
-                  <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: item.color }} />
-                  <span style={{ fontSize: "0.85rem", color: "var(--l2t-text)", fontWeight: "600" }}>{item.label}</span>
-                  <span style={{ fontSize: "0.85rem", fontWeight: "800", color: item.color }}>{item.count}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* İstatistik Çubukları */}
-            <div className="l2t-glass-card" style={{ padding: "32px", marginTop: "24px" }}>
-              <div className="l2t-info-box" style={{ marginBottom: "24px", fontSize: "0.85rem", fontWeight: "600" }}>
-                Vize ve giriş kuralları değişebilir. Seyahat öncesi resmi kaynaklardan kontrol edilmelidir.
+      <main className="l2t-wrap l2t-passport-v27-main">
+        <section className="l2t-passport-v27-overview" aria-label="Pasaport özeti">
+          {[
+            { icon: <CheckCircle size={20} />, label: "Kimlikle", value: STATS.id_card, tone: "identity" },
+            { icon: <Globe size={20} />, label: "Vizesiz", value: STATS.free, tone: "free" },
+            { icon: <FileText size={20} />, label: "Kolay vize", value: STATS.evisa + STATS.on_arrival, tone: "easy" },
+            { icon: <AlertTriangle size={20} />, label: "Vize gerekli", value: STATS.required, tone: "required" },
+          ].map((item) => (
+            <article key={item.label} className="l2t-passport-v27-overview-card" data-tone={item.tone}>
+              <span>{item.icon}</span>
+              <div>
+                <small>{item.label}</small>
+                <strong>{item.value} ülke</strong>
               </div>
-              <h3 style={{ margin: "0 0 24px", fontSize: "0.95rem", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: "700" }}>
-                Türkiye Pasaport Vize Gereksinimleri
-              </h3>
-              {[
-                { label: "MOBILITY SCORE", value: STATS.mobility, max: 200, color: "var(--l2t-gold)" },
-                { label: "KİMLİKLE", value: STATS.id_card, max: 200, color: "var(--l2t-success)" },
-                { label: "VİZESİZ", value: STATS.free, max: 200, color: "#34D399" },
-                { label: "E-VİZE", value: STATS.evisa, max: 200, color: "#60A5FA" },
-                { label: "KAPIDA VİZE", value: STATS.on_arrival, max: 200, color: "#3B82F6" },
-                { label: "VİZE GEREKLİ", value: STATS.required, max: 200, color: "var(--l2t-danger)" },
-              ].map((stat) => (
-                <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
-                  <div style={{ width: "120px", fontSize: "0.8rem", color: "var(--l2t-text)", fontWeight: "700", flexShrink: 0 }}>
-                    {stat.label}
-                  </div>
-                  <div style={{ flex: 1, height: "10px", background: "rgba(255,255,255,0.05)", borderRadius: "10px", overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%",
-                      width: `${(stat.value / stat.max) * 100}%`,
-                      background: stat.color,
-                      borderRadius: "10px",
-                      transition: "width 1s ease",
-                    }} />
-                  </div>
-                  <div style={{ width: "40px", textAlign: "right", fontSize: "0.95rem", fontWeight: "800", color: stat.color, flexShrink: 0 }}>
-                    {stat.value}
-                  </div>
-                </div>
-              ))}
+            </article>
+          ))}
+        </section>
+
+        <section className="l2t-passport-v27-explorer">
+          <header className="l2t-passport-v27-explorer-head">
+            <div>
+              <p className="l2t-passport-v27-eyebrow"><TrendingUp size={16} /> Ülke erişim haritası</p>
+              <h2>Nereye, hangi koşulla gidebilirsin?</h2>
+              <p>Haritadaki bir ülkeye dokun veya aşağıdaki listeden filtrele.</p>
             </div>
+            <div className="l2t-passport-v27-search">
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Ülke ara..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                aria-label="Ülke ara"
+              />
+            </div>
+          </header>
+
+          <div className="l2t-passport-v27-filters" role="group" aria-label="Vize durumuna göre filtrele">
+            {[
+              { id: "all", label: "Tümü" },
+              { id: "id_card", label: "Kimlikle" },
+              { id: "free", label: "Vizesiz" },
+              { id: "evisa", label: "e-Vize" },
+              { id: "on_arrival", label: "Kapıda vize" },
+              { id: "required", label: "Vize gerekli" },
+            ].map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={visaFilter === filter.id ? "is-active" : ""}
+                onClick={() => setVisaFilter(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
           </div>
 
-          {/* Sağ: Ülke Listesi */}
-          <div className="l2t-glass-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Başlık */}
-            <div style={{ padding: "24px", borderBottom: "1px solid var(--l2t-border)" }}>
-              <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "16px" }}>
-                Vize Durumları
+          <div className="l2t-passport-v27-content-grid">
+            <div className="l2t-passport-v27-map-column">
+              <div className="l2t-passport-v27-map-card">
+                <ComposableMap projectionConfig={{ scale: 140 }} className="l2t-passport-v27-map">
+                  <ZoomableGroup zoom={1}>
+                    <Geographies geography={GEO_URL}>
+                      {({ geographies }) =>
+                        geographies.map((geo) => {
+                          const id = geo.id as string;
+                          let status: VisaStatus = "required";
+
+                          if (id === "792") {
+                            status = "home";
+                          } else if (id && NUMERIC_TO_STATUS[id]) {
+                            status = NUMERIC_TO_STATUS[id];
+                          } else if (geo.properties.name === "Kosovo") {
+                            status = VISA_DATA.XKX || "free";
+                          }
+
+                          return (
+                            <Geography
+                              key={geo.rsmKey}
+                              geography={geo}
+                              onMouseEnter={() => setTooltip({ name: geo.properties.name, status: STATUS_LABEL[status] })}
+                              onMouseLeave={() => setTooltip(null)}
+                              onClick={() => {
+                                const alpha3 = Object.keys(ALPHA3_TO_NUMERIC).find((key) => ALPHA3_TO_NUMERIC[key] === id) || "";
+                                setSelectedCountry({ name: geo.properties.name, status: STATUS_LABEL[status], statusKey: status, alpha3 });
+                              }}
+                              style={{
+                                default: { fill: STATUS_COLOR[status], stroke: "#F7F9FC", strokeWidth: 0.55, outline: "none" },
+                                hover: { fill: STATUS_COLOR[status], filter: "brightness(0.9)", outline: "none", cursor: "pointer" },
+                                pressed: { outline: "none" },
+                              }}
+                            />
+                          );
+                        })
+                      }
+                    </Geographies>
+                  </ZoomableGroup>
+                </ComposableMap>
+
+                {tooltip && !selectedCountry && (
+                  <div className="l2t-passport-v27-tooltip">
+                    <strong>{tooltip.name}</strong>
+                    <span>{tooltip.status}</span>
+                  </div>
+                )}
+
+                {selectedCountry && (
+                  <aside className="l2t-passport-v27-country-panel">
+                    <button type="button" className="l2t-passport-v27-close" onClick={() => setSelectedCountry(null)} aria-label="Ülke detayını kapat">×</button>
+                    <small>Seçili ülke</small>
+                    <h3>{selectedCountry.name}</h3>
+                    <span className="l2t-passport-v27-status" data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
+                    <p>Giriş koşulları değişebilir. Seyahatten önce resmi temsilcilik ve havayolu kaynaklarını kontrol et.</p>
+                    <div>
+                      <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`}>Uçak bileti ara</Link>
+                      <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`}>Gezginlere sor</Link>
+                    </div>
+                  </aside>
+                )}
               </div>
 
-              {/* Filtre Butonları */}
-              <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+              <div className="l2t-passport-v27-legend" aria-label="Harita açıklamaları">
                 {[
-                  { id: "all", label: "Tümü" },
-                  { id: "id_card", label: "Kimlikle" },
-                  { id: "free", label: "Vizesiz" },
-                  { id: "evisa", label: "e-Vize" },
-                  { id: "on_arrival", label: "Kapıda" },
-                  { id: "required", label: "Vize Gerekli" }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setVisaFilter(f.id)}
-                    style={{
-                      background: visaFilter === f.id ? "var(--l2t-gold)" : "rgba(255,255,255,0.05)",
-                      color: visaFilter === f.id ? "var(--l2t-night)" : "var(--l2t-soft)",
-                      border: "none",
-                      borderRadius: "100px",
-                      padding: "8px 16px",
-                      fontSize: "0.85rem",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    {f.label}
-                  </button>
+                  { status: "home", label: "Türkiye", count: 1 },
+                  { status: "id_card", label: "Kimlikle", count: STATS.id_card },
+                  { status: "free", label: "Vizesiz", count: STATS.free },
+                  { status: "evisa", label: "e-Vize", count: STATS.evisa },
+                  { status: "on_arrival", label: "Kapıda", count: STATS.on_arrival },
+                  { status: "required", label: "Vize gerekli", count: STATS.required },
+                ].map((item) => (
+                  <span key={item.status} data-status={item.status}>
+                    <i /> {item.label} <strong>{item.count}</strong>
+                  </span>
                 ))}
               </div>
 
-              {/* Arama */}
-              <div style={{ position: "relative" }}>
-                <Search size={16} color="var(--l2t-gold)" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
-                <input
-                  type="text"
-                  placeholder="Ülke ara..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="l2t-form-control"
-                  style={{ paddingLeft: "40px" }}
-                />
+              <div className="l2t-passport-v27-note">
+                <AlertTriangle size={18} />
+                <p><strong>Bilgilendirme:</strong> Vize ve giriş koşulları değişebilir. Satın alma ve seyahat öncesinde resmi kaynaklardan doğrulama yap.</p>
               </div>
             </div>
 
-            {/* Tablo Başlıkları */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", padding: "12px 24px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--l2t-border)" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "1px" }}>Ülke</span>
-              <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--l2t-soft)", textAlign: "center", textTransform: "uppercase", letterSpacing: "1px" }}>Vize Durumu</span>
-            </div>
+            <article className="l2t-passport-v27-list-card">
+              <header>
+                <div>
+                  <small>Sonuçlar</small>
+                  <h3>{filteredCountries.length} ülke gösteriliyor</h3>
+                </div>
+                <span>{visaFilter === "all" ? "Tüm durumlar" : "Filtreli"}</span>
+              </header>
 
-            {/* Ülke Listesi */}
-            <div style={{ overflowY: "auto", flex: 1, maxHeight: "560px" }}>
-              {filteredCountries.map((country) => {
-                const status = VISA_DATA[country.alpha3] || "required";
-                return (
-                  <div
-                    key={country.alpha3}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 120px",
-                      padding: "16px 24px",
-                      borderBottom: "1px solid var(--l2t-border)",
-                      alignItems: "center",
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <span style={{ fontSize: "0.95rem", color: "var(--l2t-text)", fontWeight: "600" }}>{country.name}</span>
-                    <div style={{
-                      background: STATUS_BADGE_COLOR[status] || STATUS_COLOR[status],
-                      color: "#fff",
-                      borderRadius: "100px",
-                      padding: "6px 12px",
-                      fontSize: "0.75rem",
-                      fontWeight: "800",
-                      textAlign: "center",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}>
-                      {STATUS_LABEL[status]}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+              <div className="l2t-passport-v27-list-head" aria-hidden="true">
+                <span>Ülke</span>
+                <span>Giriş durumu</span>
+              </div>
+
+              <div className="l2t-passport-v27-country-list">
+                {filteredCountries.map((country) => {
+                  const status = VISA_DATA[country.alpha3] || "required";
+                  return (
+                    <button
+                      type="button"
+                      key={country.alpha3}
+                      className="l2t-passport-v27-country-row"
+                      onClick={() => setSelectedCountry({ name: country.name, status: STATUS_LABEL[status], statusKey: status, alpha3: country.alpha3 })}
+                    >
+                      <span>{country.name}</span>
+                      <strong data-status={status}>{STATUS_LABEL[status]}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {filteredCountries.length === 0 && (
+                <div className="l2t-passport-v27-empty">Aramana uygun ülke bulunamadı.</div>
+              )}
+            </article>
           </div>
+        </section>
 
-        </div>
-
-        {/* Alt İstatistik Kartları */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "16px", marginTop: "24px" }}>
-          {[
-            { icon: <TrendingUp size={20} />, label: "Mobility Score", value: STATS.mobility, color: "var(--l2t-gold)" },
-            { icon: <CheckCircle size={20} />, label: "Vizesiz", value: STATS.free, color: "var(--l2t-success)" },
-            { icon: <Globe size={20} />, label: "Varışta Vize", value: STATS.on_arrival, color: "#3B82F6" },
-            { icon: <FileText size={20} />, label: "E-Vize", value: STATS.evisa, color: "#60A5FA" },
-            { icon: <AlertTriangle size={20} />, label: "Vize Gerekli", value: STATS.required, color: "var(--l2t-danger)" },
-          ].map((stat) => (
-            <div key={stat.label} className="l2t-glass-card" style={{
-              padding: "16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}>
-              <div style={{ color: stat.color }}>{stat.icon}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--l2t-soft)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{stat.label}</div>
-              <div style={{ fontSize: "2rem", fontWeight: "900", color: stat.color, lineHeight: 1 }}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Seyahat CTA */}
-        <div className="l2t-passport-cta-card">
+        <section className="l2t-passport-v27-next">
           <div>
-            <p className="l2t-kicker">Vize durumunu gördün</p>
-            <h3>Şimdi seyahat adımını seç</h3>
-            <p>Pasaportunun gücünü öğrendin, seyahat planına başla.</p>
+            <p className="l2t-passport-v27-eyebrow">Sıradaki adım</p>
+            <h2>Pasaportuna uygun seyahati planla</h2>
+            <p>Uçuş, konaklama, internet ve fiyat alarmı araçlarına tek yerden devam et.</p>
           </div>
-          <div className="l2t-passport-cta-actions">
-            <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçak bileti ara</Link>
-            <Link href="/oteller"><Hotel size={18} /> Otel bak</Link>
-            <Link href="/esim"><Wifi size={18} /> eSIM al</Link>
-            <Link href="/forum"><MessageCircle size={18} /> Gezginlere sor</Link>
-            <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı kur</Link>
+          <div className="l2t-passport-v27-next-links">
+            <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçuş ara</Link>
+            <Link href="/oteller"><Hotel size={18} /> Otel bul</Link>
+            <Link href="/esim"><Wifi size={18} /> eSIM</Link>
+            <Link href="/forum"><MessageCircle size={18} /> Topluluğa sor</Link>
+            <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı</Link>
           </div>
-        </div>
-
-      </div>
+        </section>
+      </main>
     </div>
   );
 }
