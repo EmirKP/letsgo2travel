@@ -1,0 +1,30 @@
+{
+  "id": "a7168740-1258-4c69-bc2f-f601f472b5e3",
+  "user_id": "AUTH_USER_UUID",
+  "destination_country": "Birleşik Arap Emirlikleri",
+  "destination_code": "AE",
+  "destination_city": "Dubai",
+  "start_date": "2026-09-09",
+  "end_date": "2026-09-14",
+  "departure_at": "2026-09-09T06:30:00.000Z",
+  "flight_pnr": "ABC123",
+  "checklist_items": [
+    {
+      "id": "passport-check",
+      "label": "Pasaport geçerliliğini kontrol et",
+      "completed": true,
+      "category": "documents",
+      "createdAt": "2026-07-22T18:00:00.000Z"
+    },
+    {
+      "id": "esim-check",
+      "label": "eSIM paketini ayarla",
+      "completed": false,
+      "category": "technology",
+      "createdAt": "2026-07-22T18:00:00.000Z"
+    }
+  ],
+  "status": "upcoming",
+  "created_at": "2026-07-22T18:00:00.000Z",
+  "updated_at": "2026-07-22T18:00:00.000Z"
+}

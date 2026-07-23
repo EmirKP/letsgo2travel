@@ -1,0 +1,111 @@
+.feedbackPage {
+  min-height: 72vh;
+  display: grid;
+  place-items: center;
+  padding: 40px 18px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(68, 193, 235, 0.15), transparent 30%),
+    #f3f8fa;
+}
+
+.feedbackCard {
+  width: min(560px, 100%);
+  padding: 38px;
+  border: 1px solid #d2e2e8;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 22px 56px rgba(8, 48, 70, 0.09);
+  text-align: center;
+}
+
+.feedbackCard h1 {
+  margin: 17px 0 8px;
+  color: #082d42;
+  font-size: clamp(26px, 5vw, 38px);
+}
+
+.feedbackCard p {
+  margin: 0;
+  color: #6e8794;
+  line-height: 1.65;
+}
+
+.spinner,
+.icon,
+.errorIcon {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  margin: 0 auto;
+  border-radius: 21px;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #d7edf4;
+  border-top-color: #1684a7;
+  border-radius: 50%;
+  animation: spin 900ms linear infinite;
+}
+
+.icon {
+  color: #096786;
+  background: #e5f6fb;
+  font-size: 28px;
+}
+
+.errorIcon {
+  color: #a43f3f;
+  background: #fff0f0;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.primaryLink,
+.secondaryLink,
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 17px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primaryLink,
+.retryButton {
+  border: 1px solid #086382;
+  color: #fff;
+  background: #086382;
+}
+
+.secondaryLink {
+  border: 1px solid #c9dae2;
+  color: #31596b;
+  background: #fff;
+}
+
+.retryButton {
+  margin-top: 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
