@@ -179,25 +179,27 @@ export default async function ForumTopicPage({
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "DiscussionForumPosting",
-    headline: topic.title,
-    articleBody: topic.content,
-    datePublished: topic.created_at,
-    dateModified: topic.updated_at || topic.created_at,
-    author: {
-      "@type": "Person",
-      name: topic.author_name || "LetsGo2Travel kullanıcısı",
-    },
-    commentCount: totalReplies,
-    comment: visibleReplies.map((reply) => ({
-      "@type": "Comment",
-      text: reply.content,
-      dateCreated: reply.created_at,
+    "@type": "QAPage",
+    mainEntity: {
+      "@type": "Question",
+      name: topic.title,
+      text: topic.content,
+      dateCreated: topic.created_at,
+      answerCount: totalReplies,
       author: {
         "@type": "Person",
-        name: reply.author_name || "LetsGo2Travel kullanıcısı",
+        name: topic.author_name || "LetsGo2Travel kullanıcısı",
       },
-    })),
+      suggestedAnswer: visibleReplies.map((reply) => ({
+        "@type": "Answer",
+        text: reply.content,
+        dateCreated: reply.created_at,
+        author: {
+          "@type": "Person",
+          name: reply.author_name || "LetsGo2Travel kullanıcısı",
+        },
+      })),
+    },
   };
 
   return (

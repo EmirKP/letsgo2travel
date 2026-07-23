@@ -17,6 +17,8 @@ import {
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
 
+import styles from "./Auth.module.css";
+
 function GoogleMark() {
   return (
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -168,38 +170,40 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleRegister} className="l2t-auth-form l2t-auth-register-form">
-            <label className="l2t-auth-field">
-              <span>Ad soyad</span>
-              <span className="l2t-auth-input-wrap">
-                <User size={18} />
-                <input
-                  type="text"
-                  autoComplete="name"
-                  required
-                  placeholder="Adın ve soyadın"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </span>
-            </label>
+            <div className={styles.formRow}>
+              <label className={`${styles.inputGroup} l2t-auth-field`}>
+                <span>Ad soyad</span>
+                <span className="l2t-auth-input-wrap">
+                  <User size={18} />
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    required
+                    placeholder="Adın ve soyadın"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </span>
+              </label>
 
-            <label className="l2t-auth-field">
-              <span>Kullanıcı adı</span>
-              <span className="l2t-auth-input-wrap">
-                <User size={18} />
-                <input
-                  type="text"
-                  autoComplete="username"
-                  required
-                  minLength={3}
-                  placeholder="Toplulukta görünecek ad"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                />
-              </span>
-            </label>
+              <label className={`${styles.inputGroup} l2t-auth-field`}>
+                <span>Kullanıcı adı</span>
+                <span className="l2t-auth-input-wrap">
+                  <User size={18} />
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    required
+                    minLength={3}
+                    placeholder="Toplulukta görünecek ad"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+                </span>
+              </label>
+            </div>
 
-            <label className="l2t-auth-field">
+            <label className={`${styles.inputGroup} l2t-auth-field`}>
               <span>E-posta adresi</span>
               <span className="l2t-auth-input-wrap">
                 <Mail size={18} />
@@ -215,7 +219,7 @@ export default function RegisterPage() {
               </span>
             </label>
 
-            <label className="l2t-auth-field">
+            <label className={`${styles.inputGroup} l2t-auth-field`}>
               <span>Şifre</span>
               <span className="l2t-auth-input-wrap">
                 <Lock size={18} />
@@ -232,7 +236,7 @@ export default function RegisterPage() {
             </label>
 
             {error ? (
-              <div className="l2t-auth-error" role="alert">
+              <div className={styles.errorMessage} role="alert">
                 <AlertCircle size={17} />
                 <span>{error}</span>
               </div>
