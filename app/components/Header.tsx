@@ -28,6 +28,7 @@ const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 const primaryNav = [
   { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
   { href: "/rota-asistani", label: "Rota Asistanı", icon: Sparkles },
+  { href: "/seyahat-kokpiti", label: "Kokpit", icon: Plane },
   { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
   { href: "/forum", label: "Topluluk", icon: MessageSquare },
 ];

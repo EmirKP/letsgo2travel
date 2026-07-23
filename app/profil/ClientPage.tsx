@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, Heart, Bell, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin } from "lucide-react";
+import { User, Heart, Bell, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 
 export default function ProfilPage() {
@@ -255,6 +255,19 @@ export default function ProfilPage() {
               <Bell size={20} />
             </div>
             <span style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--l2t-navy)" }}>Fiyat Alarmlarım</span>
+          </div>
+          <ChevronRight size={20} color="var(--l2t-muted)" />
+        </Link>
+
+        <Link href="/seyahat-kokpiti" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9", textDecoration: "none", background: "linear-gradient(90deg, rgba(14, 165, 233, 0.07), rgba(245, 158, 11, 0.06))" }} className="hover-tilt">
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: "linear-gradient(145deg, rgba(14, 165, 233, 0.16), rgba(245, 158, 11, 0.16))", display: "flex", alignItems: "center", justifyContent: "center", color: "#08789b" }}>
+              <Plane size={20} />
+            </div>
+            <div>
+              <span style={{ display: "block", fontSize: "1.05rem", fontWeight: "800", color: "var(--l2t-navy)" }}>Akıllı Seyahat Kokpiti</span>
+              <small style={{ display: "block", marginTop: "2px", color: "var(--l2t-soft)", fontSize: "0.78rem", fontWeight: "600" }}>Geri sayım, hazırlık listesi ve seyahat bilgileri</small>
+            </div>
           </div>
           <ChevronRight size={20} color="var(--l2t-muted)" />
         </Link>
