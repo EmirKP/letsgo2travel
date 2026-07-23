@@ -6,6 +6,7 @@ import { Plane, Award, MapPin, Globe2, Heart, Sparkles, LogOut, ExternalLink, Us
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { supabase } from "@/lib/supabase-client";
 import Link from "next/link";
+import styles from "./ProfilHarita.module.css";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -232,12 +233,12 @@ export default function ProfilPage() {
   const verifiedCount = verifications.filter(v => v.status === 'approved').length;
 
   return (
-    <div className="l2t-page l2t-wrap" style={{ minHeight: "100vh", padding: "40px 20px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 3fr", gap: "32px", alignItems: "start" }}>
+    <div className={`l2t-page ${styles.page}`}>
+      <div className={styles.layout}>
         
         {/* Sol Panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px", position: "sticky", top: "100px" }}>
-          <div className="glass-panel" style={{ padding: "24px", borderRadius: "20px", background: "#ffffff", boxShadow: "0 10px 30px rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.05)" }}>
+        <aside className={styles.sidebar}>
+          <div className={`glass-panel ${styles.sidebarCard}`} style={{ padding: "24px", borderRadius: "20px", background: "#ffffff", boxShadow: "0 10px 30px rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.05)" }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px", paddingBottom: "24px", borderBottom: "1px solid #f1f5f9" }}>
             <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "linear-gradient(135deg, #1476f2, #0A1F4A)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(20,118,242,0.2)", flexShrink: 0 }}>
@@ -291,12 +292,12 @@ export default function ProfilPage() {
             <LogOut size={16} /> Oturumu Kapat
           </button>
         </div>
-      </div>
+      </aside>
 
         {/* Sağ Panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+        <div className={styles.main}>
           
-          <div style={{ display: "flex", background: "#fff", padding: "6px", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.03)", border: "1px solid #f1f5f9" }}>
+          <div className={styles.tabs}>
             <button onClick={() => setActiveTab("map")} style={{ flex: 1, padding: "14px", borderRadius: "16px", border: "none", background: activeTab === "map" ? "linear-gradient(135deg, #1476f2, #0A1F4A)" : "transparent", color: activeTab === "map" ? "#fff" : "var(--l2t-soft)", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", boxShadow: activeTab === "map" ? "0 4px 12px rgba(20,118,242,0.3)" : "none" }}>
               <MapPin size={18} /> Dünyam
             </button>
@@ -309,26 +310,26 @@ export default function ProfilPage() {
           </div>
 
           {activeTab === "map" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "24px", animation: "fadeUp 0.5s ease" }}>
-              <div className="glass-panel" style={{ padding: "0", borderRadius: "24px", background: "#fff", position: "relative", overflow: "hidden", border: "none", boxShadow: "0 20px 40px rgba(0,0,0,0.06)" }}>
+            <div className={styles.tabContent} style={{ display: "flex", flexDirection: "column", gap: "24px", animation: "fadeUp 0.5s ease" }}>
+              <div className={`glass-panel ${styles.mapPanel}`}>
                 
-                <div style={{ padding: "32px 32px 0", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                  <div>
-                    <h2 style={{ fontSize: "2rem", color: "var(--l2t-navy)", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px", letterSpacing: "-0.5px" }}>
+                <div className={styles.mapHeader}>
+                  <div className={styles.mapHeaderCopy}>
+                    <h2 className={styles.mapTitle} style={{ fontSize: "2rem", color: "var(--l2t-navy)", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px", letterSpacing: "-0.5px" }}>
                       <Globe2 color="var(--l2t-blue)" size={28} /> Seyahat Haritam
                     </h2>
                     <p style={{ color: "var(--l2t-soft)", fontSize: "1rem", margin: 0, maxWidth: "500px", lineHeight: "1.5" }}>
                       Gittiğin ülkelerin üzerine tıkla. Gezdiğin ve gitmek istediğin yerleri haritada işaretle, doğrulanmış kaşifler arasına katıl!
                     </p>
                   </div>
-                  <div style={{ display: "flex", gap: "12px" }}>
+                  <div className={styles.mapSummary}>
                     <div style={{ background: "rgba(245, 158, 11, 0.1)", padding: "10px 20px", borderRadius: "24px", color: "#F59E0B", fontWeight: "800", fontSize: "0.95rem" }}>
                       {wishlist.length} İstek Listesi
                     </div>
                   </div>
                 </div>
 
-                <div style={{ height: "550px", background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)", position: "relative", overflow: "hidden" }}>
+                <div className={styles.mapViewport}>
                   <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(20, 118, 242, 0.1) 1px, transparent 1px)", backgroundSize: "40px 40px", opacity: 0.8, zIndex: 0 }} />
 
                   {tooltipContent && (
@@ -405,7 +406,7 @@ export default function ProfilPage() {
           <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
             <div style={{ position: "absolute", inset: 0, background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)" }} onClick={() => setSelectedCountry(null)} />
             
-            <div style={{ background: "#fff", borderRadius: "24px", padding: "32px", width: "100%", maxWidth: "500px", position: "relative", zIndex: 1, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }}>
+            <div className={styles.modalCard} style={{ background: "#fff", borderRadius: "24px", padding: "32px", position: "relative", zIndex: 1, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }}>
               <button onClick={() => setSelectedCountry(null)} style={{ position: "absolute", top: "24px", right: "24px", background: "#f1f5f9", border: "none", width: "36px", height: "36px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--l2t-soft)" }}>
                 <X size={18} />
               </button>
@@ -511,7 +512,7 @@ export default function ProfilPage() {
       })()}
 
       {toastMessage && (
-        <div style={{ position: "fixed", bottom: "32px", right: "32px", background: toastMessage.type === "error" ? "#ef4444" : "#10b981", color: "#fff", padding: "16px 24px", borderRadius: "16px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", zIndex: 10000, display: "flex", flexDirection: "column", gap: "4px", minWidth: "300px", maxWidth: "400px", animation: "slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}>
+        <div className={styles.toast} style={{ background: toastMessage.type === "error" ? "#ef4444" : "#10b981", color: "#fff", padding: "16px 24px", borderRadius: "16px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: "4px", animation: "slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}>
           <div style={{ fontWeight: "700", fontSize: "1.05rem" }}>{toastMessage.title}</div>
           <div style={{ fontSize: "0.9rem", opacity: 0.9, lineHeight: "1.4" }}>{toastMessage.message}</div>
         </div>

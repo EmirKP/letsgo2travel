@@ -1,0 +1,211 @@
+.page {
+  width: min(1180px, calc(100% - 40px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 40px 0 96px;
+  overflow: clip;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(0, 3fr);
+  gap: 32px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: 100px;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebarCard,
+.main,
+.mapPanel,
+.tabContent {
+  min-width: 0;
+}
+
+.main {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid #f1f5f9;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+}
+
+.tabs > button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.mapPanel {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+}
+
+.mapHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 0;
+  margin-bottom: 20px;
+  padding: 32px 32px 0;
+}
+
+.mapHeaderCopy {
+  min-width: 0;
+}
+
+.mapTitle {
+  overflow-wrap: anywhere;
+}
+
+.mapSummary {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mapViewport {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 550px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.modalCard {
+  width: min(500px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
+.toast {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 10000;
+  width: min(400px, calc(100vw - 64px));
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .page {
+    width: min(100% - 28px, 760px);
+    padding-top: 28px;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .mapHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mapSummary {
+    width: 100%;
+  }
+
+  .mapViewport {
+    height: 440px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    width: min(100% - 20px, 520px);
+    padding: 18px 0 104px;
+  }
+
+  .layout {
+    gap: 18px;
+  }
+
+  .tabs {
+    gap: 2px;
+    padding: 5px;
+    border-radius: 17px;
+  }
+
+  .tabs > button {
+    min-height: 50px;
+    padding: 10px 6px !important;
+    gap: 5px !important;
+    border-radius: 13px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .mapPanel {
+    border-radius: 20px;
+  }
+
+  .mapHeader {
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 22px 18px 0;
+  }
+
+  .mapHeader h2 {
+    font-size: 1.55rem !important;
+    line-height: 1.15;
+  }
+
+  .mapHeader p {
+    font-size: 0.92rem !important;
+  }
+
+  .mapSummary > div {
+    width: 100%;
+    padding: 9px 14px !important;
+    text-align: center;
+  }
+
+  .mapViewport {
+    height: 360px;
+  }
+
+  .modalCard {
+    max-height: calc(100dvh - 20px);
+    padding: 24px 18px !important;
+    border-radius: 20px !important;
+  }
+
+  .toast {
+    right: 10px;
+    bottom: 82px;
+    width: calc(100vw - 20px);
+    padding: 14px 16px !important;
+  }
+}

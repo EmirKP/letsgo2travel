@@ -19,6 +19,8 @@ import { supabase } from "@/lib/supabase-client";
 
 import styles from "./Auth.module.css";
 
+type RegisterFieldErrors = Partial<Record<"name" | "username" | "email" | "password", string>>;
+
 function GoogleMark() {
   return (
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -71,6 +73,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -98,16 +101,40 @@ export default function RegisterPage() {
     }
   };
 
+  const validateFields = () => {
+    const nextErrors: RegisterFieldErrors = {};
+
+    if (name.trim().length < 2) {
+      nextErrors.name = "Ad soyad en az 2 karakter olmalıdır.";
+    }
+
+    if (username.trim().length < 3) {
+      nextErrors.username = "Kullanıcı adı en az 3 karakter olmalıdır.";
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      nextErrors.email = "Geçerli bir e-posta adresi yazın.";
+    }
+
+    if (password.length < 6) {
+      nextErrors.password = "Şifre en az 6 karakter olmalıdır.";
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+
+    if (!validateFields()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
-      if (password.length < 6) {
-        setError("Şifre en az 6 karakter olmalıdır.");
-        return;
-      }
 
       const { error: authError } = await supabase.auth.signUp({
         email,
@@ -169,74 +196,98 @@ export default function RegisterPage() {
             <span>Bir dakikadan kısa sürede seyahat profilini oluşturmaya başla.</span>
           </div>
 
-          <form onSubmit={handleRegister} className="l2t-auth-form l2t-auth-register-form">
+          <form onSubmit={handleRegister} className={`l2t-auth-form ${styles.registerForm}`}>
             <div className={styles.formRow}>
               <label className={`${styles.inputGroup} l2t-auth-field`}>
                 <span>Ad soyad</span>
-                <span className="l2t-auth-input-wrap">
+                <span className={`l2t-auth-input-wrap ${fieldErrors.name ? styles.inputWrapError : ""}`}>
                   <User size={18} />
                   <input
                     type="text"
                     autoComplete="name"
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    aria-describedby={fieldErrors.name ? "register-name-error" : undefined}
                     required
                     placeholder="Adın ve soyadın"
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      setFieldErrors((current) => ({ ...current, name: undefined }));
+                    }}
                   />
                 </span>
+                {fieldErrors.name ? <span id="register-name-error" className={styles.errorMessage}>{fieldErrors.name}</span> : null}
               </label>
 
               <label className={`${styles.inputGroup} l2t-auth-field`}>
                 <span>Kullanıcı adı</span>
-                <span className="l2t-auth-input-wrap">
+                <span className={`l2t-auth-input-wrap ${fieldErrors.username ? styles.inputWrapError : ""}`}>
                   <User size={18} />
                   <input
                     type="text"
                     autoComplete="username"
+                    aria-invalid={Boolean(fieldErrors.username)}
+                    aria-describedby={fieldErrors.username ? "register-username-error" : undefined}
                     required
                     minLength={3}
                     placeholder="Toplulukta görünecek ad"
                     value={username}
-                    onChange={(event) => setUsername(event.target.value)}
+                    onChange={(event) => {
+                      setUsername(event.target.value);
+                      setFieldErrors((current) => ({ ...current, username: undefined }));
+                    }}
                   />
                 </span>
+                {fieldErrors.username ? <span id="register-username-error" className={styles.errorMessage}>{fieldErrors.username}</span> : null}
               </label>
             </div>
 
             <label className={`${styles.inputGroup} l2t-auth-field`}>
               <span>E-posta adresi</span>
-              <span className="l2t-auth-input-wrap">
+              <span className={`l2t-auth-input-wrap ${fieldErrors.email ? styles.inputWrapError : ""}`}>
                 <Mail size={18} />
                 <input
                   type="email"
                   autoComplete="email"
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? "register-email-error" : undefined}
                   inputMode="email"
                   required
                   placeholder="ornek@email.com"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setFieldErrors((current) => ({ ...current, email: undefined }));
+                  }}
                 />
               </span>
+              {fieldErrors.email ? <span id="register-email-error" className={styles.errorMessage}>{fieldErrors.email}</span> : null}
             </label>
 
             <label className={`${styles.inputGroup} l2t-auth-field`}>
               <span>Şifre</span>
-              <span className="l2t-auth-input-wrap">
+              <span className={`l2t-auth-input-wrap ${fieldErrors.password ? styles.inputWrapError : ""}`}>
                 <Lock size={18} />
                 <input
                   type="password"
                   autoComplete="new-password"
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? "register-password-error" : undefined}
                   required
                   minLength={6}
                   placeholder="En az 6 karakter"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setFieldErrors((current) => ({ ...current, password: undefined }));
+                  }}
                 />
               </span>
+              {fieldErrors.password ? <span id="register-password-error" className={styles.errorMessage}>{fieldErrors.password}</span> : null}
             </label>
 
             {error ? (
-              <div className={styles.errorMessage} role="alert">
+              <div className={styles.formError} role="alert">
                 <AlertCircle size={17} />
                 <span>{error}</span>
               </div>

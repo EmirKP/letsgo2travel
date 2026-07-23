@@ -1,18 +1,29 @@
+.registerForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+}
+
 .formRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .inputGroup {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 0.5rem;
-  margin-top: 1.25rem;
+  margin-top: 0;
 }
 
-.formRow .inputGroup {
-  margin-top: 0;
+.inputGroup input {
+  min-width: 0;
 }
 
 .errorMessage {
@@ -27,12 +38,37 @@
 }
 
 @media (max-width: 680px) {
-  .formRow {
-    grid-template-columns: 1fr;
-    gap: 0;
+  .registerForm {
+    gap: 1rem;
   }
 
-  .formRow .inputGroup + .inputGroup {
-    margin-top: 1.25rem;
+  .formRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
   }
+}
+
+.inputWrapError {
+  color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  background: #fffafa !important;
+}
+
+.inputWrapError:focus-within {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1) !important;
+}
+
+.formError {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.75rem;
+  color: #991b1b;
+  background: #fef2f2;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.5;
 }
