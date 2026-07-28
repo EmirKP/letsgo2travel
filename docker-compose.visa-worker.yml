@@ -1,0 +1,10 @@
+services:
+  visa-worker:
+    build:
+      context: ./visa-worker
+    container_name: letsgo2travel-visa-worker
+    restart: unless-stopped
+    env_file:
+      - ./visa-worker/.env
+    security_opt:
+      - no-new-privileges:true

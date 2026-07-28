@@ -28,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/harita`, priority: 0.7, changeFrequency: 'monthly' as const },
     { url: `${baseUrl}/pasaport-gucu`, priority: 0.8, changeFrequency: 'monthly' as const },
     { url: `${baseUrl}/rota-asistani`, priority: 0.9, changeFrequency: 'weekly' as const },
+    { url: `${baseUrl}/vize-randevu`, priority: 0.9, changeFrequency: 'daily' as const },
     { url: `${baseUrl}/butce-hesapla`, priority: 0.8, changeFrequency: 'monthly' as const },
     { url: `${baseUrl}/planlarim`, priority: 0.7, changeFrequency: 'weekly' as const },
   ];

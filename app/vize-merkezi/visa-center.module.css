@@ -231,3 +231,20 @@
   .grid { grid-template-columns: 1fr; }
   .notice { grid-template-columns: 1fr; }
 }
+
+.heroAction {
+  min-height: 45px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 20px;
+  padding: 0 16px;
+  border-radius: 13px;
+  background: var(--color-primary);
+  color: #fff;
+  text-decoration: none;
+  font-size: .8rem;
+  font-weight: 850;
+}
+
+.heroAction:hover { background: var(--color-primary-hover); }

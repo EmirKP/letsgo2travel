@@ -66,6 +66,9 @@ export default async function VizeMerkeziPage() {
           <p>
             Vize türlerini, yayımlanmış belge rehberlerini ve mevcutsa güncel randevu notlarını aynı yerde karşılaştır.
           </p>
+          <Link href="/vize-randevu" className={styles.heroAction}>
+            Randevu takibi oluştur <ArrowRight size={16} />
+          </Link>
         </header>
 
         {!hasPublishedData && (

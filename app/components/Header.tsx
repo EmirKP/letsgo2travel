@@ -8,6 +8,7 @@ import {
   BookOpen,
   Bookmark,
   Calculator,
+  CalendarSearch,
   FileText,
   Menu,
   MessageSquare,
@@ -34,6 +35,7 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
+  { href: "/vize-randevu", label: "Randevu Asistanı", icon: CalendarSearch },
   { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
   { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },

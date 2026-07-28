@@ -1,0 +1,41 @@
+.page { min-height: 100vh; padding: 42px 0 70px; background: #f5f8fb; }
+.inner { width: min(calc(100% - 2rem), 1240px); margin-inline: auto; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; margin-bottom: 27px; }
+.head a { display: block; margin-bottom: 15px; color: #64748b; font-size: .78rem; font-weight: 750; }
+.head span { color: #1295a0; font-size: .7rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.head h1 { margin: 7px 0; color: #071b33; font-size: clamp(2rem,4vw,3.2rem); letter-spacing: -.045em; }
+.head p { margin: 0; color: #667085; }
+.head button { min-height: 43px; display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; border: 1px solid #d7e1e8; border-radius: 12px; background: #fff; color: #334155; font-weight: 800; cursor: pointer; }
+.metrics { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+.metrics article { display: flex; align-items: center; gap: 11px; padding: 17px; border: 1px solid #dce5ec; border-radius: 17px; background: #fff; color: #1295a0; }
+.metrics span { display: block; color: #77838e; font-size: .66rem; font-weight: 800; text-transform: uppercase; }
+.metrics strong { display: block; margin-top: 3px; color: #071b33; font-size: 1.32rem; }
+.error { display: flex; align-items: center; gap: 9px; margin-bottom: 15px; padding: 13px 15px; border: 1px solid #f2c5c5; border-radius: 13px; background: #fff1f1; color: #a12d2d; font-size: .8rem; font-weight: 750; }
+.tableCard { overflow: hidden; border: 1px solid #dce5ec; border-radius: 21px; background: #fff; box-shadow: 0 14px 40px rgba(7,27,51,.06); }
+.tableHead { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px; border-bottom: 1px solid #e4ebf0; }
+.tableHead h2 { margin: 0; color: #071b33; font-size: 1.12rem; }
+.tableHead span { color: #77838e; font-size: .72rem; font-weight: 800; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; min-width: 940px; border-collapse: collapse; }
+.table th, .table td { padding: 14px 17px; border-bottom: 1px solid #edf1f4; text-align: left; font-size: .73rem; vertical-align: top; }
+.table th { background: #f8fafb; color: #77838e; font-size: .64rem; letter-spacing: .05em; text-transform: uppercase; }
+.table td { color: #53616d; }
+.table td strong { display: block; color: #172033; font-size: .78rem; }
+.table td > span:not(.status) { display: block; margin-top: 4px; color: #84909a; font-size: .67rem; }
+.status { display: inline-flex; padding: 6px 8px; border-radius: 999px; background: #eef2f5; color: #5b6975; font-size: .62rem; font-weight: 850; }
+.status_active, .status_match_found { background: #e7f8ee; color: #13723e; }
+.status_pending_activation, .status_verification_required { background: #fff5d8; color: #765600; }
+.status_error, .status_expired { background: #fff0f0; color: #a52c2c; }
+.empty { min-height: 220px; display: flex; align-items: center; justify-content: center; gap: 9px; color: #72808b; }
+.workerNote { display: grid; grid-template-columns: auto 1fr; gap: 11px; margin-top: 17px; padding: 16px; border: 1px solid #bcdfe2; border-radius: 15px; background: #edf9fa; color: #0b5961; }
+.workerNote strong { font-size: .82rem; }
+.workerNote p { margin: 4px 0 0; color: #56747a; font-size: .72rem; line-height: 1.5; }
+.workerNote code { padding: 2px 5px; border-radius: 5px; background: rgba(7,27,51,.08); }
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 980px) { .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 680px) { .inner { width: min(calc(100% - 1.1rem),1240px); } .head { align-items: flex-start; flex-direction: column; } .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.actions { display: flex; flex-wrap: wrap; gap: 5px; min-width: 210px; }
+.actions button { min-height: 30px; padding: 0 8px; border: 1px solid #d7e1e8; border-radius: 8px; background: #fff; color: #475569; font-size: .62rem; font-weight: 800; cursor: pointer; }
+.actions button:hover { border-color: #19a8b4; color: #0b6f79; }

@@ -1,46 +1,45 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-const liveUrl = process.env.CAPACITOR_SERVER_URL || "https://www.letsgo2travel.com.tr";
-
 const config: CapacitorConfig = {
   appId: "tr.com.letsgo2travel.app",
   appName: "LetsGo2Travel",
   webDir: "mobile-dist",
-  backgroundColor: "#F5F7F9",
-  appendUserAgent: " LetsGo2TravelNative/1.0",
-  loggingBehavior: "debug",
-  zoomEnabled: true,
+  backgroundColor: "#071B33",
+  appendUserAgent: " LetsGo2TravelNative/1.2",
+  loggingBehavior: "production",
+  zoomEnabled: false,
+
   server: {
-    url: liveUrl,
-    cleartext: liveUrl.startsWith("http://"),
-    androidScheme: "https",
-    iosScheme: "capacitor",
-    allowNavigation: ["www.letsgo2travel.com.tr", "letsgo2travel.com.tr"],
-    errorPath: "index.html",
+    errorPath: "error.html",
   },
+
   android: {
-    backgroundColor: "#F5F7F9",
+    backgroundColor: "#071B33",
     allowMixedContent: false,
-    webContentsDebuggingEnabled: false,
   },
+
   ios: {
-    backgroundColor: "#F5F7F9",
+    backgroundColor: "#071B33",
     contentInset: "automatic",
     scrollEnabled: true,
   },
+
   plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 1100,
       launchAutoHide: true,
-      backgroundColor: "#0D2D47",
+      backgroundColor: "#071B33",
       showSpinner: false,
       androidScaleType: "CENTER_CROP",
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
-      style: "DARK",
-      backgroundColor: "#FFFFFF",
+      style: "LIGHT",
+      backgroundColor: "#071B33",
       overlaysWebView: false,
     },
   },

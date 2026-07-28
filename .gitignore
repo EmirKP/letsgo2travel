@@ -46,3 +46,10 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+/mobile/node_modules/
+/android/.gradle/
+/android/.idea/
+/android/**/build/
+/android/local.properties
+/ios/**/DerivedData/

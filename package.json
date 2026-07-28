@@ -11,17 +11,24 @@
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
     "cap:copy": "npx cap copy",
-    "mobile:prepare": "npm run build && npx cap sync"
+    "mobile:prepare": "npm run mobile:build && npx cap sync android && npm run mobile:doctor",
+    "mobile:build": "npm --prefix mobile run build && node scripts/copy-mobile-build.mjs",
+    "mobile:check": "npm --prefix mobile run lint && npm --prefix mobile run build && node scripts/copy-mobile-build.mjs && npm run mobile:doctor",
+    "mobile:prepare:all": "npm run mobile:build && npx cap sync && npm run mobile:doctor",
+    "mobile:android": "npx cap open android",
+    "mobile:ios": "npx cap open ios",
+    "mobile:build:fallback": "node scripts/build-mobile-fallback.mjs && node scripts/copy-mobile-build.mjs",
+    "mobile:prepare:fallback": "npm run mobile:build:fallback && npx cap sync android && npm run mobile:doctor",
+    "mobile:doctor": "node scripts/mobile-doctor.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
-    "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.4.2",
     "@capacitor/network": "^8.0.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@google/generative-ai": "^0.24.1",
@@ -40,6 +47,9 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
@@ -53,6 +63,7 @@
   },
   "allowScripts": {
     "sharp@0.34.5": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver@1.11.1": true,
+    "sharp@0.32.6": true
   }
 }

@@ -1,12 +1,24 @@
 import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
 import { CACHE_TIMES, cachedJson } from "@/lib/http-cache";
 
+function iata(value: string | null, fallback: string) {
+  const normalized = String(value || "").trim().toUpperCase();
+  return /^[A-Z0-9]{3}$/.test(normalized) ? normalized : fallback;
+}
+
+function date(value: string | null) {
+  const normalized = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : undefined;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const origin = searchParams.get("origin") || "IST";
-  const destination = searchParams.get("destination") || "DXB";
+  const origin = iata(searchParams.get("origin"), "IST");
+  const destination = iata(searchParams.get("destination"), "DXB");
+  const departDate = date(searchParams.get("departureDate") || searchParams.get("departDate"));
+  const returnDate = date(searchParams.get("returnDate"));
 
-  const rawUrl = aviasalesUrl({ origin, destination });
+  const rawUrl = aviasalesUrl({ origin, destination, departDate, returnDate });
 
   return cachedJson({
     mode: process.env.TRAVELPAYOUTS_TOKEN ? "api-ready" : "affiliate-fallback",
@@ -17,6 +29,6 @@ export async function GET(request: Request) {
       sourcePage: "travelpayouts_search_api",
       campaign: "api_search",
     }),
-    message: "Travelpayouts token eklenirse burada gerçek fiyat API entegrasyonu yapılabilir.",
+    message: "Uçuş araması seçilen rota ve tarihlerle hazırlandı.",
   }, CACHE_TIMES.AFFILIATE_SHORT);
 }

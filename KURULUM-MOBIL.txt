@@ -1,0 +1,47 @@
+LETSGO2TRAVEL MOBİL 1.2 — KURULUM
+
+1) Mevcut projenizdeki .env.local dosyasını yedekleyin.
+2) Bu paketi C:\Projects\letsgo2travel klasörüne çıkarıp dosyaların tamamını değiştirin.
+3) Yedeklediğiniz .env.local dosyasını proje ana klasörüne geri koyun.
+4) PowerShell'i proje ana klasöründe açıp sırasıyla çalıştırın:
+
+   cd C:\Projects\letsgo2travel
+   npm install
+   npm --prefix mobile install
+   npm run mobile:prepare
+   npm run mobile:android
+
+5) Android Studio'da Gradle Sync/Indexing tamamlanınca cihazı seçip Run düğmesine basın.
+
+KONTROL
+
+   npm run mobile:doctor
+
+Bu komut mobil paket, Android/iOS yönlendirmeleri, internet izni ve Capacitor ayarlarını kontrol eder.
+
+VITE / ROLLDOWN KURULUM HATASI OLURSA
+
+   npm run mobile:prepare:fallback
+   npm run mobile:android
+
+Fallback komutu normal Vite paketi kurulamadığında yerel üretim paketi oluşturur. Normal yayın derlemesinde önce npm run mobile:prepare kullanılmalıdır.
+
+SUPABASE
+
+Authentication > URL Configuration > Redirect URLs listesinde şu adres bulunmalıdır:
+
+   tr.com.letsgo2travel.app://auth/callback
+
+Web yönlendirmesi:
+
+   https://letsgo2travel.com.tr/auth/callback
+
+Site URL:
+
+   https://letsgo2travel.com.tr
+
+NOTLAR
+
+- .env.local güvenlik nedeniyle pakete dahil değildir.
+- Canlı uçuş, fiyat alarmı, hesap ve yapay zekâ özellikleri https://letsgo2travel.com.tr üzerindeki güncel backend deploy'una bağlıdır.
+- Android komutlarını mobile klasöründe değil proje ana klasöründe çalıştırın.

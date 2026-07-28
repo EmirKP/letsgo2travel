@@ -1,0 +1,28 @@
+LETSGO2TRAVEL - VİZE RANDEVU ASİSTANI / İLK GELİŞTİRME PAKETİ
+
+EKLENENLER
+- /vize-randevu kullanıcı sayfası
+- 29 Schengen ülkesi için genişletilebilir katalog
+- Ülke, şehir, kategori, kişi ve tarih aralığı formu
+- Hesaba bağlı 24 saatlik beta takip kaydı
+- Kullanıcının takiplerini görüntüleme, duraklatma ve sürdürme
+- /admin/vize-randevulari yönetim ekranı
+- Admin demo aktivasyonu ve eşleşme testi
+- Kullanıcı API rotaları
+- Admin API rotaları
+- VDS worker görev alma ve sonuç raporlama API rotaları
+- Demo Docker worker iskeleti
+- Supabase tablo, indeks, RLS ve görev kilitleme SQL'i
+- Header, sitemap ve Vize Merkezi bağlantıları
+- Admin Vize Merkezi sayfasının CSS Modules dönüşümü
+
+GÜVENLİK SINIRI
+- CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayı atlanmaz.
+- Gerçek sağlayıcı adaptörleri doğrulanmadan etkinleştirilmez.
+- Paket içinde .env, node_modules, .git ve derleme önbellekleri bulunmaz.
+
+DOĞRULAMA
+- Web TypeScript kontrolü başarılı.
+- Yeni/değiştirilen vize dosyalarında ESLint kontrolü başarılı.
+- Worker JavaScript söz dizimi kontrolü başarılı.
+- Next.js üretim build'i, çalışma ortamının Linux SWC paketini indirirken dış paket servisinden 503 dönmesi nedeniyle tamamlanamadı. Bu hata TypeScript veya ESLint kaynaklı değildir.

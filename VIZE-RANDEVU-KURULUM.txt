@@ -1,0 +1,21 @@
+LETSGO2TRAVEL VİZE RANDEVU ASİSTANI - İLK KURULUM
+
+1) Supabase panelini aç.
+2) SQL Editor bölümüne gir.
+3) supabase_visa_appointment_assistant.sql dosyasının tamamını çalıştır.
+4) Vercel Environment Variables bölümüne şu değişkeni ekle:
+   VISA_WORKER_SECRET=uzun-ve-rastgele-bir-deger
+5) Deploy et.
+6) /vize-randevu sayfasını aç ve giriş yaparak beta takip oluştur.
+7) /admin/vize-randevulari sayfasında kaydı kontrol et.
+
+ÖNEMLİ:
+- Bu paket gerçek randevu sağlayıcılarını henüz otomatik kontrol etmez.
+- Kullanıcı paneli, veritabanı, takip kuyruğu, admin paneli ve VDS worker API sözleşmesi hazırdır.
+- iDATA, VFS, TLScontact, BLS ve diğer sağlayıcılar ayrı ayrı doğrulanıp etkinleştirilecektir.
+- CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayı atlanmaz.
+
+DEMO TESTİ:
+- /admin/vize-randevulari sayfasında bir kaydı demo worker için etkinleştirebilirsin.
+- VDS olmadan da "Test eşleşmesi" işlemiyle kullanıcı ekranını doğrulayabilirsin.
+- VDS kurulduğunda docker-compose.visa-worker.yml kullanılacak.

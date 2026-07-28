@@ -1,6 +1,6 @@
 import Link from "next/link";
 import LogoutButton from "./components/LogoutButton";
-import { LayoutDashboard, BellRing, Settings, ShieldCheck, Users, Trophy, BarChart3 } from "lucide-react";
+import { LayoutDashboard, BellRing, Settings, ShieldCheck, Users, Trophy, BarChart3, CalendarSearch } from "lucide-react";
 
 export default function AdminHome() {
   return (
@@ -22,6 +22,15 @@ export default function AdminHome() {
           <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Dashboard</h3>
           <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Bilet fırsatlarını yönet, metrikleri incele ve yeni uçuş fırsatları ekle.</p>
           <span style={{ color: "#4f46e5", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Panele Git &rarr;</span>
+        </Link>
+
+        <Link href="/admin/vize-randevulari" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ width: "64px", height: "64px", borderRadius: "16px", background: "#e6f8fa", color: "#0b8994", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <CalendarSearch size={32} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Vize Randevu Takipleri</h3>
+          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Aktif takipleri, sağlayıcı durumlarını ve worker sonuçlarını denetle.</p>
+          <span style={{ color: "#0b8994", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Takipleri Yönet &rarr;</span>
         </Link>
 
         <Link href="/admin/fiyat-alarmlari" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
