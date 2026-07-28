@@ -87,3 +87,36 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .heroGrid, .dashboard { grid-template-columns: 1fr; } .heroStatus { max-width: 480px; } .dashboard { margin-top: -40px; } }
 @media (max-width: 660px) { .inner { width: min(calc(100% - 1.1rem),1180px); } .heroGrid { padding: 50px 0 85px; gap: 28px; } .formCard, .tracksSection { padding: 19px; } .form { grid-template-columns: 1fr; } .providerInfo, .notifications, .consent, .submit { grid-column: auto; } .sectionHead { align-items: flex-start; } .sectionHead > div { align-items: flex-start; } .betaBadge { white-space: nowrap; } .trackGrid { grid-template-columns: 1fr; } .progressRow { grid-template-columns: 1fr; } }
+
+.notificationPanel { margin-top: 20px; overflow: hidden; border: 1px solid #f0d98e; border-radius: 18px; background: #fffdf6; box-shadow: 0 14px 35px rgba(7,27,51,.06); }
+.notificationHead { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid #f2e5bd; }
+.notificationHead > div { display: flex; align-items: center; gap: 9px; color: #6f5500; }
+.notificationHead strong { color: #172033; font-size: .86rem; }
+.notificationHead > span { min-width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: #f6c445; color: #071b33; font-size: .72rem; font-weight: 900; }
+.notificationList { display: grid; }
+.notificationList article { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 16px 18px; border-bottom: 1px solid #f3ead0; color: #9a7200; }
+.notificationList article:last-child { border-bottom: 0; }
+.notificationList article > div strong { display: block; color: #172033; font-size: .82rem; }
+.notificationList article > div p { margin: 5px 0; color: #667085; font-size: .74rem; line-height: 1.5; }
+.notificationList article > div span { color: #8a96a0; font-size: .65rem; }
+.notificationList article > button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #e4d7ae; border-radius: 9px; background: #fff; color: #6b7782; cursor: pointer; }
+
+.handoffCard { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-top: 16px; padding: 15px; border: 1px solid #efd580; border-radius: 15px; background: #fff9e8; color: #9a7200; }
+.handoffCard strong { display: block; color: #172033; font-size: .84rem; }
+.handoffCard p { margin: 5px 0 0; color: #6f6040; font-size: .73rem; line-height: 1.5; }
+.handoffActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.handoffActions a, .handoffActions button { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border-radius: 10px; font-size: .69rem; font-weight: 850; }
+.handoffActions a { border: 1px solid #071b33; background: #071b33; color: #fff; }
+.handoffActions button { border: 1px solid #d8c169; background: #fff; color: #5f4a0a; cursor: pointer; }
+.handoffActions button:disabled { opacity: .55; cursor: wait; }
+.technicalDetail { margin-top: 12px; padding: 10px 12px; border: 1px solid #e4eaf0; border-radius: 11px; background: #f8fafb; }
+.technicalDetail summary { cursor: pointer; color: #60707d; font-size: .68rem; font-weight: 800; }
+.technicalDetail p { margin: 8px 0 0; color: #788590; font-size: .67rem; line-height: 1.55; overflow-wrap: anywhere; }
+.legal { display: flex; align-items: flex-start; gap: 9px; }
+.legal svg { flex: 0 0 auto; margin-top: 3px; color: #0b7f89; }
+
+@media (max-width: 660px) {
+  .notificationList article { grid-template-columns: auto 1fr; }
+  .notificationList article > button { grid-column: 2; justify-self: start; }
+  .handoffActions { flex-direction: column; align-items: stretch; }
+}

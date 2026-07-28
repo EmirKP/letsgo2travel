@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarSearch, CheckCircle2, Clock3, RefreshCw, ServerCog } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarSearch,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  RefreshCw,
+  RotateCcw,
+  ServerCog,
+  ShieldAlert,
+} from "lucide-react";
+import { TRACK_STATUS_LABELS, type VisaAppointmentTrackStatus } from "@/lib/visa-appointments/types";
 import styles from "./visa-admin.module.css";
 
 type AdminTrack = {
@@ -10,43 +21,76 @@ type AdminTrack = {
   user_id: string;
   country_code: string;
   country_name: string;
+  provider_code: string | null;
   provider_name: string | null;
   application_city: string;
   alternative_city: string | null;
   visa_category: string;
   applicants_count: number;
-  status: string;
+  status: VisaAppointmentTrackStatus;
   access_expires_at: string;
   last_checked_at: string | null;
   next_check_at: string | null;
   last_result: string | null;
   error_count: number;
   created_at: string;
+  latest_outcome: string | null;
+  latest_message: string | null;
+  latest_checked_at: string | null;
+  latest_worker_name: string | null;
+  latest_evidence_url: string | null;
 };
 
-type Stats = { total: number; active: number; found: number; errors: number; expiringSoon: number };
+type Stats = {
+  total: number;
+  active: number;
+  found: number;
+  verification: number;
+  errors: number;
+  expiringSoon: number;
+};
+
+const emptyStats: Stats = { total: 0, active: 0, found: 0, verification: 0, errors: 0, expiringSoon: 0 };
 
 function dateTime(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("tr-TR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
+function resultTitle(row: AdminTrack) {
+  if (row.status === "verification_required") return "Kullanıcı doğrulaması gerekiyor";
+  if (row.status === "match_found") return "Uygun tarih bulundu";
+  if (row.latest_outcome === "provider_unavailable") return "Sağlayıcı geçici olarak erişilemiyor";
+  if (row.status === "error") return "Teknik kontrol gerekiyor";
+  if (row.latest_outcome === "no_slots") return "Uygun tarih bulunamadı";
+  return row.last_result || "Kontrol bekleniyor";
+}
+
 export default function VisaAppointmentsAdminPage() {
   const [rows, setRows] = useState<AdminTrack[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, found: 0, errors: 0, expiringSoon: 0 });
+  const [stats, setStats] = useState<Stats>(emptyStats);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  async function runAction(id: string, action: "activate_demo" | "activate_idata" | "simulate_match" | "reset_pending") {
+  async function runAction(
+    id: string,
+    action: "activate_demo" | "activate_idata" | "simulate_match" | "reset_pending" | "retry_check",
+  ) {
     setError("");
-    const response = await fetch(`/api/admin/visa-appointments/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const payload = (await response.json()) as { error?: string };
-    if (!response.ok) setError(payload.error || "İşlem başarısız oldu.");
-    await load();
+    setBusyId(id);
+    try {
+      const response = await fetch(`/api/admin/visa-appointments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) setError(payload.error || "İşlem başarısız oldu.");
+      await load();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function load() {
@@ -58,7 +102,7 @@ export default function VisaAppointmentsAdminPage() {
       if (!response.ok) setError(payload.error || "Veriler yüklenemedi.");
       else {
         setRows(payload.data || []);
-        setStats(payload.stats || { total: 0, active: 0, found: 0, errors: 0, expiringSoon: 0 });
+        setStats(payload.stats || emptyStats);
       }
     } catch {
       setError("Sunucu bağlantısı kurulamadı.");
@@ -72,6 +116,7 @@ export default function VisaAppointmentsAdminPage() {
   const metricCards = [
     { label: "Toplam takip", value: stats.total, icon: CalendarSearch },
     { label: "Aktif / bekleyen", value: stats.active, icon: Clock3 },
+    { label: "Doğrulama", value: stats.verification, icon: ShieldAlert },
     { label: "Uygun tarih", value: stats.found, icon: CheckCircle2 },
     { label: "Teknik hata", value: stats.errors, icon: AlertTriangle },
     { label: "6 saatte bitecek", value: stats.expiringSoon, icon: ServerCog },
@@ -85,9 +130,11 @@ export default function VisaAppointmentsAdminPage() {
             <Link href="/admin">← Admin merkezine dön</Link>
             <span>Vize sistemi</span>
             <h1>Randevu Takip Yönetimi</h1>
-            <p>Kullanıcı görevlerini, sağlayıcı aktivasyonunu ve worker sonuçlarını tek ekrandan denetle.</p>
+            <p>Kullanıcı görevlerini, doğrulama bekleyen işlemleri ve worker kanıtlarını tek ekrandan denetle.</p>
           </div>
-          <button type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? styles.spin : ""} size={17} /> Yenile</button>
+          <button type="button" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={loading ? styles.spin : ""} size={17} /> Yenile
+          </button>
         </header>
 
         <section className={styles.metrics}>
@@ -106,23 +153,60 @@ export default function VisaAppointmentsAdminPage() {
             <div className={styles.empty}>Henüz takip oluşturulmamış.</div>
           ) : (
             <div className={styles.tableWrap}>
-              <table>
-                <thead><tr><th>Ülke / şehir</th><th>Durum</th><th>Sağlayıcı</th><th>Son kontrol</th><th>Sonuç</th><th>Süre bitişi</th><th>Test işlemi</th></tr></thead>
+              <table className={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th className={styles.countryColumn}>Ülke / şehir</th>
+                    <th className={styles.statusColumn}>Durum</th>
+                    <th className={styles.providerColumn}>Sağlayıcı</th>
+                    <th className={styles.timeColumn}>Son kontrol</th>
+                    <th className={styles.resultColumn}>Kontrol sonucu</th>
+                    <th className={styles.expireColumn}>Süre bitişi</th>
+                    <th className={styles.actionColumn}>İşlemler</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id}>
-                      <td><strong>{row.country_name}</strong><span>{row.application_city}{row.alternative_city ? ` + ${row.alternative_city}` : ""} · {row.applicants_count} kişi</span></td>
-                      <td><span className={`${styles.status} ${styles[`status_${row.status}`] || ""}`}>{row.status}</span></td>
-                      <td>{row.provider_name || "Doğrulama bekliyor"}</td>
-                      <td>{dateTime(row.last_checked_at)}</td>
-                      <td>{row.last_result || "—"}{row.error_count > 0 ? ` (${row.error_count} hata)` : ""}</td>
-                      <td>{dateTime(row.access_expires_at)}</td>
+                      <td className={styles.countryCell}>
+                        <strong>{row.country_name}</strong>
+                        <span>{row.application_city}{row.alternative_city ? ` + ${row.alternative_city}` : ""}</span>
+                        <small>{row.applicants_count} kişi</small>
+                      </td>
+                      <td>
+                        <span className={`${styles.status} ${styles[`status_${row.status}`] || ""}`}>
+                          {TRACK_STATUS_LABELS[row.status] || row.status}
+                        </span>
+                      </td>
+                      <td className={styles.providerCell}>
+                        <strong>{row.provider_name || "Doğrulama bekliyor"}</strong>
+                        {row.latest_worker_name && <span>{row.latest_worker_name}</span>}
+                      </td>
+                      <td className={styles.timeCell}>{dateTime(row.latest_checked_at || row.last_checked_at)}</td>
+                      <td className={styles.resultCell}>
+                        <strong>{resultTitle(row)}</strong>
+                        <p>{row.latest_message || row.last_result || "Henüz ayrıntı yok."}</p>
+                        <div className={styles.resultLinks}>
+                          {row.latest_evidence_url && (
+                            <a href={row.latest_evidence_url} target="_blank" rel="noreferrer">
+                              <ExternalLink size={14} /> Kanıtı aç
+                            </a>
+                          )}
+                          {row.error_count > 0 && <span>{row.error_count} hata</span>}
+                        </div>
+                      </td>
+                      <td className={styles.timeCell}>{dateTime(row.access_expires_at)}</td>
                       <td>
                         <div className={styles.actions}>
-                          <button type="button" onClick={() => void runAction(row.id, "activate_idata")} disabled={row.country_code !== "DE"}>iDATA aç</button>
-                          <button type="button" onClick={() => void runAction(row.id, "activate_demo")}>Demo aç</button>
-                          <button type="button" onClick={() => void runAction(row.id, "simulate_match")}>Eşleşme test et</button>
-                          <button type="button" onClick={() => void runAction(row.id, "reset_pending")}>Sıfırla</button>
+                          {row.status === "verification_required" && (
+                            <button type="button" onClick={() => void runAction(row.id, "retry_check")} disabled={busyId === row.id}>
+                              <RotateCcw size={14} /> Yeniden dene
+                            </button>
+                          )}
+                          <button type="button" onClick={() => void runAction(row.id, "activate_idata")} disabled={row.country_code !== "DE" || busyId === row.id}>iDATA aç</button>
+                          <button type="button" onClick={() => void runAction(row.id, "activate_demo")} disabled={busyId === row.id}>Demo aç</button>
+                          <button type="button" onClick={() => void runAction(row.id, "simulate_match")} disabled={busyId === row.id}>Eşleşme testi</button>
+                          <button type="button" onClick={() => void runAction(row.id, "reset_pending")} disabled={busyId === row.id}>Sıfırla</button>
                         </div>
                       </td>
                     </tr>
@@ -135,7 +219,10 @@ export default function VisaAppointmentsAdminPage() {
 
         <div className={styles.workerNote}>
           <ServerCog size={21} />
-          <div><strong>Worker bağlantısı hazır</strong><p>VDS worker, <code>/api/internal/visa-appointments/jobs/claim</code> ve <code>/report</code> uçlarını VISA_WORKER_SECRET ile kullanacak.</p></div>
+          <div>
+            <strong>Worker bağlantısı hazır</strong>
+            <p>Doğrulama durumundaki takipler otomatik olarak durdurulur. Kullanıcı veya yönetici “Yeniden dene” dediğinde görev tekrar kuyruğa alınır.</p>
+          </div>
         </div>
       </div>
     </div>

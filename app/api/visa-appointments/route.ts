@@ -55,7 +55,36 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: "Takip tablosu hazır değil. Önce SQL kurulum dosyasını çalıştırın." }, { status: 500 });
-  return NextResponse.json({ data: data || [] }, { headers: { "Cache-Control": "no-store" } });
+
+  let notifications: Array<Record<string, unknown>> = [];
+  const notificationQuery = await auth.supabase
+    .from("visa_appointment_notifications")
+    .select("id,track_id,channel,event_type,status,title,message,action_url,read_at,created_at")
+    .eq("user_id", auth.user.id)
+    .eq("channel", "in_app")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!notificationQuery.error) {
+    notifications = notificationQuery.data || [];
+  } else {
+    const fallback = await auth.supabase
+      .from("visa_appointment_notifications")
+      .select("id,track_id,channel,event_type,status,created_at")
+      .eq("user_id", auth.user.id)
+      .eq("channel", "in_app")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    notifications = (fallback.data || []).map((item) => ({
+      ...item,
+      title: "Vize takibinde işlem gerekiyor",
+      message: "Takip ayrıntılarını kontrol et.",
+      action_url: "/vize-randevu",
+      read_at: null,
+    }));
+  }
+
+  return NextResponse.json({ data: data || [], notifications }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -85,7 +114,7 @@ export async function POST(request: Request) {
 
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   const nextCheckAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const { data, error } = await auth.supabase
+  const { data, error: insertError } = await auth.supabase
     .from("visa_appointment_tracks")
     .insert({
       user_id: auth.user.id,
@@ -109,8 +138,8 @@ export async function POST(request: Request) {
     .select("id,country_code,country_name,provider_code,provider_name,application_city,alternative_city,visa_category,applicants_count,earliest_date,latest_date,notify_email,notify_push,notify_in_app,status,access_expires_at,last_checked_at,next_check_at,last_result,created_at,updated_at")
     .single();
 
-  if (error) {
-    console.error("visa appointment track insert", error);
+  if (insertError) {
+    console.error("visa appointment track insert", insertError);
     return NextResponse.json({ error: "Takip oluşturulamadı." }, { status: 500 });
   }
 

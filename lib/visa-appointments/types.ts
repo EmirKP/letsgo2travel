@@ -53,6 +53,19 @@ export type VisaAppointmentTrack = {
   updated_at: string;
 };
 
+export type VisaAppointmentNotification = {
+  id: string;
+  track_id: string;
+  channel: "email" | "push" | "in_app" | "telegram";
+  event_type: string;
+  status: "queued" | "sent" | "failed" | "opened";
+  title: string | null;
+  message: string | null;
+  action_url: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
 export type TrackCreateInput = {
   countryCode: string;
   applicationCity: ApplicationCity;
@@ -71,7 +84,7 @@ export const TRACK_STATUS_LABELS: Record<VisaAppointmentTrackStatus, string> = {
   active: "Randevu aranıyor",
   paused: "Takip duraklatıldı",
   match_found: "Uygun tarih bulundu",
-  verification_required: "Kullanıcı işlemi gerekiyor",
+  verification_required: "Doğrulama gerekiyor",
   expired: "Takip süresi doldu",
   error: "Teknik kontrol gerekiyor",
 };

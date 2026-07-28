@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-const ACTIONS = ["activate_demo", "activate_idata", "simulate_match", "reset_pending"] as const;
+const ACTIONS = ["activate_demo", "activate_idata", "simulate_match", "reset_pending", "retry_check"] as const;
 type Action = (typeof ACTIONS)[number];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,10 +17,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: track } = await supabase
     .from("visa_appointment_tracks")
-    .select("id,user_id,country_code,earliest_date,latest_date")
+    .select("id,user_id,country_code,earliest_date,latest_date,provider_code,access_expires_at")
     .eq("id", id)
     .maybeSingle();
   if (!track) return NextResponse.json({ error: "Takip bulunamadı." }, { status: 404 });
+
+  if (body.action === "retry_check") {
+    if (!track.provider_code) return NextResponse.json({ error: "Takip için sağlayıcı seçilmemiş." }, { status: 409 });
+    if (new Date(track.access_expires_at) <= new Date()) return NextResponse.json({ error: "Takip süresi dolmuş." }, { status: 409 });
+    const { error } = await supabase.from("visa_appointment_tracks").update({
+      status: "active",
+      next_check_at: new Date().toISOString(),
+      last_result: "Yönetici tarafından yeniden kontrol kuyruğuna alındı",
+      locked_until: null,
+      locked_by: null,
+      error_count: 0,
+    }).eq("id", id);
+    if (error) return NextResponse.json({ error: "Takip yeniden başlatılamadı." }, { status: 500 });
+    return NextResponse.json({ message: "Takip yeniden kontrol kuyruğuna alındı." });
+  }
 
   if (body.action === "activate_demo") {
     const { error } = await supabase.from("visa_appointment_tracks").update({
@@ -86,5 +101,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     error_count: 0,
   }).eq("id", id);
   if (error) return NextResponse.json({ error: "Takip sıfırlanamadı." }, { status: 500 });
-  return NextResponse.json({ message: "Takip bekleme durumuna alındı." });
+  return NextResponse.json({ message: "Takip sağlayıcı aktivasyonu bekleyecek şekilde sıfırlandı." });
 }

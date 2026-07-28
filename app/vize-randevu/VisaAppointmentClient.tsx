@@ -4,27 +4,33 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   BellRing,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock3,
+  ExternalLink,
   FileCheck2,
   MapPin,
   Pause,
   Play,
   RefreshCw,
   SearchCheck,
+  ShieldAlert,
   ShieldCheck,
   Users,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { SCHENGEN_COUNTRIES } from "@/lib/visa-appointments/catalog";
+import { getProviderActionUrl } from "@/lib/visa-appointments/provider-links";
 import {
   APPLICATION_CITIES,
   TRACK_STATUS_LABELS,
   VISA_CATEGORIES,
   type TrackCreateInput,
+  type VisaAppointmentNotification,
   type VisaAppointmentTrack,
 } from "@/lib/visa-appointments/types";
 import styles from "./visa-appointment.module.css";
@@ -49,6 +55,15 @@ function remainingHours(value: string) {
   return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 3_600_000));
 }
 
+function resultSummary(track: VisaAppointmentTrack) {
+  if (track.status === "verification_required") {
+    return "Resmî sağlayıcı doğrulama istiyor. İşlemi resmî sayfada tamamladıktan sonra kontrolü yeniden başlat.";
+  }
+  if (track.status === "match_found") return "Uygun tarih bulundu. Ayrıntıları gecikmeden kontrol et.";
+  if (track.status === "error") return "Kontrol sırasında teknik bir hata oluştu. Yönetim ekibi inceleyecek.";
+  return track.last_result || "Kontrol bekleniyor";
+}
+
 const initialForm: TrackCreateInput = {
   countryCode: "DE",
   applicationCity: "İstanbul",
@@ -66,8 +81,10 @@ export default function VisaAppointmentClient() {
   const router = useRouter();
   const [form, setForm] = useState<TrackCreateInput>(initialForm);
   const [tracks, setTracks] = useState<VisaAppointmentTrack[]>([]);
+  const [notifications, setNotifications] = useState<VisaAppointmentNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -94,15 +111,24 @@ export default function VisaAppointmentClient() {
     setIsLoggedIn(loggedIn);
     if (!loggedIn) {
       setTracks([]);
+      setNotifications([]);
       setLoading(false);
       return;
     }
 
     try {
       const response = await authorizedFetch("/api/visa-appointments", { cache: "no-store" });
-      const payload = (await response.json()) as { data?: VisaAppointmentTrack[]; error?: string };
-      if (response.ok) setTracks(payload.data || []);
-      else setMessage(payload.error || "Takipler yüklenemedi.");
+      const payload = (await response.json()) as {
+        data?: VisaAppointmentTrack[];
+        notifications?: VisaAppointmentNotification[];
+        error?: string;
+      };
+      if (response.ok) {
+        setTracks(payload.data || []);
+        setNotifications(payload.notifications || []);
+      } else {
+        setMessage(payload.error || "Takipler yüklenemedi.");
+      }
     } catch {
       setMessage("Takipler yüklenirken bağlantı hatası oluştu.");
     } finally {
@@ -146,17 +172,29 @@ export default function VisaAppointmentClient() {
     }
   }
 
-  async function changeStatus(id: string, action: "pause" | "resume") {
+  async function changeStatus(id: string, action: "pause" | "resume" | "retry") {
     setMessage("");
-    const response = await authorizedFetch(`/api/visa-appointments/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const payload = (await response.json()) as { error?: string; message?: string };
-    setMessage(payload.error || payload.message || "Takip güncellendi.");
-    if (response.ok) await loadTracks();
+    setBusyTrackId(id);
+    try {
+      const response = await authorizedFetch(`/api/visa-appointments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as { error?: string; message?: string };
+      setMessage(payload.error || payload.message || "Takip güncellendi.");
+      if (response.ok) await loadTracks();
+    } finally {
+      setBusyTrackId(null);
+    }
   }
+
+  async function markNotificationRead(id: string) {
+    const response = await authorizedFetch(`/api/visa-appointments/notifications/${id}`, { method: "PATCH" });
+    if (response.ok) setNotifications((items) => items.map((item) => item.id === id ? { ...item, read_at: new Date().toISOString(), status: "opened" } : item));
+  }
+
+  const unreadNotifications = notifications.filter((item) => !item.read_at);
 
   return (
     <div className={styles.page}>
@@ -179,9 +217,9 @@ export default function VisaAppointmentClient() {
             </div>
             <div className={styles.heroStatus}>
               <div className={styles.pulse} />
-              <span>Sistem kurulumu</span>
-              <strong>Beta takip altyapısı hazır</strong>
-              <p>Sağlayıcı modülleri tek tek doğrulanarak etkinleştirilecek.</p>
+              <span>Sistem durumu</span>
+              <strong>Worker bağlantısı aktif</strong>
+              <p>Sağlayıcı doğrulama istediğinde takip durdurulur ve işlem güvenli biçimde sana devredilir.</p>
             </div>
           </div>
         </div>
@@ -262,9 +300,7 @@ export default function VisaAppointmentClient() {
 
               <div className={styles.consent}>
                 <ShieldCheck size={18} />
-                <p>
-                  Sistem CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayını atlamaz. Bu adımlar gerektiğinde işlem sana devredilir.
-                </p>
+                <p>Sistem CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayını atlamaz. Bu adımlar gerektiğinde işlem sana devredilir.</p>
               </div>
 
               <button className={styles.submit} type="submit" disabled={submitting}>
@@ -297,6 +333,28 @@ export default function VisaAppointmentClient() {
 
         {message && <div className={styles.message} role="status">{message}</div>}
 
+        {unreadNotifications.length > 0 && (
+          <section className={styles.notificationPanel} aria-label="Vize bildirimleri">
+            <div className={styles.notificationHead}>
+              <div><BellRing size={20} /><strong>İşlem bekleyen bildirimler</strong></div>
+              <span>{unreadNotifications.length}</span>
+            </div>
+            <div className={styles.notificationList}>
+              {unreadNotifications.map((notification) => (
+                <article key={notification.id}>
+                  <ShieldAlert size={20} />
+                  <div>
+                    <strong>{notification.title || "Vize takibinde işlem gerekiyor"}</strong>
+                    <p>{notification.message || "Takip ayrıntılarını kontrol et."}</p>
+                    <span>{formatDate(notification.created_at, true)}</span>
+                  </div>
+                  <button type="button" onClick={() => void markNotificationRead(notification.id)} aria-label="Bildirimi okundu olarak işaretle"><X size={17} /></button>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className={styles.tracksSection}>
           <div className={styles.sectionHead}>
             <div>
@@ -323,43 +381,72 @@ export default function VisaAppointmentClient() {
             </div>
           ) : (
             <div className={styles.trackGrid}>
-              {tracks.map((track) => (
-                <article className={styles.trackCard} key={track.id}>
-                  <div className={styles.trackTop}>
-                    <div>
-                      <span>{track.country_code}</span>
-                      <h3>{track.country_name}</h3>
+              {tracks.map((track) => {
+                const providerActionUrl = getProviderActionUrl(track.provider_code);
+                return (
+                  <article className={styles.trackCard} key={track.id}>
+                    <div className={styles.trackTop}>
+                      <div>
+                        <span>{track.country_code}</span>
+                        <h3>{track.country_name}</h3>
+                      </div>
+                      <span className={`${styles.status} ${styles[`status_${track.status}`] || ""}`}>
+                        {TRACK_STATUS_LABELS[track.status]}
+                      </span>
                     </div>
-                    <span className={`${styles.status} ${styles[`status_${track.status}`] || ""}`}>
-                      {TRACK_STATUS_LABELS[track.status]}
-                    </span>
-                  </div>
-                  <div className={styles.trackMeta}>
-                    <span><MapPin size={15} /> {track.application_city}{track.alternative_city ? ` + ${track.alternative_city}` : ""}</span>
-                    <span><CalendarDays size={15} /> {formatDate(track.earliest_date)} – {formatDate(track.latest_date)}</span>
-                    <span><Clock3 size={15} /> Son kontrol: {formatDate(track.last_checked_at, true)}</span>
-                  </div>
-                  <div className={styles.progressRow}>
-                    <div><span>Kalan beta süresi</span><strong>{remainingHours(track.access_expires_at)} saat</strong></div>
-                    <div><span>Sonuç</span><strong>{track.last_result || "Kontrol bekleniyor"}</strong></div>
-                  </div>
-                  <div className={styles.trackActions}>
-                    {track.status === "paused" ? (
-                      <button type="button" onClick={() => void changeStatus(track.id, "resume")}><Play size={16} /> Takibi sürdür</button>
-                    ) : track.status === "active" || track.status === "pending_activation" ? (
-                      <button type="button" onClick={() => void changeStatus(track.id, "pause")}><Pause size={16} /> Duraklat</button>
-                    ) : null}
-                    <Link href="/vize-merkezi"><CheckCircle2 size={16} /> Vize rehberleri</Link>
-                  </div>
-                </article>
-              ))}
+
+                    {track.status === "verification_required" && (
+                      <div className={styles.handoffCard}>
+                        <ShieldAlert size={22} />
+                        <div>
+                          <strong>Resmî sağlayıcı doğrulaması gerekiyor</strong>
+                          <p>iDATA sayfasında gerekli doğrulamayı tamamla. Sonra bu ekrana dönüp kontrolü yeniden başlat.</p>
+                          <div className={styles.handoffActions}>
+                            {providerActionUrl && (
+                              <a href={providerActionUrl} target="_blank" rel="noreferrer">
+                                Resmî iDATA sayfasına git <ExternalLink size={15} />
+                              </a>
+                            )}
+                            <button type="button" onClick={() => void changeStatus(track.id, "retry")} disabled={busyTrackId === track.id}>
+                              <RefreshCw className={busyTrackId === track.id ? styles.spin : ""} size={15} /> Doğrulamayı yaptım, yeniden kontrol et
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={styles.trackMeta}>
+                      <span><MapPin size={15} /> {track.application_city}{track.alternative_city ? ` + ${track.alternative_city}` : ""}</span>
+                      <span><CalendarDays size={15} /> {formatDate(track.earliest_date)} – {formatDate(track.latest_date)}</span>
+                      <span><Clock3 size={15} /> Son kontrol: {formatDate(track.last_checked_at, true)}</span>
+                    </div>
+                    <div className={styles.progressRow}>
+                      <div><span>Kalan beta süresi</span><strong>{remainingHours(track.access_expires_at)} saat</strong></div>
+                      <div><span>Sonuç</span><strong>{resultSummary(track)}</strong></div>
+                    </div>
+                    {track.last_result && track.status === "verification_required" && (
+                      <details className={styles.technicalDetail}>
+                        <summary>Teknik ayrıntıyı göster</summary>
+                        <p>{track.last_result}</p>
+                      </details>
+                    )}
+                    <div className={styles.trackActions}>
+                      {track.status === "paused" ? (
+                        <button type="button" onClick={() => void changeStatus(track.id, "resume")} disabled={busyTrackId === track.id}><Play size={16} /> Takibi sürdür</button>
+                      ) : track.status === "active" || track.status === "pending_activation" ? (
+                        <button type="button" onClick={() => void changeStatus(track.id, "pause")} disabled={busyTrackId === track.id}><Pause size={16} /> Duraklat</button>
+                      ) : null}
+                      <Link href="/vize-merkezi"><CheckCircle2 size={16} /> Vize rehberleri</Link>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
 
         <div className={styles.legal}>
-          LetsGo2Travel bir konsolosluk veya yetkili aracı kurum değildir. Randevu bulunabilirliği ve başvuru kuralları değişebilir;
-          kesin işlem için ilgili kurumun resmî ekranı esas alınır.
+          <AlertTriangle size={17} /> LetsGo2Travel bilgilendirme ve takip desteği sağlar. Randevu uygunluğu ve resmî işlem adımları sağlayıcı ekranlarında değişebilir; kesin işlem için ilgili kurumun resmî ekranı esas alınır.
         </div>
       </div>
     </div>

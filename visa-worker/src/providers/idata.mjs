@@ -14,6 +14,23 @@ function includesAny(text, phrases) {
   return phrases.some((phrase) => text.includes(phrase));
 }
 
+async function captureEvidence(page) {
+  try {
+    const buffer = await page.screenshot({
+      type: "jpeg",
+      quality: 48,
+      fullPage: false,
+      animations: "disabled",
+    });
+    return {
+      evidenceBase64: buffer.toString("base64"),
+      evidenceMimeType: "image/jpeg",
+    };
+  } catch {
+    return {};
+  }
+}
+
 function classifyPublicPage({ bodyText, title, finalUrl, httpStatus }) {
   const combined = normalize(`${title} ${bodyText}`);
 
@@ -57,19 +74,19 @@ function classifyPublicPage({ bodyText, title, finalUrl, httpStatus }) {
   if (includesAny(combined, officialFlowSignals)) {
     return {
       outcome: "verification_required",
-      message: `iDATA Almanya randevu portalına erişildi. Kayıt/kimlik doğrulama gerektiren resmi akış hazır; uygunluk sonucu için kullanıcı oturumu gerekir. URL: ${finalUrl}`,
+      message: `iDATA Almanya randevu portalına erişildi. Kayıt/kimlik doğrulama gerektiren resmî akış hazır; uygunluk sonucu için kullanıcı oturumu gerekir. URL: ${finalUrl}`,
       availableDates: [],
     };
   }
 
   return {
     outcome: "verification_required",
-    message: `iDATA sayfasına erişildi ancak randevu uygunluğu anonim açılış sayfasından güvenilir biçimde doğrulanamadı. Manuel doğrulama gerekli. URL: ${finalUrl}`,
+    message: `iDATA sayfasına erişildi ancak randevu uygunluğu anonim açılış sayfasından güvenilir biçimde doğrulanamadı. Kullanıcı doğrulaması gerekli. URL: ${finalUrl}`,
     availableDates: [],
   };
 }
 
-export async function checkIdataJob(job) {
+export async function checkIdataJob() {
   const targetUrl = String(process.env.IDATA_APPOINTMENT_URL || DEFAULT_URL).trim();
   let browser;
 
@@ -78,10 +95,10 @@ export async function checkIdataJob(job) {
     const context = await browser.newContext({
       locale: "tr-TR",
       timezoneId: "Europe/Istanbul",
-      viewport: { width: 1365, height: 900 },
+      viewport: { width: 1280, height: 760 },
       userAgent:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 LetsGo2TravelMonitor/0.2",
+        "(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 LetsGo2TravelMonitor/0.3",
     });
 
     const page = await context.newPage();
@@ -99,16 +116,18 @@ export async function checkIdataJob(job) {
     if (httpStatus >= 500) {
       return {
         outcome: "provider_unavailable",
-        message: `iDATA geçici sunucu hatası döndürdü. HTTP ${httpStatus}.`,
+        message: `iDATA geçici sunucu hatası döndürdü. HTTP ${httpStatus}. Sonraki kontrol 30 dakika sonra yapılacak.`,
         availableDates: [],
+        ...(await captureEvidence(page)),
       };
     }
 
     if (httpStatus === 401 || httpStatus === 403 || httpStatus === 429) {
       return {
         outcome: "verification_required",
-        message: `iDATA erişimi doğrulama veya hız sınırı gerektiriyor. HTTP ${httpStatus}.`,
+        message: `iDATA erişimi kullanıcı doğrulaması veya hız sınırı gerektiriyor. HTTP ${httpStatus}. Otomatik kontrol durduruldu.`,
         availableDates: [],
+        ...(await captureEvidence(page)),
       };
     }
 
@@ -117,18 +136,22 @@ export async function checkIdataJob(job) {
       page.locator("body").innerText({ timeout: 10_000 }).catch(() => ""),
     ]);
 
-    return classifyPublicPage({
+    const result = classifyPublicPage({
       bodyText,
       title,
       finalUrl: page.url(),
       httpStatus,
-      job,
     });
+
+    return {
+      ...result,
+      ...(result.outcome === "verification_required" ? await captureEvidence(page) : {}),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bilinmeyen iDATA bağlantı hatası";
     return {
       outcome: "provider_unavailable",
-      message: `iDATA bağlantısı kurulamadı: ${message}`.slice(0, 1000),
+      message: `iDATA bağlantısı kurulamadı: ${message}. Sonraki kontrol 30 dakika sonra yapılacak.`.slice(0, 1000),
       availableDates: [],
     };
   } finally {
