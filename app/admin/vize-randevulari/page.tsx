@@ -37,7 +37,7 @@ export default function VisaAppointmentsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function runAction(id: string, action: "activate_demo" | "simulate_match" | "reset_pending") {
+  async function runAction(id: string, action: "activate_demo" | "activate_idata" | "simulate_match" | "reset_pending") {
     setError("");
     const response = await fetch(`/api/admin/visa-appointments/${id}`, {
       method: "PATCH",
@@ -106,7 +106,7 @@ export default function VisaAppointmentsAdminPage() {
             <div className={styles.empty}>Henüz takip oluşturulmamış.</div>
           ) : (
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+              <table>
                 <thead><tr><th>Ülke / şehir</th><th>Durum</th><th>Sağlayıcı</th><th>Son kontrol</th><th>Sonuç</th><th>Süre bitişi</th><th>Test işlemi</th></tr></thead>
                 <tbody>
                   {rows.map((row) => (
@@ -119,6 +119,7 @@ export default function VisaAppointmentsAdminPage() {
                       <td>{dateTime(row.access_expires_at)}</td>
                       <td>
                         <div className={styles.actions}>
+                          <button type="button" onClick={() => void runAction(row.id, "activate_idata")} disabled={row.country_code !== "DE"}>iDATA aç</button>
                           <button type="button" onClick={() => void runAction(row.id, "activate_demo")}>Demo aç</button>
                           <button type="button" onClick={() => void runAction(row.id, "simulate_match")}>Eşleşme test et</button>
                           <button type="button" onClick={() => void runAction(row.id, "reset_pending")}>Sıfırla</button>

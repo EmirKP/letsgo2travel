@@ -1,3 +1,5 @@
+import { checkIdataJob } from "./providers/idata.mjs";
+
 const apiBaseUrl = String(process.env.API_BASE_URL || "").replace(/\/$/, "");
 const workerSecret = process.env.VISA_WORKER_SECRET || "";
 const workerName = process.env.WORKER_NAME || "visa-worker-01";
@@ -23,15 +25,7 @@ async function api(path, body) {
   return payload;
 }
 
-async function checkJob(job) {
-  if (job.provider_code !== "demo") {
-    return {
-      outcome: "provider_unavailable",
-      message: `${job.provider_name || job.provider_code || "Sağlayıcı"} modülü henüz etkin değil.`,
-      availableDates: [],
-    };
-  }
-
+async function checkDemoJob(job) {
   if (demoMatchMode === "always") {
     return {
       outcome: "slot_found",
@@ -47,8 +41,19 @@ async function checkJob(job) {
   };
 }
 
+async function checkJob(job) {
+  if (job.provider_code === "demo") return checkDemoJob(job);
+  if (job.provider_code === "idata") return checkIdataJob(job);
+
+  return {
+    outcome: "provider_unavailable",
+    message: `${job.provider_name || job.provider_code || "Sağlayıcı"} modülü henüz etkin değil.`,
+    availableDates: [],
+  };
+}
+
 async function runOnce() {
-  const claimed = await api("/api/internal/visa-appointments/jobs/claim", { workerName, limit: 3 });
+  const claimed = await api("/api/internal/visa-appointments/jobs/claim", { workerName, limit: 2 });
   const jobs = Array.isArray(claimed.data) ? claimed.data : [];
   if (jobs.length === 0) {
     console.log(new Date().toISOString(), "Bekleyen görev yok.");
@@ -63,7 +68,7 @@ async function runOnce() {
         workerName,
         ...result,
       });
-      console.log(new Date().toISOString(), job.id, result.outcome);
+      console.log(new Date().toISOString(), job.id, job.provider_code, result.outcome);
     } catch (error) {
       console.error(new Date().toISOString(), job.id, error instanceof Error ? error.message : error);
       await api("/api/internal/visa-appointments/jobs/report", {
@@ -81,9 +86,13 @@ let running = false;
 async function tick() {
   if (running) return;
   running = true;
-  try { await runOnce(); }
-  catch (error) { console.error(new Date().toISOString(), error instanceof Error ? error.message : error); }
-  finally { running = false; }
+  try {
+    await runOnce();
+  } catch (error) {
+    console.error(new Date().toISOString(), error instanceof Error ? error.message : error);
+  } finally {
+    running = false;
+  }
 }
 
 console.log(`LetsGo2Travel visa worker başladı: ${workerName}`);

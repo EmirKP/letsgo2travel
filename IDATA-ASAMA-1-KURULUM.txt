@@ -1,0 +1,33 @@
+LetsGo2Travel — iDATA Aşama 1
+
+Bu paket şunları ekler:
+- Playwright 1.62.0 ve Chromium tabanlı worker
+- Almanya iDATA resmi randevu portalına gerçek bağlantı testi
+- Admin panelinde "iDATA aç" düğmesi
+- Yanlış "randevu yok" sonucu üretmeyen güvenli sınıflandırma
+- CAPTCHA/doğrulama/hız sınırı durumunda verification_required sonucu
+- 5 GB RAM ve 2 CPU worker sınırı
+
+ÖNEMLİ:
+Bu aşama randevu almaz ve kullanıcı doğrulamasını aşmaz. Resmi portalın VDS üzerinden erişilebilir olduğunu ve görev zincirinin gerçek sağlayıcıyla çalıştığını doğrular.
+
+1) ZIP içeriğini Windows proje klasörünün üzerine kopyalayın.
+2) Windows PowerShell:
+   cd C:\Projects\letsgo2travel
+   npm run build
+   git add -A
+   git commit -m "iDATA gerçek bağlantı adaptörünü ekle"
+   git push origin main
+3) Vercel deployment Ready olunca worker klasörünü VDS'ye tekrar yükleyin:
+   scp -r "C:\Projects\letsgo2travel\visa-worker" "C:\Projects\letsgo2travel\docker-compose.visa-worker.yml" root@31.56.47.12:/root/
+4) VDS:
+   rm -rf /opt/letsgo2travel/visa-worker
+   mv /root/visa-worker /opt/letsgo2travel/
+   mv /root/docker-compose.visa-worker.yml /opt/letsgo2travel/
+   chmod 600 /opt/letsgo2travel/visa-worker/.env
+   cd /opt/letsgo2travel
+   docker compose -f docker-compose.visa-worker.yml up -d --build --force-recreate
+   docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker
+5) Admin panelinde Almanya kaydında "iDATA aç" düğmesine basın.
+6) En geç 5 dakika içinde logları kontrol edin:
+   docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker

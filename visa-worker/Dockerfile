@@ -1,6 +1,13 @@
-FROM node:20-alpine
+FROM mcr.microsoft.com/playwright:v1.62.0-noble
+
 WORKDIR /app
-COPY package.json ./
-COPY src ./src
+
+COPY --chown=pwuser:pwuser package.json ./
+RUN npm install --omit=dev --no-audit --no-fund
+
+COPY --chown=pwuser:pwuser src ./src
+
 ENV NODE_ENV=production
+USER pwuser
+
 CMD ["npm", "start"]
