@@ -33,6 +33,8 @@ type AdminTrack = {
   next_check_at: string | null;
   last_result: string | null;
   error_count: number;
+  execution_mode: "vds" | "browser_extension";
+  extension_last_seen_at: string | null;
   created_at: string;
   latest_outcome: string | null;
   latest_message: string | null;
@@ -180,7 +182,7 @@ export default function VisaAppointmentsAdminPage() {
                       </td>
                       <td className={styles.providerCell}>
                         <strong>{row.provider_name || "Doğrulama bekliyor"}</strong>
-                        {row.latest_worker_name && <span>{row.latest_worker_name}</span>}
+                        {row.execution_mode === "browser_extension" ? <span>Chrome yardımcısı · {row.extension_last_seen_at ? dateTime(row.extension_last_seen_at) : "bağlantı bekleniyor"}</span> : row.latest_worker_name && <span>{row.latest_worker_name}</span>}
                       </td>
                       <td className={styles.timeCell}>{dateTime(row.latest_checked_at || row.last_checked_at)}</td>
                       <td className={styles.resultCell}>

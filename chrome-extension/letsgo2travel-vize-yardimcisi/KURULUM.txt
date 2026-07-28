@@ -1,0 +1,17 @@
+LETSGO2TRAVEL VİZE YARDIMCISI — CHROME KURULUMU
+
+1. Bu ZIP dosyasını bilgisayarında bir klasöre çıkar.
+2. Chrome adres çubuğuna chrome://extensions yaz.
+3. Sağ üstte "Geliştirici modu"nu aç.
+4. "Paketlenmemiş öğe yükle" düğmesine bas.
+5. ZIP'ten çıkardığın "letsgo2travel-vize-yardimcisi" klasörünü seç.
+6. LetsGo2Travel > Vize Randevu sayfasında "Bağlantı kodu oluştur" düğmesine bas.
+7. Kodu Chrome yardımcısına yaz ve "Bağlan" de.
+8. Resmî iDATA sayfasını aç, gerekli doğrulamayı kendin tamamla.
+9. Uzantı simgesine basıp "Bu sekmeyi tara" ve ardından "Sonucu gönder" de.
+
+GÜVENLİK
+- Uzantı yalnızca de-tr-appointment.idata.com.tr alanında çalışır.
+- Çerezleri, parolaları, kart bilgilerini veya form alanı değerlerini okumaz/göndermez.
+- CAPTCHA, SMS, e-posta veya ödeme doğrulamasını geçmez.
+- Otomatik izleme yalnızca Chrome ve iDATA sekmesi açıkken, kullanıcı etkinleştirdiğinde çalışır.

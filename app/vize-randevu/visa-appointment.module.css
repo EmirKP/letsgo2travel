@@ -120,3 +120,42 @@
   .notificationList article > button { grid-column: 2; justify-self: start; }
   .handoffActions { flex-direction: column; align-items: stretch; }
 }
+
+.extensionPanel {
+  margin-top: 16px;
+  padding: 17px;
+  border: 1px solid #bfdce0;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f7fcfd, #eef8f9);
+}
+.extensionTitle { display: grid; grid-template-columns: auto 1fr; gap: 11px; align-items: start; color: #0b7f89; }
+.extensionTitle strong { display: block; color: #071b33; font-size: .86rem; }
+.extensionTitle p { margin: 4px 0 0; color: #60707d; font-size: .72rem; line-height: 1.5; }
+.extensionSteps { list-style: none; display: grid; gap: 10px; margin: 15px 0 0; padding: 0; }
+.extensionSteps li { display: grid; grid-template-columns: 27px 1fr; gap: 9px; }
+.extensionSteps li > span { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; background: #0b2a4a; color: #ffe08a; font-size: .66rem; font-weight: 900; }
+.extensionSteps strong { display: block; color: #172033; font-size: .74rem; }
+.extensionSteps p { margin: 3px 0 0; color: #697783; font-size: .68rem; line-height: 1.45; }
+.extensionConnected { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid #bde7cb; border-radius: 12px; background: #effaf3; color: #168044; }
+.extensionConnected strong { display: block; color: #155d35; font-size: .78rem; }
+.extensionConnected p { margin: 4px 0 0; color: #4f725e; font-size: .68rem; line-height: 1.45; }
+.extensionCodeBox { margin-top: 14px; padding: 13px; border: 1px dashed #8fc4ca; border-radius: 13px; background: #fff; }
+.extensionCodeBox > span { display: block; color: #657783; font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.extensionCodeBox > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 7px; }
+.extensionCodeBox strong { color: #071b33; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.08rem; letter-spacing: .08em; }
+.extensionCodeBox button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #c9dce0; border-radius: 9px; background: #f8fbfc; color: #334155; font-size: .66rem; font-weight: 800; cursor: pointer; }
+.extensionCodeBox small { display: block; margin-top: 8px; color: #87939d; font-size: .62rem; }
+.extensionActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.extensionActions a, .extensionActions button { min-height: 39px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border-radius: 10px; font-size: .69rem; font-weight: 850; cursor: pointer; }
+.extensionActions a { border: 1px solid #071b33; background: #071b33; color: #fff; }
+.extensionActions button { border: 1px solid #b9d7db; background: #fff; color: #0b5961; }
+.extensionActions button:disabled { opacity: .55; cursor: wait; }
+.extensionActions .extensionOfficialLink { border-color: #d8e2e9; background: #fff; color: #334155; }
+.extensionPrivacy { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 13px; padding-top: 12px; border-top: 1px solid #d8e9eb; color: #52717a; }
+.extensionPrivacy span { font-size: .65rem; line-height: 1.5; }
+.extensionMessage { margin: 11px 0 0; color: #0b6f79; font-size: .68rem; font-weight: 760; }
+
+@media (max-width: 660px) {
+  .extensionActions { flex-direction: column; align-items: stretch; }
+  .extensionCodeBox > div { align-items: flex-start; flex-direction: column; }
+}

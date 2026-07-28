@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LetsGo2Travel Vize Yardımcısı</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brandMark">L2T</div>
+      <div>
+        <strong>Vize Yardımcısı</strong>
+        <span>iDATA · Almanya</span>
+      </div>
+    </header>
+
+    <section id="connectView" class="card">
+      <h1>LetsGo2Travel hesabına bağlan</h1>
+      <p>Sitedeki takip kartından 10 dakikalık bağlantı kodu oluştur.</p>
+      <label for="pairingCode">Bağlantı kodu</label>
+      <input id="pairingCode" maxlength="11" autocomplete="one-time-code" placeholder="ABCDE-23456" />
+      <button id="connectButton" class="primary">Bağlan</button>
+    </section>
+
+    <section id="connectedView" class="hidden">
+      <div class="card statusCard">
+        <span class="statusDot"></span>
+        <div>
+          <strong id="trackTitle">Takip bağlı</strong>
+          <p id="trackDetail"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Açık iDATA sayfasını kontrol et</h2>
+        <p>Önce iDATA sayfasında gerekli doğrulamayı kendin tamamla.</p>
+        <button id="openIdataButton" class="secondary">iDATA sayfasını aç</button>
+        <button id="scanButton" class="primary">Bu sekmeyi tara</button>
+      </div>
+
+      <div id="scanResult" class="card hidden">
+        <span class="eyebrow">Kontrol sonucu</span>
+        <strong id="resultTitle"></strong>
+        <p id="resultMessage"></p>
+        <div id="resultDates" class="dates hidden"></div>
+        <button id="sendButton" class="primary">Sonucu LetsGo2Travel'a gönder</button>
+      </div>
+
+      <div class="card monitorCard">
+        <label class="toggleRow">
+          <input id="monitoringToggle" type="checkbox" />
+          <span>
+            <strong>Açık sekmeyi 5 dakikada bir izle</strong>
+            <small>Chrome açık ve iDATA sekmesi açık olduğu sürece çalışır.</small>
+          </span>
+        </label>
+      </div>
+
+      <div id="lastReport" class="card mutedCard hidden"></div>
+      <button id="disconnectButton" class="textButton">Bu tarayıcıdaki bağlantıyı kaldır</button>
+    </section>
+
+    <div id="message" role="status"></div>
+
+    <footer>
+      Çerezler, parolalar, kart bilgileri ve form alanı değerleri okunmaz veya gönderilmez.
+    </footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

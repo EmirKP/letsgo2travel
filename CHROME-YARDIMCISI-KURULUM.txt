@@ -1,0 +1,55 @@
+LETSGO2TRAVEL — CHROME VİZE YARDIMCISI V1
+
+BU PAKET NE YAPAR?
+- Kullanıcının kendi Chrome tarayıcısında açık olan resmî iDATA sayfasını okur.
+- CAPTCHA, SMS, e-posta ve ödeme adımlarını kullanıcı kendisi tamamlar.
+- Uzantı yalnızca görünür randevu durumunu sınıflandırır ve kullanıcı onayıyla LetsGo2Travel'a gönderir.
+- Çerez, parola, kart bilgisi ve form alanı değerleri gönderilmez.
+- İsteğe bağlı olarak Chrome ve iDATA sekmesi açıkken 5 dakikada bir görünür durumu kontrol eder.
+- Chrome yardımcısına devredilen takipler VDS worker tarafından alınmaz; tekrar tekrar HTTP 403 üretilmez.
+
+KURULUM SIRASI
+
+1) ZIP'i proje klasörünün üzerine kopyala
+C:\Projects\letsgo2travel
+
+2) Supabase SQL Editor'de bu dosyanın tamamını çalıştır
+supabase_visa_appointment_extension.sql
+
+Beklenen sonuç:
+Success. No rows returned
+
+3) PowerShell'de build yap
+cd C:\Projects\letsgo2travel
+npm run build
+
+4) Build başarılıysa yayınla
+git add -- app/admin/vize-randevulari app/api/admin/visa-appointments app/api/visa-appointments/extension app/vize-randevu lib/visa-appointments/extension-auth.ts chrome-extension public/downloads supabase_visa_appointment_extension.sql CHROME-YARDIMCISI-KURULUM.txt
+git commit -m "Chrome vize yardimcisini ekle"
+git push origin main
+
+5) Vercel deploy Ready olduğunda kullanıcı sayfasını aç
+https://www.letsgo2travel.com.tr/vize-randevu
+
+6) Takip kartında
+- Chrome yardımcısını indir
+- Bağlantı kodu oluştur
+adımlarını kullan.
+
+7) Chrome uzantısını yükleme
+- İndirilen ZIP'i klasöre çıkar.
+- Chrome adres çubuğuna chrome://extensions yaz.
+- Geliştirici modu açık olsun.
+- Paketlenmemiş öğe yükle'ye bas.
+- letsgo2travel-vize-yardimcisi klasörünü seç.
+- Sitedeki bağlantı kodunu uzantıya yaz.
+
+VDS İŞLEMİ GEREKİYOR MU?
+Hayır. Bu paket için VDS worker dosyalarını yeniden yükleme. Mevcut worker çalışmaya devam eder. SQL'deki claim fonksiyonu Chrome modundaki görevleri otomatik olarak VDS kuyruğundan çıkarır.
+
+TEST
+- Chrome yardımcısını bağla.
+- Resmî iDATA sayfasını aç.
+- Uzantıdan "Bu sekmeyi tara" de.
+- Sonucu kontrol edip "Sonucu LetsGo2Travel'a gönder" de.
+- /vize-randevu ve /admin/vize-randevulari ekranlarında son kontrol kaydını doğrula.

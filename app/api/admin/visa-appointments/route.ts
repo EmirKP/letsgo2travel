@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("visa_appointment_tracks")
-    .select("id,user_id,country_code,country_name,provider_code,provider_name,application_city,alternative_city,visa_category,applicants_count,earliest_date,latest_date,status,access_expires_at,last_checked_at,next_check_at,last_result,error_count,created_at,updated_at")
+    .select("id,user_id,country_code,country_name,provider_code,provider_name,application_city,alternative_city,visa_category,applicants_count,earliest_date,latest_date,status,access_expires_at,last_checked_at,next_check_at,last_result,error_count,execution_mode,extension_last_seen_at,created_at,updated_at")
     .order("created_at", { ascending: false })
     .limit(250);
 

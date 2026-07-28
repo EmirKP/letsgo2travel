@@ -33,6 +33,7 @@ import {
   type VisaAppointmentNotification,
   type VisaAppointmentTrack,
 } from "@/lib/visa-appointments/types";
+import BrowserHelperPanel from "./BrowserHelperPanel";
 import styles from "./visa-appointment.module.css";
 
 function inputDate(offsetDays: number) {
@@ -413,6 +414,10 @@ export default function VisaAppointmentClient() {
                           </div>
                         </div>
                       </div>
+                    )}
+
+                    {track.provider_code === "idata" && (
+                      <BrowserHelperPanel trackId={track.id} officialUrl={providerActionUrl} />
                     )}
 
                     <div className={styles.trackMeta}>
