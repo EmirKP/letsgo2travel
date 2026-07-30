@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { TRACK_STATUS_LABELS, type VisaAppointmentTrackStatus } from "@/lib/visa-appointments/types";
 import styles from "./visa-admin.module.css";
+import ProviderAuditPanel from "./ProviderAuditPanel";
 
 type AdminTrack = {
   id: string;
@@ -146,6 +147,8 @@ export default function VisaAppointmentsAdminPage() {
         </section>
 
         {error && <div className={styles.error}><AlertTriangle size={19} /> {error}</div>}
+
+        <ProviderAuditPanel />
 
         <section className={styles.tableCard}>
           <div className={styles.tableHead}><h2>Son takipler</h2><span>{rows.length} kayıt</span></div>

@@ -33,7 +33,6 @@ import {
   type VisaAppointmentNotification,
   type VisaAppointmentTrack,
 } from "@/lib/visa-appointments/types";
-import BrowserHelperPanel from "./BrowserHelperPanel";
 import styles from "./visa-appointment.module.css";
 
 function inputDate(offsetDays: number) {
@@ -287,8 +286,8 @@ export default function VisaAppointmentClient() {
               <div className={styles.providerInfo}>
                 <MapPin size={19} />
                 <div>
-                  <strong>{selectedCountry?.name} sağlayıcısı</strong>
-                  <p>Yetkili aracı kurum, seçilen şehir ve kategori için yönetim tarafında doğrulandıktan sonra etkinleşir.</p>
+                  <strong>{selectedCountry?.providerName || `${selectedCountry?.name} resmî başvuru sistemi`}</strong>
+                  <p>Yetkili platform eşleştirildi. Otomatik takip yalnızca VDS erişim ve takvim testleri başarıyla tamamlanan sağlayıcılarda etkinleşir.</p>
                 </div>
               </div>
 
@@ -401,11 +400,11 @@ export default function VisaAppointmentClient() {
                         <ShieldAlert size={22} />
                         <div>
                           <strong>Resmî sağlayıcı doğrulaması gerekiyor</strong>
-                          <p>iDATA sayfasında gerekli doğrulamayı tamamla. Sonra bu ekrana dönüp kontrolü yeniden başlat.</p>
+                          <p>Sağlayıcının resmî sayfasındaki zorunlu adımı tamamla. LetsGo2Travel koruma veya doğrulama adımlarını aşmaz.</p>
                           <div className={styles.handoffActions}>
                             {providerActionUrl && (
                               <a href={providerActionUrl} target="_blank" rel="noreferrer">
-                                Resmî iDATA sayfasına git <ExternalLink size={15} />
+                                Resmî sağlayıcı sayfasına git <ExternalLink size={15} />
                               </a>
                             )}
                             <button type="button" onClick={() => void changeStatus(track.id, "retry")} disabled={busyTrackId === track.id}>
@@ -414,10 +413,6 @@ export default function VisaAppointmentClient() {
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {track.provider_code === "idata" && (
-                      <BrowserHelperPanel trackId={track.id} officialUrl={providerActionUrl} />
                     )}
 
                     <div className={styles.trackMeta}>

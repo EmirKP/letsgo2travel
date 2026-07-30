@@ -120,6 +120,8 @@ export async function POST(request: Request) {
       user_id: auth.user.id,
       country_code: country.code,
       country_name: country.name,
+      provider_code: country.providerCode || null,
+      provider_name: country.providerName || null,
       application_city: body.applicationCity,
       alternative_city: body.alternativeCity || null,
       visa_category: body.visaCategory,
@@ -133,7 +135,9 @@ export async function POST(request: Request) {
       entitlement_source: "beta_grant",
       access_expires_at: expiresAt,
       next_check_at: nextCheckAt,
-      last_result: "Sağlayıcı aktivasyonu bekleniyor",
+      last_result: country.providerName
+        ? `${country.providerName} erişim doğrulaması bekleniyor`
+        : "Sağlayıcı eşleştirmesi bekleniyor",
     })
     .select("id,country_code,country_name,provider_code,provider_name,application_city,alternative_city,visa_category,applicants_count,earliest_date,latest_date,notify_email,notify_push,notify_in_app,status,access_expires_at,last_checked_at,next_check_at,last_result,created_at,updated_at")
     .single();
@@ -153,6 +157,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     data,
-    message: "24 saatlik beta takip görevi oluşturuldu. Sağlayıcı modülü etkinleştiğinde kontroller otomatik başlayacak.",
+    message: `24 saatlik beta takip görevi oluşturuldu. ${country.providerName || "Resmî sağlayıcı"} erişim testi tamamlandığında destek durumu güncellenecek.`,
   }, { status: 201 });
 }

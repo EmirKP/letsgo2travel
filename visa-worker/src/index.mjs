@@ -1,4 +1,5 @@
 import { checkIdataJob } from "./providers/idata.mjs";
+import { probeProviderTarget } from "./providers/probe.mjs";
 
 const apiBaseUrl = String(process.env.API_BASE_URL || "").replace(/\/$/, "");
 const workerSecret = process.env.VISA_WORKER_SECRET || "";
@@ -14,10 +15,7 @@ if (!apiBaseUrl || !workerSecret) {
 async function api(path, body) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-worker-secret": workerSecret,
-    },
+    headers: { "Content-Type": "application/json", "x-worker-secret": workerSecret },
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
@@ -27,47 +25,56 @@ async function api(path, body) {
 
 async function checkDemoJob(job) {
   if (demoMatchMode === "always") {
-    return {
-      outcome: "slot_found",
-      message: "Demo worker uygun tarih üretti.",
-      availableDates: [job.earliest_date],
-    };
+    return { outcome: "slot_found", message: "Demo worker uygun tarih üretti.", availableDates: [job.earliest_date] };
   }
-
-  return {
-    outcome: "no_slots",
-    message: "Demo kontrol tamamlandı; uygun tarih bulunamadı.",
-    availableDates: [],
-  };
+  return { outcome: "no_slots", message: "Demo kontrol tamamlandı; uygun tarih bulunamadı.", availableDates: [] };
 }
 
 async function checkJob(job) {
   if (job.provider_code === "demo") return checkDemoJob(job);
   if (job.provider_code === "idata") return checkIdataJob(job);
-
   return {
     outcome: "provider_unavailable",
-    message: `${job.provider_name || job.provider_code || "Sağlayıcı"} modülü henüz etkin değil.`,
+    message: `${job.provider_name || job.provider_code || "Sağlayıcı"} takvim modülü henüz etkin değil.`,
     availableDates: [],
   };
 }
 
-async function runOnce() {
+async function runProviderAudits() {
+  const claimed = await api("/api/internal/visa-providers/tests/claim", { workerName, limit: 2 });
+  const targets = Array.isArray(claimed.data) ? claimed.data : [];
+
+  for (const target of targets) {
+    try {
+      const result = await probeProviderTarget(target);
+      await api("/api/internal/visa-providers/tests/report", {
+        targetId: target.id,
+        workerName,
+        ...result,
+      });
+      console.log(new Date().toISOString(), "provider-audit", target.code, result.outcome, result.httpStatus || 0);
+    } catch (error) {
+      console.error(new Date().toISOString(), "provider-audit", target.code, error instanceof Error ? error.message : error);
+      await api("/api/internal/visa-providers/tests/report", {
+        targetId: target.id,
+        workerName,
+        outcome: "error",
+        message: error instanceof Error ? error.message : "Bilinmeyen sağlayıcı test hatası",
+      }).catch(() => undefined);
+    }
+  }
+
+  return targets.length;
+}
+
+async function runAppointmentJobs() {
   const claimed = await api("/api/internal/visa-appointments/jobs/claim", { workerName, limit: 2 });
   const jobs = Array.isArray(claimed.data) ? claimed.data : [];
-  if (jobs.length === 0) {
-    console.log(new Date().toISOString(), "Bekleyen görev yok.");
-    return;
-  }
 
   for (const job of jobs) {
     try {
       const result = await checkJob(job);
-      await api("/api/internal/visa-appointments/jobs/report", {
-        trackId: job.id,
-        workerName,
-        ...result,
-      });
+      await api("/api/internal/visa-appointments/jobs/report", { trackId: job.id, workerName, ...result });
       console.log(new Date().toISOString(), job.id, job.provider_code, result.outcome);
     } catch (error) {
       console.error(new Date().toISOString(), job.id, error instanceof Error ? error.message : error);
@@ -80,6 +87,14 @@ async function runOnce() {
       }).catch((reportError) => console.error("Hata raporu gönderilemedi", reportError));
     }
   }
+
+  return jobs.length;
+}
+
+async function runOnce() {
+  const auditCount = await runProviderAudits();
+  const jobCount = await runAppointmentJobs();
+  if (auditCount === 0 && jobCount === 0) console.log(new Date().toISOString(), "Bekleyen görev yok.");
 }
 
 let running = false;
