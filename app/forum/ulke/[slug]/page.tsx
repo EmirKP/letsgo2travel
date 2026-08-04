@@ -80,7 +80,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const countryName = country?.country_name || countryNameFromSlug(slug);
 
   return {
-    title: `${countryName} Vize ve Giriş Deneyimleri | LetsGo2Travel`,
+    title: `${countryName} Vize ve Giriş Deneyimleri`,
     description: `${countryName} için güncel vize, pasaport kontrolü, gümrük ve ülkeye giriş deneyimlerini gerçek gezginlerden oku.`,
     alternates: { canonical: `/forum/ulke/${slug}` },
     openGraph: {
@@ -186,7 +186,7 @@ export default async function CountryForumPage({ params }: PageProps) {
     : null;
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       {jsonLd ? (
         <script
           type="application/ld+json"
@@ -403,6 +403,6 @@ export default async function CountryForumPage({ params }: PageProps) {
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

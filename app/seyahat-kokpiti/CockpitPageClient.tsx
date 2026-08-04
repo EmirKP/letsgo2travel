@@ -76,19 +76,21 @@ export default function CockpitPageClient() {
 
     try {
       const {
-        data: { user },
+        data: { session },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabase.auth.getSession();
 
       if (authError) {
         throw new Error(`Oturum kontrol edilemedi: ${authError.message}`);
       }
 
-      if (!user) {
+      if (!session) {
         setTrips([]);
         setState("signed-out");
         return;
       }
+
+      const user = session.user;
 
       const { data, error } = await supabase
         .from("trips")
@@ -162,13 +164,15 @@ export default function CockpitPageClient() {
 
     try {
       const {
-        data: { user },
+        data: { session },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabase.auth.getSession();
 
-      if (authError || !user) {
+      if (authError || !session) {
         throw new Error("Seyahat eklemek için hesabına giriş yapmalısın.");
       }
+
+      const user = session.user;
 
       const departureAt = input.departureTime
         ? new Date(`${input.startDate}T${input.departureTime}:00`).toISOString()
@@ -220,6 +224,9 @@ export default function CockpitPageClient() {
 
   const handleUpdateChecklist = useCallback(
     async (tripId: string, checklistItems: ChecklistItem[]) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Kontrol listesini kaydetmek için giriş yapmalısın.");
+
       const previousTrips = trips;
       const nextUpdatedAt = new Date().toISOString();
 
@@ -237,7 +244,8 @@ export default function CockpitPageClient() {
           checklist_items: checklistItems,
           updated_at: nextUpdatedAt,
         })
-        .eq("id", tripId);
+        .eq("id", tripId)
+        .eq("user_id", session.user.id);
 
       if (error) {
         setTrips(previousTrips);
@@ -248,7 +256,14 @@ export default function CockpitPageClient() {
   );
 
   const handleDeleteTrip = useCallback(async (tripId: string) => {
-    const { error } = await supabase.from("trips").delete().eq("id", tripId);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Seyahati silmek için giriş yapmalısın.");
+
+    const { error } = await supabase
+      .from("trips")
+      .delete()
+      .eq("id", tripId)
+      .eq("user_id", session.user.id);
 
     if (error) {
       throw new Error(`Seyahat silinemedi: ${error.message}`);
@@ -259,19 +274,19 @@ export default function CockpitPageClient() {
 
   if (state === "loading") {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard} role="status">
           <span className={styles.spinner} aria-hidden="true" />
           <h1>Seyahat Kokpitin hazırlanıyor</h1>
           <p>Seyahatlerin ve hazırlık listen yükleniyor.</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (state === "signed-out") {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard}>
           <span className={styles.icon} aria-hidden="true">
             ✈
@@ -293,13 +308,13 @@ export default function CockpitPageClient() {
             </Link>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (state === "error") {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard}>
           <span className={styles.errorIcon} aria-hidden="true">
             !
@@ -310,7 +325,7 @@ export default function CockpitPageClient() {
             Tekrar dene
           </button>
         </div>
-      </main>
+      </div>
     );
   }
 

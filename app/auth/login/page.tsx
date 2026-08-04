@@ -33,15 +33,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  const getSafeNextPath = () => {
+    const requested = new URLSearchParams(window.location.search).get("next");
+    return requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/profil";
+  };
+
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setError("");
 
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const nextPath = getSafeNextPath();
       const redirectTo = Capacitor.isNativePlatform()
         ? "tr.com.letsgo2travel.app://auth/callback"
-        : `${siteUrl}/auth/callback`;
+        : `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -72,7 +78,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.assign("/profil");
+      window.location.assign(getSafeNextPath());
     } catch (caughtError: unknown) {
       console.error(caughtError);
       setError("Giriş sırasında beklenmeyen bir sorun oluştu.");
@@ -84,7 +90,7 @@ export default function LoginPage() {
   const isBusy = loading || isGoogleLoading;
 
   return (
-    <main className="l2t-auth-page">
+    <div className="l2t-auth-page">
       <section className="l2t-auth-shell" aria-labelledby="login-title">
         <aside className="l2t-auth-story" aria-label="LetsGo2Travel avantajları">
           <Link href="/" className="l2t-auth-brand" aria-label="LetsGo2Travel ana sayfa">
@@ -194,6 +200,6 @@ export default function LoginPage() {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   ArrowRight,
   Calculator,
+  CalendarSearch,
   CheckCircle2,
   Compass,
   Globe2,
@@ -26,6 +28,10 @@ import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import { formatFromPrice } from "@/lib/prices";
 import type { FlightDeal } from "@/lib/types";
 import styles from "./home.module.css";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 function getRouteHighlights(deals: FlightDeal[]) {
   return [
@@ -189,6 +195,15 @@ export default async function HomePage() {
         ))}
       </section>
 
+      <section className={`l2t-container ${styles.appointmentBanner}`}>
+        <span className={styles.appointmentIcon}><CalendarSearch size={25} /></span>
+        <div>
+          <strong>Vize randevusu ararken yalnız değilsin</strong>
+          <small>Ülkeni ve tarih aralığını seç; uygunluk kontrollerini tek ekranda takip et.</small>
+        </div>
+        <Link href="/vize-randevu">Randevu Asistanını aç <ArrowRight size={17} /></Link>
+      </section>
+
       <HomeDealsTicker deals={deals} />
 
       <HomeTripFinder />
@@ -257,9 +272,9 @@ export default async function HomePage() {
           <div className="l2t-container">
             <div className={styles.sectionHeading}>
               <div>
-                <span className={styles.kicker}>Güncel fırsatlar</span>
-                <h2>Takip etmeye değer uçuşlar</h2>
-                <p>Yakın tarihli fiyat sinyallerini incele, uygun rotayı detay sayfasında aç.</p>
+                <span className={styles.kicker}>Tahmini fiyat sinyalleri</span>
+                <h2>Kontrol etmeye değer rotalar</h2>
+                <p>Gösterilen tutarlar canlı fiyat değildir; seçtiğin tarih için sağlayıcıda doğrula.</p>
               </div>
               <Link href="/kampanyalar">Tüm fırsatlar <ArrowRight size={16} /></Link>
             </div>

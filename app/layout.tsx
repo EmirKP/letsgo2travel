@@ -10,6 +10,7 @@ import JsonLd from "./components/JsonLd";
 import PwaRegister from "./components/PwaRegister";
 import NativeAppBridge from "./components/NativeAppBridge";
 import { organizationSchema } from "@/lib/structured-data";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -21,7 +22,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.com.tr"),
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: "LetsGo2Travel | Pasaport Gücü, Rota Asistanı ve Global Seyahat Keşfi",
     template: "%s | LetsGo2Travel",

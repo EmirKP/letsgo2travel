@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import Link from "next/link";
+import styles from "./CountryPermissionGate.module.css";
 
 interface Props {
   countryCode: string;
@@ -52,14 +53,14 @@ export default function CountryPermissionGate({ countryCode, permission, childre
   }, [countryCode, permission]);
 
   if (loading) {
-    return <div className="p-4 text-center text-gray-400">Yetki kontrol ediliyor...</div>;
+    return <div className={styles.loading}>Yetki kontrol ediliyor...</div>;
   }
 
   if (!isLoggedIn) {
     return (
-      <div className="l2t-belgeli-gezgin-card text-center p-6 my-4">
-        <p className="text-gray-300 mb-4">Bu alanda işlem yapmak için giriş yapmalısınız.</p>
-        <Link href={`/login?next=/profil/dogrulamalar`} className="l2t-belgeli-gezgin-btn">
+      <div className={`l2t-belgeli-gezgin-card ${styles.card}`}>
+        <p className={styles.message}>Bu alanda işlem yapmak için giriş yapmalısınız.</p>
+        <Link href="/auth/login?next=/profil/dogrulamalar" className="l2t-belgeli-gezgin-btn">
           Giriş Yap
         </Link>
       </div>
@@ -68,8 +69,8 @@ export default function CountryPermissionGate({ countryCode, permission, childre
 
   if (!hasPermission) {
     return (
-      <div className="l2t-belgeli-gezgin-card text-center p-6 my-4">
-        <p className="text-gray-300 mb-4">
+      <div className={`l2t-belgeli-gezgin-card ${styles.card}`}>
+        <p className={styles.message}>
           Bu ülke hakkında içerik üretmek (cevap/yorum/uyarı) için önce bu ülkeye gittiğinizi doğrulamanız gerekiyor.
         </p>
         <Link href="/profil/dogrulamalar" className="l2t-belgeli-gezgin-btn">

@@ -73,7 +73,7 @@ export default function BusinessObjectionPage() {
   };
 
   return (
-    <main className="l2t-page">
+    <div className="l2t-page">
       <div className="l2t-wrap" style={{ maxWidth: '600px', margin: '0 auto', padding: '40px 20px' }}>
         <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '16px', fontSize: '2.2rem', textAlign: 'center' }}>
           İşletme İtiraz ve Bilgi Düzeltme Talebi
@@ -229,6 +229,6 @@ export default function BusinessObjectionPage() {
           </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

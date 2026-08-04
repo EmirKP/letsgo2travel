@@ -12,7 +12,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getBlogBySlug(slug);
-  return { title: post?.title || "Blog", description: post?.excerpt || "Letsgo2Travel blog" };
+  return {
+    title: post?.title || "Blog",
+    description: post?.excerpt || "LetsGo2Travel blog",
+    alternates: { canonical: `/blog/${slug}` },
+  };
 }
 
 export default async function BlogDetailPage({ params }: { params: Promise<{ slug: string }> }) {

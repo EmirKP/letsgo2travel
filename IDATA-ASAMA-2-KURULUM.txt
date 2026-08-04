@@ -1,0 +1,107 @@
+LETSGO2TRAVEL — iDATA AŞAMA 2 KURULUMU
+========================================
+
+BU PAKET NE EKLER?
+- Kullanıcı panelinde Türkçe "Doğrulama gerekiyor" işlem devri
+- Resmî iDATA sayfasına gitme ve "yeniden kontrol et" akışı
+- Uygulama içi bildirim kayıtları
+- Resend ayarlıysa e-posta bildirimi; ayarlı değilse güvenli kuyruk kaydı
+- Push bildirimi için kuyruk kaydı (cihaz token altyapısı sonraki adımdır)
+- Worker 403/doğrulama ekran görüntüsünün özel Supabase Storage alanına yüklenmesi
+- Admin panelinde kanıt görüntüsü, Türkçe durumlar ve düzeltilmiş tablo düzeni
+- 403/doğrulama durumunda otomatik kontrollerin durması
+- Sağlayıcı geçici erişilemiyorsa 30 dakikalık kontrollü bekleme
+
+1) ZIP DOSYASINI PROJE ÜZERİNE KOPYALA
+--------------------------------------
+ZIP içindekileri şu klasörün üzerine kopyala:
+C:\Projects\letsgo2travel
+
+Dosyaları değiştir sorusuna Evet de.
+
+2) SUPABASE SQL
+---------------
+Supabase > SQL Editor > New query bölümünde şu dosyanın tamamını çalıştır:
+C:\Projects\letsgo2travel\supabase_visa_appointment_phase2.sql
+
+Beklenen sonuç:
+Success. No rows returned
+
+3) BUILD VE YAYIN
+-----------------
+PowerShell:
+
+cd C:\Projects\letsgo2travel
+npm run build
+
+git add -A
+git commit -m "iDATA doğrulama devri ve bildirim altyapısını ekle"
+git push origin main
+
+Vercel deployment Ready olana kadar bekle.
+
+4) YENİ WORKER'I ÖNCE GÜVENLİ ADLA VDS'YE YÜKLE
+------------------------------------------------
+Windows PowerShell'de (VDS'nin içinde değilken):
+
+scp -r "C:\Projects\letsgo2travel\visa-worker" root@31.56.47.12:/root/visa-worker-phase2
+ssh root@31.56.47.12
+
+5) VDS'DE ESKİ WORKER'I SİLMEDEN GÜNCELLE
+------------------------------------------
+Sunucuda:
+
+test -f /root/visa-worker-phase2/package.json && echo "YENI WORKER HAZIR"
+cp /opt/letsgo2travel/visa-worker/.env /root/visa-worker.env.backup
+cp /opt/letsgo2travel/visa-worker/.env /root/visa-worker-phase2/.env
+chmod 600 /root/visa-worker-phase2/.env
+rm -rf /opt/letsgo2travel/visa-worker.old
+mv /opt/letsgo2travel/visa-worker /opt/letsgo2travel/visa-worker.old
+mv /root/visa-worker-phase2 /opt/letsgo2travel/visa-worker
+
+cd /opt/letsgo2travel
+docker compose -f docker-compose.visa-worker.yml up -d --build --force-recreate
+docker compose -f docker-compose.visa-worker.yml ps
+docker compose -f docker-compose.visa-worker.yml logs --tail=80 visa-worker
+
+Beklenen sürüm:
+letsgo2travel-visa-worker@0.3.0
+
+Geri dönüş gerekirse:
+rm -rf /opt/letsgo2travel/visa-worker
+mv /opt/letsgo2travel/visa-worker.old /opt/letsgo2travel/visa-worker
+cd /opt/letsgo2travel
+docker compose -f docker-compose.visa-worker.yml up -d --build --force-recreate
+
+6) CANLI TEST
+-------------
+Admin:
+https://www.letsgo2travel.com.tr/admin/vize-randevulari
+
+Doğrulama bekleyen Almanya kaydında "Yeniden dene" butonuna bas.
+Ardından VDS'de:
+
+cd /opt/letsgo2travel
+docker compose -f docker-compose.visa-worker.yml restart visa-worker
+sleep 10
+docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker
+
+Beklenen:
+idata verification_required
+
+Sonra kullanıcı sayfasını yenile:
+https://www.letsgo2travel.com.tr/vize-randevu
+
+Beklenenler:
+- Doğrulama gerekiyor etiketi
+- Resmî iDATA sayfasına git butonu
+- Doğrulamayı yaptım, yeniden kontrol et butonu
+- Uygulama içi bildirim
+
+NOTLAR
+-----
+- CAPTCHA, SMS, e-posta veya ödeme korumaları atlanmaz.
+- E-posta için Vercel'de RESEND_API_KEY ve RESEND_FROM tanımlıysa gerçek gönderim yapılır.
+- RESEND_API_KEY yoksa e-posta "queued" tutulur; sistem gönderildi diye yanlış kayıt oluşturmaz.
+- Push kaydı oluşturulur fakat gerçek cihaz bildirimi için mobil cihaz token tablosu ve FCM/APNs bağlantısı ayrıca kurulacaktır.
+- Kanıt ekran görüntüleri public değildir; admin panelinde 10 dakikalık imzalı bağlantıyla açılır.

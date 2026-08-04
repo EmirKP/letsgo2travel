@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import ExplorerCardPageClient from "./ExplorerCardPageClient";
 
 export const metadata: Metadata = {
-  title: "Dijital Kaşif Kartı | LetsGo2Travel",
+  title: "Dijital Kaşif Kartı",
   description:
     "Doğrulanmış seyahatlerini, Kaşifler Ligi seviyeni ve başarımlarını paylaş.",
 };

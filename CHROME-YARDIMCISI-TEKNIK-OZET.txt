@@ -1,0 +1,33 @@
+LetsGo2Travel Chrome Vize Yardımcısı V1 — Teknik Özet
+
+Mimari
+- Chrome Extension Manifest V3
+- Content script yalnızca https://de-tr-appointment.idata.com.tr/* alanında çalışır.
+- Tek kullanımlık 10 dakikalık eşleştirme kodu
+- Sunucuda yalnızca SHA-256 kod/token özeti tutulur.
+- Uzantı tokenı 30 gün geçerlidir ve kullanıcı site panelinden bağlantıyı kaldırabilir.
+- Chrome modundaki takipler execution_mode=browser_extension ile işaretlenir.
+- VDS claim fonksiyonu yalnızca execution_mode=vds görevlerini alır.
+
+Yeni API'ler
+- POST/GET/DELETE /api/visa-appointments/extension/pair
+- POST /api/visa-appointments/extension/claim
+- POST /api/visa-appointments/extension/report
+
+Yeni veritabanı
+- visa_appointment_extension_pairings
+- visa_appointment_tracks.execution_mode
+- visa_appointment_tracks.extension_last_seen_at
+
+Sonuç sınıfları
+- no_slots
+- slot_found
+- verification_required
+- provider_unavailable
+- error
+
+Gizlilik
+- document.cookie okunmaz.
+- input/select/textarea value alanları okunmaz.
+- Parola, kart bilgisi ve form içeriği gönderilmez.
+- Sunucuya sayfa URL'si, başlık, sınıflandırma, tarih adayları ve kısa sonuç mesajı gider.

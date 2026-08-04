@@ -41,6 +41,12 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/:path*",
+        has: [{ type: "host", value: "letsgo2travel.com.tr" }],
+        destination: "https://www.letsgo2travel.com.tr/:path*",
+        permanent: true,
+      },
+      {
         source: "/akilli-plan",
         destination: "/rota-asistani",
         permanent: true,

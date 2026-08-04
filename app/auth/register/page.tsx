@@ -164,7 +164,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <main className="l2t-auth-page">
+      <div className="l2t-auth-page">
         <section className="l2t-auth-success" aria-live="polite">
           <span className="l2t-auth-success-icon"><CheckCircle size={38} /></span>
           <p className="l2t-auth-eyebrow">Kayıt tamamlandı</p>
@@ -177,14 +177,14 @@ export default function RegisterPage() {
             <span>Giriş ekranına dön</span><ArrowRight size={18} />
           </Link>
         </section>
-      </main>
+      </div>
     );
   }
 
   const isBusy = loading || isGoogleLoading;
 
   return (
-    <main className="l2t-auth-page">
+    <div className="l2t-auth-page">
       <section className="l2t-auth-shell l2t-auth-shell-register" aria-labelledby="register-title">
         <AuthStory />
 
@@ -315,6 +315,6 @@ export default function RegisterPage() {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

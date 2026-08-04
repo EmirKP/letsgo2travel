@@ -25,7 +25,12 @@ export default function ModerationPanel() {
   const fetchObjections = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/business-objections");
+      const { supabase } = await import("@/lib/supabase-client");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/admin/business-objections", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       const data = await res.json();
       if (data.success) {
         setObjections(data.data);
@@ -40,7 +45,12 @@ export default function ModerationPanel() {
   const fetchKvkkRequests = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/kvkk-requests");
+      const { supabase } = await import("@/lib/supabase-client");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/admin/kvkk-requests", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       const data = await res.json();
       if (data.success) {
         setKvkkRequests(data.data);
@@ -98,9 +108,12 @@ export default function ModerationPanel() {
 
   const updateObjectionStatus = async (id: string, status: string) => {
     try {
+      const { supabase } = await import("@/lib/supabase-client");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       const res = await fetch("/api/admin/business-objections", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ id, status })
       });
       const data = await res.json();
@@ -114,9 +127,12 @@ export default function ModerationPanel() {
 
   const updateKvkkStatus = async (id: string, status: string) => {
     try {
+      const { supabase } = await import("@/lib/supabase-client");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       const res = await fetch("/api/admin/kvkk-requests", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ id, status })
       });
       const data = await res.json();
@@ -129,7 +145,7 @@ export default function ModerationPanel() {
   };
 
   return (
-    <main className="l2t-page">
+    <div className="l2t-page">
       <div className="l2t-wrap" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '32px' }}>
         
         {/* Sidebar */}
@@ -376,6 +392,6 @@ export default function ModerationPanel() {
           )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -20,6 +20,7 @@ export type FlightDeal = {
   active?: boolean;
   clicks?: number;
   created_at?: string;
+  is_estimate?: boolean;
 };
 
 export type BlogPost = {

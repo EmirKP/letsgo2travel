@@ -17,6 +17,7 @@ async function api(path, body) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-worker-secret": workerSecret },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);

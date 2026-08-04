@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getBlogPosts } from "@/lib/data";
 
-export const metadata: Metadata = { title: "Blog", description: "LetsGo2Travel seyahat blogu ve rehber içerikleri." };
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "LetsGo2Travel seyahat blogu ve rehber içerikleri.",
+  alternates: { canonical: "/blog" },
+};
 
 export default async function BlogPage() {
   const posts = await getBlogPosts();

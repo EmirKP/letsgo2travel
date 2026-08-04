@@ -7,7 +7,7 @@ import { Bookmark, Home, Search, ShieldCheck, Sparkles } from "lucide-react";
 const items = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
-  { href: "/#bilet-ara", label: "Bilet Ara", icon: Search, main: true },
+  { href: "/#ucus-ara", label: "Bilet Ara", icon: Search, main: true },
   { href: "/rota-asistani", label: "Rota", icon: Sparkles },
   { href: "/planlarim", label: "Planlarım", icon: Bookmark },
 ];

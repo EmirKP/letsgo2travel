@@ -11,6 +11,8 @@ type Deal = {
   price?: number;
   currency?: string;
   visa_type?: string;
+  created_at?: string;
+  is_estimate?: boolean;
 };
 
 const flags: Record<string, string> = {
@@ -34,17 +36,18 @@ function visaLabel(value?: string) {
 
 export default function HomeDealsTicker({ deals }: { deals: Deal[] }) {
   const items = (deals || []).slice(0, 4);
+  const allTimestamped = items.length > 0 && items.every((deal) => deal.created_at && !deal.is_estimate);
 
   return (
-    <section className={`l2t-container ${styles.section}`} aria-label="Son taranan fırsatlar">
+    <section className={`l2t-container ${styles.section}`} aria-label="Tahmini uçuş fiyatları">
       <div className={styles.panel}>
         <div className={styles.head}>
           <div>
-            <span className={styles.kicker}><TrendingUp size={15} /> Son taranan fırsatlar</span>
-            <h2>Popüler rotalarda fiyat sinyalleri</h2>
+            <span className={styles.kicker}><TrendingUp size={15} /> Fiyat sinyalleri</span>
+            <h2>Popüler rotalarda tahmini başlangıç fiyatları</h2>
           </div>
           <div className={styles.headMeta}>
-            <span><Clock3 size={14} /> Yakın tarihli sinyaller</span>
+            <span><Clock3 size={14} /> {allTimestamped ? "Kontrol zamanları kayıtlı" : "Canlı fiyat değildir"}</span>
             <Link href="/kampanyalar">Tüm fırsatlar <ArrowRight size={14} /></Link>
           </div>
         </div>
@@ -55,7 +58,7 @@ export default function HomeDealsTicker({ deals }: { deals: Deal[] }) {
               const destination = deal.destination || "Rota";
               const currency = deal.currency === "TRY" || !deal.currency ? "TL" : deal.currency;
               const price = deal.price
-                ? `${deal.price.toLocaleString("tr-TR")} ${currency}`
+                ? `${deal.is_estimate || !deal.created_at ? "Tahmini " : ""}${deal.price.toLocaleString("tr-TR")} ${currency}`
                 : "Fiyatı gör";
               return (
                 <Link href="/kampanyalar" className={styles.card} key={`${deal.id ?? destination}-${index}`}>

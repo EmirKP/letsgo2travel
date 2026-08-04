@@ -168,6 +168,25 @@
 .quickText small { color: var(--home-muted); font-size: .7rem; line-height: 1.45; }
 .quickCard > svg { color: #9aaab4; }
 
+.appointmentBanner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1.15rem 1.3rem;
+  border: 1px solid #c7dce3;
+  border-radius: 1.2rem;
+  background: linear-gradient(115deg, #e8f4f6, #fff8e8);
+  color: var(--home-navy);
+  box-shadow: 0 14px 32px rgba(8, 29, 44, .06);
+}
+.appointmentIcon { width: 3rem; height: 3rem; display: grid; place-items: center; border-radius: .9rem; background: var(--home-navy); color: #fff; }
+.appointmentBanner > div { min-width: 0; display: grid; gap: .25rem; }
+.appointmentBanner strong { font-size: .95rem; }
+.appointmentBanner small { color: var(--home-muted); line-height: 1.5; }
+.appointmentBanner a { display: inline-flex; align-items: center; gap: .4rem; color: var(--home-navy); font-size: .78rem; font-weight: 850; text-decoration: none; white-space: nowrap; }
+
 .section { padding: clamp(4.5rem, 8vw, 7.2rem) 0 0; }
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin-bottom: 1.5rem; }
 .sectionHeading > div { max-width: 760px; }
@@ -306,6 +325,8 @@
   .heroStat { display: none; }
   .photoCaption > span { display: none; }
   .quickGrid { grid-template-columns: 1fr; }
+  .appointmentBanner { grid-template-columns: auto 1fr; }
+  .appointmentBanner a { grid-column: 1 / -1; justify-content: center; min-height: 2.8rem; border-radius: 999px; background: var(--home-navy); color: #fff; }
   .sectionHeading { align-items: flex-start; flex-direction: column; gap: .75rem; }
   .sectionHeading h2,
   .featureCopy h2,

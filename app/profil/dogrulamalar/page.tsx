@@ -4,10 +4,19 @@ import { useState, useEffect } from "react";
 import { COUNTRIES } from "@/lib/countries/countryData";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import styles from "./verifications.module.css";
+
+interface Verification {
+  id: string;
+  country_name: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  admin_note?: string | null;
+}
 
 export default function DogrulamalarPage() {
   const router = useRouter();
-  const [verifications, setVerifications] = useState<any[]>([]);
+  const [verifications, setVerifications] = useState<Verification[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [countryCode, setCountryCode] = useState("");
@@ -21,7 +30,7 @@ export default function DogrulamalarPage() {
     async function checkAuthAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.push("/login?next=/profil/dogrulamalar");
+        router.push("/auth/login?next=/profil/dogrulamalar");
         return;
       }
       fetchVerifications(session.access_token);
@@ -85,10 +94,10 @@ export default function DogrulamalarPage() {
     }
   }
 
-  if (loading) return <div className="l2t-wrap l2t-page text-center"><p className="text-[var(--l2t-soft)] animate-pulse">Yükleniyor...</p></div>;
+  if (loading) return <div className={styles.loading} role="status">Yükleniyor...</div>;
 
   return (
-    <div className="l2t-wrap l2t-page">
+    <div className={`l2t-wrap l2t-page ${styles.page}`}>
       <div className="l2t-page-head">
         <h1>Gezdiğin ülkeleri doğrula, haritada kilidini aç.</h1>
         <p>
@@ -96,19 +105,19 @@ export default function DogrulamalarPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-8 mt-8">
+      <div className={styles.layout}>
         {/* Form */}
-        <div className="l2t-glass-card p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Yeni Doğrulama Talebi</h2>
+        <div className={`l2t-glass-card ${styles.card}`}>
+          <h2 className={styles.sectionTitle}>Yeni Doğrulama Talebi</h2>
           
-          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-lg mb-6 font-bold">{error}</div>}
-          {success && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-lg mb-6 font-bold">{success}</div>}
+          {error && <div className={`${styles.alert} ${styles.error}`} role="alert">{error}</div>}
+          {success && <div className={`${styles.alert} ${styles.success}`} role="status">{success}</div>}
           
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className={styles.form}>
             <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Ülke Seç</label>
+              <label className={styles.label}>Ülke Seç</label>
               <select 
-                className="l2t-form-control appearance-none" 
+                className={`l2t-form-control ${styles.select}`}
                 value={countryCode} 
                 onChange={e => setCountryCode(e.target.value)}
               >
@@ -120,24 +129,24 @@ export default function DogrulamalarPage() {
             </div>
 
             <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Kanıt Belgesi / Fotoğraf</label>
-              <div className="border-2 border-dashed border-[var(--l2t-border)] rounded-xl p-4 bg-[var(--l2t-card-strong)] hover:border-[var(--l2t-gold)]/50 transition-colors">
+              <label className={styles.label}>Kanıt Belgesi / Fotoğraf</label>
+              <div className={styles.upload}>
                 <input 
                   type="file" 
                   accept=".jpg,.jpeg,.png,.webp,.pdf"
                   onChange={e => setFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-[var(--l2t-soft)] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[var(--l2t-gold)] file:text-[var(--l2t-night)] hover:file:bg-[var(--l2t-gold-hover)] cursor-pointer"
+                  className={styles.file}
                 />
               </div>
-              <p className="text-xs text-[var(--l2t-muted)] mt-2 leading-relaxed">
+              <p className={styles.help}>
                 Maks 5MB. PNR zorunlu değil, ikna edici fotoğraf yeterli. Sadece inceleme içindir, herkese açık gösterilmez.
               </p>
             </div>
 
             <div>
-              <label className="block text-[var(--l2t-soft)] font-bold text-sm mb-2">Not (Opsiyonel)</label>
+              <label className={styles.label}>Not (Opsiyonel)</label>
               <textarea 
-                className="l2t-form-control min-h-[100px] resize-y" 
+                className={`l2t-form-control ${styles.textarea}`}
                 rows={3} 
                 value={note}
                 onChange={e => setNote(e.target.value)}
@@ -145,7 +154,7 @@ export default function DogrulamalarPage() {
               />
             </div>
 
-            <button type="submit" disabled={submitting} className="l2t-button l2t-button-gold w-full mt-2">
+            <button type="submit" disabled={submitting} className={`l2t-button l2t-button-gold ${styles.submit}`}>
               {submitting ? 'Gönderiliyor...' : 'Doğrulama Gönder'}
             </button>
           </form>
@@ -153,27 +162,27 @@ export default function DogrulamalarPage() {
 
         {/* Geçmiş Başvurular */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-6">Başvurularım</h2>
+          <h2 className={styles.sectionTitle}>Başvurularım</h2>
           {verifications.length === 0 ? (
-            <div className="l2t-glass-card p-8 text-center text-[var(--l2t-muted)] border-dashed">
+            <div className={`l2t-glass-card ${styles.empty}`}>
               Henüz bir başvurunuz yok.
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className={styles.list}>
               {verifications.map(v => (
-                <div key={v.id} className="l2t-glass-card p-5 flex flex-col gap-3 transition-transform hover:-translate-y-1">
-                  <div className="flex justify-between items-start">
-                    <span className="font-bold text-white text-lg">{v.country_name}</span>
+                <div key={v.id} className={`l2t-glass-card ${styles.verification}`}>
+                  <div className={styles.cardHead}>
+                    <span className={styles.country}>{v.country_name}</span>
                     <span className={`l2t-badge ${v.status === 'pending' ? 'l2t-badge-pending' : v.status === 'approved' ? 'l2t-badge-approved' : 'l2t-badge-rejected'}`}>
                       {v.status === 'pending' ? 'Beklemede' : v.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                     </span>
                   </div>
-                  <div className="text-sm text-[var(--l2t-muted)] flex justify-between items-center pt-2 border-t border-[var(--l2t-border)]">
+                  <div className={styles.meta}>
                     Tarih: {new Date(v.created_at).toLocaleDateString('tr-TR')}
                   </div>
                   {v.admin_note && (
-                    <div className="mt-2 text-sm bg-[var(--l2t-card-strong)] p-3 rounded-lg border border-[var(--l2t-border)]">
-                      <strong className="text-[var(--l2t-gold)]">Yönetici Notu:</strong> {v.admin_note}
+                    <div className={styles.adminNote}>
+                      <strong>Yönetici Notu:</strong> {v.admin_note}
                     </div>
                   )}
                 </div>

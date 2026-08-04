@@ -259,7 +259,7 @@ export default function PassportPowerPage() {
         </div>
       </section>
 
-      <main className={styles.main}>
+      <div className={styles.main}>
         <section className={styles.overview} aria-label="Pasaport özeti">
           {[
             { icon: <CheckCircle size={20} />, label: "Kimlikle", value: STATS.id_card, tone: "identity" },
@@ -453,7 +453,7 @@ export default function PassportPowerPage() {
             <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı</Link>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

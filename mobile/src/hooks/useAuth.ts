@@ -208,7 +208,7 @@ export function useAuth() {
   const signUpWithEmail = async (email: string, password: string) => {
     if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
     setAuthError("");
-    const redirectTo = "https://letsgo2travel.com.tr/auth/callback";
+    const redirectTo = "https://www.letsgo2travel.com.tr/auth/callback";
     const result = await requestJson<SignUpResponse>(`${authUrl("/signup")}?redirect_to=${encodeURIComponent(redirectTo)}`, {
       method: "POST",
       headers: authHeaders(),
@@ -223,7 +223,7 @@ export function useAuth() {
 
   const sendPasswordReset = async (email: string) => {
     if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
-    const redirectTo = "https://letsgo2travel.com.tr/sifre-yenile";
+    const redirectTo = "https://www.letsgo2travel.com.tr/sifre-yenile";
     await requestJson<Record<string, unknown>>(`${authUrl("/recover")}?redirect_to=${encodeURIComponent(redirectTo)}`, {
       method: "POST",
       headers: authHeaders(),

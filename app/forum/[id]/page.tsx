@@ -115,13 +115,13 @@ export async function generateMetadata({
 
   if (!topic) {
     return {
-      title: "Forum konusu bulunamadı | LetsGo2Travel",
+      title: "Forum konusu bulunamadı",
       robots: { index: false, follow: false },
     };
   }
 
   return {
-    title: `${topic.title} | LetsGo2Travel Forum`,
+    title: `${topic.title} · Forum`,
     description: descriptionFromContent(topic.content),
     alternates: { canonical: `/forum/${topic.id}` },
     openGraph: {
@@ -203,7 +203,7 @@ export default async function ForumTopicPage({
   };
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -322,6 +322,6 @@ export default async function ForumTopicPage({
           )}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

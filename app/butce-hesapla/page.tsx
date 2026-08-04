@@ -212,7 +212,7 @@ export default function BudgetCalculatorPage() {
 
           <div className="l2t-budget-v25-actions">
             <Link href={assistantHref}><Sparkles size={18} /> Bu bütçeyle rota oluştur <ArrowRight size={17} /></Link>
-            <Link href="/#bilet-ara"><Plane size={18} /> Uçuşları kontrol et</Link>
+            <Link href="/#ucus-ara"><Plane size={18} /> Uçuşları kontrol et</Link>
           </div>
         </aside>
       </section>

@@ -29,7 +29,7 @@ function parseEnv(file) {
 
 const env = parseEnv(path.join(rootDir, ".env.local"));
 const publicConfig = {
-  apiBaseUrl: (env.VITE_API_BASE_URL || "https://letsgo2travel.com.tr").replace(/\/$/, ""),
+  apiBaseUrl: (env.VITE_API_BASE_URL || "https://www.letsgo2travel.com.tr").replace(/\/$/, ""),
   supabaseUrl: env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   supportEmail: env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",

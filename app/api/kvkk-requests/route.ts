@@ -1,22 +1,37 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const REQUEST_TYPES = new Set([
+  'Verilerimi görmek istiyorum',
+  'Verilerimi düzeltmek istiyorum',
+  'Verilerimin silinmesini istiyorum',
+  'Doğrulama geçmişimin silinmesini istiyorum',
+  'Açık rızamı geri çekmek istiyorum',
+  'Hesabımı kapatmak istiyorum',
+  'Diğer',
+]);
 
-// Service role key ile işlem yapıyoruz çünkü tabloya RLS ile ekleme yapmak isteyebiliriz
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+function cleanText(value: unknown, maxLength: number) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
 
 export async function POST(req: Request) {
   try {
+    const contentLength = Number(req.headers.get('content-length') || 0);
+    if (contentLength > 20_000) return NextResponse.json({ error: 'İstek çok büyük.' }, { status: 413 });
+
     const body = await req.json();
-    const { name, email, username, requestType, description, confirmed } = body;
+    const name = cleanText(body.name, 120);
+    const username = cleanText(body.username, 80);
+    const requestType = cleanText(body.requestType, 100);
+    const description = cleanText(body.description, 4000);
+    const confirmed = body.confirmed;
 
     if (!confirmed) {
       return NextResponse.json({ error: 'Doğrulama kutusu işaretlenmelidir.' }, { status: 400 });
     }
 
-    if (!name || !email || !requestType || !description) {
+    if (!name || !requestType || !description || !REQUEST_TYPES.has(requestType)) {
       return NextResponse.json({ error: 'Zorunlu alanlar eksik.' }, { status: 400 });
     }
 
@@ -27,6 +42,9 @@ export async function POST(req: Request) {
     // Şema kontrolü: user_id NOT NULL diyor. Öyleyse session almalıyız.
     
     // Auth header'dan token alalım
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 503 });
+
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json({ error: 'Oturum açmanız gerekiyor.' }, { status: 401 });
@@ -43,7 +61,7 @@ export async function POST(req: Request) {
       .insert({
         user_id: user.id,
         request_type: requestType,
-        notes: `İsim: ${name}\nE-posta: ${email}\nKullanıcı Adı: ${username || '-'}\nAçıklama: ${description}`,
+        notes: `İsim: ${name}\nE-posta: ${user.email || '-'}\nKullanıcı Adı: ${username || '-'}\nAçıklama: ${description}`,
         status: 'pending'
       });
 
@@ -54,7 +72,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Talebiniz alınmıştır. Başvurunuz ilgili mevzuat kapsamında değerlendirilecektir. Gerekli hallerde kimlik doğrulama amacıyla ek bilgi talep edilebilir.' });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('API Error:', err);
     return NextResponse.json({ error: 'Sunucu hatası oluştu.' }, { status: 500 });
   }

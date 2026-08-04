@@ -1,13 +1,13 @@
 ﻿import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "KVKK Aydınlatma Metni | LetsGo2Travel",
+  title: "KVKK Aydınlatma Metni",
   description: "LetsGo2Travel platformu KVKK Aydınlatma Metni",
 };
 
 export default function KVKKAydinlatmaPage() {
   return (
-    <main className="l2t-page">
+    <div className="l2t-page">
       <div className="l2t-wrap" style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px' }}>
         <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '24px', fontSize: '2.5rem' }}>KVKK Aydınlatma Metni</h1>
         
@@ -118,6 +118,6 @@ export default function KVKKAydinlatmaPage() {
           </p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

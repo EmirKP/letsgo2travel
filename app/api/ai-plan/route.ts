@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const maxDuration = 60;
@@ -59,9 +59,46 @@ async function saveCachedPlan(hash: string, input: Record<string, unknown>, outp
   }
 }
 
-function fallbackResponse() {
+function fallbackResponse(input?: ReturnType<typeof normalizeInput>) {
+  const route = {
+    name: "Saraybosna",
+    country: "Bosna Hersek",
+    cityOrRegion: "Saraybosna",
+    why: "Vizesiz oluşu, yürüyerek keşfedilebilmesi ve bütçe dostu seçenekleriyle güvenli bir başlangıç rotasıdır.",
+    visaStatus: "Vizesiz",
+    estimatedBudget: input?.budget && input.budget !== "Belirtilmedi" ? input.budget : "Tarih seçimine göre kontrol edilmeli",
+    idealDuration: input?.days && input.days !== "Belirtilmedi" ? input.days : "3 gün",
+    bestFor: "İlk yurt dışı deneyimi ve kültür gezisi",
+    difficulty: "Kolay",
+    firstTimeFriendly: true,
+    transportEase: "Kolay",
+    safetyNote: "Turistik ve kalabalık alanlarda standart kişisel güvenlik önlemlerini al.",
+    scores: { budget: 9, visaEase: 10, firstTime: 9, transport: 8, overall: 90 },
+    dailyPlan: [
+      "1. Gün: Başçarşı, Sebil ve Latin Köprüsü",
+      "2. Gün: Umut Tüneli ve Trebeviç",
+      "3. Gün: Vrelo Bosne ve dönüş hazırlığı",
+    ],
+    warnings: [
+      "Bütçe tahminidir; uçuş ve konaklama fiyatını seçtiğin tarihler için yeniden kontrol et.",
+      "Giriş kurallarını seyahatten önce resmî kaynaklardan doğrula.",
+    ],
+    cta: {
+      flightSearchText: "Bu rota için bilet ara",
+      guideText: "Saraybosna rehberini gör",
+      forumText: "Forumda soru sor",
+    },
+  };
+
   return NextResponse.json(
-    { success: true, data: null, isFallback: true },
+    {
+      success: true,
+      data: {
+        summary: "Yapay zekâ yanıtı geciktiği için seçimlerine yakın, güvenli bir başlangıç rotası gösteriyoruz.",
+        routes: [route],
+      },
+      isFallback: true,
+    },
     { headers: { "Cache-Control": "private, no-store, max-age=0" } }
   );
 }
@@ -100,12 +137,14 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (!aiEnabled || !apiKey) {
-      return fallbackResponse();
+      return fallbackResponse(input);
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const genAI = new GoogleGenAI({ apiKey });
+    const configuredModel = process.env.GEMINI_MODEL?.trim();
+    const modelName = !configuredModel || configuredModel === "gemini-3.5-flash"
+      ? "gemini-3.6-flash"
+      : configuredModel;
 
     const prompt = `
       Sen profesyonel bir seyahat danışmanısın. Kullanıcının verdiği seçimlere göre, en iyi 3 farklı rota seçeneği oluştur.
@@ -149,8 +188,19 @@ export async function POST(req: Request) {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    let textResult = result.response.text().trim();
+    const interaction = await genAI.interactions.create(
+      {
+        model: modelName,
+        input: prompt,
+        store: false,
+      },
+      { timeout: 20_000 },
+    );
+    let textResult = (interaction.output_text || "").trim();
+
+    if (!textResult) {
+      return fallbackResponse(input);
+    }
 
     if (textResult.startsWith("```json")) {
       textResult = textResult.replace(/^```json\n/, "").replace(/\n```$/, "");
@@ -164,11 +214,11 @@ export async function POST(req: Request) {
       jsonData = JSON.parse(textResult);
     } catch (parseError) {
       console.error("AI JSON Parse Error:", parseError);
-      return fallbackResponse();
+      return fallbackResponse(input);
     }
 
     if (!jsonData.routes || !Array.isArray(jsonData.routes)) {
-      return fallbackResponse();
+      return fallbackResponse(input);
     }
 
     jsonData.routes = jsonData.routes.slice(0, 3);
@@ -178,7 +228,7 @@ export async function POST(req: Request) {
       { success: true, data: jsonData, isFallback: false, cached: false },
       { headers: { "Cache-Control": "private, no-store, max-age=0" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Route Error:", error);
     return fallbackResponse();
   }

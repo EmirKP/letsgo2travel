@@ -30,7 +30,7 @@ export default function IstanbulGuidePage() {
   };
 
   return (
-    <main className="l2t-page">
+    <div className="l2t-page">
       <div className="l2t-wrap">
         <div style={{ textAlign: 'center', padding: '60px 0', background: 'linear-gradient(180deg, var(--l2t-navy), var(--l2t-page-bg))', borderRadius: '16px', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '3rem', color: '#fff', margin: '0 0 16px' }}>İstanbul Şehir Rehberi</h1>
@@ -163,6 +163,6 @@ export default function IstanbulGuidePage() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -289,7 +289,7 @@ export default function Cockpit({
     : 0;
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroGlow} aria-hidden="true" />
         <div className={styles.heroInner}>
@@ -671,7 +671,7 @@ export default function Cockpit({
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 

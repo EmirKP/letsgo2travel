@@ -24,7 +24,17 @@ export async function PATCH(
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
-    const { appointment_status, appointment_note, source_note } = await request.json();
+    const { appointment_status, appointment_note, source_note, official_source_url } = await request.json();
+    const officialSourceUrl = String(official_source_url || "").trim();
+
+    if (officialSourceUrl) {
+      try {
+        const parsed = new URL(officialSourceUrl);
+        if (parsed.protocol !== "https:") throw new Error("HTTPS gerekli");
+      } catch {
+        return NextResponse.json({ error: "Resmî kaynak geçerli bir HTTPS adresi olmalı." }, { status: 400 });
+      }
+    }
 
     const { error } = await supabase
       .from('visa_center_pages')
@@ -32,6 +42,7 @@ export async function PATCH(
         appointment_status,
         appointment_note,
         source_note,
+        official_source_url: officialSourceUrl || null,
         last_checked_at: new Date().toISOString()
       })
       .eq('id', id);

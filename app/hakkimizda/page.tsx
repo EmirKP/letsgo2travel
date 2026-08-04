@@ -5,6 +5,7 @@ import { Plane, Sparkles, Globe, Shield } from "lucide-react";
 export const metadata: Metadata = {
   title: "Hakkımızda",
   description: "LetsGo2Travel, Türk gezginlere yönelik modern bir seyahat asistanı. Vizesiz rotalar, ucuz uçak bileti ve seyahat rehberi tek platformda.",
+  alternates: { canonical: "/hakkimizda" },
 };
 
 export default function HakkimizdaPage() {
@@ -26,16 +27,16 @@ export default function HakkimizdaPage() {
             Ucuz uçak bileti aramadan vizesiz ülke kılavuzlarına, otel önerilerinden yapay zeka destekli rota planlamasına kadar geniş bir içerik yelpazesi sunuyoruz.
           </p>
           <p style={{ color: "var(--l2t-soft)", lineHeight: 1.8, fontSize: "1.05rem", marginTop: "16px" }}>
-            Amacımız, seyahat yapmak isteyen herkese güvenilir, güncel ve kullanışkolay bilgi sağlamak. Vize süreçlerinden bütçe planlamaya, destinasyon keşfetmekten uygun uçuş bulmaya kadar her aşamada yanınızdayız.
+            Amacımız, seyahat yapmak isteyen herkese anlaşılır ve kullanışlı karar desteği sağlamak. Tarih bilgisi bulunmayan fiyatlar tahmini olarak işaretlenir; vize ve giriş kuralları için seyahat öncesinde resmî kaynak kontrolü gerekir.
           </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "32px" }}>
           {[
-            { icon: <Plane size={24} color="var(--l2t-blue)" />, title: "Uçak Bileti", text: "Yüzlerce havayolu ve partner fiyatını karşılaştır, en uygun fırsatı bul." },
+            { icon: <Plane size={24} color="var(--l2t-blue)" />, title: "Uçuş Arama", text: "Rota ve tarihini seç, güncel sonucu bileti satan sağlayıcının ekranında kontrol et." },
             { icon: <Globe size={24} color="#10B981" />, title: "Vizesiz Rotalar", text: "Pasaportuna göre kolayca keşfedilebilen destinasyonlar." },
             { icon: <Sparkles size={24} color="var(--l2t-gold)" />, title: "Rota Asistanı", text: "Bütçene uygun rotayı saniyeler içinde planla." },
-            { icon: <Shield size={24} color="#8B5CF6" />, title: "Güvenilir Bilgi", text: "Vize ve giriş bilgileri düzenli güncellenir." },
+            { icon: <Shield size={24} color="#8B5CF6" />, title: "Şeffaf Bilgi", text: "Tahmini içerikler açıkça işaretlenir; kritik bilgiler için resmî doğrulama hatırlatılır." },
           ].map((item, i) => (
             <div key={i} style={{ background: "#f8fafc", borderRadius: "16px", padding: "24px", border: "1px solid #e2e8f0" }}>
               <div style={{ marginBottom: "12px" }}>{item.icon}</div>

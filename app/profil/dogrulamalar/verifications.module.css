@@ -1,0 +1,28 @@
+.page { padding-block: 2rem 4rem; }
+.loading { min-height: 50vh; display: grid; place-items: center; color: var(--l2t-muted); }
+.layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; margin-top: 2rem; }
+.card { padding: clamp(1.25rem, 3vw, 2rem); }
+.sectionTitle { margin: 0 0 1.5rem; color: var(--l2t-ink); font-size: 1.25rem; }
+.alert { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid; border-radius: 0.75rem; font-weight: 700; }
+.error { border-color: rgba(196, 75, 89, 0.35); background: rgba(196, 75, 89, 0.1); color: var(--color-danger); }
+.success { border-color: rgba(22, 128, 101, 0.35); background: rgba(22, 128, 101, 0.1); color: var(--color-success); }
+.form, .list { display: grid; gap: 1.5rem; }
+.label { display: block; margin-bottom: 0.5rem; color: var(--l2t-muted); font-size: 0.875rem; font-weight: 700; }
+.select { appearance: none; }
+.upload { padding: 1rem; border: 2px dashed var(--l2t-line); border-radius: 0.75rem; background: var(--l2t-surface); transition: border-color 160ms ease; }
+.upload:hover { border-color: var(--l2t-gold-calm); }
+.file { width: 100%; color: var(--l2t-muted); font-size: 0.875rem; cursor: pointer; }
+.file::file-selector-button { margin-right: 1rem; padding: 0.55rem 1rem; border: 0; border-radius: 999px; background: var(--l2t-gold-calm); color: var(--l2t-navy-calm); font-weight: 700; cursor: pointer; }
+.help { margin: 0.5rem 0 0; color: var(--l2t-muted); font-size: 0.75rem; line-height: 1.6; }
+.textarea { min-height: 100px; resize: vertical; }
+.submit { width: 100%; margin-top: 0.5rem; }
+.empty { padding: 2rem; border-style: dashed; color: var(--l2t-muted); text-align: center; }
+.verification { display: grid; gap: 0.75rem; padding: 1.25rem; transition: transform 160ms ease; }
+.verification:hover { transform: translateY(-2px); }
+.cardHead, .meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.country { color: var(--l2t-ink); font-size: 1.05rem; font-weight: 800; }
+.meta { padding-top: 0.75rem; border-top: 1px solid var(--l2t-line); color: var(--l2t-muted); font-size: 0.875rem; }
+.adminNote { padding: 0.75rem; border: 1px solid var(--l2t-line); border-radius: 0.65rem; background: var(--l2t-surface); font-size: 0.875rem; }
+.adminNote strong { color: var(--l2t-gold-calm); }
+
+@media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }

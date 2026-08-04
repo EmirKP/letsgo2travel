@@ -1,10 +1,9 @@
 import type { BlogPost, CountryGuide, FlightDeal } from "./types";
 import { getCountrySeoContent } from "./country-seo-content";
-
-const DEFAULT_SITE_URL = "https://letsgo2travel.com.tr";
+import { getSiteUrl } from "./site-url";
 
 export function siteUrl(path = "") {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, "");
+  const base = getSiteUrl();
   if (!path) return base;
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -119,11 +118,15 @@ export function flightDealSchema(deal: FlightDeal) {
         name: deal.destination,
         iataCode: deal.destination_code,
       },
-      priceSpecification: {
-        "@type": "PriceSpecification",
-        price: deal.price,
-        priceCurrency: deal.currency,
-      },
+      ...(!deal.is_estimate && deal.created_at
+        ? {
+            priceSpecification: {
+              "@type": "PriceSpecification",
+              price: deal.price,
+              priceCurrency: deal.currency,
+            },
+          }
+        : {}),
       provider: organizationSchema(),
       url: siteUrl(`/ucak-bileti/${deal.slug}`),
     },

@@ -111,7 +111,7 @@ function fallbackCard(
 export async function getExplorerCardData(
   supabase: SupabaseClient,
   userId: string,
-  siteUrl = "https://letsgo2travel.com.tr",
+  siteUrl = "https://www.letsgo2travel.com.tr",
   fallbackIdentity?: ExplorerCardFallbackIdentity,
 ): Promise<ExplorerCardData> {
   const [summaryResult, achievementsResult, preferencesResult] =

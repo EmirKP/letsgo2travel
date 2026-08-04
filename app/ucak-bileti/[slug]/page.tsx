@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: deal?.title || "Uçak Bileti",
     description: deal
-      ? `${deal.origin} → ${deal.destination} uçak bileti fırsatı. ${deal.price.toLocaleString("tr-TR")} ${deal.currency} başlayan fiyatlarla.`
+      ? `${deal.origin} → ${deal.destination} uçuş rotası ve sağlayıcıda güncel fiyat kontrolü.`
       : "Uçak bileti fırsatı",
   };
 }
@@ -52,7 +52,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
           {deal.origin} ({deal.origin_code}) → {deal.destination} ({deal.destination_code})
         </p>
         <div className="l2t-price-line" style={{ color: "#ffffff", fontSize: "2rem", fontWeight: 900, margin: "12px 0 20px" }}>
-          {deal.price.toLocaleString("tr-TR")} {deal.currency}
+          {deal.is_estimate || !deal.created_at ? "Tahmini başlangıç: " : ""}{deal.price.toLocaleString("tr-TR")} {deal.currency}
         </div>
         <div className="l2t-hero-actions">
           <a href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn">
@@ -95,8 +95,8 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
         <a className="l2t-card l2t-affiliate-card" href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer">
           <div className="l2t-card-icon">✈</div>
           <h3>Uçuşu ara</h3>
-          <p>Aviasales üzerinden {deal.origin} → {deal.destination} için canlı fiyatları gör.</p>
-          <span className="l2t-btn l2t-btn-small">Canlı fiyat →</span>
+          <p>Satıcı tarafında {deal.origin} → {deal.destination} için güncel fiyatı kontrol et.</p>
+          <span className="l2t-btn l2t-btn-small">Güncel fiyatı kontrol et →</span>
         </a>
 
         <a
@@ -125,7 +125,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
       </div>
 
       <p className="l2t-disclaimer" style={{ marginTop: "16px" }}>
-        Fiyatlar anlık değişebilir. Canlı arama ekranında son fiyatı kontrol et.
+        Gösterilen tutar tahmini olabilir ve canlı fiyat değildir. Satıcı ekranında son fiyatı, bagajı ve koşulları kontrol et.
         Letsgo2Travel, Travelpayouts iş ortağı olarak komisyon kazanabilir.
       </p>
 

@@ -3,8 +3,8 @@
 Bu klasör VDS üzerinde çalışacak görev tüketicisinin ilk güvenli iskeletidir.
 
 - Site API'sinden kilitli görev alır.
-- Şimdilik yalnızca `demo` sağlayıcısını işler.
-- Gerçek sağlayıcı adaptörleri doğrulandıktan sonra ayrı modüller olarak eklenecektir.
+- `demo` görevlerini ve iDATA'nın herkese açık giriş sayfasındaki erişim/doğrulama durumunu işler.
+- Takvim, CAPTCHA, SMS veya kullanıcı oturumu gerektiren adımları uygun tarih varmış gibi raporlamaz.
 - CAPTCHA, SMS, e-posta doğrulaması ve ödeme adımlarını atlamaz.
 
 ## Docker ile çalıştırma

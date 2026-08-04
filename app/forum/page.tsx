@@ -2,8 +2,9 @@ import Link from "next/link";
 import { MessageSquare, MapPin, Search, ChevronRight, PenTool, Flame, Users, AlertCircle, CheckSquare, ArrowRight } from "lucide-react";
 
 export const metadata = {
-  title: "Forum ve Topluluk | LetsGo2Travel",
+  title: "Forum ve Topluluk",
   description: "Gerçek gezgin deneyimlerini oku, soru sor ve ülke bazlı seyahat pratiklerini keşfet.",
+  alternates: { canonical: "/forum" },
 };
 
 const forumCategories = [

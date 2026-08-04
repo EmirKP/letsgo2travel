@@ -8,6 +8,7 @@ import styles from "./visa-center.module.css";
 export const metadata: Metadata = {
   title: "Vize Merkezi",
   description: "Vize türlerini, hazırlanmış rehberleri ve güncel randevu notlarını tek ekranda incele.",
+  alternates: { canonical: "/vize-merkezi" },
 };
 
 export const dynamic = "force-dynamic";

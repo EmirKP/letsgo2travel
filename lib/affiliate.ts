@@ -89,6 +89,6 @@ export function providerUrl(provider: AffiliateProvider) {
     case "aviasales":
       return aviasalesUrl({});
     default:
-      return "https://letsgo2travel.com.tr";
+      return "https://www.letsgo2travel.com.tr";
   }
 }

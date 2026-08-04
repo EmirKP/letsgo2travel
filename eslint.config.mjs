@@ -11,10 +11,21 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
+      "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "android/**",
+    "ios/**",
+    "mobile/**",
+    "mobile-dist/**",
+    "next-env.d.ts",
+  ]),
 ]);
 
 export default eslintConfig;

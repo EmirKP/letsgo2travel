@@ -12,6 +12,7 @@ import {
   FileText,
   Menu,
   MessageSquare,
+  Newspaper,
   Plane,
   ShieldCheck,
   Sparkles,
@@ -29,14 +30,15 @@ const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 const primaryNav = [
   { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
   { href: "/rota-asistani", label: "Rota Asistanı", icon: Sparkles },
+  { href: "/vize-randevu", label: "Randevu Asistanı", icon: CalendarSearch },
   { href: "/seyahat-kokpiti", label: "Kokpit", icon: Plane },
-  { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
   { href: "/forum", label: "Topluluk", icon: MessageSquare },
 ];
 
 const secondaryNav = [
-  { href: "/vize-randevu", label: "Randevu Asistanı", icon: CalendarSearch },
+  { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
   { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
+  { href: "/blog", label: "Blog", icon: Newspaper },
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
   { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
   { href: "/butce-hesapla", label: "Bütçe Hesapla", icon: Calculator },

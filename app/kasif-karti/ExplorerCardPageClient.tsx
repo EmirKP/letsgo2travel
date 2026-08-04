@@ -169,19 +169,19 @@ export default function ExplorerCardPageClient() {
 
   if (state === "loading") {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard} role="status">
           <span className={styles.spinner} aria-hidden="true" />
           <h1>Kaşif Kartın hazırlanıyor</h1>
           <p>Profilin ve doğrulanmış seyahatlerin yükleniyor.</p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (state === "signed-out") {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard}>
           <span className={styles.icon} aria-hidden="true">
             ✈
@@ -200,13 +200,13 @@ export default function ExplorerCardPageClient() {
             </Link>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (state === "error" || !cardData) {
     return (
-      <main className={styles.feedbackPage}>
+      <div className={styles.feedbackPage}>
         <div className={styles.feedbackCard}>
           <span className={styles.errorIcon} aria-hidden="true">
             !
@@ -217,13 +217,13 @@ export default function ExplorerCardPageClient() {
             Tekrar dene
           </button>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main>
+    <div>
       <ExplorerCard data={cardData} onShowOnProfile={handleShowOnProfile} />
-    </main>
+    </div>
   );
 }

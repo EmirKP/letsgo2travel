@@ -6,12 +6,12 @@ import { Icon, type IconName } from "./Icon";
 import { Sheet } from "./Sheet";
 
 const links: Array<{ label: string; text: string; icon: IconName; url: string }> = [
-  { label: "LetsGo2Travel web", text: "Tüm seyahat içerikleri", icon: "globe", url: "https://letsgo2travel.com.tr" },
-  { label: "Rehber Merkezi", text: "Ülke ve seyahat rehberleri", icon: "map", url: "https://letsgo2travel.com.tr/rehber-merkezi" },
-  { label: "Gezgin Forumu", text: "Sor, paylaş ve deneyim oku", icon: "users", url: "https://letsgo2travel.com.tr/forum" },
-  { label: "Gizlilik Politikası", text: "Veri kullanım bilgileri", icon: "lock", url: "https://letsgo2travel.com.tr/gizlilik-politikasi" },
-  { label: "Kullanım Şartları", text: "Hizmet koşulları", icon: "info", url: "https://letsgo2travel.com.tr/kullanim-sartlari" },
-  { label: "Veri ve hak talebi", text: "Silme ve başvuru kanalı", icon: "mail", url: "https://letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
+  { label: "LetsGo2Travel web", text: "Tüm seyahat içerikleri", icon: "globe", url: "https://www.letsgo2travel.com.tr" },
+  { label: "Rehber Merkezi", text: "Ülke ve seyahat rehberleri", icon: "map", url: "https://www.letsgo2travel.com.tr/rehber-merkezi" },
+  { label: "Gezgin Forumu", text: "Sor, paylaş ve deneyim oku", icon: "users", url: "https://www.letsgo2travel.com.tr/forum" },
+  { label: "Gizlilik Politikası", text: "Veri kullanım bilgileri", icon: "lock", url: "https://www.letsgo2travel.com.tr/gizlilik-politikasi" },
+  { label: "Kullanım Şartları", text: "Hizmet koşulları", icon: "info", url: "https://www.letsgo2travel.com.tr/kullanim-sartlari" },
+  { label: "Veri ve hak talebi", text: "Silme ve başvuru kanalı", icon: "mail", url: "https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
 ];
 
 export function MenuSheet({ open, onClose, online, onNotice }: {

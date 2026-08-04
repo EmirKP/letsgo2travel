@@ -38,7 +38,7 @@ export default function HomeDealPreview({ deal }: { deal: FlightDeal }) {
         hour: "2-digit",
         minute: "2-digit",
       })
-    : "Yakın tarihli sinyal";
+    : "Kontrol tarihi yok · canlı fiyat değildir";
 
   return (
     <Link href={`/ucak-bileti/${deal.slug}`} className={styles.card}>
@@ -67,7 +67,7 @@ export default function HomeDealPreview({ deal }: { deal: FlightDeal }) {
         <p>{deal.travel_period || "Esnek seyahat tarihleri"} · {deal.trip_type || "Gidiş dönüş"}</p>
         <div className={styles.footer}>
           <div>
-            <strong>{deal.price.toLocaleString("tr-TR")} {displayCurrency(deal.currency)}</strong>
+            <strong>{deal.is_estimate || !deal.created_at ? "Tahmini " : ""}{deal.price.toLocaleString("tr-TR")} {displayCurrency(deal.currency)}</strong>
             <small><Clock3 size={13} /> {checkedAt}</small>
           </div>
           <span className={styles.open}><ArrowUpRight size={18} /></span>

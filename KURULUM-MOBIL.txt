@@ -34,14 +34,14 @@ Authentication > URL Configuration > Redirect URLs listesinde şu adres bulunmal
 
 Web yönlendirmesi:
 
-   https://letsgo2travel.com.tr/auth/callback
+   https://www.letsgo2travel.com.tr/auth/callback
 
 Site URL:
 
-   https://letsgo2travel.com.tr
+   https://www.letsgo2travel.com.tr
 
 NOTLAR
 
 - .env.local güvenlik nedeniyle pakete dahil değildir.
-- Canlı uçuş, fiyat alarmı, hesap ve yapay zekâ özellikleri https://letsgo2travel.com.tr üzerindeki güncel backend deploy'una bağlıdır.
+- Canlı uçuş, fiyat alarmı, hesap ve yapay zekâ özellikleri https://www.letsgo2travel.com.tr üzerindeki güncel backend deploy'una bağlıdır.
 - Android komutlarını mobile klasöründe değil proje ana klasöründe çalıştırın.

@@ -1,0 +1,17 @@
+AŞAMA 2 TEKNİK ÖZET
+===================
+
+1. verification_required sonucu takip görevini durdurur; next_check_at null olur.
+2. provider_unavailable sonucu 5 dakikada bir zorlamak yerine 30 dakika bekler.
+3. Worker doğrulama/403 ekranını düşük boyutlu JPEG olarak rapor API'sine yollar.
+4. API ekran görüntüsünü private Supabase Storage bucket'ına yükler.
+5. Admin API son logu ve 10 dakikalık signed evidence URL'yi döndürür.
+6. Kullanıcı veya admin "Yeniden dene" dediğinde görev active durumuna ve anlık kuyruğa alınır.
+7. Aynı durum tekrar rapor edilmedikçe bildirim spam'i oluşmaz; durum geçişinde bildirim üretilir.
+8. Uygulama içi bildirim sent; push queued; e-posta Resend durumuna göre sent/queued/failed tutulur.
+
+DOĞRULAMALAR
+- TypeScript noEmit: geçti
+- ESLint (değişen TS/TSX dosyaları): geçti
+- Worker Node syntax check: geçti
+- Tam Next.js build bu çalışma ortamında Linux SWC paketi bulunmadığı için çalıştırılamadı; Windows'taki proje build'i zorunludur.

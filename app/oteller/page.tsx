@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
-export const metadata: Metadata = { title: "Otel Bul | LetsGo2Travel", description: "Seyahat rotana göre otel ve konaklama seçeneklerini karşılaştır." };
+export const metadata: Metadata = { title: "Otel Bul", description: "Seyahat rotana göre otel ve konaklama seçeneklerini karşılaştır.", alternates: { canonical: "/oteller" } };
 
 const hotelTips = [
   { title: "Konum", text: "İlk kez gidilen şehirlerde metro, merkez ve güvenli bölge dengesi önemlidir." },

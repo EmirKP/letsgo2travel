@@ -9,7 +9,7 @@ export type PublicConfig = {
 const injected = typeof __L2T_CONFIG__ !== "undefined" ? __L2T_CONFIG__ : undefined;
 
 export const config: PublicConfig = {
-  apiBaseUrl: (injected?.apiBaseUrl || "https://letsgo2travel.com.tr").replace(/\/$/, ""),
+  apiBaseUrl: (injected?.apiBaseUrl || "https://www.letsgo2travel.com.tr").replace(/\/$/, ""),
   supabaseUrl: injected?.supabaseUrl || "",
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",

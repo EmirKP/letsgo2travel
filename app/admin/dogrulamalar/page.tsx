@@ -2,9 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
+import styles from "./admin-verifications.module.css";
+
+interface Verification {
+  id: string;
+  user_id: string;
+  country_name?: string | null;
+  country_code: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  user_note?: string | null;
+}
 
 export default function AdminDogrulamalarPage() {
-  const [verifications, setVerifications] = useState<any[]>([]);
+  const [verifications, setVerifications] = useState<Verification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
 
@@ -111,8 +122,8 @@ export default function AdminDogrulamalarPage() {
 
   if (loading) {
     return (
-      <div className="l2t-admin-shell l2t-wrap flex items-center justify-center">
-        <p className="text-xl text-[var(--l2t-soft)] animate-pulse">Yükleniyor...</p>
+      <div className={`l2t-admin-shell l2t-wrap ${styles.loading}`} role="status">
+        <p>Yükleniyor...</p>
       </div>
     );
   }
@@ -125,66 +136,66 @@ export default function AdminDogrulamalarPage() {
       </div>
       
       {toast && (
-        <div className={`p-4 mb-6 rounded-lg font-bold border ${toast.type === 'error' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+        <div className={`${styles.toast} ${toast.type === 'error' ? styles.error : styles.success}`} role="status">
           {toast.msg}
         </div>
       )}
 
       {/* İstatistik Kartları */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Bekleyen</span>
-          <strong className="text-3xl text-[var(--l2t-gold)]">{stats.pending}</strong>
+      <div className={styles.stats}>
+        <div className={`l2t-glass-card ${styles.stat} ${styles.statPending}`}>
+          <span>Bekleyen</span>
+          <strong>{stats.pending}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Onaylanan</span>
-          <strong className="text-3xl text-[var(--l2t-success)]">{stats.approved}</strong>
+        <div className={`l2t-glass-card ${styles.stat} ${styles.statApproved}`}>
+          <span>Onaylanan</span>
+          <strong>{stats.approved}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Reddedilen</span>
-          <strong className="text-3xl text-[var(--l2t-danger)]">{stats.rejected}</strong>
+        <div className={`l2t-glass-card ${styles.stat} ${styles.statRejected}`}>
+          <span>Reddedilen</span>
+          <strong>{stats.rejected}</strong>
         </div>
-        <div className="l2t-glass-card p-5 text-center">
-          <span className="block text-[var(--l2t-soft)] text-sm font-bold uppercase tracking-wider mb-2">Toplam</span>
-          <strong className="text-3xl text-[var(--l2t-text)]">{stats.total}</strong>
+        <div className={`l2t-glass-card ${styles.stat}`}>
+          <span>Toplam</span>
+          <strong>{stats.total}</strong>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6 bg-[var(--l2t-card-strong)] p-2 rounded-xl border border-[var(--l2t-border)] w-max">
+      <div className={styles.filters}>
         {['pending', 'approved', 'rejected', 'all'].map(f => (
           <button 
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-5 py-2 rounded-lg font-bold text-sm transition-all ${filter === f ? 'bg-[var(--l2t-gold)] text-[var(--l2t-night)] shadow-md' : 'text-[var(--l2t-soft)] hover:text-white hover:bg-white/5'}`}
+            className={`${styles.filter} ${filter === f ? styles.filterActive : ''}`}
           >
             {f === 'all' ? 'Tümü' : f === 'pending' ? 'Bekleyenler' : f === 'approved' ? 'Onaylananlar' : 'Reddedilenler'}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
+      <div className={styles.layout}>
         {/* Başvurular Listesi */}
-        <div className="space-y-4">
+        <div className={styles.list}>
           {filteredData.map(v => (
-            <div key={v.id} className="l2t-glass-card p-5 flex flex-col gap-4 transition-transform hover:-translate-y-1 hover:border-[var(--l2t-gold)]/30">
-              <div className="flex justify-between items-start">
+            <div key={v.id} className={`l2t-glass-card ${styles.item}`}>
+              <div className={styles.itemHead}>
                 <div>
-                  <h3 className="text-xl font-bold text-[var(--l2t-text)] m-0">{v.country_name || v.country_code}</h3>
-                  <p className="text-[var(--l2t-soft)] text-sm mt-1 mb-0">ID: {shortenId(v.user_id)}</p>
+                  <h3>{v.country_name || v.country_code}</h3>
+                  <p className={styles.userId}>ID: {shortenId(v.user_id)}</p>
                 </div>
                 <span className={`l2t-badge ${v.status === 'pending' ? 'l2t-badge-pending' : v.status === 'approved' ? 'l2t-badge-approved' : 'l2t-badge-rejected'}`}>
                   {v.status === 'pending' ? 'Beklemede' : v.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                 </span>
               </div>
               
-              <div className="text-sm text-[var(--l2t-muted)] flex justify-between items-center border-t border-[var(--l2t-border)] pt-3">
+              <div className={styles.itemMeta}>
                 <span>Başvuru: {new Date(v.created_at).toLocaleString('tr-TR')}</span>
                 
                 {v.status === 'pending' && (
                   <button 
                     onClick={() => handlePreview(v.id)}
                     disabled={previewLoading}
-                    className="l2t-button l2t-button-gold !py-2 !px-4 !text-sm"
+                    className={`l2t-button l2t-button-gold ${styles.smallButton}`}
                   >
                     Belgeyi İncele
                   </button>
@@ -192,14 +203,14 @@ export default function AdminDogrulamalarPage() {
               </div>
               
               {v.user_note && (
-                <div className="text-sm bg-[var(--l2t-card-strong)] p-3 rounded-lg border border-[var(--l2t-border)] mt-1">
-                  <strong className="text-[var(--l2t-gold)]">Not:</strong> {v.user_note}
+                <div className={styles.note}>
+                  <strong>Not:</strong> {v.user_note}
                 </div>
               )}
             </div>
           ))}
           {filteredData.length === 0 && (
-            <div className="l2t-glass-card p-10 text-center text-[var(--l2t-muted)]">
+            <div className={`l2t-glass-card ${styles.empty}`}>
               Bu kategoride başvuru bulunmuyor.
             </div>
           )}
@@ -207,36 +218,36 @@ export default function AdminDogrulamalarPage() {
 
         {/* Detay & İşlem Paneli */}
         {previewUrl && (
-          <div className="l2t-admin-card sticky top-24 shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-white border-b border-[var(--l2t-border)] pb-3">Belge İnceleme Paneli</h2>
+          <div className={`l2t-admin-card ${styles.panel}`}>
+            <h2>Belge İnceleme Paneli</h2>
             
-            <div className="bg-[var(--l2t-night)] border border-[var(--l2t-border)] rounded-xl flex items-center justify-center mb-6 overflow-hidden relative" style={{ minHeight: "250px" }}>
-              <img src={previewUrl} alt="Kanıt" className="max-w-full max-h-full object-contain" />
-              <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">Signed URL (5 Dk)</div>
+            <div className={styles.preview}>
+              <img src={previewUrl} alt="Kanıt" />
+              <div className={styles.signed}>Geçici bağlantı (5 dk.)</div>
             </div>
             
-            <div className="mb-5">
-              <label className="block text-sm font-bold text-[var(--l2t-soft)] mb-2">Admin Notu (Zorunlu veya İsteğe Bağlı)</label>
+            <div className={styles.field}>
+              <label className={styles.label}>Admin Notu (Zorunlu veya İsteğe Bağlı)</label>
               <textarea 
-                className="l2t-form-control min-h-[100px] resize-y"
+                className={`l2t-form-control ${styles.textarea}`}
                 value={adminNote}
                 onChange={e => setAdminNote(e.target.value)}
                 placeholder="Reddediyorsanız sebebi zorunludur..."
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className={styles.actions}>
               <button 
                 onClick={() => handleAction('approve')}
                 disabled={actionLoading}
-                className="l2t-button flex-1 bg-emerald-600 text-white hover:bg-emerald-500 hover:-translate-y-1 shadow-lg shadow-emerald-500/20"
+                className={`l2t-button ${styles.approve}`}
               >
                 Onayla & Yetki Ver
               </button>
               <button 
                 onClick={() => handleAction('reject')}
                 disabled={actionLoading}
-                className="l2t-button l2t-button-danger flex-1"
+                className="l2t-button l2t-button-danger"
               >
                 Reddet
               </button>

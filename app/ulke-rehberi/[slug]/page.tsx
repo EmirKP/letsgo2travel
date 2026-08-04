@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Calendar, Clock, Wallet, CheckCircle2, Info } from "lucide-react";
 import { getCountryBySlug, getCountryGuides } from "@/lib/data";
 import ScrollReveal from "@/app/components/ScrollReveal";
@@ -11,6 +10,7 @@ import CountryGuideCtas from "@/app/components/CountryGuideCtas";
 import CountryCommunityPanel from "@/app/components/CountryCommunityPanel";
 import CountrySeoContent from "@/app/components/CountrySeoContent";
 import { countryGuideSchema } from "@/lib/structured-data";
+import sanitizeHtml from "sanitize-html";
 
 export async function generateStaticParams() {
   const countries = await getCountryGuides();
@@ -23,6 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: country ? `${country.country_name} Seyahat Rehberi — Vize, Uçuş, Bütçe` : "Ülke Rehberi",
     description: country?.visa_note || "Letsgo2Travel ülke rehberi.",
+    alternates: { canonical: `/ulke-rehberi/${slug}` },
   };
 }
 
@@ -30,6 +31,16 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const country = await getCountryBySlug(slug);
   if (!country) notFound();
+  const safeContent = country.content_markdown
+    ? sanitizeHtml(country.content_markdown, {
+        allowedTags: ["p", "strong", "em", "ul", "ol", "li", "h2", "h3", "blockquote", "br", "a"],
+        allowedAttributes: { a: ["href", "title", "target", "rel"] },
+        allowedSchemes: ["https", "http", "mailto"],
+        transformTags: {
+          a: sanitizeHtml.simpleTransform("a", { rel: "nofollow noopener noreferrer" }, true),
+        },
+      })
+    : "";
 
   return (
     <section className="bento-page-wrap">
@@ -89,14 +100,14 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
         </ScrollReveal>
 
         {/* İçerik Kutusu (Makale) */}
-        {country.content_markdown && (
+        {safeContent && (
           <ScrollReveal delay={0.5} yOffset={20} className="bento-span-4">
             <div className="bento-article glass-panel">
               <h2>{country.emoji} Yolculuk Notları</h2>
               <div className="bento-text">
                 <div 
                   className="rich-text-content" 
-                  dangerouslySetInnerHTML={{ __html: country.content_markdown }} 
+                  dangerouslySetInnerHTML={{ __html: safeContent }}
                   style={{ lineHeight: "1.7", fontSize: "1.05rem" }}
                 />
                 <div className="bento-disclaimer" style={{ marginTop: "20px" }}>

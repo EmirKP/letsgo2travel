@@ -146,15 +146,23 @@ export default function AIPlannerPage() {
     setLastPromptStr(promptStr);
     setIsFallback(false);
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+
     try {
       const startTime = Date.now();
       const response = await fetch("/api/ai-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: promptStr,
+        signal: controller.signal,
       });
       
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Plan servisi HTTP ${response.status} döndürdü.`);
+      }
       
       // Zorunlu 2 saniye loading beklemesi (Premium hissiyat)
       const elapsed = Date.now() - startTime;
@@ -174,6 +182,7 @@ export default function AIPlannerPage() {
       setResult(getFallbackData());
       setIsFallback(true);
     } finally {
+      window.clearTimeout(timeoutId);
       setSelectedRoute(null);
       setStep("result");
       setIsRefreshing(false);

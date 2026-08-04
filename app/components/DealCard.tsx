@@ -36,6 +36,10 @@ type Signal = {
 };
 
 function getPriceSignal(deal: FlightDeal): Signal {
+  if (deal.is_estimate || !deal.created_at) {
+    return { label: "Tahmini fiyat · canlı kontrol gerekli", color: "#5c7180", width: "50%", icon: TrendingUp };
+  }
+
   const region = deal.region.toLocaleLowerCase("tr-TR");
   const thresholds = region.includes("orta doğu")
     ? { good: 4800, normal: 6500 }
@@ -151,7 +155,7 @@ export default function DealCard({ deal, view = "grid" }: DealCardProps) {
         hour: "2-digit",
         minute: "2-digit",
       })
-    : "Yakın tarihli fiyat sinyali";
+    : "Kontrol tarihi yok";
 
   return (
     <article
@@ -213,7 +217,7 @@ export default function DealCard({ deal, view = "grid" }: DealCardProps) {
         <div className={styles.bottom}>
           <div className={styles.priceBlock}>
             <strong className={styles.price}>
-              {deal.price.toLocaleString("tr-TR")} {formatCurrency(deal.currency)}
+              {deal.is_estimate || !deal.created_at ? "Tahmini " : ""}{deal.price.toLocaleString("tr-TR")} {formatCurrency(deal.currency)}
             </strong>
             <small className={styles.checkedAt}>Son kontrol: {checkedAt}</small>
           </div>

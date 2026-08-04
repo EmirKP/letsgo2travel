@@ -8,6 +8,7 @@
   "host_permissions": [
     "https://www.letsgo2travel.com.tr/*",
     "https://letsgo2travel.com.tr/*",
+    "https://www.letsgo2travel.com.tr/*",
     "https://de-tr-appointment.idata.com.tr/*"
   ],
   "background": {

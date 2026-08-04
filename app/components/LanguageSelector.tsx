@@ -11,9 +11,10 @@ const languages: Array<{
   alt: string;
   label: string;
   short: string;
+  disabled?: boolean;
 }> = [
   { code: "tr", flag: "/flags/tr.svg", alt: "Türkiye bayrağı", label: "Türkçe", short: "TR" },
-  { code: "en", flag: "/flags/us.svg", alt: "Amerika Birleşik Devletleri bayrağı", label: "English", short: "EN" },
+  { code: "en", flag: "/flags/us.svg", alt: "Amerika Birleşik Devletleri bayrağı", label: "English · Yakında", short: "EN", disabled: true },
 ];
 
 export default function LanguageSelector() {
@@ -24,7 +25,7 @@ export default function LanguageSelector() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem("l2t-locale") as L2tLocale | null;
-    if (saved === "tr" || saved === "en") setLocale(saved);
+    if (saved === "en") window.localStorage.removeItem("l2t-locale");
   }, []);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function LanguageSelector() {
   const active = languages.find((language) => language.code === locale) ?? languages[0];
 
   const selectLocale = (code: L2tLocale) => {
+    if (code !== "tr") return;
     setLocale(code);
     window.localStorage.setItem("l2t-locale", code);
     window.dispatchEvent(new CustomEvent("l2t-locale-change", { detail: code }));
@@ -80,8 +82,10 @@ export default function LanguageSelector() {
                 key={language.code}
                 className={`${styles.option} ${isActive ? styles.optionActive : ""}`}
                 onClick={() => selectLocale(language.code)}
+                disabled={language.disabled}
                 role="menuitemradio"
                 aria-checked={isActive}
+                aria-disabled={language.disabled}
               >
                 <span className={styles.flagFrame}>
                   <Image className={styles.flag} src={language.flag} alt={language.alt} width={24} height={16} />

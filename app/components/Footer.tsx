@@ -6,9 +6,11 @@ import styles from "./Footer.module.css";
 const productLinks = [
   ["Pasaport Gücü", "/pasaport-gucu"],
   ["Rota Asistanı", "/rota-asistani"],
+  ["Vize Randevu Asistanı", "/vize-randevu"],
   ["Uçuş Fırsatları", "/kampanyalar"],
   ["Gezgin Topluluğu", "/forum"],
   ["Ülke Rehberleri", "/ulke-rehberi"],
+  ["Seyahat Blogu", "/blog"],
   ["Bütçe Hesapla", "/butce-hesapla"],
   ["Seyahat Panom", "/planlarim"],
 ];

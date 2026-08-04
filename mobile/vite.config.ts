@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, rootDir, "");
   const apiBaseUrl = (
     env.VITE_API_BASE_URL ||
-    "https://letsgo2travel.com.tr"
+    "https://www.letsgo2travel.com.tr"
   ).replace(/\/$/, "");
 
   return {

@@ -169,20 +169,20 @@ export default function DogrulamaPage() {
 
   if (!isBetaEnabled) {
     return (
-      <main className="l2t-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="l2t-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="l2t-wrap" style={{ textAlign: 'center', maxWidth: '600px' }}>
           <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '16px' }}>Bu Özellik Kapalı Beta Aşamasındadır</h1>
           <p style={{ color: 'var(--l2t-soft)', lineHeight: 1.6, fontSize: '1.1rem' }}>
             Topluluk yorum ve belge doğrulama sistemimiz şu an hukuki inceleme aşamasındadır. Yasal metinlerimiz (KVKK, Gizlilik vb.) avukatlarımız tarafından onaylandıktan sonra bu özellik genel erişime açılacaktır. Anlayışınız için teşekkür ederiz.
           </p>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (success) {
     return (
-      <main className="l2t-page">
+      <div className="l2t-page">
         <div className="l2t-wrap" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
           <div className="l2t-card" style={{ padding: '40px' }}>
             <CheckCircle size={64} color="#F5B81B" style={{ margin: '0 auto 24px' }} />
@@ -193,12 +193,12 @@ export default function DogrulamaPage() {
             </p>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="l2t-page">
+    <div className="l2t-page">
       <div className="l2t-wrap" style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ marginBottom: '24px' }}>
           <Link href="/profil" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--l2t-soft)' }}>
@@ -333,6 +333,6 @@ export default function DogrulamaPage() {
 
         </div>
       </div>
-    </main>
+    </div>
   );
 }

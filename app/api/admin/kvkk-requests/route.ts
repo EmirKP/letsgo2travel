@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const ALLOWED_STATUSES = new Set(['pending', 'reviewing', 'resolved', 'processed', 'rejected']);
 
 export async function GET(req: Request) {
   try {
+    const authError = await requireAdmin(req);
+    if (authError) return authError;
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 503 });
+
     const { data, error } = await supabase
       .from('kvkk_requests')
       .select('*')
@@ -28,12 +32,18 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const authError = await requireAdmin(req);
+    if (authError) return authError;
+
     const body = await req.json();
     const { id, status } = body;
 
-    if (!id || !status) {
-      return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 });
+    if (!id || typeof status !== 'string' || !ALLOWED_STATUSES.has(status)) {
+      return NextResponse.json({ error: 'Geçersiz id veya durum.' }, { status: 400 });
     }
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 503 });
 
     const { data, error } = await supabase
       .from('kvkk_requests')

@@ -13,6 +13,7 @@ type VisaPage = {
   appointment_status: string | null;
   appointment_note: string | null;
   source_note: string | null;
+  official_source_url: string | null;
   last_checked_at: string | null;
 };
 
@@ -23,10 +24,11 @@ export default function AdminVizeMerkeziPage() {
   const [status, setStatus] = useState("");
   const [note, setNote] = useState("");
   const [sourceNote, setSourceNote] = useState("");
+  const [officialSourceUrl, setOfficialSourceUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function fetchPages() {
-    const { data } = await supabase.from("visa_center_pages").select("id,country_name,visa_title,appointment_status,appointment_note,source_note,last_checked_at").order("country_name", { ascending: true });
+    const { data } = await supabase.from("visa_center_pages").select("id,country_name,visa_title,appointment_status,appointment_note,source_note,official_source_url,last_checked_at").order("country_name", { ascending: true });
     setPages((data as VisaPage[]) || []);
     setLoading(false);
   }
@@ -38,6 +40,7 @@ export default function AdminVizeMerkeziPage() {
     setStatus(page.appointment_status || "bilgi_yok");
     setNote(page.appointment_note || "");
     setSourceNote(page.source_note || "");
+    setOfficialSourceUrl(page.official_source_url || "");
   }
 
   async function save() {
@@ -48,7 +51,7 @@ export default function AdminVizeMerkeziPage() {
       const response = await fetch(`/api/admin/visa-center/${selectedId}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${data.session?.access_token || ""}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_status: status, appointment_note: note, source_note: sourceNote }),
+        body: JSON.stringify({ appointment_status: status, appointment_note: note, source_note: sourceNote, official_source_url: officialSourceUrl }),
       });
       if (!response.ok) throw new Error();
       setSelectedId(null);
@@ -85,6 +88,7 @@ export default function AdminVizeMerkeziPage() {
                   <div className={styles.field}><label>Durum</label><select value={status} onChange={(event) => setStatus(event.target.value)}>{Object.entries(APPOINTMENT_STATUS_INFO).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></div>
                   <div className={styles.field}><label>Kullanıcıya gösterilecek not</label><textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} /></div>
                   <div className={styles.field}><label>Kaynak / iç not</label><textarea rows={3} value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} /></div>
+                  <div className={styles.field}><label>Kullanıcıya gösterilecek resmî kaynak URL’si</label><input type="url" inputMode="url" placeholder="https://..." value={officialSourceUrl} onChange={(event) => setOfficialSourceUrl(event.target.value)} /></div>
                   <div className={styles.warning}>Bu bilgi kesin randevu garantisi olarak yayımlanmamalıdır.</div>
                   <button type="button" className={styles.save} onClick={() => void save()} disabled={saving}>{saving ? "Kaydediliyor..." : "Kaydet"}</button>
                 </>
