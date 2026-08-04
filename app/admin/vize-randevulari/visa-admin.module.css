@@ -47,6 +47,10 @@
 .workerNote { display: grid; grid-template-columns: auto 1fr; gap: 11px; margin-top: 17px; padding: 16px; border: 1px solid #bcdfe2; border-radius: 15px; background: #edf9fa; color: #0b5961; }
 .workerNote strong { font-size: .82rem; }
 .workerNote p { margin: 4px 0 0; color: #56747a; font-size: .72rem; line-height: 1.5; }
+.workerNote small { display: block; margin-top: 5px; color: #6f8388; font-size: .65rem; }
+.workerNote_degraded { border-color: #ecd486; background: #fff9e8; color: #765600; }
+.workerNote_offline { border-color: #efb8b8; background: #fff1f1; color: #9b2929; }
+.workerNote_unknown { border-color: #d7e1e8; background: #f7f9fb; color: #5d6b76; }
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1180px) { .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } }

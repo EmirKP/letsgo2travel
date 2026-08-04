@@ -4,6 +4,8 @@ import { probeProviderTarget } from "./providers/probe.mjs";
 const apiBaseUrl = String(process.env.API_BASE_URL || "").replace(/\/$/, "");
 const workerSecret = process.env.VISA_WORKER_SECRET || "";
 const workerName = process.env.WORKER_NAME || "visa-worker-01";
+const workerVersion = process.env.WORKER_VERSION || "0.5.0";
+const workerStartedAt = new Date().toISOString();
 const pollInterval = Math.max(60_000, Number(process.env.POLL_INTERVAL_MS) || 60_000);
 const demoMatchMode = process.env.DEMO_MATCH_MODE || "none";
 
@@ -12,16 +14,35 @@ if (!apiBaseUrl || !workerSecret) {
   process.exit(1);
 }
 
-async function api(path, body) {
+async function api(path, body, timeoutMs = 30_000) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-worker-secret": workerSecret },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
   return payload;
+}
+
+async function sendHeartbeat(status, lastError = "") {
+  try {
+    await api("/api/internal/visa-worker/heartbeat", {
+      workerName,
+      workerVersion,
+      startedAt: workerStartedAt,
+      pollIntervalMs: pollInterval,
+      status,
+      lastError,
+    }, 10_000);
+  } catch (error) {
+    console.error(
+      new Date().toISOString(),
+      "worker-heartbeat",
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 async function checkDemoJob(job) {
@@ -102,10 +123,14 @@ let running = false;
 async function tick() {
   if (running) return;
   running = true;
+  await sendHeartbeat("running");
   try {
     await runOnce();
+    await sendHeartbeat("idle");
   } catch (error) {
-    console.error(new Date().toISOString(), error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(new Date().toISOString(), message);
+    await sendHeartbeat("error", message);
   } finally {
     running = false;
   }

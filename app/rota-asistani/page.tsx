@@ -18,6 +18,10 @@ export interface AiRouteResult {
   cityOrRegion: string;
   why: string;
   visaStatus: string;
+  visaNote?: string;
+  visaSourceUrl?: string;
+  visaVerifiedAt?: string | null;
+  verifiedEntryStatus?: string;
   estimatedBudget: string;
   idealDuration: string;
   bestFor: string;
@@ -147,7 +151,9 @@ export default function AIPlannerPage() {
     setIsFallback(false);
 
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 25_000);
+    // Sunucu kendi yapay zekâ isteğini 18 saniyede güvenli yedeğe düşürür.
+    // Tarayıcı süresi daha uzun tutulur; soğuk başlangıçta çalışan yanıtı erken kesmez.
+    const timeoutId = window.setTimeout(() => controller.abort(), 40_000);
 
     try {
       const startTime = Date.now();
@@ -179,7 +185,7 @@ export default function AIPlannerPage() {
     } catch (error) {
       console.error("Plan generation error:", error);
       // Generate client-side fallback just in case the server fails to return its own fallback
-      setResult(getFallbackData());
+      setResult(getFallbackData(finalAnswers));
       setIsFallback(true);
     } finally {
       window.clearTimeout(timeoutId);
@@ -189,46 +195,110 @@ export default function AIPlannerPage() {
     }
   }
 
-  const getFallbackData = (): AiPlanResponse => {
+  const getFallbackData = (fallbackAnswers: typeof answers): AiPlanResponse => {
+    const identityOnly = fallbackAnswers.visa.toLocaleLowerCase("tr-TR").includes("kimlikle");
+    const sourceUrl = "https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa";
+    const baseRoute = {
+      estimatedBudget: fallbackAnswers.budget
+        ? `Hedef bütçe: ${fallbackAnswers.budget}`
+        : "Seçilen tarihler için ayrıca hesaplanmalı",
+      idealDuration: fallbackAnswers.days || "3 gün",
+      difficulty: "Kolay",
+      firstTimeFriendly: true,
+      transportEase: "Kolay",
+      scores: { budget: 8, visaEase: 9, firstTime: 9, transport: 8, overall: 88 },
+      warnings: [
+        "Fiyatlar canlı değildir; uçuş ve konaklama tutarlarını tarihler için yeniden kontrol et.",
+        "Giriş kurallarını bilet almadan önce resmî kaynaktan yeniden doğrula.",
+      ],
+      cta: {
+        flightSearchText: "Bu rota için bilet ara",
+        guideText: "Rehberi gör",
+        forumText: "Forumda soru sor",
+      },
+      visaSourceUrl: sourceUrl,
+      visaVerifiedAt: "2026-08-05",
+    };
+    const identityRoutes: AiRouteResult[] = [
+      {
+        ...baseRoute,
+        name: "Bakü",
+        country: "Azerbaycan",
+        cityOrRegion: "Bakü",
+        why: "Türkiye'den doğrudan seyahatte kimlik kartı kolaylığı ve kısa uçuş süresiyle pratik bir rota.",
+        visaStatus: "Kimlikle giriş",
+        visaNote: "Turistik amaçla Türkiye'den doğrudan girişte yeni tip T.C. kimlik kartı kullanılabilir.",
+        bestFor: "Kimlikle seyahat ve şehir gezisi",
+        safetyNote: "Resmî taksileri veya uygulama üzerinden çağrılan araçları tercih et.",
+        dailyPlan: ["1. Gün: İçerişehir ve sahil", "2. Gün: Haydar Aliyev Merkezi", "3. Gün: Nizami Caddesi ve dönüş"],
+      },
+      {
+        ...baseRoute,
+        name: "Tiflis",
+        country: "Gürcistan",
+        cityOrRegion: "Tiflis",
+        why: "Kimlik kartıyla giriş ve güçlü gastronomi rotasıyla kolay planlanabilir bir şehir kaçamağı.",
+        visaStatus: "Kimlikle giriş",
+        visaNote: "Yeni tip T.C. kimlik kartıyla giriş mümkündür; 1 Ocak 2026'dan beri seyahat sigortası zorunludur.",
+        bestFor: "Ekonomik keşif ve gastronomi",
+        safetyNote: "Seyahat tarihlerini kapsayan zorunlu sağlık ve kaza sigortasını hazır tut.",
+        dailyPlan: ["1. Gün: Eski Tiflis", "2. Gün: Narikala ve Rustaveli", "3. Gün: Yerel pazar ve dönüş"],
+      },
+      {
+        ...baseRoute,
+        name: "Kişinev",
+        country: "Moldova",
+        cityOrRegion: "Kişinev",
+        why: "Kimlik kartıyla seyahat seçeneği ve sakin şehir temposuyla kısa bir rota sunar.",
+        visaStatus: "Kimlikle giriş",
+        visaNote: "Yeni tip T.C. kimlik kartıyla seyahat mümkündür; taşıyıcının belge koşullarını da kontrol et.",
+        bestFor: "Sakin hafta sonu ve ilk yurt dışı",
+        safetyNote: "Güncel bölgesel seyahat uyarılarını ayrıca kontrol et.",
+        dailyPlan: ["1. Gün: Şehir merkezi", "2. Gün: Müze ve gastronomi", "3. Gün: Parklar ve dönüş"],
+      },
+    ];
+    const visaFreeRoutes: AiRouteResult[] = [
+      {
+        ...baseRoute,
+        name: "Saraybosna",
+        country: "Bosna-Hersek",
+        cityOrRegion: "Saraybosna",
+        why: "Vizesiz giriş, yürüyerek keşfedilebilen merkez ve kültürel zenginliğiyle güçlü bir başlangıç rotası.",
+        visaStatus: "Vizesiz",
+        visaNote: "T.C. umuma mahsus pasaport hamilleri 180 gün içinde 90 güne kadar vizeden muaftır; pasaport gerekir.",
+        bestFor: "İlk yurt dışı ve kültür gezisi",
+        safetyNote: "Kalabalık turistik alanlarda standart kişisel güvenlik önlemlerini al.",
+        dailyPlan: ["1. Gün: Başçarşı ve Latin Köprüsü", "2. Gün: Umut Tüneli", "3. Gün: Vrelo Bosne ve dönüş"],
+      },
+      {
+        ...baseRoute,
+        name: "Üsküp",
+        country: "Kuzey Makedonya",
+        cityOrRegion: "Üsküp",
+        why: "Vizesiz giriş ve kısa uçuş süresi sayesinde hafta sonu için uygulanabilir bir Balkan rotası.",
+        visaStatus: "Vizesiz",
+        visaNote: "T.C. umuma mahsus pasaport hamilleri 90 güne kadar vizeden muaftır; pasaport gerekir.",
+        bestFor: "Kısa kaçamak ve Balkan kültürü",
+        safetyNote: "Gece geç saatlerde merkezi ulaşım noktalarını tercih et.",
+        dailyPlan: ["1. Gün: Taş Köprü ve Eski Çarşı", "2. Gün: Matka Kanyonu", "3. Gün: Vodno ve dönüş"],
+      },
+      {
+        ...baseRoute,
+        name: "Belgrad",
+        country: "Sırbistan",
+        cityOrRegion: "Belgrad",
+        why: "Vizesiz giriş ve güçlü toplu taşıma ağıyla arkadaş grupları için dengeli bir seçenek.",
+        visaStatus: "Vizesiz",
+        visaNote: "T.C. umuma mahsus pasaport hamilleri kısa turistik seyahatlerde vizeden muaftır; pasaport gerekir.",
+        bestFor: "Şehir hayatı ve arkadaşlarla gezi",
+        safetyNote: "Kalabalık ulaşım araçlarında çanta ve telefon güvenliğine dikkat et.",
+        dailyPlan: ["1. Gün: Knez Mihailova", "2. Gün: Zemun", "3. Gün: Aziz Sava ve dönüş"],
+      },
+    ];
+
     return {
-      summary: "Seçimlerine göre en uygun rotaları hazırladık.",
-      routes: [
-        {
-          name: "Saraybosna",
-          country: "Bosna Hersek",
-          cityOrRegion: "Saraybosna",
-          why: "Vizesiz olması, düşük bütçe gerektirmesi ve tarihi dokusuyla mükemmel bir başlangıç noktası.",
-          visaStatus: "Vizesiz",
-          estimatedBudget: "8.000 - 12.000 TL",
-          idealDuration: "3 gün",
-          bestFor: "İlk kez yurt dışı, kültür gezisi",
-          difficulty: "Çok Kolay",
-          firstTimeFriendly: true,
-          transportEase: "Kolay",
-          safetyNote: "Oldukça güvenli bir şehir. Sadece kalabalık turistik alanlarda yankesiciliğe karşı standart önlemler alın.",
-          scores: {
-            budget: 9,
-            visaEase: 10,
-            firstTime: 9,
-            transport: 8,
-            overall: 90
-          },
-          dailyPlan: [
-            "1. Gün: Başçarşı turu, Sebil ve Latin Köprüsü",
-            "2. Gün: Umut Tüneli ve Trebeviç Teleferiği",
-            "3. Gün: Vrelo Bosne Milli Parkı ve dönüş hazırlığı"
-          ],
-          warnings: [
-            "Fiyatlar tahminidir, tarih ve doluluk durumuna göre değişebilir.",
-            "Vize ve giriş kuralları seyahat öncesi resmi kaynaklardan kontrol edilmelidir."
-          ],
-          cta: {
-            flightSearchText: "Bu rota için bilet ara",
-            guideText: "Saraybosna rehberini gör",
-            forumText: "Forumda soru sor"
-          }
-        }
-      ]
+      summary: "Bağlantı geciktiği için doğrulanmış giriş kuralları kullanılan güvenli yedek rotaları gösteriyoruz.",
+      routes: identityOnly ? identityRoutes : visaFreeRoutes,
     };
   };
 
@@ -508,11 +578,24 @@ export default function AIPlannerPage() {
                   <h2 style={{ fontSize: "2.2rem", color: "var(--l2t-navy)", margin: "4px 0 0", fontWeight: "800" }}>{selectedRoute.name}</h2>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ background: selectedRoute.visaStatus === "Vizesiz" || selectedRoute.visaStatus === "Kimlikle" ? "#dcfce7" : "#fef3c7", color: selectedRoute.visaStatus === "Vizesiz" || selectedRoute.visaStatus === "Kimlikle" ? "#166534" : "#92400e", padding: "8px 16px", borderRadius: "100px", fontSize: "0.95rem", fontWeight: "700" }}>
+                  <span style={{ background: selectedRoute.visaStatus === "Vizesiz" || selectedRoute.visaStatus.startsWith("Kimlikle") ? "#dcfce7" : "#fef3c7", color: selectedRoute.visaStatus === "Vizesiz" || selectedRoute.visaStatus.startsWith("Kimlikle") ? "#166534" : "#92400e", padding: "8px 16px", borderRadius: "100px", fontSize: "0.95rem", fontWeight: "700" }}>
                     {selectedRoute.visaStatus}
                   </span>
                 </div>
               </div>
+
+              {selectedRoute.visaNote && (
+                <div style={{ margin: "0 0 22px", padding: "14px 16px", border: "1px solid #bfe4cf", borderRadius: "13px", background: "#effaf4", color: "#285b3d" }}>
+                  <strong style={{ display: "block", marginBottom: "4px", fontSize: "0.86rem" }}>Doğrulanmış giriş koşulu</strong>
+                  <p style={{ margin: 0, fontSize: "0.82rem", lineHeight: 1.55 }}>{selectedRoute.visaNote}</p>
+                  {selectedRoute.visaSourceUrl && (
+                    <a href={selectedRoute.visaSourceUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "7px", color: "#0b6f79", fontSize: "0.75rem", fontWeight: 800, textDecoration: "underline" }}>
+                      T.C. Dışişleri Bakanlığı kaynağını aç
+                    </a>
+                  )}
+                  {selectedRoute.visaVerifiedAt && <small style={{ display: "block", marginTop: "5px", color: "#60776a" }}>Son veri kontrolü: 5 Ağustos 2026</small>}
+                </div>
+              )}
               
               <p style={{ fontSize: "1.1rem", color: "var(--l2t-soft)", lineHeight: "1.6", margin: "0 0 24px" }}>{selectedRoute.why}</p>
 

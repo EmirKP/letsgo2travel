@@ -1,0 +1,29 @@
+LetsGo2Travel — 5 Ağustos 2026 kritik düzeltme kurulumu
+
+Bu paket mevcut C:\Projects\letsgo2travel klasörünün üzerine açılmak içindir.
+Gerçek .env dosyalarını veya Git geçmişini içermez.
+
+1) Windows / PowerShell
+
+Expand-Archive "$env:USERPROFILE\Downloads\letsgo2travel-kritik-guncelleme.zip" "C:\Projects\letsgo2travel" -Force
+cd "C:\Projects\letsgo2travel"
+npm run build
+git add -A
+git commit -m "Rota ve vize worker kritik duzeltmeleri"
+git push origin main
+
+2) Supabase
+
+Supabase > SQL Editor > New query ekranında
+supabase_visa_worker_heartbeat.sql dosyasının tamamını çalıştırın.
+
+3) VDS
+
+VDS'deki proje kodunu GitHub'dan güncelledikten sonra:
+
+cd /opt/letsgo2travel
+docker compose -f docker-compose.visa-worker.yml up -d --build
+docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker
+
+Loglarda "worker-heartbeat" hatası görünmemeli. Site ilk canlılık sinyalinden
+sonra Vize Randevu sayfasında "Worker bağlantısı aktif" yazısını gösterecektir.

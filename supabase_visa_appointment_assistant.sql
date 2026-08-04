@@ -134,6 +134,23 @@ create table if not exists public.visa_appointment_system_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.visa_worker_heartbeats (
+  worker_name text primary key,
+  status text not null default 'starting'
+    check (status in ('starting', 'running', 'idle', 'error')),
+  poll_interval_ms integer not null default 300000
+    check (poll_interval_ms between 60000 and 3600000),
+  worker_version text,
+  started_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  last_error text,
+  updated_at timestamptz not null default now(),
+  check (char_length(worker_name) between 1 and 80)
+);
+
+create index if not exists visa_worker_heartbeats_last_seen_idx
+  on public.visa_worker_heartbeats (last_seen_at desc);
+
 create or replace function public.set_visa_appointment_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -192,6 +209,10 @@ alter table public.visa_appointment_check_logs enable row level security;
 alter table public.visa_appointment_matches enable row level security;
 alter table public.visa_appointment_notifications enable row level security;
 alter table public.visa_appointment_system_events enable row level security;
+alter table public.visa_worker_heartbeats enable row level security;
+
+revoke all on public.visa_worker_heartbeats from public, anon, authenticated;
+grant all on public.visa_worker_heartbeats to service_role;
 
 drop policy if exists "public read active visa providers" on public.visa_appointment_providers;
 create policy "public read active visa providers" on public.visa_appointment_providers for select using (status in ('testing','active','maintenance'));

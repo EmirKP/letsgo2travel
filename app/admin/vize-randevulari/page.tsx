@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CalendarSearch,
@@ -14,6 +14,11 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { TRACK_STATUS_LABELS, type VisaAppointmentTrackStatus } from "@/lib/visa-appointments/types";
+import {
+  initialWorkerSystemStatus,
+  workerStatusCopy,
+  type WorkerSystemStatus,
+} from "@/lib/visa-appointments/worker-status";
 import styles from "./visa-admin.module.css";
 import ProviderAuditPanel from "./ProviderAuditPanel";
 
@@ -75,6 +80,40 @@ export default function VisaAppointmentsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [workerStatus, setWorkerStatus] = useState<WorkerSystemStatus>(initialWorkerSystemStatus);
+
+  const loadWorkerStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/visa-appointments/system-status", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setWorkerStatus((await response.json()) as WorkerSystemStatus);
+    } catch {
+      setWorkerStatus({
+        state: "unknown",
+        checkedAt: new Date().toISOString(),
+        lastSeenAt: null,
+        pollIntervalMs: null,
+      });
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/visa-appointments", { cache: "no-store" });
+      const payload = (await response.json()) as { data?: AdminTrack[]; stats?: Stats; error?: string };
+      if (!response.ok) setError(payload.error || "Veriler yüklenemedi.");
+      else {
+        setRows(payload.data || []);
+        setStats(payload.stats || emptyStats);
+      }
+    } catch {
+      setError("Sunucu bağlantısı kurulamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   async function runAction(
     id: string,
@@ -96,25 +135,14 @@ export default function VisaAppointmentsAdminPage() {
     }
   }
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/admin/visa-appointments", { cache: "no-store" });
-      const payload = (await response.json()) as { data?: AdminTrack[]; stats?: Stats; error?: string };
-      if (!response.ok) setError(payload.error || "Veriler yüklenemedi.");
-      else {
-        setRows(payload.data || []);
-        setStats(payload.stats || emptyStats);
-      }
-    } catch {
-      setError("Sunucu bağlantısı kurulamadı.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    void load();
+    void loadWorkerStatus();
+    const interval = window.setInterval(() => void loadWorkerStatus(), 60_000);
+    return () => window.clearInterval(interval);
+  }, [load, loadWorkerStatus]);
 
-  useEffect(() => { void load(); }, []);
+  const currentWorkerCopy = workerStatusCopy(workerStatus);
 
   const metricCards = [
     { label: "Toplam takip", value: stats.total, icon: CalendarSearch },
@@ -222,11 +250,12 @@ export default function VisaAppointmentsAdminPage() {
           )}
         </section>
 
-        <div className={styles.workerNote}>
+        <div className={`${styles.workerNote} ${styles[`workerNote_${workerStatus.state}`] || ""}`}>
           <ServerCog size={21} />
           <div>
-            <strong>Worker bağlantısı hazır</strong>
-            <p>Doğrulama durumundaki takipler otomatik olarak durdurulur. Kullanıcı veya yönetici “Yeniden dene” dediğinde görev tekrar kuyruğa alınır.</p>
+            <strong>{currentWorkerCopy.title}</strong>
+            <p>{currentWorkerCopy.detail} Doğrulama gereken takipler kullanıcı veya yönetici yeniden deneyene kadar durdurulur.</p>
+            {workerStatus.lastSeenAt && <small>Son sinyal: {dateTime(workerStatus.lastSeenAt)}</small>}
           </div>
         </div>
       </div>

@@ -26,6 +26,11 @@ import { supabase } from "@/lib/supabase-client";
 import { SCHENGEN_COUNTRIES } from "@/lib/visa-appointments/catalog";
 import { getProviderActionUrl } from "@/lib/visa-appointments/provider-links";
 import {
+  initialWorkerSystemStatus,
+  workerStatusCopy,
+  type WorkerSystemStatus,
+} from "@/lib/visa-appointments/worker-status";
+import {
   APPLICATION_CITIES,
   TRACK_STATUS_LABELS,
   VISA_CATEGORIES,
@@ -87,6 +92,7 @@ export default function VisaAppointmentClient() {
   const [busyTrackId, setBusyTrackId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [workerStatus, setWorkerStatus] = useState<WorkerSystemStatus>(initialWorkerSystemStatus);
 
   const selectedCountry = useMemo(
     () => SCHENGEN_COUNTRIES.find((country) => country.code === form.countryCode),
@@ -103,6 +109,22 @@ export default function VisaAppointmentClient() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
+  }, []);
+
+  const loadWorkerStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/visa-appointments/system-status", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = (await response.json()) as WorkerSystemStatus;
+      setWorkerStatus(payload);
+    } catch {
+      setWorkerStatus({
+        state: "unknown",
+        checkedAt: new Date().toISOString(),
+        lastSeenAt: null,
+        pollIntervalMs: null,
+      });
+    }
   }, []);
 
   const loadTracks = useCallback(async () => {
@@ -141,6 +163,12 @@ export default function VisaAppointmentClient() {
     const { data } = supabase.auth.onAuthStateChange(() => void loadTracks());
     return () => data.subscription.unsubscribe();
   }, [loadTracks]);
+
+  useEffect(() => {
+    void loadWorkerStatus();
+    const interval = window.setInterval(() => void loadWorkerStatus(), 60_000);
+    return () => window.clearInterval(interval);
+  }, [loadWorkerStatus]);
 
   async function submitTrack(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -195,6 +223,7 @@ export default function VisaAppointmentClient() {
   }
 
   const unreadNotifications = notifications.filter((item) => !item.read_at);
+  const currentWorkerCopy = workerStatusCopy(workerStatus);
 
   return (
     <div className={styles.page}>
@@ -215,11 +244,12 @@ export default function VisaAppointmentClient() {
                 <span><ShieldCheck size={17} /> Güvenli işlem devri</span>
               </div>
             </div>
-            <div className={styles.heroStatus}>
-              <div className={styles.pulse} />
+            <div className={`${styles.heroStatus} ${styles[`heroStatus_${workerStatus.state}`] || ""}`}>
+              <div className={`${styles.pulse} ${styles[`pulse_${workerStatus.state}`] || ""}`} />
               <span>Sistem durumu</span>
-              <strong>Worker bağlantısı aktif</strong>
-              <p>Sağlayıcı doğrulama istediğinde takip durdurulur ve işlem güvenli biçimde sana devredilir.</p>
+              <strong>{currentWorkerCopy.title}</strong>
+              <p>{currentWorkerCopy.detail} Sağlayıcı doğrulama istediğinde işlem güvenli biçimde sana devredilir.</p>
+              {workerStatus.lastSeenAt && <small>Son canlılık sinyali: {formatDate(workerStatus.lastSeenAt, true)}</small>}
             </div>
           </div>
         </div>
