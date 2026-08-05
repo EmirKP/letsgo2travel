@@ -8,8 +8,8 @@ export interface TravelpayoutsPriceInfo {
 }
 
 /**
- * Gets the cheapest flight price using Travelpayouts Data API v2 (or v3).
- * Falls back to mock prices in development if MOCK_PRICE_ALERTS is true.
+ * Gets the cheapest flight price using Travelpayouts Data API v2.
+ * Missing credentials or provider failures never produce synthetic prices.
  */
 export async function fetchCheapestPrice(params: {
   origin: string;
@@ -18,20 +18,6 @@ export async function fetchCheapestPrice(params: {
   returnDate?: string | null;
   currency?: string;
 }): Promise<TravelpayoutsPriceInfo | null> {
-  const isMock = process.env.MOCK_PRICE_ALERTS === "true";
-  
-  if (isMock) {
-    // Generate a pseudo-random realistic mock price for development testing
-    const baseMockPrice = Math.floor(Math.random() * 5000) + 1500;
-    console.log(`[MOCK] Fetched mock price for ${params.origin}-${params.destination}: ${baseMockPrice} TRY`);
-    return {
-      price: baseMockPrice,
-      currency: "TRY",
-      airline: "TK",
-      departure_at: params.departDate,
-    };
-  }
-
   const token = process.env.TRAVELPAYOUTS_TOKEN;
   if (!token) {
     console.warn("TRAVELPAYOUTS_TOKEN is missing. Returning null for flight price.");

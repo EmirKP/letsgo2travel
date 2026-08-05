@@ -1,17 +1,10 @@
 import Link from "next/link";
 import { BellRing, Hotel, MapPinned, MessageCircle, Plane, ShieldCheck, Ticket, Wifi } from "lucide-react";
 import type { CountryGuide } from "@/lib/types";
-import { affiliateRedirectUrl, aviasalesUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 function flightLink(country: CountryGuide) {
-  const rawFlightUrl = aviasalesUrl({ destination: country.airport_code || undefined });
-  return affiliateRedirectUrl({
-    provider: "aviasales",
-    url: rawFlightUrl,
-    destination: country.airport_code || country.country_name,
-    sourcePage: `country_guide_${country.slug}`,
-    campaign: "country_guide_cta",
-  });
+  return googleFlightsUrl({ destination: country.airport_code || undefined });
 }
 
 function bookingLink(country: CountryGuide) {

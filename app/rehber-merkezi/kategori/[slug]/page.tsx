@@ -111,7 +111,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         <div>
           <Plane size={32} color="#F59E0B" style={{ marginBottom: "16px" }} />
           <h3 style={{ fontSize: "1.3rem", fontWeight: "800", marginBottom: "12px" }}>Seyahat Planınızı Yapın</h3>
-          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "24px", lineHeight: "1.5" }}>Aviasales üzerinde uçuş seçeneklerini karşılaştırın; satın alma işlemini seçtiğiniz sağlayıcıda tamamlayın.</p>
+          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "24px", lineHeight: "1.5" }}>Google Flights üzerinde uçuş seçeneklerini karşılaştırın; satın alma işlemini seçtiğiniz sağlayıcıda tamamlayın.</p>
         </div>
         <Link href="/ucak-bileti-ara" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", alignSelf: "flex-start" }}>Uçak Bileti Ara</Link>
       </div>

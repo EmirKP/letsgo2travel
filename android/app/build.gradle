@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def uploadStorePath = System.getenv('L2T_UPLOAD_STORE_FILE') ?: project.findProperty('L2T_UPLOAD_STORE_FILE')
+def uploadStorePassword = System.getenv('L2T_UPLOAD_STORE_PASSWORD') ?: project.findProperty('L2T_UPLOAD_STORE_PASSWORD')
+def uploadKeyAlias = System.getenv('L2T_UPLOAD_KEY_ALIAS') ?: project.findProperty('L2T_UPLOAD_KEY_ALIAS')
+def uploadKeyPassword = System.getenv('L2T_UPLOAD_KEY_PASSWORD') ?: project.findProperty('L2T_UPLOAD_KEY_PASSWORD')
+def uploadSigningReady = [uploadStorePath, uploadStorePassword, uploadKeyAlias, uploadKeyPassword].every { it }
+
 android {
     namespace = "tr.com.letsgo2travel.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +13,8 @@ android {
         applicationId "tr.com.letsgo2travel.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.2.0"
+        versionCode 3
+        versionName "1.3.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,11 +22,31 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (uploadSigningReady) {
+            release {
+                storeFile file(uploadStorePath)
+                storePassword uploadStorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (uploadSigningReady) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def releaseRequested = graph.allTasks.any { task -> task.name in ['bundleRelease', 'assembleRelease'] }
+    if (releaseRequested && !uploadSigningReady) {
+        throw new GradleException('Release paketi için L2T_UPLOAD_STORE_FILE, L2T_UPLOAD_STORE_PASSWORD, L2T_UPLOAD_KEY_ALIAS ve L2T_UPLOAD_KEY_PASSWORD zorunludur.')
     }
 }
 

@@ -1,0 +1,155 @@
+LETSGO2TRAVEL — WEB + ANDROID 1.3.0 SON TESLİM
+================================================
+
+BU DOSYA PAKETTEKİ TEK GÜNCEL KURULUM NOTUDUR.
+Kökteki aşama/teknik özet adlı diğer TXT dosyaları tarihsel kayıttır; eski ZIP adı,
+sürüm veya demo komutu içeren talimatları uygulama.
+
+TAMAMLANAN ANA İŞLER
+--------------------
+- Next.js 16.3.0 güvenlik sürümüne yükseltildi.
+- Harita bağımlılığı güvenli D3 sürümlerine taşındı; production audit temizlendi.
+- Uçuş aramalarının tamamı Google Flights'a yönlendirildi; eski kayıtlar da çevriliyor.
+- Sahte worker sağlayıcısı, admin test eşleşmesi ve rastgele fiyat alarmı kaldırıldı.
+- Uygulama içi + web hesap silme talebi ve iki aşamalı gerçek yönetici silme işlemi eklendi.
+- Hesap silmede alarm, alarm logu, bülten ve e-posta teslim kayıtları da temizleniyor.
+- Seyahat kanıtları karar verildiğinde veya en geç 30 günde Storage'dan siliniyor.
+- Vize merkezi kaynak/iç not alanı anonim Supabase erişimine kapatıldı.
+- Android 1.3.0 / versionCode 3 / API 36, güvenli yedekleme ve release imza akışı hazırlandı.
+- Kullanılmayan push eklentisi ve bağlantısız eski mobil ekran kopyaları kaldırıldı.
+- Google Play mağaza metni, Data Safety taslağı, 512 px ikon ve özellik grafiği hazırlandı.
+
+DOĞRULAMA SONUÇLARI
+-------------------
+- Next.js production build: 137/137 rota başarılı
+- ESLint: 0 hata, 0 uyarı
+- TypeScript: başarılı
+- Root, mobil ve worker production audit: 0 bilinen açık
+- Mobil lint/build ve Android/iOS Capacitor senkronu: başarılı
+- Worker JavaScript sözdizimi: başarılı
+- HTTP smoke testi: Google Flights, sahte admin çerezi, 401 korumaları,
+  kapatılan eski doğrulama ucu ve hesap silme sayfası başarılı
+
+1) WINDOWS'TA BU PAKETİ UYGULA
+------------------------------
+ZIP dosyasını İndirilenler klasörüne koy. PowerShell'i aç:
+
+cd "C:\Projects"
+$project = "C:\Projects\letsgo2travel"
+$backup = "C:\Projects\letsgo2travel-yedek-" + (Get-Date -Format "yyyyMMdd-HHmm")
+Move-Item $project $backup
+Expand-Archive "$env:USERPROFILE\Downloads\letsgo2travel-web-android-final.zip" "C:\Projects" -Force
+Move-Item "$backup\.git" "$project\.git"
+if (Test-Path "$backup\.env.local") { Copy-Item "$backup\.env.local" "$project\.env.local" -Force }
+
+cd $project
+npm ci
+npm --prefix mobile ci
+npm run lint
+npm run build
+npm run mobile:prepare:all
+
+Mobil doktor yalnızca `.env.local` geri konmadıysa uyarı verir. Bu durumda mobil AAB
+üretmeden önce eski klasördeki gerçek `.env.local` dosyasını geri koy.
+
+2) SUPABASE — YENİ SQL
+----------------------
+Supabase > SQL Editor'da kökteki şu dosyanın tamamını bir kez çalıştır:
+
+supabase_evening_web_android.sql
+
+Bu migration mevcut gerçek kullanıcı konuşmalarını silmez. Yalnızca eski admin
+ekranının ürettiği açıkça sahte demo eşleşmelerini temizler, demo takiplerini gerçek
+sağlayıcı aktivasyon kuyruğuna döndürür, 30 günlük kanıt yaşam döngüsünü ve hesap
+silme için gerekli güvenli yabancı anahtarları kurar.
+
+Daha önce heartbeat SQL'ini çalıştırmadıysan ayrıca şunu çalıştır:
+supabase_visa_worker_heartbeat.sql
+
+3) VERCEL ORTAM DEĞERLERİ
+-------------------------
+Production, Preview ve Development için gerçek değerleri tanımla:
+
+NEXT_PUBLIC_DATA_CONTROLLER_NAME=Gerçek kişi veya ticari unvan
+NEXT_PUBLIC_DATA_CONTROLLER_ADDRESS=Gerçek tebligat adresi
+NEXT_PUBLIC_PRIVACY_EMAIL=Gerçek KVKK iletişim e-postası
+CRON_SECRET=Uzun ve rastgele gizli değer
+
+Mevcut ADMIN_SESSION_SECRET, ANALYTICS_HASH_SALT, Supabase ve e-posta değerlerini
+koru. Gizli değerleri GitHub'a, ZIP'e veya mesajlara koyma.
+
+4) GITHUB VE WEB DEPLOY
+-----------------------
+cd "C:\Projects\letsgo2travel"
+git status
+git add -A
+git commit -m "Web guvenlik veri silme ve Android 1.3.0"
+git push origin main
+
+Vercel deploy Ready olduğunda şu sayfaları oturumsuz ve girişli kontrol et:
+- https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi?request=account_deletion&source=google-play
+- https://www.letsgo2travel.com.tr/gizlilik-politikasi
+- https://www.letsgo2travel.com.tr/rota-asistani
+
+5) VDS WORKER / HEARTBEAT
+-------------------------
+VDS terminalinde:
+
+cd /opt/letsgo2travel
+git pull origin main
+docker compose -f docker-compose.visa-worker.yml up -d --build --force-recreate
+docker compose -f docker-compose.visa-worker.yml ps
+docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker
+
+visa-worker/.env içinde API_BASE_URL ve VISA_WORKER_SECRET bulunmalı. Worker sürümü
+0.6.0'dır. Logda demo eşleşmesi değil yalnızca gerçek sağlayıcı kontrolü ve heartbeat
+görülmelidir.
+
+6) ANDROID UPLOAD ANAHTARI VE İMZALI AAB
+----------------------------------------
+Android Studio'da SDK 36 ve JDK 17 kurulu olmalı. Upload anahtarını yalnızca bir kez
+oluştur ve güvenli, yedekli bir yerde sakla:
+
+keytool -genkeypair -v -keystore "$env:USERPROFILE\letsgo2travel-upload-key.jks" -alias letsgo2travel-upload -keyalg RSA -keysize 4096 -validity 10000
+
+Aynı PowerShell oturumunda kendi parolalarını gir (bunları dosyaya yazma):
+
+$env:L2T_UPLOAD_STORE_FILE="$env:USERPROFILE\letsgo2travel-upload-key.jks"
+$env:L2T_UPLOAD_STORE_PASSWORD="KENDI_KEYSTORE_PAROLAN"
+$env:L2T_UPLOAD_KEY_ALIAS="letsgo2travel-upload"
+$env:L2T_UPLOAD_KEY_PASSWORD="KENDI_KEY_PAROLAN"
+
+cd "C:\Projects\letsgo2travel"
+npm run mobile:prepare
+cd android
+.\gradlew.bat bundleRelease
+
+Beklenen dosya:
+C:\Projects\letsgo2travel\android\app\build\outputs\bundle\release\app-release.aab
+
+`.jks`, parola, `.env.local` ve AAB dosyasını GitHub'a ekleme. Play App Signing'i
+etkinleştirip önce İç Test kanalına yükle.
+
+7) GOOGLE PLAY DOSYALARI
+------------------------
+store/google-play/ klasöründe:
+- store-listing-tr.md
+- data-safety-draft-tr.md
+- release-checklist-tr.md
+- app-icon-512.png
+- feature-graphic-1024x500.png
+
+Telefon ekran görüntülerini gerçek cihazdan al. Kişisel veri veya sahte kullanıcı
+içeriği göstermesin. Play Console Data Safety formunu canlıdaki gerçek servislerle
+karşılaştırmadan göndermeyin.
+
+MANUEL KALANLAR
+---------------
+- Gerçek veri sorumlusu adı/adresi/e-postası
+- Supabase migration
+- VDS heartbeat
+- Android upload anahtarı ve imzalı AAB
+- Gerçek cihaz testleri ve ekran görüntüleri
+- Play Console formları ve iç test yayını
+
+Bu güvenlik gerektiren değerler senin adına uydurulmadı ve pakete konmadı.

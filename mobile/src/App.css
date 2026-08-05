@@ -258,6 +258,13 @@
 .account-profile h3 { margin: 3px 0 2px; font-size: 20px; }
 .account-profile > p { margin: 0 0 14px; color: var(--muted); font-size: 10px; }
 .account-profile .danger-wide { margin-top: 13px; }
+.account-deletion-box { margin-top: 13px; padding: 13px; display: grid; gap: 10px; border: 1px solid #f0c9ce; border-radius: 15px; background: #fff8f8; text-align: left; }
+.account-deletion-box > strong { color: #9d2634; font-size: 12px; }
+.account-deletion-box > p { margin: 0; color: #6f4c52; font-size: 9px; line-height: 1.55; }
+.account-deletion-box label { display: grid; gap: 6px; color: #70464c; font-size: 9px; }
+.account-deletion-box input { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid #e4bac0; border-radius: 11px; outline: 0; background: #fff; color: var(--ink); font-size: 11px; font-weight: 800; }
+.account-deletion-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.account-deletion-actions .danger-wide,.account-deletion-actions .secondary-wide { min-height: 43px; margin-top: 0; }
 .google-button { width: 100%; min-height: 47px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #d7e0e6; border-radius: 14px; background: #fff; color: #3d4d5f; font-size: 11px; font-weight: 800; }
 .google-button span { font-size: 17px; font-family: Arial,sans-serif; color: #4285f4; }
 .auth-divider { display: flex; align-items: center; gap: 9px; color: #9aa5af; font-size: 8px; }

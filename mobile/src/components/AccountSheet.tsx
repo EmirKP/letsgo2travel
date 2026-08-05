@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReturnTypeUseAuth } from "../types-auth";
+import { requestAccountDeletion } from "../lib/api";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
@@ -13,10 +14,12 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   const [email, setEmail] = useState(auth.user?.email || "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deletionMode, setDeletionMode] = useState(false);
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
 
   const submit = async () => {
     if (!/^\S+@\S+\.\S+$/.test(email)) return onNotice("Geçerli bir e-posta adresi yaz.");
-    if (mode !== "reset" && password.length < 6) return onNotice("Şifre en az 6 karakter olmalı.");
+    if (mode !== "reset" && password.length < 8) return onNotice("Şifre en az 8 karakter olmalı.");
     setBusy(true);
     try {
       if (mode === "login") {
@@ -40,13 +43,53 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   };
 
   if (auth.user) {
+    const displayName = String(auth.user.user_metadata?.full_name || auth.user.user_metadata?.name || auth.user.email?.split("@")[0] || "Gezgin");
+    const username = String(auth.user.user_metadata?.username || "");
+
+    const submitDeletionRequest = async () => {
+      if (deletionConfirmation.trim().toLocaleUpperCase("tr-TR") !== "SİL") {
+        onNotice("Devam etmek için SİL yazmalısın.");
+        return;
+      }
+      if (!auth.accessToken || !auth.user?.email) {
+        onNotice("Hesap oturumu doğrulanamadı. Yeniden giriş yapıp tekrar dene.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const result = await requestAccountDeletion({
+          accessToken: auth.accessToken,
+          name: displayName,
+          email: auth.user.email,
+          username,
+        });
+        onNotice(result.message || "Hesap silme talebin alındı.");
+        setDeletionMode(false);
+        setDeletionConfirmation("");
+        onClose();
+      } catch (error) {
+        onNotice(error instanceof Error ? error.message : "Hesap silme talebi gönderilemedi.");
+      } finally {
+        setBusy(false);
+      }
+    };
+
     return <Sheet open={open} title="Hesabım" onClose={onClose}>
       <div className="account-profile">
         <span className="profile-avatar"><Icon name="user" size={30} /></span>
         <small>OTURUM AÇIK</small>
-        <h3>{String(auth.user.user_metadata?.full_name || auth.user.email?.split("@")[0] || "Gezgin")}</h3>
+        <h3>{displayName}</h3>
         <p>{auth.user.email}</p>
         <div className="detail-list"><div><span>E-posta doğrulaması</span><strong>{auth.user.email_confirmed_at ? "Tamamlandı" : "Bekliyor"}</strong></div><div><span>Üyelik tarihi</span><strong>{new Intl.DateTimeFormat("tr-TR").format(new Date(auth.user.created_at))}</strong></div></div>
+        {deletionMode ? <div className="account-deletion-box">
+          <strong>Hesap silme talebi</strong>
+          <p>Talep yönetici incelemesine gider. Onaylandığında hesabın, profil verilerin ve sana bağlı özel kayıtlar silinir; topluluk konuşmalarındaki diğer kullanıcı cevapları korunurken senin içeriklerin anonimleştirilir.</p>
+          <label>Onaylamak için <b>SİL</b> yaz<input value={deletionConfirmation} autoCapitalize="characters" onChange={(event) => setDeletionConfirmation(event.target.value)} placeholder="SİL" /></label>
+          <div className="account-deletion-actions">
+            <button className="secondary-wide" disabled={busy} onClick={() => { setDeletionMode(false); setDeletionConfirmation(""); }}>Vazgeç</button>
+            <button className="danger-wide" disabled={busy || deletionConfirmation.trim().toLocaleUpperCase("tr-TR") !== "SİL"} onClick={() => void submitDeletionRequest()}>{busy ? <span className="button-loader" /> : <Icon name="trash" size={18} />} Talebi gönder</button>
+          </div>
+        </div> : <button className="secondary-wide" onClick={() => setDeletionMode(true)}><Icon name="trash" size={18} /> Hesabımı silme talebi oluştur</button>}
         <button className="danger-wide" onClick={() => void auth.signOut().then(() => { onNotice("Çıkış yapıldı."); onClose(); }).catch((error) => onNotice(error instanceof Error ? error.message : "Çıkış yapılamadı."))}><Icon name="logout" size={18} /> Çıkış yap</button>
       </div>
     </Sheet>;
@@ -63,7 +106,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       }}><span>G</span> {busy ? "Açılıyor…" : "Google ile devam et"}</button>}
       {mode !== "reset" && <div className="auth-divider"><span>veya</span></div>}
       <label>E-posta<div className="input-with-icon"><Icon name="mail" size={18} /><input type="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ornek@mail.com" /></div></label>
-      {mode !== "reset" && <label>Şifre<div className="input-with-icon"><Icon name="lock" size={18} /><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="En az 6 karakter" /></div></label>}
+      {mode !== "reset" && <label>Şifre<div className="input-with-icon"><Icon name="lock" size={18} /><input type="password" minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="En az 8 karakter" /></div></label>}
       <button className="primary-wide" disabled={busy || !auth.configured} onClick={() => void submit()}>{busy ? <span className="button-loader" /> : <Icon name={mode === "reset" ? "mail" : "user"} size={18} />} {mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Bağlantı gönder"}</button>
       {auth.authError && <p className="form-error">{auth.authError}</p>}
       <div className="auth-links">

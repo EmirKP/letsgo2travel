@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
-import { deleteFlightAlert, getFlightAlerts, updateFlightAlert } from "../lib/api";
+import { deleteFlightAlert, getFlightAlerts, getFlightSearchUrl, updateFlightAlert } from "../lib/api";
 import { openExternal } from "../lib/native";
 import {
   deleteFlightSearch,
@@ -82,6 +82,15 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
     }
   };
 
+  const reopenSearch = async (search: SavedFlightSearch) => {
+    try {
+      const result = await getFlightSearchUrl(search);
+      await openExternal(result.url);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : "Uçuş araması açılamadı.");
+    }
+  };
+
   return (
     <div className="screen">
       <section className="page-intro compact-intro">
@@ -108,7 +117,7 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
         {searches.map((search) => <article className="saved-card search-saved-card" key={search.id}>
           <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button onClick={() => { if (window.confirm("Bu arama silinsin mi?")) { setSearches(deleteFlightSearch(search.id)); onNotice("Arama silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
           <div className="saved-details"><span>{search.adults} yolcu</span><span>{search.tripType === "round_trip" ? "Gidiş–dönüş" : "Tek yön"}</span><span>{search.cabinClass === "economy" ? "Ekonomi" : "Business"}</span></div>
-          {search.resultUrl && <button className="secondary-wide" onClick={() => void openExternal(search.resultUrl!)}><Icon name="external" size={17} /> Sonuçları yeniden aç</button>}
+          <button className="secondary-wide" onClick={() => void reopenSearch(search)}><Icon name="external" size={17} /> Google Flights'ta yeniden aç</button>
         </article>)}
         {!searches.length && <Empty icon="search" title="Henüz kayıtlı araman yok" text="Bilet Ara bölümündeki başarılı aramalar otomatik kaydedilir." />}
       </div>}

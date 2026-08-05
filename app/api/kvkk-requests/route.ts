@@ -24,7 +24,8 @@ export async function POST(req: Request) {
     if (!auth.ok) return auth.response;
     const { supabase, user } = auth;
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+    if (!body) return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
     const name = cleanText(body.name, 120);
     const username = cleanText(body.username, 80);
     const requestType = cleanText(body.requestType, 100);
@@ -39,6 +40,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Zorunlu alanlar eksik.' }, { status: 400 });
     }
 
+    const { data: existing, error: existingError } = await supabase
+      .from('kvkk_requests')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('request_type', requestType)
+      .in('status', ['pending', 'reviewing'])
+      .limit(1);
+
+    if (existingError) {
+      return NextResponse.json({ error: 'Mevcut talepler kontrol edilemedi.' }, { status: 500 });
+    }
+    if (existing?.length) {
+      return NextResponse.json({ error: 'Bu talep türü için zaten açık bir başvurunuz var.' }, { status: 409 });
+    }
+
     const { error: insertError } = await supabase
       .from('kvkk_requests')
       .insert({
@@ -49,14 +65,13 @@ export async function POST(req: Request) {
       });
 
     if (insertError) {
-      console.error('KVKK Insert Error:', insertError);
+      console.error('KVKK talebi kaydedilemedi:', insertError.code || 'unknown');
       return NextResponse.json({ error: 'Talep kaydedilemedi.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Talebiniz alınmıştır. Başvurunuz ilgili mevzuat kapsamında değerlendirilecektir. Gerekli hallerde kimlik doğrulama amacıyla ek bilgi talep edilebilir.' });
 
-  } catch (err: unknown) {
-    console.error('API Error:', err);
+  } catch {
     return NextResponse.json({ error: 'Sunucu hatası oluştu.' }, { status: 500 });
   }
 }

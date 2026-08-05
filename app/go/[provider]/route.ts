@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import type { AffiliateProvider } from "@/lib/affiliate";
+import { googleFlightsUrl, type AffiliateProvider } from "@/lib/affiliate";
 
 const PROVIDER_HOSTS: Record<AffiliateProvider, string[]> = {
   aviasales: ["aviasales.com", "www.aviasales.com", "travelpayouts.com", "www.travelpayouts.com"],
@@ -56,6 +56,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     return NextResponse.redirect(new URL("/", request.url), 302);
   }
 
+  let redirectUrl = targetUrl;
+  if (provider === "aviasales") {
+    const legacyUrl = new URL(targetUrl);
+    redirectUrl = googleFlightsUrl({
+      origin: legacyUrl.searchParams.get("origin_iata") || undefined,
+      destination: legacyUrl.searchParams.get("destination_iata") || undefined,
+      departDate: legacyUrl.searchParams.get("depart_date") || undefined,
+      returnDate: legacyUrl.searchParams.get("return_date") || undefined,
+    });
+  }
+
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
@@ -68,7 +79,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
       provider,
       source_page: sourcePage,
       destination,
-      affiliate_url: targetUrl,
+      affiliate_url: redirectUrl,
       utm_source: "letsgo2travel",
       utm_campaign: campaign,
       user_agent: limitedValue(request.headers.get("user-agent"), 500),
@@ -76,5 +87,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     });
   }
 
-  return NextResponse.redirect(targetUrl, 302);
+  return NextResponse.redirect(redirectUrl, 302);
 }

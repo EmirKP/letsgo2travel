@@ -47,7 +47,7 @@ export default function AdminHome() {
             <Settings size={32} />
           </div>
           <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Site Ayarları</h3>
-          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Affiliate linklerini (Travelpayouts, Aviasales vb.) ve sistem SEO ayarlarını güncelle.</p>
+          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Konaklama ve yardımcı hizmet bağlantılarıyla sistem SEO ayarlarını güncelle.</p>
           <span style={{ color: "#475569", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Ayarları Aç &rarr;</span>
         </Link>
 

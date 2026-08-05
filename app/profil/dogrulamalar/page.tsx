@@ -150,7 +150,7 @@ export default function DogrulamalarPage() {
                 />
               </div>
               <p className={styles.help}>
-                Maks 5MB. PNR, kimlik numarası, telefon ve adres gibi gereksiz kişisel bilgileri kapatın. Belge herkese açık gösterilmez ve inceleme tamamlanınca silinir.
+                Maks 5MB. PNR, kimlik numarası, telefon ve adres gibi gereksiz kişisel bilgileri kapatın. Belge herkese açık gösterilmez; karar sırasında veya en geç 30 gün içinde silinir.
               </p>
             </div>
 

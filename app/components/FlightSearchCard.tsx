@@ -11,7 +11,7 @@ import {
   Plane,
   Search,
 } from "lucide-react";
-import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
+import { googleFlightsUrl } from "@/lib/affiliate";
 import { GLOBAL_LOCATIONS, type LocationItem } from "@/lib/airports";
 import PriceAlertForm from "./PriceAlertForm";
 import styles from "./FlightSearchCard.module.css";
@@ -85,18 +85,11 @@ export default function FlightSearchCard() {
     return () => window.clearTimeout(timer);
   }, [destSearch, isDestOpen]);
 
-  const rawFlightUrl = aviasalesUrl({
+  const href = googleFlightsUrl({
     origin: originObj.code || "IST",
     destination: destinationObj?.code || "DXB",
     departDate,
     returnDate: tripType === "gidis_donus" ? returnDate : undefined,
-  });
-  const href = affiliateRedirectUrl({
-    provider: "aviasales",
-    url: rawFlightUrl,
-    destination: destinationObj?.code || destinationObj?.name || "DXB",
-    sourcePage: "home_sprint_2",
-    campaign: "flight_search",
   });
 
   const selectLocation = (location: LocationItem, type: "origin" | "destination") => {

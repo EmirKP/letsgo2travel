@@ -231,7 +231,6 @@ create policy "users read own visa notifications" on public.visa_appointment_not
 -- Sağlayıcılar gerçek portallar tek tek doğrulanana kadar pasif kalır.
 insert into public.visa_appointment_providers(code, name, status)
 values
-  ('demo', 'LetsGo2Travel Test Sağlayıcısı', 'active'),
   ('idata', 'iDATA', 'verification_required'),
   ('vfs', 'VFS Global', 'verification_required'),
   ('tls', 'TLScontact', 'verification_required'),

@@ -148,6 +148,7 @@ export async function POST(request: Request) {
     // Upload to Storage
     const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExtension}`;
     const filePath = `${user.id}/${fileName}`;
+    const evidenceExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: uploadError } = await supabase.storage
       .from("travel-evidence")
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
         verification_type: 'document', // for backward compatibility with old code
         evidence_path: filePath,
         evidence_type: file.type,
+        evidence_expires_at: evidenceExpiresAt,
         user_note: note,
         status: 'pending'
       }])

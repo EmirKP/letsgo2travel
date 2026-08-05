@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { Flag, X, AlertTriangle, ShieldAlert, Loader2, CheckCircle2 } from "lucide-react";
 
@@ -10,6 +11,7 @@ type ReportModalProps = {
 };
 
 export default function ForumReportButton({ targetId, targetType }: ReportModalProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,7 +36,7 @@ export default function ForumReportButton({ targetId, targetType }: ReportModalP
   const handleOpen = () => {
     if (!session) {
       alert("İçerik raporlamak için giriş yapmalısınız.");
-      window.location.href = "/auth/login";
+      router.push("/auth/login");
       return;
     }
     setIsOpen(true);

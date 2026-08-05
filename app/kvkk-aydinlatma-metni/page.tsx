@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   description: "LetsGo2Travel platformu KVKK Aydınlatma Metni",
 };
 
+const controllerName = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || "[YAYINDAN ÖNCE GERÇEK KİŞİ/TİCARİ UNVAN EKLENECEK]";
+const controllerAddress = process.env.NEXT_PUBLIC_DATA_CONTROLLER_ADDRESS || "[YAYINDAN ÖNCE TEBLİGAT ADRESİ EKLENECEK]";
+const privacyEmail = process.env.NEXT_PUBLIC_PRIVACY_EMAIL || "[YAYINDAN ÖNCE KVKK İLETİŞİM E-POSTASI EKLENECEK]";
+
 export default function KVKKAydinlatmaPage() {
   return (
     <div className="l2t-page">
@@ -12,7 +16,7 @@ export default function KVKKAydinlatmaPage() {
         <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '24px', fontSize: '2.5rem' }}>KVKK Aydınlatma Metni</h1>
         
         <div className="l2t-card" style={{ padding: '32px', color: 'var(--l2t-soft)', lineHeight: '1.8' }}>
-          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Haziran 2026</p>
+          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Ağustos 2026</p>
           
           <p style={{ marginBottom: '24px' }}>
             Bu Aydınlatma Metni, LetsGo2Travel platformu üzerinden sunulan üyelik, seyahat rehberi, doğrulanmış gezgin başvurusu, topluluk yorumu, işletme itirazı ve veri talep süreçleri kapsamında işlenen kişisel verilere ilişkin olarak hazırlanmıştır.
@@ -20,11 +24,12 @@ export default function KVKKAydinlatmaPage() {
 
           <h2 style={{ color: '#fff', marginTop: '32px', marginBottom: '16px', fontSize: '1.5rem' }}>1. Veri Sorumlusu</h2>
           <p style={{ marginBottom: '24px' }}>
-            İşbu Aydınlatma Metni, <strong>LetsGo2Travel Platformu</strong> ("Veri Sorumlusu") tarafından, KVKK uyumluluğu hedeflenerek minimum veri işleme prensibine göre tasarlanan altyapımız kapsamında kişisel verilerinizin işlenmesine ilişkin aydınlatma yükümlülüğünün yerine getirilmesi amacıyla hazırlanmıştır.<br/><br/>
+            İşbu Aydınlatma Metni, LetsGo2Travel hizmetini işleten veri sorumlusu tarafından kişisel verilerinizin işlenmesine ilişkin aydınlatma yükümlülüğünün yerine getirilmesi amacıyla hazırlanmıştır.<br/><br/>
             <strong>Veri Sorumlusu Kimliği</strong><br/>
-            Veri Sorumlusu: LetsGo2Travel Platformu<br/>
-            İletişim: Sistem içi talep formları üzerinden sağlanır.<br/><br/>
-            tarafından işlenmektedir.
+            Veri Sorumlusu: {controllerName}<br/>
+            Tebligat Adresi: {controllerAddress}<br/>
+            KVKK İletişim E-postası: {privacyEmail}<br/>
+            Elektronik Talep Kanalı: <a href="/veri-silme-ve-hak-talebi" style={{color: 'var(--l2t-gold)', textDecoration: 'underline'}}>Veri Silme ve Hak Talebi formu</a>
           </p>
 
           <h2 style={{ color: '#fff', marginTop: '32px', marginBottom: '16px', fontSize: '1.5rem' }}>2. İşlenen Kişisel Veriler</h2>
@@ -45,7 +50,7 @@ export default function KVKKAydinlatmaPage() {
             <li>İşletme itiraz formu içeriği</li>
           </ul>
           <p style={{ marginBottom: '24px' }}>
-            Doğrulama amacıyla yüklenen belgeler kalıcı olarak saklanmaz. Belge yalnızca geçici olarak işlenir, doğrulama kaydı oluşturulduktan sonra ham belge sistemden silinir. Sistemde yalnızca doğrulama sonucu, belge türü, ülke/şehir bilgisi, başvuru durumu ve silme zamanı gibi minimum kayıtlar tutulur.<br/><br/>
+            Doğrulama amacıyla yüklenen belgeler yalnızca özel erişimli alanda ve inceleme için geçici olarak tutulur. Ham belge onay veya red kararı verilirken önce silinir; karar verilmemiş olsa dahi yüklemeden itibaren en geç 30 gün sonunda otomatik olarak silinir ve başvuru kapatılır. Sistemde yalnızca doğrulama sonucu, belge türü, ülke/şehir bilgisi, başvuru durumu ve silme zamanı gibi minimum kayıtlar tutulur.<br/><br/>
             Kullanıcılardan pasaport numarası, T.C. kimlik numarası, PNR kodu, QR kod, barkod, ödeme bilgisi, açık adres veya gereksiz hassas veri paylaşmamaları istenir.
           </p>
 
@@ -90,13 +95,13 @@ export default function KVKKAydinlatmaPage() {
             <li>Kanunen yetkili merciler</li>
           </ul>
           <p style={{ marginBottom: '24px' }}>
-            LetsGo2Travel, kullanıcıların doğrulama için yüklediği ham belgeleri kalıcı olarak üçüncü kişilerle paylaşmaz. Ham belge kalıcı olarak saklanmaz.
+            LetsGo2Travel, kullanıcıların doğrulama için yüklediği ham belgeleri herkese açık hâle getirmez ve kalıcı olarak üçüncü kişilerle paylaşmaz. Belge yalnızca yetkili inceleme akışında geçici olarak işlenir.
           </p>
 
           <h2 style={{ color: '#fff', marginTop: '32px', marginBottom: '16px', fontSize: '1.5rem' }}>6. Kişisel Verilerin Saklama Süresi</h2>
           <p style={{ marginBottom: '24px' }}>
             Kişisel verileriniz, işleme amacının gerektirdiği süre boyunca saklanır.<br/><br/>
-            Doğrulama için yüklenen ham belgeler, doğrulama kaydı oluşturulduktan sonra silinir.<br/><br/>
+            Doğrulama için yüklenen ham belgeler onay/red işleminde önce silinir; karar verilmemiş belgeler yüklemeden itibaren en geç 30 gün içinde otomatik olarak silinir.<br/><br/>
             Doğrulama kayıtları, kullanıcı hesabı aktif olduğu sürece veya ilgili hukuki saklama süresi boyunca tutulabilir.<br/><br/>
             KVKK talep kayıtları, başvuru süreçlerinin yönetimi ve hukuki yükümlülükler kapsamında makul sürelerle saklanabilir.
           </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -10,12 +11,14 @@ import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
 export default function NativeAppBridge() {
+  const router = useRouter();
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     document.documentElement.classList.add("l2t-native-app");
-    void StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
-    void StatusBar.setBackgroundColor({ color: "#FFFFFF" }).catch(() => undefined);
+    void StatusBar.setStyle({ style: Style.Light }).catch(() => undefined);
+    void StatusBar.setBackgroundColor({ color: "#071B33" }).catch(() => undefined);
     void SplashScreen.hide().catch(() => undefined);
 
     const networkListener = Network.addListener("networkStatusChange", (status) => {
@@ -35,9 +38,9 @@ export default function NativeAppBridge() {
         const nextPath = isWebDomain
           ? `${parsed.pathname}${parsed.search}${parsed.hash}`
           : `/${[parsed.hostname, parsed.pathname].filter(Boolean).join("/").replace(/^\/+/, "")}${parsed.search}${parsed.hash}`;
-        window.location.assign(nextPath || "/");
+        router.push(nextPath || "/");
       } catch {
-        window.location.assign("/");
+        router.push("/");
       }
     });
 
@@ -59,7 +62,7 @@ export default function NativeAppBridge() {
       void appListener.then((listener) => listener.remove());
       void deepLinkListener.then((listener) => listener.remove());
     };
-  }, []);
+  }, [router]);
 
   return null;
 }

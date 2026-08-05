@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#071b33"/>
+      <stop offset="1" stop-color="#10345c"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#ffd54a"/>
+      <stop offset="1" stop-color="#f2b800"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <circle cx="858" cy="250" r="238" fill="#ffffff" fill-opacity=".025" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+  <ellipse cx="858" cy="250" rx="238" ry="76" fill="none" stroke="#f5bf18" stroke-opacity=".18" stroke-width="2"/>
+  <ellipse cx="858" cy="250" rx="76" ry="238" fill="none" stroke="#ffffff" stroke-opacity=".1" stroke-width="2"/>
+  <path d="M638 314c91-70 213-92 325-44" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 18"/>
+  <g transform="translate(854 165) rotate(-14 48 48) scale(4)" fill="#f5bf18">
+    <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 4 2 2 4 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+  </g>
+  <text x="76" y="208" fill="#ffffff" font-family="Arial, DejaVu Sans, sans-serif" font-size="72" font-weight="700" letter-spacing="-4">LetsGo<tspan fill="url(#gold)" font-size="92" font-weight="800">2</tspan>Travel</text>
+  <text x="80" y="274" fill="#ffffff" fill-opacity=".86" font-family="Arial, DejaVu Sans, sans-serif" font-size="26" font-weight="500">Rotanı keşfet. Seyahatini planla.</text>
+  <rect x="80" y="318" width="328" height="48" rx="24" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".12"/>
+  <text x="244" y="349" fill="#ffffff" font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="600" text-anchor="middle">ROTA • UÇUŞ • PASAPORT</text>
+</svg>

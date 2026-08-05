@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import FlightSearchCard from "../components/FlightSearchCard";
 import { getFlightDeals } from "@/lib/data";
-import { affiliateRedirectUrl } from "@/lib/affiliate";
 
 export const metadata: Metadata = {
   title: "Canlı Uçuş Arama — Ucuz Bilet Bul",
@@ -19,7 +18,7 @@ export default async function LiveFlightsPage() {
         <p className="l2t-kicker">Uçak bileti arama</p>
         <h1>Yüzlerce fiyatı anında karşılaştır</h1>
         <p>
-          Aviasales iş ortaklığıyla IST, SAW ve ESB çıkışlı güncel uçuş fiyatlarını tek ekranda görüntüle.
+          IST, SAW ve ESB çıkışlı öne çıkan rotaları görüntüle; güncel seçenekleri Google Flights'ta karşılaştır.
         </p>
       </div>
 
@@ -39,7 +38,7 @@ export default async function LiveFlightsPage() {
           {cheapest.map((deal) => (
             <a
               key={deal.id}
-              href={affiliateRedirectUrl({ provider: "aviasales", url: deal.affiliate_url, destination: deal.destination_code || deal.destination, sourcePage: "live_flights", campaign: "live_flights" })}
+              href={deal.affiliate_url}
               target="_blank"
               rel="nofollow sponsored noreferrer"
               className="l2t-card"
@@ -92,7 +91,7 @@ export default async function LiveFlightsPage() {
       </div>
 
       <p className="l2t-disclaimer" style={{ marginTop: "16px" }}>
-        Fiyatlar anlık değişebilir. Buton tıklandığında Aviasales üzerinden canlı arama yapılır.
+        Fiyatlar anlık değişebilir. Buton tıklandığında Google Flights üzerinde canlı arama açılır.
         Letsgo2Travel, Travelpayouts iş ortağı olarak komisyon kazanabilir.
       </p>
     </section>

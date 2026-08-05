@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase-client";
 import { APPOINTMENT_STATUS_INFO } from "@/lib/visa/appointmentStatus";
 import styles from "./AdminVisaCenter.module.css";
 
@@ -26,11 +25,21 @@ export default function AdminVizeMerkeziPage() {
   const [sourceNote, setSourceNote] = useState("");
   const [officialSourceUrl, setOfficialSourceUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   async function fetchPages() {
-    const { data } = await supabase.from("visa_center_pages").select("id,country_name,visa_title,appointment_status,appointment_note,source_note,official_source_url,last_checked_at").order("country_name", { ascending: true });
-    setPages((data as VisaPage[]) || []);
-    setLoading(false);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/visa-center", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({})) as { data?: VisaPage[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Vize merkezi kayıtları alınamadı.");
+      setPages(payload.data || []);
+    } catch (caughtError) {
+      setPages([]);
+      setError(caughtError instanceof Error ? caughtError.message : "Vize merkezi kayıtları alınamadı.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { void fetchPages(); }, []);
@@ -47,10 +56,9 @@ export default function AdminVizeMerkeziPage() {
     if (!selectedId) return;
     setSaving(true);
     try {
-      const { data } = await supabase.auth.getSession();
       const response = await fetch(`/api/admin/visa-center/${selectedId}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${data.session?.access_token || ""}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ appointment_status: status, appointment_note: note, source_note: sourceNote, official_source_url: officialSourceUrl }),
       });
       if (!response.ok) throw new Error();
@@ -71,6 +79,7 @@ export default function AdminVizeMerkeziPage() {
           <h1>Vize Merkezi Yönetimi</h1>
           <p>Yayımlanan vize rehberlerindeki manuel randevu notlarını yönet.</p>
         </header>
+        {error ? <div className={styles.warning} role="alert">{error}</div> : null}
         {loading ? <div className={styles.empty}>Yükleniyor...</div> : (
           <div className={styles.grid}>
             <div className={styles.list}>

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Flame, Heart, ThumbsUp, TrendingUp } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -72,6 +73,7 @@ function formatVisaLabel(value: string) {
 }
 
 export default function DealCard({ deal, view = "grid" }: DealCardProps) {
+  const router = useRouter();
   const [hoverIndex, setHoverIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -130,7 +132,7 @@ export default function DealCard({ deal, view = "grid" }: DealCardProps) {
 
   const toggleFavorite = async () => {
     if (!user) {
-      window.location.href = "/auth/login";
+      router.push("/auth/login");
       return;
     }
 

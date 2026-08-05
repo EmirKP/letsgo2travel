@@ -13,7 +13,7 @@ export const config: PublicConfig = {
   supabaseUrl: injected?.supabaseUrl || "",
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",
-  appVersion: injected?.appVersion || "1.2.0",
+  appVersion: injected?.appVersion || "1.3.0",
 };
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

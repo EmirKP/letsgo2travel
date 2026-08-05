@@ -12,7 +12,7 @@ export default function GizlilikPolitikasiPage() {
         <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '24px', fontSize: '2.5rem' }}>Gizlilik Politikası</h1>
         
         <div className="l2t-card" style={{ padding: '32px', color: 'var(--l2t-soft)', lineHeight: '1.8' }}>
-          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Haziran 2026</p>
+          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Ağustos 2026</p>
           
           <p style={{ marginBottom: '24px' }}>
             LetsGo2Travel olarak kullanıcı gizliliğini önemseriz. Bu Gizlilik Politikası, platformu kullanırken hangi bilgilerin toplandığını, nasıl kullanıldığını, nasıl korunduğunu ve kullanıcıların hangi haklara sahip olduğunu açıklar.
@@ -32,7 +32,7 @@ export default function GizlilikPolitikasiPage() {
             <li>Teknik işlem güvenliği kayıtları</li>
           </ul>
           <p style={{ marginBottom: '24px' }}>
-            Doğrulama belgeleri kalıcı olarak saklanmaz. Belge yalnızca geçici olarak işlenir ve doğrulama kaydı oluşturulduktan sonra silinir.
+            Doğrulama belgeleri kalıcı olarak saklanmaz. Belge özel erişimli alanda yalnızca inceleme için geçici olarak tutulur; karar verilirken önce, karar verilmemişse yüklemeden itibaren en geç 30 gün içinde silinir.
           </p>
 
           <h2 style={{ color: '#fff', marginTop: '32px', marginBottom: '16px', fontSize: '1.5rem' }}>2. Bilgilerin Kullanım Amaçları</h2>

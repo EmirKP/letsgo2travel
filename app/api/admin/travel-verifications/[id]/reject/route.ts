@@ -42,11 +42,9 @@ export async function POST(
 
   const reviewerId = await reviewerIdFromRequest(request, supabase);
   const reviewedAt = new Date().toISOString();
-  const { data: verification, error: updateError } = await supabase
+  const { data: verification, error: claimError } = await supabase
     .from("travel_verifications")
     .update({
-      status: "rejected",
-      admin_note: adminNote,
       reviewed_by: reviewerId,
       reviewed_at: reviewedAt,
     })
@@ -56,41 +54,67 @@ export async function POST(
     .select("id,evidence_path")
     .maybeSingle();
 
-  if (updateError) {
-    console.error("Reject verification error", updateError);
-    return NextResponse.json({ error: "Red işlemi tamamlanamadı." }, { status: 500 });
+  if (claimError) {
+    console.error("Reject verification claim error", claimError);
+    return NextResponse.json({ error: "Başvuru inceleme için kilitlenemedi." }, { status: 500 });
   }
   if (!verification) {
     return NextResponse.json({ error: "Başvuru daha önce işlenmiş veya başka bir yönetici tarafından inceleniyor." }, { status: 409 });
   }
 
-  if (verification.evidence_path) {
-    const { error: removeError } = await supabase.storage
-      .from("travel-evidence")
-      .remove([verification.evidence_path]);
-    if (removeError) {
-      console.error("Rejected evidence cleanup error", removeError);
-      return NextResponse.json(
-        { error: "Başvuru reddedildi ancak özel belge silinemedi. İşlemi yöneticinin tekrar kontrol etmesi gerekiyor." },
-        { status: 500 },
-      );
+  const releaseClaim = async () => {
+    await supabase
+      .from("travel_verifications")
+      .update({ reviewed_by: null, reviewed_at: null })
+      .eq("id", id)
+      .eq("status", "pending")
+      .eq("reviewed_at", reviewedAt);
+  };
+
+  try {
+    if (verification.evidence_path) {
+      const { error: removeError } = await supabase.storage
+        .from("travel-evidence")
+        .remove([verification.evidence_path]);
+      if (removeError) throw new Error("Özel belge silinemedi.");
+
+      const { error: clearPathError } = await supabase
+        .from("travel_verifications")
+        .update({ evidence_path: null, proof_deleted_at: reviewedAt })
+        .eq("id", id)
+        .eq("status", "pending")
+        .eq("reviewed_at", reviewedAt);
+      if (clearPathError) throw clearPathError;
     }
 
-    const { error: clearPathError } = await supabase
+    const { data: completed, error: completeError } = await supabase
       .from("travel_verifications")
-      .update({ evidence_path: null })
-      .eq("id", id);
-    if (clearPathError) console.error("Rejected evidence path cleanup error", clearPathError);
+      .update({
+        status: "rejected",
+        admin_note: adminNote,
+        reviewed_by: reviewerId,
+        reviewed_at: reviewedAt,
+      })
+      .eq("id", id)
+      .eq("status", "pending")
+      .eq("reviewed_at", reviewedAt)
+      .select("id")
+      .maybeSingle();
+    if (completeError || !completed) throw completeError || new Error("Red durumu güncellenemedi.");
+
+    const auditResult = await supabase.from("admin_audit_logs").insert({
+      admin_user_id: reviewerId,
+      action: "reject_verification",
+      target_type: "travel_verifications",
+      target_id: id,
+      note: adminNote,
+    });
+    if (auditResult.error) console.error("Verification audit log error", auditResult.error);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Reject verification error", error);
+    await releaseClaim();
+    return NextResponse.json({ error: "Red işlemi tamamlanamadı; başvuru beklemede bırakıldı." }, { status: 500 });
   }
-
-  const auditResult = await supabase.from("admin_audit_logs").insert({
-    admin_user_id: reviewerId,
-    action: "reject_verification",
-    target_type: "travel_verifications",
-    target_id: id,
-    note: adminNote,
-  });
-  if (auditResult.error) console.error("Verification audit log error", auditResult.error);
-
-  return NextResponse.json({ success: true });
 }

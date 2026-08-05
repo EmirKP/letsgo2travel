@@ -13,21 +13,37 @@ export const siteSettings: SiteSettings = {
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@letsgo2travel.com.tr",
 };
 
-export function aviasalesUrl(params: {
+function iata(value: string | undefined, fallback: string) {
+  const normalized = String(value || "").trim().toUpperCase();
+  return /^[A-Z0-9]{3}$/.test(normalized) ? normalized : fallback;
+}
+
+function isoDate(value: string | undefined) {
+  const normalized = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+}
+
+export function googleFlightsUrl(params: {
   origin?: string;
   destination?: string;
   departDate?: string;
   returnDate?: string;
-  marker?: string;
+  currency?: string;
+  language?: string;
 }) {
-  const url = new URL("https://www.aviasales.com/search");
-  const origin = params.origin || "IST";
-  const destination = params.destination || "DXB";
-  url.searchParams.set("origin_iata", origin);
-  url.searchParams.set("destination_iata", destination);
-  url.searchParams.set("depart_date", params.departDate || "");
-  if (params.returnDate) url.searchParams.set("return_date", params.returnDate);
-  url.searchParams.set("marker", params.marker || siteSettings.travelpayoutsMarker);
+  const origin = iata(params.origin, "IST");
+  const destination = iata(params.destination, "DXB");
+  const departDate = isoDate(params.departDate);
+  const returnDate = isoDate(params.returnDate);
+  const route = [`Flights from ${origin} to ${destination}`];
+
+  if (departDate) route.push(`on ${departDate}`);
+  if (returnDate) route.push(`through ${returnDate}`);
+
+  const url = new URL("https://www.google.com/travel/flights");
+  url.searchParams.set("q", route.join(" "));
+  url.searchParams.set("curr", /^[A-Z]{3}$/.test(params.currency || "") ? params.currency! : "TRY");
+  url.searchParams.set("hl", /^[a-z]{2}(?:-[A-Z]{2})?$/.test(params.language || "") ? params.language! : "tr");
   return url.toString();
 }
 
@@ -87,7 +103,7 @@ export function providerUrl(provider: AffiliateProvider) {
     case "getyourguide":
       return siteSettings.getYourGuideAffiliateUrl;
     case "aviasales":
-      return aviasalesUrl({});
+      return googleFlightsUrl({});
     default:
       return "https://www.letsgo2travel.com.tr";
   }

@@ -1,4 +1,4 @@
-import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
+import { googleFlightsUrl } from "@/lib/affiliate";
 import { CACHE_TIMES, cachedJson } from "@/lib/http-cache";
 
 function iata(value: string | null, fallback: string) {
@@ -18,17 +18,9 @@ export async function GET(request: Request) {
   const departDate = date(searchParams.get("departureDate") || searchParams.get("departDate"));
   const returnDate = date(searchParams.get("returnDate"));
 
-  const rawUrl = aviasalesUrl({ origin, destination, departDate, returnDate });
-
   return cachedJson({
-    mode: process.env.TRAVELPAYOUTS_TOKEN ? "api-ready" : "affiliate-fallback",
-    url: affiliateRedirectUrl({
-      provider: "aviasales",
-      url: rawUrl,
-      destination,
-      sourcePage: "travelpayouts_search_api",
-      campaign: "api_search",
-    }),
-    message: "Uçuş araması seçilen rota ve tarihlerle hazırlandı.",
+    mode: "google-flights",
+    url: googleFlightsUrl({ origin, destination, departDate, returnDate }),
+    message: "Google Flights araması seçilen rota ve tarihlerle hazırlandı.",
   }, CACHE_TIMES.AFFILIATE_SHORT);
 }

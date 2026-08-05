@@ -1,4 +1,4 @@
-import { aviasalesUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
+import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export type AiTripDay = {
   day: string;
@@ -199,14 +199,7 @@ export function createTripPlan(query: string): AiTripPlan {
     smartTips: destination.highlights,
     warnings: ["Fiyatlar tahmini değerlerdir.", "Uçuş fiyatları anlık değişebilir."],
     affiliateLinks: {
-      flights: trackedAffiliateUrl({
-        provider: "aviasales",
-        url: aviasalesUrl({ origin: originCode, destination: destination.code }),
-        source: "letsgo2travel_ai",
-        sourcePage: "ai_trip_planner",
-        destination: destination.code,
-        campaign: "ai_plan",
-      }),
+      flights: googleFlightsUrl({ origin: originCode, destination: destination.code }),
       hotels: trackedAffiliateUrl({
         provider: "booking",
         url: siteSettings.bookingAffiliateUrl,

@@ -39,6 +39,8 @@ await exists("mobile-dist/index.html", "mobil web paketi");
 await exists("mobile-dist/error.html", "mobil hata sayfası");
 await exists("android/app/src/main/AndroidManifest.xml", "Android manifest");
 await exists("android/app/src/main/assets/capacitor.config.json", "Android Capacitor ayarı");
+await exists("android/app/src/main/res/xml/backup_rules.xml", "Android yedekleme kuralları");
+await exists("android/app/src/main/res/xml/data_extraction_rules.xml", "Android veri aktarım kuralları");
 await exists("ios/App/App/Info.plist", "iOS Info.plist");
 
 const index = await text("mobile-dist/index.html");
@@ -54,6 +56,26 @@ if (cap && !cap.includes("CapacitorHttp")) errors.push("CapacitorHttp etkin değ
 const manifest = await text("android/app/src/main/AndroidManifest.xml");
 if (manifest && !manifest.includes('android.permission.INTERNET')) errors.push("Android INTERNET izni eksik.");
 if (manifest && !manifest.includes('android:scheme="tr.com.letsgo2travel.app"')) errors.push("Android OAuth özel URL şeması eksik.");
+if (manifest && !manifest.includes('android:allowBackup="false"')) errors.push("Android uygulama yedeklemesi kapalı değil.");
+if (manifest && !manifest.includes('android:dataExtractionRules="@xml/data_extraction_rules"')) errors.push("Android veri aktarım kuralları bağlı değil.");
+
+const androidBuild = await text("android/app/build.gradle");
+if (androidBuild && !androidBuild.includes("versionCode 3")) errors.push("Android versionCode 3 değil.");
+if (androidBuild && !androidBuild.includes('versionName "1.3.0"')) errors.push("Android versionName 1.3.0 değil.");
+for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
+  if (androidBuild && !androidBuild.includes(key)) errors.push(`Android release imza ayarı eksik: ${key}`);
+}
+
+const androidVariables = await text("android/variables.gradle");
+if (androidVariables && !/compileSdkVersion\s*=\s*36/.test(androidVariables)) errors.push("Android compileSdk API 36 değil.");
+if (androidVariables && !/targetSdkVersion\s*=\s*36/.test(androidVariables)) errors.push("Android targetSdk API 36 değil.");
+
+const mobilePackage = await text("mobile/package.json");
+if (mobilePackage && !mobilePackage.includes('"version": "1.3.0"')) errors.push("Mobil uygulama sürümü 1.3.0 değil.");
+const rootPackage = await text("package.json");
+if (rootPackage && rootPackage.includes("@capacitor/push-notifications")) errors.push("Yapılandırılmamış push eklentisi pakette kalmış.");
+const generatedPlugins = await optionalText("android/app/src/main/assets/capacitor.plugins.json");
+if (generatedPlugins.includes("@capacitor/push-notifications")) errors.push("Android yerel projede eski push eklentisi kalmış; cap sync çalıştırılmalı.");
 
 const plist = await text("ios/App/App/Info.plist");
 if (plist && !plist.includes("tr.com.letsgo2travel.app")) errors.push("iOS OAuth özel URL şeması eksik.");

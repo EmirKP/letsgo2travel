@@ -176,6 +176,26 @@ export async function deleteFlightAlert(id: string, accessToken: string) {
   });
 }
 
+export async function requestAccountDeletion(params: {
+  accessToken: string;
+  name: string;
+  email: string;
+  username?: string;
+}) {
+  return requestJson<{ success: boolean; message: string }>("/api/kvkk-requests", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.accessToken}` },
+    body: {
+      name: params.name,
+      email: params.email,
+      username: params.username || "",
+      requestType: "Hesabımı kapatmak istiyorum",
+      description: "Mobil uygulama içinden hesap ve ilişkili kişisel veriler için silme talebi oluşturuldu.",
+      confirmed: true,
+    },
+  });
+}
+
 
 function cleanText(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 600) : fallback;

@@ -23,7 +23,7 @@ export default function AdminDashboardPage() {
     currency: "TRY",
     visa_type: "schengen",
     region: "Avrupa",
-    affiliate_url: "https://www.aviasales.com/",
+    affiliate_url: "",
     image_url: "https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=400&auto=format&fit=crop",
   });
 
@@ -273,8 +273,8 @@ export default function AdminDashboardPage() {
                   <input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} style={{ padding: "12px", borderRadius: "10px", border: "1px solid var(--l2t-border)", outline: "none", background: "#f8fafc" }} required />
                 </label>
                 <label style={{ display: "flex", flexDirection: "column", gap: "6px", gridColumn: "1 / -1" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--l2t-soft)", textTransform: "uppercase" }}>Affiliate Link (URL)</span>
-                  <input value={form.affiliate_url} onChange={(e) => setForm({ ...form, affiliate_url: e.target.value })} style={{ padding: "12px", borderRadius: "10px", border: "1px solid var(--l2t-border)", outline: "none", background: "#f8fafc" }} required />
+                  <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--l2t-soft)", textTransform: "uppercase" }}>Uçuş Arama Bağlantısı</span>
+                  <input value="Kalkış ve varış kodlarından Google Flights bağlantısı otomatik oluşturulur." readOnly style={{ padding: "12px", borderRadius: "10px", border: "1px solid var(--l2t-border)", outline: "none", background: "#f8fafc", color: "#64748b" }} />
                 </label>
                 
                 {/* Görsel Yönetimi */}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
+import { googleFlightsUrl } from "@/lib/affiliate";
 import { createSearchAnswer, parseTravelSearch } from "@/lib/ai-search-parser";
 import { createTripPlan } from "@/lib/ai-trip-planner";
 
@@ -40,14 +40,7 @@ export async function POST(request: Request) {
   const query = body?.query?.trim() || "vizesiz uygun rota";
   const intent = parseTravelSearch(query);
   const aiAnswer = await askOpenAI(query);
-  const rawUrl = aviasalesUrl({ origin: intent.originCode, destination: intent.destinationCode });
-  const url = affiliateRedirectUrl({
-    provider: "aviasales",
-    url: rawUrl,
-    destination: intent.destinationCode,
-    sourcePage: "ai_search_box",
-    campaign: "ai_search",
-  });
+  const url = googleFlightsUrl({ origin: intent.originCode, destination: intent.destinationCode });
   const plan = createTripPlan(query);
 
   return NextResponse.json({

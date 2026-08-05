@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
   AlertCircle,
@@ -69,6 +70,7 @@ function AuthStory() {
 }
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -153,7 +155,7 @@ export default function RegisterPage() {
       }
 
       if (authData.session) {
-        window.location.assign("/profil");
+        router.push("/profil");
         return;
       }
 

@@ -12,7 +12,7 @@ export default function AcikRizaMetniPage() {
         <h1 style={{ color: 'var(--l2t-gold)', marginBottom: '24px', fontSize: '2.5rem' }}>Açık Rıza Metni</h1>
         
         <div className="l2t-card" style={{ padding: '32px', color: 'var(--l2t-soft)', lineHeight: '1.8' }}>
-          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Haziran 2026</p>
+          <p style={{ marginBottom: '16px' }}><strong>Son güncelleme tarihi:</strong> Ağustos 2026</p>
           
           <p style={{ marginBottom: '24px' }}>
             Bu Açık Rıza Metni, LetsGo2Travel platformunda doğrulanmış gezgin başvurusu yapmak isteyen kullanıcıların isteğe bağlı olarak belge yüklemesi kapsamında hazırlanmıştır.<br/><br/>
@@ -24,7 +24,7 @@ export default function AcikRizaMetniPage() {
             LetsGo2Travel platformunda belirli bir ülke veya şehir hakkında doğrulanmış gezgin olarak içerik paylaşabilmek için, seyahatime ilişkin belgeyi isteğe bağlı olarak yüklediğimi kabul ederim.
           </p>
           <p style={{ marginBottom: '16px' }}>
-            Yüklediğim belgenin yalnızca doğrulama amacıyla geçici olarak işleneceğini, ham belgenin kalıcı olarak saklanmayacağını, doğrulama kaydı oluşturulduktan sonra silineceğini biliyorum.
+            Yüklediğim belgenin yalnızca doğrulama amacıyla özel erişimli alanda geçici olarak işleneceğini; onay veya red kararında önce silineceğini ve karar verilmemiş olsa dahi yüklemeden itibaren en geç 30 gün içinde otomatik olarak silineceğini biliyorum.
           </p>
           <p style={{ marginBottom: '16px' }}>
             Yükleme öncesinde pasaport numarası, T.C. kimlik numarası, PNR kodu, QR kod, barkod, ödeme bilgisi, açık adres, telefon numarası ve gereksiz kişisel bilgileri kapatmam gerektiğini anladım.
@@ -39,7 +39,7 @@ export default function AcikRizaMetniPage() {
           <div style={{ padding: '16px', background: 'rgba(245, 184, 27, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 184, 27, 0.2)' }}>
             <h4 style={{ margin: '0 0 8px', color: 'var(--l2t-gold)' }}>Form Onay Metni</h4>
             <p style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>
-              "Doğrulanmış gezgin başvurusu kapsamında yüklediğim belgenin geçici olarak işlenmesine, doğrulama sonrası ham belgenin silinmesine ve yalnızca minimum doğrulama kaydının tutulmasına açık rıza veriyorum."
+              "Doğrulanmış gezgin başvurusu kapsamında yüklediğim belgenin geçici olarak işlenmesine, karar sırasında veya en geç 30 gün içinde ham belgenin silinmesine ve yalnızca minimum doğrulama kaydının tutulmasına açık rıza veriyorum."
             </p>
           </div>
         </div>

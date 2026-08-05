@@ -67,6 +67,21 @@ export async function POST(
   };
 
   try {
+    if (verification.evidence_path) {
+      const { error: removeError } = await supabase.storage
+        .from("travel-evidence")
+        .remove([verification.evidence_path]);
+      if (removeError) throw new Error("Özel belge silinemedi.");
+
+      const { error: clearPathError } = await supabase
+        .from("travel_verifications")
+        .update({ evidence_path: null, proof_deleted_at: reviewStartedAt })
+        .eq("id", id)
+        .eq("status", "pending")
+        .eq("reviewed_at", reviewStartedAt);
+      if (clearPathError) throw clearPathError;
+    }
+
     const unlockResult = await supabase.from("user_country_unlocks").upsert({
       user_id: verification.user_id,
       country_code: verification.country_code,
@@ -151,6 +166,7 @@ export async function POST(
         admin_note: adminNote || null,
         reviewed_by: reviewerId,
         reviewed_at: reviewStartedAt,
+        verified_at: reviewStartedAt,
       })
       .eq("id", id)
       .eq("status", "pending")
@@ -158,25 +174,6 @@ export async function POST(
       .select("id")
       .maybeSingle();
     if (completeError || !completed) throw completeError || new Error("Doğrulama durumu güncellenemedi.");
-
-    if (verification.evidence_path) {
-      const { error: removeError } = await supabase.storage
-        .from("travel-evidence")
-        .remove([verification.evidence_path]);
-      if (removeError) {
-        console.error("Approved evidence cleanup error", removeError);
-        return NextResponse.json(
-          { error: "Başvuru onaylandı ancak özel belge silinemedi. İşlemi yöneticinin tekrar kontrol etmesi gerekiyor." },
-          { status: 500 },
-        );
-      }
-
-      const { error: clearPathError } = await supabase
-        .from("travel_verifications")
-        .update({ evidence_path: null })
-        .eq("id", id);
-      if (clearPathError) console.error("Approved evidence path cleanup error", clearPathError);
-    }
 
     const auditResult = await supabase.from("admin_audit_logs").insert({
       admin_user_id: reviewerId,

@@ -54,8 +54,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const isAdminAuth = sessionResponse.ok && sessionPayload.authenticated === true;
         const path = window.location.pathname;
 
-        localStorage.removeItem("l2t-admin-password");
-
         if (path === "/admin/login") {
           if (!unmounted) {
             setIsAuthorized(true);

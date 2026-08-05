@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDealBySlug } from "@/lib/data";
-import { affiliateRedirectUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import JsonLd from "@/app/components/JsonLd";
 import { flightDealSchema } from "@/lib/structured-data";
 
@@ -24,13 +24,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
   const deal = await getDealBySlug(slug);
   if (!deal) notFound();
 
-  const flightUrl = affiliateRedirectUrl({
-    provider: "aviasales",
-    url: deal.affiliate_url,
-    destination: deal.destination_code || deal.destination,
-    sourcePage: `flight_deal_${deal.slug}`,
-    campaign: "flight_deal",
-  });
+  const flightUrl = googleFlightsUrl({ origin: deal.origin_code, destination: deal.destination_code, currency: deal.currency });
 
   return (
     <section className="l2t-page l2t-wrap">
@@ -126,7 +120,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
       <p className="l2t-disclaimer" style={{ marginTop: "16px" }}>
         Gösterilen tutar tahmini olabilir ve canlı fiyat değildir. Satıcı ekranında son fiyatı, bagajı ve koşulları kontrol et.
-        Letsgo2Travel, Travelpayouts iş ortağı olarak komisyon kazanabilir.
+        Uçuş karşılaştırması Google Flights üzerinde açılır; satın alma işlemi seçtiğiniz sağlayıcıda tamamlanır.
       </p>
 
       <div style={{ marginTop: "16px" }}>

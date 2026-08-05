@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing, Calendar, X, ArrowRight } from "lucide-react";
-import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
+import { googleFlightsUrl } from "@/lib/affiliate";
 
 interface Alert {
   id: string;
@@ -110,12 +110,10 @@ export default function UserPriceAlertsPage() {
       ) : (
         <div style={{ display: "grid", gap: "16px" }}>
           {alerts.map(alert => {
-            const link = affiliateRedirectUrl({
-              provider: "aviasales",
-              url: aviasalesUrl({ origin: alert.origin_code, destination: alert.destination_code, departDate: alert.departure_date }),
+            const link = googleFlightsUrl({
+              origin: alert.origin_code,
               destination: alert.destination_code,
-              sourcePage: "profile_price_alerts",
-              campaign: "price_alert",
+              departDate: alert.departure_date,
             });
             return (
               <div key={alert.id} className="glass-panel" style={{ padding: "20px", borderRadius: "16px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "20px", opacity: alert.is_active ? 1 : 0.6 }}>

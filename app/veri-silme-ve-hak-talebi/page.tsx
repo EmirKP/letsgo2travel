@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase-client';
 
 export default function KVKKRequestPage() {
   const [formData, setFormData] = useState({
@@ -15,6 +16,34 @@ export default function KVKKRequestPage() {
   
   const [status, setStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
+  const [accountDeletionRequested, setAccountDeletionRequested] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      const session = data.session;
+      const isAccountDeletion = new URLSearchParams(window.location.search).get('request') === 'account_deletion';
+      setAccountDeletionRequested(isAccountDeletion);
+      setAccessToken(session?.access_token || '');
+      if (session?.user) {
+        const metadata = session.user.user_metadata || {};
+        setFormData((current) => ({
+          ...current,
+          name: current.name || String(metadata.full_name || metadata.name || ''),
+          email: session.user.email || '',
+          username: current.username || String(metadata.username || ''),
+          requestType: isAccountDeletion
+            ? 'Hesabımı kapatmak istiyorum'
+            : current.requestType,
+        }));
+      }
+      setSessionReady(true);
+    });
+    return () => { active = false; };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,18 +56,19 @@ export default function KVKKRequestPage() {
       return;
     }
 
+    if (!accessToken) {
+      setStatus({ type: 'error', message: 'Talep göndermek için hesabınıza giriş yapmalısınız.' });
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/kvkk-requests', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
         },
-        // Oturum cookie / token göndermesi otomatik yapılır (middleware varsa), 
-        // Eğer client-side auth state varsa buraya eklenmeli. 
-        // Supabase session'ı genelde localStorage veya cookie'de durur. 
-        // Supabase-js olmadan basit fetch attığımızda API'deki route auth bekliyor olabilir.
-        // O yüzden API'yi geçici olarak user_id'siz kabul edecek şekilde yapılandıramadık çünkü şema NOT NULL istiyor.
-        // Kullanıcı giriş yapmamışsa API 401 dönecektir. Formda belirteceğiz.
         body: JSON.stringify(formData)
       });
 
@@ -57,8 +87,8 @@ export default function KVKKRequestPage() {
         description: '',
         confirmed: false
       });
-    } catch (err: any) {
-      setStatus({ type: 'error', message: err.message });
+    } catch (err: unknown) {
+      setStatus({ type: 'error', message: err instanceof Error ? err.message : 'Talep gönderilemedi.' });
     } finally {
       setLoading(false);
     }
@@ -83,6 +113,13 @@ export default function KVKKRequestPage() {
         <p style={{ textAlign: 'center', color: 'var(--l2t-muted)', marginBottom: '32px' }}>
           Kişisel verilerinizle ilgili taleplerinizi bu sayfa üzerinden iletebilirsiniz. Başvurunuzun değerlendirilebilmesi için giriş yapmış olmanız gereklidir.
         </p>
+
+        {sessionReady && !accessToken && (
+          <div className="l2t-card" style={{ padding: '18px', marginBottom: '20px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 12px', color: 'var(--l2t-soft)' }}>Kimliğinizi doğrulayabilmemiz için önce hesabınıza giriş yapın.</p>
+            <Link href={`/auth/login?next=${encodeURIComponent(accountDeletionRequested ? '/veri-silme-ve-hak-talebi?request=account_deletion&source=google-play' : '/veri-silme-ve-hak-talebi')}`} className="l2t-btn">Giriş yap</Link>
+          </div>
+        )}
         
         <div className="l2t-card" style={{ padding: '32px' }}>
           {status && (
@@ -120,6 +157,7 @@ export default function KVKKRequestPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
+                readOnly={Boolean(accessToken)}
                 className="l2t-input"
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
               />
@@ -186,15 +224,15 @@ export default function KVKKRequestPage() {
 
             <button 
               type="submit" 
-              disabled={loading || !formData.confirmed}
+              disabled={loading || !formData.confirmed || !accessToken}
               style={{
-                background: formData.confirmed ? 'var(--l2t-gold)' : 'rgba(255,255,255,0.1)',
-                color: formData.confirmed ? '#000' : 'rgba(255,255,255,0.4)',
+                background: formData.confirmed && accessToken && !loading ? 'var(--l2t-gold)' : 'rgba(255,255,255,0.1)',
+                color: formData.confirmed && accessToken && !loading ? '#000' : 'rgba(255,255,255,0.4)',
                 padding: '16px',
                 borderRadius: '8px',
                 border: 'none',
                 fontWeight: 'bold',
-                cursor: formData.confirmed && !loading ? 'pointer' : 'not-allowed',
+                cursor: formData.confirmed && accessToken && !loading ? 'pointer' : 'not-allowed',
                 marginTop: '16px',
                 transition: 'all 0.2s ease'
               }}
@@ -202,7 +240,7 @@ export default function KVKKRequestPage() {
               {loading ? 'Gönderiliyor...' : 'Talebi Gönder'}
             </button>
             <p style={{fontSize: '0.8rem', color: 'var(--l2t-muted)', textAlign: 'center', marginTop: '8px'}}>
-              Eğer form hata verirse (Geçersiz oturum), lütfen <Link href="/auth/login" style={{color: 'var(--l2t-gold)'}}>giriş yapın</Link>. KVKK talepleri sadece doğrulanmış kullanıcılardan alınabilmektedir.
+              Talep, yalnızca giriş yaptığınız hesabın doğrulanmış e-posta adresiyle eşleştirilir. Hesap silme işlemi yönetici onayı olmadan otomatik başlamaz.
             </p>
           </form>
         </div>

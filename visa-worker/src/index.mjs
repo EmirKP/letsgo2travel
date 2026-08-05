@@ -4,10 +4,9 @@ import { probeProviderTarget } from "./providers/probe.mjs";
 const apiBaseUrl = String(process.env.API_BASE_URL || "").replace(/\/$/, "");
 const workerSecret = process.env.VISA_WORKER_SECRET || "";
 const workerName = process.env.WORKER_NAME || "visa-worker-01";
-const workerVersion = process.env.WORKER_VERSION || "0.5.0";
+const workerVersion = process.env.WORKER_VERSION || "0.6.0";
 const workerStartedAt = new Date().toISOString();
 const pollInterval = Math.max(60_000, Number(process.env.POLL_INTERVAL_MS) || 60_000);
-const demoMatchMode = process.env.DEMO_MATCH_MODE || "none";
 
 if (!apiBaseUrl || !workerSecret) {
   console.error("API_BASE_URL ve VISA_WORKER_SECRET zorunludur.");
@@ -45,15 +44,7 @@ async function sendHeartbeat(status, lastError = "") {
   }
 }
 
-async function checkDemoJob(job) {
-  if (demoMatchMode === "always") {
-    return { outcome: "slot_found", message: "Demo worker uygun tarih üretti.", availableDates: [job.earliest_date] };
-  }
-  return { outcome: "no_slots", message: "Demo kontrol tamamlandı; uygun tarih bulunamadı.", availableDates: [] };
-}
-
 async function checkJob(job) {
-  if (job.provider_code === "demo") return checkDemoJob(job);
   if (job.provider_code === "idata") return checkIdataJob(job);
   return {
     outcome: "provider_unavailable",

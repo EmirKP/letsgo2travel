@@ -117,7 +117,7 @@ export default function VisaAppointmentsAdminPage() {
 
   async function runAction(
     id: string,
-    action: "activate_demo" | "activate_idata" | "simulate_match" | "reset_pending" | "retry_check",
+    action: "activate_idata" | "reset_pending" | "retry_check",
   ) {
     setError("");
     setBusyId(id);
@@ -237,8 +237,6 @@ export default function VisaAppointmentsAdminPage() {
                             </button>
                           )}
                           <button type="button" onClick={() => void runAction(row.id, "activate_idata")} disabled={row.country_code !== "DE" || busyId === row.id}>iDATA aç</button>
-                          <button type="button" onClick={() => void runAction(row.id, "activate_demo")} disabled={busyId === row.id}>Demo aç</button>
-                          <button type="button" onClick={() => void runAction(row.id, "simulate_match")} disabled={busyId === row.id}>Eşleşme testi</button>
                           <button type="button" onClick={() => void runAction(row.id, "reset_pending")} disabled={busyId === row.id}>Sıfırla</button>
                         </div>
                       </td>

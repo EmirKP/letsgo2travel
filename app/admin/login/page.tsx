@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Lock, Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 
 export default function AdminLogin() {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,13 +19,13 @@ export default function AdminLogin() {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (response.ok) {
-          localStorage.removeItem("l2t-admin-password");
-          window.location.href = "/admin";
+          router.replace("/admin");
+          router.refresh();
         }
       }
     };
     checkSupabaseAuth();
-  }, []);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +42,8 @@ export default function AdminLogin() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.removeItem("l2t-admin-password");
-        window.location.href = "/admin";
+        router.replace("/admin");
+        router.refresh();
       } else {
         setError(data.error || "Giriş başarısız.");
         setLoading(false);

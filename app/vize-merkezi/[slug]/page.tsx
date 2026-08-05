@@ -16,8 +16,9 @@ export default async function VizeDetayPage({ params }: { params: Promise<{ slug
 
   const { data: page } = await supabase
     .from('visa_center_pages')
-    .select('*')
+    .select('country_code,country_name,visa_title,visa_type,summary,who_should_apply,appointment_status,appointment_note,official_source_url,last_checked_at,is_active')
     .eq('slug', slug)
+    .eq('is_active', true)
     .single();
 
   if (!page) return notFound();

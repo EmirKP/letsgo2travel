@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
           env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
         supportEmail:
           env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
-        appVersion: env.VITE_APP_VERSION || "1.2.0",
+        appVersion: env.VITE_APP_VERSION || "1.3.0",
       }),
     },
     build: {

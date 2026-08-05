@@ -10,12 +10,7 @@ LETSGO2TRAVEL VİZE RANDEVU ASİSTANI - İLK KURULUM
 7) /admin/vize-randevulari sayfasında kaydı kontrol et.
 
 ÖNEMLİ:
-- Bu paket gerçek randevu sağlayıcılarını henüz otomatik kontrol etmez.
-- Kullanıcı paneli, veritabanı, takip kuyruğu, admin paneli ve VDS worker API sözleşmesi hazırdır.
-- iDATA, VFS, TLScontact, BLS ve diğer sağlayıcılar ayrı ayrı doğrulanıp etkinleştirilecektir.
+- Worker yalnızca doğrulanmış gerçek sağlayıcı adaptörlerini işler; sahte/demo eşleşme üretmez.
+- iDATA dışındaki VFS, TLScontact, BLS ve diğer sağlayıcılar ayrı ayrı doğrulanmadan etkinleştirilmez.
 - CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayı atlanmaz.
-
-DEMO TESTİ:
-- /admin/vize-randevulari sayfasında bir kaydı demo worker için etkinleştirebilirsin.
-- VDS olmadan da "Test eşleşmesi" işlemiyle kullanıcı ekranını doğrulayabilirsin.
-- VDS kurulduğunda docker-compose.visa-worker.yml kullanılacak.
+- Güncel kurulum sırası için proje kökündeki 00-ONCE-BUNU-OKU.txt dosyasını kullan.
