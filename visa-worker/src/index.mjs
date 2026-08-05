@@ -104,15 +104,6 @@ async function runAppointmentJobs() {
   return jobs.length;
 }
 
-async function sendHeartbeat() {
-  await api("/api/internal/visa-appointments/heartbeat", {
-    workerName,
-    status: "online",
-    pollIntervalMs: pollInterval,
-    workerVersion,
-    startedAt: workerStartedAt,
-  });
-}
 
 async function runOnce() {
   await sendHeartbeat();
