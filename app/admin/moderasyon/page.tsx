@@ -100,7 +100,7 @@ export default function ModerationPanel() {
       } else {
         alert("Hata oluştu");
       }
-    } catch (err) {
+    } catch {
       alert("Sunucu hatası");
     }
   };
@@ -279,7 +279,7 @@ export default function ModerationPanel() {
                       <strong>Yetkili Kişi:</strong> {objection.authorized_person} <br/>
                       <strong>E-posta:</strong> {objection.email} <br/>
                       <strong>Talep Türü:</strong> {objection.objection_type} <br/>
-                      <strong>Bağlantı:</strong> <a href={objection.content_url} target="_blank" style={{color: 'var(--l2t-gold)'}}>{objection.content_url}</a> <br/>
+                      <strong>Bağlantı:</strong> <a href={objection.content_url} target="_blank" rel="noopener noreferrer" style={{color: 'var(--l2t-gold)'}}>{objection.content_url}</a> <br/>
                       <strong>Açıklama:</strong> {objection.description} <br/>
                       <strong>Tarih:</strong> {new Date(objection.created_at).toLocaleString('tr-TR')}
                     </p>

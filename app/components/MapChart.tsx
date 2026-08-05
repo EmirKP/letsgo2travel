@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useState } from "react";
+import { memo } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -8,7 +8,6 @@ import {
   ZoomableGroup,
   Marker
 } from "react-simple-maps";
-import { Plane, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";

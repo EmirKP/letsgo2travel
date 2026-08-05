@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, Crown, Globe2, AlertTriangle, UserPlus, MapPin, Sparkles, ShieldCheck, Gift } from "lucide-react";
+import { Trophy, Crown, Globe2, MapPin, Sparkles, ShieldCheck, Gift } from "lucide-react";
 import Link from "next/link";
 
 export default function KasiflerLigiPage() {

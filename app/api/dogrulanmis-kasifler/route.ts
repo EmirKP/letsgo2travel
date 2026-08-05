@@ -63,7 +63,7 @@ export async function GET() {
       }
     });
 
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası", data: [] }, { status: 500 });
   }
 }

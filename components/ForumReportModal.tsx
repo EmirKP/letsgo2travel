@@ -88,7 +88,7 @@ export default function ForumReportButton({ targetId, targetType }: ReportModalP
       } else {
         setSuccess("Raporunuz incelenmek üzere gönderildi. Topluluğa katkınız için teşekkürler.");
       }
-    } catch (err: any) {
+    } catch {
       setError("Bağlantı hatası oluştu.");
     } finally {
       setIsSubmitting(false);

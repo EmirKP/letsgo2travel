@@ -5,13 +5,12 @@ import Link from "next/link";
 import { 
   ArrowLeft, AlertTriangle, CheckCircle, XCircle, EyeOff, Trash2, Loader2, 
   Search, Filter, ChevronLeft, ChevronRight, MessageSquare, FileText, 
-  Flag, CheckSquare, X, AlignLeft, Calendar, User
+  Flag, CheckSquare, X, AlignLeft, Calendar
 } from "lucide-react";
 
 type TabType = "topics" | "replies" | "reports";
 
 export default function AdminForumPage() {
-  const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("topics");
   
   // Data states
@@ -28,6 +27,8 @@ export default function AdminForumPage() {
   const limit = 20;
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedStatus, setAppliedStatus] = useState("");
   
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -39,17 +40,17 @@ export default function AdminForumPage() {
   });
   const [modNote, setModNote] = useState("");
 
-  const fetchStats = useCallback(async (pass: string) => {
+  const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/forum/stats", { headers: { "x-admin-password": pass } });
+      const res = await fetch("/api/admin/forum/stats");
       if (res.ok) {
         const json = await res.json();
         setStats(json.data || {});
       }
-    } catch (e) {}
+    } catch {}
   }, []);
 
-  const fetchData = useCallback(async (pass: string, currentTab: TabType, currentPage: number, currentSearch: string, currentStatus: string) => {
+  const fetchData = useCallback(async (currentTab: TabType, currentPage: number, currentSearch: string, currentStatus: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -59,7 +60,7 @@ export default function AdminForumPage() {
       
       const endpoint = `/api/admin/forum/${currentTab}${query}`;
       
-      const res = await fetch(endpoint, { headers: { "x-admin-password": pass } });
+      const res = await fetch(endpoint);
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) throw new Error("Admin yetkisi doğrulanamadı.");
@@ -79,27 +80,20 @@ export default function AdminForumPage() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem("l2t-admin-password") || "";
-    if (saved) {
-      setPassword(saved);
-      fetchStats(saved);
-      fetchData(saved, activeTab, page, search, filterStatus);
-    } else {
-      setError("Admin yetkisi doğrulanamadı.");
-      setIsLoading(false);
-    }
-  }, [activeTab, page, fetchStats, fetchData]); // Debounce search in a real app, here we will trigger manually or on blur
+    fetchStats();
+    fetchData(activeTab, page, appliedSearch, appliedStatus);
+  }, [activeTab, page, appliedSearch, appliedStatus, fetchStats, fetchData]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchData(password, activeTab, 1, search, filterStatus);
+    setAppliedSearch(search.trim());
   };
 
   const handleFilterChange = (status: string) => {
     setFilterStatus(status);
     setPage(1);
-    fetchData(password, activeTab, 1, search, status);
+    setAppliedStatus(status);
   };
 
   const handleTabChange = (tab: TabType) => {
@@ -107,6 +101,8 @@ export default function AdminForumPage() {
     setPage(1);
     setSearch("");
     setFilterStatus("");
+    setAppliedSearch("");
+    setAppliedStatus("");
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,8 +134,7 @@ export default function AdminForumPage() {
       const res = await fetch(`/api/admin/forum/${type}`, {
         method,
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
       });
@@ -147,8 +142,8 @@ export default function AdminForumPage() {
       if (!res.ok) throw new Error("İşlem sırasında hata oluştu.");
       
       // refresh
-      fetchStats(password);
-      fetchData(password, activeTab, page, search, filterStatus);
+      fetchStats();
+      fetchData(activeTab, page, appliedSearch, appliedStatus);
       setDetailItem(null);
     } catch (err: any) {
       alert(err.message);
@@ -176,7 +171,7 @@ export default function AdminForumPage() {
     }
   };
 
-  // Error State Render (with password input)
+  // Error State Render
   if (error) {
     return (
       <div className="l2t-page l2t-wrap" style={{ minHeight: "80vh", padding: "60px 20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -185,38 +180,18 @@ export default function AdminForumPage() {
           <h1 style={{ fontSize: "1.8rem", color: "var(--l2t-navy)", marginBottom: "16px" }}>Erişim Reddedildi</h1>
           <p style={{ color: "var(--l2t-soft)", marginBottom: "24px" }}>{error}</p>
           
-          <div style={{ marginBottom: "32px", textAlign: "left" }}>
-            <label style={{ display: "block", marginBottom: "8px", color: "var(--l2t-navy)", fontWeight: "600", fontSize: "0.95rem" }}>Admin Şifresi</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Şifrenizi girin..."
-              style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: "none", fontSize: "1rem" }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && password) {
-                  localStorage.setItem("l2t-admin-password", password);
-                  setError(null);
-                  fetchStats(password);
-                  fetchData(password, activeTab, page, search, filterStatus);
-                }
-              }}
-            />
-            <button 
-              onClick={() => {
-                if (password) {
-                  localStorage.setItem("l2t-admin-password", password);
-                  setError(null);
-                  fetchStats(password);
-                  fetchData(password, activeTab, page, search, filterStatus);
-                }
-              }} 
-              className="l2t-btn" 
-              style={{ width: "100%", background: "var(--l2t-blue)", color: "#fff", padding: "14px", marginTop: "12px", border: "none", borderRadius: "12px", cursor: "pointer", fontWeight: "600" }}
-            >
-              Giriş Yap
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              fetchStats();
+              fetchData(activeTab, page, search, filterStatus);
+            }}
+            className="l2t-btn"
+            style={{ width: "100%", marginBottom: "24px" }}
+          >
+            Yeniden Dene
+          </button>
 
           <Link href="/admin/dashboard" style={{ color: "var(--l2t-soft)", textDecoration: "none", fontSize: "0.95rem", display: "inline-block" }}>
             Veya Dashboard'a Dön
@@ -469,14 +444,14 @@ export default function AdminForumPage() {
               <div style={{ display: "flex", gap: "8px" }}>
                 <button 
                   disabled={page === 1}
-                  onClick={() => { setPage(p => p - 1); fetchData(password, activeTab, page - 1, search, filterStatus); }}
+                  onClick={() => { setPage(p => p - 1); fetchData(activeTab, page - 1, search, filterStatus); }}
                   style={{ background: page === 1 ? "#F1F5F9" : "#fff", color: page === 1 ? "#9CA3AF" : "var(--l2t-navy)", border: "1px solid #E2E8F0", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", cursor: page === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}
                 >
                   <ChevronLeft size={18} /> Önceki
                 </button>
                 <button 
                   disabled={page === totalPages}
-                  onClick={() => { setPage(p => p + 1); fetchData(password, activeTab, page + 1, search, filterStatus); }}
+                  onClick={() => { setPage(p => p + 1); fetchData(activeTab, page + 1, search, filterStatus); }}
                   style={{ background: page === totalPages ? "#F1F5F9" : "#fff", color: page === totalPages ? "#9CA3AF" : "var(--l2t-navy)", border: "1px solid #E2E8F0", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", cursor: page === totalPages ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}
                 >
                   Sonraki <ChevronRight size={18} />

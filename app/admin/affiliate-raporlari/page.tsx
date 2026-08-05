@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, BarChart3, MousePointerClick, ShieldCheck } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminServer } from "@/lib/admin-server";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ async function getReportData() {
 }
 
 export default async function AdminReportsPage() {
+  await requireAdminServer(["admin", "super_admin"]);
   const { clicks, moderationLogs, error } = await getReportData();
   const providerStats = Object.entries(countBy(clicks.map((click) => click.provider))).sort((a, b) => b[1] - a[1]);
   const topDestinations = Object.entries(countBy(clicks.map((click) => click.destination || "Belirtilmedi"))).sort((a, b) => b[1] - a[1]).slice(0, 6);

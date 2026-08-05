@@ -58,8 +58,7 @@ export async function GET() {
         'Cache-Control': 'no-store, max-age=0'
       }
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası", data: [] }, { status: 500 });
   }
 }
-

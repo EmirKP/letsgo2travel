@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, ShieldCheck, Crown, AlertOctagon, EyeOff, CheckCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase-client";
+import { Trophy, AlertOctagon, EyeOff, CheckCircle } from "lucide-react";
+
+type LeaderboardEntry = {
+  id: string;
+  username: string | null;
+  visitedCount: number;
+  hidden: boolean;
+};
 
 export default function AdminKasiflerLigiPage() {
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [verifiedLeaders, setVerifiedLeaders] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -15,40 +21,41 @@ export default function AdminKasiflerLigiPage() {
 
   const fetchData = async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
-      // Bütün opt-in yapmış kullanıcıları (gizlenmiş olanlar dahil) getir.
-      // Profil üzerinden SQL ile leaderboard_hidden, opt_in_leaderboard ve visited_countries çekilecek
-      // RLS'i aşmak için API yazılabilirdi ancak admin olarak Supabase service client ile de alınabilir.
-      // Ya da mevcut /api/kasifler-ligi ve /api/dogrulanmis-kasifler kullanılabilir ama onlar 'gizli' olanları filtreliyor.
-      // Admin için her şeyi çeken özel bir sorgu yapmalıyız. 
-      // Ancak hızlı çözüm için şimdilik client'tan tüm profilleri admin yetkisiyle çekmeye çalışıyoruz. 
-      // Not: Eger profillerde RLS varsa auth.uid() izin vermezse bos doner. 
-      // Admin API si yapmadığımız için standart çekmeyi deniyoruz, adminse okur:
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username, email, visited_countries, leaderboard_hidden, opt_in_leaderboard')
-        .eq('opt_in_leaderboard', true);
-
-      if (profiles) {
-        setLeaderboard(profiles.sort((a, b) => (b.visited_countries?.length || 0) - (a.visited_countries?.length || 0)));
+      const response = await fetch("/api/admin/leaderboard", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Katılımcılar alınamadı.");
       }
-
-    } catch (err) {
-      console.error(err);
+      setLeaderboard(Array.isArray(payload.data) ? payload.data : []);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Katılımcılar alınamadı.");
     } finally {
       setLoading(false);
     }
   };
 
   const toggleHideUser = async (userId: string, currentHidden: boolean) => {
+    setErrorMessage("");
     try {
-      const { error } = await supabase.from('profiles').update({ leaderboard_hidden: !currentHidden }).eq('id', userId);
-      if (!error) {
-        setLeaderboard(prev => prev.map(p => p.id === userId ? { ...p, leaderboard_hidden: !currentHidden } : p));
-      } else {
-        alert("Güncellenemedi.");
+      const response = await fetch("/api/admin/leaderboard", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, hidden: !currentHidden }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Görünürlük güncellenemedi.");
       }
-    } catch (e) {}
+      setLeaderboard((current) =>
+        current.map((entry) =>
+          entry.id === userId ? { ...entry, hidden: !currentHidden } : entry,
+        ),
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Görünürlük güncellenemedi.");
+    }
   };
 
   return (
@@ -64,6 +71,12 @@ export default function AdminKasiflerLigiPage() {
           <Trophy color="#F59E0B" /> Beyan Esaslı Katılımcılar
         </h2>
 
+        {errorMessage ? (
+          <div role="alert" style={{ padding: "16px", marginBottom: "20px", borderRadius: "12px", background: "#fef2f2", color: "#b91c1c" }}>
+            {errorMessage}
+          </div>
+        ) : null}
+
         {loading ? (
           <div style={{ padding: "40px", textAlign: "center", color: "var(--l2t-soft)" }}>Yükleniyor...</div>
         ) : leaderboard.length === 0 ? (
@@ -75,7 +88,6 @@ export default function AdminKasiflerLigiPage() {
                 <tr style={{ borderBottom: "2px solid #f1f5f9" }}>
                   <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600" }}>Sıra</th>
                   <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600" }}>Kullanıcı</th>
-                  <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600" }}>E-posta</th>
                   <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600" }}>Beyan Edilen Ülke</th>
                   <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600" }}>Durum</th>
                   <th style={{ padding: "16px 12px", color: "var(--l2t-soft)", fontWeight: "600", textAlign: "right" }}>İşlem</th>
@@ -83,13 +95,12 @@ export default function AdminKasiflerLigiPage() {
               </thead>
               <tbody>
                 {leaderboard.map((l, index) => {
-                  const isHidden = l.leaderboard_hidden === true;
+                  const isHidden = l.hidden;
                   return (
                     <tr key={l.id} style={{ borderBottom: "1px solid #f1f5f9", background: isHidden ? "#fff1f2" : "transparent" }}>
                       <td style={{ padding: "16px 12px", fontWeight: "700", color: "var(--l2t-navy)" }}>#{index + 1}</td>
                       <td style={{ padding: "16px 12px", color: "var(--l2t-navy)", fontWeight: "600", textTransform: "capitalize" }}>{l.username || "Gezgin"}</td>
-                      <td style={{ padding: "16px 12px", color: "var(--l2t-soft)" }}>{l.email}</td>
-                      <td style={{ padding: "16px 12px", fontWeight: "800", color: "var(--l2t-blue)" }}>{l.visited_countries?.length || 0}</td>
+                      <td style={{ padding: "16px 12px", fontWeight: "800", color: "var(--l2t-blue)" }}>{l.visitedCount}</td>
                       <td style={{ padding: "16px 12px" }}>
                         {isHidden ? (
                           <span style={{ color: "#ef4444", fontSize: "0.85rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}><EyeOff size={14} /> Gizlendi</span>

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { useRouter } from "next/navigation";
-import { Save, Check, Share2, Calendar, Luggage, Lightbulb, Sparkles, Plane } from "lucide-react";
+import { Save, Check, Share2, Calendar, Luggage, Lightbulb, Sparkles } from "lucide-react";
+import { getSiteUrl } from "@/lib/site-url";
 
 type AiTripDay = { day: string; title: string; text: string };
 type AiTripPlan = {
@@ -98,13 +99,13 @@ export default function AITripPlanner() {
 
   const handleShareWhatsApp = () => {
     if (!plan) return;
-    const text = `LetsGo2Travel Rota Asistanı ile harika bir rota çizdim! İstikamet: ${plan.destination}. Sen de göz at: https://letsgo2travel.vercel.app`;
+    const text = `LetsGo2Travel Rota Asistanı ile harika bir rota çizdim! İstikamet: ${plan.destination}. Sen de göz at: ${getSiteUrl()}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const handleShareTwitter = () => {
     if (!plan) return;
-    const text = `LetsGo2Travel Rota Asistanı ile ${plan.destination} için harika bir seyahat rotası oluşturdum! Sen de dene: https://letsgo2travel.vercel.app #Seyahat #LetsGo2Travel`;
+    const text = `LetsGo2Travel Rota Asistanı ile ${plan.destination} için harika bir seyahat rotası oluşturdum! Sen de dene: ${getSiteUrl()} #Seyahat #LetsGo2Travel`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -202,7 +203,7 @@ export default function AITripPlanner() {
           <div className="l2t-ai-plan-columns">
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <h4 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", borderBottom: "2px solid #e2e8f0", paddingBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}><Calendar size={20} color="#1476f2" /> Günlük Mini Plan</h4>
-              {plan.itinerary.map((item, idx) => (
+              {plan.itinerary.map((item) => (
                 <article key={`${item.day}-${item.title}`} style={{ background: "#f8fafc", padding: "16px", borderRadius: "12px", borderLeft: "4px solid var(--l2t-blue)", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
                   <small style={{ color: "var(--l2t-blue)", fontWeight: "800", fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "1px" }}>{item.day}</small>
                   <h5 style={{ fontSize: "1.1rem", margin: "4px 0 8px", color: "var(--l2t-navy)" }}>{item.title}</h5>

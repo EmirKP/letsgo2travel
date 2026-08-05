@@ -60,12 +60,12 @@ export default function AdminHome() {
           <span style={{ color: "#059669", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Kullanıcıları Yönet &rarr;</span>
         </Link>
 
-        <Link href="/admin/seyahat-dogrulama" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <Link href="/admin/dogrulamalar" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ width: "64px", height: "64px", borderRadius: "16px", background: "#ecfdf5", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ShieldCheck size={32} />
           </div>
           <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Seyahat Doğrulama</h3>
-          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Kullanıcıların konum ve belge doğrulama taleplerini incele, onayla veya reddet.</p>
+          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Kullanıcıların belge doğrulama taleplerini incele, onayla veya reddet.</p>
           <span style={{ color: "#10b981", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Doğrulamaları Aç &rarr;</span>
         </Link>
 

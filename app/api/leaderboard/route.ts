@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

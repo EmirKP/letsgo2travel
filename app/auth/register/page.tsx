@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 import styles from "./Auth.module.css";
 
@@ -83,7 +84,7 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const siteUrl = getSiteUrl();
       const redirectTo = Capacitor.isNativePlatform()
         ? "tr.com.letsgo2travel.app://auth/callback"
         : `${siteUrl}/auth/callback`;
@@ -104,20 +105,20 @@ export default function RegisterPage() {
   const validateFields = () => {
     const nextErrors: RegisterFieldErrors = {};
 
-    if (name.trim().length < 2) {
-      nextErrors.name = "Ad soyad en az 2 karakter olmalıdır.";
+    if (name.trim().length < 2 || name.trim().length > 100) {
+      nextErrors.name = "Ad soyad 2–100 karakter arasında olmalıdır.";
     }
 
-    if (username.trim().length < 3) {
-      nextErrors.username = "Kullanıcı adı en az 3 karakter olmalıdır.";
+    if (!/^[\p{L}\p{N}._-]{3,30}$/u.test(username.trim())) {
+      nextErrors.username = "Kullanıcı adı 3–30 karakter olmalı; yalnızca harf, rakam, nokta, tire ve alt çizgi içermelidir.";
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       nextErrors.email = "Geçerli bir e-posta adresi yazın.";
     }
 
-    if (password.length < 6) {
-      nextErrors.password = "Şifre en az 6 karakter olmalıdır.";
+    if (password.length < 8 || password.length > 128) {
+      nextErrors.password = "Şifre 8–128 karakter arasında olmalıdır.";
     }
 
     setFieldErrors(nextErrors);
@@ -136,20 +137,23 @@ export default function RegisterPage() {
 
     try {
 
-      const { error: authError } = await supabase.auth.signUp({
-        email,
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
         password,
         options: {
           data: { full_name: name.trim(), username: username.trim() },
+          emailRedirectTo: `${getSiteUrl()}/auth/callback`,
         },
       });
 
       if (authError) {
-        setError(
-          authError.message.includes("already registered")
-            ? "Bu e-posta adresi zaten kayıtlı. Giriş yapmayı deneyin."
-            : `Kayıt başarısız: ${authError.message}`,
-        );
+        console.error("Registration failed", authError.message);
+        setError("Kayıt tamamlanamadı. Bilgileri kontrol edin veya mevcut hesabınız için giriş/şifre sıfırlama seçeneklerini deneyin.");
+        return;
+      }
+
+      if (authData.session) {
+        window.location.assign("/profil");
         return;
       }
 
@@ -208,6 +212,7 @@ export default function RegisterPage() {
                     aria-invalid={Boolean(fieldErrors.name)}
                     aria-describedby={fieldErrors.name ? "register-name-error" : undefined}
                     required
+                    maxLength={100}
                     placeholder="Adın ve soyadın"
                     value={name}
                     onChange={(event) => {
@@ -230,6 +235,7 @@ export default function RegisterPage() {
                     aria-describedby={fieldErrors.username ? "register-username-error" : undefined}
                     required
                     minLength={3}
+                    maxLength={30}
                     placeholder="Toplulukta görünecek ad"
                     value={username}
                     onChange={(event) => {
@@ -253,6 +259,7 @@ export default function RegisterPage() {
                   aria-describedby={fieldErrors.email ? "register-email-error" : undefined}
                   inputMode="email"
                   required
+                  maxLength={254}
                   placeholder="ornek@email.com"
                   value={email}
                   onChange={(event) => {
@@ -274,8 +281,9 @@ export default function RegisterPage() {
                   aria-invalid={Boolean(fieldErrors.password)}
                   aria-describedby={fieldErrors.password ? "register-password-error" : undefined}
                   required
-                  minLength={6}
-                  placeholder="En az 6 karakter"
+                  minLength={8}
+                  maxLength={128}
+                  placeholder="En az 8 karakter"
                   value={password}
                   onChange={(event) => {
                     setPassword(event.target.value);

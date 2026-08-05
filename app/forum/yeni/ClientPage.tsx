@@ -129,7 +129,7 @@ function NewTopicForm({ session }: { session: any }) {
           router.push(selectedCountrySlug ? `/forum/ulke/${selectedCountrySlug}` : "/forum");
         }, 3000);
       }
-    } catch (err: any) {
+    } catch {
       setError("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
     } finally {
       setIsSubmitting(false);

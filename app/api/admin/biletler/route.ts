@@ -14,10 +14,9 @@ export async function POST(request: Request) {
   if (authError) return authError;
   const body = await request.json();
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ data: { ...body, id: Date.now(), active: true }, message: "Demo mod: Supabase bağlı değil." });
+  if (!supabase) return NextResponse.json({ error: "Veritabanı bağlantısı kurulamadı." }, { status: 503 });
   const { data, error } = await supabase.from("biletler").insert(body).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidateTag("flight-deals", "max");
   return NextResponse.json({ data });
 }
-

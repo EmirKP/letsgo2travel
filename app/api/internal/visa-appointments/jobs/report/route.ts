@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendMail } from "@/lib/mail";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorizedVisaWorker } from "@/lib/visa-appointments/worker-auth";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -9,14 +11,34 @@ type Outcome = (typeof OUTCOMES)[number];
 
 const EVIDENCE_BUCKET = "visa-appointment-evidence";
 
-function authorized(request: Request) {
-  const expected = process.env.VISA_WORKER_SECRET;
-  const received = request.headers.get("x-worker-secret");
-  return Boolean(expected && received && expected === received);
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  })[character] || character);
 }
 
-function siteUrl() {
-  return String(process.env.NEXT_PUBLIC_SITE_URL || "https://www.letsgo2travel.com.tr").replace(/\/$/, "");
+function cleanAvailableDates(value: unknown, earliestDate: string, latestDate: string) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .map((item) => String(item).trim())
+    .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item))
+    .filter((item) => item >= earliestDate && item <= latestDate))]
+    .slice(0, 20);
+}
+
+function safeEvidenceUrl(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === "https:" ? parsed.toString().slice(0, 1000) : null;
+  } catch {
+    return null;
+  }
 }
 
 function notificationCopy(outcome: Outcome, countryName: string, message: string) {
@@ -36,13 +58,16 @@ function notificationCopy(outcome: Outcome, countryName: string, message: string
 }
 
 function emailHtml(params: { title: string; message: string; actionUrl: string }) {
+  const title = escapeHtml(params.title);
+  const message = escapeHtml(params.message);
+  const actionUrl = escapeHtml(params.actionUrl);
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f7fa;padding:32px 16px">
       <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #dce5ec;border-radius:20px;padding:32px">
         <div style="display:inline-block;background:#071b33;color:#ffe08a;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800">LETSGO2TRAVEL VİZE ASİSTANI</div>
-        <h1 style="margin:20px 0 12px;color:#071b33;font-size:25px">${params.title}</h1>
-        <p style="color:#52606d;line-height:1.65">${params.message}</p>
-        <a href="${params.actionUrl}" style="display:inline-block;margin-top:16px;background:#f6c445;color:#071b33;text-decoration:none;font-weight:900;padding:14px 22px;border-radius:12px">Takip panelini aç</a>
+        <h1 style="margin:20px 0 12px;color:#071b33;font-size:25px">${title}</h1>
+        <p style="color:#52606d;line-height:1.65">${message}</p>
+        <a href="${actionUrl}" style="display:inline-block;margin-top:16px;background:#f6c445;color:#071b33;text-decoration:none;font-weight:900;padding:14px 22px;border-radius:12px">Takip panelini aç</a>
         <p style="margin-top:24px;color:#88939e;font-size:12px;line-height:1.6">LetsGo2Travel doğrulama, CAPTCHA, SMS veya ödeme adımlarını atlamaz. Gerekli işlem resmî sağlayıcı ekranında tamamlanır.</p>
       </div>
     </div>`;
@@ -114,7 +139,7 @@ async function createNotifications(params: {
 }) {
   if (!(["slot_found", "verification_required"] as Outcome[]).includes(params.outcome)) return;
 
-  const actionUrl = `${siteUrl()}/vize-randevu`;
+  const actionUrl = `${getSiteUrl()}/vize-randevu`;
   const copy = notificationCopy(params.outcome, params.track.country_name, params.message);
   const common = {
     track_id: params.track.id,
@@ -178,11 +203,11 @@ async function createNotifications(params: {
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: "Yetkisiz worker." }, { status: 401 });
+  if (!authorizedVisaWorker(request)) return NextResponse.json({ error: "Yetkisiz worker." }, { status: 401 });
   const supabase = getSupabaseAdmin();
   if (!supabase) return NextResponse.json({ error: "Supabase yapılandırılmamış." }, { status: 500 });
 
-  const body = (await request.json()) as {
+  const body = (await request.json().catch(() => ({}))) as {
     trackId?: string;
     workerName?: string;
     outcome?: Outcome;
@@ -194,6 +219,10 @@ export async function POST(request: Request) {
   };
   if (!body.trackId || !body.outcome || !OUTCOMES.includes(body.outcome)) {
     return NextResponse.json({ error: "Geçersiz rapor." }, { status: 400 });
+  }
+  const workerName = String(body.workerName || "").trim().slice(0, 80);
+  if (!workerName) {
+    return NextResponse.json({ error: "Worker adı zorunludur." }, { status: 400 });
   }
 
   const now = new Date();
@@ -212,42 +241,71 @@ export async function POST(request: Request) {
       ? providerBackoff
       : null;
 
-  const { data: track } = await supabase
+  const { data: track, error: trackError } = await supabase
     .from("visa_appointment_tracks")
-    .select("id,user_id,country_name,status,error_count,notify_email,notify_push,notify_in_app")
+    .select("id,user_id,country_name,status,error_count,notify_email,notify_push,notify_in_app,earliest_date,latest_date,access_expires_at,locked_by")
     .eq("id", body.trackId)
     .maybeSingle();
+  if (trackError) return NextResponse.json({ error: "Takip okunamadı." }, { status: 500 });
   if (!track) return NextResponse.json({ error: "Takip bulunamadı." }, { status: 404 });
+  if (track.status !== "active" || track.locked_by !== workerName) {
+    return NextResponse.json({ error: "Görev bu worker tarafından aktif olarak kilitlenmemiş." }, { status: 409 });
+  }
+  if (new Date(track.access_expires_at) <= now) {
+    return NextResponse.json({ error: "Takip süresi dolmuş." }, { status: 409 });
+  }
+
+  const availableDates = cleanAvailableDates(body.availableDates, track.earliest_date, track.latest_date);
+  if (body.outcome === "slot_found" && availableDates.length === 0) {
+    return NextResponse.json({ error: "Uygun tarih sonucu geçerli bir tarih içermelidir." }, { status: 400 });
+  }
 
   const uploadedEvidence = await uploadEvidence(supabase, track.id, body.evidenceBase64, body.evidenceMimeType);
-  const evidenceReference = uploadedEvidence || (body.evidenceUrl ? String(body.evidenceUrl).slice(0, 1000) : null);
+  const evidenceReference = uploadedEvidence || safeEvidenceUrl(body.evidenceUrl);
 
-  await supabase.from("visa_appointment_check_logs").insert({
-    track_id: track.id,
-    worker_name: String(body.workerName || "visa-worker").slice(0, 80),
-    outcome: body.outcome,
-    message: String(body.message || "").slice(0, 1000) || null,
-    available_dates: Array.isArray(body.availableDates) ? body.availableDates.slice(0, 20) : [],
-    evidence_url: evidenceReference,
-    checked_at: now.toISOString(),
-  });
-
-  if (body.outcome === "slot_found") {
-    await supabase.from("visa_appointment_matches").insert({
+  const { data: checkLog, error: logError } = await supabase
+    .from("visa_appointment_check_logs")
+    .insert({
       track_id: track.id,
-      user_id: track.user_id,
-      available_dates: Array.isArray(body.availableDates) ? body.availableDates.slice(0, 20) : [],
-      provider_message: String(body.message || "").slice(0, 1000) || null,
+      worker_name: workerName,
+      outcome: body.outcome,
+      message: String(body.message || "").slice(0, 1000) || null,
+      available_dates: availableDates,
       evidence_url: evidenceReference,
-      expires_at: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
-    });
+      checked_at: now.toISOString(),
+    })
+    .select("id")
+    .single();
+  if (logError) return NextResponse.json({ error: "Kontrol kaydı yazılamadı." }, { status: 500 });
+
+  let matchId: string | null = null;
+  if (body.outcome === "slot_found") {
+    const { data: match, error: matchError } = await supabase
+      .from("visa_appointment_matches")
+      .insert({
+        track_id: track.id,
+        user_id: track.user_id,
+        available_dates: availableDates,
+        provider_message: String(body.message || "").slice(0, 1000) || null,
+        evidence_url: evidenceReference,
+        expires_at: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
+      })
+      .select("id")
+      .single();
+    if (matchError) {
+      if (checkLog?.id) {
+        await supabase.from("visa_appointment_check_logs").delete().eq("id", checkLog.id);
+      }
+      return NextResponse.json({ error: "Uygun tarih kaydı yazılamadı." }, { status: 500 });
+    }
+    matchId = match.id;
   }
 
   const shouldNotify =
     (body.outcome === "slot_found" && track.status !== "match_found") ||
     (body.outcome === "verification_required" && track.status !== "verification_required");
 
-  const { error } = await supabase.from("visa_appointment_tracks").update({
+  const { data: updatedTrack, error } = await supabase.from("visa_appointment_tracks").update({
     status: nextStatus,
     last_checked_at: now.toISOString(),
     next_check_at: nextCheckAt,
@@ -255,9 +313,27 @@ export async function POST(request: Request) {
     error_count: body.outcome === "error" ? Number(track.error_count || 0) + 1 : 0,
     locked_until: null,
     locked_by: null,
-  }).eq("id", track.id);
+  })
+    .eq("id", track.id)
+    .eq("status", "active")
+    .eq("locked_by", workerName)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return NextResponse.json({ error: "Takip sonucu kaydedilemedi." }, { status: 500 });
+  if (error || !updatedTrack) {
+    const cleanupTasks: PromiseLike<unknown>[] = [];
+    if (matchId) {
+      cleanupTasks.push(supabase.from("visa_appointment_matches").delete().eq("id", matchId));
+    }
+    if (checkLog?.id) {
+      cleanupTasks.push(supabase.from("visa_appointment_check_logs").delete().eq("id", checkLog.id));
+    }
+    await Promise.allSettled(cleanupTasks);
+    return NextResponse.json(
+      { error: error ? "Takip sonucu kaydedilemedi." : "Takip durumu değişti; eski worker sonucu uygulanmadı." },
+      { status: error ? 500 : 409 },
+    );
+  }
 
   if (shouldNotify) {
     await createNotifications({

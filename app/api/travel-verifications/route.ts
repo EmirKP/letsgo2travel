@@ -2,15 +2,42 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCountryByCode } from "@/lib/countries/countryData";
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_NOTE_LENGTH = 1000;
+const FILE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
+function getBearerToken(request: Request) {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  return authHeader.slice(7).trim() || null;
+}
+
+async function hasExpectedSignature(file: File) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const startsWith = (...signature: number[]) => signature.every((byte, index) => bytes[index] === byte);
+
+  if (file.type === "image/jpeg") return startsWith(0xff, 0xd8, 0xff);
+  if (file.type === "image/png") return startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+  if (file.type === "image/webp") {
+    return startsWith(0x52, 0x49, 0x46, 0x46) && bytes.slice(8, 12).every((byte, index) => byte === [0x57, 0x45, 0x42, 0x50][index]);
+  }
+  if (file.type === "application/pdf") return startsWith(0x25, 0x50, 0x44, 0x46, 0x2d);
+  return false;
+}
+
 export async function GET(request: Request) {
   try {
+    const token = getBearerToken(request);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const supabase = getSupabaseAdmin();
     if (!supabase) return NextResponse.json({ error: "DB configuration missing" }, { status: 500 });
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    const token = authHeader.replace("Bearer ", "");
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,30 +55,36 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Server error", data: [] }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const token = getBearerToken(request);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const supabase = getSupabaseAdmin();
     if (!supabase) return NextResponse.json({ error: "DB configuration missing" }, { status: 500 });
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    const token = authHeader.replace("Bearer ", "");
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const formData = await request.formData();
-    const countryCode = formData.get("countryCode") as string;
-    const note = formData.get("note") as string;
-    const file = formData.get("file") as File;
+    const countryCodeValue = formData.get("countryCode");
+    const noteValue = formData.get("note");
+    const fileValue = formData.get("file");
+    const countryCode = typeof countryCodeValue === "string" ? countryCodeValue.trim().toUpperCase() : "";
+    const note = typeof noteValue === "string" ? noteValue.trim() : "";
+    const file = fileValue instanceof File ? fileValue : null;
 
     if (!countryCode || !file) {
       return NextResponse.json({ error: "Eksik bilgi." }, { status: 400 });
+    }
+
+    if (note.length > MAX_NOTE_LENGTH) {
+      return NextResponse.json({ error: `Not en fazla ${MAX_NOTE_LENGTH} karakter olabilir.` }, { status: 400 });
     }
 
     const countryInfo = getCountryByCode(countryCode);
@@ -60,35 +93,65 @@ export async function POST(request: Request) {
     }
 
     // Dosya kontrolü (Max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size === 0 || file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: "Dosya boyutu 5MB'dan küçük olmalıdır." }, { status: 400 });
     }
 
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
+    const fileExtension = FILE_EXTENSIONS[file.type];
+    if (!fileExtension) {
       return NextResponse.json({ error: "Geçersiz dosya tipi. (jpg, png, webp, pdf)" }, { status: 400 });
     }
+    if (!(await hasExpectedSignature(file))) {
+      return NextResponse.json({ error: "Dosya içeriği seçilen formatla eşleşmiyor." }, { status: 400 });
+    }
 
-    // Daha önce onaylanmış mı?
-    const { data: existing } = await supabase
-      .from("travel_verifications")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("country_code", countryCode)
-      .eq("status", "approved");
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const [approvedResult, pendingResult, recentResult] = await Promise.all([
+      supabase
+        .from("travel_verifications")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("country_code", countryCode)
+        .eq("status", "approved")
+        .limit(1),
+      supabase
+        .from("travel_verifications")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("country_code", countryCode)
+        .eq("status", "pending")
+        .limit(1),
+      supabase
+        .from("travel_verifications")
+        .select("id")
+        .eq("user_id", user.id)
+        .gte("created_at", tenMinutesAgo)
+        .limit(1),
+    ]);
 
-    if (existing && existing.length > 0) {
+    if (approvedResult.error || pendingResult.error || recentResult.error) {
+      return NextResponse.json({ error: "Doğrulama kayıtları kontrol edilemedi." }, { status: 500 });
+    }
+
+    if ((approvedResult.data?.length || 0) > 0) {
       return NextResponse.json({ error: "Bu ülke zaten onaylanmış." }, { status: 400 });
     }
 
+    if ((pendingResult.data?.length || 0) > 0) {
+      return NextResponse.json({ error: "Bu ülke için zaten bekleyen bir başvurunuz var." }, { status: 409 });
+    }
+
+    if ((recentResult.data?.length || 0) > 0) {
+      return NextResponse.json({ error: "Yeni bir belge göndermeden önce 10 dakika bekleyin." }, { status: 429 });
+    }
+
     // Upload to Storage
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExtension}`;
     const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("travel-evidence")
-      .upload(filePath, file, { contentType: file.type });
+      .upload(filePath, file, { contentType: file.type, upsert: false });
 
     if (uploadError) {
       console.error("Storage upload error:", uploadError);
@@ -112,6 +175,8 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error("travel_verifications insert error:", insertError);
+      const { error: cleanupError } = await supabase.storage.from("travel-evidence").remove([filePath]);
+      if (cleanupError) console.error("travel evidence cleanup error:", cleanupError);
       return NextResponse.json({ error: "Doğrulama başvurusu kaydedilemedi." }, { status: 500 });
     }
 

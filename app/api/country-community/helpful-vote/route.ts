@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export async function POST(request: Request) {
   try {
-    const supabase = getSupabaseAdmin();
-    if (!supabase) return NextResponse.json({ error: "DB error" }, { status: 500 });
+    const auth = await requireAuthenticatedUser(request);
+    if (!auth.ok) return auth.response;
+    const { supabase, user } = auth;
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { targetType, targetId } = await request.json();
-    if (!targetType || !targetId) {
-      return NextResponse.json({ error: "Eksik alanlar" }, { status: 400 });
+    const payload = await request.json();
+    const targetType = String(payload.targetType || "").trim();
+    const targetId = String(payload.targetId || "").trim();
+    if (!new Set(["answer", "comment", "warning"]).has(targetType) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetId)) {
+      return NextResponse.json({ error: "Geçersiz oy hedefi." }, { status: 400 });
     }
 
     const { error } = await supabase.rpc('l2t_add_helpful_vote', {
@@ -25,11 +21,11 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message || "Oy kaydedilemedi" }, { status: 400 });
+      return NextResponse.json({ error: error.code === "23505" ? "Bu içeriğe daha önce oy verdiniz." : "Oy kaydedilemedi." }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

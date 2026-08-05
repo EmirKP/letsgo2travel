@@ -93,9 +93,8 @@ export default function PriceAlertsAdminPage() {
   async function load() {
     setIsLoading(true);
     setMessage("");
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
-      const response = await fetch("/api/admin/fiyat-alarmlari", { headers: { "x-admin-password": legacyPass }, cache: "no-store" });
+      const response = await fetch("/api/admin/fiyat-alarmlari", { cache: "no-store" });
       const data = (await response.json()) as { data?: PriceAlert[]; logs?: AlertLog[]; error?: string };
       setAlerts(data.data || []);
       setLogs(data.logs || []);
@@ -108,10 +107,9 @@ export default function PriceAlertsAdminPage() {
   }
 
   async function updateAlert(id: string, body: Record<string, unknown>) {
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     const res = await fetch("/api/admin/fiyat-alarmlari", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...body }),
     });
     const data = await res.json().catch(() => ({}));
@@ -119,13 +117,12 @@ export default function PriceAlertsAdminPage() {
   }
   async function runManualPriceCheck() {
     if (!window.confirm("Aktif fiyat alarmları şimdi kontrol edilsin mi?")) return;
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     setIsCheckingNow(true);
     setMessage("Fiyat kontrolü çalışıyor...");
     try {
       const res = await fetch("/api/admin/fiyat-alarmlari/run-check", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ limit: 80 }),
       });
       const data = await res.json().catch(() => ({}));
@@ -142,11 +139,10 @@ export default function PriceAlertsAdminPage() {
 
   async function handleCancel(id: string) {
     if (!window.confirm("Bu fiyat alarmını iptal etmek istediğine emin misin?")) return;
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
       const res = await fetch("/api/admin/fiyat-alarmlari", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
       const data = await res.json().catch(() => ({}));

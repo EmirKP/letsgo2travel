@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Dices, Plane, Sparkles } from "lucide-react";
+import { Dices, Sparkles } from "lucide-react";
 
 const routes = [
   { name: "Gürcistan", flag: "🇬🇪", slug: "gurcistan", visa: "Kimlikle", idea: "Kimlikle gidilebilen hafta sonu rotası." },

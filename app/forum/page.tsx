@@ -44,6 +44,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
 
   const { data: dbTopics, error } = await query;
   const filteredTopics = dbTopics || [];
+  const fetchError = error ? "Forum konuları şu anda yüklenemiyor. Lütfen biraz sonra tekrar deneyin." : "";
 
   return (
     <div className="l2t-page" style={{ minHeight: "80vh", background: "#f8fafc", paddingBottom: "80px" }}>
@@ -94,6 +95,11 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {fetchError ? (
+              <div role="alert" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "16px", borderRadius: "14px", background: "#fef2f2", color: "#b91c1c" }}>
+                <AlertCircle size={20} /> {fetchError}
+              </div>
+            ) : null}
             {filteredTopics.length > 0 ? (
               filteredTopics.map((topic) => (
                 <Link key={topic.id} href={`/forum/${topic.id}`} style={{ textDecoration: "none", display: "block", position: "relative", zIndex: 20 }}>

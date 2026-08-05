@@ -98,7 +98,7 @@ export default async function CountryForumPage({ params }: PageProps) {
   const country = await getCountryBySlug(slug);
   const countryName = country?.country_name || countryNameFromSlug(slug);
   const countryEmoji = country?.emoji || "🌍";
-  const verifyHref = `/profil/dogrulama?country=${encodeURIComponent(slug)}`;
+  const verifyHref = `/profil/dogrulamalar?country=${encodeURIComponent(slug)}`;
 
   const { data: topicData, error: topicsError } = await supabase
     .from("forum_topics")

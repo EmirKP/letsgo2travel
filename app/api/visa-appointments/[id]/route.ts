@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-async function getUser(request: Request) {
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return { supabase: null, user: null };
-  const header = request.headers.get("Authorization");
-  if (!header?.startsWith("Bearer ")) return { supabase, user: null };
-  const { data } = await supabase.auth.getUser(header.slice(7));
-  return { supabase, user: data.user || null };
-}
+import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getUser(request);
-  if (!auth.supabase) return NextResponse.json({ error: "Supabase yapılandırılmamış." }, { status: 500 });
-  if (!auth.user) return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
+  const auth = await requireAuthenticatedUser(request);
+  if (!auth.ok) return auth.response;
 
   const { id } = await params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: "Geçersiz takip kimliği." }, { status: 400 });
+  }
   const body = (await request.json()) as { action?: "pause" | "resume" | "retry" };
   if (!body.action || !["pause", "resume", "retry"].includes(body.action)) {
     return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });

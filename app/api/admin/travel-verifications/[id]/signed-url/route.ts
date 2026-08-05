@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = await requireAdmin(request);
+    const authError = await requireAdmin(request, ["moderator", "admin", "super_admin"]);
     if (authError) return authError;
 
     const resolvedParams = await params;
@@ -18,8 +18,9 @@ export async function GET(
 
     const { data: verification, error } = await supabase
       .from("travel_verifications")
-      .select("evidence_path")
+      .select("evidence_path,evidence_type")
       .eq("id", id)
+      .eq("status", "pending")
       .single();
 
     if (error || !verification || !verification.evidence_path) {
@@ -34,8 +35,8 @@ export async function GET(
       return NextResponse.json({ error: "Önizleme oluşturulamadı." }, { status: 500 });
     }
 
-    return NextResponse.json({ signedUrl: data.signedUrl });
-  } catch (err) {
+    return NextResponse.json({ signedUrl: data.signedUrl, evidenceType: verification.evidence_type || null });
+  } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

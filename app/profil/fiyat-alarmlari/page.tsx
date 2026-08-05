@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BellRing, Plane, Calendar, X, ArrowRight } from "lucide-react";
+import { BellRing, Calendar, X, ArrowRight } from "lucide-react";
 import { affiliateRedirectUrl, aviasalesUrl } from "@/lib/affiliate";
 
 interface Alert {

@@ -1,28 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authError = await requireAdmin(request, ["moderator", "admin", "super_admin"]);
+    if (authError) return authError;
 
     const supabaseAdmin = getSupabaseAdmin();
     if (!supabaseAdmin) return NextResponse.json({ error: "DB missing" }, { status: 500 });
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).single();
-    if (!profile || !['admin', 'super_admin', 'moderator'].includes(profile.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const { searchParams } = new URL(request.url);
     const path = searchParams.get("path");
@@ -53,7 +41,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ signedUrl: data.signedUrl });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

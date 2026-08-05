@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { moderateUserText } from "@/lib/community/moderation";
+import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export async function POST(request: Request) {
   try {
-    const supabase = getSupabaseAdmin();
-    if (!supabase) return NextResponse.json({ error: "DB error" }, { status: 500 });
+    if (Number(request.headers.get("content-length") || 0) > 20_000) {
+      return NextResponse.json({ error: "İstek çok büyük." }, { status: 413 });
+    }
+    const auth = await requireAuthenticatedUser(request);
+    if (!auth.ok) return auth.response;
+    const { supabase, user } = auth;
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { countryCode, title, body, category = 'general' } = await request.json();
-    if (!countryCode || !title || !body) {
-      return NextResponse.json({ error: "Eksik alanlar" }, { status: 400 });
+    const payload = await request.json();
+    const countryCode = String(payload.countryCode || "").trim().toUpperCase();
+    const title = String(payload.title || "").replace(/\s+/g, " ").trim();
+    const body = String(payload.body || "").trim();
+    const category = String(payload.category || "general").trim().toLowerCase();
+    if (!/^[A-Z]{2}$/.test(countryCode) || title.length < 5 || title.length > 160 || body.length < 10 || body.length > 4000) {
+      return NextResponse.json({ error: "Ülke, başlık veya açıklama geçersiz." }, { status: 400 });
+    }
+    if (!/^[a-z0-9_-]{1,60}$/.test(category)) {
+      return NextResponse.json({ error: "Geçersiz kategori." }, { status: 400 });
     }
 
     const moderation = moderateUserText(title + " " + body);
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ data: data[0], moderation });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

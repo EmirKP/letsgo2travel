@@ -22,12 +22,22 @@ export default function DogrulamalarPage() {
   const [countryCode, setCountryCode] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [note, setNote] = useState("");
+  const [consentGiven, setConsentGiven] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
     async function checkAuthAndFetch() {
+      const requestedCountry = new URLSearchParams(window.location.search).get("country")?.trim();
+      if (requestedCountry) {
+        const normalized = requestedCountry.toLocaleLowerCase("tr-TR");
+        const matchingCountry = COUNTRIES.find(
+          (country) => country.code.toLocaleLowerCase("tr-TR") === normalized || country.slug === normalized,
+        );
+        if (matchingCountry) setCountryCode(matchingCountry.code);
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push("/auth/login?next=/profil/dogrulamalar");
@@ -54,8 +64,8 @@ export default function DogrulamalarPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!countryCode || !file) {
-      setError("Ülke ve belge zorunludur.");
+    if (!countryCode || !file || !consentGiven) {
+      setError("Ülke, belge ve inceleme onayı zorunludur.");
       return;
     }
     setSubmitting(true);
@@ -83,6 +93,7 @@ export default function DogrulamalarPage() {
         setCountryCode("");
         setFile(null);
         setNote("");
+        setConsentGiven(false);
         fetchVerifications(session.access_token);
       } else {
         setError(data.error || "Bir hata oluştu.");
@@ -139,7 +150,7 @@ export default function DogrulamalarPage() {
                 />
               </div>
               <p className={styles.help}>
-                Maks 5MB. PNR zorunlu değil, ikna edici fotoğraf yeterli. Sadece inceleme içindir, herkese açık gösterilmez.
+                Maks 5MB. PNR, kimlik numarası, telefon ve adres gibi gereksiz kişisel bilgileri kapatın. Belge herkese açık gösterilmez ve inceleme tamamlanınca silinir.
               </p>
             </div>
 
@@ -150,11 +161,23 @@ export default function DogrulamalarPage() {
                 rows={3} 
                 value={note}
                 onChange={e => setNote(e.target.value)}
+                maxLength={1000}
                 placeholder="Eklemek istediğiniz bir şey var mı?"
               />
+              <p className={styles.help}>{note.length}/1000 karakter</p>
             </div>
 
-            <button type="submit" disabled={submitting} className={`l2t-button l2t-button-gold ${styles.submit}`}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: "10px", color: "var(--l2t-soft)", lineHeight: 1.5, fontSize: "0.9rem" }}>
+              <input
+                type="checkbox"
+                checked={consentGiven}
+                onChange={(event) => setConsentGiven(event.target.checked)}
+                style={{ marginTop: "3px" }}
+              />
+              Yüklediğim belgenin yalnızca seyahat doğrulaması için yönetici ekibi tarafından incelenmesini kabul ediyorum.
+            </label>
+
+            <button type="submit" disabled={submitting || !consentGiven} className={`l2t-button l2t-button-gold ${styles.submit}`}>
               {submitting ? 'Gönderiliyor...' : 'Doğrulama Gönder'}
             </button>
           </form>

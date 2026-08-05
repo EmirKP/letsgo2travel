@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Bağlantı kodu oluşturulamadı. SQL kurulumunu kontrol et." }, { status: 500 });
   }
 
-  await auth.supabase.from("visa_appointment_tracks").update({
+  const { error: trackUpdateError } = await auth.supabase.from("visa_appointment_tracks").update({
     execution_mode: "browser_extension",
     status: "verification_required",
     next_check_at: null,
@@ -108,6 +108,14 @@ export async function POST(request: Request) {
     locked_by: null,
     last_result: "Chrome yardımcısı bağlantı kodu oluşturuldu; kullanıcı bağlantısı bekleniyor.",
   }).eq("id", trackId).eq("user_id", auth.user.id);
+  if (trackUpdateError) {
+    await auth.supabase.from("visa_appointment_extension_pairings").update({
+      status: "revoked",
+      pairing_code_hash: null,
+      updated_at: new Date().toISOString(),
+    }).eq("track_id", trackId).eq("user_id", auth.user.id);
+    return NextResponse.json({ error: "Takip Chrome yardımcısı moduna geçirilemedi." }, { status: 500 });
+  }
 
   return NextResponse.json({
     data: { code, expiresAt },
@@ -124,19 +132,23 @@ export async function DELETE(request: Request) {
   const track = await ownedTrack(auth.supabase, auth.user.id, trackId);
   if (!track) return NextResponse.json({ error: "Takip bulunamadı." }, { status: 404 });
 
-  await auth.supabase.from("visa_appointment_extension_pairings").update({
+  const { error: pairingError } = await auth.supabase.from("visa_appointment_extension_pairings").update({
     status: "revoked",
     pairing_code_hash: null,
     extension_token_hash: null,
     updated_at: new Date().toISOString(),
   }).eq("track_id", trackId).eq("user_id", auth.user.id);
 
-  await auth.supabase.from("visa_appointment_tracks").update({
+  const { error: trackError } = await auth.supabase.from("visa_appointment_tracks").update({
     execution_mode: "vds",
     status: "verification_required",
     extension_last_seen_at: null,
     last_result: "Chrome yardımcısı bağlantısı kullanıcı tarafından kaldırıldı.",
   }).eq("id", trackId).eq("user_id", auth.user.id);
+
+  if (pairingError || trackError) {
+    return NextResponse.json({ error: "Chrome yardımcısı bağlantısı tamamen kaldırılamadı; tekrar deneyin." }, { status: 500 });
+  }
 
   return NextResponse.json({ message: "Chrome yardımcısı bağlantısı kaldırıldı." });
 }

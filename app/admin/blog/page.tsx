@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PenTool, Plus, Trash2, Edit, Search, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { PenTool, Plus, Trash2, Edit, AlertCircle, Image as ImageIcon } from "lucide-react";
 
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -25,16 +25,15 @@ export default function AdminBlogPage() {
 
   async function loadPosts() {
     setIsLoading(true);
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
-      const res = await fetch("/api/admin/blog", { headers: { "x-admin-password": legacyPass } });
+      const res = await fetch("/api/admin/blog");
       const data = await res.json();
       if (data.error) {
         setMessage(data.error);
       } else {
         setPosts(data.data || []);
       }
-    } catch (e) {
+    } catch {
       setMessage("Veriler yüklenirken bir hata oluştu.");
     } finally {
       setIsLoading(false);
@@ -59,14 +58,13 @@ export default function AdminBlogPage() {
       return;
     }
 
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     const method = editingId ? "PUT" : "POST";
     const body = { id: editingId, title, slug, category, image_url: imageUrl, summary, content, status };
 
     try {
       const res = await fetch("/api/admin/blog", {
         method,
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
       const data = await res.json();
@@ -78,18 +76,17 @@ export default function AdminBlogPage() {
         resetForm();
         loadPosts();
       }
-    } catch (e) {
+    } catch {
       alert("Kayıt işlemi başarısız (bağlantı hatası).");
     }
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Bu yazıyı kalıcı olarak silmek istediğinize emin misiniz?")) return;
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
       const res = await fetch("/api/admin/blog", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id })
       });
       const data = await res.json();
@@ -98,7 +95,7 @@ export default function AdminBlogPage() {
       } else {
         loadPosts();
       }
-    } catch (e) {
+    } catch {
       alert("Silme işlemi başarısız.");
     }
   }

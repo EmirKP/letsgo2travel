@@ -4,13 +4,13 @@ export type AffiliateProvider = "aviasales" | "booking" | "airalo" | "getyourgui
 
 export const siteSettings: SiteSettings = {
   bookingAffiliateUrl:
-    process.env.NEXT_PUBLIC_BOOKING_AFFILIATE_URL || "https://www.booking.com/index.tr.html?aid=letsgo2travel",
+    process.env.NEXT_PUBLIC_BOOKING_AFFILIATE_URL || "https://www.booking.com/index.tr.html",
   airaloAffiliateUrl:
     process.env.NEXT_PUBLIC_AIRALO_AFFILIATE_URL || "https://www.airalo.com/",
   getYourGuideAffiliateUrl:
     process.env.NEXT_PUBLIC_GYG_AFFILIATE_URL || "https://www.getyourguide.com/",
   travelpayoutsMarker: process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER || process.env.TRAVELPAYOUTS_MARKER || "725223",
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@letsgo2travel.com",
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@letsgo2travel.com.tr",
 };
 
 export function aviasalesUrl(params: {

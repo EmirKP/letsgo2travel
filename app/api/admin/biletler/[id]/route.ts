@@ -9,7 +9,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const body = await request.json();
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ data: { ...body, id }, message: "Demo mod: güncelleme simüle edildi." });
+  if (!supabase) return NextResponse.json({ error: "Veritabanı bağlantısı kurulamadı." }, { status: 503 });
   const { data, error } = await supabase.from("biletler").update(body).eq("id", id).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidateTag("flight-deals", "max");
@@ -21,7 +21,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (authError) return authError;
   const { id } = await params;
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ message: "Demo mod: silme simüle edildi." });
+  if (!supabase) return NextResponse.json({ error: "Veritabanı bağlantısı kurulamadı." }, { status: 503 });
   const { error } = await supabase.from("biletler").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidateTag("flight-deals", "max");

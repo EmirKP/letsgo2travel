@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, ShieldCheck, MapPin, Search, Plane } from "lucide-react";
+import { ArrowLeft, BookOpen, ShieldCheck, MapPin, Plane } from "lucide-react";
+import { getCountryBySlug } from "@/lib/countries/countryData";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
-  const countryName = resolvedParams.slug.charAt(0).toUpperCase() + resolvedParams.slug.slice(1);
+  const countryName = getCountryBySlug(resolvedParams.slug)?.nameTR || resolvedParams.slug.charAt(0).toLocaleUpperCase("tr-TR") + resolvedParams.slug.slice(1);
   return {
     title: `${countryName} Rehberi | Letsgo2Travel`,
     description: `${countryName} seyahati için vize, güvenlik, gezilecek yerler ve pratik bilgiler.`,
@@ -13,13 +14,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function CountryGuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
-  const countryName = slug.charAt(0).toUpperCase() + slug.slice(1); // Basic capitalization for dummy
+  const countryName = getCountryBySlug(slug)?.nameTR || slug.charAt(0).toLocaleUpperCase("tr-TR") + slug.slice(1);
 
-  // Dummy veriler
-  const dummyGuides = [
-    { id: 1, title: `${countryName} Vize Başvuru Süreci ve Gerekli Evraklar`, category: "Konsolosluk & Vize", icon: <BookOpen size={20} color="#3B82F6" />, bg: "#EFF6FF" },
-    { id: 2, title: `İlk Kez Gidecekler İçin ${countryName} Güvenlik Notları`, category: "Güvenli Bölgeler", icon: <ShieldCheck size={20} color="#EF4444" />, bg: "#FEF2F2" },
-    { id: 3, title: `${countryName} Sınırlarında Gezilecek En İyi Ücretsiz Yerler`, category: "Gezilecek Yerler", icon: <MapPin size={20} color="#F59E0B" />, bg: "#FFFBEB" }
+  const guideTemplates = [
+    { id: 1, title: `${countryName} vize ve giriş koşullarını doğrulama rehberi`, category: "Vize ve giriş kontrolü", icon: <BookOpen size={20} color="#3B82F6" />, bg: "#EFF6FF" },
+    { id: 2, title: `${countryName} seyahati için güvenlik kontrol listesi`, category: "Güvenli seyahat", icon: <ShieldCheck size={20} color="#EF4444" />, bg: "#FEF2F2" },
+    { id: 3, title: `${countryName} gezi planı hazırlama rehberi`, category: "Rota planlama", icon: <MapPin size={20} color="#F59E0B" />, bg: "#FFFBEB" }
   ];
 
   return (
@@ -32,7 +32,7 @@ export default async function CountryGuidePage({ params }: { params: Promise<{ s
           </Link>
           <h1 style={{ fontSize: "2.5rem", fontWeight: "800", margin: "0 0 16px" }}>{countryName} Seyahat Rehberi</h1>
           <p style={{ fontSize: "1.1rem", color: "rgba(255,255,255,0.8)", margin: "0 0 32px", lineHeight: "1.6" }}>
-            Vize gereksinimleri, güvenlik uyarıları ve topluluk deneyimleriyle {countryName} seyahatinizi kusursuz planlayın.
+            Vize kontrolü, güvenlik hazırlığı ve rota planlamasıyla {countryName} seyahatinizi daha bilinçli hazırlayın.
           </p>
           
           <Link href={`/ucak-bileti-ara?country=${slug}`} className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "16px 32px", fontSize: "1.1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "12px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.3)" }}>
@@ -43,17 +43,15 @@ export default async function CountryGuidePage({ params }: { params: Promise<{ s
 
       <div className="l2t-wrap" style={{ maxWidth: "1000px", margin: "-30px auto 0", padding: "0 20px", position: "relative", zIndex: 10 }}>
         
-        {/* Arama */}
-        <div style={{ background: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", marginBottom: "40px", display: "flex", gap: "16px", alignItems: "center" }}>
-          <Search size={22} color="#94a3b8" />
-          <input type="text" placeholder={`${countryName} rehberlerinde ara...`} style={{ width: "100%", border: "none", outline: "none", fontSize: "1.05rem", color: "var(--l2t-navy)" }} />
+        <div style={{ background: "#fff", padding: "20px 24px", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", marginBottom: "40px", color: "#475569", lineHeight: 1.6 }}>
+          Aşağıdaki içerikler genel kontrol listeleridir. Ülkeye giriş, güvenlik ve rezervasyon koşullarını seyahat tarihine yakın resmî kaynaklardan yeniden doğrulayın.
         </div>
 
         {/* Rehber İçerikleri */}
         <h2 style={{ fontSize: "1.5rem", color: "var(--l2t-navy)", fontWeight: "700", marginBottom: "24px" }}>Popüler Rehberler</h2>
         
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "48px" }}>
-          {dummyGuides.map((guide) => (
+          {guideTemplates.map((guide) => (
             <Link key={guide.id} href={`/rehber-merkezi/${slug}-rehber-${guide.id}`} style={{ textDecoration: "none" }}>
               <div style={{ background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "20px", transition: "all 0.2s" }} className="hover-tilt">
                 <div style={{ width: "50px", height: "50px", background: guide.bg, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -66,11 +64,6 @@ export default async function CountryGuidePage({ params }: { params: Promise<{ s
               </div>
             </Link>
           ))}
-          {dummyGuides.length === 0 && (
-            <div style={{ padding: "40px", textAlign: "center", background: "#fff", borderRadius: "16px", color: "#64748B" }}>
-              Henüz bu ülke için rehber içeriği eklenmedi.
-            </div>
-          )}
         </div>
 
         {/* İlgili Forum Konuları */}

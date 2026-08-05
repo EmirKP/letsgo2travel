@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorizedVisaWorker } from "@/lib/visa-appointments/worker-auth";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const WORKER_STATES = ["starting", "running", "idle", "error"] as const;
 type WorkerState = (typeof WORKER_STATES)[number];
 
-function authorized(request: Request) {
-  const expected = process.env.VISA_WORKER_SECRET;
-  const received = request.headers.get("x-worker-secret");
-  return Boolean(expected && received && expected === received);
-}
-
 export async function POST(request: Request) {
-  if (!authorized(request)) {
+  if (!authorizedVisaWorker(request)) {
     return NextResponse.json({ error: "Yetkisiz worker." }, { status: 401 });
   }
 
@@ -69,4 +65,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true, receivedAt: now });
 }
-

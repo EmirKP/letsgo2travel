@@ -1,7 +1,7 @@
 import ClientPage from "./ClientPage";
 import { Suspense } from "react";
 import Link from "next/link";
-import { User, MapPin, Bell, MessageSquare, Award, Sparkles, Heart } from "lucide-react";
+import { User, Bell, MessageSquare, Award, Sparkles, Heart } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

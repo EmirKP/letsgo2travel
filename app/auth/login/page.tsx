@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 function GoogleMark() {
   return (
@@ -35,7 +36,15 @@ export default function LoginPage() {
 
   const getSafeNextPath = () => {
     const requested = new URLSearchParams(window.location.search).get("next");
-    return requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/profil";
+    if (!requested?.startsWith("/") || requested.startsWith("//") || requested.includes("\\")) return "/profil";
+    try {
+      const target = new URL(requested, window.location.origin);
+      return target.origin === window.location.origin
+        ? `${target.pathname}${target.search}${target.hash}`
+        : "/profil";
+    } catch {
+      return "/profil";
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -43,7 +52,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const siteUrl = getSiteUrl();
       const nextPath = getSafeNextPath();
       const redirectTo = Capacitor.isNativePlatform()
         ? "tr.com.letsgo2travel.app://auth/callback"
@@ -141,6 +150,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   inputMode="email"
                   required
+                  maxLength={254}
                   placeholder="ornek@email.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -159,6 +169,7 @@ export default function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   required
+                  maxLength={128}
                   placeholder="Şifreni gir"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}

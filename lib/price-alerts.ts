@@ -56,7 +56,9 @@ export function makeAlertDashboardLink() {
 }
 
 export function priceAlertSubject(params: { originLabel: string; destinationLabel: string; type: "created" | "drop" | "error" }) {
-  if (params.type === "created") return `Fiyat alarmınız kuruldu: ${params.originLabel} ✈️ ${params.destinationLabel}`;
-  if (params.type === "drop") return `${params.originLabel} → ${params.destinationLabel} biletinde fiyat düştü ✈️`;
-  return `${params.originLabel} → ${params.destinationLabel} fiyat alarmı kontrol edilemedi`;
+  const originLabel = params.originLabel.replace(/[\r\n]+/g, " ").trim().slice(0, 80);
+  const destinationLabel = params.destinationLabel.replace(/[\r\n]+/g, " ").trim().slice(0, 80);
+  if (params.type === "created") return `Fiyat alarmınız kuruldu: ${originLabel} ✈️ ${destinationLabel}`;
+  if (params.type === "drop") return `${originLabel} → ${destinationLabel} biletinde fiyat düştü ✈️`;
+  return `${originLabel} → ${destinationLabel} fiyat alarmı kontrol edilemedi`;
 }

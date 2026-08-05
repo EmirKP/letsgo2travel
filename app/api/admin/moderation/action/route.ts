@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

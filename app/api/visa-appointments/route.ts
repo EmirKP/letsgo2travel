@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSchengenCountry } from "@/lib/visa-appointments/catalog";
+import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 import {
   APPLICATION_CITIES,
   VISA_CATEGORIES,
@@ -8,17 +8,6 @@ import {
 } from "@/lib/visa-appointments/types";
 
 export const dynamic = "force-dynamic";
-
-async function authenticatedUser(request: Request) {
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return { supabase: null, user: null, error: "Supabase yapılandırılmamış." };
-  const header = request.headers.get("Authorization");
-  if (!header?.startsWith("Bearer ")) return { supabase, user: null, error: "Oturum gerekli." };
-  const token = header.slice(7);
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) return { supabase, user: null, error: "Oturum doğrulanamadı." };
-  return { supabase, user: data.user, error: null };
-}
 
 function validDate(value: unknown) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
@@ -45,8 +34,8 @@ function validate(body: TrackCreateInput) {
 }
 
 export async function GET(request: Request) {
-  const auth = await authenticatedUser(request);
-  if (!auth.supabase || !auth.user) return NextResponse.json({ error: auth.error }, { status: auth.supabase ? 401 : 500 });
+  const auth = await requireAuthenticatedUser(request);
+  if (!auth.ok) return auth.response;
 
   const { data, error } = await auth.supabase
     .from("visa_appointment_tracks")
@@ -88,8 +77,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await authenticatedUser(request);
-  if (!auth.supabase || !auth.user) return NextResponse.json({ error: auth.error }, { status: auth.supabase ? 401 : 500 });
+  if (Number(request.headers.get("content-length") || 0) > 20_000) {
+    return NextResponse.json({ error: "İstek çok büyük." }, { status: 413 });
+  }
+  const auth = await requireAuthenticatedUser(request);
+  if (!auth.ok) return auth.response;
 
   let body: TrackCreateInput;
   try {
@@ -147,13 +139,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Takip oluşturulamadı." }, { status: 500 });
   }
 
-  await auth.supabase.from("visa_appointment_entitlements").insert({
+  const { error: entitlementError } = await auth.supabase.from("visa_appointment_entitlements").insert({
     user_id: auth.user.id,
     track_id: data.id,
     source: "beta_grant",
     starts_at: new Date().toISOString(),
     expires_at: expiresAt,
   });
+  if (entitlementError) {
+    await auth.supabase.from("visa_appointment_tracks").delete().eq("id", data.id).eq("user_id", auth.user.id);
+    return NextResponse.json({ error: "Takip erişimi oluşturulamadı." }, { status: 500 });
+  }
 
   return NextResponse.json({
     data,

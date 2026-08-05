@@ -12,7 +12,7 @@ const questionIdeas = [
 export default function CountryCommunityPanel({ country }: { country: CountryGuide }) {
   const forumHref = `/forum/ulke/${country.slug}`;
   const askHref = `/forum/yeni?country=${encodeURIComponent(country.slug)}&countryName=${encodeURIComponent(country.country_name)}&kategori=ulke-bazli-sorunlar&title=${encodeURIComponent(`${country.country_name} hakkında soru sormak istiyorum`)}`;
-  const verifyHref = `/profil/dogrulama?country=${encodeURIComponent(country.slug)}`;
+  const verifyHref = `/profil/dogrulamalar?country=${encodeURIComponent(country.slug)}`;
 
   return (
     <section className="l2t-wrap l2t-community-panel" aria-labelledby="country-community-title">

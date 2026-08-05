@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Lock, Shield } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 
@@ -9,16 +8,16 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
   useEffect(() => {
     const checkSupabaseAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-        if (profile && ['moderator', 'editor', 'admin', 'super_admin'].includes(profile.role)) {
-          // Set cookie and bypass
-          document.cookie = "admin_session=true; path=/; max-age=86400";
+        const response = await fetch("/api/admin/session", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (response.ok) {
+          localStorage.removeItem("l2t-admin-password");
           window.location.href = "/admin";
         }
       }
@@ -41,6 +40,7 @@ export default function AdminLogin() {
       const data = await res.json();
 
       if (res.ok) {
+        localStorage.removeItem("l2t-admin-password");
         window.location.href = "/admin";
       } else {
         setError(data.error || "Giriş başarısız.");

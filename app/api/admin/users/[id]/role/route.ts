@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
+import { adminSessionFromRequest } from "@/lib/admin-session";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PATCH(
@@ -9,32 +11,20 @@ export async function PATCH(
   const userIdToUpdate = resolvedParams.id;
 
   try {
+    const permissionError = await requireAdmin(request, ["super_admin"]);
+    if (permissionError) return permissionError;
+
     const supabase = getSupabaseAdmin();
     if (!supabase) {
       return NextResponse.json({ error: "Supabase servis ayarları eksik" }, { status: 500 });
     }
 
+    const signedSession = await adminSessionFromRequest(request);
     const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 401 });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 401 });
-    }
-
-    // Kullanıcının super_admin olup olmadığını kontrol et
-    const { data: currentUserProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!currentUserProfile || currentUserProfile.role !== 'super_admin') {
-      return NextResponse.json({ error: "Bu işlem yalnızca super admin tarafından yapılabilir." }, { status: 403 });
+    let actorId = signedSession?.subject !== "legacy-admin" ? signedSession?.subject || null : null;
+    if (!actorId && authHeader?.startsWith("Bearer ")) {
+      const { data } = await supabase.auth.getUser(authHeader.slice(7).trim());
+      actorId = data.user?.id || null;
     }
 
     const body = await request.json();
@@ -54,13 +44,23 @@ export async function PATCH(
 
     // Sadece super_admin başka bir super_admin'i değiştirebilir (Zaten yukarıda kontrol ettik).
     // Ancak super_admin'in kendisini kilitlenmesini engellemeliyiz.
-    if (user.id === userIdToUpdate && role !== 'super_admin') {
+    if (actorId === userIdToUpdate && role !== 'super_admin') {
       // Kendisinin rolünü düşürüyor, sistemdeki super_admin sayısına bakalım
       const { count, error: countError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('role', 'super_admin');
       
+      if (!countError && count !== null && count <= 1) {
+        return NextResponse.json({ error: "En az bir super admin bulunmalıdır." }, { status: 400 });
+      }
+    }
+
+    if (targetProfile?.role === "super_admin" && role !== "super_admin") {
+      const { count, error: countError } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "super_admin");
       if (!countError && count !== null && count <= 1) {
         return NextResponse.json({ error: "En az bir super admin bulunmalıdır." }, { status: 400 });
       }

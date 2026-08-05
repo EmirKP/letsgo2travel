@@ -20,6 +20,7 @@ export default function AdminDogrulamalarPage() {
   const [filter, setFilter] = useState("pending");
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,11 +60,12 @@ export default function AdminDogrulamalarPage() {
       const json = await res.json();
       if (json.signedUrl) {
         setPreviewUrl(json.signedUrl);
+        setPreviewType(json.evidenceType || null);
         setSelectedId(id);
       } else {
         setToast({ msg: "Önizleme alınamadı.", type: "error" });
       }
-    } catch (err) {
+    } catch {
       setToast({ msg: "Sunucu hatası.", type: "error" });
     } finally {
       setPreviewLoading(false);
@@ -93,13 +95,14 @@ export default function AdminDogrulamalarPage() {
       if (json.success) {
         setToast({ msg: `İşlem başarılı (${action})`, type: "success" });
         setPreviewUrl(null);
+        setPreviewType(null);
         setSelectedId(null);
         setAdminNote("");
         fetchVerifications();
       } else {
         setToast({ msg: json.error || "Bir hata oluştu", type: "error" });
       }
-    } catch (err) {
+    } catch {
       setToast({ msg: "Sunucu hatası.", type: "error" });
     } finally {
       setActionLoading(false);
@@ -222,7 +225,11 @@ export default function AdminDogrulamalarPage() {
             <h2>Belge İnceleme Paneli</h2>
             
             <div className={styles.preview}>
-              <img src={previewUrl} alt="Kanıt" />
+              {previewType === "application/pdf" ? (
+                <iframe src={previewUrl} title="Doğrulama belgesi" style={{ width: "100%", minHeight: "480px", border: 0 }} />
+              ) : (
+                <img src={previewUrl} alt="Doğrulama belgesi" />
+              )}
               <div className={styles.signed}>Geçici bağlantı (5 dk.)</div>
             </div>
             
@@ -232,6 +239,7 @@ export default function AdminDogrulamalarPage() {
                 className={`l2t-form-control ${styles.textarea}`}
                 value={adminNote}
                 onChange={e => setAdminNote(e.target.value)}
+                maxLength={1000}
                 placeholder="Reddediyorsanız sebebi zorunludur..."
               />
             </div>

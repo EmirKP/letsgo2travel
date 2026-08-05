@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FlightDeal } from "@/lib/types";
-import { Plane, TrendingUp, Users, Eye, Plus, X, Pencil, Trash2, BellRing } from "lucide-react";
+import { Plane, TrendingUp, Users, Plus, X, Pencil, Trash2, BellRing } from "lucide-react";
 
 type ApiResponse = { data?: FlightDeal[]; error?: string; message?: string };
 
@@ -10,7 +10,6 @@ export default function AdminDashboardPage() {
   const [deals, setDeals] = useState<FlightDeal[]>([]);
   const [alarms, setAlarms] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -34,33 +33,25 @@ export default function AdminDashboardPage() {
     setDeals(data.data || []);
   }
 
-  async function loadStats(pass: string) {
+  async function loadStats() {
     try {
-      const res = await fetch("/api/admin/fiyat-alarmlari", {
-        headers: { "x-admin-password": pass }
-      });
+      const res = await fetch("/api/admin/fiyat-alarmlari");
       const data = await res.json();
       if (data.data) {
         setAlarms(data.data);
       }
       
-      const resUsers = await fetch("/api/admin/users", {
-        headers: { "x-admin-password": pass }
-      });
+      const resUsers = await fetch("/api/admin/users");
       const usersData = await resUsers.json();
       if (usersData.data) {
         setUsers(usersData.data);
       }
-    } catch (e) {}
+    } catch {}
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem("l2t-admin-password") || "";
-    setPassword(saved);
     void loadDeals();
-    if (saved) {
-      void loadStats(saved);
-    }
+    void loadStats();
   }, []);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -73,10 +64,9 @@ export default function AdminDashboardPage() {
     }
     
     setIsSaving(true);
-    localStorage.setItem("l2t-admin-password", password);
     const response = await fetch("/api/admin/biletler", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-password": password },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, price: Number(form.price), active: true }),
     });
     const data = (await response.json()) as { error?: string; message?: string };
@@ -86,7 +76,7 @@ export default function AdminDashboardPage() {
     if (!data.error) {
       setTimeout(() => setIsModalOpen(false), 1500);
     }
-    void loadStats(password);
+    void loadStats();
   }
 
   const totalClicks = deals.reduce((acc, deal) => acc + (deal.clicks || 0), 0);
@@ -103,18 +93,6 @@ export default function AdminDashboardPage() {
           <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Sistemdeki bilet ve kullanıcı istatistikleri.</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <input 
-            type="password" 
-            value={password} 
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (e.target.value) {
-                loadStats(e.target.value);
-              }
-            }} 
-            placeholder="Admin Şifresi" 
-            style={{ padding: "10px 16px", borderRadius: "10px", border: "1px solid var(--l2t-border)", outline: "none" }}
-          />
           <button onClick={() => setIsModalOpen(true)} className="l2t-btn" style={{ padding: "10px 20px" }}>
             <Plus size={18} /> Yeni Ekle
           </button>
@@ -310,7 +288,6 @@ export default function AdminDashboardPage() {
                     <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--l2t-soft)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>Görsel Önizleme</span>
                     <div style={{ width: "100%", height: "160px", borderRadius: "12px", background: "#e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                       {form.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img 
                           src={form.image_url} 
                           alt="Önizleme" 

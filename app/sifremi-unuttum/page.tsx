@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, ArrowRight, Lock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, ArrowRight, Lock, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -17,15 +18,15 @@ export default function ForgotPasswordPage() {
     setStatus("loading");
     setMessage("");
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const siteUrl = getSiteUrl();
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/sifre-yenile`,
-    });
-
-    if (error) {
-      // For security, do not reveal if email exists or not. Show a generic success message or handled error.
-      console.error(error.message); // Only for debugging but in production we can hide this.
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${siteUrl}/sifre-yenile`,
+      });
+      if (error) console.error("Password reset request failed", error.message);
+    } catch (error) {
+      console.error("Password reset request failed", error);
     }
 
     // Always show a generic success message to prevent email enumeration
@@ -90,6 +91,7 @@ export default function ForgotPasswordPage() {
               <input
                 type="email"
                 required
+                maxLength={254}
                 placeholder="E-posta adresi"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

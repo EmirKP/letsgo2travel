@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { Send, AlertTriangle, ShieldCheck, Loader2, User } from "lucide-react";
+import { Send, AlertTriangle, ShieldCheck, Loader2, User, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ForumReplyForm({ topicId, topicTitle }: { topicId: string, topicTitle?: string }) {
@@ -68,7 +68,7 @@ export default function ForumReplyForm({ topicId, topicTitle }: { topicId: strin
         setSuccess("Cevabın başarıyla gönderildi ve onay sırasına alındı.");
         setContent("");
       }
-    } catch (err: any) {
+    } catch {
       setError("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
     } finally {
       setIsSubmitting(false);
@@ -99,7 +99,7 @@ export default function ForumReplyForm({ topicId, topicTitle }: { topicId: strin
   return (
     <div style={{ background: "#fff", padding: "32px", borderRadius: "24px", boxShadow: "0 10px 40px rgba(0,0,0,0.03)", border: "1px solid #e2e8f0" }}>
       <h4 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-        Cevap Yaz
+        {topicTitle ? `“${topicTitle}” konusuna cevap yaz` : "Cevap Yaz"}
       </h4>
       
       {/* Kişisel Veri Uyarısı */}
@@ -147,8 +147,3 @@ export default function ForumReplyForm({ topicId, topicTitle }: { topicId: strin
     </div>
   );
 }
-
-// Dummy checkcircle icon component missing from imports
-const CheckCircle2 = ({size, className}:any) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-);

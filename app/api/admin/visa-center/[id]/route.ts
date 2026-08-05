@@ -60,7 +60,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

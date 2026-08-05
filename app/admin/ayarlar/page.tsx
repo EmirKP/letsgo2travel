@@ -2,22 +2,34 @@
 
 import { useEffect, useState } from "react";
 import type { SiteSettings } from "@/lib/types";
+import { supabase } from "@/lib/supabase-client";
 import { Settings, Link as LinkIcon, Mail, Globe, Save, ShieldAlert, CheckCircle2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [form, setForm] = useState<SiteSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/site-ayarlari")
-      .then((response) => response.json())
-      .then((data: { data: SiteSettings }) => {
-        setSettings(data.data);
+    async function loadSettings() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch("/api/admin/site-ayarlari", {
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        });
+        const data = (await response.json().catch(() => ({}))) as { data?: SiteSettings; error?: string };
+        if (!response.ok || !data.data) throw new Error(data.error || "Ayarlar yüklenemedi.");
         setForm(data.data);
-      })
-      .catch(() => setSettings(null));
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Ayarlar yüklenemedi.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadSettings();
   }, []);
 
   const handleSave = async () => {
@@ -35,11 +47,10 @@ export default function AdminSettingsPage() {
       
       if (res.ok) {
         setToast({ message: data.message || "Ayarlar başarıyla kaydedildi!", type: "success" });
-        setSettings(form);
       } else {
         setToast({ message: data.error || "Bir hata oluştu", type: "error" });
       }
-    } catch (e) {
+    } catch {
       setToast({ message: "Bağlantı hatası", type: "error" });
     } finally {
       setIsSaving(false);
@@ -57,7 +68,7 @@ export default function AdminSettingsPage() {
         <h1 style={{ fontSize: "2.5rem", color: "var(--l2t-navy)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px" }}>
           <Settings size={36} color="var(--l2t-blue)" /> Site & Affiliate Ayarları
         </h1>
-        <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Ortaklık linklerini, entegrasyon anahtarlarını ve iletişim bilgilerini yönet.</p>
+        <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Ortaklık linkleri ve iletişim bilgileri için yönetim taslağını görüntüle.</p>
       </div>
 
       <div className="glass-panel" style={{ background: "#fff", borderRadius: "20px", padding: "32px", boxShadow: "0 10px 40px rgba(0,0,0,0.05)", position: "relative", overflow: "hidden" }}>
@@ -81,7 +92,7 @@ export default function AdminSettingsPage() {
             <ShieldAlert size={24} color="#2563eb" />
           </div>
           <p style={{ margin: 0, color: "var(--l2t-navy)", fontSize: "0.95rem", lineHeight: "1.5" }}>
-            Sistem güvenliği protokolleri devrede. Bu alanda yaptığınız değişiklikler doğrudan veritabanına ve <strong>.env</strong> değişkenlerine yansıtılır. Girdiğiniz affiliate URL'lerinin geçerliliğinden emin olun.
+            Bu ekran veritabanında bir yönetim taslağı saklar; Vercel ortam değişkenlerini veya canlı bağlantıları otomatik değiştirmez. Canlı değerler için Vercel&apos;de ilgili <strong>NEXT_PUBLIC_…</strong> değişkenini güncelleyip yeniden deploy edin.
           </p>
         </div>
 
@@ -168,15 +179,20 @@ export default function AdminSettingsPage() {
                 ) : (
                   <Save size={20} />
                 )}
-                {isSaving ? "Kaydediliyor..." : "Tüm Ayarları Kaydet"}
+                {isSaving ? "Kaydediliyor..." : "Yönetim Taslağını Kaydet"}
               </button>
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-        ) : (
+        ) : isLoading ? (
           <div style={{ padding: "60px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
             <div style={{ width: "32px", height: "32px", border: "3px solid var(--l2t-blue)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
             <span style={{ color: "var(--l2t-soft)", fontWeight: "500" }}>Sistem yapılandırmaları yükleniyor...</span>
+          </div>
+        ) : (
+          <div role="alert" style={{ padding: "48px", textAlign: "center", color: "#991b1b" }}>
+            <p>{loadError || "Ayarlar yüklenemedi."}</p>
+            <button type="button" className="l2t-btn l2t-btn-outline" onClick={() => window.location.reload()}>Yeniden dene</button>
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User, Heart, Bell, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function ProfilPage() {
   const router = useRouter();
@@ -46,6 +47,8 @@ export default function ProfilPage() {
     setUser(null);
     router.push("/");
   };
+
+  if (!mounted) return null;
 
   if (!user) {
     return (
@@ -140,11 +143,12 @@ export default function ProfilPage() {
             onClick={async () => {
               setIsGoogleLoading(true);
               try {
-                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-                await supabase.auth.signInWithOAuth({
+                const siteUrl = getSiteUrl();
+                const { error } = await supabase.auth.signInWithOAuth({
                   provider: 'google',
                   options: { redirectTo: `${siteUrl}/auth/callback` },
                 });
+                if (error) throw error;
               } catch (err) {
                 console.error(err);
                 setIsGoogleLoading(false);

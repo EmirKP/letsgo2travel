@@ -319,7 +319,7 @@ export default async function HomePage() {
           <p>Doğrulanmış seyahat deneyimleri, ülke soruları ve güncel giriş notlarıyla bilinmezliği azalt.</p>
           <div>
             <Link href="/forum">Topluluğu keşfet <ArrowRight size={16} /></Link>
-            <Link href="/profil/dogrulama">Deneyimimi doğrula</Link>
+            <Link href="/profil/dogrulamalar">Deneyimimi doğrula</Link>
           </div>
         </div>
       </section>

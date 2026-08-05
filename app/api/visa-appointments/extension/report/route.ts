@@ -5,6 +5,7 @@ import {
   EXTENSION_CORS_HEADERS,
   hashVisaExtensionSecret,
 } from "@/lib/visa-appointments/extension-auth";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const runtime = "nodejs";
 
@@ -19,8 +20,14 @@ export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: EXTENSION_CORS_HEADERS });
 }
 
-function siteUrl() {
-  return String(process.env.NEXT_PUBLIC_SITE_URL || "https://www.letsgo2travel.com.tr").replace(/\/$/, "");
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  })[character] || character);
 }
 
 function notificationCopy(outcome: Outcome, countryName: string, message: string) {
@@ -39,7 +46,10 @@ function notificationCopy(outcome: Outcome, countryName: string, message: string
 }
 
 function emailHtml(params: { title: string; message: string; actionUrl: string }) {
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f7fa;padding:32px 16px"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #dce5ec;border-radius:20px;padding:32px"><div style="display:inline-block;background:#071b33;color:#ffe08a;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800">LETSGO2TRAVEL CHROME YARDIMCISI</div><h1 style="margin:20px 0 12px;color:#071b33;font-size:25px">${params.title}</h1><p style="color:#52606d;line-height:1.65">${params.message}</p><a href="${params.actionUrl}" style="display:inline-block;margin-top:16px;background:#f6c445;color:#071b33;text-decoration:none;font-weight:900;padding:14px 22px;border-radius:12px">Takip panelini aç</a><p style="margin-top:24px;color:#88939e;font-size:12px;line-height:1.6">Chrome yardımcısı yalnızca açık iDATA sayfasındaki görünür durum bilgisini okur; çerez, parola ve form alanı değerlerini göndermez.</p></div></div>`;
+  const title = escapeHtml(params.title);
+  const message = escapeHtml(params.message);
+  const actionUrl = escapeHtml(params.actionUrl);
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f7fa;padding:32px 16px"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #dce5ec;border-radius:20px;padding:32px"><div style="display:inline-block;background:#071b33;color:#ffe08a;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800">LETSGO2TRAVEL CHROME YARDIMCISI</div><h1 style="margin:20px 0 12px;color:#071b33;font-size:25px">${title}</h1><p style="color:#52606d;line-height:1.65">${message}</p><a href="${actionUrl}" style="display:inline-block;margin-top:16px;background:#f6c445;color:#071b33;text-decoration:none;font-weight:900;padding:14px 22px;border-radius:12px">Takip panelini aç</a><p style="margin-top:24px;color:#88939e;font-size:12px;line-height:1.6">Chrome yardımcısı yalnızca açık iDATA sayfasındaki görünür durum bilgisini okur; çerez, parola ve form alanı değerlerini göndermez.</p></div></div>`;
 }
 
 async function insertNotification(
@@ -75,7 +85,7 @@ async function notify(
 ) {
   if (!(outcome === "slot_found" || outcome === "verification_required")) return;
   const copy = notificationCopy(outcome, track.country_name, message);
-  const actionUrl = `${siteUrl()}/vize-randevu`;
+  const actionUrl = `${getSiteUrl()}/vize-randevu`;
   const common = {
     track_id: track.id,
     user_id: track.user_id,
@@ -204,7 +214,7 @@ export async function POST(request: Request) {
     (body.outcome === "slot_found" && track.status !== "match_found") ||
     (body.outcome === "verification_required" && track.status !== "verification_required");
 
-  await supabase.from("visa_appointment_tracks").update({
+  const { error: trackUpdateError } = await supabase.from("visa_appointment_tracks").update({
     status: nextStatus,
     execution_mode: "browser_extension",
     extension_last_seen_at: now.toISOString(),
@@ -215,11 +225,13 @@ export async function POST(request: Request) {
     locked_until: null,
     locked_by: null,
   }).eq("id", track.id);
+  if (trackUpdateError) return json({ error: "Takip sonucu kaydedilemedi." }, 500);
 
-  await supabase.from("visa_appointment_extension_pairings").update({
+  const { error: pairingUpdateError } = await supabase.from("visa_appointment_extension_pairings").update({
     last_seen_at: now.toISOString(),
     updated_at: now.toISOString(),
   }).eq("id", pairing.id);
+  if (pairingUpdateError) return json({ error: "Chrome yardımcısı canlılık kaydı güncellenemedi." }, 500);
 
   if (shouldNotify) await notify(supabase, track, body.outcome, message);
 

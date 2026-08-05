@@ -9,6 +9,8 @@ import {
 
 export const runtime = "nodejs";
 
+const claimAttempts = new Map<string, { count: number; resetAt: number }>();
+
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: EXTENSION_CORS_HEADERS });
 }
@@ -21,13 +23,26 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return json({ error: "Sunucu yapılandırılmamış." }, 500);
 
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const nowMs = Date.now();
+  const attempt = claimAttempts.get(ip);
+  if (attempt && attempt.resetAt > nowMs && attempt.count >= 10) {
+    return json({ error: "Çok fazla bağlantı denemesi. Birkaç dakika sonra tekrar deneyin." }, 429);
+  }
+
   const body = (await request.json().catch(() => ({}))) as {
     code?: string;
     browserName?: string;
     extensionVersion?: string;
   };
   const normalizedCode = normalizePairingCode(String(body.code || ""));
-  if (normalizedCode.length !== 10) return json({ error: "Bağlantı kodu geçersiz." }, 400);
+  if (normalizedCode.length !== 10) {
+    claimAttempts.set(ip, {
+      count: attempt && attempt.resetAt > nowMs ? attempt.count + 1 : 1,
+      resetAt: attempt && attempt.resetAt > nowMs ? attempt.resetAt : nowMs + 5 * 60 * 1000,
+    });
+    return json({ error: "Bağlantı kodu geçersiz." }, 400);
+  }
 
   const codeHash = hashVisaExtensionSecret(normalizedCode);
   const { data: pairing } = await supabase
@@ -38,6 +53,10 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!pairing || new Date(pairing.expires_at) <= new Date()) {
+    claimAttempts.set(ip, {
+      count: attempt && attempt.resetAt > nowMs ? attempt.count + 1 : 1,
+      resetAt: attempt && attempt.resetAt > nowMs ? attempt.resetAt : nowMs + 5 * 60 * 1000,
+    });
     return json({ error: "Bağlantı kodu bulunamadı veya süresi doldu." }, 404);
   }
 
@@ -54,7 +73,7 @@ export async function POST(request: Request) {
   const token = createExtensionToken();
   const now = new Date().toISOString();
   const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { error } = await supabase.from("visa_appointment_extension_pairings").update({
+  const { data: claimedPairing, error } = await supabase.from("visa_appointment_extension_pairings").update({
     status: "connected",
     pairing_code_hash: null,
     extension_token_hash: hashVisaExtensionSecret(token),
@@ -64,10 +83,18 @@ export async function POST(request: Request) {
     browser_name: String(body.browserName || "Chrome").slice(0, 80),
     extension_version: String(body.extensionVersion || "1.0.0").slice(0, 30),
     updated_at: now,
-  }).eq("id", pairing.id);
+  })
+    .eq("id", pairing.id)
+    .eq("status", "pending")
+    .eq("pairing_code_hash", codeHash)
+    .select("id")
+    .maybeSingle();
   if (error) return json({ error: "Chrome yardımcısı bağlanamadı." }, 500);
+  if (!claimedPairing) return json({ error: "Bağlantı kodu başka bir oturumda kullanıldı." }, 409);
 
-  await supabase.from("visa_appointment_tracks").update({
+  claimAttempts.delete(ip);
+
+  const { error: trackUpdateError } = await supabase.from("visa_appointment_tracks").update({
     execution_mode: "browser_extension",
     status: "active",
     next_check_at: null,
@@ -76,6 +103,18 @@ export async function POST(request: Request) {
     locked_by: null,
     last_result: "Chrome yardımcısı bağlandı. Kontroller kullanıcının doğrulanmış tarayıcı oturumunda yapılacak.",
   }).eq("id", track.id);
+  if (trackUpdateError) {
+    await supabase.from("visa_appointment_extension_pairings").update({
+      status: "pending",
+      pairing_code_hash: codeHash,
+      extension_token_hash: null,
+      token_expires_at: null,
+      connected_at: null,
+      last_seen_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", pairing.id).eq("extension_token_hash", hashVisaExtensionSecret(token));
+    return json({ error: "Takip Chrome yardımcısı moduna geçirilemedi." }, 500);
+  }
 
   return json({
     data: {

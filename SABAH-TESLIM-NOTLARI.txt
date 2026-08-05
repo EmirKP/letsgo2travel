@@ -1,0 +1,104 @@
+LETSGO2TRAVEL — 05.08.2026 SABAH TESLİMİ
+==========================================
+
+BU SÜRÜMDE TAMAMLANANLAR
+
+- Yönetici oturumu imzalı, süreli ve HttpOnly çereze taşındı.
+- Sahte `admin_session=true` çerezi ve tarayıcıdaki eski admin şifresi artık kabul edilmiyor.
+- Yönetici sayfaları ve API'leri rol bazlı olarak sunucuda doğrulanıyor.
+- Kullanıcı, KVKK, işletme itirazı, rapor ve Kaşifler Ligi yönetimi korumalı API'lere bağlandı.
+- OAuth `next` yönlendirmesindeki dış siteye kaçış ihtimali kapatıldı; güvenli iç sayfa sorguları korunuyor.
+- Kayıt, Google giriş, şifre sıfırlama ve e-posta doğrulama bağlantıları canlı `www` alan adına sabitlendi.
+- Kayıt ve şifre akışlarında uzunluk kontrolü, daha güvenli hata metinleri ve oturum aboneliği temizliği eklendi.
+- Seyahat doğrulamasındaki iki çakışan yükleme akışı tek sayfada birleştirildi.
+- Kanıt dosyaları boyut, MIME ve gerçek dosya imzasıyla doğrulanıyor; tekrar ve hız sınırı uygulanıyor.
+- Doğrulama onay/red işlemleri yarış koşullarına karşı kilitleniyor; kritik DB sonuçları kontrol ediliyor.
+- Özel seyahat kanıtı inceleme tamamlanınca Storage'dan siliniyor ve kayıt yolu temizleniyor.
+- Vize worker raporlarında görev kilidi, worker kimliği, tarih aralığı ve eski sonuç kontrolleri güçlendirildi.
+- Worker kaynaklı e-posta ve bağlantı içerikleri temizleniyor.
+- Chrome yardımcısındaki eşleştirme yarışları ve başarısız veritabanı güncellemeleri güvenli biçimde ele alınıyor.
+- Worker Docker kurulumu kilit dosyasıyla tekrarlanabilir hâle getirildi.
+- Rota Asistanı yalnızca doğrulanmış vize/kimlik kurallarını kullanıyor ve gecikmede üç güvenli rota gösteriyor.
+- İstanbul rehberindeki sahte kullanıcı yorumları ve sahte başarı bildirimi kaldırıldı.
+- Ülke rehberi makaleleri kopya Schengen metni yerine dürüst, ülkeye özel başlıklı kontrol listelerine dönüştürüldü.
+- Profildeki "gizlendi, kodunuzda var" kutuları gerçek kampanya, alarm, rota ve kokpit bağlantılarıyla değiştirildi.
+- Sabit demo döviz kurları kaldırıldı; kullanıcıya canlı kuru işlem öncesi kontrol etmesi söyleniyor.
+- Admin site ayarlarının Vercel `.env` değerlerini değiştirmediği açıkça belirtildi; ekran yönetim taslağı olarak çalışıyor.
+- Supabase yokken mutasyonları başarılı gösteren sahte demo yanıtları kaldırıldı.
+- Newsletter ve fiyat alarmı formları gerçek kayıt/e-posta başarısı olmadan kullanıcıya başarı göstermiyor.
+- E-posta içerikleri ve bağlantıları temizleniyor; e-posta servisi kapalıyken alıcı veya içerik loglanmıyor.
+- Topluluk, KVKK, vize randevusu ve doğrulama API'lerinde kimlik kontrolü veritabanı işleminden önce yapılıyor.
+- Affiliate tıklama kaydında IP yalnızca ayrı `ANALYTICS_HASH_SALT` tanımlıysa anonimleştiriliyor.
+
+DOĞRULAMA SONUÇLARI
+
+- Next.js production build: 136/136 sayfa başarılı
+- TypeScript: başarılı
+- ESLint: 0 hata, 0 uyarı
+- Mobil lint/build: başarılı
+- Android ve iOS mobil doktoru: kritik hata veya uyarı yok
+- Worker JavaScript sözdizimi ve bağımlılık kilidi: başarılı
+- Sahte admin çerezi: `/admin` -> `/admin/login`
+- Yetkisiz admin, heartbeat, doğrulama ve worker istekleri: 401
+- Eski doğrulama API'si: 410 ve güncel sayfaya yönlendirme bilgisi
+- Güvensiz OAuth hedefleri: güvenli `/profil` hedefine dönüyor
+- Vizesiz rota yedeği: Saraybosna, Üsküp, Belgrad — üçü de Vizesiz
+
+POWERSHELL — TEMİZ WEB SÜRÜMÜNÜ UYGULA
+
+PowerShell'i aç ve aşağıdaki komutları sırayla çalıştır:
+
+cd "C:\Projects"
+$backup = "C:\Projects\letsgo2travel-yedek-" + (Get-Date -Format "yyyyMMdd-HHmm")
+Rename-Item "C:\Projects\letsgo2travel" $backup
+Expand-Archive "$env:USERPROFILE\Downloads\letsgo2travel-sabah-guvenlik-guncellemesi.zip" "C:\Projects" -Force
+Move-Item "$backup\.git" "C:\Projects\letsgo2travel\.git"
+Copy-Item "$backup\.env.local" "C:\Projects\letsgo2travel\.env.local" -Force
+
+cd "C:\Projects\letsgo2travel"
+npm install
+npm run lint -- --max-warnings=0
+npm run build
+
+git status
+git add -A
+git commit -m "Guvenlik kalite ve worker guncellemeleri"
+git push origin main
+
+VERCEL — ÖNERİLEN İKİ GÜVENLİK DEĞERİ
+
+Vercel Project Settings > Environment Variables altında Production, Preview ve
+Development için aşağıdaki iki değeri ayrı, uzun ve rastgele metinler olarak ekle:
+
+ADMIN_SESSION_SECRET=En az 32 baytlık rastgele ve ADMIN_PASSWORD'dan farklı değer
+ANALYTICS_HASH_SALT=En az 32 baytlık ayrı bir rastgele değer
+
+`ADMIN_SESSION_SECRET` eklenmezse sistem geriye dönük uyumluluk için ADMIN_PASSWORD'u
+kullanır; site yine çalışır. `ANALYTICS_HASH_SALT` yoksa IP adresi kaydedilmez.
+Bu gizli değerleri mesajla paylaşma. Değerleri ekledikten sonra Vercel'i yeniden deploy et.
+
+SUPABASE — YALNIZCA DAHA ÖNCE ÇALIŞTIRMADIYSAN
+
+Supabase SQL Editor'de proje kökündeki `supabase_visa_worker_heartbeat.sql`
+dosyasının tamamını çalıştır. Dosya mevcut verileri silmez ve tekrar çalıştırılabilir.
+
+VDS — HEARTBEAT'İ BAŞLAT
+
+cd /opt/letsgo2travel
+git pull origin main
+docker compose -f docker-compose.visa-worker.yml up -d --build
+docker compose -f docker-compose.visa-worker.yml ps
+docker compose -f docker-compose.visa-worker.yml logs --tail=100 visa-worker
+
+VDS'deki `visa-worker/.env` dosyasında:
+
+API_BASE_URL=https://www.letsgo2travel.com.tr
+VISA_WORKER_SECRET=Vercel'deki değerle aynı gizli değer
+
+Gizli değeri mesajla paylaşma.
+
+CANLI DURUM
+
+Web deploy ayakta. 05.08.2026 gece kontrolünde Randevu Asistanı hâlâ
+"Worker durumu doğrulanamadı" gösteriyordu. Bu nedenle kalan işlem VDS worker'ını
+yukarıdaki komutlarla başlatmak ve logunu kontrol etmektir.

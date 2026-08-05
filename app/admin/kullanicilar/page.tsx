@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Search, Settings as SettingsIcon, Mail, Key, KeyRound, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Settings as SettingsIcon, Mail, Key, KeyRound, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
-  const [password, setPassword] = useState("");
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   
@@ -18,34 +17,21 @@ export default function AdminUsersPage() {
   const [selectedRole, setSelectedRole] = useState("user");
 
   useEffect(() => {
-    const saved = localStorage.getItem("l2t-admin-password") || "";
-    setPassword(saved);
-    if (saved) {
-      loadUsers(saved);
-    }
-    
-    // Get current user role
-    import("@/lib/supabase-client").then(({ supabase }) => {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session?.user) {
-          supabase.from("profiles").select("role").eq("id", data.session.user.id).single().then(({ data: profile }) => {
-            if (profile) setCurrentUserRole(profile.role);
-          });
-        }
-      });
-    });
+    void loadUsers();
+    fetch("/api/admin/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload: { role?: string }) => setCurrentUserRole(payload.role || "user"))
+      .catch(() => setCurrentUserRole("user"));
   }, []);
 
-  async function loadUsers(pass: string) {
+  async function loadUsers() {
     try {
-      const res = await fetch("/api/admin/users", {
-        headers: { "x-admin-password": pass }
-      });
+      const res = await fetch("/api/admin/users");
       const data = await res.json();
       if (data.data) {
         setUsers(data.data);
       }
-    } catch (e) {}
+    } catch {}
   }
 
   const handlePasswordSet = async (e: React.FormEvent) => {
@@ -67,8 +53,7 @@ export default function AdminUsersPage() {
       const res = await fetch(`/api/admin/users/${selectedUser.id}/password`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ newPassword })
       });
@@ -80,7 +65,7 @@ export default function AdminUsersPage() {
         setNewPassword("");
         setConfirmPassword("");
       }
-    } catch (e) {
+    } catch {
       setActionError("Bağlantı hatası oluştu.");
     }
     setIsActionLoading(false);
@@ -92,10 +77,7 @@ export default function AdminUsersPage() {
     setIsActionLoading(true);
     try {
       const res = await fetch(`/api/admin/users/${selectedUser.id}/send-password-reset`, {
-        method: "POST",
-        headers: {
-          "x-admin-password": password
-        }
+        method: "POST"
       });
       const data = await res.json();
       if (data.error) {
@@ -103,7 +85,7 @@ export default function AdminUsersPage() {
       } else {
         setActionMessage(data.message || "Sıfırlama e-postası gönderildi.");
       }
-    } catch (e) {
+    } catch {
       setActionError("Bağlantı hatası oluştu.");
     }
     setIsActionLoading(false);
@@ -115,20 +97,10 @@ export default function AdminUsersPage() {
     setIsActionLoading(true);
 
     try {
-      const { supabase } = await import("@/lib/supabase-client");
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setActionError("Bu işlem için giriş yapmalısınız.");
-        setIsActionLoading(false);
-        return;
-      }
-
       const res = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ role: selectedRole })
       });
@@ -138,9 +110,9 @@ export default function AdminUsersPage() {
         setActionError(data.error);
       } else {
         setActionMessage("Kullanıcı rolü başarıyla güncellendi.");
-        loadUsers(password); // Reload users to reflect role change
+        loadUsers(); // Reload users to reflect role change
       }
-    } catch (e) {
+    } catch {
       setActionError("Bağlantı hatası oluştu.");
     }
     setIsActionLoading(false);
@@ -161,18 +133,6 @@ export default function AdminUsersPage() {
           <p className="l2t-kicker" style={{ display: "flex", alignItems: "center", gap: "6px" }}><ShieldCheck size={16} /> Admin Merkezi</p>
           <h1 style={{ fontSize: "2.5rem", color: "var(--l2t-navy)", marginBottom: "8px" }}>Kullanıcı Yönetimi</h1>
           <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Tüm kayıtlı kullanıcıları ve üyeliklerini buradan yönetin.</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <input 
-            type="password" 
-            value={password} 
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (e.target.value) loadUsers(e.target.value);
-            }} 
-            placeholder="Admin Şifresi" 
-            style={{ padding: "10px 16px", borderRadius: "10px", border: "1px solid var(--l2t-border)", outline: "none" }}
-          />
         </div>
       </div>
 

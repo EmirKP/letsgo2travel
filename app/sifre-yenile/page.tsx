@@ -15,6 +15,8 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let mounted = true;
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: number | null = null;
 
     const captureSession = async () => {
       let activeSession = false;
@@ -48,6 +50,7 @@ export default function ResetPasswordPage() {
         setSessionExists(true);
         return;
       }
+      if (!mounted) return;
 
       // 3. Fallback: Listen for auth state changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -58,23 +61,22 @@ export default function ResetPasswordPage() {
           }
         }
       });
+      authSubscription = subscription;
 
       // Timeout for invalid/expired links
-      setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         if (mounted) {
           setSessionExists((prev) => (prev === null ? false : prev));
         }
-      }, 1500);
-
-      return () => {
-        subscription.unsubscribe();
-      };
+      }, 5000);
     };
 
-    captureSession();
+    void captureSession();
 
     return () => {
       mounted = false;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      authSubscription?.unsubscribe();
     };
   }, []);
 
@@ -89,9 +91,9 @@ export default function ResetPasswordPage() {
 
     if (!password || !confirmPassword) return;
 
-    if (password.length < 8) {
+    if (password.length < 8 || password.length > 128) {
       setStatus("error");
-      setMessage("Şifre en az 8 karakter olmalı.");
+      setMessage("Şifre 8–128 karakter arasında olmalı.");
       return;
     }
 
@@ -107,8 +109,9 @@ export default function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password: password });
 
     if (error) {
+      console.error("Password update failed", error.message);
       setStatus("error");
-      setMessage(`Şifre güncellenirken bir hata oluştu: ${error.message}`);
+      setMessage("Şifre güncellenemedi. Bağlantının süresi dolmuş olabilir; yeniden sıfırlama bağlantısı isteyin.");
     } else {
       setStatus("success");
       setMessage("Şifren güncellendi. Giriş yapabilirsin.");
@@ -191,6 +194,8 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={8}
+                maxLength={128}
                 style={{
                   width: "100%", padding: "14px 14px 14px 46px", borderRadius: "12px",
                   border: "1px solid #e2e8f0", fontSize: "1rem", outline: "none",
@@ -207,6 +212,7 @@ export default function ResetPasswordPage() {
                 type="password"
                 required
                 minLength={8}
+                maxLength={128}
                 placeholder="Yeni Şifre (Tekrar)"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

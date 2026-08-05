@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin, getAdminPassword } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/admin-auth";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const adminPass = getAdminPassword();
-  const providedPass = request.headers.get("x-admin-password");
-
-  if (!adminPass || providedPass !== adminPass) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-  }
+  const authError = await requireAdmin(request, ["admin", "super_admin"]);
+  if (authError) return authError;
 
   const { id: userId } = await context.params;
   if (!userId) {
@@ -28,9 +26,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     // 2. Generate and send a reset password email
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://letsgo2travel.vercel.app";
     const { error: emailError } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${siteUrl}/sifre-yenile`,
+      redirectTo: `${getSiteUrl()}/sifre-yenile`,
     });
 
     if (emailError) {
@@ -38,7 +35,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     
     return NextResponse.json({ message: "Şifre sıfırlama bağlantısı kullanıcıya gönderildi." });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Bir hata oluştu." }, { status: 500 });
   }
 }

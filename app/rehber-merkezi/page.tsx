@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ShieldCheck, MapPin, Tent, Fish, Crosshair, AlertTriangle, Phone, Search } from "lucide-react";
+import { BookOpen, ShieldCheck, MapPin, Tent, Fish, Crosshair, AlertTriangle, Phone, ArrowRight } from "lucide-react";
 
 export const metadata = {
   title: "Rehber Merkezi | Letsgo2Travel",
@@ -30,21 +30,9 @@ export default function GuideCenterPage() {
             Vize, güvenlik, kamp, balıkçılık, avcılık ve daha fazlası. Seyahatinizi planlarken ihtiyacınız olan tüm temel bilgilendirmeler burada.
           </p>
 
-          {/* Ülke Arama Kutusu */}
-          <div style={{ position: "relative", maxWidth: "500px", margin: "0 auto" }}>
-            <div style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}>
-              <Search size={22} />
-            </div>
-            <input 
-              type="text" 
-              placeholder="Ülke veya şehir ara... (Örn: Almanya, Paris)"
-              style={{
-                width: "100%", padding: "18px 20px 18px 56px", fontSize: "1.05rem", borderRadius: "100px",
-                border: "1px solid #e2e8f0", outline: "none", boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
-                transition: "all 0.2s", color: "var(--l2t-navy)"
-              }}
-            />
-          </div>
+          <Link href="/ulke-rehberi" className="l2t-btn l2t-btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            Ülke rehberlerini incele <ArrowRight size={17} />
+          </Link>
         </div>
 
         {/* Kategori Grid */}
@@ -97,11 +85,11 @@ export default function GuideCenterPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "32px", marginBottom: "64px" }}>
           
           <div style={{ background: "#F8FAFC", padding: "32px", borderRadius: "24px", border: "1px solid #e2e8f0" }}>
-            <h2 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", fontWeight: "800", marginBottom: "16px" }}>Forumdan Son Deneyimler</h2>
+            <h2 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", fontWeight: "800", marginBottom: "16px" }}>Foruma Sorabileceğiniz Konular</h2>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <li style={{ color: "#475569", fontSize: "0.95rem" }}>"Kosova sınır kapısında dönüş bileti sordular..."</li>
-              <li style={{ color: "#475569", fontSize: "0.95rem" }}>"Almanya randevuları hakkında güncel bilgi!"</li>
-              <li style={{ color: "#475569", fontSize: "0.95rem" }}>"Dubai'de uygun fiyatlı eSIM önerileri."</li>
+              <li style={{ color: "#475569", fontSize: "0.95rem" }}>Kosova girişinde dönüş bileti kontrolü</li>
+              <li style={{ color: "#475569", fontSize: "0.95rem" }}>Almanya randevu süreci deneyimleri</li>
+              <li style={{ color: "#475569", fontSize: "0.95rem" }}>Dubai için eSIM ve dolaşım seçenekleri</li>
             </ul>
             <Link href="/forum/yeni" className="l2t-btn l2t-btn-outline" style={{ display: "inline-block" }}>
               Soru Sor / Konu Aç

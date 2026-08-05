@@ -25,16 +25,15 @@ export default function AdminGuidePage() {
 
   async function loadGuides() {
     setIsLoading(true);
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
-      const res = await fetch("/api/admin/rehber", { headers: { "x-admin-password": legacyPass } });
+      const res = await fetch("/api/admin/rehber");
       const data = await res.json();
       if (data.error) {
         setMessage(data.error);
       } else {
         setGuides(data.data || []);
       }
-    } catch (e) {
+    } catch {
       setMessage("Veriler yüklenirken bir hata oluştu.");
     } finally {
       setIsLoading(false);
@@ -79,14 +78,13 @@ export default function AdminGuidePage() {
     e.preventDefault();
     if (!validateRules()) return;
 
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     const method = editingId ? "PUT" : "POST";
     const body = { id: editingId, ...formData };
 
     try {
       const res = await fetch("/api/admin/rehber", {
         method,
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
       const data = await res.json();
@@ -98,18 +96,17 @@ export default function AdminGuidePage() {
         resetForm();
         loadGuides();
       }
-    } catch (e) {
+    } catch {
       alert("Kayıt işlemi başarısız (bağlantı hatası).");
     }
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Bu rehberi kalıcı olarak silmek istediğinize emin misiniz?")) return;
-    const legacyPass = localStorage.getItem("l2t-admin-password") || "";
     try {
       const res = await fetch("/api/admin/rehber", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-admin-password": legacyPass },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id })
       });
       const data = await res.json();
@@ -118,7 +115,7 @@ export default function AdminGuidePage() {
       } else {
         loadGuides();
       }
-    } catch (e) {
+    } catch {
       alert("Silme işlemi başarısız.");
     }
   }

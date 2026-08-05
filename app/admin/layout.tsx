@@ -4,9 +4,33 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
+type SessionPayload = {
+  authenticated?: boolean;
+  role?: string;
+  error?: string;
+};
+
+function roleCanAccess(path: string, role: string) {
+  if (["admin", "super_admin"].includes(role)) return true;
+
+  const moderatorPrefixes = [
+    "/admin/forum",
+    "/admin/raporlar",
+    "/admin/moderasyon",
+    "/admin/dogrulamalar",
+    "/admin/seyahat-dogrulama",
+    "/admin/vize-randevulari",
+  ];
+  const editorPrefixes = ["/admin/blog", "/admin/rehber"];
+
+  if (role === "moderator") return moderatorPrefixes.some((prefix) => path.startsWith(prefix));
+  if (role === "editor") return editorPrefixes.some((prefix) => path.startsWith(prefix));
+  return path === "/admin";
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const router = useRouter();
 
@@ -15,68 +39,77 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const originalFetch = window.fetch;
 
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      let role = 'user';
-      if (session) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-        if (profile) role = profile.role;
-      }
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      const legacyPassword = localStorage.getItem("l2t-admin-password");
-      const isLegacyAuth = !!legacyPassword;
-      const isSupabaseAuth = ['moderator', 'editor', 'admin', 'super_admin'].includes(role);
+        const sessionResponse = await originalFetch("/api/admin/session", {
+          method: session ? "POST" : "GET",
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          cache: "no-store",
+        });
+        const sessionPayload = (await sessionResponse.json().catch(() => ({}))) as SessionPayload;
+        const role = sessionPayload.role || "user";
+        const isAdminAuth = sessionResponse.ok && sessionPayload.authenticated === true;
+        const path = window.location.pathname;
 
-      const path = window.location.pathname;
+        localStorage.removeItem("l2t-admin-password");
 
-      if (!isSupabaseAuth && !isLegacyAuth && path !== '/admin/login') {
-        if (!session) {
-          router.push("/admin/login");
+        if (path === "/admin/login") {
+          if (!unmounted) {
+            setIsAuthorized(true);
+            setIsReady(true);
+          }
           return;
-        } else {
-          setAuthMessage("Bu alana erişim yetkiniz yok.");
-          setIsAuthorized(false);
         }
-      } else if (isSupabaseAuth && path !== '/admin/login') {
-        // Rol bazlı sayfa yetki kontrolleri
-        if (path.startsWith('/admin/ayarlar') || path.startsWith('/admin/kullanicilar') || path.startsWith('/admin/affiliate-raporlari')) {
-          if (!['admin', 'super_admin'].includes(role)) {
-            setAuthMessage("Site ayarları ve kullanıcı yönetimi için yetkiniz yok.");
-            setIsAuthorized(false);
+
+        if (!isAdminAuth) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const roleAllowed = roleCanAccess(path, role);
+        if (!unmounted) {
+          if (!roleAllowed) {
+            setAuthMessage("Bu yönetim alanı için yetkiniz bulunmuyor.");
           }
-        } else if (path.startsWith('/admin/forum') || path.startsWith('/admin/raporlar')) {
-          if (!['moderator', 'admin', 'super_admin'].includes(role)) {
-            setAuthMessage("Topluluk ve moderasyon alanına erişim yetkiniz yok.");
-            setIsAuthorized(false);
+          setIsAuthorized(roleAllowed);
+        }
+
+        // Supabase ile giriş yapan yöneticilerde API isteklerine erişim belirtecini ekle.
+        window.fetch = async (...args) => {
+          const [resource, config] = args;
+          const url =
+            typeof resource === "string"
+              ? resource
+              : resource instanceof Request
+                ? resource.url
+                : "";
+
+          if (url.includes("/api/admin/") && session?.access_token) {
+            const headers = new Headers(
+              config?.headers || (resource instanceof Request ? resource.headers : undefined),
+            );
+            if (!headers.has("Authorization")) {
+              headers.set("Authorization", `Bearer ${session.access_token}`);
+            }
+            return originalFetch(resource, { ...config, headers });
           }
-        } else if (path.startsWith('/admin/blog') || path.startsWith('/admin/rehber') || path.startsWith('/admin/kampanyalar')) {
-          if (!['editor', 'admin', 'super_admin'].includes(role)) {
-            setAuthMessage("İçerik yönetimi alanına erişim yetkiniz yok.");
-            setIsAuthorized(false);
-          }
+          return originalFetch(...args);
+        };
+
+        if (!unmounted) setIsReady(true);
+      } catch {
+        if (!unmounted) {
+          setAuthMessage("Yönetici oturumu doğrulanamadı.");
+          setIsAuthorized(false);
+          setIsReady(true);
         }
       }
-
-      // Intercept fetch to inject Authorization header for admin APIs
-      window.fetch = async (...args) => {
-        const [resource, config] = args;
-        const url = typeof resource === 'string' ? resource : resource instanceof Request ? resource.url : '';
-        
-        if (url.includes('/api/admin/') && session) {
-          const newConfig = { ...config } as any;
-          newConfig.headers = {
-            ...newConfig.headers,
-            'Authorization': `Bearer ${session.access_token}`
-          };
-          return originalFetch(resource, newConfig);
-        }
-        return originalFetch(...args);
-      };
-
-      if (!unmounted) setIsReady(true);
     };
 
-    initAuth();
+    void initAuth();
 
     return () => {
       unmounted = true;

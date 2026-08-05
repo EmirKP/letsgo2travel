@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { Map, MapPin, Search, AlertCircle, Info, Landmark, Coffee, ShoppingBag, Euro } from "lucide-react";
-import ReviewCard, { ReviewType } from "@/components/ReviewCard";
-import CommentForm from "@/components/CommentForm";
+import Link from "next/link";
+import { Map, MapPin, AlertCircle, Euro, MessageSquare } from "lucide-react";
 
 const REGIONS = ["Sultanahmet", "Eminönü", "Kapalıçarşı", "Taksim", "Karaköy", "Kadıköy", "Bağdat Caddesi", "Beşiktaş", "Üsküdar", "Balat"];
 
 const POI_DATA = [
   { id: 1, region: "Sultanahmet", name: "Ayasofya", category: "Tarihi", flag: "recommended" },
-  { id: 2, region: "Kapalıçarşı", name: "Grand Bazaar Exchange", category: "Döviz", flag: "check_prices", note: "Bazı kullanıcılar havalimanına göre daha iyi kur aldığını belirtmiştir. İşlem yapmadan önce güncel kuru sormanız önerilir." },
-  { id: 3, region: "Taksim", name: "İstiklal Restoran", category: "Restoran", flag: "warning", note: "Fiyatlar menüde yazandan farklı olabilir. Sipariş vermeden önce fiyatları teyit etmeniz önerilir." },
+  { id: 2, region: "Kapalıçarşı", name: "Döviz büroları", category: "Döviz", flag: "check_prices", note: "İşlem yapmadan önce alış ve satış kurunu, komisyonu ve alacağınız toplam tutarı birkaç noktada karşılaştırın." },
+  { id: 3, region: "Taksim", name: "Restoran seçimi", category: "Restoran", flag: "warning", note: "Sipariş vermeden önce güncel menüyü, servis ücretini ve toplam fiyatı kontrol edin." },
 ];
 
 export default function IstanbulGuidePage() {
@@ -22,20 +21,13 @@ export default function IstanbulGuidePage() {
     (selectedCategory === "Tümü" || poi.category === selectedCategory)
   );
 
-  const handleCommentSubmit = async (content: string) => {
-    // Simüle edilmiş yorum gönderimi
-    console.log("Gönderilen yorum:", content);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert("Yorumunuz başarıyla gönderildi ve moderasyon sırasına alındı.");
-  };
-
   return (
     <div className="l2t-page">
       <div className="l2t-wrap">
         <div style={{ textAlign: 'center', padding: '60px 0', background: 'linear-gradient(180deg, var(--l2t-navy), var(--l2t-page-bg))', borderRadius: '16px', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '3rem', color: '#fff', margin: '0 0 16px' }}>İstanbul Şehir Rehberi</h1>
           <p className="l2t-muted" style={{ fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
-            Topluluğumuzun doğrulanmış deneyimleriyle keşfedin. Güvenli ve şeffaf rotaları tercih edin.
+            Bölge ve kategori seçerek editoryal gezi notlarını inceleyin. Karar vermeden önce güncel fiyat ve koşulları yerinde doğrulayın.
           </p>
         </div>
 
@@ -136,29 +128,17 @@ export default function IstanbulGuidePage() {
               )}
             </div>
 
-            {/* Yorumlar ve Deneyimler */}
-            <h3 style={{ fontSize: '1.4rem', color: 'var(--l2t-ink)', margin: '0 0 16px' }}>Topluluk Deneyimleri</h3>
-            <ReviewCard
-              type="official"
-              authorName="LetsGo2Travel"
-              date="Sürekli Güncel"
-              content={`${selectedRegion} bölgesi özellikle turistlerin yoğun bulunduğu bir alandır. Kalabalık saatlerde kişisel eşyalarınıza dikkat etmeniz önerilir.`}
-            />
-            <ReviewCard
-              type="verified"
-              authorName="Ahmet Y."
-              date="2 gün önce"
-              content="Kapalıçarşı döviz bürolarında havalimanına kıyasla çok daha iyi oranlar buldum. Ancak tabelada yazan rakamla işlem sırasında verilen kur bazen değişebiliyor. 'Şu anki kur nedir?' diye teyit etmeden paranızı uzatmayın."
-            />
-            <ReviewCard
-              type="community"
-              authorName="Sarah M."
-              date="1 hafta önce"
-              content="Taksim'de girdiğim bir restoranda menüde fiyatlar yazmıyordu. Hesap geldiğinde beklediğimin çok üzerinde bir tutar gördüm. Benim tavsiyem, sipariş öncesi fiyatı sormanız."
-              isFlagged={true}
-            />
-
-            <CommentForm onSubmit={handleCommentSubmit} placeholder={`${selectedRegion} hakkındaki deneyimlerinizi paylaşın...`} />
+            <section className="l2t-card" style={{ padding: '24px', marginTop: '32px' }} aria-labelledby="istanbul-community-title">
+              <h3 id="istanbul-community-title" style={{ fontSize: '1.4rem', color: 'var(--l2t-ink)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <MessageSquare size={22} color="var(--l2t-blue)" /> Topluluk deneyimleri
+              </h3>
+              <p style={{ color: 'var(--l2t-soft)', lineHeight: 1.6, margin: '0 0 20px' }}>
+                Bu şehir rehberinde doğrulanmış yorum akışı henüz aktif değil. Gerçek bir deneyim paylaşmak veya {selectedRegion} hakkında soru sormak için forumu kullanabilirsiniz.
+              </p>
+              <Link href={`/forum/yeni?title=${encodeURIComponent(`${selectedRegion} hakkında deneyim paylaşmak istiyorum`)}`} className="l2t-btn" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+                Forumda konu aç
+              </Link>
+            </section>
 
           </div>
         </div>

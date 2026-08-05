@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin, getAdminPassword } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/admin-auth";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const adminPass = getAdminPassword();
-  const providedPass = request.headers.get("x-admin-password");
-
-  if (!adminPass || providedPass !== adminPass) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-  }
+  const authError = await requireAdmin(request, ["admin", "super_admin"]);
+  if (authError) return authError;
 
   const { id: userId } = await context.params;
   if (!userId) {
@@ -27,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   try {
-    const { data, error } = await supabase.auth.admin.updateUserById(userId, {
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
       password: newPassword
     });
 
@@ -36,7 +33,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     return NextResponse.json({ message: "Kullanıcının şifresi başarıyla güncellendi." });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Bir hata oluştu." }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { ArrowLeft, AlertTriangle, CheckCircle2, EyeOff, Flag, MessageSquare, ShieldAlert, XCircle } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdminServer } from "@/lib/admin-server";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,8 @@ async function writeModerationLog(input: {
 async function setForumReportStatus(formData: FormData) {
   "use server";
 
+  await requireAdminServer(["moderator", "admin", "super_admin"]);
+
   const reportId = String(formData.get("reportId") || "");
   const status = String(formData.get("status") || "");
 
@@ -77,6 +80,8 @@ async function setForumReportStatus(formData: FormData) {
 
 async function hideForumTargetAndResolve(formData: FormData) {
   "use server";
+
+  await requireAdminServer(["moderator", "admin", "super_admin"]);
 
   const reportId = String(formData.get("reportId") || "");
   const targetId = String(formData.get("targetId") || "");
@@ -199,6 +204,7 @@ function dateLabel(date: string) {
 }
 
 export default async function AdminReportsPage() {
+  await requireAdminServer(["moderator", "admin", "super_admin"]);
   const { forumReports, communityReports, error } = await getReportData();
 
   const openForumReports = forumReports.filter((report) => report.status === "open");

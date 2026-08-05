@@ -19,6 +19,7 @@ function normalizeProvider(provider: string): AffiliateProvider | null {
 }
 
 function isAllowedTarget(provider: AffiliateProvider, rawUrl: string) {
+  if (!rawUrl || rawUrl.length > 2048) return false;
   try {
     const target = new URL(rawUrl);
     if (!["https:", "http:"].includes(target.protocol)) return false;
@@ -36,8 +37,13 @@ function isAllowedTarget(provider: AffiliateProvider, rawUrl: string) {
 
 function hashIp(ip: string | null) {
   if (!ip) return null;
-  const salt = process.env.ANALYTICS_HASH_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 24) || "letsgo2travel";
+  const salt = process.env.ANALYTICS_HASH_SALT;
+  if (!salt) return null;
   return crypto.createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+function limitedValue(value: string | null, maxLength: number) {
+  return value?.trim().slice(0, maxLength) || null;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
@@ -54,9 +60,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   if (supabase) {
     const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
     const realIp = request.headers.get("x-real-ip") || forwardedFor;
-    const destination = searchParams.get("destination");
-    const sourcePage = searchParams.get("source");
-    const campaign = searchParams.get("campaign") || "site_cta";
+    const destination = limitedValue(searchParams.get("destination"), 120);
+    const sourcePage = limitedValue(searchParams.get("source"), 120);
+    const campaign = limitedValue(searchParams.get("campaign"), 120) || "site_cta";
 
     await supabase.from("affiliate_clicks").insert({
       provider,
@@ -65,7 +71,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
       affiliate_url: targetUrl,
       utm_source: "letsgo2travel",
       utm_campaign: campaign,
-      user_agent: request.headers.get("user-agent"),
+      user_agent: limitedValue(request.headers.get("user-agent"), 500),
       ip_hash: hashIp(realIp),
     });
   }

@@ -69,7 +69,7 @@ export default function PlaneLoader({
 
           <h1 className="l2t-board-title">Seyahat planın hazırlanıyor</h1>
           <p className="l2t-board-desc">
-            Seçimlerine göre en uygun rotaları, bütçe ve süreyle eşleştiriyoruz.
+            {message || "Seçimlerine göre en uygun rotaları, bütçe ve süreyle eşleştiriyoruz."}
           </p>
         </div>
 

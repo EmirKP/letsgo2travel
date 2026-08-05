@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 export default function LogoutButton() {
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
+    localStorage.removeItem("l2t-admin-password");
     window.location.href = "/admin/login";
   };
 
