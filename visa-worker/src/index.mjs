@@ -1,4 +1,4 @@
-import { checkIdataJob } from "./providers/idata.mjs";
+﻿import { checkIdataJob } from "./providers/idata.mjs";
 import { probeProviderTarget } from "./providers/probe.mjs";
 
 const apiBaseUrl = String(process.env.API_BASE_URL || "").replace(/\/$/, "");
@@ -48,7 +48,7 @@ async function checkJob(job) {
   if (job.provider_code === "idata") return checkIdataJob(job);
   return {
     outcome: "provider_unavailable",
-    message: `${job.provider_name || job.provider_code || "Sağlayıcı"} takvim modülü henüz etkin değil.`,
+    message: `${job.provider_name || job.provider_code || "SaÄŸlayÄ±cÄ±"} takvim modÃ¼lÃ¼ henÃ¼z etkin deÄŸil.`,
     availableDates: [],
   };
 }
@@ -72,7 +72,7 @@ async function runProviderAudits() {
         targetId: target.id,
         workerName,
         outcome: "error",
-        message: error instanceof Error ? error.message : "Bilinmeyen sağlayıcı test hatası",
+        message: error instanceof Error ? error.message : "Bilinmeyen saÄŸlayÄ±cÄ± test hatasÄ±",
       }).catch(() => undefined);
     }
   }
@@ -95,19 +95,30 @@ async function runAppointmentJobs() {
         trackId: job.id,
         workerName,
         outcome: "error",
-        message: error instanceof Error ? error.message : "Bilinmeyen worker hatası",
+        message: error instanceof Error ? error.message : "Bilinmeyen worker hatasÄ±",
         availableDates: [],
-      }).catch((reportError) => console.error("Hata raporu gönderilemedi", reportError));
+      }).catch((reportError) => console.error("Hata raporu gÃ¶nderilemedi", reportError));
     }
   }
 
   return jobs.length;
 }
 
+async function sendHeartbeat() {
+  await api("/api/internal/visa-appointments/heartbeat", {
+    workerName,
+    status: "online",
+    pollIntervalMs: pollInterval,
+    workerVersion,
+    startedAt: workerStartedAt,
+  });
+}
+
 async function runOnce() {
+  await sendHeartbeat();
   const auditCount = await runProviderAudits();
   const jobCount = await runAppointmentJobs();
-  if (auditCount === 0 && jobCount === 0) console.log(new Date().toISOString(), "Bekleyen görev yok.");
+  if (auditCount === 0 && jobCount === 0) console.log(new Date().toISOString(), "Bekleyen gÃ¶rev yok.");
 }
 
 let running = false;
@@ -127,6 +138,7 @@ async function tick() {
   }
 }
 
-console.log(`LetsGo2Travel visa worker başladı: ${workerName}`);
+console.log(`LetsGo2Travel visa worker baÅŸladÄ±: ${workerName}`);
 await tick();
 setInterval(tick, pollInterval);
+
