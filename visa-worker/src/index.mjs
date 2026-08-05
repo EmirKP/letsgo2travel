@@ -142,3 +142,4 @@ console.log(`LetsGo2Travel visa worker baÅŸladÄ±: ${workerName}`);
 await tick();
 setInterval(tick, pollInterval);
 
+
