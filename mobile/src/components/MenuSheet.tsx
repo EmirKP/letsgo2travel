@@ -11,7 +11,7 @@ const links: Array<{ label: string; text: string; icon: IconName; url: string }>
   { label: "Gezgin Forumu", text: "Sor, paylaş ve deneyim oku", icon: "users", url: "https://www.letsgo2travel.com.tr/forum" },
   { label: "Gizlilik Politikası", text: "Veri kullanım bilgileri", icon: "lock", url: "https://www.letsgo2travel.com.tr/gizlilik-politikasi" },
   { label: "Kullanım Şartları", text: "Hizmet koşulları", icon: "info", url: "https://www.letsgo2travel.com.tr/kullanim-sartlari" },
-  { label: "Veri ve hak talebi", text: "Silme ve başvuru kanalı", icon: "mail", url: "https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
+  { label: "Hesap ve veri silme", text: "Silme talebi ve diğer hakların", icon: "trash", url: "https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
 ];
 
 export function MenuSheet({ open, onClose, online, onNotice }: {
@@ -43,7 +43,7 @@ export function MenuSheet({ open, onClose, online, onNotice }: {
 
     <div className="menu-link-list">
       {links.map((link) => <button key={link.url} onClick={() => void openExternal(link.url)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="external" size={16} /></button>)}
-      <button onClick={() => { window.location.href = `mailto:${config.supportEmail}?subject=LetsGo2Travel%20Mobil%20Destek`; }}><span><Icon name="mail" size={20} /></span><div><strong>Destek</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
+      <button onClick={() => void openExternal(`mailto:${config.supportEmail}?subject=LetsGo2Travel%20Mobil%20Destek`)}><span><Icon name="mail" size={20} /></span><div><strong>Destek</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>
 
     <section className="system-card">

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { ReturnTypeUseAuth } from "../types-auth";
 import { requestAccountDeletion } from "../lib/api";
+import { isIOSNative } from "../lib/capacitor";
+import { config } from "../lib/config";
+import { openExternal } from "../lib/native";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
@@ -16,6 +19,9 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   const [busy, setBusy] = useState(false);
   const [deletionMode, setDeletionMode] = useState(false);
   const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const iosNative = isIOSNative();
+  const showApple = iosNative && config.appleAuthEnabled;
+  const showGoogle = !iosNative;
 
   const submit = async () => {
     if (!/^\S+@\S+\.\S+$/.test(email)) return onNotice("Geçerli bir e-posta adresi yaz.");
@@ -43,15 +49,15 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   };
 
   if (auth.user) {
-    const displayName = String(auth.user.user_metadata?.full_name || auth.user.user_metadata?.name || auth.user.email?.split("@")[0] || "Gezgin");
-    const username = String(auth.user.user_metadata?.username || "");
+    const user = auth.user;
+    const displayName = String(user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Gezgin");
 
     const submitDeletionRequest = async () => {
       if (deletionConfirmation.trim().toLocaleUpperCase("tr-TR") !== "SİL") {
         onNotice("Devam etmek için SİL yazmalısın.");
         return;
       }
-      if (!auth.accessToken || !auth.user?.email) {
+      if (!auth.accessToken || !user.email) {
         onNotice("Hesap oturumu doğrulanamadı. Yeniden giriş yapıp tekrar dene.");
         return;
       }
@@ -60,8 +66,8 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
         const result = await requestAccountDeletion({
           accessToken: auth.accessToken,
           name: displayName,
-          email: auth.user.email,
-          username,
+          email: user.email,
+          username: String(user.user_metadata?.username || ""),
         });
         onNotice(result.message || "Hesap silme talebin alındı.");
         setDeletionMode(false);
@@ -79,8 +85,8 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
         <span className="profile-avatar"><Icon name="user" size={30} /></span>
         <small>OTURUM AÇIK</small>
         <h3>{displayName}</h3>
-        <p>{auth.user.email}</p>
-        <div className="detail-list"><div><span>E-posta doğrulaması</span><strong>{auth.user.email_confirmed_at ? "Tamamlandı" : "Bekliyor"}</strong></div><div><span>Üyelik tarihi</span><strong>{new Intl.DateTimeFormat("tr-TR").format(new Date(auth.user.created_at))}</strong></div></div>
+        <p>{user.email}</p>
+        <div className="detail-list"><div><span>E-posta doğrulaması</span><strong>{user.email_confirmed_at ? "Tamamlandı" : "Bekliyor"}</strong></div><div><span>Üyelik tarihi</span><strong>{new Intl.DateTimeFormat("tr-TR").format(new Date(user.created_at))}</strong></div></div>
         {deletionMode ? <div className="account-deletion-box">
           <strong>Hesap silme talebi</strong>
           <p>Talep yönetici incelemesine gider. Onaylandığında hesabın, profil verilerin ve sana bağlı özel kayıtlar silinir; topluluk konuşmalarındaki diğer kullanıcı cevapları korunurken senin içeriklerin anonimleştirilir.</p>
@@ -98,17 +104,24 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   return <Sheet open={open} title={mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Şifremi unuttum"} onClose={onClose}>
     <div className="auth-form">
       {!auth.configured && <div className="info-box error"><Icon name="alert" size={20} /><p>Mobil pakette Supabase genel anahtarları bulunmuyor. Kök <code>.env.local</code> dosyanı geri koyup yeniden derle.</p></div>}
-      {mode !== "reset" && <button className="google-button" disabled={busy || auth.loading || !auth.configured} onClick={() => {
+      {mode !== "reset" && showApple && <button className="apple-button" disabled={busy || auth.loading || !auth.configured} onClick={() => {
+        setBusy(true);
+        void auth.signInWithApple()
+          .catch((error) => onNotice(error instanceof Error ? error.message : "Apple girişi açılamadı."))
+          .finally(() => setBusy(false));
+      }}><span aria-hidden="true"></span> {busy ? "Açılıyor…" : "Apple ile devam et"}</button>}
+      {mode !== "reset" && showGoogle && <button className="google-button" disabled={busy || auth.loading || !auth.configured} onClick={() => {
         setBusy(true);
         void auth.signInWithGoogle()
           .catch((error) => onNotice(error instanceof Error ? error.message : "Google girişi açılamadı."))
           .finally(() => setBusy(false));
       }}><span>G</span> {busy ? "Açılıyor…" : "Google ile devam et"}</button>}
-      {mode !== "reset" && <div className="auth-divider"><span>veya</span></div>}
-      <label>E-posta<div className="input-with-icon"><Icon name="mail" size={18} /><input type="email" autoCapitalize="none" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ornek@mail.com" /></div></label>
-      {mode !== "reset" && <label>Şifre<div className="input-with-icon"><Icon name="lock" size={18} /><input type="password" minLength={8} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="En az 8 karakter" /></div></label>}
+      {mode !== "reset" && (showApple || showGoogle) && <div className="auth-divider"><span>veya</span></div>}
+      <label>E-posta<div className="input-with-icon"><Icon name="mail" size={18} /><input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ornek@mail.com" /></div></label>
+      {mode !== "reset" && <label>Şifre<div className="input-with-icon"><Icon name="lock" size={18} /><input type="password" minLength={8} maxLength={128} autoComplete={mode === "login" ? "current-password" : "new-password"} enterKeyHint="done" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !busy) void submit(); }} placeholder="En az 8 karakter" /></div></label>}
       <button className="primary-wide" disabled={busy || !auth.configured} onClick={() => void submit()}>{busy ? <span className="button-loader" /> : <Icon name={mode === "reset" ? "mail" : "user"} size={18} />} {mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Bağlantı gönder"}</button>
       {auth.authError && <p className="form-error">{auth.authError}</p>}
+      {mode === "register" && <p className="auth-legal">Hesap oluşturarak <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/kullanim-sartlari")}>Kullanım Şartları</button> ve <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}>Gizlilik Politikası</button>'nı kabul etmiş olursun.</p>}
       <div className="auth-links">
         {mode === "login" && <><button onClick={() => setMode("register")}>Hesabın yok mu? Kayıt ol</button><button onClick={() => setMode("reset")}>Şifremi unuttum</button></>}
         {mode !== "login" && <button onClick={() => setMode("login")}><Icon name="back" size={15} /> Giriş ekranına dön</button>}

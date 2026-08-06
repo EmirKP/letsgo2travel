@@ -15,8 +15,11 @@
 	},
 	"ios": {
 		"backgroundColor": "#071B33",
-		"contentInset": "automatic",
-		"scrollEnabled": true
+		"contentInset": "never",
+		"scrollEnabled": true,
+		"allowsLinkPreview": false,
+		"preferredContentMode": "mobile",
+		"webContentsDebuggingEnabled": false
 	},
 	"plugins": {
 		"CapacitorHttp": {

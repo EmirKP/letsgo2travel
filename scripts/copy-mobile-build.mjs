@@ -1,4 +1,5 @@
 import { access, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 
@@ -23,6 +24,7 @@ if (!html.includes("<div id=\"root\"></div>")) {
 await rm(targetDir, { recursive: true, force: true });
 await mkdir(targetDir, { recursive: true });
 await cp(sourceDir, targetDir, { recursive: true });
-await writeFile(path.join(targetDir, ".mobile-build-ok"), new Date().toISOString(), "utf8");
+const buildHash = createHash("sha256").update(html).digest("hex");
+await writeFile(path.join(targetDir, ".mobile-build-ok"), `sha256:${buildHash}\n`, "utf8");
 
 console.log(`Mobil üretim dosyaları kopyalandı: ${targetDir}`);

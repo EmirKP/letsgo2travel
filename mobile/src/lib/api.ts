@@ -197,6 +197,7 @@ export async function requestAccountDeletion(params: {
 }
 
 
+
 function cleanText(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 600) : fallback;
 }

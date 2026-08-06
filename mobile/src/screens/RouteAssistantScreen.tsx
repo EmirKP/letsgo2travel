@@ -119,15 +119,15 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute }
         </div>
         <div className="form-grid two">
           <label>Dönem<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month) => <option key={month}>{month}</option>)}</select></label>
-          <label>Bütçe<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option>Ekonomik</option><option>Orta</option><option>Yüksek / premium</option></select></label>
+          <label>Bütçe<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option>Ekonomik</option><option>Orta</option><option value="Yüksek / premium">Premium</option></select></label>
         </div>
         <div className="form-grid two">
           <label>Konaklama<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option>Otel</option><option>Apart / ev</option><option>Fark etmez</option></select></label>
-          <label>Kiminle?<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option>Tek başıma</option><option>Partnerimle</option><option>Arkadaşlarımla</option><option>Ailemle</option><option>İlk yurt dışı deneyimim</option></select></label>
+          <label>Kiminle?<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option>Tek başıma</option><option>Partnerimle</option><option>Arkadaşlarımla</option><option>Ailemle</option><option value="İlk yurt dışı deneyimim">İlk seyahatim</option></select></label>
         </div>
         <div className="form-grid two">
           <label>Tempo<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option>Rahat</option><option>Dengeli</option><option>Yoğun</option></select></label>
-          <label>Giriş tercihi<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option>Vizesiz veya kolay giriş</option><option>Vize olabilir</option><option>Fark etmez</option></select></label>
+          <label>Giriş tercihi<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">Vizesiz / kolay</option><option>Vize olabilir</option><option>Fark etmez</option></select></label>
         </div>
         <fieldset className="vibe-fieldset"><legend>Nasıl bir seyahat?</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
         <button className="primary-wide" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={19} />} {loading ? "Rotalar hazırlanıyor" : "Bana rota öner"}</button>

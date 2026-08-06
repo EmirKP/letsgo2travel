@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { config, isSupabaseConfigured } from "../lib/config";
 import { requestJson } from "../lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
@@ -13,10 +13,13 @@ type SignUpResponse = Partial<AuthSession> & { user?: AuthUser | null };
 
 function callbackParams(url: string) {
   try {
-    const params = new URL(url).searchParams;
+    const parsed = new URL(url);
+    const params = parsed.searchParams;
+    const fragment = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+    const value = (key: string) => params.get(key) || fragment.get(key);
     return {
-      code: params.get("code"),
-      error: params.get("error_description") || params.get("error"),
+      code: value("code"),
+      error: value("error_description") || value("error"),
     };
   } catch {
     return { code: null, error: null };
@@ -90,6 +93,8 @@ export function useAuth() {
   const [session, setSessionState] = useState<AuthSession | null>(() => readSession());
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [authError, setAuthError] = useState("");
+  const refreshInFlight = useRef<Promise<AuthSession> | null>(null);
+  const consumedOAuthUrls = useRef(new Set<string>());
 
   const setSession = useCallback((next: AuthSession | null) => {
     saveSession(next);
@@ -98,28 +103,42 @@ export function useAuth() {
 
   const refreshSession = useCallback(async (current: AuthSession) => {
     if (!isSupabaseConfigured || !current.refresh_token) return current;
-    const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=refresh_token"), {
-      method: "POST",
-      headers: authHeaders(),
-      body: { refresh_token: current.refresh_token },
-    });
-    const next = normalizeSession(result);
-    setSession(next);
-    return next;
+    if (refreshInFlight.current) return refreshInFlight.current;
+
+    const refresh = (async () => {
+      const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=refresh_token"), {
+        method: "POST",
+        headers: authHeaders(),
+        body: { refresh_token: current.refresh_token },
+      });
+      const next = normalizeSession(result);
+      setSession(next);
+      return next;
+    })();
+
+    refreshInFlight.current = refresh;
+    try {
+      return await refresh;
+    } finally {
+      if (refreshInFlight.current === refresh) refreshInFlight.current = null;
+    }
   }, [setSession]);
 
   const consumeOAuthUrl = useCallback(async (url: string) => {
     if (!isSupabaseConfigured) return;
+    if (consumedOAuthUrls.current.has(url)) return;
+    consumedOAuthUrls.current.add(url);
     const callback = callbackParams(url);
     if (callback.error) {
       setAuthError(callback.error);
+      window.localStorage.removeItem(VERIFIER_KEY);
       await closeBrowser();
       return;
     }
     const code = callback.code;
     const verifier = window.localStorage.getItem(VERIFIER_KEY);
     if (!code || !verifier) {
-      setAuthError("Google dönüş bilgisi eksik. Yeniden giriş yapmayı dene.");
+      setAuthError("Giriş dönüş bilgisi eksik. Yeniden giriş yapmayı dene.");
       await closeBrowser();
       return;
     }
@@ -134,7 +153,7 @@ export function useAuth() {
       setSession(normalizeSession(result));
       window.localStorage.removeItem(VERIFIER_KEY);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Google girişi tamamlanamadı.");
+      setAuthError(error instanceof Error ? error.message : "Giriş tamamlanamadı.");
     } finally {
       await closeBrowser();
       setLoading(false);
@@ -144,20 +163,24 @@ export function useAuth() {
   useEffect(() => {
     let active = true;
     let appListener: { remove: () => Promise<void> } | null = null;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+
+    const refreshIfNeeded = async (thresholdSeconds: number) => {
+      const current = readSession();
+      if (!current || (current.expires_at || 0) >= Math.floor(Date.now() / 1000) + thresholdSeconds) return;
+      try {
+        await refreshSession(current);
+      } catch {
+        if (active) setSession(null);
+      }
+    };
 
     const initialize = async () => {
       if (!isSupabaseConfigured) {
         setLoading(false);
         return;
       }
-      const current = readSession();
-      if (current && (current.expires_at || 0) < Math.floor(Date.now() / 1000) + 90) {
-        try {
-          await refreshSession(current);
-        } catch {
-          if (active) setSession(null);
-        }
-      }
+      await refreshIfNeeded(90);
       if (active) setLoading(false);
     };
     void initialize();
@@ -171,6 +194,9 @@ export function useAuth() {
         const url = typeof event.url === "string" ? event.url : "";
         if (url) void consumeOAuthUrl(url);
       }).then((listener) => { appListener = listener; });
+      void addPluginListener("App", "appStateChange", (event) => {
+        if (event.isActive === true) void refreshIfNeeded(180);
+      }).then((listener) => { appStateListener = listener; });
       const app = plugin("App");
       if (app?.getLaunchUrl) {
         void app.getLaunchUrl().then((value) => {
@@ -181,16 +207,14 @@ export function useAuth() {
     }
 
     const interval = window.setInterval(() => {
-      const current = readSession();
-      if (current && (current.expires_at || 0) < Math.floor(Date.now() / 1000) + 180) {
-        void refreshSession(current).catch(() => setSession(null));
-      }
+      void refreshIfNeeded(180);
     }, 120_000);
 
     return () => {
       active = false;
       window.clearInterval(interval);
       void appListener?.remove();
+      void appStateListener?.remove();
     };
   }, [consumeOAuthUrl, refreshSession, setSession]);
 
@@ -200,7 +224,7 @@ export function useAuth() {
     const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=password"), {
       method: "POST",
       headers: authHeaders(),
-      body: { email, password },
+      body: { email: email.trim().toLowerCase(), password },
     });
     setSession(normalizeSession(result));
   };
@@ -212,7 +236,7 @@ export function useAuth() {
     const result = await requestJson<SignUpResponse>(`${authUrl("/signup")}?redirect_to=${encodeURIComponent(redirectTo)}`, {
       method: "POST",
       headers: authHeaders(),
-      body: { email, password },
+      body: { email: email.trim().toLowerCase(), password },
     });
     if (result.access_token && result.refresh_token && result.user) {
       setSession(normalizeSession(result));
@@ -227,21 +251,24 @@ export function useAuth() {
     await requestJson<Record<string, unknown>>(`${authUrl("/recover")}?redirect_to=${encodeURIComponent(redirectTo)}`, {
       method: "POST",
       headers: authHeaders(),
-      body: { email },
+      body: { email: email.trim().toLowerCase() },
     });
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithProvider = async (provider: "apple" | "google") => {
     if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
     setAuthError("");
     const verifier = randomVerifier();
     const challenge = await challengeFor(verifier);
     window.localStorage.setItem(VERIFIER_KEY, verifier);
     const redirectTo = isNativePlatform() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback`;
-    const url = `${authUrl("/authorize")}?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=s256`;
+    const url = `${authUrl("/authorize")}?provider=${provider}&redirect_to=${encodeURIComponent(redirectTo)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=s256`;
     if (isNativePlatform()) await openExternal(url);
     else window.location.assign(url);
   };
+
+  const signInWithGoogle = () => signInWithProvider("google");
+  const signInWithApple = () => signInWithProvider("apple");
 
   const signOut = async () => {
     if (session?.access_token) {
@@ -264,6 +291,7 @@ export function useAuth() {
     signUpWithEmail,
     sendPasswordReset,
     signInWithGoogle,
+    signInWithApple,
     signOut,
   };
 }

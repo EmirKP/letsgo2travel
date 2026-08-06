@@ -83,7 +83,7 @@ export default function App() {
   const navigate = useCallback((tab: TabId) => {
     setActiveTab(tab);
     window.history.replaceState(null, "", `#${tab}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "auto" });
     void impact();
   }, []);
 

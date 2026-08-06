@@ -4,6 +4,7 @@ export type PublicConfig = {
   supabaseAnonKey: string;
   supportEmail: string;
   appVersion: string;
+  appleAuthEnabled: boolean;
 };
 
 const injected = typeof __L2T_CONFIG__ !== "undefined" ? __L2T_CONFIG__ : undefined;
@@ -14,6 +15,7 @@ export const config: PublicConfig = {
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",
   appVersion: injected?.appVersion || "1.3.0",
+  appleAuthEnabled: Boolean(injected?.appleAuthEnabled),
 };
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

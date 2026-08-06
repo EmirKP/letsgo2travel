@@ -6,4 +6,5 @@ declare const __L2T_CONFIG__: {
   supabaseAnonKey: string;
   supportEmail: string;
   appVersion: string;
+  appleAuthEnabled: boolean;
 };

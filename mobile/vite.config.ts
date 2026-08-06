@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => {
         supportEmail:
           env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
         appVersion: env.VITE_APP_VERSION || "1.3.0",
+        appleAuthEnabled: env.VITE_APPLE_AUTH_ENABLED === "true",
       }),
     },
     build: {

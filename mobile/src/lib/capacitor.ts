@@ -16,6 +16,14 @@ export function isNativePlatform() {
   return Boolean(window.Capacitor?.isNativePlatform?.());
 }
 
+export function nativePlatform() {
+  return window.Capacitor?.getPlatform?.() || "web";
+}
+
+export function isIOSNative() {
+  return isNativePlatform() && nativePlatform() === "ios";
+}
+
 export function plugin(name: string) {
   return window.Capacitor?.Plugins?.[name];
 }

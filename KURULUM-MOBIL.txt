@@ -1,47 +1,97 @@
-LETSGO2TRAVEL MOBİL 1.2 — KURULUM
+LETSGO2TRAVEL MOBİL 1.3 — iOS ÖNCELİKLİ KURULUM
 
-1) Mevcut projenizdeki .env.local dosyasını yedekleyin.
-2) Bu paketi C:\Projects\letsgo2travel klasörüne çıkarıp dosyaların tamamını değiştirin.
-3) Yedeklediğiniz .env.local dosyasını proje ana klasörüne geri koyun.
-4) PowerShell'i proje ana klasöründe açıp sırasıyla çalıştırın:
+ÖNEMLİ
+
+- Uygulama canlı sitenin basit WebView kopyası değildir. Vite ile üretilen ayrı mobil istemci uygulamanın içine gömülür.
+- Backend, Supabase ve canlı API adresi https://www.letsgo2travel.com.tr olarak çalışmaya devam eder.
+- iPhone simülatörü, fiziksel iPhone derlemesi, imzalama ve App Store yüklemesi için macOS + Xcode gerekir.
+
+1) ORTAK HAZIRLIK
+
+Proje ana klasöründe:
 
    cd C:\Projects\letsgo2travel
-   npm install
-   npm --prefix mobile install
+   npm ci
+   npm --prefix mobile ci
+
+.env.local dosyasında aşağıdaki genel mobil değerlerin kaynakları bulunmalıdır:
+
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+Bu iki değer Supabase'in istemciye açık URL ve anon anahtarıdır. Service-role anahtarını mobil pakete kesinlikle koymayın.
+
+2) iOS PAKETİNİ HAZIRLA (MAC)
+
    npm run mobile:prepare
+   npm run mobile:ios
+
+mobile:prepare artık iOS önceliklidir. Şunları tek seferde yapar:
+
+- Mobil TypeScript/Vite build
+- mobile-dist üretimi
+- Capacitor iOS senkronu
+- iOS gizlilik, ikon, yönlendirme, sürüm ve yerel paket kontrolü
+
+Xcode açıldıktan sonra:
+
+1. Sol tarafta App projesini seçin.
+2. TARGETS > App > Signing & Capabilities bölümünü açın.
+3. Apple Developer Team hesabınızı seçin.
+4. Bundle Identifier değerinin tr.com.letsgo2travel.app olduğunu doğrulayın.
+5. Önce bir iPhone simülatöründe, sonra gerçek iPhone'da Run düğmesiyle test edin.
+
+3) iOS TEK KOMUT KONTROLÜ
+
+   npm run mobile:check:ios
+
+Beklenen sonuç: kritik hata yok. APNs henüz bağlanmadıysa yalnızca Push Notifications uyarısı görülebilir.
+
+4) ANDROID GEREKİRSE
+
+   npm run mobile:prepare:android
    npm run mobile:android
 
-5) Android Studio'da Gradle Sync/Indexing tamamlanınca cihazı seçip Run düğmesine basın.
+5) SUPABASE AUTH YÖNLENDİRMELERİ
 
-KONTROL
-
-   npm run mobile:doctor
-
-Bu komut mobil paket, Android/iOS yönlendirmeleri, internet izni ve Capacitor ayarlarını kontrol eder.
-
-VITE / ROLLDOWN KURULUM HATASI OLURSA
-
-   npm run mobile:prepare:fallback
-   npm run mobile:android
-
-Fallback komutu normal Vite paketi kurulamadığında yerel üretim paketi oluşturur. Normal yayın derlemesinde önce npm run mobile:prepare kullanılmalıdır.
-
-SUPABASE
-
-Authentication > URL Configuration > Redirect URLs listesinde şu adres bulunmalıdır:
+Supabase > Authentication > URL Configuration > Redirect URLs:
 
    tr.com.letsgo2travel.app://auth/callback
-
-Web yönlendirmesi:
-
    https://www.letsgo2travel.com.tr/auth/callback
+   https://www.letsgo2travel.com.tr/sifre-yenile
 
 Site URL:
 
    https://www.letsgo2travel.com.tr
 
-NOTLAR
+iOS'ta Google sosyal girişi varsayılan olarak gösterilmez. Böylece Apple sosyal giriş kuralı için çalışmayan bir seçenek yayınlanmaz. Apple ile giriş Apple Developer ve Supabase tarafında tamamlandığında .env.local içine şu değer eklenebilir:
 
-- .env.local güvenlik nedeniyle pakete dahil değildir.
-- Canlı uçuş, fiyat alarmı, hesap ve yapay zekâ özellikleri https://www.letsgo2travel.com.tr üzerindeki güncel backend deploy'una bağlıdır.
-- Android komutlarını mobile klasöründe değil proje ana klasöründe çalıştırın.
+   VITE_APPLE_AUTH_ENABLED=true
+
+Ardından mobil paket yeniden hazırlanmalıdır.
+
+6) YAYIN BİLGİLERİ
+
+- Uygulama adı: LetsGo2Travel
+- Bundle ID: tr.com.letsgo2travel.app
+- Sürüm: 1.3.0
+- Build: 3
+- Minimum iOS: 15.0
+- Özel OAuth şeması: tr.com.letsgo2travel.app
+- Gizlilik manifesti: ios/App/App/PrivacyInfo.xcprivacy
+
+7) APP STORE ÖNCESİ ZORUNLU TESTLER
+
+- E-posta ile kayıt/giriş/çıkış
+- Uygulama kapatılıp açıldıktan sonra oturum yenileme
+- Şifre sıfırlama bağlantısı
+- Hesabım > Hesabı ve verileri sil talebi
+- Rota Asistanı çevrimiçi ve çevrimdışı sonuçları
+- Bilet arama ve harici sonuç ekranı
+- Fiyat alarmı oluşturma/yönetme
+- Pasaport filtreleri
+- Gizlilik Politikası, Kullanım Şartları ve Destek bağlantıları
+- Uçak modu ve yeniden çevrimiçi olma
+- iPhone küçük ekran, Dynamic Type ve koyu sistem çubuğu görünümü
+
+Detaylı App Store teslim adımları için IOS-YAYIN-KONTROL-LISTESI.md dosyasını kullanın.
