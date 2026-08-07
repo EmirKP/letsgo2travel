@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "LetsGo2Travel",
   webDir: "mobile-dist",
   backgroundColor: "#071B33",
-  appendUserAgent: " LetsGo2TravelNative/1.3",
+  appendUserAgent: " LetsGo2TravelNative/1.4",
   loggingBehavior: "production",
   zoomEnabled: false,
 

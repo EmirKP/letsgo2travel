@@ -3,7 +3,7 @@
 	"appName": "LetsGo2Travel",
 	"webDir": "mobile-dist",
 	"backgroundColor": "#071B33",
-	"appendUserAgent": " LetsGo2TravelNative/1.3",
+	"appendUserAgent": " LetsGo2TravelNative/1.4",
 	"loggingBehavior": "production",
 	"zoomEnabled": false,
 	"server": {
@@ -15,8 +15,11 @@
 	},
 	"ios": {
 		"backgroundColor": "#071B33",
-		"contentInset": "automatic",
-		"scrollEnabled": true
+		"contentInset": "never",
+		"scrollEnabled": true,
+		"allowsLinkPreview": false,
+		"preferredContentMode": "mobile",
+		"webContentsDebuggingEnabled": false
 	},
 	"plugins": {
 		"CapacitorHttp": {

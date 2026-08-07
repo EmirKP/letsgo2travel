@@ -33,7 +33,7 @@ const publicConfig = {
   supabaseUrl: env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   supportEmail: env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
-  appVersion: env.VITE_APP_VERSION || "1.2.0",
+  appVersion: env.VITE_APP_VERSION || "1.4.0",
 };
 
 const extensions = [".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs", ".json"];

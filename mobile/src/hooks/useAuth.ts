@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { config, isSupabaseConfigured } from "../lib/config";
-import { requestJson } from "../lib/api";
+import { ApiError, requestJson } from "../lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
 import { closeBrowser, openExternal } from "../lib/native";
 import type { AuthSession, AuthUser } from "../types";
@@ -10,6 +10,13 @@ const SESSION_KEY = "l2t.mobile.auth-session.v1";
 const VERIFIER_KEY = "l2t.mobile.pkce-verifier.v1";
 
 type SignUpResponse = Partial<AuthSession> & { user?: AuthUser | null };
+
+type RefreshInFlight = {
+  userId: string;
+  refreshToken: string;
+  generation: number;
+  promise: Promise<AuthSession>;
+};
 
 function callbackParams(url: string) {
   try {
@@ -23,6 +30,16 @@ function callbackParams(url: string) {
     };
   } catch {
     return { code: null, error: null };
+  }
+}
+
+function isOAuthCallbackUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.startsWith("/auth/callback")
+      || (parsed.host === "auth" && parsed.pathname.startsWith("/callback"));
+  } catch {
+    return false;
   }
 }
 
@@ -89,21 +106,44 @@ function normalizeSession(value: Partial<AuthSession>): AuthSession {
   };
 }
 
+function isSameSession(left: AuthSession | null, right: AuthSession) {
+  return Boolean(
+    left
+    && left.user.id === right.user.id
+    && left.refresh_token === right.refresh_token,
+  );
+}
+
+function isDefinitiveRefreshRejection(error: unknown) {
+  return error instanceof ApiError && (error.status === 400 || error.status === 401);
+}
+
 export function useAuth() {
   const [session, setSessionState] = useState<AuthSession | null>(() => readSession());
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [authError, setAuthError] = useState("");
-  const refreshInFlight = useRef<Promise<AuthSession> | null>(null);
+  const sessionGeneration = useRef(0);
+  const refreshInFlight = useRef<RefreshInFlight | null>(null);
   const consumedOAuthUrls = useRef(new Set<string>());
 
   const setSession = useCallback((next: AuthSession | null) => {
+    sessionGeneration.current += 1;
     saveSession(next);
     setSessionState(next);
   }, []);
 
   const refreshSession = useCallback(async (current: AuthSession) => {
     if (!isSupabaseConfigured || !current.refresh_token) return current;
-    if (refreshInFlight.current) return refreshInFlight.current;
+    const generation = sessionGeneration.current;
+    const existingRefresh = refreshInFlight.current;
+    if (
+      existingRefresh
+      && existingRefresh.userId === current.user.id
+      && existingRefresh.refreshToken === current.refresh_token
+      && existingRefresh.generation === generation
+    ) {
+      return existingRefresh.promise;
+    }
 
     const refresh = (async () => {
       const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=refresh_token"), {
@@ -112,15 +152,24 @@ export function useAuth() {
         body: { refresh_token: current.refresh_token },
       });
       const next = normalizeSession(result);
-      setSession(next);
+      const latest = readSession();
+      if (sessionGeneration.current === generation && isSameSession(latest, current)) {
+        setSession(next);
+      }
       return next;
     })();
 
-    refreshInFlight.current = refresh;
+    const entry: RefreshInFlight = {
+      userId: current.user.id,
+      refreshToken: current.refresh_token,
+      generation,
+      promise: refresh,
+    };
+    refreshInFlight.current = entry;
     try {
       return await refresh;
     } finally {
-      if (refreshInFlight.current === refresh) refreshInFlight.current = null;
+      if (refreshInFlight.current === entry) refreshInFlight.current = null;
     }
   }, [setSession]);
 
@@ -168,10 +217,19 @@ export function useAuth() {
     const refreshIfNeeded = async (thresholdSeconds: number) => {
       const current = readSession();
       if (!current || (current.expires_at || 0) >= Math.floor(Date.now() / 1000) + thresholdSeconds) return;
+      const generation = sessionGeneration.current;
       try {
         await refreshSession(current);
-      } catch {
-        if (active) setSession(null);
+      } catch (error) {
+        const latest = readSession();
+        if (
+          active
+          && generation === sessionGeneration.current
+          && isSameSession(latest, current)
+          && isDefinitiveRefreshRejection(error)
+        ) {
+          setSession(null);
+        }
       }
     };
 
@@ -192,7 +250,7 @@ export function useAuth() {
     if (isNativePlatform()) {
       void addPluginListener("App", "appUrlOpen", (event) => {
         const url = typeof event.url === "string" ? event.url : "";
-        if (url) void consumeOAuthUrl(url);
+        if (url && isOAuthCallbackUrl(url)) void consumeOAuthUrl(url);
       }).then((listener) => { appListener = listener; });
       void addPluginListener("App", "appStateChange", (event) => {
         if (event.isActive === true) void refreshIfNeeded(180);
@@ -201,7 +259,7 @@ export function useAuth() {
       if (app?.getLaunchUrl) {
         void app.getLaunchUrl().then((value) => {
           const url = value && typeof value === "object" && "url" in value ? String((value as { url?: string }).url || "") : "";
-          if (url) void consumeOAuthUrl(url);
+          if (url && isOAuthCallbackUrl(url)) void consumeOAuthUrl(url);
         });
       }
     }
@@ -271,13 +329,14 @@ export function useAuth() {
   const signInWithApple = () => signInWithProvider("apple");
 
   const signOut = async () => {
-    if (session?.access_token) {
+    const accessToken = session?.access_token;
+    setSession(null);
+    if (accessToken) {
       await requestJson<Record<string, unknown>>(authUrl("/logout"), {
         method: "POST",
-        headers: authHeaders(session.access_token),
+        headers: authHeaders(accessToken),
       }).catch(() => undefined);
     }
-    setSession(null);
   };
 
   return {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReturnTypeUseAuth } from "../types-auth";
 import { requestAccountDeletion } from "../lib/api";
 import { isIOSNative } from "../lib/capacitor";
@@ -23,6 +23,31 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   const showApple = iosNative && config.appleAuthEnabled;
   const showGoogle = !iosNative;
 
+  const clearSensitiveState = () => {
+    setEmail("");
+    setPassword("");
+    setMode("login");
+    setDeletionMode(false);
+    setDeletionConfirmation("");
+  };
+
+  const handleClose = () => {
+    clearSensitiveState();
+    onClose();
+  };
+
+  useEffect(() => {
+    setEmail(auth.user?.email || "");
+    setPassword("");
+    setMode("login");
+    setDeletionMode(false);
+    setDeletionConfirmation("");
+  }, [auth.user?.email, auth.user?.id]);
+
+  useEffect(() => {
+    if (!open) clearSensitiveState();
+  }, [open]);
+
   const submit = async () => {
     if (!/^\S+@\S+\.\S+$/.test(email)) return onNotice("Geçerli bir e-posta adresi yaz.");
     if (mode !== "reset" && password.length < 8) return onNotice("Şifre en az 8 karakter olmalı.");
@@ -30,14 +55,19 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
     try {
       if (mode === "login") {
         await auth.signInWithEmail(email, password);
+        setPassword("");
         onNotice("Giriş yapıldı.");
-        onClose();
+        handleClose();
       } else if (mode === "register") {
         const message = await auth.signUpWithEmail(email, password);
+        setEmail("");
+        setPassword("");
         onNotice(message);
         setMode("login");
       } else {
         await auth.sendPasswordReset(email);
+        setEmail("");
+        setPassword("");
         onNotice("Şifre yenileme bağlantısı e-posta adresine gönderildi.");
         setMode("login");
       }
@@ -70,9 +100,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
           username: String(user.user_metadata?.username || ""),
         });
         onNotice(result.message || "Hesap silme talebin alındı.");
-        setDeletionMode(false);
-        setDeletionConfirmation("");
-        onClose();
+        handleClose();
       } catch (error) {
         onNotice(error instanceof Error ? error.message : "Hesap silme talebi gönderilemedi.");
       } finally {
@@ -80,7 +108,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       }
     };
 
-    return <Sheet open={open} title="Hesabım" onClose={onClose}>
+    return <Sheet open={open} title="Hesabım" onClose={handleClose}>
       <div className="account-profile">
         <span className="profile-avatar"><Icon name="user" size={30} /></span>
         <small>OTURUM AÇIK</small>
@@ -96,12 +124,12 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
             <button className="danger-wide" disabled={busy || deletionConfirmation.trim().toLocaleUpperCase("tr-TR") !== "SİL"} onClick={() => void submitDeletionRequest()}>{busy ? <span className="button-loader" /> : <Icon name="trash" size={18} />} Talebi gönder</button>
           </div>
         </div> : <button className="secondary-wide" onClick={() => setDeletionMode(true)}><Icon name="trash" size={18} /> Hesabımı silme talebi oluştur</button>}
-        <button className="danger-wide" onClick={() => void auth.signOut().then(() => { onNotice("Çıkış yapıldı."); onClose(); }).catch((error) => onNotice(error instanceof Error ? error.message : "Çıkış yapılamadı."))}><Icon name="logout" size={18} /> Çıkış yap</button>
+        <button className="danger-wide" onClick={() => void auth.signOut().then(() => { onNotice("Çıkış yapıldı."); handleClose(); }).catch((error) => onNotice(error instanceof Error ? error.message : "Çıkış yapılamadı."))}><Icon name="logout" size={18} /> Çıkış yap</button>
       </div>
     </Sheet>;
   }
 
-  return <Sheet open={open} title={mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Şifremi unuttum"} onClose={onClose}>
+  return <Sheet open={open} title={mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Şifremi unuttum"} onClose={handleClose}>
     <div className="auth-form">
       {!auth.configured && <div className="info-box error"><Icon name="alert" size={20} /><p>Mobil pakette Supabase genel anahtarları bulunmuyor. Kök <code>.env.local</code> dosyanı geri koyup yeniden derle.</p></div>}
       {mode !== "reset" && showApple && <button className="apple-button" disabled={busy || auth.loading || !auth.configured} onClick={() => {

@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { verifyAlertToken } from "@/lib/price-alerts";
 
+const PATCH_FIELDS = new Set(["is_active", "target_price", "threshold_percent", "notify_email", "notify_push"]);
+
+function validOptionalPrice(value: unknown) {
+  return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 10_000_000);
+}
+
+function validThreshold(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 90;
+}
+
 async function getCurrentUser(request: Request, supabase: any) {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader) return null;
@@ -42,8 +52,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const resolvedParams = await params;
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown> | null;
+    if (!body || Array.isArray(body) || typeof body !== "object") {
+      return NextResponse.json({ error: "Geçersiz güncelleme isteği." }, { status: 400 });
+    }
+    const fields = Object.keys(body);
+    if (!fields.length || fields.some((field) => !PATCH_FIELDS.has(field))) {
+      return NextResponse.json({ error: "Desteklenmeyen güncelleme alanı." }, { status: 400 });
+    }
     const { is_active, target_price, threshold_percent, notify_email, notify_push } = body;
+    if (is_active !== undefined && typeof is_active !== "boolean") {
+      return NextResponse.json({ error: "Alarm durumu true veya false olmalıdır." }, { status: 400 });
+    }
+    if (target_price !== undefined && !validOptionalPrice(target_price)) {
+      return NextResponse.json({ error: "Hedef fiyat 1 ile 10.000.000 arasında olmalı veya boş bırakılmalıdır." }, { status: 400 });
+    }
+    if (threshold_percent !== undefined && !validThreshold(threshold_percent)) {
+      return NextResponse.json({ error: "Düşüş yüzdesi 1 ile 90 arasında olmalıdır." }, { status: 400 });
+    }
+    if (notify_email !== undefined && typeof notify_email !== "boolean") {
+      return NextResponse.json({ error: "E-posta bildirimi true veya false olmalıdır." }, { status: 400 });
+    }
+    if (notify_push !== undefined && typeof notify_push !== "boolean") {
+      return NextResponse.json({ error: "Push bildirimi true veya false olmalıdır." }, { status: 400 });
+    }
     const access = await assertAlertAccess(request, supabase, resolvedParams.id);
 
     if (!access.ok) {

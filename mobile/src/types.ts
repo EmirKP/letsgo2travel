@@ -1,4 +1,6 @@
-export type TabId = "home" | "passport" | "search" | "route" | "plans";
+export type TabId = "home" | "explore" | "route" | "trips" | "profile";
+
+export type ViewId = TabId | "passport" | "search";
 
 export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required";
 
@@ -149,4 +151,26 @@ export type AuthSession = {
   expires_at?: number;
   token_type?: string;
   user: AuthUser;
+};
+
+export type FavoriteDestination = {
+  alpha3: string;
+  name: string;
+  createdAt: string;
+};
+
+export type AppNotificationKind = "release" | "route" | "price" | "tip";
+
+export type AppNotification = {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  kind: AppNotificationKind;
+  view?: ViewId;
+};
+
+export type MobilePreferences = {
+  inAppNotifications: boolean;
+  haptics: boolean;
 };

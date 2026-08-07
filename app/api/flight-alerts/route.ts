@@ -18,13 +18,14 @@ function cleanEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-async function getUserIdFromRequest(request: Request, supabase: any) {
+async function getUserFromRequest(request: Request, supabase: any) {
   const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (authHeader === null) return { provided: false, user: null };
+  if (!authHeader.startsWith("Bearer ")) return { provided: true, user: null };
   const token = authHeader.slice(7).trim();
-  if (!token || token.length > 4096) return null;
-  const { data: { user } } = await supabase.auth.getUser(token);
-  return user?.id || null;
+  if (!token || token.length > 4096) return { provided: true, user: null };
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return { provided: true, user: error ? null : user };
 }
 
 function validTravelDate(value: string) {
@@ -42,6 +43,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "İstek çok büyük." }, { status: 413 });
   }
 
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json({ error: "Fiyat alarmı servisi şu anda kullanılamıyor." }, { status: 503 });
+  }
+
+  const requestUser = await getUserFromRequest(request, supabase);
+  if (requestUser.provided && !requestUser.user) {
+    return NextResponse.json({ error: "Geçersiz veya süresi dolmuş oturum." }, { status: 401 });
+  }
+
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const now = Date.now();
   const attempt = alertAttempts.get(ip);
@@ -54,11 +65,6 @@ export async function POST(request: Request) {
   alertAttempts.set(ip, attempt && attempt.resetAt > now
     ? { ...attempt, count: attempt.count + 1 }
     : { count: 1, resetAt: now + 60 * 60 * 1000 });
-
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    return NextResponse.json({ error: "Fiyat alarmı servisi şu anda kullanılamıyor." }, { status: 503 });
-  }
 
   try {
     const body = await request.json();
@@ -79,7 +85,9 @@ export async function POST(request: Request) {
       thresholdPercent,
     } = body;
 
-    const normalizedEmail = cleanEmail(String(email));
+    const normalizedEmail = requestUser.user
+      ? cleanEmail(String(requestUser.user.email || ""))
+      : cleanEmail(String(email));
     const normalizedOrigin = String(originCode || "").trim().toUpperCase();
     const normalizedDestination = String(destinationCode || "").trim().toUpperCase();
     const normalizedDepartureDate = String(departureDate || "").trim();
@@ -144,7 +152,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bu rota ve tarih için zaten aktif bir alarmınız var." }, { status: 409 });
     }
 
-    const userId = await getUserIdFromRequest(request, supabase);
+    const userId = requestUser.user?.id || null;
     const plainToken = createAlertToken();
     const manageTokenHash = hashAlertToken(plainToken);
     const manageTokenExpiresAt = tokenExpiresInOneYear();

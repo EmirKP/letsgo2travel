@@ -28,10 +28,11 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute }: {
+export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, ownerId }: {
   onFlightSearch: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
   surpriseRoute?: RouteSuggestion | null;
+  ownerId?: string | null;
 }) {
   const [form, setForm] = useState<PlannerInput>(INITIAL);
   const [loading, setLoading] = useState(false);
@@ -88,9 +89,9 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute }
 
   const save = async () => {
     if (!plan) return;
-    saveRoutePlan({ id: createId(), createdAt: new Date().toISOString(), input: form, plan });
+    saveRoutePlan({ id: createId(), createdAt: new Date().toISOString(), input: form, plan }, ownerId);
     await hapticSuccess();
-    onNotice("Rota Planlarım'a kaydedildi.");
+    onNotice("Rota Seyahatlerim'e kaydedildi.");
   };
 
   const loadWeather = async (route: RouteSuggestion) => {

@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { deleteFlightAlert, getFlightAlerts, getFlightSearchUrl, updateFlightAlert } from "../lib/api";
 import { openExternal } from "../lib/native";
 import {
   deleteFlightSearch,
   deleteRoutePlan,
+  getFavoriteDestinations,
   getSavedFlightSearches,
   getSavedRoutePlans,
+  getVisitedCountries,
 } from "../lib/storage";
 import type { AuthUser, FlightAlert, RouteSuggestion, SavedFlightSearch, SavedRoutePlan } from "../types";
 
@@ -18,8 +20,9 @@ function date(value: string) {
   }
 }
 
-export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, onNotice }: {
+export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFlightSearch, onNotice }: {
   user: AuthUser | null;
+  ownerId?: string | null;
   accessToken: string;
   onOpenAccount: () => void;
   onFlightSearch: (route: RouteSuggestion) => void;
@@ -31,28 +34,50 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
   const [alerts, setAlerts] = useState<FlightAlert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [busyAlert, setBusyAlert] = useState("");
+  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [visitedCount, setVisitedCount] = useState(0);
+  const alertRequest = useRef(0);
 
-  const refreshLocal = () => {
-    setRoutes(getSavedRoutePlans());
-    setSearches(getSavedFlightSearches());
-  };
+  const refreshLocal = useCallback(() => {
+    setRoutes(getSavedRoutePlans(ownerId));
+    setSearches(getSavedFlightSearches(ownerId));
+    setFavoriteCount(getFavoriteDestinations(ownerId).length);
+    setVisitedCount(getVisitedCountries(ownerId).length);
+  }, [ownerId]);
 
-  const loadAlerts = async () => {
-    if (!accessToken) return;
+  const loadAlerts = useCallback(async () => {
+    if (!accessToken) {
+      setAlerts([]);
+      return;
+    }
+    const requestId = ++alertRequest.current;
     setAlertsLoading(true);
     try {
-      setAlerts(await getFlightAlerts(accessToken));
+      const next = await getFlightAlerts(accessToken);
+      if (requestId === alertRequest.current) setAlerts(next);
     } catch (error) {
-      onNotice(error instanceof Error ? error.message : "Alarmlar alınamadı.");
+      if (requestId === alertRequest.current) {
+        setAlerts([]);
+        onNotice(error instanceof Error ? error.message : "Alarmlar alınamadı.");
+      }
     } finally {
-      setAlertsLoading(false);
+      if (requestId === alertRequest.current) setAlertsLoading(false);
     }
-  };
+  }, [accessToken, onNotice]);
 
-  useEffect(() => { refreshLocal(); }, []);
   useEffect(() => {
+    refreshLocal();
+    const update = () => refreshLocal();
+    window.addEventListener("l2t:storage-change", update);
+    return () => window.removeEventListener("l2t:storage-change", update);
+  }, [refreshLocal]);
+  useEffect(() => {
+    alertRequest.current += 1;
+    setAlerts([]);
+    setBusyAlert("");
+    setAlertsLoading(false);
     if (tab === "alerts" && accessToken) void loadAlerts();
-  }, [accessToken, tab]);
+  }, [accessToken, loadAlerts, ownerId, tab]);
 
   const toggleAlert = async (alert: FlightAlert) => {
     if (!accessToken) return;
@@ -95,8 +120,16 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
     <div className="screen">
       <section className="page-intro compact-intro">
         <span className="page-icon"><Icon name="plans" size={27} /></span>
-        <div><small>KİŞİSEL ALAN</small><h1>Planlarım</h1><p>Kaydettiğin rotalar, uçuş aramaları ve hesabına bağlı fiyat alarmları.</p></div>
+        <div><small>SEYAHAT MERKEZİ</small><h1>Seyahatlerim</h1><p>Rotaların, aramaların, favorilerin ve fiyat alarmların tek yerde.</p></div>
       </section>
+
+      <div className="trips-overview">
+        <div><span><Icon name="route" size={18} /></span><strong>{routes.length}</strong><small>Kayıtlı rota</small></div>
+        <div><span><Icon name="heart" size={18} /></span><strong>{favoriteCount}</strong><small>Favori</small></div>
+        <div><span><Icon name="flag" size={18} /></span><strong>{visitedCount}</strong><small>Ziyaret</small></div>
+      </div>
+
+      <button className="trips-cockpit" onClick={() => void openExternal("https://www.letsgo2travel.com.tr/seyahat-kokpiti")}><span><Icon name="suitcase" size={23} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Yaklaşan seyahatini yönet</strong><p>Hava, giriş koşulları, bagaj, eSIM ve transfer.</p></div><Icon name="external" size={16} /></button>
 
       <div className="segmented plans-tabs">
         <button className={tab === "routes" ? "active" : ""} onClick={() => setTab("routes")}>Rotalar <span>{routes.length}</span></button>
@@ -106,7 +139,7 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
 
       {tab === "routes" && <div className="saved-list">
         {routes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><div><small>{date(saved.createdAt)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></div><button onClick={() => { if (window.confirm("Bu rota planı silinsin mi?")) { setRoutes(deleteRoutePlan(saved.id)); onNotice("Rota silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><div><small>{date(saved.createdAt)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></div><button onClick={() => { if (window.confirm("Bu rota planı silinsin mi?")) { setRoutes(deleteRoutePlan(saved.id, ownerId)); onNotice("Rota silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
           <p>{saved.plan.summary}</p>
           <div className="saved-route-chips">{saved.plan.routes.map((route) => <button key={route.name} onClick={() => onFlightSearch(route)}>{route.destinationCode || route.name}<Icon name="plane" size={14} /></button>)}</div>
         </article>)}
@@ -115,7 +148,7 @@ export function PlansScreen({ user, accessToken, onOpenAccount, onFlightSearch, 
 
       {tab === "searches" && <div className="saved-list">
         {searches.map((search) => <article className="saved-card search-saved-card" key={search.id}>
-          <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button onClick={() => { if (window.confirm("Bu arama silinsin mi?")) { setSearches(deleteFlightSearch(search.id)); onNotice("Arama silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button onClick={() => { if (window.confirm("Bu arama silinsin mi?")) { setSearches(deleteFlightSearch(search.id, ownerId)); onNotice("Arama silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
           <div className="saved-details"><span>{search.adults} yolcu</span><span>{search.tripType === "round_trip" ? "Gidiş–dönüş" : "Tek yön"}</span><span>{search.cabinClass === "economy" ? "Ekonomi" : "Business"}</span></div>
           <button className="secondary-wide" onClick={() => void reopenSearch(search)}><Icon name="external" size={17} /> Google Flights'ta yeniden aç</button>
         </article>)}

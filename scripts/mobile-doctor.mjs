@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
@@ -61,6 +61,47 @@ async function checkReferencedAssets(index) {
   for (const ref of new Set(refs)) await exists(path.posix.join("mobile-dist", ref), `mobil varlık: ${ref}`);
 }
 
+function referencedAssets(index) {
+  return [...new Set([...index.matchAll(/(?:src|href)=["']\.\/([^"'#?]+)["']/g)].map((match) => match[1]))];
+}
+
+async function filesBelow(relative) {
+  const absolute = path.join(root, relative);
+  try {
+    const entries = await readdir(absolute, { withFileTypes: true });
+    const nested = await Promise.all(entries.map(async (entry) => {
+      const child = path.posix.join(relative, entry.name);
+      return entry.isDirectory() ? filesBelow(child) : [child];
+    }));
+    return nested.flat();
+  } catch {
+    return [];
+  }
+}
+
+async function compareNativeWebPackage(nativeRoot, label) {
+  const nativeIndexBuffer = await read(path.posix.join(nativeRoot, "index.html"), { label: `${label} içine kopyalanmış mobil paket` });
+  if (!mobileIndexBuffer || !nativeIndexBuffer) return;
+  if (hash(mobileIndexBuffer) === hash(nativeIndexBuffer)) ok.push(`${label} index.html güncel`);
+  else errors.push(`${label} public/index.html güncel mobil build ile eşleşmiyor; cap sync çalıştır.`);
+
+  const expectedAssetPaths = referencedAssets(mobileIndex).filter((ref) => ref.startsWith("assets/"));
+  for (const asset of expectedAssetPaths) {
+    const [source, native] = await Promise.all([
+      read(path.posix.join("mobile-dist", asset), { label: `mobil varlık: ${asset}` }),
+      read(path.posix.join(nativeRoot, asset), { label: `${label} varlığı: ${asset}` }),
+    ]);
+    if (source && native && hash(source) === hash(native)) ok.push(`${label} varlığı güncel: ${asset}`);
+    else if (source && native) errors.push(`${label} varlığı mobil paketle eşleşmiyor: ${asset}`);
+  }
+
+  const actualAssets = (await filesBelow(path.posix.join(nativeRoot, "assets")))
+    .map((entry) => entry.slice(`${nativeRoot}/`.length));
+  const unexpected = actualAssets.filter((asset) => !expectedAssetPaths.includes(asset));
+  if (unexpected.length) errors.push(`${label} eski/artan web varlıkları içeriyor: ${unexpected.join(", ")}`);
+  else ok.push(`${label} eski hash'li web varlığı içermiyor`);
+}
+
 const mobileIndexBuffer = await read("mobile-dist/index.html", { label: "mobil web paketi" });
 const mobileIndex = mobileIndexBuffer?.toString("utf8") || "";
 await exists("mobile-dist/error.html", "mobil hata sayfası");
@@ -70,6 +111,12 @@ if (mobileIndex) {
   expectAbsent(mobileIndex, /(?:src|href)=["']\/assets\//, "Capacitor uyumlu göreli varlık yolları", "Mobil paket kök-relative /assets yolu içeriyor.");
   expect(mobileIndex, /id=["']root["']/, "mobil #root elementi", "Mobil index.html içinde #root yok.");
   await checkReferencedAssets(mobileIndex);
+  const referencedEntryAssets = referencedAssets(mobileIndex).filter((asset) => asset.startsWith("assets/"));
+  const staleEntryAssets = (await filesBelow("mobile-dist/assets"))
+    .filter((asset) => /\/index-.*\.(?:js|css)$/.test(asset))
+    .filter((asset) => !referencedEntryAssets.includes(asset.slice("mobile-dist/".length)));
+  if (staleEntryAssets.length) errors.push(`Mobil paket eski hash'li giriş varlıkları içeriyor: ${staleEntryAssets.join(", ")}`);
+  else ok.push("mobil paket eski hash'li giriş varlığı içermiyor");
 }
 
 const cap = await text("capacitor.config.ts");
@@ -79,17 +126,15 @@ expect(cap, /CapacitorHttp/, "yerel HTTP köprüsü", "CapacitorHttp etkin deği
 expectAbsent(cap, /server\s*:\s*\{[\s\S]*?\burl\s*:/, "uzak WebView adresi kullanılmıyor", "Capacitor ayarı uzak server.url içeriyor; yayın paketi yerel istemciyi kullanmalı.");
 
 const mobilePackage = await text("mobile/package.json");
-expect(mobilePackage, /"version"\s*:\s*"1\.3\.0"/, "mobil uygulama sürümü 1.3.0", "Mobil uygulama sürümü 1.3.0 değil.");
+expect(mobilePackage, /"version"\s*:\s*"1\.4\.0"/, "mobil uygulama sürümü 1.4.0", "Mobil uygulama sürümü 1.4.0 değil.");
 const rootPackage = await text("package.json");
 expectAbsent(rootPackage, /@capacitor\/push-notifications/, "yapılandırılmamış push eklentisi yok", "Yapılandırılmamış push eklentisi pakette kalmış.");
 
 const env = await text(".env.local", { required: false });
-if (env) {
-  if (!/^NEXT_PUBLIC_SUPABASE_URL=.+/m.test(env) && !/^VITE_SUPABASE_URL=.+/m.test(env)) warnings.push("Supabase genel URL değeri yok; mobil hesap girişi kapalı olur.");
-  if (!/^NEXT_PUBLIC_SUPABASE_ANON_KEY=.+/m.test(env) && !/^VITE_SUPABASE_ANON_KEY=.+/m.test(env)) warnings.push("Supabase anon anahtarı yok; mobil hesap girişi kapalı olur.");
-} else {
-  warnings.push(".env.local bulunamadı; hesap ve backend özellikleri için dosyayı geri koyup yeniden derle.");
-}
+const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || /^NEXT_PUBLIC_SUPABASE_URL=.+/m.test(env) || /^VITE_SUPABASE_URL=.+/m.test(env));
+const hasSupabaseAnonKey = Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || /^NEXT_PUBLIC_SUPABASE_ANON_KEY=.+/m.test(env) || /^VITE_SUPABASE_ANON_KEY=.+/m.test(env));
+if (!hasSupabaseUrl) warnings.push("Supabase genel URL değeri yok; mobil hesap girişi kapalı olur.");
+if (!hasSupabaseAnonKey) warnings.push("Supabase anon anahtarı yok; mobil hesap girişi kapalı olur.");
 
 if (checkIos) {
   const plist = await text("ios/App/App/Info.plist", { label: "iOS Info.plist" });
@@ -107,12 +152,12 @@ if (checkIos) {
   expect(privacy, /NSPrivacyCollectedDataTypeEmailAddress/, "e-posta veri beyanı", "Gizlilik manifestinde e-posta veri beyanı eksik.");
   expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
-  expect(project, /MARKETING_VERSION = 1\.3\.0;/, "iOS pazarlama sürümü 1.3.0", "Xcode MARKETING_VERSION 1.3.0 değil.");
-  expect(project, /CURRENT_PROJECT_VERSION = 3;/, "iOS build numarası 3", "Xcode CURRENT_PROJECT_VERSION 3 değil.");
+  expect(project, /MARKETING_VERSION = 1\.4\.0;/, "iOS pazarlama sürümü 1.4.0", "Xcode MARKETING_VERSION 1.4.0 değil.");
+  expect(project, /CURRENT_PROJECT_VERSION = 4;/, "iOS build numarası 4", "Xcode CURRENT_PROJECT_VERSION 4 değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
   expect(appDelegate, /continue userActivity/, "Universal Link yönlendirme köprüsü", "AppDelegate Universal Link yönlendirmesini desteklemiyor.");
-  for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorSplashScreen", "CapacitorStatusBar"]) {
+  for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorShare", "CapacitorSplashScreen", "CapacitorStatusBar"]) {
     expect(swiftPackage, new RegExp(`product\\(name: ["']${pluginName}["']`), `iOS eklentisi: ${pluginName}`, `iOS Swift paketinde ${pluginName} eksik.`);
   }
   expect(cap, /contentInset:\s*["']never["']/, "iOS güvenli alanı CSS tarafından yönetiliyor", "iOS contentInset 'never' değil; güvenli alan iki kez uygulanabilir.");
@@ -129,10 +174,7 @@ if (checkIos) {
     errors.push("ios/App/App/capacitor.config.json geçerli JSON değil.");
   }
 
-  if (mobileIndexBuffer && iosIndexBuffer) {
-    if (hash(mobileIndexBuffer) === hash(iosIndexBuffer)) ok.push("iOS web paketi güncel");
-    else errors.push("iOS public/index.html güncel mobil build ile eşleşmiyor; npx cap sync ios çalıştır.");
-  }
+  if (mobileIndexBuffer && iosIndexBuffer) await compareNativeWebPackage("ios/App/App/public", "iOS");
 
   const appIcon = pngDimensions(await read("ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png", { label: "iOS 1024px uygulama ikonu" }));
   if (appIcon?.width === 1024 && appIcon.height === 1024) ok.push("iOS uygulama ikonu 1024×1024");
@@ -157,8 +199,8 @@ if (checkAndroid) {
   expect(manifest, /android:dataExtractionRules=["']@xml\/data_extraction_rules["']/, "Android veri aktarım kuralları bağlı", "Android veri aktarım kuralları bağlı değil.");
 
   const androidBuild = await text("android/app/build.gradle");
-  expect(androidBuild, /versionCode\s+3\b/, "Android versionCode 3", "Android versionCode 3 değil.");
-  expect(androidBuild, /versionName\s+["']1\.3\.0["']/, "Android versionName 1.3.0", "Android versionName 1.3.0 değil.");
+  expect(androidBuild, /versionCode\s+4\b/, "Android versionCode 4", "Android versionCode 4 değil.");
+  expect(androidBuild, /versionName\s+["']1\.4\.0["']/, "Android versionName 1.4.0", "Android versionName 1.4.0 değil.");
   for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
     expect(androidBuild, new RegExp(key), `Android release imza ayarı: ${key}`, `Android release imza ayarı eksik: ${key}`);
   }
@@ -169,6 +211,8 @@ if (checkAndroid) {
 
   const generatedPlugins = await text("android/app/src/main/assets/capacitor.plugins.json", { required: false });
   expectAbsent(generatedPlugins, /@capacitor\/push-notifications/, "Android yerel projede eski push eklentisi yok", "Android yerel projede eski push eklentisi kalmış; cap sync çalıştırılmalı.");
+  expect(generatedPlugins, /@capacitor\/share/, "Android yerel paylaşım eklentisi", "Android yerel paylaşım eklentisi senkronize edilmemiş.");
+  await compareNativeWebPackage("android/app/src/main/assets/public", "Android");
 }
 
 console.log(`\nLetsGo2Travel Mobil Kontrolü (${platform})`);

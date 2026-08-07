@@ -52,8 +52,8 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
   }, [prefillDestination]);
 
   useEffect(() => {
-    if (user?.email) setAlertEmail(user.email);
-  }, [user?.email]);
+    setAlertEmail(user?.email || "");
+  }, [user?.email, user?.id]);
 
   const error = useMemo(() => {
     if (!form.originCode || !form.destinationCode) return "Kalkış ve varış havalimanını listeden seç.";
@@ -82,9 +82,9 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
     try {
       const result = await getFlightSearchUrl(form);
       setResultUrl(result.url);
-      saveFlightSearch({ ...form, id: createId(), createdAt: new Date().toISOString(), resultUrl: result.url });
+      saveFlightSearch({ ...form, id: createId(), createdAt: new Date().toISOString(), resultUrl: result.url }, user?.id);
       await hapticSuccess();
-      onNotice("Uçuş araması hazırlandı ve Planlarım'a kaydedildi.");
+      onNotice("Uçuş araması hazırlandı ve Seyahatlerim'e kaydedildi.");
     } catch (requestError) {
       onNotice(requestError instanceof Error ? requestError.message : "Uçuş araması hazırlanamadı.");
     } finally {
@@ -158,7 +158,7 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
       <Sheet open={alertOpen} title="Fiyat alarmı kur" onClose={() => setAlertOpen(false)}>
         <div className="alert-form">
           <div className="route-summary"><strong>{form.originCode} → {form.destinationCode}</strong><span>{form.departureDate}{form.tripType === "round_trip" ? ` – ${form.returnDate}` : ""}</span></div>
-          <label>E-posta<input type="email" value={alertEmail} onChange={(event) => setAlertEmail(event.target.value)} placeholder="ornek@mail.com" /></label>
+          <label>E-posta<input type="email" value={alertEmail} readOnly={Boolean(user)} onChange={(event) => setAlertEmail(event.target.value)} placeholder="ornek@mail.com" /></label>
           <label>Hedef fiyat (isteğe bağlı)<div className="suffix-input"><input inputMode="numeric" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value.replace(/\D/g, ""))} placeholder="Örn. 8500" /><span>TL</span></div></label>
           {!user && <button className="account-nudge" onClick={onOpenAccount}><Icon name="user" size={18} /><span><strong>Hesapla giriş yap</strong><small>Alarmını uygulama içinde de yönetebilirsin.</small></span><Icon name="chevron" size={17} /></button>}
           <button className="primary-wide" disabled={creatingAlert} onClick={() => void createAlert()}>{creatingAlert ? <span className="button-loader" /> : <Icon name="bell" size={18} />} {creatingAlert ? "Kuruluyor" : "Alarmı etkinleştir"}</button>

@@ -1,24 +1,58 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Icon, type IconName } from "../components/Icon";
+import { dailyDiscovery } from "../data/discovery";
+import { randomRoute } from "../data/routes";
 import { getFeaturedDeals } from "../lib/api";
 import { openExternal } from "../lib/native";
-import { randomRoute } from "../data/routes";
-import type { FlightDeal, RouteSuggestion, TabId } from "../types";
-import { Icon, type IconName } from "../components/Icon";
+import {
+  getFavoriteDestinations,
+  getRecentDestinations,
+  getSavedFlightSearches,
+  getSavedRoutePlans,
+} from "../lib/storage";
+import type { AuthUser, FlightDeal, RouteSuggestion, ViewId } from "../types";
 
-const quickCards: Array<{ title: string; text: string; icon: IconName; tab: TabId }> = [
-  { title: "Pasaport Gücü", text: "Giriş durumlarını ülke ülke karşılaştır.", icon: "passport", tab: "passport" },
-  { title: "Bilet Ara", text: "Kalkış ve varış noktanı seç, uçuşları aç.", icon: "search", tab: "search" },
-  { title: "Rota Asistanı", text: "Bütçene ve seyahat tarzına göre rota oluştur.", icon: "route", tab: "route" },
-  { title: "Planlarım", text: "Kaydettiğin rotaları ve alarmları yönet.", icon: "plans", tab: "plans" },
+const quickCards: Array<{ title: string; text: string; icon: IconName; view?: ViewId; action?: "surprise" }> = [
+  { title: "Pasaport Gücü", text: "Giriş durumlarını karşılaştır", icon: "passport", view: "passport" },
+  { title: "Beni Şaşırt", text: "Kararı dünyaya bırak", icon: "sparkles", action: "surprise" },
+  { title: "Fiyat Alarmı", text: "Uçuş fiyatını takip et", icon: "bell", view: "search" },
+  { title: "Vizesiz Ülkeler", text: "Kolay rotaları keşfet", icon: "globe", view: "passport" },
 ];
 
-export function HomeScreen({ onNavigate, onSurprise, onNotice }: {
-  onNavigate: (tab: TabId) => void;
+function firstName(user: AuthUser | null) {
+  const value = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.username || user?.email?.split("@")[0] || "Kaşif");
+  return value.trim().split(/\s+/)[0] || "Kaşif";
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return "Günaydın";
+  if (hour < 18) return "Merhaba";
+  return "İyi akşamlar";
+}
+
+export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: {
+  user: AuthUser | null;
+  ownerId?: string | null;
+  onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
   const [deals, setDeals] = useState<FlightDeal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(true);
+  const [storageTick, setStorageTick] = useState(0);
+
+  const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, storageTick]);
+  const searches = useMemo(() => getSavedFlightSearches(ownerId), [ownerId, storageTick]);
+  const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, storageTick]);
+  const recent = useMemo(() => getRecentDestinations(ownerId), [ownerId, storageTick]);
+  const discovery = dailyDiscovery();
+
+  useEffect(() => {
+    const update = () => setStorageTick((value) => value + 1);
+    window.addEventListener("l2t:storage-change", update);
+    return () => window.removeEventListener("l2t:storage-change", update);
+  }, []);
 
   const loadDeals = async () => {
     setLoadingDeals(true);
@@ -39,69 +73,57 @@ export function HomeScreen({ onNavigate, onSurprise, onNotice }: {
     onNotice(`${selected.name} senin için seçildi.`);
   };
 
-  return (
-    <div className="screen home-screen">
-      <section className="hero">
-        <div className="eyebrow"><span><Icon name="globe" size={13} /></span> GLOBAL SEYAHAT KEŞFİ</div>
-        <h1>Dünyayı merakından başlayarak keşfet.</h1>
-        <p>Pasaportuna uygun ülkeleri gör, rotanı oluştur, uçuşunu ara ve planlarını tek yerde sakla.</p>
-        <div className="hero-actions">
-          <button className="primary-button" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> Rota oluştur</button>
-          <button className="secondary-button" onClick={surprise}><Icon name="globe" size={18} /> Beni şaşırt</button>
-        </div>
-        <div className="hero-benefits">
-          <span><Icon name="check" size={13} /> Giriş durumları</span>
-          <span><Icon name="check" size={13} /> Yerel kayıt</span>
-          <span><Icon name="check" size={13} /> Canlı servis bağlantısı</span>
-        </div>
-      </section>
+  return <div className="screen home-screen">
+    <section className="personal-greeting">
+      <div><small>{greeting()}</small><strong>{firstName(user)} 👋</strong><p>Bugün dünyada nereyi merak ediyorsun?</p></div>
+      <button onClick={() => onNavigate("profile")} aria-label="Profili aç">{firstName(user).slice(0, 1).toLocaleUpperCase("tr-TR")}</button>
+    </section>
 
-      <section className="section-block">
-        <div className="section-heading"><div><span>HIZLI BAŞLANGIÇ</span><h2>Nereye gitmek istersin?</h2></div></div>
-        <div className="feature-grid">
-          {quickCards.map((card) => (
-            <button className="feature-card" key={card.tab} onClick={() => onNavigate(card.tab)}>
-              <span className="feature-icon"><Icon name={card.icon} size={22} /></span>
-              <span className="feature-copy"><strong>{card.title}</strong><small>{card.text}</small></span>
-              <Icon name="chevron" size={18} />
-            </button>
-          ))}
-        </div>
-      </section>
+    <section className="hero home-hero">
+      <div className="eyebrow"><span><Icon name="globe" size={13} /></span> GLOBAL SEYAHAT KEŞFİ</div>
+      <h1>Bir sonraki hikâyen nerede başlasın?</h1>
+      <p>Pasaportuna uygun ülkeleri gör, akıllı rotanı oluştur ve seyahatini tek yerde yönet.</p>
+      <div className="hero-actions">
+        <button className="primary-button" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> Rota oluştur</button>
+        <button className="secondary-button" onClick={() => onNavigate("explore")}><Icon name="compass" size={18} /> Keşfet</button>
+      </div>
+    </section>
 
-      <button className="surprise-banner" onClick={surprise}>
-        <span className="route-art"><Icon name="globe" size={28} /></span>
-        <span><small>BUGÜNÜN SÜRPRİZİ</small><strong>Kararı dünyaya bırak</strong><em>Tek dokunuşla sana uygun bir rota seçelim.</em></span>
-        <Icon name="chevron" size={20} />
-      </button>
+    <section className="home-quick-grid" aria-label="Hızlı erişim">
+      {quickCards.map((card) => <button key={card.title} onClick={() => card.action === "surprise" ? surprise() : card.view && onNavigate(card.view)}>
+        <span><Icon name={card.icon} size={21} /></span><strong>{card.title}</strong><small>{card.text}</small>
+      </button>)}
+    </section>
 
-      <section className="section-block deals-block">
-        <div className="section-heading">
-          <div><span>ÖNE ÇIKANLAR</span><h2>İlham veren rotalar</h2></div>
-          <button className="text-button" onClick={() => void loadDeals()} aria-label="Yenile"><Icon name="refresh" size={17} /> Yenile</button>
-        </div>
-        {loadingDeals ? (
-          <div className="skeleton-list"><div /><div /><div /></div>
-        ) : deals.length ? (
-          <div className="deal-scroll">
-            {deals.map((deal) => (
-              <article className="deal-card" key={deal.id}>
-                <div className="deal-visual" style={deal.image_url ? { backgroundImage: `linear-gradient(180deg,transparent,rgba(3,19,36,.78)),url(${deal.image_url})` } : undefined}>
-                  <span>{deal.visa_type || "Rota"}</span>
-                  <strong>{deal.destination}</strong>
-                  <small>{deal.origin} çıkışlı</small>
-                </div>
-                <div className="deal-body">
-                  <div><small>Başlangıç fiyatı</small><strong>{new Intl.NumberFormat("tr-TR").format(deal.price)} {deal.currency}</strong></div>
-                  <button onClick={() => void openExternal(deal.affiliate_url)} aria-label={`${deal.destination} uçuşlarını aç`}><Icon name="external" size={17} /></button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-inline"><Icon name="info" /><div><strong>Canlı fırsatlar şu an alınamadı</strong><span>Bilet arama ve rota asistanı çevrimdışı seçeneklerle kullanılabilir.</span></div></div>
-        )}
-      </section>
-    </div>
-  );
+    {(routes[0] || searches[0]) && <section className="continue-card">
+      <span><Icon name={routes[0] ? "route" : "plane"} size={24} /></span>
+      <div><small>KALDIĞIN YERDEN DEVAM ET</small><strong>{routes[0] ? routes[0].plan.routes.map((route) => route.name).join(" · ") : `${searches[0].originCode} → ${searches[0].destinationCode}`}</strong><p>{routes[0] ? routes[0].plan.summary : `${searches[0].departureDate} tarihli uçuş araman`}</p></div>
+      <button onClick={() => onNavigate("trips")}><Icon name="chevron" size={18} /></button>
+    </section>}
+
+    <button className="discovery-teaser" onClick={() => onNavigate("explore")} style={{ background: discovery.gradient }}>
+      <span><small>GÜNÜN KEŞFİ · {discovery.entry}</small><strong>{discovery.flag} {discovery.name}</strong><em>{discovery.tag}</em></span><Icon name="chevron" size={20} />
+    </button>
+
+    {(recent.length > 0 || favorites.length > 0) && <section className="section-block personal-destinations">
+      <div className="section-heading"><div><span>SANA ÖZEL</span><h2>Keşiflerin</h2></div><button className="text-button" onClick={() => onNavigate("explore")}>Tümünü gör</button></div>
+      <div className="personal-chip-list">
+        {[...recent, ...favorites].filter((item, index, all) => all.findIndex((other) => other.alpha3 === item.alpha3) === index).slice(0, 6).map((item) => <button key={item.alpha3} onClick={() => onNavigate("explore")}><Icon name={favorites.some((favorite) => favorite.alpha3 === item.alpha3) ? "heart" : "compass"} size={15} />{item.name}</button>)}
+      </div>
+    </section>}
+
+    <button className="cockpit-banner" onClick={() => void openExternal("https://www.letsgo2travel.com.tr/seyahat-kokpiti")}>
+      <span><Icon name="suitcase" size={27} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Uçuş gününe kadar yanında</strong><p>Hava, giriş koşulları, eSIM ve transfer önerileri.</p></div><Icon name="external" size={17} />
+    </button>
+
+    <section className="section-block deals-block">
+      <div className="section-heading"><div><span>ÖNE ÇIKANLAR</span><h2>İlham veren rotalar</h2></div><button className="text-button" onClick={() => void loadDeals()} aria-label="Yenile"><Icon name="refresh" size={17} /> Yenile</button></div>
+      {loadingDeals ? <div className="skeleton-list"><div /><div /><div /></div>
+        : deals.length ? <div className="deal-scroll">{deals.map((deal) => <article className="deal-card" key={deal.id}>
+          <div className="deal-visual" style={deal.image_url ? { backgroundImage: `linear-gradient(180deg,transparent,rgba(3,19,36,.78)),url(${deal.image_url})` } : undefined}><span>{deal.visa_type || "Rota"}</span><strong>{deal.destination}</strong><small>{deal.origin} çıkışlı</small></div>
+          <div className="deal-body"><div><small>Başlangıç fiyatı</small><strong>{new Intl.NumberFormat("tr-TR").format(deal.price)} {deal.currency}</strong></div><button onClick={() => void openExternal(deal.affiliate_url)} aria-label={`${deal.destination} uçuşlarını aç`}><Icon name="external" size={17} /></button></div>
+        </article>)}</div>
+        : <div className="empty-inline"><Icon name="info" /><div><strong>Canlı fırsatlar şu an alınamadı</strong><span>Bilet arama ve rota asistanı çevrimdışı seçeneklerle kullanılabilir.</span></div></div>}
+    </section>
+  </div>;
 }

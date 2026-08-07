@@ -1,13 +1,17 @@
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
+import { getMobilePreferences } from "./storage";
 
 export function resolveExternalUrl(url: string) {
   const clean = url.trim();
   if (!clean) return "";
   try {
-    return new URL(clean, `${config.apiBaseUrl}/`).toString();
+    const parsed = new URL(clean, `${config.apiBaseUrl}/`);
+    if (parsed.protocol === "https:") return parsed.toString();
+    if (parsed.protocol === "mailto:" && !/[\r\n]/.test(clean)) return parsed.toString();
+    return "";
   } catch {
-    return clean;
+    return "";
   }
 }
 
@@ -38,6 +42,7 @@ export async function closeBrowser() {
 }
 
 export async function impact() {
+  if (!getMobilePreferences().haptics) return;
   const haptics = plugin("Haptics");
   if (!isNativePlatform() || !haptics?.impact) return;
   try {
@@ -48,11 +53,40 @@ export async function impact() {
 }
 
 export async function hapticSuccess() {
+  if (!getMobilePreferences().haptics) return;
   const haptics = plugin("Haptics");
   if (!isNativePlatform() || !haptics?.notification) return;
   try {
     await haptics.notification({ type: "SUCCESS" });
   } catch {
     // Desteklenmeyen cihazlarda sessizce geç.
+  }
+}
+
+export async function shareContent(params: { title: string; text: string; url?: string }) {
+  const share = plugin("Share");
+  if (isNativePlatform() && share?.share) {
+    try {
+      await share.share(params);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  if (navigator.share) {
+    try {
+      await navigator.share(params);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText([params.text, params.url].filter(Boolean).join("\n"));
+    return true;
+  } catch {
+    return false;
   }
 }
