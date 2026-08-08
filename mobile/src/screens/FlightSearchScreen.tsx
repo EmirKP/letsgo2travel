@@ -4,8 +4,8 @@ import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
 import { createFlightAlert, getFlightSearchUrl } from "../lib/api";
 import { hapticSuccess, openExternal } from "../lib/native";
-import { createId } from "../lib/id";
 import { saveFlightSearch } from "../lib/storage";
+import { getSupabaseDataErrorMessage, upsertUserTrip } from "../lib/supabaseData";
 import type { AuthUser, FlightSearchInput } from "../types";
 
 function isoDate(offset: number) {
@@ -43,6 +43,7 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
   const [alertEmail, setAlertEmail] = useState(user?.email || "");
   const [targetPrice, setTargetPrice] = useState("");
   const [creatingAlert, setCreatingAlert] = useState(false);
+  const [openingResult, setOpeningResult] = useState(false);
 
   useEffect(() => {
     if (prefillDestination?.code) {
@@ -82,13 +83,39 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
     try {
       const result = await getFlightSearchUrl(form);
       setResultUrl(result.url);
-      saveFlightSearch({ ...form, id: createId(), createdAt: new Date().toISOString(), resultUrl: result.url }, user?.id);
+      const clientKey = [form.originCode, form.destinationCode, form.departureDate, form.returnDate || "one-way", form.tripType, form.adults, form.cabinClass].join("-");
+      const savedAt = new Date().toISOString();
+      saveFlightSearch({ ...form, id: `search-${clientKey}`, createdAt: savedAt, resultUrl: result.url }, user?.id);
+      let syncWarning = "";
+      if (user && accessToken) {
+        try {
+          await upsertUserTrip(user.id, {
+            title: `${form.originCode} → ${form.destinationCode}`,
+            destination: form.destinationLabel.slice(0, 160),
+            mobileKind: "flight_search",
+            clientKey: `search-${clientKey}`,
+            tripData: { search: form, result_url: result.url, saved_at: savedAt },
+          }, accessToken);
+        } catch (syncError) {
+          syncWarning = `${getSupabaseDataErrorMessage(syncError, "Arama hesabınla eşitlenemedi.")} Cihaz kaydı korundu.`;
+        }
+      }
       await hapticSuccess();
-      onNotice("Uçuş araması hazırlandı ve Seyahatlerim'e kaydedildi.");
+      onNotice(syncWarning || (user && accessToken ? "Uçuş araması web ve mobil hesabına kaydedildi." : "Uçuş araması hazırlandı ve Seyahatlerim'e kaydedildi."));
     } catch (requestError) {
       onNotice(requestError instanceof Error ? requestError.message : "Uçuş araması hazırlanamadı.");
     } finally {
       setSearching(false);
+    }
+  };
+
+  const openResult = async () => {
+    if (!resultUrl || openingResult) return;
+    setOpeningResult(true);
+    try {
+      await openExternal(resultUrl);
+    } finally {
+      window.setTimeout(() => setOpeningResult(false), 500);
     }
   };
 
@@ -149,7 +176,7 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
       {resultUrl && <section className="result-card success-result">
         <span><Icon name="check" size={24} /></span>
         <div><small>ARAMA HAZIR</small><strong>{form.originCode} → {form.destinationCode}</strong><p>Sonuçlar iş ortağı sayfasında açılacak. Fiyat ve müsaitlik dış sayfada kesinleşir.</p></div>
-        <button className="primary-wide" onClick={() => void openExternal(resultUrl)}><Icon name="external" size={18} /> Sonuçları aç</button>
+        <button className="primary-wide" disabled={openingResult} onClick={() => void openResult()}><Icon name="external" size={18} /> {openingResult ? "Açılıyor" : "Sonuçları aç"}</button>
         <button className="secondary-wide" onClick={() => setAlertOpen(true)}><Icon name="bell" size={18} /> Fiyat alarmı kur</button>
       </section>}
 
@@ -160,7 +187,7 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
           <div className="route-summary"><strong>{form.originCode} → {form.destinationCode}</strong><span>{form.departureDate}{form.tripType === "round_trip" ? ` – ${form.returnDate}` : ""}</span></div>
           <label>E-posta<input type="email" value={alertEmail} readOnly={Boolean(user)} onChange={(event) => setAlertEmail(event.target.value)} placeholder="ornek@mail.com" /></label>
           <label>Hedef fiyat (isteğe bağlı)<div className="suffix-input"><input inputMode="numeric" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value.replace(/\D/g, ""))} placeholder="Örn. 8500" /><span>TL</span></div></label>
-          {!user && <button className="account-nudge" onClick={onOpenAccount}><Icon name="user" size={18} /><span><strong>Hesapla giriş yap</strong><small>Alarmını uygulama içinde de yönetebilirsin.</small></span><Icon name="chevron" size={17} /></button>}
+          {!user && <button className="account-nudge" onClick={() => { setAlertOpen(false); onOpenAccount(); }}><Icon name="user" size={18} /><span><strong>Hesapla giriş yap</strong><small>Alarmını uygulama içinde de yönetebilirsin.</small></span><Icon name="chevron" size={17} /></button>}
           <button className="primary-wide" disabled={creatingAlert} onClick={() => void createAlert()}>{creatingAlert ? <span className="button-loader" /> : <Icon name="bell" size={18} />} {creatingAlert ? "Kuruluyor" : "Alarmı etkinleştir"}</button>
           <p className="legal-note">Alarm, mevcut backend ve e-posta servisinin çalışmasına bağlıdır. Fiyat garantisi vermez.</p>
         </div>

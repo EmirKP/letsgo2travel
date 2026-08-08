@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
 import { DISCOVERY_DESTINATIONS, dailyDiscovery, type DiscoveryDestination } from "../data/discovery";
+import { COUNTRY_LIST } from "../data/countries";
+import { profileIdToAlpha3, profileIdsForAlpha3 } from "../data/countryCodes";
+import { destinationArtwork } from "../data/artwork";
 import { randomRoute } from "../data/routes";
 import {
   addRecentDestination,
   getFavoriteDestinations,
+  setFavoriteDestinations,
   toggleFavoriteDestination,
 } from "../lib/storage";
+import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile } from "../lib/supabaseData";
 import type { RouteSuggestion, ViewId } from "../types";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
-export function ExploreScreen({ ownerId, onNavigate, onSurprise, onFlightSearch, onNotice }: {
+export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onFlightSearch, onNotice }: {
   ownerId?: string | null;
+  accessToken: string;
   onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
   onFlightSearch: (destination: DiscoveryDestination) => void;
@@ -20,9 +26,37 @@ export function ExploreScreen({ ownerId, onNavigate, onSurprise, onFlightSearch,
 }) {
   const [category, setCategory] = useState<(typeof categories)[number]>("Tümü");
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
+  const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
+  const [favoriteBusy, setFavoriteBusy] = useState("");
   const featured = dailyDiscovery();
 
-  useEffect(() => setFavorites(getFavoriteDestinations(ownerId)), [ownerId]);
+  useEffect(() => {
+    let active = true;
+    setFavorites(getFavoriteDestinations(ownerId));
+    setRemoteWishlist([]);
+    if (!ownerId || !accessToken) return () => { active = false; };
+    void getUserProfile(ownerId, accessToken).then((profile) => {
+      if (!active || !profile) return;
+      const remote = profile.wishlistCountries.flatMap((id) => {
+        const alpha3 = profileIdToAlpha3(id);
+        const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
+        return country ? [{ ...country, createdAt: new Date(0).toISOString() }] : [];
+      });
+      const merged = [...remote, ...getFavoriteDestinations(ownerId)].filter((item, index, all) => all.findIndex((other) => other.alpha3 === item.alpha3) === index);
+      setFavoriteDestinations(merged, ownerId);
+      setFavorites(merged);
+      setRemoteWishlist(profile.wishlistCountries);
+      const nextIds = profileIdsForAlpha3(profile.wishlistCountries, merged.map((item) => item.alpha3));
+      if (JSON.stringify(nextIds) !== JSON.stringify(profile.wishlistCountries)) {
+        void updateUserProfile(ownerId, { wishlistCountries: nextIds }, accessToken).then((updated) => {
+          if (active && updated) setRemoteWishlist(updated.wishlistCountries);
+        }).catch(() => undefined);
+      }
+    }).catch((error) => {
+      if (active) onNotice(getSupabaseDataErrorMessage(error, "Favoriler web hesabından alınamadı."));
+    });
+    return () => { active = false; };
+  }, [accessToken, onNotice, ownerId]);
 
   const destinations = useMemo(() => DISCOVERY_DESTINATIONS.filter((destination) => {
     if (category === "Tümü") return true;
@@ -36,11 +70,31 @@ export function ExploreScreen({ ownerId, onNavigate, onSurprise, onFlightSearch,
     onNotice(`${route.name} senin için seçildi.`);
   };
 
-  const toggleFavorite = (destination: DiscoveryDestination) => {
+  const toggleFavorite = async (destination: DiscoveryDestination) => {
+    if (favoriteBusy) return;
+    const previous = getFavoriteDestinations(ownerId);
     const next = toggleFavoriteDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
     setFavorites(next);
     const saved = next.some((item) => item.alpha3 === destination.alpha3);
-    onNotice(saved ? `${destination.country} favorilerine eklendi.` : `${destination.country} favorilerden çıkarıldı.`);
+    if (!ownerId || !accessToken) {
+      onNotice(saved ? `${destination.country} favorilerine eklendi.` : `${destination.country} favorilerden çıkarıldı.`);
+      return;
+    }
+    setFavoriteBusy(destination.alpha3);
+    try {
+      const updated = await updateUserProfile(ownerId, {
+        wishlistCountries: profileIdsForAlpha3(remoteWishlist, next.map((item) => item.alpha3)),
+      }, accessToken);
+      if (!updated) throw new Error("profile missing");
+      setRemoteWishlist(updated.wishlistCountries);
+      onNotice(saved ? `${destination.country} web hesabınla eşitlendi.` : `${destination.country} favorilerden çıkarıldı.`);
+    } catch (error) {
+      setFavoriteDestinations(previous, ownerId);
+      setFavorites(previous);
+      onNotice(getSupabaseDataErrorMessage(error, "Favori kaydedilemedi; değişiklik geri alındı."));
+    } finally {
+      setFavoriteBusy("");
+    }
   };
 
   const openFlight = (destination: DiscoveryDestination) => {
@@ -60,7 +114,7 @@ export function ExploreScreen({ ownerId, onNavigate, onSurprise, onFlightSearch,
       <button onClick={() => onNavigate("search")}><span><Icon name="plane" size={22} /></span><strong>Bilet Ara</strong><small>Canlı uçuşlar</small></button>
     </section>
 
-    <section className="daily-discovery" style={{ background: featured.gradient }}>
+    <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
       <div className="daily-discovery-copy">
         <span>GÜNÜN KEŞFİ · {featured.entry}</span>
         <h2>{featured.flag} {featured.name}</h2>
@@ -79,9 +133,9 @@ export function ExploreScreen({ ownerId, onNavigate, onSurprise, onFlightSearch,
         {destinations.map((destination) => {
           const favorite = favorites.some((item) => item.alpha3 === destination.alpha3);
           return <article className="discovery-card" key={destination.alpha3}>
-            <div className="discovery-visual" style={{ background: destination.gradient }}>
+            <div className="discovery-visual" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.88)),url(${destinationArtwork(destination.code)})` }}>
               <span className="destination-flag">{destination.flag}</span>
-              <button className={favorite ? "favorite active" : "favorite"} onClick={() => toggleFavorite(destination)} aria-label={favorite ? "Favorilerden çıkar" : "Favorilere ekle"}><Icon name="heart" size={17} /></button>
+              <button className={favorite ? "favorite active" : "favorite"} disabled={Boolean(favoriteBusy)} onClick={() => void toggleFavorite(destination)} aria-label={favorite ? "Favorilerden çıkar" : "Favorilere ekle"}>{favoriteBusy === destination.alpha3 ? <span className="button-loader" /> : <Icon name="heart" size={17} />}</button>
               <small>{destination.entry}</small>
               <h3>{destination.name}</h3>
               <p>{destination.country}</p>

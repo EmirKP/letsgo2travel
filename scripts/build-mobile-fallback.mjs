@@ -34,6 +34,7 @@ const publicConfig = {
   supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   supportEmail: env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
   appVersion: env.VITE_APP_VERSION || "1.4.0",
+  appleAuthEnabled: (env.VITE_APPLE_AUTH_ENABLED || "").trim().toLowerCase() !== "false",
 };
 
 const extensions = [".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs", ".json"];

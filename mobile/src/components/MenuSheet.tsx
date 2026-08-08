@@ -4,21 +4,22 @@ import { checkApiHealth } from "../lib/api";
 import { openExternal } from "../lib/native";
 import { Icon, type IconName } from "./Icon";
 import { Sheet } from "./Sheet";
+import type { ViewId } from "../types";
 
 const links: Array<{ label: string; text: string; icon: IconName; url: string }> = [
-  { label: "LetsGo2Travel web", text: "Tüm seyahat içerikleri", icon: "globe", url: "https://www.letsgo2travel.com.tr" },
-  { label: "Rehber Merkezi", text: "Ülke ve seyahat rehberleri", icon: "map", url: "https://www.letsgo2travel.com.tr/rehber-merkezi" },
-  { label: "Gezgin Forumu", text: "Sor, paylaş ve deneyim oku", icon: "users", url: "https://www.letsgo2travel.com.tr/forum" },
+  { label: "LetsGo2Travel web", text: "Tarayıcıda tüm seyahat içerikleri", icon: "globe", url: "https://www.letsgo2travel.com.tr" },
+  { label: "Web Rehber Merkezi", text: "Uzun ülke rehberlerini tarayıcıda oku", icon: "map", url: "https://www.letsgo2travel.com.tr/rehber-merkezi" },
   { label: "Gizlilik Politikası", text: "Veri kullanım bilgileri", icon: "lock", url: "https://www.letsgo2travel.com.tr/gizlilik-politikasi" },
   { label: "Kullanım Şartları", text: "Hizmet koşulları", icon: "info", url: "https://www.letsgo2travel.com.tr/kullanim-sartlari" },
   { label: "Hesap ve veri silme", text: "Silme talebi ve diğer hakların", icon: "trash", url: "https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
 ];
 
-export function MenuSheet({ open, onClose, online, onNotice }: {
+export function MenuSheet({ open, onClose, online, onNotice, onNavigate }: {
   open: boolean;
   onClose: () => void;
   online: boolean;
   onNotice: (message: string) => void;
+  onNavigate: (view: ViewId) => void;
 }) {
   const [health, setHealth] = useState<"idle" | "checking" | "ok" | "partial" | "error">("idle");
 
@@ -42,6 +43,7 @@ export function MenuSheet({ open, onClose, online, onNotice }: {
     </div>
 
     <div className="menu-link-list">
+      <button onClick={() => { onClose(); onNavigate("community"); }}><span><Icon name="users" size={20} /></span><div><strong>Kaşifler Ligi</strong><small>Gerçek gezginlerden ilham al</small></div><Icon name="chevron" size={16} /></button>
       {links.map((link) => <button key={link.url} onClick={() => void openExternal(link.url)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="external" size={16} /></button>)}
       <button onClick={() => void openExternal(`mailto:${config.supportEmail}?subject=LetsGo2Travel%20Mobil%20Destek`)}><span><Icon name="mail" size={20} /></span><div><strong>Destek</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>

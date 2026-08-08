@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getFlightAlerts } from "../lib/api";
+import { getFlightAlerts, getVisaAppointmentNotifications, markVisaAppointmentNotificationRead } from "../lib/api";
 import {
   getReadNotificationIds,
   getSavedRoutePlans,
   markNotificationsRead,
 } from "../lib/storage";
-import type { AppNotification, FlightAlert, ViewId } from "../types";
+import type { AppNotification, FlightAlert, ViewId, VisaAppointmentNotification } from "../types";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
@@ -27,7 +27,9 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   onUnreadChange: (count: number) => void;
 }) {
   const [alerts, setAlerts] = useState<FlightAlert[]>([]);
+  const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [serverWarning, setServerWarning] = useState("");
   const [readIds, setReadIds] = useState<string[]>(() => getReadNotificationIds(ownerId));
   const [storageTick, setStorageTick] = useState(0);
 
@@ -40,12 +42,29 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   useEffect(() => setReadIds(getReadNotificationIds(ownerId)), [ownerId, storageTick]);
 
   useEffect(() => {
-    if (!open || !accessToken || !online) return;
+    setAlerts([]);
+    setVisaNotifications([]);
+    setServerWarning("");
+    setLoading(false);
+  }, [accessToken, ownerId]);
+
+  useEffect(() => {
+    if (!open || !accessToken || !online) {
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
-    void getFlightAlerts(accessToken)
-      .then((items) => { if (active) setAlerts(items.filter((item) => item.is_active !== false).slice(0, 6)); })
-      .catch(() => { if (active) setAlerts([]); })
+    setServerWarning("");
+    void Promise.allSettled([getFlightAlerts(accessToken), getVisaAppointmentNotifications(accessToken)])
+      .then(([alertResult, visaResult]) => {
+        if (!active) return;
+        setAlerts(alertResult.status === "fulfilled" ? alertResult.value.filter((item) => item.is_active !== false).slice(0, 6) : []);
+        setVisaNotifications(visaResult.status === "fulfilled" ? visaResult.value.slice(0, 10) : []);
+        if (alertResult.status === "rejected" || visaResult.status === "rejected") {
+          setServerWarning("Bazı canlı bildirimler şu an alınamadı. Kayıtlı içerikler gösteriliyor.");
+        }
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [accessToken, online, open]);
@@ -81,18 +100,23 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       view: "trips",
     });
 
-    items.push({
-      id: "tip-travel-cockpit",
-      title: "Seyahat Kokpiti'ni dene",
-      message: "Yaklaşan seyahatin için hava, giriş koşulları, eSIM ve transfer önerilerini tek yerde gör.",
-      createdAt: "2026-08-06T09:00:00.000Z",
-      kind: "tip",
-      view: "trips",
+    for (const notification of visaNotifications) items.push({
+      id: `visa-${notification.id}`,
+      title: notification.title || "Vize takibinde güncelleme",
+      message: notification.message || "Takip ayrıntılarını kontrol et.",
+      createdAt: notification.created_at,
+      kind: "visa",
+      view: "passport",
     });
     return items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  }, [alerts, ownerId, storageTick]);
+  }, [alerts, ownerId, storageTick, visaNotifications]);
 
-  const unread = useMemo(() => notifications.filter((item) => !readIds.includes(item.id)).length, [notifications, readIds]);
+  const isRead = useCallback((item: AppNotification) => {
+    if (readIds.includes(item.id)) return true;
+    if (!item.id.startsWith("visa-")) return false;
+    return Boolean(visaNotifications.find((notification) => `visa-${notification.id}` === item.id)?.read_at);
+  }, [readIds, visaNotifications]);
+  const unread = useMemo(() => notifications.filter((item) => !isRead(item)).length, [isRead, notifications]);
   useEffect(() => onUnreadChange(unread), [onUnreadChange, unread]);
 
   const markRead = useCallback((ids: string[]) => {
@@ -102,27 +126,36 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
   const openNotification = (item: AppNotification) => {
     markRead([item.id]);
+    const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
+    if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
     if (item.view) onNavigate(item.view);
     onClose();
+  };
+
+  const markAllRead = () => {
+    markRead(notifications.map((item) => item.id));
+    if (!accessToken) return;
+    void Promise.allSettled(visaNotifications.filter((item) => !item.read_at).map((item) => markVisaAppointmentNotificationRead(item.id, accessToken)));
   };
 
   return <Sheet open={open} title="Bildirimler" onClose={onClose} size="large">
     <div className="notification-toolbar">
       <span>{unread ? `${unread} okunmamış bildirim` : "Tüm bildirimleri gördün"}</span>
-      {unread > 0 && <button onClick={() => markRead(notifications.map((item) => item.id))}>Tümünü okundu yap</button>}
+      {unread > 0 && <button onClick={markAllRead}>Tümünü okundu yap</button>}
     </div>
 
     {loading && <div className="skeleton-list"><div /><div /></div>}
     <div className="notification-list">
       {notifications.map((item) => {
-        const unreadItem = !readIds.includes(item.id);
+        const unreadItem = !isRead(item);
         return <button className={unreadItem ? "notification-item unread" : "notification-item"} key={item.id} onClick={() => openNotification(item)}>
-          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "price" ? "bell" : item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "info"} size={20} /></span>
+          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "price" ? "bell" : item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "passport"} size={20} /></span>
           <span><strong>{item.title}</strong><small>{item.message}</small><em>{formatDate(item.createdAt)}</em></span>
           {unreadItem ? <i /> : <Icon name="chevron" size={16} />}
         </button>;
       })}
     </div>
+    {serverWarning && <div className="info-box"><Icon name="info" size={19} /><p>{serverWarning}</p></div>}
     {!online && <div className="info-box"><Icon name="offline" size={19} /><p>Çevrimdışısın. Kayıtlı bildirimler gösteriliyor; fiyat alarmları bağlantı geldiğinde yenilenir.</p></div>}
   </Sheet>;
 }

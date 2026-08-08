@@ -15,7 +15,7 @@ export const config: PublicConfig = {
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",
   appVersion: injected?.appVersion || "1.4.0",
-  appleAuthEnabled: Boolean(injected?.appleAuthEnabled),
+  appleAuthEnabled: injected?.appleAuthEnabled !== false,
 };
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

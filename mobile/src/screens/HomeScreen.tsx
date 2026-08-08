@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { dailyDiscovery } from "../data/discovery";
+import { destinationArtwork } from "../data/artwork";
 import { randomRoute } from "../data/routes";
 import { getFeaturedDeals } from "../lib/api";
 import { openExternal } from "../lib/native";
@@ -31,9 +32,10 @@ function greeting() {
   return "İyi akşamlar";
 }
 
-export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: {
+export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
+  refreshToken?: number;
   onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
@@ -41,6 +43,7 @@ export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: 
   const [deals, setDeals] = useState<FlightDeal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(true);
   const [storageTick, setStorageTick] = useState(0);
+  const dealRequest = useRef(0);
 
   const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, storageTick]);
   const searches = useMemo(() => getSavedFlightSearches(ownerId), [ownerId, storageTick]);
@@ -54,18 +57,20 @@ export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: 
     return () => window.removeEventListener("l2t:storage-change", update);
   }, []);
 
-  const loadDeals = async () => {
+  const loadDeals = useCallback(async () => {
+    const requestId = ++dealRequest.current;
     setLoadingDeals(true);
     try {
-      setDeals((await getFeaturedDeals()).slice(0, 6));
+      const next = (await getFeaturedDeals()).slice(0, 6);
+      if (requestId === dealRequest.current) setDeals(next);
     } catch {
-      setDeals([]);
+      if (requestId === dealRequest.current) setDeals([]);
     } finally {
-      setLoadingDeals(false);
+      if (requestId === dealRequest.current) setLoadingDeals(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { void loadDeals(); }, []);
+  useEffect(() => { void loadDeals(); }, [loadDeals, refreshToken]);
 
   const surprise = () => {
     const selected = randomRoute();
@@ -79,7 +84,7 @@ export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: 
       <button onClick={() => onNavigate("profile")} aria-label="Profili aç">{firstName(user).slice(0, 1).toLocaleUpperCase("tr-TR")}</button>
     </section>
 
-    <section className="hero home-hero">
+    <section className="hero home-hero" style={{ backgroundImage: `radial-gradient(circle at 88% 12%,rgba(25,198,211,.22),transparent 34%),linear-gradient(145deg,rgba(7,27,51,.94),rgba(11,49,82,.78)),url(${destinationArtwork("FCO")})` }}>
       <div className="eyebrow"><span><Icon name="globe" size={13} /></span> GLOBAL SEYAHAT KEŞFİ</div>
       <h1>Bir sonraki hikâyen nerede başlasın?</h1>
       <p>Pasaportuna uygun ülkeleri gör, akıllı rotanı oluştur ve seyahatini tek yerde yönet.</p>
@@ -101,7 +106,7 @@ export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: 
       <button onClick={() => onNavigate("trips")}><Icon name="chevron" size={18} /></button>
     </section>}
 
-    <button className="discovery-teaser" onClick={() => onNavigate("explore")} style={{ background: discovery.gradient }}>
+    <button className="discovery-teaser" onClick={() => onNavigate("explore")} style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.86),rgba(7,27,51,.45)),url(${destinationArtwork(discovery.code)})` }}>
       <span><small>GÜNÜN KEŞFİ · {discovery.entry}</small><strong>{discovery.flag} {discovery.name}</strong><em>{discovery.tag}</em></span><Icon name="chevron" size={20} />
     </button>
 
@@ -112,8 +117,8 @@ export function HomeScreen({ user, ownerId, onNavigate, onSurprise, onNotice }: 
       </div>
     </section>}
 
-    <button className="cockpit-banner" onClick={() => void openExternal("https://www.letsgo2travel.com.tr/seyahat-kokpiti")}>
-      <span><Icon name="suitcase" size={27} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Uçuş gününe kadar yanında</strong><p>Hava, giriş koşulları, eSIM ve transfer önerileri.</p></div><Icon name="external" size={17} />
+    <button className="cockpit-banner" onClick={() => onNavigate("cockpit")}>
+      <span><Icon name="suitcase" size={27} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Uçuş gününe kadar yanında</strong><p>Seyahat kayıtların ve hazırlık listen tek yerde.</p></div><Icon name="chevron" size={17} />
     </button>
 
     <section className="section-block deals-block">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { deleteFlightAlert, getFlightAlerts, getFlightSearchUrl, updateFlightAlert } from "../lib/api";
 import { openExternal } from "../lib/native";
+import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import {
   deleteFlightSearch,
   deleteRoutePlan,
@@ -10,7 +11,7 @@ import {
   getSavedRoutePlans,
   getVisitedCountries,
 } from "../lib/storage";
-import type { AuthUser, FlightAlert, RouteSuggestion, SavedFlightSearch, SavedRoutePlan } from "../types";
+import type { AuthUser, FlightAlert, RouteSuggestion, SavedFlightSearch, SavedRoutePlan, ViewId } from "../types";
 
 function date(value: string) {
   try {
@@ -20,12 +21,13 @@ function date(value: string) {
   }
 }
 
-export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFlightSearch, onNotice }: {
+export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFlightSearch, onNavigate, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
   onOpenAccount: () => void;
   onFlightSearch: (route: RouteSuggestion) => void;
+  onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
   const [tab, setTab] = useState<"routes" | "searches" | "alerts">("routes");
@@ -36,6 +38,9 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
   const [busyAlert, setBusyAlert] = useState("");
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [visitedCount, setVisitedCount] = useState(0);
+  const [cloudItems, setCloudItems] = useState<UserTripData[]>([]);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [busyCloud, setBusyCloud] = useState("");
   const alertRequest = useRef(0);
 
   const refreshLocal = useCallback(() => {
@@ -71,6 +76,20 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
     window.addEventListener("l2t:storage-change", update);
     return () => window.removeEventListener("l2t:storage-change", update);
   }, [refreshLocal]);
+  useEffect(() => {
+    let active = true;
+    if (!user || !accessToken) {
+      setCloudItems([]);
+      setCloudLoading(false);
+      return () => { active = false; };
+    }
+    setCloudLoading(true);
+    void listUserTrips(user.id, accessToken)
+      .then((items) => { if (active) setCloudItems(items); })
+      .catch((error) => { if (active) onNotice(getSupabaseDataErrorMessage(error, "Hesaptaki kayıtlar alınamadı.")); })
+      .finally(() => { if (active) setCloudLoading(false); });
+    return () => { active = false; };
+  }, [accessToken, onNotice, user]);
   useEffect(() => {
     alertRequest.current += 1;
     setAlerts([]);
@@ -116,6 +135,64 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
     }
   };
 
+  const removeCloudItem = async (item: UserTripData) => {
+    if (!user || !accessToken || busyCloud) return;
+    if (!window.confirm("Bu kayıt web ve mobil hesabından silinsin mi?")) return;
+    setBusyCloud(String(item.id));
+    try {
+      await deleteUserTrip(user.id, item.id, accessToken);
+      setCloudItems((current) => current.filter((candidate) => candidate.id !== item.id));
+      if (item.clientKey) {
+        if (item.mobileKind === "route_plan") setRoutes(deleteRoutePlan(item.clientKey, ownerId));
+        if (item.mobileKind === "flight_search") setSearches(deleteFlightSearch(item.clientKey, ownerId));
+      }
+      onNotice("Kayıt hesabından silindi.");
+    } catch (error) {
+      onNotice(getSupabaseDataErrorMessage(error, "Kayıt silinemedi."));
+    } finally {
+      setBusyCloud("");
+    }
+  };
+
+  const removeSavedRoute = async (saved: SavedRoutePlan) => {
+    if (!window.confirm("Bu rota planı silinsin mi?")) return;
+    const remote = cloudItems.find((item) => item.mobileKind === "route_plan" && item.clientKey === saved.id);
+    if (remote && user && accessToken) {
+      setBusyCloud(String(remote.id));
+      try {
+        await deleteUserTrip(user.id, remote.id, accessToken);
+        setCloudItems((current) => current.filter((item) => item.id !== remote.id));
+      } catch (error) {
+        setBusyCloud("");
+        return onNotice(getSupabaseDataErrorMessage(error, "Rota hesap kaydından silinemedi."));
+      }
+      setBusyCloud("");
+    }
+    setRoutes(deleteRoutePlan(saved.id, ownerId));
+    onNotice("Rota silindi.");
+  };
+
+  const removeSavedSearch = async (saved: SavedFlightSearch) => {
+    if (!window.confirm("Bu arama silinsin mi?")) return;
+    const remote = cloudItems.find((item) => item.mobileKind === "flight_search" && item.clientKey === saved.id);
+    if (remote && user && accessToken) {
+      setBusyCloud(String(remote.id));
+      try {
+        await deleteUserTrip(user.id, remote.id, accessToken);
+        setCloudItems((current) => current.filter((item) => item.id !== remote.id));
+      } catch (error) {
+        setBusyCloud("");
+        return onNotice(getSupabaseDataErrorMessage(error, "Arama hesap kaydından silinemedi."));
+      }
+      setBusyCloud("");
+    }
+    setSearches(deleteFlightSearch(saved.id, ownerId));
+    onNotice("Arama silindi.");
+  };
+
+  const cloudRoutes = cloudItems.filter((item) => item.mobileKind !== "flight_search" && !routes.some((route) => route.id === item.clientKey));
+  const cloudSearches = cloudItems.filter((item) => item.mobileKind === "flight_search" && !searches.some((search) => search.id === item.clientKey));
+
   return (
     <div className="screen">
       <section className="page-intro compact-intro">
@@ -124,35 +201,48 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
       </section>
 
       <div className="trips-overview">
-        <div><span><Icon name="route" size={18} /></span><strong>{routes.length}</strong><small>Kayıtlı rota</small></div>
+        <div><span><Icon name="route" size={18} /></span><strong>{routes.length + cloudRoutes.length}</strong><small>Kayıtlı rota</small></div>
         <div><span><Icon name="heart" size={18} /></span><strong>{favoriteCount}</strong><small>Favori</small></div>
         <div><span><Icon name="flag" size={18} /></span><strong>{visitedCount}</strong><small>Ziyaret</small></div>
       </div>
 
-      <button className="trips-cockpit" onClick={() => void openExternal("https://www.letsgo2travel.com.tr/seyahat-kokpiti")}><span><Icon name="suitcase" size={23} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Yaklaşan seyahatini yönet</strong><p>Hava, giriş koşulları, bagaj, eSIM ve transfer.</p></div><Icon name="external" size={16} /></button>
+      <button className="trips-cockpit" onClick={() => onNavigate("cockpit")}><span><Icon name="suitcase" size={23} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Yaklaşan seyahatini yönet</strong><p>Tarihlerini ve hazırlık listesini hesabınla eşitle.</p></div><Icon name="chevron" size={16} /></button>
 
       <div className="segmented plans-tabs">
-        <button className={tab === "routes" ? "active" : ""} onClick={() => setTab("routes")}>Rotalar <span>{routes.length}</span></button>
-        <button className={tab === "searches" ? "active" : ""} onClick={() => setTab("searches")}>Aramalar <span>{searches.length}</span></button>
+        <button className={tab === "routes" ? "active" : ""} onClick={() => setTab("routes")}>Rotalar <span>{routes.length + cloudRoutes.length}</span></button>
+        <button className={tab === "searches" ? "active" : ""} onClick={() => setTab("searches")}>Aramalar <span>{searches.length + cloudSearches.length}</span></button>
         <button className={tab === "alerts" ? "active" : ""} onClick={() => setTab("alerts")}>Alarmlar</button>
       </div>
 
       {tab === "routes" && <div className="saved-list">
         {routes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><div><small>{date(saved.createdAt)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></div><button onClick={() => { if (window.confirm("Bu rota planı silinsin mi?")) { setRoutes(deleteRoutePlan(saved.id, ownerId)); onNotice("Rota silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><div><small>{date(saved.createdAt)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></div><button disabled={Boolean(busyCloud)} onClick={() => void removeSavedRoute(saved)} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
           <p>{saved.plan.summary}</p>
           <div className="saved-route-chips">{saved.plan.routes.map((route) => <button key={route.name} onClick={() => onFlightSearch(route)}>{route.destinationCode || route.name}<Icon name="plane" size={14} /></button>)}</div>
         </article>)}
-        {!routes.length && <Empty icon="route" title="Henüz kayıtlı rotan yok" text="Rota Asistanı'nda öneri oluşturup Kaydet düğmesine bas." />}
+        {cloudRoutes.map((saved) => <article className="saved-card cloud-saved-card" key={`cloud-${saved.id}`}>
+          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><div><small>{date(saved.createdAt)} · HESAPLA EŞİTLENDİ</small><strong>{saved.title || saved.destination}</strong></div><button disabled={busyCloud === String(saved.id)} onClick={() => void removeCloudItem(saved)} aria-label="Hesap kaydını sil"><Icon name="trash" size={18} /></button></div>
+          <p>{typeof saved.tripData.plan === "object" && saved.tripData.plan && "summary" in saved.tripData.plan ? String((saved.tripData.plan as Record<string, unknown>).summary || "") : saved.destination}</p>
+        </article>)}
+        {cloudLoading && <div className="skeleton-list"><div /></div>}
+        {!routes.length && !cloudRoutes.length && !cloudLoading && <Empty icon="route" title="Henüz kayıtlı rotan yok" text="Rota Asistanı'nda öneri oluşturup Kaydet düğmesine bas." />}
       </div>}
 
       {tab === "searches" && <div className="saved-list">
         {searches.map((search) => <article className="saved-card search-saved-card" key={search.id}>
-          <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button onClick={() => { if (window.confirm("Bu arama silinsin mi?")) { setSearches(deleteFlightSearch(search.id, ownerId)); onNotice("Arama silindi."); } }} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button disabled={Boolean(busyCloud)} onClick={() => void removeSavedSearch(search)} aria-label="Sil"><Icon name="trash" size={18} /></button></div>
           <div className="saved-details"><span>{search.adults} yolcu</span><span>{search.tripType === "round_trip" ? "Gidiş–dönüş" : "Tek yön"}</span><span>{search.cabinClass === "economy" ? "Ekonomi" : "Business"}</span></div>
           <button className="secondary-wide" onClick={() => void reopenSearch(search)}><Icon name="external" size={17} /> Google Flights'ta yeniden aç</button>
         </article>)}
-        {!searches.length && <Empty icon="search" title="Henüz kayıtlı araman yok" text="Bilet Ara bölümündeki başarılı aramalar otomatik kaydedilir." />}
+        {cloudSearches.map((saved) => {
+          const search = saved.tripData.search && typeof saved.tripData.search === "object" ? saved.tripData.search as Record<string, unknown> : {};
+          return <article className="saved-card search-saved-card cloud-saved-card" key={`cloud-${saved.id}`}>
+            <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(saved.createdAt)} · HESAPLA EŞİTLENDİ</small><strong>{String(search.originCode || "—")} → {String(search.destinationCode || "—")}</strong></div><button disabled={busyCloud === String(saved.id)} onClick={() => void removeCloudItem(saved)} aria-label="Hesap kaydını sil"><Icon name="trash" size={18} /></button></div>
+            <div className="saved-details"><span>{String(search.departureDate || "Tarih yok")}</span><span>{saved.destination}</span></div>
+          </article>;
+        })}
+        {cloudLoading && <div className="skeleton-list"><div /></div>}
+        {!searches.length && !cloudSearches.length && !cloudLoading && <Empty icon="search" title="Henüz kayıtlı araman yok" text="Bilet Ara bölümündeki başarılı aramalar otomatik kaydedilir." />}
       </div>}
 
       {tab === "alerts" && <div className="saved-list">
