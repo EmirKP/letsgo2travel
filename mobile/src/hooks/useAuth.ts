@@ -358,6 +358,7 @@ export function useAuth() {
     if (consumedAuthUrls.current.has(url)) return;
     consumedAuthUrls.current.add(url);
     authCallbackInProgress.current = true;
+    const nativeCallback = isNativePlatform();
     const callback = callbackParams(url);
     const emailTransaction = readEmailTransaction();
     const oauthTransaction = readOAuthTransaction();
@@ -366,15 +367,25 @@ export function useAuth() {
       ? (emailTransaction?.flow === callbackFlow ? emailTransaction : null)
       : (!oauthTransaction ? emailTransaction : null);
     const effectiveOAuthTransaction = callbackFlow ? null : oauthTransaction;
+    const effectiveTransaction = effectiveEmailTransaction || effectiveOAuthTransaction;
     const isRecovery = callbackFlow === "recovery" || effectiveEmailTransaction?.flow === "recovery";
     const clearCallbackTransaction = () => {
-      if (effectiveEmailTransaction || callbackFlow) storageRemove(EMAIL_TRANSACTION_KEY);
+      if (effectiveEmailTransaction) storageRemove(EMAIL_TRANSACTION_KEY);
       else if (effectiveOAuthTransaction) storageRemove(OAUTH_TRANSACTION_KEY);
     };
 
     if (callback.error) {
       const message = localizedAuthError(new Error(callback.error), "Giriş sağlayıcısı işlemi tamamlayamadı.");
       setAuthError(message);
+      clearCallbackTransaction();
+      setLoading(false);
+      await closeBrowser();
+      authCallbackInProgress.current = false;
+      return;
+    }
+
+    if (nativeCallback && (!callback.code || !effectiveTransaction)) {
+      setAuthError("Güvenli giriş dönüşü doğrulanamadı. Girişi yeniden başlat.");
       clearCallbackTransaction();
       setLoading(false);
       await closeBrowser();
@@ -395,8 +406,10 @@ export function useAuth() {
           body: { auth_code: callback.code, code_verifier: verifier },
         });
         next = normalizeSession(result);
-      } else {
+      } else if (!nativeCallback) {
         next = await sessionFromCallbackTokens(callback);
+      } else {
+        throw new Error("Güvenli giriş dönüş kodu bulunamadı.");
       }
       setSession(next);
       setRecoveryPending(Boolean(isRecovery));
@@ -417,6 +430,7 @@ export function useAuth() {
     let appListener: { remove: () => Promise<void> } | null = null;
     let appStateListener: { remove: () => Promise<void> } | null = null;
     let browserListener: { remove: () => Promise<void> } | null = null;
+    let browserFinishedTimer: number | null = null;
 
     const refreshIfNeeded = async (thresholdSeconds: number) => {
       const current = readSession();
@@ -461,12 +475,23 @@ export function useAuth() {
         if (event.isActive === true) void refreshIfNeeded(180);
       }).then((listener) => { appStateListener = listener; });
       void addPluginListener("Browser", "browserFinished", () => {
-        if (authCallbackInProgress.current) return;
-        if (readOAuthTransaction()) {
-          storageRemove(OAUTH_TRANSACTION_KEY);
-          setAuthError("Giriş işlemi iptal edildi.");
-          setLoading(false);
-        }
+        const pendingTransaction = readOAuthTransaction();
+        if (!pendingTransaction) return;
+        if (browserFinishedTimer !== null) window.clearTimeout(browserFinishedTimer);
+        browserFinishedTimer = window.setTimeout(() => {
+          browserFinishedTimer = null;
+          if (authCallbackInProgress.current) return;
+          const currentTransaction = readOAuthTransaction();
+          if (
+            currentTransaction
+            && currentTransaction.verifier === pendingTransaction.verifier
+            && currentTransaction.createdAt === pendingTransaction.createdAt
+          ) {
+            storageRemove(OAUTH_TRANSACTION_KEY);
+            setAuthError("Giriş işlemi iptal edildi.");
+            setLoading(false);
+          }
+        }, 600);
       }).then((listener) => { browserListener = listener; });
       const app = plugin("App");
       if (app?.getLaunchUrl) {
@@ -484,6 +509,7 @@ export function useAuth() {
     return () => {
       active = false;
       window.clearInterval(interval);
+      if (browserFinishedTimer !== null) window.clearTimeout(browserFinishedTimer);
       void appListener?.remove();
       void appStateListener?.remove();
       void browserListener?.remove();

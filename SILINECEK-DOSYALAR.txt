@@ -1,0 +1,6 @@
+mobile-dist/assets/index-C7_8J8gr.js
+mobile-dist/assets/index-ZYqhXQy4.css
+ios/App/App/public/assets/index-C7_8J8gr.js
+ios/App/App/public/assets/index-ZYqhXQy4.css
+android/app/src/main/assets/public/assets/index-C7_8J8gr.js
+android/app/src/main/assets/public/assets/index-ZYqhXQy4.css

@@ -1,38 +1,32 @@
-import { useState } from "react";
 import { config } from "../lib/config";
-import { checkApiHealth } from "../lib/api";
 import { openExternal } from "../lib/native";
 import { Icon, type IconName } from "./Icon";
 import { Sheet } from "./Sheet";
 import type { ViewId } from "../types";
 
-const links: Array<{ label: string; text: string; icon: IconName; url: string }> = [
-  { label: "LetsGo2Travel web", text: "Tarayıcıda tüm seyahat içerikleri", icon: "globe", url: "https://www.letsgo2travel.com.tr" },
-  { label: "Web Rehber Merkezi", text: "Uzun ülke rehberlerini tarayıcıda oku", icon: "map", url: "https://www.letsgo2travel.com.tr/rehber-merkezi" },
+const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: ViewId }> = [
+  { label: "Pasaport Gücü", text: "Türkiye pasaportu için giriş koşulları", icon: "passport", view: "passport" },
+  { label: "Rota Asistanı", text: "Tercihlerine göre uygulamada plan oluştur", icon: "route", view: "route" },
+  { label: "Bilet Ara", text: "Uçuş ara ve fiyat alarmı kur", icon: "plane", view: "search" },
+  { label: "Seyahat Kokpiti", text: "Tarihlerini ve hazırlık listeni yönet", icon: "suitcase", view: "cockpit" },
+  { label: "Kaşifler Ligi", text: "Gerçek gezginlerden ilham al", icon: "users", view: "community" },
+];
+
+const legalLinks: Array<{ label: string; text: string; icon: IconName; url: string }> = [
   { label: "Gizlilik Politikası", text: "Veri kullanım bilgileri", icon: "lock", url: "https://www.letsgo2travel.com.tr/gizlilik-politikasi" },
   { label: "Kullanım Şartları", text: "Hizmet koşulları", icon: "info", url: "https://www.letsgo2travel.com.tr/kullanim-sartlari" },
   { label: "Hesap ve veri silme", text: "Silme talebi ve diğer hakların", icon: "trash", url: "https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi" },
 ];
 
-export function MenuSheet({ open, onClose, online, onNotice, onNavigate }: {
+export function MenuSheet({ open, onClose, online, onNavigate }: {
   open: boolean;
   onClose: () => void;
   online: boolean;
-  onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
 }) {
-  const [health, setHealth] = useState<"idle" | "checking" | "ok" | "partial" | "error">("idle");
-
-  const testConnection = async () => {
-    setHealth("checking");
-    try {
-      const result = await checkApiHealth();
-      setHealth(result.ok ? "ok" : "partial");
-      onNotice(result.ok ? "Web servisi ve veritabanı bağlantısı çalışıyor." : "Web servisi açık ancak bazı backend servisleri eksik.");
-    } catch (error) {
-      setHealth("error");
-      onNotice(error instanceof Error ? error.message : "Bağlantı testi başarısız.");
-    }
+  const openNative = (view: ViewId) => {
+    onClose();
+    onNavigate(view);
   };
 
   return <Sheet open={open} title="Daha Fazla" onClose={onClose} size="large">
@@ -42,16 +36,17 @@ export function MenuSheet({ open, onClose, online, onNotice, onNavigate }: {
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? "İnternet bağlantısı var" : "Çevrimdışı mod"}</div>
     </div>
 
+    <p className="menu-section-label">UYGULAMA İÇİNDE</p>
     <div className="menu-link-list">
-      <button onClick={() => { onClose(); onNavigate("community"); }}><span><Icon name="users" size={20} /></span><div><strong>Kaşifler Ligi</strong><small>Gerçek gezginlerden ilham al</small></div><Icon name="chevron" size={16} /></button>
-      {links.map((link) => <button key={link.url} onClick={() => void openExternal(link.url)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="external" size={16} /></button>)}
+      {nativeLinks.map((link) => <button key={link.view} onClick={() => openNative(link.view)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16} /></button>)}
+    </div>
+
+    <p className="menu-section-label">DESTEK VE HUKUKİ</p>
+    <div className="menu-link-list compact-links">
+      {legalLinks.map((link) => <button key={link.url} onClick={() => void openExternal(link.url)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text} · Tarayıcıda açılır</small></div><Icon name="external" size={16} /></button>)}
       <button onClick={() => void openExternal(`mailto:${config.supportEmail}?subject=LetsGo2Travel%20Mobil%20Destek`)}><span><Icon name="mail" size={20} /></span><div><strong>Destek</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>
 
-    <section className="system-card">
-      <div><small>SİSTEM DURUMU</small><strong>{health === "ok" ? "Tüm temel servisler hazır" : health === "partial" ? "Bazı servisler eksik" : health === "error" ? "Bağlantı kurulamadı" : "Bağlantıyı doğrula"}</strong></div>
-      <button disabled={health === "checking" || !online} onClick={() => void testConnection()}>{health === "checking" ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} Test et</button>
-    </section>
-    <p className="version-note">Uygulama sürümü {config.appVersion} · API: {config.apiBaseUrl.replace(/^https?:\/\//, "")}</p>
+    <p className="version-note">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
   </Sheet>;
 }

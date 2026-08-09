@@ -148,9 +148,9 @@ export function FlightSearchScreen({ prefillDestination, user, accessToken, onNo
       </section>
 
       <section className="form-card flight-form">
-        <div className="segmented">
-          <button className={form.tripType === "round_trip" ? "active" : ""} onClick={() => setForm({ ...form, tripType: "round_trip" })}>Gidiş–dönüş</button>
-          <button className={form.tripType === "one_way" ? "active" : ""} onClick={() => setForm({ ...form, tripType: "one_way", returnDate: "" })}>Tek yön</button>
+        <div className="segmented" role="group" aria-label="Yolculuk türü">
+          <button type="button" className={form.tripType === "round_trip" ? "active" : ""} aria-pressed={form.tripType === "round_trip"} onClick={() => setForm({ ...form, tripType: "round_trip" })}>Gidiş–dönüş</button>
+          <button type="button" className={form.tripType === "one_way" ? "active" : ""} aria-pressed={form.tripType === "one_way"} onClick={() => setForm({ ...form, tripType: "one_way", returnDate: "" })}>Tek yön</button>
         </div>
 
         <div className="airport-pair">

@@ -4,6 +4,7 @@ export type PublicConfig = {
   supabaseAnonKey: string;
   supportEmail: string;
   appVersion: string;
+  buildNumber: string;
   appleAuthEnabled: boolean;
 };
 
@@ -15,7 +16,10 @@ export const config: PublicConfig = {
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",
   appVersion: injected?.appVersion || "1.4.0",
+  buildNumber: injected?.buildNumber || "6",
   appleAuthEnabled: injected?.appleAuthEnabled !== false,
 };
+
+export const releaseId = `${config.appVersion}-${config.buildNumber}`;
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

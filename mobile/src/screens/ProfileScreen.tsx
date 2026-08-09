@@ -222,19 +222,20 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
         <label><span><Icon name="bell" size={19} /><em><strong>Uygulama içi bildirimler</strong><small>Rota ve fiyat alarmı özetleri</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
         <label><span><Icon name="sparkles" size={19} /><em><strong>Dokunma titreşimi</strong><small>Desteklenen cihazlarda hafif geri bildirim</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>Kaşifler Ligi'nde görün</strong><small>Yalnız güvenli profil özeti paylaşılır</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
-        <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build 5 ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>
+        <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build {config.buildNumber} ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve hesap</strong><small>Veri hakların ve politikalar</small></em></span><Icon name="external" size={16} /></button>
       </div>
-      <p className="profile-version">LetsGo2Travel {config.appVersion} · Build 5</p>
+      <p className="profile-version">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
     </section>
 
     <Sheet open={visitedOpen} title="Ziyaret ettiğim ülkeler" onClose={() => setVisitedOpen(false)} size="large">
-      <div className="search-input"><Icon name="search" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
+      <label className="sr-only" htmlFor="visited-country-search">Ülke ara</label>
+      <div className="search-input"><Icon name="search" size={18} /><input id="visited-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
       <p className="visited-helper">Gittiğin ülkelere dokun. Giriş yaptıysan seçimlerin web seyahat haritanla da eşitlenir.</p>
       <div className="visited-country-list">
         {countries.map((country) => {
           const selected = visited.some((item) => item.alpha3 === country.alpha3);
-          return <button className={selected ? "selected" : ""} key={country.alpha3} disabled={Boolean(profileBusy)} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{country.name}</strong><small>{profileBusy === `country-${country.alpha3}` ? "Kaydediliyor" : country.alpha3}</small></button>;
+          return <button type="button" className={selected ? "selected" : ""} key={country.alpha3} aria-pressed={selected} disabled={Boolean(profileBusy)} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{country.name}</strong><small>{profileBusy === `country-${country.alpha3}` ? "Kaydediliyor" : country.alpha3}</small></button>;
         })}
       </div>
     </Sheet>

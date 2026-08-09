@@ -167,7 +167,7 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
           <label>Tempo<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option>Rahat</option><option>Dengeli</option><option>Yoğun</option></select></label>
           <label>Giriş tercihi<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">Vizesiz / kolay</option><option>Vize olabilir</option><option>Fark etmez</option></select></label>
         </div>
-        <fieldset className="vibe-fieldset"><legend>Nasıl bir seyahat?</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
+        <fieldset className="vibe-fieldset"><legend>Nasıl bir seyahat?</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
         <button className="primary-wide" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={19} />} {loading ? "Rotalar hazırlanıyor" : "Bana rota öner"}</button>
       </section>
 
@@ -181,13 +181,15 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
           {plan.routes.map((route, index) => {
             const open = expanded === route.name;
             const currentWeather = weather[route.name];
+            const triggerId = `route-result-trigger-${index}`;
+            const panelId = `route-result-panel-${index}`;
             return <article className={`route-result ${open ? "open" : ""}`} key={`${route.name}-${index}`}>
-              <button className="route-result-head" onClick={() => setExpanded(open ? "" : route.name)}>
+              <button id={triggerId} className="route-result-head" aria-expanded={open} aria-controls={panelId} onClick={() => setExpanded(open ? "" : route.name)}>
                 <span className={`route-score ${scoreColor(route.scores.overall)}`}>{route.scores.overall}</span>
                 <span><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong><em>{route.estimatedBudget} · {route.idealDuration}</em></span>
                 <Icon name="chevron" size={19} />
               </button>
-              {open && <div className="route-result-body">
+              <div id={panelId} className="route-result-body" role="region" aria-labelledby={triggerId} hidden={!open}>{open && <>
                 <p>{route.why}</p>
                 <div className="route-meta-grid">
                   <div><Icon name="wallet" size={17} /><span>Bütçe<strong>{route.estimatedBudget}</strong></span></div>
@@ -201,7 +203,7 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
                 {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>Bugün {currentWeather.min}° / {currentWeather.max}° · Rüzgâr {currentWeather.windSpeed} km/sa</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} Güncel havayı göster</button>}
                 <button className="primary-wide" onClick={() => onFlightSearch(route)}><Icon name="plane" size={18} /> Bu rota için bilet ara</button>
-              </div>}
+              </>}</div>
             </article>;
           })}
         </div>

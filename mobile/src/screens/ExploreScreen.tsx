@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { Sheet } from "../components/Sheet";
 import { DISCOVERY_DESTINATIONS, dailyDiscovery, type DiscoveryDestination } from "../data/discovery";
 import { COUNTRY_LIST } from "../data/countries";
 import { profileIdToAlpha3, profileIdsForAlpha3 } from "../data/countryCodes";
@@ -28,6 +29,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
+  const [selectedDestination, setSelectedDestination] = useState<DiscoveryDestination | null>(null);
   const featured = dailyDiscovery();
 
   useEffect(() => {
@@ -99,7 +101,13 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
 
   const openFlight = (destination: DiscoveryDestination) => {
     addRecentDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
+    setSelectedDestination(null);
     onFlightSearch(destination);
+  };
+
+  const openDetails = (destination: DiscoveryDestination) => {
+    addRecentDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
+    setSelectedDestination(destination);
   };
 
   return <div className="screen explore-screen">
@@ -119,15 +127,15 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
         <span>GÜNÜN KEŞFİ · {featured.entry}</span>
         <h2>{featured.flag} {featured.name}</h2>
         <p>{featured.description}</p>
-        <button onClick={() => openFlight(featured)}>Uçuşlara bak <Icon name="chevron" size={17} /></button>
+        <button onClick={() => openDetails(featured)}>Ayrıntıları gör <Icon name="chevron" size={17} /></button>
       </div>
       <span className="daily-globe"><Icon name="globe" size={70} /></span>
     </section>
 
     <section className="section-block">
       <div className="section-heading"><div><span>İLHAM PANOSU</span><h2>Sana göre rotalar</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
-      <div className="chip-scroll explore-filter">
-        {categories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}
+      <div className="chip-scroll explore-filter" role="group" aria-label="Rotaları kategoriye göre filtrele">
+        {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}</button>)}
       </div>
       <div className="discovery-grid">
         {destinations.map((destination) => {
@@ -140,10 +148,28 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
               <h3>{destination.name}</h3>
               <p>{destination.country}</p>
             </div>
-            <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openFlight(destination)}>Keşfet <Icon name="chevron" size={15} /></button></div>
+            <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openDetails(destination)} aria-label={`${destination.name} ayrıntılarını aç`}>İncele <Icon name="chevron" size={15} /></button></div>
           </article>;
         })}
       </div>
     </section>
+
+    <Sheet open={Boolean(selectedDestination)} title="Rota ayrıntıları" onClose={() => setSelectedDestination(null)} size="large">
+      {selectedDestination && <div className="destination-detail">
+        <div className="destination-detail-hero" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.9)),url(${destinationArtwork(selectedDestination.code)})` }}>
+          <span>{selectedDestination.entry} · {selectedDestination.tag}</span>
+          <div><small>{selectedDestination.flag} {selectedDestination.country}</small><h3>{selectedDestination.name}</h3><p>{selectedDestination.description}</p></div>
+        </div>
+        <div className="destination-facts">
+          <div><span><Icon name="calendar" size={17} /></span><small>En iyi dönem</small><strong>{selectedDestination.bestMonths}</strong></div>
+          <div><span><Icon name="wallet" size={17} /></span><small>Bütçe profili</small><strong>{selectedDestination.budget}</strong></div>
+        </div>
+        <section className="destination-highlights"><small>ÖNE ÇIKANLAR</small><div>{selectedDestination.highlights.map((highlight) => <span key={highlight}><Icon name="check" size={14} />{highlight}</span>)}</div></section>
+        <section className="destination-tip"><span><Icon name="sparkles" size={19} /></span><div><small>YEREL PLANLAMA NOTU</small><p>{selectedDestination.localTip}</p></div></section>
+        <p className="destination-disclaimer"><Icon name="info" size={14} /> Giriş koşulları değişebilir; seyahatten önce resmî kaynağı doğrula.</p>
+        <button className="primary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? "Favorilerden çıkar" : "Favoriye ekle"}</button>
+        <button className="secondary-wide" onClick={() => openFlight(selectedDestination)}><Icon name="plane" size={18} /> Bu rota için uçuş ara</button>
+      </div>}
+    </Sheet>
   </div>;
 }

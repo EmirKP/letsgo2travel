@@ -6,6 +6,7 @@ import {
   markNotificationsRead,
 } from "../lib/storage";
 import type { AppNotification, FlightAlert, ViewId, VisaAppointmentNotification } from "../types";
+import { config, releaseId } from "../lib/config";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
@@ -71,10 +72,10 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [{
-      id: "release-1.4.0",
-      title: "Yeni mobil deneyim hazır",
-      message: "5 sekmeli yeni menüyü, Keşfet ekranını ve yenilenen Seyahatlerim merkezini incele.",
-      createdAt: "2026-08-07T06:00:00.000Z",
+      id: `release-${releaseId}`,
+      title: `Mobil deneyim · Build ${config.buildNumber}`,
+      message: "Daha güvenli girişleri, yerel kısayolları ve yenilenen erişilebilir deneyimi incele.",
+      createdAt: "2026-08-09T09:00:00.000Z",
       kind: "release",
       view: "home",
     }];

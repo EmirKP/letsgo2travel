@@ -315,8 +315,8 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
         <span><Icon name="suitcase" size={30} /></span><strong>Henüz kokpit seyahatin yok</strong><p>İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.</p>
       </div>
       : <>
-        <div className="chip-scroll cockpit-trip-selector" aria-label="Seyahat seçimi">
-          {trips.map((trip) => <button key={trip.id} className={selectedTrip?.id === trip.id ? "active" : ""} onClick={() => setSelectedTripId(trip.id)}>
+        <div className="chip-scroll cockpit-trip-selector" role="group" aria-label="Seyahat seçimi">
+          {trips.map((trip) => <button type="button" key={trip.id} className={selectedTrip?.id === trip.id ? "active" : ""} aria-pressed={selectedTrip?.id === trip.id} onClick={() => setSelectedTripId(trip.id)}>
             {trip.destinationCode} · {trip.destinationCity || trip.destinationCountry}
           </button>)}
         </div>
@@ -346,7 +346,7 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
             <div className="section-heading"><div><span>HAZIRLIK</span><h2>Kontrol listesi</h2></div><small>{selectedTrip.checklistItems.filter((item) => item.completed).length}/{selectedTrip.checklistItems.length}</small></div>
             <progress value={selectedTrip.checklistItems.filter((item) => item.completed).length} max={Math.max(1, selectedTrip.checklistItems.length)} aria-label="Hazırlık ilerlemesi" />
             <div className="cockpit-checklist-list">
-              {selectedTrip.checklistItems.map((item) => <button key={item.id} className={item.completed ? "completed" : ""} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
+              {selectedTrip.checklistItems.map((item) => <button type="button" key={item.id} className={item.completed ? "completed" : ""} aria-pressed={item.completed} aria-label={`${item.label}: ${item.completed ? "tamamlandı" : "tamamlanmadı"}`} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
                 <span><Icon name={item.completed ? "check" : "plus"} size={17} /></span><strong>{item.label}</strong><small>{CATEGORY_LABELS[item.category]}</small>
               </button>)}
               {!selectedTrip.checklistItems.length && <div className="empty-inline"><Icon name="info" size={19} /><div><strong>Liste boş</strong><span>Aşağıdan ilk hazırlık maddeni ekleyebilirsin.</span></div></div>}

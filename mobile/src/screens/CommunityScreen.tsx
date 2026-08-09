@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Icon } from "../components/Icon";
 import { requestJson } from "../lib/api";
 import type { AuthUser } from "../types";
@@ -129,6 +129,17 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   const feedGeneration = useRef(0);
   const currentUsername = useMemo(() => userName(user).toLocaleLowerCase("tr-TR"), [user]);
 
+  const selectTab = (nextTab: "feed" | "league") => {
+    setTab(nextTab);
+    window.requestAnimationFrame(() => document.getElementById(`community-tab-${nextTab}`)?.focus());
+  };
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    selectTab(tab === "feed" ? "league" : "feed");
+  };
+
   const load = useCallback(async () => {
     const generation = ++requestGeneration.current;
     setLoading(true);
@@ -217,12 +228,12 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
       <div><small>KAŞİFLER LİGİ</small><h1>Gerçek gezginlerden ilham al</h1><p>Katılmayı seçen kaşiflerin seyahat ilerlemesini ve lig seviyelerini keşfet.</p></div>
     </section>
 
-    <div className="segmented community-tabs">
-      <button className={tab === "feed" ? "active" : ""} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> Gezgin Akışı</button>
-      <button className={tab === "league" ? "active" : ""} onClick={() => setTab("league")}><Icon name="users" size={16} /> Lig</button>
+    <div className="segmented community-tabs" role="tablist" aria-label="Topluluk bölümleri">
+      <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> Gezgin Akışı</button>
+      <button id="community-tab-league" type="button" role="tab" aria-selected={tab === "league"} aria-controls="community-panel-league" tabIndex={tab === "league" ? 0 : -1} className={tab === "league" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("league")}><Icon name="users" size={16} /> Lig</button>
     </div>
 
-    {tab === "league" && <><section className="community-native-summary">
+    <section id="community-panel-league" className="community-tab-panel" role="tabpanel" aria-labelledby="community-tab-league" tabIndex={tab === "league" ? 0 : -1} hidden={tab !== "league"}><section className="community-native-summary">
       <div><span><Icon name="globe" size={20} /></span><strong>{leaders.length}</strong><small>Lig katılımcısı</small></div>
       <button className="secondary-button" disabled={loading} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} Yenile
@@ -232,7 +243,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     {!user && <section className="community-account-nudge">
       <span><Icon name="user" size={23} /></span>
       <div><strong>Kendi kaşif alanını oluştur</strong><p>Ziyaretlerini aynı hesapta saklamak ve lig tercihini yönetmek için giriş yap.</p></div>
-      <button onClick={onOpenAccount}><Icon name="chevron" size={18} /></button>
+      <button type="button" onClick={onOpenAccount} aria-label="Giriş yap veya hesap aç"><Icon name="chevron" size={18} /></button>
     </section>}
 
     {error && <div className="info-box error community-native-error" role="alert">
@@ -262,9 +273,9 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
         })}
       </div>}
 
-    <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>Lig yalnızca katılmayı seçen kullanıcıları ve API tarafından yayınlanan güvenli özet alanlarını gösterir.</p></div></>}
+    <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>Lig yalnızca katılmayı seçen kullanıcıları ve API tarafından yayınlanan güvenli özet alanlarını gösterir.</p></div></section>
 
-    {tab === "feed" && <section className="community-feed">
+    <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
       <div className="community-feed-toolbar"><div><small>ÜLKE TOPLULUKLARI</small><h2>Gezginlerin soruları</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? "Kapat" : "Soru sor"}</button></div>
       {questionOpen && <div className="form-card community-question-form">
         <div className="form-grid two"><label>Ülke kodu<input value={countryCode} maxLength={2} autoCapitalize="characters" onChange={(event) => setCountryCode(event.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} placeholder="IT" /></label><label>Kategori<select value="general" disabled><option value="general">Genel</option></select></label></div>
@@ -279,6 +290,6 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
           <h3>{question.title}</h3><p>{question.body}</p>
         </article>)}</div>
         : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>Henüz görünür soru yok</strong><p>İlk soruyu sorarak ülke topluluğunu başlatabilirsin.</p></div>}
-    </section>}
+    </section>
   </div>;
 }

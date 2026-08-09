@@ -202,6 +202,10 @@
 .saved-card-head small { color: var(--muted); font-size: 8px; }
 .saved-card-head strong { overflow: hidden; text-overflow: ellipsis; color: var(--ink); font-size: 11.5px; white-space: nowrap; }
 .saved-card-head > button { width: 44px; height: 44px; border-radius: 12px; border: 0; background: #fff1f2; color: var(--danger); display: grid; place-items: center; }
+.delete-confirmation { padding: 4px 2px 2px; text-align: center; }
+.delete-confirmation > span { width: 52px; height: 52px; margin: 0 auto 11px; display: grid; place-items: center; border-radius: 16px; color: var(--danger); background: #fff0f2; }
+.delete-confirmation > p { margin: 0 auto 16px; max-width: 330px; color: #526274; font-size: 13px; line-height: 1.55; }
+.delete-confirmation > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .saved-card > p { margin: 10px 0; color: var(--muted); font-size: 9.5px; line-height: 1.5; }
 .saved-route-chips { display: flex; flex-wrap: wrap; gap: 7px; }
 .saved-route-chips button { min-height: 44px; display: flex; align-items: center; gap: 5px; border: 1px solid #d7e1e7; border-radius: 10px; padding: 7px 9px; background: #fff; color: var(--navy-700); font-size: 9px; font-weight: 800; }
@@ -293,6 +297,8 @@
 .menu-link-list > button > div { display: grid; gap: 2px; }
 .menu-link-list strong { font-size: 11px; }
 .menu-link-list small { color: var(--muted); font-size: 8.5px; }
+.menu-section-label { margin: 17px 2px -4px; color: #45687c; font-size: 10.5px; font-weight: 900; letter-spacing: .11em; }
+.menu-link-list.compact-links > button { min-height: 52px; }
 .system-card { margin-top: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
 .system-card > div { display: grid; gap: 3px; }
 .system-card small { color: #4b92aa; font-size: 7.5px; font-weight: 900; letter-spacing: .11em; }
@@ -323,6 +329,17 @@
 .home-quick-grid button:nth-child(4) > span { color: #39799b; background: #eaf4f8; }
 .home-quick-grid strong { max-width: 100%; font-size: 10px; line-height: 1.2; }
 .home-quick-grid small { max-width: 100%; color: var(--muted); font-size: 7.5px; line-height: 1.25; }
+.travel-pulse { margin-top: 13px; padding: 15px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 13px; overflow: hidden; border: 1px solid rgba(86,189,199,.24); border-radius: 19px; color: #fff; background: radial-gradient(circle at 95% 0,rgba(246,196,69,.18),transparent 34%),linear-gradient(135deg,#071b33,#0c3f59); box-shadow: 0 10px 26px rgba(7,27,51,.11); }
+.travel-pulse-copy { min-width: 0; display: grid; grid-template-columns: 39px 1fr; align-items: center; gap: 10px; }
+.travel-pulse-copy > span { width: 39px; height: 39px; display: grid; place-items: center; border-radius: 12px; color: var(--gold); background: rgba(246,196,69,.13); }
+.travel-pulse-copy > div { min-width: 0; }
+.travel-pulse-copy small { display: block; color: #78dce3; font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+.travel-pulse-copy strong { display: block; margin-top: 3px; font-size: 14px; }
+.travel-pulse-copy p { margin: 3px 0 0; color: rgba(255,255,255,.7); font-size: 11px; line-height: 1.4; }
+.travel-pulse-stats { display: flex; gap: 5px; }
+.travel-pulse-stats button { min-width: 50px; min-height: 52px; padding: 6px; display: grid; place-items: center; gap: 1px; border: 1px solid rgba(255,255,255,.12); border-radius: 13px; color: #fff; background: rgba(255,255,255,.07); }
+.travel-pulse-stats strong { color: var(--gold-soft); font-size: 16px; }
+.travel-pulse-stats span { color: rgba(255,255,255,.68); font-size: 10px; font-weight: 750; }
 .continue-card { margin-top: 13px; min-height: 92px; padding: 13px; display: grid; grid-template-columns: 43px 1fr 38px; align-items: center; gap: 10px; border: 1px solid #d6e3e8; border-radius: 18px; background: linear-gradient(145deg,#f7fbfc,#fff); box-shadow: 0 7px 19px rgba(8,36,56,.04); }
 .continue-card > span { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 13px; background: #e7f3f6; color: var(--navy-700); }
 .continue-card > div { min-width: 0; display: grid; gap: 2px; }
@@ -375,6 +392,28 @@
 .discovery-body { min-height: 50px; padding: 8px 9px 8px 11px; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .discovery-body > span { color: var(--muted); font-size: 7.5px; }
 .discovery-body button { min-height: 36px; padding: 0 7px; display: flex; align-items: center; gap: 2px; border: 0; border-radius: 10px; background: #edf5f8; color: var(--navy-700); font-size: 8.5px; font-weight: 850; }
+.destination-detail { display: grid; gap: 11px; }
+.destination-detail-hero { min-height: 220px; padding: 17px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 20px; color: #fff; background-size: cover; background-position: center; box-shadow: 0 11px 28px rgba(7,27,51,.15); }
+.destination-detail-hero > span { align-self: flex-start; padding: 6px 9px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(7,27,51,.46); font-size: 10.5px; font-weight: 800; backdrop-filter: blur(8px); }
+.destination-detail-hero small { color: var(--gold-soft); font-size: 11px; font-weight: 850; }
+.destination-detail-hero h3 { margin: 3px 0; font-size: 30px; letter-spacing: -.045em; }
+.destination-detail-hero p { margin: 0; max-width: 390px; color: rgba(255,255,255,.78); font-size: 12.5px; line-height: 1.5; }
+.destination-facts { display: grid; grid-template-columns: 1.35fr 1fr; gap: 8px; }
+.destination-facts > div { min-height: 88px; padding: 12px; display: grid; grid-template-columns: 35px 1fr; align-items: center; column-gap: 8px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+.destination-facts > div > span { width: 35px; height: 35px; grid-row: 1 / span 2; display: grid; place-items: center; border-radius: 11px; color: var(--navy-700); background: #eaf4f7; }
+.destination-facts small { align-self: end; color: #5e6d7b; font-size: 10.5px; }
+.destination-facts strong { align-self: start; font-size: 12px; }
+.destination-highlights { padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.destination-highlights > small,.destination-tip small { color: #356679; font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+.destination-highlights > div { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 7px; }
+.destination-highlights span { min-height: 36px; padding: 0 9px; display: flex; align-items: center; gap: 5px; border-radius: 11px; color: #276252; background: #eaf7f2; font-size: 11px; font-weight: 750; }
+.destination-tip { padding: 13px; display: grid; grid-template-columns: 42px 1fr; align-items: start; gap: 9px; border-radius: 16px; color: #fff; background: linear-gradient(135deg,#071b33,#0d435c); }
+.destination-tip > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: var(--gold); background: rgba(246,196,69,.13); }
+.destination-tip small { color: #78dce3; }
+.destination-tip p { margin: 4px 0 0; color: rgba(255,255,255,.76); font-size: 11.5px; line-height: 1.5; }
+.destination-disclaimer { margin: 0; display: flex; align-items: flex-start; gap: 6px; color: #5f6f7e; font-size: 10.5px; line-height: 1.45; }
+.destination-disclaimer svg { flex: 0 0 auto; margin-top: 1px; }
+.destination-detail .secondary-wide { margin-top: -3px; }
 
 /* Seyahatlerim */
 .trips-overview { margin: 12px 0; display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
@@ -623,6 +662,12 @@
   .home-quick-grid button { min-height: 96px; padding: 12px 9px; }
 }
 
+@media (max-width: 430px) {
+  .discovery-grid { grid-template-columns: 1fr; }
+  .discovery-visual { min-height: 190px; }
+  .destination-facts { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 390px) {
   .form-grid.two { grid-template-columns: 1fr; }
   .mobile-menu-button { display: grid; }
@@ -630,6 +675,9 @@
   .topbar-actions { gap: 2px; }
   .brand { font-size: 15px; }
   .brand strong { font-size: 21px; }
+  .travel-pulse { grid-template-columns: 1fr; }
+  .travel-pulse-stats { width: 100%; }
+  .travel-pulse-stats button { flex: 1; }
 }
 
 @media (max-height: 700px) {
@@ -805,3 +853,24 @@
   .community-leader-card { grid-template-columns: 29px 42px 1fr; }
   .community-leader-stats { grid-column: 3; justify-self: start; }
 }
+
+/* Erişilebilirlik: küçük metin kontrastı ve asgari dokunma hedefleri. */
+.section-heading > div > span,
+.results-heading > div > span,
+.community-feed-toolbar small { color: #356b7c; }
+.country-row small,
+.legal-note,
+.profile-version,
+.version-note,
+.notification-item em,
+.visited-country-list small { color: #667085; }
+.bottom-nav button { color: #5b6978; }
+.toast span,
+.info-box p { font-size: 12px; }
+.legal-note { font-size: 11.5px; }
+.continue-card > button,
+.personal-chip-list button,
+.community-native-error button { min-width: 44px; min-height: 44px; }
+.app-content:focus { outline: none; }
+.community-tab-panel:focus-visible,
+.community-feed:focus-visible { outline: 3px solid rgba(25,198,211,.5); outline-offset: 3px; }

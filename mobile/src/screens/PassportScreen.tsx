@@ -75,9 +75,10 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>Kolay vize</span></div>
       </div>
 
-      <div className="search-input"><Icon name="search" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
-      <div className="chip-scroll">
-        {filters.map((item) => <button key={item.id} className={filter === item.id ? "active" : ""} onClick={() => setFilter(item.id)}>{item.label}</button>)}
+      <label className="sr-only" htmlFor="passport-country-search">Ülke ara</label>
+      <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
+      <div className="chip-scroll" role="group" aria-label="Giriş durumuna göre filtrele">
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
       </div>
 
       <div className="country-list">

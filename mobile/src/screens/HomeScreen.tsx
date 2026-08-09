@@ -17,7 +17,7 @@ const quickCards: Array<{ title: string; text: string; icon: IconName; view?: Vi
   { title: "Pasaport Gücü", text: "Giriş durumlarını karşılaştır", icon: "passport", view: "passport" },
   { title: "Beni Şaşırt", text: "Kararı dünyaya bırak", icon: "sparkles", action: "surprise" },
   { title: "Fiyat Alarmı", text: "Uçuş fiyatını takip et", icon: "bell", view: "search" },
-  { title: "Vizesiz Ülkeler", text: "Kolay rotaları keşfet", icon: "globe", view: "passport" },
+  { title: "Kaşifler Ligi", text: "Gezginlerden ilham al", icon: "users", view: "community" },
 ];
 
 function firstName(user: AuthUser | null) {
@@ -50,6 +50,7 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, storageTick]);
   const recent = useMemo(() => getRecentDestinations(ownerId), [ownerId, storageTick]);
   const discovery = dailyDiscovery();
+  const activityCount = routes.length + searches.length + favorites.length;
 
   useEffect(() => {
     const update = () => setStorageTick((value) => value + 1);
@@ -85,9 +86,9 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
     </section>
 
     <section className="hero home-hero" style={{ backgroundImage: `radial-gradient(circle at 88% 12%,rgba(25,198,211,.22),transparent 34%),linear-gradient(145deg,rgba(7,27,51,.94),rgba(11,49,82,.78)),url(${destinationArtwork("FCO")})` }}>
-      <div className="eyebrow"><span><Icon name="globe" size={13} /></span> GLOBAL SEYAHAT KEŞFİ</div>
+      <div className="eyebrow"><span><Icon name="globe" size={13} /></span> TÜRKİYE'DEN DÜNYAYA</div>
       <h1>Bir sonraki hikâyen nerede başlasın?</h1>
-      <p>Pasaportuna uygun ülkeleri gör, akıllı rotanı oluştur ve seyahatini tek yerde yönet.</p>
+      <p>Türkiye pasaportuna uygun ülkeleri gör, akıllı rotanı oluştur ve seyahatini tek yerde yönet.</p>
       <div className="hero-actions">
         <button className="primary-button" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> Rota oluştur</button>
         <button className="secondary-button" onClick={() => onNavigate("explore")}><Icon name="compass" size={18} /> Keşfet</button>
@@ -100,10 +101,19 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
       </button>)}
     </section>
 
+    {activityCount > 0 && <section className="travel-pulse" aria-label="Seyahat nabzın">
+      <div className="travel-pulse-copy"><span><Icon name="sparkles" size={19} /></span><div><small>SEYAHAT NABZI</small><strong>{activityCount} keşif kaydın hazır</strong><p>Planların, aramaların ve favorilerin bu cihazda seninle.</p></div></div>
+      <div className="travel-pulse-stats">
+        <button onClick={() => onNavigate("trips")} aria-label={`${routes.length} kayıtlı rotayı aç`}><strong>{routes.length}</strong><span>Rota</span></button>
+        <button onClick={() => onNavigate("trips")} aria-label={`${searches.length} uçuş aramasını aç`}><strong>{searches.length}</strong><span>Arama</span></button>
+        <button onClick={() => onNavigate("explore")} aria-label={`${favorites.length} favoriyi aç`}><strong>{favorites.length}</strong><span>Favori</span></button>
+      </div>
+    </section>}
+
     {(routes[0] || searches[0]) && <section className="continue-card">
       <span><Icon name={routes[0] ? "route" : "plane"} size={24} /></span>
       <div><small>KALDIĞIN YERDEN DEVAM ET</small><strong>{routes[0] ? routes[0].plan.routes.map((route) => route.name).join(" · ") : `${searches[0].originCode} → ${searches[0].destinationCode}`}</strong><p>{routes[0] ? routes[0].plan.summary : `${searches[0].departureDate} tarihli uçuş araman`}</p></div>
-      <button onClick={() => onNavigate("trips")}><Icon name="chevron" size={18} /></button>
+      <button onClick={() => onNavigate("trips")} aria-label="Seyahatlerim'de devam et"><Icon name="chevron" size={18} /></button>
     </section>}
 
     <button className="discovery-teaser" onClick={() => onNavigate("explore")} style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.86),rgba(7,27,51,.45)),url(${destinationArtwork(discovery.code)})` }}>

@@ -9,7 +9,7 @@ import { ReleaseNotesSheet } from "./components/ReleaseNotesSheet";
 import type { DiscoveryDestination } from "./data/discovery";
 import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
-import { config } from "./lib/config";
+import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
@@ -82,7 +82,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [releaseOpen, setReleaseOpen] = useState(() => hasCompletedOnboarding() && !hasSeenRelease(config.appVersion));
+  const [releaseOpen, setReleaseOpen] = useState(() => hasCompletedOnboarding() && !hasSeenRelease(releaseId));
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasCompletedOnboarding());
   const [online, setOnline] = useState(navigator.onLine);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -95,6 +95,7 @@ export default function App() {
   const noticeTimer = useRef<number | null>(null);
   const pullStart = useRef<number | null>(null);
   const edgeSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const activeViewRef = useRef(activeView);
   const historyDepth = useRef(0);
   const auth = useAuth();
@@ -132,6 +133,7 @@ export default function App() {
         historyDepth.current = depth;
         activeViewRef.current = next;
         setActiveView(next);
+        window.requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
       }
     };
     window.addEventListener("popstate", onPopState);
@@ -143,6 +145,7 @@ export default function App() {
     const current = activeViewRef.current;
     if (current === view && !options?.replace) {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      window.requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
       return;
     }
     const nextDepth = options?.replace ? historyDepth.current : historyDepth.current + 1;
@@ -152,6 +155,7 @@ export default function App() {
     const method = options?.replace ? "replaceState" : "pushState";
     window.history[method]({ view, depth: nextDepth }, "", `#${view}`);
     window.scrollTo({ top: 0, behavior: "auto" });
+    window.requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
     void impact();
   }, []);
 
@@ -261,11 +265,11 @@ export default function App() {
   const completeWelcome = () => {
     completeOnboarding();
     setOnboardingOpen(false);
-    if (!hasSeenRelease(config.appVersion)) setReleaseOpen(true);
+    if (!hasSeenRelease(releaseId)) setReleaseOpen(true);
   };
 
   const closeRelease = () => {
-    markReleaseSeen(config.appVersion);
+    markReleaseSeen(releaseId);
     setReleaseOpen(false);
   };
 
@@ -334,7 +338,7 @@ export default function App() {
         <button className="brand-button" onClick={() => navigate("home")} aria-label="Ana sayfa"><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
       </div>
       <div className="topbar-actions">
-        <span className={`network-dot ${online ? "online" : "offline"}`} title={online ? "Çevrimiçi" : "Çevrimdışı"} />
+        <span className={`network-dot ${online ? "online" : "offline"}`} role="status" aria-label={online ? "Çevrimiçi" : "Çevrimdışı"} title={online ? "Çevrimiçi" : "Çevrimdışı"} />
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`Bildirimler${unreadCount ? `, ${unreadCount} okunmamış` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
         <button className="icon-button" onClick={() => navigate("profile")} aria-label="Profil"><Icon name="user" size={20} />{auth.user && <span className="account-dot" />}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Daha fazla"><Icon name="menu" size={21} /></button>
@@ -343,7 +347,7 @@ export default function App() {
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.</div>}
     {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
-    <main className="app-content" tabIndex={-1}>{content}</main>
+    <main ref={mainRef} className="app-content" tabIndex={-1}>{content}</main>
 
     <nav className="bottom-nav" aria-label="Ana menü">
       {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
@@ -352,7 +356,7 @@ export default function App() {
     {notice && <div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>}
     <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onUnreadChange={setUnreadCount} />
     <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
-    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNotice={showNotice} onNavigate={navigate} />
+    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={navigate} />
     <ReleaseNotesSheet open={releaseOpen} onClose={closeRelease} />
     {onboardingOpen && <Onboarding onComplete={completeWelcome} />}
   </div>;
