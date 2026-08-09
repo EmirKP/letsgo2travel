@@ -1,6 +1,6 @@
 export type TabId = "home" | "explore" | "route" | "trips" | "profile";
 
-export type ViewId = TabId | "passport" | "search";
+export type ViewId = TabId | "passport" | "search" | "surprise" | "cockpit" | "community";
 
 export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required";
 
@@ -54,6 +54,10 @@ export type RouteSuggestion = {
   destinationCode?: string;
   why: string;
   visaStatus: string;
+  visaNote?: string;
+  visaSourceUrl?: string;
+  visaVerifiedAt?: string | null;
+  verifiedEntryStatus?: "identity_card" | "visa_free" | "e_visa" | "visa_on_arrival" | "visa_required" | "unknown";
   estimatedBudget: string;
   idealDuration: string;
   bestFor: string;
@@ -136,6 +140,32 @@ export type WeatherSummary = {
   max: number;
 };
 
+export type VerifiedVisaRule = {
+  country: string;
+  status: "identity_card" | "visa_free" | "e_visa" | "visa_on_arrival" | "visa_required" | "unknown";
+  label: string;
+  note: string;
+  sourceUrl: string;
+  verifiedAt: string | null;
+};
+
+export type VisaAppointmentNotification = {
+  id: string;
+  title: string;
+  message: string;
+  action_url?: string | null;
+  read_at?: string | null;
+  created_at: string;
+};
+
+export type TravelVerification = {
+  id: string;
+  country_code?: string;
+  country_name?: string;
+  status?: "pending" | "approved" | "rejected" | "expired" | string;
+  created_at?: string;
+};
+
 export type AuthUser = {
   id: string;
   email?: string;
@@ -159,7 +189,7 @@ export type FavoriteDestination = {
   createdAt: string;
 };
 
-export type AppNotificationKind = "release" | "route" | "price" | "tip";
+export type AppNotificationKind = "release" | "route" | "price" | "visa";
 
 export type AppNotification = {
   id: string;

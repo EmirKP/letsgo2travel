@@ -3,19 +3,19 @@ import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
 const changes = [
-  ["compass", "Yeni mobil gezinme", "Ana Sayfa, Keşfet, Rota, Seyahatlerim ve Profil artık tek dokunuş uzağında."],
-  ["bell", "Bildirim merkezi", "Fiyat alarmlarını ve seyahat hatırlatmalarını uygulama içinde takip et."],
-  ["shield", "Daha güvenli kişisel kayıtlar", "Cihazdaki rota ve aramalar farklı hesaplar arasında karışmaz."],
-  ["suitcase", "Seyahat merkezi", "Favoriler, kayıtlı rotalar ve uçuş aramaları daha düzenli bir merkezde."],
+  ["user", "Güvenilir hesap girişi", "E-posta, Google ve iOS'ta Apple girişi uygulamaya güvenli bağlantıyla geri döner."],
+  ["suitcase", "Yerel Seyahat Kokpiti", "Tarihlerini ve hazırlık listeni web hesabınla aynı veride yönet."],
+  ["users", "Kaşifler Ligi ve akış", "Gezgin sorularını uygulamada oku, paylaş ve lig sıralamasını keşfet."],
+  ["sparkles", "Beni Şaşırt", "Dünyayı döndür, görsel rotanı seç ve tek dokunuşla plana dönüştür."],
 ] as const;
 
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return <Sheet open={open} title={`Sürüm ${config.appVersion}`} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
-      <small>BUILD 4</small>
-      <h3>LetsGo2Travel tamamen yenilendi.</h3>
-      <p>Daha hızlı, daha kişisel ve gerçekten mobil uygulama gibi hissettiren yeni deneyime hoş geldin.</p>
+      <small>BUILD 5</small>
+      <h3>Web ve mobil artık birlikte çalışıyor.</h3>
+      <p>Hesap, plan, favori ve seyahat kayıtların aynı güvenli veri katmanında buluşuyor.</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, text]) => <div key={title}>

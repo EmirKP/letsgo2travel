@@ -20,8 +20,8 @@
   --danger: #d54855;
 }
 * { box-sizing: border-box; }
-html { background: #f5f7f9; scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
+html { background: #f5f7f9; color-scheme: light; scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh; line-height: 1.5; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; touch-action: manipulation; }
@@ -29,3 +29,4 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 button:active:not(:disabled) { transform: scale(.985); }
 body.sheet-open { overflow: hidden; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid rgba(25,198,211,.5); outline-offset: 2px; }
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }

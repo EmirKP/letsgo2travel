@@ -98,6 +98,11 @@ export function getFavoriteDestinations(ownerId?: string | null) {
   return readScoped<FavoriteDestination>(FAVORITES_KEY, ownerId);
 }
 
+export function setFavoriteDestinations(destinations: FavoriteDestination[], ownerId?: string | null) {
+  write(scopedKey(FAVORITES_KEY, ownerId), destinations, 80);
+  return destinations;
+}
+
 export function toggleFavoriteDestination(destination: Omit<FavoriteDestination, "createdAt">, ownerId?: string | null) {
   const current = getFavoriteDestinations(ownerId);
   const exists = current.some((item) => item.alpha3 === destination.alpha3);
@@ -110,6 +115,11 @@ export function toggleFavoriteDestination(destination: Omit<FavoriteDestination,
 
 export function getVisitedCountries(ownerId?: string | null) {
   return readScoped<FavoriteDestination>(VISITED_KEY, ownerId);
+}
+
+export function setVisitedCountries(countries: FavoriteDestination[], ownerId?: string | null) {
+  write(scopedKey(VISITED_KEY, ownerId), countries, 200);
+  return countries;
 }
 
 export function toggleVisitedCountry(country: Omit<FavoriteDestination, "createdAt">, ownerId?: string | null) {

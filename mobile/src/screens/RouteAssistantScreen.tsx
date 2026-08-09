@@ -3,8 +3,9 @@ import { Icon } from "../components/Icon";
 import { createFallbackPlan } from "../data/routes";
 import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
-import { createId } from "../lib/id";
+import { openExternal } from "../lib/native";
 import { saveRoutePlan } from "../lib/storage";
+import { getSupabaseDataErrorMessage, upsertUserTrip } from "../lib/supabaseData";
 import type { PlannerInput, RoutePlan, RouteSuggestion, WeatherSummary } from "../types";
 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
@@ -28,11 +29,22 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, ownerId }: {
+function planClientKey(plan: RoutePlan, input: PlannerInput) {
+  const source = JSON.stringify({ input, routes: plan.routes.map((route) => [route.name, route.country, route.destinationCode]) });
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `route-${(hash >>> 0).toString(36)}-${plan.routes.length}`;
+}
+
+export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, ownerId, accessToken }: {
   onFlightSearch: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
   surpriseRoute?: RouteSuggestion | null;
   ownerId?: string | null;
+  accessToken: string;
 }) {
   const [form, setForm] = useState<PlannerInput>(INITIAL);
   const [loading, setLoading] = useState(false);
@@ -41,6 +53,8 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
   const [expanded, setExpanded] = useState<string>(surpriseRoute?.name || "");
   const [weather, setWeather] = useState<Record<string, WeatherSummary>>({});
   const [weatherLoading, setWeatherLoading] = useState("");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [savedKey, setSavedKey] = useState("");
 
   useEffect(() => {
     if (!surpriseRoute) return;
@@ -68,11 +82,13 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
         setPlan(response.data);
         setSource("ai");
         setExpanded(response.data.routes[0]?.name || "");
+        setSavedKey("");
       } else {
         const fallback = createFallbackPlan(form);
         setPlan(fallback);
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
+        setSavedKey("");
         onNotice("Canlı asistan yanıt vermedi; güvenli yerel öneriler hazırlandı.");
       }
       await hapticSuccess();
@@ -81,6 +97,7 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
       setPlan(fallback);
       setSource("local");
       setExpanded(fallback.routes[0]?.name || "");
+      setSavedKey("");
       onNotice("Bağlantı kurulamadı; rota cihazdaki seçeneklerden oluşturuldu.");
     } finally {
       setLoading(false);
@@ -88,10 +105,30 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
   };
 
   const save = async () => {
-    if (!plan) return;
-    saveRoutePlan({ id: createId(), createdAt: new Date().toISOString(), input: form, plan }, ownerId);
-    await hapticSuccess();
-    onNotice("Rota Seyahatlerim'e kaydedildi.");
+    if (!plan || saveBusy) return;
+    const clientKey = planClientKey(plan, form);
+    if (savedKey === clientKey) return onNotice("Bu rota zaten kayıtlı.");
+    setSaveBusy(true);
+    const createdAt = new Date().toISOString();
+    saveRoutePlan({ id: clientKey, createdAt, input: form, plan }, ownerId);
+    try {
+      if (ownerId && accessToken) {
+        await upsertUserTrip(ownerId, {
+          title: plan.routes.map((route) => route.name).join(" · ").slice(0, 160),
+          destination: plan.routes.map((route) => route.country).join(" · ").slice(0, 160),
+          mobileKind: "route_plan",
+          clientKey,
+          tripData: { input: form, plan, source, saved_at: createdAt },
+        }, accessToken);
+      }
+      setSavedKey(clientKey);
+      await hapticSuccess();
+      onNotice(ownerId && accessToken ? "Rota web ve mobil hesabına kaydedildi." : "Rota bu cihaza kaydedildi.");
+    } catch (error) {
+      onNotice(`${getSupabaseDataErrorMessage(error, "Rota hesabınla eşitlenemedi.")} Cihaz kaydı korundu.`);
+    } finally {
+      setSaveBusy(false);
+    }
   };
 
   const loadWeather = async (route: RouteSuggestion) => {
@@ -137,7 +174,7 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
       {plan && <section className="plan-results">
         <div className="results-heading">
           <div><span>{source === "ai" ? "CANLI ASİSTAN" : source === "surprise" ? "SÜRPRİZ ROTA" : "YEREL ROTA MOTORU"}</span><h2>Senin için seçtiklerimiz</h2></div>
-          <button className="save-plan-button" onClick={() => void save()}><Icon name="bookmark" size={17} /> Kaydet</button>
+          <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, form) ? "check" : "bookmark"} size={17} />} {saveBusy ? "Kaydediliyor" : savedKey === planClientKey(plan, form) ? "Kaydedildi" : "Kaydet"}</button>
         </div>
         <p className="plan-summary">{plan.summary}</p>
         <div className="route-result-list">
@@ -158,6 +195,8 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
                   <div><Icon name="map" size={17} /><span>Ulaşım<strong>{route.transportEase}</strong></span></div>
                   <div><Icon name="passport" size={17} /><span>Giriş<strong>{route.visaStatus}</strong></span></div>
                 </div>
+                {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? ` · Son kontrol: ${route.visaVerifiedAt}` : ""}</p></div>}
+                {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> Resmî giriş kaynağını aç</button>}
                 <div className="daily-plan"><h3>Örnek plan</h3>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
                 {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>Bugün {currentWeather.min}° / {currentWeather.max}° · Rüzgâr {currentWeather.windSpeed} km/sa</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} Güncel havayı göster</button>}

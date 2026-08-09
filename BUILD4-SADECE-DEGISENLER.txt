@@ -1,0 +1,51 @@
+LETSGO2TRAVEL BUILD 4 - SADECE DEGISEN DOSYALAR
+================================================
+
+Bu paket tum proje degildir.
+Build 3 uzerine uygulanacak yalnizca 35 yeni/degisen dosyayi icerir.
+
+UYGULAMA
+--------
+1. Mevcut proje klasorun:
+   C:\Projects\letsgo2travel
+
+2. ZIP'in icindeki dosya ve klasorleri bu klasorun icine cikart.
+
+3. Windows "Ayni ada sahip dosyalar var" derse:
+   "Hedefteki dosyalari degistir" / "Tumune Evet" sec.
+
+4. PowerShell'de sirayla calistir:
+
+   cd C:\Projects\letsgo2travel
+   npm install
+   npm --prefix mobile install
+   npm --prefix mobile run lint
+   npm run mobile:build
+
+5. Kontroller hatasizsa GitHub'a gonder:
+
+   git add .
+   git commit -m "Mobil Build 4 v1.4.0"
+   git push origin main
+
+KOPYALANMAYACAK KLASORLER
+-------------------------
+- node_modules
+- .next
+- mobile/dist
+- mobile-dist
+- ios/App/App/public
+- android/app/src/main/assets/public
+
+Bu klasorler otomatik derleme ciktisidir. Build sirasinda yeniden olusurlar.
+Eski hash'li mobil dosyalar yeni temizleme komutuyla otomatik kaldirilir.
+
+CODEMAGIC NOTU
+--------------
+Build baslatmadan once Codemagic'te "letsgo2travel_public" ortam grubu
+bulunmali ve su iki deger bu grupta tanimli olmali:
+
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+Bu degerleri ZIP'e veya GitHub'a yazma.

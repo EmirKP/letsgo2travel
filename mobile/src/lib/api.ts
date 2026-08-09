@@ -7,6 +7,9 @@ import type {
   FlightSearchInput,
   PlannerInput,
   RoutePlan,
+  VerifiedVisaRule,
+  VisaAppointmentNotification,
+  TravelVerification,
   WeatherSummary,
 } from "../types";
 
@@ -20,7 +23,7 @@ export class ApiError extends Error {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -232,6 +235,12 @@ function sanitizeRoutePlan(value: unknown): RoutePlan | null {
       destinationCode: /^[A-Z0-9]{3}$/.test(cleanText(route.destinationCode).toUpperCase()) ? cleanText(route.destinationCode).toUpperCase() : undefined,
       why: cleanText(route.why, `${name}, seçtiğin seyahat tercihlerine uygun bir rota.`),
       visaStatus: cleanText(route.visaStatus, "Seyahat öncesi doğrula"),
+      visaNote: cleanText(route.visaNote),
+      visaSourceUrl: /^https:\/\//i.test(cleanText(route.visaSourceUrl)) ? cleanText(route.visaSourceUrl) : undefined,
+      visaVerifiedAt: cleanText(route.visaVerifiedAt) || null,
+      verifiedEntryStatus: ["identity_card", "visa_free", "e_visa", "visa_on_arrival", "visa_required", "unknown"].includes(cleanText(route.verifiedEntryStatus))
+        ? cleanText(route.verifiedEntryStatus) as import("../types").RouteSuggestion["verifiedEntryStatus"]
+        : "unknown",
       estimatedBudget: cleanText(route.estimatedBudget, "Tarihlere göre değişir"),
       idealDuration: cleanText(route.idealDuration, "3–5 gün"),
       bestFor: cleanText(route.bestFor, "Genel keşif"),
@@ -279,6 +288,36 @@ export async function checkApiHealth() {
     database: string;
     timestamp: string;
   }>("/api/health", { timeoutMs: 10_000 });
+}
+
+export async function getVisaEntryRule(country: string, destination = "") {
+  const params = new URLSearchParams({ country });
+  if (destination) params.set("destination", destination);
+  const result = await requestJson<{ data: VerifiedVisaRule }>(`/api/visa-entry-rule?${params.toString()}`, { timeoutMs: 10_000 });
+  return result.data;
+}
+
+export async function getVisaAppointmentNotifications(accessToken: string) {
+  const result = await requestJson<{ notifications?: VisaAppointmentNotification[] }>("/api/visa-appointments", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeoutMs: 12_000,
+  });
+  return Array.isArray(result.notifications) ? result.notifications : [];
+}
+
+export async function markVisaAppointmentNotificationRead(id: string, accessToken: string) {
+  return requestJson<{ success: boolean }>(`/api/visa-appointments/notifications/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function getTravelVerifications(accessToken: string) {
+  const result = await requestJson<{ data?: TravelVerification[] }>("/api/travel-verifications", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeoutMs: 12_000,
+  });
+  return Array.isArray(result.data) ? result.data : [];
 }
 
 const WEATHER_CODES: Record<number, string> = {

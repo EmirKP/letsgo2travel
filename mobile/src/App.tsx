@@ -11,6 +11,7 @@ import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { config } from "./lib/config";
 import { impact } from "./lib/native";
+import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
   completeOnboarding,
   getMobilePreferences,
@@ -21,9 +22,12 @@ import {
 import { ExploreScreen } from "./screens/ExploreScreen";
 import { FlightSearchScreen } from "./screens/FlightSearchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
+import { CockpitScreen } from "./screens/CockpitScreen";
+import { CommunityScreen } from "./screens/CommunityScreen";
 import { PassportScreen } from "./screens/PassportScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { RouteAssistantScreen } from "./screens/RouteAssistantScreen";
+import { SurpriseScreen } from "./screens/SurpriseScreen";
 import { TripsScreen } from "./screens/PlansScreen";
 import type { RouteSuggestion, TabId, ViewId } from "./types";
 
@@ -35,7 +39,7 @@ const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "profile", label: "Profil", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "search"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "search", "surprise", "cockpit", "community"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -52,6 +56,11 @@ function viewFromUrl(value: string): ViewId | null {
       "pasaport-gucu": "passport",
       "pasaport-gücü": "passport",
       "bilet-ara": "search",
+      "beni-sasirt": "surprise",
+      "beni-şaşırt": "surprise",
+      "seyahat-kokpiti": "cockpit",
+      "kasifler-ligi": "community",
+      "kaşifler-ligi": "community",
     };
     const candidate = aliases[raw] || raw as ViewId;
     return validViews.has(candidate) ? candidate : null;
@@ -61,8 +70,10 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "passport" || view === "search") return "explore";
-  return view;
+  if (view === "passport" || view === "search" || view === "surprise") return "explore";
+  if (view === "cockpit") return "trips";
+  if (view === "community") return "profile";
+  return view as TabId;
 }
 
 export default function App() {
@@ -84,10 +95,16 @@ export default function App() {
   const noticeTimer = useRef<number | null>(null);
   const pullStart = useRef<number | null>(null);
   const edgeSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const activeViewRef = useRef(activeView);
+  const historyDepth = useRef(0);
   const auth = useAuth();
   const ownerId = auth.user?.id || null;
   const activeTab = rootTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "search";
+  const nestedView = activeView === "passport" || activeView === "search" || activeView === "surprise" || activeView === "cockpit" || activeView === "community";
+
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
 
   const showNotice = useCallback((message: string) => {
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
@@ -103,12 +120,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    window.history.replaceState({ view: activeView }, "", `#${activeView}`);
+    window.history.replaceState({ view: activeView, depth: 0 }, "", `#${activeView}`);
     const onPopState = (event: PopStateEvent) => {
       const next = event.state && typeof event.state.view === "string" && validViews.has(event.state.view)
         ? event.state.view as ViewId
         : viewFromUrl(window.location.href);
-      if (next) setActiveView(next);
+      if (next) {
+        const depth = event.state && Number.isInteger(event.state.depth)
+          ? Math.max(0, Number(event.state.depth))
+          : Math.max(0, historyDepth.current - 1);
+        historyDepth.current = depth;
+        activeViewRef.current = next;
+        setActiveView(next);
+      }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -116,12 +140,28 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((view: ViewId, options?: { replace?: boolean }) => {
+    const current = activeViewRef.current;
+    if (current === view && !options?.replace) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    const nextDepth = options?.replace ? historyDepth.current : historyDepth.current + 1;
+    historyDepth.current = nextDepth;
+    activeViewRef.current = view;
     setActiveView(view);
     const method = options?.replace ? "replaceState" : "pushState";
-    window.history[method]({ view }, "", `#${view}`);
+    window.history[method]({ view, depth: nextDepth }, "", `#${view}`);
     window.scrollTo({ top: 0, behavior: "auto" });
     void impact();
   }, []);
+
+  const goBack = useCallback(() => {
+    if (historyDepth.current > 0) {
+      window.history.back();
+      return;
+    }
+    navigate(rootTabFor(activeViewRef.current), { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     if (!isNativePlatform()) return;
@@ -172,11 +212,12 @@ export default function App() {
 
     void addPluginListener("App", "backButton", () => {
       if (onboardingOpen) return;
+      if (closeTopSheet()) return;
       if (releaseOpen) return setReleaseOpen(false);
       if (notificationsOpen) return setNotificationsOpen(false);
       if (accountOpen) return setAccountOpen(false);
       if (menuOpen) return setMenuOpen(false);
-      if (nestedView) return navigate("explore", { replace: true });
+      if (historyDepth.current > 0 || nestedView) return goBack();
       if (activeView !== "home") return navigate("home", { replace: true });
       const app = plugin("App");
       void app?.exitApp?.().catch(() => undefined);
@@ -204,7 +245,7 @@ export default function App() {
       void backListener?.remove();
       void urlListener?.remove();
     };
-  }, [accountOpen, activeView, menuOpen, navigate, nestedView, notificationsOpen, onboardingOpen, releaseOpen]);
+  }, [accountOpen, activeView, goBack, menuOpen, navigate, nestedView, notificationsOpen, onboardingOpen, releaseOpen]);
 
   const routeToFlight = useCallback((route: RouteSuggestion) => {
     const code = route.destinationCode || "";
@@ -229,10 +270,14 @@ export default function App() {
   };
 
   const startPull = (event: React.TouchEvent) => {
+    edgeSwipeStart.current = null;
+    pullStart.current = null;
     const touch = event.touches[0];
-    if (!touch || onboardingOpen || releaseOpen || notificationsOpen || accountOpen || menuOpen) return;
+    if (!touch || onboardingOpen || releaseOpen || notificationsOpen || accountOpen || menuOpen || hasOpenSheet()) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("input, textarea, select, button, a, [role='dialog'], [data-no-gesture], .chip-scroll, .deal-scroll, .autocomplete-list")) return;
     if (touch.clientX <= 24) edgeSwipeStart.current = { x: touch.clientX, y: touch.clientY };
-    if (window.scrollY <= 0) pullStart.current = touch.clientY;
+    if (activeView === "home" && window.scrollY <= 0) pullStart.current = touch.clientY;
   };
   const movePull = (event: React.TouchEvent) => {
     if (pullStart.current === null || window.scrollY > 0) return;
@@ -246,7 +291,7 @@ export default function App() {
     if (end && edge && end.clientX - edge.x > 76 && Math.abs(end.clientY - edge.y) < 55) {
       setPullDistance(0);
       pullStart.current = null;
-      if (nestedView) navigate("explore", { replace: true });
+      if (historyDepth.current > 0 || nestedView) goBack();
       else if (activeView !== "home") navigate("home", { replace: true });
       return;
     }
@@ -261,23 +306,31 @@ export default function App() {
     }
     setPullDistance(0);
   };
+  const cancelPull = () => {
+    edgeSwipeStart.current = null;
+    pullStart.current = null;
+    setPullDistance(0);
+  };
 
   const content = useMemo(() => {
-    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
-    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("route"); }} onFlightSearch={discoveryToFlight} onNotice={showNotice} />;
+    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} refreshToken={refreshTick} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
+    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onFlightSearch={discoveryToFlight} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
     if (activeView === "search") return <FlightSearchScreen prefillDestination={flightPrefill} user={auth.user} accessToken={auth.accessToken} onNotice={showNotice} onOpenAccount={() => setAccountOpen(true)} />;
-    if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} onFlightSearch={routeToFlight} onNotice={showNotice} />;
-    if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onFlightSearch={routeToFlight} onNotice={showNotice} />;
-    return <ProfileScreen user={auth.user} ownerId={ownerId} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
-  }, [activeView, auth.accessToken, auth.user, discoveryToFlight, flightPrefill, navigate, ownerId, routeToFlight, showNotice, surpriseRoute]);
+    if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={setSurpriseRoute} onBuildRoute={(route) => { setSurpriseRoute(route); navigate("route"); }} onFlightSearch={routeToFlight} onNotice={showNotice} />;
+    if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} accessToken={auth.accessToken} onFlightSearch={routeToFlight} onNotice={showNotice} />;
+    if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onFlightSearch={routeToFlight} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
+  }, [activeView, auth.accessToken, auth.user, discoveryToFlight, flightPrefill, navigate, ownerId, refreshTick, routeToFlight, showNotice, surpriseRoute]);
 
   const notificationsEnabled = getMobilePreferences().inAppNotifications;
 
-  return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull}>
+  return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     <header className="topbar">
       <div className="topbar-brand-group">
-        {nestedView && <button className="topbar-back" onClick={() => navigate("explore")} aria-label="Keşfet'e dön"><Icon name="back" size={21} /></button>}
+        {nestedView && <button className="topbar-back" onClick={goBack} aria-label="Önceki ekrana dön"><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label="Ana sayfa"><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
       </div>
       <div className="topbar-actions">
@@ -289,8 +342,8 @@ export default function App() {
     </header>
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.</div>}
-    {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translateY(${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
-    <main className="app-content" key={`${activeView}-${refreshTick}`}>{content}</main>
+    {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
+    <main className="app-content" tabIndex={-1}>{content}</main>
 
     <nav className="bottom-nav" aria-label="Ana menü">
       {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
@@ -299,7 +352,7 @@ export default function App() {
     {notice && <div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>}
     <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onUnreadChange={setUnreadCount} />
     <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
-    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNotice={showNotice} />
+    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNotice={showNotice} onNavigate={navigate} />
     <ReleaseNotesSheet open={releaseOpen} onClose={closeRelease} />
     {onboardingOpen && <Onboarding onComplete={completeWelcome} />}
   </div>;

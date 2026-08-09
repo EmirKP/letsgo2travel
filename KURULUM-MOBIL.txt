@@ -1,4 +1,4 @@
-LETSGO2TRAVEL MOBİL 1.3 — iOS ÖNCELİKLİ KURULUM
+LETSGO2TRAVEL MOBİL 1.4 — iOS ÖNCELİKLİ KURULUM
 
 ÖNEMLİ
 
@@ -64,18 +64,24 @@ Site URL:
 
    https://www.letsgo2travel.com.tr
 
-iOS'ta Google sosyal girişi varsayılan olarak gösterilmez. Böylece Apple sosyal giriş kuralı için çalışmayan bir seçenek yayınlanmaz. Apple ile giriş Apple Developer ve Supabase tarafında tamamlandığında .env.local içine şu değer eklenebilir:
+iOS'ta Google ve Apple sosyal girişleri birlikte gösterilir. Apple girişi iOS yerel pakette varsayılan olarak açıktır. Yayından önce Apple Developer ve Supabase tarafındaki kurulumu tamamlayın. Sağlayıcı geçici olarak hazır değilse yalnız geliştirme/test paketi için açıkça kapatabilirsiniz:
 
-   VITE_APPLE_AUTH_ENABLED=true
+   VITE_APPLE_AUTH_ENABLED=false
 
 Ardından mobil paket yeniden hazırlanmalıdır.
+
+Google Cloud Console'da Web application türünde OAuth istemcisi oluşturun. Authorized redirect URI olarak Supabase projenizin aşağıdaki adresini ekleyin ve Client ID/Secret değerlerini yalnız Supabase Google provider ekranına girin:
+
+   https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback
+
+Apple Developer tarafında Bundle ID için Sign in with Apple capability'sini açın; bir Services ID, Sign in with Apple anahtarı ve Supabase callback domain/return URL kaydı oluşturun. Apple private key ve oluşturulan client secret yalnız Supabase Apple provider ayarında tutulmalıdır; .env.local veya mobil pakete konmamalıdır. Ayrıntılı adımlar IOS-YAYIN-KONTROL-LISTESI.md dosyasındadır.
 
 6) YAYIN BİLGİLERİ
 
 - Uygulama adı: LetsGo2Travel
 - Bundle ID: tr.com.letsgo2travel.app
-- Sürüm: 1.3.0
-- Build: 3
+- Sürüm: 1.4.0
+- Build: 5
 - Minimum iOS: 15.0
 - Özel OAuth şeması: tr.com.letsgo2travel.app
 - Gizlilik manifesti: ios/App/App/PrivacyInfo.xcprivacy
