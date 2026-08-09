@@ -1,4 +1,4 @@
-import { googleFlightsUrl } from "./affiliate";
+import { internalFlightSearchUrl } from "./affiliate";
 
 type DealRecord = Record<string, unknown>;
 
@@ -67,7 +67,7 @@ export function normalizeFlightDealMutation(body: unknown, existing?: DealRecord
       visa_type: optionalText(source.visa_type, 60) || "bilgi_yok",
       region: optionalText(source.region, 80) || "Genel",
       image_url: imageUrl || null,
-      affiliate_url: googleFlightsUrl({ origin: originCode, destination: destinationCode, currency }),
+      affiliate_url: internalFlightSearchUrl({ origin: originCode, destination: destinationCode, currency }),
       active: source.active !== false,
     },
   };

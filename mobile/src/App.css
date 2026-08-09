@@ -125,12 +125,25 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 .form-grid { display: grid; gap: 10px; margin-top: 11px; }
 .form-grid.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.form-grid.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .form-grid input,.form-grid select,.alert-form input,.auth-form input { width: 100%; min-width: 0; min-height: 45px; padding: 0 11px; border: 1px solid #d8e1e7; border-radius: 12px; outline: 0; background: #fff; color: var(--ink); font-size: 11px; }
 .form-grid select { appearance: auto; }
 .disabled-field { opacity: .48; }
 .inline-validation { margin: 11px 0; padding: 9px 11px; display: flex; align-items: center; gap: 6px; border-radius: 11px; background: #fff5df; color: #8a5d00; font-size: 9.5px; }
 .flight-form .primary-wide,.planner-form .primary-wide { margin-top: 13px; }
+.flight-options { margin-top: 11px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.flight-options label { min-height: 58px; padding: 9px; display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 7px; border: 1px solid #d8e2e8; border-radius: 13px; background: #f8fafb; color: var(--ink); cursor: pointer; }
+.flight-options input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy-700); }
+.flight-options span { min-width: 0; display: grid; gap: 2px; }
+.flight-options strong { font-size: 10.5px; }
+.flight-options small { color: var(--muted); font-size: 8.5px; line-height: 1.25; }
+.flight-redirect-note { margin: 10px 2px 0; display: flex; align-items: flex-start; justify-content: center; gap: 6px; color: #657586; font-size: 9px; line-height: 1.45; text-align: center; }
+.flight-redirect-note svg { flex: 0 0 auto; color: #078d69; }
 .result-card { margin-top: 13px; padding: 16px; border-radius: 20px; border: 1px solid #cce8dd; background: linear-gradient(145deg,#f2fbf7,#fff); }
+.result-card > div:not(.route-summary) { margin: 10px 0 14px; display: grid; gap: 3px; }
+.result-card > div:not(.route-summary) > small { color: #356b7c; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.result-card > div:not(.route-summary) > strong { font-size: 20px; }
+.result-card > div:not(.route-summary) > p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .success-result > span { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 14px; color: #078d68; background: #dff5ec; }
 .success-result > div { margin: 10px 0 14px; display: grid; gap: 3px; }
 .success-result small { color: #078d68; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
@@ -144,6 +157,53 @@
 .route-summary { padding: 13px; display: grid; gap: 3px; border-radius: 14px; background: #edf5f8; }
 .route-summary strong { color: var(--navy-900); font-size: 18px; }
 .route-summary span { color: var(--muted); font-size: 10px; }
+.flight-source-summary { gap: 7px; }
+.flight-source-summary span { display: block; line-height: 1.4; }
+.flight-source-summary span strong { font-size: 10px; }
+.flight-results-toolbar { margin: 14px 0 10px; padding: 10px 12px; display: grid; grid-template-columns: 1fr minmax(145px,auto); align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+.flight-results-toolbar label { color: #526274; font-size: 11px; font-weight: 800; }
+.flight-results-toolbar select { min-height: 42px; padding: 0 10px; border: 1px solid #d2dde4; border-radius: 11px; background: #f8fafb; color: var(--navy-900); font-size: 11px; font-weight: 800; }
+.flight-itinerary-list { display: grid; gap: 10px; }
+.flight-itinerary-card { position: relative; overflow: hidden; padding: 14px; }
+.flight-itinerary-card.open { border-color: #abc5d0; box-shadow: 0 10px 26px rgba(7,27,51,.09); }
+.flight-result-labels { min-height: 3px; margin: -2px 0 9px; display: flex; flex-wrap: wrap; gap: 5px; }
+.flight-result-labels:empty { display: none; }
+.flight-result-labels span { padding: 5px 7px; border-radius: 8px; color: #0b5868; background: #e6f6f7; font-size: 8.5px; font-weight: 900; }
+.flight-result-labels span.warning { color: #8a5d00; background: #fff3d6; }
+.flight-itinerary-head { grid-template-columns: 40px minmax(0,1fr) auto; }
+.flight-lowest-price { min-width: 98px; align-items: end; text-align: right; }
+.flight-lowest-price small { color: #6c7b88; font-size: 9px; }
+.flight-lowest-price strong { overflow: visible; color: var(--navy-900); font-size: 14px; white-space: normal; }
+.flight-leg-list { display: grid; gap: 6px; margin: 10px 0; }
+.flight-leg-list > div { min-height: 43px; padding: 8px 9px; display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 7px; border-radius: 11px; background: #f2f6f8; }
+.flight-leg-list span,.flight-leg-list small { color: #657586; font-size: 9px; }
+.flight-leg-list strong { min-width: 0; color: var(--ink); font-size: 10.5px; }
+.flight-leg-list i { padding: 0 4px; color: #5790a0; font-style: normal; }
+.flight-offer-toggle { width: 100%; min-height: 54px; padding: 8px 10px; display: grid; grid-template-columns: 1fr 20px; align-items: center; gap: 8px; border: 1px solid #cad9e0; border-radius: 13px; background: #fff; color: var(--navy-900); text-align: left; }
+.flight-offer-toggle > span { display: grid; gap: 2px; }
+.flight-offer-toggle strong { font-size: 11px; }
+.flight-offer-toggle small { color: var(--muted); font-size: 9px; }
+.flight-offer-toggle svg { transition: transform .15s ease; }
+.flight-itinerary-card.open .flight-offer-toggle svg { transform: rotate(90deg); }
+.flight-offer-area { margin: 12px -14px -14px; padding: 12px 14px 14px; border-top: 1px solid #e3eaee; background: #f8fafb; }
+.flight-ranking-reasons { margin-bottom: 10px; padding: 11px; display: grid; grid-template-columns: 22px 1fr; gap: 8px; border-radius: 13px; color: #8b6811; background: #fff8e6; }
+.flight-ranking-reasons > div { display: grid; gap: 3px; }
+.flight-ranking-reasons strong { color: #725208; font-size: 10.5px; }
+.flight-ranking-reasons span { color: #756b52; font-size: 9px; line-height: 1.4; }
+.flight-seller-list { display: grid; gap: 8px; }
+.flight-seller-offer { padding: 12px; border: 1px solid #dce5ea; border-radius: 14px; background: #fff; }
+.flight-seller-offer.stale { opacity: .68; background: #f4f5f6; }
+.flight-seller-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.flight-seller-head > div { display: grid; gap: 2px; }
+.flight-seller-head strong { color: var(--navy-900); font-size: 12px; }
+.flight-seller-head small { color: var(--muted); font-size: 9px; }
+.flight-seller-head em { padding: 4px 6px; border-radius: 7px; color: #805e08; background: #fff0bd; font-size: 8px; font-style: normal; font-weight: 900; }
+.flight-seller-benefits { margin: 9px 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.flight-seller-benefits span { padding: 5px 6px; border-radius: 7px; color: #556675; background: #edf3f5; font-size: 8.5px; }
+.flight-seller-price { display: grid; gap: 2px; margin-bottom: 9px; }
+.flight-seller-price small,.flight-seller-price span { color: var(--muted); font-size: 9px; }
+.flight-seller-price strong { color: var(--navy-900); font-size: 17px; }
+.flight-seller-offer .secondary-wide:disabled { cursor: not-allowed; opacity: .7; }
 .alert-form,.auth-form { display: grid; gap: 12px; }
 .suffix-input { position: relative; }
 .suffix-input input { padding-right: 42px; }
@@ -852,6 +912,13 @@
   .cockpit-checklist-form button { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
   .community-leader-card { grid-template-columns: 29px 42px 1fr; }
   .community-leader-stats { grid-column: 3; justify-self: start; }
+  .flight-baggage-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .flight-baggage-grid > label:last-child { grid-column: 1 / -1; }
+  .flight-options { grid-template-columns: 1fr; }
+  .flight-itinerary-head { grid-template-columns: 40px minmax(0,1fr); }
+  .flight-lowest-price { grid-column: 2; min-width: 0; align-items: start; text-align: left; }
+  .flight-leg-list > div { grid-template-columns: 44px 1fr; }
+  .flight-leg-list > div > small { grid-column: 2; }
 }
 
 /* Erişilebilirlik: küçük metin kontrastı ve asgari dokunma hedefleri. */

@@ -4,8 +4,8 @@ import FlightSearchCard from "../components/FlightSearchCard";
 import { getFlightDeals } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "Canlı Uçuş Arama — Ucuz Bilet Bul",
-  description: "Yüzlerce havayolu ve partner fiyatını anında karşılaştır. IST ve SAW çıkışlı en ucuz uçuşları bul.",
+  title: "Uçuş Arama — Yetkili Kaynakları Karşılaştır",
+  description: "Yetkili entegrasyonu tamamlanan uçuş kaynaklarını LetsGo2Travel üzerinden karşılaştır.",
 };
 
 export default async function LiveFlightsPage() {
@@ -16,9 +16,9 @@ export default async function LiveFlightsPage() {
     <section className="l2t-page l2t-wrap">
       <div className="l2t-page-head">
         <p className="l2t-kicker">Uçak bileti arama</p>
-        <h1>Yüzlerce fiyatı anında karşılaştır</h1>
+        <h1>Yetkili uçuş kaynaklarını tek aramada karşılaştır</h1>
         <p>
-          IST, SAW ve ESB çıkışlı öne çıkan rotaları görüntüle; güncel seçenekleri Google Flights'ta karşılaştır.
+          IST, SAW ve ESB çıkışlı öne çıkan rotaları görüntüle; gerçek zamanlı aramayı LetsGo2Travel üzerinden başlat.
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export default async function LiveFlightsPage() {
         <div className="l2t-section-head">
           <div>
             <p className="l2t-kicker">Bu hafta öne çıkanlar</p>
-            <h2>En ucuz fırsatlar</h2>
+            <h2>Tahmini öne çıkan rotalar</h2>
           </div>
           <Link href="/kampanyalar" className="l2t-text-link">Tümünü gör →</Link>
         </div>
@@ -39,8 +39,6 @@ export default async function LiveFlightsPage() {
             <a
               key={deal.id}
               href={deal.affiliate_url}
-              target="_blank"
-              rel="nofollow sponsored noreferrer"
               className="l2t-card"
               style={{ display: "block", textDecoration: "none" }}
             >
@@ -56,7 +54,7 @@ export default async function LiveFlightsPage() {
                 <h3>{deal.title}</h3>
                 <p>{deal.origin_code} → {deal.destination_code} · {deal.travel_period || "Esnek tarih"}</p>
                 <div className="l2t-deal-bottom">
-                  <strong>{deal.price.toLocaleString("tr-TR")} {deal.currency}</strong>
+                  <strong>{deal.is_estimate || !deal.created_at ? "Tahmini başlangıç: " : ""}{deal.price.toLocaleString("tr-TR")} {deal.currency}</strong>
                   <span className="l2t-btn l2t-btn-small">Ara →</span>
                 </div>
               </div>
@@ -91,8 +89,7 @@ export default async function LiveFlightsPage() {
       </div>
 
       <p className="l2t-disclaimer" style={{ marginTop: "16px" }}>
-        Fiyatlar anlık değişebilir. Buton tıklandığında Google Flights üzerinde canlı arama açılır.
-        Letsgo2Travel, Travelpayouts iş ortağı olarak komisyon kazanabilir.
+        Öne çıkan rota tutarları canlı teklif değildir. Arama ekranı yalnızca resmî erişimi tamamlanmış kaynaklardan doğrulanan teklifleri gösterir.
       </p>
     </section>
   );

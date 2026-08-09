@@ -39,13 +39,14 @@ async function run() {
   const flightResponse = await fetch(`${baseUrl}/api/travelpayouts-search?origin=IST&destination=LHR&departureDate=2026-09-20`);
   const flight = await flightResponse.json();
   assert(flightResponse.ok, "Uçuş arama API'si başarısız.");
-  assert(flight.mode === "google-flights" && String(flight.url).startsWith("https://www.google.com/travel/flights"), "Uçuş araması Google Flights'a gitmiyor.");
-  assert(!String(flight.url).toLowerCase().includes("aviasales"), "Eski uçuş sağlayıcısı yanıta sızdı.");
+  assert(flight.mode === "letsgo2travel-meta-search", "Eski uçuş ucu LetsGo2Travel meta-aramasına taşınmadı.");
+  assert(String(flight.url).startsWith("/ucak-bileti-ara?"), "Uyumluluk ucu site içi arama sayfasına gitmiyor.");
+  assert(!/google|aviasales|skyscanner|kayak|momondo/i.test(JSON.stringify(flight)), "Yasaklı meta-arama sağlayıcısı yanıta sızdı.");
 
   const legacyTarget = encodeURIComponent("https://www.aviasales.com/search?origin_iata=IST&destination_iata=LHR&depart_date=2026-09-20");
   const legacyResponse = await fetch(`${baseUrl}/go/aviasales?url=${legacyTarget}`, { redirect: "manual" });
   assert([301, 302, 307, 308].includes(legacyResponse.status), "Eski uçuş bağlantısı yönlendirilmedi.");
-  assert(String(legacyResponse.headers.get("location")).startsWith("https://www.google.com/travel/flights"), "Eski uçuş bağlantısı Google Flights'a çevrilmedi.");
+  assert(String(legacyResponse.headers.get("location")).startsWith("https://www.letsgo2travel.com.tr/ucak-bileti-ara"), "Eski uçuş bağlantısı site içi meta-aramaya çevrilmedi.");
 
   const fakeAdmin = await fetch(`${baseUrl}/admin`, {
     headers: { Cookie: "admin_session=true" },
@@ -70,7 +71,7 @@ async function run() {
     assert(response.ok, `${path} harita sayfası açılamadı.`);
   }
 
-  console.log("Smoke test başarılı: Google Flights, haritalar, admin koruması, eski doğrulama ve hesap silme yolu doğrulandı.");
+  console.log("Smoke test başarılı: site içi uçuş meta-arama geçişi, haritalar, admin koruması, eski doğrulama ve hesap silme yolu doğrulandı.");
 }
 
 try {

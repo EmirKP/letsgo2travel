@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { BellRing, Hotel, MapPinned, MessageCircle, Plane, ShieldCheck, Ticket, Wifi } from "lucide-react";
 import type { CountryGuide } from "@/lib/types";
-import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 function flightLink(country: CountryGuide) {
-  return googleFlightsUrl({ destination: country.airport_code || undefined });
+  return internalFlightSearchUrl({ destination: country.airport_code || undefined });
 }
 
 function bookingLink(country: CountryGuide) {
@@ -54,7 +54,7 @@ export default function CountryGuideCtas({ country }: { country: CountryGuide })
       </div>
 
       <div className="l2t-country-action-grid">
-        <a className="l2t-country-action-card l2t-country-action-card-primary" href={flightLink(country)} target="_blank" rel="nofollow sponsored noreferrer">
+        <a className="l2t-country-action-card l2t-country-action-card-primary" href={flightLink(country)}>
           <span className="l2t-country-action-icon"><Plane size={22} /></span>
           <strong>Uçak bileti ara</strong>
           <small>{country.airport_code || country.country_name} rotası için fiyatları karşılaştır.</small>

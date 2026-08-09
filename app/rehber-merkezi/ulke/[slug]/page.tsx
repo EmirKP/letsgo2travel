@@ -35,7 +35,7 @@ export default async function CountryGuidePage({ params }: { params: Promise<{ s
             Vize kontrolü, güvenlik hazırlığı ve rota planlamasıyla {countryName} seyahatinizi daha bilinçli hazırlayın.
           </p>
           
-          <Link href={`/ucak-bileti-ara?country=${slug}`} className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "16px 32px", fontSize: "1.1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "12px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.3)" }}>
+          <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(countryName)}`} className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "16px 32px", fontSize: "1.1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "12px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.3)" }}>
             <Plane size={22} /> {countryName} İçin Uçak Bileti Ara
           </Link>
         </div>

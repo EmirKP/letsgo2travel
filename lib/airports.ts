@@ -47,12 +47,18 @@ export const GLOBAL_LOCATIONS: LocationItem[] = [
 
   { id: "IT", name: "İtalya", type: "country", code: "IT" },
   { id: "ROM", name: "Roma", type: "city", countryName: "İtalya", code: "ROM" },
+  { id: "FCO", name: "Roma Fiumicino Havalimanı", type: "city", countryName: "İtalya", code: "FCO" },
+  { id: "CIA", name: "Roma Ciampino Havalimanı", type: "city", countryName: "İtalya", code: "CIA" },
   { id: "MIL", name: "Milano", type: "city", countryName: "İtalya", code: "MIL" },
+  { id: "MXP", name: "Milano Malpensa Havalimanı", type: "city", countryName: "İtalya", code: "MXP" },
+  { id: "LIN", name: "Milano Linate Havalimanı", type: "city", countryName: "İtalya", code: "LIN" },
   { id: "VCE", name: "Venedik", type: "city", countryName: "İtalya", code: "VCE" },
   { id: "NAP", name: "Napoli", type: "city", countryName: "İtalya", code: "NAP" },
 
   { id: "FR", name: "Fransa", type: "country", code: "FR" },
   { id: "PAR", name: "Paris", type: "city", countryName: "Fransa", code: "PAR" },
+  { id: "CDG", name: "Paris Charles de Gaulle Havalimanı", type: "city", countryName: "Fransa", code: "CDG" },
+  { id: "ORY", name: "Paris Orly Havalimanı", type: "city", countryName: "Fransa", code: "ORY" },
   { id: "NCE", name: "Nice", type: "city", countryName: "Fransa", code: "NCE" },
   { id: "MRS", name: "Marsilya", type: "city", countryName: "Fransa", code: "MRS" },
 
@@ -76,6 +82,9 @@ export const GLOBAL_LOCATIONS: LocationItem[] = [
 
   { id: "GB", name: "Birleşik Krallık", type: "country", code: "GB" },
   { id: "LON", name: "Londra", type: "city", countryName: "Birleşik Krallık", code: "LON" },
+  { id: "LHR", name: "Londra Heathrow Havalimanı", type: "city", countryName: "Birleşik Krallık", code: "LHR" },
+  { id: "LGW", name: "Londra Gatwick Havalimanı", type: "city", countryName: "Birleşik Krallık", code: "LGW" },
+  { id: "STN", name: "Londra Stansted Havalimanı", type: "city", countryName: "Birleşik Krallık", code: "STN" },
   { id: "MAN", name: "Manchester", type: "city", countryName: "Birleşik Krallık", code: "MAN" },
 
   { id: "CH", name: "İsviçre", type: "country", code: "CH" },
@@ -140,6 +149,8 @@ export const GLOBAL_LOCATIONS: LocationItem[] = [
 
   { id: "JP", name: "Japonya", type: "country", code: "JP" },
   { id: "TYO", name: "Tokyo", type: "city", countryName: "Japonya", code: "TYO" },
+  { id: "HND", name: "Tokyo Haneda Havalimanı", type: "city", countryName: "Japonya", code: "HND" },
+  { id: "NRT", name: "Tokyo Narita Havalimanı", type: "city", countryName: "Japonya", code: "NRT" },
 
   { id: "KR", name: "Güney Kore", type: "country", code: "KR" },
   { id: "SEL", name: "Seul", type: "city", countryName: "Güney Kore", code: "SEL" },
@@ -181,6 +192,9 @@ export const GLOBAL_LOCATIONS: LocationItem[] = [
   // Amerika Kıtası
   { id: "US", name: "Amerika Birleşik Devletleri", type: "country", code: "US" },
   { id: "NYC", name: "New York", type: "city", countryName: "ABD", code: "NYC" },
+  { id: "JFK", name: "New York John F. Kennedy Havalimanı", type: "city", countryName: "ABD", code: "JFK" },
+  { id: "EWR", name: "Newark Liberty Havalimanı", type: "city", countryName: "ABD", code: "EWR" },
+  { id: "LGA", name: "New York LaGuardia Havalimanı", type: "city", countryName: "ABD", code: "LGA" },
   { id: "LAX", name: "Los Angeles", type: "city", countryName: "ABD", code: "LAX" },
   { id: "MIA", name: "Miami", type: "city", countryName: "ABD", code: "MIA" },
   { id: "SFO", name: "San Francisco", type: "city", countryName: "ABD", code: "SFO" },

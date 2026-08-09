@@ -1,4 +1,4 @@
-import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
+import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export type AiTripDay = {
   day: string;
@@ -199,7 +199,7 @@ export function createTripPlan(query: string): AiTripPlan {
     smartTips: destination.highlights,
     warnings: ["Fiyatlar tahmini değerlerdir.", "Uçuş fiyatları anlık değişebilir."],
     affiliateLinks: {
-      flights: googleFlightsUrl({ origin: originCode, destination: destination.code }),
+      flights: internalFlightSearchUrl({ origin: originCode, destination: destination.code }),
       hotels: trackedAffiliateUrl({
         provider: "booking",
         url: siteSettings.bookingAffiliateUrl,

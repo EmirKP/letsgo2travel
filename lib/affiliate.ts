@@ -1,4 +1,5 @@
 import type { SiteSettings } from "./types";
+import { GLOBAL_LOCATIONS } from "./airports";
 
 export type AffiliateProvider = "aviasales" | "booking" | "airalo" | "getyourguide" | "other";
 
@@ -13,9 +14,15 @@ export const siteSettings: SiteSettings = {
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@letsgo2travel.com.tr",
 };
 
-function iata(value: string | undefined, fallback: string) {
+const KNOWN_FLIGHT_CODES = new Set(
+  GLOBAL_LOCATIONS
+    .filter((location) => location.type === "city" && /^[A-Z0-9]{3}$/.test(location.code))
+    .map((location) => location.code),
+);
+
+function iata(value: string | undefined) {
   const normalized = String(value || "").trim().toUpperCase();
-  return /^[A-Z0-9]{3}$/.test(normalized) ? normalized : fallback;
+  return KNOWN_FLIGHT_CODES.has(normalized) ? normalized : "";
 }
 
 function isoDate(value: string | undefined) {
@@ -23,7 +30,7 @@ function isoDate(value: string | undefined) {
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
 }
 
-export function googleFlightsUrl(params: {
+export function internalFlightSearchUrl(params: {
   origin?: string;
   destination?: string;
   departDate?: string;
@@ -31,19 +38,18 @@ export function googleFlightsUrl(params: {
   currency?: string;
   language?: string;
 }) {
-  const origin = iata(params.origin, "IST");
-  const destination = iata(params.destination, "DXB");
+  const origin = iata(params.origin);
+  const destination = iata(params.destination);
   const departDate = isoDate(params.departDate);
   const returnDate = isoDate(params.returnDate);
-  const route = [`Flights from ${origin} to ${destination}`];
-
-  if (departDate) route.push(`on ${departDate}`);
-  if (returnDate) route.push(`through ${returnDate}`);
-
-  const url = new URL("https://www.google.com/travel/flights");
-  url.searchParams.set("q", route.join(" "));
-  url.searchParams.set("curr", /^[A-Z]{3}$/.test(params.currency || "") ? params.currency! : "TRY");
-  url.searchParams.set("hl", /^[a-z]{2}(?:-[A-Z]{2})?$/.test(params.language || "") ? params.language! : "tr");
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.letsgo2travel.com.tr";
+  const url = new URL("/ucak-bileti-ara", siteUrl);
+  if (origin) url.searchParams.set("origin", origin);
+  if (destination) url.searchParams.set("destination", destination);
+  url.searchParams.set("tripType", returnDate ? "round_trip" : "one_way");
+  if (departDate) url.searchParams.set("departureDate", departDate);
+  if (returnDate) url.searchParams.set("returnDate", returnDate);
+  url.searchParams.set("currency", /^[A-Z]{3}$/.test(params.currency || "") ? params.currency! : "TRY");
   return url.toString();
 }
 
@@ -103,7 +109,7 @@ export function providerUrl(provider: AffiliateProvider) {
     case "getyourguide":
       return siteSettings.getYourGuideAffiliateUrl;
     case "aviasales":
-      return googleFlightsUrl({});
+      return internalFlightSearchUrl({});
     default:
       return "https://www.letsgo2travel.com.tr";
   }

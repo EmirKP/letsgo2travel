@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import FlightSearchCard from "../components/FlightSearchCard";
-import FiyatAlarmClient from "../components/FiyatAlarmClient";
+import { Suspense } from "react";
+import FlightSearchExperience from "../components/FlightSearchExperience";
 
-export const metadata: Metadata = { title: "Uçak Bileti Ara", description: "Bilet fiyatlarını karşılaştır ve fiyat alarmı kur." };
+export const metadata: Metadata = {
+  title: "Uçuş Karşılaştır",
+  description: "Yetkili bilet kaynaklarını tek aramada karşılaştıran LetsGo2Travel uçuş meta-arama altyapısı.",
+  alternates: { canonical: "/ucak-bileti-ara" },
+};
 
 export default function SearchFlightPage() {
   return (
     <section className="l2t-page l2t-wrap">
-      <div className="l2t-page-head">
-        <p className="l2t-kicker">Uçuş arama</p>
-        <h1>Canlı fiyatları kontrol et, istersen fiyat alarmı kur.</h1>
-        <p>Önce canlı uçuş araması yapabilir, alt bölümden rota ve e-posta girerek fiyat düşünce haber alabilirsin.</p>
-      </div>
-      <FlightSearchCard />
-      <div className="l2t-flight-alert-section" id="fiyat-alarmi">
-        <div className="l2t-section-head">
-          <span className="l2t-kicker">Mail testi / fiyat alarmı</span>
-          <h2>Fiyat düşünce e-posta almak için alarm kur</h2>
-          <p>Bu form gerçek fiyat alarmı API'sine bağlıdır. Alarm kurulduğunda Resend üzerinden onay maili gönderilir.</p>
-        </div>
-        <FiyatAlarmClient />
-      </div>
+      <header className="l2t-page-head">
+        <p className="l2t-kicker">Uçuş meta-arama</p>
+        <h1>Aynı uçuşu farklı satıcılarda karşılaştır</h1>
+        <p>Canlı fiyatı, bagajı ve tarife koşullarını karşılaştır; seçtiğin teklif için doğrudan bilet sitesine git.</p>
+      </header>
+      <Suspense fallback={<p role="status">Uçuş arama ekranı hazırlanıyor…</p>}>
+        <FlightSearchExperience />
+      </Suspense>
     </section>
   );
 }

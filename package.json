@@ -25,6 +25,7 @@
     "mobile:prepare:fallback:ios": "npm run mobile:build:fallback && npx cap sync ios && npm run mobile:doctor -- --platform=ios",
     "mobile:prepare:fallback:android": "npm run mobile:build:fallback && npx cap sync android && npm run mobile:doctor -- --platform=android",
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
+    "test:flights": "node scripts/run-flight-tests.mjs",
     "smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
@@ -65,6 +66,7 @@
     "@types/sanitize-html": "^2.16.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   },
   "allowScripts": {

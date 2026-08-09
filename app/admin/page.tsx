@@ -1,6 +1,6 @@
 import Link from "next/link";
 import LogoutButton from "./components/LogoutButton";
-import { LayoutDashboard, BellRing, Settings, ShieldCheck, Users, Trophy, BarChart3, CalendarSearch } from "lucide-react";
+import { LayoutDashboard, BellRing, Settings, ShieldCheck, Users, Trophy, BarChart3, CalendarSearch, Database } from "lucide-react";
 
 export default function AdminHome() {
   return (
@@ -15,6 +15,14 @@ export default function AdminHome() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px" }}>
+        <Link href="/admin/ucus-kaynaklari" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ width: "64px", height: "64px", borderRadius: "16px", background: "#e6f8fa", color: "#0b8994", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Database size={32} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Uçuş Kaynakları</h3>
+          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Partner izinlerini, connector durumunu, worker sağlığını ve kaynak metriklerini denetle.</p>
+          <span style={{ color: "#0b8994", fontWeight: "700", marginTop: "auto", display: "inline-flex", alignItems: "center", gap: "6px" }}>Kaynakları Yönet &rarr;</span>
+        </Link>
         <Link href="/admin/dashboard" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ width: "64px", height: "64px", borderRadius: "16px", background: "#e0e7ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <LayoutDashboard size={32} />

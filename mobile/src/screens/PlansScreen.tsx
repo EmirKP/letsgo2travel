@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
-import { deleteFlightAlert, getFlightAlerts, getFlightSearchUrl, updateFlightAlert } from "../lib/api";
+import { deleteFlightAlert, getFlightAlerts, getFlightSearchPageUrl, updateFlightAlert } from "../lib/api";
 import { openExternal } from "../lib/native";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import {
@@ -26,6 +26,13 @@ function date(value: string) {
   } catch {
     return value;
   }
+}
+
+function cabinLabel(value: SavedFlightSearch["cabinClass"]) {
+  if (value === "premium_economy") return "Premium ekonomi";
+  if (value === "business") return "Business";
+  if (value === "first") return "First";
+  return "Ekonomi";
 }
 
 export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFlightSearch, onNavigate, onNotice }: {
@@ -136,8 +143,7 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
 
   const reopenSearch = async (search: SavedFlightSearch) => {
     try {
-      const result = await getFlightSearchUrl(search);
-      await openExternal(result.url);
+      await openExternal(getFlightSearchPageUrl(search));
     } catch (error) {
       onNotice(error instanceof Error ? error.message : "Uçuş araması açılamadı.");
     }
@@ -246,8 +252,8 @@ export function TripsScreen({ user, ownerId, accessToken, onOpenAccount, onFligh
       {tab === "searches" && <div className="saved-list">
         {searches.map((search) => <article className="saved-card search-saved-card" key={search.id}>
           <div className="saved-card-head"><span className="saved-icon"><Icon name="plane" /></span><div><small>{date(search.createdAt)} · {search.departureDate}</small><strong>{search.originCode} → {search.destinationCode}</strong></div><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "search", item: search })} aria-label="Aramayı sil"><Icon name="trash" size={18} /></button></div>
-          <div className="saved-details"><span>{search.adults} yolcu</span><span>{search.tripType === "round_trip" ? "Gidiş–dönüş" : "Tek yön"}</span><span>{search.cabinClass === "economy" ? "Ekonomi" : "Business"}</span></div>
-          <button className="secondary-wide" onClick={() => void reopenSearch(search)}><Icon name="external" size={17} /> Google Flights'ta yeniden aç</button>
+          <div className="saved-details"><span>{search.adults + (search.children || 0) + (search.infants || 0)} yolcu</span><span>{search.tripType === "round_trip" ? "Gidiş–dönüş" : "Tek yön"}</span><span>{cabinLabel(search.cabinClass)}</span></div>
+          <button className="secondary-wide" onClick={() => void reopenSearch(search)}><Icon name="external" size={17} /> LetsGo2Travel'da yeniden ara</button>
         </article>)}
         {cloudSearches.map((saved) => {
           const search = saved.tripData.search && typeof saved.tripData.search === "object" ? saved.tripData.search as Record<string, unknown> : {};

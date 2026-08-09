@@ -4,16 +4,16 @@ import type { AirportOption } from "../types";
 import { Icon } from "./Icon";
 
 const POPULAR: AirportOption[] = [
-  { id: "IST", name: "İstanbul", countryName: "Türkiye", type: "city", code: "IST" },
+  { id: "IST", name: "İstanbul Havalimanı", countryName: "Türkiye", type: "airport", code: "IST" },
   { id: "SAW", name: "İstanbul Sabiha Gökçen", countryName: "Türkiye", type: "airport", code: "SAW" },
-  { id: "ESB", name: "Ankara", countryName: "Türkiye", type: "city", code: "ESB" },
-  { id: "ADB", name: "İzmir", countryName: "Türkiye", type: "city", code: "ADB" },
-  { id: "AYT", name: "Antalya", countryName: "Türkiye", type: "city", code: "AYT" },
-  { id: "DXB", name: "Dubai", countryName: "Birleşik Arap Emirlikleri", type: "city", code: "DXB" },
-  { id: "LON", name: "Londra", countryName: "Birleşik Krallık", type: "city", code: "LON" },
-  { id: "PAR", name: "Paris", countryName: "Fransa", type: "city", code: "PAR" },
-  { id: "ROM", name: "Roma", countryName: "İtalya", type: "city", code: "ROM" },
-  { id: "BKK", name: "Bangkok", countryName: "Tayland", type: "city", code: "BKK" },
+  { id: "ESB", name: "Ankara Esenboğa", countryName: "Türkiye", type: "airport", code: "ESB" },
+  { id: "ADB", name: "İzmir Adnan Menderes", countryName: "Türkiye", type: "airport", code: "ADB" },
+  { id: "AYT", name: "Antalya Havalimanı", countryName: "Türkiye", type: "airport", code: "AYT" },
+  { id: "DXB", name: "Dubai International", countryName: "Birleşik Arap Emirlikleri", type: "airport", code: "DXB" },
+  { id: "LHR", name: "London Heathrow", countryName: "Birleşik Krallık", type: "airport", code: "LHR" },
+  { id: "CDG", name: "Paris Charles de Gaulle", countryName: "Fransa", type: "airport", code: "CDG" },
+  { id: "FCO", name: "Roma Fiumicino", countryName: "İtalya", type: "airport", code: "FCO" },
+  { id: "BKK", name: "Bangkok Suvarnabhumi", countryName: "Tayland", type: "airport", code: "BKK" },
 ];
 
 function labelOf(option: AirportOption) {

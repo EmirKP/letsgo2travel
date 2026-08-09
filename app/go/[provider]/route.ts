@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { googleFlightsUrl, type AffiliateProvider } from "@/lib/affiliate";
+import { internalFlightSearchUrl, type AffiliateProvider } from "@/lib/affiliate";
 
 const PROVIDER_HOSTS: Record<AffiliateProvider, string[]> = {
   aviasales: ["aviasales.com", "www.aviasales.com", "travelpayouts.com", "www.travelpayouts.com"],
@@ -59,7 +59,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   let redirectUrl = targetUrl;
   if (provider === "aviasales") {
     const legacyUrl = new URL(targetUrl);
-    redirectUrl = googleFlightsUrl({
+    redirectUrl = internalFlightSearchUrl({
       origin: legacyUrl.searchParams.get("origin_iata") || undefined,
       destination: legacyUrl.searchParams.get("destination_iata") || undefined,
       departDate: legacyUrl.searchParams.get("depart_date") || undefined,

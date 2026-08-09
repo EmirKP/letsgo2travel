@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { blogPosts, countryGuides, flightDeals } from "./sample-data";
 import type { BlogPost, CountryGuide, FlightDeal } from "./types";
 import { supabase } from "./supabase-client";
-import { googleFlightsUrl } from "./affiliate";
+import { internalFlightSearchUrl } from "./affiliate";
 
 const REMOTE_TIMEOUT_MS = 2200;
 let remoteUnavailableUntil = 0;
@@ -61,7 +61,7 @@ function normalizeFlightDeals(deals: FlightDeal[]): FlightDeal[] {
       ...deal,
       origin_code: deal.origin_code.toUpperCase(),
       destination_code: deal.destination_code.toUpperCase(),
-      affiliate_url: googleFlightsUrl({
+      affiliate_url: internalFlightSearchUrl({
         origin: deal.origin_code,
         destination: deal.destination_code,
         currency: deal.currency || "TRY",

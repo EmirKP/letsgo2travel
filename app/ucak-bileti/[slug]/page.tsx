@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getDealBySlug } from "@/lib/data";
-import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
+import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import JsonLd from "@/app/components/JsonLd";
 import { flightDealSchema } from "@/lib/structured-data";
 
@@ -24,7 +24,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
   const deal = await getDealBySlug(slug);
   if (!deal) notFound();
 
-  const flightUrl = googleFlightsUrl({ origin: deal.origin_code, destination: deal.destination_code, currency: deal.currency });
+  const flightUrl = internalFlightSearchUrl({ origin: deal.origin_code, destination: deal.destination_code, currency: deal.currency });
 
   return (
     <section className="l2t-page l2t-wrap">
@@ -49,7 +49,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
           {deal.is_estimate || !deal.created_at ? "Tahmini başlangıç: " : ""}{deal.price.toLocaleString("tr-TR")} {deal.currency}
         </div>
         <div className="l2t-hero-actions">
-          <a href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn">
+          <a href={flightUrl} className="l2t-btn">
             ✈ Canlı fiyatı kontrol et
           </a>
           <a
@@ -86,7 +86,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
       {/* Affiliate kartlar */}
       <div className="l2t-card-grid l2t-card-grid-3" style={{ marginTop: "24px" }}>
-        <a className="l2t-card l2t-affiliate-card" href={flightUrl} target="_blank" rel="nofollow sponsored noreferrer">
+        <a className="l2t-card l2t-affiliate-card" href={flightUrl}>
           <div className="l2t-card-icon">✈</div>
           <h3>Uçuşu ara</h3>
           <p>Satıcı tarafında {deal.origin} → {deal.destination} için güncel fiyatı kontrol et.</p>
@@ -120,7 +120,7 @@ export default async function FlightDealDetail({ params }: { params: Promise<{ s
 
       <p className="l2t-disclaimer" style={{ marginTop: "16px" }}>
         Gösterilen tutar tahmini olabilir ve canlı fiyat değildir. Satıcı ekranında son fiyatı, bagajı ve koşulları kontrol et.
-        Uçuş karşılaştırması Google Flights üzerinde açılır; satın alma işlemi seçtiğiniz sağlayıcıda tamamlanır.
+        Gösterilen rota tutarı canlı teklif değildir. Uçuş araması LetsGo2Travel üzerinde başlatılır; satın alma yalnızca doğrulanmış resmî satıcı kanalında tamamlanır.
       </p>
 
       <div style={{ marginTop: "16px" }}>

@@ -11,7 +11,10 @@ export type AdminSession = {
 };
 
 function sessionSecret() {
-  return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || "";
+  const dedicatedSecret = process.env.ADMIN_SESSION_SECRET || "";
+  if (dedicatedSecret.length >= 32) return dedicatedSecret;
+  if (process.env.NODE_ENV === "production") return "";
+  return process.env.ADMIN_PASSWORD || "";
 }
 
 function toHex(buffer: ArrayBuffer) {

@@ -1,0 +1,158 @@
+# LetsGo2Travel Uçuş Meta-Arama Faz 2 — kümülatif dosya manifesti
+
+Tarih: 09.08.2026
+Baz alınan orijinal proje SHA-256: 6eeeb9cf5b3d44a6395b12eededbfd7f1bff63c08c0dfcd7d4f1557d1c37fb94
+
+Bu paket Faz 1 + Faz 2 değişikliklerini orijinal projeye göre kümülatif içerir.
+Paket; node_modules, .next, mobile/dist, .gradle, tsconfig.tsbuildinfo ve secret dosyalarını içermez.
+
+Eklenen dosyalar (81)
+====================
+UCUS-META-ARAMA-FAZ1-DOSYA-MANIFESTI.txt
+UCUS-META-ARAMA-FAZ1-IYILESTIRILMIS-PROMPT.md
+UCUS-META-ARAMA-FAZ1-KURULUM.md
+UCUS-META-ARAMA-FAZ1-TESLIM-RAPORU.md
+UCUS-META-ARAMA-FAZ2-CANLI-PILOT-KURULUM.md
+UCUS-META-ARAMA-FAZ2-DOSYA-MANIFESTI.txt
+UCUS-META-ARAMA-FAZ2-SILINECEK-DOSYALAR.txt
+UCUS-META-ARAMA-FAZ2-TESLIM-RAPORU.md
+android/app/src/main/assets/public/.mobile-build-ok
+android/app/src/main/assets/public/assets/index-Cp2dvtNZ.js
+android/app/src/main/assets/public/assets/index-iKweS6Tg.css
+android/app/src/main/assets/public/cordova.js
+android/app/src/main/assets/public/cordova_plugins.js
+android/app/src/main/assets/public/error.html
+android/app/src/main/assets/public/favicon.svg
+android/app/src/main/assets/public/icons.svg
+android/app/src/main/assets/public/index.html
+app/admin/ucus-kaynaklari/FlightSourcesAdminClient.tsx
+app/admin/ucus-kaynaklari/flight-sources-admin.module.css
+app/admin/ucus-kaynaklari/page.tsx
+app/api/admin/flight-sources/route.ts
+app/api/flights/offers/[offerId]/redirect/route.ts
+app/api/flights/offers/[offerId]/revalidate/route.ts
+app/api/flights/searches/[searchId]/route.ts
+app/api/flights/searches/route.ts
+app/api/internal/flights/heartbeat/route.ts
+app/api/internal/flights/jobs/claim/route.ts
+app/api/internal/flights/jobs/report/route.ts
+app/components/FlightSearchExperience.module.css
+app/components/FlightSearchExperience.tsx
+docker-compose.flight-worker.yml
+flight-worker/.env.example
+flight-worker/Dockerfile
+flight-worker/package-lock.json
+flight-worker/package.json
+flight-worker/src/connectors/enuygun-mcp.mjs
+flight-worker/src/connectors/enuygun-mcp.test.mjs
+flight-worker/src/connectors/registry.mjs
+flight-worker/src/index.mjs
+ios/App/App/public/assets/index-Cp2dvtNZ.js
+ios/App/App/public/assets/index-iKweS6Tg.css
+lib/flights/connectors/airline-direct/connector.ts
+lib/flights/connectors/connector.ts
+lib/flights/connectors/enuygun/connector.ts
+lib/flights/connectors/enuygun/mcp-client.ts
+lib/flights/connectors/fixture/connector.ts
+lib/flights/connectors/index.ts
+lib/flights/connectors/integration-required.ts
+lib/flights/connectors/ucuzabilet/connector.ts
+lib/flights/core/airport-match.ts
+lib/flights/core/checkout-url.ts
+lib/flights/core/index.ts
+lib/flights/core/itinerary-matcher.ts
+lib/flights/core/offer-normalizer.ts
+lib/flights/core/offer-ranking.ts
+lib/flights/core/price-calculator.ts
+lib/flights/core/request-validation.ts
+lib/flights/core/sanitize.ts
+lib/flights/core/search-orchestrator.ts
+lib/flights/core/types.ts
+lib/flights/server/rate-limit.ts
+lib/flights/server/request-user.ts
+lib/flights/server/search-access.ts
+lib/flights/server/source-domains.ts
+lib/flights/server/tokens.ts
+lib/flights/server/worker-auth.ts
+mobile-dist/assets/index-Cp2dvtNZ.js
+mobile-dist/assets/index-iKweS6Tg.css
+scripts/run-flight-tests.mjs
+supabase/migrations/20260809190000_flight_meta_search_live_provider.sql
+supabase/migrations/20260809_flight_meta_search_foundation.sql
+supabase/rollback/20260809190000_flight_meta_search_live_provider_rollback.sql
+supabase/rollback/20260809_flight_meta_search_foundation_rollback.sql
+tests/flights/enuygun-mcp-client.test.ts
+tests/flights/fixtures.ts
+tests/flights/grouping-ranking.test.ts
+tests/flights/internal-search-url.test.ts
+tests/flights/normalization-price.test.ts
+tests/flights/orchestrator-connectors.test.ts
+tests/flights/request-validation.test.ts
+tests/flights/run-tests.ts
+
+Değiştirilen dosyalar (42)
+========================
+.env.local.example
+app/admin/dashboard/page.tsx
+app/admin/page.tsx
+app/api/airports/route.ts
+app/api/arama/route.ts
+app/api/travelpayouts-search/route.ts
+app/canli-ucus/page.tsx
+app/components/AISearchBox.tsx
+app/components/CountryGuideCtas.tsx
+app/components/FlightSearchCard.module.css
+app/components/FlightSearchCard.tsx
+app/flights/page.tsx
+app/go/[provider]/route.ts
+app/pasaport-gucu/page.tsx
+app/profil/fiyat-alarmlari/page.tsx
+app/rehber-merkezi/kategori/[slug]/page.tsx
+app/rehber-merkezi/ulke/[slug]/page.tsx
+app/ucak-bileti-ara/page.tsx
+app/ucak-bileti/[slug]/page.tsx
+ios/App/App/public/.mobile-build-ok
+ios/App/App/public/index.html
+ios/App/CapApp-SPM/Package.swift
+lib/admin-session.ts
+lib/affiliate.ts
+lib/ai-trip-planner.ts
+lib/airports.ts
+lib/data.ts
+lib/flight-deal-input.ts
+lib/price-alert-cron.ts
+lib/sample-data.ts
+mobile-dist/.mobile-build-ok
+mobile-dist/index.html
+mobile/src/App.css
+mobile/src/components/AirportAutocomplete.tsx
+mobile/src/lib/api.ts
+mobile/src/lib/native.ts
+mobile/src/screens/FlightSearchScreen.tsx
+mobile/src/screens/PlansScreen.tsx
+mobile/src/types.ts
+package-lock.json
+package.json
+scripts/smoke-test.mjs
+
+Orijinal projede olup silinmesi gereken dosyalar (4)
+====================================================
+ios/App/App/public/assets/index-B7mFp1Qt.css
+ios/App/App/public/assets/index-C7VWnzC4.js
+mobile-dist/assets/index-B7mFp1Qt.css
+mobile-dist/assets/index-C7VWnzC4.js
+
+Önceki ara Faz 2 build'i uygulanmışsa ayrıca silinecek dosyalar (3)
+=================================================================
+android/app/src/main/assets/public/assets/index-I5LP5i8Z.js
+ios/App/App/public/assets/index-I5LP5i8Z.js
+mobile-dist/assets/index-I5LP5i8Z.js
+
+Doğrulama özeti
+================
+- Uçuş core/API sözleşme testleri: 39/39 PASS
+- Worker connector testleri: 11/11 PASS
+- TypeScript, ESLint, Next.js production build ve smoke: PASS
+- Mobil lint/build, iOS/Android sync ve doctor: PASS (ortam değişkeni uyarıları dışında kritik hata yok)
+- Canlı Enuygun MCP same-session search/allocate probu: PASS (7 teklif; exact host/path allowlist)
+

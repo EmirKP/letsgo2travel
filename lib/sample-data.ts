@@ -1,5 +1,5 @@
 import type { BlogPost, CountryGuide, FlightDeal } from "./types";
-import { googleFlightsUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
+import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export const flightDeals: FlightDeal[] = [
   {
@@ -18,7 +18,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "e-vize",
     region: "Orta Doğu",
     image_url: "/travel-images/route-dubai.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "IST", destination: "DXB" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "IST", destination: "DXB" }),
     active: true,
     clicks: 0,
     is_estimate: true,
@@ -39,7 +39,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "schengen",
     region: "Avrupa",
     image_url: "/travel-images/route-roma.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "SAW", destination: "FCO" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "SAW", destination: "FCO" }),
     active: true,
     clicks: 0,
     is_estimate: true,
@@ -60,7 +60,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "kimlikle",
     region: "Kafkasya",
     image_url: "/travel-images/route-baku.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "IST", destination: "GYD" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "IST", destination: "GYD" }),
     active: true,
     clicks: 0,
     is_estimate: true,
@@ -81,7 +81,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "vizesiz",
     region: "Balkanlar",
     image_url: "/travel-images/route-saraybosna.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "IST", destination: "SJJ" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "IST", destination: "SJJ" }),
     active: true,
     clicks: 0,
     is_estimate: true,
@@ -102,7 +102,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "kimlikle",
     region: "Kafkasya",
     image_url: "/travel-images/route-generic.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "SAW", destination: "TBS" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "SAW", destination: "TBS" }),
     active: true,
     clicks: 0,
     is_estimate: true,
@@ -123,7 +123,7 @@ export const flightDeals: FlightDeal[] = [
     visa_type: "vizesiz",
     region: "Balkanlar",
     image_url: "/travel-images/route-summer.jpg",
-    affiliate_url: googleFlightsUrl({ origin: "IST", destination: "TIA" }),
+    affiliate_url: internalFlightSearchUrl({ origin: "IST", destination: "TIA" }),
     active: true,
     clicks: 0,
     is_estimate: true,

@@ -1,0 +1,86 @@
+LetsGo2Travel Uçuş Meta-Arama Faz 1 — Delta Paket Manifesti
+Tarih: 2026-08-09
+
+Bu paket yalnız aşağıdaki yeni/değiştirilen kaynak dosyalarını içerir.
+node_modules, build çıktıları, gerçek .env/secrets ve proje arşivinin geri kalanı pakete dahil değildir.
+
+DEĞİŞTİRİLEN DOSYALAR (20)
+.env.local.example
+app/admin/dashboard/page.tsx
+app/admin/page.tsx
+app/api/travelpayouts-search/route.ts
+app/canli-ucus/page.tsx
+app/components/FlightSearchCard.tsx
+app/rehber-merkezi/kategori/[slug]/page.tsx
+app/ucak-bileti-ara/page.tsx
+app/ucak-bileti/[slug]/page.tsx
+lib/affiliate.ts
+lib/admin-session.ts
+lib/airports.ts
+mobile/src/components/AirportAutocomplete.tsx
+mobile/src/lib/api.ts
+mobile/src/screens/FlightSearchScreen.tsx
+mobile/src/screens/PlansScreen.tsx
+mobile/src/types.ts
+package-lock.json
+package.json
+scripts/smoke-test.mjs
+
+YENİ DOSYALAR (55)
+UCUS-META-ARAMA-FAZ1-DOSYA-MANIFESTI.txt
+UCUS-META-ARAMA-FAZ1-IYILESTIRILMIS-PROMPT.md
+UCUS-META-ARAMA-FAZ1-KURULUM.md
+UCUS-META-ARAMA-FAZ1-TESLIM-RAPORU.md
+app/admin/ucus-kaynaklari/FlightSourcesAdminClient.tsx
+app/admin/ucus-kaynaklari/flight-sources-admin.module.css
+app/admin/ucus-kaynaklari/page.tsx
+app/api/admin/flight-sources/route.ts
+app/api/flights/offers/[offerId]/redirect/route.ts
+app/api/flights/offers/[offerId]/revalidate/route.ts
+app/api/flights/searches/[searchId]/route.ts
+app/api/flights/searches/route.ts
+app/api/internal/flights/heartbeat/route.ts
+app/api/internal/flights/jobs/claim/route.ts
+app/api/internal/flights/jobs/report/route.ts
+app/components/FlightSearchExperience.module.css
+app/components/FlightSearchExperience.tsx
+docker-compose.flight-worker.yml
+flight-worker/.env.example
+flight-worker/Dockerfile
+flight-worker/package-lock.json
+flight-worker/package.json
+flight-worker/src/connectors/registry.mjs
+flight-worker/src/index.mjs
+lib/flights/connectors/airline-direct/connector.ts
+lib/flights/connectors/connector.ts
+lib/flights/connectors/enuygun/connector.ts
+lib/flights/connectors/fixture/connector.ts
+lib/flights/connectors/index.ts
+lib/flights/connectors/integration-required.ts
+lib/flights/connectors/ucuzabilet/connector.ts
+lib/flights/core/checkout-url.ts
+lib/flights/core/index.ts
+lib/flights/core/itinerary-matcher.ts
+lib/flights/core/offer-normalizer.ts
+lib/flights/core/offer-ranking.ts
+lib/flights/core/price-calculator.ts
+lib/flights/core/request-validation.ts
+lib/flights/core/sanitize.ts
+lib/flights/core/search-orchestrator.ts
+lib/flights/core/types.ts
+lib/flights/server/rate-limit.ts
+lib/flights/server/request-user.ts
+lib/flights/server/search-access.ts
+lib/flights/server/source-domains.ts
+lib/flights/server/tokens.ts
+lib/flights/server/worker-auth.ts
+supabase/migrations/20260809_flight_meta_search_foundation.sql
+supabase/rollback/20260809_flight_meta_search_foundation_rollback.sql
+tests/flights/fixtures.ts
+tests/flights/grouping-ranking.test.ts
+tests/flights/normalization-price.test.ts
+tests/flights/orchestrator-connectors.test.ts
+tests/flights/request-validation.test.ts
+tests/flights/run-tests.ts
+
+TOPLAM: 75 dosya (20 değiştirilmiş + 55 yeni)

@@ -373,7 +373,7 @@ export default function PassportPowerPage() {
                     <span className={styles.status} data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
                     <p>Giriş koşulları değişebilir. Seyahatten önce resmi temsilcilik ve havayolu kaynaklarını kontrol et.</p>
                     <div>
-                      <Link href={`/ucak-bileti-ara?to=${selectedCountry.alpha3}`}>Uçak bileti ara</Link>
+                      <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(selectedCountry.name)}`}>Uçak bileti ara</Link>
                       <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`}>Gezginlere sor</Link>
                     </div>
                   </aside>

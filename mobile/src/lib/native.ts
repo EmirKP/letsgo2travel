@@ -15,23 +15,30 @@ export function resolveExternalUrl(url: string) {
   }
 }
 
-export async function openExternal(url: string) {
+export async function openExternal(url: string): Promise<boolean> {
   const resolvedUrl = resolveExternalUrl(url);
-  if (!resolvedUrl) return;
+  if (!resolvedUrl) return false;
 
   const browser = plugin("Browser");
-  if (isNativePlatform() && browser?.open) {
+  if (isNativePlatform()) {
+    if (!browser?.open) return false;
     try {
       await browser.open({ url: resolvedUrl, presentationStyle: "popover" });
-      return;
+      return true;
     } catch {
-      // Eklenti kullanılamazsa sistem/tarayıcı geri dönüşünü dene.
+      // Native uygulamanın ana WebView'ini üçüncü taraf siteye yönlendirme.
+      return false;
     }
   }
 
   const opened = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
-  if (!opened && /^https?:/i.test(resolvedUrl)) window.location.assign(resolvedUrl);
-  if (!opened && !/^https?:/i.test(resolvedUrl)) window.location.href = resolvedUrl;
+  if (opened) return true;
+  if (/^https?:/i.test(resolvedUrl)) {
+    window.location.assign(resolvedUrl);
+    return true;
+  }
+  window.location.href = resolvedUrl;
+  return true;
 }
 
 export async function closeBrowser() {

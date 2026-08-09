@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCheapestPrice } from "@/lib/travelpayouts";
 import { sendMailAndLog, generatePriceDropEmailHtml } from "@/lib/mail";
-import { googleFlightsUrl } from "@/lib/affiliate";
+import { internalFlightSearchUrl } from "@/lib/affiliate";
 import { makeAlertDashboardLink, priceAlertSubject } from "@/lib/price-alerts";
 
 type PriceAlertRow = Record<string, any>;
@@ -190,7 +190,7 @@ export async function runPriceAlertCheck(options?: { limit?: number }): Promise<
         });
 
         if (shouldNotify && alert.notify_email) {
-          const ctaUrl = googleFlightsUrl({
+          const ctaUrl = internalFlightSearchUrl({
             origin: alert.origin_code,
             destination: alert.destination_code,
             departDate: alert.departure_date,

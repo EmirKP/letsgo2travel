@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellRing, Calendar, X, ArrowRight } from "lucide-react";
-import { googleFlightsUrl } from "@/lib/affiliate";
+import { internalFlightSearchUrl } from "@/lib/affiliate";
 
 interface Alert {
   id: string;
@@ -110,7 +110,7 @@ export default function UserPriceAlertsPage() {
       ) : (
         <div style={{ display: "grid", gap: "16px" }}>
           {alerts.map(alert => {
-            const link = googleFlightsUrl({
+            const link = internalFlightSearchUrl({
               origin: alert.origin_code,
               destination: alert.destination_code,
               departDate: alert.departure_date,
