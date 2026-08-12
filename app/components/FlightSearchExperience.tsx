@@ -21,6 +21,11 @@ import {
   WalletCards,
 } from "lucide-react";
 import { GLOBAL_LOCATIONS } from "@/lib/airports";
+import {
+  compareHeadlinePrices,
+  isDisplayPriceStale,
+  selectHeadlinePrice,
+} from "@/lib/flights/core/offer-display";
 import styles from "./FlightSearchExperience.module.css";
 
 type SourceStatus = {
@@ -328,14 +333,7 @@ function formatVerifiedAt(value: string | null) {
 }
 
 function isOfferStale(offer: FlightOffer, now = Date.now()) {
-  const verifiedAt = offer.verifiedAt ? Date.parse(offer.verifiedAt) : Number.NaN;
-  const expiresAt = offer.expiresAt ? Date.parse(offer.expiresAt) : Number.NaN;
-  return offer.eligibilityReasons.includes("stale_price")
-    || !Number.isFinite(verifiedAt)
-    || !Number.isFinite(expiresAt)
-    || verifiedAt > now + 120_000
-    || now - verifiedAt > 10 * 60 * 1000
-    || expiresAt <= now;
+  return isDisplayPriceStale(offer, now);
 }
 
 function groupOffersBySeller(offers: FlightOffer[]) {
@@ -699,18 +697,19 @@ export default function FlightSearchExperience() {
       (airline === "all" || item.marketingAirlines.includes(airline))
       && (seller === "all" || item.offers.some((offer) => offer.directAirlineSale))
     ));
-    const lowest = (item: FlightItinerary) => Math.min(...item.offers
-      .filter((offer) => offer.rankingEligible && (seller === "all" || offer.directAirlineSale))
-      .map((offer) => offer.effectiveTotalPrice ?? Number.POSITIVE_INFINITY));
+    const headline = (item: FlightItinerary) => selectHeadlinePrice(
+      item.offers.filter((offer) => seller === "all" || offer.directAirlineSale),
+      form.currency,
+    );
     return [...filtered].sort((left, right) => {
-      if (sort === "cheapest") return lowest(left) - lowest(right);
+      if (sort === "cheapest") return compareHeadlinePrices(headline(left), headline(right));
       if (sort === "fastest") return left.totalDurationMinutes - right.totalDurationMinutes;
       if (sort === "departure") return Date.parse(left.segments[0]?.departureAt || "") - Date.parse(right.segments[0]?.departureAt || "");
       const leftScore = Number(left.rankingExplanation?.score) || 0;
       const rightScore = Number(right.rankingExplanation?.score) || 0;
-      return rightScore - leftScore || lowest(left) - lowest(right);
+      return rightScore - leftScore || compareHeadlinePrices(headline(left), headline(right));
     });
-  }, [airline, result, seller, sort]);
+  }, [airline, form.currency, result, seller, sort]);
   const conciseSourceStatuses = useMemo(() => {
     const sources = result?.sourceStatuses || [];
     const searched = sources.filter((source) => (
@@ -879,13 +878,10 @@ export default function FlightSearchExperience() {
             const displayedOffers = seller === "direct"
               ? itinerary.offers.filter((offer) => offer.directAirlineSale)
               : itinerary.offers;
-            const eligibleOffers = displayedOffers
-              .filter((offer) => offer.rankingEligible)
-              .sort((left, right) => (
-                (left.effectiveTotalPrice ?? Number.POSITIVE_INFINITY)
-                - (right.effectiveTotalPrice ?? Number.POSITIVE_INFINITY)
-              ));
-            const lowestOffer = eligibleOffers[0] || null;
+            const headlinePrice = selectHeadlinePrice(displayedOffers, form.currency);
+            const lowestOffer = headlinePrice.kind === "comparable" ? headlinePrice.offer : null;
+            const headlineOffer = headlinePrice.offer;
+            const headlineWarning = headlinePrice.kind === "source_total";
             const sellerGroups = groupOffersBySeller(displayedOffers);
             const legs = [...new Set(itinerary.segments.map((segment) => segment.legIndex))].map((legIndex) => {
               const segments = itinerary.segments.filter((segment) => segment.legIndex === legIndex);
@@ -914,7 +910,17 @@ export default function FlightSearchExperience() {
                 <div className={styles.itineraryMain}>
                   <div className={styles.airline}><span>{first?.marketingAirline || "—"}</span><div><strong>{first?.marketingAirline || "Havayolu"}</strong><small>{first?.flightNumber || ""}</small></div></div>
                   <div className={styles.legStack}>{legs.map((leg) => <div className={styles.routeTime} key={leg.legIndex}><div><strong>{localClock(leg.first?.departureLocal)}</strong><span>{leg.first?.origin}</span><small>{[localDate(leg.first?.departureLocal), terminalText(leg.first?.departureTerminal)].filter(Boolean).join(" · ")}</small></div><div className={styles.routeLine}><small>{leg.legIndex === 0 ? "Gidiş" : "Dönüş"} · {leg.durationMinutes ? formatDuration(leg.durationMinutes) : "Süre doğrulanmadı"}</small><i /><span>{leg.stopCount === 0 ? "Direkt" : `${leg.stopCount} aktarma`}</span></div><div><strong>{localClock(leg.last?.arrivalLocal)}</strong><span>{leg.last?.destination}</span><small>{[localDate(leg.last?.arrivalLocal), terminalText(leg.last?.arrivalTerminal)].filter(Boolean).join(" · ")}</small></div></div>)}</div>
-                  <div className={styles.lowest}><small>{sellerGroups.length} farklı satıcıda bulundu</small><strong>{lowestOffer ? formatMoney(lowestOffer.effectiveTotalPrice, lowestOffer.currency) : "Karşılaştırılabilir fiyat yok"}</strong><span>{lowestOffer?.baggage && Number(lowestOffer.baggage.checkedBagsPerPassenger) >= form.checkedBagsPerPassenger ? <><Luggage size={14} /> İstenen bagaj dahil</> : "Ücret/bagaj eksik"}</span></div>
+                  <div className={styles.lowest}>
+                    <small>{sellerGroups.length} farklı satıcıda bulundu</small>
+                    <strong>{headlineOffer && headlinePrice.amount !== null
+                      ? formatMoney(headlinePrice.amount, headlineOffer.currency)
+                      : "Fiyat doğrulanamadı"}</strong>
+                    {headlineWarning
+                      ? <span className={styles.priceWarning}><AlertCircle size={14} /> Zorunlu ücretler ve bagaj satıcıda teyit edilecek</span>
+                      : <span>{headlineOffer?.baggage && Number(headlineOffer.baggage.checkedBagsPerPassenger) >= form.checkedBagsPerPassenger
+                        ? <><Luggage size={14} /> İstenen bagaj dahil</>
+                        : "Doğrulanmış toplam fiyat"}</span>}
+                  </div>
                   <button type="button" className={styles.expandButton} aria-expanded={isOpen} aria-controls={offerPanelId} onClick={() => setExpanded((current) => current.includes(itinerary.id) ? current.filter((id) => id !== itinerary.id) : [...current, itinerary.id])}>{isOpen ? "Teklifleri gizle" : "Teklifleri karşılaştır"}<ChevronDown className={isOpen ? styles.chevronOpen : ""} size={17} /></button>
                 </div>
 
@@ -932,7 +938,7 @@ export default function FlightSearchExperience() {
                       const stale = isOfferStale(offer);
                       const acceptsChangedOffer = Boolean(offerChange && offerMatchesVersion(offer, offerChange) && !stale);
                       return <div className={`${styles.offer} ${stale ? styles.staleOffer : ""}`} key={offer.id}>
-                        <div><strong>{offer.fareFamily || "Standart tarife"}</strong><span>{offer.conditional ? (offer.conditionSummary || "Koşullu fiyat") : offer.priceCompleteness === "complete" ? "Zorunlu ücretler dahil" : "Ücret bilgisi eksik"}</span>{offer.sponsored && <em>Sponsorlu</em>}</div>
+                        <div><strong>{offer.fareFamily || "Standart tarife"}</strong><span>{offer.conditional ? (offer.conditionSummary || "Koşullu fiyat") : offer.priceCompleteness === "complete" ? "Zorunlu ücretler dahil" : "Zorunlu ücretler satıcıda teyit edilecek"}</span>{offer.sponsored && <em>Sponsorlu</em>}</div>
                         <div className={styles.benefits}>
                           <span>{offer.baggage && Number(offer.baggage.checkedBagsPerPassenger) > 0 ? `${String(offer.baggage.checkedBagWeightKg || "")} kg bagaj dahil` : "Kayıtlı bagaj dahil değil"}</span>
                           {offer.fareRules?.refundable === true && <span>İade edilebilir</span>}
@@ -940,7 +946,7 @@ export default function FlightSearchExperience() {
                           {offer.installmentOptions?.[0] && <span>{offer.installmentOptions[0]}</span>}
                           {offer.benefits?.slice(0, 3).map((benefit) => <span key={benefit}>{benefit}</span>)}
                         </div>
-                        <div className={styles.offerPrice}><small>{offer.rankingEligible && offer.id === lowestOffer?.id ? "En düşük uygun toplam" : offer.rankingEligible ? "Karşılaştırılabilir toplam" : "Karşılaştırma dışı"}</small><strong>{formatMoney(offer.effectiveTotalPrice ?? offer.totalPrice, offer.currency)}</strong><span>{stale ? "Fiyat güncelliğini yitirdi" : formatVerifiedAt(offer.verifiedAt)}</span>{offer.perPersonPrice !== null && <span>Kişi başı {formatMoney(offer.perPersonPrice, offer.currency)}</span>}</div>
+                        <div className={styles.offerPrice}><small>{offer.rankingEligible && offer.id === lowestOffer?.id ? "En düşük doğrulanmış toplam" : offer.rankingEligible ? "Karşılaştırılabilir toplam" : offer.totalPrice !== null ? "Kaynakta görülen toplam" : "Fiyat doğrulanamadı"}</small><strong>{formatMoney(offer.effectiveTotalPrice ?? offer.totalPrice, offer.currency)}</strong><span>{stale ? "Fiyat güncelliğini yitirdi" : formatVerifiedAt(offer.verifiedAt)}</span>{!offer.rankingEligible && offer.totalPrice !== null && !stale && <span className={styles.priceCaution}>Kesin toplam satıcı adımında değişebilir</span>}{offer.perPersonPrice !== null && <span>Kişi başı {formatMoney(offer.perPersonPrice, offer.currency)}</span>}</div>
                         <button type="button" aria-busy={openingOffer === offer.id} disabled={Boolean(openingOffer)} title={stale ? "Teklifi satıcı kaynağında yeniden doğrula" : acceptsChangedOffer ? "Güncellenen teklifle satıcı sitesine git" : `${sellerGroup.sourceName} sitesine git`} onClick={() => void continueToSeller(offer)}>{openingOffer === offer.id ? <RefreshCw className={styles.spin} size={16} /> : stale ? <RefreshCw size={16} /> : <ExternalLink size={16} />}{stale ? "Teklifi yenile" : acceptsChangedOffer ? "Güncel teklifle siteye git" : "Siteye git"}</button>
                       </div>;
                     })}
