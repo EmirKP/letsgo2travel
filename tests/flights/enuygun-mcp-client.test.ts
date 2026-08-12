@@ -116,6 +116,29 @@ test("current MCP package items revalidate baggage without the legacy collection
   assert.equal(live.baggage?.checkedBagWeightKg, null);
 });
 
+test("alternate MCP package labels revalidate a verified zero checked-bag fare", () => {
+  const alternateShape = searchData();
+  const alternateFlight = alternateShape.flights.departure[0] as unknown as {
+    infos: { baggage_info: { firstBaggageCollection?: unknown } };
+    provider_packages: Array<{ name: string; items?: Array<Record<string, unknown>> }>;
+  };
+  delete alternateFlight.infos.baggage_info.firstBaggageCollection;
+  alternateFlight.provider_packages = [{
+    name: "LIGHT",
+    items: [
+      { key: "hand-baggage", included: "yes", attributes: { count: "1", kg: "3" } },
+      { label: "Change", status: "not_available" },
+      { title: "Refund", available: false },
+    ],
+  }];
+
+  const live = livePriceForEnuygunOffer(alternateShape, sourceOfferRef, request);
+  assert.equal(live.available, true);
+  assert.equal(live.baggage?.cabinBagsPerPassenger, 1);
+  assert.equal(live.baggage?.checkedBagsPerPassenger, 0);
+  assert.equal(live.baggage?.checkedBagWeightKg, null);
+});
+
 test("current MCP baggage shape fails closed without valid package evidence", () => {
   const missingItems = searchData();
   const missingItemsFlight = missingItems.flights.departure[0] as unknown as {

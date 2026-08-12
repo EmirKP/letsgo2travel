@@ -330,6 +330,42 @@ function cleanCurrency(value: unknown) {
   return /^[A-Z]{3}$/.test(currency) ? currency : "";
 }
 
+function packageItemText(item: JsonRecord) {
+  return [
+    item?.type,
+    item?.item_type,
+    item?.service_type,
+    item?.code,
+    item?.key,
+    item?.name,
+    item?.title,
+    item?.label,
+    item?.category,
+    item?.description,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 120))
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+
+function packageAvailability(item: JsonRecord) {
+  const value = item?.is_available ?? item?.available ?? item?.is_included ?? item?.included ?? item?.status;
+  if (value === 1 || value === true) return true;
+  if (value === 0 || value === false) return false;
+  const normalized = typeof value === "string"
+    ? value.trim().slice(0, 30).toLowerCase().replace(/[ -]+/g, "_")
+    : "";
+  if (["1", "true", "available", "included", "yes"].includes(normalized)) return true;
+  if (["0", "false", "unavailable", "not_available", "excluded", "not_included", "no"].includes(normalized)) return false;
+  return null;
+}
+
 function normalizedCabin(value: unknown) {
   const cabin = typeof value === "string"
     ? value.trim().toLowerCase().replace(/[ -]+/g, "_")
@@ -485,40 +521,48 @@ function selectedPackageCheckedBaggage(flight: JsonRecord) {
   }
 
   const checkedRows: Array<{ part: number; allowance: number }> = [];
+  let baggageEvidence = false;
   for (const item of selectedPackage.items) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
     }
-    const rawType = typeof item.type === "string"
-      ? item.type
-      : typeof item.item_type === "string"
-        ? item.item_type
-        : typeof item.code === "string" ? item.code : "";
-    const itemType = rawType.trim().slice(0, 60).toLowerCase().replace(/[ -]+/g, "_");
-    if (!itemType) {
+    const itemText = packageItemText(item);
+    if (!itemText) {
       throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
     }
-    const looksLikeBaggage = itemType.includes("bag") || itemType.includes("luggage");
-    const isCheckedBaggage = ["checked_baggage", "checked_bag", "hold_baggage", "hold_luggage"]
-      .includes(itemType);
+    const looksLikeBaggage = /(?:bag|luggage|bagaj|bavul)/.test(itemText);
+    const isCabinBaggage = /(?:cabin|carry_?on|hand|kabin|el_bagaj)/.test(itemText);
+    const isCheckedBaggage = /(?:checked|check_?in|hold|registered|kayitli|bagaj_alti)/.test(itemText);
     if (looksLikeBaggage && !isCheckedBaggage
-        && !["cabin_baggage", "cabin_bag", "hand_baggage", "hand_bag"].includes(itemType)) {
+        && !isCabinBaggage) {
       throw new EnuygunMcpClientError("Enuygun tarife bagaj türü doğrulanamadı.", "format_changed");
     }
+    if (isCabinBaggage) baggageEvidence = true;
     if (!isCheckedBaggage) continue;
+    baggageEvidence = true;
 
-    const availability = item.is_available ?? item.available;
-    if (availability === 0 || availability === false || availability === "0") continue;
-    if (availability !== 1 && availability !== true && availability !== "1") {
+    const availability = packageAvailability(item);
+    if (availability === false) continue;
+    if (availability !== true) {
       throw new EnuygunMcpClientError("Enuygun tarife bagaj hakkı doğrulanamadı.", "format_changed");
     }
-    const part = finitePackageNumber(item?.attributes?.piece ?? item?.piece ?? item?.part);
-    const allowance = finitePackageNumber(item?.attributes?.allowance ?? item?.allowance);
+    const part = finitePackageNumber(
+      item?.attributes?.piece ?? item?.attributes?.pieces ?? item?.attributes?.count
+      ?? item?.piece ?? item?.pieces ?? item?.part ?? item?.count,
+    );
+    const allowance = finitePackageNumber(
+      item?.attributes?.allowance ?? item?.attributes?.weight ?? item?.attributes?.kg
+      ?? item?.allowance ?? item?.weight ?? item?.kg,
+    );
     if (!Number.isSafeInteger(part) || (part as number) < 1 || (part as number) > 3
         || allowance === null || allowance <= 0 || allowance > 50) {
       throw new EnuygunMcpClientError("Enuygun tarife bagaj hakkı doğrulanamadı.", "format_changed");
     }
     checkedRows.push({ part: part as number, allowance });
+  }
+
+  if (!baggageEvidence) {
+    throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
   }
 
   return {

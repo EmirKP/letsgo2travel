@@ -263,6 +263,39 @@ function plain(value, maximum = 100) {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, maximum) : "";
 }
 
+function packageItemText(item) {
+  return [
+    item?.type,
+    item?.item_type,
+    item?.service_type,
+    item?.code,
+    item?.key,
+    item?.name,
+    item?.title,
+    item?.label,
+    item?.category,
+    item?.description,
+  ]
+    .map((value) => plain(value, 120))
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+
+function packageAvailability(item) {
+  const value = item?.is_available ?? item?.available ?? item?.is_included ?? item?.included ?? item?.status;
+  if (value === 1 || value === true) return true;
+  if (value === 0 || value === false) return false;
+  const normalized = plain(value, 30).toLowerCase().replace(/[ -]+/g, "_");
+  if (["1", "true", "available", "included", "yes"].includes(normalized)) return true;
+  if (["0", "false", "unavailable", "not_available", "excluded", "not_included", "no"].includes(normalized)) return false;
+  return null;
+}
+
 function localIso(dateValue, timeValue, timestampValue) {
   const dateMatch = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(dateValue || ""));
   const timeMatch = /^(\d{2}):(\d{2})$/.exec(String(timeValue || ""));
@@ -345,28 +378,37 @@ function selectedPackageCheckedBaggage(flight) {
       || selectedPackage.items.length === 0) return null;
 
   const checkedRows = [];
+  let baggageEvidence = false;
   for (const item of selectedPackage.items) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-    const itemType = plain(item.type || item.item_type || item.code, 60)
-      .toLowerCase()
-      .replace(/[ -]+/g, "_");
-    if (!itemType) return null;
-    const looksLikeBaggage = itemType.includes("bag") || itemType.includes("luggage");
-    const isCheckedBaggage = ["checked_baggage", "checked_bag", "hold_baggage", "hold_luggage"]
-      .includes(itemType);
+    const itemText = packageItemText(item);
+    if (!itemText) return null;
+    const looksLikeBaggage = /(?:bag|luggage|bagaj|bavul)/.test(itemText);
+    const isCabinBaggage = /(?:cabin|carry_?on|hand|kabin|el_bagaj)/.test(itemText);
+    const isCheckedBaggage = /(?:checked|check_?in|hold|registered|kayitli|bagaj_alti)/.test(itemText);
     if (looksLikeBaggage && !isCheckedBaggage
-        && !["cabin_baggage", "cabin_bag", "hand_baggage", "hand_bag"].includes(itemType)) return null;
+        && !isCabinBaggage) return null;
+    if (isCabinBaggage) baggageEvidence = true;
     if (!isCheckedBaggage) continue;
+    baggageEvidence = true;
 
-    const availability = item.is_available ?? item.available;
-    if (availability === 0 || availability === false || availability === "0") continue;
-    if (availability !== 1 && availability !== true && availability !== "1") return null;
-    const part = finitePackageNumber(item?.attributes?.piece ?? item?.piece ?? item?.part);
-    const allowance = finitePackageNumber(item?.attributes?.allowance ?? item?.allowance);
+    const availability = packageAvailability(item);
+    if (availability === false) continue;
+    if (availability !== true) return null;
+    const part = finitePackageNumber(
+      item?.attributes?.piece ?? item?.attributes?.pieces ?? item?.attributes?.count
+      ?? item?.piece ?? item?.pieces ?? item?.part ?? item?.count,
+    );
+    const allowance = finitePackageNumber(
+      item?.attributes?.allowance ?? item?.attributes?.weight ?? item?.attributes?.kg
+      ?? item?.allowance ?? item?.weight ?? item?.kg,
+    );
     if (!Number.isSafeInteger(part) || part < 1 || part > 3
         || allowance === null || allowance <= 0 || allowance > 50) return null;
     checkedRows.push({ part, allowance });
   }
+
+  if (!baggageEvidence) return null;
 
   return {
     checkedBags: checkedRows.length ? Math.min(...checkedRows.map((item) => item.part)) : 0,
@@ -555,6 +597,35 @@ export function parseEnuygunFlightIds(sourceOfferId) {
     : [];
 }
 
+function normalizationRejections(data, request) {
+  const rows = Array.isArray(data?.flights?.departure) ? data.flights.departure : [];
+  const counts = { price: 0, segment: 0, reference: 0, baggage: 0, other: 0 };
+  const names = airlineNames(data);
+  for (const flight of rows.slice(0, MAX_NORMALIZED_OFFERS)) {
+    const price = flightPrice(flight);
+    if (!price || price.currency !== request.currency) {
+      counts.price += 1;
+      continue;
+    }
+    const segments = Array.isArray(flight?.segments) ? flight.segments : [];
+    if (!segments.length || segments.length > 8
+        || segments.some((segment) => !convertSegment(segment, 0, request.cabinClass, names))) {
+      counts.segment += 1;
+      continue;
+    }
+    if (!plain(flight?.enuid, 100)) {
+      counts.reference += 1;
+      continue;
+    }
+    if (!baggageForFlight(flight)) {
+      counts.baggage += 1;
+      continue;
+    }
+    counts.other += 1;
+  }
+  return { departureCount: rows.length, rejected: counts };
+}
+
 export const enuygunMcpConnector = {
   id: "enuygun",
   name: "Enuygun",
@@ -590,6 +661,13 @@ export const enuygunMcpConnector = {
       }, context.signal);
       const observedAt = new Date().toISOString();
       const offers = normalizeEnuygunSearchData(data, request, observedAt);
+      if (!offers.length && Array.isArray(data?.flights?.departure) && data.flights.departure.length) {
+        console.warn(
+          new Date().toISOString(),
+          "enuygun_normalization",
+          JSON.stringify(normalizationRejections(data, request)),
+        );
+      }
       return offers.length
         ? { outcome: "success", offers, message: `${offers.length} Enuygun teklifi canlı olarak doğrulandı.` }
         : { outcome: "no_results", offers: [], message: "Enuygun bu arama için doğrulanabilir teklif döndürmedi." };

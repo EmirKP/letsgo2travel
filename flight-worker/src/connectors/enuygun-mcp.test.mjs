@@ -156,6 +156,25 @@ test("current MCP package items supply checked-baggage evidence when the legacy 
   assert.equal(checkedOffers[0].baggage.checkedBagWeightKg, 20);
 });
 
+test("alternate MCP package labels and availability fields preserve a verified zero checked-bag fare", () => {
+  const alternateShape = structuredClone(data);
+  delete alternateShape.flights.departure[0].infos.baggage_info.firstBaggageCollection;
+  alternateShape.flights.departure[0].provider_packages = [{
+    name: "LIGHT",
+    items: [
+      { key: "hand-baggage", included: "yes", attributes: { count: "1", kg: "3" } },
+      { label: "Change", status: "not_available" },
+      { title: "Refund", available: false },
+    ],
+  }];
+
+  const offers = normalizeEnuygunSearchData(alternateShape, request);
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].baggage.cabinBagsPerPassenger, 1);
+  assert.equal(offers[0].baggage.checkedBagsPerPassenger, 0);
+  assert.equal(offers[0].baggage.checkedBagWeightKg, null);
+});
+
 test("missing legacy baggage collection still fails closed without valid package evidence", () => {
   const missingItems = structuredClone(data);
   delete missingItems.flights.departure[0].infos.baggage_info.firstBaggageCollection;
