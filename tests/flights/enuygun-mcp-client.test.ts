@@ -91,6 +91,66 @@ test("selected-flight baggage stays unknown when absent and rejects malformed pa
   );
 });
 
+test("current MCP package items revalidate baggage without the legacy collection", () => {
+  const currentShape = searchData();
+  const currentFlight = currentShape.flights.departure[0] as unknown as {
+    infos: { baggage_info: { firstBaggageCollection?: unknown } };
+    provider_packages: Array<{ name: string; items?: Array<Record<string, unknown>> }>;
+  };
+  delete (currentFlight.infos.baggage_info as {
+    firstBaggageCollection?: unknown;
+  }).firstBaggageCollection;
+  currentFlight.provider_packages = [{
+    name: "LIGHT",
+    items: [
+      { type: "hand_bag", is_available: 1, attributes: { piece: 1, allowance: "3" } },
+      { type: "change", is_available: 0 },
+      { type: "refund", is_available: 0 },
+    ],
+  }];
+
+  const live = livePriceForEnuygunOffer(currentShape, sourceOfferRef, request);
+  assert.equal(live.available, true);
+  assert.equal(live.baggage?.cabinBagsPerPassenger, 1);
+  assert.equal(live.baggage?.checkedBagsPerPassenger, 0);
+  assert.equal(live.baggage?.checkedBagWeightKg, null);
+});
+
+test("current MCP baggage shape fails closed without valid package evidence", () => {
+  const missingItems = searchData();
+  const missingItemsFlight = missingItems.flights.departure[0] as unknown as {
+    infos: { baggage_info: { firstBaggageCollection?: unknown } };
+  };
+  delete (missingItemsFlight.infos.baggage_info as {
+    firstBaggageCollection?: unknown;
+  }).firstBaggageCollection;
+  assert.throws(
+    () => livePriceForEnuygunOffer(missingItems, sourceOfferRef, request),
+    (error) => error instanceof EnuygunMcpClientError && error.code === "format_changed",
+  );
+
+  const malformedCheckedBag = searchData();
+  const malformedCheckedBagFlight = malformedCheckedBag.flights.departure[0] as unknown as {
+    infos: { baggage_info: { firstBaggageCollection?: unknown } };
+    provider_packages: Array<{ name: string; items?: Array<Record<string, unknown>> }>;
+  };
+  delete (malformedCheckedBagFlight.infos.baggage_info as {
+    firstBaggageCollection?: unknown;
+  }).firstBaggageCollection;
+  malformedCheckedBagFlight.provider_packages = [{
+    name: "BASIC",
+    items: [{
+      type: "checked_baggage",
+      is_available: 1,
+      attributes: { piece: 1, allowance: "unknown" },
+    }],
+  }];
+  assert.throws(
+    () => livePriceForEnuygunOffer(malformedCheckedBag, sourceOfferRef, request),
+    (error) => error instanceof EnuygunMcpClientError && error.code === "format_changed",
+  );
+});
+
 test("selected-flight date, chronology, route and cabin changes fail closed", () => {
   const wrongDate = searchData();
   wrongDate.flights.departure[0].segments[0].departure_datetime.date = "21.08.2026";

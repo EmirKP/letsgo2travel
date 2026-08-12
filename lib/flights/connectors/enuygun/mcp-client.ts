@@ -318,6 +318,13 @@ function finite(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function finitePackageNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !/^\d+(?:\.\d+)?$/.test(value.trim())) return null;
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function cleanCurrency(value: unknown) {
   const currency = typeof value === "string" ? value.trim().toUpperCase() : "";
   return /^[A-Z]{3}$/.test(currency) ? currency : "";
@@ -465,6 +472,61 @@ export type EnuygunLivePrice = {
   expiresAt: string;
 };
 
+function selectedPackageCheckedBaggage(flight: JsonRecord) {
+  const selectedPackage = Array.isArray(flight?.provider_packages)
+    ? flight.provider_packages[0]
+    : null;
+  if (!selectedPackage || typeof selectedPackage !== "object" || Array.isArray(selectedPackage)
+      || typeof selectedPackage.name !== "string" || !selectedPackage.name.trim()
+      || selectedPackage.name.trim().length > 80
+      || !Array.isArray(selectedPackage.items)
+      || selectedPackage.items.length === 0) {
+    throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
+  }
+
+  const checkedRows: Array<{ part: number; allowance: number }> = [];
+  for (const item of selectedPackage.items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
+    }
+    const rawType = typeof item.type === "string"
+      ? item.type
+      : typeof item.item_type === "string"
+        ? item.item_type
+        : typeof item.code === "string" ? item.code : "";
+    const itemType = rawType.trim().slice(0, 60).toLowerCase().replace(/[ -]+/g, "_");
+    if (!itemType) {
+      throw new EnuygunMcpClientError("Enuygun tarife bagaj bilgisi doğrulanamadı.", "format_changed");
+    }
+    const looksLikeBaggage = itemType.includes("bag") || itemType.includes("luggage");
+    const isCheckedBaggage = ["checked_baggage", "checked_bag", "hold_baggage", "hold_luggage"]
+      .includes(itemType);
+    if (looksLikeBaggage && !isCheckedBaggage
+        && !["cabin_baggage", "cabin_bag", "hand_baggage", "hand_bag"].includes(itemType)) {
+      throw new EnuygunMcpClientError("Enuygun tarife bagaj türü doğrulanamadı.", "format_changed");
+    }
+    if (!isCheckedBaggage) continue;
+
+    const availability = item.is_available ?? item.available;
+    if (availability === 0 || availability === false || availability === "0") continue;
+    if (availability !== 1 && availability !== true && availability !== "1") {
+      throw new EnuygunMcpClientError("Enuygun tarife bagaj hakkı doğrulanamadı.", "format_changed");
+    }
+    const part = finitePackageNumber(item?.attributes?.piece ?? item?.piece ?? item?.part);
+    const allowance = finitePackageNumber(item?.attributes?.allowance ?? item?.allowance);
+    if (!Number.isSafeInteger(part) || (part as number) < 1 || (part as number) > 3
+        || allowance === null || allowance <= 0 || allowance > 50) {
+      throw new EnuygunMcpClientError("Enuygun tarife bagaj hakkı doğrulanamadı.", "format_changed");
+    }
+    checkedRows.push({ part: part as number, allowance });
+  }
+
+  return {
+    checkedBags: checkedRows.length ? Math.min(...checkedRows.map((item) => item.part)) : 0,
+    checkedWeight: checkedRows.length ? Math.min(...checkedRows.map((item) => item.allowance)) : null,
+  };
+}
+
 function baggageForFlight(flight: JsonRecord) {
   const baggage = flight?.infos?.baggage_info;
   if (baggage === null || baggage === undefined) return null;
@@ -473,8 +535,14 @@ function baggageForFlight(flight: JsonRecord) {
   }
   const carry = baggage?.carryOn;
   if (!carry || typeof carry !== "object" || Array.isArray(carry)
-      || !Number.isSafeInteger(carry.part) || carry.part < 0 || carry.part > 3
-      || !Array.isArray(baggage.firstBaggageCollection)) {
+      || !Number.isSafeInteger(carry.part) || carry.part < 0 || carry.part > 3) {
+    throw new EnuygunMcpClientError("Enuygun bagaj bilgisi doğrulanamadı.", "format_changed");
+  }
+
+  if (baggage.firstBaggageCollection === undefined) {
+    return { cabinBags: carry.part, ...selectedPackageCheckedBaggage(flight) };
+  }
+  if (!Array.isArray(baggage.firstBaggageCollection)) {
     throw new EnuygunMcpClientError("Enuygun bagaj bilgisi doğrulanamadı.", "format_changed");
   }
   const checkedRows = baggage.firstBaggageCollection

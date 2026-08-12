@@ -1,6 +1,8 @@
 const SOURCE_CHECKOUT_DOMAINS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   enuygun: ["www.enuygun.com"],
   ucuzabilet: ["ucuzabilet.com"],
+  turna: ["www.turna.com"],
+  obilet: ["www.obilet.com"],
   trip: ["trip.com"],
   kiwi: ["kiwi.com"],
   edreams: ["edreams.com", "edreams.net"],
@@ -34,6 +36,12 @@ const ENUYGUN_QUERY_KEYS = new Set<string>([
 // burada açıkça kodla etkinleştirilir. Yalnız resmî, doğrulanmış protokol kullanan
 // connector'lar bu listeye girebilir; tüketici sayfası kazıyan kod kabul edilmez.
 const RUNTIME_READY_CONNECTORS = new Set<string>(["enuygun"]);
+const COMPARISON_CATALOG_SOURCES = new Set<string>([
+  "enuygun",
+  "ucuzabilet",
+  "turna",
+  "obilet",
+]);
 
 function domainMatches(hostname: string, allowedDomain: string) {
   return hostname === allowedDomain;
@@ -147,4 +155,8 @@ export function flightSourceRuntimeReady(sourceId: string) {
   return !disabled.has(sourceId)
     && RUNTIME_READY_CONNECTORS.has(sourceId)
     && flightSourceHasCodeAllowlist(sourceId);
+}
+
+export function flightSourceVisibleInComparison(sourceId: string) {
+  return COMPARISON_CATALOG_SOURCES.has(sourceId);
 }

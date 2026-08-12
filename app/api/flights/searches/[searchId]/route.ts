@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { authorizeFlightSearch } from "@/lib/flights/server/search-access";
-import { flightSourceRuntimeReady } from "@/lib/flights/server/source-domains";
+import {
+  flightSourceRuntimeReady,
+  flightSourceVisibleInComparison,
+} from "@/lib/flights/server/source-domains";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -252,7 +255,9 @@ export async function GET(request: Request, context: { params: Promise<{ searchI
     ? search.criteria.excludedSources.map(String)
     : [];
   const statusSources = (sourcesResult.data || []).filter((source) => (
-    jobBySource.has(source.id) || (jobsResult.data?.length === 0 && source.enabled === true)
+    jobBySource.has(source.id)
+    || flightSourceVisibleInComparison(source.id)
+    || (jobsResult.data?.length === 0 && source.enabled === true)
   ));
   const sourceStatuses = statusSources.map((source) => {
     const job = jobBySource.get(source.id);
@@ -262,14 +267,20 @@ export async function GET(request: Request, context: { params: Promise<{ searchI
         && source.integration_status === "active"
         && ["approved", "public_documented"].includes(source.permission_status)
         && flightSourceRuntimeReady(source.id);
+      const accessPending = source.integration_status === "partner_access_required"
+        || source.integration_status === "credentials_required";
       return {
         sourceId: source.id,
         sourceName: source.name,
-        state: excluded ? "skipped" : runtimeReady ? "skipped" : source.enabled ? "integration_required" : "disabled",
+        state: excluded
+          ? "skipped"
+          : accessPending ? "integration_required" : runtimeReady ? "skipped" : source.enabled ? "integration_required" : "disabled",
         message: excluded
           ? "Bu kaynak kullanıcı tercihiyle aramadan çıkarıldı."
           : source.integration_status === "partner_access_required"
           ? "Partnerlik başvurusu ve resmî API erişimi gerekli."
+          : source.integration_status === "credentials_required"
+          ? "Resmî API erişim bilgileri gerekli."
           : runtimeReady ? "Bu arama için kaynak görevi oluşturulmadı." : source.enabled ? "Entegrasyon tamamlanmadı." : "Kaynak geçici olarak pasif.",
       };
     }

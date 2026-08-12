@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { validateFlightSearchRequest } from "@/lib/flights/core";
 import { consumeFlightSearchRateLimit } from "@/lib/flights/server/rate-limit";
 import { optionalRequestUser } from "@/lib/flights/server/request-user";
-import { flightSourceRuntimeReady } from "@/lib/flights/server/source-domains";
+import {
+  flightSourceRuntimeReady,
+  flightSourceVisibleInComparison,
+} from "@/lib/flights/server/source-domains";
 import { createFlightSearchToken, hashFlightToken } from "@/lib/flights/server/tokens";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -50,17 +53,24 @@ function publicSourceStatus(
 ) {
   const integrationStatus = String(source.integration_status || "partner_access_required");
   const sourceId = String(source.id || "");
-  const incompatibility = sourceCompatibility(source, criteria);
-  const ready = source.enabled === true
+  const excluded = criteria.value.excludedSources.includes(sourceId);
+  const runtimeConfigured = source.enabled === true
     && integrationStatus === "active"
     && approvedPermission(source)
-    && flightSourceRuntimeReady(sourceId)
-    && !incompatibility;
+    && flightSourceRuntimeReady(sourceId);
+  const incompatibility = excluded
+    ? "excluded"
+    : runtimeConfigured ? sourceCompatibility(source, criteria) : null;
+  const ready = runtimeConfigured && !incompatibility;
+  const accessPending = integrationStatus === "partner_access_required"
+    || integrationStatus === "credentials_required";
   return {
     sourceId,
     sourceName: String(source.name || ""),
     sourceType: String(source.source_type || "ota"),
-    state: incompatibility ? "skipped" : ready ? "queued" : source.enabled === true ? "integration_required" : "disabled",
+    state: incompatibility
+      ? "skipped"
+      : ready ? "queued" : accessPending || source.enabled === true ? "integration_required" : "disabled",
     message: incompatibility === "excluded"
       ? "Bu kaynak kullanıcı tercihiyle aramadan çıkarıldı."
       : incompatibility === "currency"
@@ -241,6 +251,15 @@ export async function POST(request: Request) {
     }
   }
 
+  const sourceStatuses = (sources || [])
+    .filter((source) => (
+      source.enabled === true
+      || normalized.preferredSources.includes(source.id)
+      || flightSourceVisibleInComparison(source.id)
+    ))
+    .map((source) => publicSourceStatus(source as Record<string, unknown>, validation));
+  const pendingSourceCount = sourceStatuses.filter((source) => source.state === "integration_required").length;
+
   return NextResponse.json({
     data: {
       id: search.id,
@@ -248,11 +267,9 @@ export async function POST(request: Request) {
       accessToken,
       createdAt: search.created_at,
       expiresAt: search.expires_at,
-      sourceStatuses: (sources || [])
-        .filter((source) => source.enabled === true || normalized.preferredSources.includes(source.id))
-        .map((source) => publicSourceStatus(source as Record<string, unknown>, validation)),
+      sourceStatuses,
       message: activeSources.length
-        ? `${activeSources.length} yetkili uçuş kaynağı kuyruğa alındı.`
+        ? `${activeSources.length} bağlı uçuş kaynağı kuyruğa alındı${pendingSourceCount ? ` · ${pendingSourceCount} kaynak resmî API erişimi bekliyor.` : "."}`
         : "Henüz etkin ve resmî erişimi tamamlanmış uçuş kaynağı yok. Sahte fiyat gösterilmedi.",
     },
   }, { status: activeSources.length ? 202 : 200, headers: responseHeaders(quota) });

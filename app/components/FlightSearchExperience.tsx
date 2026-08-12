@@ -712,21 +712,22 @@ export default function FlightSearchExperience() {
   }, [airline, form.currency, result, seller, sort]);
   const conciseSourceStatuses = useMemo(() => {
     const sources = result?.sourceStatuses || [];
-    const searched = sources.filter((source) => (
-      ["queued", "running", "completed", "no_results", "failed", "dead_letter"].includes(source.state)
-    ));
-    if (searched.length) {
-      return searched
-        .sort((left, right) => {
-          const priority = (state: string) => state === "running" ? 0 : state === "queued" ? 1 : state === "completed" ? 2 : 3;
-          return priority(left.state) - priority(right.state);
-        })
-        .slice(0, 8);
-    }
-    return sources.filter((source) => source.state === "integration_required").slice(0, 3);
+    const priority = (state: string) => {
+      if (state === "running") return 0;
+      if (state === "queued") return 1;
+      if (state === "completed" || state === "no_results") return 2;
+      if (state === "failed" || state === "dead_letter") return 3;
+      if (state === "integration_required") return 4;
+      return 5;
+    };
+    return [...sources]
+      .sort((left, right) => priority(left.state) - priority(right.state))
+      .slice(0, 8);
   }, [result]);
   const actualFailedSourceCount = useMemo(() => (result?.sourceStatuses || [])
     .filter((source) => source.state === "failed" || source.state === "dead_letter").length, [result]);
+  const pendingSourceCount = useMemo(() => (result?.sourceStatuses || [])
+    .filter((source) => source.state === "integration_required").length, [result]);
   const emptyCopy = result ? emptyResultCopy(result) : null;
 
   const continueToSeller = async (offer: FlightOffer) => {
@@ -818,7 +819,7 @@ export default function FlightSearchExperience() {
 
       <section className={styles.searchCard}>
         <div className={styles.searchTop}>
-          <div><span><Sparkles size={15} /> Akıllı uçuş karşılaştırma</span><h2>Tek arama, yetkili kaynaklardaki bütün teklifler</h2></div>
+          <div><span><Sparkles size={15} /> Akıllı uçuş karşılaştırma</span><h2>Bağlı bilet sitelerini tek aramada karşılaştır</h2></div>
           <div className={styles.tripSwitch} role="group" aria-label="Uçuş tipi">
             <button type="button" aria-pressed={form.tripType === "round_trip"} className={form.tripType === "round_trip" ? styles.active : ""} onClick={() => changeForm((current) => ({ ...current, tripType: "round_trip" }))}>Gidiş–dönüş</button>
             <button type="button" aria-pressed={form.tripType === "one_way"} className={form.tripType === "one_way" ? styles.active : ""} onClick={() => changeForm((current) => ({ ...current, tripType: "one_way", returnDate: "" }))}>Tek yön</button>
@@ -849,7 +850,7 @@ export default function FlightSearchExperience() {
         {validationError && form.destination && <div className={styles.inlineError}><AlertCircle size={16} /> {validationError}</div>}
         <button type="button" className={styles.searchButton} disabled={searching || Boolean(validationError)} onClick={() => void submit()}>
           {searching ? <RefreshCw className={styles.spin} size={19} /> : <Search size={19} />}
-          {searching ? "Yetkili kaynaklar kontrol ediliyor" : "En uygun uçuşu bul"}
+          {searching ? "Bağlı bilet siteleri kontrol ediliyor" : "Bilet sitelerinde uçuş ara"}
         </button>
         <p className={styles.privacy}><ShieldCheck size={15} /> Kart bilgisi LetsGo2Travel'a girilmez. Ödeme, seçtiğin resmî bilet sitesi veya havayolunda tamamlanır.</p>
       </section>
@@ -861,7 +862,7 @@ export default function FlightSearchExperience() {
       {result && (
         <section className={styles.results}>
           <div className={styles.progressPanel} role="status" aria-live="polite">
-            <div><span><Plane size={19} /></span><div><h2 className={styles.progressHeading} ref={resultsStatusRef} tabIndex={-1}>{result.summary.itineraryCount} uçuş · {result.summary.offerCount} teklif</h2><small>{result.summary.completedSourceCount} kaynak tamamlandı{actualFailedSourceCount ? ` · ${actualFailedSourceCount} kaynak yanıt vermedi` : ""}</small></div></div>
+            <div><span><Plane size={19} /></span><div><h2 className={styles.progressHeading} ref={resultsStatusRef} tabIndex={-1}>{result.summary.itineraryCount} uçuş · {result.summary.offerCount} teklif</h2><small>{result.summary.completedSourceCount} bağlı kaynak tamamlandı{actualFailedSourceCount ? ` · ${actualFailedSourceCount} kaynak yanıt vermedi` : ""}{pendingSourceCount ? ` · ${pendingSourceCount} resmî bağlantı bekliyor` : ""}</small></div></div>
             <div className={styles.sourceList}>{conciseSourceStatuses.map((source) => <span key={source.sourceId} className={styles[source.state] || ""} title={source.message}><i aria-hidden="true" />{source.sourceName}: {sourceStateLabel(source.state)}</span>)}</div>
             {conciseSourceStatuses.length === 0 && <small>Bu aramaya dahil edilen kaynak bulunamadı.</small>}
           </div>

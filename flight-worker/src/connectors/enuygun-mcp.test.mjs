@@ -129,6 +129,47 @@ test("unknown or malformed baggage is never converted into a zero-bag claim", ()
   assert.equal(offers[0].baggage.checkedBagWeightKg, null);
 });
 
+test("current MCP package items supply checked-baggage evidence when the legacy collection is absent", () => {
+  const currentShape = structuredClone(data);
+  delete currentShape.flights.departure[0].infos.baggage_info.firstBaggageCollection;
+  currentShape.flights.departure[0].provider_packages = [{
+    name: "LIGHT",
+    items: [
+      { type: "hand_bag", is_available: 1, attributes: { piece: 1, allowance: "3" } },
+      { type: "change", is_available: 0 },
+      { type: "refund", is_available: 0 },
+    ],
+  }];
+  const offers = normalizeEnuygunSearchData(currentShape, request);
+  assert.equal(offers.length, 1);
+  assert.equal(offers[0].baggage.cabinBagsPerPassenger, 1);
+  assert.equal(offers[0].baggage.checkedBagsPerPassenger, 0);
+  assert.equal(offers[0].baggage.checkedBagWeightKg, null);
+
+  currentShape.flights.departure[0].provider_packages[0].items.push({
+    type: "checked_baggage",
+    is_available: 1,
+    attributes: { piece: 1, allowance: "20" },
+  });
+  const checkedOffers = normalizeEnuygunSearchData(currentShape, request);
+  assert.equal(checkedOffers[0].baggage.checkedBagsPerPassenger, 1);
+  assert.equal(checkedOffers[0].baggage.checkedBagWeightKg, 20);
+});
+
+test("missing legacy baggage collection still fails closed without valid package evidence", () => {
+  const missingItems = structuredClone(data);
+  delete missingItems.flights.departure[0].infos.baggage_info.firstBaggageCollection;
+  assert.deepEqual(normalizeEnuygunSearchData(missingItems, request), []);
+
+  const malformedCheckedBag = structuredClone(missingItems);
+  malformedCheckedBag.flights.departure[0].provider_packages[0].items = [{
+    type: "checked_baggage",
+    is_available: 1,
+    attributes: { piece: 1, allowance: "unknown" },
+  }];
+  assert.deepEqual(normalizeEnuygunSearchData(malformedCheckedBag, request), []);
+});
+
 test("round-trip normalization bounds each leg before pair allocation", { timeout: 5_000 }, () => {
   const departures = Array.from({ length: 1_000 }, (_, index) => ({
     ...structuredClone(outbound),

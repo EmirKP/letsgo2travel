@@ -252,6 +252,13 @@ function finiteNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function finitePackageNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !/^\d+(?:\.\d+)?$/.test(value.trim())) return null;
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function plain(value, maximum = 100) {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, maximum) : "";
 }
@@ -328,13 +335,57 @@ function convertSegment(segment, legIndex, requestedCabin, names) {
   };
 }
 
+function selectedPackageCheckedBaggage(flight) {
+  const selectedPackage = Array.isArray(flight?.provider_packages)
+    ? flight.provider_packages[0]
+    : null;
+  if (!selectedPackage || typeof selectedPackage !== "object" || Array.isArray(selectedPackage)
+      || !plain(selectedPackage.name, 80)
+      || !Array.isArray(selectedPackage.items)
+      || selectedPackage.items.length === 0) return null;
+
+  const checkedRows = [];
+  for (const item of selectedPackage.items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const itemType = plain(item.type || item.item_type || item.code, 60)
+      .toLowerCase()
+      .replace(/[ -]+/g, "_");
+    if (!itemType) return null;
+    const looksLikeBaggage = itemType.includes("bag") || itemType.includes("luggage");
+    const isCheckedBaggage = ["checked_baggage", "checked_bag", "hold_baggage", "hold_luggage"]
+      .includes(itemType);
+    if (looksLikeBaggage && !isCheckedBaggage
+        && !["cabin_baggage", "cabin_bag", "hand_baggage", "hand_bag"].includes(itemType)) return null;
+    if (!isCheckedBaggage) continue;
+
+    const availability = item.is_available ?? item.available;
+    if (availability === 0 || availability === false || availability === "0") continue;
+    if (availability !== 1 && availability !== true && availability !== "1") return null;
+    const part = finitePackageNumber(item?.attributes?.piece ?? item?.piece ?? item?.part);
+    const allowance = finitePackageNumber(item?.attributes?.allowance ?? item?.allowance);
+    if (!Number.isSafeInteger(part) || part < 1 || part > 3
+        || allowance === null || allowance <= 0 || allowance > 50) return null;
+    checkedRows.push({ part, allowance });
+  }
+
+  return {
+    checkedBags: checkedRows.length ? Math.min(...checkedRows.map((item) => item.part)) : 0,
+    checkedWeight: checkedRows.length ? Math.min(...checkedRows.map((item) => item.allowance)) : null,
+  };
+}
+
 function baggageForFlight(flight) {
   const baggage = flight?.infos?.baggage_info;
   if (!baggage || typeof baggage !== "object" || Array.isArray(baggage)) return null;
   const carry = baggage?.carryOn;
   if (!carry || typeof carry !== "object" || Array.isArray(carry)
-      || !Number.isSafeInteger(carry.part) || carry.part < 0 || carry.part > 3
-      || !Array.isArray(baggage.firstBaggageCollection)) return null;
+      || !Number.isSafeInteger(carry.part) || carry.part < 0 || carry.part > 3) return null;
+
+  if (baggage.firstBaggageCollection === undefined) {
+    const selectedPackage = selectedPackageCheckedBaggage(flight);
+    return selectedPackage ? { cabinBags: carry.part, ...selectedPackage } : null;
+  }
+  if (!Array.isArray(baggage.firstBaggageCollection)) return null;
   const checkedRows = baggage.firstBaggageCollection
     .filter((item) => !item?.paxType || item.paxType === "adult");
   if (baggage.firstBaggageCollection.length > 0 && checkedRows.length === 0) return null;

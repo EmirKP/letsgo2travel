@@ -16,6 +16,8 @@ const integrationRequired = (id, name) => ({
 const connectors = new Map([
   ["enuygun", enuygunMcpConnector],
   ["ucuzabilet", integrationRequired("ucuzabilet", "Ucuzabilet")],
+  ["turna", integrationRequired("turna", "Turna")],
+  ["obilet", integrationRequired("obilet", "Obilet")],
   ["airline-direct", integrationRequired("airline-direct", "Doğrudan havayolu")],
 ]);
 

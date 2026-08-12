@@ -34,7 +34,7 @@ test("production connectors never fabricate offers when the live worker is not r
   );
   assert.equal(response.status, "unavailable");
   assert.equal(response.summary.offerCount, 0);
-  assert.equal(response.summary.integrationRequiredSourceCount, 2);
+  assert.equal(response.summary.integrationRequiredSourceCount, 4);
   assert.equal(response.sourceStatuses.find((source) => source.sourceId === "enuygun")?.state, "failed");
   assert(
     response.sourceStatuses
@@ -55,7 +55,7 @@ test("a contract-compatible real adapter can replace its integration placeholder
   );
   assert.equal(response.status, "completed");
   assert.equal(response.summary.offerCount, 1);
-  assert.equal(response.summary.integrationRequiredSourceCount, 2);
+  assert.equal(response.summary.integrationRequiredSourceCount, 4);
   assert.equal(response.sourceStatuses.find((source) => source.sourceId === "enuygun")?.state, "succeeded");
 });
 
