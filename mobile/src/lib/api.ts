@@ -1,6 +1,7 @@
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import type {
+  FlightAlert,
   PlannerInput,
   RoutePlan,
   VerifiedVisaRule,
@@ -123,6 +124,83 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+export type CreateAlertInput = {
+  originCode: string;
+  originLabel: string;
+  destinationCode: string;
+  destinationLabel: string;
+  departureDate: string;
+  targetPrice?: number | null;
+  notifyEmail: boolean;
+  notifyPush: boolean;
+};
+
+export async function listAlerts(accessToken: string) {
+  const result = await requestJson<{ data: FlightAlert[] }>("/api/flight-alerts", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+export async function createAlert(input: CreateAlertInput, accessToken: string) {
+  return requestJson<{ success: boolean; id?: string; message: string }>("/api/flight-alerts", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: {
+      originCode: input.originCode,
+      originLabel: input.originLabel,
+      destinationCode: input.destinationCode,
+      destinationLabel: input.destinationLabel,
+      departureDate: input.departureDate,
+      targetPrice: input.targetPrice || null,
+      tripType: "one_way",
+      adults: 1,
+      cabinClass: "economy",
+      notifyEmail: input.notifyEmail,
+      notifyPush: input.notifyPush,
+    },
+  });
+}
+
+export async function updateAlert(
+  id: string,
+  body: Partial<{ is_active: boolean; target_price: number | null; notify_email: boolean; notify_push: boolean }>,
+  accessToken: string,
+) {
+  return requestJson<{ success: boolean; message: string }>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body,
+  });
+}
+
+export async function deleteAlert(id: string, accessToken: string) {
+  return requestJson<{ success: boolean; message: string }>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function registerPushDevice(params: { platform: string; token: string }, accessToken: string) {
+  // Yanit token ICERMEZ; yalniz opak cihaz kayit ID'si (uuid) doner.
+  return requestJson<{ success: boolean; deviceId?: string }>("/api/push-devices", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: { platform: params.platform, token: params.token },
+  });
+}
+
+// Normal logout yalniz MEVCUT cihazin kayit ID'sini kapatir. { all: true }
+// yalniz kullanicinin ACIKCA "tum cihazlarda bildirimleri kapat" islemi
+// icin kullanilabilir. Push token'i bu istekte yer almaz.
+export async function disablePushDevice(params: { id?: string; all?: boolean }, accessToken: string) {
+  return requestJson<{ success: boolean; disabled?: number }>("/api/push-devices", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: params.all ? { all: true } : { id: params.id || "" },
+  });
 }
 
 export async function requestAccountDeletion(params: {

@@ -68,3 +68,10 @@ next-env.d.ts
 # Canli indirme dosyalari
 !public/downloads/
 !public/downloads/*.zip
+
+# Push bildirim gizlileri — asla commit etme
+android/app/google-services.json
+*.p8
+
+# .env.example yalniz anahtar ADLARINI icerir ve commit edilir
+!/.env.example

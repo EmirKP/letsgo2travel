@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, Heart, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
+import { User, Heart, Bell, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -12,7 +12,7 @@ export default function ProfilPage() {
   const [user, setUser] = useState<any>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [userRole, setUserRole] = useState("user");
-  
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -21,10 +21,10 @@ export default function ProfilPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setUser(session.user);
-        
+
         try {
           const { data: profile, error } = await supabase.from("profiles").select("role, username").eq("id", session.user.id).single();
-          
+
           if (error) {
             const { data: fallbackProfile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
             if (fallbackProfile) {
@@ -68,11 +68,11 @@ export default function ProfilPage() {
                 Hesap oluştur
               </Link>
             </div>
-            
+
             {/* Kilitli Kartlar */}
             <div style={{ textAlign: "left", marginTop: "40px" }}>
               <h3 style={{ fontSize: "1.2rem", color: "var(--l2t-navy)", marginBottom: "16px", fontWeight: "700" }}>Premium Özellikler</h3>
-              
+
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {/* Rota */}
                 <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.7 }}>
@@ -105,7 +105,7 @@ export default function ProfilPage() {
 
   return (
     <div className="l2t-page l2t-wrap" style={{ minHeight: "100vh", padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-      
+
       {/* Profil Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px", padding: "24px", background: "#fff", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.04)", border: "1px solid #f1f5f9" }}>
         <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: user ? "linear-gradient(135deg, #1476f2, #0A1F4A)" : "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -204,6 +204,7 @@ export default function ProfilPage() {
               { emoji: "🗺️", title: "Seyahat Haritan", desc: "Ziyaret ettiğin ülkeleri işaretle" },
               { emoji: "❤️", title: "Favori Rotalar", desc: "Rotalarını kaydet" },
               { emoji: "🧭", title: "Seyahat Kokpiti", desc: "Yolculuğunu tek panodan takip et" },
+              { emoji: "🔔", title: "Fiyat Alarmları", desc: "Hedef fiyata düşünce haber al" },
               { emoji: "🏆", title: "Kaşifler Ligi", desc: "Gezginlerle yarış" },
             ].map((item, i) => (
               <div key={i} style={{ background: "#f8fafc", borderRadius: "16px", padding: "16px", border: "1px solid #e2e8f0", opacity: 0.7 }}>
@@ -218,7 +219,7 @@ export default function ProfilPage() {
 
       {/* Profil Menü Listesi */}
       <div style={{ background: "#fff", borderRadius: "20px", boxShadow: "0 10px 30px rgba(0,0,0,0.04)", border: "1px solid #f1f5f9", overflow: "hidden" }}>
-        
+
         {user && ['moderator', 'editor', 'admin', 'super_admin'].includes(userRole) && (
           <Link href="/admin" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9", textDecoration: "none", background: "#f8fafc" }} className="hover-tilt">
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -249,6 +250,16 @@ export default function ProfilPage() {
               <Heart size={20} />
             </div>
             <span style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--l2t-navy)" }}>Favori Rotalarım</span>
+          </div>
+          <ChevronRight size={20} color="var(--l2t-muted)" />
+        </Link>
+
+        <Link href="/profil/fiyat-alarmlari" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9", textDecoration: "none" }} className="hover-tilt">
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: "rgba(245, 158, 11, 0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#d97706" }}>
+              <Bell size={20} />
+            </div>
+            <span style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--l2t-navy)" }}>Fiyat Alarmlarım</span>
           </div>
           <ChevronRight size={20} color="var(--l2t-muted)" />
         </Link>

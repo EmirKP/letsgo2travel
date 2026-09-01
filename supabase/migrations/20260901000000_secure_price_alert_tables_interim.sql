@@ -1,11 +1,12 @@
 -- =====================================================================
--- GEÇİCİ GÜVENLİK KİLİDİ: flight_price_alerts / flight_price_alert_logs
+-- GÜVENLİK KİLİDİ: flight_price_alerts / flight_price_alert_logs
 -- ---------------------------------------------------------------------
--- Amaç: Uçuş fiyat alarmı ürünü kalıcı olarak kaldırıldı; tabloların
--- kendisi ise (abone e-postaları içerdiği için) ayrı onaylı veri-silme
--- migration'ı (20260901110000) uygulanana kadar production'da durabilir.
--- Bu ara dönemde tablolar RLS'siz ve grant kısıtsızdı; PostgREST üzerinden
--- anon/authenticated erişimine açık olma riski taşıyordu.
+-- Güncel durum (01.09.2026 hotfix): bağımsız uçuş fiyat alarmı KORUNAN
+-- bir üründür; bu tablolar canlı üründe kullanılmaya devam eder. Tarihsel
+-- olarak RLS'siz ve grant kısıtsızdılar; PostgREST üzerinden anon/
+-- authenticated erişimine açık olma riski taşıyorlardı. Uygulama bu
+-- tablolara yalnız sunucu tarafında service-role ile erişir; bu kilit
+-- KALICI mimari kuraldır (20260901110000 no-op yapılmıştır).
 -- Bu migration: RLS'yi açar, policy tanımlamaz (default deny), PUBLIC/anon/
 -- authenticated yetkilerini açıkça REVOKE eder ve tüm erişimi service_role
 -- ile sınırlar.

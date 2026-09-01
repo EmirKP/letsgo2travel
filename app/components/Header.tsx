@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
+  BellRing,
   BookOpen,
   Bookmark,
   Calculator,
@@ -42,6 +43,7 @@ const secondaryNav = [
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },
   { href: "/rehber-merkezi", label: "Rehber Merkezi", icon: BookOpen },
   { href: "/butce-hesapla", label: "Bütçe Hesapla", icon: Calculator },
+  { href: "/fiyat-kontrolu", label: "Fiyat Alarmı", icon: BellRing },
   { href: "/planlarim", label: "Planlarım", icon: Bookmark },
 ];
 

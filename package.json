@@ -25,7 +25,8 @@
     "mobile:prepare:fallback:ios": "npm run mobile:build:fallback && npx cap sync ios && npm run mobile:doctor -- --platform=ios",
     "mobile:prepare:fallback:android": "npm run mobile:build:fallback && npx cap sync android && npm run mobile:doctor -- --platform=android",
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
-    "smoke": "node scripts/smoke-test.mjs"
+    "smoke": "node scripts/smoke-test.mjs",
+    "test:alerts": "node scripts/run-alert-tests.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
@@ -34,6 +35,7 @@
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.4.2",
     "@capacitor/network": "^8.0.1",
+    "@capacitor/push-notifications": "^8.0.0",
     "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",

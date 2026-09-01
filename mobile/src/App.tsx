@@ -10,6 +10,7 @@ import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
+import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
   completeOnboarding,
@@ -23,6 +24,7 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { CockpitScreen } from "./screens/CockpitScreen";
 import { CommunityScreen } from "./screens/CommunityScreen";
 import { PassportScreen } from "./screens/PassportScreen";
+import { PriceAlertsScreen } from "./screens/PriceAlertsScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { RouteAssistantScreen } from "./screens/RouteAssistantScreen";
 import { SurpriseScreen } from "./screens/SurpriseScreen";
@@ -37,7 +39,7 @@ const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "profile", label: "Profil", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -58,6 +60,9 @@ function viewFromUrl(value: string): ViewId | null {
       "seyahat-kokpiti": "cockpit",
       "kasifler-ligi": "community",
       "kaşifler-ligi": "community",
+      "fiyat-alarmlarim": "alerts",
+      "fiyat-alarmlarım": "alerts",
+      "price-alerts": "alerts",
     };
     const candidate = aliases[raw] || raw as ViewId;
     return validViews.has(candidate) ? candidate : null;
@@ -69,7 +74,7 @@ function viewFromUrl(value: string): ViewId | null {
 function rootTabFor(view: ViewId): TabId {
   if (view === "passport" || view === "surprise") return "explore";
   if (view === "cockpit") return "trips";
-  if (view === "community") return "profile";
+  if (view === "community" || view === "alerts") return "profile";
   return view as TabId;
 }
 
@@ -97,7 +102,7 @@ export default function App() {
   const auth = useAuth();
   const ownerId = auth.user?.id || null;
   const activeTab = rootTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts";
 
   useEffect(() => {
     activeViewRef.current = activeView;
@@ -161,6 +166,11 @@ export default function App() {
       return;
     }
     navigate(rootTabFor(activeViewRef.current), { replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    // Bildirime dokunulduğunda "Fiyat Alarmlarım" ekranı açılır (web'de sessiz no-op).
+    return initPushTapListener(() => navigate("alerts"));
   }, [navigate]);
 
   useEffect(() => {
@@ -310,6 +320,7 @@ export default function App() {
     if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
   }, [activeView, auth.accessToken, auth.user, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
 

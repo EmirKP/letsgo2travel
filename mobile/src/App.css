@@ -806,3 +806,26 @@
 .app-content:focus { outline: none; }
 .community-tab-panel:focus-visible,
 .community-feed:focus-visible { outline: 3px solid rgba(25,198,211,.5); outline-offset: 3px; }
+
+/* Fiyat alarmları ekranı. */
+.alerts-toolbar { margin: 12px 0; display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; }
+.alerts-toolbar .primary-button,.alerts-toolbar .secondary-button { width: 100%; }
+.alerts-toolbar .secondary-button { border: 1px solid #ccd9e1; background: #fff; color: var(--navy-900); }
+.alert-form { display: grid; gap: 12px; }
+.alert-form > label { display: grid; gap: 6px; color: #4f6072; font-size: 9px; font-weight: 800; }
+.alert-form input { width: 100%; min-width: 0; min-height: 45px; padding: 0 11px; border: 1px solid #d8e1e7; border-radius: 12px; outline: 0; background: #fff; color: var(--ink); font-size: 11px; }
+.alert-channels { display: grid; gap: 8px; padding: 11px; border: 1px solid #e3eaef; border-radius: 13px; background: #f7fafb; }
+.alert-channels > span { color: #4f6072; font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.alert-channels label { display: flex; align-items: center; gap: 8px; min-height: 30px; color: var(--ink); font-size: 11.5px; font-weight: 700; }
+.alert-channels input[type="checkbox"] { width: 19px; height: 19px; accent-color: var(--navy-900); }
+.alert-channels.compact { margin: 0 0 10px; grid-template-columns: 1fr 1fr; padding: 9px 11px; }
+.alert-push-note { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.alert-card.paused { opacity: .7; }
+.alert-metrics { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin: 10px 0; }
+.alert-metrics div { padding: 9px; display: grid; gap: 2px; border-radius: 11px; background: #f3f6f8; }
+.alert-metrics span { color: var(--muted); font-size: 8px; }
+.alert-metrics strong { font-size: 10px; }
+.notification-icon.kind-price { background: #fdeef0; color: #b4394d; }
+@media (max-width: 390px) {
+  .alert-channels.compact { grid-template-columns: 1fr; }
+}

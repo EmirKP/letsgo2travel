@@ -2,24 +2,21 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session";
 
-// Uçuş arama/karşılaştırma/fiyat alarmı ürünü kalıcı olarak kaldırıldı.
-// Eski URL'ler kontrollü 410 (Gone) döner: hiçbir job, sağlayıcı çağrısı veya
-// veri yazımı üretmez. Ana sayfaya soft-404 yönlendirmesi bilinçli olarak yapılmaz.
+// Uçuş arama/karşılaştırma ürünü kalıcı olarak kaldırıldı; eski URL'ler
+// kontrollü 410 (Gone) döner ve hiçbir job/sağlayıcı çağrısı üretmez.
+// Bağımsız FİYAT ALARMI korunan bir üründür (01.09.2026 hotfix) ve bu
+// listede YER ALMAZ. (/api/fiyat-alarmi eski newsletter alias'ıdır; 410 kalır.)
 const GONE_PAGE_PREFIXES = [
   "/ucak-bileti-ara",
   "/ucak-bileti",
-  "/fiyat-kontrolu",
   "/canli-ucus",
   "/flights",
   "/kampanyalar",
-  "/profil/fiyat-alarmlari",
-  "/admin/fiyat-alarmlari",
   "/admin/ucus-kaynaklari",
 ];
 
 const GONE_API_PREFIXES = [
   "/api/flights",
-  "/api/flight-alerts",
   "/api/internal/flights",
   "/api/travelpayouts-search",
   "/api/canli-ucuslar",
@@ -28,9 +25,7 @@ const GONE_API_PREFIXES = [
   "/api/one-cikan-rotalar",
   "/api/ucak-bileti",
   "/api/admin/flight-sources",
-  "/api/admin/fiyat-alarmlari",
   "/api/admin/biletler",
-  "/api/cron/check-price-alerts",
   "/api/cron/update-prices",
 ];
 
@@ -70,7 +65,7 @@ export async function proxy(request: NextRequest) {
       {
         error: "gone",
         message:
-          "Bu uç kalıcı olarak kaldırıldı. LetsGo2Travel uçuş arama, fiyat karşılaştırma veya fiyat alarmı hizmeti sunmuyor.",
+          "Bu uç kalıcı olarak kaldırıldı. LetsGo2Travel uçuş arama veya fiyat karşılaştırma hizmeti sunmuyor.",
       },
       { status: 410, headers: { "Cache-Control": "no-store" } },
     );
@@ -112,17 +107,13 @@ export const config = {
     "/ucak-bileti-ara",
     "/ucak-bileti/:path*",
     "/ucak-bileti",
-    "/fiyat-kontrolu/:path*",
-    "/fiyat-kontrolu",
     "/canli-ucus/:path*",
     "/canli-ucus",
     "/flights/:path*",
     "/flights",
     "/kampanyalar/:path*",
     "/kampanyalar",
-    "/profil/fiyat-alarmlari",
     "/api/flights/:path*",
-    "/api/flight-alerts/:path*",
     "/api/internal/flights/:path*",
     "/api/travelpayouts-search",
     "/api/canli-ucuslar",
@@ -133,11 +124,8 @@ export const config = {
     "/api/ucak-bileti",
     "/api/admin/flight-sources/:path*",
     "/api/admin/flight-sources",
-    "/api/admin/fiyat-alarmlari/:path*",
-    "/api/admin/fiyat-alarmlari",
     "/api/admin/biletler/:path*",
     "/api/admin/biletler",
-    "/api/cron/check-price-alerts",
     "/api/cron/update-prices",
   ],
 };

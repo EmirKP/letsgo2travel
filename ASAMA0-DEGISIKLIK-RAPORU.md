@@ -1,7 +1,9 @@
 # LetsGo2Travel — Aşama 0 Değişiklik Raporu (31.08.2026)
 
-> Bu depo sürümünde uçuş arama/karşılaştırma/crawler/worker/provider/fiyat alarmı
-> sistemleri **kalıcı olarak** kaldırılmıştır. LetsGo2Travel artık bir seyahat
+> Bu depo sürümünde uçuş arama/karşılaştırma/crawler/worker/provider sistemleri
+> **kalıcı olarak** kaldırılmıştır. **HOTFIX (01.09.2026):** Bağımsız uçuş fiyat
+> alarmı KORUNAN üründür ve geri getirilmiştir (e-posta + telefon push bildirimi;
+> ayrıntı: FIYAT-ALARMI-HOTFIX-NOTU.md). Uçuş arama/karşılaştırma geri GELMEMİŞTİR. LetsGo2Travel artık bir seyahat
 > işletim sistemidir: etkinlik/destinasyon keşfi, uçuş hariç bütçe, Seyahat
 > Kokpiti ve topluluk. Ayrıntılı teslim raporu için proje sahibine iletilen
 > `ASAMA0-TESLIM-RAPORU.md` belgesine bakın.
@@ -10,8 +12,10 @@
 
 - **Meta-arama:** `lib/flights/**`, `app/api/flights/**`, `app/api/internal/flights/**`,
   `/ucak-bileti-ara`, `/flights`, `/canli-ucus`, `FlightSearchExperience`, `FlightSearchCard`
-- **Fiyat alarmı:** `app/api/flight-alerts/**`, `/fiyat-kontrolu`, `/profil/fiyat-alarmlari`,
-  `app/admin/fiyat-alarmlari`, `lib/price-alert*`, `lib/travelpayouts.ts`, Vercel cron `check-price-alerts`
+- ~~Fiyat alarmı~~ → **HOTFIX ile geri getirildi** (bağımsız araç): `/fiyat-kontrolu`,
+  `/profil/fiyat-alarmlari`, `/admin/fiyat-alarmlari`, `/api/flight-alerts/**`,
+  `/api/cron/check-price-alerts` (cron-job.org tetikler; Vercel cron bilinçli olarak GERİ EKLENMEDİ),
+  `lib/price-alert*`, yalnız alarm kontrolü için `lib/travelpayouts.ts`
 - **Fırsat (biletler) sistemi:** `/kampanyalar`, `/ucak-bileti/[slug]`, `app/api/{firsatlar,one-cikan-rotalar,ucak-bileti}`,
   `app/api/admin/biletler/**`, `HomeDealsTicker`, `HomeDealPreview`, `DealCard`, `lib/prices.ts`
 - **Worker:** `flight-worker/**`, `docker-compose.flight-worker.yml` (repo tarafı; VDS temizliği ayrı onaylı)
@@ -47,7 +51,7 @@ döner (sayfalar için noindex HTML, API'ler için JSON); hiçbir job, sağlayı
 | 1 | `20260901000000_secure_price_alert_tables_interim.sql` | Geçici kilit: flight_price_alerts/_logs RLS + service_role-only |
 | 2 | `20260901000100_secure_mail_delivery_logs.sql` | Kalıcı kilit: mail_delivery_logs RLS + service_role-only |
 | 3 | `20260901100000_remove_flight_meta_search_system.sql` | 15 meta-arama tablosu + 4 fonksiyon (CASCADE'siz, sayım NOTICE'lı) |
-| 4 | `20260901110000_remove_flight_price_alert_data.sql` | Abone verisi silme — ÖNCE bilgilendirme e-postası şartı |
+| 4 | `20260901110000_remove_flight_price_alert_data.sql` | **NO-OP yapıldı (hotfix):** alarm verisi silinmeyecek |
 | 5 | `20260901120000_remove_biletler_deal_system.sql` | user_favorites → biletler → increment_deal_click |
 | 6 | `20260901130000_remove_country_guides_avg_flight_price.sql` | Tahmini uçuş fiyatı kolonu düşer; `airport_code` korunur |
 | 7 | `20260901140000_rename_forum_flight_category.sql` | Forum kategorisi "Uçak Bileti & Havalimanı" → "Uçuş & Havalimanı" (içerik silinmez, slug korunur) |
@@ -76,5 +80,5 @@ referansını kaldırmak sağlayıcı credential'ını revoke etmek değildir.
 - Bütçe hesaplayıcı artık **uçuş hariç** çalışır ve zorunlu açıklamayı gösterir
 - `public/sw.js` cache `l2t-shell-v31` (eski uçuş shell'leri düşer)
 - iDATA kurulum TXT'lerindeki VDS IP/SSH bilgisi `<VDS_SUNUCU_IP>` ile maskelendi
-- Fiyat alarmı kapanış e-postası şablonu + planı: `docs/fiyat-alarmi-kapanis-eposta-plani.md`
-  (**GÖNDERİLMEDİ**; gönderim ayrı onay)
+- Fiyat alarmı kapanış e-postası planı KALDIRILDI (hizmet kapanmıyor; hotfix)
+- Yeni: `supabase/migrations/20260902000000_price_alert_push_devices.sql` (push cihaz + idempotency; production'a uygulanmadı)

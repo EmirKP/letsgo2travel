@@ -128,7 +128,7 @@ expectAbsent(cap, /server\s*:\s*\{[\s\S]*?\burl\s*:/, "uzak WebView adresi kulla
 const mobilePackage = await text("mobile/package.json");
 expect(mobilePackage, /"version"\s*:\s*"1\.4\.0"/, "mobil uygulama sürümü 1.4.0", "Mobil uygulama sürümü 1.4.0 değil.");
 const rootPackage = await text("package.json");
-expectAbsent(rootPackage, /@capacitor\/push-notifications/, "yapılandırılmamış push eklentisi yok", "Yapılandırılmamış push eklentisi pakette kalmış.");
+expect(rootPackage, /@capacitor\/push-notifications/, "push bildirim eklentisi tanımlı", "Push bildirim eklentisi package.json içinde yok (fiyat alarmı bildirimleri için gerekli).");
 
 const env = await text(".env.local", { required: false });
 const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL || /^NEXT_PUBLIC_SUPABASE_URL=.+/m.test(env) || /^VITE_SUPABASE_URL=.+/m.test(env));
@@ -211,7 +211,7 @@ if (checkAndroid) {
   expect(androidVariables, /targetSdkVersion\s*=\s*36/, "Android targetSdk API 36", "Android targetSdk API 36 değil.");
 
   const generatedPlugins = await text("android/app/src/main/assets/capacitor.plugins.json", { required: false });
-  expectAbsent(generatedPlugins, /@capacitor\/push-notifications/, "Android yerel projede eski push eklentisi yok", "Android yerel projede eski push eklentisi kalmış; cap sync çalıştırılmalı.");
+  expect(generatedPlugins, /@capacitor\/push-notifications/, "Android yerel projede push eklentisi senkron", "Android yerel projede push eklentisi yok; cap sync çalıştırılmalı.");
   expect(generatedPlugins, /@capacitor\/share/, "Android yerel paylaşım eklentisi", "Android yerel paylaşım eklentisi senkronize edilmemiş.");
   await compareNativeWebPackage("android/app/src/main/assets/public", "Android");
 }

@@ -8,6 +8,7 @@ const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: Vi
   { label: "Pasaport Gücü", text: "Türkiye pasaportu için giriş koşulları", icon: "passport", view: "passport" },
   { label: "Rota Asistanı", text: "Tercihlerine göre uygulamada plan oluştur", icon: "route", view: "route" },
   { label: "Seyahat Kokpiti", text: "Tarihlerini ve hazırlık listeni yönet", icon: "suitcase", view: "cockpit" },
+  { label: "Fiyat Alarmı", text: "Hedef fiyata düşünce haber al", icon: "bell", view: "alerts" },
   { label: "Kaşifler Ligi", text: "Gerçek gezginlerden ilham al", icon: "users", view: "community" },
 ];
 

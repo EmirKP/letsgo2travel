@@ -5,9 +5,10 @@ const require = createRequire(import.meta.url);
 const nextBin = require.resolve("next/dist/bin/next");
 const port = Number(process.env.SMOKE_PORT || 3199);
 const baseUrl = `http://127.0.0.1:${port}`;
+const smokeCronSecret = "l2t-smoke-cron-secret";
 const server = spawn(process.execPath, [nextBin, "start", "-H", "127.0.0.1", "-p", String(port)], {
   cwd: process.cwd(),
-  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", CRON_SECRET: smokeCronSecret },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -23,7 +24,9 @@ async function waitUntilReady() {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (server.exitCode !== null) throw new Error(`Sunucu erken kapandı.\n${serverLog}`);
     try {
-      const response = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(1500) });
+      // Hazirlik kontrolu statik bir yanittan yapilir; /api/health placeholder
+      // Supabase ortaminda yavas kalabilir.
+      const response = await fetch(`${baseUrl}/manifest.webmanifest`, { signal: AbortSignal.timeout(1500) });
       if (response.ok) return;
     } catch {
       // Sunucu henüz dinlemiyor.
@@ -36,11 +39,9 @@ async function waitUntilReady() {
 async function run() {
   await waitUntilReady();
 
-  // Uçuş arama/karşılaştırma/fiyat alarmı sistemi kalıcı olarak kaldırıldı.
-  // Eski uçlar kontrollü 410 dönmeli ve hiçbir job/veri yazımı üretmemelidir.
+  // Uçuş arama/karşılaştırma sistemi kalıcı olarak kaldırıldı; eski uçlar 410.
   for (const path of [
     "/ucak-bileti-ara",
-    "/fiyat-kontrolu",
     "/kampanyalar",
     "/canli-ucus",
     "/flights",
@@ -52,7 +53,6 @@ async function run() {
 
   for (const [path, method] of [
     ["/api/flights/searches", "POST"],
-    ["/api/flight-alerts", "POST"],
     ["/api/internal/flights/heartbeat", "POST"],
     ["/api/travelpayouts-search?origin=IST&destination=LHR", "GET"],
     ["/api/canli-ucuslar", "GET"],
@@ -62,6 +62,40 @@ async function run() {
     const response = await fetch(`${baseUrl}${path}`, { method, redirect: "manual" });
     assert(response.status === 410, `${path} kaldırılmış uçuş API'si 410 dönmedi (${response.status}).`);
   }
+
+  // Bağımsız fiyat alarmı KORUNAN üründür: uçlar 410 DÖNMEZ.
+  const alarmPage = await fetch(`${baseUrl}/fiyat-kontrolu`);
+  assert(alarmPage.status === 200, `/fiyat-kontrolu 200 dönmedi (${alarmPage.status}).`);
+
+  const alertsList = await fetch(`${baseUrl}/api/flight-alerts`);
+  assert(alertsList.status !== 410, "/api/flight-alerts hâlâ 410 dönüyor.");
+  assert(alertsList.status === 401, `/api/flight-alerts oturumsuz istekte 401 dönmedi (${alertsList.status}).`);
+
+  const alertsBadPost = await fetch(`${baseUrl}/api/flight-alerts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert(alertsBadPost.status !== 410 && alertsBadPost.status < 500 || alertsBadPost.status === 503, `/api/flight-alerts geçersiz istekte kontrollü hata dönmedi (${alertsBadPost.status}).`);
+
+  const cronNoAuth = await fetch(`${baseUrl}/api/cron/check-price-alerts`);
+  assert(cronNoAuth.status === 401 || cronNoAuth.status === 403, `Cron ucu yetkisiz istekte 401/403 dönmedi (${cronNoAuth.status}).`);
+
+  const cronBadBearer = await fetch(`${baseUrl}/api/cron/check-price-alerts`, {
+    headers: { Authorization: "Bearer wrong-secret" },
+  });
+  assert(cronBadBearer.status === 401 || cronBadBearer.status === 403, `Cron ucu yanlış Bearer ile 401/403 dönmedi (${cronBadBearer.status}).`);
+
+  // GÜVENLİK: query parametresiyle gelen DOĞRU secret bile yetki VERMEZ.
+  const cronQuerySecret = await fetch(`${baseUrl}/api/cron/check-price-alerts?secret=${encodeURIComponent(smokeCronSecret)}`);
+  assert(cronQuerySecret.status === 401 || cronQuerySecret.status === 403, `Cron ucu query secret ile yetki verdi (${cronQuerySecret.status}) — Bearer-only olmalı.`);
+
+  // Doğru Bearer auth katmanını GEÇMELİ (placeholder DB ortamında iş mantığı
+  // 500 dönebilir; 401/403 OLMAMASI yeterlidir).
+  const cronGoodBearer = await fetch(`${baseUrl}/api/cron/check-price-alerts?limit=1`, {
+    headers: { Authorization: `Bearer ${smokeCronSecret}` },
+  });
+  assert(cronGoodBearer.status !== 401 && cronGoodBearer.status !== 403, `Cron ucu doğru Bearer ile yetkilendirmedi (${cronGoodBearer.status}).`);
 
   const legacyGo = await fetch(`${baseUrl}/go/aviasales?url=${encodeURIComponent("https://www.aviasales.com/search")}`, { redirect: "manual" });
   assert([301, 302, 307, 308].includes(legacyGo.status), "Bilinmeyen /go sağlayıcısı güvenli şekilde yönlendirilmedi.");
@@ -91,7 +125,7 @@ async function run() {
     assert(response.ok, `${path} harita sayfası açılamadı.`);
   }
 
-  console.log("Smoke test başarılı: kaldırılmış uçuş uçları 410, admin koruması, eski doğrulama ve hesap silme yolu doğrulandı.");
+  console.log("Smoke test başarılı: uçuş arama uçları 410, fiyat alarmı uçları canlı, cron auth, admin koruması ve hesap silme yolu doğrulandı.");
 }
 
 try {

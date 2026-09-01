@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVisaAppointmentNotifications, markVisaAppointmentNotificationRead } from "../lib/api";
+import { getVisaAppointmentNotifications, listAlerts, markVisaAppointmentNotificationRead } from "../lib/api";
 import {
   getReadNotificationIds,
   getSavedRoutePlans,
   markNotificationsRead,
 } from "../lib/storage";
-import type { AppNotification, ViewId, VisaAppointmentNotification } from "../types";
+import type { AppNotification, FlightAlert, ViewId, VisaAppointmentNotification } from "../types";
 import { config, releaseId } from "../lib/config";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
@@ -28,6 +28,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   onUnreadChange: (count: number) => void;
 }) {
   const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
+  const [triggeredAlerts, setTriggeredAlerts] = useState<FlightAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [serverWarning, setServerWarning] = useState("");
   const [readIds, setReadIds] = useState<string[]>(() => getReadNotificationIds(ownerId));
@@ -43,6 +44,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
   useEffect(() => {
     setVisaNotifications([]);
+    setTriggeredAlerts([]);
     setServerWarning("");
     setLoading(false);
   }, [accessToken, ownerId]);
@@ -55,14 +57,16 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
     let active = true;
     setLoading(true);
     setServerWarning("");
-    void getVisaAppointmentNotifications(accessToken)
-      .then((items) => {
-        if (active) setVisaNotifications(items.slice(0, 10));
-      })
-      .catch(() => {
+    void Promise.allSettled([getVisaAppointmentNotifications(accessToken), listAlerts(accessToken)])
+      .then(([visaResult, alertResult]) => {
         if (!active) return;
-        setVisaNotifications([]);
-        setServerWarning("Bazı canlı bildirimler şu an alınamadı. Kayıtlı içerikler gösteriliyor.");
+        setVisaNotifications(visaResult.status === "fulfilled" ? visaResult.value.slice(0, 10) : []);
+        setTriggeredAlerts(alertResult.status === "fulfilled"
+          ? alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6)
+          : []);
+        if (visaResult.status === "rejected" || alertResult.status === "rejected") {
+          setServerWarning("Bazı canlı bildirimler şu an alınamadı. Kayıtlı içerikler gösteriliyor.");
+        }
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -88,6 +92,17 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       view: "trips",
     });
 
+    for (const alert of triggeredAlerts) items.push({
+      id: `price-${alert.id}-${alert.last_notified_at || alert.last_checked_price || "triggered"}`,
+      title: `${alert.origin_code} → ${alert.destination_code} fiyat alarmı`,
+      message: alert.last_checked_price
+        ? `${alert.departure_date} gidişi için son kontrol fiyatı ${new Intl.NumberFormat("tr-TR").format(alert.last_checked_price)} TL.`
+        : "Alarmın tetiklendi. Ayrıntılar için fiyat alarmlarını aç.",
+      createdAt: alert.last_notified_at || alert.last_checked_at || alert.created_at,
+      kind: "price",
+      view: "alerts",
+    });
+
     for (const notification of visaNotifications) items.push({
       id: `visa-${notification.id}`,
       title: notification.title || "Vize takibinde güncelleme",
@@ -97,7 +112,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       view: "passport",
     });
     return items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  }, [ownerId, storageTick, visaNotifications]);
+  }, [ownerId, storageTick, triggeredAlerts, visaNotifications]);
 
   const isRead = useCallback((item: AppNotification) => {
     if (readIds.includes(item.id)) return true;
@@ -137,7 +152,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       {notifications.map((item) => {
         const unreadItem = !isRead(item);
         return <button className={unreadItem ? "notification-item unread" : "notification-item"} key={item.id} onClick={() => openNotification(item)}>
-          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "passport"} size={20} /></span>
+          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "price" ? "bell" : item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "passport"} size={20} /></span>
           <span><strong>{item.title}</strong><small>{item.message}</small><em>{formatDate(item.createdAt)}</em></span>
           {unreadItem ? <i /> : <Icon name="chevron" size={16} />}
         </button>;

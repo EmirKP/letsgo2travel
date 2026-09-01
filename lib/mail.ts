@@ -12,8 +12,30 @@ export interface SendMailResult {
   providerId?: string;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  })[character] || character);
+}
 
+function safeMailUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? escapeHtml(url.toString()) : null;
+  } catch {
+    return null;
+  }
+}
 
+function formattedDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Tarih belirtilmedi" : date.toLocaleDateString("tr-TR");
+}
 
 /**
  * Sends an email using the Resend REST API via standard fetch.
@@ -106,4 +128,91 @@ export async function sendMailAndLog(params: SendMailParams & {
   }
 
   return result;
+}
+
+/** Generates the HTML for the price drop email. */
+export function generatePriceDropEmailHtml(params: {
+  originLabel: string;
+  destinationLabel: string;
+  departureDate: string;
+  basePrice: number;
+  newPrice: number;
+  ctaLink: string;
+  unsubscribeLink?: string | null;
+}): string {
+  const savings = Math.max(params.basePrice - params.newPrice, 0);
+  const savingPercentage = params.basePrice > 0 ? Math.round((savings / params.basePrice) * 100) : 0;
+  const originLabel = escapeHtml(params.originLabel);
+  const destinationLabel = escapeHtml(params.destinationLabel);
+  const ctaLink = safeMailUrl(params.ctaLink);
+  const unsubscribeLink = safeMailUrl(params.unsubscribeLink);
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px 20px; border-radius: 16px;">
+      <div style="background-color: #ffffff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); text-align: center;">
+        <div style="display:inline-block;background:#06183A;color:#FFB400;padding:8px 14px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.04em;margin-bottom:18px;">LETSGO2TRAVEL FİYAT ALARMI</div>
+        <h1 style="color: #06183A; font-size: 26px; margin-top: 0; margin-bottom: 24px;">Harika Haber! Fiyat Düştü ✈️</h1>
+        <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 32px;">
+          Takip ettiğiniz <strong>${originLabel} → ${destinationLabel}</strong> rotası için (${formattedDate(params.departureDate)}) daha uygun bir fiyat bulduk.
+        </p>
+        <div style="background: linear-gradient(135deg, #06183A 0%, #0E2A5C 100%); border-radius: 18px; padding: 26px; margin-bottom: 32px; color: white;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 16px;">
+            <span style="color: rgba(255,255,255,0.72); font-size: 14px;">Önceki referans fiyat:</span>
+            <span style="font-size: 16px; text-decoration: line-through; color: #cbd5e1;">${params.basePrice.toLocaleString("tr-TR")} ₺</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #FFB400; font-size: 16px; font-weight: bold;">Yeni fiyat:</span>
+            <span style="font-size: 30px; font-weight: 900; color: #fff;">${params.newPrice.toLocaleString("tr-TR")} ₺</span>
+          </div>
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(255,255,255,0.16); color: #2ECC71; font-weight: 800; font-size: 15px;">
+            ${savings > 0 ? `🎉 ${savings.toLocaleString("tr-TR")} ₺ (%${savingPercentage}) daha uygun` : "Yeni fiyat takip eşiğinize ulaştı"}
+          </div>
+        </div>
+        ${ctaLink ? `<a href="${ctaLink}" style="display: inline-block; background: linear-gradient(135deg,#FFB400,#FF6B35); color: #06183A; text-decoration: none; font-weight: 900; font-size: 16px; padding: 16px 32px; border-radius: 999px;">
+          Alarmlarımı Görüntüle
+        </a>` : ""}
+        ${unsubscribeLink ? `
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <a href="${unsubscribeLink}" style="color: #64748b; text-decoration: underline; font-size: 13px;">Bu alarmı kapat</a>
+        </div>` : ""}
+      </div>
+      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 32px; line-height: 1.5;">
+        Fiyatlar anlık değişebilir. LetsGo2Travel bilgilendirme amaçlı fiyat alarmı gönderir.
+      </p>
+    </div>
+  `;
+}
+
+/** Generates the HTML for the initial alert confirmation email. */
+export function generateAlertCreatedEmailHtml(params: {
+  originLabel: string;
+  destinationLabel: string;
+  departureDate: string;
+  unsubscribeLink: string | null;
+}): string {
+  const originLabel = escapeHtml(params.originLabel);
+  const destinationLabel = escapeHtml(params.destinationLabel);
+  const unsubscribeLink = safeMailUrl(params.unsubscribeLink);
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px 20px; border-radius: 16px;">
+      <div style="background-color: #ffffff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); text-align: center;">
+        <div style="display:inline-block;background:#06183A;color:#FFB400;padding:8px 14px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.04em;margin-bottom:18px;">LETSGO2TRAVEL</div>
+        <h1 style="color: #06183A; font-size: 26px; margin-top: 0; margin-bottom: 24px;">Fiyat Alarmınız Kuruldu 🔔</h1>
+        <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+          <strong>${originLabel} → ${destinationLabel}</strong> (${formattedDate(params.departureDate)}) rotası için uçak bileti fiyatlarını takip etmeye başladık.
+        </p>
+        <div style="background:#F7F9FC;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin:24px 0;text-align:left;color:#334155;line-height:1.6;">
+          <strong style="color:#06183A;">Nasıl çalışır?</strong><br>
+          Fiyat belirlediğiniz hedefe veya düşüş eşiğine yaklaşırsa size e-posta göndeririz. Alarmı istediğiniz zaman kapatabilirsiniz.
+        </div>
+        ${unsubscribeLink ? `
+        <a href="${unsubscribeLink}" style="display:inline-block;color:#E63946;text-decoration:underline;font-size:14px;font-weight:700;">Alarmı kapat</a>
+        ` : ""}
+      </div>
+      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 32px; line-height: 1.5;">
+        LetsGo2Travel Fiyat Alarm Sistemi
+      </p>
+    </div>
+  `;
 }

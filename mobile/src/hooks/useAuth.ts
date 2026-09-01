@@ -3,6 +3,7 @@ import { config, isSupabaseConfigured } from "../lib/config";
 import { ApiError, requestJson } from "../lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
 import { closeBrowser, openExternal } from "../lib/native";
+import { disablePush } from "../lib/push";
 import type { AuthSession, AuthUser } from "../types";
 
 const NATIVE_REDIRECT = "tr.com.letsgo2travel.app://auth/callback";
@@ -674,6 +675,14 @@ export function useAuth() {
 
   const signOut = async () => {
     const accessToken = session?.access_token;
+    // Çıkışta cihaz bildirim kaydının kapatılması, oturum temizlenmeden ÖNCE
+    // beklenir (kontrollü 4 sn timeout ile); başarısızlık çıkışı engellemez.
+    if (accessToken) {
+      await Promise.race([
+        disablePush(() => accessToken).catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 4000)),
+      ]);
+    }
     setSession(null);
     storageRemove(OAUTH_TRANSACTION_KEY);
     storageRemove(EMAIL_TRANSACTION_KEY);

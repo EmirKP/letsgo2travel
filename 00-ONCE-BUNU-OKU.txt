@@ -7,14 +7,16 @@ LetsGo2Travel bir seyahat isletim sistemidir: etkinlik/destinasyon kesfi,
 ucus haric seyahat butcesi, Seyahat Kokpiti (manuel ucus + PNR kaydi),
 ulke rehberleri, vize randevu asistani ve topluluk.
 
-Ucus arama/karsilastirma, ucus fiyat alarmi, ucus fiyati gosterimi ve
-harici ucus arama yonlendirmeleri urunden KALICI olarak kaldirilmistir.
-Eski ucus URL'leri kontrollu 410 doner ve hicbir is/veri uretmez.
+Ucus arama/karsilastirma, ucus fiyati karsilastirma kartlari ve harici
+ucus arama yonlendirmeleri urunden KALICI olarak kaldirilmistir; eski
+ucus arama URL'leri kontrollu 410 doner. BAGIMSIZ UCUS FIYAT ALARMI ise
+korunan bir YARDIMCI ARACTIR (01.09.2026 hotfix): kullanici rota/tarih/
+hedef fiyat girer, fiyat dusunce e-posta ve istege bagli telefon
+bildirimi alir (/fiyat-kontrolu). Cron tetikleyicisi cron-job.org'dadir.
 
 GUNCEL BELGELER
 ---------------
 - ASAMA0-DEGISIKLIK-RAPORU.md ................ bu depo surumunde ne degisti
-- docs/fiyat-alarmi-kapanis-eposta-plani.md .. kapanis bilgilendirmesi (GONDERILMEDI)
 - supabase/migrations/20260901*.sql .......... yeni ileri yonlu migration'lar
                                                (PRODUCTION'A UYGULANMADI; her biri
                                                ayri onay ister)

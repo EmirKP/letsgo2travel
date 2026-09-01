@@ -1,6 +1,6 @@
 export type TabId = "home" | "explore" | "route" | "trips" | "profile";
 
-export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community";
+export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts";
 
 export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required";
 
@@ -102,6 +102,26 @@ export type TravelVerification = {
   created_at?: string;
 };
 
+export type FlightAlert = {
+  id: string;
+  origin_code: string;
+  origin_label: string;
+  destination_code: string;
+  destination_label: string;
+  departure_date: string;
+  target_price?: number | null;
+  threshold_percent?: number | null;
+  base_price?: number | null;
+  last_checked_price?: number | null;
+  last_checked_at?: string | null;
+  last_notified_at?: string | null;
+  notify_email?: boolean;
+  notify_push?: boolean;
+  is_active?: boolean;
+  status?: string;
+  created_at: string;
+};
+
 export type AuthUser = {
   id: string;
   email?: string;
@@ -125,7 +145,7 @@ export type FavoriteDestination = {
   createdAt: string;
 };
 
-export type AppNotificationKind = "release" | "route" | "visa";
+export type AppNotificationKind = "release" | "route" | "visa" | "price";
 
 export type AppNotification = {
   id: string;
