@@ -139,19 +139,6 @@ export default function AdminSettingsPage() {
                   onBlur={(e) => e.target.style.borderColor = "transparent"}
                 />
               </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <label style={{ fontSize: "0.9rem", fontWeight: "700", color: "var(--l2t-navy)", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <LinkIcon size={16} color="var(--l2t-blue)" /> Travelpayouts Marker
-                </label>
-                <input 
-                  value={form.travelpayoutsMarker} 
-                  onChange={(e) => setForm({ ...form, travelpayoutsMarker: e.target.value })}
-                  style={{ padding: "14px 16px", borderRadius: "12px", border: "2px solid transparent", background: "#f8fafc", outline: "none", color: "var(--l2t-navy)", fontWeight: "500", transition: "all 0.2s", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)" }} 
-                  onFocus={(e) => e.target.style.borderColor = "var(--l2t-blue)"}
-                  onBlur={(e) => e.target.style.borderColor = "transparent"}
-                />
-              </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #e2e8f0", paddingTop: "28px" }}>

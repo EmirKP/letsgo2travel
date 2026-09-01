@@ -1,4 +1,4 @@
-const CACHE_NAME = "l2t-shell-v30";
+const CACHE_NAME = "l2t-shell-v31";
 const STATIC_ASSETS = [
   "/offline",
   "/icon-192.png",

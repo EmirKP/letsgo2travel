@@ -223,8 +223,6 @@ main { min-height: 75vh; }
 .l2t-card small { color: var(--l2t-blue); font-weight: 800; }
 .l2t-card-image { height: 130px; background-size: cover; background-position: center; }
 .l2t-card-topline { display: flex; justify-content: space-between; gap: 10px; color: #7A879A; font-size: .68rem; text-transform: uppercase; font-weight: 900; letter-spacing: .06em; margin-bottom: 8px; }
-.l2t-deal-bottom { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; }
-.l2t-deal-bottom strong, .l2t-price-line { color: var(--l2t-ink); font-size: 1.15rem; font-weight: 900; }
 .l2t-affiliate-card, .l2t-mini-card { padding: 22px; }
 
 .l2t-country-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
@@ -346,9 +344,7 @@ html, body { background: var(--l2t-page-bg); color: var(--l2t-ink); }
   box-shadow: 0 14px 36px rgba(8,28,63,.14);
 }
 .l2t-card-body { display: flex; min-height: 200px; flex-direction: column; }
-.l2t-card-body .l2t-deal-bottom, .l2t-card-body .l2t-btn { margin-top: auto; }
 .l2t-card-topline, .l2t-card small { color: var(--l2t-blue); }
-.l2t-deal-bottom strong, .l2t-price-line { color: var(--l2t-ink); }
 .l2t-card-image { position: relative; }
 .l2t-card-image::after {
   content: "";
@@ -670,36 +666,6 @@ main { background: transparent; }
   padding: 12px 18px 16px;
   border-radius: 12px;
 }
-.l2t-flight-widget { min-height: auto; }
-.l2t-search-tabs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 16px;
-}
-.l2t-search-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 116px;
-  border: 0;
-  border-radius: 7px;
-  padding: 10px 18px;
-  color: #0D1C44;
-  background: transparent;
-  font-weight: 900;
-  cursor: pointer;
-}
-.l2t-search-tab-active {
-  background: #08153A;
-  color: #FFFFFF;
-}
-.l2t-flight-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 2fr) 38px minmax(180px, 1.55fr) minmax(150px, 1.12fr) minmax(150px, 1.12fr) minmax(150px, 1.12fr) minmax(160px, 1.05fr);
-  align-items: end;
-  gap: 12px;
-}
 .l2t-booking-field {
   min-width: 0;
   display: grid;
@@ -761,17 +727,6 @@ main { background: transparent; }
   font-size: 1.25rem;
   cursor: pointer;
 }
-.l2t-flight-submit {
-  height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  color: #FFFFFF;
-  background: linear-gradient(135deg, #071746, #031132);
-  font-weight: 950;
-  box-shadow: 0 14px 24px rgba(4, 19, 50, .22);
-}
 .l2t-airport-check {
   display: inline-flex;
   align-items: center;
@@ -823,29 +778,6 @@ main { background: transparent; }
   border-radius: 12px;
   background: #F5F9FE;
 }
-.l2t-aviasales-box { padding: 14px 18px 12px; background: #FFFFFF; }
-.l2t-aviasales-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.l2t-aviasales-head strong { color: #081533; font-size: 1.35rem; }
-.l2t-aviasales-head span { color: #536276; font-weight: 800; font-size: .82rem; }
-.l2t-aviasales-box .l2t-search-card {
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-  border-radius: 0;
-}
-.l2t-aviasales-box .l2t-search-tabs { display: none; }
-.l2t-aviasales-box .l2t-flight-row {
-  grid-template-columns: minmax(150px, 1fr) 34px minmax(150px, 1fr) minmax(120px, .65fr) minmax(120px, .65fr) minmax(145px, .76fr) minmax(150px, .7fr);
-  gap: 10px;
-}
-.l2t-aviasales-box .l2t-flight-submit { background: linear-gradient(135deg, #177CFF, #0868EA); box-shadow: none; }
-.l2t-aviasales-box small { display: block; margin-top: 7px; text-align: right; color: #9AA7B9; }
 
 .l2t-daily-grid {
   display: grid;
@@ -876,14 +808,6 @@ main { background: transparent; }
 .l2t-card-image { height: 126px; background-size: cover; background-position: center; }
 .l2t-card-image::after { background: linear-gradient(180deg, transparent 50%, rgba(8, 21, 51, .18)); }
 .l2t-card-body { padding: 13px 14px 14px; min-height: 154px; }
-.l2t-card-body h3,
-.l2t-country-card h3,
-.l2t-affiliate-card h3,
-.l2t-mini-card h3,
-.l2t-timeline-card h3,
-.l2t-feature-list strong,
-.l2t-deal-bottom strong,
-.l2t-price-line { color: #081533; }
 .l2t-card-body p,
 .l2t-country-card p,
 .l2t-affiliate-card p,
@@ -897,9 +821,6 @@ main { background: transparent; }
   margin-bottom: 8px;
 }
 .l2t-card small { color: #69798E; }
-.l2t-deal-bottom { margin-top: 12px; }
-.l2t-deal-bottom strong { font-size: 1.1rem; }
-.l2t-deal-bottom .l2t-btn { padding: 7px 11px; border-radius: 8px; font-size: .78rem; }
 
 .l2t-popular-routes {
   padding: 18px;
@@ -1058,12 +979,7 @@ main { background: transparent; }
   .l2t-brand { min-width: 190px; }
   .l2t-brand-logo { width: 190px; }
   .l2t-nav { gap: 18px; }
-  .l2t-flight-row,
-  .l2t-aviasales-box .l2t-flight-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .l2t-swap-btn { display: none; }
-  .l2t-flight-submit { grid-column: 1 / -1; }
   .l2t-daily-grid,
   .l2t-partner-panel,
   .l2t-ai-section { grid-template-columns: 1fr; }
@@ -1095,19 +1011,7 @@ main { background: transparent; }
   .l2t-home-copy h1 { font-size: clamp(2.35rem, 11vw, 3.2rem); }
   .l2t-booking-overlap { margin-top: -58px; }
   .l2t-search-card { padding: 12px; }
-  .l2t-search-tabs { overflow-x: auto; padding-bottom: 3px; }
-  .l2t-search-tab { min-width: 102px; }
-  .l2t-flight-row,
-  .l2t-aviasales-box .l2t-flight-row,
-  .l2t-card-grid-2,
-  .l2t-card-grid-3,
-  .l2t-card-grid-4,
-  .l2t-country-grid,
-  .l2t-detail-grid,
-  .l2t-route-list,
-  .l2t-mini-benefits { grid-template-columns: 1fr; }
   .l2t-section-head { align-items: start; }
-  .l2t-partner-info, .l2t-aviasales-box { padding: 16px; }
   .l2t-trust-strip article { padding: 16px; }
   .l2t-ai-section, .l2t-planner-section { padding: 18px; }
   .l2t-section { padding: 26px 0; }
@@ -1566,34 +1470,6 @@ main { background: transparent; }
   transition: background .15s;
 }
 .l2t-login-btn:hover { background: rgba(255,255,255,.18); }
-
-/* ── FlightSearchCard: quick routes ── */
-.l2t-flight-quick-routes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--l2t-border);
-}
-.l2t-flight-quick-routes > span {
-  color: var(--l2t-muted);
-  font-size: .8rem;
-  font-weight: 800;
-}
-.l2t-flight-quick-routes button {
-  border: 1px solid var(--l2t-border);
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: #F7FAFE;
-  color: var(--l2t-soft);
-  font-size: .8rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: border-color .14s, color .14s, background .14s;
-}
-.l2t-flight-quick-routes button:hover { border-color: var(--l2t-blue); color: var(--l2t-blue); background: #EEF7FF; }
 .l2t-btn-disabled { opacity: .5; pointer-events: none; cursor: not-allowed; }
 
 /* ── Kampanyalar: stats + filter bar ── */
@@ -1675,10 +1551,6 @@ main { background: transparent; }
 .l2t-view-btn:hover { border-color: var(--l2t-blue); color: var(--l2t-blue); }
 .l2t-view-btn-active { background: var(--l2t-blue) !important; color: #fff !important; border-color: var(--l2t-blue) !important; }
 .l2t-filter-result { margin: 0 0 14px; color: var(--l2t-muted); font-size: .88rem; }
-.l2t-deal-list { display: grid; gap: 10px; }
-.l2t-deal-list .l2t-card { display: grid; grid-template-columns: 120px 1fr; border-radius: 14px; }
-.l2t-deal-list .l2t-card-image { height: 100%; min-height: 90px; border-radius: 14px 0 0 14px; }
-.l2t-deal-list .l2t-card-body { min-height: auto; padding: 12px 16px; }
 
 /* ── Harita: bölge blokları ── */
 .l2t-region-block { margin-bottom: 36px; }
@@ -1701,35 +1573,6 @@ main { background: transparent; }
 .l2t-region-header h2 { margin: 0 0 3px; font-size: 1.3rem; color: var(--l2t-ink); letter-spacing: -.02em; }
 .l2t-region-header p { margin: 0; color: var(--l2t-muted); font-size: .87rem; }
 .l2t-map-cta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
-
-/* ── Fiyat Alarmı ── */
-.l2t-alarm-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .85fr); gap: 22px; align-items: start; }
-.l2t-alarm-form-card { background: #FFFFFF; border: 1px solid var(--l2t-border); border-radius: 18px; box-shadow: var(--l2t-shadow); padding: 28px; }
-.l2t-alarm-form-card h2 { margin: 0 0 8px; font-size: 1.4rem; color: var(--l2t-ink); letter-spacing: -.025em; }
-.l2t-alarm-form-card > p { margin: 0 0 20px; color: var(--l2t-soft); line-height: 1.6; }
-.l2t-alarm-quick-routes { margin-bottom: 18px; }
-.l2t-alarm-quick-routes > span { display: block; font-size: .76rem; font-weight: 900; color: var(--l2t-muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-.l2t-alarm-form { display: grid; gap: 14px; }
-.l2t-alarm-route-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end; }
-.l2t-alarm-field { display: grid; gap: 6px; }
-.l2t-alarm-field span { font-size: .8rem; font-weight: 800; color: var(--l2t-muted); }
-.l2t-alarm-field input {
-  height: 46px; border: 1px solid var(--l2t-border); border-radius: 9px;
-  background: #FFFFFF; color: var(--l2t-ink); padding: 0 13px;
-  font-size: .96rem; font-weight: 700; outline: none; width: 100%;
-}
-.l2t-alarm-field input:focus { border-color: var(--l2t-blue); box-shadow: 0 0 0 3px rgba(20,118,242,.1); }
-.l2t-alarm-success { padding: 13px 16px; background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 10px; color: #065f46; font-weight: 800; font-size: .92rem; }
-.l2t-alarm-info { background: linear-gradient(135deg, #FFFFFF, #EEF7FF); border: 1px solid var(--l2t-border); border-radius: 18px; box-shadow: var(--l2t-shadow); padding: 26px; }
-.l2t-alarm-info h3 { margin: 0 0 14px; color: var(--l2t-ink); font-size: 1.15rem; }
-.l2t-alarm-steps { margin: 0 0 20px; padding-left: 20px; }
-.l2t-alarm-steps li { margin-bottom: 12px; color: var(--l2t-soft); line-height: 1.5; }
-.l2t-alarm-steps strong { display: block; color: var(--l2t-ink); font-size: .94rem; margin-bottom: 2px; }
-.l2t-alarm-steps span { font-size: .86rem; }
-.l2t-alarm-tips { padding: 14px; background: #F7FAFE; border-radius: 12px; border: 1px solid var(--l2t-border); }
-.l2t-alarm-tips h4 { margin: 0 0 10px; color: var(--l2t-ink); font-size: .9rem; }
-.l2t-alarm-tips ul { margin: 0; padding-left: 18px; }
-.l2t-alarm-tips li { color: var(--l2t-soft); font-size: .84rem; line-height: 1.65; margin-bottom: 5px; }
 
 /* ── Vize rehberi ── */
 .l2t-visa-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
@@ -1758,7 +1601,6 @@ main { background: transparent; }
 @media (max-width: 1040px) {
   .l2t-stats-strip { grid-template-columns: repeat(2, 1fr); }
   .l2t-visa-type-grid { grid-template-columns: repeat(2, 1fr); }
-  .l2t-alarm-layout { grid-template-columns: 1fr; }
   .l2t-map-cta-grid { grid-template-columns: repeat(2, 1fr); }
   .l2t-trust-strip { grid-template-columns: 1fr; }
 }
@@ -1767,9 +1609,6 @@ main { background: transparent; }
   .l2t-filter-bar { flex-direction: column; align-items: stretch; }
   .l2t-filter-group { min-width: 0; }
   .l2t-visa-type-grid { grid-template-columns: 1fr; }
-  .l2t-alarm-route-row { grid-template-columns: 1fr auto 1fr; }
-  .l2t-deal-list .l2t-card { grid-template-columns: 1fr; }
-  .l2t-deal-list .l2t-card-image { border-radius: 14px 14px 0 0; height: 120px; }
   .l2t-map-cta-grid { grid-template-columns: 1fr; }
   .l2t-map-cta-grid { grid-template-columns: 1fr; }
   .l2t-nav-dropdown { left: -80px; transform: none; }
@@ -1948,7 +1787,6 @@ main { background: transparent; }
 .hp-qr-flag { font-size: 1.4rem; }
 .hp-qr-city { font-weight: 800; }
 .hp-qr-tag { font-size: .75rem; background: rgba(0,0,0,.3); padding: 4px 8px; border-radius: 6px; }
-.hp-qr-price { color: var(--l2t-gold); font-weight: 900; margin-left: 4px; }
 
 @media (max-width: 768px) {
   .hp-hero-btns { flex-direction: column; }
@@ -2846,10 +2684,6 @@ main { background: transparent; }
     position: absolute;
     right: 20px;
   }
-  #ucus-ara {
-    padding: 20px 16px !important;
-    border-radius: 20px !important;
-  }
   .l2t-scroll-x {
     display: flex;
     overflow-x: auto;
@@ -2980,18 +2814,6 @@ main { background: transparent; }
 }
 
 @media (max-width: 680px) {
-  .l2t-flight-row, .l2t-aviasales-box .l2t-flight-row {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    width: 100% !important;
-  }
-  .l2t-flight-row > *:not(.l2t-swap-btn), .l2t-aviasales-box .l2t-flight-row > *:not(.l2t-swap-btn) {
-    width: 100% !important;
-  }
-}
-
-@media (max-width: 680px) {
   .l2t-swap-btn {
     margin: -16px auto !important;
     transform: rotate(90deg) !important;
@@ -3003,7 +2825,6 @@ main { background: transparent; }
     min-width: 44px !important;
   }
 }
-
 
 /* === MOBIL FIRST UTILITY CLASSES === */
 @media (max-width: 680px) {
@@ -3060,16 +2881,6 @@ main { background: transparent; }
 .bento-span-4 { grid-column: span 4; }
 @media (max-width: 900px) { .bento-span-4 { grid-column: span 2; } }
 @media (max-width: 600px) { .bento-span-2 { grid-column: span 1; } .bento-span-4 { grid-column: span 1; } }
-
-
-/* --- Flight Search Tabs (Mobile Contrast Fix) --- */
-.l2t-tab-active { display: flex; align-items: center; gap: 8px; background: #fff; color: var(--l2t-navy); border: none; padding: 12px 28px; border-radius: 100px; font-weight: 800; font-size: 1.05rem; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-.l2t-tab-inactive { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.3); color: #fff; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.4); padding: 12px 28px; border-radius: 100px; font-weight: 600; font-size: 1.05rem; cursor: pointer; text-decoration: none; transition: background 0.2s; }
-.l2t-tab-inactive:hover { background: rgba(255,255,255,0.4); }
-@media (max-width: 900px) {
-  .l2t-tab-inactive { background: rgba(0,0,0,0.05); color: #475569; border: 1px solid rgba(0,0,0,0.1); backdrop-filter: none; }
-  .l2t-tab-inactive:hover { background: rgba(0,0,0,0.08); }
-}
 
 /* --- Premium Plane Loading Animation --- */
 @keyframes l2t-plane-enter {
@@ -3451,7 +3262,6 @@ main { background: transparent; }
     animation: none !important;
   }
 }
-
 
 /* ──────────────────────────────────────────────
    Performance patch: smoother scrolling and lighter first load
@@ -4196,36 +4006,6 @@ main { background: transparent; }
   }
 }
 
-
-/* Uçak bileti sayfası fiyat alarmı görünür alan */
-.l2t-flight-alert-section {
-  margin-top: 34px;
-  padding: 26px;
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 180, 0, 0.08));
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
-}
-.l2t-flight-alert-section .l2t-section-head {
-  margin-bottom: 20px;
-}
-.l2t-flight-alert-section .l2t-section-head h2 {
-  margin: 8px 0 8px;
-  color: #FFFFFF;
-  font-size: clamp(1.45rem, 2.6vw, 2.25rem);
-  letter-spacing: -0.035em;
-}
-.l2t-flight-alert-section .l2t-section-head p {
-  margin: 0;
-  max-width: 760px;
-  color: rgba(255, 255, 255, 0.76);
-  line-height: 1.65;
-}
-.l2t-flight-alert-section .l2t-alarm-form-card,
-.l2t-flight-alert-section .l2t-alarm-info {
-  background: rgba(255, 255, 255, 0.96);
-}
-
 /* Ülke rehberi SEO içerik blokları */
 .l2t-country-seo-block {
   margin-top: 34px;
@@ -4503,23 +4283,6 @@ body {
   padding: 2.2rem 0;
 }
 
-.l2t-btn,
-.l2t-button-gold,
-.l2t-login-btn,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit {
-  background: linear-gradient(135deg, var(--l2t-gold) 0%, var(--l2t-gold-deep) 100%) !important;
-  color: var(--l2t-navy) !important;
-  box-shadow: 0 14px 30px rgba(245, 184, 46, 0.28) !important;
-}
-
-.l2t-btn:hover,
-.l2t-button-gold:hover:not(:disabled),
-.l2t-login-btn:hover,
-.l2t-flight-submit:hover {
-  box-shadow: 0 18px 38px rgba(245, 184, 46, 0.36) !important;
-}
-
 .l2t-btn-ghost,
 .l2t-btn-outline,
 .l2t-button-blue {
@@ -4539,19 +4302,6 @@ body {
 .l2t-ai-mini-label,
 .l2t-ai-metric-row strong {
   color: var(--l2t-gold-deep) !important;
-}
-
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: var(--l2t-navy) !important;
-  color: #FFFFFF !important;
-  border-color: rgba(245, 184, 46, 0.22) !important;
-  box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 10px 22px rgba(11, 29, 53, 0.14) !important;
-}
-
-.l2t-tab-active svg,
-.l2t-search-tab-active svg {
-  color: var(--l2t-gold) !important;
 }
 
 .l2t-card,
@@ -4760,7 +4510,6 @@ body {
   }
 }
 
-
 /* ─────────────────────────────────────────────────────────────
    LetsGo2Travel Tasarım Düzeltme V2
    Seyahat sitesi için daha ferah: lacivert güven, okyanus ferahlığı,
@@ -4856,24 +4605,6 @@ body::before {
   background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-deep)) !important;
   color: var(--l2t-night) !important;
   box-shadow: 0 12px 24px rgba(242, 184, 75, 0.24) !important;
-}
-
-/* Buton sistemi: gold birincil, ocean ikincil */
-.l2t-btn,
-.l2t-button-gold,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit {
-  background: linear-gradient(135deg, var(--l2t-gold), var(--l2t-gold-deep)) !important;
-  color: var(--l2t-night) !important;
-  border: 0 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 14px 30px rgba(242, 184, 75, 0.25) !important;
-}
-.l2t-btn:hover,
-.l2t-button-gold:hover:not(:disabled),
-.l2t-flight-submit:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 18px 40px rgba(242, 184, 75, 0.34) !important;
 }
 .l2t-btn-ghost,
 .l2t-btn-outline,
@@ -5026,22 +4757,6 @@ textarea {
 .hp-search-wrap {
   margin-top: -76px !important;
 }
-.hp-search-wrap .l2t-search-card,
-.l2t-aviasales-box,
-.l2t-flight-card {
-  border-radius: 26px !important;
-  border: 1px solid rgba(221, 233, 243, 0.95) !important;
-  box-shadow: 0 24px 58px rgba(11, 35, 65, 0.16) !important;
-}
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: var(--l2t-navy) !important;
-  color: #FFFFFF !important;
-  border-color: rgba(242,184,75,.24) !important;
-  box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 10px 22px rgba(11, 35, 65, 0.14) !important;
-}
-.l2t-search-tab-active svg,
-.l2t-tab-active svg { color: var(--l2t-gold) !important; }
 
 /* Mobil ana kısayollar: rainbow ikonlar kaldırıldı */
 .l2t-app-shortcut-grid {
@@ -5397,8 +5112,6 @@ h1, h2, h3,
   color: #FFFFFF !important;
   box-shadow: 0 12px 28px rgba(4,17,34,.18) !important;
 }
-.hp-qr-price,
-.l2t-route-price { color: #F7C45B !important; }
 
 /* Search card and tabs: inactive hotel tab readable */
 .l2t-search-card {
@@ -5407,31 +5120,6 @@ h1, h2, h3,
   border-radius: 26px !important;
   box-shadow: 0 22px 56px rgba(7, 29, 54, .18) !important;
   color: #122033 !important;
-}
-.l2t-search-tabs {
-  display: flex !important;
-  gap: 12px !important;
-  align-items: center !important;
-  position: relative !important;
-  z-index: 2 !important;
-}
-.l2t-search-tab {
-  min-width: 142px !important;
-  min-height: 54px !important;
-  padding: 0 22px !important;
-  border-radius: 999px !important;
-  border: 1px solid #DDE8F2 !important;
-  background: #FFFFFF !important;
-  color: #122033 !important;
-  box-shadow: 0 8px 18px rgba(7,29,54,.08) !important;
-  opacity: 1 !important;
-}
-.l2t-search-tab svg { color: currentColor !important; stroke: currentColor !important; }
-.l2t-search-tab-active {
-  background: #08213D !important;
-  color: #FFFFFF !important;
-  border-color: #08213D !important;
-  box-shadow: inset 0 -3px 0 #F7C45B, 0 12px 22px rgba(8,33,61,.20) !important;
 }
 .l2t-booking-field span,
 .l2t-booking-field small,
@@ -5485,23 +5173,6 @@ h1, h2, h3,
   background: rgba(255,255,255,.16) !important;
   border-color: rgba(247,196,91,.65) !important;
 }
-
-/* Cards and panels: airy travel-site rhythm */
-.l2t-card,
-.l2t-content-card,
-.l2t-country-card,
-.hp-why-card,
-.l2t-conversion-card,
-.l2t-affiliate-card,
-.l2t-mini-card,
-.l2t-trust-strip article,
-.l2t-alarm-form-card,
-.l2t-alarm-info {
-  background: #FFFFFF !important;
-  color: #122033 !important;
-  border: 1px solid #DDE8F2 !important;
-  box-shadow: 0 14px 34px rgba(11, 35, 65, .09) !important;
-}
 .l2t-card p,
 .l2t-content-card p,
 .l2t-country-card p,
@@ -5553,7 +5224,6 @@ h1, h2, h3,
     font-size: clamp(2.35rem, 10.5vw, 3.55rem) !important;
   }
   .l2t-search-card { border-radius: 22px !important; }
-  .l2t-search-tab { min-width: 128px !important; }
 }
 
 /* ─────────────────────────────────────────────
@@ -5624,16 +5294,6 @@ p, li, small, span, label {
   font-family: var(--l2t-font-body) !important;
   font-size: .92rem !important;
   font-weight: 600 !important;
-  letter-spacing: 0 !important;
-}
-.l2t-header-right .l2t-btn,
-.l2t-btn,
-.hp-btn-primary,
-.hp-btn-ghost,
-.l2t-search-tab,
-.planner-card button {
-  font-family: var(--l2t-font-body) !important;
-  font-weight: 650 !important;
   letter-spacing: 0 !important;
 }
 
@@ -5751,30 +5411,6 @@ p, li, small, span, label {
   color: var(--l2t-muted-clean) !important;
   line-height: 1.66 !important;
 }
-.l2t-kicker,
-.l2t-card-topline,
-.l2t-filter-label,
-.l2t-alarm-quick-routes > span {
-  font-size: .76rem !important;
-  font-weight: 650 !important;
-  letter-spacing: .06em !important;
-  color: var(--l2t-blue-clean) !important;
-}
-
-/* Arama sekmeleri: okunur, abartısız */
-.l2t-search-tab {
-  min-height: 52px !important;
-  border-radius: 18px !important;
-  color: #20324A !important;
-  background: #FFFFFF !important;
-  font-size: .98rem !important;
-  box-shadow: 0 6px 16px rgba(8, 29, 53, .08) !important;
-}
-.l2t-search-tab-active {
-  background: #071D35 !important;
-  color: #FFFFFF !important;
-  box-shadow: inset 0 -3px 0 #F2B93B, 0 12px 22px rgba(8,33,61,.18) !important;
-}
 
 /* AI alanı: beyaz üstü beyaz / gölge karmaşası bitir */
 .planner-card.text-center h1,
@@ -5797,16 +5433,14 @@ p, li, small, span, label {
   }
   .l2t-nav-link,
   .l2t-nav a { font-size: .88rem !important; }
-  .l2t-search-tab { min-width: 120px !important; }
 }
-
 
 /* ══════════════════════════════════════
    LETSGO2TRAVEL DESIGN FIX V5
    Hero ticket separation, cleaner badge, stable dropdown
    ══════════════════════════════════════ */
 
-/* Hero sağdaki biletleri üst üste binmeyen temiz düzene al */
+/* Hero sağ kartları üst üste binmeyen temiz düzene al */
 .hp-floating-art {
   height: 430px !important;
   max-width: 520px !important;
@@ -6001,19 +5635,9 @@ p, li, small, span, label {
   color: #FFF2A0 !important;
 }
 
-.hp-badge svg,
-.l2t-live-badge svg,
-.l2t-tab-active svg,
-.hp-qr-price,
-.l2t-logo-two,
-.l2t-logo-plane {
-  color: #FFDF00 !important;
-}
-
 .l2t-tab-active {
   box-shadow: inset 0 -3px 0 #FFDF00, 0 10px 22px rgba(11, 29, 53, 0.14) !important;
 }
-
 
 /* ══════════════════════════════════════
    LETSGO2TRAVEL PREMIUM BALANCE V7
@@ -6034,16 +5658,6 @@ p, li, small, span, label {
   --l2t-page-bg: #F6FAFD !important;
   --l2t-ink-clean: #102033 !important;
   --l2t-muted-clean: #64758A !important;
-}
-
-/* Sarı: sadece CTA ve küçük marka vurgusu. Link/mavi sistem tekrar teal kalsın. */
-.l2t-text-link,
-.l2t-kicker,
-.l2t-card small,
-.l2t-country-card small,
-.l2t-filter-label,
-.l2t-alarm-quick-routes > span {
-  color: var(--l2t-ocean-deep) !important;
 }
 
 .l2t-btn,
@@ -6104,7 +5718,7 @@ p, li, small, span, label {
   height: 14px !important;
 }
 
-/* Hero biletleri: iç içe geçmesin; temiz, aralıklı premium liste */
+/* Hero kartları: iç içe geçmesin; temiz, aralıklı premium liste */
 .hp-floating-art {
   display: flex !important;
   flex-direction: column !important;
@@ -6190,23 +5804,6 @@ p, li, small, span, label {
   color: #0E7A8A !important;
 }
 
-/* Search tab aktif çizgi ve marka vurgusu temiz sarı olsun */
-.l2t-search-tab-active,
-.l2t-tab-active {
-  box-shadow: inset 0 -3px 0 #FFDF00, 0 12px 22px rgba(8,33,61,.18) !important;
-}
-.l2t-home-copy h1 em,
-.hp-hero-copy h1 em,
-.l2t-hero-copy h1 em,
-.l2t-home-copy h1 span,
-.hp-hero-copy h1 span,
-.hp-qr-price,
-.l2t-route-price,
-.l2t-logo-two,
-.l2t-logo-plane {
-  color: #FFDF00 !important;
-}
-
 @media (max-width: 1180px) {
   .hp-floating-art {
     width: 440px !important;
@@ -6222,7 +5819,6 @@ p, li, small, span, label {
   .hp-badge,
   .l2t-live-badge { display: none !important; }
 }
-
 
 /* ══════════════════════════════════════
    LETSGO2TRAVEL PREMIUM COLOR SYSTEM V8
@@ -6415,7 +6011,7 @@ body::before { display: none !important; }
   letter-spacing: .05em !important;
 }
 
-/* Hero sağ biletleri: beyaz kart, sarısız, sakin */
+/* Hero sağ kartları: beyaz kart, sarısız, sakin */
 .hp-floating-art {
   gap: 16px !important;
   min-height: 460px !important;
@@ -6444,34 +6040,6 @@ body::before { display: none !important; }
 .floating-ticket .tic-body p {
   color: var(--l2t-muted) !important;
 }
-
-/* Ana buton sistemi: düz sarı, pahalı ve net; gradient yok */
-.l2t-btn,
-.l2t-button-gold,
-.l2t-btn-primary,
-.hp-cta-primary,
-.hp-btn-primary,
-.l2t-mobile-fab,
-.l2t-nav-cta,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit {
-  background: #FFDF00 !important;
-  color: var(--l2t-navy) !important;
-  border: 1px solid rgba(7, 27, 51, .10) !important;
-  border-radius: 14px !important;
-  font-weight: 700 !important;
-  box-shadow: 0 12px 24px rgba(255, 223, 0, .18) !important;
-}
-.l2t-btn:hover,
-.l2t-button-gold:hover:not(:disabled),
-.l2t-btn-primary:hover:not(:disabled),
-.hp-cta-primary:hover,
-.hp-btn-primary:hover,
-.l2t-flight-submit:hover {
-  background: #FFE84A !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 16px 32px rgba(255, 223, 0, .22) !important;
-}
 .l2t-btn-ghost,
 .l2t-btn-outline,
 .hp-btn-ghost,
@@ -6480,29 +6048,6 @@ body::before { display: none !important; }
   color: var(--l2t-navy) !important;
   border: 1px solid var(--l2t-border) !important;
   box-shadow: 0 8px 18px rgba(7, 27, 51, .07) !important;
-}
-
-/* Kartlar ve arama: bol beyaz, az renk, net okunurluk */
-.l2t-search-card,
-.l2t-card,
-.l2t-content-card,
-.l2t-country-card,
-.hp-why-card,
-.l2t-conversion-card,
-.l2t-affiliate-card,
-.l2t-mini-card,
-.l2t-trust-strip article,
-.l2t-alarm-form-card,
-.l2t-alarm-info,
-.l2t-admin-form,
-.l2t-admin-list,
-.l2t-ai-box,
-.l2t-map-card,
-.l2t-empty-state {
-  background: #FFFFFF !important;
-  color: var(--l2t-ink) !important;
-  border: 1px solid var(--l2t-border) !important;
-  box-shadow: var(--l2t-shadow) !important;
 }
 .l2t-card:hover,
 .l2t-country-card:hover,
@@ -6521,15 +6066,6 @@ body::before { display: none !important; }
 .l2t-muted,
 .l2t-disclaimer {
   color: var(--l2t-soft) !important;
-}
-.l2t-kicker,
-.l2t-text-link,
-.l2t-card small,
-.l2t-country-card small,
-.l2t-filter-label,
-.l2t-alarm-quick-routes > span,
-.l2t-conversion-card small {
-  color: var(--l2t-ocean-deep) !important;
 }
 
 /* Dönüşüm paneli: sarı radyal yok, premium beyaz kart */
@@ -6559,21 +6095,6 @@ body::before { display: none !important; }
   color: var(--l2t-ocean-deep) !important;
   border: 1px solid rgba(8, 126, 139, .14) !important;
   box-shadow: none !important;
-}
-
-/* Arama sekmeleri: aktif lacivert + ince sarı çizgi */
-.l2t-search-tab {
-  background: #FFFFFF !important;
-  color: var(--l2t-ink) !important;
-  border: 1px solid var(--l2t-border) !important;
-  box-shadow: 0 6px 16px rgba(7, 27, 51, .06) !important;
-}
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: var(--l2t-navy) !important;
-  color: #FFFFFF !important;
-  border-color: var(--l2t-navy) !important;
-  box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 12px 22px rgba(7, 27, 51, .14) !important;
 }
 .l2t-booking-field input,
 .l2t-booking-field select,
@@ -6733,60 +6254,6 @@ main {
   border: 1px solid rgba(255, 223, 0, .30) !important;
   border-left: 3px solid var(--l2t-gold) !important;
 }
-
-/* Arama kutusu hâlâ açık; ama düz beyaz değil, sıcak premium yüzey. */
-.l2t-search-card,
-.l2t-aviasales-box,
-.l2t-partner-panel {
-  background: linear-gradient(135deg, #FFFEF8 0%, #F4FAFC 100%) !important;
-  border: 1px solid rgba(216, 228, 236, .95) !important;
-  box-shadow: 0 24px 60px rgba(6, 23, 45, .18) !important;
-}
-.l2t-search-tab {
-  background: rgba(255,255,255,.72) !important;
-  color: var(--l2t-navy) !important;
-  border: 1px solid rgba(216, 228, 236, .9) !important;
-}
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: var(--l2t-navy) !important;
-  color: #FFFFFF !important;
-  box-shadow: inset 0 -3px 0 var(--l2t-gold), 0 14px 28px rgba(6, 23, 45, .18) !important;
-}
-
-/* Genel kartlar: saf beyaz yerine kırık beyaz / gökyüzü / kum dengesi. */
-.l2t-card,
-.l2t-content-card,
-.l2t-country-card,
-.hp-why-card,
-.l2t-affiliate-card,
-.l2t-mini-card,
-.l2t-trust-strip,
-.l2t-trust-strip article,
-.l2t-popular-routes,
-.l2t-planner-section,
-.l2t-cta-band,
-.l2t-ai-box,
-.l2t-map-card,
-.l2t-empty-state,
-.l2t-admin-form,
-.l2t-admin-list,
-.l2t-alarm-form-card,
-.l2t-alarm-info,
-.l2t-table-wrap,
-.l2t-feature-list,
-.l2t-split > div:first-child,
-.l2t-ai-command-copy,
-.l2t-ai-planner-card,
-.l2t-smart-scenario-card,
-.l2t-route-matrix article,
-.l2t-checklist-card,
-.l2t-editorial-grid article {
-  background: linear-gradient(135deg, #FFFEF8 0%, #F6FAFC 100%) !important;
-  color: var(--l2t-ink) !important;
-  border: 1px solid var(--l2t-border) !important;
-  box-shadow: var(--l2t-shadow) !important;
-}
 .l2t-route-list a,
 .l2t-info-card,
 .l2t-soft-band,
@@ -6844,27 +6311,6 @@ main {
   color: var(--l2t-navy) !important;
   border-color: rgba(255, 223, 0, .28) !important;
 }
-
-/* Buton: sarı sadece aksiyon. */
-.l2t-btn,
-.l2t-button-gold,
-.l2t-btn-primary,
-.hp-cta-primary,
-.hp-btn-primary,
-.l2t-mobile-fab,
-.l2t-nav-cta,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit {
-  background: var(--l2t-gold) !important;
-  color: var(--l2t-navy) !important;
-  border: 1px solid rgba(6, 23, 45, .12) !important;
-  box-shadow: 0 14px 28px rgba(255, 223, 0, .20) !important;
-}
-.l2t-btn:hover,
-.l2t-button-gold:hover:not(:disabled),
-.l2t-flight-submit:hover {
-  background: var(--l2t-gold-hover) !important;
-}
 .l2t-btn-ghost,
 .l2t-btn-outline,
 .hp-btn-ghost,
@@ -6883,14 +6329,6 @@ main {
   background: var(--l2t-ocean-soft) !important;
   color: var(--l2t-ocean-deep) !important;
   border: 1px solid rgba(11,143,156,.14) !important;
-}
-.l2t-kicker,
-.l2t-text-link,
-.l2t-card small,
-.l2t-country-card small,
-.l2t-filter-label,
-.l2t-alarm-quick-routes > span {
-  color: var(--l2t-ocean-deep) !important;
 }
 
 /* Güven / AI / footer gibi bantlarda lacivert kullanılacak. */
@@ -7009,8 +6447,6 @@ main {
   .l2t-header .l2t-logo-text { font-size: 1.12rem !important; }
   .l2t-header .l2t-logo-plane svg { width: 18px !important; height: 18px !important; }
 }
-
-
 
 /* === L2T HAZIR RENK KONTRAST V15 START === */
 /*
@@ -7150,7 +6586,6 @@ main {
 
 /* === L2T HAZIR RENK KONTRAST V15 END === */
 
-
 /* === L2T PANEL KONTRAST FIX V16 START === */
 /* Ana sayfadaki "Seyahate tek akıştan başla" bölümünde koyu zemin / görünmeyen yazı sorununu düzeltir. Layout'a dokunmaz. */
 
@@ -7244,7 +6679,6 @@ main {
 }
 /* === L2T PANEL KONTRAST FIX V16 END === */
 
-
 /* === L2T BOOKING SARI V17 START === */
 /* Sadece sarı vurgu tonunu Booking tarzı #FFB700 çizgisine çeker. Layout/font/component yapısına dokunmaz. */
 :root {
@@ -7256,56 +6690,6 @@ main {
   --l2t-yellow: #FFB700 !important;
 }
 
-/* Ana sarı CTA ve vurgu alanları */
-.l2t-button-gold,
-.l2t-btn-primary,
-.hp-cta-primary,
-.hp-btn-primary,
-.l2t-mobile-fab,
-.l2t-nav-cta,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit,
-.l2t-conversion-icon,
-.shortcut-icon,
-.hp-why-icon,
-.l2t-card-icon,
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: #FFB700 !important;
-  color: #071B33 !important;
-  border-color: rgba(255, 183, 0, 0.42) !important;
-  box-shadow: 0 14px 30px rgba(255, 183, 0, 0.22) !important;
-}
-
-.l2t-button-gold:hover:not(:disabled),
-.l2t-btn-primary:hover:not(:disabled),
-.hp-cta-primary:hover,
-.hp-btn-primary:hover,
-.l2t-nav-cta:hover,
-.l2t-flight-submit:hover,
-.l2t-aviasales-box .l2t-flight-submit:hover {
-  background: #E6A300 !important;
-  color: #071B33 !important;
-  box-shadow: 0 18px 36px rgba(230, 163, 0, 0.28) !important;
-}
-
-/* Sarı metin vurguları */
-.l2t-logo-text strong,
-.l2t-logo-text .accent,
-.l2t-brand strong,
-.hp-title-accent,
-.hp-hero-title strong,
-.hp-hero-title em,
-.l2t-price,
-.l2t-route-price,
-.l2t-card small,
-.l2t-conversion-card small,
-.l2t-footer a:hover,
-.l2t-mobile-active {
-  color: #FFB700 !important;
-  -webkit-text-fill-color: #FFB700 !important;
-}
-
 /* Sarı çizgi / border / badge */
 .hp-eyebrow,
 .l2t-kicker,
@@ -7315,11 +6699,6 @@ main {
 .l2t-search-shell,
 .l2t-search-card {
   border-color: rgba(255, 183, 0, 0.45) !important;
-}
-
-.l2t-search-tab-active,
-.l2t-tab-active {
-  box-shadow: inset 0 -3px 0 #FFB700, 0 12px 28px rgba(7, 27, 51, 0.16) !important;
 }
 
 /* Açık sarı zemin gereken yerler */
@@ -7401,49 +6780,7 @@ main {
     linear-gradient(180deg, rgba(246, 250, 253, 0) 0%, rgba(246, 250, 253, 0.96) 46%, #F6FAFD 100%) !important;
 }
 
-.hp-search-wrap .l2t-search-card,
-.l2t-aviasales-box,
-.l2t-flight-card {
-  background: #FFFFFF !important;
-  box-shadow: 0 22px 54px rgba(11, 35, 65, 0.14) !important;
-}
-
-/* Sarıyı turuncudan uzaklaştır: daha açık, daha sakin, cırtlamayan gold */
-.l2t-button-gold,
-.l2t-btn-primary,
-.hp-cta-primary,
-.hp-btn-primary,
-.l2t-mobile-fab,
-.l2t-nav-cta,
-.l2t-header-cta,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit,
-.l2t-conversion-icon,
-.shortcut-icon,
-.hp-why-icon,
-.l2t-card-icon,
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: #F6C343 !important;
-  color: #071B33 !important;
-  border-color: rgba(246, 195, 67, 0.40) !important;
-  box-shadow: 0 14px 30px rgba(246, 195, 67, 0.20) !important;
-}
-
-.l2t-button-gold:hover:not(:disabled),
-.l2t-btn-primary:hover:not(:disabled),
-.hp-cta-primary:hover,
-.hp-btn-primary:hover,
-.l2t-nav-cta:hover,
-.l2t-header-cta:hover,
-.l2t-flight-submit:hover,
-.l2t-aviasales-box .l2t-flight-submit:hover {
-  background: #EAB308 !important;
-  color: #071B33 !important;
-  box-shadow: 0 18px 36px rgba(234, 179, 8, 0.25) !important;
-}
-
-/* Logo ve Bilet Ara turuncuya kaymasın: sarı-gold, temiz kalsın */
+/* Logo turuncuya kaymasın: sarı-gold, temiz kalsın */
 .l2t-logo-two,
 .l2t-logo-plane,
 .l2t-logo-text strong,
@@ -7462,25 +6799,6 @@ main {
   color: #071B33 !important;
 }
 
-/* Sarı metin vurguları aynı tona çekildi; turuncu hissi azaltıldı */
-.hp-title-accent,
-.hp-hero-title strong,
-.hp-hero-title em,
-.hp-hero-copy h1 em,
-.l2t-price,
-.l2t-route-price,
-.hp-qr-price,
-.l2t-footer a:hover,
-.l2t-mobile-active {
-  color: #F6C343 !important;
-  -webkit-text-fill-color: #F6C343 !important;
-}
-
-.l2t-search-tab-active,
-.l2t-tab-active {
-  box-shadow: inset 0 -3px 0 #F6C343, 0 12px 28px rgba(7, 27, 51, 0.14) !important;
-}
-
 .l2t-badge-gold,
 .l2t-conversion-head span,
 .hp-eyebrow,
@@ -7488,29 +6806,6 @@ main {
   background: rgba(246, 195, 67, 0.13) !important;
   border-color: rgba(246, 195, 67, 0.28) !important;
   color: #071B33 !important;
-}
-
-/* CTA ve ikon SVG'lerinde yazı/ikon net kalsın */
-.l2t-button-gold svg,
-.l2t-button-gold path,
-.l2t-btn-primary svg,
-.l2t-btn-primary path,
-.l2t-header-cta svg,
-.l2t-header-cta path,
-.l2t-nav-cta svg,
-.l2t-nav-cta path,
-.l2t-flight-submit svg,
-.l2t-flight-submit path,
-.l2t-conversion-icon svg,
-.l2t-conversion-icon path,
-.shortcut-icon svg,
-.shortcut-icon path,
-.hp-why-icon svg,
-.hp-why-icon path,
-.l2t-card-icon svg,
-.l2t-card-icon path {
-  color: #071B33 !important;
-  stroke: #071B33 !important;
 }
 
 /* Koyu hero üstünde rozet yazısı okunur kalsın */
@@ -7560,15 +6855,6 @@ main {
     linear-gradient(180deg, rgba(246, 250, 253, 0) 0%, #F6FAFD 36%, #F6FAFD 100%) !important;
 }
 
-/* Arama kartının etrafındaki parlamayı daha temiz ve homojen yap. */
-.hp-search-wrap .l2t-search-card,
-.l2t-aviasales-box,
-.l2t-flight-card {
-  background: #FFFFFF !important;
-  border-color: rgba(226, 232, 240, 0.95) !important;
-  box-shadow: 0 24px 56px rgba(11, 35, 65, 0.12) !important;
-}
-
 /* Otel sekmesi görünmüyor: pasif sekmeyi açık zeminde okunur yap. */
 .l2t-tab-inactive,
 a.l2t-tab-inactive,
@@ -7602,41 +6888,7 @@ button.l2t-tab-inactive:hover {
   border-color: rgba(244, 194, 78, 0.46) !important;
 }
 
-/* Aktif Uçak bileti sekmesi: sarıyı biraz aç, cırt görünümü azalt. */
-.l2t-tab-active,
-.l2t-search-tab-active {
-  background: #F4C24E !important;
-  color: #071B33 !important;
-  -webkit-text-fill-color: #071B33 !important;
-  border-color: rgba(244, 194, 78, 0.42) !important;
-  box-shadow: 0 14px 30px rgba(244, 194, 78, 0.20) !important;
-}
-
-.l2t-tab-active svg,
-.l2t-tab-active path,
-.l2t-search-tab-active svg,
-.l2t-search-tab-active path {
-  color: #071B33 !important;
-  stroke: #071B33 !important;
-}
-
-/* Arama butonu sarısı aynı sakin tona otursun. */
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit {
-  background: #F4C24E !important;
-  color: #071B33 !important;
-  -webkit-text-fill-color: #071B33 !important;
-  border-color: rgba(244, 194, 78, 0.42) !important;
-  box-shadow: 0 16px 34px rgba(244, 194, 78, 0.20) !important;
-}
-
-.l2t-flight-submit:hover,
-.l2t-aviasales-box .l2t-flight-submit:hover {
-  background: #E7B63A !important;
-  color: #071B33 !important;
-}
-
-/* Logo ve header Bilet Ara alanı turuncuya kaymasın; gold çizgisinde kalsın. */
+/* Logo ve header aksiyon alanı turuncuya kaymasın; gold çizgisinde kalsın. */
 .l2t-logo-two,
 .l2t-logo-plane,
 .l2t-logo-text strong,
@@ -7701,29 +6953,6 @@ body {
 .l2t-mobile-link {
   color: rgba(255,255,255,0.92) !important;
   -webkit-text-fill-color: rgba(255,255,255,0.92) !important;
-}
-
-/* Gold-yellow sadece marka işaretleri, ikonlar ve aktif semboller */
-.l2t-logo-two,
-.l2t-logo-plane,
-.l2t-logo-text strong,
-.l2t-logo-text .accent,
-.l2t-brand strong,
-.l2t-brand .accent,
-.l2t-nav-active,
-.l2t-nav a:hover,
-.l2t-nav-link:hover,
-.l2t-nav-dropdown-trigger:hover,
-.l2t-mobile-active,
-.hp-qr-price,
-.l2t-route-price,
-.l2t-price,
-.l2t-kicker,
-.l2t-card small,
-.l2t-country-card small,
-.l2t-text-link {
-  color: #F5B800 !important;
-  -webkit-text-fill-color: #F5B800 !important;
 }
 
 .l2t-logo-plane svg,
@@ -7822,111 +7051,6 @@ body {
   border: 1px solid rgba(245,184,0,0.34) !important;
 }
 
-/* Butonlar: ana aksiyon gold-yellow, yazı koyu lacivert. Turuncu yok. */
-.l2t-btn,
-.l2t-button-gold,
-.l2t-btn-primary,
-.hp-cta-primary,
-.hp-btn-primary,
-.l2t-header-cta,
-.l2t-nav-cta,
-.l2t-mobile-fab,
-.l2t-flight-submit,
-.l2t-aviasales-box .l2t-flight-submit,
-.l2t-search-tab-active,
-.l2t-tab-active {
-  background: #F5B800 !important;
-  color: #071B33 !important;
-  -webkit-text-fill-color: #071B33 !important;
-  border-color: rgba(245,184,0,0.52) !important;
-  box-shadow: 0 14px 30px rgba(245,184,0,0.22) !important;
-}
-
-.l2t-btn:hover,
-.l2t-button-gold:hover,
-.l2t-btn-primary:hover,
-.hp-cta-primary:hover,
-.hp-btn-primary:hover,
-.l2t-header-cta:hover,
-.l2t-nav-cta:hover,
-.l2t-flight-submit:hover,
-.l2t-aviasales-box .l2t-flight-submit:hover,
-.l2t-search-tab-active:hover,
-.l2t-tab-active:hover {
-  background: #E9AE00 !important;
-  color: #071B33 !important;
-  -webkit-text-fill-color: #071B33 !important;
-  box-shadow: 0 18px 36px rgba(245,184,0,0.25) !important;
-}
-
-.l2t-btn svg,
-.l2t-btn path,
-.l2t-button-gold svg,
-.l2t-button-gold path,
-.l2t-btn-primary svg,
-.l2t-btn-primary path,
-.l2t-header-cta svg,
-.l2t-header-cta path,
-.l2t-nav-cta svg,
-.l2t-nav-cta path,
-.l2t-flight-submit svg,
-.l2t-flight-submit path,
-.l2t-search-tab-active svg,
-.l2t-search-tab-active path,
-.l2t-tab-active svg,
-.l2t-tab-active path {
-  color: #071B33 !important;
-  stroke: #071B33 !important;
-}
-
-/* İkincil buton ve Otel tab: açık mavi ara renk, görünür yazı */
-.l2t-btn-ghost,
-.l2t-btn-outline,
-.hp-btn-ghost,
-.l2t-tab-inactive,
-a.l2t-tab-inactive,
-button.l2t-tab-inactive,
-.l2t-search-tab:not(.l2t-search-tab-active) {
-  background: rgba(255,255,255,0.78) !important;
-  color: #0B1D35 !important;
-  -webkit-text-fill-color: #0B1D35 !important;
-  border: 1px solid rgba(191,233,248,0.76) !important;
-  box-shadow: 0 10px 24px rgba(7,27,51,0.08) !important;
-  opacity: 1 !important;
-  text-shadow: none !important;
-}
-
-.l2t-tab-inactive svg,
-.l2t-tab-inactive path,
-.l2t-search-tab:not(.l2t-search-tab-active) svg,
-.l2t-search-tab:not(.l2t-search-tab-active) path {
-  color: #3B718A !important;
-  stroke: #3B718A !important;
-  opacity: 1 !important;
-}
-
-.l2t-btn-ghost:hover,
-.l2t-btn-outline:hover,
-.hp-btn-ghost:hover,
-.l2t-tab-inactive:hover,
-.l2t-search-tab:not(.l2t-search-tab-active):hover {
-  background: #EAF6FF !important;
-  color: #071B33 !important;
-  -webkit-text-fill-color: #071B33 !important;
-  border-color: rgba(245,184,0,0.46) !important;
-}
-
-/* Arama kartı: beyaz kart + açık mavi çevre */
-.l2t-search-card,
-.hp-search-wrap .l2t-search-card,
-.l2t-aviasales-box,
-.l2t-flight-card {
-  background: rgba(255,255,255,0.98) !important;
-  color: #0B1D35 !important;
-  border: 1px solid rgba(191,233,248,0.92) !important;
-  box-shadow: 0 24px 58px rgba(7,27,51,0.13) !important;
-}
-
 .l2t-booking-field,
 .l2t-search-card input,
 .l2t-search-card select,
@@ -8015,18 +7139,12 @@ button.l2t-tab-inactive,
   stroke: #071B33 !important;
 }
 
-/* Rota chipleri: koyu lacivert temada gold fiyat */
+/* Rota chipleri: koyu lacivert temada gold vurgu */
 .hp-qr-card,
 .l2t-route-card {
   background: rgba(255,255,255,0.13) !important;
   border: 1px solid rgba(191,233,248,0.24) !important;
   color: #FFFFFF !important;
-}
-
-.hp-qr-tag,
-.l2t-route-card span:not(.l2t-route-price) {
-  background: rgba(191,233,248,0.18) !important;
-  color: rgba(255,255,255,0.88) !important;
 }
 
 /* Footer koyu lacivert ana tema */
@@ -8363,24 +7481,6 @@ button.l2t-tab-inactive,
   animation: l2tFlash .9s ease both;
 }
 @keyframes l2tFlash { 0% { opacity: 0; transform: scale(.92); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(1.12); } }
-
-.l2t-live-deals-section { margin-top: 34px; }
-.l2t-live-deals-panel {
-  border-radius: 26px;
-  background: linear-gradient(135deg, #071A2F, #0B1D35);
-  border: 1px solid rgba(255,255,255,.08);
-  padding: clamp(18px, 3vw, 26px);
-  box-shadow: 0 24px 70px rgba(7,26,47,.20);
-  color: #fff;
-}
-.l2t-live-deals-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-.l2t-live-deals-head h2 { color: #fff; margin: 8px 0 0; font-size: clamp(1.3rem, 3vw, 2rem); }
 .l2t-live-kicker,
 .l2t-live-update {
   display: inline-flex;
@@ -8391,46 +7491,21 @@ button.l2t-tab-inactive,
   font-weight: 900;
 }
 .l2t-live-update { color: rgba(255,255,255,.62); }
-.l2t-live-deals-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-.l2t-live-deal-card {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.10);
-  color: #fff;
-  text-decoration: none;
-  transition: transform .25s ease, background .25s ease;
-}
-.l2t-live-deal-card:hover { transform: translateY(-2px); background: rgba(255,255,255,.12); }
 .l2t-live-flag { font-size: 1.45rem; }
 .l2t-live-route { min-width: 0; }
 .l2t-live-route strong { display: block; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .l2t-live-route small { color: rgba(255,255,255,.62); font-size: .76rem; }
-.l2t-live-price { grid-column: 1 / -1; color: #E9B949; font-weight: 950; font-size: 1.05rem; }
 .l2t-live-visa { justify-self: start; padding: 5px 9px; border-radius: 999px; background: rgba(109,187,255,.12); color: #CFEAFF; font-weight: 850; font-size: .74rem; }
 .l2t-live-empty { padding: 18px; border-radius: 16px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.72); }
 
 @media (max-width: 980px) {
   .l2t-hero-animated { min-height: auto; padding: 54px 0 96px; }
   .l2t-hero-discovery-grid { grid-template-columns: 1fr !important; }
-  .l2t-live-deals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .l2t-language-short { display: none; }
 }
 
 @media (max-width: 640px) {
   .l2t-language-trigger { min-height: 34px; padding: 6px 9px; }
-  .l2t-live-deals-head { align-items: flex-start; flex-direction: column; }
-  .l2t-live-deals-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
-  .l2t-live-deal-card { min-width: 240px; scroll-snap-align: start; }
   .l2t-hero-dynamic-line { border-radius: 18px; align-items: flex-start; font-size: .92rem; }
 }
 /* === L2T DISCOVERY UX V22 END === */
@@ -8664,14 +7739,6 @@ body {
 .l2t-surprise-result strong { color: #FFFFFF !important; }
 .l2t-surprise-result p { color: rgba(255,255,255,.72) !important; }
 .l2t-surprise-result small { color: var(--l2t-gold-soft) !important; }
-
-.l2t-live-deals-panel {
-  background: linear-gradient(135deg, #071B33 0%, #0B2A4A 100%) !important;
-  border: 1px solid rgba(255,255,255,.10) !important;
-}
-
-.l2t-live-kicker,
-.l2t-live-price { color: var(--l2t-gold-soft) !important; }
 .l2t-live-visa { color: #D8FAFF !important; background: rgba(25,198,211,.14) !important; }
 
 .l2t-card,
@@ -8707,33 +7774,6 @@ body {
 .l2t-kicker,
 .l2t-text-link {
   color: #0B8FA0 !important;
-}
-
-.l2t-search-tabs .l2t-tab-active {
-  background: linear-gradient(135deg, #FFFFFF 0%, #EEF6FA 100%) !important;
-  color: #071B33 !important;
-  border: 1px solid rgba(7,27,51,.12) !important;
-  box-shadow: 0 12px 30px rgba(7,27,51,.10) !important;
-}
-
-.l2t-search-tabs .l2t-tab-active svg { color: #0B2A4A !important; }
-
-.l2t-search-tabs .l2t-tab-inactive {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  background: rgba(255,255,255,.72) !important;
-  color: #172033 !important;
-  border: 1px solid rgba(7,27,51,.10) !important;
-  box-shadow: 0 8px 24px rgba(7,27,51,.07) !important;
-}
-
-.l2t-search-tabs .l2t-tab-inactive svg { color: #667085 !important; }
-
-.l2t-search-tabs .l2t-tab-inactive:hover {
-  background: #FFFFFF !important;
-  color: #071B33 !important;
-  transform: translateY(-1px);
 }
 
 .visa-kimlikle,
@@ -8794,16 +7834,6 @@ body {
 @media (max-width: 680px) {
   .l2t-hero-main-title {
     font-size: clamp(2.1rem, 12vw, 3.35rem) !important;
-  }
-  .l2t-live-deals-grid {
-    display: flex !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory !important;
-    padding-bottom: 8px !important;
-  }
-  .l2t-live-deal-card {
-    min-width: 245px !important;
-    scroll-snap-align: start !important;
   }
 }
 /* === L2T PREMIUM DISCOVERY V23 END === */

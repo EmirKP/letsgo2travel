@@ -10,12 +10,12 @@ import { supabase } from "@/lib/supabase-client";
 function NewTopicForm({ session }: { session: any }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [title, setTitle] = useState(searchParams?.get("title") || "");
   const [content, setContent] = useState("");
   const initialCountrySlug = searchParams?.get("country") || "";
   const initialCountryName = searchParams?.get("countryName") || "";
-  
+
   const initialCategorySlug = searchParams?.get("kategori");
   let defaultCategory = "";
   if (initialCategorySlug === "vize-konsolosluk") defaultCategory = "Vize & Konsolosluk";
@@ -25,19 +25,19 @@ function NewTopicForm({ session }: { session: any }) {
 
   const [category, setCategory] = useState(defaultCategory);
   const [country, setCountry] = useState(initialCountryName || "");
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const forumCategories = [
-    "Genel Seyahat Soruları", "Ülke Bazlı Sorunlar", "Vize & Konsolosluk", 
-    "Uçak Bileti & Havalimanı", "Otel & Konaklama", "eSIM & İnternet", 
+    "Genel Seyahat Soruları", "Ülke Bazlı Sorunlar", "Vize & Konsolosluk",
+    "Uçuş & Havalimanı", "Otel & Konaklama", "eSIM & İnternet",
     "İlk Kez Yurt Dışına Çıkacaklar", "Kamp & Doğa", "Balıkçılık", "Avcılık"
   ];
 
   const popularCountries = [
-    "Genel / Ülke Bağımsız", "Almanya", "Birleşik Arap Emirlikleri", "Sırbistan", 
+    "Genel / Ülke Bağımsız", "Almanya", "Birleşik Arap Emirlikleri", "Sırbistan",
     "Karadağ", "Bosna-Hersek", "Gürcistan", "Kosova", "İtalya", "Fransa", "Yunanistan"
   ];
 
@@ -139,7 +139,7 @@ function NewTopicForm({ session }: { session: any }) {
   return (
     <div className="l2t-page">
       <div className="l2t-wrap" style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px" }}>
-        
+
         <Link href="/forum" style={{ color: "var(--l2t-soft)", display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", marginBottom: "24px", fontSize: "0.95rem", fontWeight: "600" }}>
           <ArrowLeft size={16} /> Foruma Dön
         </Link>
@@ -158,7 +158,7 @@ function NewTopicForm({ session }: { session: any }) {
         <div style={{ background: "rgba(14, 165, 233, 0.1)", borderLeft: "4px solid var(--l2t-blue)", padding: "16px 20px", borderRadius: "0 12px 12px 0", marginBottom: "24px", display: "flex", gap: "12px" }}>
           <Info size={20} color="var(--l2t-blue)" style={{ flexShrink: 0, marginTop: "2px" }} />
           <p style={{ margin: 0, color: "var(--l2t-blue)", fontSize: "0.9rem", lineHeight: "1.6" }}>
-            Lütfen konuyu açmadan önce <Link href="/topluluk-kurallari" style={{ color: "var(--l2t-text)", fontWeight: "600" }}>Topluluk Kuralları</Link>'nı okuyun. 
+            Lütfen konuyu açmadan önce <Link href="/topluluk-kurallari" style={{ color: "var(--l2t-text)", fontWeight: "600" }}>Topluluk Kuralları</Link>'nı okuyun.
             Telefon numarası, TC Kimlik No gibi kişisel verilerinizi paylaşmayın.
           </p>
         </div>
@@ -171,7 +171,7 @@ function NewTopicForm({ session }: { session: any }) {
 
         {success && (
           <div style={{ background: "rgba(16, 185, 129, 0.1)", borderLeft: "4px solid var(--l2t-success)", padding: "20px", borderRadius: "12px", marginBottom: "24px", color: "var(--l2t-success)", fontSize: "1rem", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 12px rgba(16,185,129,0.1)", fontWeight: "600" }}>
-            <CheckCircle2 size={28} /> 
+            <CheckCircle2 size={28} />
             <div>
               <strong style={{ display: "block", marginBottom: "4px" }}>Başarılı!</strong>
               {success} Yönlendiriliyorsunuz...
@@ -181,13 +181,13 @@ function NewTopicForm({ session }: { session: any }) {
 
         <div className="l2t-glass-card" style={{ padding: "40px" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            
+
             {/* Kategori ve Ülke */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Kategori Seç *</label>
-                <select 
-                  value={category} 
+                <select
+                  value={category}
                   onChange={e => setCategory(e.target.value)}
                   disabled={isSubmitting || !!success}
                   required
@@ -199,11 +199,11 @@ function NewTopicForm({ session }: { session: any }) {
                   ))}
                 </select>
               </div>
-              
+
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Ülke (Opsiyonel)</label>
-                <select 
-                  value={country} 
+                <select
+                  value={country}
                   onChange={e => setCountry(e.target.value)}
                   disabled={isSubmitting || !!success}
                   className="l2t-form-control appearance-none"
@@ -219,8 +219,8 @@ function NewTopicForm({ session }: { session: any }) {
             {/* Başlık */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>Konu Başlığı *</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 disabled={isSubmitting || !!success}
@@ -236,7 +236,7 @@ function NewTopicForm({ session }: { session: any }) {
             {/* İçerik */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label style={{ fontSize: "0.95rem", fontWeight: "600", color: "var(--l2t-soft)" }}>İçerik *</label>
-              <textarea 
+              <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 disabled={isSubmitting || !!success}
@@ -253,16 +253,16 @@ function NewTopicForm({ session }: { session: any }) {
               <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--l2t-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
                 <AlertCircle size={14} /> Konu açarak kuralları kabul etmiş sayılırsınız.
               </p>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting || !!success}
-                className="l2t-button l2t-button-gold" 
+                className="l2t-button l2t-button-gold"
                 style={{ cursor: (isSubmitting || !!success) ? "not-allowed" : "pointer", opacity: (isSubmitting || !!success) ? 0.7 : 1, display: "flex", gap: "8px" }}
               >
                 {isSubmitting ? <><Loader2 size={18} className="animate-spin" /> Gönderiliyor...</> : "Gönder"}
               </button>
             </div>
-            
+
           </form>
         </div>
 

@@ -1,4 +1,4 @@
-import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "./affiliate";
+import { siteSettings, trackedAffiliateUrl } from "./affiliate";
 
 export type AiTripDay = {
   day: string;
@@ -25,7 +25,6 @@ export type AiTripPlan = {
   smartTips: string[];
   warnings: string[];
   affiliateLinks: {
-    flights: string;
     hotels: string;
     esim: string;
     tours: string;
@@ -183,7 +182,7 @@ export function createTripPlan(query: string): AiTripPlan {
     originCode: originCode,
     score: Math.round(score),
     visaStatus: destination.visa,
-    estimatedBudget: `Yaklaşık ${destination.avgBudget} TL (Bilet/Otel hariç)`,
+    estimatedBudget: `Yaklaşık ${destination.avgBudget} TL (uçak bileti ve otel hariç)`,
     budgetText: budgetText,
     travelStyle: style,
     bestFor: destination.bestFor,
@@ -191,15 +190,13 @@ export function createTripPlan(query: string): AiTripPlan {
     tags: destination.mood,
     itinerary: destination.days,
     essentials: [
-      "Uçuş fiyatını hem IST hem SAW alternatifleriyle kontrol et.",
       "Otel seçerken merkez + toplu taşıma dengesine bak.",
       "Varıştan önce eSIM veya roaming planını hazırla.",
       "Dönüş bileti ve konaklama adresini pasaport kontrolü için kolay erişilebilir tut.",
     ],
     smartTips: destination.highlights,
-    warnings: ["Fiyatlar tahmini değerlerdir.", "Uçuş fiyatları anlık değişebilir."],
+    warnings: ["Tutarlar tahmini değerlerdir.", "Uçak bileti ücreti bu tahmine dahil değildir; biletini satın aldıktan sonra ödediğin tutarı bütçene ekleyebilirsin."],
     affiliateLinks: {
-      flights: internalFlightSearchUrl({ origin: originCode, destination: destination.code }),
       hotels: trackedAffiliateUrl({
         provider: "booking",
         url: siteSettings.bookingAffiliateUrl,

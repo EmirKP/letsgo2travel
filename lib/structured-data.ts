@@ -1,4 +1,4 @@
-import type { BlogPost, CountryGuide, FlightDeal } from "./types";
+import type { BlogPost, CountryGuide } from "./types";
 import { getCountrySeoContent } from "./country-seo-content";
 import { getSiteUrl } from "./site-url";
 
@@ -92,43 +92,6 @@ export function articleSchema(post: BlogPost) {
       publisher: organizationSchema(),
       datePublished: post.published_at,
       mainEntityOfPage: siteUrl(`/blog/${post.slug}`),
-    },
-  ];
-}
-
-export function flightDealSchema(deal: FlightDeal) {
-  return [
-    breadcrumbSchema([
-      { name: "Ana Sayfa", path: "/" },
-      { name: "Uçak Bileti", path: "/ucak-bileti-ara" },
-      { name: deal.title, path: `/ucak-bileti/${deal.slug}` },
-    ]),
-    {
-      "@context": "https://schema.org",
-      "@type": "TravelAction",
-      name: deal.title,
-      description: `${deal.origin} - ${deal.destination} uçak bileti fırsatı`,
-      fromLocation: {
-        "@type": "Airport",
-        name: deal.origin,
-        iataCode: deal.origin_code,
-      },
-      toLocation: {
-        "@type": "Airport",
-        name: deal.destination,
-        iataCode: deal.destination_code,
-      },
-      ...(!deal.is_estimate && deal.created_at
-        ? {
-            priceSpecification: {
-              "@type": "PriceSpecification",
-              price: deal.price,
-              priceCurrency: deal.currency,
-            },
-          }
-        : {}),
-      provider: organizationSchema(),
-      url: siteUrl(`/ucak-bileti/${deal.slug}`),
     },
   ];
 }

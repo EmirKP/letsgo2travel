@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s | LetsGo2Travel",
   },
   description:
-    "Pasaport gücü, rota asistanı, gerçek gezgin deneyimleri ve uçuş aramayı tek yerde birleştiren seyahat keşif platformu.",
+    "Pasaport gücü, rota asistanı, seyahat bütçesi ve gerçek gezgin deneyimlerini tek yerde birleştiren seyahat keşif platformu.",
   openGraph: {
     title: "LetsGo2Travel",
     description: "Pasaport gücü, rota planlama ve gerçek gezgin deneyimleri tek yerde.",

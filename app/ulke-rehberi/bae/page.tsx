@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plane, Hotel, Wifi, MapPin, Clock, Wallet, Globe, Info, AlertTriangle, Calendar, Users } from "lucide-react";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
-import { formatFromPrice, PRICE_NOTE } from "@/lib/prices";
-import { getFlightDeals } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "BAE (Dubai / Abu Dabi) Seyahat Rehberi",
@@ -11,7 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default async function BAESayfasi() {
-  const deals = await getFlightDeals();
 
   return (
     <div className="l2t-page" style={{ paddingBottom: "80px" }}>
@@ -65,14 +62,13 @@ export default async function BAESayfasi() {
           ))}
         </div>
 
-        {/* Bilet ve Fiyat */}
+        {/* Bütçe Notu */}
         <div style={{ background: "#EFF6FF", borderRadius: "16px", padding: "20px 24px", marginBottom: "24px" }}>
-          <h2 style={{ fontSize: "1.1rem", color: "var(--l2t-navy)", fontWeight: "800", margin: "0 0 12px" }}>Tahmini Başlangıç Fiyatları</h2>
+          <h2 style={{ fontSize: "1.1rem", color: "var(--l2t-navy)", fontWeight: "800", margin: "0 0 12px" }}>Bütçe Notu (Uçuş Hariç)</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-            <div><span style={{ fontSize: "0.85rem", color: "#64748B" }}>Uçak Bileti</span><br /><strong style={{ fontSize: "1.2rem", color: "var(--l2t-navy)" }}>{formatFromPrice("dubai", deals)}</strong></div>
             <div><span style={{ fontSize: "0.85rem", color: "#64748B" }}>Ortalama Otel (Gecelik)</span><br /><strong style={{ fontSize: "1.2rem", color: "var(--l2t-navy)" }}>4.000 TL+</strong></div>
           </div>
-          <p style={{ margin: "12px 0 0", fontSize: "0.8rem", color: "#64748B" }}>{PRICE_NOTE}</p>
+          <p style={{ margin: "12px 0 0", fontSize: "0.8rem", color: "#64748B" }}>Uçak bileti ücreti bu bütçe tahminine dahil değildir. Biletini satın aldıktan sonra ödediğin tutarı Seyahat Kokpiti&apos;ne ekleyebilirsin.</p>
         </div>
 
         {/* Gezilecek Yerler */}
@@ -116,8 +112,8 @@ export default async function BAESayfasi() {
 
         {/* CTA Butonlar */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "32px" }}>
-          <Link href={`/ucak-bileti-ara?to=Dubai`} className="l2t-btn" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Plane size={18} /> Uçak Bileti Ara
+          <Link href="/seyahat-kokpiti" className="l2t-btn" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Plane size={18} /> Dubai Planı Oluştur
           </Link>
           <a href={trackedAffiliateUrl({ provider: "booking", url: siteSettings.bookingAffiliateUrl, destination: "Dubai", sourcePage: "uae_guide" })} target="_blank" rel="nofollow sponsored noreferrer" className="l2t-btn l2t-btn-outline" style={{ flex: "1 1 180px", justifyContent: "center", display: "flex", alignItems: "center", gap: "8px" }}>
             <Hotel size={18} /> Otel Bul

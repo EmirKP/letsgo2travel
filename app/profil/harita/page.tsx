@@ -290,14 +290,14 @@ export default function ProfilPage() {
           {activeTab === "favorites" && (
             <div className="glass-panel" style={{ padding: "32px", borderRadius: "24px", background: "#fff", minHeight: "400px", boxShadow: "0 20px 40px rgba(0,0,0,0.06)", animation: "fadeUp 0.5s ease" }}>
               <h2 style={{ fontSize: "2rem", color: "var(--l2t-navy)", marginBottom: "32px", display: "flex", alignItems: "center", gap: "10px", letterSpacing: "-0.5px" }}>
-                <Heart color="#ef4444" fill="#ef4444" size={28} /> Kaydedilen Fırsatlar
+                <Heart color="#ef4444" fill="#ef4444" size={28} /> Kaydedilen Rotalar
               </h2>
               <p style={{ color: "var(--l2t-soft)", lineHeight: 1.6, maxWidth: "620px" }}>
-                Fırsatları kampanyalar sayfasında karşılaştırabilir, takip etmek istediğin rota için fiyat alarmı oluşturabilirsin.
+                Kaydettiğin rotaları Planlarım sayfasında yönetebilir, yeni destinasyonları ülke rehberlerinden keşfedebilirsin.
               </p>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "24px" }}>
-                <Link href="/kampanyalar" className="l2t-btn" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>Kampanyaları gör <ArrowRight size={17} /></Link>
-                <Link href="/profil/fiyat-alarmlari" className="l2t-btn l2t-btn-outline">Fiyat alarmlarım</Link>
+                <Link href="/planlarim" className="l2t-btn" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>Planlarımı gör <ArrowRight size={17} /></Link>
+                <Link href="/ulke-rehberi" className="l2t-btn l2t-btn-outline">Destinasyonları keşfet</Link>
               </div>
             </div>
           )}

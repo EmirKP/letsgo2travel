@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen, ShieldCheck, MapPin, Plane } from "lucide-react";
+import { Compass, ArrowLeft, BookOpen, ShieldCheck, MapPin } from "lucide-react";
 import { getCountryBySlug } from "@/lib/countries/countryData";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -35,8 +35,8 @@ export default async function CountryGuidePage({ params }: { params: Promise<{ s
             Vize kontrolü, güvenlik hazırlığı ve rota planlamasıyla {countryName} seyahatinizi daha bilinçli hazırlayın.
           </p>
           
-          <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(countryName)}`} className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "16px 32px", fontSize: "1.1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "12px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.3)" }}>
-            <Plane size={22} /> {countryName} İçin Uçak Bileti Ara
+          <Link href="/seyahat-kokpiti" className="l2t-btn" style={{ background: "#10B981", color: "#fff", padding: "16px 32px", fontSize: "1.1rem", borderRadius: "100px", display: "inline-flex", alignItems: "center", gap: "12px", border: "none", boxShadow: "0 10px 20px rgba(16,185,129,0.3)" }}>
+            <Compass size={22} /> {countryName} İçin Plan Oluştur
           </Link>
         </div>
       </div>

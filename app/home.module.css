@@ -247,9 +247,6 @@
 .budgetPhoto img { object-fit: cover; }
 .budgetCard .featureCopy { padding-top: 1.8rem; }
 
-.dealsSection { margin-top: clamp(4.5rem, 8vw, 7.2rem); padding: clamp(4rem, 7vw, 6.5rem) 0; background: #eef3f5; border-top: 1px solid #dde6ea; border-bottom: 1px solid #dde6ea; }
-.dealsSection.section { padding-top: clamp(4rem, 7vw, 6.5rem); }
-.dealGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1rem; }
 
 .countryGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .8rem; }
 .countryCard { min-width: 0; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: .8rem; padding: 1rem; background: #fff; border: 1px solid var(--home-line); border-radius: 1rem; color: var(--home-ink); text-decoration: none; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
@@ -304,7 +301,6 @@
   .wide,
   .tall,
   .routeCard:first-child { flex: 0 0 min(320px, 84vw); min-height: 300px; grid-column: auto; grid-row: auto; scroll-snap-align: start; }
-  .dealGrid { grid-template-columns: 1fr; }
   .communityCard { grid-template-columns: 1fr; }
   .communityPhoto { min-height: 340px; }
   .passportCard { grid-template-columns: 1fr; }

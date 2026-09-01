@@ -20,8 +20,8 @@ const slides: Array<{ icon: IconName; eyebrow: string; title: string; text: stri
     icon: "suitcase",
     eyebrow: "SEYAHATLERİN TEK YERDE",
     title: "Kaydet, takip et ve kaldığın yerden devam et.",
-    text: "Rotaların, favorilerin, aramaların ve kokpit kayıtların giriş yaptığında web hesabınla eşitlenir.",
-    points: ["Seyahat Kokpiti", "Fiyat alarmları", "Kaşifler Ligi"],
+    text: "Rotaların, favorilerin ve kokpit kayıtların giriş yaptığında web hesabınla eşitlenir.",
+    points: ["Seyahat Kokpiti", "Rota planların", "Kaşifler Ligi"],
   },
 ];
 

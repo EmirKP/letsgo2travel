@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "LetsGo2Travel — Seyahat Keşif ve Rota Uygulaması",
     short_name: "LetsGo2Travel",
-    description: "Pasaport gücü, rota asistanı, uçuş arama, fiyat alarmı ve gerçek gezgin deneyimleri.",
+    description: "Pasaport gücü, rota asistanı, seyahat bütçesi ve gerçek gezgin deneyimleri.",
     start_url: "/?source=pwa",
     scope: "/",
     display: "standalone",
@@ -22,7 +22,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "Bilet Ara", short_name: "Bilet", description: "Uçuş arama ekranını aç", url: "/#ucus-ara", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
+      { name: "Keşfet", short_name: "Keşfet", description: "Ülke ve rota keşfini aç", url: "/ulke-rehberi", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
       { name: "Pasaport Gücü", short_name: "Pasaport", description: "Pasaportuna göre ülke keşfet", url: "/pasaport-gucu", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
       { name: "Rota Asistanı", short_name: "Rota", description: "Seyahat rotası oluştur", url: "/rota-asistani", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
       { name: "Planlarım", short_name: "Planlar", description: "Kaydettiğin seyahatleri aç", url: "/planlarim", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },

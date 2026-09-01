@@ -210,7 +210,7 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
       <div className="section-heading"><div><span>SEYAHAT PROFİLİN</span><h2>Kaşif alanın</h2></div></div>
       <div className="profile-action-list">
         <button onClick={() => setVisitedOpen(true)}><span><Icon name="flag" size={21} /></span><div><strong>Ziyaret ettiğim ülkeler</strong><small>{visited.length ? visited.map((item) => item.name).slice(0, 3).join(" · ") : "Haritana ilk ülkeyi ekle"}</small></div><Icon name="chevron" size={17} /></button>
-        <button onClick={() => onNavigate("trips")}><span><Icon name="suitcase" size={21} /></span><div><strong>Seyahatlerim</strong><small>Rotalar, aramalar ve fiyat alarmları</small></div><Icon name="chevron" size={17} /></button>
+        <button onClick={() => onNavigate("trips")}><span><Icon name="suitcase" size={21} /></span><div><strong>Seyahatlerim</strong><small>Rotaların ve seyahat planların</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("community")}><span><Icon name="users" size={21} /></span><div><strong>Kaşifler Ligi</strong><small>Gezgin sıralaması ve topluluk</small></div><Icon name="chevron" size={16} /></button>
         <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span><Icon name="shield" size={21} /></span><div><strong>Belgeli Gezgin</strong><small>{user ? `${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen` : "Giriş yaparak doğrulama durumunu gör"}</small></div><Icon name="chevron" size={16} /></button>
       </div>
@@ -219,7 +219,7 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
     <section className="profile-section">
       <div className="section-heading"><div><span>UYGULAMA</span><h2>Ayarlar</h2></div></div>
       <div className="settings-card">
-        <label><span><Icon name="bell" size={19} /><em><strong>Uygulama içi bildirimler</strong><small>Rota ve fiyat alarmı özetleri</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
+        <label><span><Icon name="bell" size={19} /><em><strong>Uygulama içi bildirimler</strong><small>Rota ve vize güncellemeleri</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
         <label><span><Icon name="sparkles" size={19} /><em><strong>Dokunma titreşimi</strong><small>Desteklenen cihazlarda hafif geri bildirim</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>Kaşifler Ligi'nde görün</strong><small>Yalnız güvenli profil özeti paylaşılır</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build {config.buildNumber} ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>

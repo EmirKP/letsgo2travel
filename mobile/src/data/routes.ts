@@ -258,7 +258,7 @@ export function createFallbackPlan(input: PlannerInput): RoutePlan {
     .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => route);
 
   return {
-    summary: "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Aşağıdaki rotalar canlı fiyat garantisi vermez; karar vermeden önce güncel uçuş ve giriş koşullarını kontrol et.",
+    summary: "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.",
     routes,
   };
 }

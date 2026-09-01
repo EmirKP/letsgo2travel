@@ -18,7 +18,7 @@ export type CountrySeoContent = {
 const DEFAULT_SEO_CONTENT: CountrySeoContent = {
   searchTitle: "Seyahat planı, bütçe ve giriş notları",
   intro:
-    "Bu rehber; vize durumunu, uçuş süresini, ortalama bilet bütçesini ve gerçek gezgin deneyimlerine geçiş yollarını tek yerde toplar. Seyahatten önce resmi kuralları kontrol edip bilet, konaklama ve internet hazırlığını aynı akışta tamamlayabilirsin.",
+    "Bu rehber; vize durumunu, uçuş süresini ve gerçek gezgin deneyimlerine geçiş yollarını tek yerde toplar. Seyahatten önce resmi kuralları kontrol edip konaklama ve internet hazırlığını aynı akışta tamamlayabilirsin.",
   bestFor: [
     "İlk kez yurt dışına çıkacak kullanıcılar",
     "Kısa süreli hafta sonu kaçamağı planlayanlar",
@@ -30,8 +30,6 @@ const DEFAULT_SEO_CONTENT: CountrySeoContent = {
     "Havayolu bagaj ve check-in kurallarını seyahatten önce incele.",
   ],
   budgetTips: [
-    "Esnek tarih aralığıyla arama yap; hafta içi uçuşları çoğu zaman daha uygun olabilir.",
-    "Fiyat alarmı kurarak hedef fiyatın altına düşen biletleri kaçırma.",
     "Konaklamada merkez dışı ama toplu taşımaya yakın bölgeleri karşılaştır.",
   ],
   localTips: [
@@ -54,8 +52,6 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Bakü içinde taksi/uygulama kullanacaksan internet paketini önceden hazırla.",
     ],
     budgetTips: [
-      "Bakü uçuşlarında hafta içi dönüşlü kombinasyonları kontrol et.",
-      "Fiyat alarmını GYD hedefiyle kur; kısa rotalarda kampanyalar hızlı tükenebilir.",
       "İçerişehir ve sahil hattına yakın ama metroya erişimi olan otelleri karşılaştır.",
     ],
     localTips: [
@@ -66,7 +62,6 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
     faq: [
       { question: "Azerbaycan'a kimlikle gidilir mi?", answer: "Türk vatandaşları yeni tip T.C. kimlik kartıyla Azerbaycan'a seyahat edebilir. Seyahatten önce güncel resmi giriş şartlarını kontrol etmek gerekir." },
       { question: "Bakü kaç günde gezilir?", answer: "Bakü şehir merkezi için 2-3 gün genelde yeterlidir. Gobustan veya çevre gezileri eklenecekse 4 gün daha rahat olur." },
-      { question: "Azerbaycan için fiyat alarmı kurmak mantıklı mı?", answer: "Evet. Kısa uçuş rotalarında kampanya fiyatları hızlı değişebilir; hedef fiyat belirleyip alarm kurmak avantaj sağlar." },
     ],
   },
   "bosna-hersek": {
@@ -80,9 +75,7 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Nakit kullanımına karşı yanında düşük miktarda yerel para veya euro bulundur.",
     ],
     budgetTips: [
-      "Saraybosna uçuşlarında dönüş tarihini esnetmek ciddi fark yaratabilir.",
       "Mostar'ı günübirlik gezmek bütçeyi düşürür, konaklamayı Saraybosna merkezde tutabilirsin.",
-      "Fiyat alarmını SJJ rotası için kurup kampanyaları takip et.",
     ],
     localTips: [
       "Başçarşı, Latin Köprüsü ve Umut Tüneli ilk plan içine alınabilir.",
@@ -106,7 +99,6 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Araç kiralayacaksan ehliyet, depozito ve sigorta koşullarını önceden incele.",
     ],
     budgetTips: [
-      "Tivat ve Podgorica uçuşlarını birlikte karşılaştır.",
       "Budva merkez yerine çevre bölgeleri kontrol etmek konaklamayı ucuzlatabilir.",
       "Haziran ve eylül tarihleri temmuz-ağustos dönemine göre daha dengeli olabilir.",
     ],
@@ -132,9 +124,6 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "İnternet ve ulaşım uygulamalarını gitmeden önce kur.",
     ],
     budgetTips: [
-      "Tiflis uçuşlarını TBS koduyla, Batum seçeneklerini ayrıca karşılaştır.",
-      "Hafta içi uçuşlar ve erken saat dönüşler fiyat avantajı sağlayabilir.",
-      "Fiyat alarmı kurarak kısa süreli kampanyaları kaçırma.",
     ],
     localTips: [
       "Tiflis'te Eski Şehir, Narikala ve sülfür hamamları ilk plana alınabilir.",
@@ -158,7 +147,6 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Yaz sezonunda konaklamayı erken ayarlamak fiyatı düşürebilir.",
     ],
     budgetTips: [
-      "Tiran uçuş fiyatlarını eylül-haziran gibi omuz sezonlarda takip et.",
       "Ksamil/Saranda konaklamalarında merkeze yakınlık ile fiyatı karşılaştır.",
       "Sahil rotasında ulaşım maliyetini toplam bütçeye dahil et.",
     ],
@@ -179,9 +167,7 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Kış aylarında soğuk hava ihtimaline göre hazırlık yap.",
     ],
     budgetTips: [
-      "Belgrad uçuşlarında farklı havayolları ve dönüş saatlerini karşılaştır.",
       "Merkez dışı ama toplu taşımaya yakın konaklamalar bütçeyi düşürebilir.",
-      "Fiyat alarmını BEG rotası için kurmak kampanya takibini kolaylaştırır.",
     ],
     localTips: [
       "Kalemegdan, Knez Mihailova ve Skadarlija kısa seyahatte ana duraklardır.",
@@ -195,7 +181,7 @@ const COUNTRY_SEO_CONTENT: Record<string, Partial<CountrySeoContent>> = {
       "Kosova, kısa uçuş süresi ve uygun Balkan atmosferiyle hafta sonu için değerlendirilebilecek vizesiz rotalardan biridir. Priştine ve Prizren birlikte planlandığında daha dengeli bir gezi çıkar.",
     bestFor: ["Kısa Balkan kaçamağı isteyenler", "Ekonomik rota arayanlar", "Priştine-Prizren kültür gezisi planlayanlar"],
     beforeYouGo: ["Pasaport ve giriş koşullarını kontrol et.", "Priştine-Prizren ulaşımını önceden planla.", "Kısa gezilerde dönüş saatini şehir içi ulaşımı düşünerek seç."],
-    budgetTips: ["PRN uçuşlarını erken takip etmek avantaj sağlar.", "Kısa konaklamalarda merkezi oteller ulaşım maliyetini azaltabilir.", "Fiyat alarmı ile ani kampanyaları yakalayabilirsin."],
+    budgetTips: ["Kısa konaklamalarda merkezi oteller ulaşım maliyetini azaltabilir.", "Uçak bileti ücretini biletini aldıktan sonra bütçene ekleyerek gerçek maliyeti takip edebilirsin."],
     localTips: ["Priştine merkez yürüyerek gezilebilir.", "Prizren tarihi dokusuyla eklenmeye değer.", "Balkan mutfağı ve kafe kültürü öne çıkar."],
   },
 };
@@ -212,10 +198,6 @@ export function getCountrySeoContent(country: CountryGuide): CountrySeoContent {
         {
           question: `${country.country_name} uçuş süresi ne kadar?`,
           answer: `Türkiye çıkışlı uçuşlarda ortalama süre ${country.flight_duration}. Uçuş süresi aktarma, havayolu ve kalkış şehrine göre değişebilir.`,
-        },
-        {
-          question: `${country.country_name} için fiyat alarmı kurulur mu?`,
-          answer: `Evet. ${country.airport_code || country.country_name} rotası için hedef fiyat belirleyerek bilet fiyatı düştüğünde e-posta bildirimi alabilirsin.`,
         },
       ];
 

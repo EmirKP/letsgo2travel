@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Home, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Bookmark, Compass, Home, ShieldCheck, Sparkles } from "lucide-react";
 
 const items = [
   { href: "/", label: "Ana Sayfa", icon: Home },
   { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
-  { href: "/#ucus-ara", label: "Bilet Ara", icon: Search, main: true },
+  { href: "/ulke-rehberi", label: "Keşfet", icon: Compass, main: true },
   { href: "/rota-asistani", label: "Rota", icon: Sparkles },
   { href: "/planlarim", label: "Planlarım", icon: Bookmark },
 ];

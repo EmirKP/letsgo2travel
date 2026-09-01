@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTripStore } from "../store/tripStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plane, MapPin, X, Bookmark, ExternalLink } from "lucide-react";
+import { MapPin, X, Bookmark, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 export default function TripDashboard() {
@@ -53,7 +53,7 @@ export default function TripDashboard() {
                   <div className="trip-dash-empty">
                     <MapPin size={48} opacity={0.2} />
                     <p>Henüz kayıtlı bir planın yok.</p>
-                    <Link href="/kampanyalar" onClick={() => setIsOpen(false)} className="l2t-text-link">Fırsatları Keşfet</Link>
+                    <Link href="/ulke-rehberi" onClick={() => setIsOpen(false)} className="l2t-text-link">Destinasyonları Keşfet</Link>
                   </div>
                 ) : (
                   <div className="trip-dash-list">
@@ -61,8 +61,8 @@ export default function TripDashboard() {
                       <div key={trip.id} className="trip-dash-item glow-card">
                         <div className="trip-info">
                           <span className="trip-type">
-                            {trip.type === "flight" ? <Plane size={14} /> : <MapPin size={14} />}
-                            {trip.type === "flight" ? "Uçuş" : trip.type === "ai_plan" ? "AI Planı" : "Rehber"}
+                            <MapPin size={14} />
+                            {trip.type === "ai_plan" ? "AI Planı" : "Rehber"}
                           </span>
                           <h3>{trip.title}</h3>
                           <p>{trip.subtitle}</p>

@@ -11,7 +11,7 @@ LetsGo2Travel; web sitesini uygulama içinde gösteren bir kabuk değil, siteyle
 1. Uygulamanın gerçekten paketlediği dosyalar ile `mobile/src` kaynak kodunun aynı sürüm olduğunu doğrula. Eski hash'li JS/CSS paketlerini tamamen temizle.
 2. E-posta/şifre, Google ve Apple girişlerini test et. iOS'ta her üç yöntem de görünmeli ve başarılı işlemden sonra `tr.com.letsgo2travel.app://auth/callback` üzerinden uygulamaya dönmelidir.
 3. Kayıt onayı ve şifre yenileme bağlantılarının siteye bırakmak yerine uygulamaya dönmesini sağla. OAuth/PKCE işlemlerinde geçerli yerel işlem kaydı ve code verifier olmadan oturum kabul etme.
-4. Uygulamadaki her ekranı ve etkileşimi incele: ana sayfa, Keşfet, Pasaport Gücü, Beni Şaşırt, Rota Asistanı, Bilet Ara, Seyahatlerim, Akıllı Seyahat Kokpiti, Kaşifler Ligi, bildirimler, profil ve hesap yönetimi.
+4. Uygulamadaki her ekranı ve etkileşimi incele: ana sayfa, Keşfet, Pasaport Gücü, Beni Şaşırt, Rota Asistanı, Seyahatlerim, Akıllı Seyahat Kokpiti, Kaşifler Ligi, bildirimler, profil ve hesap yönetimi. (Not: Bilet Ara ekranı üründen kalıcı olarak kaldırılmıştır.)
 5. Yerel kayıt ile Supabase hesabı arasındaki eşitlemeyi kontrol et. Başarısız ağ isteklerinde kullanıcı verisini kaybetme; açık, Türkçe ve uygulanabilir hata mesajı göster.
 6. Tasarımı LetsGo2Travel vizyonuna göre geliştir: premium gece laciverti, LetsGo altını, sınırlı camgöbeği, kırık beyaz yüzeyler; ferah hiyerarşi, okunabilir yazılar ve modern seyahat keşfi hissi.
 7. iPhone güvenli alanlarını, küçük ekranları, klavye açılmasını, geri hareketini, ekran okuyucuyu, odak yönetimini, en az 44×44 px dokunma alanlarını ve azaltılmış hareket tercihini doğrula.
@@ -29,7 +29,7 @@ LetsGo2Travel; web sitesini uygulama içinde gösteren bir kabuk değil, siteyle
 
 ## Uygulama–site entegrasyonu kabul kriterleri
 
-- Favoriler, ziyaret edilen ülkeler, rota planları, uçuş aramaları, fiyat alarmları, profil ve kokpit kayıtları aynı kullanıcı hesabıyla eşitlenir.
+- Favoriler, ziyaret edilen ülkeler, rota planları, profil ve kokpit kayıtları aynı kullanıcı hesabıyla eşitlenir.
 - Uygulama içi özelliğe dokunmak, o özelliğin native ekranı varsa web sitesine yönlendirmez.
 - Dışarı açılması gereken bağlantı kullanıcıya önceden açıkça belirtilir.
 - Hesap gerektiren özellik kullanıcıyı uygulama içindeki giriş paneline taşır.
@@ -37,7 +37,7 @@ LetsGo2Travel; web sitesini uygulama içinde gösteren bir kabuk değil, siteyle
 
 ## Tasarım hedefi
 
-Uygulama Skyscanner benzeri hızlı anlaşılır bir yapı ile modern seyahat editoryali hissini birleştirmeli; ancak başka bir markayı kopyalamamalıdır. Ana sayfa kişiye özel bir “seyahat nabzı” sunmalı, Keşfet görsel ilham vermeli, Rota Asistanı karar vermeyi kolaylaştırmalı ve Seyahatlerim gerçekten devam edilebilir kayıtlar göstermelidir. Gösteriş uğruna ağır animasyon, okunamayacak küçük metin veya sahte özellik ekleme.
+Uygulama hızlı ve anlaşılır bir yapı ile modern seyahat editoryali hissini birleştirmeli; başka bir markayı kopyalamamalıdır. Ana sayfa kişiye özel bir “seyahat nabzı” sunmalı, Keşfet görsel ilham vermeli, Rota Asistanı karar vermeyi kolaylaştırmalı ve Seyahatlerim gerçekten devam edilebilir kayıtlar göstermelidir. Gösteriş uğruna ağır animasyon, okunamayacak küçük metin veya sahte özellik ekleme.
 
 ## Teknik sınırlar
 

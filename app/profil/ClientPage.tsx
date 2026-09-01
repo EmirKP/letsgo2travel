@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, Heart, Bell, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
+import { User, Heart, Settings, LogOut, ChevronRight, Sparkles, Map, MapPin, Plane } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -85,14 +85,14 @@ export default function ProfilPage() {
                   </div>
                 </div>
 
-                {/* Alarm */}
+                {/* Kokpit */}
                 <div style={{ padding: "20px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px", opacity: 0.7 }}>
                   <div style={{ width: "48px", height: "48px", background: "#e2e8f0", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Bell size={24} color="#94a3b8" />
+                    <Plane size={24} color="#94a3b8" />
                   </div>
                   <div>
-                    <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Fiyat Alarmları</strong>
-                    <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Bilet fiyatları düştüğünde haberin olsun.</span>
+                    <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Seyahat Kokpiti</strong>
+                    <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Satın aldığın uçuşu ekle, yolculuğunu takip et.</span>
                   </div>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function ProfilPage() {
             {[
               { emoji: "🗺️", title: "Seyahat Haritan", desc: "Ziyaret ettiğin ülkeleri işaretle" },
               { emoji: "❤️", title: "Favori Rotalar", desc: "Rotalarını kaydet" },
-              { emoji: "🔔", title: "Fiyat Alarmları", desc: "Düşen fiyatta bildirim al" },
+              { emoji: "🧭", title: "Seyahat Kokpiti", desc: "Yolculuğunu tek panodan takip et" },
               { emoji: "🏆", title: "Kaşifler Ligi", desc: "Gezginlerle yarış" },
             ].map((item, i) => (
               <div key={i} style={{ background: "#f8fafc", borderRadius: "16px", padding: "16px", border: "1px solid #e2e8f0", opacity: 0.7 }}>
@@ -249,16 +249,6 @@ export default function ProfilPage() {
               <Heart size={20} />
             </div>
             <span style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--l2t-navy)" }}>Favori Rotalarım</span>
-          </div>
-          <ChevronRight size={20} color="var(--l2t-muted)" />
-        </Link>
-
-        <Link href="/fiyat-kontrolu" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9", textDecoration: "none" }} className="hover-tilt">
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: "rgba(20, 118, 242, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--l2t-blue)" }}>
-              <Bell size={20} />
-            </div>
-            <span style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--l2t-navy)" }}>Fiyat Alarmlarım</span>
           </div>
           <ChevronRight size={20} color="var(--l2t-muted)" />
         </Link>

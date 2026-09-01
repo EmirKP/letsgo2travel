@@ -51,7 +51,7 @@ export default function HomeSavedBoard() {
                 <div className={styles.thumb}>
                   <Image src={trip.image || fallbackImages[index % fallbackImages.length]} alt="" fill sizes="84px" />
                 </div>
-                <div><small>{trip.type === "flight" ? "Uçuş" : trip.type === "ai_plan" ? "Rota planı" : "Keşif"}</small><h3>{trip.title}</h3><p>{trip.subtitle}</p></div>
+                <div><small>{trip.type === "ai_plan" ? "Rota planı" : "Keşif"}</small><h3>{trip.title}</h3><p>{trip.subtitle}</p></div>
                 <div className={styles.actions}>
                   <Link href={trip.url} aria-label={`${trip.title} planını aç`}><ArrowRight size={18} /></Link>
                   <button type="button" onClick={() => removeTrip(trip.id)} aria-label={`${trip.title} planını sil`}><Trash2 size={16} /></button>

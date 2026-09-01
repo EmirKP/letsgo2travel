@@ -1,7 +1,7 @@
 {
   "name": "Letsgo2Travel",
   "short_name": "L2T",
-  "description": "Ucuz uçak bileti kampanyaları, vizesiz ülkeler ve seyahat rehberi",
+  "description": "Pasaport gücü, rota asistanı, seyahat bütçesi ve gerçek gezgin deneyimleri.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#071B33",

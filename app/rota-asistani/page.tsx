@@ -39,7 +39,6 @@ export interface AiRouteResult {
   dailyPlan: string[];
   warnings: string[];
   cta: {
-    flightSearchText: string;
     guideText: string;
     forumText: string;
   };
@@ -212,7 +211,6 @@ export default function AIPlannerPage() {
         "Giriş kurallarını bilet almadan önce resmî kaynaktan yeniden doğrula.",
       ],
       cta: {
-        flightSearchText: "Bu rota için bilet ara",
         guideText: "Rehberi gör",
         forumText: "Forumda soru sor",
       },
@@ -646,8 +644,8 @@ export default function AIPlannerPage() {
             </div>
 
             <div style={{ background: "#f8fafc", padding: "24px 32px", borderTop: "1px solid #e2e8f0", display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(selectedRoute.cityOrRegion || selectedRoute.name)}`} className="l2t-btn" style={{ flex: 1, minWidth: "200px", minHeight: "44px", textAlign: "center", justifyContent: "center" }}>
-                <Plane size={18} style={{ marginRight: "8px" }} /> {selectedRoute.cta?.flightSearchText || "Bilet Ara"}
+              <Link href="/seyahat-kokpiti" className="l2t-btn" style={{ flex: 1, minWidth: "200px", minHeight: "44px", textAlign: "center", justifyContent: "center" }}>
+                <Compass size={18} style={{ marginRight: "8px" }} /> Bu rota için plan oluştur
               </Link>
               <Link href={`/rehber-merkezi/ulke/${selectedRoute.country.toLowerCase().replace(/ /g, '-')}`} className="l2t-btn l2t-btn-outline" style={{ flex: 1, minWidth: "150px", minHeight: "44px", textAlign: "center", justifyContent: "center" }}>
                 <BookOpen size={18} style={{ marginRight: "8px" }} /> {selectedRoute.cta?.guideText || "Rehberi Gör"}

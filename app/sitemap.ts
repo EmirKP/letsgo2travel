@@ -24,7 +24,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticUrls = [
     { url: `${baseUrl}/`, priority: 1.0, changeFrequency: 'daily' as const },
-    { url: `${baseUrl}/kampanyalar`, priority: 0.9, changeFrequency: 'daily' as const },
     { url: `${baseUrl}/vizesiz-ulkeler`, priority: 0.9, changeFrequency: 'weekly' as const },
     { url: `${baseUrl}/harita`, priority: 0.7, changeFrequency: 'monthly' as const },
     { url: `${baseUrl}/pasaport-gucu`, priority: 0.8, changeFrequency: 'monthly' as const },
@@ -35,8 +34,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/forum`, priority: 0.8, changeFrequency: 'daily' as const },
     { url: `${baseUrl}/vize-merkezi`, priority: 0.9, changeFrequency: 'daily' as const },
     { url: `${baseUrl}/vize-rehberi`, priority: 0.8, changeFrequency: 'weekly' as const },
-    { url: `${baseUrl}/fiyat-kontrolu`, priority: 0.7, changeFrequency: 'weekly' as const },
-    { url: `${baseUrl}/ucak-bileti-ara`, priority: 0.8, changeFrequency: 'daily' as const },
     { url: `${baseUrl}/oteller`, priority: 0.7, changeFrequency: 'weekly' as const },
     { url: `${baseUrl}/esim`, priority: 0.7, changeFrequency: 'monthly' as const },
     { url: `${baseUrl}/rehber-merkezi`, priority: 0.8, changeFrequency: 'weekly' as const },

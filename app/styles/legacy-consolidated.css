@@ -108,29 +108,13 @@ a { -webkit-tap-highlight-color: transparent; }
 .l2t-pwa-install span { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .l2t-pwa-install small { font-size: .7rem; font-weight: 650; opacity: .68; }
 .l2t-pwa-installed { color: #d8f9e7; background: rgba(16,185,129,.13); border: 1px solid rgba(16,185,129,.25); font-size: .84rem; font-weight: 750; }
-
-/* Flight search */
-.l2t-home-search-section { position: relative; z-index: 20; margin-top: -62px !important; scroll-margin-top: 92px; }
-.l2t-flight-search-v24 { padding: 27px; background: rgba(255,255,255,.98); border: 1px solid rgba(255,255,255,.75); border-radius: 26px; box-shadow: 0 24px 75px rgba(6,26,51,.17); }
 .l2t-search-heading-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 22px; margin-bottom: 19px; }
 .l2t-search-heading-row h2, .l2t-section-heading h2, .l2t-partner-copy h2 { margin: 6px 0 0; color: var(--l2t-v24-navy); font-size: clamp(1.55rem, 2.4vw, 2.25rem); line-height: 1.15; letter-spacing: -.035em; }
 .l2t-section-kicker { color: #1f719f; }
 .l2t-trip-type { display: inline-flex; flex: none; gap: 4px; padding: 4px; background: #edf3f8; border-radius: 13px; }
 .l2t-trip-type button { min-height: 37px; padding: 0 14px; border: 0; border-radius: 10px; color: var(--l2t-v24-muted); background: transparent; cursor: pointer; font-size: .83rem; font-weight: 780; }
 .l2t-trip-type button.is-active { color: var(--l2t-v24-navy); background: #fff; box-shadow: 0 4px 14px rgba(6,26,51,.09); }
-.l2t-flight-form-grid { display: grid; grid-template-columns: minmax(360px, 2.1fr) minmax(145px, .75fr) minmax(145px, .75fr) minmax(180px, .9fr) minmax(145px, .72fr); gap: 10px; align-items: stretch; }
-.l2t-flight-location-pair { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.l2t-flight-field { position: relative; min-height: 69px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 11px 14px; color: var(--l2t-v24-text); background: #f3f7fa; border: 1px solid transparent; border-radius: 15px; transition: .2s ease; }
-.l2t-flight-field:focus-within { background: #fff; border-color: rgba(31,113,159,.42); box-shadow: 0 0 0 4px rgba(127,200,255,.18); z-index: 30; }
-.l2t-flight-field label, .l2t-flight-field > span { display: flex; align-items: center; gap: 5px; color: var(--l2t-v24-muted); font-size: .71rem; font-weight: 780; }
-.l2t-flight-field input, .l2t-flight-field select { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--l2t-v24-navy); background: transparent; font-size: .95rem; font-weight: 820; }
-.l2t-flight-field input[type="date"] { min-height: 24px; }
-.l2t-flight-field select { appearance: none; cursor: pointer; }
-.l2t-flight-swap { position: absolute; z-index: 35; left: 50%; top: 50%; width: 36px; height: 36px; display: grid; place-items: center; transform: translate(-50%,-50%); border: 1px solid var(--l2t-v24-border); border-radius: 50%; color: var(--l2t-v24-navy); background: #fff; box-shadow: 0 5px 15px rgba(6,26,51,.12); cursor: pointer; }
-.l2t-flight-swap:disabled { opacity: .45; cursor: not-allowed; }
 .l2t-add-return { align-items: center; flex-direction: row; border: 1px dashed rgba(31,113,159,.33); color: #1f719f; cursor: pointer; font-weight: 750; }
-.l2t-flight-submit { min-height: 69px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border-radius: 15px; color: var(--l2t-v24-navy); background: linear-gradient(135deg, var(--l2t-v24-gold), #ffe28d); box-shadow: 0 12px 28px rgba(229,182,47,.2); text-decoration: none; font-weight: 900; }
-.l2t-flight-submit:hover { background: linear-gradient(135deg, var(--l2t-v24-gold-strong), var(--l2t-v24-gold)); }
 .l2t-location-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: min(360px, 88vw); max-height: 330px; overflow: auto; z-index: 100; padding: 7px; background: #fff; border: 1px solid var(--l2t-v24-border); border-radius: 16px; box-shadow: 0 22px 55px rgba(6,26,51,.2); }
 .l2t-location-option { width: 100%; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; padding: 11px; border: 0; border-radius: 11px; text-align: left; background: transparent; cursor: pointer; }
 .l2t-location-option:hover { background: var(--l2t-v24-sky-soft); }
@@ -138,8 +122,6 @@ a { -webkit-tap-highlight-color: transparent; }
 .l2t-location-option > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .l2t-location-option strong { color: var(--l2t-v24-navy); font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .l2t-location-option small { color: var(--l2t-v24-muted); font-size: .73rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.l2t-flight-search-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 2px 0; }
-.l2t-flight-search-footer p { margin: 0; color: var(--l2t-v24-muted); font-size: .75rem; }
 .l2t-alert-toggle { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 0; border-radius: 11px; color: #1f719f; background: var(--l2t-v24-sky-soft); cursor: pointer; font-size: .78rem; font-weight: 780; }
 .l2t-alert-form-wrap { max-width: 600px; margin: 15px auto 0; }
 
@@ -172,14 +154,6 @@ a { -webkit-tap-highlight-color: transparent; }
 .l2t-country-emoji { width: 48px; height: 48px; display: grid; place-items: center; background: #f4f7fa; border-radius: 15px; font-size: 1.8rem; }
 .l2t-country-brief-card h3 { margin: 0 0 5px; color: var(--l2t-v24-navy); font-size: 1rem; }
 .l2t-country-brief-card p { margin: 0; display: -webkit-box; overflow: hidden; color: var(--l2t-v24-muted); font-size: .76rem; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.l2t-home-deals-grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
-.l2t-home-deals-grid .l2t-deal-card { border-radius: 20px !important; overflow: hidden; }
-
-/* Existing live ticker modernized */
-.l2t-live-deals-section { margin-top: 27px !important; }
-.l2t-live-deals-panel { padding: 22px !important; border-radius: 22px !important; background: linear-gradient(135deg, var(--l2t-v24-navy), var(--l2t-v24-navy-2)) !important; box-shadow: 0 22px 55px rgba(6,26,51,.18) !important; }
-.l2t-live-deals-head h2 { color: #fff !important; font-size: 1.45rem !important; }
-.l2t-live-deal-card { border-radius: 14px !important; background: rgba(255,255,255,.09) !important; border: 1px solid rgba(255,255,255,.09) !important; }
 
 /* Partner strip */
 .l2t-partner-strip { display: grid; grid-template-columns: 1fr 1.2fr; gap: 35px; align-items: center; margin-top: 78px !important; padding: 34px !important; color: #fff; background: linear-gradient(135deg, var(--l2t-v24-navy), var(--l2t-v24-navy-3)); border-radius: 28px; box-shadow: var(--l2t-v24-shadow-lg); }
@@ -223,9 +197,6 @@ a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 1100px) {
   .l2t-desktop-nav-v24 a { padding-inline: 8px; font-size: .84rem; }
   .l2t-desktop-nav-v24 a svg { display: none; }
-  .l2t-flight-form-grid { grid-template-columns: minmax(340px, 1.8fr) repeat(2,minmax(135px,.7fr)); }
-  .l2t-flight-form-grid > .l2t-flight-field:nth-of-type(3), .l2t-flight-submit { grid-row: 2; }
-  .l2t-flight-submit { min-height: 62px; }
   .l2t-quick-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .l2t-partner-strip { grid-template-columns: 1fr; }
 }
@@ -241,10 +212,6 @@ a { -webkit-tap-highlight-color: transparent; }
   .l2t-home-app-card { display: none; }
   .l2t-home-hero-copy { max-width: 760px; }
   .l2t-home-hero-copy h1 { font-size: clamp(2.75rem, 9vw, 4.8rem); }
-  .l2t-flight-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .l2t-flight-location-pair { grid-column: 1 / -1; }
-  .l2t-flight-form-grid > .l2t-flight-field:nth-of-type(3), .l2t-flight-submit { grid-row: auto; }
-  .l2t-flight-submit { min-height: 65px; }
   .l2t-route-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 12px; }
   .l2t-route-card { flex: 0 0 min(310px, 78vw); scroll-snap-align: start; }
   .l2t-footer-main-v24 { grid-template-columns: 1.3fr repeat(2,1fr); }
@@ -274,25 +241,15 @@ a { -webkit-tap-highlight-color: transparent; }
   .l2t-home-hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .l2t-action-primary, .l2t-action-secondary { min-height: 48px; padding: 0 12px; font-size: .82rem; }
   .l2t-home-trust-row { gap: 9px 13px; margin-top: 22px; font-size: .73rem; }
-  .l2t-home-search-section { margin-top: -45px !important; }
-  .l2t-flight-search-v24 { padding: 17px; border-radius: 21px; }
   .l2t-search-heading-row { align-items: stretch; flex-direction: column; gap: 14px; }
   .l2t-search-heading-row h2 { font-size: 1.45rem; }
   .l2t-trip-type { align-self: stretch; }
   .l2t-trip-type button { flex: 1; }
-  .l2t-flight-form-grid { grid-template-columns: 1fr; }
-  .l2t-flight-location-pair { grid-template-columns: 1fr; gap: 9px; }
-  .l2t-flight-swap { left: auto; right: 13px; top: 50%; transform: translateY(-50%) rotate(90deg); }
-  .l2t-flight-field { min-height: 62px; }
-  .l2t-flight-submit { min-height: 57px; }
   .l2t-location-dropdown { width: calc(100vw - 56px); max-width: 360px; }
-  .l2t-flight-search-footer { align-items: stretch; flex-direction: column; gap: 10px; }
   .l2t-alert-toggle { justify-content: center; min-height: 42px; }
   .l2t-quick-actions { grid-template-columns: 1fr; gap: 9px; margin-top: 16px !important; }
   .l2t-quick-action-card { min-height: 79px; padding: 12px; }
   .l2t-quick-action-icon { width: 41px; height: 41px; }
-  .l2t-live-deals-section { margin-top: 18px !important; }
-  .l2t-live-deals-panel { padding: 17px !important; border-radius: 19px !important; }
   .l2t-section { margin-top: 57px !important; }
   .l2t-section-heading { align-items: flex-start; flex-direction: column; gap: 10px; margin-bottom: 16px; }
   .l2t-section-heading h2 { font-size: 1.62rem; }
@@ -300,8 +257,6 @@ a { -webkit-tap-highlight-color: transparent; }
   .l2t-country-brief-grid { grid-template-columns: 1fr; }
   .l2t-country-brief-card { grid-template-columns: auto 1fr; min-height: 94px; padding: 14px; }
   .l2t-country-brief-card .l2t-visa-pill { grid-column: 2; justify-self: start; }
-  .l2t-home-deals-grid { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 10px; }
-  .l2t-home-deals-grid > * { flex: 0 0 min(310px,87vw); scroll-snap-align: start; }
   .l2t-partner-strip { width: min(100% - 22px,1180px) !important; gap: 22px; margin-top: 58px !important; padding: 23px !important; border-radius: 23px; }
   .l2t-partner-actions { grid-template-columns: 1fr; }
   .l2t-partner-actions a { min-height: 60px; }
@@ -635,20 +590,7 @@ body {
 .l2t-v25-install-wrap { position: absolute; z-index: 6; right: 26px; top: 242px; width: 216px; }
 .l2t-v25-install-wrap .l2t-pwa-install,
 .l2t-v25-install-wrap .l2t-pwa-installed { margin: 0; box-shadow: 0 13px 32px rgba(18,54,82,.15); }
-
-/* Search */
-.l2t-v25-search-section { margin-top: -58px !important; }
-.l2t-v25-search-section .l2t-flight-search-v24 {
-  border: 1px solid rgba(10,39,67,.08);
-  box-shadow: 0 24px 68px rgba(18,54,82,.14);
-}
-.l2t-flight-search-v24 { background: rgba(255,255,255,.99) !important; }
 .l2t-search-heading-row h2 { color: var(--l2t-v25-navy) !important; }
-.l2t-flight-field { background: #f8fafc !important; border-color: #dfe8ef !important; }
-.l2t-flight-field:focus-within { background: #fff !important; border-color: #86badb !important; box-shadow: 0 0 0 4px rgba(47,127,191,.09) !important; }
-.l2t-flight-field input,
-.l2t-flight-field select { color: var(--l2t-v25-navy) !important; }
-.l2t-flight-submit { color: var(--l2t-v25-navy) !important; background: var(--l2t-v25-gold) !important; box-shadow: 0 12px 27px rgba(190,139,30,.18) !important; }
 .l2t-trip-type { background: #f1f6f9 !important; }
 .l2t-trip-type button { color: #687b8d !important; }
 .l2t-trip-type button.is-active { color: var(--l2t-v25-navy) !important; background: #fff !important; box-shadow: 0 4px 12px rgba(18,54,82,.08) !important; }
@@ -933,7 +875,6 @@ body {
   .l2t-v25-hero-photo-bottom { width: 38%; height: 190px; border-radius: 22px; }
   .l2t-v25-install-wrap { display: none; }
   .l2t-v25-hero-floating-card { left: 12px; bottom: -17px; padding: 10px 12px; }
-  .l2t-v25-search-section { margin-top: -44px !important; }
   .l2t-v25-quick-actions { grid-template-columns: 1fr; gap: 8px; }
   .l2t-v25-quick-card { min-height: 83px; padding: 12px; }
   .l2t-v25-section { margin-top: 68px; }
@@ -1110,17 +1051,6 @@ body {
 
 /* Calm global palette: photos carry the visual colour, UI remains restrained. */
 .l2t-v25-kicker { color: var(--l2t-v26-blue) !important; }
-.l2t-v25-primary-action,
-.l2t-flight-submit,
-.l2t-v25-passport-copy a:first-child,
-.l2t-v25-budget-copy a:first-of-type,
-.l2t-v25-community-copy a:first-child,
-.l2t-budget-v25-actions a,
-.l2t-route-wizard-form button {
-  background: var(--l2t-v26-gold) !important;
-  color: var(--l2t-v26-ink) !important;
-  box-shadow: 0 10px 24px rgba(176, 126, 20, .14) !important;
-}
 
 /* Remove the multi-colour icon competition from quick actions. */
 .tone-sky .l2t-v25-quick-icon,
@@ -1392,12 +1322,6 @@ body {
 }
 .l2t-v26-route-stat > svg { color: var(--l2t-v26-blue); }
 
-/* Search sits below the hero without the heavy overlap used before. */
-.l2t-v26-hero + .l2t-v25-search-section { margin-top: -26px !important; }
-.l2t-v26-hero + .l2t-v25-search-section .l2t-flight-search-v24 {
-  box-shadow: 0 18px 48px rgba(11,34,57,.105) !important;
-}
-
 @media (max-width: 1120px) {
   .l2t-v26-hero-grid { grid-template-columns: minmax(0,.9fr) minmax(470px,1.1fr); gap: 42px; }
   .l2t-v26-hero-copy h1 { font-size: clamp(3rem,4.8vw,4.15rem); }
@@ -1431,7 +1355,6 @@ body {
   .l2t-v26-route-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
   .l2t-v26-mini-route,
   .l2t-v26-route-stat { flex: 0 0 245px; scroll-snap-align: start; }
-  .l2t-v26-hero + .l2t-v25-search-section { margin-top: -20px !important; }
 }
 
 /* ===== l2t-v27.css ===== */
@@ -2363,19 +2286,6 @@ main { background: var(--l2t-page); }
   box-shadow: var(--l2t-shadow-soft) !important;
 }
 
-.l2t-button-gold,
-.l2t-btn-gold,
-.l2t-flight-submit {
-  color: var(--l2t-ink) !important;
-  background: var(--l2t-gold-calm) !important;
-  background-image: none !important;
-  border-color: var(--l2t-gold-calm) !important;
-  box-shadow: 0 10px 22px rgba(151, 111, 25, .16) !important;
-}
-.l2t-button-gold:hover,
-.l2t-btn-gold:hover,
-.l2t-flight-submit:hover { background: var(--l2t-gold-hover) !important; }
-
 .l2t-button-blue,
 .l2t-btn:not(.l2t-btn-ghost):not(.l2t-btn-outline) {
   color: #fff !important;
@@ -2479,23 +2389,6 @@ textarea {
 }
 .l2t-v26-mini-route:hover { background: #dbe8ee !important; }
 .l2t-v26-route-stat { background: #e8f2f8 !important; }
-
-.l2t-v25-search-section { margin-top: -58px !important; }
-.l2t-v25-search-section .l2t-flight-search-v24,
-.l2t-flight-search-v24 {
-  background: #f4f8fa !important;
-  border-color: #bcced8 !important;
-  box-shadow: 0 22px 50px rgba(16,42,67,.12) !important;
-}
-.l2t-flight-field {
-  background: #e7eff3 !important;
-  border-color: #c5d5de !important;
-}
-.l2t-flight-field:focus-within {
-  background: #f9fbfc !important;
-  border-color: #79a2b9 !important;
-  box-shadow: 0 0 0 4px rgba(63,113,143,.1) !important;
-}
 .l2t-trip-type { background: #dfe9ee !important; }
 .l2t-trip-type button.is-active {
   color: var(--l2t-ink) !important;
@@ -2754,7 +2647,6 @@ textarea {
   .l2t-route-v27 .planner-card.l2t-route-v27-step-card { border-radius: 18px !important; }
 }
 
-
 /* V29 final hierarchy overrides
    Navy = primary action, blue = selected state, gold = small accent only. */
 .l2t-header-v24 {
@@ -2773,26 +2665,6 @@ textarea {
 .trip-dash-btn,
 .l2t-language-trigger { background: #fff !important; border-color: var(--l2t-line) !important; }
 
-/* Large CTAs no longer use gold. */
-.l2t-button-gold,
-.l2t-btn-gold,
-.l2t-flight-submit,
-.l2t-v26-primary-action,
-.l2t-v25-finder-ai-link {
-  color: #fff !important;
-  background: var(--l2t-navy-calm) !important;
-  border-color: var(--l2t-navy-calm) !important;
-  box-shadow: 0 10px 22px rgba(11,34,57,.16) !important;
-}
-.l2t-button-gold:hover,
-.l2t-btn-gold:hover,
-.l2t-flight-submit:hover,
-.l2t-v26-primary-action:hover,
-.l2t-v25-finder-ai-link:hover {
-  background: var(--l2t-navy-soft-2) !important;
-  border-color: var(--l2t-navy-soft-2) !important;
-}
-
 /* Home: neutral canvas; photographs carry most of the color. */
 .l2t-v26-hero {
   background:
@@ -2805,10 +2677,6 @@ textarea {
 .l2t-v26-secondary-action:hover { background: var(--l2t-surface-blue) !important; }
 .l2t-v26-mini-route { background: #fff !important; border-color: var(--l2t-line) !important; }
 .l2t-v26-route-stat { background: var(--l2t-surface-blue) !important; border-color: #d2e1e9 !important; }
-.l2t-v25-search-section .l2t-flight-search-v24,
-.l2t-flight-search-v24 { background: #fff !important; border-color: var(--l2t-line) !important; }
-.l2t-flight-field { background: var(--l2t-page) !important; border-color: var(--l2t-line) !important; }
-.l2t-flight-field:focus-within { background: #fff !important; border-color: var(--l2t-blue-calm) !important; }
 .l2t-v25-quick-card,
 .tone-sky,
 .tone-gold,
@@ -2966,39 +2834,12 @@ textarea { color: var(--l2t-v30-ink); }
 .l2t-v26-hero-copy > p,
 .l2t-v26-hero-meta { color: var(--l2t-v30-muted) !important; }
 .l2t-v26-hero-meta svg { color: var(--l2t-v30-success) !important; }
-.l2t-v26-primary-action,
-.l2t-flight-submit,
-.l2t-v25-passport-copy a:first-child,
-.l2t-v25-budget-copy a:first-of-type,
-.l2t-v25-community-copy a:first-child {
-  color: #fff !important;
-  background: var(--l2t-v30-navy) !important;
-  border-color: var(--l2t-v30-navy) !important;
-  box-shadow: 0 12px 24px rgba(10,44,63,.16) !important;
-}
-.l2t-v26-primary-action:hover,
-.l2t-flight-submit:hover,
-.l2t-v25-passport-copy a:first-child:hover,
-.l2t-v25-budget-copy a:first-of-type:hover,
-.l2t-v25-community-copy a:first-child:hover { background: var(--l2t-v30-navy-hover) !important; }
 .l2t-v26-secondary-action { color: var(--l2t-v30-navy) !important; background: rgba(255,255,255,.78) !important; border-color: var(--l2t-v30-line) !important; }
 .l2t-v26-secondary-action:hover { background: var(--l2t-v30-teal-soft) !important; }
 .l2t-pwa-install {
   color: #fff !important;
   background: var(--l2t-v30-teal) !important;
   box-shadow: 0 10px 22px rgba(22,119,139,.18) !important;
-}
-
-/* Shared surfaces */
-.l2t-v25-quick-card,
-.l2t-v25-search-section .l2t-flight-search-v24,
-.l2t-flight-search-v24,
-.l2t-v25-country-card,
-.l2t-card,
-.l2t-v25-board-list article {
-  background: var(--l2t-v30-surface-soft) !important;
-  border-color: var(--l2t-v30-line) !important;
-  box-shadow: 0 10px 28px rgba(10,44,63,.045) !important;
 }
 .l2t-v25-quick-card:hover,
 .l2t-card:hover { border-color: rgba(22,119,139,.42) !important; box-shadow: var(--l2t-v30-shadow) !important; }
@@ -3074,56 +2915,6 @@ textarea { color: var(--l2t-v30-ink); }
   border-block-color: var(--l2t-v30-line) !important;
 }
 
-/* Deal cards: real images, readable labels and no invisible disabled content. */
-.l2t-home-deals-grid,
-.l2t-deals-grid { align-items: stretch !important; }
-.l2t-deal-card {
-  overflow: hidden !important;
-  opacity: 1 !important;
-  filter: none !important;
-  background: #fff !important;
-  border: 1px solid var(--l2t-v30-line) !important;
-  border-radius: 18px !important;
-}
-.l2t-deal-card.expired-deal { opacity: 1 !important; filter: none !important; }
-.l2t-deal-card.expired-deal .l2t-card-image { filter: grayscale(.55) saturate(.55) !important; }
-.l2t-deal-card .l2t-card-image { height: 180px !important; background: #d8e5e8 !important; }
-.l2t-deal-card .l2t-card-image::after { display: none !important; }
-.l2t-deal-image-label {
-  position: absolute;
-  z-index: 5;
-  left: 14px;
-  bottom: 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: calc(100% - 72px);
-  color: #fff;
-  text-shadow: 0 2px 12px rgba(0,0,0,.48);
-}
-.l2t-deal-image-label small {
-  color: rgba(255,255,255,.78) !important;
-  font-size: .66rem !important;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-}
-.l2t-deal-image-label strong { color: #fff !important; font-size: 1.2rem; line-height: 1.05; }
-.l2t-deal-card .l2t-card-body { min-height: 275px !important; padding: 16px !important; }
-.l2t-deal-card .l2t-card-topline { color: var(--l2t-v30-teal) !important; font-weight: 800 !important; }
-.l2t-deal-card .l2t-card-body h3 { color: var(--l2t-v30-ink) !important; }
-.l2t-deal-card .l2t-card-body > p,
-.l2t-deal-card .l2t-card-body small { color: var(--l2t-v30-muted) !important; }
-.l2t-deal-card .l2t-deal-bottom strong { color: var(--l2t-v30-ink) !important; }
-.l2t-deal-card .l2t-btn,
-.l2t-deal-card button.l2t-btn {
-  color: #fff !important;
-  background: var(--l2t-v30-navy) !important;
-  border-color: var(--l2t-v30-navy) !important;
-  opacity: 1 !important;
-}
-.l2t-deal-card .l2t-btn:disabled { color: #fff !important; background: #71818c !important; }
-
 /* Passport and route pages: explicit contrast safeguards. */
 .l2t-passport-v27,
 .l2t-route-v27 { background: var(--l2t-v30-page) !important; color: var(--l2t-v30-ink) !important; }
@@ -3161,8 +2952,6 @@ textarea { color: var(--l2t-v30-ink); }
 .l2t-btn:not(.l2t-btn-outline),
 button[class*="primary"],
 a[class*="primary"] { text-shadow: none; }
-.l2t-btn[style*="background"],
-.l2t-deal-card button { font-weight: 800 !important; }
 
 .l2t-footer-v24 { background: var(--l2t-v30-navy) !important; }
 
@@ -3178,6 +2967,4 @@ a[class*="primary"] { text-shadow: none; }
   .l2t-header-v24 { background: rgba(248,251,251,.98) !important; }
   .l2t-v26-hero { background: linear-gradient(155deg, #e4eef0 0%, #f7f9f9 100%) !important; }
   .l2t-v25-budget-photo { min-height: 235px !important; }
-  .l2t-deal-card .l2t-card-image { height: 205px !important; }
-  .l2t-deal-card .l2t-card-body { min-height: auto !important; }
 }

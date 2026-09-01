@@ -43,7 +43,6 @@ type AiRouteData = {
   dailyPlan: string[];
   warnings: string[];
   cta: {
-    flightSearchText: string;
     guideText: string;
     forumText: string;
   };
@@ -313,7 +312,6 @@ function normalizeRoute(value: unknown): AiRouteData | null {
     dailyPlan: cleanStringArray(route.dailyPlan, ["Şehir merkezini ve ana ulaşım noktalarını keşfet."], 10),
     warnings,
     cta: {
-      flightSearchText: cleanText(cta.flightSearchText, "Bu rota için bilet ara", 100),
       guideText: cleanText(cta.guideText, "Rehberi gör", 100),
       forumText: cleanText(cta.forumText, "Forumda sor", 100),
     },
@@ -332,7 +330,7 @@ function fallbackRoute(profile: FallbackProfile, input: PlannerInput): AiRouteDa
     firstTimeFriendly: true,
     scores: { budget: 8, visaEase: 9, firstTime: 9, transport: 8, overall: 88 },
     warnings: [
-      "Uçuş ve konaklama tutarları canlı fiyat değildir; tarihler için yeniden kontrol et.",
+      "Uçak bileti ücreti bu tahmine dahil değildir; konaklama tutarlarını tarihler için yeniden kontrol et.",
     ],
   })!;
 }
@@ -476,7 +474,7 @@ export async function POST(req: Request) {
             "scores": { "budget": 8, "visaEase": 8, "firstTime": 8, "transport": 8, "overall": 85 },
             "dailyPlan": ["1. Gün: ...", "2. Gün: ...", "3. Gün: ..."],
             "warnings": ["Tahmini fiyat uyarısı"],
-            "cta": { "flightSearchText": "Bu rota için bilet ara", "guideText": "Rehberi gör", "forumText": "Forumda sor" }
+            "cta": { "guideText": "Rehberi gör", "forumText": "Forumda sor" }
           }
         ]
       }

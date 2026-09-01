@@ -4,7 +4,7 @@ import { Plane, Sparkles, Globe, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Hakkımızda",
-  description: "LetsGo2Travel, Türk gezginlere yönelik modern bir seyahat asistanı. Vizesiz rotalar, ucuz uçak bileti ve seyahat rehberi tek platformda.",
+  description: "LetsGo2Travel, modern bir seyahat işletim sistemi. Destinasyon keşfi, vizesiz rotalar, seyahat bütçesi ve gezgin topluluğu tek platformda.",
   alternates: { canonical: "/hakkimizda" },
 };
 
@@ -24,7 +24,7 @@ export default function HakkimizdaPage() {
           <h2 style={{ fontSize: "1.5rem", color: "var(--l2t-navy)", fontWeight: "800", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}><Globe size={24} color="var(--l2t-blue)" /> Biz Kimiz?</h2>
           <p style={{ color: "var(--l2t-soft)", lineHeight: 1.8, fontSize: "1.05rem" }}>
             LetsGo2Travel, Türk vatandaşlarının yurt dışı seyahat planlamalarını kolaylaştırmak amacıyla geliştirilmiş modern bir seyahat bilgi platformudur.
-            Ucuz uçak bileti aramadan vizesiz ülke kılavuzlarına, otel önerilerinden yapay zeka destekli rota planlamasına kadar geniş bir içerik yelpazesi sunuyoruz.
+            Destinasyon ve etkinlik keşfinden vizesiz ülke kılavuzlarına, seyahat bütçesinden yapay zeka destekli rota planlamasına kadar geniş bir içerik yelpazesi sunuyoruz.
           </p>
           <p style={{ color: "var(--l2t-soft)", lineHeight: 1.8, fontSize: "1.05rem", marginTop: "16px" }}>
             Amacımız, seyahat yapmak isteyen herkese anlaşılır ve kullanışlı karar desteği sağlamak. Tarih bilgisi bulunmayan fiyatlar tahmini olarak işaretlenir; vize ve giriş kuralları için seyahat öncesinde resmî kaynak kontrolü gerekir.
@@ -33,7 +33,7 @@ export default function HakkimizdaPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "32px" }}>
           {[
-            { icon: <Plane size={24} color="var(--l2t-blue)" />, title: "Uçuş Arama", text: "Rota ve tarihini seç, güncel sonucu bileti satan sağlayıcının ekranında kontrol et." },
+            { icon: <Plane size={24} color="var(--l2t-blue)" />, title: "Seyahat Kokpiti", text: "Satın aldığın uçuşu ekle, PNR bilgini sakla ve yolculuğunu tek panodan takip et." },
             { icon: <Globe size={24} color="#10B981" />, title: "Vizesiz Rotalar", text: "Pasaportuna göre kolayca keşfedilebilen destinasyonlar." },
             { icon: <Sparkles size={24} color="var(--l2t-gold)" />, title: "Rota Asistanı", text: "Bütçene uygun rotayı saniyeler içinde planla." },
             { icon: <Shield size={24} color="#8B5CF6" />, title: "Şeffaf Bilgi", text: "Tahmini içerikler açıkça işaretlenir; kritik bilgiler için resmî doğrulama hatırlatılır." },

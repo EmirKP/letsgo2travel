@@ -7,7 +7,7 @@ const productLinks = [
   ["Pasaport Gücü", "/pasaport-gucu"],
   ["Rota Asistanı", "/rota-asistani"],
   ["Vize Randevu Asistanı", "/vize-randevu"],
-  ["Uçuş Fırsatları", "/kampanyalar"],
+  ["Destinasyon Keşfi", "/ulke-rehberi"],
   ["Gezgin Topluluğu", "/forum"],
   ["Ülke Rehberleri", "/ulke-rehberi"],
   ["Seyahat Blogu", "/blog"],
@@ -31,7 +31,7 @@ export default function Footer() {
           <Link href="/" className={styles.brand}>
             <span>LetsGo</span><b>2</b><span>Travel</span><Plane size={19} />
           </Link>
-          <p>Pasaport gücü, rota planlama, fiyat takibi ve gerçek gezgin deneyimleri tek seyahat platformunda.</p>
+          <p>Pasaport gücü, rota planlama, seyahat bütçesi ve gerçek gezgin deneyimleri tek seyahat platformunda.</p>
           <a href={`mailto:${siteSettings.supportEmail}`}><Mail size={16} /> {siteSettings.supportEmail}</a>
         </div>
         <div className={styles.column}>

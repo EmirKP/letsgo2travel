@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plane, Clock, MapPin, Search, MessageCircle, ShieldCheck, BellRing } from "lucide-react";
+import { Calculator, Clock, Compass, MapPin, Search, MessageCircle, ShieldCheck } from "lucide-react";
 
 const VISA_GROUPS = [
   { id: "all", label: "Tümü" },
@@ -39,17 +39,17 @@ const VISA_LABELS: Record<string, string> = {
 };
 
 const COUNTRIES = [
-  { id: 1, name: "Bosna Hersek", slug: "bosna-hersek", region: "Balkanlar", emoji: "🇧🇦", visa: "vizesiz", duration: "1s 50dk", stay: "30 gün", price: 1200, img: "/travel-images/route-saraybosna.jpg" },
-  { id: 2, name: "Karadağ", slug: "karadag", region: "Balkanlar", emoji: "🇲🇪", visa: "vizesiz", duration: "1s 45dk", stay: "30 gün", price: 2200, img: "/travel-images/route-generic.jpg" },
-  { id: 3, name: "Sırbistan", slug: "sirbistan", region: "Balkanlar", emoji: "🇷🇸", visa: "vizesiz", duration: "1s 40dk", stay: "30 gün", price: 1400, img: "/travel-images/route-generic.jpg" },
-  { id: 4, name: "Üsküp", slug: "uskup", region: "Balkanlar", emoji: "🇲🇰", visa: "vizesiz", duration: "1s 35dk", stay: "90 gün", price: 1000, img: "/travel-images/route-generic.jpg" },
-  { id: 5, name: "Gürcistan", slug: "gurcistan", region: "Kafkasya", emoji: "🇬🇪", visa: "kimlikle", duration: "2s 10dk", stay: "365 gün", price: 1600, img: "/travel-images/route-baku.jpg" },
-  { id: 6, name: "Azerbaycan", slug: "azerbaycan", region: "Kafkasya", emoji: "🇦🇿", visa: "kimlikle", duration: "2s 45dk", stay: "90 gün", price: 1800, img: "/travel-images/route-baku.jpg" },
-  { id: 7, name: "KKTC", slug: "kktc", region: "Akdeniz", emoji: "🇨🇾", visa: "kimlikle", duration: "1s 30dk", stay: "Sınırsız", price: 1200, img: "/travel-images/route-summer.jpg" },
-  { id: 8, name: "Mısır", slug: "misir", region: "Kuzey Afrika", emoji: "🇪🇬", visa: "kapida-vize", duration: "2s 15dk", stay: "30 gün", price: 3500, img: "/travel-images/route-generic.jpg" },
-  { id: 9, name: "BAE (Dubai)", slug: "bae", region: "Orta Doğu", emoji: "🇦🇪", visa: "e-vize", duration: "4s 10dk", stay: "30 gün", price: 2400, img: "/travel-images/route-dubai.jpg" },
-  { id: 10, name: "Japonya", slug: "japonya", region: "Uzak Doğu", emoji: "🇯🇵", visa: "vizesiz", duration: "11s 30dk", stay: "90 gün", price: 18000, img: "/travel-images/route-generic.jpg" },
-  { id: 11, name: "Maldivler", slug: "maldivler", region: "Uzak Doğu", emoji: "🇲🇻", visa: "kapida-vize", duration: "8s", stay: "30 gün", price: 14000, img: "/travel-images/route-summer.jpg" },
+  { id: 1, name: "Bosna Hersek", slug: "bosna-hersek", region: "Balkanlar", emoji: "🇧🇦", visa: "vizesiz", duration: "1s 50dk", stay: "30 gün", img: "/travel-images/route-saraybosna.jpg" },
+  { id: 2, name: "Karadağ", slug: "karadag", region: "Balkanlar", emoji: "🇲🇪", visa: "vizesiz", duration: "1s 45dk", stay: "30 gün", img: "/travel-images/route-generic.jpg" },
+  { id: 3, name: "Sırbistan", slug: "sirbistan", region: "Balkanlar", emoji: "🇷🇸", visa: "vizesiz", duration: "1s 40dk", stay: "30 gün", img: "/travel-images/route-generic.jpg" },
+  { id: 4, name: "Üsküp", slug: "uskup", region: "Balkanlar", emoji: "🇲🇰", visa: "vizesiz", duration: "1s 35dk", stay: "90 gün", img: "/travel-images/route-generic.jpg" },
+  { id: 5, name: "Gürcistan", slug: "gurcistan", region: "Kafkasya", emoji: "🇬🇪", visa: "kimlikle", duration: "2s 10dk", stay: "365 gün", img: "/travel-images/route-baku.jpg" },
+  { id: 6, name: "Azerbaycan", slug: "azerbaycan", region: "Kafkasya", emoji: "🇦🇿", visa: "kimlikle", duration: "2s 45dk", stay: "90 gün", img: "/travel-images/route-baku.jpg" },
+  { id: 7, name: "KKTC", slug: "kktc", region: "Akdeniz", emoji: "🇨🇾", visa: "kimlikle", duration: "1s 30dk", stay: "Sınırsız", img: "/travel-images/route-summer.jpg" },
+  { id: 8, name: "Mısır", slug: "misir", region: "Kuzey Afrika", emoji: "🇪🇬", visa: "kapida-vize", duration: "2s 15dk", stay: "30 gün", img: "/travel-images/route-generic.jpg" },
+  { id: 9, name: "BAE (Dubai)", slug: "bae", region: "Orta Doğu", emoji: "🇦🇪", visa: "e-vize", duration: "4s 10dk", stay: "30 gün", img: "/travel-images/route-dubai.jpg" },
+  { id: 10, name: "Japonya", slug: "japonya", region: "Uzak Doğu", emoji: "🇯🇵", visa: "vizesiz", duration: "11s 30dk", stay: "90 gün", img: "/travel-images/route-generic.jpg" },
+  { id: 11, name: "Maldivler", slug: "maldivler", region: "Uzak Doğu", emoji: "🇲🇻", visa: "kapida-vize", duration: "8s", stay: "30 gün", img: "/travel-images/route-summer.jpg" },
 ];
 
 export default function VisaFreePage() {
@@ -77,12 +77,12 @@ export default function VisaFreePage() {
       <div className="l2t-visa-conversion-band">
         <div>
           <p className="l2t-kicker">Hızlı karar</p>
-          <h2>Vizesiz rotayı seç, biletini ve gezgin yorumlarını hemen kontrol et.</h2>
-          <p>Bu sayfadaki her karttan direkt rehbere, foruma veya uçak bileti aramaya geçebilirsin.</p>
+          <h2>Vizesiz rotayı seç, rehberi ve gezgin yorumlarını hemen kontrol et.</h2>
+          <p>Bu sayfadaki her karttan direkt rehbere, foruma veya seyahat planına geçebilirsin.</p>
         </div>
         <div className="l2t-visa-conversion-actions">
           <Link href="/pasaport-gucu"><ShieldCheck size={16} /> Pasaport gücünü gör</Link>
-          <Link href="/fiyat-kontrolu"><BellRing size={16} /> Fiyat alarmı kur</Link>
+          <Link href="/butce-hesapla"><Calculator size={16} /> Bütçeni hesapla</Link>
           <Link href="/forum"><MessageCircle size={16} /> Gezginlere sor</Link>
         </div>
       </div>
@@ -143,12 +143,12 @@ export default function VisaFreePage() {
                 </div>
                 <div style={{ display: "flex", gap: "16px", padding: "0 20px 12px", borderTop: "1px dashed #e2e8f0", paddingTop: "12px", marginTop: "4px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", color: "var(--l2t-navy)", fontWeight: "700" }}><Clock size={14} color="#94a3b8" /> {c.duration}</div>
-                  <div style={{ marginLeft: "auto", fontSize: "0.85rem", color: "var(--l2t-navy)", fontWeight: "700" }}>~{c.price.toLocaleString("tr-TR")} ₺+</div>
+                  <div style={{ marginLeft: "auto", fontSize: "0.85rem", color: "var(--l2t-navy)", fontWeight: "700" }}>{c.stay} kalış</div>
                 </div>
               </Link>
               <div className="l2t-visa-card-actions">
-                <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(c.name)}`} className="l2t-btn">
-                  <Plane size={14} /> Bilet Ara
+                <Link href="/seyahat-kokpiti" className="l2t-btn">
+                  <Compass size={14} /> Plan Oluştur
                 </Link>
                 <Link href={`/ulke-rehberi/${c.slug}`}>Rehber</Link>
                 <Link href={`/forum/ulke/${c.slug}`}><MessageCircle size={14} /> Yorumlar</Link>
@@ -171,8 +171,8 @@ export default function VisaFreePage() {
             <p>Kimlikle gidilebilen rotalarda yeni tip T.C. kimlik kartı gerekir. Pasaportla gidilen vizesiz rotalarda geçerlilik süresi kontrol edilmelidir.</p>
           </article>
           <article>
-            <h3>Ucuz bilet nasıl yakalanır?</h3>
-            <p>Hafta içi uçuşları, alternatif havalimanlarını ve fiyat alarmını birlikte kullanmak daha iyi fiyat yakalama ihtimalini artırır.</p>
+            <h3>Bütçe nasıl planlanır?</h3>
+            <p>Konaklama, ulaşım ve günlük giderleri önceden planla; uçak bileti ücretini biletini aldıktan sonra bütçene ekleyerek gerçek maliyeti takip et.</p>
           </article>
           <article>
             <h3>Gezgin yorumları neden önemli?</h3>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bookmark, Compass, MapPin, Plane, Sparkles, Trash2 } from "lucide-react";
+import { ArrowRight, Bookmark, Compass, MapPin, Sparkles, Trash2 } from "lucide-react";
 import { useTripStore } from "../store/tripStore";
 import { supabase } from "@/lib/supabase-client";
 import type { SavedTrip } from "../store/tripStore";
@@ -55,15 +55,18 @@ export default function SavedPlansPage() {
           ? row.trip_data as Record<string, unknown>
           : {};
         const mobileKind = typeof tripData.mobile_kind === "string" ? tripData.mobile_kind : "";
+        // Uçuş arama kaydı ürün kapsamından kaldırıldı; eski "flight_search"
+        // kayıtları arayüzde gösterilmez. (Production veri temizliği ayrı onay ister.)
+        if (mobileKind === "flight_search") return [];
         const title = typeof row.title === "string" ? row.title.slice(0, 160) : "Seyahat planı";
         const subtitle = typeof row.destination === "string" ? row.destination.slice(0, 220) : "Hesabınla eşitlenen kayıt";
         return [{
           id: `remote-${row.id}`,
           remoteId: row.id,
-          type: mobileKind === "flight_search" ? "flight" as const : "ai_plan" as const,
+          type: "ai_plan" as const,
           title,
           subtitle,
-          url: mobileKind === "flight_search" ? "/#ucus-ara" : "/rota-asistani",
+          url: "/rota-asistani",
           savedAt: Date.parse(row.created_at || "") || Date.now(),
         }];
       }));
@@ -103,7 +106,7 @@ export default function SavedPlansPage() {
         <div className={styles.heroInner}>
           <span className={styles.kicker}><Bookmark size={15} /> Planlarım</span>
           <h1>Seyahat panon</h1>
-          <p>Kaydettiğin uçuşları, ülke rehberlerini ve Rota Asistanı planlarını tek ekranda yönet.</p>
+          <p>Kaydettiğin ülke rehberlerini ve Rota Asistanı planlarını tek ekranda yönet.</p>
         </div>
       </section>
 
@@ -115,16 +118,16 @@ export default function SavedPlansPage() {
             <div className={styles.emptyCopy}>
               <span className={styles.emptyIcon}><Compass size={32} /></span>
               <h2>Henüz kayıtlı planın yok</h2>
-              <p>Bir rota keşfet, uçuş fırsatını kaydet veya Rota Asistanı ile yeni bir seyahat planı oluştur. Kaydettiklerin burada görünür.</p>
+              <p>Bir rota keşfet, ülke rehberi kaydet veya Rota Asistanı ile yeni bir seyahat planı oluştur. Kaydettiklerin burada görünür.</p>
               <div className={styles.emptyActions}>
                 <Link href="/rota-asistani" className={styles.primary}><Sparkles size={18} /> Rota oluştur</Link>
-                <Link href="/#ucus-ara" className={styles.secondary}><Plane size={18} /> Uçuş ara</Link>
+                <Link href="/ulke-rehberi" className={styles.secondary}><Compass size={18} /> Destinasyon keşfet</Link>
               </div>
             </div>
             <div className={styles.emptyVisual} aria-hidden="true">
               <div className={styles.routeMockup}>
                 <span className={styles.routeLine} />
-                <span className={styles.routePlane}><Plane size={24} /></span>
+                <span className={styles.routePlane}><Compass size={24} /></span>
               </div>
             </div>
           </div>
@@ -144,7 +147,7 @@ export default function SavedPlansPage() {
                       fill
                       sizes="(max-width: 720px) 92vw, 33vw"
                     />
-                    <span>{trip.type === "flight" ? <Plane size={15} /> : trip.type === "ai_plan" ? <Sparkles size={15} /> : <MapPin size={15} />} {trip.type === "flight" ? "Uçuş" : trip.type === "ai_plan" ? "Rota planı" : "Ülke rehberi"}</span>
+                    <span>{trip.type === "ai_plan" ? <Sparkles size={15} /> : <MapPin size={15} />} {trip.type === "ai_plan" ? "Rota planı" : "Ülke rehberi"}</span>
                   </div>
                   <div className={styles.cardBody}>
                     <h2>{trip.title}</h2>

@@ -36,17 +36,37 @@ async function waitUntilReady() {
 async function run() {
   await waitUntilReady();
 
-  const flightResponse = await fetch(`${baseUrl}/api/travelpayouts-search?origin=IST&destination=LHR&departureDate=2026-09-20`);
-  const flight = await flightResponse.json();
-  assert(flightResponse.ok, "Uçuş arama API'si başarısız.");
-  assert(flight.mode === "letsgo2travel-meta-search", "Eski uçuş ucu LetsGo2Travel meta-aramasına taşınmadı.");
-  assert(String(flight.url).startsWith("/ucak-bileti-ara?"), "Uyumluluk ucu site içi arama sayfasına gitmiyor.");
-  assert(!/google|aviasales|skyscanner|kayak|momondo/i.test(JSON.stringify(flight)), "Yasaklı meta-arama sağlayıcısı yanıta sızdı.");
+  // Uçuş arama/karşılaştırma/fiyat alarmı sistemi kalıcı olarak kaldırıldı.
+  // Eski uçlar kontrollü 410 dönmeli ve hiçbir job/veri yazımı üretmemelidir.
+  for (const path of [
+    "/ucak-bileti-ara",
+    "/fiyat-kontrolu",
+    "/kampanyalar",
+    "/canli-ucus",
+    "/flights",
+    "/ucak-bileti/ornek-rota",
+  ]) {
+    const response = await fetch(`${baseUrl}${path}`, { redirect: "manual" });
+    assert(response.status === 410, `${path} kaldırılmış uçuş sayfası 410 dönmedi (${response.status}).`);
+  }
 
-  const legacyTarget = encodeURIComponent("https://www.aviasales.com/search?origin_iata=IST&destination_iata=LHR&depart_date=2026-09-20");
-  const legacyResponse = await fetch(`${baseUrl}/go/aviasales?url=${legacyTarget}`, { redirect: "manual" });
-  assert([301, 302, 307, 308].includes(legacyResponse.status), "Eski uçuş bağlantısı yönlendirilmedi.");
-  assert(String(legacyResponse.headers.get("location")).startsWith("https://www.letsgo2travel.com.tr/ucak-bileti-ara"), "Eski uçuş bağlantısı site içi meta-aramaya çevrilmedi.");
+  for (const [path, method] of [
+    ["/api/flights/searches", "POST"],
+    ["/api/flight-alerts", "POST"],
+    ["/api/internal/flights/heartbeat", "POST"],
+    ["/api/travelpayouts-search?origin=IST&destination=LHR", "GET"],
+    ["/api/canli-ucuslar", "GET"],
+    ["/api/fiyat-alarmi", "POST"],
+    ["/api/firsatlar", "GET"],
+  ]) {
+    const response = await fetch(`${baseUrl}${path}`, { method, redirect: "manual" });
+    assert(response.status === 410, `${path} kaldırılmış uçuş API'si 410 dönmedi (${response.status}).`);
+  }
+
+  const legacyGo = await fetch(`${baseUrl}/go/aviasales?url=${encodeURIComponent("https://www.aviasales.com/search")}`, { redirect: "manual" });
+  assert([301, 302, 307, 308].includes(legacyGo.status), "Bilinmeyen /go sağlayıcısı güvenli şekilde yönlendirilmedi.");
+  const legacyGoTarget = String(legacyGo.headers.get("location") || "");
+  assert(!legacyGoTarget.includes("aviasales") && !legacyGoTarget.includes("ucak-bileti"), "Eski aviasales bağlantısı uçuş hedefine yönlendirildi.");
 
   const fakeAdmin = await fetch(`${baseUrl}/admin`, {
     headers: { Cookie: "admin_session=true" },
@@ -71,7 +91,7 @@ async function run() {
     assert(response.ok, `${path} harita sayfası açılamadı.`);
   }
 
-  console.log("Smoke test başarılı: site içi uçuş meta-arama geçişi, haritalar, admin koruması, eski doğrulama ve hesap silme yolu doğrulandı.");
+  console.log("Smoke test başarılı: kaldırılmış uçuş uçları 410, admin koruması, eski doğrulama ve hesap silme yolu doğrulandı.");
 }
 
 try {

@@ -1,7 +1,6 @@
 import type { SiteSettings } from "./types";
-import { GLOBAL_LOCATIONS } from "./airports";
 
-export type AffiliateProvider = "aviasales" | "booking" | "airalo" | "getyourguide" | "other";
+export type AffiliateProvider = "booking" | "airalo" | "getyourguide" | "other";
 
 export const siteSettings: SiteSettings = {
   bookingAffiliateUrl:
@@ -10,48 +9,8 @@ export const siteSettings: SiteSettings = {
     process.env.NEXT_PUBLIC_AIRALO_AFFILIATE_URL || "https://www.airalo.com/",
   getYourGuideAffiliateUrl:
     process.env.NEXT_PUBLIC_GYG_AFFILIATE_URL || "https://www.getyourguide.com/",
-  travelpayoutsMarker: process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER || process.env.TRAVELPAYOUTS_MARKER || "725223",
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "info@letsgo2travel.com.tr",
 };
-
-const KNOWN_FLIGHT_CODES = new Set(
-  GLOBAL_LOCATIONS
-    .filter((location) => location.type === "city" && /^[A-Z0-9]{3}$/.test(location.code))
-    .map((location) => location.code),
-);
-
-function iata(value: string | undefined) {
-  const normalized = String(value || "").trim().toUpperCase();
-  return KNOWN_FLIGHT_CODES.has(normalized) ? normalized : "";
-}
-
-function isoDate(value: string | undefined) {
-  const normalized = String(value || "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
-}
-
-export function internalFlightSearchUrl(params: {
-  origin?: string;
-  destination?: string;
-  departDate?: string;
-  returnDate?: string;
-  currency?: string;
-  language?: string;
-}) {
-  const origin = iata(params.origin);
-  const destination = iata(params.destination);
-  const departDate = isoDate(params.departDate);
-  const returnDate = isoDate(params.returnDate);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.letsgo2travel.com.tr";
-  const url = new URL("/ucak-bileti-ara", siteUrl);
-  if (origin) url.searchParams.set("origin", origin);
-  if (destination) url.searchParams.set("destination", destination);
-  url.searchParams.set("tripType", returnDate ? "round_trip" : "one_way");
-  if (departDate) url.searchParams.set("departureDate", departDate);
-  if (returnDate) url.searchParams.set("returnDate", returnDate);
-  url.searchParams.set("currency", /^[A-Z]{3}$/.test(params.currency || "") ? params.currency! : "TRY");
-  return url.toString();
-}
 
 export function withUtm(url: string, source = "letsgo2travel", campaign = "site_cta") {
   try {
@@ -108,8 +67,6 @@ export function providerUrl(provider: AffiliateProvider) {
       return siteSettings.airaloAffiliateUrl;
     case "getyourguide":
       return siteSettings.getYourGuideAffiliateUrl;
-    case "aviasales":
-      return internalFlightSearchUrl({});
     default:
       return "https://www.letsgo2travel.com.tr";
   }

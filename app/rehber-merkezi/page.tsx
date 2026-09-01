@@ -103,8 +103,8 @@ export default function GuideCenterPage() {
                 <span key={c} style={{ background: "rgba(255,255,255,0.1)", padding: "6px 12px", borderRadius: "100px", fontSize: "0.85rem" }}>{c}</span>
               ))}
             </div>
-            <Link href="/ucak-bileti-ara" className="l2t-btn" style={{ background: "var(--l2t-blue)", color: "#fff", border: "none" }}>
-              Uçak Bileti Ara
+            <Link href="/ulke-rehberi" className="l2t-btn" style={{ background: "var(--l2t-blue)", color: "#fff", border: "none" }}>
+              Ülke Rehberlerini Keşfet
             </Link>
           </div>
 

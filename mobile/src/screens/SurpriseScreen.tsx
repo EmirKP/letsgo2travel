@@ -5,11 +5,10 @@ import { randomRoute } from "../data/routes";
 import { hapticSuccess } from "../lib/native";
 import type { RouteSuggestion } from "../types";
 
-export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onFlightSearch, onNotice }: {
+export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice }: {
   initialRoute?: RouteSuggestion | null;
   onSelect: (route: RouteSuggestion) => void;
   onBuildRoute: (route: RouteSuggestion) => void;
-  onFlightSearch: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
   const [route, setRoute] = useState<RouteSuggestion>(() => initialRoute || randomRoute());
@@ -67,7 +66,6 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onFlightS
         <p>{route.why}</p>
         <div className="surprise-tags"><span><Icon name="wallet" size={15} />{route.estimatedBudget}</span><span><Icon name="calendar" size={15} />{route.idealDuration}</span><span><Icon name="compass" size={15} />{route.difficulty}</span></div>
         <button className="primary-wide" onClick={() => onBuildRoute(route)}><Icon name="route" size={19} /> Rotaya dönüştür</button>
-        <button className="secondary-wide" onClick={() => onFlightSearch(route)}><Icon name="plane" size={18} /> Uçuşlara bak</button>
         <button className="surprise-again" onClick={surpriseMe} disabled={spinning}><Icon name="refresh" size={18} /> Tekrar şaşırt</button>
       </div>
     </article>

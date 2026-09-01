@@ -1,11 +1,7 @@
 import Link from "next/link";
-import { BellRing, Hotel, MapPinned, MessageCircle, Plane, ShieldCheck, Ticket, Wifi } from "lucide-react";
+import { Compass, Hotel, MapPinned, MessageCircle, ShieldCheck, Ticket, Wifi } from "lucide-react";
 import type { CountryGuide } from "@/lib/types";
-import { internalFlightSearchUrl, siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
-
-function flightLink(country: CountryGuide) {
-  return internalFlightSearchUrl({ destination: country.airport_code || undefined });
-}
+import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 
 function bookingLink(country: CountryGuide) {
   return trackedAffiliateUrl({
@@ -41,7 +37,6 @@ export default function CountryGuideCtas({ country }: { country: CountryGuide })
   const forumHref = `/forum/ulke/${country.slug}`;
   const askHref = `/forum/yeni?country=${encodeURIComponent(country.slug)}&countryName=${encodeURIComponent(country.country_name)}&kategori=ulke-bazli-sorunlar&title=${encodeURIComponent(`${country.country_name} hakkında soru sormak istiyorum`)}`;
   const verifyHref = `/profil/dogrulamalar?country=${encodeURIComponent(country.slug)}`;
-  const priceAlertHref = `/fiyat-kontrolu?to=${encodeURIComponent(country.airport_code || country.country_name)}`;
 
   return (
     <section className="l2t-wrap l2t-country-action-panel" aria-labelledby="country-actions-title">
@@ -49,17 +44,17 @@ export default function CountryGuideCtas({ country }: { country: CountryGuide })
         <p className="l2t-kicker">Sıradaki adım</p>
         <h2 id="country-actions-title">{country.country_name} planını tamamla</h2>
         <p>
-          Vize bilgisini gördün. Şimdi uçak bileti, konaklama, internet ve doğrulanmış gezgin yorumlarını tek yerden kontrol et.
+          Vize bilgisini gördün. Şimdi konaklama, internet ve doğrulanmış gezgin yorumlarını tek yerden kontrol et; biletini aldıktan sonra uçuşunu Seyahat Kokpiti'ne ekle.
         </p>
       </div>
 
       <div className="l2t-country-action-grid">
-        <a className="l2t-country-action-card l2t-country-action-card-primary" href={flightLink(country)}>
-          <span className="l2t-country-action-icon"><Plane size={22} /></span>
-          <strong>Uçak bileti ara</strong>
-          <small>{country.airport_code || country.country_name} rotası için fiyatları karşılaştır.</small>
-          <em>Bilet ara →</em>
-        </a>
+        <Link className="l2t-country-action-card l2t-country-action-card-primary" href="/seyahat-kokpiti">
+          <span className="l2t-country-action-icon"><Compass size={22} /></span>
+          <strong>Bu ülke için plan oluştur</strong>
+          <small>{country.country_name} seyahatini Seyahat Kokpiti&apos;nde planla ve takip et.</small>
+          <em>Plan oluştur →</em>
+        </Link>
 
         <a className="l2t-country-action-card" href={bookingLink(country)} target="_blank" rel="nofollow sponsored noreferrer">
           <span className="l2t-country-action-icon"><Hotel size={22} /></span>
@@ -98,7 +93,6 @@ export default function CountryGuideCtas({ country }: { country: CountryGuide })
       </div>
 
       <div className="l2t-country-action-footer">
-        <Link href={priceAlertHref}><BellRing size={16} /> Fiyat alarmı kur</Link>
         <Link href={askHref}><MessageCircle size={16} /> Bu ülke hakkında soru sor</Link>
         <Link href="/vizesiz-ulkeler"><MapPinned size={16} /> Benzer kolay rotaları gör</Link>
       </div>

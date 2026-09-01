@@ -93,8 +93,7 @@ Apple Developer tarafında Bundle ID için Sign in with Apple capability'sini a�
 - Şifre sıfırlama bağlantısı
 - Hesabım > Hesabı ve verileri sil talebi
 - Rota Asistanı çevrimiçi ve çevrimdışı sonuçları
-- Bilet arama ve harici sonuç ekranı
-- Fiyat alarmı oluşturma/yönetme
+- Seyahat Kokpiti ve manuel uçuş (PNR) kaydı
 - Pasaport filtreleri
 - Gizlilik Politikası, Kullanım Şartları ve Destek bağlantıları
 - Uçak modu ve yeniden çevrimiçi olma

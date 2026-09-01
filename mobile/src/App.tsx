@@ -6,7 +6,6 @@ import { MenuSheet } from "./components/MenuSheet";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { Onboarding } from "./components/Onboarding";
 import { ReleaseNotesSheet } from "./components/ReleaseNotesSheet";
-import type { DiscoveryDestination } from "./data/discovery";
 import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
@@ -20,7 +19,6 @@ import {
   markReleaseSeen,
 } from "./lib/storage";
 import { ExploreScreen } from "./screens/ExploreScreen";
-import { FlightSearchScreen } from "./screens/FlightSearchScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { CockpitScreen } from "./screens/CockpitScreen";
 import { CommunityScreen } from "./screens/CommunityScreen";
@@ -39,7 +37,7 @@ const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "profile", label: "Profil", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "search", "surprise", "cockpit", "community"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -55,7 +53,6 @@ function viewFromUrl(value: string): ViewId | null {
       "profil": "profile",
       "pasaport-gucu": "passport",
       "pasaport-gücü": "passport",
-      "bilet-ara": "search",
       "beni-sasirt": "surprise",
       "beni-şaşırt": "surprise",
       "seyahat-kokpiti": "cockpit",
@@ -70,7 +67,7 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "passport" || view === "search" || view === "surprise") return "explore";
+  if (view === "passport" || view === "surprise") return "explore";
   if (view === "cockpit") return "trips";
   if (view === "community") return "profile";
   return view as TabId;
@@ -88,7 +85,6 @@ export default function App() {
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [surpriseRoute, setSurpriseRoute] = useState<RouteSuggestion | null>(null);
-  const [flightPrefill, setFlightPrefill] = useState<{ code: string; label: string } | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -101,7 +97,7 @@ export default function App() {
   const auth = useAuth();
   const ownerId = auth.user?.id || null;
   const activeTab = rootTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "search" || activeView === "surprise" || activeView === "cockpit" || activeView === "community";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community";
 
   useEffect(() => {
     activeViewRef.current = activeView;
@@ -251,17 +247,6 @@ export default function App() {
     };
   }, [accountOpen, activeView, goBack, menuOpen, navigate, nestedView, notificationsOpen, onboardingOpen, releaseOpen]);
 
-  const routeToFlight = useCallback((route: RouteSuggestion) => {
-    const code = route.destinationCode || "";
-    setFlightPrefill({ code, label: code ? `${route.name}, ${route.country} (${code})` : route.name });
-    navigate("search");
-  }, [navigate]);
-
-  const discoveryToFlight = useCallback((destination: DiscoveryDestination) => {
-    setFlightPrefill({ code: destination.code, label: `${destination.name}, ${destination.country} (${destination.code})` });
-    navigate("search");
-  }, [navigate]);
-
   const completeWelcome = () => {
     completeOnboarding();
     setOnboardingOpen(false);
@@ -279,7 +264,7 @@ export default function App() {
     const touch = event.touches[0];
     if (!touch || onboardingOpen || releaseOpen || notificationsOpen || accountOpen || menuOpen || hasOpenSheet()) return;
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest("input, textarea, select, button, a, [role='dialog'], [data-no-gesture], .chip-scroll, .deal-scroll, .autocomplete-list")) return;
+    if (target?.closest("input, textarea, select, button, a, [role='dialog'], [data-no-gesture], .chip-scroll")) return;
     if (touch.clientX <= 24) edgeSwipeStart.current = { x: touch.clientX, y: touch.clientY };
     if (activeView === "home" && window.scrollY <= 0) pullStart.current = touch.clientY;
   };
@@ -318,16 +303,15 @@ export default function App() {
 
   const content = useMemo(() => {
     if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} refreshToken={refreshTick} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
-    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onFlightSearch={discoveryToFlight} onNotice={showNotice} />;
+    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
-    if (activeView === "search") return <FlightSearchScreen prefillDestination={flightPrefill} user={auth.user} accessToken={auth.accessToken} onNotice={showNotice} onOpenAccount={() => setAccountOpen(true)} />;
-    if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={setSurpriseRoute} onBuildRoute={(route) => { setSurpriseRoute(route); navigate("route"); }} onFlightSearch={routeToFlight} onNotice={showNotice} />;
-    if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} accessToken={auth.accessToken} onFlightSearch={routeToFlight} onNotice={showNotice} />;
-    if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onFlightSearch={routeToFlight} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={setSurpriseRoute} onBuildRoute={(route) => { setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
+    if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
+    if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
-  }, [activeView, auth.accessToken, auth.user, discoveryToFlight, flightPrefill, navigate, ownerId, refreshTick, routeToFlight, showNotice, surpriseRoute]);
+  }, [activeView, auth.accessToken, auth.user, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
 
   const notificationsEnabled = getMobilePreferences().inAppNotifications;
 

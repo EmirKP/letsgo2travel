@@ -7,7 +7,6 @@ import type { ViewId } from "../types";
 const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: ViewId }> = [
   { label: "Pasaport Gücü", text: "Türkiye pasaportu için giriş koşulları", icon: "passport", view: "passport" },
   { label: "Rota Asistanı", text: "Tercihlerine göre uygulamada plan oluştur", icon: "route", view: "route" },
-  { label: "Bilet Ara", text: "Uçuş ara ve fiyat alarmı kur", icon: "plane", view: "search" },
   { label: "Seyahat Kokpiti", text: "Tarihlerini ve hazırlık listeni yönet", icon: "suitcase", view: "cockpit" },
   { label: "Kaşifler Ligi", text: "Gerçek gezginlerden ilham al", icon: "users", view: "community" },
 ];

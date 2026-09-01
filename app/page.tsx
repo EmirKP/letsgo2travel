@@ -10,30 +10,23 @@ import {
   Globe2,
   Hotel,
   Map,
-  Plane,
   ShieldCheck,
   Sparkles,
   Users,
-  WalletCards,
   Wifi,
 } from "lucide-react";
-import FlightSearchCard from "./components/FlightSearchCard";
-import HomeDealsTicker from "./components/HomeDealsTicker";
 import PwaInstallButton from "./components/PwaInstallButton";
 import HomeTripFinder from "./components/HomeTripFinder";
 import HomeSavedBoard from "./components/HomeSavedBoard";
-import HomeDealPreview from "./components/home/HomeDealPreview";
-import { getCountryGuides, getFlightDeals } from "@/lib/data";
+import { getCountryGuides } from "@/lib/data";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
-import { formatFromPrice } from "@/lib/prices";
-import type { FlightDeal } from "@/lib/types";
 import styles from "./home.module.css";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-function getRouteHighlights(deals: FlightDeal[]) {
+function getRouteHighlights() {
   return [
     {
       image: "/destinations/italy/colosseum.jpg",
@@ -41,7 +34,6 @@ function getRouteHighlights(deals: FlightDeal[]) {
       country: "İtalya",
       tag: "Şehir kaçamağı",
       time: "2s 40dk",
-      price: formatFromPrice("rome", deals),
       href: "/ulke-rehberi/italya",
       size: "tall",
     },
@@ -51,7 +43,6 @@ function getRouteHighlights(deals: FlightDeal[]) {
       country: "Bosna Hersek",
       tag: "Vizesiz",
       time: "2s",
-      price: formatFromPrice("sarajevo", deals),
       href: "/ulke-rehberi/bosna-hersek",
       size: "wide",
     },
@@ -61,7 +52,6 @@ function getRouteHighlights(deals: FlightDeal[]) {
       country: "BAE",
       tag: "e-Vize",
       time: "4s",
-      price: formatFromPrice("dubai", deals),
       href: "/ulke-rehberi/bae",
       size: "standard",
     },
@@ -71,7 +61,6 @@ function getRouteHighlights(deals: FlightDeal[]) {
       country: "Çekya",
       tag: "Schengen",
       time: "2s 45dk",
-      price: formatFromPrice("prague", deals),
       href: "/ulke-rehberi/cekya",
       size: "standard",
     },
@@ -81,7 +70,6 @@ function getRouteHighlights(deals: FlightDeal[]) {
       country: "Fransa",
       tag: "Schengen",
       time: "3s 40dk",
-      price: "Fiyatları gör",
       href: "/ulke-rehberi/fransa",
       size: "wide",
     },
@@ -90,10 +78,10 @@ function getRouteHighlights(deals: FlightDeal[]) {
 
 const quickActions = [
   {
-    href: "/pasaport-gucu",
-    icon: ShieldCheck,
-    title: "Pasaport Gücü",
-    text: "Kimlikle, vizesiz ve e-Vize seçeneklerini karşılaştır.",
+    href: "/ulke-rehberi",
+    icon: Compass,
+    title: "Keşfet",
+    text: "Ülkeleri, şehirleri ve sana uygun rotaları keşfet.",
   },
   {
     href: "/rota-asistani",
@@ -102,28 +90,24 @@ const quickActions = [
     text: "Bütçe, süre ve seyahat tarzına göre rota oluştur.",
   },
   {
+    href: "/pasaport-gucu",
+    icon: ShieldCheck,
+    title: "Pasaport Gücü",
+    text: "Kimlikle, vizesiz ve e-Vize seçeneklerini karşılaştır.",
+  },
+  {
     href: "/butce-hesapla",
     icon: Calculator,
     title: "Bütçe Hesapla",
-    text: "Uçuş, otel ve günlük giderleri tek tabloda planla.",
-  },
-  {
-    href: "/planlarim",
-    icon: WalletCards,
-    title: "Seyahat Panom",
-    text: "Kaydettiğin planlara tek ekrandan geri dön.",
+    text: "Uçuş hariç seyahat giderlerini tek tabloda planla.",
   },
 ];
 
 export default async function HomePage() {
-  const [rawDeals, countries] = await Promise.all([getFlightDeals(), getCountryGuides()]);
-
-  // Ana sayfa ve kampanyalar aynı fırsat kaynağını kullanır.
-  const deals = rawDeals;
-  const routeHighlights = getRouteHighlights(deals);
+  const countries = await getCountryGuides();
+  const routeHighlights = getRouteHighlights();
 
   const popularCountries = countries.filter((country) => country.is_popular).slice(0, 6);
-  const activeDeals = deals.filter((deal) => deal.active !== false).slice(0, 3);
 
   return (
     <div className={styles.home}>
@@ -133,15 +117,15 @@ export default async function HomePage() {
             <span className={styles.eyebrow}><Globe2 size={16} /> Akıllı seyahat platformu</span>
             <h1>Pasaportuna göre keşfet. <span>Bütçene göre planla.</span></h1>
             <p>
-              Gidebileceğin ülkeleri gör, uçuşları karşılaştır ve bütün seyahatini tek bir panoda düzenle.
+              Gidebileceğin ülkeleri gör, etkinlikleri ve rotaları keşfet, bütün seyahatini tek bir panoda düzenle.
             </p>
             <div className={styles.heroActions}>
-              <Link href="#ucus-ara" className={styles.primaryAction}><Plane size={19} /> Uçuş ara</Link>
+              <Link href="#kesfet" className={styles.primaryAction}><Compass size={19} /> Keşfetmeye başla</Link>
               <Link href="/rota-asistani" className={styles.secondaryAction}><Sparkles size={19} /> Rota oluştur</Link>
             </div>
             <div className={styles.heroChecks}>
               <span><CheckCircle2 size={16} /> Giriş şartları</span>
-              <span><CheckCircle2 size={16} /> Fiyat sinyalleri</span>
+              <span><CheckCircle2 size={16} /> Gerçek gezgin deneyimleri</span>
               <span><CheckCircle2 size={16} /> Kaydedilebilir planlar</span>
             </div>
             <div className={styles.install}><PwaInstallButton /></div>
@@ -181,18 +165,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="ucus-ara" className={`l2t-container ${styles.searchSection}`}>
-        <FlightSearchCard />
-      </section>
-
-      <section className={`l2t-container ${styles.quickGrid}`} aria-label="Hızlı seyahat araçları">
-        {quickActions.map(({ href, icon: Icon, title, text }) => (
-          <Link href={href} key={href} className={styles.quickCard}>
-            <span className={styles.quickIcon}><Icon size={21} /></span>
-            <span className={styles.quickText}><strong>{title}</strong><small>{text}</small></span>
-            <ArrowRight size={18} />
-          </Link>
-        ))}
+      <section id="kesfet" className={`l2t-container ${styles.searchSection}`} aria-label="Keşif araçları">
+        <div className={styles.quickGrid}>
+          {quickActions.map(({ href, icon: Icon, title, text }) => (
+            <Link href={href} key={href} className={styles.quickCard}>
+              <span className={styles.quickIcon}><Icon size={21} /></span>
+              <span className={styles.quickText}><strong>{title}</strong><small>{text}</small></span>
+              <ArrowRight size={18} />
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className={`l2t-container ${styles.appointmentBanner}`}>
@@ -204,8 +186,6 @@ export default async function HomePage() {
         <Link href="/vize-randevu">Randevu Asistanını aç <ArrowRight size={17} /></Link>
       </section>
 
-      <HomeDealsTicker deals={deals} />
-
       <HomeTripFinder />
 
       <section className={`l2t-container ${styles.section}`}>
@@ -213,7 +193,7 @@ export default async function HomePage() {
           <div>
             <span className={styles.kicker}>Fotoğraflı rota keşfi</span>
             <h2>Yakın rotalardan hayalindeki şehre</h2>
-            <p>Giriş kolaylığı, uçuş süresi ve fiyat sinyalini tek bakışta karşılaştır.</p>
+            <p>Giriş kolaylığını ve uçuş süresini tek bakışta karşılaştır.</p>
           </div>
           <Link href="/ulke-rehberi">Tüm ülkeler <ArrowRight size={16} /></Link>
         </div>
@@ -226,7 +206,7 @@ export default async function HomePage() {
               <div className={styles.routeTop}><span>{route.tag}</span><small>{route.time}</small></div>
               <div className={styles.routeBottom}>
                 <div><small>{route.country}</small><h3>{route.city}</h3></div>
-                <strong>{route.price}</strong>
+                <strong>Rotayı keşfet</strong>
               </div>
             </Link>
           ))}
@@ -261,29 +241,11 @@ export default async function HomePage() {
           <div className={styles.featureCopy}>
             <span className={styles.kicker}><Calculator size={15} /> Bütçe planlayıcı</span>
             <h2>Yola çıkmadan toplam maliyeti gör.</h2>
-            <p>Uçuş, konaklama, yeme içme ve ulaşım giderlerini kişi ve gün sayısına göre hesapla.</p>
+            <p>Konaklama, yeme içme ve ulaşım giderlerini kişi ve gün sayısına göre hesapla; uçak bileti tutarını biletini aldıktan sonra ekle.</p>
             <div className={styles.featureActions}><Link href="/butce-hesapla">Bütçemi hesapla <ArrowRight size={16} /></Link></div>
           </div>
         </article>
       </section>
-
-      {activeDeals.length > 0 && (
-        <section className={`${styles.dealsSection} ${styles.section}`}>
-          <div className="l2t-container">
-            <div className={styles.sectionHeading}>
-              <div>
-                <span className={styles.kicker}>Tahmini fiyat sinyalleri</span>
-                <h2>Kontrol etmeye değer rotalar</h2>
-                <p>Gösterilen tutarlar canlı fiyat değildir; seçtiğin tarih için sağlayıcıda doğrula.</p>
-              </div>
-              <Link href="/kampanyalar">Tüm fırsatlar <ArrowRight size={16} /></Link>
-            </div>
-            <div className={styles.dealGrid}>
-              {activeDeals.map((deal) => <HomeDealPreview key={deal.id} deal={deal} />)}
-            </div>
-          </div>
-        </section>
-      )}
 
       {popularCountries.length > 0 && (
         <section className={`l2t-container ${styles.section}`}>
@@ -329,7 +291,7 @@ export default async function HomePage() {
       <section className={`l2t-container ${styles.partnerStrip}`}>
         <div>
           <span className={styles.kicker}>Seyahati tamamla</span>
-          <h2>Uçuş, konaklama ve internet tek akışta</h2>
+          <h2>Konaklama, internet ve rota tek akışta</h2>
           <p>Dış partner bağlantıları güvenli biçimde yeni sekmede açılır.</p>
         </div>
         <div className={styles.partnerActions}>

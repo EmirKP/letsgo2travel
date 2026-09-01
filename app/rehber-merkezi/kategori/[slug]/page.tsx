@@ -61,7 +61,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/rehber-merkezi" className="l2t-btn l2t-btn-outline">Rehber Merkezi'ne Dön</Link>
             <Link href="/forum/yeni" className="l2t-btn" style={{ background: "var(--l2t-blue)", color: "#fff", border: "none" }}>Forumda Soru Sor</Link>
-            <Link href="/ucak-bileti-ara" className="l2t-btn" style={{ background: "var(--l2t-navy)", color: "#fff", border: "none" }}>Uçak Bileti Ara</Link>
+            <Link href="/ulke-rehberi" className="l2t-btn" style={{ background: "var(--l2t-navy)", color: "#fff", border: "none" }}>Destinasyonları Keşfet</Link>
           </div>
         </div>
       </div>
@@ -111,9 +111,9 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         <div>
           <Plane size={32} color="#F59E0B" style={{ marginBottom: "16px" }} />
           <h3 style={{ fontSize: "1.3rem", fontWeight: "800", marginBottom: "12px" }}>Seyahat Planınızı Yapın</h3>
-          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "24px", lineHeight: "1.5" }}>Yetkili uçuş kaynaklarını LetsGo2Travel üzerinde karşılaştırın; satın alma işlemini seçtiğiniz doğrulanmış sağlayıcıda tamamlayın.</p>
+          <p style={{ color: "rgba(255,255,255,0.8)", marginBottom: "24px", lineHeight: "1.5" }}>Rotanı seç, uçuş hariç bütçeni gör ve seyahatini Seyahat Kokpiti üzerinden takip et.</p>
         </div>
-        <Link href="/ucak-bileti-ara" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", alignSelf: "flex-start" }}>Uçak Bileti Ara</Link>
+        <Link href="/seyahat-kokpiti" className="l2t-btn" style={{ background: "#F59E0B", color: "var(--l2t-navy)", border: "none", alignSelf: "flex-start" }}>Seyahat Planı Oluştur</Link>
       </div>
       <div style={{ background: "var(--l2t-blue)", padding: "32px", borderRadius: "24px", color: "#fff", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <div>

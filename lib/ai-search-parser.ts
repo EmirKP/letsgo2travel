@@ -44,5 +44,5 @@ export function createSearchAnswer(intent: SearchIntent) {
   const budgetText = intent.budget ? `${intent.budget.toLocaleString("tr-TR")} TL bütçeye göre` : "Esnek bütçeyle";
   const visaText = intent.visaPreference ? `, vize durumu: ${intent.visaPreference}` : "";
   const monthText = intent.month ? `, dönem: ${intent.month}` : "";
-  return `${budgetText} ${intent.origin} çıkışlı ${intent.destination} rotası için arama hazırladım${visaText}${monthText}. Fiyatlar değişebileceği için son adımda affiliate arama sayfasında canlı kontrol yapmalısın.`;
+  return `${budgetText} ${intent.origin} çıkışlı ${intent.destination} rotası için bir plan önerisi hazırladım${visaText}${monthText}. Uçak bileti ücreti tahmine dahil değildir; biletini aldıktan sonra ödediğin tutarı Seyahat Kokpiti'ne ekleyebilirsin.`;
 }

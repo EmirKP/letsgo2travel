@@ -17,12 +17,11 @@ import type { RouteSuggestion, ViewId } from "../types";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
-export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onFlightSearch, onNotice }: {
+export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onNotice }: {
   ownerId?: string | null;
   accessToken: string;
   onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
-  onFlightSearch: (destination: DiscoveryDestination) => void;
   onNotice: (message: string) => void;
 }) {
   const [category, setCategory] = useState<(typeof categories)[number]>("Tümü");
@@ -99,12 +98,6 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
     }
   };
 
-  const openFlight = (destination: DiscoveryDestination) => {
-    addRecentDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
-    setSelectedDestination(null);
-    onFlightSearch(destination);
-  };
-
   const openDetails = (destination: DiscoveryDestination) => {
     addRecentDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
     setSelectedDestination(destination);
@@ -119,7 +112,6 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
     <section className="explore-actions" aria-label="Keşif araçları">
       <button onClick={() => onNavigate("passport")}><span><Icon name="passport" size={22} /></span><strong>Pasaport Gücü</strong><small>Giriş durumları</small></button>
       <button onClick={surprise}><span><Icon name="sparkles" size={22} /></span><strong>Beni Şaşırt</strong><small>Rastgele rota</small></button>
-      <button onClick={() => onNavigate("search")}><span><Icon name="plane" size={22} /></span><strong>Bilet Ara</strong><small>Canlı uçuşlar</small></button>
     </section>
 
     <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
@@ -168,7 +160,6 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
         <section className="destination-tip"><span><Icon name="sparkles" size={19} /></span><div><small>YEREL PLANLAMA NOTU</small><p>{selectedDestination.localTip}</p></div></section>
         <p className="destination-disclaimer"><Icon name="info" size={14} /> Giriş koşulları değişebilir; seyahatten önce resmî kaynağı doğrula.</p>
         <button className="primary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? "Favorilerden çıkar" : "Favoriye ekle"}</button>
-        <button className="secondary-wide" onClick={() => openFlight(selectedDestination)}><Icon name="plane" size={18} /> Bu rota için uçuş ara</button>
       </div>}
     </Sheet>
   </div>;

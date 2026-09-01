@@ -2,7 +2,7 @@ import { getBlogPosts } from "@/lib/data";
 
 export async function GET() {
   const blogs = await getBlogPosts();
-  const baseUrl = "https://letsgo2travel.com";
+  const baseUrl = "https://www.letsgo2travel.com.tr";
 
   let rssItemsXml = "";
 
@@ -20,9 +20,9 @@ export async function GET() {
   const rssXml = `<?xml version="1.0" ?>
     <rss version="2.0">
       <channel>
-        <title>Letsgo2Travel Kampanya ve Rota Blogu</title>
+        <title>Letsgo2Travel Rota ve Seyahat Blogu</title>
         <link>${baseUrl}</link>
-        <description>En güncel seyahat rotaları, vizesiz ülkeler ve uçak bileti kampanyaları.</description>
+        <description>En güncel seyahat rotaları, vizesiz ülkeler ve seyahat bütçesi ipuçları.</description>
         ${rssItemsXml}
       </channel>
     </rss>`;

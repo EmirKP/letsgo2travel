@@ -44,8 +44,8 @@ Vercel deployment Ready olana kadar bekle.
 ------------------------------------------------
 Windows PowerShell'de (VDS'nin içinde değilken):
 
-scp -r "C:\Projects\letsgo2travel\visa-worker" root@31.56.47.12:/root/visa-worker-phase2
-ssh root@31.56.47.12
+scp -r "C:\Projects\letsgo2travel\visa-worker" root@<VDS_SUNUCU_IP>:/root/visa-worker-phase2
+ssh root@<VDS_SUNUCU_IP>
 
 5) VDS'DE ESKİ WORKER'I SİLMEDEN GÜNCELLE
 ------------------------------------------

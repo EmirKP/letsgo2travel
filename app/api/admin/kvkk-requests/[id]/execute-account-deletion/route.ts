@@ -98,6 +98,11 @@ export async function POST(
     }
   }
 
+  // KVKK GEÇİŞ NOTU: Uçuş fiyat alarmı ürünü kalıcı olarak kaldırıldı; ancak
+  // production'daki `flight_price_alerts` tabloları ayrı onaylı migration ile
+  // silinene kadar kişisel verinin KVKK silme akışında temizlenmeye devam etmesi
+  // zorunludur. Tablolar drop edildiğinde bu blok kendiliğinden no-op olur
+  // (isMissingOptionalTable) ve bir sonraki temizlik commit'inde kaldırılabilir.
   const alertIds = new Set<string>();
   const userAlerts = await supabase.from("flight_price_alerts").select("id").eq("user_id", targetUserId);
   if (userAlerts.error && !isMissingOptionalTable(userAlerts.error)) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Send, Plane, MapPin, Wallet } from "lucide-react";
+import { Sparkles, Send, Compass, MapPin, Wallet } from "lucide-react";
 
 type SearchResponse = {
   answer: string;
@@ -19,7 +19,7 @@ type SearchResponse = {
 const examplePrompts = [
   "3 günlük vizesiz Balkan rotası öner",
   "10 bin TL altı kimlikle gidilecek yer",
-  "Yaz için deniz tatili ve ucuz uçak bileti",
+  "Yaz için deniz tatili ve vizesiz rota",
 ];
 
 export default function AISearchBox() {
@@ -46,7 +46,7 @@ export default function AISearchBox() {
         setLoading(false);
       }, 600);
     } catch {
-      setResult({ answer: "Arama hazırlanamadı. Biraz sonra tekrar deneyebilirsin.", url: "/kampanyalar" });
+      setResult({ answer: "Arama hazırlanamadı. Biraz sonra tekrar deneyebilirsin.", url: "/rota-asistani" });
       setLoading(false);
     }
   }
@@ -105,7 +105,7 @@ export default function AISearchBox() {
 
             <div className="ai-action-row l2t-ai-fade">
               <a href={result.url} className="l2t-btn ai-cta-btn">
-                <Plane size={18} /> Canlı Bilet Ara
+                <Compass size={18} /> Seyahat Planı Oluştur
               </a>
               <button className="ai-reset-btn" onClick={() => setResult(null)}>
                 Yeni Arama

@@ -11,7 +11,7 @@ const forumCategories = [
   { name: "Genel Seyahat Soruları", slug: "genel-seyahat-sorulari" },
   { name: "Ülke Bazlı Sorunlar", slug: "ulke-bazli-sorunlar" },
   { name: "Vize & Konsolosluk", slug: "vize-konsolosluk" },
-  { name: "Uçak Bileti & Havalimanı", slug: "ucak-bileti-havalimani" },
+  { name: "Uçuş & Havalimanı", slug: "ucak-bileti-havalimani" },
   { name: "Otel & Konaklama", slug: "otel-konaklama" },
   { name: "eSIM & İnternet", slug: "esim-internet" },
   { name: "İlk Kez Yurt Dışına Çıkacaklar", slug: "ilk-kez-yurt-disina-cikacaklar" },

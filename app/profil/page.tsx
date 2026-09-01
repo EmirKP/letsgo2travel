@@ -34,7 +34,7 @@ function ProfilFallback() {
                 </div>
                 <div>
                   <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Favori rotalar</strong>
-                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Kaydettiğin kampanyaları tek yerde yönet.</span>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Kaydettiğin rotaları tek yerde yönet.</span>
                 </div>
               </div>
 
@@ -43,8 +43,8 @@ function ProfilFallback() {
                   <Bell size={24} color="#f59e0b" />
                 </div>
                 <div>
-                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Fiyat alarmları</strong>
-                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Bilet fiyatları düştüğünde anında haberin olsun.</span>
+                  <strong style={{ display: "block", color: "var(--l2t-navy)", fontSize: "1.05rem" }}>Seyahat Kokpiti</strong>
+                  <span style={{ fontSize: "0.9rem", color: "var(--l2t-soft)" }}>Satın aldığın uçuşu ekle, yolculuğunu takip et.</span>
                 </div>
               </div>
 

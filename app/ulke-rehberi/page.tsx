@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BellRing, Compass, MessageCircle, Plane, ShieldCheck } from "lucide-react";
+import { Calculator, Compass, MessageCircle, Plane, ShieldCheck, Sparkles } from "lucide-react";
 import { getCountryGuides } from "@/lib/data";
 
 export const metadata: Metadata = {
@@ -20,8 +20,8 @@ export default async function CountryGuidesPage() {
 
       <div className="l2t-guide-quick-actions" aria-label="Ülke rehberi hızlı aksiyonlar">
         <Link href="/vizesiz-ulkeler"><ShieldCheck size={18} /> Vizesiz / kimlikle rotaları gör</Link>
-        <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçak bileti ara</Link>
-        <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı kur</Link>
+        <Link href="/rota-asistani"><Sparkles size={18} /> Rota Asistanı ile planla</Link>
+        <Link href="/butce-hesapla"><Calculator size={18} /> Bütçeni hesapla</Link>
         <Link href="/forum"><MessageCircle size={18} /> Gezginlere sor</Link>
       </div>
 
@@ -33,7 +33,7 @@ export default async function CountryGuidesPage() {
         <div className="l2t-guide-seo-items">
           <span><Compass size={16} /> Vize durumu</span>
           <span><Plane size={16} /> Ortalama uçuş süresi</span>
-          <span><BellRing size={16} /> Fiyat takibi</span>
+          <span><Calculator size={16} /> Uçuş hariç bütçe</span>
           <span><MessageCircle size={16} /> Topluluk yorumları</span>
         </div>
       </div>
@@ -49,7 +49,7 @@ export default async function CountryGuidesPage() {
             </Link>
             <div className="l2t-country-card-actions">
               <Link href={`/ulke-rehberi/${country.slug}`}>Rehberi oku</Link>
-              <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(country.airport_code || country.country_name)}`}>Bilet ara</Link>
+              <Link href="/seyahat-kokpiti">Plan oluştur</Link>
               <Link href={`/forum/ulke/${country.slug}`}>Yorumlar</Link>
             </div>
           </article>
@@ -70,8 +70,8 @@ export default async function CountryGuidesPage() {
             <p>Her rehberde vize notu, kimlikle giriş kolaylığı ve seyahat öncesi kontrol edilmesi gereken belge hatırlatmaları bulunur.</p>
           </article>
           <article>
-            <h3>Bütçe ve fiyat alarmı</h3>
-            <p>Ortalama bilet fiyatını gördükten sonra hedef fiyat belirleyebilir, fiyat düştüğünde e-posta bildirimi alabilirsin.</p>
+            <h3>Uçuş hariç bütçe</h3>
+            <p>Konaklama, ulaşım ve günlük giderleri planla; uçak bileti ücretini biletini aldıktan sonra bütçene ekle.</p>
           </article>
           <article>
             <h3>Doğrulanmış gezgin ağı</h3>

@@ -1,12 +1,10 @@
 import type {
   FavoriteDestination,
   MobilePreferences,
-  SavedFlightSearch,
   SavedRoutePlan,
 } from "../types";
 
 const ROUTES_KEY = "l2t.mobile.saved-routes.v1";
-const SEARCHES_KEY = "l2t.mobile.saved-flight-searches.v1";
 const FAVORITES_KEY = "l2t.mobile.favorite-destinations.v1";
 const VISITED_KEY = "l2t.mobile.visited-countries.v1";
 const RECENT_KEY = "l2t.mobile.recent-destinations.v1";
@@ -14,6 +12,19 @@ const READ_NOTIFICATIONS_KEY = "l2t.mobile.read-notifications.v1";
 const PREFERENCES_KEY = "l2t.mobile.preferences.v1";
 const ONBOARDING_KEY = "l2t.mobile.onboarding.v2";
 const RELEASE_KEY = "l2t.mobile.release-seen";
+
+// Uçuş arama özelliği kaldırıldı; eski cihaz kayıtları modül açılışında bir kez temizlenir.
+const LEGACY_FLIGHT_SEARCHES_KEY = "l2t.mobile.saved-flight-searches.v1";
+try {
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (key === LEGACY_FLIGHT_SEARCHES_KEY || key?.startsWith(`${LEGACY_FLIGHT_SEARCHES_KEY}.`)) {
+      window.localStorage.removeItem(key);
+    }
+  }
+} catch {
+  // Depolamaya erişilemiyorsa temizlik sonraki açılışta yeniden denenir.
+}
 
 function ownerScope(ownerId?: string | null) {
   if (!ownerId) return "guest";
@@ -75,22 +86,6 @@ export function saveRoutePlan(plan: SavedRoutePlan, ownerId?: string | null) {
 export function deleteRoutePlan(id: string, ownerId?: string | null) {
   const next = getSavedRoutePlans(ownerId).filter((item) => item.id !== id);
   write(scopedKey(ROUTES_KEY, ownerId), next);
-  return next;
-}
-
-export function getSavedFlightSearches(ownerId?: string | null) {
-  return readScoped<SavedFlightSearch>(SEARCHES_KEY, ownerId);
-}
-
-export function saveFlightSearch(search: SavedFlightSearch, ownerId?: string | null) {
-  const next = [search, ...getSavedFlightSearches(ownerId).filter((item) => item.id !== search.id)];
-  write(scopedKey(SEARCHES_KEY, ownerId), next);
-  return next;
-}
-
-export function deleteFlightSearch(id: string, ownerId?: string | null) {
-  const next = getSavedFlightSearches(ownerId).filter((item) => item.id !== id);
-  write(scopedKey(SEARCHES_KEY, ownerId), next);
   return next;
 }
 

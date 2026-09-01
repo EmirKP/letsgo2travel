@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 export type SavedTrip = {
   id: string;
-  type: "flight" | "country" | "ai_plan";
+  type: "country" | "ai_plan";
   title: string;
   subtitle: string;
   url: string;
@@ -57,7 +57,15 @@ export const useTripStore = create<TripStore>()(
     }),
     {
       name: "l2t-trip-storage",
-      version: 2,
+      version: 3,
+      // v3: uçuş arama kaydı ürün kapsamından kaldırıldı; eski "flight" tipli
+      // cihaz kayıtları client storage'dan temizlenir.
+      migrate: (persistedState) => {
+        const state = persistedState as { savedTrips?: Array<SavedTrip & { type: string }> } | undefined;
+        return {
+          savedTrips: (state?.savedTrips || []).filter((trip) => trip.type === "country" || trip.type === "ai_plan"),
+        };
+      },
       partialize: (state) => ({ savedTrips: state.savedTrips }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

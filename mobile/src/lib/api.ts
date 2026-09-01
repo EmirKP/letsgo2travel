@@ -1,13 +1,6 @@
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import type {
-  AirportOption,
-  FlightAlert,
-  FlightDeal,
-  FlightOfferRevalidation,
-  FlightSearchInput,
-  FlightMetaSearchCreate,
-  FlightMetaSearchResult,
   PlannerInput,
   RoutePlan,
   VerifiedVisaRule,
@@ -65,80 +58,6 @@ function errorCode(data: unknown) {
     : null;
   const code = record.code ?? nested?.code;
   return typeof code === "string" ? code.slice(0, 100) : "";
-}
-
-function positiveFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function nullableTimestamp(value: unknown): value is string | null {
-  return value === null || (typeof value === "string" && Number.isFinite(Date.parse(value)));
-}
-
-function parseFlightOfferRevalidation(payload: unknown, expectedOfferId: string): FlightOfferRevalidation {
-  const invalid = () => {
-    throw new ApiError(
-      "Kaynak geçerli bir fiyat doğrulama yanıtı vermedi.",
-      502,
-      "INVALID_REVALIDATION_RESPONSE",
-      payload,
-    );
-  };
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return invalid();
-  const value = payload as Record<string, unknown>;
-  const status = value.status;
-  const totalPrice = value.totalPrice;
-  const perPersonPrice = value.perPersonPrice;
-  const effectiveTotalPrice = value.effectiveTotalPrice;
-  const baggage = value.baggage;
-  const fareFamily = value.fareFamily;
-  const benefits = value.benefits;
-  const priceChanged = value.priceChanged;
-  const termsChanged = value.termsChanged;
-  const verifiedAt = value.verifiedAt;
-  const expiresAt = value.expiresAt;
-  if (!(["confirmed", "price_changed", "unavailable"] as unknown[]).includes(status)
-      || value.offerId !== expectedOfferId
-      || (totalPrice !== null && !positiveFiniteNumber(totalPrice))
-      || (effectiveTotalPrice !== null && !positiveFiniteNumber(effectiveTotalPrice))
-      || (perPersonPrice !== undefined && perPersonPrice !== null && !positiveFiniteNumber(perPersonPrice))
-      || typeof value.currency !== "string"
-      || !/^[A-Z]{3}$/.test(value.currency)
-      || (baggage !== null && (typeof baggage !== "object" || Array.isArray(baggage)))
-      || (fareFamily !== null && typeof fareFamily !== "string")
-      || !Array.isArray(benefits)
-      || !benefits.every((benefit) => typeof benefit === "string")
-      || typeof priceChanged !== "boolean"
-      || typeof termsChanged !== "boolean"
-      || !nullableTimestamp(verifiedAt)
-      || !nullableTimestamp(expiresAt)
-      || (value.message !== undefined && typeof value.message !== "string")) {
-    return invalid();
-  }
-  if (status === "unavailable") {
-    if (totalPrice !== null || effectiveTotalPrice !== null || baggage !== null
-        || priceChanged !== false || termsChanged !== false) return invalid();
-  } else if (!positiveFiniteNumber(totalPrice) || typeof verifiedAt !== "string" || baggage === null) {
-    return invalid();
-  }
-  if ((status === "confirmed" && (priceChanged || termsChanged))
-      || (status === "price_changed" && !priceChanged && !termsChanged)) return invalid();
-  return {
-    status: status as FlightOfferRevalidation["status"],
-    offerId: expectedOfferId,
-    totalPrice,
-    perPersonPrice: perPersonPrice as number | null | undefined,
-    effectiveTotalPrice,
-    currency: value.currency,
-    baggage: baggage as Record<string, unknown> | null,
-    fareFamily: fareFamily as string | null,
-    benefits: benefits as string[],
-    priceChanged,
-    termsChanged,
-    verifiedAt,
-    expiresAt,
-    message: value.message as string | undefined,
-  };
 }
 
 export async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -204,160 +123,6 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
   } finally {
     window.clearTimeout(timer);
   }
-}
-
-export async function searchAirports(query: string): Promise<AirportOption[]> {
-  if (query.trim().length < 2) return [];
-  const results = await requestJson<AirportOption[]>(`/api/airports?q=${encodeURIComponent(query.trim())}`, { timeoutMs: 10_000 });
-  return results.filter((item) => item.type === "airport");
-}
-
-export async function getFeaturedDeals(): Promise<FlightDeal[]> {
-  const result = await requestJson<{ data?: FlightDeal[] }>("/api/one-cikan-rotalar", { timeoutMs: 12_000 });
-  return Array.isArray(result.data) ? result.data : [];
-}
-
-export async function createFlightSearch(input: FlightSearchInput, accessToken?: string) {
-  const result = await requestJson<{ data: FlightMetaSearchCreate }>("/api/flights/searches", {
-    method: "POST",
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    body: {
-      tripType: input.tripType,
-      origin: input.originCode,
-      destination: input.destinationCode,
-      departureDate: input.departureDate,
-      returnDate: input.tripType === "round_trip" ? input.returnDate : null,
-      passengers: { adults: input.adults, children: input.children, infants: input.infants },
-      cabinClass: input.cabinClass,
-      baggage: {
-        cabinBagsPerPassenger: input.cabinBagsPerPassenger,
-        checkedBagsPerPassenger: input.checkedBagsPerPassenger,
-        checkedBagWeightKg: input.checkedBagsPerPassenger > 0 ? input.checkedBagWeightKg : null,
-      },
-      currency: input.currency,
-      directOnly: input.directOnly,
-      includeNearbyAirports: input.includeNearbyAirports,
-      flexibleDates: 0,
-      preferredAirlines: [],
-      excludedAirlines: [],
-      preferredSources: [],
-      excludedSources: [],
-    },
-  });
-  return result.data;
-}
-
-export async function getFlightSearch(searchId: string, searchToken: string, accessToken?: string) {
-  const result = await requestJson<{ data: FlightMetaSearchResult }>(`/api/flights/searches/${encodeURIComponent(searchId)}`, {
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      "X-Flight-Search-Token": searchToken,
-    },
-  });
-  return result.data;
-}
-
-export async function getFlightOfferRedirect(params: {
-  offerId: string;
-  searchId: string;
-  searchToken: string;
-  expectedOfferId: string;
-  expectedTotalPrice: number;
-  expectedCurrency: string;
-  expectedVerifiedAt: string;
-  accessToken?: string;
-}) {
-  const result = await requestJson<{ data: { redirectUrl: string; sourceName: string; verifiedAt: string } }>(`/api/flights/offers/${encodeURIComponent(params.offerId)}/redirect`, {
-    method: "POST",
-    headers: {
-      ...(params.accessToken ? { Authorization: `Bearer ${params.accessToken}` } : {}),
-      "X-Flight-Search-Token": params.searchToken,
-    },
-    body: {
-      searchId: params.searchId,
-      expectedOfferId: params.expectedOfferId,
-      expectedTotalPrice: params.expectedTotalPrice,
-      expectedCurrency: params.expectedCurrency,
-      expectedVerifiedAt: params.expectedVerifiedAt,
-    },
-  });
-  return result.data;
-}
-
-export async function getFlightOfferRevalidation(params: {
-  offerId: string;
-  searchId: string;
-  searchToken: string;
-  accessToken?: string;
-}) {
-  const result = await requestJson<{ data?: unknown }>(`/api/flights/offers/${encodeURIComponent(params.offerId)}/revalidate`, {
-    method: "POST",
-    headers: {
-      ...(params.accessToken ? { Authorization: `Bearer ${params.accessToken}` } : {}),
-      "X-Flight-Search-Token": params.searchToken,
-    },
-    body: { searchId: params.searchId },
-  });
-  return parseFlightOfferRevalidation(result.data, params.offerId);
-}
-
-export function getFlightSearchPageUrl(input: Pick<FlightSearchInput, "originCode" | "destinationCode" | "departureDate" | "returnDate" | "tripType">) {
-  const params = new URLSearchParams({
-    origin: input.originCode,
-    destination: input.destinationCode,
-    departureDate: input.departureDate,
-    tripType: input.tripType,
-  });
-  if (input.tripType === "round_trip" && input.returnDate) params.set("returnDate", input.returnDate);
-  return absoluteUrl(`/ucak-bileti-ara?${params.toString()}`);
-}
-
-export async function createFlightAlert(
-  input: FlightSearchInput & { email: string; targetPrice?: number; thresholdPercent?: number },
-  accessToken?: string,
-) {
-  return requestJson<{ success: boolean; id?: string; message: string }>("/api/flight-alerts", {
-    method: "POST",
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    body: {
-      originCode: input.originCode,
-      originLabel: input.originLabel,
-      destinationCode: input.destinationCode,
-      destinationLabel: input.destinationLabel,
-      departureDate: input.departureDate,
-      returnDate: input.tripType === "round_trip" ? input.returnDate : null,
-      tripType: input.tripType,
-      adults: input.adults,
-      children: input.children,
-      infants: input.infants,
-      cabinClass: input.cabinClass,
-      email: input.email,
-      targetPrice: input.targetPrice || null,
-      thresholdPercent: input.thresholdPercent || 5,
-    },
-  });
-}
-
-export async function getFlightAlerts(accessToken: string) {
-  const result = await requestJson<{ data: FlightAlert[] }>("/api/flight-alerts", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return Array.isArray(result.data) ? result.data : [];
-}
-
-export async function updateFlightAlert(id: string, body: Record<string, unknown>, accessToken: string) {
-  return requestJson<{ success: boolean; message: string }>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body,
-  });
-}
-
-export async function deleteFlightAlert(id: string, accessToken: string) {
-  return requestJson<{ success: boolean; message: string }>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
 }
 
 export async function requestAccountDeletion(params: {
@@ -439,7 +204,6 @@ function sanitizeRoutePlan(value: unknown): RoutePlan | null {
       dailyPlan: cleanStringList(route.dailyPlan, ["1. Gün: Şehir merkezini ve ana noktaları keşfet."]),
       warnings: cleanStringList(route.warnings),
       cta: route.cta && typeof route.cta === "object" ? {
-        flightSearchText: cleanText((route.cta as Record<string, unknown>).flightSearchText),
         guideText: cleanText((route.cta as Record<string, unknown>).guideText),
         forumText: cleanText((route.cta as Record<string, unknown>).forumText),
       } : undefined,

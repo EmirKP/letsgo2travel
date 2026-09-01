@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { AlertTriangle, BellRing, CheckCircle2, CircleDollarSign, HelpCircle, MapPinned, Plane, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDollarSign, Compass, HelpCircle, MapPinned, Plane, ShieldCheck } from "lucide-react";
 import type { CountryGuide } from "@/lib/types";
 import { getCountrySeoContent } from "@/lib/country-seo-content";
 
 export default function CountrySeoContent({ country }: { country: CountryGuide }) {
   const content = getCountrySeoContent(country);
-  const priceAlertHref = `/fiyat-kontrolu?to=${encodeURIComponent(country.airport_code || country.country_name)}`;
-  const flightHref = `/ucak-bileti-ara?to=${encodeURIComponent(country.airport_code || country.country_name)}`;
   const forumHref = `/forum/ulke/${country.slug}`;
 
   return (
@@ -67,8 +65,7 @@ export default function CountrySeoContent({ country }: { country: CountryGuide }
       </div>
 
       <div className="l2t-country-seo-cta-strip">
-        <Link href={flightHref}><Plane size={16} /> Uçak bileti ara</Link>
-        <Link href={priceAlertHref}><BellRing size={16} /> Fiyat alarmı kur</Link>
+        <Link href="/seyahat-kokpiti"><Compass size={16} /> Bu ülke için plan oluştur</Link>
         <Link href={forumHref}><MapPinned size={16} /> Gezgin yorumlarını oku</Link>
       </div>
 

@@ -7,7 +7,6 @@ const SETTINGS_FIELDS = [
   "bookingAffiliateUrl",
   "airaloAffiliateUrl",
   "getYourGuideAffiliateUrl",
-  "travelpayoutsMarker",
   "supportEmail",
 ] as const;
 

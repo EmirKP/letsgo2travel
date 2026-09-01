@@ -6,7 +6,7 @@ LetsGo2Travel
 
 ## Kısa açıklama
 
-Vizesiz rotaları keşfet, uçuş ara, fiyat alarmı kur ve planlarını sakla.
+Vizesiz rotaları keşfet, seyahat planını oluştur ve yolculuğunu tek panodan takip et.
 
 ## Tam açıklama
 
@@ -14,12 +14,12 @@ LetsGo2Travel, seyahat fikrinden planına kadar ihtiyaç duyduğun temel araçla
 
 • Pasaportuna göre vizesiz ve kolay girişli rotaları keşfet.
 • Rota Asistanı ile bütçene, sürene ve seyahat tarzına uygun öneriler al.
-• Uçuş aramanı oluştur ve güncel sonuçlar için Google Flights'a güvenli biçimde geç.
-• İlgilendiğin rotalar için fiyat alarmı kur.
+• Satın aldığın uçuşu Seyahat Kokpiti'ne ekle; PNR bilgini sakla ve yolculuğunu takip et.
+• Uçuş hariç seyahat bütçeni planla ve giderlerini yönet.
 • Rotalarını ve aramalarını kaydet; daha sonra kaldığın yerden devam et.
 • Ülke rehberlerini, seyahat uyarılarını ve topluluk deneyimlerini incele.
 
-LetsGo2Travel bilet satmaz ve randevu garantisi vermez. Uçuş fiyatları, vize koşulları ve resmî işlem bilgileri değişebilir; satın alma veya başvuru öncesinde ilgili havayolu, konsolosluk ve resmî kurum bilgilerini doğrulamalısın.
+LetsGo2Travel bilet satmaz, uçuş fiyatı aramaz/karşılaştırmaz ve randevu garantisi vermez. Vize koşulları ve resmî işlem bilgileri değişebilir; başvuru öncesinde ilgili konsolosluk ve resmî kurum bilgilerini doğrulamalısın.
 
 ## Kategori ve iletişim
 

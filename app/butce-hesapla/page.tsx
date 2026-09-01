@@ -27,7 +27,6 @@ type CityBudget = {
   country: string;
   visa: string;
   daily: Record<TravelStyle, { hotel: number; food: number; transport: number; activities: number }>;
-  flight: Record<TravelStyle, number>;
 };
 
 const cityBudgets: Record<string, CityBudget> = {
@@ -40,7 +39,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 2300, food: 1200, transport: 350, activities: 600 },
       comfort: { hotel: 4200, food: 2200, transport: 750, activities: 1200 },
     },
-    flight: { economy: 4200, balanced: 6000, comfort: 9500 },
   },
   "Tiflis": {
     image: "/destinations/georgia/tbilisi.jpg",
@@ -51,7 +49,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 2500, food: 1200, transport: 350, activities: 650 },
       comfort: { hotel: 4800, food: 2300, transport: 850, activities: 1300 },
     },
-    flight: { economy: 4500, balanced: 6500, comfort: 10500 },
   },
   "Bakü": {
     image: "/destinations/baku-flame.jpg",
@@ -62,7 +59,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 3000, food: 1450, transport: 450, activities: 750 },
       comfort: { hotel: 5600, food: 2800, transport: 1000, activities: 1600 },
     },
-    flight: { economy: 5200, balanced: 7500, comfort: 12000 },
   },
   "Belgrad": {
     image: "/destinations/serbia/belgrade-fortress.jpg",
@@ -73,7 +69,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 3200, food: 1600, transport: 480, activities: 800 },
       comfort: { hotel: 5800, food: 3000, transport: 1100, activities: 1700 },
     },
-    flight: { economy: 5200, balanced: 7800, comfort: 12500 },
   },
   "Roma": {
     image: "/destinations/italy/colosseum.jpg",
@@ -84,7 +79,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 5600, food: 2700, transport: 850, activities: 1800 },
       comfort: { hotel: 10000, food: 5000, transport: 1900, activities: 3800 },
     },
-    flight: { economy: 6500, balanced: 9500, comfort: 16000 },
   },
   "Dubai": {
     image: "/destinations/dubai-palm.jpg",
@@ -95,7 +89,6 @@ const cityBudgets: Record<string, CityBudget> = {
       balanced: { hotel: 6500, food: 3400, transport: 1600, activities: 3000 },
       comfort: { hotel: 14500, food: 7000, transport: 4200, activities: 7500 },
     },
-    flight: { economy: 8000, balanced: 12000, comfort: 22000 },
   },
 };
 
@@ -114,7 +107,6 @@ export default function BudgetCalculatorPage() {
   const [days, setDays] = useState(3);
   const [people, setPeople] = useState(1);
   const [style, setStyle] = useState<TravelStyle>("balanced");
-  const [includeFlight, setIncludeFlight] = useState(true);
   const [includeHotel, setIncludeHotel] = useState(true);
 
   const selected = cityBudgets[city];
@@ -125,12 +117,11 @@ export default function BudgetCalculatorPage() {
     const food = costs.food * days * people;
     const transport = costs.transport * days * people;
     const activities = costs.activities * days * people;
-    const flight = includeFlight ? selected.flight[style] * people : 0;
-    const total = hotel + food + transport + activities + flight;
+    const total = hotel + food + transport + activities;
     const buffer = Math.round(total * .12);
 
-    return { hotel, food, transport, activities, flight, total, buffer, safeTotal: total + buffer };
-  }, [costs, days, includeFlight, includeHotel, people, selected.flight, style]);
+    return { hotel, food, transport, activities, total, buffer, safeTotal: total + buffer };
+  }, [costs, days, includeHotel, people]);
 
   const assistantHref = `/rota-asistani?budget=${encodeURIComponent(`${summary.safeTotal.toLocaleString("tr-TR")} TL altı`)}&visa=${encodeURIComponent(selected.visa)}&days=${encodeURIComponent(`${days} gün`)}`;
 
@@ -186,7 +177,6 @@ export default function BudgetCalculatorPage() {
           </fieldset>
 
           <div className="l2t-budget-v25-toggles">
-            <label><input type="checkbox" checked={includeFlight} onChange={(event) => setIncludeFlight(event.target.checked)} /><span><Plane size={17} /> Uçuş dahil</span></label>
             <label><input type="checkbox" checked={includeHotel} onChange={(event) => setIncludeHotel(event.target.checked)} /><span><BedDouble size={17} /> Konaklama dahil</span></label>
           </div>
 
@@ -198,11 +188,10 @@ export default function BudgetCalculatorPage() {
             <span>{selected.visa}</span>
             <small>{people} kişi · {days} gün · {styleLabels[style].title}</small>
             <h2>{formatTry(summary.safeTotal)}</h2>
-            <p>Önerilen güvenli toplam bütçe</p>
+            <p>Önerilen güvenli toplam bütçe (uçuş hariç)</p>
           </div>
 
           <div className="l2t-budget-v25-breakdown">
-            <div><span><Plane size={17} /> Uçuş</span><strong>{formatTry(summary.flight)}</strong></div>
             <div><span><BedDouble size={17} /> Konaklama</span><strong>{formatTry(summary.hotel)}</strong></div>
             <div><span><Coffee size={17} /> Yeme içme</span><strong>{formatTry(summary.food)}</strong></div>
             <div><span><Bus size={17} /> Şehir içi ulaşım</span><strong>{formatTry(summary.transport)}</strong></div>
@@ -210,9 +199,12 @@ export default function BudgetCalculatorPage() {
             <div className="is-buffer"><span><CheckCircle2 size={17} /> Esneklik payı</span><strong>{formatTry(summary.buffer)}</strong></div>
           </div>
 
+          <p className="l2t-budget-v25-note" style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", margin: "12px 0 0" }}>
+            <Plane size={14} style={{ verticalAlign: "-2px" }} /> Uçak bileti ücreti bu bütçe tahminine dahil değildir. Biletini satın aldıktan sonra ödediğin tutarı Seyahat Kokpiti&apos;ne ekleyebilirsin.
+          </p>
           <div className="l2t-budget-v25-actions">
             <Link href={assistantHref}><Sparkles size={18} /> Bu bütçeyle rota oluştur <ArrowRight size={17} /></Link>
-            <Link href="/#ucus-ara"><Plane size={18} /> Uçuşları kontrol et</Link>
+            <Link href="/seyahat-kokpiti"><Plane size={18} /> Uçuşumu Kokpit&apos;e ekle</Link>
           </div>
         </aside>
       </section>

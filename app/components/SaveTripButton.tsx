@@ -7,7 +7,7 @@ import { useState } from "react";
 export default function SaveTripButton({
   trip
 }: {
-  trip: { type: "flight" | "country" | "ai_plan"; title: string; subtitle: string; url: string; }
+  trip: { type: "country" | "ai_plan"; title: string; subtitle: string; url: string; }
 }) {
   const { addTrip } = useTripStore();
   const [saved, setSaved] = useState(false);

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { internalFlightSearchUrl } from "@/lib/affiliate";
 import { createSearchAnswer, parseTravelSearch } from "@/lib/ai-search-parser";
 import { createTripPlan } from "@/lib/ai-trip-planner";
 
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
   const query = body?.query?.trim() || "vizesiz uygun rota";
   const intent = parseTravelSearch(query);
   const aiAnswer = await askOpenAI(query);
-  const url = internalFlightSearchUrl({ origin: intent.originCode, destination: intent.destinationCode });
+  const url = "/rota-asistani";
   const plan = createTripPlan(query);
 
   return NextResponse.json({

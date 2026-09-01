@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Plane, Hotel, Wifi, MessageCircle, BellRing } from "lucide-react";
+import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Hotel, Wifi, MessageCircle, Sparkles, Calculator, Plane } from "lucide-react";
 import Link from "next/link";
 import styles from "./passport.module.css";
 
@@ -373,7 +373,7 @@ export default function PassportPowerPage() {
                     <span className={styles.status} data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
                     <p>Giriş koşulları değişebilir. Seyahatten önce resmi temsilcilik ve havayolu kaynaklarını kontrol et.</p>
                     <div>
-                      <Link href={`/ucak-bileti-ara?to=${encodeURIComponent(selectedCountry.name)}`}>Uçak bileti ara</Link>
+                      <Link href="/seyahat-kokpiti">Bu ülke için plan oluştur</Link>
                       <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`}>Gezginlere sor</Link>
                     </div>
                   </aside>
@@ -443,14 +443,14 @@ export default function PassportPowerPage() {
           <div>
             <p className={styles.eyebrow}>Sıradaki adım</p>
             <h2>Pasaportuna uygun seyahati planla</h2>
-            <p>Uçuş, konaklama, internet ve fiyat alarmı araçlarına tek yerden devam et.</p>
+            <p>Konaklama, internet, topluluk ve planlama araçlarına tek yerden devam et.</p>
           </div>
           <div className={styles.nextLinks}>
-            <Link href="/ucak-bileti-ara"><Plane size={18} /> Uçuş ara</Link>
+            <Link href="/rota-asistani"><Sparkles size={18} /> Rota oluştur</Link>
             <Link href="/oteller"><Hotel size={18} /> Otel bul</Link>
             <Link href="/esim"><Wifi size={18} /> eSIM</Link>
             <Link href="/forum"><MessageCircle size={18} /> Topluluğa sor</Link>
-            <Link href="/fiyat-kontrolu"><BellRing size={18} /> Fiyat alarmı</Link>
+            <Link href="/butce-hesapla"><Calculator size={18} /> Bütçe hesapla</Link>
           </div>
         </section>
       </div>

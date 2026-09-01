@@ -1,5 +1,5 @@
 {
-  "name": "bilet-sitem",
+  "name": "letsgo2travel",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -25,7 +25,6 @@
     "mobile:prepare:fallback:ios": "npm run mobile:build:fallback && npx cap sync ios && npm run mobile:doctor -- --platform=ios",
     "mobile:prepare:fallback:android": "npm run mobile:build:fallback && npx cap sync android && npm run mobile:doctor -- --platform=android",
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
-    "test:flights": "node scripts/run-flight-tests.mjs",
     "smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {

@@ -1,10 +1,9 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { internalFlightSearchUrl, type AffiliateProvider } from "@/lib/affiliate";
+import { type AffiliateProvider } from "@/lib/affiliate";
 
 const PROVIDER_HOSTS: Record<AffiliateProvider, string[]> = {
-  aviasales: ["aviasales.com", "www.aviasales.com", "travelpayouts.com", "www.travelpayouts.com"],
   booking: ["booking.com", "www.booking.com"],
   airalo: ["airalo.com", "www.airalo.com"],
   getyourguide: ["getyourguide.com", "www.getyourguide.com"],
@@ -12,7 +11,7 @@ const PROVIDER_HOSTS: Record<AffiliateProvider, string[]> = {
 };
 
 function normalizeProvider(provider: string): AffiliateProvider | null {
-  if (["aviasales", "booking", "airalo", "getyourguide", "other"].includes(provider)) {
+  if (["booking", "airalo", "getyourguide", "other"].includes(provider)) {
     return provider as AffiliateProvider;
   }
   return null;
@@ -56,16 +55,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     return NextResponse.redirect(new URL("/", request.url), 302);
   }
 
-  let redirectUrl = targetUrl;
-  if (provider === "aviasales") {
-    const legacyUrl = new URL(targetUrl);
-    redirectUrl = internalFlightSearchUrl({
-      origin: legacyUrl.searchParams.get("origin_iata") || undefined,
-      destination: legacyUrl.searchParams.get("destination_iata") || undefined,
-      departDate: legacyUrl.searchParams.get("depart_date") || undefined,
-      returnDate: legacyUrl.searchParams.get("return_date") || undefined,
-    });
-  }
+  const redirectUrl = targetUrl;
 
   const supabase = getSupabaseAdmin();
   if (supabase) {

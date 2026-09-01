@@ -21,7 +21,7 @@ export default function HotelsPage() {
         </div>
         <div className="l2t-feature-list">
           <article><strong>Merkezi bölgeler</strong><span>İlk seyahatte ulaşımı kolay, güvenli ve yorumlu bölgeler öne çıkar.</span></article>
-          <article><strong>Fiyat alarmı mantığı</strong><span>Uçuş bulunduğunda otel fiyatı da aynı akışta kontrol edilebilir.</span></article>
+          <article><strong>Plan ile birlikte</strong><span>Rotanı seçtikten sonra konaklamayı aynı akışta kontrol edebilirsin.</span></article>
           <article><strong>Affiliate uyumlu CTA</strong><span>Buton dış siteye yönlendirir; satış partner platformunda tamamlanır.</span></article>
         </div>
       </div>

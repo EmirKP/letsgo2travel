@@ -16,7 +16,7 @@ import {
   Plane,
   ShieldCheck,
   Sparkles,
-  Ticket,
+  Compass,
   Trophy,
   User,
   X,
@@ -36,7 +36,7 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
-  { href: "/kampanyalar", label: "Fırsatlar", icon: Ticket },
+  { href: "/ulke-rehberi", label: "Keşfet", icon: Compass },
   { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
   { href: "/blog", label: "Blog", icon: Newspaper },
   { href: "/kasifler-ligi", label: "Kaşifler Ligi", icon: Trophy },

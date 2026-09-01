@@ -108,7 +108,7 @@ export default async function VisaGuidePage() {
                 <span>{c.emoji}</span>
                 <h3>{c.country_name}</h3>
                 <p>{c.visa_note}</p>
-                <small>{c.flight_duration} · {c.avg_flight_price.toLocaleString("tr-TR")} TL+</small>
+                <small>{c.flight_duration}</small>
               </Link>
             ))}
           </div>

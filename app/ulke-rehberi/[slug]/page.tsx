@@ -88,13 +88,13 @@ export default async function CountryDetailPage({ params }: { params: Promise<{ 
           </div>
         </ScrollReveal>
 
-        {/* Info Box 4: Fiyat (Büyük Kutu iptal edildi, üst satıra taşındı) */}
+        {/* Info Box 4: Bütçe yaklaşımı (uçuş hariç) */}
         <ScrollReveal delay={0.4}>
           <div className="bento-box glass-panel hover-tilt" style={{ borderColor: "rgba(20, 118, 242, 0.3)" }}>
             <div className="bento-icon-wrap" style={{ background: "rgba(245, 158, 11, 0.15)" }}><Wallet size={24} color="var(--l2t-gold)" /></div>
             <div className="bento-content">
-              <span className="bento-label">Tahmini Uçuş Fiyatı</span>
-              <strong className="bento-val" style={{ color: "var(--l2t-gold)", fontSize: "1.2rem" }}>{country.avg_flight_price.toLocaleString("tr-TR")} TL+</strong>
+              <span className="bento-label">Bütçe Yaklaşımı</span>
+              <strong className="bento-val" style={{ color: "var(--l2t-gold)", fontSize: "1.05rem" }}>Uçuş hariç planla</strong>
             </div>
           </div>
         </ScrollReveal>

@@ -39,8 +39,7 @@ function planClientKey(plan: RoutePlan, input: PlannerInput) {
   return `route-${(hash >>> 0).toString(36)}-${plan.routes.length}`;
 }
 
-export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, ownerId, accessToken }: {
-  onFlightSearch: (route: RouteSuggestion) => void;
+export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessToken }: {
   onNotice: (message: string) => void;
   surpriseRoute?: RouteSuggestion | null;
   ownerId?: string | null;
@@ -202,7 +201,6 @@ export function RouteAssistantScreen({ onFlightSearch, onNotice, surpriseRoute, 
                 <div className="daily-plan"><h3>Örnek plan</h3>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
                 {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>Bugün {currentWeather.min}° / {currentWeather.max}° · Rüzgâr {currentWeather.windSpeed} km/sa</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} Güncel havayı göster</button>}
-                <button className="primary-wide" onClick={() => onFlightSearch(route)}><Icon name="plane" size={18} /> Bu rota için bilet ara</button>
               </>}</div>
             </article>;
           })}

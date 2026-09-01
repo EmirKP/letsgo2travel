@@ -9,7 +9,6 @@ export async function GET() {
     app: true,
     supabase: Boolean(supabase),
     ai: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.OPENAI_API_KEY),
-    travelpayoutsMarker: Boolean(process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER || process.env.TRAVELPAYOUTS_MARKER),
     resend: Boolean(process.env.RESEND_API_KEY),
   };
 

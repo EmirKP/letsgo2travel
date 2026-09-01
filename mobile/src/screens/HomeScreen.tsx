@@ -1,22 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { dailyDiscovery } from "../data/discovery";
 import { destinationArtwork } from "../data/artwork";
 import { randomRoute } from "../data/routes";
-import { getFeaturedDeals } from "../lib/api";
-import { openExternal } from "../lib/native";
 import {
   getFavoriteDestinations,
   getRecentDestinations,
-  getSavedFlightSearches,
   getSavedRoutePlans,
 } from "../lib/storage";
-import type { AuthUser, FlightDeal, RouteSuggestion, ViewId } from "../types";
+import type { AuthUser, RouteSuggestion, ViewId } from "../types";
 
 const quickCards: Array<{ title: string; text: string; icon: IconName; view?: ViewId; action?: "surprise" }> = [
   { title: "Pasaport Gücü", text: "Giriş durumlarını karşılaştır", icon: "passport", view: "passport" },
   { title: "Beni Şaşırt", text: "Kararı dünyaya bırak", icon: "sparkles", action: "surprise" },
-  { title: "Fiyat Alarmı", text: "Uçuş fiyatını takip et", icon: "bell", view: "search" },
+  { title: "Keşfet", text: "Sana göre yeni rotalar bul", icon: "compass", view: "explore" },
   { title: "Kaşifler Ligi", text: "Gezginlerden ilham al", icon: "users", view: "community" },
 ];
 
@@ -40,17 +37,13 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
   onSurprise: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
-  const [deals, setDeals] = useState<FlightDeal[]>([]);
-  const [loadingDeals, setLoadingDeals] = useState(true);
   const [storageTick, setStorageTick] = useState(0);
-  const dealRequest = useRef(0);
 
   const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, storageTick]);
-  const searches = useMemo(() => getSavedFlightSearches(ownerId), [ownerId, storageTick]);
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, storageTick]);
   const recent = useMemo(() => getRecentDestinations(ownerId), [ownerId, storageTick]);
   const discovery = dailyDiscovery();
-  const activityCount = routes.length + searches.length + favorites.length;
+  const activityCount = routes.length + favorites.length;
 
   useEffect(() => {
     const update = () => setStorageTick((value) => value + 1);
@@ -58,20 +51,9 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
     return () => window.removeEventListener("l2t:storage-change", update);
   }, []);
 
-  const loadDeals = useCallback(async () => {
-    const requestId = ++dealRequest.current;
-    setLoadingDeals(true);
-    try {
-      const next = (await getFeaturedDeals()).slice(0, 6);
-      if (requestId === dealRequest.current) setDeals(next);
-    } catch {
-      if (requestId === dealRequest.current) setDeals([]);
-    } finally {
-      if (requestId === dealRequest.current) setLoadingDeals(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadDeals(); }, [loadDeals, refreshToken]);
+  useEffect(() => {
+    setStorageTick((value) => value + 1);
+  }, [refreshToken]);
 
   const surprise = () => {
     const selected = randomRoute();
@@ -102,17 +84,16 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
     </section>
 
     {activityCount > 0 && <section className="travel-pulse" aria-label="Seyahat nabzın">
-      <div className="travel-pulse-copy"><span><Icon name="sparkles" size={19} /></span><div><small>SEYAHAT NABZI</small><strong>{activityCount} keşif kaydın hazır</strong><p>Planların, aramaların ve favorilerin bu cihazda seninle.</p></div></div>
+      <div className="travel-pulse-copy"><span><Icon name="sparkles" size={19} /></span><div><small>SEYAHAT NABZI</small><strong>{activityCount} keşif kaydın hazır</strong><p>Planların ve favorilerin bu cihazda seninle.</p></div></div>
       <div className="travel-pulse-stats">
         <button onClick={() => onNavigate("trips")} aria-label={`${routes.length} kayıtlı rotayı aç`}><strong>{routes.length}</strong><span>Rota</span></button>
-        <button onClick={() => onNavigate("trips")} aria-label={`${searches.length} uçuş aramasını aç`}><strong>{searches.length}</strong><span>Arama</span></button>
         <button onClick={() => onNavigate("explore")} aria-label={`${favorites.length} favoriyi aç`}><strong>{favorites.length}</strong><span>Favori</span></button>
       </div>
     </section>}
 
-    {(routes[0] || searches[0]) && <section className="continue-card">
-      <span><Icon name={routes[0] ? "route" : "plane"} size={24} /></span>
-      <div><small>KALDIĞIN YERDEN DEVAM ET</small><strong>{routes[0] ? routes[0].plan.routes.map((route) => route.name).join(" · ") : `${searches[0].originCode} → ${searches[0].destinationCode}`}</strong><p>{routes[0] ? routes[0].plan.summary : `${searches[0].departureDate} tarihli uçuş araman`}</p></div>
+    {routes[0] && <section className="continue-card">
+      <span><Icon name="route" size={24} /></span>
+      <div><small>KALDIĞIN YERDEN DEVAM ET</small><strong>{routes[0].plan.routes.map((route) => route.name).join(" · ")}</strong><p>{routes[0].plan.summary}</p></div>
       <button onClick={() => onNavigate("trips")} aria-label="Seyahatlerim'de devam et"><Icon name="chevron" size={18} /></button>
     </section>}
 
@@ -128,17 +109,7 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
     </section>}
 
     <button className="cockpit-banner" onClick={() => onNavigate("cockpit")}>
-      <span><Icon name="suitcase" size={27} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Uçuş gününe kadar yanında</strong><p>Seyahat kayıtların ve hazırlık listen tek yerde.</p></div><Icon name="chevron" size={17} />
+      <span><Icon name="suitcase" size={27} /></span><div><small>AKILLI SEYAHAT KOKPİTİ</small><strong>Seyahat gününe kadar yanında</strong><p>Seyahat kayıtların ve hazırlık listen tek yerde.</p></div><Icon name="chevron" size={17} />
     </button>
-
-    <section className="section-block deals-block">
-      <div className="section-heading"><div><span>ÖNE ÇIKANLAR</span><h2>İlham veren rotalar</h2></div><button className="text-button" onClick={() => void loadDeals()} aria-label="Yenile"><Icon name="refresh" size={17} /> Yenile</button></div>
-      {loadingDeals ? <div className="skeleton-list"><div /><div /><div /></div>
-        : deals.length ? <div className="deal-scroll">{deals.map((deal) => <article className="deal-card" key={deal.id}>
-          <div className="deal-visual" style={deal.image_url ? { backgroundImage: `linear-gradient(180deg,transparent,rgba(3,19,36,.78)),url(${deal.image_url})` } : undefined}><span>{deal.visa_type || "Rota"}</span><strong>{deal.destination}</strong><small>{deal.origin} çıkışlı</small></div>
-          <div className="deal-body"><div><small>Başlangıç fiyatı</small><strong>{new Intl.NumberFormat("tr-TR").format(deal.price)} {deal.currency}</strong></div><button onClick={() => void openExternal(deal.affiliate_url)} aria-label={`${deal.destination} uçuşlarını aç`}><Icon name="external" size={17} /></button></div>
-        </article>)}</div>
-        : <div className="empty-inline"><Icon name="info" /><div><strong>Canlı fırsatlar şu an alınamadı</strong><span>Bilet arama ve rota asistanı çevrimdışı seçeneklerle kullanılabilir.</span></div></div>}
-    </section>
   </div>;
 }
