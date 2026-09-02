@@ -4,6 +4,27 @@
 
 export const DEFAULT_TRAVEL_TIME_ZONE = "Europe/Istanbul";
 
+/** Geçerli bir IANA saat dilimi adı mı? (Intl ile fiilen doğrulanır) */
+export function isValidTimeZone(value: string): boolean {
+  if (!/^[A-Za-z0-9_+\-/]{1,64}$/.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * İstemciden gelen saat dilimini temizler. API'de sabit Europe/Istanbul
+ * YOKTUR: istemci kendi IANA saat dilimini gönderir; yalnız değer yoksa
+ * veya geçersizse varsayılana düşülür (istek reddedilmez).
+ */
+export function sanitizeTimeZone(value: unknown, fallback: string = DEFAULT_TRAVEL_TIME_ZONE): string {
+  const timeZone = typeof value === "string" ? value.trim() : "";
+  return timeZone && isValidTimeZone(timeZone) ? timeZone : fallback;
+}
+
 /** Verilen saat diliminde bugünün YYYY-MM-DD karşılığı. */
 export function todayIsoInTimeZone(timeZone: string = DEFAULT_TRAVEL_TIME_ZONE, now: Date = new Date()): string {
   // en-CA yereli YYYY-MM-DD üretir.

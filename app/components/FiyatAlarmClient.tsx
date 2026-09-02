@@ -107,6 +107,8 @@ export default function FiyatAlarmClient() {
           cabinClass: "economy",
           notifyEmail,
           notifyPush: notifyPush && Boolean(sessionToken),
+          // Tarih doğrulaması kullanıcının KENDİ takvim gününe göre yapılır.
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
       const data = (await res.json()) as { message?: string; error?: string };

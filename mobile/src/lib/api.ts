@@ -160,6 +160,8 @@ export async function createAlert(input: CreateAlertInput, accessToken: string) 
       cabinClass: "economy",
       notifyEmail: input.notifyEmail,
       notifyPush: input.notifyPush,
+      // Tarih doğrulaması kullanıcının KENDİ takvim gününe göre yapılır.
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
 }

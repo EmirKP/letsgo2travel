@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isoDateAfterDays, todayIsoInTimeZone } from "@/lib/date-utils";
+import { isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendMailAndLog, generateAlertCreatedEmailHtml } from "@/lib/mail";
 import {
@@ -126,10 +126,12 @@ export async function POST(request: Request) {
       || (normalizedTripType === "round_trip" && (!normalizedReturnDate || normalizedReturnDate < normalizedDepartureDate))) {
       return NextResponse.json({ error: "Seyahat tarihleri geçersiz." }, { status: 400 });
     }
-    // Saat dilimi guvenli karsilastirma: "bugun" Europe/Istanbul'a gore
-    // hesaplanir (UTC toISOString gece saatlerinde gunu geri kaydirir).
-    const today = todayIsoInTimeZone();
-    const maxDeparture = isoDateAfterDays(730);
+    // Saat dilimi guvenli karsilastirma: "bugun" KULLANICININ istemciden
+    // gonderdigi IANA saat dilimine gore hesaplanir; deger yoksa/gecersizse
+    // Europe/Istanbul'a dusulur. (UTC toISOString gunu geri kaydirabilir.)
+    const clientTimeZone = sanitizeTimeZone(body.timeZone);
+    const today = todayIsoInTimeZone(clientTimeZone);
+    const maxDeparture = isoDateAfterDays(730, clientTimeZone);
     if (normalizedDepartureDate < today || normalizedDepartureDate > maxDeparture) {
       return NextResponse.json({ error: "Kalkış tarihi bugünden itibaren iki yıl içinde olmalıdır." }, { status: 400 });
     }
