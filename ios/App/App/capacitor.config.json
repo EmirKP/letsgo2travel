@@ -51,6 +51,7 @@
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"HapticsPlugin",
+		"LocalNotificationsPlugin",
 		"CAPNetworkPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin",

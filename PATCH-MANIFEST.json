@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "8",
+  "buildNumber": "9",
   "rootConfiguration": [
     ".npmrc",
     "package.json",

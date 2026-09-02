@@ -85,7 +85,14 @@ async function compareNativeWebPackage(nativeRoot, label) {
   if (hash(mobileIndexBuffer) === hash(nativeIndexBuffer)) ok.push(`${label} index.html güncel`);
   else errors.push(`${label} public/index.html güncel mobil build ile eşleşmiyor; cap sync çalıştır.`);
 
-  const expectedAssetPaths = referencedAssets(mobileIndex).filter((ref) => ref.startsWith("assets/"));
+  // Beklenen küme = mobile-dist/assets içeriği (index.html'de referanslı
+  // giriş dosyaları + lazy chunk'lar; ör. PassportWorldMap-*.js). Yalnız
+  // index.html referanslarına bakmak lazy chunk'ları yanlışlıkla
+  // "eski varlık" sayıyordu.
+  const distAssetPaths = (await filesBelow("mobile-dist/assets"))
+    .map((entry) => entry.slice("mobile-dist/".length));
+  const referencedPaths = referencedAssets(mobileIndex).filter((ref) => ref.startsWith("assets/"));
+  const expectedAssetPaths = [...new Set([...referencedPaths, ...distAssetPaths])];
   for (const asset of expectedAssetPaths) {
     const [source, native] = await Promise.all([
       read(path.posix.join("mobile-dist", asset), { label: `mobil varlık: ${asset}` }),
@@ -153,7 +160,7 @@ if (checkIos) {
   expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
   expect(project, /MARKETING_VERSION = 1\.4\.0;/, "iOS pazarlama sürümü 1.4.0", "Xcode MARKETING_VERSION 1.4.0 değil.");
-  expect(project, /CURRENT_PROJECT_VERSION = 8;/, "iOS build numarası 8", "Xcode CURRENT_PROJECT_VERSION 8 değil.");
+  expect(project, /CURRENT_PROJECT_VERSION = 9;/, "iOS build numarası 9", "Xcode CURRENT_PROJECT_VERSION 9 değil.");
   expect(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/, "Sign in with Apple entitlement bağlantısı", "Apple entitlement dosyası Xcode hedefine bağlı değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
@@ -200,7 +207,7 @@ if (checkAndroid) {
   expect(manifest, /android:dataExtractionRules=["']@xml\/data_extraction_rules["']/, "Android veri aktarım kuralları bağlı", "Android veri aktarım kuralları bağlı değil.");
 
   const androidBuild = await text("android/app/build.gradle");
-  expect(androidBuild, /versionCode\s+8\b/, "Android versionCode 8", "Android versionCode 8 değil.");
+  expect(androidBuild, /versionCode\s+9\b/, "Android versionCode 9", "Android versionCode 9 değil.");
   expect(androidBuild, /versionName\s+["']1\.4\.0["']/, "Android versionName 1.4.0", "Android versionName 1.4.0 değil.");
   for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
     expect(androidBuild, new RegExp(key), `Android release imza ayarı: ${key}`, `Android release imza ayarı eksik: ${key}`);
