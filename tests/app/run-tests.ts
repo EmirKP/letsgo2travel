@@ -15,6 +15,7 @@ import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState 
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, cockpitDeepLink, plannedReminders } from "./_mobile/liveActivity";
+import { registerLiveActivityCronTests } from "./liveActivityCron";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
 function test(name: string, fn: () => Promise<void> | void) { tests.push([name, fn]); }
@@ -333,6 +334,10 @@ test("forum: yanıtlar user_id/e-posta/gizli profil alanı içermez", () => {
   assert.equal(summary.answerCount, 3);
   assert.equal(detail.answers.length, 1);
 });
+
+// ------------------- Live Activity cron çekirdeği --------------------
+
+registerLiveActivityCronTests(test);
 
 // ------------------------------ runner -------------------------------
 

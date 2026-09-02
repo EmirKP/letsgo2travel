@@ -5,7 +5,6 @@
 // - settle: tek UPDATE (id + claim_token) → eski worker yeni claim'i ezemez.
 // Token değerleri log/yanıtlara yazılmaz.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   CronToken,
   CronTrip,
