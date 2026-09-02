@@ -9,7 +9,7 @@ const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: Vi
   { label: "Rota Asistanı", text: "Tercihlerine göre uygulamada plan oluştur", icon: "route", view: "route" },
   { label: "Seyahat Kokpiti", text: "Tarihlerini ve hazırlık listeni yönet", icon: "suitcase", view: "cockpit" },
   { label: "Fiyat Alarmı", text: "Hedef fiyata düşünce haber al", icon: "bell", view: "alerts" },
-  { label: "Kaşifler Ligi", text: "Gerçek gezginlerden ilham al", icon: "users", view: "community" },
+  { label: "Topluluk", text: "Gezgin soruları ve Kaşifler Ligi", icon: "users", view: "community" },
 ];
 
 const legalLinks: Array<{ label: string; text: string; icon: IconName; url: string }> = [

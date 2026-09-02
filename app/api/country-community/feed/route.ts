@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase-client";
+import { supabase as anonSupabase } from "@/lib/supabase-client";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  // Bu herkese açık akış anon istemciyle okunur; `visible` RLS politikaları
-  // veritabanında uygulanmaya devam eder. Service-role bu uçta kullanılmaz.
+  // KÖK NEDEN DÜZELTMESİ: Bu uç projedeki TEK anon-istemcili sunucu GET'iydi;
+  // kardeşi /api/kasifler-ligi service-role ile çalışırken bu uç tablo
+  // grant/RLS durumuna bağımlıydı ve mobilde "Topluluk akışı yüklenemedi"
+  // hatasının kaynağıydı. Artık diğer okuma uçlarıyla AYNI mimari kullanılır:
+  // service-role + yalnız 'visible' kayıtlar + güvenli alan seçimi (e-posta,
+  // user_id gibi alanlar yanıtta YOKTUR). Admin client yoksa anon'a düşer.
+  const supabase = getSupabaseAdmin() || anonSupabase;
   const { data: questions, error } = await supabase
     .from("country_questions")
     .select("id,user_id,country_code,title,body,category,created_at")
     .eq("status", "visible")
     .order("created_at", { ascending: false })
     .limit(40);
-  if (error) return NextResponse.json({ error: "Topluluk akışı alınamadı.", data: [] }, { status: 500 });
+  if (error) {
+    // Teşhis için yalnız hata KODU loglanır (içerik/secret yok).
+    console.error("country_community_feed_hatasi", { code: (error as { code?: string }).code || "unknown" });
+    return NextResponse.json({ error: "Topluluk akışı alınamadı.", data: [] }, { status: 500 });
+  }
 
   const questionIds = (questions || []).map((item) => item.id);
   const userIds = Array.from(new Set((questions || []).map((item) => item.user_id).filter(Boolean)));

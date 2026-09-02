@@ -16,7 +16,7 @@ const quickCards: Array<{ title: string; text: string; icon: IconName; view?: Vi
   { title: "Pasaport Gücü", text: "Giriş durumlarını karşılaştır", icon: "passport", view: "passport" },
   { title: "Fiyat Alarmı", text: "Fiyat düşünce haber al", icon: "bell", view: "alerts" },
   { title: "Beni Şaşırt", text: "Kararı dünyaya bırak", icon: "sparkles", action: "surprise" },
-  { title: "Kaşifler Ligi", text: "Gezginlerden ilham al", icon: "users", view: "community" },
+  { title: "Topluluk", text: "Sor, cevapla, ilham al", icon: "users", view: "community" },
 ];
 
 function firstName(user: AuthUser | null) {

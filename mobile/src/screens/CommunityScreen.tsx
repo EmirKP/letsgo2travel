@@ -1,7 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Icon } from "../components/Icon";
-import { requestJson } from "../lib/api";
+import { Sheet } from "../components/Sheet";
+import { COUNTRY_LIST } from "../data/countries";
+import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
+import { ApiError, requestJson } from "../lib/api";
 import type { AuthUser } from "../types";
+
+// Soru formunda ülke SEÇİLİR (kod yazılmaz); ada göre sıralı, bayraklı.
+const QUESTION_COUNTRIES = [...COUNTRY_LIST]
+  .map((country) => ({ name: country.name, alpha2: alpha2FromAlpha3(country.alpha3) }))
+  .filter((country) => /^[A-Z]{2}$/.test(country.alpha2))
+  .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+
+type CommunityAnswer = {
+  id: string;
+  body: string;
+  createdAt: string;
+  username: string;
+};
+
+type CommunityQuestionDetail = CommunityQuestion & { answers: CommunityAnswer[] };
 
 type CommunityScreenProps = {
   user: AuthUser | null;
@@ -125,6 +143,13 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   const [questionTitle, setQuestionTitle] = useState("");
   const [questionBody, setQuestionBody] = useState("");
   const [posting, setPosting] = useState(false);
+  const [detailId, setDetailId] = useState("");
+  const [detail, setDetail] = useState<CommunityQuestionDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [answerBody, setAnswerBody] = useState("");
+  const [answerPosting, setAnswerPosting] = useState(false);
+  const detailGeneration = useRef(0);
   const requestGeneration = useRef(0);
   const feedGeneration = useRef(0);
   const currentUsername = useMemo(() => userName(user).toLocaleLowerCase("tr-TR"), [user]);
@@ -196,9 +221,65 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     };
   }, [load, loadFeed]);
 
+  const openDetail = useCallback(async (questionId: string) => {
+    const generation = ++detailGeneration.current;
+    setDetailId(questionId);
+    setDetail(null);
+    setDetailError("");
+    setAnswerBody("");
+    setDetailLoading(true);
+    try {
+      const response = await requestJson<{ data?: CommunityQuestionDetail }>(`/api/country-community/questions/${encodeURIComponent(questionId)}`, { timeoutMs: 15_000 });
+      if (generation !== detailGeneration.current) return;
+      if (!response.data) throw new Error("Soru bulunamadı.");
+      setDetail(response.data);
+    } catch (requestError) {
+      if (generation === detailGeneration.current) {
+        setDetailError(requestError instanceof ApiError && requestError.message ? requestError.message : "Soru detayı yüklenemedi. Tekrar dene.");
+      }
+    } finally {
+      if (generation === detailGeneration.current) setDetailLoading(false);
+    }
+  }, []);
+
+  const closeDetail = () => {
+    detailGeneration.current += 1;
+    setDetailId("");
+    setDetail(null);
+    setDetailError("");
+    setAnswerBody("");
+  };
+
+  const submitAnswer = async () => {
+    if (!user || !accessToken) return onOpenAccount();
+    if (!detail) return;
+    const body = answerBody.trim();
+    if (body.length < 3) return onNotice("Cevap en az 3 karakter olmalı.");
+    if (answerPosting) return;
+    setAnswerPosting(true);
+    try {
+      const result = await requestJson<{ moderation?: { action?: string } }>("/api/country-community/answers", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { countryCode: detail.countryCode, questionId: detail.id, body },
+      });
+      setAnswerBody("");
+      onNotice(result.moderation?.action === "visible" ? "Cevabın yayınlandı." : "Cevabın incelemeye alındı.");
+      if (result.moderation?.action === "visible") await openDetail(detail.id);
+    } catch (requestError) {
+      // 403: cevap için Belgeli Gezgin doğrulaması gerekir — teknik detay
+      // göstermeden anlaşılır biçimde aktarılır.
+      onNotice(requestError instanceof ApiError && requestError.message
+        ? requestError.message
+        : "Cevap gönderilemedi. Tekrar dene.");
+    } finally {
+      setAnswerPosting(false);
+    }
+  };
+
   const submitQuestion = async () => {
     if (!user || !accessToken) return onOpenAccount();
-    if (!/^[A-Z]{2}$/.test(countryCode)) return onNotice("Ülke kodunu iki harf olarak yaz. Örneğin IT.");
+    if (!/^[A-Z]{2}$/.test(countryCode)) return onNotice("Önce soru sorduğun ülkeyi seç.");
     if (questionTitle.trim().length < 5) return onNotice("Başlık en az 5 karakter olmalı.");
     if (questionBody.trim().length < 10) return onNotice("Açıklama en az 10 karakter olmalı.");
     if (posting) return;
@@ -278,7 +359,12 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
       <div className="community-feed-toolbar"><div><small>ÜLKE TOPLULUKLARI</small><h2>Gezginlerin soruları</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? "Kapat" : "Soru sor"}</button></div>
       {questionOpen && <div className="form-card community-question-form">
-        <div className="form-grid two"><label>Ülke kodu<input value={countryCode} maxLength={2} autoCapitalize="characters" onChange={(event) => setCountryCode(event.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} placeholder="IT" /></label><label>Kategori<select value="general" disabled><option value="general">Genel</option></select></label></div>
+        <label>Ülke
+          <select value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
+            <option value="" disabled>Hangi ülkeyle ilgili?</option>
+            {QUESTION_COUNTRIES.map((country) => <option key={country.alpha2} value={country.alpha2}>{flagEmoji(country.alpha2)} {country.name}</option>)}
+          </select>
+        </label>
         <label>Başlık<input value={questionTitle} maxLength={160} onChange={(event) => setQuestionTitle(event.target.value)} placeholder="Gezginlere ne sormak istiyorsun?" /></label>
         <label>Açıklama<textarea value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder="Sorunu anlaşılır biçimde anlat…" /></label>
         <button className="primary-wide" disabled={posting} onClick={() => void submitQuestion()}>{posting ? <span className="button-loader" /> : <Icon name="users" size={18} />} {posting ? "Gönderiliyor" : "Topluluğa gönder"}</button>
@@ -286,10 +372,34 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
       {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20} /><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>Tekrar dene</button></div>}
       {feedLoading ? <div className="skeleton-list community-native-loading"><div /><div /><div /></div>
         : questions.length ? <div className="community-question-list">{questions.map((question) => <article key={question.id}>
-          <header><span>{question.countryCode}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt)}</small></div><em>{question.answerCount} yanıt</em></header>
-          <h3>{question.title}</h3><p>{question.body}</p>
+          <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={`Soruyu aç: ${question.title}`}>
+            <header><span>{flagEmoji(question.countryCode)} {question.countryCode}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt)}</small></div><em>{question.answerCount} yanıt</em></header>
+            <h3>{question.title}</h3><p>{question.body}</p>
+          </button>
         </article>)}</div>
         : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>Henüz görünür soru yok</strong><p>İlk soruyu sorarak ülke topluluğunu başlatabilirsin.</p></div>}
     </section>
+
+    <Sheet open={Boolean(detailId)} title="Soru detayı" onClose={closeDetail} size="large">
+      {detailLoading && <div className="skeleton-list"><div /><div /></div>}
+      {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>Tekrar dene</button></div>}
+      {detail && !detailLoading && <div className="community-question-detail">
+        <header><span>{flagEmoji(detail.countryCode)} {detail.countryCode}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt)}</small></div></header>
+        <h3>{detail.title}</h3>
+        <p>{detail.body}</p>
+        <div className="community-answers">
+          <div className="section-heading"><div><span>CEVAPLAR</span><h2>{detail.answers.length ? `${detail.answers.length} cevap` : "Henüz cevap yok"}</h2></div></div>
+          {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
+            <header><strong>@{answer.username}</strong><small>{formatQuestionDate(answer.createdAt)}</small></header>
+            <p>{answer.body}</p>
+          </article>)}
+          {!detail.answers.length && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>İlk cevabı sen yaz</strong><span>Deneyimini paylaşarak gezginlere yardım et.</span></div></div>}
+        </div>
+        {user ? <div className="community-answer-form">
+          <label>Cevabın<textarea value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder="Deneyimini paylaş…" /></label>
+          <button className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? "Gönderiliyor" : "Cevabı gönder"}</button>
+        </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> Cevap yazmak için giriş yap</button>}
+      </div>}
+    </Sheet>
   </div>;
 }
