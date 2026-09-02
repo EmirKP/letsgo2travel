@@ -19,6 +19,8 @@ export type AirportEntry = {
   city: string;
   country: string;
   countryCode: string;
+  /** 0 büyük, 1 tarifeli orta, 2 diğer orta/büyük, 3 tamamlayıcı küçük. */
+  priority: number;
 };
 
 export function normalizeSearchText(value: string) {
@@ -85,6 +87,7 @@ export function searchAirports(rawQuery: string, limit = 12): AirportEntry[] {
     .filter((item) => Number.isFinite(item.score))
     .sort((left, right) =>
       left.score - right.score
+      || left.airport.entry.priority - right.airport.entry.priority
       || Number(right.airport.entry.countryCode === "TR") - Number(left.airport.entry.countryCode === "TR")
       || left.airport.entry.city.localeCompare(right.airport.entry.city, "tr")
       || left.airport.entry.name.localeCompare(right.airport.entry.name, "tr"))
