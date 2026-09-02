@@ -9,6 +9,7 @@ import {
   LIVE_ACTIVITY_LEAD_MS,
   LIVE_ACTIVITY_RETRY_BACKOFF_MS,
   LIVE_ACTIVITY_TAIL_MS,
+  defaultClaimToken,
   runLiveActivityCron,
   type CronToken,
   type CronTrip,
@@ -29,6 +30,18 @@ export function createMemoryStore(seed: { trips?: MemoryTrip[]; tokens?: MemoryT
   let nextDeliveryId = 1;
 
   const key = (tripId: string, tokenId: string, event: string) => `${tripId}:${tokenId}:${event}`;
+
+  // GERÇEK ŞEMA SÖZLEŞMESİ: live_activity_deliveries.claim_token UUID
+  // kolonudur. UUID olmayan bir değer Postgres'te 22P02 ile reddedilir;
+  // in-memory store da AYNI şekilde reddeder ki tip uyuşmazlığı testte
+  // yakalansın (v3'teki 'claim-<ts>-<rnd>' üretim hatası böyle yakalanırdı).
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const claimTokenErrors: string[] = [];
+  const assertUuid = (value: string) => {
+    if (UUID_PATTERN.test(value)) return true;
+    claimTokenErrors.push(value);
+    return false; // Postgres 22P02 eşdeğeri: yazım reddedilir
+  };
 
   const store: LiveActivityStore = {
     async tripsDepartingBetween(fromMs, toMs, limit) {
@@ -86,6 +99,7 @@ export function createMemoryStore(seed: { trips?: MemoryTrip[]; tokens?: MemoryT
     },
     async claimDelivery(id, expectedAttemptCount, claimToken, leaseUntilMs, nowMs) {
       // ATOMİK kontrol-ve-yaz (Postgres'teki tek UPDATE'in eşdeğeri).
+      if (!assertUuid(claimToken)) return false;
       const row = Array.from(deliveries.values()).find((item) => item.id === id);
       if (!row) return false;
       if (row.status !== "pending" && row.status !== "transient_failed") return false;
@@ -128,7 +142,7 @@ export function createMemoryStore(seed: { trips?: MemoryTrip[]; tokens?: MemoryT
     },
   };
 
-  return { store, trips, tokens, deliveries };
+  return { store, trips, tokens, deliveries, claimTokenErrors };
 }
 
 type TransportBehavior = (token: string, payload: LiveActivitySendPayload) => LiveActivityPushOutcome | Promise<LiveActivityPushOutcome>;
@@ -297,18 +311,60 @@ export function registerLiveActivityCronTests(test: (name: string, fn: () => Pro
     await store.seedDeliveries([{ tripId: "trip-1", tokenId: "tok-a", event: "start" }]);
     const [row] = await store.dueDeliveries(T0, 10);
 
-    const claimedByA = await store.claimDelivery(row.id, 0, "claim-A", T0 + 60_000, T0);
+    const claimA = defaultClaimToken();
+    const claimB = defaultClaimToken();
+    const claimedByA = await store.claimDelivery(row.id, 0, claimA, T0 + 60_000, T0);
     assert.equal(claimedByA, true);
-    // Lease dolmadan B alamaz (paralel cron mükerrer gönderemez).
-    assert.equal(await store.claimDelivery(row.id, 0, "claim-B", T0 + 90_000, T0 + 1000), false);
+    // Lease dolmadan B alamaz (paralel cron'lar AYNI ANDA gönderemez).
+    assert.equal(await store.claimDelivery(row.id, 0, claimB, T0 + 90_000, T0 + 1000), false);
     // Lease doldu → B devralır.
     const laterNow = T0 + 61_000;
-    assert.equal(await store.claimDelivery(row.id, 0, "claim-B", laterNow + 60_000, laterNow), true);
-    assert.equal(await store.settleDelivery(row.id, "claim-B", { status: "sent", attemptCount: 1 }), true);
+    assert.equal(await store.claimDelivery(row.id, 0, claimB, laterNow + 60_000, laterNow), true);
+    assert.equal(await store.settleDelivery(row.id, claimB, { status: "sent", attemptCount: 1 }), true);
     // A'nın gecikmiş sonucu (ör. transient_failed) yeni durumu EZEMEZ.
-    assert.equal(await store.settleDelivery(row.id, "claim-A", { status: "transient_failed", attemptCount: 1 }), false);
+    assert.equal(await store.settleDelivery(row.id, claimA, { status: "transient_failed", attemptCount: 1 }), false);
     const finalRow = Array.from(deliveries.values())[0];
     assert.equal(finalRow.status, "sent", "eski worker'ın yazımı reddedilmeli");
+  });
+
+  test("cron: üretilen HER claim token geçerli UUID'dir (DB uuid kolonu sözleşmesi)", async () => {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const seen = new Set<string>();
+    for (let index = 0; index < 200; index += 1) {
+      const token = defaultClaimToken();
+      assert.match(token, UUID_PATTERN, `claim token UUID değil: ${token}`);
+      seen.add(token);
+    }
+    assert.equal(seen.size, 200, "claim token'lar benzersiz olmalı");
+
+    // Varsayılan üreticiyle koşan cron, UUID zorlayan store'da SORUNSUZ
+    // teslim yapabilmeli (22P02 sınıfı regresyon burada patlar).
+    const { store, claimTokenErrors } = createMemoryStore({
+      trips: [tripUpcoming("trip-1", "user-1")],
+      tokens: [pushToStartToken("tok-a", "user-1")],
+    });
+    const { transport, calls } = makeTransport(() => OK);
+    const summary = await runLiveActivityCron(store, transport, { nowMs: T0 });
+    assert.equal(summary.sent, 1, "UUID claim token ile teslim başarılı olmalı");
+    assert.equal(calls.length, 1);
+    assert.equal(claimTokenErrors.length, 0, "hiçbir claim token DB tipine takılmamalı");
+  });
+
+  test("cron: UUID olmayan claim token DB katmanında reddedilir ve teslim YAPILMAZ (v3 hatasının kanıtı)", async () => {
+    const { store, claimTokenErrors, deliveries } = createMemoryStore({
+      trips: [tripUpcoming("trip-1", "user-1")],
+      tokens: [pushToStartToken("tok-a", "user-1")],
+    });
+    const { transport, calls } = makeTransport(() => OK);
+    const summary = await runLiveActivityCron(store, transport, {
+      nowMs: T0,
+      makeClaimToken: () => `claim-${Date.now()}-abc123`, // v3'teki hatalı biçim
+    });
+    assert.equal(calls.length, 0, "claim başarısızsa APNs'e HİÇ gidilmemeli");
+    assert.equal(summary.sent, 0);
+    assert.ok(summary.claimLost >= 1, "başarısız claim'ler claimLost olarak görünmeli");
+    assert.ok(claimTokenErrors.length >= 1, "tip uyuşmazlığı store katmanında yakalanmalı");
+    for (const row of deliveries.values()) assert.equal(row.status, "pending", "teslim ilerlememeli");
   });
 
   test("cron: soft deadline sonrası yeni claim açılmaz; iş sonraki cron'a kalır", async () => {

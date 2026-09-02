@@ -17,6 +17,26 @@ private extension Color {
     static let l2tGold = Color(red: 0xF6 / 255, green: 0xC4 / 255, blue: 0x45 / 255)
 }
 
+// Kalkış GEÇMİŞSE Date.now...departureAt TERS ClosedRange olur (aktivite
+// kalkıştan sonra +1 saat açık kalır) — ters aralık runtime hatasıdır.
+// Tüm görünümler geri sayımı BU tek yardımcıdan alır: gelecekte → canlı
+// geri sayım; geçti → güvenli "kalkış gerçekleşti" görünümü.
+// (TS ayna testi: mobile/src/lib/liveActivity.ts countdownMode.)
+private struct DepartureCountdown: View {
+    let departureAt: Date
+    var compact = false
+
+    var body: some View {
+        if departureAt > Date.now {
+            Text(timerInterval: Date.now...departureAt, countsDown: true)
+        } else if compact {
+            Text("Uçtu")
+        } else {
+            Text("Kalkış gerçekleşti")
+        }
+    }
+}
+
 struct FlightActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: FlightActivityAttributes.self) { context in
@@ -48,7 +68,7 @@ struct FlightActivityWidget: Widget {
                     HStack {
                         Text(context.state.departureAt, style: .time)
                         Spacer()
-                        Text(timerInterval: Date.now...context.state.departureAt, countsDown: true)
+                        DepartureCountdown(departureAt: context.state.departureAt)
                             .font(.headline.monospacedDigit())
                             .foregroundStyle(Color.l2tGold)
                     }
@@ -57,7 +77,7 @@ struct FlightActivityWidget: Widget {
                 Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                     .font(.caption2.bold()).foregroundStyle(Color.l2tGold)
             } compactTrailing: {
-                Text(timerInterval: Date.now...context.state.departureAt, countsDown: true)
+                DepartureCountdown(departureAt: context.state.departureAt, compact: true)
                     .font(.caption2.monospacedDigit())
                     .frame(maxWidth: 52)
             } minimal: {
@@ -87,7 +107,7 @@ private struct LockScreenView: View {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(context.state.departureAt, style: .time)
                         .font(.subheadline).foregroundStyle(.white)
-                    Text(timerInterval: Date.now...context.state.departureAt, countsDown: true)
+                    DepartureCountdown(departureAt: context.state.departureAt)
                         .font(.headline.monospacedDigit()).foregroundStyle(Color.l2tGold)
                 }
             }

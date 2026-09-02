@@ -5,11 +5,19 @@
 //           → transient_failed (≤ MAX_ATTEMPTS deneme, geri çekilmeli)
 //           → permanent_failed (kalıcı APNs hatası / deneme tükendi / stale)
 // Eşzamanlılık: atomik claim (lease + fencing claim_token + attempt
-// guard'ı). Paralel cron'lar aynı teslimi iki kez gönderemez; eski bir
-// worker'ın gecikmiş sonucu yeni claim'in yazdığını EZEMEZ (fenced settle).
+// guard'ı). Atomik claim, PARALEL cron'ların aynı teslimi AYNI ANDA
+// göndermesini engeller; eski bir worker'ın gecikmiş sonucu yeni claim'in
+// yazdığını EZEMEZ (fenced settle).
+// DÜRÜST GARANTİ SINIRI: teslim "en az bir kez"dir — APNs gönderimi
+// BAŞARILI olduktan sonra süreç settle yazamadan çökerse, lease süresi
+// dolunca aynı teslim yeniden gönderilebilir. Bu pencereyi küçültmek için
+// APNs isteklerine trip+event tabanlı apns-collapse-id eklenir (cihazda
+// yinelenen push tek görünür). "Asla iki kez göndermez" İDDİA EDİLMEZ.
 // Süre: soft deadline sonrası YENİ claim/seed açılmaz; kalan iş sonraki
 // cron'a kalır (deferred). Gönderimler kontrollü paralel (küçük gruplar).
 // =====================================================================
+
+import { randomUUID } from "node:crypto";
 
 export const LIVE_ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala start
 export const LIVE_ACTIVITY_TAIL_MS = 60 * 60 * 1000; // kalkıştan 1 saat sonra end
@@ -87,11 +95,12 @@ export type LiveActivityPushOutcome = {
 export type LiveActivitySendPayload =
   | {
     event: "start";
+    tripId: string;
     attributes: { tripId: string; title: string; originIata: string; destinationIata: string; deepLink: string };
     departureAtMs: number;
     alert: { title: string; body: string };
   }
-  | { event: "end"; departureAtMs: number };
+  | { event: "end"; tripId: string; departureAtMs: number };
 
 export type LiveActivityTransport = (token: string, payload: LiveActivitySendPayload) => Promise<LiveActivityPushOutcome>;
 
@@ -118,8 +127,11 @@ export type LiveActivityCronOptions = {
   makeClaimToken?: () => string;
 };
 
-function defaultClaimToken() {
-  return `claim-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+// DB kolonu UUID'dir: UUID olmayan bir claim token gerçek Supabase'de
+// 22P02 (invalid_text_representation) ile reddedilir ve HİÇBİR teslim
+// yapılamazdı (v3'teki üretim hatası). Node 18+ her ortamda mevcuttur.
+export function defaultClaimToken() {
+  return randomUUID();
 }
 
 export function cockpitDeepLinkFor(tripId: string) {
@@ -129,6 +141,7 @@ export function cockpitDeepLinkFor(tripId: string) {
 export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
   return {
     event: "start",
+    tripId: trip.id,
     attributes: {
       tripId: trip.id,
       title: trip.title || "Yaklaşan uçuş",
@@ -213,7 +226,7 @@ async function processDelivery(
 
   const payload: LiveActivitySendPayload = row.event === "start"
     ? buildStartPayload(trip)
-    : { event: "end", departureAtMs: trip.departureAtMs };
+    : { event: "end", tripId: trip.id, departureAtMs: trip.departureAtMs };
 
   let outcome: LiveActivityPushOutcome;
   try {
@@ -305,7 +318,7 @@ export async function runLiveActivityCron(
       const nowMs = clock();
       const ok = await store.claimDelivery(row.id, row.attemptCount, claimToken, nowMs + LIVE_ACTIVITY_LEASE_MS, nowMs);
       if (ok) claimed.push({ row, claimToken });
-      else summary.claimLost += 1; // başka worker aldı — mükerrer gönderim yok
+      else summary.claimLost += 1; // başka worker aldı veya claim yazımı hata verdi
     }
     await Promise.allSettled(claimed.map(({ row, claimToken }) => {
       summary.processed += 1;

@@ -15,8 +15,10 @@ export const maxDuration = 60;
 // Çekirdek lib/live-activity-cron.ts'tedir (birim testli):
 // - Teslim durumu trip + token(cihaz) + event bazında (live_activity_deliveries).
 // - Atomik claim: lease + fencing claim_token + attempt guard'ı; paralel
-//   cron'lar aynı start/end'i İKİ KEZ GÖNDEREMEZ; eski worker yeni claim
-//   sonucunu EZEMEZ.
+//   cron'lar aynı teslimi AYNI ANDA gönderemez; eski worker yeni claim
+//   sonucunu EZEMEZ. DÜRÜST SINIR: teslim "en az bir kez"dir — APNs
+//   başarısından sonra settle yazılamadan çökülürse lease bitince yeniden
+//   gönderim mümkündür; apns-collapse-id bunun cihazdaki etkisini azaltır.
 // - Transient hatada token bazında bağımsız retry (en fazla 3 deneme,
 //   geri çekilmeli); kalıcı APNs hatasında YALNIZ ilgili token kapatılır.
 // - Soft deadline (maxDuration=60 için ~45sn): sonrasında yeni claim
@@ -39,14 +41,18 @@ function isAuthorizedCron(request: Request) {
 }
 
 function transport(token: string, payload: LiveActivitySendPayload) {
+  // Trip+event tabanlı collapse id: olası yeniden gönderim (crash-after-
+  // send) cihazda tek bildirim olarak görünür.
+  const collapseId = `la-${payload.tripId}-${payload.event}`;
   return payload.event === "start"
     ? sendApnsLiveActivity(token, {
       event: "start",
+      collapseId,
       attributes: payload.attributes,
       departureAtMs: payload.departureAtMs,
       alert: payload.alert,
     })
-    : sendApnsLiveActivity(token, { event: "end", departureAtMs: payload.departureAtMs });
+    : sendApnsLiveActivity(token, { event: "end", collapseId, departureAtMs: payload.departureAtMs });
 }
 
 export async function GET(request: Request) {

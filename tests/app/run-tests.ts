@@ -14,7 +14,7 @@ import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, s
 import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
-import { activityPhase, cockpitDeepLink, plannedReminders } from "./_mobile/liveActivity";
+import { activityPhase, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
@@ -335,6 +335,22 @@ test("forum: yanıtlar user_id/e-posta/gizli profil alanı içermez", () => {
   assert.equal(detail.answers[0].username, "anonim_gezgin");
   assert.equal(summary.answerCount, 3);
   assert.equal(detail.answers.length, 1);
+});
+
+test("liveActivity: kalkış geçince TERS geri sayım aralığı oluşturulmaz (widget ayna kuralı)", () => {
+  const departure = "2026-10-10T10:00:00.000Z";
+  // Kalkıştan önce: canlı geri sayım.
+  assert.equal(countdownMode(departure, new Date("2026-10-10T09:00:00Z")), "countdown");
+  // Kalkış anı ve SONRASI (aktivite +1 saat açık kalır): ters
+  // Date.now...departureAt aralığı YASAK — güvenli görünüm.
+  assert.equal(countdownMode(departure, new Date("2026-10-10T10:00:00Z")), "departed");
+  assert.equal(countdownMode(departure, new Date("2026-10-10T10:30:00Z")), "departed");
+  assert.equal(countdownMode(departure, new Date("2026-10-10T10:59:59Z")), "departed");
+  // Bu pencerede aktivite hâlâ AKTİF: tehlikeli birleşim testte sabitlenir.
+  assert.equal(activityPhase(departure, new Date("2026-10-10T10:30:00Z")), "active");
+  // Bozuk/boş veri güvenli dala düşer.
+  assert.equal(countdownMode(null), "departed");
+  assert.equal(countdownMode("bozuk"), "departed");
 });
 
 // ------------------- Live Activity cron çekirdeği --------------------

@@ -169,7 +169,16 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
         .eq("attempt_count", expectedAttemptCount)
         .or(`claimed_until.is.null,claimed_until.lt.${nowIso}`)
         .select("id");
-      if (error) return false;
+      if (error) {
+        // Hata GİZLENMEZ: token/secret içermeyen kod güvenli loga yazılır.
+        // (Örn. 22P02 = claim_token uuid tip uyuşmazlığı — v3'te tüm
+        // teslimleri sessizce durduran üretim hatası buydu.)
+        console.error("live_activity_claim_hatasi", {
+          code: (error as { code?: string }).code || "unknown",
+          deliveryId: String(id),
+        });
+        return false;
+      }
       return Boolean(data?.length);
     },
 
@@ -189,7 +198,13 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
         .eq("id", id)
         .eq("claim_token", claimToken)
         .select("id");
-      if (error) return false;
+      if (error) {
+        console.error("live_activity_settle_hatasi", {
+          code: (error as { code?: string }).code || "unknown",
+          deliveryId: String(id),
+        });
+        return false;
+      }
       return Boolean(data?.length);
     },
 

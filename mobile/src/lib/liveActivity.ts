@@ -30,6 +30,19 @@ const ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala başlat
 const ACTIVITY_TAIL_MS = 60 * 60 * 1000; // kalkıştan 1 saat sonra bitir
 const REMINDER_ID_BASE = 411_000; // yerel bildirim kimlik alanımız
 
+/**
+ * Swift DepartureCountdown ile AYNI karar (ayna): kalkış gelecekteyse
+ * geri sayım gösterilir; geçtiyse TERS zaman aralığı OLUŞTURULMAZ,
+ * güvenli "kalkış gerçekleşti" görünümüne düşülür. Widget kalkıştan
+ * sonra +1 saat açık kaldığı için bu dal gerçek hayatta HER uçuşta çalışır.
+ */
+export function countdownMode(departureAtIso: string | null, now: Date = new Date()): "countdown" | "departed" {
+  if (!departureAtIso) return "departed";
+  const departure = Date.parse(departureAtIso);
+  if (!Number.isFinite(departure)) return "departed";
+  return departure > now.getTime() ? "countdown" : "departed";
+}
+
 /** Uçuş için Live Activity/hatırlatma evresi (saf; birim testli). */
 export function activityPhase(departureAtIso: string | null, now: Date = new Date()): ActivityPhase {
   if (!departureAtIso) return "ended";

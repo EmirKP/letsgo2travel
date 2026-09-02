@@ -53,6 +53,8 @@ export function apnsHost() {
 
 export type LiveActivityStartPayload = {
   event: "start";
+  /** apns-collapse-id (≤64 bayt): aynı trip+event push'u cihazda tekilleşir. */
+  collapseId?: string;
   attributes: {
     tripId: string;
     title: string;
@@ -67,6 +69,7 @@ export type LiveActivityStartPayload = {
 
 export type LiveActivityEndPayload = {
   event: "end";
+  collapseId?: string;
   departureAtMs: number;
 };
 
@@ -118,6 +121,10 @@ export async function sendApnsLiveActivity(
       resolve({ ok: false, shouldDisableToken: false, reason: "apns_connection_error" });
     });
 
+    // apns-collapse-id: settle yazılamadan çökme sonrası olası yeniden
+    // gönderimde cihazda yinelenen bildirimi tekilleştirir ("en az bir
+    // kez" teslimin kullanıcıya yansıyan etkisini azaltır).
+    const collapseId = payload.collapseId ? payload.collapseId.slice(0, 64) : "";
     const req = client.request({
       ":method": "POST",
       ":path": `/3/device/${deviceToken}`,
@@ -125,6 +132,7 @@ export async function sendApnsLiveActivity(
       "apns-topic": `${bundleId}.push-type.liveactivity`,
       "apns-push-type": "liveactivity",
       "apns-priority": "10",
+      ...(collapseId ? { "apns-collapse-id": collapseId } : {}),
       "content-type": "application/json",
     });
 
