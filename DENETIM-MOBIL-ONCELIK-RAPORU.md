@@ -1,4 +1,4 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 3. tur/v3 ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 4. tur/v4 ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
@@ -42,7 +42,14 @@
 26. `0c605b7` Cron güvenilirlik testleri (9 senaryo; 46/46)
 27. `cc2f38d` Saat dilimi UTC/400 + Codemagic imza resmî yönteme
 28. `002c416` Üç mobil paket kopyası v3 build ile eşitlendi
-29. (bu rapor)
+29. `192e3f9` Denetim raporu (3. tur)
+
+**4. tur (v3 bağımsız denetim blokajları, 192e3f9 → uç):**
+
+30. `5f073d0` claim_token UUID (kesin üretim hatası) + widget ters aralık + dürüst garanti
+31. `85de144` Push-to-start token rotasyonu (kurulum kimliği + atomik RPC)
+32. `890c5f9` Üç mobil paket kopyası v4 build ile eşitlendi
+33. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -209,10 +216,29 @@ high / sanitize-html moderate — onay bekliyor).
   bazında tutulur (`live_activity_deliveries`: pending/sent/
   transient_failed/permanent_failed, attempt_count, claim_token/fencing,
   claimed_until/lease, next_retry_at). check→send→upsert yarışı KALKTI:
-  claim tek atomik UPDATE'tir; paralel cron'lar aynı start/end'i iki kez
-  GÖNDEREMEZ ve eski worker'ın gecikmiş sonucu yeni claim'i EZEMEZ
-  (fencing) — bu sözleşme hem in-memory testlerle (9 senaryo) hem gerçek
-  PostgreSQL'de SQL düzeyinde kanıtlandı. Bir token'ın başarısı diğerinin
+  claim tek atomik UPDATE'tir; paralel cron'lar aynı teslimi AYNI ANDA
+  gönderemez ve eski worker'ın gecikmiş sonucu yeni claim'i EZEMEZ
+  (fencing) — bu sözleşme hem in-memory testlerle hem gerçek
+  PostgreSQL'de SQL düzeyinde kanıtlandı. **DÜRÜST GARANTİ SINIRI (v4):**
+  teslim "en az bir kez"dir — APNs başarısından SONRA süreç settle
+  yazamadan çökerse, lease bitince aynı teslim yeniden gönderilebilir;
+  "asla iki kez göndermez" İDDİA EDİLMEZ. Bu pencerenin cihazdaki etkisini
+  azaltmak için tüm liveactivity push'larına trip+event tabanlı
+  `apns-collapse-id` eklendi (yinelenen push cihazda tekilleşir).
+  **v4 kesin hata düzeltmesi:** v3'te claim token'ı `claim-<ts>-<rnd>`
+  biçimindeydi; DB kolonu uuid olduğundan gerçek Supabase'de HER claim
+  22P02 ile reddedilir ve HİÇBİR APNs teslimi yapılamazdı. v4:
+  `crypto.randomUUID()`; in-memory store artık DB gibi UUID tipini ZORLAR;
+  gerçek PostgreSQL'de uygulamanın ürettiği tokenla claim 1 satır etkiledi,
+  v3 biçimi aynı DB'de 22P02 ile reddedildi (kanıt). claim/settle DB
+  hataları artık gizlenmez: token içermeyen kod güvenli loga yazılır.
+  **v4 token rotasyonu:** Apple push-to-start tokenı zamanla
+  değiştirebilir; mobil istemci kalıcı KURULUM KİMLİĞİ (uuid, kişisel veri
+  içermez) gönderir ve `register_live_activity_push_to_start` RPC'si
+  (service-role-only, tek transaksiyon) aynı kullanıcı+kurulumun eski
+  tokenını ATOMİK kapatır — farklı fiziksel cihazlar ve kimliksiz eski
+  kayıtlar etkilenmez (gerçek PG testi: iPhone eski kapandı/yenisi açık,
+  iPad ve NULL kimlikli kayıt dokunulmadı, yeniden kayıt idempotent). Bir token'ın başarısı diğerinin
   bağımsız retry'ını engellemez; transient hatada EN FAZLA 3 deneme
   (5 dk geri çekilme), kalıcı APNs hatasında YALNIZ ilgili token
   kapatılır. Soft deadline (~45 sn, maxDuration=60): sonrasında yeni
@@ -272,17 +298,21 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` | **46/46 PASS** (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
+| `test:app` | **49/49 PASS** (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
 | Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
 | `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
 | Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + v3 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity_tokens + live_activity_deliveries RLS=t, policy=0, anon/authenticated grant=0; eski live_activity_events tablosu YOK) |
-| Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler (durum 'sent' kalır) |
+| Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler |
+| Gerçek PG claim — UYGULAMANIN ÜRETTİĞİ tokenla (v4) | PASS: ts-node ile `defaultClaimToken()` çağrıldı, dönen UUID gerçek DB'de 1 satır claim etti; v3'ün `claim-<ts>-<rnd>` biçimi AYNI DB'de 22P02 ile reddedildi |
+| Gerçek PG token rotasyonu (v4) | PASS: iPhone(kurulum A) yeni token → eski kapandı; iPad(kurulum B) ve NULL kimlikli eski kayıt DOKUNULMADI; yeniden kayıt idempotent; fonksiyonda PUBLIC/anon/authenticated EXECUTE yok |
 | `git diff --check` | PASS |
 | Secret/staging taraması (.env/.p8/google-services/supabase/.temp) | PASS (branch diff temiz) |
 | Bundle kopyaları (mobile-dist ↔ iOS ↔ Android; lazy chunk dahil) | PASS (hash birebir) |
 | Responsive: küçük iPhone/standart/iPad | Kod düzeyinde: tek sütun kırılımları (≤430px), 44px hedefler, ellipsis taşma korumaları, safe-area — GERÇEK CİHAZDA GÖRSEL DOĞRULAMA GEREKLİ → NOT VERIFIED (canlı) |
 | Live Activity / gerçek cihaz push+bildirim akışları | NOT VERIFIED (macOS/cihaz yok) |
+| Widget DepartureCountdown Swift derleme/görünümü | NOT VERIFIED (Xcode yok) — mantık TS aynasıyla testli (`countdownMode`), Swift görünümü cihaz listesi madde 9'da doğrulanacak |
+| Codemagic build (App + Widget profil eşleme) | NOT VERIFIED — bu ortamda Codemagic/Xcode build çalıştırılamadı; ilk gerçek build'de kontrol edilecek |
 
 ## Fiziksel cihazda doğrulanacaklar (build 9 TestFlight)
 
@@ -308,7 +338,9 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
    `letsgo2travel://cockpit?tripId=<id>` Safari'den de aynı kaydı açmalı.
 9. Live Activity (iPhone 14 Pro+ ve Ada'sız cihaz): başlatma, compact/
    expanded/minimal, geri sayım, dokunuşla ilgili kayıt, kalkış+1 saat
-   sonrası bitiş.
+   sonrası bitiş. ÖZELLİKLE: kalkış saati GEÇTİKTEN sonra (aktivite hâlâ
+   açıkken) üç görünümde de 'Kalkış gerçekleşti'/'Uçtu' görünmeli — ters
+   geri sayım veya çökme OLMAMALI.
 10. Push-to-start (iOS 17.2+, migration + cron kurulu): uygulamayı
     tamamen kapat → kalkışa 3 saat kala aktivite KENDİLİĞİNDEN başlamalı;
     kalkış+1 saat sonra kendiliğinden bitmeli. Ek doğrulama: push-to-start
