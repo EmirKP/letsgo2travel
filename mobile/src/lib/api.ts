@@ -192,6 +192,16 @@ export async function registerPushDevice(params: { platform: string; token: stri
   });
 }
 
+// Girisli kullanicinin YALNIZ kendi cihazlarina, sunucu tarafinda rate
+// limit'li test bildirimi gonderir. Yanit token icermez.
+export async function sendTestPushNotification(accessToken: string) {
+  return requestJson<{ success: boolean; message?: string; error?: string }>("/api/push-devices/test", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: {},
+  });
+}
+
 // Normal logout yalniz MEVCUT cihazin kayit ID'sini kapatir. { all: true }
 // yalniz kullanicinin ACIKCA "tum cihazlarda bildirimleri kapat" islemi
 // icin kullanilabilir. Push token'i bu istekte yer almaz.

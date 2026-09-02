@@ -4,7 +4,7 @@ import { Sheet } from "../components/Sheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
 import { config } from "../lib/config";
-import { getTravelVerifications } from "../lib/api";
+import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { addPluginListener } from "../lib/capacitor";
 import { openExternal, shareContent } from "../lib/native";
 import { disablePush, enablePushForUser, getPushPermissionState, type PushPermissionSummary } from "../lib/push";
@@ -83,6 +83,7 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
   const [pushState, setPushState] = useState<PushPermissionSummary>("unsupported");
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState(false);
 
   useEffect(() => {
     const update = () => setTick((value) => value + 1);
@@ -219,6 +220,19 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
     }
   };
 
+  const sendTestPush = async () => {
+    if (testBusy || !user || !accessToken) return;
+    setTestBusy(true);
+    try {
+      const result = await sendTestPushNotification(accessToken);
+      onNotice(result.message || (result.success ? "Test bildirimi gönderildi." : "Test bildirimi gönderilemedi."));
+    } catch {
+      onNotice("Test bildirimi şu an gönderilemedi. Biraz sonra tekrar dene.");
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
   const toggleCountry = async (country: Omit<FavoriteDestination, "createdAt">) => {
     if (profileBusy) return;
     const previous = getVisitedCountries(ownerId);
@@ -294,14 +308,23 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
     </section>
 
     <section className="profile-section">
-      <div className="section-heading"><div><span>UYGULAMA</span><h2>Ayarlar</h2></div></div>
+      <div className="section-heading"><div><span>BİLDİRİMLER</span><h2>Bildirim tercihlerin</h2></div></div>
       <div className="settings-card">
         <label><span><Icon name="bell" size={19} /><em><strong>Uygulama içi bildirimler</strong><small>Rota ve vize güncellemeleri</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
-        <button disabled={pushBusy || pushState === "unsupported"} onClick={() => void togglePushSetting()}><span><Icon name="bell" size={19} /><em><strong>Bildirim ayarları</strong><small>{pushStateText}</small></em></span>{pushBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
+        <button disabled={pushBusy || pushState === "unsupported"} onClick={() => void togglePushSetting()}><span><Icon name="bell" size={19} /><em><strong>Telefon bildirimleri</strong><small>{pushStateText}</small></em></span>{pushBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
+        {user && pushEnabled && (
+          <button disabled={testBusy} onClick={() => void sendTestPush()}><span><Icon name="sparkles" size={19} /><em><strong>Test bildirimi gönder</strong><small>Bildirimlerin bu cihazda çalıştığını doğrula</small></em></span>{testBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
+        )}
+      </div>
+    </section>
+
+    <section className="profile-section">
+      <div className="section-heading"><div><span>UYGULAMA VE GİZLİLİK</span><h2>Ayarlar</h2></div></div>
+      <div className="settings-card">
         <label><span><Icon name="sparkles" size={19} /><em><strong>Dokunma titreşimi</strong><small>Desteklenen cihazlarda hafif geri bildirim</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>Kaşifler Ligi'nde görün</strong><small>Yalnız güvenli profil özeti paylaşılır</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build {config.buildNumber} ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>
-        <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve hesap</strong><small>Veri hakların ve politikalar</small></em></span><Icon name="external" size={16} /></button>
+        <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve veri işlemleri</strong><small>Veri hakların, politikalar ve hesap silme</small></em></span><Icon name="external" size={16} /></button>
       </div>
       <p className="profile-version">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
     </section>

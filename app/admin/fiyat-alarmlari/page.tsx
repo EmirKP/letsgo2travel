@@ -67,6 +67,18 @@ function fmtMoney(value?: number | null, currency = "₺") {
   return `${Number(value).toLocaleString("tr-TR")} ${currency}`;
 }
 
+// Teknik mail durum kodlarını okunur Türkçeye çevirir.
+const mailStatusLabels: Record<string, string> = {
+  created_sent: "Kurulum maili gönderildi",
+  created_failed: "Kurulum maili gönderilemedi",
+  drop_sent: "Fiyat düşüş bildirimi gönderildi",
+  drop_failed: "Fiyat düşüş maili gönderilemedi",
+};
+function mailStatusLabel(value?: string | null) {
+  if (!value) return "-";
+  return mailStatusLabels[value] || value;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const meta = statusMeta[status] || { label: status, color: "#334155", bg: "#e2e8f0", icon: Clock };
   const Icon = meta.icon;
@@ -177,9 +189,10 @@ export default function PriceAlertsAdminPage() {
   const stats = useMemo(() => {
     const total = alerts.length;
     const active = alerts.filter(a => getStatus(a) === "active").length;
+    const paused = alerts.filter(a => getStatus(a) === "paused").length;
     const triggered = alerts.filter(a => getStatus(a) === "triggered").length;
     const errors = alerts.filter(a => getStatus(a) === "error").length;
-    return { total, active, triggered, errors };
+    return { total, active, paused, triggered, errors };
   }, [alerts]);
 
   const filteredAlerts = alerts.filter(alert => {
@@ -205,22 +218,32 @@ export default function PriceAlertsAdminPage() {
         <p style={{ color: "var(--l2t-soft)", margin: 0 }}>Alarm durumlarını, son kontrol fiyatlarını ve mail gönderim sonuçlarını takip et.</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 22 }}>
+      {/* Kartlara tıklayınca liste o duruma filtrelenir (aktif / duraklatılmış /
+          bildirim gönderilmiş / hatalı kayıtlar tek dokunuşla ayırt edilir). */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 22 }}>
         {[
-          { label: "Toplam alarm", value: stats.total, icon: BellRing },
-          { label: "Aktif", value: stats.active, icon: CheckCircle2 },
-          { label: "Tetiklenen", value: stats.triggered, icon: Mail },
-          { label: "Hata alan", value: stats.errors, icon: AlertTriangle },
+          { label: "Toplam alarm", value: stats.total, icon: BellRing, filter: "all" },
+          { label: "Aktif", value: stats.active, icon: CheckCircle2, filter: "active" },
+          { label: "Duraklatılmış", value: stats.paused, icon: PauseCircle, filter: "paused" },
+          { label: "Bildirim gönderilen", value: stats.triggered, icon: Mail, filter: "triggered" },
+          { label: "Hata alan", value: stats.errors, icon: AlertTriangle, filter: "error" },
         ].map((card) => {
           const Icon = card.icon;
+          const isSelected = filterStatus === card.filter;
           return (
-            <div key={card.label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 22, padding: 20, boxShadow: "0 12px 35px rgba(15,23,42,.06)" }}>
+            <button
+              key={card.label}
+              type="button"
+              onClick={() => setFilterStatus(card.filter)}
+              style={{ textAlign: "left", cursor: "pointer", background: isSelected ? "#F5F9FF" : "#fff", border: isSelected ? "2px solid #0E2A5C" : "1px solid #e2e8f0", borderRadius: 22, padding: 20, boxShadow: "0 12px 35px rgba(15,23,42,.06)" }}
+              aria-pressed={isSelected}
+            >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ color: "var(--l2t-soft)", fontWeight: 800, fontSize: ".86rem" }}>{card.label}</span>
                 <Icon size={20} color="#0E2A5C" />
               </div>
               <strong style={{ fontSize: "2rem", color: "var(--l2t-navy)" }}>{card.value}</strong>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -299,7 +322,7 @@ export default function PriceAlertsAdminPage() {
                     </td>
                     <td style={{ padding: 16, color: "var(--l2t-soft)", minWidth: 135 }}>{fmtDate(alert.last_checked_at)}</td>
                     <td style={{ padding: 16, color: "var(--l2t-soft)", minWidth: 160 }}>
-                      <strong style={{ color: alert.last_mail_status?.includes("failed") ? "#dc2626" : "#0f766e" }}>{alert.last_mail_status || "-"}</strong><br />
+                      <strong style={{ color: alert.last_mail_status?.includes("failed") ? "#dc2626" : "#0f766e" }}>{mailStatusLabel(alert.last_mail_status)}</strong><br />
                       <small>{alert.last_notified_at ? `Son bildirim: ${fmtDate(alert.last_notified_at)}` : latestLog ? `Son log: ${latestLog.status}` : "Mail bekleniyor"}</small>
                       {alert.last_error_message && <div style={{ marginTop: 6, color: "#b91c1c", fontSize: ".78rem", lineHeight: 1.35 }}>{alert.last_error_message}</div>}
                     </td>
