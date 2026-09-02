@@ -75,3 +75,6 @@ android/app/google-services.json
 
 # .env.example yalniz anahtar ADLARINI icerir ve commit edilir
 !/.env.example
+
+.vercel
+.env*.local
