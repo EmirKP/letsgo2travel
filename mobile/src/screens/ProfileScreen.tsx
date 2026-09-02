@@ -5,6 +5,7 @@ import { COUNTRY_LIST } from "../data/countries";
 import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
+import { VerificationForm } from "../components/VerificationForm";
 import { addPluginListener } from "../lib/capacitor";
 import { openExternal, shareContent } from "../lib/native";
 import { disablePush, enablePushForUser, getPushPermissionState, type PushPermissionSummary } from "../lib/push";
@@ -342,12 +343,27 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
     </Sheet>
 
     <Sheet open={verificationOpen} title="Belgeli Gezgin" onClose={() => setVerificationOpen(false)} size="large">
-      <div className="verification-summary"><span><Icon name="shield" size={28} /></span><div><small>SEYAHAT DOĞRULAMALARI</small><strong>{approvedCount} onaylı kayıt</strong><p>Başvuruların aynı hesap üzerinden web ve mobilde görüntülenir.</p></div></div>
+      <div className="verification-summary"><span><Icon name="shield" size={28} /></span><div><small>SEYAHAT DOĞRULAMALARI</small><strong>{approvedCount} onaylı kayıt</strong><p>Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.</p></div></div>
+
+      {user && accessToken && <VerificationForm
+        accessToken={accessToken}
+        onNotice={onNotice}
+        onSubmitted={() => {
+          void getTravelVerifications(accessToken).then((rows) => setVerifications(rows)).catch(() => undefined);
+        }}
+      />}
+
       <div className="verification-list">
-        {verifications.map((item) => <article key={item.id}><span className={`verification-status status-${item.status || "pending"}`}><Icon name={item.status === "approved" ? "check" : item.status === "rejected" ? "close" : "info"} size={17} /></span><div><strong>{item.country_name || item.country_code || "Seyahat belgesi"}</strong><small>{item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : item.status === "expired" ? "Süresi doldu" : "İnceleniyor"}</small></div></article>)}
-        {!verifications.length && <div className="empty-state compact"><span><Icon name="shield" size={26} /></span><strong>Henüz doğrulama yok</strong><p>Belge yükleme, hassas dosya aktarımı nedeniyle güvenli web formunda tamamlanır.</p></div>}
+        {verifications.map((item) => <article key={item.id}>
+          <span className={`verification-status status-${item.status || "pending"}`}><Icon name={item.status === "approved" ? "check" : item.status === "rejected" ? "close" : "info"} size={17} /></span>
+          <div>
+            <strong>{item.country_name || item.country_code || "Seyahat belgesi"}</strong>
+            <small>{item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : item.status === "expired" ? "Süresi doldu" : "İnceleniyor"}</small>
+            {item.status === "rejected" && item.admin_note && <p className="verification-reject-note">Ret nedeni: {item.admin_note}</p>}
+          </div>
+        </article>)}
+        {!verifications.length && <div className="empty-state compact"><span><Icon name="shield" size={26} /></span><strong>Henüz doğrulama yok</strong><p>İlk başvurunu yukarıdaki formla uygulama içinden gönderebilirsin.</p></div>}
       </div>
-      <button className="secondary-wide" onClick={() => void openExternal("https://www.letsgo2travel.com.tr/profil/dogrulamalar")}><Icon name="external" size={17} /> Güvenli belge gönderimine git</button>
     </Sheet>
   </div>;
 }

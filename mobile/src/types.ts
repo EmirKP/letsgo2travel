@@ -100,6 +100,7 @@ export type TravelVerification = {
   country_name?: string;
   status?: "pending" | "approved" | "rejected" | "expired" | string;
   created_at?: string;
+  admin_note?: string | null;
 };
 
 export type FlightAlert = {
