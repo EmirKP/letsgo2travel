@@ -1,4 +1,4 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 2. tur ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
@@ -17,22 +17,44 @@
 7. `a65bd4e` Belgeli Gezgin: uygulama içi belge gönderimi
 8. `83aaa76` Live Activity altyapısı + yerel bildirim fallback'i
 9. `068d4cc` Build 9 + eklenti sync + doctor düzeltmesi
-10. (bu rapor)
+10. `e288781` Denetim raporu (1. tur)
+
+**2. tur (denetim bulgu düzeltmeleri, e288781 → uç):**
+
+11. `f57a9ea` TEK ISO 3166 kaynağı (250 kayıt) + dünya çapında IATA seti (7.072)
+12. `e36697b` Mobil ülke kapsamı 93 → 250; Pasaport'ta "Bilinmiyor" sınıfı
+13. `9de3832` Belgeli Gezgin ülke doğrulaması tam ISO kaynağına
+14. `fdb5f86` Alarm API'sinde istemci saat dilimi (sabit Europe/Istanbul kalktı)
+15. `82d13ed` Ülke ≥240 / çoklu TZ / küçük havalimanı testleri + lint 0 uyarı
+16. `9384ef8` Widget Extension hedefi project.pbxproj'a işlendi (Xcode adımı kalmadı)
+17. `406d39b` Kokpit uçuş alanları veri katmanı (42703 emniyetli)
+18. `334b012` Uçuş formu (kalkış+varış+havayolu+uçuş no) + tripId derin bağlantısı
+19. `3674478` Live Activity push-to-start mimarisi (uygulama kapalıyken başlat/bitir)
+20. `d9f8e1e` Forum: anon fallback → 503 + beyaz-listeli serileştiriciler (testli)
+21. `654fd50` Yasal metinler uygulama İÇİNDE; veri silme uygulama içi akışa
+22. `c08d1ef` Üç mobil paket kopyası yeni build ile eşitlendi
+23. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
 **1. Fiyat alarmı — havalimanı autocomplete ve tarihler**
-Ortak kaynak: `lib/airports-dataset.json` (3.220 tarifeli havalimanı;
-OurAirports/kamu malı; `scripts/generate-airports.mjs` ile üretilir,
-`airports-json` ISC devDependency). `lib/airport-search.ts` saf arama:
+Ortak kaynak: `lib/airports-dataset.json` — 2. turda dünya çapına
+genişletildi: **7.072 IATA kodlu yolcu havalimanı** (OurAirports kamu
+malı medium/large + JSON-Airports MIT aktif-IATA tamamlayıcısı; heliport/
+kapalı/özel pistler hariç; `scripts/generate-airports.mjs`). Küçük ada
+havalimanları da bulunur (test: AIT/Aitutaki, FUN/Tuvalu). Öncelik alanı
+sıralamada kullanılır; arama SUNUCUDA kalır, istemciye tam liste inmez. `lib/airport-search.ts` saf arama:
 şehir/ülke/havalimanı adı/IATA + Türkçe şehir alias'ları (Roma→FCO,
 Münih→MUC…); kullanıcı IATA bilmek zorunda değil; sonuçta ad, şehir, ülke,
 IATA. `/api/airports` bu kaynağı sunar — arama SUNUCUDA, istemciye en iyi
 12 sonuç (cache'li); büyük liste hiçbir tuşta inmiyor. Web
 `AirportAutocomplete` + mobil `AirportField` aynı ucu kullanır (Kokpit ve
 Rota Asistanı da — veri çoğaltma yok). Geçmiş gidiş tarihi UI'da
-(min=bugün, yerel gün) ve API'de (Europe/Istanbul gününe göre; UTC
-`toISOString` kayması giderildi) reddedilir. Dar ekranda tarih/hedef fiyat
+(min=bugün, yerel gün) ve API'de reddedilir; 2. turda API sabit
+Europe/Istanbul KULLANMAZ — web+mobil istemci geçerli IANA saat dilimini
+gönderir, sunucu `sanitizeTimeZone` ile doğrular (yok/geçersizse
+varsayılana düşer) ve geçmiş gün + 730 günlük üst sınır KULLANICININ
+yerel takvim gününe göre denetlenir (Kiritimati/Midway testleri). Dar ekranda tarih/hedef fiyat
 tek sütun; iOS input zoom 16px font + `touch-action: manipulation` ile
 erişilebilir biçimde engellendi. Hedef fiyat boşsa %5 düşüş davranışı
 DEĞİŞMEDİ (test:alerts 37/37).
@@ -60,17 +82,28 @@ Arama/filtre harita ile senkron (eşleşmeyenler soluk); seçili ülke kalın
 konturla belirgin. Geometri build'de üretilir (`world-atlas@2` /
 Natural Earth — KAMU MALI; d3-geo/topojson-client ISC, yalnız
 devDependency): çalışma anında ağ da kütüphane de yok; harita ayrı lazy
-chunk (54 KB gzip) — ana paket büyümedi. Eksik vize verisi UYDURULMAZ:
-eşlenmeyen ülkeler "Bilinmiyor".
+chunk (54 KB gzip) — ana paket büyümedi. 2. turda ülke kapsamı TEK ortak
+ISO 3166-1 kaynağına bağlandı (`scripts/generate-countries.mjs` →
+`iso3166.json`, web+mobil BAYT-EŞİT kopya; i18n-iso-countries MIT +
+Intl 'tr' adları + bayrak): liste artık 93 değil **250 ülke/bölge**;
+Kokpit, Forum, Belgeli Gezgin ve Pasaport aynı kaynağı kullanır. VISA_DATA
+(195 doğrulanmış sınıf) aynen; doğrulanmamış ülkelerde durum artık "Vize
+gerekli" diye UYDURULMAZ — "Bilinmiyor" rozeti + filtresi + dürüst detay
+metni. Harita şekli olmayan küçük ada devletleri listeden seçilebilir.
+Kosova anahtarı ISO kaynağıyla hizalandı (XKX→XKK; eski profil kayıtları
+için geri uyumlu takma adlar).
 
 **4. Forum/Topluluk — kök neden**
 KÖK NEDEN: `/api/country-community/feed`, projedeki TEK anon-istemcili
 sunucu GET'iydi; kardeş uç `/api/kasifler-ligi` service-role ile
 çalışıyordu. Feed, tablo grant/RLS durumuna bağımlıydı → mobildeki
 "Topluluk akışı yüklenemedi" hatası bu asimetriden geliyordu. Feed artık
-diğer okuma uçlarıyla AYNI mimaride (service-role + yalnız `visible` +
-güvenli alan seçimi; user_id/e-posta yanıtta yok); hata yalnız KOD olarak
-loglanır, kullanıcıya teknik ayrıntı gösterilmez. Hata/boş/yükleme
+diğer okuma uçlarıyla AYNI mimaride; 2. turda `admin || anon` fallback'i
+tamamen KALKTI: service-role yapılandırılmamışsa dürüst 503 döner (anon'a
+düşülmez). Yanıtlar beyaz-listeli serileştiriciden geçer
+(`lib/community/serializers.ts`): user_id/e-posta/status satırda olsa bile
+KOPYALANMAZ — kirli satırla derin anahtar taraması testli. Hata yalnız KOD
+olarak loglanır, kullanıcıya teknik ayrıntı gösterilmez. Hata/boş/yükleme
 durumları zaten ayrıydı; "Tekrar dene"nin gerçekten yeni istek attığı
 doğrulandı. Yeni `GET /api/country-community/questions/[id]` ile soru
 detayı+cevaplar mobilde native Sheet'te; cevap yazma mevcut Bearer
@@ -88,9 +121,18 @@ günlük plan, önerilme nedeni (mevcuttu, korunur). CTA doğal akışta,
 BottomNav altında kalmıyor.
 
 **6. Seyahat Kokpiti**
-Uçuşlu/Uçuşsuz sekmeli form: uçuşluda varış havalimanı ortak autocomplete
-ile seçilir; şehir + ülke + ISO kodu OTOMATİK dolar (kullanıcı kod
-yazmaz). Ülke alanı bayraklı, ada göre sıralı native select (iOS uyumlu);
+Uçuşlu/Uçuşsuz sekmeli form; 2. turda uçuşlu form denetim şartına göre
+tamamlandı: KALKIŞ havalimanı + VARIŞ havalimanı (ikisi de ortak
+autocomplete; aynı havalimanı reddedilir), havayolu (opsiyonel), uçuş
+numarası (opsiyonel, TK1979 biçimine normalize), kalkış tarihi VE saati
+(zorunlu — geri sayım için), PNR (zorunlu, normalize). Seçim şehir + ülke +
+ISO kodu OTOMATİK doldurur (kullanıcı kod yazmaz). Yeni alanlar
+`origin_iata/destination_iata/airline/flight_number` olarak mobil tiplere,
+SELECT/INSERT/UPDATE'e bağlandı — migration üretimde YOKKEN kırılmaz:
+ilk 42703 yanıtında oturumluk bayrak kapanır, eski sütun listesine dönülür
+ve yeni alanlar yazılmaz; migration uygulanınca kendiliğinden devreye
+girer (güvenli dağıtım sırası: kod → migration). Detay kartı rota
+(IST → FCO) ve uçuş bilgisini gösterir. Ülke alanı bayraklı, ada göre sıralı native select (iOS uyumlu);
 uçuş dışı seyahatte yalnız ülke/şehir yeter. Başlangıç geçmiş olamaz,
 bitiş başlangıçtan önce olamaz (yerel gün); native date/time kontrolleri.
 PNR büyük harf + boşluk temizleme. Kapat/yenile düğmeleri küçüldü
@@ -103,10 +145,14 @@ Profil, forum, fiyat alarmı, Kokpit, Rota Asistanı, Pasaport Gücü ve
 Belgeli Gezgin uçtan uca uygulama içinde. `openExternal` taraması: kendi
 alan adımıza giden İŞLEV kalmadı; kalanlar (a) OAuth authorize (Google/
 Apple — tarayıcı zorunlu), (b) gerçek dış kaynaklar (mfa.gov.tr, vize
-kaynak URL'leri, mailto), (c) hukuki sayfalar (Kullanım Şartları,
-Gizlilik, KVKK veri silme talebi — "Tarayıcıda açılır" etiketiyle;
-hesap silme yasal akışı bilinçli web'de). Web SEO/açık içerik/admin
-olarak kalıyor; girişli kullanıcı hiçbir akışta ikinci web login görmüyor.
+kaynak URL'leri, mailto), (c) 2. turda hukuki metinler de UYGULAMA İÇİNE alındı: Kullanım
+Şartları + Gizlilik Politikası tek kaynaktan (`lib/legal/content.ts` →
+web sayfaları ve `/api/legal/[slug]`) mobil `LegalSheet` içinde okunur;
+"Hesap ve veri silme" menü satırı tarayıcı yerine uygulamadaki Hesap
+bölümünü açar (silme talebi zaten native ve MEVCUT oturumla:
+AccountSheet → `requestAccountDeletion`; web'e yeniden login YOK). Kendi
+alan adımıza tarayıcı yönlendirmesi kalmadı; OAuth authorize akışına
+dokunulmadı. Web SEO/açık içerik/admin olarak kalıyor.
 
 **10. Belgeli Gezgin**
 "Güvenli belge gönderimine git" web yönlendirmesi KALKTI. Native akış:
@@ -133,23 +179,41 @@ high / sanitize-html moderate — onay bekliyor).
 
 ## KISMEN ÇALIŞAN / DIŞ ADIM GEREKTİREN maddeler
 
-**7. Dynamic Island / Live Activity — KISMEN (kod hazır, Xcode adımı şart)**
-- HAZIR: Widget Swift kaynakları (kilit ekranı + Ada compact/expanded/
-  minimal; kalkış/varış IATA alanları, kalkış saati, canlı geri sayım;
-  dokununca `letsgo2travel://cockpit`); uygulama içi köprü eklentisi
-  (iOS 16.2+ kontrol, tek aktivite/seyahat, uçuş sonrası bitirme);
-  JS eşitleme katmanı + saf durum makinesi (testli); desteklenmeyen
-  cihaz/eksik kurulumda OTOMATİK yerel bildirim fallback'i (kalkışa 3
-  saat kala; izin BURADA istenmez; dokununca Kokpit) — bu fallback ŞU AN
-  çalışan kısımdır.
-- DIŞ ADIM: Widget Extension HEDEFİ Xcode ile eklenmeli (çalışan
-  Codemagic build'ini bozmamak için pbxproj'a elle target yazılmadı) +
-  köprü eklentisinin storyboard üzerinden kaydı + imzalama —
-  `LIVE-ACTIVITY-KURULUM.md` adım adım anlatır.
-- DIŞ ADIM: `20260902100000_cockpit_flight_fields.sql` (nullable IATA/
-  havayolu/uçuş no kolonları) production'a AYRI ONAYLA uygulanmalı; kod
-  uygulanana kadar bu kolonlara yazmıyor (geriye dönük uyumlu).
-- Fiziksel cihazda DENENMEDİ → Live Activity için "doğrulandı" DENMİYOR.
+**7. Dynamic Island / Live Activity — kod TAMAM, cihaz doğrulaması YOK**
+- 2. turda Widget Extension hedefi **doğrudan `project.pbxproj`'a
+  işlendi** (app-extension hedefi, Embed Foundation Extensions/PlugIns,
+  bundle `tr.com.letsgo2travel.app.FlightActivityWidget`, iOS 16.2,
+  build 9/1.4.0). `FlightActivityAttributes` HER İKİ hedefte derlenir;
+  `MainViewController` (CAPBridgeViewController) storyboard'a bağlandı ve
+  `FlightLiveActivityPlugin`'i kaydeder; App Info.plist
+  `NSSupportsLiveActivities=YES`; Codemagic imza deseni widget'ı kapsar.
+  ELLE XCODE ADIMI KALMADI — `mobile:doctor` bunların hepsini denetler.
+- Ada/kilit ekranı GERÇEK kayıttan `IST → FCO`, kalkış saati ve canlı
+  geri sayım gösterir; boarding/gate/gecikme gibi doğrulanmamış canlı
+  veri YOK. Dokununca `letsgo2travel://cockpit?tripId=<id>` → uygulama
+  tripId'yi ayrıştırıp İLGİLİ Kokpit kaydını otomatik seçer; yerel
+  bildirim de aynı kayda gider (extra.tripId). Kalkış+1 saat sonrası
+  uygulama içi bitirme + staleDate; push kanalı da end gönderir (aşağıda).
+- PUSH-TO-START (uygulama KAPALIYKEN otomatik başlatma): iOS 17.2+
+  `pushToStartTokenUpdates` + aktivite güncelleme tokenları JS'e event
+  ile verilir; Bearer oturumla `/api/live-activity/tokens`'a kaydedilir
+  (sahiplik: activity_update tokenı yalnız kullanıcının KENDİ trip
+  kaydına bağlanabilir; token loglanmaz/yerel depoya yazılmaz).
+  `GET /api/cron/live-activity` (yalnız Bearer CRON_SECRET) kalkışa ≤3
+  saat kala APNs `liveactivity` push-to-start, kalkış+1 saat sonra `end`
+  gönderir; mükerrer koruması `live_activity_events`; geçersiz token
+  otomatik kapatılır. iOS 16.2–17.1 ve token kayıtsız cihazlarda mevcut
+  uygulama içi başlatma + yerel bildirim fallback'i AYNEN çalışır.
+- DIŞ ADIM (yalnız hesap/operasyon; kod adımı DEĞİL):
+  (a) Apple tarafında widget App ID/profil (Codemagic otomatik imzalama
+  genelde kendisi oluşturur); (b) iki migration'ın production'a AYRI
+  ONAYLA uygulanması (`20260902100000` uçuş kolonları,
+  `20260902120000` live activity token/event tabloları — ikisi de
+  uygulanmadan hiçbir şey kırılmaz); (c) harici zamanlayıcıya
+  `/api/cron/live-activity` işinin eklenmesi (10–15 dk); (d) TestFlight
+  build'i.
+- Fiziksel cihazda DENENMEDİ → Live Activity ve push-to-start için
+  "doğrulandı" DENMİYOR (cihaz listesi aşağıda).
 
 **Belge yükleme ilerlemesi:** yüzde bazlı değil, animasyonlu belirsiz
 gösterge (CapacitorHttp fetch köprüsünde güvenilir progress olayı yok);
@@ -164,13 +228,14 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 
 | Test | Sonuç |
 |---|---|
-| Web ESLint / production build | PASS (0/0) |
+| Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` (YENİ) | **25/25 PASS**: airport arama 10 senaryo (IATA/şehir/ülke/ad/Türkçe alias/limit), tarih 5 (TZ kayması, geçmiş/ters/bozuk format), kokpit form 8 (havalimanı zorunluluğu, uçuşsuz mod, geçmiş/ters tarih, ülke, PNR normalize), Live Activity 2 (evre + plan) |
+| `test:app` | **37/37 PASS**: airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
-| Smoke (gerçek next start) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
-| Migration zinciri (izole PostgreSQL, sıfırdan; YENİ dosya dahil) | PASS (CHAIN_FAIL=0) |
+| Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
+| `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
+| Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity tabloları RLS=t, policy=0, anon/authenticated grant=0; trips'te 4 uçuş kolonu) |
 | `git diff --check` | PASS |
 | Secret/staging taraması (.env/.p8/google-services/supabase/.temp) | PASS (branch diff temiz) |
 | Bundle kopyaları (mobile-dist ↔ iOS ↔ Android; lazy chunk dahil) | PASS (hash birebir) |
@@ -193,7 +258,39 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
    reddi, ret nedeni görüntüleme.
 6. Push regresyonu: test bildirimi, foreground banner, bildirimden Fiyat
    Alarmlarım; iPhone logout'ta iPad kaydının açık kalması.
-7. Live Activity: LIVE-ACTIVITY-KURULUM.md sonrası ayrı test listesi.
+7. Kokpit uçuş formu: kalkış+varış havalimanı seç (aynıysa hata), saat
+   ve PNR olmadan kaydetme engellensin; migration UYGULANMADAN kayıt yine
+   başarılı olmalı (uçuş detayları hariç), migration sonrası rota kartı
+   `IST → FCO` göstermeli.
+8. Derin bağlantı: bildirime dokun → İLGİLİ kokpit kaydı seçili açılmalı;
+   `letsgo2travel://cockpit?tripId=<id>` Safari'den de aynı kaydı açmalı.
+9. Live Activity (iPhone 14 Pro+ ve Ada'sız cihaz): başlatma, compact/
+   expanded/minimal, geri sayım, dokunuşla ilgili kayıt, kalkış+1 saat
+   sonrası bitiş.
+10. Push-to-start (iOS 17.2+, migration + cron kurulu): uygulamayı
+    tamamen kapat → kalkışa 3 saat kala aktivite KENDİLİĞİNDEN başlamalı;
+    kalkış+1 saat sonra kendiliğinden bitmeli. (Bu doğrulama yapılmadan
+    push-to-start için "çalışıyor" DENMEZ.)
+11. Yasal metinler: Menü → Gizlilik/Kullanım Şartları uygulama İÇİNDE
+    açılmalı; çevrimdışıyken hata + "Tekrar dene" görünmeli; "Hesap ve
+    veri silme" Hesap sayfasını açmalı (tarayıcı YOK).
+
+## Kalan GERÇEK dış adımlar (2. tur sonrası; hiçbiri kod adımı değil)
+
+1. **Apple imzalama**: widget App ID
+   (`tr.com.letsgo2travel.app.FlightActivityWidget`) — Codemagic otomatik
+   imzalama ilk build'de genelde kendisi oluşturur; oluşturmazsa Developer
+   portalda bir kez elle açılır. Live Activity için ek entitlement gerekmez.
+2. **Migration onayı**: `20260902100000_cockpit_flight_fields.sql` ve
+   `20260902120000_live_activity_push_tokens.sql` production Supabase'e
+   uygulanmalı (uygulanana kadar hiçbir akış kırılmaz; kod güvenli eski
+   moda düşer).
+3. **Cron zamanlaması**: harici zamanlayıcıya (fiyat alarmı cron'uyla aynı
+   mekanizma) `GET /api/cron/live-activity`, `Authorization: Bearer
+   <CRON_SECRET>`, 10–15 dakikada bir.
+4. **TestFlight/Codemagic build** + yukarıdaki fiziksel cihaz listesi.
+5. **Canlı teyit**: deploy sonrası `GET /api/country-community/feed`
+   (200 + güvenli alanlar) ve `GET /api/legal/kullanim-sartlari`.
 
 ## Geri alma
 
