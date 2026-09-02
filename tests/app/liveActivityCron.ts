@@ -367,34 +367,6 @@ export function registerLiveActivityCronTests(test: (name: string, fn: () => Pro
     for (const row of deliveries.values()) assert.equal(row.status, "pending", "teslim ilerlememeli");
   });
 
-  test("cron: hesap değişimi senaryosu — A'nın uçuşu iPhone'a GİDEMEZ, iPad'e gider; B'ninki gider", async () => {
-    // A: iPhone + iPad push-to-start tokenları; B: aynı iPhone'u devralır.
-    const PHYSICAL_IPHONE_TOKEN = "iphone-fiziksel-token-0123456789abcdef";
-    const { store, tokens } = createMemoryStore({
-      trips: [tripUpcoming("trip-A", "user-A"), tripUpcoming("trip-B", "user-B")],
-      tokens: [
-        { id: "tok-A-iphone", userId: "user-A", token: PHYSICAL_IPHONE_TOKEN, enabled: true, tokenType: "push_to_start" },
-        { id: "tok-A-ipad", userId: "user-A", token: "ipad-fiziksel-token-0123456789abcdef", enabled: true, tokenType: "push_to_start" },
-      ],
-    });
-    // 1) A iPhone'dan çıkış: iPhone tokenı kapanır (logout API →
-    //    deactivate_live_activity_installation); iPad'e DOKUNULMAZ.
-    await store.disableToken("tok-A-iphone");
-    // 2) Aynı iPhone'da B giriş: aynı FİZİKSEL token yalnız B altında etkin
-    //    (register RPC'sinin hesaplar-arası garantisi; gerçek PG'de testli).
-    tokens.set("tok-B-iphone", { id: "tok-B-iphone", userId: "user-B", token: PHYSICAL_IPHONE_TOKEN, enabled: true, tokenType: "push_to_start" });
-
-    const { transport, calls } = makeTransport(() => OK);
-    await runLiveActivityCron(store, transport, { nowMs: T0 });
-
-    const toIphone = calls.filter((call) => call.token === PHYSICAL_IPHONE_TOKEN);
-    assert.equal(toIphone.length, 1, "fiziksel iPhone tokenına yalnız TEK teslim (B kaydı) gitmeli");
-    const byToken = new Map<string, number>();
-    for (const call of calls) byToken.set(call.token, (byToken.get(call.token) || 0) + 1);
-    assert.equal(byToken.get("ipad-fiziksel-token-0123456789abcdef"), 1, "A kendi iPad'ine almalı");
-    assert.equal(calls.length, 2, "toplam: B iPhone + A iPad; A iPhone YOK");
-  });
-
   test("cron: soft deadline sonrası yeni claim açılmaz; iş sonraki cron'a kalır", async () => {
     const { store, deliveries } = createMemoryStore({
       trips: [tripUpcoming("trip-1", "user-1")],

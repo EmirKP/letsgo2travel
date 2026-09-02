@@ -16,6 +16,7 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startFlightActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endFlightActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "ackToken", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getLatestPushToStartToken", returnType: CAPPluginReturnPromise),
     ]
 
     // ------------------------------------------------------------------
@@ -43,6 +44,15 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc private func onObserverToken(_ notification: Notification) {
         guard let entry = notification.userInfo?["entry"] as? [String: String] else { return }
         notifyListeners("liveActivityToken", data: entry)
+    }
+
+    /**
+     * En son geçerli push-to-start tokenını döner (hesap değişiminde
+     * replay: B login olunca token GÜNCEL kullanıcı adına yeniden
+     * kaydedilir). Ack bu değeri SİLMEZ.
+     */
+    @objc func getLatestPushToStartToken(_ call: CAPPluginCall) {
+        call.resolve(["token": LiveActivityTokenObserver.latestPushToStartToken()])
     }
 
     /** JS, sunucu kaydı BAŞARILI olunca çağırır; girdi tampondan silinir. */

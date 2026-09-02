@@ -91,33 +91,28 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
     assert.equal(fake.queries.length, 0, "RPC başarılıysa tablo sorgusu yapılmamalı");
   });
 
-  test("token kaydı: RPC migration'ı YOKKEN (gerçek PostgREST kodu PGRST202) upsert yoluna düşer", async () => {
+  test("token kaydı: RPC migration'ı YOKKEN (gerçek PostgREST kodu PGRST202) GÜVENLİKSİZ fallback YOK → 503", async () => {
     // Supabase JS, şema önbelleğinde olmayan fonksiyon için PGRST202 döner:
-    // "Could not find the function public.register_live_activity_push_to_start"
+    // "Could not find the function public.register_live_activity_push_to_start".
+    // v6: per-user upsert hesaplar-arası tekillik sağlamadığından fallback
+    // KALDIRILDI — 503 döner; istemci token'ı ack etmeden bekletir.
     const fake = makeFakeSupabase({
       rpc: () => ({ error: { code: "PGRST202", message: "Could not find the function" } }),
-      respond: () => ({ data: [], error: null, count: 0 }),
     });
     const result = await registerLiveActivityToken(fake.client, USER_A, {
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
       installationId: INSTALL_IPHONE,
     });
-    assert.equal(result.status, 200, "migration öncesi kayıt yine BAŞARILI olmalı");
-    const upsert = fake.queries.find((query) => query.op === "upsert");
-    assert.ok(upsert, "geriye dönük uyumlu upsert çalışmalı");
-    const payload = (upsert!.payload as { payload: Record<string, unknown> }).payload;
-    assert.equal(payload.installation_id, INSTALL_IPHONE, "kurulum kimliği upsert'te de saklanmalı");
-    assert.equal(payload.user_id, USER_A);
-    // 42883 (doğrudan PG eşdeğeri) de aynı davranışı vermeli.
-    const fake2 = makeFakeSupabase({
-      rpc: () => ({ error: { code: "42883" } }),
-      respond: () => ({ data: [], error: null, count: 0 }),
-    });
+    assert.equal(result.status, 503, "migration öncesi 503 dönmeli (fallback yok)");
+    assert.equal(fake.queries.length, 0, "HİÇBİR tablo yazımı olmamalı (upsert dahil)");
+    // 42883 (doğrudan PG eşdeğeri) de aynı davranış.
+    const fake2 = makeFakeSupabase({ rpc: () => ({ error: { code: "42883" } }) });
     const result2 = await registerLiveActivityToken(fake2.client, USER_A, {
       tokenType: "push_to_start", token: PUSH_TOKEN, installationId: INSTALL_IPHONE,
     });
-    assert.equal(result2.status, 200);
+    assert.equal(result2.status, 503);
+    assert.equal(fake2.queries.length, 0);
   });
 
   test("token kaydı: tablo yokken (42P01) dürüst 503", async () => {
@@ -141,14 +136,15 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
     assert.equal(result.status, 400);
     assert.equal(fake.rpcCalls.length, 0, "RPC çağrılmamalı");
     assert.equal(fake.queries.length, 0, "hiçbir tablo yazımı olmamalı");
-    // Alan hiç gönderilmemişse (eski istemci) geriye dönük yol çalışır.
-    const legacy = makeFakeSupabase({ respond: () => ({ data: [], error: null, count: 0 }) });
-    const legacyResult = await registerLiveActivityToken(legacy.client, USER_A, {
+    // v6: push_to_start için kurulum kimliği ZORUNLU — alan hiç
+    // gönderilmemişse de 400 (kimliksiz kayıt sızıntı korumasını atlatır).
+    const missing = makeFakeSupabase({});
+    const missingResult = await registerLiveActivityToken(missing.client, USER_A, {
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
     });
-    assert.equal(legacyResult.status, 200);
-    assert.equal(legacy.rpcCalls.length, 0, "kimliksiz kayıt RPC kullanmaz");
+    assert.equal(missingResult.status, 400, "kimliksiz push_to_start reddedilmeli");
+    assert.equal(missing.rpcCalls.length + missing.queries.length, 0);
   });
 
   test("çıkış: kurulum tokenları RPC ile kapatılır; RPC yoksa (PGRST202) tek UPDATE fallback", async () => {

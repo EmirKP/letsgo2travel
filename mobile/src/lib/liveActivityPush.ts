@@ -1,46 +1,29 @@
 import { ApiError, requestJson } from "./api";
 import { addPluginListener, isIOSNative, plugin } from "./capacitor";
+import { createTokenSyncEngine, type SyncSendResult, type SyncTokenEntry } from "./liveActivityTokenSync";
 import { getInstallationId } from "./storage";
 
-// Live Activity push tokenlarının sunucuya kaydı.
-// - Token gözlemi NATIVE tarafta, uygulama açılışında başlar
-//   (LiveActivityTokenObserver): push-to-start arka plan uyanışında
-//   yakalanan token UserDefaults tamponuna yazılır. Plugin, JS hazır
-//   olunca tampondaki + yeni token'ları "liveActivityToken" event'iyle
-//   iletir; burada Bearer oturumla /api/live-activity/tokens'a kaydedilir
-//   ve BAŞARILI kayıt native tampondan ack ile silinir.
-// - Token değerleri loglanmaz; JS tarafında yalnız bellekte bekletilir
-//   (oturum yokken gelirse girişten sonra flushLiveActivityTokens dener).
-// - Her hata sessiz geçilir: kayıt başarısız olsa da uygulama içi
-//   başlatma + yerel bildirim fallback'i aynen çalışır.
+// Live Activity push tokenlarının sunucuya kaydı — GERÇEK bağlantılar.
+// Akış mantığı liveActivityTokenSync.ts motorundadır (saf, birim testli):
+// - Native gözlemci tamponlar + EN SON push-to-start tokenı kalıcı tutar.
+// - Başarılı kayıt native tamponu ack'ler; 503'te ACK EDİLMEZ (migration
+//   uygulanınca retry).
+// - HER giriş geçişinde (accessToken boş → dolu) en son token GÜNCEL
+//   kullanıcı adına yeniden kaydedilir (A logout → B login senaryosu).
+// - Token değerleri loglanmaz; kalıcı JS deposuna yazılmaz.
 
-type PendingToken = {
-  tokenType: "push_to_start" | "activity_update";
-  token: string;
-  tripId?: string;
+type PluginSurface = {
+  ackToken?: (options: { tokenType: string; tripId: string; token: string }) => Promise<void>;
+  getLatestPushToStartToken?: () => Promise<{ token?: string }>;
 };
 
-const pendingTokens = new Map<string, PendingToken>();
 let accessTokenGetter: (() => string) | null = null;
 
-type AckSurface = {
-  ackToken?: (options: { tokenType: string; tripId: string; token: string }) => Promise<void>;
-};
-
-async function ackNativeToken(entry: PendingToken) {
-  const surface = plugin("FlightLiveActivity") as AckSurface | undefined;
-  await surface?.ackToken?.({
-    tokenType: entry.tokenType,
-    tripId: entry.tripId || "",
-    token: entry.token,
-  }).catch(() => undefined);
+function surface(): PluginSurface | undefined {
+  return plugin("FlightLiveActivity") as PluginSurface | undefined;
 }
 
-async function sendToken(entry: PendingToken, key: string) {
-  const accessToken = accessTokenGetter?.() || "";
-  if (!accessToken) return; // Giriş yapılınca flush ile tekrar denenir.
-  // Kurulum kimliği istek başına TEK kez okunur.
-  const installationId = getInstallationId();
+async function sendEntry(entry: SyncTokenEntry, accessToken: string, installationId: string): Promise<SyncSendResult> {
   try {
     await requestJson("/api/live-activity/tokens", {
       method: "POST",
@@ -49,36 +32,56 @@ async function sendToken(entry: PendingToken, key: string) {
         tokenType: entry.tokenType,
         token: entry.token,
         ...(entry.tripId ? { tripId: entry.tripId } : {}),
-        // Rotasyon + hesaplar-arası tekil sahiplik için kurulum kimliği.
         ...(installationId ? { installationId } : {}),
       },
     });
-    pendingTokens.delete(key);
-    // Native tampondan da silinir; sonraki açılışta yeniden gönderilmez.
-    await ackNativeToken(entry);
+    return { ok: true };
   } catch (error) {
-    // 403 (yalnız activity_update'te döner): trip BAŞKA hesabın — bu
-    // oturumda asla başarılı olamaz; sonsuz retry yerine düşürülür ve
-    // native tampondan da silinir (hesap değişimi sonrası eski kayıtlar).
-    if (error instanceof ApiError && error.status === 403 && entry.tokenType === "activity_update") {
-      pendingTokens.delete(key);
-      await ackNativeToken(entry);
-      return;
-    }
-    // Diğerleri sessiz: sunucu hazır değilse (503) / ağ yoksa flush dener.
+    return { ok: false, status: error instanceof ApiError ? error.status : 0 };
   }
+}
+
+const engine = createTokenSyncEngine({
+  getAccessToken: () => accessTokenGetter?.() || "",
+  getInstallationId: () => getInstallationId(),
+  send: sendEntry,
+  ack: async (entry) => {
+    await surface()?.ackToken?.({
+      tokenType: entry.tokenType,
+      tripId: entry.tripId || "",
+      token: entry.token,
+    }).catch(() => undefined);
+  },
+  getLatestPushToStartToken: async () => {
+    const result = await surface()?.getLatestPushToStartToken?.();
+    return typeof result?.token === "string" ? result.token : "";
+  },
+});
+
+/** Bekleyen tokenları gönderir. */
+export function flushLiveActivityTokens() {
+  engine.flush();
+}
+
+/**
+ * GİRİŞ geçişinde çağrılır (accessToken boş → dolu): native'deki en son
+ * push-to-start tokenı GÜNCEL kullanıcı adına yeniden kaydedilir ve
+ * bekleyenler gönderilir. Hesap değişiminde (A→B) cihaz tokenının B'ye
+ * bağlanmasını sağlayan adım budur.
+ */
+export function syncTokensAfterLogin() {
+  if (!isIOSNative()) return;
+  void engine.onLogin();
 }
 
 /**
  * ÇIKIŞ temizliği: BU kurulumun (fiziksel cihaz) tüm Live Activity
- * tokenlarını sunucuda kapatır. Oturum silinmeden ÖNCE çağrılmalıdır;
- * kullanıcının diğer cihazları (iPad) etkilenmez. Bekleyen kuyruk da
- * temizlenir (eski hesabın tokenları yeni hesaba taşınmaz; cihaz-genel
- * push_to_start tokenı zaten native tamponda kalır ve yeni oturumda
- * yeni hesaba kaydedilir).
+ * tokenlarını sunucuda kapatır; bekleyen kuyruk temizlenir. Native'deki
+ * "en son token" kaydı KORUNUR (sonraki giriş replay eder). Oturum
+ * silinmeden ÖNCE çağrılmalıdır; diğer cihazlar (iPad) etkilenmez.
  */
 export async function disableLiveActivityTokensForLogout(accessToken: string): Promise<void> {
-  pendingTokens.clear();
+  engine.onLogout();
   const installationId = getInstallationId();
   if (!accessToken || !installationId) return;
   try {
@@ -88,21 +91,9 @@ export async function disableLiveActivityTokensForLogout(accessToken: string): P
       body: { installationId },
     });
   } catch {
-    // Başarısızlık çıkışı ENGELLEMEZ; sunucu tarafı rotasyon + hesaplar-
-    // arası tekil sahiplik garantisi ikinci savunma hattıdır.
+    // Başarısızlık çıkışı ENGELLEMEZ; sunucudaki rotasyon + tek-hesap
+    // garantisi (register RPC'si) ikinci savunma hattıdır.
   }
-}
-
-/** Bekleyen tokenları gönderir (girişten sonra çağrılır). */
-export function flushLiveActivityTokens() {
-  for (const [key, entry] of pendingTokens) void sendToken(entry, key);
-}
-
-function queueToken(entry: PendingToken) {
-  if (!entry.token || entry.token.length < 16 || entry.token.length > 512) return;
-  const key = `${entry.tokenType}:${entry.tripId || "-"}:${entry.token}`;
-  pendingTokens.set(key, entry);
-  void sendToken(entry, key);
 }
 
 /**
@@ -120,8 +111,7 @@ export function initLiveActivityTokenSync(getAccessToken: () => string): () => v
     const token = typeof payload.token === "string" ? payload.token : "";
     const tripId = typeof payload.tripId === "string" && payload.tripId ? payload.tripId : undefined;
     if (!tokenType || !token) return;
-    if (tokenType === "activity_update" && !tripId) return;
-    queueToken({ tokenType, token, tripId });
+    engine.queue({ tokenType, token, ...(tripId ? { tripId } : {}) });
   }).then((listener) => {
     if (!listener) return;
     if (!active) { void listener.remove().catch(() => undefined); return; }

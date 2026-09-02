@@ -3,18 +3,21 @@
 // - Token değeri hiçbir yanıt/log/hata mesajına yazılmaz.
 // - activity_update tokenı yalnız kullanıcının KENDİ kokpit kaydına
 //   bağlanabilir (trips.user_id doğrulanır).
-// - installationId GÖNDERİLMİŞSE geçerli UUID olmak ZORUNDADIR (geçersiz
-//   değer 400 ile reddedilir; sessizce rotasyonsuz yola DÜŞÜLMEZ). Alan
-//   hiç gönderilmemişse (eski istemciler) geriye dönük uyumlu yol çalışır.
-// - push_to_start + installationId: rotasyon + hesaplar-arası tekil
-//   sahiplik TEK transaksiyonda (register_live_activity_push_to_start).
+// - push_to_start kaydı için installationId ZORUNLUDUR ve geçerli UUID
+//   olmalıdır (eksik/geçersiz → 400; sessiz rotasyonsuz yol YOKTUR) ve
+//   kayıt YALNIZ register_live_activity_push_to_start RPC'siyle yapılır:
+//   rotasyon + hesaplar-arası tekil sahiplik + advisory-lock serileştirme
+//   TEK transaksiyondadır. RPC henüz üretimde yoksa (gerçek PostgREST
+//   kodu PGRST202 "Could not find the function ... in the schema cache";
+//   doğrudan PG eşdeğeri 42883) GÜVENLİKSİZ bir fallback'e DÜŞÜLMEZ —
+//   503 döner; mobil token'ı ACK ETMEZ ve migration uygulanınca yeniden
+//   dener (v6).
+// - activity_update: trip sahipliği doğrulanır; per-user upsert güvenlidir
+//   (hesaplar-arası risk yok — token aktiviteye özeldir).
 // - Çıkış: deactivate_live_activity_installation kullanıcının BU
 //   kurulumdaki push_to_start VE activity_update tokenlarını kapatır;
-//   diğer cihazlara dokunmaz.
-// - RPC henüz üretimde yoksa gerçek PostgREST kodu PGRST202 döner
-//   ("Could not find the function ... in the schema cache"); doğrudan
-//   Postgres bağlantılarında eşdeğeri 42883'tür. Her ikisi de geriye
-//   dönük uyumlu yola düşürür; tablo yoksa (42P01) 503 döner.
+//   diğer cihazlara dokunmaz. Çıkışta RPC yoksa user_id+installation_id
+//   filtreli tek UPDATE fallback'i GÜVENLİDİR ve korunur.
 
 type SupabaseLike = any;
 
@@ -64,11 +67,13 @@ export async function registerLiveActivityToken(
     return { status: 400, body: { error: "Geçersiz token kaydı isteği." } };
   }
 
-  // installationId GÖNDERİLMİŞSE geçerli olmalı: geçersiz değerle sessizce
-  // rotasyonsuz yola düşmek sızıntı korumasını atlatırdı → 400.
-  const installationProvided = input?.installationId !== undefined && input?.installationId !== null && input?.installationId !== "";
-  const installationId = installationProvided ? cleanUuid(input?.installationId) : null;
-  if (installationProvided && !installationId) {
+  // push_to_start için kurulum kimliği ZORUNLU ve geçerli UUID olmalı:
+  // kimliksiz/geçersiz kayıt sızıntı korumasını atlatırdı → 400.
+  const installationId = cleanUuid(input?.installationId);
+  if (tokenType === "push_to_start" && !installationId) {
+    return { status: 400, body: { error: "Geçersiz kurulum kimliği (UUID olmalı)." } };
+  }
+  if (input?.installationId !== undefined && input?.installationId !== null && input?.installationId !== "" && !installationId) {
     return { status: 400, body: { error: "Geçersiz kurulum kimliği (UUID olmalı)." } };
   }
 
@@ -86,9 +91,10 @@ export async function registerLiveActivityToken(
 
   const now = new Date().toISOString();
 
-  // push_to_start + kurulum kimliği: rotasyon + hesaplar-arası tekil
-  // sahiplik TEK transaksiyonda (RPC).
-  if (tokenType === "push_to_start" && installationId) {
+  // push_to_start: kayıt YALNIZ RPC ile (rotasyon + tek-hesap + advisory
+  // lock tek transaksiyonda). RPC yoksa güvenliksiz per-user upsert'e
+  // DÜŞÜLMEZ — 503 döner; istemci token'ı ack etmez ve sonra yeniden dener.
+  if (tokenType === "push_to_start") {
     const { error: rpcError } = await supabase.rpc("register_live_activity_push_to_start", {
       p_user_id: userId,
       p_installation_id: installationId,
@@ -96,12 +102,11 @@ export async function registerLiveActivityToken(
     });
     if (!rpcError) return { status: 200, body: { success: true } };
     const rpcCode = errorCode(rpcError);
-    if (rpcCode === "42P01") return { status: 503, body: { error: "Servis henüz hazır değil." } };
-    if (!RPC_MISSING_CODES.has(rpcCode) && rpcCode !== "42703") {
-      console.error("live_activity_token_rotasyon_hatasi", { code: rpcCode });
-      return { status: 500, body: { error: "Token kaydedilemedi." } };
+    if (rpcCode === "42P01" || RPC_MISSING_CODES.has(rpcCode) || rpcCode === "42703") {
+      return { status: 503, body: { error: "Servis henüz hazır değil." } };
     }
-    // RPC migration'ı henüz üretimde yok: geriye dönük uyumlu yol.
+    console.error("live_activity_token_rotasyon_hatasi", { code: rpcCode });
+    return { status: 500, body: { error: "Token kaydedilemedi." } };
   }
 
   // Tür başına kullanıcı kotası: en eski etkin kayıt kapatılarak yer açılır.

@@ -24,6 +24,11 @@ import ActivityKit
 final class LiveActivityTokenObserver {
     static let shared = LiveActivityTokenObserver()
     static let bufferKey = "l2t.liveActivity.tokenBuffer"
+    // EN SON geçerli push-to-start tokenı AYRICA ve KALICI tutulur: ack
+    // tamponu temizlese bile hesap değişiminde (A logout → B login) yeni
+    // oturum bu değeri okuyup token'ı GÜNCEL kullanıcı adına yeniden
+    // kaydedebilir. Cihaz-genel bir tokendır, hesaba özel veri içermez.
+    static let latestPushToStartKey = "l2t.liveActivity.latestPushToStartToken"
     static let tokenNotification = Notification.Name("l2tLiveActivityToken")
     private var started = false
     private var observedActivityIds = Set<String>()
@@ -45,10 +50,12 @@ final class LiveActivityTokenObserver {
         if #available(iOS 17.2, *) {
             Task {
                 for await tokenData in Activity<FlightActivityAttributes>.pushToStartTokenUpdates {
+                    let hex = Self.hexToken(tokenData)
+                    UserDefaults.standard.set(hex, forKey: Self.latestPushToStartKey)
                     Self.buffer(entry: [
                         "tokenType": "push_to_start",
                         "tripId": "",
-                        "token": Self.hexToken(tokenData),
+                        "token": hex,
                     ])
                 }
             }
@@ -96,9 +103,16 @@ final class LiveActivityTokenObserver {
         (UserDefaults.standard.array(forKey: bufferKey) as? [[String: String]]) ?? []
     }
 
-    /** Sunucuya başarıyla kaydedilen giriş tampondan silinir (JS ack'i). */
+    /** Sunucuya başarıyla kaydedilen giriş tampondan silinir (JS ack'i).
+        NOT: latestPushToStartKey SİLİNMEZ — hesap değişiminde replay için
+        her zaman erişilebilir kalır. */
     static func acknowledge(entry: [String: String]) {
         let list = bufferedEntries().filter { entryKey($0) != entryKey(entry) }
         UserDefaults.standard.set(list, forKey: bufferKey)
+    }
+
+    /** En son geçerli push-to-start tokenı (yoksa boş dize). */
+    static func latestPushToStartToken() -> String {
+        UserDefaults.standard.string(forKey: latestPushToStartKey) ?? ""
     }
 }

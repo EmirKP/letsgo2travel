@@ -17,6 +17,7 @@ import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
 import { randomFallbackUuid } from "./_mobile/id";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
+import { registerLiveActivityAccountFlowTests } from "./liveActivityAccountFlow";
 import { registerLiveActivityTokenTests } from "./liveActivityTokens";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
@@ -376,6 +377,7 @@ test("id: SON ÇARE fallback bile geçerli RFC 4122 UUID v4 üretir", () => {
 
 registerLiveActivityCronTests(test);
 registerLiveActivityTokenTests(test);
+registerLiveActivityAccountFlowTests(test);
 
 // ------------------------------ runner -------------------------------
 

@@ -12,7 +12,7 @@ import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
-import { flushLiveActivityTokens, initLiveActivityTokenSync } from "./lib/liveActivityPush";
+import { initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
 import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
@@ -106,6 +106,9 @@ export default function App() {
   const auth = useAuth();
   const ownerId = auth.user?.id || null;
   const accessTokenRef = useRef(auth.accessToken);
+  // Giriş geçişi tespiti "" ile başlar: geri yüklenen oturumda da (soğuk
+  // açılış) ilk dolu değerde senkron çalışır.
+  const lastSyncedTokenRef = useRef("");
   const activeTab = rootTabFor(activeView);
   const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts";
 
@@ -180,8 +183,12 @@ export default function App() {
 
   useEffect(() => {
     accessTokenRef.current = auth.accessToken;
-    // Giriş tamamlanınca bekleyen Live Activity tokenları gönderilir.
-    if (auth.accessToken) flushLiveActivityTokens();
+    // HER boş → dolu geçişinde (giriş / hesap değişimi / geri yüklenen
+    // oturum) native'deki en son push-to-start tokenı GÜNCEL kullanıcı
+    // adına yeniden kaydedilir ve bekleyenler gönderilir (A logout →
+    // B login senaryosu).
+    if (!lastSyncedTokenRef.current && auth.accessToken) syncTokensAfterLogin();
+    lastSyncedTokenRef.current = auth.accessToken;
   }, [auth.accessToken]);
 
   useEffect(() => {

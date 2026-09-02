@@ -1,5 +1,5 @@
 -- =====================================================================
--- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v5) — HAZIRLANDI, UYGULANMADI
+-- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v6) — HAZIRLANDI, UYGULANMADI
 -- ---------------------------------------------------------------------
 -- Amaç: uygulama KAPALIYKEN Dynamic Island / kilit ekranı aktivitesinin
 -- APNs "liveactivity" push'u ile başlatılıp bitirilebilmesi (iOS 17.2+
@@ -52,12 +52,24 @@ create index if not exists live_activity_tokens_trip_idx
 create index if not exists live_activity_tokens_installation_idx
   on public.live_activity_tokens (user_id, installation_id) where enabled;
 
+-- DB DÜZEYİNDE KESİN GARANTİ (v6): aynı push-to-start tokenı için AYNI
+-- ANDA en fazla BİR enabled sahip olabilir. Fonksiyondaki advisory lock
+-- yarışları serileştirir; bu partial unique index ise garantiyi veri
+-- düzeyinde MUTLAK kılar (lock atlansa bile iki enabled satır yazılamaz).
+create unique index if not exists live_activity_push_to_start_single_owner_idx
+  on public.live_activity_tokens (token)
+  where token_type = 'push_to_start' and enabled;
+
 -- ---------------------------------------------------------------------
--- Push-to-start token ROTASYONU (tek transaksiyon = atomik):
--- yeni token upsert edilir; AYNI kullanıcı + AYNI kurulumun DİĞER
--- push_to_start tokenları kapatılır. Farklı kurulumların (başka fiziksel
--- cihaz) ve NULL installation_id'li eski kayıtların tokenlarına
--- DOKUNULMAZ. Yalnız service-role çağırabilir.
+-- Push-to-start token KAYIT + ROTASYON + TEK-HESAP garantisi (v6).
+-- EŞZAMANLILIK: transaction-scoped advisory lock token bazında yarışan
+-- kayıtları SERİLEŞTİRİR (A ve B aynı anda kaydolsa bile işlemler sırayla
+-- çalışır); live_activity_push_to_start_single_owner_idx partial unique
+-- index'i garantiyi veri düzeyinde MUTLAK kılar. SIRA ÖNEMLİ: önce diğer
+-- hesapların aynı token satırları kapatılır, SONRA kendi satırı enabled
+-- yazılır — böylece unique index hiçbir ara adımda ihlal edilmez.
+-- Farklı fiziksel cihazlar (farklı token) ve NULL installation_id'li
+-- eski kayıtlar ETKİLENMEZ. Yalnız service-role çağırabilir.
 -- ---------------------------------------------------------------------
 create or replace function public.register_live_activity_push_to_start(
   p_user_id uuid,
@@ -76,31 +88,33 @@ begin
     raise exception 'invalid_registration';
   end if;
 
+  -- Token bazında serileştirme: yarışan iki kayıt (A/B) sırayla çalışır;
+  -- kilit transaksiyon sonunda otomatik bırakılır.
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_pts:' || p_token, 0));
+
+  -- 1) HESAPLAR ARASI TEK SAHİP: aynı fiziksel token diğer hesap(lar)
+  --    altında ÖNCE kapatılır (partial unique index ihlali oluşmasın).
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where token_type = 'push_to_start'
+     and token = p_token
+     and user_id <> p_user_id
+     and enabled;
+
+  -- 2) Kendi satırı: upsert + enabled.
   insert into public.live_activity_tokens (user_id, token_type, token, installation_id, enabled, updated_at)
   values (p_user_id, 'push_to_start', p_token, p_installation_id, true, now())
   on conflict on constraint live_activity_tokens_unique
   do update set enabled = true, installation_id = excluded.installation_id, updated_at = now()
   returning id into v_id;
 
+  -- 3) ROTASYON: aynı kullanıcı + aynı kurulumun ESKİ tokenları kapanır.
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
    where user_id = p_user_id
      and token_type = 'push_to_start'
      and installation_id = p_installation_id
      and id <> v_id
-     and enabled;
-
-  -- HESAPLAR ARASI SIZINTI KORUMASI (v5): aynı FİZİKSEL cihaz tokenı
-  -- yalnız GÜNCEL hesapta etkin kalabilir. A çıkış yapmadan/eksik çıkışla
-  -- B aynı telefonda giriş yapsa bile, B'nin kaydıyla A'nın aynı token
-  -- satırı AYNI transaksiyonda (atomik) kapanır — A'nın uçuşu bu cihazda
-  -- Dynamic Island başlatamaz. Farklı fiziksel cihazlar (farklı token)
-  -- etkilenmez.
-  update public.live_activity_tokens
-     set enabled = false, updated_at = now()
-   where token_type = 'push_to_start'
-     and token = p_token
-     and user_id <> p_user_id
      and enabled;
 
   return v_id;
