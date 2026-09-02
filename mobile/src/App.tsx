@@ -384,7 +384,7 @@ export default function App() {
     {notice && <div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>}
     <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onUnreadChange={setUnreadCount} />
     <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
-    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={navigate} />
+    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={navigate} onOpenAccount={() => setAccountOpen(true)} />
     <ReleaseNotesSheet open={releaseOpen} onClose={closeRelease} />
     {onboardingOpen && <Onboarding onComplete={completeWelcome} />}
   </div>;

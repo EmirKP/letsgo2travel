@@ -3,7 +3,7 @@ import type { ReturnTypeUseAuth } from "../types-auth";
 import { requestAccountDeletion } from "../lib/api";
 import { isIOSNative } from "../lib/capacitor";
 import { config } from "../lib/config";
-import { openExternal } from "../lib/native";
+import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { getSupabaseDataErrorMessage, updateUserProfile } from "../lib/supabaseData";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
@@ -15,6 +15,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   onNotice: (message: string) => void;
 }) {
   const [mode, setMode] = useState<"login" | "register" | "reset">("login");
+  const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
   const [email, setEmail] = useState(auth.user?.email || "");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -265,7 +266,8 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       {mode !== "reset" && <label>Şifre<div className="input-with-icon"><Icon name="lock" size={18} /><input type="password" minLength={mode === "register" ? 8 : undefined} maxLength={128} autoComplete={mode === "login" ? "current-password" : "new-password"} enterKeyHint="done" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !busy) void submit(); }} placeholder={mode === "login" ? "Şifren" : "En az 8 karakter"} /></div></label>}
       <button className="primary-wide" disabled={busy || !auth.configured} onClick={() => void submit()}>{busy ? <span className="button-loader" /> : <Icon name={mode === "reset" ? "mail" : "user"} size={18} />} {mode === "login" ? "Giriş yap" : mode === "register" ? "Hesap oluştur" : "Bağlantı gönder"}</button>
       {auth.authError && <p className="form-error">{auth.authError}</p>}
-      {mode === "register" && <p className="auth-legal">Hesap oluşturarak <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/kullanim-sartlari")}>Kullanım Şartları</button> ve <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}>Gizlilik Politikası</button>'nı kabul etmiş olursun.</p>}
+      {mode === "register" && <p className="auth-legal">Hesap oluşturarak <button onClick={() => setLegalSlug("kullanim-sartlari")}>Kullanım Şartları</button> ve <button onClick={() => setLegalSlug("gizlilik-politikasi")}>Gizlilik Politikası</button>'nı kabul etmiş olursun.</p>}
+      {legalSlug && <LegalSheet open={Boolean(legalSlug)} slug={legalSlug} onClose={() => setLegalSlug(null)} />}
       <div className="auth-links">
         {mode === "login" && <><button onClick={() => { auth.clearAuthError(); setMode("register"); }}>Hesabın yok mu? Kayıt ol</button><button onClick={() => { auth.clearAuthError(); setMode("reset"); }}>Şifremi unuttum</button></>}
         {mode !== "login" && <button onClick={() => { auth.clearAuthError(); setMode("login"); }}><Icon name="back" size={15} /> Giriş ekranına dön</button>}

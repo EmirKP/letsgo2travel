@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
+import { LegalSheet } from "../components/LegalSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { VerificationForm } from "../components/VerificationForm";
 import { addPluginListener } from "../lib/capacitor";
-import { openExternal, shareContent } from "../lib/native";
+import { shareContent } from "../lib/native";
 import { disablePush, enablePushForUser, getPushPermissionState, type PushPermissionSummary } from "../lib/push";
 import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile, type UserProfileData } from "../lib/supabaseData";
 import {
@@ -74,6 +75,7 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
 }) {
   const [tick, setTick] = useState(0);
   const [visitedOpen, setVisitedOpen] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [preferences, setPreferences] = useState<MobilePreferences>(() => getMobilePreferences());
   const [profile, setProfile] = useState<UserProfileData | null>(null);
@@ -325,10 +327,12 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
         <label><span><Icon name="sparkles" size={19} /><em><strong>Dokunma titreşimi</strong><small>Desteklenen cihazlarda hafif geri bildirim</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>Kaşifler Ligi'nde görün</strong><small>Yalnız güvenli profil özeti paylaşılır</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build {config.buildNumber} ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>
-        <button onClick={() => void openExternal("https://www.letsgo2travel.com.tr/gizlilik-politikasi")}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve veri işlemleri</strong><small>Veri hakların, politikalar ve hesap silme</small></em></span><Icon name="external" size={16} /></button>
+        <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve veri işlemleri</strong><small>Veri hakların ve gizlilik politikası (uygulama içinde)</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
       <p className="profile-version">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
     </section>
+
+    <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />
 
     <Sheet open={visitedOpen} title="Ziyaret ettiğim ülkeler" onClose={() => setVisitedOpen(false)} size="large">
       <label className="sr-only" htmlFor="visited-country-search">Ülke ara</label>
