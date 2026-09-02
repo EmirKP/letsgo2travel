@@ -6,6 +6,7 @@ import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
 import type { AirportOption } from "../lib/airports";
 import { localIsoDate } from "../lib/dates";
 import { normalizePnr, tripFormError } from "../lib/cockpitForm";
+import { syncFlightReminders } from "../lib/liveActivity";
 import { createId } from "../lib/id";
 import {
   createCockpitTrip,
@@ -138,6 +139,8 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
       const next = await listCockpitTrips(user.id, accessToken);
       if (generation !== loadGeneration.current) return;
       setTrips(next);
+      // Yaklaşan uçuşlar için hatırlatma/Live Activity eşitle (izin istemez).
+      void syncFlightReminders(next.map((trip) => ({ id: trip.id, title: tripTitle(trip), departureAt: trip.departureAt, status: trip.status })));
       setSelectedTripId((current) => next.some((trip) => trip.id === current) ? current : next[0]?.id || "");
     } catch (requestError) {
       if (generation === loadGeneration.current) setError(getSupabaseDataErrorMessage(requestError, "Seyahatlerin yüklenemedi."));
@@ -179,7 +182,11 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
         flightPnr: normalizePnr(form.flightPnr),
         checklistItems: defaultChecklist(),
       }, accessToken);
-      setTrips((current) => [...current, created].sort((left, right) => left.startDate.localeCompare(right.startDate)));
+      setTrips((current) => {
+        const next = [...current, created].sort((left, right) => left.startDate.localeCompare(right.startDate));
+        void syncFlightReminders(next.map((trip) => ({ id: trip.id, title: tripTitle(trip), departureAt: trip.departureAt, status: trip.status })));
+        return next;
+      });
       setSelectedTripId(created.id);
       setForm(EMPTY_FORM);
       setFormOpen(false);
@@ -257,7 +264,11 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
     setError("");
     try {
       await deleteCockpitTrip(user.id, trip.id, accessToken, trip.updatedAt);
-      setTrips((current) => current.filter((item) => item.id !== trip.id));
+      setTrips((current) => {
+        const next = current.filter((item) => item.id !== trip.id);
+        void syncFlightReminders(next.map((item) => ({ id: item.id, title: tripTitle(item), departureAt: item.departureAt, status: item.status })));
+        return next;
+      });
       setSelectedTripId("");
       onNotice("Seyahat kokpitten silindi.");
     } catch (requestError) {

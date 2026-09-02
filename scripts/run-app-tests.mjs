@@ -12,6 +12,10 @@ writeFileSync(
   path.join(mirrorDir, "cockpitForm.ts"),
   readFileSync("mobile/src/lib/cockpitForm.ts", "utf8").replace('from "./airports"', 'from "../airport-types"'),
 );
+writeFileSync(
+  path.join(mirrorDir, "liveActivity.ts"),
+  readFileSync("mobile/src/lib/liveActivity.ts", "utf8").replace('from "./capacitor"', 'from "../capacitor-shim"'),
+);
 
 const tsNodeCli = path.join(process.cwd(), "node_modules", "ts-node", "dist", "bin.js");
 const compilerOptions = {

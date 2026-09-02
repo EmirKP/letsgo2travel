@@ -10,6 +10,7 @@ import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
+import { initFlightReminderTapListener } from "./lib/liveActivity";
 import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
@@ -171,6 +172,11 @@ export default function App() {
   useEffect(() => {
     // Bildirime dokunulduğunda "Fiyat Alarmlarım" ekranı açılır (web'de sessiz no-op).
     return initPushTapListener(() => navigate("alerts"));
+  }, [navigate]);
+
+  useEffect(() => {
+    // Uçuş hatırlatmasına dokununca ilgili Kokpit kaydı açılır.
+    return initFlightReminderTapListener(() => navigate("cockpit"));
   }, [navigate]);
 
   useEffect(() => {

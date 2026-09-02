@@ -10,6 +10,7 @@ import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } 
 import { isIsoDateString, isPastTravelDate, isoDateAfterDays, todayIsoInTimeZone } from "../../lib/date-utils";
 import { normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
+import { activityPhase, plannedReminders } from "./_mobile/liveActivity";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
 function test(name: string, fn: () => Promise<void> | void) { tests.push([name, fn]); }
@@ -166,6 +167,32 @@ test("mobil tarih yardımcıları: geçmiş/bugün ayrımı", () => {
   assert.equal(isPastLocalDate(localIsoDate(0)), false, "bugün geçmiş değildir");
   assert.equal(isPastLocalDate(localIsoDate(-1)), true, "dün geçmiştir");
   assert.equal(isPastLocalDate("bozuk"), true);
+});
+
+// ---------------------- Live Activity durumu -------------------------
+
+test("liveActivity: evreler doğru (before/active/ended)", () => {
+  const departure = "2026-10-10T10:00:00.000Z";
+  assert.equal(activityPhase(departure, new Date("2026-10-10T05:00:00Z")), "before", "3 saatten önce başlamaz");
+  assert.equal(activityPhase(departure, new Date("2026-10-10T07:30:00Z")), "active", "kalkışa 3 saat kala aktif");
+  assert.equal(activityPhase(departure, new Date("2026-10-10T10:30:00Z")), "active", "kalkış sonrası 1 saat aktif kalır");
+  assert.equal(activityPhase(departure, new Date("2026-10-10T11:30:00Z")), "ended", "1 saat sonra biter");
+  assert.equal(activityPhase(null), "ended");
+  assert.equal(activityPhase("bozuk-tarih"), "ended");
+});
+
+test("liveActivity: hatırlatma planı yalnız uygun uçuşlar için", () => {
+  const now = new Date("2026-10-01T00:00:00Z");
+  const plans = plannedReminders([
+    { id: "t1", title: "Roma, İtalya", departureAt: "2026-10-10T10:00:00Z", status: "upcoming" },
+    { id: "t2", title: "İptal", departureAt: "2026-10-11T10:00:00Z", status: "cancelled" },
+    { id: "t3", title: "Uçuşsuz", departureAt: null, status: "upcoming" },
+    { id: "t4", title: "Çok yakın", departureAt: "2026-10-01T01:00:00Z", status: "upcoming" },
+  ], now);
+  assert.equal(plans.length, 1, "yalnız t1 planlanmalı");
+  assert.equal(plans[0].tripId, "t1");
+  assert.equal(plans[0].at.toISOString(), "2026-10-10T07:00:00.000Z", "kalkıştan 3 saat önce");
+  assert.ok(plans[0].body.includes("Roma"));
 });
 
 // ------------------------------ runner -------------------------------
