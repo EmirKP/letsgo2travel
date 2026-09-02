@@ -15,53 +15,44 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startFlightActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endFlightActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "ackToken", returnType: CAPPluginReturnPromise),
     ]
 
     // ------------------------------------------------------------------
-    // Push-to-start altyapısı: token'lar JS katmanına event ile verilir;
-    // JS bunları Bearer oturumla sunucuya kaydeder (token loglanmaz).
-    // - pushToStartToken  : iOS 17.2+ genel başlatma tokenı (uygulama
-    //   kapalıyken cron APNs "liveactivity" push'u ile aktivite başlatır)
-    // - activityUpdateToken: başlamış aktivitenin güncelleme/bitirme tokenı
+    // Push-to-start altyapısı: token GÖZLEMİ artık AppDelegate'in
+    // başlattığı LiveActivityTokenObserver'dadır (WebView'a bağımlı
+    // değil; arka plan uyanışında da yakalayıp UserDefaults'a tamponlar).
+    // Bu plugin köprüdür: JS hazır olunca tampondaki + yeni gelen
+    // token'ları event olarak iletir; JS sunucuya kaydettikten sonra
+    // ackToken ile girdiyi tampondan sildirir. Token loglanmaz.
+    // Event'ler: "liveActivityToken" {tokenType, tripId, token}.
     // ------------------------------------------------------------------
     override public func load() {
-        #if canImport(ActivityKit)
-        if #available(iOS 16.2, *) {
-            for activity in Activity<FlightActivityAttributes>.activities {
-                observeActivityTokens(activity)
-            }
-            Task { [weak self] in
-                for await activity in Activity<FlightActivityAttributes>.activityUpdates {
-                    self?.observeActivityTokens(activity)
-                }
-            }
-        }
-        if #available(iOS 17.2, *) {
-            Task { [weak self] in
-                for await tokenData in Activity<FlightActivityAttributes>.pushToStartTokenUpdates {
-                    self?.notifyListeners("pushToStartToken", data: ["token": Self.hexToken(tokenData)])
-                }
-            }
-        }
-        #endif
-    }
-
-    #if canImport(ActivityKit)
-    @available(iOS 16.2, *)
-    private func observeActivityTokens(_ activity: Activity<FlightActivityAttributes>) {
-        Task { [weak self] in
-            for await tokenData in activity.pushTokenUpdates {
-                self?.notifyListeners("activityUpdateToken", data: [
-                    "tripId": activity.attributes.tripId,
-                    "token": Self.hexToken(tokenData),
-                ])
-            }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(onObserverToken(_:)),
+            name: LiveActivityTokenObserver.tokenNotification,
+            object: nil
+        )
+        // JS geç bağlanır: birikmiş token'lar da iletilir.
+        for entry in LiveActivityTokenObserver.bufferedEntries() {
+            notifyListeners("liveActivityToken", data: entry)
         }
     }
-    #endif
 
-    private static func hexToken(_ data: Data) -> String {
-        data.map { String(format: "%02x", $0) }.joined()
+    @objc private func onObserverToken(_ notification: Notification) {
+        guard let entry = notification.userInfo?["entry"] as? [String: String] else { return }
+        notifyListeners("liveActivityToken", data: entry)
+    }
+
+    /** JS, sunucu kaydı BAŞARILI olunca çağırır; girdi tampondan silinir. */
+    @objc func ackToken(_ call: CAPPluginCall) {
+        LiveActivityTokenObserver.acknowledge(entry: [
+            "tokenType": call.getString("tokenType") ?? "",
+            "tripId": call.getString("tripId") ?? "",
+            "token": call.getString("token") ?? "",
+        ])
+        call.resolve()
     }
 
     @objc func isAvailable(_ call: CAPPluginCall) {
@@ -101,7 +92,7 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 // pushType .token: güncelleme/bitirme tokenı üretilir; cron
                 // kalkış+1 saat sonrasında aktiviteyi uzaktan bitirebilir.
                 let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
-                observeActivityTokens(activity)
+                LiveActivityTokenObserver.shared.observe(activity)
                 call.resolve()
             } catch {
                 // Push entitlement yoksa tokensız (yalnız uygulama içi) başlat.

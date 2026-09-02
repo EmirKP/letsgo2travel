@@ -7,7 +7,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Live Activity token gözlemi UYGULAMA AÇILIŞINDA başlar (WebView'a
+        // bağımlı değil): Apple push-to-start'ta uygulamayı arka planda
+        // uyandırdığında update tokenı burada yakalanıp tamponlanır.
+        LiveActivityTokenObserver.shared.start()
         return true
     }
 

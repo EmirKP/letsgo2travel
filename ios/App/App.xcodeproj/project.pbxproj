@@ -21,6 +21,7 @@
 		FA00000000000000000000B3 /* FlightActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A2 /* FlightActivityAttributes.swift */; };
 		FA00000000000000000000B4 /* FlightLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A5 /* FlightLiveActivityPlugin.swift */; };
 		FA00000000000000000000B5 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A6 /* MainViewController.swift */; };
+		FA00000000000000000000B7 /* LiveActivityTokenObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A7 /* LiveActivityTokenObserver.swift */; };
 		FA00000000000000000000B6 /* FlightActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A1 /* FlightActivityWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -67,6 +68,7 @@
 		FA00000000000000000000A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FA00000000000000000000A5 /* FlightLiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightLiveActivityPlugin.swift; sourceTree = "<group>"; };
 		FA00000000000000000000A6 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		FA00000000000000000000A7 /* LiveActivityTokenObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityTokenObserver.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				FA00000000000000000000A5 /* FlightLiveActivityPlugin.swift */,
 				FA00000000000000000000A6 /* MainViewController.swift */,
+				FA00000000000000000000A7 /* LiveActivityTokenObserver.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -258,6 +261,7 @@
 				FA00000000000000000000B3 /* FlightActivityAttributes.swift in Sources */,
 				FA00000000000000000000B4 /* FlightLiveActivityPlugin.swift in Sources */,
 				FA00000000000000000000B5 /* MainViewController.swift in Sources */,
+				FA00000000000000000000B7 /* LiveActivityTokenObserver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
