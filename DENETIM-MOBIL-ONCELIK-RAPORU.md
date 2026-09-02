@@ -1,4 +1,4 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 2. tur ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 3. tur/v3 ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
@@ -33,7 +33,16 @@
 20. `d9f8e1e` Forum: anon fallback → 503 + beyaz-listeli serileştiriciler (testli)
 21. `654fd50` Yasal metinler uygulama İÇİNDE; veri silme uygulama içi akışa
 22. `c08d1ef` Üç mobil paket kopyası yeni build ile eşitlendi
-23. (bu rapor)
+23. `5033604` Denetim raporu (2. tur)
+
+**3. tur (v2 bağımsız denetim blokajları, 5033604 → uç):**
+
+24. `11bf5e1` Cron v3: token bazlı teslim, atomik claim/lease/fencing, soft deadline
+25. `a5951d5` Token gözlemi AppDelegate'e + UserDefaults tamponu + ack
+26. `0c605b7` Cron güvenilirlik testleri (9 senaryo; 46/46)
+27. `cc2f38d` Saat dilimi UTC/400 + Codemagic imza resmî yönteme
+28. `002c416` Üç mobil paket kopyası v3 build ile eşitlendi
+29. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -50,11 +59,12 @@ IATA. `/api/airports` bu kaynağı sunar — arama SUNUCUDA, istemciye en iyi
 12 sonuç (cache'li); büyük liste hiçbir tuşta inmiyor. Web
 `AirportAutocomplete` + mobil `AirportField` aynı ucu kullanır (Kokpit ve
 Rota Asistanı da — veri çoğaltma yok). Geçmiş gidiş tarihi UI'da
-(min=bugün, yerel gün) ve API'de reddedilir; 2. turda API sabit
+(min=bugün, yerel gün) ve API'de reddedilir; 2.–3. turda API sabit
 Europe/Istanbul KULLANMAZ — web+mobil istemci geçerli IANA saat dilimini
-gönderir, sunucu `sanitizeTimeZone` ile doğrular (yok/geçersizse
-varsayılana düşer) ve geçmiş gün + 730 günlük üst sınır KULLANICININ
-yerel takvim gününe göre denetlenir (Kiritimati/Midway testleri). Dar ekranda tarih/hedef fiyat
+gönderir; GEÇERSİZ bir değer gönderen istek 400 ile reddedilir, alan hiç
+gönderilmemişse (eski istemciler) TARAFSIZ UTC kullanılır. Geçmiş gün +
+730 günlük üst sınır KULLANICININ yerel takvim gününe göre denetlenir
+(Kiritimati/Midway testleri). Dar ekranda tarih/hedef fiyat
 tek sütun; iOS input zoom 16px font + `touch-action: manipulation` ile
 erişilebilir biçimde engellendi. Hedef fiyat boşsa %5 düşüş davranışı
 DEĞİŞMEDİ (test:alerts 37/37).
@@ -194,19 +204,44 @@ high / sanitize-html moderate — onay bekliyor).
   tripId'yi ayrıştırıp İLGİLİ Kokpit kaydını otomatik seçer; yerel
   bildirim de aynı kayda gider (extra.tripId). Kalkış+1 saat sonrası
   uygulama içi bitirme + staleDate; push kanalı da end gönderir (aşağıda).
-- PUSH-TO-START (uygulama KAPALIYKEN otomatik başlatma): iOS 17.2+
-  `pushToStartTokenUpdates` + aktivite güncelleme tokenları JS'e event
-  ile verilir; Bearer oturumla `/api/live-activity/tokens`'a kaydedilir
-  (sahiplik: activity_update tokenı yalnız kullanıcının KENDİ trip
-  kaydına bağlanabilir; token loglanmaz/yerel depoya yazılmaz).
-  `GET /api/cron/live-activity` (yalnız Bearer CRON_SECRET) kalkışa ≤3
-  saat kala APNs `liveactivity` push-to-start, kalkış+1 saat sonra `end`
-  gönderir; mükerrer koruması `live_activity_events`; geçersiz token
-  otomatik kapatılır. iOS 16.2–17.1 ve token kayıtsız cihazlarda mevcut
-  uygulama içi başlatma + yerel bildirim fallback'i AYNEN çalışır.
+- PUSH-TO-START (uygulama KAPALIYKEN otomatik başlatma) — v3 GÜVENİLİR
+  TESLİM: teslim durumu trip DEĞİL, **trip + token(cihaz) + event**
+  bazında tutulur (`live_activity_deliveries`: pending/sent/
+  transient_failed/permanent_failed, attempt_count, claim_token/fencing,
+  claimed_until/lease, next_retry_at). check→send→upsert yarışı KALKTI:
+  claim tek atomik UPDATE'tir; paralel cron'lar aynı start/end'i iki kez
+  GÖNDEREMEZ ve eski worker'ın gecikmiş sonucu yeni claim'i EZEMEZ
+  (fencing) — bu sözleşme hem in-memory testlerle (9 senaryo) hem gerçek
+  PostgreSQL'de SQL düzeyinde kanıtlandı. Bir token'ın başarısı diğerinin
+  bağımsız retry'ını engellemez; transient hatada EN FAZLA 3 deneme
+  (5 dk geri çekilme), kalıcı APNs hatasında YALNIZ ilgili token
+  kapatılır. Soft deadline (~45 sn, maxDuration=60): sonrasında yeni
+  claim açılmaz, kalan iş sonraki cron'a kalır (deferred); gönderimler
+  kontrollü paralel (4'lü gruplar). END: activity_update tokenı yoksa
+  teslim satırı hiç açılmaz → end TAMAMLANMIŞ SAYILMAZ; token sonradan
+  kaydolursa satır açılıp gönderilir; başarısız end asla 'sent' yazmaz.
+- TOKEN YAKALAMA (Apple'ın belgelenen davranışına göre): Apple, push-to-
+  start alındığında sistemin uygulamayı arka planda UYANDIRIP update
+  tokenını verdiğini belgeler. Capacitor'da o anda WebView çalışmayabilir;
+  bu yüzden gözlem WebView'dan bağımsız olarak AppDelegate'te başlar
+  (`LiveActivityTokenObserver`) ve token'lar UserDefaults tamponuna
+  yazılır; JS hazır olunca sunucuya kaydedilir ve BAŞARILI kayıt ack ile
+  tampondan silinir. Arka plan uyanışında fiilen yakalama fiziksel
+  cihazda DOĞRULANMADI → **NOT VERIFIED**; yakalanamazsa sahte 'sent'
+  üretilmez: end satırı token kaydolana kadar açılmaz, token bir sonraki
+  uygulama açılışında gönderilir (en kötü durumda aktivite staleDate ile
+  soluklaşır ve uygulama açılınca biter).
+- Kayıt ucu `/api/live-activity/tokens`: Bearer oturum + sahiplik
+  (activity_update tokenı yalnız kullanıcının KENDİ trip kaydına);
+  token loglanmaz. Cron yalnız Bearer CRON_SECRET ile çalışır.
+  iOS 16.2–17.1 ve token kayıtsız cihazlarda mevcut uygulama içi
+  başlatma + yerel bildirim fallback'i AYNEN çalışır.
 - DIŞ ADIM (yalnız hesap/operasyon; kod adımı DEĞİL):
-  (a) Apple tarafında widget App ID/profil (Codemagic otomatik imzalama
-  genelde kendisi oluşturur); (b) iki migration'ın production'a AYRI
+  (a) Apple tarafında widget App ID/profil. codemagic.yaml RESMÎ
+  belgelenen biçimdedir (temel `bundle_identifier` nokta ekli uzantı
+  profillerini de eşler — docs.codemagic.io); gerçek Codemagic build'inde
+  iki profilin fiilen eşlendiği DOĞRULANMADI → **NOT VERIFIED** (ilk
+  build'de kontrol edilecek); (b) iki migration'ın production'a AYRI
   ONAYLA uygulanması (`20260902100000` uçuş kolonları,
   `20260902120000` live activity token/event tabloları — ikisi de
   uygulanmadan hiçbir şey kırılmaz); (c) harici zamanlayıcıya
@@ -214,6 +249,12 @@ high / sanitize-html moderate — onay bekliyor).
   build'i.
 - Fiziksel cihazda DENENMEDİ → Live Activity ve push-to-start için
   "doğrulandı" DENMİYOR (cihaz listesi aşağıda).
+
+**"Çift preventDefault" bulgusu (v2 denetimi):** mevcut ağaçta yinelenen
+satır YOK — `CockpitScreen`'deki iki `event.preventDefault()` çağrısı iki
+AYRI form handler'ındadır (seyahat ekleme formu `createTrip` ve kontrol
+listesi formu `addChecklistItem`) ve ikisi de kendi formunun sayfa
+yenilemesini engellemek için gereklidir; silinmedi.
 
 **Belge yükleme ilerlemesi:** yüzde bazlı değil, animasyonlu belirsiz
 gösterge (CapacitorHttp fetch köprüsünde güvenilir progress olayı yok);
@@ -231,11 +272,12 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` | **37/37 PASS**: airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
+| `test:app` | **46/46 PASS** (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
 | Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
 | `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
-| Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity tabloları RLS=t, policy=0, anon/authenticated grant=0; trips'te 4 uçuş kolonu) |
+| Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + v3 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity_tokens + live_activity_deliveries RLS=t, policy=0, anon/authenticated grant=0; eski live_activity_events tablosu YOK) |
+| Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler (durum 'sent' kalır) |
 | `git diff --check` | PASS |
 | Secret/staging taraması (.env/.p8/google-services/supabase/.temp) | PASS (branch diff temiz) |
 | Bundle kopyaları (mobile-dist ↔ iOS ↔ Android; lazy chunk dahil) | PASS (hash birebir) |
@@ -269,8 +311,12 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
    sonrası bitiş.
 10. Push-to-start (iOS 17.2+, migration + cron kurulu): uygulamayı
     tamamen kapat → kalkışa 3 saat kala aktivite KENDİLİĞİNDEN başlamalı;
-    kalkış+1 saat sonra kendiliğinden bitmeli. (Bu doğrulama yapılmadan
-    push-to-start için "çalışıyor" DENMEZ.)
+    kalkış+1 saat sonra kendiliğinden bitmeli. Ek doğrulama: push-to-start
+    ile başlayan aktivitenin update tokenının ARKA PLAN uyanışında
+    yakalanıp sunucuya ulaştığını (uygulama hiç açılmadan) kontrol et —
+    ulaşmıyorsa end push'u ancak bir sonraki uygulama açılışından sonra
+    mümkündür. (Bu doğrulamalar yapılmadan push-to-start için "çalışıyor"
+    DENMEZ.)
 11. Yasal metinler: Menü → Gizlilik/Kullanım Şartları uygulama İÇİNDE
     açılmalı; çevrimdışıyken hata + "Tekrar dene" görünmeli; "Hesap ve
     veri silme" Hesap sayfasını açmalı (tarayıcı YOK).
