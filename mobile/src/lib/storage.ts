@@ -1,3 +1,4 @@
+import { createId } from "./id";
 import type {
   FavoriteDestination,
   MobilePreferences,
@@ -11,6 +12,7 @@ const RECENT_KEY = "l2t.mobile.recent-destinations.v1";
 const READ_NOTIFICATIONS_KEY = "l2t.mobile.read-notifications.v1";
 const PREFERENCES_KEY = "l2t.mobile.preferences.v1";
 const ONBOARDING_KEY = "l2t.mobile.onboarding.v2";
+const INSTALLATION_KEY = "l2t.mobile.installation-id.v1";
 const RELEASE_KEY = "l2t.mobile.release-seen";
 
 // Uçuş arama özelliği kaldırıldı; eski cihaz kayıtları modül açılışında bir kez temizlenir.
@@ -189,5 +191,25 @@ export function markReleaseSeen(version: string) {
     emitChange();
   } catch {
     // Depolama kısıtlıysa sürüm notu yalnız bu oturumda kapanır.
+  }
+}
+
+/**
+ * Kalıcı KURULUM (cihaz) kimliği. Push-to-start token rotasyonu için
+ * sunucuya gönderilir: Apple tokenı zamanla değiştirdiğinde aynı fiziksel
+ * cihazın eski tokenı bu kimlikle atomik kapatılır (diğer cihazlar
+ * etkilenmez). Kimlik cihazda üretilir, kişisel veri içermez.
+ */
+export function getInstallationId(): string {
+  try {
+    const existing = window.localStorage.getItem(INSTALLATION_KEY) || "";
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) {
+      return existing;
+    }
+    const generated = createId();
+    window.localStorage.setItem(INSTALLATION_KEY, generated);
+    return generated;
+  } catch {
+    return ""; // depolama yoksa kimliksiz kayıt (rotasyonsuz eski yol)
   }
 }

@@ -32,9 +32,11 @@ function cleanToken(value: unknown) {
   return token.toLowerCase();
 }
 
-function cleanTripId(value: unknown) {
-  const tripId = String(value || "").trim().toLowerCase();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(tripId) ? tripId : null;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function cleanUuid(value: unknown) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return UUID_PATTERN.test(normalized) ? normalized : null;
 }
 
 export async function POST(request: Request) {
@@ -44,10 +46,14 @@ export async function POST(request: Request) {
   const user = await requireUser(request, supabase);
   if (!user) return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
 
-  const body = await request.json().catch(() => null) as { tokenType?: string; token?: string; tripId?: string } | null;
+  const body = await request.json().catch(() => null) as { tokenType?: string; token?: string; tripId?: string; installationId?: string } | null;
   const tokenType = String(body?.tokenType || "").toLowerCase();
   const token = cleanToken(body?.token);
-  const tripId = cleanTripId(body?.tripId);
+  const tripId = cleanUuid(body?.tripId);
+  // Kalıcı kurulum (cihaz) kimliği: push-to-start token ROTASYONU için.
+  // Apple token'ı zamanla değiştirebilir; kimlik sayesinde aynı fiziksel
+  // cihazın eski tokenı atomik kapatılır, DİĞER cihazlara dokunulmaz.
+  const installationId = cleanUuid(body?.installationId);
   if (!TOKEN_TYPES.has(tokenType) || !token || (tokenType === "activity_update" && !tripId)) {
     return NextResponse.json({ error: "Geçersiz token kaydı isteği." }, { status: 400 });
   }
@@ -66,6 +72,26 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
+
+  // push_to_start + kurulum kimliği: rotasyon TEK transaksiyonda (RPC).
+  // Aynı kullanıcı+kurulumun eski tokenları atomik kapanır; farklı
+  // cihazlar etkilenmez. RPC/kolon migration'ı üretimde henüz yoksa
+  // (42883 fonksiyon yok / 42703 kolon yok) eski upsert yoluna düşülür.
+  if (tokenType === "push_to_start" && installationId) {
+    const { error: rpcError } = await supabase.rpc("register_live_activity_push_to_start", {
+      p_user_id: user.id,
+      p_installation_id: installationId,
+      p_token: token,
+    });
+    if (!rpcError) return NextResponse.json({ success: true });
+    const rpcCode = (rpcError as { code?: string }).code;
+    if (rpcCode === "42P01") return NextResponse.json({ error: "Servis henüz hazır değil." }, { status: 503 });
+    if (rpcCode !== "42883" && rpcCode !== "42703") {
+      console.error("live_activity_token_rotasyon_hatasi", { code: rpcCode || "unknown" });
+      return NextResponse.json({ error: "Token kaydedilemedi." }, { status: 500 });
+    }
+    // Fonksiyon henüz yok: aşağıdaki geriye dönük uyumlu yol devam eder.
+  }
 
   // Tür başına kullanıcı kotası: en eski etkin kayıt kapatılarak yer açılır.
   const { count } = await supabase
@@ -95,6 +121,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         token_type: tokenType,
         trip_id: tokenType === "activity_update" ? tripId : null,
+        ...(installationId ? { installation_id: installationId } : {}),
         token,
         enabled: true,
         updated_at: now,

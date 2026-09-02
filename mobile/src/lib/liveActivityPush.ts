@@ -1,5 +1,6 @@
 import { requestJson } from "./api";
 import { addPluginListener, isIOSNative, plugin } from "./capacitor";
+import { getInstallationId } from "./storage";
 
 // Live Activity push tokenlarının sunucuya kaydı.
 // - Token gözlemi NATIVE tarafta, uygulama açılışında başlar
@@ -33,7 +34,13 @@ async function sendToken(entry: PendingToken, key: string) {
     await requestJson("/api/live-activity/tokens", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { tokenType: entry.tokenType, token: entry.token, ...(entry.tripId ? { tripId: entry.tripId } : {}) },
+      body: {
+        tokenType: entry.tokenType,
+        token: entry.token,
+        ...(entry.tripId ? { tripId: entry.tripId } : {}),
+        // Rotasyon için kalıcı kurulum kimliği (bkz. storage.getInstallationId).
+        ...(getInstallationId() ? { installationId: getInstallationId() } : {}),
+      },
     });
     pendingTokens.delete(key);
     // Native tampondan da silinir; sonraki açılışta yeniden gönderilmez.
