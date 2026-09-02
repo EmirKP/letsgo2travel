@@ -163,6 +163,24 @@ if (checkIos) {
   expect(project, /CURRENT_PROJECT_VERSION = 9;/, "iOS build numarası 9", "Xcode CURRENT_PROJECT_VERSION 9 değil.");
   expect(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/, "Sign in with Apple entitlement bağlantısı", "Apple entitlement dosyası Xcode hedefine bağlı değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
+  // Live Activity / Widget Extension: elle Xcode adımı KALMAMALI —
+  // hedef, kaynaklar ve kayıt proje dosyalarına işlenmiş olmalı.
+  const widgetInfo = await text("ios/App/FlightActivityWidget/Info.plist", { label: "Widget uzantısı Info.plist" });
+  const storyboard = await text("ios/App/App/Base.lproj/Main.storyboard", { label: "iOS Main.storyboard" });
+  const mainViewController = await text("ios/App/App/MainViewController.swift", { label: "MainViewController" });
+  expect(plist, /<key>NSSupportsLiveActivities<\/key>\s*<true\/>/, "Live Activity desteği Info.plist'te beyan edildi", "Info.plist NSSupportsLiveActivities=true içermiyor.");
+  expect(project, /productType = "com\.apple\.product-type\.app-extension"/, "Widget Extension hedefi projeye işli", "project.pbxproj'da app-extension hedefi yok (Widget Xcode'da elle eklenmemeli, projede olmalı).");
+  expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app\.FlightActivityWidget;/, "Widget bundle kimliği", "Widget uzantısının bundle kimliği beklenen değer değil.");
+  expect(project, /name = "Embed Foundation Extensions";/, "Widget uygulamaya gömülüyor (embed fazı)", "Embed Foundation Extensions fazı yok; .appex uygulama paketine gömülmez.");
+  expect(project, /dstSubfolderSpec = 13;/, "Widget PlugIns klasörüne kopyalanıyor", "Embed fazı PlugIns (dstSubfolderSpec=13) hedeflemiyor.");
+  expect(project, /IPHONEOS_DEPLOYMENT_TARGET = 16\.2;/, "Widget dağıtım hedefi iOS 16.2", "Widget hedefinin IPHONEOS_DEPLOYMENT_TARGET değeri 16.2 değil.");
+  if ((project.match(/FlightActivityAttributes\.swift in Sources/g) || []).length >= 4) ok.push("FlightActivityAttributes iki hedefte de derleniyor");
+  else errors.push("FlightActivityAttributes.swift hem App hem Widget hedefinde derlenmiyor.");
+  expect(project, /FlightLiveActivityPlugin\.swift in Sources/, "Live Activity köprü eklentisi App hedefinde", "FlightLiveActivityPlugin.swift App hedefine derlenmiyor.");
+  expect(project, /MainViewController\.swift in Sources/, "MainViewController App hedefinde", "MainViewController.swift App hedefine derlenmiyor.");
+  expect(widgetInfo, /com\.apple\.widgetkit-extension/, "WidgetKit uzantı noktası beyanı", "Widget Info.plist NSExtensionPointIdentifier=widgetkit-extension içermiyor.");
+  expect(storyboard, /customClass="MainViewController"/, "Storyboard köprüsü MainViewController", "Main.storyboard hâlâ CAPBridgeViewController kullanıyor; özel eklenti kaydı çalışmaz.");
+  expect(mainViewController, /registerPluginInstance\(FlightLiveActivityPlugin\(\)\)/, "FlightLiveActivity eklenti kaydı", "MainViewController FlightLiveActivityPlugin kaydını yapmıyor.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
   expect(appDelegate, /continue userActivity/, "Universal Link yönlendirme köprüsü", "AppDelegate Universal Link yönlendirmesini desteklemiyor.");
   for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorShare", "CapacitorSplashScreen", "CapacitorStatusBar"]) {
