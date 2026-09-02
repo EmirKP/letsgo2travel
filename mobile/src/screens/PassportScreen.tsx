@@ -1,5 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useMemo, useRef, useState } from "react";
 import { COUNTRY_LIST, STATUS_LABEL, STATUS_ORDER, VISA_DATA } from "../data/countries";
+import type { MapStatus } from "../components/PassportWorldMap";
+
+// Harita geometrisi (~135 KB) ana pakete girmesin diye tembel yüklenir;
+// ekran açılırken kısa bir yer tutucu görünür.
+const PassportWorldMap = lazy(() => import("../components/PassportWorldMap").then((mod) => ({ default: mod.PassportWorldMap })));
 import type { Country, VisaStatus } from "../types";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
@@ -73,6 +78,32 @@ export function PassportScreen() {
         <div><strong>{counts.id_card}</strong><span>Kimlikle</span></div>
         <div><strong>{counts.free}</strong><span>Vizesiz</span></div>
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>Kolay vize</span></div>
+      </div>
+
+      {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
+          dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen
+          ülkeler için veri uydurulmaz; "Bilinmiyor" gösterilir. */}
+      <Suspense fallback={<div className="passport-map passport-map-loading" aria-label="Harita yükleniyor" />}>
+      <PassportWorldMap
+        statusFor={(alpha3) => (alpha3 && VISA_DATA[alpha3] ? VISA_DATA[alpha3] : "unknown") as MapStatus}
+        isHighlighted={(alpha3) => {
+          if (!alpha3) return !query && filter === "all";
+          const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
+          if (!country) return !query && filter === "all";
+          return rows.some((row) => row.alpha3 === alpha3);
+        }}
+        selectedAlpha3={selected?.alpha3 || null}
+        onSelectCountry={(alpha3) => {
+          const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
+          if (country) void openCountry(country);
+        }}
+      />
+      </Suspense>
+      <div className="passport-map-legend" role="list" aria-label="Harita renk açıklaması">
+        {(["id_card", "free", "evisa", "on_arrival", "required"] as const).map((status) => (
+          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{STATUS_LABEL[status]}</span>
+        ))}
+        <span role="listitem" className="legend-chip legend-unknown">Bilinmiyor</span>
       </div>
 
       <label className="sr-only" htmlFor="passport-country-search">Ülke ara</label>

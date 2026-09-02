@@ -882,3 +882,20 @@
 .community-answer p { margin: 0; font-size: 12.5px; line-height: 1.55; color: #33465c; }
 .community-answer-form { display: grid; gap: 9px; }
 .community-answer-form textarea { min-height: 86px; }
+
+/* === Pasaport Gucu dunya haritasi === */
+.passport-map { position: relative; margin-top: 12px; border-radius: 18px; overflow: hidden; background: #eaf3f9; border: 1px solid #dbe7ef; }
+.passport-map svg { display: block; width: 100%; height: auto; touch-action: none; }
+.passport-map-controls { position: absolute; right: 9px; bottom: 9px; display: grid; gap: 6px; }
+.passport-map-controls button { width: 38px; height: 38px; border-radius: 11px; border: 1px solid #d3e0e9; background: rgba(255,255,255,.95); color: #071b33; font-size: 17px; font-weight: 800; box-shadow: 0 5px 14px rgba(7,27,51,.12); }
+.passport-map-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 2px; }
+.legend-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 9px; border-radius: 999px; font-size: 10px; font-weight: 800; color: #26374a; background: #f1f6fa; }
+.legend-chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; }
+.legend-id_card::before { background: #2E9BD6; }
+.legend-free::before { background: #2FA981; }
+.legend-evisa::before { background: #7A66C9; }
+.legend-on_arrival::before { background: #E2A93B; }
+.legend-required::before { background: #D96470; }
+.legend-unknown::before { background: #C7D2DB; }
+.passport-map-loading { min-height: 180px; animation: pulse-bg 1.2s ease-in-out infinite alternate; }
+@keyframes pulse-bg { from { opacity: .55; } to { opacity: .9; } }
