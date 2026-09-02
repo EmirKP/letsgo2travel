@@ -5,6 +5,7 @@ import { COUNTRY_LIST } from "../data/countries";
 import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
 import { config } from "../lib/config";
 import { getTravelVerifications } from "../lib/api";
+import { addPluginListener } from "../lib/capacitor";
 import { openExternal, shareContent } from "../lib/native";
 import { disablePush, enablePushForUser, getPushPermissionState, type PushPermissionSummary } from "../lib/push";
 import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile, type UserProfileData } from "../lib/supabaseData";
@@ -91,12 +92,32 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
 
   useEffect(() => {
     let active = true;
-    void getPushPermissionState().then((state) => {
-      if (!active) return;
-      setPushState(state);
-      setPushEnabled(state === "granted");
+    const refreshPushState = () => {
+      void getPushPermissionState().then((state) => {
+        if (!active) return;
+        setPushState(state);
+        setPushEnabled(state === "granted");
+      });
+    };
+    refreshPushState();
+    // Kullanıcı iOS Ayarlar'dan izni değiştirip geri döndüğünde durum
+    // güncellensin: uygulama öne gelince yeniden oku.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshPushState();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    let appStateHandle: { remove: () => Promise<void> } | null = null;
+    void addPluginListener("App", "appStateChange", (event) => {
+      if (event.isActive) refreshPushState();
+    }).then((handle) => {
+      if (!active) { void handle?.remove().catch(() => undefined); return; }
+      appStateHandle = handle;
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      void appStateHandle?.remove().catch(() => undefined);
+    };
   }, []);
 
   useEffect(() => {

@@ -74,31 +74,36 @@ async function waitForRegistrationToken(push: PushPluginSurface): Promise<string
   if (!push.register) return null;
   const handles: { registration: PushListenerHandle | null; error: PushListenerHandle | null } = { registration: null, error: null };
   try {
-    const token = await new Promise<string | null>((resolve) => {
-      let settled = false;
-      const finish = (value: string | null) => {
+    let settled = false;
+    let finish: (value: string | null) => void = () => undefined;
+    const tokenPromise = new Promise<string | null>((resolve) => {
+      finish = (value: string | null) => {
         if (settled) return;
         settled = true;
-        window.clearTimeout(timer);
         resolve(value);
       };
-      const timer = window.setTimeout(() => finish(null), REGISTRATION_TIMEOUT_MS);
-
-      void addPluginListener("PushNotifications", "registration", (payload) => {
-        const value = typeof payload.value === "string" ? payload.value : "";
-        finish(value || null);
-      }).then((handle) => { handles.registration = handle; });
-
-      void addPluginListener("PushNotifications", "registrationError", () => {
-        // Hata ayrıntısı belirteç içerebileceğinden hiçbir şey loglanmaz.
-        finish(null);
-      }).then((handle) => { handles.error = handle; });
-
-      void Promise.resolve()
-        .then(() => push.register?.())
-        .catch(() => finish(null));
     });
-    return token;
+
+    // KRITIK SIRA: listener'lar register()'dan ONCE kurulup BEKLENIR.
+    // Aksi halde 'registration' olayi listener bağlanmadan ateslenirse
+    // token sonsuza dek kacirilir ve akis zaman asimina duser.
+    handles.registration = await addPluginListener("PushNotifications", "registration", (payload) => {
+      const value = typeof payload.value === "string" ? payload.value : "";
+      finish(value || null);
+    });
+    handles.error = await addPluginListener("PushNotifications", "registrationError", () => {
+      // Hata ayrıntısı belirteç içerebileceğinden hiçbir şey loglanmaz.
+      finish(null);
+    });
+    if (!handles.registration) return null;
+
+    const timer = window.setTimeout(() => finish(null), REGISTRATION_TIMEOUT_MS);
+    try {
+      await Promise.resolve().then(() => push.register?.()).catch(() => finish(null));
+      return await tokenPromise;
+    } finally {
+      window.clearTimeout(timer);
+    }
   } catch {
     return null;
   } finally {

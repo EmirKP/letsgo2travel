@@ -34,8 +34,19 @@ function apnsJwt() {
   return token;
 }
 
+/**
+ * Etkin APNs ortamı. Değer büyük/küçük harf ve boşluk toleranslı okunur:
+ * "Production", " production " gibi girişler de production sayılır.
+ * ÖNEMLİ: TestFlight/App Store build'leri PRODUCTION token üretir; env
+ * sandbox'ta kalırsa Apple BadDeviceToken döner ve push hiç çıkmaz.
+ */
+export function apnsEnvironment(): "production" | "sandbox" {
+  const raw = String(process.env.APNS_ENVIRONMENT || "").trim().toLowerCase();
+  return raw === "production" ? "production" : "sandbox";
+}
+
 export function apnsHost() {
-  return process.env.APNS_ENVIRONMENT === "production"
+  return apnsEnvironment() === "production"
     ? "https://api.push.apple.com"
     : "https://api.sandbox.push.apple.com";
 }
@@ -93,6 +104,10 @@ export async function sendApnsNotification(
         const parsed = JSON.parse(responseBody) as { reason?: string };
         if (parsed.reason) reason = `apns_${parsed.reason}`;
       } catch {}
+      // Maskeli teşhis logu: token/secret İÇERMEZ. BadDeviceToken +
+      // env=sandbox birlikteliği tipik ortam uyuşmazlığıdır (TestFlight
+      // tokeni production'dır).
+      console.error("apns_gonderim_hatasi", { status, reason, env: apnsEnvironment() });
       const shouldDisableToken = status === 410 || reason === "apns_BadDeviceToken" || reason === "apns_Unregistered";
       resolve({ ok: false, shouldDisableToken, reason });
     });

@@ -31,6 +31,11 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true,
     },
+    // Uygulama ON PLANDAYKEN gelen push bildirimlerinin de gosterilmesi
+    // icin gerekli (yoksa iOS foreground'da bildirimi sessizce yutar).
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
     SplashScreen: {
       launchShowDuration: 1100,
       launchAutoHide: true,

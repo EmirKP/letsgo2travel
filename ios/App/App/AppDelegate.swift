@@ -33,6 +33,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // MARK: - Push bildirimleri (APNs -> Capacitor koprusu)
+    // Bu iki metod OLMADAN iOS'un verdigi APNs cihaz tokeni Capacitor
+    // PushNotifications eklentisine HIC ulasmaz: JS tarafindaki
+    // "registration" olayi tetiklenmez, kayit 20 sn'de zaman asimina
+    // ugrar ve cihaz sunucuya kaydedilemez. (Eklentinin resmi iOS
+    // kurulum adimi; plugin .capacitorDidRegisterForRemoteNotifications
+    // bildirimini dinler.)
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
