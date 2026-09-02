@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BellRing, Calendar, X, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BellRing, Calendar } from "lucide-react";
 
 interface Alert {
   id: string;
@@ -12,15 +13,34 @@ interface Alert {
   departure_date: string;
   target_price: number | null;
   base_price: number | null;
+  last_checked_price: number | null;
   lowest_price_seen: number | null;
+  notify_email: boolean;
+  notify_push: boolean;
   is_active: boolean;
+  status: string | null;
   created_at: string;
+}
+
+// Teknik durum kodlarını kullanıcı dostu Türkçeye çevirir; APNs/teknik
+// ayrıntı gösterilmez.
+function statusInfo(alert: Alert): { label: string; tone: "ok" | "paused" | "sent" | "error" } {
+  if (!alert.is_active) return { label: "Duraklatıldı", tone: "paused" };
+  if (alert.status === "triggered") return { label: "Bildirim gönderildi", tone: "sent" };
+  if (alert.status === "error") return { label: "Kontrol edilemedi — tekrar deneyeceğiz", tone: "error" };
+  return { label: "Takipte", tone: "ok" };
+}
+
+function formatPrice(value: number | null) {
+  if (value === null || value === undefined) return null;
+  return `${Number(value).toLocaleString("tr-TR")} ₺`;
 }
 
 export default function UserPriceAlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAlerts();
@@ -33,7 +53,7 @@ export default function UserPriceAlertsPage() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        setError("Lütfen giriş yapın.");
+        setError("Alarmlarını görmek için giriş yapmalısın.");
         setLoading(false);
         return;
       }
@@ -45,14 +65,16 @@ export default function UserPriceAlertsPage() {
 
       if (!res.ok) throw new Error(json.error);
       setAlerts(json.data || []);
+      setError("");
     } catch (err: any) {
-      setError(err.message || "Yükleme başarısız.");
+      setError(err.message || "Alarmlar yüklenemedi. Sayfayı yenileyip tekrar dene.");
     } finally {
       setLoading(false);
     }
   }
 
   async function toggleAlert(id: string, currentStatus: boolean) {
+    setBusyId(id);
     try {
       const { supabase } = await import("@/lib/supabase-client");
       const { data: { session } } = await supabase.auth.getSession();
@@ -71,11 +93,14 @@ export default function UserPriceAlertsPage() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setBusyId(null);
     }
   }
 
   async function deleteAlert(id: string) {
-    if (!window.confirm("Bu alarmı silmek istediğinize emin misiniz?")) return;
+    if (!window.confirm("Bu alarmı silmek istediğine emin misin? Bu işlem geri alınamaz.")) return;
+    setBusyId(id);
     try {
       const { supabase } = await import("@/lib/supabase-client");
       const { data: { session } } = await supabase.auth.getSession();
@@ -90,54 +115,79 @@ export default function UserPriceAlertsPage() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setBusyId(null);
     }
   }
 
-  if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Yükleniyor...</div>;
-  if (error) return <div style={{ padding: "40px", color: "red", textAlign: "center" }}>{error}</div>;
+  if (loading) return <div className="l2t-myalarm-state">Alarmların yükleniyor…</div>;
+  if (error) {
+    return (
+      <div className="l2t-myalarm-state l2t-myalarm-state-error">
+        <p>{error}</p>
+        <button type="button" onClick={() => loadAlerts()}>Tekrar dene</button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: "24px 0" }}>
-      <h2 style={{ display: "flex", alignItems: "center", gap: "12px", color: "var(--l2t-navy)", fontSize: "1.8rem", marginBottom: "24px" }}>
-        <BellRing color="#d97706" size={28} /> Fiyat Alarmlarım
-      </h2>
+    <div className="l2t-myalarm-page">
+      <div className="l2t-myalarm-head">
+        <h2><BellRing size={26} /> Fiyat Alarmlarım</h2>
+        <Link href="/fiyat-kontrolu" className="l2t-myalarm-new">+ Yeni alarm</Link>
+      </div>
 
       {alerts.length === 0 ? (
-        <div className="glass-panel" style={{ padding: "40px", textAlign: "center", borderRadius: "16px" }}>
-          <p style={{ color: "var(--l2t-soft)", fontSize: "1.1rem" }}>Henüz bir fiyat alarmınız yok.</p>
+        <div className="l2t-myalarm-empty">
+          <p>Henüz bir fiyat alarmın yok.</p>
+          <span>Takip etmek istediğin rotayı seç; fiyat düşünce sana haber verelim.</span>
+          <Link href="/fiyat-kontrolu">İlk alarmını kur <ArrowRight size={16} /></Link>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div className="l2t-myalarm-list">
           {alerts.map(alert => {
+            const state = statusInfo(alert);
+            const channels = [
+              alert.notify_email ? "E-posta" : null,
+              alert.notify_push ? "Telefon" : null,
+            ].filter(Boolean);
             return (
-              <div key={alert.id} className="glass-panel" style={{ padding: "20px", borderRadius: "16px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "20px", opacity: alert.is_active ? 1 : 0.6 }}>
-                <div>
-                  <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem", color: "var(--l2t-navy)", display: "flex", alignItems: "center", gap: "8px" }}>
-                    {alert.origin_label} <ArrowRight size={16} color="var(--l2t-soft)"/> {alert.destination_label}
+              <div key={alert.id} className={`l2t-myalarm-card${alert.is_active ? "" : " is-paused"}`}>
+                <div className="l2t-myalarm-main">
+                  <h3>
+                    {alert.origin_label} <ArrowRight size={16} /> {alert.destination_label}
                   </h3>
-                  <p style={{ margin: 0, color: "var(--l2t-soft)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Calendar size={14} /> {new Date(alert.departure_date).toLocaleDateString('tr-TR')}
+                  <p className="l2t-myalarm-date">
+                    <Calendar size={14} /> {new Date(alert.departure_date).toLocaleDateString("tr-TR")}
                   </p>
-
-                  <div style={{ display: "flex", gap: "16px", marginTop: "12px", fontSize: "0.85rem" }}>
-                    <div style={{ background: "rgba(0,0,0,0.03)", padding: "6px 10px", borderRadius: "8px" }}>
-                      İlk Fiyat: <strong>{alert.base_price ? `${alert.base_price} ₺` : "Bekleniyor"}</strong>
-                    </div>
-                    <div style={{ background: "rgba(0,0,0,0.03)", padding: "6px 10px", borderRadius: "8px" }}>
-                      Hedef: <strong style={{ color: alert.target_price ? "#059669" : "var(--l2t-soft)" }}>{alert.target_price ? `${alert.target_price} ₺` : "%5 Düşüş"}</strong>
-                    </div>
+                  <div className="l2t-myalarm-facts">
+                    <span>Hedef: <strong>{formatPrice(alert.target_price) || "%5 düşüş"}</strong></span>
+                    <span>Son fiyat: <strong>{formatPrice(alert.last_checked_price) || "Henüz kontrol edilmedi"}</strong></span>
+                  </div>
+                  <div className="l2t-myalarm-badges">
+                    <span className={`l2t-myalarm-status is-${state.tone}`}>{state.label}</span>
+                    {channels.map((channel) => (
+                      <span key={channel as string} className="l2t-myalarm-channel">{channel}</span>
+                    ))}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                <div className="l2t-myalarm-actions">
                   <button
+                    type="button"
+                    disabled={busyId === alert.id}
                     onClick={() => toggleAlert(alert.id, alert.is_active)}
-                    style={{ border: "none", background: alert.is_active ? "#fee2e2" : "#dcfce3", color: alert.is_active ? "#991b1b" : "#065f46", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }}
+                    className={alert.is_active ? "is-pause" : "is-resume"}
                   >
-                    {alert.is_active ? "Durdur" : "Başlat"}
+                    {alert.is_active ? "Duraklat" : "Devam ettir"}
                   </button>
-                  <button onClick={() => deleteAlert(alert.id)} style={{ background: "transparent", border: "none", color: "var(--l2t-muted)", cursor: "pointer", padding: "8px" }}>
-                    <X size={20} />
+                  <button
+                    type="button"
+                    disabled={busyId === alert.id}
+                    onClick={() => deleteAlert(alert.id)}
+                    className="is-delete"
+                  >
+                    Sil
                   </button>
                 </div>
               </div>

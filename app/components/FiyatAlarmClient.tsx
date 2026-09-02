@@ -53,10 +53,15 @@ export default function FiyatAlarmClient() {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.email || !form.destination) return;
+    if (!form.destination) return;
     if (!notifyEmail && !notifyPush) {
       setStatus("error");
-      setMessage("En az bir bildirim kanalı seçmelisin.");
+      setMessage("En az bir bildirim kanalı seçmelisin (e-posta veya telefon bildirimi).");
+      return;
+    }
+    if (notifyEmail && !form.email && !sessionToken) {
+      setStatus("error");
+      setMessage("E-posta bildirimi için e-posta adresini yazmalısın.");
       return;
     }
     setStatus("loading");
@@ -165,7 +170,7 @@ export default function FiyatAlarmClient() {
           </label>
 
           <label className="l2t-alarm-field">
-            <span>Hedef fiyat (TL) — opsiyonel</span>
+            <span>Hedef fiyat (TL) — boş bırakırsan %5 düşüşte haber veririz</span>
             <input
               type="number"
               inputMode="numeric"
@@ -177,38 +182,54 @@ export default function FiyatAlarmClient() {
             />
           </label>
 
-          <label className="l2t-alarm-field">
-            <span>E-posta adresin</span>
-            <input
-              type="email"
-              inputMode="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="ornek@mail.com"
-              required
-            />
-          </label>
+          <fieldset className="l2t-alarm-channels">
+            <legend>Sana nasıl haber verelim?</legend>
 
-          <div className="l2t-alarm-field">
-            <span>Bildirim kanalları</span>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: ".9rem", cursor: "pointer" }}>
-              <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
-              E-posta
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: ".9rem", cursor: sessionToken ? "pointer" : "not-allowed", opacity: sessionToken ? 1 : 0.6 }}>
-              <input type="checkbox" checked={notifyPush} disabled={!sessionToken} onChange={(e) => setNotifyPush(e.target.checked)} />
-              Telefon bildirimi
-            </label>
-            <small style={{ color: "var(--l2t-soft)", fontSize: ".78rem", lineHeight: 1.5 }}>
-              {sessionToken
-                ? "Telefon bildirimi için LetsGo2Travel mobil uygulamasında aynı hesapla giriş yapıp bildirim iznini açman yeterli."
-                : "Telefon bildirimi seçmek için önce giriş yapmalısın; e-posta ile devam edebilirsin."}
-            </small>
-          </div>
+            <div className={`l2t-alarm-channel${notifyEmail ? " is-on" : ""}`}>
+              <label className="l2t-alarm-channel-head">
+                <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                <span>
+                  <strong>E-posta</strong>
+                  <small>Fiyat düşünce e-posta ile bildiririz.</small>
+                </span>
+              </label>
+              {notifyEmail && (
+                <label className="l2t-alarm-field l2t-alarm-channel-input">
+                  <span>E-posta adresin</span>
+                  <input
+                    type="email"
+                    inputMode="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="ornek@mail.com"
+                    required
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className={`l2t-alarm-channel${notifyPush ? " is-on" : ""}${sessionToken ? "" : " is-disabled"}`}>
+              <label className="l2t-alarm-channel-head">
+                <input type="checkbox" checked={notifyPush} disabled={!sessionToken} onChange={(e) => setNotifyPush(e.target.checked)} />
+                <span>
+                  <strong>Telefon bildirimi</strong>
+                  <small>
+                    {sessionToken
+                      ? "Mobil uygulamada aynı hesapla giriş yapıp bildirim iznini açman yeterli. İzni daha önce reddettiysen iPhone'da Ayarlar > Bildirimler > LetsGo2Travel'dan açabilirsin."
+                      : "Bunun için önce giriş yapman gerekir; e-posta ile giriş yapmadan da devam edebilirsin."}
+                  </small>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           {status === "success" ? (
-            <div className="l2t-alarm-success">
-              ✓ {message}
+            <div className="l2t-alarm-success" role="status">
+              <p>✓ {message}</p>
+              <div className="l2t-alarm-success-actions">
+                <a href="/profil/fiyat-alarmlari">Alarmlarımı gör</a>
+                <button type="button" onClick={() => setStatus("idle")}>Yeni alarm kur</button>
+              </div>
             </div>
           ) : (
             <button type="submit" className="l2t-btn l2t-btn-wide" disabled={status === "loading"}>
@@ -217,7 +238,7 @@ export default function FiyatAlarmClient() {
           )}
 
           {status === "error" && (
-            <p style={{ color: "#e53e3e", fontSize: ".88rem", margin: "8px 0 0" }}>{message}</p>
+            <p className="l2t-alarm-error" role="alert">{message}</p>
           )}
         </form>
       </div>
@@ -231,8 +252,8 @@ export default function FiyatAlarmClient() {
             <span>Nereden nereye gideceğini ve hedef fiyatı belirle.</span>
           </li>
           <li>
-            <strong>E-postanı ekle</strong>
-            <span>Fırsat çıktığında seni haberdar edelim.</span>
+            <strong>Bildirim kanalını seç</strong>
+            <span>E-posta, telefon bildirimi veya ikisini birden seçebilirsin.</span>
           </li>
           <li>
             <strong>Bildirim al</strong>

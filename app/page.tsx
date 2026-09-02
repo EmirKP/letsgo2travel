@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   ArrowRight,
+  BellRing,
   Calculator,
   CalendarSearch,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   Globe2,
   Hotel,
   Map,
+  Plane,
   ShieldCheck,
   Sparkles,
   Users,
@@ -76,6 +78,8 @@ function getRouteHighlights() {
   ];
 }
 
+// Ana sayfanın dört temel aracı. Fiyat Alarmı bir arama motoru DEĞİLDİR;
+// takip ettiğin rotada fiyat düşünce haber veren bağımsız bir araçtır.
 const quickActions = [
   {
     href: "/ulke-rehberi",
@@ -90,16 +94,16 @@ const quickActions = [
     text: "Bütçe, süre ve seyahat tarzına göre rota oluştur.",
   },
   {
-    href: "/pasaport-gucu",
-    icon: ShieldCheck,
-    title: "Pasaport Gücü",
-    text: "Kimlikle, vizesiz ve e-Vize seçeneklerini karşılaştır.",
+    href: "/fiyat-kontrolu",
+    icon: BellRing,
+    title: "Fiyat Alarmı",
+    text: "Takip ettiğin rotada fiyat düşünce e-posta veya telefon bildirimiyle haber ver.",
   },
   {
-    href: "/butce-hesapla",
-    icon: Calculator,
-    title: "Bütçe Hesapla",
-    text: "Uçuş hariç seyahat giderlerini tek tabloda planla.",
+    href: "/seyahat-kokpiti",
+    icon: Plane,
+    title: "Seyahat Kokpiti",
+    text: "Uçuşunu, planlarını ve belgelerini tek panoda yönet.",
   },
 ];
 

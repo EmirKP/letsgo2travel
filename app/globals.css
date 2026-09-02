@@ -5599,13 +5599,13 @@ p, li, small, span, label {
    Sabit marka sarısı: #FFDF00
    ══════════════════════════════════════ */
 :root {
-  --l2t-gold: #FFDF00 !important;
-  --l2t-gold-deep: #E6C700 !important;
-  --l2t-gold-hover: #F2D200 !important;
-  --l2t-gold-soft: #FFF8B8 !important;
-  --l2t-warning: #FFDF00 !important;
-  --l2t-blue: #FFDF00 !important;
-  --l2t-blue-2: #E6C700 !important;
+  --l2t-gold: #FFDF00;
+  --l2t-gold-deep: #E6C700;
+  --l2t-gold-hover: #F2D200;
+  --l2t-gold-soft: #FFF8B8;
+  --l2t-warning: #FFDF00;
+  --l2t-blue: #FFDF00;
+  --l2t-blue-2: #E6C700;
 }
 
 /* Sarı CTA'larda turuncuya kayan eski tonları kır */
@@ -5644,20 +5644,20 @@ p, li, small, span, label {
    Sarı marka imzası: #FFDF00; site genelinde ferah lacivert/beyaz denge
    ══════════════════════════════════════ */
 :root {
-  --l2t-navy: #071B33 !important;
-  --l2t-night: #071B33 !important;
-  --l2t-deep: #0E2A47 !important;
-  --l2t-gold: #FFDF00 !important;
-  --l2t-gold-deep: #E6C700 !important;
-  --l2t-gold-hover: #FFE733 !important;
-  --l2t-gold-soft: #FFF8B8 !important;
-  --l2t-blue: #0E7A8A !important;
-  --l2t-blue-2: #08A6B8 !important;
-  --l2t-ocean: #08A6B8 !important;
-  --l2t-ocean-deep: #0E7A8A !important;
-  --l2t-page-bg: #F6FAFD !important;
-  --l2t-ink-clean: #102033 !important;
-  --l2t-muted-clean: #64758A !important;
+  --l2t-navy: #071B33;
+  --l2t-night: #071B33;
+  --l2t-deep: #0E2A47;
+  --l2t-gold: #FFDF00;
+  --l2t-gold-deep: #E6C700;
+  --l2t-gold-hover: #FFE733;
+  --l2t-gold-soft: #FFF8B8;
+  --l2t-blue: #0E7A8A;
+  --l2t-blue-2: #08A6B8;
+  --l2t-ocean: #08A6B8;
+  --l2t-ocean-deep: #0E7A8A;
+  --l2t-page-bg: #F6FAFD;
+  --l2t-ink-clean: #102033;
+  --l2t-muted-clean: #64758A;
 }
 
 .l2t-btn,
@@ -5827,38 +5827,38 @@ p, li, small, span, label {
    Sarı sadece CTA/aktif vurgu; bilgi/link okyanus tonu.
    ══════════════════════════════════════ */
 :root {
-  --l2t-navy: #071B33 !important;
-  --l2t-night: #06172D !important;
-  --l2t-deep: #0D2A4A !important;
-  --l2t-ink: #102033 !important;
-  --l2t-text: #102033 !important;
-  --l2t-ink-clean: #102033 !important;
-  --l2t-soft: #5F7084 !important;
-  --l2t-muted: #718196 !important;
-  --l2t-muted-clean: #5F7084 !important;
-  --l2t-page-bg: #F7FAFD !important;
-  --l2t-sky: #EFF7FC !important;
-  --l2t-card: #FFFFFF !important;
-  --l2t-card-strong: #FFFFFF !important;
-  --l2t-white: #FFFFFF !important;
-  --l2t-border: #E2EBF4 !important;
-  --l2t-border-strong: #D2DFEC !important;
-  --l2t-gold: #FFDF00 !important;
-  --l2t-gold-deep: #E4C600 !important;
-  --l2t-gold-hover: #FFE84A !important;
-  --l2t-gold-soft: #FFF9C7 !important;
-  --l2t-ocean: #087E8B !important;
-  --l2t-ocean-deep: #075E69 !important;
-  --l2t-ocean-soft: #E7F8FA !important;
-  --l2t-blue: #087E8B !important;
-  --l2t-blue-2: #075E69 !important;
-  --l2t-cyan: #087E8B !important;
-  --l2t-success: #178765 !important;
-  --l2t-danger: #C94A4A !important;
-  --l2t-shadow: 0 14px 38px rgba(7, 27, 51, .08) !important;
-  --l2t-shadow-lg: 0 26px 72px rgba(7, 27, 51, .13) !important;
-  --l2t-radius: 24px !important;
-  --l2t-radius-sm: 16px !important;
+  --l2t-navy: #071B33;
+  --l2t-night: #06172D;
+  --l2t-deep: #0D2A4A;
+  --l2t-ink: #102033;
+  --l2t-text: #102033;
+  --l2t-ink-clean: #102033;
+  --l2t-soft: #5F7084;
+  --l2t-muted: #718196;
+  --l2t-muted-clean: #5F7084;
+  --l2t-page-bg: #F7FAFD;
+  --l2t-sky: #EFF7FC;
+  --l2t-card: #FFFFFF;
+  --l2t-card-strong: #FFFFFF;
+  --l2t-white: #FFFFFF;
+  --l2t-border: #E2EBF4;
+  --l2t-border-strong: #D2DFEC;
+  --l2t-gold: #FFDF00;
+  --l2t-gold-deep: #E4C600;
+  --l2t-gold-hover: #FFE84A;
+  --l2t-gold-soft: #FFF9C7;
+  --l2t-ocean: #087E8B;
+  --l2t-ocean-deep: #075E69;
+  --l2t-ocean-soft: #E7F8FA;
+  --l2t-blue: #087E8B;
+  --l2t-blue-2: #075E69;
+  --l2t-cyan: #087E8B;
+  --l2t-success: #178765;
+  --l2t-danger: #C94A4A;
+  --l2t-shadow: 0 14px 38px rgba(7, 27, 51, .08);
+  --l2t-shadow-lg: 0 26px 72px rgba(7, 27, 51, .13);
+  --l2t-radius: 24px;
+  --l2t-radius-sm: 16px;
 }
 
 html,
@@ -6682,12 +6682,12 @@ main {
 /* === L2T BOOKING SARI V17 START === */
 /* Sadece sarı vurgu tonunu Booking tarzı #FFB700 çizgisine çeker. Layout/font/component yapısına dokunmaz. */
 :root {
-  --l2t-gold: #FFB700 !important;
-  --l2t-gold-deep: #E6A300 !important;
-  --l2t-gold-hover: #FFC533 !important;
-  --l2t-gold-soft: #FFF2C2 !important;
-  --l2t-warning: #FFB700 !important;
-  --l2t-yellow: #FFB700 !important;
+  --l2t-gold: #FFB700;
+  --l2t-gold-deep: #E6A300;
+  --l2t-gold-hover: #FFC533;
+  --l2t-gold-soft: #FFF2C2;
+  --l2t-warning: #FFB700;
+  --l2t-yellow: #FFB700;
 }
 
 /* Sarı çizgi / border / badge */
@@ -6732,12 +6732,12 @@ main {
 /* === L2T GECIS VE SARI TON FIX V18 START === */
 /* Sadece renk tonu ve keskin arka plan geçişlerini düzeltir. Layout/component yapısına dokunmaz. */
 :root {
-  --l2t-gold: #F6C343 !important;
-  --l2t-gold-deep: #DFA900 !important;
-  --l2t-gold-hover: #EAB308 !important;
-  --l2t-gold-soft: #FFF4D1 !important;
-  --l2t-warning: #F6C343 !important;
-  --l2t-yellow: #F6C343 !important;
+  --l2t-gold: #F6C343;
+  --l2t-gold-deep: #DFA900;
+  --l2t-gold-hover: #EAB308;
+  --l2t-gold-soft: #FFF4D1;
+  --l2t-warning: #F6C343;
+  --l2t-yellow: #F6C343;
 }
 
 /* Hero ile arama alanı arasındaki keskin dikey/sert geçişleri yumuşat */
@@ -6819,12 +6819,12 @@ main {
 /* === L2T GECIS VE OTEL TAB FIX V19 START === */
 /* Sadece hero-arama geçişi ve Otel sekmesi kontrastını düzeltir. Layout/font/component yapısına dokunmaz. */
 :root {
-  --l2t-gold: #F4C24E !important;
-  --l2t-gold-deep: #DFAE33 !important;
-  --l2t-gold-hover: #E7B63A !important;
-  --l2t-gold-soft: #FFF3CF !important;
-  --l2t-yellow: #F4C24E !important;
-  --l2t-warning: #F4C24E !important;
+  --l2t-gold: #F4C24E;
+  --l2t-gold-deep: #DFAE33;
+  --l2t-gold-hover: #E7B63A;
+  --l2t-gold-soft: #FFF3CF;
+  --l2t-yellow: #F4C24E;
+  --l2t-warning: #F4C24E;
 }
 
 /* Kırmızıyla işaretlenen sağ/sol keskin lekeleri temizle: eski full-width pseudo arka planı kapat. */
@@ -6905,29 +6905,29 @@ button.l2t-tab-inactive:hover {
 /* === L2T ARKADAS RENK PALETI V20 START === */
 /* Kural: koyu lacivert ana tema, gold-yellow sadece işaret/sembol/CTA, açık mavi ara renk. Layout ve font değiştirmez. */
 :root {
-  --l2t-night: #071B33 !important;
-  --l2t-navy: #071B33 !important;
-  --l2t-deep: #0B2A4A !important;
-  --l2t-navy-soft: #123A5C !important;
+  --l2t-night: #071B33;
+  --l2t-navy: #071B33;
+  --l2t-deep: #0B2A4A;
+  --l2t-navy-soft: #123A5C;
 
-  --l2t-gold: #F5B800 !important;
-  --l2t-gold-deep: #DFA300 !important;
-  --l2t-gold-hover: #E9AE00 !important;
-  --l2t-gold-soft: #FFF2C2 !important;
-  --l2t-yellow: #F5B800 !important;
-  --l2t-warning: #F5B800 !important;
+  --l2t-gold: #F5B800;
+  --l2t-gold-deep: #DFA300;
+  --l2t-gold-hover: #E9AE00;
+  --l2t-gold-soft: #FFF2C2;
+  --l2t-yellow: #F5B800;
+  --l2t-warning: #F5B800;
 
-  --l2t-cyan: #BFE9F8 !important;
-  --l2t-cyan-soft: #E8F7FD !important;
-  --l2t-sky: #EAF6FF !important;
-  --l2t-page-bg: #EAF6FF !important;
+  --l2t-cyan: #BFE9F8;
+  --l2t-cyan-soft: #E8F7FD;
+  --l2t-sky: #EAF6FF;
+  --l2t-page-bg: #EAF6FF;
 
-  --l2t-ink: #0B1D35 !important;
-  --l2t-text: #0F1F33 !important;
-  --l2t-soft: #64748B !important;
-  --l2t-muted: #6B7A90 !important;
-  --l2t-border: rgba(15, 39, 70, 0.13) !important;
-  --l2t-shadow: 0 14px 34px rgba(7, 27, 51, 0.10) !important;
+  --l2t-ink: #0B1D35;
+  --l2t-text: #0F1F33;
+  --l2t-soft: #64748B;
+  --l2t-muted: #6B7A90;
+  --l2t-border: rgba(15, 39, 70, 0.13);
+  --l2t-shadow: 0 14px 34px rgba(7, 27, 51, 0.10);
 }
 
 html,
@@ -7981,3 +7981,237 @@ body {
 .l2t-alarm-quick-routes > span {
   color: var(--l2t-ocean-deep) !important;
 }
+
+/* === L2T FIYAT ALARMI KANAL SECIMI V24 START === */
+/* Alarm formu: bildirim kanallarının sade, dokunması kolay seçimi. */
+.l2t-alarm-channels {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+}
+.l2t-alarm-channels legend {
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--l2t-text);
+  margin-bottom: 6px;
+  padding: 0;
+}
+.l2t-alarm-channel {
+  border: 1px solid var(--l2t-border);
+  border-radius: var(--l2t-radius-sm);
+  background: var(--l2t-card);
+  transition: border-color .15s ease, background .15s ease;
+}
+.l2t-alarm-channel.is-on {
+  border-color: var(--l2t-gold);
+  background: color-mix(in srgb, var(--l2t-gold-soft) 26%, #FFFFFF);
+}
+.l2t-alarm-channel.is-disabled { opacity: .62; }
+.l2t-alarm-channel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  min-height: 44px; /* dokunma hedefi */
+  cursor: pointer;
+}
+.l2t-alarm-channel.is-disabled .l2t-alarm-channel-head { cursor: not-allowed; }
+.l2t-alarm-channel-head input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--l2t-gold);
+  flex: none;
+}
+.l2t-alarm-channel-head strong {
+  display: block;
+  font-size: .92rem;
+  color: var(--l2t-text);
+}
+.l2t-alarm-channel-head small {
+  display: block;
+  margin-top: 2px;
+  font-size: .78rem;
+  line-height: 1.5;
+  color: var(--l2t-muted);
+}
+.l2t-alarm-channel-input { padding: 0 14px 12px; }
+.l2t-alarm-error {
+  color: var(--l2t-danger);
+  font-size: .88rem;
+  margin: 8px 0 0;
+}
+.l2t-alarm-success p { margin: 0 0 8px; }
+.l2t-alarm-success-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.l2t-alarm-success-actions a,
+.l2t-alarm-success-actions button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--l2t-radius-sm);
+  border: 1px solid var(--l2t-border);
+  background: var(--l2t-card);
+  color: var(--l2t-text);
+  font-weight: 700;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.l2t-alarm-success-actions a { text-decoration: none; }
+/* === L2T FIYAT ALARMI KANAL SECIMI V24 END === */
+
+/* === L2T FIYAT ALARMLARIM LISTESI V24 START === */
+.l2t-myalarm-page { padding: 24px 0; }
+.l2t-myalarm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.l2t-myalarm-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--l2t-night);
+}
+.l2t-myalarm-head h2 svg { color: var(--l2t-gold); }
+.l2t-myalarm-new {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--l2t-radius-sm);
+  background: var(--l2t-night);
+  color: #fff;
+  font-weight: 700;
+  font-size: .9rem;
+  text-decoration: none;
+}
+.l2t-myalarm-state {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--l2t-muted);
+}
+.l2t-myalarm-state-error { color: var(--l2t-danger); }
+.l2t-myalarm-state-error button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border-radius: var(--l2t-radius-sm);
+  border: 1px solid var(--l2t-border);
+  background: var(--l2t-card);
+  color: var(--l2t-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+.l2t-myalarm-empty {
+  padding: 40px 20px;
+  text-align: center;
+  border: 1px dashed var(--l2t-border);
+  border-radius: var(--l2t-radius);
+  background: var(--l2t-card);
+}
+.l2t-myalarm-empty p { margin: 0 0 6px; font-weight: 700; color: var(--l2t-text); }
+.l2t-myalarm-empty span { display: block; margin-bottom: 14px; color: var(--l2t-muted); font-size: .9rem; }
+.l2t-myalarm-empty a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--l2t-radius-sm);
+  background: var(--l2t-gold);
+  color: var(--l2t-night);
+  font-weight: 800;
+  text-decoration: none;
+}
+.l2t-myalarm-list { display: grid; gap: 14px; }
+.l2t-myalarm-card {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--l2t-border);
+  border-radius: var(--l2t-radius);
+  background: var(--l2t-card);
+  box-shadow: var(--l2t-shadow);
+}
+.l2t-myalarm-card.is-paused { opacity: .68; }
+.l2t-myalarm-main h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 1.06rem;
+  color: var(--l2t-night);
+}
+.l2t-myalarm-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--l2t-muted);
+  font-size: .88rem;
+}
+.l2t-myalarm-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  font-size: .85rem;
+  color: var(--l2t-muted);
+}
+.l2t-myalarm-facts strong { color: var(--l2t-text); }
+.l2t-myalarm-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.l2t-myalarm-status,
+.l2t-myalarm-channel {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 700;
+}
+.l2t-myalarm-status.is-ok { background: #E7F6EC; color: #15803D; }
+.l2t-myalarm-status.is-sent { background: color-mix(in srgb, var(--l2t-gold-soft) 55%, #fff); color: #8A6400; }
+.l2t-myalarm-status.is-paused { background: #EEF1F5; color: var(--l2t-muted); }
+.l2t-myalarm-status.is-error { background: #FDECEF; color: var(--l2t-danger); }
+.l2t-myalarm-channel { background: #EEF6FA; color: #0B5566; }
+.l2t-myalarm-actions { display: flex; gap: 10px; }
+.l2t-myalarm-actions button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--l2t-radius-sm);
+  font-weight: 700;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.l2t-myalarm-actions button:disabled { opacity: .55; cursor: wait; }
+.l2t-myalarm-actions .is-pause { background: #EEF1F5; color: var(--l2t-text); }
+.l2t-myalarm-actions .is-resume { background: #E7F6EC; color: #15803D; }
+.l2t-myalarm-actions .is-delete { background: transparent; color: var(--l2t-danger); border: 1px solid #F3C9D2; }
+@media (max-width: 560px) {
+  .l2t-myalarm-card { align-items: stretch; flex-direction: column; }
+  .l2t-myalarm-actions button { flex: 1; }
+}
+/* === L2T FIYAT ALARMLARIM LISTESI V24 END === */

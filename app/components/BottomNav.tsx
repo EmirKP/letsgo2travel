@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Home, ShieldCheck, Sparkles } from "lucide-react";
+import { BellRing, Compass, Home, Plane, Sparkles } from "lucide-react";
 
+// En fazla 5 temel hedef; ana sayfadaki dört temel araçla aynı bilgi
+// mimarisi: Keşfet, Rota Asistanı, Fiyat Alarmı, Seyahat Kokpiti.
+// Pasaport ve Planlarım, Header menüsü ve Profil üzerinden erişilir.
 const items = [
   { href: "/", label: "Ana Sayfa", icon: Home },
-  { href: "/pasaport-gucu", label: "Pasaport", icon: ShieldCheck },
-  { href: "/ulke-rehberi", label: "Keşfet", icon: Compass, main: true },
   { href: "/rota-asistani", label: "Rota", icon: Sparkles },
-  { href: "/planlarim", label: "Planlarım", icon: Bookmark },
+  { href: "/ulke-rehberi", label: "Keşfet", icon: Compass, main: true },
+  { href: "/fiyat-kontrolu", label: "Alarm", icon: BellRing },
+  { href: "/seyahat-kokpiti", label: "Kokpit", icon: Plane },
 ];
 
 export default function BottomNav() {
