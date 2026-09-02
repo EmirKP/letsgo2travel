@@ -333,9 +333,11 @@ export default function App() {
         <button className="brand-button" onClick={() => navigate("home")} aria-label="Ana sayfa"><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
       </div>
       <div className="topbar-actions">
-        <span className={`network-dot ${online ? "online" : "offline"}`} role="status" aria-label={online ? "Çevrimiçi" : "Çevrimdışı"} title={online ? "Çevrimiçi" : "Çevrimdışı"} />
+        {/* Header sade: geri/logo + bildirim + menü. Profil BottomNav'da;
+            buradaki kısayol ve işlevi belirsiz durum noktası kaldırıldı
+            (çevrimdışı durumu zaten banner ile gösterilir). Bildirim
+            rozeti YALNIZ gerçekten okunmamış içerik varken görünür. */}
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`Bildirimler${unreadCount ? `, ${unreadCount} okunmamış` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
-        <button className="icon-button" onClick={() => navigate("profile")} aria-label="Profil"><Icon name="user" size={20} />{auth.user && <span className="account-dot" />}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Daha fazla"><Icon name="menu" size={21} /></button>
       </div>
     </header>

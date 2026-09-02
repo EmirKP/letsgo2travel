@@ -10,10 +10,12 @@ import {
 } from "../lib/storage";
 import type { AuthUser, RouteSuggestion, ViewId } from "../types";
 
+// Hızlı erişim: ana fonksiyonlar. "Keşfet" hero'da zaten var; tekrar
+// yerine Fiyat Alarmı hızlı erişimi verildi.
 const quickCards: Array<{ title: string; text: string; icon: IconName; view?: ViewId; action?: "surprise" }> = [
   { title: "Pasaport Gücü", text: "Giriş durumlarını karşılaştır", icon: "passport", view: "passport" },
+  { title: "Fiyat Alarmı", text: "Fiyat düşünce haber al", icon: "bell", view: "alerts" },
   { title: "Beni Şaşırt", text: "Kararı dünyaya bırak", icon: "sparkles", action: "surprise" },
-  { title: "Keşfet", text: "Sana göre yeni rotalar bul", icon: "compass", view: "explore" },
   { title: "Kaşifler Ligi", text: "Gezginlerden ilham al", icon: "users", view: "community" },
 ];
 
