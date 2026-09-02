@@ -10,6 +10,7 @@ import { useAuth } from "./hooks/useAuth";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
+import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
 import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
@@ -91,6 +92,7 @@ export default function App() {
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [surpriseRoute, setSurpriseRoute] = useState<RouteSuggestion | null>(null);
+  const [cockpitFocusTripId, setCockpitFocusTripId] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -175,8 +177,11 @@ export default function App() {
   }, [navigate]);
 
   useEffect(() => {
-    // Uçuş hatırlatmasına dokununca ilgili Kokpit kaydı açılır.
-    return initFlightReminderTapListener(() => navigate("cockpit"));
+    // Uçuş hatırlatmasına dokununca İLGİLİ Kokpit kaydı açılır (tripId ile).
+    return initFlightReminderTapListener((tripId) => {
+      if (tripId) setCockpitFocusTripId(tripId);
+      navigate("cockpit");
+    });
   }, [navigate]);
 
   useEffect(() => {
@@ -243,7 +248,10 @@ export default function App() {
       const url = typeof event.url === "string" ? event.url : "";
       if (/\/auth\/callback|auth\/callback/i.test(url)) return;
       const target = url ? viewFromUrl(url) : null;
+      const tripId = url ? tripIdFromUrl(url) : null;
+      if (tripId) setCockpitFocusTripId(tripId);
       if (target) navigate(target);
+      else if (tripId) navigate("cockpit");
     }).then((handle) => { urlListener = handle; });
 
     const app = plugin("App");
@@ -252,7 +260,10 @@ export default function App() {
         const url = value && typeof value === "object" && "url" in value ? String((value as { url?: string }).url || "") : "";
         if (url && !/\/auth\/callback|auth\/callback/i.test(url)) {
           const target = viewFromUrl(url);
+          const tripId = tripIdFromUrl(url);
+          if (tripId) setCockpitFocusTripId(tripId);
           if (target) navigate(target, { replace: true });
+          else if (tripId) navigate("cockpit", { replace: true });
         }
       });
     }
@@ -324,11 +335,11 @@ export default function App() {
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={setSurpriseRoute} onBuildRoute={(route) => { setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
     if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
-    if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
-  }, [activeView, auth.accessToken, auth.user, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
+  }, [activeView, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
 
   const notificationsEnabled = getMobilePreferences().inAppNotifications;
 

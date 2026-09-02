@@ -16,6 +16,7 @@ writeFileSync(
   path.join(mirrorDir, "liveActivity.ts"),
   readFileSync("mobile/src/lib/liveActivity.ts", "utf8").replace('from "./capacitor"', 'from "../capacitor-shim"'),
 );
+writeFileSync(path.join(mirrorDir, "deepLink.ts"), readFileSync("mobile/src/lib/deepLink.ts", "utf8"));
 
 const tsNodeCli = path.join(process.cwd(), "node_modules", "ts-node", "dist", "bin.js");
 const compilerOptions = {

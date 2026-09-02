@@ -79,6 +79,7 @@
 .status-on_arrival { background: #fff5dc; color: #b97b00; }
 .status-required { background: #fff0f1; color: #c94854; }
 .status-unknown { background: #eef2f6; color: #5b6b7c; }
+.form-hint { margin: 2px 0 0; font-size: 11px; line-height: 1.45; color: #667085; }
 .country-row > span:nth-child(2) { display: grid; gap: 2px; }
 .country-row strong { font-size: 12.5px; }
 .country-row small { color: #8b98a5; font-size: 8.5px; }

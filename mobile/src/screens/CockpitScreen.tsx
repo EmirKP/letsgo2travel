@@ -5,10 +5,11 @@ import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
 import type { AirportOption } from "../lib/airports";
 import { localIsoDate } from "../lib/dates";
-import { normalizePnr, tripFormError } from "../lib/cockpitForm";
+import { normalizeFlightNumber, normalizePnr, tripFormError } from "../lib/cockpitForm";
 import { syncFlightReminders } from "../lib/liveActivity";
 import { createId } from "../lib/id";
 import {
+  areFlightFieldsSupported,
   createCockpitTrip,
   deleteCockpitTrip,
   getSupabaseDataErrorMessage,
@@ -25,12 +26,16 @@ import type { AuthUser } from "../types";
 type CockpitScreenProps = {
   user: AuthUser | null;
   accessToken: string;
+  /** Derin bağlantı/bildirimden gelen kayıt: liste yüklenince otomatik seçilir. */
+  focusTripId?: string;
+  onFocusHandled?: () => void;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
 };
 
 type TripForm = {
   mode: "flight" | "other";
+  originAirport: AirportOption | null;
   airport: AirportOption | null;
   countryAlpha3: string;
   destinationCountry: string;
@@ -39,11 +44,14 @@ type TripForm = {
   startDate: string;
   endDate: string;
   departureTime: string;
+  airline: string;
+  flightNumber: string;
   flightPnr: string;
 };
 
 const EMPTY_FORM: TripForm = {
   mode: "flight",
+  originAirport: null,
   airport: null,
   countryAlpha3: "",
   destinationCountry: "",
@@ -52,6 +60,8 @@ const EMPTY_FORM: TripForm = {
   startDate: "",
   endDate: "",
   departureTime: "",
+  airline: "",
+  flightNumber: "",
   flightPnr: "",
 };
 
@@ -101,13 +111,24 @@ function tripTitle(trip: CockpitTrip) {
 
 
 
+function reminderTrips(items: CockpitTrip[]) {
+  return items.map((trip) => ({
+    id: trip.id,
+    title: tripTitle(trip),
+    departureAt: trip.departureAt,
+    status: trip.status,
+    originIata: trip.originIata,
+    destinationIata: trip.destinationIata,
+  }));
+}
+
 function replaceTrip(items: CockpitTrip[], next: CockpitTrip) {
   return items
     .map((item) => item.id === next.id ? next : item)
     .sort((left, right) => left.startDate.localeCompare(right.startDate));
 }
 
-export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: CockpitScreenProps) {
+export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
   const [trips, setTrips] = useState<CockpitTrip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -140,7 +161,7 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
       if (generation !== loadGeneration.current) return;
       setTrips(next);
       // Yaklaşan uçuşlar için hatırlatma/Live Activity eşitle (izin istemez).
-      void syncFlightReminders(next.map((trip) => ({ id: trip.id, title: tripTitle(trip), departureAt: trip.departureAt, status: trip.status })));
+      void syncFlightReminders(reminderTrips(next));
       setSelectedTripId((current) => next.some((trip) => trip.id === current) ? current : next[0]?.id || "");
     } catch (requestError) {
       if (generation === loadGeneration.current) setError(getSupabaseDataErrorMessage(requestError, "Seyahatlerin yüklenemedi."));
@@ -153,6 +174,17 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
     void load();
     return () => { loadGeneration.current += 1; };
   }, [load]);
+
+  useEffect(() => {
+    if (!focusTripId) return;
+    if (trips.some((trip) => trip.id === focusTripId)) {
+      setSelectedTripId(focusTripId);
+      onFocusHandled?.();
+    } else if (!loading && trips.length) {
+      // Kayıt bu hesapta yok (silinmiş/yanlış hesap): odak isteği temizlenir.
+      onFocusHandled?.();
+    }
+  }, [focusTripId, loading, onFocusHandled, trips]);
 
   const createTrip = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -180,11 +212,15 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
         endDate: form.endDate,
         departureAt,
         flightPnr: normalizePnr(form.flightPnr),
+        originIata: form.mode === "flight" ? form.originAirport?.iata || "" : "",
+        destinationIata: form.mode === "flight" ? form.airport?.iata || "" : "",
+        airline: form.mode === "flight" ? form.airline.trim() : "",
+        flightNumber: form.mode === "flight" ? normalizeFlightNumber(form.flightNumber) : "",
         checklistItems: defaultChecklist(),
       }, accessToken);
       setTrips((current) => {
         const next = [...current, created].sort((left, right) => left.startDate.localeCompare(right.startDate));
-        void syncFlightReminders(next.map((trip) => ({ id: trip.id, title: tripTitle(trip), departureAt: trip.departureAt, status: trip.status })));
+        void syncFlightReminders(reminderTrips(next));
         return next;
       });
       setSelectedTripId(created.id);
@@ -266,7 +302,7 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
       await deleteCockpitTrip(user.id, trip.id, accessToken, trip.updatedAt);
       setTrips((current) => {
         const next = current.filter((item) => item.id !== trip.id);
-        void syncFlightReminders(next.map((item) => ({ id: item.id, title: tripTitle(item), departureAt: item.departureAt, status: item.status })));
+        void syncFlightReminders(reminderTrips(next));
         return next;
       });
       setSelectedTripId("");
@@ -313,8 +349,16 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
     {formOpen && <form className="form-card cockpit-trip-form" onSubmit={createTrip}>
       <div className="cockpit-mode-tabs" role="tablist" aria-label="Seyahat türü">
         <button type="button" role="tab" aria-selected={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => setForm({ ...form, mode: "flight" })}><Icon name="plane" size={16} /> Uçuşlu</button>
-        <button type="button" role="tab" aria-selected={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", airport: null })}><Icon name="suitcase" size={16} /> Uçuşsuz</button>
+        <button type="button" role="tab" aria-selected={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", originAirport: null, airport: null })}><Icon name="suitcase" size={16} /> Uçuşsuz</button>
       </div>
+
+      {form.mode === "flight" && (
+        <AirportField
+          label="Kalkış havalimanı"
+          value={form.originAirport}
+          onChange={(airport) => setForm({ ...form, originAirport: airport })}
+        />
+      )}
 
       {form.mode === "flight" && (
         <AirportField
@@ -369,9 +413,14 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
         <label>Bitiş<input type="date" min={form.startDate || localIsoDate(0)} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
       </div>
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <label>Kalkış saati (isteğe bağlı)<input type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
-        <label>PNR (isteğe bağlı)<input value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder="ABC123" /></label>
+        <label>Havayolu (isteğe bağlı)<input value={form.airline} maxLength={80} onChange={(event) => setForm({ ...form, airline: event.target.value })} placeholder="Türk Hava Yolları" /></label>
+        <label>Uçuş no (isteğe bağlı)<input value={form.flightNumber} maxLength={8} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightNumber: normalizeFlightNumber(event.target.value) })} placeholder="TK1979" /></label>
       </div>}
+      {form.mode === "flight" && <div className="form-grid two stack-narrow">
+        <label>Kalkış saati<input type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
+        <label>PNR<input value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder="ABC123" /></label>
+      </div>}
+      {form.mode === "flight" && !areFlightFieldsSupported() && <p className="form-hint">Uçuş detayları (IATA/uçuş no) sunucu güncellemesi tamamlanana kadar kaydedilmeyebilir; diğer bilgiler güvenle saklanır.</p>}
       <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading} type="submit">
         {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? "Kaydediliyor" : "Kokpite ekle"}
       </button>
@@ -400,6 +449,8 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
           <div className="cockpit-native-details">
             <div><span>Başlangıç</span><strong>{formatDate(selectedTrip.startDate)}</strong></div>
             <div><span>PNR</span><strong>{selectedTrip.flightPnr || "Eklenmedi"}</strong></div>
+            {(selectedTrip.originIata || selectedTrip.destinationIata) && <div><span>Rota</span><strong>{selectedTrip.originIata || "—"} → {selectedTrip.destinationIata || "—"}</strong></div>}
+            {(selectedTrip.airline || selectedTrip.flightNumber) && <div><span>Uçuş</span><strong>{[selectedTrip.airline, selectedTrip.flightNumber].filter(Boolean).join(" · ")}</strong></div>}
           </div>
 
           <label className="cockpit-status-field">Seyahat durumu

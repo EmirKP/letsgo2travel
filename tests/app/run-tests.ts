@@ -10,9 +10,10 @@ import { readFileSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
 import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
-import { normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
+import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
-import { activityPhase, plannedReminders } from "./_mobile/liveActivity";
+import { tripIdFromUrl } from "./_mobile/deepLink";
+import { activityPhase, cockpitDeepLink, plannedReminders } from "./_mobile/liveActivity";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
 function test(name: string, fn: () => Promise<void> | void) { tests.push([name, fn]); }
@@ -188,6 +189,7 @@ test("isIsoDateString: format doğrulama", () => {
 function makeTripForm(overrides: Partial<TripFormState> = {}): TripFormState {
   return {
     mode: "flight",
+    originAirport: { iata: "IST", name: "İstanbul Havalimanı", city: "İstanbul", country: "Türkiye", countryCode: "TR" },
     airport: { iata: "FCO", name: "Roma Fiumicino", city: "Roma", country: "İtalya", countryCode: "IT" },
     countryAlpha3: "",
     destinationCountry: "İtalya",
@@ -196,6 +198,8 @@ function makeTripForm(overrides: Partial<TripFormState> = {}): TripFormState {
     startDate: localIsoDate(10),
     endDate: localIsoDate(15),
     departureTime: "10:30",
+    airline: "Türk Hava Yolları",
+    flightNumber: "TK1979",
     flightPnr: "ABC123",
     ...overrides,
   };
@@ -207,10 +211,29 @@ test("kokpit: geçerli form hata vermez", () => {
 
 test("kokpit: uçuşlu seyahatte havalimanı seçimi zorunlu", () => {
   assert.ok(tripFormError(makeTripForm({ airport: null })).includes("havalima"));
+  assert.ok(tripFormError(makeTripForm({ originAirport: null })).includes("Kalkış havalimanı"));
+});
+
+test("kokpit: kalkış ve varış aynı havalimanı olamaz", () => {
+  const error = tripFormError(makeTripForm({
+    originAirport: { iata: "FCO", name: "Roma Fiumicino", city: "Roma", country: "İtalya", countryCode: "IT" },
+  }));
+  assert.ok(error.includes("aynı olamaz"));
+});
+
+test("kokpit: uçuşlu seyahatte kalkış saati ve PNR zorunlu", () => {
+  assert.ok(tripFormError(makeTripForm({ departureTime: "" })).includes("saat"));
+  assert.ok(tripFormError(makeTripForm({ flightPnr: "" })).includes("PNR"));
+});
+
+test("kokpit: uçuş numarası normalize edilir ve doğrulanır", () => {
+  assert.equal(normalizeFlightNumber(" tk 19-79 "), "TK1979");
+  assert.equal(tripFormError(makeTripForm({ flightNumber: "TK1979" })), "");
+  assert.ok(tripFormError(makeTripForm({ flightNumber: "X" })).includes("Uçuş numarası"));
 });
 
 test("kokpit: uçuşsuz seyahat yalnız ülke/şehir ile geçerli", () => {
-  assert.equal(tripFormError(makeTripForm({ mode: "other", airport: null, flightPnr: "" })), "");
+  assert.equal(tripFormError(makeTripForm({ mode: "other", originAirport: null, airport: null, flightPnr: "", departureTime: "", airline: "", flightNumber: "" })), "");
 });
 
 test("kokpit: başlangıç geçmiş olamaz", () => {
@@ -262,6 +285,25 @@ test("liveActivity: hatırlatma planı yalnız uygun uçuşlar için", () => {
   assert.equal(plans[0].tripId, "t1");
   assert.equal(plans[0].at.toISOString(), "2026-10-10T07:00:00.000Z", "kalkıştan 3 saat önce");
   assert.ok(plans[0].body.includes("Roma"));
+});
+
+test("liveActivity: derin bağlantı tripId taşır ve ayrıştırılır", () => {
+  const tripId = "a2f9c1de-4b7e-4c1a-9b3f-2f6d8e5a1c44";
+  const link = cockpitDeepLink(tripId);
+  assert.equal(link, `letsgo2travel://cockpit?tripId=${tripId}`);
+  assert.equal(tripIdFromUrl(link), tripId, "üretilen bağlantı geri okunabilmeli");
+});
+
+test("deepLink: yalnız geçerli UUID kabul edilir", () => {
+  assert.equal(tripIdFromUrl("letsgo2travel://cockpit?tripId=<script>"), null);
+  assert.equal(tripIdFromUrl("letsgo2travel://cockpit?tripId=123"), null);
+  assert.equal(tripIdFromUrl("letsgo2travel://cockpit"), null);
+  assert.equal(tripIdFromUrl(""), null);
+  assert.equal(
+    tripIdFromUrl("https://www.letsgo2travel.com.tr/#cockpit?tripId=A2F9C1DE-4B7E-4C1A-9B3F-2F6D8E5A1C44"),
+    "a2f9c1de-4b7e-4c1a-9b3f-2f6d8e5a1c44",
+    "hash yönlendirmesi ve büyük harf normalize edilmeli",
+  );
 });
 
 // ------------------------------ runner -------------------------------

@@ -15,7 +15,14 @@ export type FlightReminderTrip = {
   title: string;
   departureAt: string | null;
   status: string;
+  originIata?: string | null;
+  destinationIata?: string | null;
 };
+
+/** Kokpit kaydına giden derin bağlantı (bildirim + Live Activity aynı adresi kullanır). */
+export function cockpitDeepLink(tripId: string) {
+  return `letsgo2travel://cockpit?tripId=${encodeURIComponent(tripId)}`;
+}
 
 export type ActivityPhase = "before" | "active" | "ended";
 
@@ -91,7 +98,9 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
               tripId: trip.id,
               title: trip.title,
               departureAt: trip.departureAt,
-              deepLink: "letsgo2travel://cockpit",
+              originIata: trip.originIata || "",
+              destinationIata: trip.destinationIata || "",
+              deepLink: cockpitDeepLink(trip.id),
             });
           } else if (phase === "ended") {
             await live.endFlightActivity?.({ tripId: trip.id });
@@ -129,14 +138,14 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
   }
 }
 
-/** Bildirime dokununca ilgili Kokpit kaydına gider. */
-export function initFlightReminderTapListener(onOpenCockpit: () => void): () => void {
+/** Bildirime dokununca ilgili Kokpit kaydına gider (tripId ile). */
+export function initFlightReminderTapListener(onOpenCockpit: (tripId: string | null) => void): () => void {
   let active = true;
   let handle: { remove: () => Promise<void> } | null = null;
   if (isNativePlatform()) {
     void addPluginListener("LocalNotifications", "localNotificationActionPerformed", (payload) => {
-      const extra = (payload.notification as { extra?: { screen?: string } } | undefined)?.extra;
-      if (!extra || extra.screen === "cockpit") onOpenCockpit();
+      const extra = (payload.notification as { extra?: { screen?: string; tripId?: string } } | undefined)?.extra;
+      if (!extra || extra.screen === "cockpit") onOpenCockpit(typeof extra?.tripId === "string" && extra.tripId ? extra.tripId : null);
     }).then((listener) => {
       if (!active) { void listener?.remove().catch(() => undefined); return; }
       handle = listener;
