@@ -78,3 +78,5 @@ android/app/google-services.json
 
 .vercel
 .env*.local
+
+supabase/.temp/
