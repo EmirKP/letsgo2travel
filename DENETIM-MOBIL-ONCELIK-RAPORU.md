@@ -1,4 +1,4 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 6. tur/v6 ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 7. tur/v7 ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
@@ -61,7 +61,13 @@
 
 37. `5fe12bf` Hesap değişiminde token yeniden kaydı + DB serileştirme + güvenli 503
 38. `f7c38ed` Üç mobil paket kopyası v6 build ile eşitlendi
-39. (bu rapor)
+39. `80ab56f` Denetim raporu (6. tur)
+
+**7. tur (v6 bağımsız denetim blokajları, 80ab56f → uç):**
+
+40. `a955ee5` Retained token event'leri + installation serileştirme + retry akışı
+41. `1ce81cf` Üç mobil paket kopyası v7 build ile eşitlendi
+42. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -264,6 +270,36 @@ high / sanitize-html moderate — onay bekliyor).
   fiziksel token yalnız B'de etkin; A'nın uçuşu için etkin iPhone
   push_to_start/activity_update YOK (iPad'e gider), B'ninki gider; A hiç
   çıkmadan bile B kaydı A'nın satırını kapattı.
+  **v7 düzeltmeleri (v6 bağımsız denetim):** (1) NATIVE activity_update
+  TOKEN KAYBI kapatıldı — v6'da notifyListeners varsayılan davranışla
+  çağrılıyordu; JS listener henüz kurulmadıysa event kayboluyor ve
+  activity_update için pull/replay yolu olmadığından uzaktan update/end
+  çalışmayabilirdi. v7: tüm token event'leri `retainUntilConsumed:true`
+  ile gönderilir (dinleyicisiz kaybolmaz) VE yeni `getBufferedTokens`
+  ucu ile JS, listener kurulduktan sonra native tamponu çekip TÜM
+  girişleri sync motoruna sıralar; UserDefaults kaydı YALNIZ sunucu
+  başarısında ack ile silinir; tekrarlar tokenType+tripId+token
+  anahtarıyla idempotenttir. Testler: listener'dan önce biriken PTS + 2
+  activity_update'in tamamı kayıt+ACK; 503/ağ hatasında tampon korunur
+  ve sonraki denemede gönderilir. mobile:doctor bu mekanizmaları statik
+  denetler. Retained event/replay davranışı Xcode/fiziksel cihazda
+  DOĞRULANMADI → **NOT VERIFIED**. (2) AYNI INSTALLATION İÇİN EŞZAMANLI
+  ROTASYON — kilitler artık SABİT sırada İKİ advisory xact kilidi (önce
+  kurulum, sonra token; tüm transaksiyonlar aynı sıra → deadlock
+  imkânsız) ve eski token, yenisi ETKİNLEŞTİRİLMEDEN ÖNCE kapatılır;
+  `live_activity_pts_single_installation_idx` kurulum başına en fazla
+  bir etkin push-to-start satırını VERİ düzeyinde garanti eder. Gerçek
+  PG paralel testleri: aynı kullanıcı+kurulum T1/T2 farklı token → T2
+  1.45 sn kilitte bekledi, sonuç TEK enabled; önceki aynı-token/
+  farklı-hesap testi geçmeye devam etti (tek sahip); fonksiyonu atlayan
+  doğrudan INSERT kurulum index'ince reddedildi; v5 logout/login
+  senaryosu regresyonsuz. (3) BEKLEYEN TOKEN RETRY AKIŞI — pending
+  kayıtlar uygulama yeniden başlatılmadan denenir: ağ dönüşü
+  (networkStatusChange connected) ve foreground (appStateChange
+  isActive) flush tetikler; SINIRLI geri çekilme 30sn→…→10 dk tavanlı
+  TEK zamanlayıcıyla çalışır, kuyruk boşalınca durur (saf
+  retryBackoffDelayMs monotonluk/tavan testli) — sonsuz döngü/agresif
+  istek yok.
   **v6 düzeltmeleri (v5 bağımsız denetim):** (1) HESAP DEĞİŞİMİNDE TOKEN
   YENİDEN KAYDI — v5'te ack tamponu temizleyip logout kuyruğu sildiğinden
   B login olduğunda cihaz tokenını yeniden kaydedecek kaynak yoktu. v6:
@@ -351,7 +387,7 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` | **58/58 PASS** (v6: gerçek token-sync akışıyla hesap değişimi — A login kayıt+ack, logout yalnız iPhone, B login'de native latest OTOMATİK yeniden kaydolur [elle ekleme yok], cron A'nınkini iPhone'a gönderemez/iPad'e gönderir, B'ninkini gönderir; RPC yokken 503 + ack edilmez + migration sonrası retry başarılı; PGRST202 register artık 503 [fallback yok]; kimliksiz push_to_start 400) (+8 v5 testi: rotasyon RPC çağrısı; PGRST202/42883 gerçek-PostgREST fallback'i; tablo yokken 503; geçersiz installationId 400 — kayıt VE çıkışta; çıkış filtreleri yalnız user+installation; hesap değişimi cron senaryosu — A'nın uçuşu iPhone'a gidemez/iPad'e gider, B'ninki gider; createId son fallback RFC4122 v4) (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
+| `test:app` | **61/61 PASS** (v7: listener öncesi tampon replay — PTS+2 activity_update tamamı kayıt+ACK + idempotens; 503/ağ hatasında tampon korunur ve sonraki denemede gönderilir; geri çekilme monoton/tavanlı/negatif-güvenli) (v6: gerçek token-sync akışıyla hesap değişimi — A login kayıt+ack, logout yalnız iPhone, B login'de native latest OTOMATİK yeniden kaydolur [elle ekleme yok], cron A'nınkini iPhone'a gönderemez/iPad'e gönderir, B'ninkini gönderir; RPC yokken 503 + ack edilmez + migration sonrası retry başarılı; PGRST202 register artık 503 [fallback yok]; kimliksiz push_to_start 400) (+8 v5 testi: rotasyon RPC çağrısı; PGRST202/42883 gerçek-PostgREST fallback'i; tablo yokken 503; geçersiz installationId 400 — kayıt VE çıkışta; çıkış filtreleri yalnız user+installation; hesap değişimi cron senaryosu — A'nın uçuşu iPhone'a gidemez/iPad'e gider, B'ninki gider; createId son fallback RFC4122 v4) (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
 | Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
 | `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
@@ -359,6 +395,7 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler |
 | Gerçek PG claim — UYGULAMANIN ÜRETTİĞİ tokenla (v4) | PASS: ts-node ile `defaultClaimToken()` çağrıldı, dönen UUID gerçek DB'de 1 satır claim etti; v3'ün `claim-<ts>-<rnd>` biçimi AYNI DB'de 22P02 ile reddedildi |
 | Gerçek PG token rotasyonu (v4) | PASS: iPhone(kurulum A) yeni token → eski kapandı; iPad(kurulum B) ve NULL kimlikli eski kayıt DOKUNULMADI; yeniden kayıt idempotent; fonksiyonda PUBLIC/anon/authenticated EXECUTE yok |
+| Gerçek PG PARALEL aynı-kurulum T1/T2 (v7, ZORUNLU) | PASS: aynı kullanıcı + aynı installation + iki farklı token eşzamanlı → T2 kurulum kilidinde 1.45 sn bekledi; sonuç tam olarak BİR enabled token; kurulum index'i (live_activity_pts_single_installation_idx) doğrudan INSERT'i de reddetti |
 | Gerçek PG PARALEL kayıt serileştirme (v6, ZORUNLU) | PASS: A'nın açık transaksiyonu advisory lock'u tutarken B aynı token için 1.46 sn BEKLEDİ; commit sonrası B kazandı → TEK enabled sahip, hata yok; fonksiyonu atlayan doğrudan INSERT partial unique index (live_activity_push_to_start_single_owner_idx) tarafından reddedildi |
 | Gerçek PG hesaplar-arası senaryo (v5, ZORUNLU) | PASS: A logout(iPhone)→2 token kapandı+iPad açık; B login(aynı iPhone)→fiziksel token yalnız B'de etkin; A'nın etkin iPhone tokenı YOK (start/update/end gidemez), iPad'i alır; B gönderebilir; A çıkış yapmasa bile B kaydı A'yı atomik kapatır |
 | `git diff --check` | PASS |
