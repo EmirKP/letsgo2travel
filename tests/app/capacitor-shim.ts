@@ -1,4 +1,6 @@
-// Test kopyası için Capacitor köprü şimi (native ortam yok).
+// Test kopyası için Capacitor köprü şimi (native ortam yok). İmzalar
+// mobil kaynakla aynı kalmalı; kullanılmayan parametreler bu yüzden bilinçli.
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export function isNativePlatform() { return false; }
 export function isIOSNative() { return false; }
 export function plugin(_name: string): undefined { return undefined; }

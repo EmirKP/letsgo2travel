@@ -6,8 +6,10 @@
 // =====================================================================
 
 import assert from "node:assert";
+import { readFileSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
-import { isIsoDateString, isPastTravelDate, isoDateAfterDays, todayIsoInTimeZone } from "../../lib/date-utils";
+import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
+import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
 import { normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { activityPhase, plannedReminders } from "./_mobile/liveActivity";
@@ -18,11 +20,23 @@ function test(name: string, fn: () => Promise<void> | void) { tests.push([name, 
 // ------------------------- havalimanı arama --------------------------
 
 test("dataset: dünya çapında ve alan bütünlüğü tam", () => {
-  assert.ok(airportCount() > 3000, "en az 3000 havalimanı olmalı (dünya çapında)");
+  assert.ok(airportCount() >= 7000, `dünya çapında IATA kapsamı ≥ 7000 olmalı (mevcut: ${airportCount()})`);
   const saw = findAirportByIata("SAW");
   assert.ok(saw, "SAW bulunmalı");
   assert.equal(saw!.countryCode, "TR");
   assert.ok(saw!.name.length > 5 && saw!.country === "Türkiye");
+});
+
+test("dataset: küçük ada/bölgesel havalimanları da bulunur (medium/large sınırı yok)", () => {
+  // Aitutaki (Cook Adaları) OurAirports medium/large kümesinde YOKTUR;
+  // tamamlayıcı kaynak sayesinde aranabilir olmalı.
+  const ait = findAirportByIata("AIT");
+  assert.ok(ait, "AIT (Aitutaki) bulunmalı");
+  assert.equal(ait!.country, "Cook Adaları", "ülke adı Türkçe olmalı");
+  const rows = searchAirports("aitutaki").map((r) => r.iata);
+  assert.ok(rows.includes("AIT"), "ada adıyla arama AIT döndürmeli");
+  const fun = findAirportByIata("FUN");
+  assert.ok(fun && fun.country === "Tuvalu", "Tuvalu/Funafuti kapsanmalı");
 });
 
 test("arama: IATA koduyla birebir eşleşme önce gelir", () => {
@@ -79,7 +93,62 @@ test("normalizeSearchText: aksan/ı normalizasyonu", () => {
   assert.equal(normalizeSearchText("  Çok   Boşluk  "), "cok bosluk");
 });
 
+// ------------------------ ülke kapsamı (ISO) -------------------------
+
+test("ülkeler: TEK ISO 3166 kaynağı ≥ 240 kayıt ve alanlar eksiksiz", () => {
+  assert.ok(ISO_COUNTRIES.length >= 240, `kapsam ≥ 240 olmalı (mevcut: ${ISO_COUNTRIES.length})`);
+  for (const row of ISO_COUNTRIES) {
+    assert.match(row.alpha2, /^[A-Z]{2}$/, `alpha2 bozuk: ${JSON.stringify(row)}`);
+    assert.match(row.alpha3, /^[A-Z]{3}$/, `alpha3 bozuk: ${row.alpha2}`);
+    assert.match(row.numeric, /^\d{3}$/, `numeric bozuk: ${row.alpha2}`);
+    assert.ok(row.name.length >= 2 && row.flag.length > 0, `ad/bayrak eksik: ${row.alpha2}`);
+  }
+  const alpha2Set = new Set(ISO_COUNTRIES.map((row) => row.alpha2));
+  assert.equal(alpha2Set.size, ISO_COUNTRIES.length, "alpha2 tekrarsız olmalı");
+  assert.equal(isoCountryByAlpha2("TR")?.name, "Türkiye");
+  // Küçük ada devletleri listede seçilebilir olmalı (harita şekli olmasa da).
+  for (const code of ["TV", "NR", "MC", "SM", "PW"]) {
+    assert.ok(alpha2Set.has(code), `${code} listede olmalı`);
+  }
+});
+
+test("ülkeler: web ve mobil aynı üretilmiş kaynağı kullanır (bayt eşit)", () => {
+  const web = readFileSync("lib/countries/iso3166.json", "utf8");
+  const mobile = readFileSync("mobile/src/data/iso3166.json", "utf8");
+  assert.equal(web, mobile, "iki iso3166.json kopyası birebir aynı olmalı (scripts/generate-countries.mjs)");
+});
+
 // ----------------------- tarih yardımcıları --------------------------
+
+test("saat dilimi: IANA doğrulama ve temizleme", () => {
+  assert.equal(isValidTimeZone("Europe/Istanbul"), true);
+  assert.equal(isValidTimeZone("America/Argentina/Buenos_Aires"), true);
+  assert.equal(isValidTimeZone("Not/AZone"), false);
+  assert.equal(isValidTimeZone("<script>"), false);
+  assert.equal(sanitizeTimeZone("Asia/Tokyo"), "Asia/Tokyo");
+  assert.equal(sanitizeTimeZone("bozuk"), "Europe/Istanbul", "geçersiz → varsayılan");
+  assert.equal(sanitizeTimeZone(undefined), "Europe/Istanbul", "eksik → varsayılan");
+  assert.equal(sanitizeTimeZone(42), "Europe/Istanbul");
+});
+
+test("saat dilimi: geçmiş tarih denetimi kullanıcının YEREL gününe göre", () => {
+  // Aynı an (2026-09-02T10:00Z): Kiritimati'de (UTC+14) 3 Eylül, Midway'de (UTC-11) 1 Eylül.
+  const now = new Date("2026-09-02T10:00:00Z");
+  assert.equal(todayIsoInTimeZone("Pacific/Kiritimati", now), "2026-09-03");
+  assert.equal(todayIsoInTimeZone("Pacific/Midway", now), "2026-09-01");
+  // 2 Eylül: Kiritimati kullanıcısı için GEÇMİŞ, Midway kullanıcısı için gelecek.
+  assert.equal(isPastTravelDate("2026-09-02", "Pacific/Kiritimati", now), true);
+  assert.equal(isPastTravelDate("2026-09-02", "Pacific/Midway", now), false);
+  // 1 Eylül: Midway kullanıcısı için BUGÜN (geçerli).
+  assert.equal(isPastTravelDate("2026-09-01", "Pacific/Midway", now), false);
+});
+
+test("saat dilimi: iki yıllık üst sınır saat dilimine göre kayar", () => {
+  const now = new Date("2026-09-02T10:00:00Z");
+  assert.equal(isoDateAfterDays(730, "Pacific/Kiritimati", now), "2028-09-02");
+  assert.equal(isoDateAfterDays(730, "Pacific/Midway", now), "2028-08-31");
+  assert.equal(isoDateAfterDays(730, "Europe/Istanbul", now), "2028-09-01");
+});
 
 test("todayIsoInTimeZone: UTC gece yarısı çevresinde günü kaydırmaz", () => {
   // 2026-06-30T22:30Z = İstanbul'da 1 Temmuz 01:30 → İstanbul günü 07-01 olmalı
