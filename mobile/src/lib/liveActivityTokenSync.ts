@@ -101,3 +101,16 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
     },
   };
 }
+
+// ---------------------------------------------------------------------
+// Bekleyen kayıtlar için SINIRLI geri çekilme (saf; birim testli).
+// 30 sn'den başlar, her denemede ikiye katlanır, 10 dakikada TAVANLANIR —
+// sonsuz döngü/agresif istek yok; kuyruk boşalınca sayaç sıfırlanır.
+// ---------------------------------------------------------------------
+export const RETRY_BASE_DELAY_MS = 30 * 1000;
+export const RETRY_MAX_DELAY_MS = 10 * 60 * 1000;
+
+export function retryBackoffDelayMs(attempt: number): number {
+  const bounded = Math.max(0, Math.min(attempt, 30));
+  return Math.min(RETRY_BASE_DELAY_MS * 2 ** bounded, RETRY_MAX_DELAY_MS);
+}

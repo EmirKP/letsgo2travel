@@ -1,5 +1,5 @@
 -- =====================================================================
--- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v6) — HAZIRLANDI, UYGULANMADI
+-- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v7) — HAZIRLANDI, UYGULANMADI
 -- ---------------------------------------------------------------------
 -- Amaç: uygulama KAPALIYKEN Dynamic Island / kilit ekranı aktivitesinin
 -- APNs "liveactivity" push'u ile başlatılıp bitirilebilmesi (iOS 17.2+
@@ -60,6 +60,13 @@ create unique index if not exists live_activity_push_to_start_single_owner_idx
   on public.live_activity_tokens (token)
   where token_type = 'push_to_start' and enabled;
 
+-- v7: kurulum başına da en fazla BİR etkin push-to-start satırı (aynı
+-- installation için T1/T2 farklı tokenlar eşzamanlı kaydolsa bile iki
+-- enabled satır kalamaz — fonksiyon atlansa dahi veri düzeyinde mutlak).
+create unique index if not exists live_activity_pts_single_installation_idx
+  on public.live_activity_tokens (installation_id)
+  where token_type = 'push_to_start' and enabled and installation_id is not null;
+
 -- ---------------------------------------------------------------------
 -- Push-to-start token KAYIT + ROTASYON + TEK-HESAP garantisi (v6).
 -- EŞZAMANLILIK: transaction-scoped advisory lock token bazında yarışan
@@ -88,12 +95,19 @@ begin
     raise exception 'invalid_registration';
   end if;
 
-  -- Token bazında serileştirme: yarışan iki kayıt (A/B) sırayla çalışır;
-  -- kilit transaksiyon sonunda otomatik bırakılır.
+  -- SERİLEŞTİRME (v7): her kayıt SABİT/DETERMİNİSTİK sırada İKİ advisory
+  -- xact kilidi alır — ÖNCE kurulum kilidi, SONRA token kilidi. Tüm
+  -- transaksiyonlar aynı sırayı izlediği için deadlock oluşamaz.
+  -- * Kurulum kilidi: aynı installation için T1/T2 FARKLI tokenlar
+  --   eşzamanlı kaydolsa bile işlemler sırayla çalışır.
+  -- * Token kilidi: aynı token için FARKLI hesaplar/kurulumlar yarışsa
+  --   bile işlemler sırayla çalışır.
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_inst:' || p_installation_id::text, 0));
   perform pg_advisory_xact_lock(hashtextextended('live_activity_pts:' || p_token, 0));
 
   -- 1) HESAPLAR ARASI TEK SAHİP: aynı fiziksel token diğer hesap(lar)
-  --    altında ÖNCE kapatılır (partial unique index ihlali oluşmasın).
+  --    altında ÖNCE kapatılır (token bazlı partial unique index ihlali
+  --    hiçbir ara adımda oluşmaz).
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
    where token_type = 'push_to_start'
@@ -101,21 +115,25 @@ begin
      and user_id <> p_user_id
      and enabled;
 
-  -- 2) Kendi satırı: upsert + enabled.
+  -- 2) ROTASYON — ENABLE'DAN ÖNCE (v7): bu kurulumun ESKİ etkin
+  --    push-to-start satırları (kendi hesabımızın eski tokenı dahil,
+  --    hangi hesapta olursa olsun) yeni token etkinleştirilmeden ÖNCE
+  --    kapatılır — kurulum bazlı partial unique index hiçbir ara adımda
+  --    ihlal edilmez.
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where token_type = 'push_to_start'
+     and installation_id = p_installation_id
+     and token <> p_token
+     and enabled;
+
+  -- 3) Kendi satırı: upsert + enabled (bu noktada hem token hem kurulum
+  --    için başka etkin satır kalmamıştır).
   insert into public.live_activity_tokens (user_id, token_type, token, installation_id, enabled, updated_at)
   values (p_user_id, 'push_to_start', p_token, p_installation_id, true, now())
   on conflict on constraint live_activity_tokens_unique
   do update set enabled = true, installation_id = excluded.installation_id, updated_at = now()
   returning id into v_id;
-
-  -- 3) ROTASYON: aynı kullanıcı + aynı kurulumun ESKİ tokenları kapanır.
-  update public.live_activity_tokens
-     set enabled = false, updated_at = now()
-   where user_id = p_user_id
-     and token_type = 'push_to_start'
-     and installation_id = p_installation_id
-     and id <> v_id
-     and enabled;
 
   return v_id;
 end;

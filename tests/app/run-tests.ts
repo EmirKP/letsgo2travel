@@ -16,6 +16,7 @@ import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
 import { randomFallbackUuid } from "./_mobile/id";
+import { RETRY_MAX_DELAY_MS, retryBackoffDelayMs } from "./_mobile/liveActivityTokenSync";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
 import { registerLiveActivityAccountFlowTests } from "./liveActivityAccountFlow";
 import { registerLiveActivityTokenTests } from "./liveActivityTokens";
@@ -371,6 +372,21 @@ test("id: SON ÇARE fallback bile geçerli RFC 4122 UUID v4 üretir", () => {
   // Uç değerler: hep 0 / hep 1'e yakın random bile version/variant bitlerini korur.
   assert.match(randomFallbackUuid(() => 0), UUID_V4);
   assert.match(randomFallbackUuid(() => 0.999999), UUID_V4);
+});
+
+test("retry: geri çekilme SINIRLI ve tavanlı (agresif istek/sonsuz büyüme yok)", () => {
+  assert.equal(retryBackoffDelayMs(0), 30_000, "ilk deneme 30 sn sonra");
+  assert.equal(retryBackoffDelayMs(1), 60_000);
+  assert.equal(retryBackoffDelayMs(2), 120_000);
+  assert.equal(retryBackoffDelayMs(10), RETRY_MAX_DELAY_MS, "tavan 10 dk");
+  assert.equal(retryBackoffDelayMs(1000), RETRY_MAX_DELAY_MS, "büyük deneme sayısı taşmaz");
+  assert.equal(retryBackoffDelayMs(-5), 30_000, "negatif giriş güvenli");
+  let previous = 0;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const delay = retryBackoffDelayMs(attempt);
+    assert.ok(delay >= previous && delay <= RETRY_MAX_DELAY_MS, "monoton ve tavanlı olmalı");
+    previous = delay;
+  }
 });
 
 // ------------------- Live Activity cron çekirdeği --------------------

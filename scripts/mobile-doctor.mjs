@@ -181,6 +181,14 @@ if (checkIos) {
   expect(widgetInfo, /com\.apple\.widgetkit-extension/, "WidgetKit uzantı noktası beyanı", "Widget Info.plist NSExtensionPointIdentifier=widgetkit-extension içermiyor.");
   expect(storyboard, /customClass="MainViewController"/, "Storyboard köprüsü MainViewController", "Main.storyboard hâlâ CAPBridgeViewController kullanıyor; özel eklenti kaydı çalışmaz.");
   expect(mainViewController, /registerPluginInstance\(FlightLiveActivityPlugin\(\)\)/, "FlightLiveActivity eklenti kaydı", "MainViewController FlightLiveActivityPlugin kaydını yapmıyor.");
+  // v7: token event'leri dinleyicisiz KAYBOLMAMALI — retained event +
+  // pull/replay (getBufferedTokens) statik olarak doğrulanır.
+  const liveActivityPlugin = await text("ios/App/App/FlightLiveActivityPlugin.swift", { label: "FlightLiveActivity eklentisi" });
+  const liveActivityPushJs = await text("mobile/src/lib/liveActivityPush.ts", { label: "Live Activity token sync (JS)" });
+  expect(liveActivityPlugin, /retainUntilConsumed:\s*true/, "token event'leri retained (dinleyicisiz kaybolmaz)", "FlightLiveActivityPlugin notifyListeners retainUntilConsumed:true kullanmıyor — listener'dan önce gelen activity_update tokenları kaybolur.");
+  expect(liveActivityPlugin, /func getBufferedTokens/, "native token tamponu pull/replay ucu", "FlightLiveActivityPlugin getBufferedTokens metodu yok.");
+  expect(liveActivityPushJs, /getBufferedTokens/, "JS tampon drain'i (listener sonrası replay)", "liveActivityPush.ts getBufferedTokens ile tamponu çekmiyor.");
+  expect(liveActivityPushJs, /retryBackoffDelayMs/, "bekleyen token'lar için sınırlı geri çekilmeli retry", "liveActivityPush.ts geri çekilmeli retry kullanmıyor.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
   expect(appDelegate, /continue userActivity/, "Universal Link yönlendirme köprüsü", "AppDelegate Universal Link yönlendirmesini desteklemiyor.");
   for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorShare", "CapacitorSplashScreen", "CapacitorStatusBar"]) {

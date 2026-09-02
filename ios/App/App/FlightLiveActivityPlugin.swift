@@ -17,6 +17,7 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "endFlightActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "ackToken", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getLatestPushToStartToken", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getBufferedTokens", returnType: CAPPluginReturnPromise),
     ]
 
     // ------------------------------------------------------------------
@@ -35,15 +36,29 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             name: LiveActivityTokenObserver.tokenNotification,
             object: nil
         )
-        // JS geç bağlanır: birikmiş token'lar da iletilir.
+        // JS geç bağlanır: birikmiş token'lar retainUntilConsumed:true ile
+        // iletilir — listener HENÜZ kurulmadıysa event KAYBOLMAZ, ilk
+        // dinleyiciye teslim edilir. Ayrıca JS, listener kurulduktan sonra
+        // getBufferedTokens ile tamponu kendisi de çeker (çifte güvence;
+        // tekrarlar tokenType+tripId+token anahtarıyla idempotenttir).
         for entry in LiveActivityTokenObserver.bufferedEntries() {
-            notifyListeners("liveActivityToken", data: entry)
+            notifyListeners("liveActivityToken", data: entry, retainUntilConsumed: true)
         }
     }
 
     @objc private func onObserverToken(_ notification: Notification) {
         guard let entry = notification.userInfo?["entry"] as? [String: String] else { return }
-        notifyListeners("liveActivityToken", data: entry)
+        // retainUntilConsumed:true — canlı event de dinleyicisiz kaybolmaz.
+        notifyListeners("liveActivityToken", data: entry, retainUntilConsumed: true)
+    }
+
+    /**
+     * Tampondaki TÜM token girişlerini döner (pull/replay yolu): JS,
+     * listener kurulduktan sonra bunları sync motoruna sıralar. Girişler
+     * yalnız sunucu BAŞARILI cevap verdikten sonra ackToken ile silinir.
+     */
+    @objc func getBufferedTokens(_ call: CAPPluginCall) {
+        call.resolve(["tokens": LiveActivityTokenObserver.bufferedEntries()])
     }
 
     /**

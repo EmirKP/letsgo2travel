@@ -12,7 +12,7 @@ import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
-import { initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
+import { initLiveActivityRetry, initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
 import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
@@ -193,8 +193,11 @@ export default function App() {
 
   useEffect(() => {
     // Live Activity push tokenları (push-to-start / bitirme) sunucuya
-    // kaydedilir; gönderim anında güncel oturum okunur.
-    return initLiveActivityTokenSync(() => accessTokenRef.current);
+    // kaydedilir; gönderim anında güncel oturum okunur. Bekleyen kayıtlar
+    // ağ dönüşünde / öne gelişte / sınırlı geri çekilmeyle yeniden denenir.
+    const cleanupSync = initLiveActivityTokenSync(() => accessTokenRef.current);
+    const cleanupRetry = initLiveActivityRetry();
+    return () => { cleanupSync(); cleanupRetry(); };
   }, []);
 
   useEffect(() => {

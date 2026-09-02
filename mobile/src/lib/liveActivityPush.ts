@@ -1,6 +1,6 @@
 import { ApiError, requestJson } from "./api";
 import { addPluginListener, isIOSNative, plugin } from "./capacitor";
-import { createTokenSyncEngine, type SyncSendResult, type SyncTokenEntry } from "./liveActivityTokenSync";
+import { createTokenSyncEngine, retryBackoffDelayMs, type SyncSendResult, type SyncTokenEntry } from "./liveActivityTokenSync";
 import { getInstallationId } from "./storage";
 
 // Live Activity push tokenlarının sunucuya kaydı — GERÇEK bağlantılar.
@@ -15,6 +15,7 @@ import { getInstallationId } from "./storage";
 type PluginSurface = {
   ackToken?: (options: { tokenType: string; tripId: string; token: string }) => Promise<void>;
   getLatestPushToStartToken?: () => Promise<{ token?: string }>;
+  getBufferedTokens?: () => Promise<{ tokens?: Array<Record<string, string>> }>;
 };
 
 let accessTokenGetter: (() => string) | null = null;
@@ -58,9 +59,89 @@ const engine = createTokenSyncEngine({
   },
 });
 
-/** Bekleyen tokenları gönderir. */
+/** Bekleyen tokenları gönderir ve gerekiyorsa geri çekilmeli retry kurar. */
 export function flushLiveActivityTokens() {
   engine.flush();
+  scheduleRetryIfPending();
+}
+
+// ---------------------------------------------------------------------
+// Bekleyen kayıtlar için SINIRLI geri çekilmeli yeniden deneme: kuyruk
+// doluyken 30 sn → 60 sn → ... → 10 dk tavanıyla TEK zamanlayıcı çalışır;
+// kuyruk boşalınca durur ve sayaç sıfırlanır. Ağ geri geldiğinde ve
+// uygulama öne geldiğinde de flush tetiklenir (initLiveActivityRetry).
+// ---------------------------------------------------------------------
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryAttempt = 0;
+
+function scheduleRetryIfPending() {
+  if (engine.pendingCount() === 0) {
+    retryAttempt = 0;
+    if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; }
+    return;
+  }
+  if (retryTimer !== null) return; // tek zamanlayıcı — agresif istek yok
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    retryAttempt += 1;
+    engine.flush();
+    // flush async'tir; kuyruk hâlâ doluysa bir SONRAKİ (daha uzun) deneme
+    // kurulur, boşaldıysa sayaç sıfırlanır.
+    setTimeout(() => scheduleRetryIfPending(), 2000);
+  }, retryBackoffDelayMs(retryAttempt));
+}
+
+/**
+ * Bekleyen token kayıtlarının uygulama yeniden başlatılmadan denenmesini
+ * sağlar: ağ bağlantısı geri geldiğinde ve uygulama öne (foreground)
+ * geldiğinde flush + sınırlı geri çekilmeli zamanlayıcı.
+ */
+export function initLiveActivityRetry(): () => void {
+  if (!isIOSNative()) return () => undefined;
+  let active = true;
+  const handles: Array<{ remove: () => Promise<void> }> = [];
+  const keep = (promise: Promise<{ remove: () => Promise<void> } | null>) => {
+    void promise.then((handle) => {
+      if (!handle) return;
+      if (!active) { void handle.remove().catch(() => undefined); return; }
+      handles.push(handle);
+    });
+  };
+  keep(addPluginListener("Network", "networkStatusChange", (payload) => {
+    if (payload.connected === true) flushLiveActivityTokens();
+  }));
+  keep(addPluginListener("App", "appStateChange", (payload) => {
+    if (payload.isActive === true) flushLiveActivityTokens();
+  }));
+  return () => {
+    active = false;
+    if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null; }
+    for (const handle of handles) void handle.remove().catch(() => undefined);
+  };
+}
+
+/**
+ * Native tamponda birikmiş TÜM token girişlerini sync motoruna sıralar
+ * (pull/replay yolu): listener kurulmadan gelen activity_update / PTS
+ * event'leri kaybolmaz. Tekrarlar tokenType+tripId+token anahtarıyla
+ * idempotenttir; girişler yalnız sunucu başarısında ack ile silinir.
+ */
+async function drainBufferedTokens() {
+  try {
+    const result = await surface()?.getBufferedTokens?.();
+    for (const raw of result?.tokens || []) {
+      const tokenType = raw.tokenType === "activity_update" ? "activity_update" : raw.tokenType === "push_to_start" ? "push_to_start" : null;
+      const token = typeof raw.token === "string" ? raw.token : "";
+      const tripId = typeof raw.tripId === "string" && raw.tripId ? raw.tripId : undefined;
+      if (!tokenType || !token) continue;
+      if (tokenType === "activity_update" && !tripId) continue;
+      engine.queue({ tokenType, token, ...(tripId ? { tripId } : {}) });
+    }
+  } catch {
+    // Yüzey yoksa sessiz; retained event'ler ikinci güvence olarak kalır.
+  } finally {
+    scheduleRetryIfPending();
+  }
 }
 
 /**
@@ -71,7 +152,8 @@ export function flushLiveActivityTokens() {
  */
 export function syncTokensAfterLogin() {
   if (!isIOSNative()) return;
-  void engine.onLogin();
+  void engine.onLogin().finally(() => scheduleRetryIfPending());
+  void drainBufferedTokens();
 }
 
 /**
@@ -112,10 +194,14 @@ export function initLiveActivityTokenSync(getAccessToken: () => string): () => v
     const tripId = typeof payload.tripId === "string" && payload.tripId ? payload.tripId : undefined;
     if (!tokenType || !token) return;
     engine.queue({ tokenType, token, ...(tripId ? { tripId } : {}) });
+    scheduleRetryIfPending();
   }).then((listener) => {
     if (!listener) return;
     if (!active) { void listener.remove().catch(() => undefined); return; }
     handle = listener;
+    // Listener BAŞARIYLA kurulduktan sonra tampon çekilir: listener'dan
+    // önce gelen PTS + activity_update token'ları da kaydedilir.
+    void drainBufferedTokens();
   });
 
   return () => {

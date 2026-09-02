@@ -28,16 +28,35 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
   const rows: ServerTokenRow[] = [];
   let nextId = 1;
   let migrationApplied = options.migrationApplied ?? true;
+  let networkDown = false;
   const sessions = new Map<string, string>(); // accessToken -> userId
+  const tripOwners = new Map<string, string>(); // tripId -> userId
 
   return {
     rows,
     sessions,
+    tripOwners,
     setMigrationApplied(value: boolean) { migrationApplied = value; },
+    setNetworkDown(value: boolean) { networkDown = value; },
     /** POST /api/live-activity/tokens (push_to_start) eşdeğeri. */
     async register(entry: SyncTokenEntry, accessToken: string, installationId: string) {
       const userId = sessions.get(accessToken);
       if (!userId) return { ok: false as const, status: 401 };
+      if (networkDown) throw new Error("network");
+      // activity_update: trip sahipliği doğrulanır; per-user upsert.
+      if (entry.tokenType === "activity_update") {
+        if (!entry.tripId) return { ok: false as const, status: 400 };
+        if (tripOwners.get(entry.tripId) !== userId) return { ok: false as const, status: 403 };
+        if (!migrationApplied) return { ok: false as const, status: 503 };
+        let own = rows.find((row) => row.userId === userId && row.tokenType === "activity_update" && row.token === entry.token);
+        if (!own) {
+          own = { id: `srv-${nextId++}`, userId, tokenType: "activity_update", token: entry.token, installationId: installationId || null, enabled: true };
+          rows.push(own);
+        } else {
+          own.enabled = true;
+        }
+        return { ok: true as const };
+      }
       if (entry.tokenType !== "push_to_start") return { ok: false as const, status: 400 };
       if (!installationId) return { ok: false as const, status: 400 };
       // RPC migration'ı yoksa GÜVENLİKSİZ fallback YOK: 503.
@@ -75,6 +94,7 @@ function createDevice(server: ReturnType<typeof createFakeServer>, installationI
   let accessToken = "";
   let latestPushToStartToken = "";
   const nativeBuffer = new Set<string>();
+  const bufferedEntries: SyncTokenEntry[] = [];
   const ackLog: string[] = [];
 
   const engine = createTokenSyncEngine({
@@ -82,7 +102,10 @@ function createDevice(server: ReturnType<typeof createFakeServer>, installationI
     getInstallationId: () => installationId,
     send: (entry, token, installation) => server.register(entry, token, installation),
     ack: async (entry) => {
+      // UserDefaults kaydı YALNIZ sunucu başarısında ack ile silinir.
       nativeBuffer.delete(entry.token);
+      const index = bufferedEntries.findIndex((item) => item.tokenType === entry.tokenType && item.token === entry.token && (item.tripId || "") === (entry.tripId || ""));
+      if (index >= 0) bufferedEntries.splice(index, 1);
       ackLog.push(entry.token);
     },
     getLatestPushToStartToken: async () => latestPushToStartToken,
@@ -97,6 +120,18 @@ function createDevice(server: ReturnType<typeof createFakeServer>, installationI
       latestPushToStartToken = token; // ack bunu SİLMEZ
       nativeBuffer.add(token);
       engine.queue({ tokenType: "push_to_start", token });
+    },
+    /** LISTENER KURULMADAN gelen event: yalnız native tampona yazılır
+        (retainUntilConsumed olmadan kaybolurdu — v7 bulgusunun modeli). */
+    bufferWithoutListener(entry: SyncTokenEntry) {
+      latestPushToStartToken = entry.tokenType === "push_to_start" ? entry.token : latestPushToStartToken;
+      bufferedEntries.push(entry);
+      nativeBuffer.add(entry.token);
+    },
+    /** JS drainBufferedTokens eşdeğeri: listener kurulunca tamponu çeker
+        ve TÜM girişleri motora sıralar (getBufferedTokens yolu). */
+    drainBuffer() {
+      for (const entry of bufferedEntries) engine.queue({ ...entry });
     },
     login(token: string) {
       accessToken = token;
@@ -170,6 +205,69 @@ export function registerLiveActivityAccountFlowTests(test: (name: string, fn: ()
     assert.equal(iphoneCalls.length, 1, "iPhone'a yalnız B'nin uçuşu gitmeli (A'nınki GİDEMEZ)");
     assert.equal(calls.filter((call) => call.token === IPAD_TOKEN).length, 1, "A'nın uçuşu iPad'ine gitmeli");
     assert.equal(calls.length, 2);
+  });
+
+  test("tampon replay (v7): listener'dan ÖNCE biriken PTS + 2 activity_update tokenının HEPSİ kaydedilir ve ACK edilir", async () => {
+    const server = createFakeServer();
+    server.sessions.set("bearer-A", "user-A");
+    server.tripOwners.set("trip-1", "user-A");
+    server.tripOwners.set("trip-2", "user-A");
+    const iphone = createDevice(server, INSTALL_IPHONE);
+    await iphone.login("bearer-A");
+
+    // Event'ler JS listener kurulmadan gelir: yalnız native tampona yazılır
+    // (v7 öncesi bunlar KAYBOLURDU — activity_update için replay yolu yoktu).
+    iphone.bufferWithoutListener({ tokenType: "push_to_start", token: "cc33cc33cc33cc33cc33cc33cc33cc33" });
+    iphone.bufferWithoutListener({ tokenType: "activity_update", token: "dd44dd44dd44dd44dd44dd44dd44dd44", tripId: "trip-1" });
+    iphone.bufferWithoutListener({ tokenType: "activity_update", token: "ee55ee55ee55ee55ee55ee55ee55ee55", tripId: "trip-2" });
+    assert.equal(server.enabledRows().length, 0, "listener yokken sunucuya hiçbir şey gitmemeli");
+
+    // Listener kurulur → JS tamponu çeker (getBufferedTokens yolu).
+    iphone.drainBuffer();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(server.enabledRows().length, 3, "PTS + 2 activity_update kaydolmalı");
+    assert.equal(server.enabledRows().filter((row) => row.tokenType === "activity_update").length, 2);
+    assert.equal(iphone.ackLog.length, 3, "üçü de ACK edilmeli");
+    assert.equal(iphone.nativeBuffer.size, 0, "tampon yalnız BAŞARI sonrası boşalmalı");
+
+    // İdempotens: aynı tampon ikinci kez drain edilirse zarar vermez.
+    iphone.bufferWithoutListener({ tokenType: "activity_update", token: "dd44dd44dd44dd44dd44dd44dd44dd44", tripId: "trip-1" });
+    iphone.drainBuffer();
+    iphone.drainBuffer();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(server.enabledRows().length, 3, "tekrar kayıt yeni satır AÇMAZ (idempotent)");
+  });
+
+  test("tampon replay (v7): sunucu 503/AĞ hatasında token tampondan SİLİNMEZ; sonraki denemede gönderilir", async () => {
+    const server = createFakeServer({ migrationApplied: false });
+    server.sessions.set("bearer-A", "user-A");
+    server.tripOwners.set("trip-1", "user-A");
+    const iphone = createDevice(server, INSTALL_IPHONE);
+    await iphone.login("bearer-A");
+
+    iphone.bufferWithoutListener({ tokenType: "push_to_start", token: "cc33cc33cc33cc33cc33cc33cc33cc33" });
+    iphone.bufferWithoutListener({ tokenType: "activity_update", token: "dd44dd44dd44dd44dd44dd44dd44dd44", tripId: "trip-1" });
+    iphone.drainBuffer();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(iphone.ackLog.length, 0, "503'te ACK EDİLMEMELİ");
+    assert.equal(iphone.nativeBuffer.size, 2, "tampon korunmalı");
+    assert.equal(iphone.engine.pendingCount(), 2, "kuyrukta beklemeli");
+
+    // AĞ hatası da aynı: ack yok, tampon korunur.
+    server.setMigrationApplied(true);
+    server.setNetworkDown(true);
+    iphone.engine.flush();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(iphone.ackLog.length, 0, "ağ hatasında da ACK edilmez");
+    assert.equal(iphone.nativeBuffer.size, 2);
+
+    // Bağlantı döner → sonraki flush (ağ dönüşü/foreground/backoff) başarılı.
+    server.setNetworkDown(false);
+    iphone.engine.flush();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(iphone.ackLog.length, 2, "bağlantı dönünce ikisi de kaydolup ack edilmeli");
+    assert.equal(iphone.nativeBuffer.size, 0);
+    assert.equal(server.enabledRows().length, 2);
   });
 
   test("hesap akışı: RPC migration'ı yokken 503 → token ACK EDİLMEZ; migration gelince retry başarılı", async () => {
