@@ -80,3 +80,4 @@ android/app/google-services.json
 .env*.local
 
 supabase/.temp/
+tests/app/_mobile/

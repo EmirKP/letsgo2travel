@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
+import { COUNTRY_LIST } from "../data/countries";
+import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
+import type { AirportOption } from "../lib/airports";
+import { localIsoDate } from "../lib/dates";
+import { normalizePnr, tripFormError } from "../lib/cockpitForm";
 import { createId } from "../lib/id";
 import {
   createCockpitTrip,
@@ -23,6 +29,9 @@ type CockpitScreenProps = {
 };
 
 type TripForm = {
+  mode: "flight" | "other";
+  airport: AirportOption | null;
+  countryAlpha3: string;
   destinationCountry: string;
   destinationCode: string;
   destinationCity: string;
@@ -33,6 +42,9 @@ type TripForm = {
 };
 
 const EMPTY_FORM: TripForm = {
+  mode: "flight",
+  airport: null,
+  countryAlpha3: "",
   destinationCountry: "",
   destinationCode: "",
   destinationCity: "",
@@ -41,6 +53,11 @@ const EMPTY_FORM: TripForm = {
   departureTime: "",
   flightPnr: "",
 };
+
+// Ülke listesi ada göre sıralı; seçim ülke adını ve ISO kodunu OTOMATİK doldurur.
+const COUNTRY_OPTIONS = [...COUNTRY_LIST].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+
+
 
 const STATUS_LABELS: Record<TripStatus, string> = {
   upcoming: "Yaklaşan",
@@ -81,14 +98,7 @@ function tripTitle(trip: CockpitTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-function formError(form: TripForm) {
-  if (form.destinationCountry.trim().length < 2) return "Gideceğin ülkeyi yaz.";
-  if (!/^[A-Za-z]{2}$/.test(form.destinationCode.trim())) return "Ülke kodu iki harf olmalı. Örneğin IT.";
-  if (!form.startDate || !form.endDate) return "Başlangıç ve bitiş tarihlerini seç.";
-  if (form.endDate < form.startDate) return "Bitiş tarihi başlangıçtan önce olamaz.";
-  if (form.flightPnr && !/^[A-Za-z0-9-]{3,20}$/.test(form.flightPnr.trim())) return "PNR 3–20 harf, rakam veya tire içerebilir.";
-  return "";
-}
+
 
 function replaceTrip(items: CockpitTrip[], next: CockpitTrip) {
   return items
@@ -144,7 +154,7 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
   const createTrip = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || !accessToken || busy || loading) return;
-    const validation = formError(form);
+    const validation = tripFormError(form);
     if (validation) {
       setError(validation);
       return;
@@ -162,11 +172,11 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
       const created = await createCockpitTrip(user.id, {
         destinationCountry: form.destinationCountry,
         destinationCode: form.destinationCode,
-        destinationCity: form.destinationCity,
+        destinationCity: form.destinationCity || (form.airport ? form.airport.city : ""),
         startDate: form.startDate,
         endDate: form.endDate,
         departureAt,
-        flightPnr: form.flightPnr,
+        flightPnr: normalizePnr(form.flightPnr),
         checklistItems: defaultChecklist(),
       }, accessToken);
       setTrips((current) => [...current, created].sort((left, right) => left.startDate.localeCompare(right.startDate)));
@@ -282,28 +292,76 @@ export function CockpitScreen({ user, accessToken, onOpenAccount, onNotice }: Co
 
     <div className="cockpit-native-toolbar">
       <button className="primary-button" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setError(""); }}>
-        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? "Formu kapat" : "Seyahat ekle"}
+        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? "Kapat" : "Seyahat ekle"}
       </button>
-      <button className="secondary-button" disabled={loading || Boolean(busy)} onClick={() => void load()}>
-        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} Yenile
+      <button className="secondary-button icon-only" aria-label="Listeyi yenile" disabled={loading || Boolean(busy)} onClick={() => void load()}>
+        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />}
       </button>
     </div>
 
     {formOpen && <form className="form-card cockpit-trip-form" onSubmit={createTrip}>
-      <div className="form-grid two">
-        <label>Ülke<input value={form.destinationCountry} maxLength={100} onChange={(event) => setForm({ ...form, destinationCountry: event.target.value })} placeholder="İtalya" /></label>
-        <label>Ülke kodu<input value={form.destinationCode} maxLength={2} autoCapitalize="characters" onChange={(event) => setForm({ ...form, destinationCode: event.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} placeholder="IT" /></label>
+      <div className="cockpit-mode-tabs" role="tablist" aria-label="Seyahat türü">
+        <button type="button" role="tab" aria-selected={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => setForm({ ...form, mode: "flight" })}><Icon name="plane" size={16} /> Uçuşlu</button>
+        <button type="button" role="tab" aria-selected={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", airport: null })}><Icon name="suitcase" size={16} /> Uçuşsuz</button>
       </div>
+
+      {form.mode === "flight" && (
+        <AirportField
+          label="Varış havalimanı"
+          value={form.airport}
+          onChange={(airport) => {
+            if (!airport) {
+              setForm({ ...form, airport: null });
+              return;
+            }
+            // Havalimanı seçimi ülke, şehir ve ISO kodunu OTOMATİK doldurur.
+            setForm({
+              ...form,
+              airport,
+              destinationCity: airport.city || form.destinationCity,
+              destinationCountry: airport.country,
+              destinationCode: airport.countryCode,
+              countryAlpha3: "",
+            });
+          }}
+        />
+      )}
+
+      <label>Ülke
+        <select
+          value={form.countryAlpha3 || (form.airport ? `iso2:${form.destinationCode}` : "")}
+          onChange={(event) => {
+            const alpha3 = event.target.value;
+            const country = COUNTRY_OPTIONS.find((item) => item.alpha3 === alpha3);
+            if (!country) return;
+            setForm({
+              ...form,
+              countryAlpha3: alpha3,
+              destinationCountry: country.name,
+              destinationCode: alpha2FromAlpha3(alpha3),
+            });
+          }}
+        >
+          <option value="" disabled>{form.airport ? `${flagEmoji(form.destinationCode)} ${form.destinationCountry} (havalimanından)` : "Ülke seç"}</option>
+          {form.airport && <option value={`iso2:${form.destinationCode}`} disabled hidden>{`${flagEmoji(form.destinationCode)} ${form.destinationCountry}`}</option>}
+          {COUNTRY_OPTIONS.map((country) => (
+            <option key={country.alpha3} value={country.alpha3}>
+              {flagEmoji(alpha2FromAlpha3(country.alpha3))} {country.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label>Şehir (isteğe bağlı)<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder="Roma" /></label>
-      <div className="form-grid two">
-        <label>Başlangıç<input type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: form.endDate && form.endDate < event.target.value ? event.target.value : form.endDate })} /></label>
-        <label>Bitiş<input type="date" min={form.startDate || undefined} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
+      <div className="form-grid two stack-narrow">
+        <label>Başlangıç<input type="date" min={localIsoDate(0)} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: form.endDate && form.endDate < event.target.value ? event.target.value : form.endDate })} /></label>
+        <label>Bitiş<input type="date" min={form.startDate || localIsoDate(0)} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
       </div>
-      <div className="form-grid two">
-        <label>Hareket saati (isteğe bağlı)<input type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
-        <label>PNR (isteğe bağlı)<input value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") })} placeholder="ABC123" /></label>
-      </div>
-      <button className="primary-wide" disabled={busy === "create" || loading} type="submit">
+      {form.mode === "flight" && <div className="form-grid two stack-narrow">
+        <label>Kalkış saati (isteğe bağlı)<input type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
+        <label>PNR (isteğe bağlı)<input value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder="ABC123" /></label>
+      </div>}
+      <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading} type="submit">
         {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? "Kaydediliyor" : "Kokpite ekle"}
       </button>
     </form>}

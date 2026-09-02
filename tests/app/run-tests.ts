@@ -8,6 +8,8 @@
 import assert from "node:assert";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { isIsoDateString, isPastTravelDate, isoDateAfterDays, todayIsoInTimeZone } from "../../lib/date-utils";
+import { normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
+import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
 function test(name: string, fn: () => Promise<void> | void) { tests.push([name, fn]); }
@@ -109,6 +111,61 @@ test("isIsoDateString: format doğrulama", () => {
   assert.equal(isIsoDateString("2026-10-10"), true);
   assert.equal(isIsoDateString("2026-13-01"), false);
   assert.equal(isIsoDateString("2026-1-1"), false);
+});
+
+// -------------------------- kokpit formu -----------------------------
+
+function makeTripForm(overrides: Partial<TripFormState> = {}): TripFormState {
+  return {
+    mode: "flight",
+    airport: { iata: "FCO", name: "Roma Fiumicino", city: "Roma", country: "İtalya", countryCode: "IT" },
+    countryAlpha3: "",
+    destinationCountry: "İtalya",
+    destinationCode: "IT",
+    destinationCity: "Roma",
+    startDate: localIsoDate(10),
+    endDate: localIsoDate(15),
+    departureTime: "10:30",
+    flightPnr: "ABC123",
+    ...overrides,
+  };
+}
+
+test("kokpit: geçerli form hata vermez", () => {
+  assert.equal(tripFormError(makeTripForm()), "");
+});
+
+test("kokpit: uçuşlu seyahatte havalimanı seçimi zorunlu", () => {
+  assert.ok(tripFormError(makeTripForm({ airport: null })).includes("havalima"));
+});
+
+test("kokpit: uçuşsuz seyahat yalnız ülke/şehir ile geçerli", () => {
+  assert.equal(tripFormError(makeTripForm({ mode: "other", airport: null, flightPnr: "" })), "");
+});
+
+test("kokpit: başlangıç geçmiş olamaz", () => {
+  assert.ok(tripFormError(makeTripForm({ startDate: "2020-01-01" })).includes("geçmiş"));
+});
+
+test("kokpit: bitiş başlangıçtan önce olamaz", () => {
+  const error = tripFormError(makeTripForm({ startDate: localIsoDate(10), endDate: localIsoDate(5) }));
+  assert.ok(error.includes("başlangıçtan önce"));
+});
+
+test("kokpit: ülke seçimsiz form reddedilir", () => {
+  assert.ok(tripFormError(makeTripForm({ mode: "other", airport: null, destinationCode: "", destinationCountry: "" })).includes("ülke"));
+});
+
+test("kokpit: PNR büyük harfe çevrilir, boşluklar temizlenir", () => {
+  assert.equal(normalizePnr(" ab c1 23 "), "ABC123");
+  assert.equal(normalizePnr("xy-99*!"), "XY-99");
+  assert.ok(tripFormError(makeTripForm({ flightPnr: normalizePnr(" ab c1 23 ") })) === "");
+});
+
+test("mobil tarih yardımcıları: geçmiş/bugün ayrımı", () => {
+  assert.equal(isPastLocalDate(localIsoDate(0)), false, "bugün geçmiş değildir");
+  assert.equal(isPastLocalDate(localIsoDate(-1)), true, "dün geçmiştir");
+  assert.equal(isPastLocalDate("bozuk"), true);
 });
 
 // ------------------------------ runner -------------------------------

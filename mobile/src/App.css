@@ -858,3 +858,13 @@
   font-size: 16px;
   touch-action: manipulation;
 }
+
+/* === Kokpit form sadelestirme === */
+.cockpit-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.cockpit-mode-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border-radius: 12px; border: 1px solid #cfdbe4; background: #fff; font-size: 13px; font-weight: 800; color: #33465c; }
+.cockpit-mode-tabs button.active { background: #071b33; border-color: #071b33; color: #ffd76a; }
+.secondary-button.icon-only { min-width: 44px; padding-left: 0; padding-right: 0; justify-content: center; }
+.form-card { scroll-margin-bottom: 130px; }
+.form-card .primary-wide { margin-bottom: 4px; }
+/* Klavye acikken/BottomNav ustunde kalsin: form icerigi dogal akista,
+   ekran altinda sabit CTA yok; app-shell padding'i nav'i zaten asar. */
