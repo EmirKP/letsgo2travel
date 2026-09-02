@@ -151,6 +151,20 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
   }
 }
 
+/**
+ * ÇIKIŞTA cihazda çalışan TÜM uçuş aktivitelerini sonlandırır (eski
+ * hesabın uçuşu yeni kullanıcının Ada'sında kalmasın). Eklenti yoksa
+ * sessiz no-op.
+ */
+export async function endAllFlightActivities(): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    await liveActivityPlugin()?.endFlightActivity?.({ tripId: "" });
+  } catch {
+    // Sonlandırma hatası çıkışı engellemez.
+  }
+}
+
 /** Bildirime dokununca ilgili Kokpit kaydına gider (tripId ile). */
 export function initFlightReminderTapListener(onOpenCockpit: (tripId: string | null) => void): () => void {
   let active = true;

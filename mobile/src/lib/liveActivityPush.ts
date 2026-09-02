@@ -1,4 +1,4 @@
-import { requestJson } from "./api";
+import { ApiError, requestJson } from "./api";
 import { addPluginListener, isIOSNative, plugin } from "./capacitor";
 import { getInstallationId } from "./storage";
 
@@ -27,9 +27,20 @@ type AckSurface = {
   ackToken?: (options: { tokenType: string; tripId: string; token: string }) => Promise<void>;
 };
 
+async function ackNativeToken(entry: PendingToken) {
+  const surface = plugin("FlightLiveActivity") as AckSurface | undefined;
+  await surface?.ackToken?.({
+    tokenType: entry.tokenType,
+    tripId: entry.tripId || "",
+    token: entry.token,
+  }).catch(() => undefined);
+}
+
 async function sendToken(entry: PendingToken, key: string) {
   const accessToken = accessTokenGetter?.() || "";
   if (!accessToken) return; // Giriş yapılınca flush ile tekrar denenir.
+  // Kurulum kimliği istek başına TEK kez okunur.
+  const installationId = getInstallationId();
   try {
     await requestJson("/api/live-activity/tokens", {
       method: "POST",
@@ -38,20 +49,47 @@ async function sendToken(entry: PendingToken, key: string) {
         tokenType: entry.tokenType,
         token: entry.token,
         ...(entry.tripId ? { tripId: entry.tripId } : {}),
-        // Rotasyon için kalıcı kurulum kimliği (bkz. storage.getInstallationId).
-        ...(getInstallationId() ? { installationId: getInstallationId() } : {}),
+        // Rotasyon + hesaplar-arası tekil sahiplik için kurulum kimliği.
+        ...(installationId ? { installationId } : {}),
       },
     });
     pendingTokens.delete(key);
     // Native tampondan da silinir; sonraki açılışta yeniden gönderilmez.
-    const surface = plugin("FlightLiveActivity") as AckSurface | undefined;
-    await surface?.ackToken?.({
-      tokenType: entry.tokenType,
-      tripId: entry.tripId || "",
-      token: entry.token,
-    }).catch(() => undefined);
+    await ackNativeToken(entry);
+  } catch (error) {
+    // 403 (yalnız activity_update'te döner): trip BAŞKA hesabın — bu
+    // oturumda asla başarılı olamaz; sonsuz retry yerine düşürülür ve
+    // native tampondan da silinir (hesap değişimi sonrası eski kayıtlar).
+    if (error instanceof ApiError && error.status === 403 && entry.tokenType === "activity_update") {
+      pendingTokens.delete(key);
+      await ackNativeToken(entry);
+      return;
+    }
+    // Diğerleri sessiz: sunucu hazır değilse (503) / ağ yoksa flush dener.
+  }
+}
+
+/**
+ * ÇIKIŞ temizliği: BU kurulumun (fiziksel cihaz) tüm Live Activity
+ * tokenlarını sunucuda kapatır. Oturum silinmeden ÖNCE çağrılmalıdır;
+ * kullanıcının diğer cihazları (iPad) etkilenmez. Bekleyen kuyruk da
+ * temizlenir (eski hesabın tokenları yeni hesaba taşınmaz; cihaz-genel
+ * push_to_start tokenı zaten native tamponda kalır ve yeni oturumda
+ * yeni hesaba kaydedilir).
+ */
+export async function disableLiveActivityTokensForLogout(accessToken: string): Promise<void> {
+  pendingTokens.clear();
+  const installationId = getInstallationId();
+  if (!accessToken || !installationId) return;
+  try {
+    await requestJson("/api/live-activity/tokens", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: { installationId },
+    });
   } catch {
-    // Sessiz: sunucu hazır değilse (503) veya ağ yoksa sonraki flush dener.
+    // Başarısızlık çıkışı ENGELLEMEZ; sunucu tarafı rotasyon + hesaplar-
+    // arası tekil sahiplik garantisi ikinci savunma hattıdır.
   }
 }
 

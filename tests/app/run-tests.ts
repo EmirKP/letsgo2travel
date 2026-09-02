@@ -15,7 +15,9 @@ import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState 
 import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
+import { randomFallbackUuid } from "./_mobile/id";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
+import { registerLiveActivityTokenTests } from "./liveActivityTokens";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
 function test(name: string, fn: () => Promise<void> | void) { tests.push([name, fn]); }
@@ -353,9 +355,27 @@ test("liveActivity: kalkış geçince TERS geri sayım aralığı oluşturulmaz 
   assert.equal(countdownMode("bozuk"), "departed");
 });
 
+test("id: SON ÇARE fallback bile geçerli RFC 4122 UUID v4 üretir", () => {
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  // Deterministik random ile de, gerçek Math.random ile de v4 biçimi korunur.
+  let seed = 0.1234;
+  const pseudoRandom = () => {
+    seed = ((seed * 9301 + 49297) % 233280) / 233280;
+    return seed;
+  };
+  for (let index = 0; index < 100; index += 1) {
+    assert.match(randomFallbackUuid(pseudoRandom), UUID_V4, "deterministik fallback v4 olmalı");
+    assert.match(randomFallbackUuid(), UUID_V4, "Math.random fallback v4 olmalı");
+  }
+  // Uç değerler: hep 0 / hep 1'e yakın random bile version/variant bitlerini korur.
+  assert.match(randomFallbackUuid(() => 0), UUID_V4);
+  assert.match(randomFallbackUuid(() => 0.999999), UUID_V4);
+});
+
 // ------------------- Live Activity cron çekirdeği --------------------
 
 registerLiveActivityCronTests(test);
+registerLiveActivityTokenTests(test);
 
 // ------------------------------ runner -------------------------------
 

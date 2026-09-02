@@ -1,5 +1,5 @@
 -- =====================================================================
--- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v4) — HAZIRLANDI, UYGULANMADI
+-- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v5) — HAZIRLANDI, UYGULANMADI
 -- ---------------------------------------------------------------------
 -- Amaç: uygulama KAPALIYKEN Dynamic Island / kilit ekranı aktivitesinin
 -- APNs "liveactivity" push'u ile başlatılıp bitirilebilmesi (iOS 17.2+
@@ -90,9 +90,56 @@ begin
      and id <> v_id
      and enabled;
 
+  -- HESAPLAR ARASI SIZINTI KORUMASI (v5): aynı FİZİKSEL cihaz tokenı
+  -- yalnız GÜNCEL hesapta etkin kalabilir. A çıkış yapmadan/eksik çıkışla
+  -- B aynı telefonda giriş yapsa bile, B'nin kaydıyla A'nın aynı token
+  -- satırı AYNI transaksiyonda (atomik) kapanır — A'nın uçuşu bu cihazda
+  -- Dynamic Island başlatamaz. Farklı fiziksel cihazlar (farklı token)
+  -- etkilenmez.
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where token_type = 'push_to_start'
+     and token = p_token
+     and user_id <> p_user_id
+     and enabled;
+
   return v_id;
 end;
 $$;
+
+-- ---------------------------------------------------------------------
+-- ÇIKIŞ (logout) temizliği (v5): kullanıcının BU kurulumdaki (fiziksel
+-- cihaz) push_to_start VE activity_update tokenlarını tek transaksiyonda
+-- kapatır. Diğer kurulumlar (örn. iPad) ETKİLENMEZ. Bearer doğrulaması
+-- API katmanında yapılır; fonksiyon yalnız service-role'dan çağrılır.
+-- ---------------------------------------------------------------------
+create or replace function public.deactivate_live_activity_installation(
+  p_user_id uuid,
+  p_installation_id uuid
+) returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  if p_user_id is null or p_installation_id is null then
+    raise exception 'invalid_deactivation';
+  end if;
+
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where user_id = p_user_id
+     and installation_id = p_installation_id
+     and enabled;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke all on function public.deactivate_live_activity_installation(uuid, uuid) from public;
+revoke all on function public.deactivate_live_activity_installation(uuid, uuid) from anon, authenticated;
 
 revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text) from public;
 revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text) from anon, authenticated;

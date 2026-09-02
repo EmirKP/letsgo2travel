@@ -3,6 +3,8 @@ import { config, isSupabaseConfigured } from "../lib/config";
 import { ApiError, requestJson } from "../lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
 import { closeBrowser, openExternal } from "../lib/native";
+import { endAllFlightActivities } from "../lib/liveActivity";
+import { disableLiveActivityTokensForLogout } from "../lib/liveActivityPush";
 import { disablePush } from "../lib/push";
 import type { AuthSession, AuthUser } from "../types";
 
@@ -675,11 +677,19 @@ export function useAuth() {
 
   const signOut = async () => {
     const accessToken = session?.access_token;
-    // Çıkışta cihaz bildirim kaydının kapatılması, oturum temizlenmeden ÖNCE
+    // Çıkışta cihaz kayıtlarının kapatılması, oturum temizlenmeden ÖNCE
     // beklenir (kontrollü 4 sn timeout ile); başarısızlık çıkışı engellemez.
+    // Live Activity temizliği HESAPLAR ARASI SIZINTIYI önler: bu kurulumun
+    // push-to-start/activity-update tokenları sunucuda kapatılır (yalnız BU
+    // cihaz — iPad etkilenmez) ve cihazda çalışan aktiviteler sonlandırılır;
+    // aksi halde A çıkıp B girse bile A'nın uçuşu Ada'da başlayabilirdi.
     if (accessToken) {
       await Promise.race([
-        disablePush(() => accessToken).catch(() => undefined),
+        Promise.allSettled([
+          disablePush(() => accessToken),
+          disableLiveActivityTokensForLogout(accessToken),
+          endAllFlightActivities(),
+        ]),
         new Promise((resolve) => setTimeout(resolve, 4000)),
       ]);
     }
