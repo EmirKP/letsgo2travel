@@ -26,7 +26,8 @@
     "mobile:prepare:fallback:android": "npm run mobile:build:fallback && npx cap sync android && npm run mobile:doctor -- --platform=android",
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
     "smoke": "node scripts/smoke-test.mjs",
-    "test:alerts": "node scripts/run-alert-tests.mjs"
+    "test:alerts": "node scripts/run-alert-tests.mjs",
+    "test:app": "node scripts/run-app-tests.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
@@ -65,6 +66,7 @@
     "@types/react-dom": "^19",
     "@types/react-simple-maps": "^3.0.6",
     "@types/sanitize-html": "^2.16.0",
+    "airports-json": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "ts-node": "^10.9.2",

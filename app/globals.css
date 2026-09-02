@@ -8215,3 +8215,81 @@ body {
   .l2t-myalarm-actions button { flex: 1; }
 }
 /* === L2T FIYAT ALARMLARIM LISTESI V24 END === */
+
+/* === L2T HAVALIMANI AUTOCOMPLETE V25 START === */
+.l2t-alarm-route-stack {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.l2t-alarm-route-stack .l2t-swap-btn { margin-top: 34px; min-width: 44px; min-height: 44px; }
+@media (max-width: 640px) {
+  /* Dar ekranda TEK SUTUN: tarih/hedef fiyat ve rota alanlari uste binmez */
+  .l2t-alarm-route-stack { grid-template-columns: 1fr; }
+  .l2t-alarm-route-stack .l2t-swap-btn { margin: 0 auto; transform: rotate(90deg); }
+}
+.l2t-airport-field { position: relative; }
+.l2t-airport-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+  font-size: .78rem;
+  color: var(--l2t-muted);
+}
+.l2t-airport-selected button {
+  border: 1px solid var(--l2t-border);
+  background: var(--l2t-card);
+  color: var(--l2t-text);
+  border-radius: 999px;
+  padding: 4px 12px;
+  min-height: 28px;
+  font-size: .74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.l2t-airport-options {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  margin: 6px 0 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--l2t-card);
+  border: 1px solid var(--l2t-border);
+  border-radius: var(--l2t-radius-sm);
+  box-shadow: var(--l2t-shadow-lg);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.l2t-airport-options li { margin: 0; }
+.l2t-airport-note { padding: 12px; font-size: .84rem; color: var(--l2t-muted); }
+.l2t-airport-options button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 48px; /* dokunma hedefi */
+  cursor: pointer;
+}
+.l2t-airport-options button.is-active { background: color-mix(in srgb, var(--l2t-gold-soft) 30%, #fff); }
+.l2t-airport-options strong { display: flex; gap: 8px; align-items: baseline; color: var(--l2t-text); font-size: .92rem; }
+.l2t-airport-options strong em { font-style: normal; font-weight: 800; color: #0B5566; background: #EEF6FA; border-radius: 6px; padding: 1px 6px; font-size: .72rem; }
+.l2t-airport-options small { display: block; margin-top: 2px; color: var(--l2t-muted); font-size: .76rem; }
+
+/* iOS input zoom engeli (erisilebilir yontem): 16px alti font iOS'ta
+   odaklanınca otomatik zoom tetikler; form kontrollerini 16px yap. */
+@media (max-width: 760px) {
+  .l2t-alarm-form input,
+  .l2t-alarm-form select,
+  .l2t-airport-field input {
+    font-size: 16px;
+  }
+}
+/* === L2T HAVALIMANI AUTOCOMPLETE V25 END === */

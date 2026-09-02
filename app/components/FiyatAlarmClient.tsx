@@ -2,31 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
+import AirportAutocomplete, { type AirportOption } from "./AirportAutocomplete";
 
-const POPULAR_ROUTES = [
-  { label: "IST → DXB (Dubai)", origin: "IST", dest: "DXB", destinationLabel: "Dubai" },
-  { label: "IST → GYD (Bakü)", origin: "IST", dest: "GYD", destinationLabel: "Bakü" },
-  { label: "SAW → TBS (Tiflis)", origin: "SAW", dest: "TBS", destinationLabel: "Tiflis" },
-  { label: "IST → SJJ (Saraybosna)", origin: "IST", dest: "SJJ", destinationLabel: "Saraybosna" },
-  { label: "IST → FCO (Roma)", origin: "IST", dest: "FCO", destinationLabel: "Roma" },
-  { label: "IST → TIA (Tiran)", origin: "IST", dest: "TIA", destinationLabel: "Tiran" },
+const IST: AirportOption = { iata: "IST", name: "İstanbul Havalimanı", city: "İstanbul", country: "Türkiye", countryCode: "TR" };
+const SAW: AirportOption = { iata: "SAW", name: "Sabiha Gökçen Havalimanı", city: "İstanbul", country: "Türkiye", countryCode: "TR" };
+
+// Hızlı seçim kısayolları; asıl seçim dünya çapında autocomplete iledir.
+const POPULAR_ROUTES: Array<{ label: string; origin: AirportOption; destination: AirportOption }> = [
+  { label: "İstanbul → Dubai", origin: IST, destination: { iata: "DXB", name: "Dubai International Airport", city: "Dubai", country: "Birleşik Arap Emirlikleri", countryCode: "AE" } },
+  { label: "İstanbul → Bakü", origin: IST, destination: { iata: "GYD", name: "Heydar Aliyev International Airport", city: "Bakü", country: "Azerbaycan", countryCode: "AZ" } },
+  { label: "İstanbul (SAW) → Tiflis", origin: SAW, destination: { iata: "TBS", name: "Tbilisi International Airport", city: "Tiflis", country: "Gürcistan", countryCode: "GE" } },
+  { label: "İstanbul → Saraybosna", origin: IST, destination: { iata: "SJJ", name: "Sarajevo International Airport", city: "Saraybosna", country: "Bosna-Hersek", countryCode: "BA" } },
+  { label: "İstanbul → Roma", origin: IST, destination: { iata: "FCO", name: "Roma Fiumicino Havalimanı", city: "Roma", country: "İtalya", countryCode: "IT" } },
 ];
 
+// Saat dilimi guvenli: toISOString UTC gunu verdigi icin gece saatlerinde
+// tarihi bir gun geri kaydirir; yerel takvim gunu kullanilir.
+function localIsoDate(daysFromNow = 0) {
+  const date = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 function defaultDepartureDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  return date.toISOString().slice(0, 10);
+  return localIsoDate(30);
 }
 
 export default function FiyatAlarmClient() {
   const [form, setForm] = useState({
     email: "",
-    origin: "IST",
-    destination: "",
-    destinationLabel: "",
     departureDate: defaultDepartureDate(),
     targetPrice: "",
   });
+  const [origin, setOrigin] = useState<AirportOption | null>(IST);
+  const [destination, setDestination] = useState<AirportOption | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   // Bildirim kanallari: e-posta varsayilan aciktir; telefon bildirimi
@@ -47,13 +55,28 @@ export default function FiyatAlarmClient() {
     return () => { active = false; };
   }, []);
 
-  function setRoute(origin: string, dest: string, destinationLabel: string) {
-    setForm((f) => ({ ...f, origin, destination: dest, destinationLabel }));
+  function setRoute(route: { origin: AirportOption; destination: AirportOption }) {
+    setOrigin(route.origin);
+    setDestination(route.destination);
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.destination) return;
+    if (!origin || !destination) {
+      setStatus("error");
+      setMessage("Kalkış ve varış havalimanlarını listeden seçmelisin.");
+      return;
+    }
+    if (origin.iata === destination.iata) {
+      setStatus("error");
+      setMessage("Kalkış ve varış aynı olamaz.");
+      return;
+    }
+    if (form.departureDate < localIsoDate(0)) {
+      setStatus("error");
+      setMessage("Gidiş tarihi geçmiş bir gün olamaz.");
+      return;
+    }
     if (!notifyEmail && !notifyPush) {
       setStatus("error");
       setMessage("En az bir bildirim kanalı seçmelisin (e-posta veya telefon bildirimi).");
@@ -73,10 +96,10 @@ export default function FiyatAlarmClient() {
         headers,
         body: JSON.stringify({
           email: form.email,
-          originCode: form.origin,
-          originLabel: form.origin,
-          destinationCode: form.destination,
-          destinationLabel: form.destinationLabel || form.destination,
+          originCode: origin?.iata,
+          originLabel: origin ? (origin.city || origin.name) : "",
+          destinationCode: destination?.iata,
+          destinationLabel: destination ? (destination.city || destination.name) : "",
           departureDate: form.departureDate,
           targetPrice: form.targetPrice ? Number(form.targetPrice) : null,
           tripType: "one_way",
@@ -114,10 +137,10 @@ export default function FiyatAlarmClient() {
           <div className="l2t-filter-chips">
             {POPULAR_ROUTES.map((r) => (
               <button
-                key={r.dest}
+                key={r.label}
                 type="button"
-                className={`l2t-chip${form.destination === r.dest ? " l2t-chip-active" : ""}`}
-                onClick={() => setRoute(r.origin, r.dest, r.destinationLabel)}
+                className={`l2t-chip${destination?.iata === r.destination.iata && origin?.iata === r.origin.iata ? " l2t-chip-active" : ""}`}
+                onClick={() => setRoute(r)}
               >
                 {r.label}
               </button>
@@ -126,43 +149,36 @@ export default function FiyatAlarmClient() {
         </div>
 
         <form onSubmit={submit} className="l2t-alarm-form">
-          <div className="l2t-alarm-route-row">
-            <label className="l2t-alarm-field">
-              <span>Nereden</span>
-              <input
-                type="text"
-                value={form.origin}
-                onChange={(e) => setForm((f) => ({ ...f, origin: e.target.value.toUpperCase().slice(0, 3) }))}
-                placeholder="IST"
-                maxLength={3}
-                required
-              />
-            </label>
+          <div className="l2t-alarm-route-stack">
+            <AirportAutocomplete
+              label="Nereden (kalkış)"
+              placeholder="Şehir, ülke veya havalimanı yaz"
+              value={origin}
+              onChange={setOrigin}
+              required
+            />
             <button
               type="button"
               className="l2t-swap-btn"
-              onClick={() => setForm((f) => ({ ...f, origin: f.destination, destination: f.origin }))}
-              aria-label="Değiştir"
+              onClick={() => { const previous = origin; setOrigin(destination); setDestination(previous); }}
+              aria-label="Kalkış ve varışı değiştir"
             >
               ⇄
             </button>
-            <label className="l2t-alarm-field">
-              <span>Nereye</span>
-              <input
-                type="text"
-                value={form.destination}
-                onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value.toUpperCase().slice(0, 3), destinationLabel: "" }))}
-                placeholder="DXB, GYD..."
-                maxLength={3}
-                required
-              />
-            </label>
+            <AirportAutocomplete
+              label="Nereye (varış)"
+              placeholder="Şehir, ülke veya havalimanı yaz"
+              value={destination}
+              onChange={setDestination}
+              required
+            />
           </div>
 
           <label className="l2t-alarm-field">
             <span>Gidiş tarihi</span>
             <input
               type="date"
+              min={localIsoDate(0)}
               value={form.departureDate}
               onChange={(e) => setForm((f) => ({ ...f, departureDate: e.target.value }))}
               required

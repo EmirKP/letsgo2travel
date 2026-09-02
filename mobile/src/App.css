@@ -829,3 +829,32 @@
 @media (max-width: 390px) {
   .alert-channels.compact { grid-template-columns: 1fr; }
 }
+
+/* === Havalimani secici (AirportField) === */
+.airport-field { position: relative; }
+.airport-field > label { display: grid; gap: 6px; font-size: 12px; font-weight: 800; color: #33465c; }
+.airport-field-selected { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 52px; padding: 9px 12px; border: 1px solid #cfdbe4; border-radius: 12px; background: #f4f9f4; text-align: left; }
+.airport-field-selected span { display: grid; gap: 2px; }
+.airport-field-selected strong { display: flex; gap: 7px; align-items: baseline; font-size: 14px; color: #12263c; }
+.airport-field-selected strong em { font-style: normal; font-weight: 800; font-size: 11px; color: #0b5566; background: #e3f1f6; border-radius: 6px; padding: 1px 6px; }
+.airport-field-selected small { font-size: 11px; color: #62748a; }
+.airport-field-options { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #d7e1ea; border-radius: 14px; box-shadow: 0 18px 44px rgba(7,27,51,.16); max-height: 300px; overflow-y: auto; padding: 6px; display: grid; gap: 2px; }
+.airport-field-options button { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 10px 12px; min-height: 52px; }
+.airport-field-options button:active { background: #fdf4d7; }
+.airport-field-options strong { display: flex; gap: 7px; align-items: baseline; font-size: 14px; color: #12263c; }
+.airport-field-options strong em { font-style: normal; font-weight: 800; font-size: 11px; color: #0b5566; background: #e3f1f6; border-radius: 6px; padding: 1px 6px; }
+.airport-field-options small { font-size: 11px; color: #62748a; }
+.airport-field-note { margin: 0; padding: 12px; font-size: 12px; color: #62748a; }
+
+/* Dar ekranda form iki-sutunlulari tek sutuna in (uste binme onlenir) */
+@media (max-width: 430px) {
+  .form-grid.two.stack-narrow { grid-template-columns: 1fr; }
+}
+
+/* iOS input zoom engeli: 16px alti font odaklanınca otomatik zoom yapar. */
+.form-card input,
+.form-card select,
+.airport-field input {
+  font-size: 16px;
+  touch-action: manipulation;
+}

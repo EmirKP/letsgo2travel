@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert } from "../lib/api";
+import type { AirportOption } from "../lib/airports";
+import { isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
 import type { AuthUser, FlightAlert } from "../types";
 
@@ -12,8 +15,8 @@ type PriceAlertsScreenProps = {
 };
 
 type AlertForm = {
-  originCode: string;
-  destinationCode: string;
+  origin: AirportOption | null;
+  destination: AirportOption | null;
   departureDate: string;
   targetPrice: string;
   notifyEmail: boolean;
@@ -21,8 +24,8 @@ type AlertForm = {
 };
 
 const EMPTY_FORM: AlertForm = {
-  originCode: "",
-  destinationCode: "",
+  origin: null,
+  destination: null,
   departureDate: "",
   targetPrice: "",
   notifyEmail: true,
@@ -49,15 +52,12 @@ function formatDateTime(value: string) {
   }
 }
 
-function cleanIata(value: string) {
-  return value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
-}
-
 function formError(form: AlertForm) {
-  if (!/^[A-Z]{3}$/.test(form.originCode)) return "Nereden alanına 3 harfli havalimanı kodu yaz. Örneğin IST.";
-  if (!/^[A-Z]{3}$/.test(form.destinationCode)) return "Nereye alanına 3 harfli havalimanı kodu yaz. Örneğin AMS.";
-  if (form.originCode === form.destinationCode) return "Kalkış ve varış aynı olamaz.";
+  if (!form.origin) return "Kalkış havalimanını listeden seç.";
+  if (!form.destination) return "Varış havalimanını listeden seç.";
+  if (form.origin.iata === form.destination.iata) return "Kalkış ve varış aynı olamaz.";
   if (!form.departureDate) return "Gidiş tarihini seç.";
+  if (isPastLocalDate(form.departureDate)) return "Gidiş tarihi geçmiş bir gün olamaz.";
   if (form.targetPrice) {
     const price = Number(form.targetPrice);
     if (!Number.isFinite(price) || price <= 0) return "Hedef fiyat pozitif bir sayı olmalı.";
@@ -158,10 +158,10 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     setError("");
     try {
       await createAlert({
-        originCode: form.originCode,
-        originLabel: form.originCode,
-        destinationCode: form.destinationCode,
-        destinationLabel: form.destinationCode,
+        originCode: form.origin!.iata,
+        originLabel: form.origin!.city || form.origin!.name,
+        destinationCode: form.destination!.iata,
+        destinationLabel: form.destination!.city || form.destination!.name,
         departureDate: form.departureDate,
         targetPrice: form.targetPrice ? Number(form.targetPrice) : null,
         notifyEmail: form.notifyEmail,
@@ -276,12 +276,10 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     </div>
 
     {formOpen && <form className="form-card alert-form" onSubmit={submitAlert}>
-      <div className="form-grid two">
-        <label>Nereden<input value={form.originCode} maxLength={3} autoCapitalize="characters" inputMode="text" onChange={(event) => setForm({ ...form, originCode: cleanIata(event.target.value) })} placeholder="IST" /></label>
-        <label>Nereye<input value={form.destinationCode} maxLength={3} autoCapitalize="characters" inputMode="text" onChange={(event) => setForm({ ...form, destinationCode: cleanIata(event.target.value) })} placeholder="AMS" /></label>
-      </div>
-      <div className="form-grid two">
-        <label>Gidiş tarihi<input type="date" value={form.departureDate} onChange={(event) => setForm({ ...form, departureDate: event.target.value })} /></label>
+      <AirportField label="Nereden" value={form.origin} onChange={(origin) => setForm({ ...form, origin })} />
+      <AirportField label="Nereye" value={form.destination} onChange={(destination) => setForm({ ...form, destination })} />
+      <div className="form-grid two stack-narrow">
+        <label>Gidiş tarihi<input type="date" min={localIsoDate(0)} value={form.departureDate} onChange={(event) => setForm({ ...form, departureDate: event.target.value })} /></label>
         <label>Hedef fiyat (TL, isteğe bağlı)<input type="number" min={1} step={1} inputMode="numeric" value={form.targetPrice} onChange={(event) => setForm({ ...form, targetPrice: event.target.value })} placeholder="Boşsa %5 düşüşte haber verilir" /></label>
       </div>
       <div className="alert-channels">
