@@ -1,4 +1,4 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 4. tur/v4 ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 5. tur/v5 ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
@@ -49,7 +49,13 @@
 30. `5f073d0` claim_token UUID (kesin üretim hatası) + widget ters aralık + dürüst garanti
 31. `85de144` Push-to-start token rotasyonu (kurulum kimliği + atomik RPC)
 32. `890c5f9` Üç mobil paket kopyası v4 build ile eşitlendi
-33. (bu rapor)
+33. `55b8743` Denetim raporu (4. tur)
+
+**5. tur (v4 bağımsız denetim — hesaplar arası sızıntı blokajı, 55b8743 → uç):**
+
+34. `65ac07b` Hesaplar arası Live Activity sızıntısı kapatıldı (çıkış temizliği + tek-hesap token garantisi)
+35. `abc48b9` Üç mobil paket kopyası v5 build ile eşitlendi
+36. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -232,6 +238,26 @@ high / sanitize-html moderate — onay bekliyor).
   gerçek PostgreSQL'de uygulamanın ürettiği tokenla claim 1 satır etkiledi,
   v3 biçimi aynı DB'de 22P02 ile reddedildi (kanıt). claim/settle DB
   hataları artık gizlenmez: token içermeyen kod güvenli loga yazılır.
+  **v5 KRİTİK sızıntı düzeltmesi (hesaplar arası):** v4'te signOut yalnız
+  disablePush çağırıyordu; live_activity_tokens açık kalıyor ve aynı
+  fiziksel token iki hesapta birden etkin kalabiliyordu (A çıkıp B girse
+  bile A'nın uçuşu aynı telefonda başlayabilirdi). v5: (1) çıkışta,
+  oturum silinmeden ÖNCE `DELETE /api/live-activity/tokens` (Bearer +
+  installationId) → `deactivate_live_activity_installation` RPC'si BU
+  kurulumun push_to_start VE activity_update tokenlarını tek
+  transaksiyonda kapatır — kullanıcının DİĞER cihazları (iPad) etkilenmez;
+  (2) cihazda çalışan TÜM uçuş aktiviteleri çıkışta sonlandırılır;
+  (3) `register_live_activity_push_to_start` aynı FİZİKSEL tokenı diğer
+  hesap(lar) altında AYNI transaksiyonda kapatır — token atomik olarak
+  yalnız güncel hesapta etkin (A hiç çıkış yapmasa bile B'nin kaydı A'yı
+  keser); (4) geçersiz installationId artık 400 (sessiz rotasyonsuz yol
+  YOK); (5) createId son fallback'i de RFC 4122 UUID v4; (6) RPC yokluğu
+  GERÇEK PostgREST koduyla (PGRST202; direkt PG 42883) testli fallback.
+  ZORUNLU SENARYO gerçek PostgreSQL'de kanıtlandı: A iPhone+iPad → iPhone
+  logout: iPhone'un 2 tokenı kapandı, iPad açık; B aynı iPhone'da login:
+  fiziksel token yalnız B'de etkin; A'nın uçuşu için etkin iPhone
+  push_to_start/activity_update YOK (iPad'e gider), B'ninki gider; A hiç
+  çıkmadan bile B kaydı A'nın satırını kapattı.
   **v4 token rotasyonu:** Apple push-to-start tokenı zamanla
   değiştirebilir; mobil istemci kalıcı KURULUM KİMLİĞİ (uuid, kişisel veri
   içermez) gönderir ve `register_live_activity_push_to_start` RPC'si
@@ -298,7 +324,7 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` | **49/49 PASS** (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
+| `test:app` | **57/57 PASS** (+8 v5 testi: rotasyon RPC çağrısı; PGRST202/42883 gerçek-PostgREST fallback'i; tablo yokken 503; geçersiz installationId 400 — kayıt VE çıkışta; çıkış filtreleri yalnız user+installation; hesap değişimi cron senaryosu — A'nın uçuşu iPhone'a gidemez/iPad'e gider, B'ninki gider; createId son fallback RFC4122 v4) (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
 | Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
 | `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
@@ -306,6 +332,7 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler |
 | Gerçek PG claim — UYGULAMANIN ÜRETTİĞİ tokenla (v4) | PASS: ts-node ile `defaultClaimToken()` çağrıldı, dönen UUID gerçek DB'de 1 satır claim etti; v3'ün `claim-<ts>-<rnd>` biçimi AYNI DB'de 22P02 ile reddedildi |
 | Gerçek PG token rotasyonu (v4) | PASS: iPhone(kurulum A) yeni token → eski kapandı; iPad(kurulum B) ve NULL kimlikli eski kayıt DOKUNULMADI; yeniden kayıt idempotent; fonksiyonda PUBLIC/anon/authenticated EXECUTE yok |
+| Gerçek PG hesaplar-arası senaryo (v5, ZORUNLU) | PASS: A logout(iPhone)→2 token kapandı+iPad açık; B login(aynı iPhone)→fiziksel token yalnız B'de etkin; A'nın etkin iPhone tokenı YOK (start/update/end gidemez), iPad'i alır; B gönderebilir; A çıkış yapmasa bile B kaydı A'yı atomik kapatır |
 | `git diff --check` | PASS |
 | Secret/staging taraması (.env/.p8/google-services/supabase/.temp) | PASS (branch diff temiz) |
 | Bundle kopyaları (mobile-dist ↔ iOS ↔ Android; lazy chunk dahil) | PASS (hash birebir) |
