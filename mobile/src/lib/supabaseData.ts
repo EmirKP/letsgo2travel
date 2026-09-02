@@ -93,6 +93,10 @@ export type CockpitTrip = {
   endDate: string;
   departureAt: string | null;
   flightPnr: string | null;
+  originIata: string | null;
+  destinationIata: string | null;
+  airline: string | null;
+  flightNumber: string | null;
   checklistItems: ChecklistItem[];
   status: TripStatus;
   createdAt: string;
@@ -107,6 +111,10 @@ export type CreateCockpitTripInput = {
   endDate: string;
   departureAt?: string | null;
   flightPnr?: string;
+  originIata?: string;
+  destinationIata?: string;
+  airline?: string;
+  flightNumber?: string;
   checklistItems?: ChecklistItem[];
 };
 
@@ -141,13 +149,17 @@ type TripRow = {
   end_date?: unknown;
   departure_at?: unknown;
   flight_pnr?: unknown;
+  origin_iata?: unknown;
+  destination_iata?: unknown;
+  airline?: unknown;
+  flight_number?: unknown;
   checklist_items?: unknown;
   status?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 };
 
-const TRIP_SELECT = [
+const TRIP_BASE_COLUMNS = [
   "id",
   "user_id",
   "destination_country",
@@ -161,7 +173,29 @@ const TRIP_SELECT = [
   "status",
   "created_at",
   "updated_at",
-].join(",");
+];
+// 20260902100000_cockpit_flight_fields.sql migration'ının eklediği sütunlar.
+const TRIP_FLIGHT_COLUMNS = ["origin_iata", "destination_iata", "airline", "flight_number"];
+
+// GÜVENLİ DAĞITIM SIRASI: uygulama, migration üretime uygulanmadan da
+// çalışmalı. İlk 42703 (undefined column) yanıtında bu bayrak kapanır;
+// SELECT eski sütun listesine döner, INSERT/UPDATE yeni alanları yazmaz.
+// Migration uygulandıktan sonra uygulama yeniden açıldığında alanlar
+// otomatik devreye girer. (Bayrak oturumluk; kalıcı durum tutulmaz.)
+let flightColumnsSupported = true;
+
+/** Uçuş alanı sütunları bu oturumda kullanılabilir mi? (UI notu için) */
+export function areFlightFieldsSupported() {
+  return flightColumnsSupported;
+}
+
+function isUndefinedColumnError(error: unknown) {
+  return error instanceof ApiError && error.code === "42703";
+}
+
+function tripSelect() {
+  return (flightColumnsSupported ? [...TRIP_BASE_COLUMNS, ...TRIP_FLIGHT_COLUMNS] : TRIP_BASE_COLUMNS).join(",");
+}
 
 const USER_TRIP_SELECT = "id,user_id,title,destination,trip_data,created_at";
 const inFlightUserTripUpserts = new Map<string, Promise<UserTripData>>();
@@ -309,6 +343,10 @@ function normalizeTrip(row: TripRow): CockpitTrip | null {
     endDate,
     departureAt: nullableString(row.departure_at, 40),
     flightPnr: nullableString(row.flight_pnr, 20),
+    originIata: nullableString(row.origin_iata, 3)?.toUpperCase() || null,
+    destinationIata: nullableString(row.destination_iata, 3)?.toUpperCase() || null,
+    airline: nullableString(row.airline, 80),
+    flightNumber: nullableString(row.flight_number, 8)?.toUpperCase() || null,
     checklistItems: normalizeChecklist(row.checklist_items),
     status: normalizeTripStatus(row.status),
     createdAt: safeString(row.created_at, 40),
@@ -347,12 +385,27 @@ function assertTripInput(input: CreateCockpitTripInput) {
   const code = safeString(input.destinationCode, 2).toUpperCase();
   const pnr = safeString(input.flightPnr, 20);
   const departureAt = safeString(input.departureAt, 40);
+  const originIata = safeString(input.originIata, 3).toUpperCase();
+  const destinationIata = safeString(input.destinationIata, 3).toUpperCase();
+  const flightNumber = safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (country.length < 2 || !/^[A-Z]{2}$/.test(code)
     || !validDate(input.startDate) || !validDate(input.endDate) || input.endDate < input.startDate
     || (departureAt && Number.isNaN(Date.parse(departureAt)))
-    || (pnr && !/^[A-Za-z0-9-]{3,20}$/.test(pnr))) {
+    || (pnr && !/^[A-Za-z0-9-]{3,20}$/.test(pnr))
+    || (originIata && !/^[A-Z]{3}$/.test(originIata))
+    || (destinationIata && !/^[A-Z]{3}$/.test(destinationIata))
+    || (flightNumber && !/^[A-Z0-9]{2,8}$/.test(flightNumber))) {
     throw new SupabaseDataError("invalid_data", 400);
   }
+}
+
+function flightFieldValues(input: Pick<CreateCockpitTripInput, "originIata" | "destinationIata" | "airline" | "flightNumber">) {
+  return {
+    origin_iata: nullableString(input.originIata, 3)?.toUpperCase() || null,
+    destination_iata: nullableString(input.destinationIata, 3)?.toUpperCase() || null,
+    airline: nullableString(input.airline, 80),
+    flight_number: nullableString(safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""), 8),
+  };
 }
 
 export async function getUserProfile(userId: string, accessToken: string) {
@@ -514,16 +567,27 @@ export async function deleteUserTrip(userId: string, tripId: number | string, ac
 export async function listCockpitTrips(userId: string, accessToken: string, includeCancelled = false) {
   assertUserId(userId);
   return safely(async () => {
-    const params = new URLSearchParams({
-      select: TRIP_SELECT,
-      user_id: `eq.${userId}`,
-      order: "start_date.asc",
-      limit: "100",
-    });
-    if (!includeCancelled) params.set("status", "neq.cancelled");
-    const rows = await requestJson<TripRow[]>(dataUrl("trips", params), {
-      headers: dataHeaders(accessToken),
-    });
+    const fetchRows = async () => {
+      const params = new URLSearchParams({
+        select: tripSelect(),
+        user_id: `eq.${userId}`,
+        order: "start_date.asc",
+        limit: "100",
+      });
+      if (!includeCancelled) params.set("status", "neq.cancelled");
+      return requestJson<TripRow[]>(dataUrl("trips", params), {
+        headers: dataHeaders(accessToken),
+      });
+    };
+    let rows: TripRow[];
+    try {
+      rows = await fetchRows();
+    } catch (error) {
+      // Migration üretimde henüz yoksa (42703) eski sütun listesine düş.
+      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
+      flightColumnsSupported = false;
+      rows = await fetchRows();
+    }
     return rows.flatMap((row) => {
       const normalized = normalizeTrip(row);
       return normalized ? [normalized] : [];
@@ -535,23 +599,35 @@ export async function createCockpitTrip(userId: string, input: CreateCockpitTrip
   assertUserId(userId);
   assertTripInput(input);
   return safely(async () => {
-    const params = new URLSearchParams({ select: TRIP_SELECT });
-    const rows = await requestJson<TripRow[]>(dataUrl("trips", params), {
-      method: "POST",
-      headers: dataHeaders(accessToken, "return=representation"),
-      body: {
-        user_id: userId,
-        destination_country: safeString(input.destinationCountry, 100),
-        destination_code: safeString(input.destinationCode, 2).toUpperCase(),
-        destination_city: nullableString(input.destinationCity, 100),
-        start_date: input.startDate,
-        end_date: input.endDate,
-        departure_at: nullableString(input.departureAt, 40),
-        flight_pnr: nullableString(input.flightPnr, 20),
-        checklist_items: cleanChecklist(input.checklistItems) || [],
-        status: "upcoming",
-      },
-    });
+    const post = async () => {
+      const params = new URLSearchParams({ select: tripSelect() });
+      return requestJson<TripRow[]>(dataUrl("trips", params), {
+        method: "POST",
+        headers: dataHeaders(accessToken, "return=representation"),
+        body: {
+          user_id: userId,
+          destination_country: safeString(input.destinationCountry, 100),
+          destination_code: safeString(input.destinationCode, 2).toUpperCase(),
+          destination_city: nullableString(input.destinationCity, 100),
+          start_date: input.startDate,
+          end_date: input.endDate,
+          departure_at: nullableString(input.departureAt, 40),
+          flight_pnr: nullableString(input.flightPnr, 20),
+          // Uçuş alanları yalnız sütunlar varken gönderilir (42703 emniyeti).
+          ...(flightColumnsSupported ? flightFieldValues(input) : {}),
+          checklist_items: cleanChecklist(input.checklistItems) || [],
+          status: "upcoming",
+        },
+      });
+    };
+    let rows: TripRow[];
+    try {
+      rows = await post();
+    } catch (error) {
+      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
+      flightColumnsSupported = false;
+      rows = await post();
+    }
     const trip = rows[0] ? normalizeTrip(rows[0]) : null;
     if (!trip) throw new SupabaseDataError("service_unavailable", 500);
     return trip;
@@ -576,21 +652,42 @@ export async function updateCockpitTrip(
     if (update.endDate !== undefined) body.end_date = update.endDate;
     if (update.departureAt !== undefined) body.departure_at = nullableString(update.departureAt, 40);
     if (update.flightPnr !== undefined) body.flight_pnr = nullableString(update.flightPnr, 20);
+    if (flightColumnsSupported) {
+      const flightValues = flightFieldValues(update);
+      if (update.originIata !== undefined) body.origin_iata = flightValues.origin_iata;
+      if (update.destinationIata !== undefined) body.destination_iata = flightValues.destination_iata;
+      if (update.airline !== undefined) body.airline = flightValues.airline;
+      if (update.flightNumber !== undefined) body.flight_number = flightValues.flight_number;
+    }
     if (update.checklistItems !== undefined) body.checklist_items = cleanChecklist(update.checklistItems) || [];
     if (update.status !== undefined) body.status = normalizeTripStatus(update.status);
     if (!Object.keys(body).length) throw new SupabaseDataError("invalid_data", 400);
 
-    const params = new URLSearchParams({
-      select: TRIP_SELECT,
-      id: `eq.${tripId}`,
-      user_id: `eq.${userId}`,
-    });
-    if (expectedUpdatedAt) params.set("updated_at", `eq.${expectedUpdatedAt}`);
-    const rows = await requestJson<TripRow[]>(dataUrl("trips", params), {
-      method: "PATCH",
-      headers: dataHeaders(accessToken, "return=representation"),
-      body,
-    });
+    const patch = async (payload: Record<string, unknown>) => {
+      const params = new URLSearchParams({
+        select: tripSelect(),
+        id: `eq.${tripId}`,
+        user_id: `eq.${userId}`,
+      });
+      if (expectedUpdatedAt) params.set("updated_at", `eq.${expectedUpdatedAt}`);
+      return requestJson<TripRow[]>(dataUrl("trips", params), {
+        method: "PATCH",
+        headers: dataHeaders(accessToken, "return=representation"),
+        body: payload,
+      });
+    };
+    let rows: TripRow[];
+    try {
+      rows = await patch(body);
+    } catch (error) {
+      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
+      flightColumnsSupported = false;
+      const legacyBody = Object.fromEntries(
+        Object.entries(body).filter(([key]) => !TRIP_FLIGHT_COLUMNS.includes(key)),
+      );
+      if (!Object.keys(legacyBody).length) throw new SupabaseDataError("invalid_data", 400);
+      rows = await patch(legacyBody);
+    }
     const trip = rows[0] ? normalizeTrip(rows[0]) : null;
     if (!trip) throw new SupabaseDataError(expectedUpdatedAt ? "conflict" : "not_found", expectedUpdatedAt ? 409 : 404);
     return trip;
