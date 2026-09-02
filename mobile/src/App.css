@@ -899,3 +899,16 @@
 .legend-unknown::before { background: #C7D2DB; }
 .passport-map-loading { min-height: 180px; animation: pulse-bg 1.2s ease-in-out infinite alternate; }
 @keyframes pulse-bg { from { opacity: .55; } to { opacity: .9; } }
+
+/* === Rota Asistani sekansli akis === */
+.planner-progress { display: flex; gap: 7px; justify-content: center; margin-bottom: 4px; }
+.planner-progress button { width: 34px; height: 6px; border-radius: 999px; border: 0; background: #dde7ee; padding: 0; }
+.planner-progress button.done { background: #9db8c9; }
+.planner-progress button.active { background: var(--gold); }
+.planner-step { display: grid; gap: 11px; }
+.planner-step-title { margin: 0; font-size: 16px; color: #071b33; }
+.planner-hint { margin: -3px 0 0; font-size: 11.5px; color: #62748a; }
+.planner-step-nav { display: grid; grid-template-columns: auto 1fr; gap: 9px; }
+.planner-step-nav .primary-button, .planner-step-nav .secondary-button { min-height: 48px; justify-content: center; }
+/* Etiketler rahat dokunulur */
+.vibe-fieldset .choice-grid button { min-height: 44px; }

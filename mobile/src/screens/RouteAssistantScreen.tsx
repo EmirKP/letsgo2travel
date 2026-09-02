@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
+import type { AirportOption } from "../lib/airports";
 import { createFallbackPlan } from "../data/routes";
 import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
@@ -46,6 +48,8 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
   accessToken: string;
 }) {
   const [form, setForm] = useState<PlannerInput>(INITIAL);
+  const [step, setStep] = useState(0);
+  const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: "Sana sürpriz olarak seçtiğimiz rota.", routes: [surpriseRoute] } : null);
   const [source, setSource] = useState<"ai" | "local" | "surprise">(surpriseRoute ? "surprise" : "local");
@@ -88,7 +92,7 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
         setSavedKey("");
-        onNotice("Canlı asistan yanıt vermedi; güvenli yerel öneriler hazırlandı.");
+        onNotice("Önerilerin hazır.");
       }
       await hapticSuccess();
     } catch {
@@ -97,7 +101,7 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
       setSource("local");
       setExpanded(fallback.routes[0]?.name || "");
       setSavedKey("");
-      onNotice("Bağlantı kurulamadı; rota cihazdaki seçeneklerden oluşturuldu.");
+      onNotice("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.");
     } finally {
       setLoading(false);
     }
@@ -144,35 +148,65 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
 
   return (
     <div className="screen">
-      <section className="page-intro route-intro">
+      <section className="page-intro compact-intro route-intro">
         <span className="page-icon"><Icon name="route" size={27} /></span>
-        <div><small>AKILLI KEŞİF</small><h1>Rota Asistanı</h1><p>Tercihlerini seç; canlı asistan uygun değilse cihazdaki rota motoru yine öneri üretir.</p></div>
+        <div><small>AKILLI KEŞİF</small><h1>Rota Asistanı</h1><p>Üç kısa adımda tercihlerini seç; sana uygun rotaları önerelim.</p></div>
       </section>
 
-      <section className="form-card planner-form">
-        <div className="form-grid two">
-          <label>Çıkış noktası<input value={form.origin} onChange={(event) => setForm({ ...form, origin: event.target.value })} placeholder="İstanbul" /></label>
-          <label>Süre<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option>2–3 gün</option><option>4–6 gün</option><option>7–10 gün</option><option>10+ gün</option></select></label>
+      <section className="form-card planner-form planner-steps">
+        <div className="planner-progress" aria-label={`Adım ${step + 1} / 3`}>
+          {[0, 1, 2].map((index) => <button type="button" key={index} className={index === step ? "active" : index < step ? "done" : ""} aria-label={`Adım ${index + 1}`} onClick={() => index < step && setStep(index)} />)}
         </div>
-        <div className="form-grid two">
-          <label>Dönem<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month) => <option key={month}>{month}</option>)}</select></label>
-          <label>Bütçe<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option>Ekonomik</option><option>Orta</option><option value="Yüksek / premium">Premium</option></select></label>
-        </div>
-        <div className="form-grid two">
-          <label>Konaklama<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option>Otel</option><option>Apart / ev</option><option>Fark etmez</option></select></label>
-          <label>Kiminle?<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option>Tek başıma</option><option>Partnerimle</option><option>Arkadaşlarımla</option><option>Ailemle</option><option value="İlk yurt dışı deneyimim">İlk seyahatim</option></select></label>
-        </div>
-        <div className="form-grid two">
-          <label>Tempo<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option>Rahat</option><option>Dengeli</option><option>Yoğun</option></select></label>
+
+        {step === 0 && <div className="planner-step">
+          <h2 className="planner-step-title">Nereden ve ne zaman?</h2>
+          <AirportField
+            label="Çıkış noktası"
+            placeholder={form.origin ? `${form.origin} (değiştirmek için yaz)` : "Şehir veya havalimanı yaz"}
+            value={originAirport}
+            onChange={(airport) => {
+              setOriginAirport(airport);
+              if (airport) setForm({ ...form, origin: airport.city || airport.name });
+            }}
+          />
+          {!originAirport && <p className="planner-hint">Şu anki çıkış noktan: <strong>{form.origin}</strong></p>}
+          <div className="form-grid two stack-narrow">
+            <label>Süre<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option>2–3 gün</option><option>4–6 gün</option><option>7–10 gün</option><option>10+ gün</option></select></label>
+            <label>Dönem<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month) => <option key={month}>{month}</option>)}</select></label>
+          </div>
+          <button className="primary-wide" onClick={() => setStep(1)}><Icon name="chevron" size={17} /> Devam et</button>
+        </div>}
+
+        {step === 1 && <div className="planner-step">
+          <h2 className="planner-step-title">Bütçe ve yol arkadaşların</h2>
+          <div className="form-grid two stack-narrow">
+            <label>Bütçe<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option>Ekonomik</option><option>Orta</option><option value="Yüksek / premium">Premium</option></select></label>
+            <label>Konaklama<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option>Otel</option><option>Apart / ev</option><option>Fark etmez</option></select></label>
+          </div>
+          <div className="form-grid two stack-narrow">
+            <label>Kiminle?<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option>Tek başıma</option><option>Partnerimle</option><option>Arkadaşlarımla</option><option>Ailemle</option><option value="İlk yurt dışı deneyimim">İlk seyahatim</option></select></label>
+            <label>Tempo<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option>Rahat</option><option>Dengeli</option><option>Yoğun</option></select></label>
+          </div>
           <label>Giriş tercihi<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">Vizesiz / kolay</option><option>Vize olabilir</option><option>Fark etmez</option></select></label>
-        </div>
-        <fieldset className="vibe-fieldset"><legend>Nasıl bir seyahat?</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
-        <button className="primary-wide" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={19} />} {loading ? "Rotalar hazırlanıyor" : "Bana rota öner"}</button>
+          <div className="planner-step-nav">
+            <button className="secondary-button" onClick={() => setStep(0)}><Icon name="back" size={16} /> Geri</button>
+            <button className="primary-button" onClick={() => setStep(2)}>Devam et <Icon name="chevron" size={16} /></button>
+          </div>
+        </div>}
+
+        {step === 2 && <div className="planner-step">
+          <h2 className="planner-step-title">Nasıl bir seyahat istiyorsun?</h2>
+          <fieldset className="vibe-fieldset"><legend className="sr-only">İlgi alanların</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
+          <div className="planner-step-nav">
+            <button className="secondary-button" onClick={() => setStep(1)}><Icon name="back" size={16} /> Geri</button>
+            <button className="primary-button planner-generate" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={18} />} {loading ? "Hazırlanıyor" : "Bana rota öner"}</button>
+          </div>
+        </div>}
       </section>
 
       {plan && <section className="plan-results">
         <div className="results-heading">
-          <div><span>{source === "ai" ? "CANLI ASİSTAN" : source === "surprise" ? "SÜRPRİZ ROTA" : "YEREL ROTA MOTORU"}</span><h2>Senin için seçtiklerimiz</h2></div>
+          <div><span>{source === "surprise" ? "SÜRPRİZ ROTA" : "SANA ÖZEL ÖNERİLER"}</span><h2>Senin için seçtiklerimiz</h2></div>
           <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, form) ? "check" : "bookmark"} size={17} />} {saveBusy ? "Kaydediliyor" : savedKey === planClientKey(plan, form) ? "Kaydedildi" : "Kaydet"}</button>
         </div>
         <p className="plan-summary">{plan.summary}</p>
