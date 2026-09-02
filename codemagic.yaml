@@ -14,9 +14,11 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        # Uygulama + widget uzantısı (tr.com.letsgo2travel.app.FlightActivityWidget)
-        # profillerinin birlikte çekilmesi için desen kullanılır.
-        bundle_identifier: "tr.com.letsgo2travel.app*"
+        # RESMÎ Codemagic davranışı (docs.codemagic.io/yaml-code-signing/signing-ios):
+        # temel bundle identifier verildiğinde nokta ekli UZANTILAR da
+        # (örn. tr.com.letsgo2travel.app.FlightActivityWidget) eşlenir;
+        # joker desen gerekmez ve belgelenmemiştir.
+        bundle_identifier: tr.com.letsgo2travel.app
       vars:
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App

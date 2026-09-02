@@ -17,10 +17,12 @@ export function isValidTimeZone(value: string): boolean {
 
 /**
  * İstemciden gelen saat dilimini temizler. API'de sabit Europe/Istanbul
- * YOKTUR: istemci kendi IANA saat dilimini gönderir; yalnız değer yoksa
- * veya geçersizse varsayılana düşülür (istek reddedilmez).
+ * KULLANILMAZ: istemci kendi IANA saat dilimini gönderir; alan hiç
+ * gönderilmemişse tarafsız UTC'ye düşülür. GEÇERSİZ bir değer gönderen
+ * istek ise reddedilmelidir — bunun için isValidTimeZone ile ayrıca
+ * kontrol edin (bu fonksiyon yalnız eksik değeri UTC yapar).
  */
-export function sanitizeTimeZone(value: unknown, fallback: string = DEFAULT_TRAVEL_TIME_ZONE): string {
+export function sanitizeTimeZone(value: unknown, fallback = "UTC"): string {
   const timeZone = typeof value === "string" ? value.trim() : "";
   return timeZone && isValidTimeZone(timeZone) ? timeZone : fallback;
 }

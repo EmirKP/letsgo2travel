@@ -129,9 +129,11 @@ test("saat dilimi: IANA doğrulama ve temizleme", () => {
   assert.equal(isValidTimeZone("Not/AZone"), false);
   assert.equal(isValidTimeZone("<script>"), false);
   assert.equal(sanitizeTimeZone("Asia/Tokyo"), "Asia/Tokyo");
-  assert.equal(sanitizeTimeZone("bozuk"), "Europe/Istanbul", "geçersiz → varsayılan");
-  assert.equal(sanitizeTimeZone(undefined), "Europe/Istanbul", "eksik → varsayılan");
-  assert.equal(sanitizeTimeZone(42), "Europe/Istanbul");
+  // Eksik değer TARAFSIZ UTC'ye düşer (sabit Europe/Istanbul varsayımı yok);
+  // geçersiz değer API katmanında 400 ile reddedilir (isValidTimeZone).
+  assert.equal(sanitizeTimeZone(undefined), "UTC", "eksik → UTC");
+  assert.equal(sanitizeTimeZone("bozuk"), "UTC");
+  assert.equal(sanitizeTimeZone(42), "UTC");
 });
 
 test("saat dilimi: geçmiş tarih denetimi kullanıcının YEREL gününe göre", () => {

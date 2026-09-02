@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
+import { isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendMailAndLog, generateAlertCreatedEmailHtml } from "@/lib/mail";
 import {
@@ -127,8 +127,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Seyahat tarihleri geçersiz." }, { status: 400 });
     }
     // Saat dilimi guvenli karsilastirma: "bugun" KULLANICININ istemciden
-    // gonderdigi IANA saat dilimine gore hesaplanir; deger yoksa/gecersizse
-    // Europe/Istanbul'a dusulur. (UTC toISOString gunu geri kaydirabilir.)
+    // gonderdigi IANA saat dilimine gore hesaplanir. GECERSIZ bir deger
+    // gonderilirse istek reddedilir; alan hic yoksa (eski istemciler)
+    // tarafsiz UTC kullanilir — sabit Europe/Istanbul varsayimi YOKTUR.
+    if (body.timeZone !== undefined && (typeof body.timeZone !== "string" || !isValidTimeZone(body.timeZone.trim()))) {
+      return NextResponse.json({ error: "Geçersiz saat dilimi (IANA biçiminde olmalı, örn. Europe/Istanbul)." }, { status: 400 });
+    }
     const clientTimeZone = sanitizeTimeZone(body.timeZone);
     const today = todayIsoInTimeZone(clientTimeZone);
     const maxDeparture = isoDateAfterDays(730, clientTimeZone);
