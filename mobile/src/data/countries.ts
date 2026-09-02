@@ -1,4 +1,8 @@
+import ISO_3166_RAW from "./iso3166.json";
 import type { Country, VisaStatus } from "../types";
+
+type IsoRow = { alpha2: string; alpha3: string; numeric: string; name: string; flag: string };
+export const ISO_3166: IsoRow[] = ISO_3166_RAW as IsoRow[];
 
 export const VISA_DATA: Record<string, VisaStatus> = {
   GEO: "id_card", AZE: "id_card", MDA: "id_card", UKR: "id_card",
@@ -6,7 +10,7 @@ export const VISA_DATA: Record<string, VisaStatus> = {
   BLZ: "free", BOL: "free", BIH: "free", BWA: "free", BRA: "free", BRN: "free",
   CHL: "free", COL: "free", CRI: "free", DOM: "free", ECU: "free", SLV: "free",
   SWZ: "free", GMB: "free", GTM: "free", HTI: "free", HND: "free", HKG: "free",
-  IRN: "free", JAM: "free", JPN: "free", JOR: "free", KAZ: "free", XKX: "free",
+  IRN: "free", JAM: "free", JPN: "free", JOR: "free", KAZ: "free", XKK: "free",
   KGZ: "free", MAC: "free", MYS: "free", MUS: "free", MNG: "free", MNE: "free",
   MAR: "free", NIC: "free", MKD: "free", PSE: "free", PAN: "free", PRY: "free",
   PER: "free", PHL: "free", KNA: "free", LCA: "free", VCT: "free", SRB: "free",
@@ -44,54 +48,10 @@ export const VISA_DATA: Record<string, VisaStatus> = {
   GNQ: "required",
 };
 
-export const COUNTRY_LIST: Country[] = [
-  { name: "Almanya", alpha3: "DEU" }, { name: "Fransa", alpha3: "FRA" },
-  { name: "İspanya", alpha3: "ESP" }, { name: "İtalya", alpha3: "ITA" },
-  { name: "Yunanistan", alpha3: "GRC" }, { name: "Portekiz", alpha3: "PRT" },
-  { name: "Hollanda", alpha3: "NLD" }, { name: "Belçika", alpha3: "BEL" },
-  { name: "Avusturya", alpha3: "AUT" }, { name: "İsviçre", alpha3: "CHE" },
-  { name: "Norveç", alpha3: "NOR" }, { name: "İsveç", alpha3: "SWE" },
-  { name: "Finlandiya", alpha3: "FIN" }, { name: "Danimarka", alpha3: "DNK" },
-  { name: "Polonya", alpha3: "POL" }, { name: "Çek Cumhuriyeti", alpha3: "CZE" },
-  { name: "Macaristan", alpha3: "HUN" }, { name: "Romanya", alpha3: "ROU" },
-  { name: "Bulgaristan", alpha3: "BGR" }, { name: "Sırbistan", alpha3: "SRB" },
-  { name: "Bosna Hersek", alpha3: "BIH" }, { name: "Hırvatistan", alpha3: "HRV" },
-  { name: "Slovenya", alpha3: "SVN" }, { name: "Slovakya", alpha3: "SVK" },
-  { name: "Azerbaycan", alpha3: "AZE" }, { name: "Gürcistan", alpha3: "GEO" },
-  { name: "Ermenistan", alpha3: "ARM" }, { name: "Ukrayna", alpha3: "UKR" },
-  { name: "Moldova", alpha3: "MDA" }, { name: "Belarus", alpha3: "BLR" },
-  { name: "Rusya", alpha3: "RUS" }, { name: "Kazakistan", alpha3: "KAZ" },
-  { name: "Özbekistan", alpha3: "UZB" }, { name: "Kırgızistan", alpha3: "KGZ" },
-  { name: "Tacikistan", alpha3: "TJK" }, { name: "Türkmenistan", alpha3: "TKM" },
-  { name: "Japonya", alpha3: "JPN" }, { name: "Güney Kore", alpha3: "KOR" },
-  { name: "Çin", alpha3: "CHN" }, { name: "Hindistan", alpha3: "IND" },
-  { name: "Tayland", alpha3: "THA" }, { name: "Endonezya", alpha3: "IDN" },
-  { name: "Malezya", alpha3: "MYS" }, { name: "Singapur", alpha3: "SGP" },
-  { name: "Vietnam", alpha3: "VNM" }, { name: "Kamboçya", alpha3: "KHM" },
-  { name: "Filipinler", alpha3: "PHL" }, { name: "Bangladeş", alpha3: "BGD" },
-  { name: "Pakistan", alpha3: "PAK" }, { name: "Nepal", alpha3: "NPL" },
-  { name: "Sri Lanka", alpha3: "LKA" }, { name: "Maldivler", alpha3: "MDV" },
-  { name: "BAE", alpha3: "ARE" }, { name: "Katar", alpha3: "QAT" },
-  { name: "Suudi Arabistan", alpha3: "SAU" }, { name: "Kuveyt", alpha3: "KWT" },
-  { name: "Bahreyn", alpha3: "BHR" }, { name: "Ürdün", alpha3: "JOR" },
-  { name: "Irak", alpha3: "IRQ" }, { name: "Mısır", alpha3: "EGY" },
-  { name: "Fas", alpha3: "MAR" }, { name: "Tunus", alpha3: "TUN" },
-  { name: "Cezayir", alpha3: "DZA" }, { name: "Nijerya", alpha3: "NGA" },
-  { name: "Güney Afrika", alpha3: "ZAF" }, { name: "Kenya", alpha3: "KEN" },
-  { name: "Tanzanya", alpha3: "TZA" }, { name: "Etiyopya", alpha3: "ETH" },
-  { name: "Gana", alpha3: "GHA" }, { name: "ABD", alpha3: "USA" },
-  { name: "Kanada", alpha3: "CAN" }, { name: "Meksika", alpha3: "MEX" },
-  { name: "Brezilya", alpha3: "BRA" }, { name: "Arjantin", alpha3: "ARG" },
-  { name: "Kolombiya", alpha3: "COL" }, { name: "Şili", alpha3: "CHL" },
-  { name: "Peru", alpha3: "PER" }, { name: "Avustralya", alpha3: "AUS" },
-  { name: "Yeni Zelanda", alpha3: "NZL" }, { name: "İngiltere", alpha3: "GBR" },
-  { name: "İrlanda", alpha3: "IRL" }, { name: "Kuzey Makedonya", alpha3: "MKD" },
-  { name: "Karadağ", alpha3: "MNE" }, { name: "Kosova", alpha3: "XKX" },
-  { name: "Arnavutluk", alpha3: "ALB" }, { name: "Kıbrıs", alpha3: "CYP" },
-  { name: "İzlanda", alpha3: "ISL" }, { name: "Lüksemburg", alpha3: "LUX" },
-  { name: "Letonya", alpha3: "LVA" }, { name: "Litvanya", alpha3: "LTU" },
-  { name: "Estonya", alpha3: "EST" }, { name: "Fiji", alpha3: "FJI" },
-];
+// TEK ortak ISO 3166-1 kaynağından TAM liste (250 ülke/bölge; üreteç:
+// scripts/generate-countries.mjs). Vize sınıfı DOĞRULANMAMIŞ ülkeler
+// "unknown" (Bilinmiyor) gösterilir — bilgi uydurulmaz.
+export const COUNTRY_LIST: Country[] = ISO_3166.map((row) => ({ name: row.name, alpha3: row.alpha3 }));
 
 export const STATUS_LABEL: Record<VisaStatus, string> = {
   id_card: "Kimlikle",
@@ -99,6 +59,7 @@ export const STATUS_LABEL: Record<VisaStatus, string> = {
   evisa: "e-Vize",
   on_arrival: "Kapıda Vize",
   required: "Vize Gerekli",
+  unknown: "Bilinmiyor",
 };
 
 export const STATUS_ORDER: Record<VisaStatus, number> = {
@@ -107,4 +68,5 @@ export const STATUS_ORDER: Record<VisaStatus, number> = {
   evisa: 3,
   on_arrival: 4,
   required: 5,
+  unknown: 6,
 };

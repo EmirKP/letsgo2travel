@@ -21,7 +21,13 @@ const filters: Array<{ id: "all" | VisaStatus; label: string }> = [
   { id: "evisa", label: "e-Vize" },
   { id: "on_arrival", label: "Kapıda" },
   { id: "required", label: "Vize gerekli" },
+  { id: "unknown", label: "Bilinmiyor" },
 ];
+
+// Doğrulanmış sınıfı olmayan ülke için veri UYDURULMAZ: "Bilinmiyor".
+function statusOf(alpha3: string): VisaStatus {
+  return VISA_DATA[alpha3] || "unknown";
+}
 
 export function PassportScreen() {
   const [query, setQuery] = useState("");
@@ -33,18 +39,18 @@ export function PassportScreen() {
 
   const rows = useMemo(() => COUNTRY_LIST
     .filter((country) => country.name.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR")))
-    .filter((country) => filter === "all" || VISA_DATA[country.alpha3] === filter)
+    .filter((country) => filter === "all" || statusOf(country.alpha3) === filter)
     .sort((a, b) => {
-      const statusDiff = STATUS_ORDER[VISA_DATA[a.alpha3] || "required"] - STATUS_ORDER[VISA_DATA[b.alpha3] || "required"];
+      const statusDiff = STATUS_ORDER[statusOf(a.alpha3)] - STATUS_ORDER[statusOf(b.alpha3)];
       return statusDiff || a.name.localeCompare(b.name, "tr");
     }), [filter, query]);
 
   const counts = useMemo(() => COUNTRY_LIST.reduce<Record<VisaStatus, number>>((acc, country) => {
-    acc[VISA_DATA[country.alpha3] || "required"] += 1;
+    acc[statusOf(country.alpha3)] += 1;
     return acc;
-  }, { id_card: 0, free: 0, evisa: 0, on_arrival: 0, required: 0 }), []);
+  }, { id_card: 0, free: 0, evisa: 0, on_arrival: 0, required: 0, unknown: 0 }), []);
 
-  const status = selected ? (VISA_DATA[selected.alpha3] || "required") : "required";
+  const status = selected ? statusOf(selected.alpha3) : "unknown";
   const openCountry = async (country: Country) => {
     const requestId = ++ruleRequest.current;
     setSelected(country);
@@ -85,7 +91,7 @@ export function PassportScreen() {
           ülkeler için veri uydurulmaz; "Bilinmiyor" gösterilir. */}
       <Suspense fallback={<div className="passport-map passport-map-loading" aria-label="Harita yükleniyor" />}>
       <PassportWorldMap
-        statusFor={(alpha3) => (alpha3 && VISA_DATA[alpha3] ? VISA_DATA[alpha3] : "unknown") as MapStatus}
+        statusFor={(alpha3) => (alpha3 ? statusOf(alpha3) : "unknown") as MapStatus}
         isHighlighted={(alpha3) => {
           if (!alpha3) return !query && filter === "all";
           const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
@@ -114,10 +120,10 @@ export function PassportScreen() {
 
       <div className="country-list">
         {rows.map((country) => {
-          const rowStatus = VISA_DATA[country.alpha3] || "required";
+          const rowStatus = statusOf(country.alpha3);
           return (
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
-              <span className={`status-dot status-${rowStatus}`}><Icon name={rowStatus === "required" ? "lock" : "check"} size={16} /></span>
+              <span className={`status-dot status-${rowStatus}`}><Icon name={rowStatus === "required" ? "lock" : rowStatus === "unknown" ? "alert" : "check"} size={16} /></span>
               <span><strong>{country.name}</strong><small>{country.alpha3}</small></span>
               <em className={`status-pill status-${rowStatus}`}>{STATUS_LABEL[rowStatus]}</em>
               <Icon name="chevron" size={17} />
@@ -130,7 +136,9 @@ export function PassportScreen() {
       <Sheet open={Boolean(selected)} title={selected?.name || "Ülke"} onClose={closeCountry}>
         {selected && <div className="country-detail">
           <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>Türkiye pasaportu için</small><strong>{verifiedRule?.label || STATUS_LABEL[status]}</strong></div></div>
-          {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{verifiedRule?.note || "Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir."}</p></div>}
+          {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{verifiedRule?.note || (status === "unknown"
+            ? "Bu ülke için doğrulanmış giriş sınıfı verimiz yok; tahmin gösterilmez. Güncel koşulu resmî kaynaktan kontrol et."
+            : "Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir.")}</p></div>}
           <div className="detail-list">
             <div><span>Ülke kodu</span><strong>{selected.alpha3}</strong></div>
             <div><span>Giriş sınıfı</span><strong>{verifiedRule?.label || STATUS_LABEL[status]}</strong></div>

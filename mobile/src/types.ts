@@ -2,7 +2,7 @@ export type TabId = "home" | "explore" | "route" | "trips" | "profile";
 
 export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts";
 
-export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required";
+export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required" | "unknown";
 
 export type Country = {
   name: string;
