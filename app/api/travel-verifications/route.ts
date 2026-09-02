@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getCountryByCode } from "@/lib/countries/countryData";
+import { isoCountryByAlpha2 } from "@/lib/countries/isoSource";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_NOTE_LENGTH = 1000;
@@ -87,7 +87,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Not en fazla ${MAX_NOTE_LENGTH} karakter olabilir.` }, { status: 400 });
     }
 
-    const countryInfo = getCountryByCode(countryCode);
+    // Tam ISO 3166 kaynağı: 240+ ülke/bölge başvuruya açık.
+    const countryInfo = isoCountryByAlpha2(countryCode);
     if (!countryInfo) {
       return NextResponse.json({ error: "Geçersiz ülke." }, { status: 400 });
     }
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
       .insert([{
         user_id: user.id,
         country_code: countryCode,
-        country_name: countryInfo.nameTR,
+        country_name: countryInfo.name,
         verification_type: 'document', // for backward compatibility with old code
         evidence_path: filePath,
         evidence_type: file.type,
