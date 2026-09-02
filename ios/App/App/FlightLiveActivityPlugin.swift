@@ -17,6 +17,53 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "endFlightActivity", returnType: CAPPluginReturnPromise),
     ]
 
+    // ------------------------------------------------------------------
+    // Push-to-start altyapısı: token'lar JS katmanına event ile verilir;
+    // JS bunları Bearer oturumla sunucuya kaydeder (token loglanmaz).
+    // - pushToStartToken  : iOS 17.2+ genel başlatma tokenı (uygulama
+    //   kapalıyken cron APNs "liveactivity" push'u ile aktivite başlatır)
+    // - activityUpdateToken: başlamış aktivitenin güncelleme/bitirme tokenı
+    // ------------------------------------------------------------------
+    override public func load() {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            for activity in Activity<FlightActivityAttributes>.activities {
+                observeActivityTokens(activity)
+            }
+            Task { [weak self] in
+                for await activity in Activity<FlightActivityAttributes>.activityUpdates {
+                    self?.observeActivityTokens(activity)
+                }
+            }
+        }
+        if #available(iOS 17.2, *) {
+            Task { [weak self] in
+                for await tokenData in Activity<FlightActivityAttributes>.pushToStartTokenUpdates {
+                    self?.notifyListeners("pushToStartToken", data: ["token": Self.hexToken(tokenData)])
+                }
+            }
+        }
+        #endif
+    }
+
+    #if canImport(ActivityKit)
+    @available(iOS 16.2, *)
+    private func observeActivityTokens(_ activity: Activity<FlightActivityAttributes>) {
+        Task { [weak self] in
+            for await tokenData in activity.pushTokenUpdates {
+                self?.notifyListeners("activityUpdateToken", data: [
+                    "tripId": activity.attributes.tripId,
+                    "token": Self.hexToken(tokenData),
+                ])
+            }
+        }
+    }
+    #endif
+
+    private static func hexToken(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
+    }
+
     @objc func isAvailable(_ call: CAPPluginCall) {
         #if canImport(ActivityKit)
         if #available(iOS 16.2, *) {
@@ -49,14 +96,21 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit"
             )
             let state = FlightActivityAttributes.ContentState(departureAt: departureAt)
+            let content = ActivityContent(state: state, staleDate: departureAt.addingTimeInterval(3600))
             do {
-                _ = try Activity.request(
-                    attributes: attributes,
-                    content: .init(state: state, staleDate: departureAt.addingTimeInterval(3600))
-                )
+                // pushType .token: güncelleme/bitirme tokenı üretilir; cron
+                // kalkış+1 saat sonrasında aktiviteyi uzaktan bitirebilir.
+                let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
+                observeActivityTokens(activity)
                 call.resolve()
             } catch {
-                call.reject("Live Activity başlatılamadı")
+                // Push entitlement yoksa tokensız (yalnız uygulama içi) başlat.
+                do {
+                    _ = try Activity.request(attributes: attributes, content: content)
+                    call.resolve()
+                } catch {
+                    call.reject("Live Activity başlatılamadı")
+                }
             }
             return
         }

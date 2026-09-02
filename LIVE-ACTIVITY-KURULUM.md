@@ -36,13 +36,53 @@
    (uygulama içi başlatma).
 2. Codemagic'te build alınıp TestFlight'a gönderilmesi (mevcut iş akışı;
    komut değişikliği yok).
+3. Migration'ların üretim Supabase'ine uygulanması (yukarıdaki iki dosya;
+   ayrı onay).
+4. Harici zamanlayıcıya (fiyat alarmı cron'u ile aynı mekanizma) yeni iş:
+   her 10–15 dakikada `GET /api/cron/live-activity`,
+   `Authorization: Bearer <CRON_SECRET>` başlığıyla.
+
+## Push-to-start mimarisi (uygulama KAPALIYKEN otomatik başlatma)
+
+"Uygulama açılınca kalkışa ≤3 saat varsa başlat" yaklaşımı otomatik
+sayılmaz; gerçek otomasyon APNs `liveactivity` push'u ile yapılır:
+
+1. **Cihaz (iOS 17.2+)**: `FlightLiveActivityPlugin` yüklenirken
+   `pushToStartTokenUpdates` dinlenir; token JS'e event ile verilir.
+   Uygulama içinden başlatılan aktiviteler `pushType: .token` ile açılır
+   ve güncelleme/bitirme tokenları da (`pushTokenUpdates`) JS'e akar.
+2. **JS** (`mobile/src/lib/liveActivityPush.ts`): tokenlar Bearer
+   oturumla `/api/live-activity/tokens`'a kaydedilir (bellek dışında
+   saklanmaz, loglanmaz; oturum yoksa girişten sonra flush edilir).
+3. **Sunucu**: `live_activity_tokens` + `live_activity_events` tabloları
+   (RLS default-deny, service-role); kayıt ucu trip SAHİPLİĞİNİ doğrular.
+4. **Cron** `GET /api/cron/live-activity` (yalnız `Bearer CRON_SECRET`):
+   - kalkışa ≤3 saat kalan uçuşlar için push-to-start gönderir
+     (`apns-push-type: liveactivity`, topic
+     `tr.com.letsgo2travel.app.push-type.liveactivity`),
+   - kalkış +1 saat geçince activity-update tokenıyla `event: end`
+     gönderir → aktivite uygulama açılmadan da BİTER,
+   - mükerrer göndermez (`live_activity_events`), geçersiz tokenları
+     kapatır; token değeri hiçbir log/yanıtta yoktur.
+5. **Fallback**: iOS 16.2–17.1 veya token kaydı yoksa mevcut davranış
+   aynen sürer: uygulama açıkken başlatma + yerel bildirim hatırlatması.
+
+Mevcut `APNS_TEAM_ID / APNS_KEY_ID / APNS_PRIVATE_KEY / APNS_BUNDLE_ID /
+APNS_ENVIRONMENT` değerleri aynen kullanılır; yeni secret GEREKMEZ.
 
 ## Migration (ayrı onay — uygulanmadan da her şey çalışır)
 
-`supabase/migrations/20260902100000_cockpit_flight_fields.sql` trips
-tablosuna nullable origin/destination IATA + havayolu + uçuş no ekler.
-Kod, sütunlar yokken güvenli eski moda düşer; migration uygulanınca
-form alanları kaydedilmeye ve Ada/kilit ekranında IATA görünmeye başlar.
+- `supabase/migrations/20260902100000_cockpit_flight_fields.sql`: trips
+  tablosuna nullable origin/destination IATA + havayolu + uçuş no ekler.
+  Kod, sütunlar yokken güvenli eski moda düşer (42703 emniyeti);
+  migration uygulanınca alanlar otomatik devreye girer.
+- `supabase/migrations/20260902120000_live_activity_push_tokens.sql`:
+  push-to-start token/event tabloları. Uygulanana kadar token kayıt ucu
+  503 döner ve istemci sessiz geçer; cron da güvenle hata döndürür.
+
+GÜVENLİ DAĞITIM SIRASI: (1) kod yayını (migration'suz da çalışır) →
+(2) migration'lar → (3) cron zamanlaması. Ters sıra da kırmaz; bu sıra
+en az gürültülü olandır.
 
 ## Fiziksel cihaz testi (zorunlu — bunlar yapılmadan "doğrulandı" DENMEZ)
 

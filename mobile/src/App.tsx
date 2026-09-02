@@ -12,6 +12,7 @@ import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
+import { flushLiveActivityTokens, initLiveActivityTokenSync } from "./lib/liveActivityPush";
 import { initPushTapListener } from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
@@ -104,6 +105,7 @@ export default function App() {
   const historyDepth = useRef(0);
   const auth = useAuth();
   const ownerId = auth.user?.id || null;
+  const accessTokenRef = useRef(auth.accessToken);
   const activeTab = rootTabFor(activeView);
   const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts";
 
@@ -175,6 +177,18 @@ export default function App() {
     // Bildirime dokunulduğunda "Fiyat Alarmlarım" ekranı açılır (web'de sessiz no-op).
     return initPushTapListener(() => navigate("alerts"));
   }, [navigate]);
+
+  useEffect(() => {
+    accessTokenRef.current = auth.accessToken;
+    // Giriş tamamlanınca bekleyen Live Activity tokenları gönderilir.
+    if (auth.accessToken) flushLiveActivityTokens();
+  }, [auth.accessToken]);
+
+  useEffect(() => {
+    // Live Activity push tokenları (push-to-start / bitirme) sunucuya
+    // kaydedilir; gönderim anında güncel oturum okunur.
+    return initLiveActivityTokenSync(() => accessTokenRef.current);
+  }, []);
 
   useEffect(() => {
     // Uçuş hatırlatmasına dokununca İLGİLİ Kokpit kaydı açılır (tripId ile).
