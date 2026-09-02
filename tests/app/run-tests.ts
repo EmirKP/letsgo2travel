@@ -8,6 +8,7 @@
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
+import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
 import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
 import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
@@ -304,6 +305,33 @@ test("deepLink: yalnız geçerli UUID kabul edilir", () => {
     "a2f9c1de-4b7e-4c1a-9b3f-2f6d8e5a1c44",
     "hash yönlendirmesi ve büyük harf normalize edilmeli",
   );
+});
+
+// -------------------- topluluk serileştiricileri ---------------------
+
+test("forum: yanıtlar user_id/e-posta/gizli profil alanı içermez", () => {
+  // Satırlara KASITLI olarak gizli alanlar eklenir; beyaz-liste bunları
+  // kopyalamamalı.
+  const dirtyQuestion = {
+    id: "q1", user_id: "u-secret", country_code: "IT", title: "Roma",
+    body: "soru", category: "genel", created_at: "2026-09-01T00:00:00Z",
+    status: "visible", email: "kisi@example.com", ip_address: "1.2.3.4",
+  };
+  const dirtyAnswer = {
+    id: "a1", user_id: "u-secret-2", question_id: "q1", body: "cevap",
+    created_at: "2026-09-01T01:00:00Z", email: "cevap@example.com",
+  };
+  const detail = serializeQuestionDetail(dirtyQuestion, "gezgin", [serializeAnswer(dirtyAnswer, null)]);
+  const summary = serializeQuestionSummary(dirtyQuestion, null, 3);
+  const keys = collectKeysDeep({ detail, summary });
+  for (const forbidden of ["user_id", "userId", "email", "ip_address", "status", "question_id"]) {
+    assert.ok(!keys.has(forbidden), `yasak alan sızdı: ${forbidden}`);
+  }
+  assert.equal(detail.username, "gezgin");
+  assert.equal(summary.username, "anonim_gezgin", "kullanıcı adı yoksa takma ad");
+  assert.equal(detail.answers[0].username, "anonim_gezgin");
+  assert.equal(summary.answerCount, 3);
+  assert.equal(detail.answers.length, 1);
 });
 
 // ------------------------------ runner -------------------------------

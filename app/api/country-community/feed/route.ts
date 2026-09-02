@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase as anonSupabase } from "@/lib/supabase-client";
+import { serializeQuestionSummary } from "@/lib/community/serializers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -9,9 +9,18 @@ export async function GET() {
   // kardeşi /api/kasifler-ligi service-role ile çalışırken bu uç tablo
   // grant/RLS durumuna bağımlıydı ve mobilde "Topluluk akışı yüklenemedi"
   // hatasının kaynağıydı. Artık diğer okuma uçlarıyla AYNI mimari kullanılır:
-  // service-role + yalnız 'visible' kayıtlar + güvenli alan seçimi (e-posta,
-  // user_id gibi alanlar yanıtta YOKTUR). Admin client yoksa anon'a düşer.
-  const supabase = getSupabaseAdmin() || anonSupabase;
+  // service-role + yalnız 'visible' kayıtlar + beyaz-listeli serileştirici
+  // (e-posta, user_id gibi alanlar yanıtta YOKTUR — lib/community/serializers).
+  // Service-role yapılandırılmamışsa anon'a DÜŞÜLMEZ: dürüst 503 döner
+  // (anon fallback sessizce RLS'e takılıp yanıltıcı boş/kırık sonuç veriyordu).
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Topluluk servisi şu anda yapılandırılmıyor. Lütfen daha sonra tekrar dene." },
+      { status: 503 },
+    );
+  }
+
   const { data: questions, error } = await supabase
     .from("country_questions")
     .select("id,user_id,country_code,title,body,category,created_at")
@@ -41,16 +50,11 @@ export async function GET() {
     answerCounts.set(answer.question_id, (answerCounts.get(answer.question_id) || 0) + 1);
   }
 
-  const data = (questions || []).map((item) => ({
-    id: item.id,
-    countryCode: item.country_code,
-    title: item.title,
-    body: item.body,
-    category: item.category,
-    createdAt: item.created_at,
-    username: usernames.get(item.user_id) || "anonim_gezgin",
-    answerCount: answerCounts.get(item.id) || 0,
-  }));
+  const data = (questions || []).map((item) => serializeQuestionSummary(
+    item,
+    usernames.get(item.user_id),
+    answerCounts.get(item.id) || 0,
+  ));
 
   return NextResponse.json({ data }, { headers: { "Cache-Control": "no-store" } });
 }

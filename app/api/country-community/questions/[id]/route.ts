@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { supabase as anonSupabase } from "@/lib/supabase-client";
+import { serializeAnswer, serializeQuestionDetail } from "@/lib/community/serializers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 // Soru detayı + görünür cevaplar (web ve mobil ortak, herkese açık okuma).
-// Service-role kullanılır ama YALNIZ 'visible' kayıtlar ve güvenli alanlar
-// döner: e-posta, user_id veya moderasyon dışı içerik yanıtta yoktur.
+// Service-role kullanılır ama YALNIZ 'visible' kayıtlar ve beyaz-listeli
+// serileştirici alanları döner: e-posta, user_id veya moderasyon dışı
+// içerik yanıtta yoktur (lib/community/serializers, testli).
+// Service-role yapılandırılmamışsa anon'a DÜŞÜLMEZ: dürüst 503 döner.
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,7 +17,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Geçersiz soru." }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin() || anonSupabase;
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Topluluk servisi şu anda yapılandırılmıyor. Lütfen daha sonra tekrar dene." },
+      { status: 503 },
+    );
+  }
 
   const { data: question, error } = await supabase
     .from("country_questions")
@@ -51,21 +59,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     : { data: [] as Array<{ id: string; username: string | null }> };
   const usernames = new Map((profiles || []).map((item) => [item.id, item.username]));
 
-  return NextResponse.json({
-    data: {
-      id: question.id,
-      countryCode: question.country_code,
-      title: question.title,
-      body: question.body,
-      category: question.category,
-      createdAt: question.created_at,
-      username: usernames.get(question.user_id) || "anonim_gezgin",
-      answers: (answers || []).map((answer) => ({
-        id: answer.id,
-        body: answer.body,
-        createdAt: answer.created_at,
-        username: usernames.get(answer.user_id) || "anonim_gezgin",
-      })),
-    },
-  }, { headers: { "Cache-Control": "no-store" } });
+  const data = serializeQuestionDetail(
+    question,
+    usernames.get(question.user_id),
+    (answers || []).map((answer) => serializeAnswer(answer, usernames.get(answer.user_id))),
+  );
+
+  return NextResponse.json({ data }, { headers: { "Cache-Control": "no-store" } });
 }
