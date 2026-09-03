@@ -82,6 +82,11 @@ export function AirportField({ label, value, onChange, placeholder, required = f
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Tab") {
+      setOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
     if (event.key === "Escape") {
       setOpen(false);
       setActiveIndex(-1);
@@ -103,9 +108,7 @@ export function AirportField({ label, value, onChange, placeholder, required = f
   };
 
   return (
-    <div className="airport-field" ref={wrapperRef} onBlur={(event) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
-    }}>
+    <div className="airport-field" ref={wrapperRef}>
       <label htmlFor={!value ? inputId : undefined}>
         <span>{label}{required && <em className="required-mark"> · zorunlu</em>}</span>
         {value ? (

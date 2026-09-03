@@ -758,6 +758,14 @@ test("mobil optimizasyon: ağır modüller bölünür, harita sabit katmanda çi
   assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
 });
 
+test("mobil havalimanı seçici: iOS klavyesi sonuç dokunuşunu blur ile yutmaz", () => {
+  const airport = readFileSync("mobile/src/components/AirportField.tsx", "utf8");
+  assert.ok(!airport.includes("onBlur="), "iOS'un relatedTarget vermeyen blur olayı listeyi click öncesi kaldırmamalı");
+  assert.ok(airport.includes('document.addEventListener("pointerdown", closeFromOutside)'), "alan dışı dokunuş listeyi kapatmalı");
+  assert.ok(airport.includes('event.key === "Tab"'), "klavye odağı alan dışına çıkarken liste kapanmalı");
+  assert.ok(airport.includes("onClick={() => selectOption(option)}"), "sonuç satırı seçimi onClick ile tamamlamalı");
+});
+
 test("mobil hesap geçişi: hesaba duyarlı ekran ağacı yeni sahipte yeniden kurulur", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   assert.ok(app.includes('const authUiKey = ownerId ? `user-${ownerId}` : "guest"'), "ekran anahtarı doğrulanmış sahip kimliğini taşımalı");
