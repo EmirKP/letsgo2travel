@@ -46,7 +46,10 @@ export type TokenSyncDeps = {
 export type TokenSyncEngine = {
   queue(entry: SyncTokenEntry): void;
   flush(): void;
-  onLogin(): Promise<void>;
+  /** O anda bekleyen ve yoldaki kayıtların sonucunu bekler. */
+  flushAndWait(): Promise<boolean>;
+  /** Sunucu oturumu ve o anda bekleyen replay kayıtları tamamlandıysa true. */
+  onLogin(): Promise<boolean>;
   onLogout(): void;
   pendingCount(): number;
   /** Mevcut oturum-kuşağı kimliği (logout DELETE isteğine eklenir). */
@@ -60,7 +63,8 @@ function keyOf(entry: SyncTokenEntry) {
 
 export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
   const pending = new Map<string, SyncTokenEntry>();
-  const inFlight = new Set<string>();
+  const inFlight = new Map<string, Promise<boolean>>();
+  const inFlightEpochs = new Map<string, number>();
   // Yerel kuşak sayacı: gecikmiş sonuçların fencing'i.
   let epochNumber = 0;
   // Sunucu fencing'i için login başına üretilen kuşak kimliği.
@@ -94,61 +98,83 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
       sessionReady = true;
       return true;
     }
-    if (result.status === 409) sessionRejected = true;
+    if ("status" in result && result.status === 409) sessionRejected = true;
     return false;
   }
 
-  async function trySend(entry: SyncTokenEntry, key: string) {
+  function trySend(entry: SyncTokenEntry, key: string): Promise<boolean> {
     // IN-FLIGHT DEDUP: aynı anahtar için ikinci paralel POST açılmaz.
-    if (inFlight.has(key)) return;
-    inFlight.add(key);
-    if (!await ensureSession()) {
-      inFlight.delete(key);
-      return;
+    const existing = inFlight.get(key);
+    if (existing) {
+      // Eski hesabın/epoch'un yoldaki isteğini yeni login beklemez. Beklemek,
+      // yeni oturum başlangıcını eski ağ isteği tamamlanana kadar kilitlerdi.
+      // Eski istek bitince sonuç epoch fencing ile atılır; pending kayıt
+      // korunur ve yeni oturumun retry'ı güvenle gönderir.
+      return inFlightEpochs.get(key) === epochNumber
+        ? existing
+        : Promise.resolve(false);
     }
-    const accessToken = deps.getAccessToken();
-    const installationId = deps.getInstallationId();
-    if (!accessToken || !installationId) {
-      inFlight.delete(key);
-      return;
-    }
-    // Gönderim, BAŞLADIĞI andaki kuşağa bağlanır.
-    const sendEpochNumber = epochNumber;
-    const sendEpochId = currentEpochId;
-    const sendGeneration = currentGeneration;
-    let result: SyncSendResult;
-    try {
-      result = await deps.send(entry, accessToken, installationId, sendEpochId, sendGeneration);
-    } catch {
-      inFlight.delete(key);
-      return; // Ağ hatası: bekler, ack edilmez.
-    }
-    inFlight.delete(key);
+    const operationEpoch = epochNumber;
+    const operation = (async () => {
+      if (!await ensureSession()) return false;
+      const accessToken = deps.getAccessToken();
+      const installationId = deps.getInstallationId();
+      if (!accessToken || !installationId) return false;
+      // Gönderim, BAŞLADIĞI andaki kuşağa bağlanır.
+      const sendEpochNumber = epochNumber;
+      const sendEpochId = currentEpochId;
+      const sendGeneration = currentGeneration;
+      let result: SyncSendResult;
+      try {
+        result = await deps.send(entry, accessToken, installationId, sendEpochId, sendGeneration);
+      } catch {
+        return false; // Ağ hatası: bekler, ack edilmez.
+      }
 
-    // ESKİ KUŞAĞIN GECİKMİŞ SONUCU TAMAMEN ATILIR: yeni pending silinmez,
-    // native tampon ACK edilmez, yeni kullanıcının retry'ı engellenmez.
-    if (sendEpochNumber !== epochNumber || sendGeneration !== currentGeneration) return;
+      // ESKİ KUŞAĞIN GECİKMİŞ SONUCU TAMAMEN ATILIR: yeni pending silinmez,
+      // native tampon ACK edilmez, yeni kullanıcının retry'ı engellenmez.
+      if (sendEpochNumber !== epochNumber || sendGeneration !== currentGeneration) return false;
 
-    if (result.ok) {
-      pending.delete(key);
-      await deps.ack(entry); // BAŞARILI kayıt: kuyruk + tampon temizlenir.
-      return;
-    }
-    if (result.status === 403 && entry.tokenType === "activity_update") {
-      // Trip başka hesabın: bu oturumda asla başarılı olamaz → düşür + ack
-      // (tampon artığı kendini temizler).
-      pending.delete(key);
-      await deps.ack(entry);
-      return;
-    }
-    if (result.status === 409) {
-      // Sunucu fencing'i: bu kuşak barlanmış (eski oturum). Kuyruktan
-      // düşürülür ama ACK EDİLMEZ — token native tamponda kalır ve bir
-      // SONRAKİ login'in yeni kuşağıyla yeniden kaydedilir.
-      pending.delete(key);
-      return;
-    }
-    // 503 (migration bekliyor) / diğerleri: ACK EDİLMEZ, bekler.
+      if (result.ok) {
+        pending.delete(key);
+        await deps.ack(entry); // BAŞARILI kayıt: kuyruk + tampon temizlenir.
+        return true;
+      }
+      if ("status" in result && result.status === 403 && entry.tokenType === "activity_update") {
+        // Trip başka hesabın: bu oturumda asla başarılı olamaz → düşür + ack
+        // (tampon artığı kendini temizler).
+        pending.delete(key);
+        await deps.ack(entry);
+        return true;
+      }
+      if ("status" in result && result.status === 409) {
+        // Sunucu fencing'i: bu kuşak barlanmış (eski oturum). Kuyruktan
+        // düşürülür ama ACK EDİLMEZ — token native tamponda kalır ve bir
+        // SONRAKİ login'in yeni kuşağıyla yeniden kaydedilir.
+        pending.delete(key);
+        sessionRejected = true;
+        return false;
+      }
+      // 503 (migration bekliyor) / diğerleri: ACK EDİLMEZ, bekler.
+      return false;
+    })().catch(() => false);
+    inFlight.set(key, operation);
+    inFlightEpochs.set(key, operationEpoch);
+    void operation.then(() => {
+      if (inFlight.get(key) === operation) {
+        inFlight.delete(key);
+        inFlightEpochs.delete(key);
+      }
+    });
+    return operation;
+  }
+
+  async function flushAndWait() {
+    if (!await ensureSession()) return false;
+    const outcomes = await Promise.all(
+      [...pending].map(([key, entry]) => trySend(entry, key)),
+    );
+    return outcomes.every(Boolean) && pending.size === 0 && !sessionRejected;
   }
 
   return {
@@ -160,11 +186,9 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
       void trySend(entry, key);
     },
     flush() {
-      void ensureSession().then((ready) => {
-        if (!ready) return;
-        for (const [key, entry] of pending) void trySend(entry, key);
-      });
+      void flushAndWait();
     },
+    flushAndWait,
     async onLogin() {
       // YENİ oturum kuşağı: yerel sayaç ilerler, sunucu kuşak kimliği
       // yenilenir — önceki oturumun uçuştaki sonuçları artık ATILIR.
@@ -184,8 +208,8 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
       } catch {
         // Native yüzey yoksa yalnız bekleyenler gönderilir.
       }
-      if (!ready) return;
-      for (const [key, entry] of pending) await trySend(entry, key);
+      if (!ready) return false;
+      return flushAndWait();
     },
     onLogout() {
       // Epoch İLERLETİLİR: uçuştaki eski isteklerin sonuçları atılır.

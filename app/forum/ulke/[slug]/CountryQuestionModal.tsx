@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, HelpCircle, Loader2, PenTool, X } from "lucide-react";
 
+import {
+  countryCodeFromForumSlug,
+  forumCountrySlugFromCode,
+} from "@/lib/community/forum-sync";
 import { supabase } from "@/lib/supabase-client";
 
 import styles from "./Forum.module.css";
@@ -44,6 +48,11 @@ export default function CountryQuestionModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [needsLogin, setNeedsLogin] = useState(false);
+  const canonicalCountrySlug = forumCountrySlugFromCode(
+    countryCodeFromForumSlug(countrySlug),
+  ) ?? forumCountrySlugFromCode(
+    countryCodeFromForumSlug(countryName),
+  );
 
   const openModal = (preset = "") => {
     setTitle(preset);
@@ -92,6 +101,11 @@ export default function CountryQuestionModal({
       return;
     }
 
+    if (!canonicalCountrySlug) {
+      setError("Geçerli bir ülke seçilemedi. Lütfen ülke rehberinden tekrar dene.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -110,7 +124,7 @@ export default function CountryQuestionModal({
         title: title.trim(),
         content: content.trim(),
         category: "Vize & Konsolosluk",
-        country_slug: countrySlug,
+        country_slug: canonicalCountrySlug,
         author_id: session.user.id,
         author_name:
           session.user.user_metadata?.full_name ||

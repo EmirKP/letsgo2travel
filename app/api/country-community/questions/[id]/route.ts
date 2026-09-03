@@ -56,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: question, error } = await supabase
     .from("forum_topics")
-    .select("id,country_slug,title,content,category,author_name,created_at,status,is_paywalled")
+    .select("id,country_slug,title,content,category,author_name,created_at,status")
     .eq("id", questionId)
     .eq("status", "published")
     .maybeSingle();
@@ -67,8 +67,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   if (!question) return NextResponse.json({ error: "Soru bulunamadı." }, { status: 404 });
 
-  const isPaywalled = Boolean(question.is_paywalled)
-    || String(question.category || "").toLocaleLowerCase("tr-TR").includes("vize");
+  // Service-role cevap sorgusu RLS'i atladığı için kilit kararını daima
+  // veritabanındaki kanonik fonksiyondan al. Fonksiyon okunamazsa güvenli
+  // biçimde hata dön; gizli cevap gövdelerini tahminle asla açma.
+  const { data: paywallData, error: paywallError } = await supabase.rpc(
+    "is_forum_topic_paywalled",
+    { p_topic_id: questionId },
+  );
+  if (paywallError || typeof paywallData !== "boolean") {
+    console.error("country_community_kilit_durumu_hatasi", { code: paywallError?.code || "invalid_result" });
+    return NextResponse.json({ error: "Soru erişimi doğrulanamadı." }, { status: 500 });
+  }
+  const isPaywalled = paywallData;
   const hasFullAccess = !isPaywalled || await hasFullReplyAccess(request, supabase, questionId);
   const { data: answers, error: answersError, count } = await supabase
     .from("forum_replies")
@@ -103,7 +113,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const data = {
     ...serialized,
     totalAnswerCount,
-    hiddenAnswerCount: Math.max(totalAnswerCount - serialized.answers.length, 0),
+    shownAnswerCount: serialized.answers.length,
+    hiddenAnswerCount: isPaywalled && !hasFullAccess
+      ? Math.max(totalAnswerCount - serialized.answers.length, 0)
+      : 0,
     hasFullAccess,
   };
 

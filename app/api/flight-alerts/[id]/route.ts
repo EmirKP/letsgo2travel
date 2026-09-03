@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { verifyAlertToken } from "@/lib/price-alerts";
+import { resolveAlertDeliveryState, verifyAlertToken } from "@/lib/price-alerts";
 
 const PATCH_FIELDS = new Set(["is_active", "target_price", "threshold_percent", "notify_email", "notify_push"]);
 
@@ -23,7 +23,7 @@ async function getCurrentUser(request: Request, supabase: any) {
 async function assertAlertAccess(request: Request, supabase: any, id: string, token?: string | null) {
   const { data: alertData, error: fetchError } = await supabase
     .from("flight_price_alerts")
-    .select("user_id, manage_token_hash, manage_token_expires_at")
+    .select("user_id, manage_token_hash, manage_token_expires_at, is_active, notify_email, notify_push")
     .eq("id", id)
     .single();
 
@@ -48,7 +48,7 @@ async function assertAlertAccess(request: Request, supabase: any, id: string, to
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ error: "Backend entegrasyonu hatası." }, { status: 500 });
+  if (!supabase) return NextResponse.json({ error: "Fiyat alarmı servisi şu anda kullanılamıyor." }, { status: 503 });
 
   try {
     const resolvedParams = await params;
@@ -82,6 +82,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
+    const delivery = resolveAlertDeliveryState(access.alertData, {
+      is_active: is_active as boolean | undefined,
+      notify_email: notify_email as boolean | undefined,
+      notify_push: notify_push as boolean | undefined,
+    });
+    if (!delivery.valid) {
+      return NextResponse.json(
+        { error: "Aktif bir fiyat alarmında en az bir bildirim kanalı açık olmalıdır (e-posta veya telefon bildirimi)." },
+        { status: 400 },
+      );
+    }
+
     const updatePayload: Record<string, unknown> = {};
     if (is_active !== undefined) {
       updatePayload.is_active = is_active;
@@ -92,16 +104,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (notify_email !== undefined) updatePayload.notify_email = notify_email;
     if (notify_push !== undefined) updatePayload.notify_push = notify_push;
 
-    const { error: updateError } = await supabase
+    // Kanal değişikliklerini karşılaştırmalı güncelle: iki paralel istek aynı
+    // anda e-posta ve push'u kapatmaya çalışırsa yalnızca ilk snapshot eşleşir,
+    // ikincisi 409 alır. Böylece doğrulama ile UPDATE arasındaki yarış aktif
+    // alarmı kanalsız bırakamaz.
+    let updateQuery = supabase
       .from("flight_price_alerts")
       .update(updatePayload)
       .eq("id", resolvedParams.id);
+    for (const field of ["is_active", "notify_email", "notify_push"] as const) {
+      const currentValue = access.alertData[field];
+      updateQuery = currentValue === null || currentValue === undefined
+        ? updateQuery.is(field, null)
+        : updateQuery.eq(field, currentValue);
+    }
+    const { data: updatedRows, error: updateError } = await updateQuery.select("id");
 
     if (updateError) {
       return NextResponse.json({ error: "Güncelleme başarısız." }, { status: 500 });
     }
+    if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: "Alarm başka bir işlemde değişti. Güncel durumu yenileyip tekrar dene." },
+        { status: 409 },
+      );
+    }
 
-    return NextResponse.json({ success: true, message: "Alarm güncellendi." });
+    const warnings = !delivery.active && !delivery.email && !delivery.push
+      ? ["Alarm duraklatıldı ve bildirim kanalı seçili değil. Yeniden başlatmadan önce e-posta veya telefon bildirimini açmalısın."]
+      : [];
+
+    return NextResponse.json({ success: true, message: "Alarm güncellendi.", warnings });
   } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
@@ -109,7 +142,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ error: "Backend entegrasyonu hatası." }, { status: 500 });
+  if (!supabase) return NextResponse.json({ error: "Fiyat alarmı servisi şu anda kullanılamıyor." }, { status: 503 });
 
   try {
     const resolvedParams = await params;

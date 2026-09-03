@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { adminSessionFromRequest } from "@/lib/admin-session";
+import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PATCH(
@@ -11,21 +10,15 @@ export async function PATCH(
   const userIdToUpdate = resolvedParams.id;
 
   try {
-    const permissionError = await requireAdmin(request, ["super_admin"]);
-    if (permissionError) return permissionError;
+    const principal = await adminPrincipalFromRequest(request, ["super_admin"]);
+    if (!principal) return NextResponse.json({ error: "Yetkisiz işlem. Yetkiniz bulunmuyor." }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
     if (!supabase) {
       return NextResponse.json({ error: "Supabase servis ayarları eksik" }, { status: 500 });
     }
 
-    const signedSession = await adminSessionFromRequest(request);
-    const authHeader = request.headers.get("Authorization");
-    let actorId = signedSession?.subject !== "legacy-admin" ? signedSession?.subject || null : null;
-    if (!actorId && authHeader?.startsWith("Bearer ")) {
-      const { data } = await supabase.auth.getUser(authHeader.slice(7).trim());
-      actorId = data.user?.id || null;
-    }
+    const actorId = principal.subject;
 
     const body = await request.json();
     const { role } = body;

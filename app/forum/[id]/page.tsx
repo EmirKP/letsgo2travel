@@ -12,6 +12,7 @@ import {
 
 import ForumReplyForm from "@/components/ForumReplyForm";
 import ForumReportButton from "@/components/ForumReportModal";
+import { forumTopicIsPaywalled } from "@/lib/community/forum-sync";
 import { supabase } from "@/lib/supabase-client";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -52,10 +53,6 @@ function countryNameFromSlug(value: string | null) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR") + part.slice(1))
     .join(" ");
-}
-
-function isVisaCategory(category: string) {
-  return category.toLocaleLowerCase("tr-TR").includes("vize");
 }
 
 function asNumber(value: number | string | null | undefined, fallback = 0) {
@@ -144,9 +141,11 @@ export default async function ForumTopicPage({
 
   if (!topic) notFound();
 
-  const codeMarksTopicAsPaywalled =
-    Boolean(topic.country_slug) &&
-    (Boolean(topic.is_paywalled) || isVisaCategory(topic.category));
+  const codeMarksTopicAsPaywalled = forumTopicIsPaywalled(
+    topic.country_slug,
+    topic.category,
+    topic.is_paywalled,
+  );
 
   const [replyResult, paywallState] = await Promise.all([
     supabase

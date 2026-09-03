@@ -15,7 +15,10 @@ export async function GET() {
       .from('profiles')
       .select('id, username, visited_countries')
       .eq('opt_in_leaderboard', true)
-      .not('username', 'is', null);
+      .not('username', 'is', null)
+      // Eski şema puanı satır üzerinde tutmuyor; yine de sunucu ve ağ
+      // yükünün kullanıcı sayısıyla sınırsız büyümesine izin verme.
+      .limit(500);
 
     if (error) {
       if (error.code === '42703') {
@@ -27,7 +30,8 @@ export async function GET() {
     // Blocked listesini al (service_role olduğu için okuyabilir)
     const { data: blockedUsers } = await supabase
       .from('leaderboard_blocks')
-      .select('user_id');
+      .select('user_id')
+      .limit(5000);
     const blockedIds = new Set((blockedUsers || []).map(b => b.user_id));
 
     // Güvenli response oluştur (id, visited_countries detayları hariç)
@@ -53,7 +57,7 @@ export async function GET() {
     // En çok gezen en üstte
     formattedLeaders.sort((a, b) => b.visitedCount - a.visitedCount);
 
-    return NextResponse.json({ data: formattedLeaders }, {
+    return NextResponse.json({ data: formattedLeaders.slice(0, 100) }, {
       headers: {
         'Cache-Control': 'no-store, max-age=0'
       }

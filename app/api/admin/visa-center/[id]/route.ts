@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 import { APPOINTMENT_STATUS_INFO, type AppointmentStatus } from "@/lib/visa/appointmentStatus";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,19 +10,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authError = await requireAdmin(request, ["admin", "super_admin"]);
-    if (authError) return authError;
+    const principal = await adminPrincipalFromRequest(request, ["admin", "super_admin"]);
+    if (!principal) return NextResponse.json({ error: "Yetkisiz işlem. Yetkiniz bulunmuyor." }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
     if (!supabase) return NextResponse.json({ error: "Sunucu yapılandırması eksik." }, { status: 503 });
-
-    const authHeader = request.headers.get("Authorization");
-    let adminUserId = null;
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-      if (user) adminUserId = user.id;
-    }
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
@@ -72,7 +64,7 @@ export async function PATCH(
 
     await supabase.from('visa_appointment_updates').insert({
       visa_page_id: id,
-      admin_user_id: adminUserId,
+      admin_user_id: principal.subject,
       appointment_status: appointmentStatus,
       appointment_note: appointmentNote || null,
       source_note: sourceNote || null

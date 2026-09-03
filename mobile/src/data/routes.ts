@@ -268,3 +268,16 @@ export function randomRoute(): RouteSuggestion {
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
   return suggestion;
 }
+
+export function routeByDestinationCode(destinationCode: string): RouteSuggestion | null {
+  const route = ROUTE_CATALOG.find((item) => item.destinationCode === destinationCode.trim().toUpperCase());
+  if (!route) return null;
+  const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
+  return {
+    ...suggestion,
+    scores: { ...suggestion.scores },
+    dailyPlan: [...suggestion.dailyPlan],
+    warnings: [...suggestion.warnings],
+    cta: suggestion.cta ? { ...suggestion.cta } : undefined,
+  };
+}

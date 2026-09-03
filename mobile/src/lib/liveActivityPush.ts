@@ -27,7 +27,102 @@ type PluginSurface = {
   getBufferedTokens?: () => Promise<{ tokens?: Array<Record<string, string>> }>;
 };
 
+type PendingLiveActivityLogout = {
+  installationId: string;
+  sessionEpoch: string;
+  generation: number;
+  ownerId: string;
+  createdAt: number;
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PENDING_LOGOUT_KEY = "l2t_live_activity_pending_logout_v1";
+const MAX_LOGOUT_RETRIES = 5;
+let logoutRetryTimer: number | null = null;
+let logoutRetryAttempt = 0;
+
 let accessTokenGetter: (() => string) | null = null;
+let loginSessionActive = false;
+let loginSessionOwner = "";
+let loginLifecycleGeneration = 0;
+
+function parsePendingLogout(value: unknown): PendingLiveActivityLogout | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<PendingLiveActivityLogout>;
+  if (!UUID.test(String(candidate.installationId || ""))) return null;
+  if (!UUID.test(String(candidate.sessionEpoch || ""))) return null;
+  if (!UUID.test(String(candidate.ownerId || ""))) return null;
+  if (!Number.isInteger(candidate.generation) || Number(candidate.generation) < 1) return null;
+  if (!Number.isFinite(candidate.createdAt) || Number(candidate.createdAt) <= 0) return null;
+  return {
+    installationId: String(candidate.installationId),
+    sessionEpoch: String(candidate.sessionEpoch),
+    generation: Number(candidate.generation),
+    ownerId: String(candidate.ownerId),
+    createdAt: Number(candidate.createdAt),
+  };
+}
+
+function readPendingLogout(): PendingLiveActivityLogout | null {
+  try {
+    const pending = parsePendingLogout(JSON.parse(window.localStorage.getItem(PENDING_LOGOUT_KEY) || "null"));
+    if (!pending) window.localStorage.removeItem(PENDING_LOGOUT_KEY);
+    return pending;
+  } catch {
+    return null;
+  }
+}
+
+function savePendingLogout(value: PendingLiveActivityLogout | null) {
+  try {
+    if (value) window.localStorage.setItem(PENDING_LOGOUT_KEY, JSON.stringify(value));
+    else window.localStorage.removeItem(PENDING_LOGOUT_KEY);
+  } catch {
+    // Sunucu generation fencing'i depolama hatasında da hesap sızıntısını keser.
+  }
+}
+
+function clearPendingLogout(expected?: PendingLiveActivityLogout) {
+  const pending = readPendingLogout();
+  if (!pending || !expected || (
+    pending.installationId === expected.installationId
+    && pending.sessionEpoch === expected.sessionEpoch
+    && pending.generation === expected.generation
+  )) savePendingLogout(null);
+  if (logoutRetryTimer !== null) window.clearTimeout(logoutRetryTimer);
+  logoutRetryTimer = null;
+  logoutRetryAttempt = 0;
+}
+
+async function sendPendingLogout(pending: PendingLiveActivityLogout, accessToken: string) {
+  try {
+    await requestJson("/api/live-activity/tokens", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: {
+        installationId: pending.installationId,
+        sessionEpoch: pending.sessionEpoch,
+        generation: pending.generation,
+      },
+    });
+    clearPendingLogout(pending);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function schedulePendingLogoutRetry(pending: PendingLiveActivityLogout, accessToken: string) {
+  if (!accessToken || logoutRetryTimer !== null || logoutRetryAttempt >= MAX_LOGOUT_RETRIES) return;
+  const delay = Math.min(5_000 * 2 ** logoutRetryAttempt, 60_000);
+  logoutRetryTimer = window.setTimeout(() => {
+    logoutRetryTimer = null;
+    logoutRetryAttempt += 1;
+    void sendPendingLogout(pending, accessToken).then((ok) => {
+      if (!ok) schedulePendingLogoutRetry(pending, accessToken);
+    });
+  }, delay);
+}
 
 function surface(): PluginSurface | undefined {
   return plugin("FlightLiveActivity") as PluginSurface | undefined;
@@ -40,6 +135,12 @@ async function beginSession(accessToken: string, installationId: string, session
       headers: { Authorization: `Bearer ${accessToken}` },
       body: { installationId, sessionEpoch: sessionEpochId, generation },
     });
+    const pending = readPendingLogout();
+    // Daha yüksek generation atomik olarak kurulumun bütün eski tokenlarını
+    // kapatır; eski DELETE ulaşmamış olsa dahi kalıcı temizlik tamamlanmıştır.
+    if (pending && pending.installationId === installationId && generation > pending.generation) {
+      clearPendingLogout(pending);
+    }
     return { ok: true };
   } catch (error) {
     return { ok: false, status: error instanceof ApiError ? error.status : 0 };
@@ -136,7 +237,8 @@ export function initLiveActivityRetry(): () => void {
  * in-flight dedup ile idempotenttir; girişler yalnız sunucu başarısında
  * ack ile silinir.
  */
-async function drainBufferedTokens() {
+async function drainBufferedTokens(): Promise<boolean> {
+  let bufferRead = true;
   try {
     const result = await surface()?.getBufferedTokens?.();
     for (const raw of result?.tokens || []) {
@@ -149,9 +251,12 @@ async function drainBufferedTokens() {
     }
   } catch {
     // Yüzey yoksa sessiz; retained event'ler ikinci güvence olarak kalır.
+    bufferRead = false;
   } finally {
     retryScheduler.poke();
   }
+  const synced = await engine.flushAndWait();
+  return bufferRead && synced;
 }
 
 /**
@@ -159,12 +264,33 @@ async function drainBufferedTokens() {
  * + yeni epoch sunucuda açılır; ardından native tokenlar güncel kullanıcı
  * adına kaydedilir ve tampon drain edilir.
  */
-export function syncTokensAfterLogin() {
-  if (!isIOSNative()) return;
-  void engine.onLogin().finally(() => {
-    retryScheduler.poke();
-    void drainBufferedTokens();
-  });
+export async function syncTokensAfterLogin(ownerId = ""): Promise<boolean> {
+  if (!isIOSNative()) return false;
+  const pending = readPendingLogout();
+  const accessToken = accessTokenGetter?.() || "";
+  // Aynı hesap yeniden girdiyse eski DELETE'i de dene. Farklı hesapta yeni
+  // generation zaten atomik fencing yapar; yanlış bearer ile DELETE atılmaz.
+  if (pending && pending.ownerId === ownerId && accessToken) {
+    void sendPendingLogout(pending, accessToken);
+  }
+  if (!loginSessionActive || loginSessionOwner !== ownerId) {
+    // Aynı oturumdaki ağ/foreground retry'ı generation artırmaz. Yeni hesap
+    // veya gerçek logout sonrası ise mutlaka yeni sunucu kuşağı açılır.
+    loginSessionActive = true;
+    loginSessionOwner = ownerId;
+    loginLifecycleGeneration += 1;
+    const lifecycle = loginLifecycleGeneration;
+    await engine.onLogin();
+    if (lifecycle !== loginLifecycleGeneration) return false;
+  } else {
+    const lifecycle = loginLifecycleGeneration;
+    await engine.flushAndWait();
+    if (lifecycle !== loginLifecycleGeneration) return false;
+  }
+  const lifecycle = loginLifecycleGeneration;
+  retryScheduler.poke();
+  const synced = await drainBufferedTokens();
+  return synced && loginSessionActive && lifecycle === loginLifecycleGeneration;
 }
 
 /**
@@ -173,23 +299,31 @@ export function syncTokensAfterLogin() {
  * Bekleyen kuyruk temizlenir; native'deki "en son token" kaydı KORUNUR.
  * Oturum silinmeden ÖNCE çağrılmalıdır; diğer cihazlar etkilenmez.
  */
-export async function disableLiveActivityTokensForLogout(accessToken: string): Promise<void> {
+export async function disableLiveActivityTokensForLogout(accessToken: string, ownerId = ""): Promise<boolean> {
   const sessionEpoch = engine.sessionEpochId();
   const generation = engine.sessionGeneration();
+  const installationId = getInstallationId();
+  const pending = parsePendingLogout({
+    installationId,
+    sessionEpoch,
+    generation,
+    ownerId,
+    createdAt: Date.now(),
+  });
+  if (pending) savePendingLogout(pending);
+  loginLifecycleGeneration += 1;
+  loginSessionActive = false;
+  loginSessionOwner = "";
   engine.onLogout();
   retryScheduler.poke();
-  const installationId = getInstallationId();
-  if (!accessToken || !installationId) return;
-  try {
-    await requestJson("/api/live-activity/tokens", {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: { installationId, sessionEpoch, generation },
-    });
-  } catch {
-    // Başarısızlık çıkışı ENGELLEMEZ. Sonraki login'in daha yüksek kalıcı
-    // generation'ı, logout/bar kaybolsa bile eski yazımları geçersiz kılar.
+  if (!accessToken || !pending) return false;
+  const success = await sendPendingLogout(pending, accessToken);
+  if (!success) {
+    // Kalıcı kayıt yalnız opak oturum kimliklerini taşır. Bearer yalnız kısa
+    // ömürlü bellek retry'ında tutulur; sonraki login generation'ı son emniyettir.
+    schedulePendingLogoutRetry(pending, accessToken);
   }
+  return success;
 }
 
 /**

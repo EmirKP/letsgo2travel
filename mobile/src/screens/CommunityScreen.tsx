@@ -22,6 +22,7 @@ type CommunityAnswer = {
 type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
   answers: CommunityAnswer[];
   totalAnswerCount?: number;
+  shownAnswerCount?: number;
   hiddenAnswerCount?: number;
   hasFullAccess?: boolean;
 };
@@ -115,6 +116,10 @@ function formatQuestionDate(value: string) {
   }
 }
 
+function questionScopeLabel(countryCode: string) {
+  return countryCode === "ZZ" ? "🌍 Genel" : `${flagEmoji(countryCode)} ${countryCode}`;
+}
+
 function userName(user: AuthUser | null) {
   if (!user) return "";
   return text(
@@ -137,7 +142,7 @@ function initials(username: string) {
 export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: CommunityScreenProps) {
   const [tab, setTab] = useState<"feed" | "league">("feed");
   const [leaders, setLeaders] = useState<CommunityLeader[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<CommunityQuestion[]>([]);
@@ -154,10 +159,17 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   const [detailError, setDetailError] = useState("");
   const [answerBody, setAnswerBody] = useState("");
   const [answerPosting, setAnswerPosting] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const detailGeneration = useRef(0);
   const requestGeneration = useRef(0);
   const feedGeneration = useRef(0);
   const currentUsername = useMemo(() => userName(user).toLocaleLowerCase("tr-TR"), [user]);
+  const shownAnswerCount = detail?.answers.length || 0;
+  const hiddenAnswerCount = count(detail?.hiddenAnswerCount);
+  const totalAnswerCount = Math.max(
+    count(detail?.totalAnswerCount),
+    shownAnswerCount + hiddenAnswerCount,
+  );
 
   const selectTab = (nextTab: "feed" | "league") => {
     setTab(nextTab);
@@ -185,7 +197,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     } catch {
       if (generation === requestGeneration.current) {
         setLeaders([]);
-        setError("Kaşifler Ligi şu anda yüklenemedi. Bağlantını kontrol edip tekrar dene.");
+        setError("Gezgin sıralaması şu anda yüklenemedi. Bağlantını kontrol edip tekrar dene.");
       }
     } finally {
       if (generation === requestGeneration.current) {
@@ -218,13 +230,18 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   }, []);
 
   useEffect(() => {
-    void load();
     void loadFeed();
     return () => {
       requestGeneration.current += 1;
       feedGeneration.current += 1;
     };
-  }, [load, loadFeed]);
+  }, [loadFeed]);
+
+  useEffect(() => {
+    // Lig verisi, kullanıcı yalnız akışa bakarken gereksiz bir ağ ve veri
+    // tabanı isteği oluşturmasın. İlk kez Lig sekmesi açıldığında yüklenir.
+    if (tab === "league" && !loaded && !loading) void load();
+  }, [load, loaded, loading, tab]);
 
   const openDetail = useCallback(async (questionId: string) => {
     const generation = ++detailGeneration.current;
@@ -256,6 +273,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     setDetail(null);
     setDetailError("");
     setAnswerBody("");
+    setUnlocking(false);
   };
 
   const submitAnswer = async () => {
@@ -282,6 +300,30 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
         : "Cevap gönderilemedi. Tekrar dene.");
     } finally {
       setAnswerPosting(false);
+    }
+  };
+
+  const unlockReplies = async () => {
+    if (!user || !accessToken) return onOpenAccount();
+    if (!detail || unlocking) return;
+    setUnlocking(true);
+    try {
+      await requestJson<{ data?: { unlocked?: boolean } }>(
+        `/api/country-community/questions/${encodeURIComponent(detail.id)}/unlock`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeoutMs: 15_000,
+        },
+      );
+      onNotice("Ülke kilidi açıldı. Tüm cevaplar artık görünür.");
+      await openDetail(detail.id);
+    } catch (requestError) {
+      onNotice(requestError instanceof ApiError && requestError.message
+        ? requestError.message
+        : "Ülke kilidi şu anda açılamadı. Tekrar dene.");
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -314,16 +356,16 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   return <div className="screen community-native-screen">
     <section className="page-intro compact-intro community-native-intro">
       <span className="page-icon"><Icon name="users" size={27} /></span>
-      <div><small>KAŞİFLER LİGİ</small><h1>Gerçek gezginlerden ilham al</h1><p>Katılmayı seçen kaşiflerin seyahat ilerlemesini ve lig seviyelerini keşfet.</p></div>
+      <div><small>TOPLULUK</small><h1>Sor, gerçek deneyimleri oku</h1><p>Gezginlerin sorularını ve paylaştığı deneyimleri gör; istersen sıralamaya katıl.</p></div>
     </section>
 
     <div className="segmented community-tabs" role="tablist" aria-label="Topluluk bölümleri">
-      <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> Gezgin Akışı</button>
-      <button id="community-tab-league" type="button" role="tab" aria-selected={tab === "league"} aria-controls="community-panel-league" tabIndex={tab === "league" ? 0 : -1} className={tab === "league" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("league")}><Icon name="users" size={16} /> Lig</button>
+      <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> Sorular</button>
+      <button id="community-tab-league" type="button" role="tab" aria-selected={tab === "league"} aria-controls="community-panel-league" tabIndex={tab === "league" ? 0 : -1} className={tab === "league" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("league")}><Icon name="users" size={16} /> Gezgin sıralaması</button>
     </div>
 
     <section id="community-panel-league" className="community-tab-panel" role="tabpanel" aria-labelledby="community-tab-league" tabIndex={tab === "league" ? 0 : -1} hidden={tab !== "league"}><section className="community-native-summary">
-      <div><span><Icon name="globe" size={20} /></span><strong>{leaders.length}</strong><small>Lig katılımcısı</small></div>
+      <div><span><Icon name="globe" size={20} /></span><strong>{leaders.length}</strong><small>Sıralamadaki gezgin</small></div>
       <button className="secondary-button" disabled={loading} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} Yenile
       </button>
@@ -339,9 +381,9 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
       <Icon name="alert" size={20} /><p>{error}</p><button disabled={loading} onClick={() => void load()}>Tekrar dene</button>
     </div>}
 
-    {loading && !loaded ? <div className="skeleton-list community-native-loading" aria-label="Kaşifler Ligi yükleniyor"><div /><div /><div /></div>
+    {loading && !loaded ? <div className="skeleton-list community-native-loading" aria-label="Gezgin sıralaması yükleniyor"><div /><div /><div /></div>
       : !error && !leaders.length ? <div className="empty-state community-native-empty">
-        <span><Icon name="users" size={30} /></span><strong>Lig henüz sessiz</strong><p>Görünür olmayı seçen ilk kaşifler burada listelenecek.</p>
+        <span><Icon name="users" size={30} /></span><strong>Sıralama henüz boş</strong><p>Görünür olmayı seçen ilk gezginler burada listelenecek.</p>
       </div>
       : leaders.length > 0 && <div className="community-leader-list" aria-live="polite">
         {leaders.map((leader, index) => {
@@ -362,7 +404,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
         })}
       </div>}
 
-    <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>Lig yalnızca katılmayı seçen kullanıcıları ve API tarafından yayınlanan güvenli özet alanlarını gösterir.</p></div></section>
+    <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>Sıralama yalnızca katılmayı seçen kullanıcıları ve güvenli profil özetlerini gösterir.</p></div></section>
 
     <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
       <div className="community-feed-toolbar"><div><small>ÜLKE TOPLULUKLARI</small><h2>Gezginlerin soruları</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? "Kapat" : "Soru sor"}</button></div>
@@ -381,7 +423,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
       {feedLoading ? <div className="skeleton-list community-native-loading"><div /><div /><div /></div>
         : questions.length ? <div className="community-question-list">{questions.map((question) => <article key={question.id}>
           <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={`Soruyu aç: ${question.title}`}>
-            <header><span>{flagEmoji(question.countryCode)} {question.countryCode}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt)}</small></div><em>{question.answerCount} yanıt</em></header>
+            <header><span>{questionScopeLabel(question.countryCode)}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt)}</small></div><em>{question.answerCount} cevap</em></header>
             <h3>{question.title}</h3><p>{question.body}</p>
           </button>
         </article>)}</div>
@@ -392,17 +434,17 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>Tekrar dene</button></div>}
       {detail && !detailLoading && <div className="community-question-detail">
-        <header><span>{flagEmoji(detail.countryCode)} {detail.countryCode}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt)}</small></div></header>
+        <header><span>{questionScopeLabel(detail.countryCode)}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt)}</small></div></header>
         <h3>{detail.title}</h3>
         <p>{detail.body}</p>
         <div className="community-answers">
-          <div className="section-heading"><div><span>CEVAPLAR</span><h2>{detail.answers.length ? `${detail.answers.length} cevap` : "Henüz cevap yok"}</h2></div></div>
+          <div className="section-heading"><div><span>CEVAPLAR</span><h2>{totalAnswerCount ? `${totalAnswerCount} cevap` : "Henüz cevap yok"}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? `${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli` : shownAnswerCount < totalAnswerCount ? `${shownAnswerCount} gösteriliyor` : "Tüm cevaplar gösteriliyor"}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
             <header><strong>@{answer.username}</strong><small>{formatQuestionDate(answer.createdAt)}</small></header>
             <p>{answer.body}</p>
           </article>)}
-          {(detail.hiddenAnswerCount || 0) > 0 && <div className="empty-inline"><Icon name="lock" size={18} /><div><strong>{detail.hiddenAnswerCount} cevap kilitli</strong><span>Kaşifler Ligi üyeliğinle ülke kilidini açarak tüm cevapları okuyabilirsin.</span></div></div>}
-          {!detail.answers.length && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>İlk cevabı sen yaz</strong><span>Deneyimini paylaşarak gezginlere yardım et.</span></div></div>}
+          {hiddenAnswerCount > 0 && <div className="empty-inline community-unlock-box"><Icon name="lock" size={18} /><div><strong>{hiddenAnswerCount} cevap kilitli</strong><span>Ücretsiz hesabınla ülke kilidini açıp tüm deneyimleri okuyabilirsin.</span><button type="button" className="secondary-wide" disabled={unlocking} onClick={() => user ? void unlockReplies() : onOpenAccount()}>{unlocking ? <span className="button-loader dark" /> : <Icon name={user ? "unlock" : "user"} size={17} />} {user ? (unlocking ? "Açılıyor" : "Tüm cevapların kilidini aç") : "Giriş yap ve kilidi aç"}</button></div></div>}
+          {!shownAnswerCount && !hiddenAnswerCount && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>İlk cevabı sen yaz</strong><span>Deneyimini paylaşarak gezginlere yardım et.</span></div></div>}
         </div>
         {user ? <div className="community-answer-form">
           <label>Cevabın<textarea value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder="Deneyimini paylaş…" /></label>

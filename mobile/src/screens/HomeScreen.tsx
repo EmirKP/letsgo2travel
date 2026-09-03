@@ -19,6 +19,12 @@ const quickCards: Array<{ title: string; text: string; icon: IconName; view?: Vi
   { title: "Topluluk", text: "Sor, cevapla, ilham al", icon: "users", view: "community" },
 ];
 
+const startingPoints: Array<{ title: string; text: string; icon: IconName; view: ViewId }> = [
+  { title: "Fikir bul", text: "Nereye gideceğimi bilmiyorum", icon: "compass", view: "explore" },
+  { title: "Gezi planla", text: "Bana uygun rota oluştur", icon: "route", view: "route" },
+  { title: "Seyahatimi yönet", text: "Hazır gezimi ve hazırlıklarımı takip et", icon: "suitcase", view: "cockpit" },
+];
+
 function firstName(user: AuthUser | null) {
   const value = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.username || user?.email?.split("@")[0] || "Kaşif");
   return value.trim().split(/\s+/)[0] || "Kaşif";
@@ -79,7 +85,21 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
       </div>
     </section>
 
-    <section className="home-quick-grid" aria-label="Hızlı erişim">
+    <section className="start-guide" aria-labelledby="start-guide-title">
+      <div className="start-guide-heading">
+        <div><small>HIZLI BAŞLANGIÇ</small><h2 id="start-guide-title">Ne yapmak istiyorsun?</h2></div>
+        <p>Birini seç, seni doğru bölüme götürelim.</p>
+      </div>
+      <div className="start-guide-list">
+        {startingPoints.map((item) => <button key={item.title} onClick={() => onNavigate(item.view)}>
+          <span><Icon name={item.icon} size={22} /></span>
+          <em><strong>{item.title}</strong><small>{item.text}</small></em>
+          <Icon name="chevron" size={17} />
+        </button>)}
+      </div>
+    </section>
+
+    <section className="home-quick-grid" aria-label="Diğer özellikler">
       {quickCards.map((card) => <button key={card.title} onClick={() => card.action === "surprise" ? surprise() : card.view && onNavigate(card.view)}>
         <span><Icon name={card.icon} size={21} /></span><strong>{card.title}</strong><small>{card.text}</small>
       </button>)}

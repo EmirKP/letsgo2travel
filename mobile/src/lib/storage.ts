@@ -5,6 +5,13 @@ import type {
   MobilePreferences,
   SavedRoutePlan,
 } from "../types";
+import {
+  guestDataCounts,
+  guestDataSignature,
+  mergeGuestData,
+  type GuestDataCollections,
+  type GuestDataCounts,
+} from "./guestData";
 
 const ROUTES_KEY = "l2t.mobile.saved-routes.v1";
 const FAVORITES_KEY = "l2t.mobile.favorite-destinations.v1";
@@ -16,6 +23,33 @@ const ONBOARDING_KEY = "l2t.mobile.onboarding.v2";
 const INSTALLATION_KEY = "l2t.mobile.installation-id.v1";
 const LIVE_ACTIVITY_SESSION_GENERATION_KEY = "l2t.mobile.live-activity-session-generation.v1";
 const RELEASE_KEY = "l2t.mobile.release-seen";
+const GUEST_DATA_DECISION_KEY = "l2t.mobile.guest-data-decision.v1";
+const GUEST_DATA_SYNC_KEY = "l2t.mobile.guest-data-web-sync.v1";
+const ROUTES_LIMIT = 100;
+// ISO ülke kümesi 250'nin altındadır; favori/ziyaret aktarımında iki yerel
+// koleksiyon birleşse bile gerçek bir ülke sessizce kırpılmasın.
+const COUNTRY_COLLECTION_LIMIT = 250;
+
+export type GuestDataImportDecision = "imported" | "keep_separate";
+
+export type GuestDataImportDecisionRecord = {
+  decision: GuestDataImportDecision;
+  decidedAt: string;
+  guestSignature: string;
+};
+
+export type GuestDataImportResult = {
+  guest: GuestDataCounts;
+  added: GuestDataCounts;
+  accountAfter: GuestDataCounts;
+};
+
+export type PendingGuestDataSync = {
+  routeIds: string[];
+  profile: boolean;
+  revision: number;
+  updatedAt: string;
+};
 
 // Uçuş arama özelliği kaldırıldı; eski cihaz kayıtları modül açılışında bir kez temizlenir.
 const LEGACY_FLIGHT_SEARCHES_KEY = "l2t.mobile.saved-flight-searches.v1";
@@ -43,6 +77,21 @@ function emitChange() {
   window.dispatchEvent(new CustomEvent("l2t:storage-change"));
 }
 
+function emitStorageError() {
+  // Kaydet çağrısının hemen ardından gösterilen başarı mesajını ezebilmesi
+  // için hatayı sonraki görevde yayınla. Böylece kullanıcı hiçbir zaman
+  // cihazda saklanmamış bir kaydı saklanmış sanmaz.
+  window.setTimeout(() => window.dispatchEvent(new CustomEvent("l2t:storage-error")), 0);
+}
+
+function authenticatedOwnerId(ownerId: string) {
+  const value = String(ownerId || "").trim();
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(value)) {
+    throw new Error("Misafir kayıtları için geçerli bir hesap kimliği gerekli.");
+  }
+  return value;
+}
+
 function read<T>(key: string): T[] {
   try {
     const raw = window.localStorage.getItem(key);
@@ -54,25 +103,53 @@ function read<T>(key: string): T[] {
   }
 }
 
+function readRequired<T>(key: string): T[] {
+  const raw = window.localStorage.getItem(key);
+  if (raw === null) throw new Error("Bekleyen yerel kayıt bulunamadı.");
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("Bekleyen yerel kayıt okunamadı.");
+  return parsed as T[];
+}
+
 function write<T>(key: string, data: T[], limit = 40) {
   try {
     window.localStorage.setItem(key, JSON.stringify(data.slice(0, limit)));
     emitChange();
   } catch {
-    // Depolama kısıtlıysa uygulamanın geri kalanı çalışmaya devam etsin.
+    emitStorageError();
   }
 }
 
 function readScoped<T>(base: string, ownerId?: string | null) {
   const key = scopedKey(base, ownerId);
-  const scoped = read<T>(key);
-  if (scoped.length || ownerId) return scoped;
+  if (ownerId) return read<T>(key);
+  // Boş bir dizi de bilinçli ve geçerli bir kayıttır. Yalnız anahtar gerçekten
+  // hiç oluşmadıysa eski kapsamlandırılmamış misafir verisini taşı. Aksi halde
+  // kullanıcı son öğeyi sildikten sonra eski kayıt yeniden dirilebilirdi.
+  let scopedRaw: string | null;
+  try {
+    scopedRaw = window.localStorage.getItem(key);
+  } catch {
+    return [];
+  }
+  if (scopedRaw !== null) return read<T>(key);
 
   // Eski sürümde misafir kayıtları kapsamlandırılmamıştı. Yalnızca misafir
   // alanına bir kez taşı; bir hesaba aitmiş gibi varsayarak aktarma yapma.
   const legacy = read<T>(base);
-  if (legacy.length) {
-    try { window.localStorage.setItem(key, JSON.stringify(legacy.slice(0, 40))); } catch { /* Salt okunur geri dönüş. */ }
+  const limit = base === ROUTES_KEY
+    ? ROUTES_LIMIT
+    : base === FAVORITES_KEY || base === VISITED_KEY
+      ? COUNTRY_COLLECTION_LIMIT
+      : 40;
+  try {
+    // Boş sonucu da yazarak bu anahtar için taşımanın tamamlandığını kaydet.
+    // Başarıdan sonra eski anahtarı kaldır; sonraki silme/aktarma işlemleri onu
+    // yanlışlıkla tekrar kaynak olarak göremez.
+    window.localStorage.setItem(key, JSON.stringify(legacy.slice(0, limit)));
+    window.localStorage.removeItem(base);
+  } catch {
+    // Depolama salt okunursa özgün veriyi kaybetmeden bu okumada kullan.
   }
   return legacy;
 }
@@ -83,13 +160,27 @@ export function getSavedRoutePlans(ownerId?: string | null) {
 
 export function saveRoutePlan(plan: SavedRoutePlan, ownerId?: string | null) {
   const next = [plan, ...getSavedRoutePlans(ownerId).filter((item) => item.id !== plan.id)];
-  write(scopedKey(ROUTES_KEY, ownerId), next);
+  write(scopedKey(ROUTES_KEY, ownerId), next, ROUTES_LIMIT);
   return next;
 }
 
 export function deleteRoutePlan(id: string, ownerId?: string | null) {
   const next = getSavedRoutePlans(ownerId).filter((item) => item.id !== id);
-  write(scopedKey(ROUTES_KEY, ownerId), next);
+  write(scopedKey(ROUTES_KEY, ownerId), next, ROUTES_LIMIT);
+  // Kullanıcı, web aktarımı bekleyen bir rotayı silerse artık var olmayan
+  // kaydı sonsuza kadar yeniden deneme. Yalnız yerel silme gerçekten başarılı
+  // olduysa ilgili kuyruk girdisini de kaldır.
+  if (ownerId && !getSavedRoutePlans(ownerId).some((item) => item.id === id)) {
+    const pending = getPendingGuestDataSync(ownerId);
+    if (pending?.routeIds.includes(id)) {
+      savePendingGuestDataSync(ownerId, {
+        ...pending,
+        routeIds: pending.routeIds.filter((routeId) => routeId !== id),
+        revision: pending.revision + 1,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
   return next;
 }
 
@@ -98,7 +189,7 @@ export function getFavoriteDestinations(ownerId?: string | null) {
 }
 
 export function setFavoriteDestinations(destinations: FavoriteDestination[], ownerId?: string | null) {
-  write(scopedKey(FAVORITES_KEY, ownerId), destinations, 80);
+  write(scopedKey(FAVORITES_KEY, ownerId), destinations, COUNTRY_COLLECTION_LIMIT);
   return destinations;
 }
 
@@ -108,7 +199,7 @@ export function toggleFavoriteDestination(destination: Omit<FavoriteDestination,
   const next = exists
     ? current.filter((item) => item.alpha3 !== destination.alpha3)
     : [{ ...destination, createdAt: new Date().toISOString() }, ...current];
-  write(scopedKey(FAVORITES_KEY, ownerId), next, 80);
+  write(scopedKey(FAVORITES_KEY, ownerId), next, COUNTRY_COLLECTION_LIMIT);
   return next;
 }
 
@@ -116,8 +207,21 @@ export function getVisitedCountries(ownerId?: string | null) {
   return readScoped<FavoriteDestination>(VISITED_KEY, ownerId);
 }
 
+/**
+ * Kalıcı web kuyruğu işlenirken parse/depolama hatasını boş koleksiyon gibi
+ * göstermeyen katı okuma. Hata fırlarsa kuyruk korunur ve sonraki açılışta
+ * tekrar denenir.
+ */
+export function getProfileDestinationsForPendingSync(ownerId: string) {
+  const accountId = authenticatedOwnerId(ownerId);
+  return {
+    favorites: readRequired<FavoriteDestination>(scopedKey(FAVORITES_KEY, accountId)),
+    visitedCountries: readRequired<FavoriteDestination>(scopedKey(VISITED_KEY, accountId)),
+  };
+}
+
 export function setVisitedCountries(countries: FavoriteDestination[], ownerId?: string | null) {
-  write(scopedKey(VISITED_KEY, ownerId), countries, 200);
+  write(scopedKey(VISITED_KEY, ownerId), countries, COUNTRY_COLLECTION_LIMIT);
   return countries;
 }
 
@@ -127,8 +231,215 @@ export function toggleVisitedCountry(country: Omit<FavoriteDestination, "created
   const next = exists
     ? current.filter((item) => item.alpha3 !== country.alpha3)
     : [{ ...country, createdAt: new Date().toISOString() }, ...current];
-  write(scopedKey(VISITED_KEY, ownerId), next, 200);
+  write(scopedKey(VISITED_KEY, ownerId), next, COUNTRY_COLLECTION_LIMIT);
   return next;
+}
+
+function guestCollections(): GuestDataCollections<SavedRoutePlan, FavoriteDestination> {
+  return {
+    routes: getSavedRoutePlans(),
+    favorites: getFavoriteDestinations(),
+    visitedCountries: getVisitedCountries(),
+  };
+}
+
+function accountCollections(ownerId: string): GuestDataCollections<SavedRoutePlan, FavoriteDestination> {
+  return {
+    routes: getSavedRoutePlans(ownerId),
+    favorites: getFavoriteDestinations(ownerId),
+    visitedCountries: getVisitedCountries(ownerId),
+  };
+}
+
+function storedRouteKey(item: SavedRoutePlan) {
+  return String(item?.id || "").trim();
+}
+
+function storedDestinationKey(item: FavoriteDestination) {
+  return String(item?.alpha3 || "").trim().toLocaleUpperCase("en-US");
+}
+
+/** Giriş yapılmadan bu cihazda üretilen ve aktarılabilecek kayıtların özeti. */
+export function getGuestDataSummary(): GuestDataCounts {
+  return guestDataCounts(guestCollections());
+}
+
+/**
+ * Belirli hesabın son misafir veri kümesi için verdiği kararı döndürür.
+ * Kayıt bozuksa karar yok kabul edilir; hiçbir kullanıcı verisi silinmez.
+ */
+export function getGuestDataImportDecision(ownerId: string): GuestDataImportDecisionRecord | null {
+  const accountId = authenticatedOwnerId(ownerId);
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(scopedKey(GUEST_DATA_DECISION_KEY, accountId)) || "null") as Partial<GuestDataImportDecisionRecord> | null;
+    if (!parsed || (parsed.decision !== "imported" && parsed.decision !== "keep_separate")) return null;
+    if (typeof parsed.decidedAt !== "string" || typeof parsed.guestSignature !== "string") return null;
+    return {
+      decision: parsed.decision,
+      decidedAt: parsed.decidedAt,
+      guestSignature: parsed.guestSignature,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aynı hesaba aynı misafir kayıtları için tekrar tekrar soru sormayı önler.
+ * Misafir tarafında sonradan yeni veri oluşursa imza değişir ve teklif yenilenir.
+ */
+export function shouldOfferGuestDataImport(ownerId: string) {
+  const accountId = authenticatedOwnerId(ownerId);
+  const guest = guestCollections();
+  if (guestDataCounts(guest).total === 0) return false;
+  const signature = guestDataSignature(guest);
+  const decision = getGuestDataImportDecision(accountId);
+  if (decision?.guestSignature === signature) return false;
+  // Yerel kayıtlar hesap alanında zaten bulunsa bile eski bir sürüm web
+  // eşitleme kuyruğunu oluşturamamış olabilir. İşlenmemiş her yeni imzayı bir
+  // kez teklif et; onay, kopya üretmeden eksik web aktarımını tamamlar.
+  return true;
+}
+
+export function markGuestDataImportDecision(ownerId: string, decision: GuestDataImportDecision) {
+  const accountId = authenticatedOwnerId(ownerId);
+  if (decision !== "imported" && decision !== "keep_separate") {
+    throw new Error("Geçersiz misafir veri kararı.");
+  }
+  const record: GuestDataImportDecisionRecord = {
+    decision,
+    decidedAt: new Date().toISOString(),
+    guestSignature: guestDataSignature(guestCollections()),
+  };
+  window.localStorage.setItem(scopedKey(GUEST_DATA_DECISION_KEY, accountId), JSON.stringify(record));
+  emitChange();
+  return record;
+}
+
+export function getPendingGuestDataSync(ownerId: string): PendingGuestDataSync | null {
+  const accountId = authenticatedOwnerId(ownerId);
+  try {
+    const value = JSON.parse(window.localStorage.getItem(scopedKey(GUEST_DATA_SYNC_KEY, accountId)) || "null") as Partial<PendingGuestDataSync> | null;
+    if (!value || !Array.isArray(value.routeIds) || typeof value.profile !== "boolean") return null;
+    const routeIds = Array.from(new Set(value.routeIds
+      .map((id) => String(id || "").trim())
+      .filter((id) => /^[A-Za-z0-9._:-]{8,160}$/.test(id))))
+      .slice(0, ROUTES_LIMIT);
+    if (!routeIds.length && !value.profile) return null;
+    return {
+      routeIds,
+      profile: value.profile,
+      revision: Number.isSafeInteger(value.revision) && Number(value.revision) > 0 ? Number(value.revision) : 1,
+      updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date(0).toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function savePendingGuestDataSync(ownerId: string, pending: PendingGuestDataSync | null) {
+  const accountId = authenticatedOwnerId(ownerId);
+  try {
+    const key = scopedKey(GUEST_DATA_SYNC_KEY, accountId);
+    if (pending && (pending.routeIds.length || pending.profile)) {
+      window.localStorage.setItem(key, JSON.stringify(pending));
+    } else {
+      window.localStorage.removeItem(key);
+    }
+    return true;
+  } catch {
+    emitStorageError();
+    return false;
+  }
+}
+
+export function queuePendingGuestDataSync(ownerId: string, routeIds: Iterable<string>, profile: boolean) {
+  const current = getPendingGuestDataSync(ownerId);
+  const mergedRouteIds = Array.from(new Set([
+    ...(current?.routeIds || []),
+    ...Array.from(routeIds, (id) => String(id || "").trim()),
+  ].filter((id) => /^[A-Za-z0-9._:-]{8,160}$/.test(id)))).slice(0, ROUTES_LIMIT);
+  const pending: PendingGuestDataSync = {
+    routeIds: mergedRouteIds,
+    profile: Boolean(current?.profile || profile),
+    revision: (current?.revision || 0) + 1,
+    updatedAt: new Date().toISOString(),
+  };
+  if (!pending.routeIds.length && !pending.profile) return null;
+  if (!savePendingGuestDataSync(ownerId, pending)) {
+    throw new Error("Web eşitleme kuyruğu bu cihazda saklanamadı.");
+  }
+  return pending;
+}
+
+/**
+ * Misafir rotalarını, favorilerini ve ziyaretlerini hedef hesaba ekler.
+ *
+ * - Misafir anahtarlarına asla yazmaz; cihazdaki özgün misafir kayıtları kalır.
+ * - Hesap kaydı çakışmada önceliklidir.
+ * - Aynı aktarım tekrar çalıştırıldığında yeni kopya üretmez.
+ * - Yazma yarıda kesilirse karar işaretlenmez; güvenli biçimde tekrar denenebilir.
+ */
+export function importGuestDataForUser(ownerId: string): GuestDataImportResult {
+  const accountId = authenticatedOwnerId(ownerId);
+  const guest = guestCollections();
+  const accountBefore = accountCollections(accountId);
+  const merged = mergeGuestData(accountBefore, guest);
+
+  // Mevcut saklama sınırlarıyla uyumlu kal. Hesabın eski kayıtları dizinin
+  // başında olduğundan aktarım onları düşürmez.
+  let wroteAccountData = false;
+  try {
+    window.localStorage.setItem(scopedKey(ROUTES_KEY, accountId), JSON.stringify(merged.merged.routes.slice(0, ROUTES_LIMIT)));
+    wroteAccountData = true;
+    window.localStorage.setItem(scopedKey(FAVORITES_KEY, accountId), JSON.stringify(merged.merged.favorites.slice(0, COUNTRY_COLLECTION_LIMIT)));
+    window.localStorage.setItem(scopedKey(VISITED_KEY, accountId), JSON.stringify(merged.merged.visitedCountries.slice(0, COUNTRY_COLLECTION_LIMIT)));
+  } catch (error) {
+    // Bir yazma kısmen gerçekleştiyse ekranların yerel durumu da gerçeği
+    // yeniden okusun. Karar kaydı oluşmadığı için aktarım güvenle yinelenebilir.
+    if (wroteAccountData) emitChange();
+    throw error;
+  }
+
+  const accountAfter = accountCollections(accountId);
+  const beforeKeys = {
+    routes: new Set(accountBefore.routes.map(storedRouteKey).filter(Boolean)),
+    favorites: new Set(accountBefore.favorites.map(storedDestinationKey).filter(Boolean)),
+    visitedCountries: new Set(accountBefore.visitedCountries.map(storedDestinationKey).filter(Boolean)),
+  };
+  const accountAfterKeys = {
+    routes: new Set(accountAfter.routes.map(storedRouteKey).filter(Boolean)),
+    favorites: new Set(accountAfter.favorites.map(storedDestinationKey).filter(Boolean)),
+    visitedCountries: new Set(accountAfter.visitedCountries.map(storedDestinationKey).filter(Boolean)),
+  };
+  const added = {
+    routes: new Set(guest.routes.map(storedRouteKey).filter((key) => key && !beforeKeys.routes.has(key) && accountAfterKeys.routes.has(key))).size,
+    favorites: new Set(guest.favorites.map(storedDestinationKey).filter((key) => key && !beforeKeys.favorites.has(key) && accountAfterKeys.favorites.has(key))).size,
+    visitedCountries: new Set(guest.visitedCountries.map(storedDestinationKey).filter((key) => key && !beforeKeys.visitedCountries.has(key) && accountAfterKeys.visitedCountries.has(key))).size,
+    total: 0,
+  };
+  added.total = added.routes + added.favorites + added.visitedCountries;
+
+  // Web aktarım niyetini, kullanıcı kararından ÖNCE kalıcılaştır. Uygulama bu
+  // satırdan sonra kapansa veya ağ kesilse bile sonraki açılış/öne geliş kalan
+  // işleri tamamlar. Yalnız gerçekten hesap alanında bulunan misafir rotaları
+  // kuyruğa eklenir; profil bayrağı favori/ziyaret verisini kapsar.
+  // Kuyruğa yalnız hesaba yeni eklenenleri değil bütün misafir rota
+  // kimliklerini koy. Hesap yerel kapasitesine ulaşsa bile özgün misafir
+  // kopyasından web hesabına aktarım tamamlanabilir.
+  const routeIdsToSync = guest.routes.map((route) => route.id);
+  queuePendingGuestDataSync(
+    accountId,
+    routeIdsToSync,
+    guest.favorites.length > 0 || guest.visitedCountries.length > 0,
+  );
+  markGuestDataImportDecision(accountId, "imported");
+
+  return {
+    guest: guestDataCounts(guest),
+    added,
+    accountAfter: guestDataCounts(accountAfter),
+  };
 }
 
 export function getRecentDestinations(ownerId?: string | null) {
@@ -171,7 +482,7 @@ export function saveMobilePreferences(preferences: MobilePreferences) {
     window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
     emitChange();
   } catch {
-    // Tercih kaydedilemese de uygulama çalışmaya devam etsin.
+    emitStorageError();
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import {
   closeForumReport,
@@ -25,67 +25,141 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   onOverviewChange: (overview: MobileAdminOverview | null) => void;
   onNotice: (message: string) => void;
 }) {
-  const [overview, setOverview] = useState(initialOverview);
+  const [overviewState, setOverviewState] = useState(() => ({ accessToken, value: initialOverview }));
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [openedEvidenceIds, setOpenedEvidenceIds] = useState<Set<string>>(() => new Set());
+  const mountedRef = useRef(true);
+  const accessTokenRef = useRef(accessToken);
+  const sessionEpochRef = useRef(0);
+  const refreshRequestRef = useRef(0);
+  const busyRequestRef = useRef(0);
+  const loadingRef = useRef(false);
+  const lastInitialOverviewRef = useRef(initialOverview);
 
-  useEffect(() => setOverview(initialOverview), [initialOverview]);
+  const overview = overviewState.accessToken === accessToken ? overviewState.value : null;
 
-  const refresh = async () => {
-    if (!accessToken || loading) return;
+  const captureSession = () => ({ accessToken, epoch: sessionEpochRef.current });
+  const isCurrentSession = (session: { accessToken: string; epoch: number }) => (
+    mountedRef.current
+    && Boolean(session.accessToken)
+    && accessTokenRef.current === session.accessToken
+    && sessionEpochRef.current === session.epoch
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      sessionEpochRef.current += 1;
+      refreshRequestRef.current += 1;
+      busyRequestRef.current += 1;
+      loadingRef.current = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (accessTokenRef.current !== accessToken) {
+      accessTokenRef.current = accessToken;
+      sessionEpochRef.current += 1;
+    }
+    refreshRequestRef.current += 1;
+    busyRequestRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
+    setBusyId("");
+    setOpenedEvidenceIds(new Set());
+  }, [accessToken]);
+
+  useEffect(() => {
+    // Token tek başına değiştiğinde önceki hesaba ait aynı prop nesnesini yeni
+    // hesaba bağlama. Parent gerçekten yeni/null bir değer verdiğinde kabul et.
+    if (Object.is(lastInitialOverviewRef.current, initialOverview)) return;
+    lastInitialOverviewRef.current = initialOverview;
+    setOverviewState({ accessToken, value: initialOverview });
+  }, [accessToken, initialOverview]);
+
+  const refresh = async (requestedSession = captureSession()) => {
+    if (!isCurrentSession(requestedSession) || loadingRef.current) return;
+    const requestId = ++refreshRequestRef.current;
+    loadingRef.current = true;
     setLoading(true);
     try {
-      const next = await getMobileAdminOverview(accessToken);
-      setOverview(next);
+      const next = await getMobileAdminOverview(requestedSession.accessToken);
+      if (!isCurrentSession(requestedSession) || refreshRequestRef.current !== requestId) return;
+      setOverviewState({ accessToken: requestedSession.accessToken, value: next });
       onOverviewChange(next);
     } catch {
-      onNotice("Yönetim verileri yenilenemedi.");
+      if (isCurrentSession(requestedSession) && refreshRequestRef.current === requestId) {
+        onNotice("Yönetim verileri yenilenemedi.");
+      }
     } finally {
-      setLoading(false);
+      if (isCurrentSession(requestedSession) && refreshRequestRef.current === requestId) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
   const updateForum = async (kind: "topics" | "replies", id: string, status: "published" | "rejected") => {
     const label = status === "published" ? "yayınlamak" : "reddetmek";
     if (!window.confirm(`Bu kaydı ${label} istediğine emin misin?`)) return;
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++busyRequestRef.current;
     setBusyId(id);
     try {
-      await moderateForumItem(kind, id, status, accessToken);
+      await moderateForumItem(kind, id, status, session.accessToken);
+      if (!isCurrentSession(session) || busyRequestRef.current !== requestId) return;
       onNotice(status === "published" ? "İçerik site ve uygulamada yayınlandı." : "İçerik reddedildi.");
-      await refresh();
+      await refresh(session);
     } catch {
-      onNotice("Moderasyon işlemi tamamlanamadı.");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) {
+        onNotice("Moderasyon işlemi tamamlanamadı.");
+      }
     } finally {
-      setBusyId("");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) setBusyId("");
     }
   };
 
   const updateReport = async (id: string, status: "resolved" | "dismissed") => {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++busyRequestRef.current;
     setBusyId(id);
     try {
-      await closeForumReport(id, status, accessToken);
+      await closeForumReport(id, status, session.accessToken);
+      if (!isCurrentSession(session) || busyRequestRef.current !== requestId) return;
       onNotice(status === "resolved" ? "Rapor çözüldü olarak kapatıldı." : "Rapor geçersiz olarak kapatıldı.");
-      await refresh();
+      await refresh(session);
     } catch {
-      onNotice("Rapor güncellenemedi.");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) {
+        onNotice("Rapor güncellenemedi.");
+      }
     } finally {
-      setBusyId("");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) setBusyId("");
     }
   };
 
   const openEvidence = async (id: string) => {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++busyRequestRef.current;
     setBusyId(id);
     try {
-      const result = await getVerificationEvidence(id, accessToken);
+      const result = await getVerificationEvidence(id, session.accessToken);
+      if (!isCurrentSession(session) || busyRequestRef.current !== requestId) return;
       const opened = await openExternal(result.signedUrl);
       if (!opened) throw new Error("open failed");
+      if (!isCurrentSession(session) || busyRequestRef.current !== requestId) return;
       setOpenedEvidenceIds((current) => new Set(current).add(id));
       onNotice("Belge güvenli önizlemede açıldı. Bağlantı 5 dakika geçerlidir.");
     } catch {
-      onNotice("Başvuru belgesi açılamadı.");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) {
+        onNotice("Başvuru belgesi açılamadı.");
+      }
     } finally {
-      setBusyId("");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) setBusyId("");
     }
   };
 
@@ -98,20 +172,26 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
       ? window.prompt("Red sebebini yaz:", "")
       : window.confirm("Bu başvuruyu onaylamak istediğine emin misin?") ? "" : null;
     if (note === null || (action === "reject" && !note.trim())) return;
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++busyRequestRef.current;
     setBusyId(id);
     try {
-      await reviewVerification(id, action, note.trim(), accessToken);
+      await reviewVerification(id, action, note.trim(), session.accessToken);
+      if (!isCurrentSession(session) || busyRequestRef.current !== requestId) return;
       onNotice(action === "approve" ? "Gezgin doğrulaması onaylandı." : "Gezgin doğrulaması reddedildi.");
       setOpenedEvidenceIds((current) => {
         const next = new Set(current);
         next.delete(id);
         return next;
       });
-      await refresh();
+      await refresh(session);
     } catch {
-      onNotice("Doğrulama kararı kaydedilemedi.");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) {
+        onNotice("Doğrulama kararı kaydedilemedi.");
+      }
     } finally {
-      setBusyId("");
+      if (isCurrentSession(session) && busyRequestRef.current === requestId) setBusyId("");
     }
   };
 

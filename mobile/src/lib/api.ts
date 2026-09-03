@@ -137,6 +137,16 @@ export type CreateAlertInput = {
   notifyPush: boolean;
 };
 
+export type AlertMutationResponse = {
+  success: boolean;
+  id?: string;
+  message: string;
+  warning?: string;
+  warnings?: string[];
+  channels?: { email: boolean; push: boolean };
+  emailConfirmation?: boolean | null;
+};
+
 export async function listAlerts(accessToken: string) {
   const result = await requestJson<{ data: FlightAlert[] }>("/api/flight-alerts", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -145,7 +155,7 @@ export async function listAlerts(accessToken: string) {
 }
 
 export async function createAlert(input: CreateAlertInput, accessToken: string) {
-  return requestJson<{ success: boolean; id?: string; message: string }>("/api/flight-alerts", {
+  return requestJson<AlertMutationResponse>("/api/flight-alerts", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
     body: {
@@ -171,7 +181,7 @@ export async function updateAlert(
   body: Partial<{ is_active: boolean; target_price: number | null; notify_email: boolean; notify_push: boolean }>,
   accessToken: string,
 ) {
-  return requestJson<{ success: boolean; message: string }>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
+  return requestJson<AlertMutationResponse>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
     body,

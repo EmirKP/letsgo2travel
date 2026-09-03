@@ -120,6 +120,10 @@ export type FlightAlert = {
   notify_push?: boolean;
   is_active?: boolean;
   status?: string;
+  last_mail_status?: string | null;
+  last_error_message?: string | null;
+  last_error_at?: string | null;
+  error_count?: number | null;
   created_at: string;
 };
 

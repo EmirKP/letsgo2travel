@@ -5,6 +5,8 @@ def uploadStorePassword = System.getenv('L2T_UPLOAD_STORE_PASSWORD') ?: project.
 def uploadKeyAlias = System.getenv('L2T_UPLOAD_KEY_ALIAS') ?: project.findProperty('L2T_UPLOAD_KEY_ALIAS')
 def uploadKeyPassword = System.getenv('L2T_UPLOAD_KEY_PASSWORD') ?: project.findProperty('L2T_UPLOAD_KEY_PASSWORD')
 def uploadSigningReady = [uploadStorePath, uploadStorePassword, uploadKeyAlias, uploadKeyPassword].every { it }
+def googleServicesFile = file('google-services.json')
+def googleServicesReady = googleServicesFile.exists() && googleServicesFile.length() > 0
 
 android {
     namespace = "tr.com.letsgo2travel.app"
@@ -13,7 +15,7 @@ android {
         applicationId "tr.com.letsgo2travel.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
+        versionCode 12
         versionName "1.4.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -48,6 +50,9 @@ gradle.taskGraph.whenReady { graph ->
     if (releaseRequested && !uploadSigningReady) {
         throw new GradleException('Release paketi için L2T_UPLOAD_STORE_FILE, L2T_UPLOAD_STORE_PASSWORD, L2T_UPLOAD_KEY_ALIAS ve L2T_UPLOAD_KEY_PASSWORD zorunludur.')
     }
+    if (releaseRequested && !googleServicesReady) {
+        throw new GradleException('Android release için android/app/google-services.json zorunludur; aksi halde push bildirimleri çalışmaz.')
+    }
 }
 
 repositories {
@@ -70,11 +75,8 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
+if (googleServicesReady) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }

@@ -3,6 +3,7 @@ import { getVisaAppointmentNotifications, listAlerts, markVisaAppointmentNotific
 import {
   getReadNotificationIds,
   getSavedRoutePlans,
+  hasSeenRelease,
   markNotificationsRead,
 } from "../lib/storage";
 import type { AppNotification, FlightAlert, ViewId, VisaAppointmentNotification } from "../types";
@@ -18,13 +19,14 @@ function formatDate(value: string) {
   }
 }
 
-export function NotificationCenter({ open, ownerId, accessToken, online, onClose, onNavigate, onUnreadChange }: {
+export function NotificationCenter({ open, ownerId, accessToken, online, onClose, onNavigate, onOpenRelease, onUnreadChange }: {
   open: boolean;
   ownerId?: string | null;
   accessToken: string;
   online: boolean;
   onClose: () => void;
   onNavigate: (view: ViewId) => void;
+  onOpenRelease: () => void;
   onUnreadChange: (count: number) => void;
 }) {
   const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
@@ -76,8 +78,8 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
     const items: AppNotification[] = [{
       id: `release-${releaseId}`,
       title: `Mobil deneyim · Build ${config.buildNumber}`,
-      message: "Daha güvenli girişleri, yerel kısayolları ve yenilenen erişilebilir deneyimi incele.",
-      createdAt: "2026-08-09T09:00:00.000Z",
+      message: "Yeni hızlı başlangıcı, açılabilen rota planlarını ve güvenilir seyahat araçlarını incele.",
+      createdAt: "2026-09-03T16:00:00.000Z",
       kind: "release",
       view: "home",
     }];
@@ -116,6 +118,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
   const isRead = useCallback((item: AppNotification) => {
     if (readIds.includes(item.id)) return true;
+    if (item.kind === "release" && hasSeenRelease(releaseId)) return true;
     if (!item.id.startsWith("visa-")) return false;
     return Boolean(visaNotifications.find((notification) => `visa-${notification.id}` === item.id)?.read_at);
   }, [readIds, visaNotifications]);
@@ -131,8 +134,9 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
     markRead([item.id]);
     const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
     if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
-    if (item.view) onNavigate(item.view);
     onClose();
+    if (item.kind === "release") onOpenRelease();
+    else if (item.view) onNavigate(item.view);
   };
 
   const markAllRead = () => {

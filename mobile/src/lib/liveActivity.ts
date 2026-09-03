@@ -53,6 +53,19 @@ export function activityPhase(departureAtIso: string | null, now: Date = new Dat
   return "active";
 }
 
+export type ActivitySyncAction = "start" | "end" | "none";
+
+/**
+ * Bir kayıt iptal/tamamlandıysa kalkış saati aktif pencerede olsa bile Ada'da
+ * yeniden başlatılmaz. Durum değişikliği mevcut aktiviteyi açıkça sonlandırır.
+ */
+export function activitySyncAction(trip: FlightReminderTrip, now: Date = new Date()): ActivitySyncAction {
+  if (trip.status !== "upcoming" && trip.status !== "active") return "end";
+  const phase = activityPhase(trip.departureAt, now);
+  if (phase === "active") return "start";
+  return phase === "ended" ? "end" : "none";
+}
+
 /** Hatırlatma planlanacak uçuşlar: yaklaşan + gelecekte kalkışı olanlar. */
 export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Date()) {
   return trips
@@ -89,13 +102,32 @@ function liveActivityPlugin(): LiveActivitySurface | undefined {
   return plugin("FlightLiveActivity") as LiveActivitySurface | undefined;
 }
 
-/**
- * Kokpit uçuşları için hatırlatmaları eşitler. İzin İSTEMEZ; yalnız
- * hâlihazırda verilmiş izinle çalışır. Kendi kimlik alanımızdaki eski
- * bildirimleri iptal edip günceller (silinen/geçmiş uçuş bildirimi kalmaz).
- */
-export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date = new Date()): Promise<void> {
+let reminderSyncGeneration = 0;
+let reminderSyncQueue: Promise<void> = Promise.resolve();
+const reminderNotificationIds = Array.from(
+  { length: 8 },
+  (_, index) => ({ id: REMINDER_ID_BASE + index }),
+);
+
+function isCurrentReminderSync(generation: number) {
+  return generation === reminderSyncGeneration;
+}
+
+async function cancelLocalFlightReminders(): Promise<void> {
+  try {
+    await localNotifications()?.cancel?.({ notifications: reminderNotificationIds });
+  } catch {
+    // Kapatma idempotenttir; native yüzey yoksa sessiz devam eder.
+  }
+}
+
+async function performFlightReminderSync(
+  trips: FlightReminderTrip[],
+  now: Date,
+  generation: number,
+): Promise<void> {
   if (!isNativePlatform()) return;
+  if (!isCurrentReminderSync(generation)) return;
 
   // 1) Live Activity: eklenti uygulamaya eklendiyse aktif pencerede başlat.
   //    (Desteklenmeyen cihaz/eksik eklenti → sessizce yerel bildirime düş.)
@@ -103,10 +135,12 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
   if (isIOSNative() && live?.startFlightActivity) {
     try {
       const availability = await live.isAvailable?.();
+      if (!isCurrentReminderSync(generation)) return;
       if (availability?.available) {
         for (const trip of trips) {
-          const phase = activityPhase(trip.departureAt, now);
-          if (phase === "active") {
+          if (!isCurrentReminderSync(generation)) return;
+          const action = activitySyncAction(trip, now);
+          if (action === "start") {
             await live.startFlightActivity({
               tripId: trip.id,
               title: trip.title,
@@ -115,7 +149,7 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
               destinationIata: trip.destinationIata || "",
               deepLink: cockpitDeepLink(trip.id),
             });
-          } else if (phase === "ended") {
+          } else if (action === "end") {
             await live.endFlightActivity?.({ tripId: trip.id });
           }
         }
@@ -131,11 +165,14 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
   try {
     const permission = await notifications.checkPermissions();
     if (permission.display !== "granted") return; // izin istenmez, sessiz geç
+    if (!isCurrentReminderSync(generation)) return;
 
     const plans = plannedReminders(trips, now);
-    await notifications.cancel?.({
-      notifications: Array.from({ length: 8 }, (_, index) => ({ id: REMINDER_ID_BASE + index })),
-    });
+    await notifications.cancel?.({ notifications: reminderNotificationIds });
+    if (!isCurrentReminderSync(generation)) {
+      await cancelLocalFlightReminders();
+      return;
+    }
     if (!plans.length) return;
     await notifications.schedule({
       notifications: plans.map((planItem) => ({
@@ -146,9 +183,36 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
         extra: { screen: "cockpit", tripId: planItem.tripId },
       })),
     });
+    // Logout veya daha yeni snapshot schedule beklerken geldiyse, geç
+    // tamamlanan eski planı hemen temizle. Kuyruktaki son işlem de tekrar
+    // temizleyeceği için bildirim hesabın dışına sızmaz.
+    if (!isCurrentReminderSync(generation)) await cancelLocalFlightReminders();
   } catch {
     // Bildirim planlanamazsa sessiz geçilir; Kokpit akışı etkilenmez.
   }
+}
+
+/**
+ * Kokpit uçuşları için hatırlatmaları eşitler. İzin İSTEMEZ; yalnız
+ * hâlihazırda verilmiş izinle çalışır. Kendi kimlik alanımızdaki eski
+ * bildirimleri iptal edip günceller (silinen/geçmiş uçuş bildirimi kalmaz).
+ *
+ * İstekler tek kuyrukta çalışır ve bekleyen eski snapshot'lar atlanır. Böylece
+ * yükleme eşitlemesi sürerken kullanıcı seyahati iptal ederse eski istek daha
+ * geç bitip iptal edilen bildirimi yeniden planlayamaz; son durum daima kazanır.
+ */
+export function syncFlightReminders(trips: FlightReminderTrip[], now: Date = new Date()): Promise<void> {
+  const generation = ++reminderSyncGeneration;
+  const snapshot = trips.map((trip) => ({ ...trip }));
+  const requestedAt = new Date(now.getTime());
+  const operation = reminderSyncQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (generation !== reminderSyncGeneration) return;
+      await performFlightReminderSync(snapshot, requestedAt, generation);
+    });
+  reminderSyncQueue = operation;
+  return operation;
 }
 
 /**
@@ -156,13 +220,26 @@ export async function syncFlightReminders(trips: FlightReminderTrip[], now: Date
  * hesabın uçuşu yeni kullanıcının Ada'sında kalmasın). Eklenti yoksa
  * sessiz no-op.
  */
-export async function endAllFlightActivities(): Promise<void> {
-  if (!isNativePlatform()) return;
-  try {
-    await liveActivityPlugin()?.endFlightActivity?.({ tripId: "" });
-  } catch {
-    // Sonlandırma hatası çıkışı engellemez.
-  }
+export function endAllFlightActivities(): Promise<void> {
+  // Bekleyen snapshot'ları DERHAL geçersiz kıl. Temizlik aynı kuyrukta eski
+  // sync'in arkasına girer; eski schedule sonradan tamamlanıp logout'u ezemez.
+  ++reminderSyncGeneration;
+  const operation = reminderSyncQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (!isNativePlatform()) return;
+      await cancelLocalFlightReminders();
+      try {
+        await liveActivityPlugin()?.endFlightActivity?.({ tripId: "" });
+      } catch {
+        // Sonlandırma hatası çıkışı engellemez.
+      }
+      // Native Live Activity kapanırken başka bir eski callback bildirim
+      // bırakmışsa ikinci idempotent iptal onu da temizler.
+      await cancelLocalFlightReminders();
+    });
+  reminderSyncQueue = operation;
+  return operation;
 }
 
 /** Bildirime dokununca ilgili Kokpit kaydına gider (tripId ile). */

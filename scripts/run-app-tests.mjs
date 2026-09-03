@@ -20,6 +20,10 @@ writeFileSync(path.join(mirrorDir, "deepLink.ts"), readFileSync("mobile/src/lib/
 writeFileSync(path.join(mirrorDir, "id.ts"), readFileSync("mobile/src/lib/id.ts", "utf8"));
 writeFileSync(path.join(mirrorDir, "liveActivityTokenSync.ts"), readFileSync("mobile/src/lib/liveActivityTokenSync.ts", "utf8"));
 writeFileSync(path.join(mirrorDir, "liveActivityGeneration.ts"), readFileSync("mobile/src/lib/liveActivityGeneration.ts", "utf8"));
+writeFileSync(path.join(mirrorDir, "guestData.ts"), readFileSync("mobile/src/lib/guestData.ts", "utf8"));
+writeFileSync(path.join(mirrorDir, "guestDataSyncCore.ts"), readFileSync("mobile/src/lib/guestDataSyncCore.ts", "utf8"));
+writeFileSync(path.join(mirrorDir, "plannerState.ts"), readFileSync("mobile/src/lib/plannerState.ts", "utf8"));
+writeFileSync(path.join(mirrorDir, "pushSession.ts"), readFileSync("mobile/src/lib/pushSession.ts", "utf8"));
 
 const tsNodeCli = path.join(process.cwd(), "node_modules", "ts-node", "dist", "bin.js");
 const compilerOptions = {

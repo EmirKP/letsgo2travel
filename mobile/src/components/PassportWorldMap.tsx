@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
@@ -68,7 +69,6 @@ type Gesture = {
 
 type WorldCountriesProps = {
   isHighlighted: PassportWorldMapProps["isHighlighted"];
-  onTapCountry: (geoId: string) => void;
   pathRefs: React.MutableRefObject<Map<string, SVGPathElement>>;
   selectedGeoId: string;
   statusFor: PassportWorldMapProps["statusFor"];
@@ -79,7 +79,6 @@ type WorldCountriesProps = {
 // React tarafından yeniden oluşturulmasını engeller.
 const WorldCountries = memo(function WorldCountries({
   isHighlighted,
-  onTapCountry,
   pathRefs,
   selectedGeoId,
   statusFor,
@@ -91,6 +90,7 @@ const WorldCountries = memo(function WorldCountries({
     const isSelected = Boolean(selectedGeoId) && country.id === selectedGeoId;
     return (
       <path
+        aria-hidden="true"
         ref={(node) => {
           if (node) pathRefs.current.set(country.id, node);
           else pathRefs.current.delete(country.id);
@@ -102,7 +102,7 @@ const WorldCountries = memo(function WorldCountries({
         stroke={isSelected ? "#071B33" : "rgba(255,255,255,.92)"}
         strokeWidth={isSelected ? 2.2 : 0.65}
         vectorEffect="non-scaling-stroke"
-        onPointerUp={() => onTapCountry(country.id)}
+        data-country-id={country.id}
       />
     );
   });
@@ -115,6 +115,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   const viewRef = useRef<View>(view);
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture | null>(null);
+  const pointerCountries = useRef(new Map<number, string>());
   const pathRefs = useRef(new Map<string, SVGPathElement>());
   const pendingView = useRef<View | null>(null);
   const viewFrame = useRef<number | null>(null);
@@ -198,6 +199,8 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
 
   const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    const target = event.target instanceof SVGPathElement ? event.target : null;
+    pointerCountries.current.set(event.pointerId, target?.dataset.countryId || "");
     pointers.current.set(event.pointerId, svgPoint(event.clientX, event.clientY));
     beginGesture();
     setDragging(true);
@@ -233,24 +236,27 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
     commitView({ scale: active.start.scale, x: active.start.x + dx, y: active.start.y + dy });
   };
 
-  const onPointerEnd = (event: ReactPointerEvent<SVGSVGElement>) => {
-    pointers.current.delete(event.pointerId);
-    if (pointers.current.size) beginGesture();
-    else {
-      // Path'in onPointerUp olayı önce çalışıp SVG'ye bubble eder; bu
-      // noktada dokunma seçimi tamamlandığı için gesture güvenle kapanır.
-      gesture.current = null;
-      setDragging(false);
-    }
-  };
-
   const tapCountry = useCallback((geoId: string) => {
-    if (gesture.current?.moved) return;
     const alpha3 = GEO_TO_ALPHA3[geoId];
     if (!alpha3) return;
     focusCountry(geoId);
     onSelectCountry(alpha3);
   }, [focusCountry, onSelectCountry]);
+
+  const onPointerEnd = (event: ReactPointerEvent<SVGSVGElement>, allowTap = true) => {
+    // Pointer capture nedeniyle pointerup hedefi SVG'ye dönüşebilir. Ülkeyi
+    // pointerdown anında sakla ve yalnız tek parmak hareket etmediyse seç.
+    const candidate = pointerCountries.current.get(event.pointerId) || "";
+    const shouldTap = allowTap && pointers.current.size === 1 && !gesture.current?.moved && Boolean(candidate);
+    pointerCountries.current.delete(event.pointerId);
+    pointers.current.delete(event.pointerId);
+    if (shouldTap) tapCountry(candidate);
+    if (pointers.current.size) beginGesture();
+    else {
+      gesture.current = null;
+      setDragging(false);
+    }
+  };
 
   const onWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
     event.preventDefault();
@@ -259,26 +265,73 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
 
   const reset = () => commitView({ scale: 1, x: 0, y: 0 });
 
+  const onKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
+    const current = viewRef.current;
+    const panStep = Math.max(18, 54 / current.scale);
+
+    switch (event.key) {
+      case "ArrowLeft":
+        commitView({ ...current, x: current.x + panStep });
+        break;
+      case "ArrowRight":
+        commitView({ ...current, x: current.x - panStep });
+        break;
+      case "ArrowUp":
+        commitView({ ...current, y: current.y + panStep });
+        break;
+      case "ArrowDown":
+        commitView({ ...current, y: current.y - panStep });
+        break;
+      case "+":
+      case "=":
+        zoomAt(current.scale * 1.35);
+        break;
+      case "-":
+      case "_":
+        zoomAt(current.scale / 1.35);
+        break;
+      case "0":
+      case "Home":
+        reset();
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+  };
+
   return (
-    <div className={`passport-map ${dragging ? "dragging" : ""}`} data-no-gesture aria-label="Vize durumuna göre renklendirilmiş dünya haritası">
+    <div
+      className={`passport-map ${dragging ? "dragging" : ""}`}
+      data-no-gesture
+      role="region"
+      aria-label="Vize durumuna göre renklendirilmiş dünya haritası"
+      aria-describedby="passport-map-help"
+    >
       <div className="passport-map-toolbar" aria-hidden="true">
         <output>{view.scale.toFixed(view.scale < 10 ? 1 : 0)}×</output>
       </div>
       <svg
         ref={svgRef}
         viewBox="0 0 800 400"
-        role="img"
-        aria-label="Etkileşimli pasaport gücü dünya haritası"
+        role="group"
+        tabIndex={0}
+        aria-label="Etkileşimli harita alanı"
+        aria-describedby="passport-map-help passport-map-keyboard-help"
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - Home"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
+        onPointerUp={(event) => onPointerEnd(event)}
+        onPointerCancel={(event) => onPointerEnd(event, false)}
         onWheel={onWheel}
+        onKeyDown={onKeyDown}
       >
+        <title>Türkiye pasaportu vize haritası</title>
+        <desc>Renkler ülkelerin giriş koşullarını gösterir. Ülke ayrıntısına erişmek için aşağıdaki arama ve ülke listesi de kullanılabilir.</desc>
         <g transform={`translate(${CENTER.x + view.x} ${CENTER.y + view.y}) scale(${view.scale}) translate(${-CENTER.x} ${-CENTER.y})`}>
           <WorldCountries
             isHighlighted={isHighlighted}
-            onTapCountry={tapCountry}
             pathRefs={pathRefs}
             selectedGeoId={selectedGeoId}
             statusFor={statusFor}
@@ -286,9 +339,9 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         </g>
       </svg>
       <div className="passport-map-controls">
-        <button type="button" aria-label="Yakınlaştır" disabled={view.scale >= MAX_SCALE - .01} onClick={() => zoomAt(viewRef.current.scale * 1.7)}>+</button>
-        <button type="button" aria-label="Uzaklaştır" disabled={view.scale <= MIN_SCALE + .01} onClick={() => zoomAt(viewRef.current.scale / 1.7)}>−</button>
-        <button type="button" className="map-reset" aria-label="Haritayı sıfırla" disabled={view.scale <= 1.01 && Math.abs(view.x) < 1 && Math.abs(view.y) < 1} onClick={reset}><Icon name="refresh" size={17} /></button>
+        <button type="button" aria-label="Haritayı yakınlaştır" aria-keyshortcuts="+" disabled={view.scale >= MAX_SCALE - .01} onClick={() => zoomAt(viewRef.current.scale * 1.7)}>+</button>
+        <button type="button" aria-label="Haritayı uzaklaştır" aria-keyshortcuts="-" disabled={view.scale <= MIN_SCALE + .01} onClick={() => zoomAt(viewRef.current.scale / 1.7)}>−</button>
+        <button type="button" className="map-reset" aria-label="Haritayı başlangıç görünümüne döndür" aria-keyshortcuts="Home" disabled={view.scale <= 1.01 && Math.abs(view.x) < 1 && Math.abs(view.y) < 1} onClick={reset}><Icon name="refresh" size={17} /></button>
       </div>
     </div>
   );

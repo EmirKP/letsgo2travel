@@ -1,7 +1,7 @@
 import { requestJson } from "./api";
 
 export type MobileAdminOverview = {
-  role: "admin" | "super_admin";
+  role: "super_admin";
   generatedAt: string;
   unavailableCount: number;
   stats: {
@@ -21,8 +21,23 @@ export type MobileAdminOverview = {
   openReports: Array<{ id: string; targetType: string; reason: string; createdAt: string }>;
 };
 
+export type MobileAdminAccess = {
+  allowed: boolean;
+  role: "super_admin" | null;
+};
+
 function adminHeaders(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
+}
+
+export async function getMobileAdminAccess(accessToken: string) {
+  const result = await requestJson<{ data?: MobileAdminAccess }>("/api/admin/mobile-access", {
+    headers: adminHeaders(accessToken),
+    timeoutMs: 8_000,
+  });
+  return result.data?.allowed === true && result.data.role === "super_admin"
+    ? { allowed: true, role: "super_admin" } as const
+    : { allowed: false, role: null } as const;
 }
 
 export async function getMobileAdminOverview(accessToken: string) {

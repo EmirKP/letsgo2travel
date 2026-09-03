@@ -257,7 +257,7 @@ export async function POST(request: Request) {
     if (wantsEmail && wantsPush) {
       message = confirmationMailOk
         ? "Fiyat alarmın kuruldu. Onay e-postası gönderildi; fiyat düşünce e-posta ve telefon bildirimi alacaksın."
-        : "Fiyat alarmın kuruldu ve telefon bildirimi aktif; ancak onay e-postası şu anda gönderilemedi. E-posta bildirimleri sorun giderilene kadar gecikebilir.";
+        : "Fiyat alarmın kuruldu ve telefon bildirimi aktif.";
     } else if (wantsEmail) {
       message = "Fiyat alarmın kuruldu. Onay e-postası gönderildi; fiyat düşünce e-posta alacaksın.";
     } else {
@@ -270,6 +270,9 @@ export async function POST(request: Request) {
       channels: { email: wantsEmail, push: wantsPush },
       emailConfirmation: confirmationMailOk,
       message,
+      warnings: wantsEmail && confirmationMailOk === false
+        ? ["E-posta gönderimi şu anda doğrulanamadı; telefon bildirimi açık olduğu için alarmın çalışmaya devam ediyor."]
+        : [],
     });
   } catch (error) {
     console.error("POST flight-alerts error:", error);
@@ -279,7 +282,14 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return NextResponse.json({ data: [] });
+  // Servis kapalıyken boş liste dönmek kullanıcıya "hiç alarmın yok" diye
+  // yanlış bilgi verir ve cihazdaki son doğru listenin silinmesine yol açar.
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Fiyat alarmları şu anda yüklenemiyor. Lütfen tekrar dene." },
+      { status: 503 },
+    );
+  }
 
   const authHeader = request.headers.get("Authorization");
   if (!authHeader) {

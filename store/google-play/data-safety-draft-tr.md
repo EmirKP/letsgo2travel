@@ -19,7 +19,7 @@ Bu dosya Play Console'a körlemesine kopyalanacak bir hukuk beyanı değildir. Y
 - Kişi listesi, SMS, arama geçmişi, fotoğraf galerisi veya mikrofon izni yoktur.
 - Uygulama içinde ödeme/kredi kartı verisi işlenmez.
 - Reklam kimliği izni veya yapılandırılmış reklam SDK'sı yoktur.
-- Yapılandırılmamış push bildirim eklentisi yayın paketinden çıkarılmıştır.
+- Push bildirim tokenı yalnız kullanıcının açık izniyle, ilgili cihaz ve hesap sahipliğiyle eşleştirilir; çıkışta cihaz kaydı etkisizleştirilir.
 
 ## Güvenlik ve silme yanıtları
 

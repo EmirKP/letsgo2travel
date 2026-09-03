@@ -62,6 +62,24 @@ export function forumStatusFromModeration(action: "visible" | "pending_review") 
   return action === "visible" ? "published" : "pending";
 }
 
+// Veritabanındaki is_forum_topic_paywalled() ile birebir aynı güvenlik
+// sözleşmesi: non-null ülke slug'ı + saklanan paywall bayrağı. Boş ama non-null
+// eski slug'lar migration tarafından NULL'a çevrilene kadar güvenli tarafta
+// (kilitli) kalır; API gizli cevap gövdesini yanlışlıkla açmaz.
+export function forumTopicIsPaywalled(
+  countrySlug: string | null | undefined,
+  category: string | null | undefined,
+  storedPaywallFlag: boolean | null | undefined,
+) {
+  // PostgreSQL kuralı country_slug IS NOT NULL üzerinden çalışır; henüz yeni
+  // migration ile normalize edilmemiş "" değeri de burada güvenli biçimde
+  // ülke konusu sayılmalı. Vize kategorisi DB trigger'ıyla her zaman kilitli
+  // olduğundan, eski satırdaki bayrak geride kalmış olsa bile aynı kararı ver.
+  const hasCountry = countrySlug !== null && countrySlug !== undefined;
+  const visaCategory = String(category || "").toLocaleLowerCase("tr-TR").includes("vize");
+  return hasCountry && (storedPaywallFlag === true || visaCategory);
+}
+
 export function forumReplyLimit(isPaywalled: boolean, hasFullAccess: boolean) {
   return isPaywalled && !hasFullAccess
     ? PUBLIC_FORUM_REPLY_PREVIEW_COUNT

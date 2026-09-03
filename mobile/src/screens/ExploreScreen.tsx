@@ -5,7 +5,7 @@ import { DISCOVERY_DESTINATIONS, dailyDiscovery, type DiscoveryDestination } fro
 import { COUNTRY_LIST } from "../data/countries";
 import { profileIdToAlpha3, profileIdsForAlpha3 } from "../data/countryCodes";
 import { destinationArtwork } from "../data/artwork";
-import { randomRoute } from "../data/routes";
+import { randomRoute, routeByDestinationCode } from "../data/routes";
 import {
   addRecentDestination,
   getFavoriteDestinations,
@@ -17,11 +17,12 @@ import type { RouteSuggestion, ViewId } from "../types";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
-export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onNotice }: {
+export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
   ownerId?: string | null;
   accessToken: string;
   onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
+  onBuildRoute: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
   const [category, setCategory] = useState<(typeof categories)[number]>("Tümü");
@@ -30,6 +31,23 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
   const [favoriteBusy, setFavoriteBusy] = useState("");
   const [selectedDestination, setSelectedDestination] = useState<DiscoveryDestination | null>(null);
   const featured = dailyDiscovery();
+
+  useEffect(() => {
+    const refreshFavorites = () => setFavorites(getFavoriteDestinations(ownerId));
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refreshFavorites();
+    };
+
+    refreshFavorites();
+    window.addEventListener("l2t:storage-change", refreshFavorites);
+    window.addEventListener("storage", refreshFavorites);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("l2t:storage-change", refreshFavorites);
+      window.removeEventListener("storage", refreshFavorites);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [ownerId]);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +121,29 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
     setSelectedDestination(destination);
   };
 
+  const buildRoute = (destination: DiscoveryDestination) => {
+    const route = routeByDestinationCode(destination.code) || {
+      name: destination.name,
+      country: destination.country,
+      cityOrRegion: destination.name,
+      destinationCode: destination.code,
+      why: destination.description,
+      visaStatus: destination.entry,
+      estimatedBudget: destination.budget,
+      idealDuration: "4–6 gün",
+      bestFor: destination.tag,
+      difficulty: "Orta",
+      firstTimeFriendly: true,
+      transportEase: "Planlamaya göre değişir",
+      safetyNote: "Güncel yerel koşulları ve resmî seyahat duyurularını yola çıkmadan önce kontrol et.",
+      scores: { budget: 8, visaEase: destination.entry === "Vizesiz" || destination.entry === "Kimlikle" ? 10 : 7, firstTime: 8, transport: 7, overall: 84 },
+      dailyPlan: destination.highlights.map((highlight, index) => `${index + 1}. Gün: ${highlight}.`),
+      warnings: ["Giriş koşullarını ve rezervasyonlarını seyahatten önce resmî kaynaklardan doğrula."],
+    };
+    setSelectedDestination(null);
+    onBuildRoute(route);
+  };
+
   return <div className="screen explore-screen">
     <section className="page-intro explore-intro">
       <span className="page-icon"><Icon name="compass" size={28} /></span>
@@ -159,7 +200,10 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
         <section className="destination-highlights"><small>ÖNE ÇIKANLAR</small><div>{selectedDestination.highlights.map((highlight) => <span key={highlight}><Icon name="check" size={14} />{highlight}</span>)}</div></section>
         <section className="destination-tip"><span><Icon name="sparkles" size={19} /></span><div><small>YEREL PLANLAMA NOTU</small><p>{selectedDestination.localTip}</p></div></section>
         <p className="destination-disclaimer"><Icon name="info" size={14} /> Giriş koşulları değişebilir; seyahatten önce resmî kaynağı doğrula.</p>
-        <button className="primary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? "Favorilerden çıkar" : "Favoriye ekle"}</button>
+        <div className="destination-detail-actions">
+          <button className="secondary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? "Favorilerden çıkar" : "Favoriye ekle"}</button>
+          <button className="primary-wide" onClick={() => buildRoute(selectedDestination)}><Icon name="route" size={18} /> Bu rotayı planla</button>
+        </div>
       </div>}
     </Sheet>
   </div>;

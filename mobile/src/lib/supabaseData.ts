@@ -456,6 +456,39 @@ export async function updateUserProfile(userId: string, update: UserProfileUpdat
   });
 }
 
+/** Favori ve ziyaret ülke kimliklerini sunucuda tek satır kilidiyle birleştirir. */
+export async function mergeUserProfileCountries(
+  userId: string,
+  wishlistCountries: string[],
+  visitedCountries: string[],
+  accessToken: string,
+) {
+  assertUserId(userId);
+  return safely(async () => {
+    const rows = await requestJson<Array<{
+      wishlist_countries?: unknown;
+      visited_countries?: unknown;
+      wishlist_added?: unknown;
+      visited_added?: unknown;
+    }>>(dataUrl("rpc/merge_mobile_profile_countries"), {
+      method: "POST",
+      headers: dataHeaders(accessToken),
+      body: {
+        p_wishlist: safeStringList(wishlistCountries),
+        p_visited: safeStringList(visitedCountries),
+      },
+    });
+    const row = rows[0];
+    if (!row) throw new SupabaseDataError("not_found", 404);
+    return {
+      wishlistCountries: safeStringList(row.wishlist_countries),
+      visitedCountries: safeStringList(row.visited_countries),
+      wishlistAdded: Math.max(0, Number(row.wishlist_added) || 0),
+      visitedAdded: Math.max(0, Number(row.visited_added) || 0),
+    };
+  });
+}
+
 export async function listUserTrips(userId: string, accessToken: string, mobileKind?: string) {
   assertUserId(userId);
   if (mobileKind && !/^[a-z0-9_-]{1,60}$/.test(mobileKind)) throw new SupabaseDataError("invalid_data", 400);
@@ -481,63 +514,32 @@ async function performUserTripUpsert(userId: string, input: UserTripUpsertInput,
   assertUserId(userId);
   assertUserTripInput(input);
   return safely(async () => {
-    const matchParams = new URLSearchParams({
-      select: USER_TRIP_SELECT,
-      user_id: `eq.${userId}`,
-      "trip_data->>mobile_kind": `eq.${input.mobileKind}`,
-      "trip_data->>client_key": `eq.${input.clientKey}`,
-      order: "created_at.desc",
-      limit: "1",
-    });
-    const matches = await requestJson<UserTripRow[]>(dataUrl("user_trips", matchParams), {
-      headers: dataHeaders(accessToken),
-    });
-    const existing = matches[0] ? normalizeUserTrip(matches[0]) : null;
     const tripData = {
-      ...(existing?.tripData || {}),
       ...safeRecord(input.tripData),
       mobile_kind: input.mobileKind,
       client_key: input.clientKey,
     };
-    const payload = {
-      title: safeString(input.title, 160),
-      destination: safeString(input.destination, 160),
-      trip_data: tripData,
-    };
-
-    if (existing) {
-      const params = new URLSearchParams({
-        select: USER_TRIP_SELECT,
-        id: `eq.${String(existing.id)}`,
-        user_id: `eq.${userId}`,
-      });
-      const rows = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), {
-        method: "PATCH",
-        headers: dataHeaders(accessToken, "return=representation"),
-        body: payload,
-      });
-      const updated = rows[0] ? normalizeUserTrip(rows[0]) : null;
-      if (!updated) throw new SupabaseDataError("conflict", 409);
-      return updated;
-    }
-
-    const params = new URLSearchParams({ select: USER_TRIP_SELECT });
-    const rows = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), {
+    const rows = await requestJson<UserTripRow[]>(dataUrl("rpc/upsert_mobile_user_trip"), {
       method: "POST",
-      headers: dataHeaders(accessToken, "return=representation"),
-      body: { user_id: userId, ...payload },
+      headers: dataHeaders(accessToken),
+      body: {
+        p_title: safeString(input.title, 160),
+        p_destination: safeString(input.destination, 160),
+        p_mobile_kind: input.mobileKind,
+        p_client_key: input.clientKey,
+        p_trip_data: tripData,
+      },
     });
-    const created = rows[0] ? normalizeUserTrip(rows[0]) : null;
-    if (!created) throw new SupabaseDataError("service_unavailable", 500);
-    return created;
+    const saved = rows[0] ? normalizeUserTrip(rows[0]) : null;
+    if (!saved) throw new SupabaseDataError("service_unavailable", 500);
+    return saved;
   });
 }
 
 export function upsertUserTrip(userId: string, input: UserTripUpsertInput, accessToken: string) {
-  // Mevcut tabloda client_key için benzersiz kolon/indeks bulunmadığından aynı
-  // çalışma zamanındaki eş anahtarları tek istekte birleştirir, sunucuda da önce
-  // JSONB anahtarıyla arayıp varsa güncelleriz. Ayrı cihazlardan tam eşzamanlı iki
-  // ilk kayıt için atomik garanti ancak ileride eklenecek bir DB constraint ile mümkündür.
+  // Sunucu RPC'si ayrı cihazlardaki eş anahtarları transaction kilidiyle
+  // birleştirir; bu harita aynı çalışma zamanındaki gereksiz paralel çağrıları da
+  // önler.
   const inFlightKey = `${userId}:${input.mobileKind}:${input.clientKey}`;
   const existing = inFlightUserTripUpserts.get(inFlightKey);
   if (existing) return existing;

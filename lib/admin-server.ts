@@ -6,10 +6,14 @@ import {
   type AdminRole,
   verifyAdminSessionToken,
 } from "@/lib/admin-session";
+import { adminPrincipalFromSignedSession } from "@/lib/admin-auth";
 
 export async function currentAdminSession() {
   const cookieStore = await cookies();
-  return verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  const session = await verifyAdminSessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  const principal = await adminPrincipalFromSignedSession(session, ADMIN_ROLES);
+  if (!session || !principal) return null;
+  return { ...session, role: principal.role };
 }
 
 export async function requireAdminServer(

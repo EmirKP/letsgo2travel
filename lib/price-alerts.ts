@@ -3,6 +3,34 @@ import { siteUrl } from "./structured-data";
 
 export type PriceAlertStatus = "active" | "paused" | "triggered" | "error" | "cancelled";
 
+export type AlertDeliveryState = {
+  is_active?: boolean | null;
+  notify_email?: boolean | null;
+  notify_push?: boolean | null;
+};
+
+/**
+ * Kanal tercihlerini bir PATCH isteğinden sonra oluşacak son hâle çözer.
+ * Eski kayıtlarda notify_email alanı boşsa tarihsel varsayılan olan e-posta
+ * açık kabul edilir. Aktif bir alarmın teslim kanalı olmadan kaydedilmesini
+ * hem API hem testler bu tek kuralla engeller.
+ */
+export function resolveAlertDeliveryState(
+  current: AlertDeliveryState,
+  patch: AlertDeliveryState,
+) {
+  const active = patch.is_active === undefined ? current.is_active !== false : patch.is_active === true;
+  const email = patch.notify_email === undefined ? current.notify_email !== false : patch.notify_email === true;
+  const push = patch.notify_push === undefined ? current.notify_push === true : patch.notify_push === true;
+
+  return {
+    active,
+    email,
+    push,
+    valid: !active || email || push,
+  };
+}
+
 export function hashAlertToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }

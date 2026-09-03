@@ -1,18 +1,29 @@
-import { config } from "../lib/config";
+import bakuArtwork from "../assets/destination-artwork/baku.webp";
+import bangkokArtwork from "../assets/destination-artwork/bangkok.webp";
+import belgradeArtwork from "../assets/destination-artwork/belgrade.webp";
+import dubaiArtwork from "../assets/destination-artwork/dubai.webp";
+import romeArtwork from "../assets/destination-artwork/rome.webp";
+import sarajevoArtwork from "../assets/destination-artwork/sarajevo.webp";
+import tbilisiArtwork from "../assets/destination-artwork/tbilisi.webp";
+import tiranaArtwork from "../assets/destination-artwork/tirana.webp";
+import tokyoArtwork from "../assets/destination-artwork/tokyo.webp";
 
 const DESTINATION_ARTWORK: Record<string, string> = {
-  BEG: "/destinations/serbia/belgrade-fortress.jpg",
-  BKK: "/travel-images/route-summer.jpg",
-  DXB: "/destinations/dubai-marina.jpg",
-  FCO: "/destinations/rome-colosseum.jpg",
-  GYD: "/destinations/baku-flame.jpg",
-  SJJ: "/destinations/bosnia/sarajevo.jpg",
-  TBS: "/destinations/georgia/tbilisi-hero-v26.jpg",
-  TIA: "/travel-images/route-generic.jpg",
-  TYO: "/travel-images/discover.jpg",
+  BEG: belgradeArtwork,
+  BKK: bangkokArtwork,
+  DXB: dubaiArtwork,
+  FCO: romeArtwork,
+  GYD: bakuArtwork,
+  SJJ: sarajevoArtwork,
+  TBS: tbilisiArtwork,
+  TIA: tiranaArtwork,
+  TYO: tokyoArtwork,
 };
 
 export function destinationArtwork(code?: string) {
-  const path = code ? DESTINATION_ARTWORK[code.toUpperCase()] : undefined;
-  return `${config.apiBaseUrl}${path || "/travel-images/discover.jpg"}`;
+  // Bu görseller uygulama paketindedir: Keşfet ekranı ilk açılışta
+  // tam boy web JPEG'lerini indirmez ve bağlantısızken de anlamlı bir
+  // görsel kalır. Bilinmeyen kodlar erişilebilir metin içeriğini
+  // engellemeden genel keşif görseline döner.
+  return (code && DESTINATION_ARTWORK[code.toUpperCase()]) || tokyoArtwork;
 }

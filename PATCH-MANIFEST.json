@@ -1,6 +1,7 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "9",
+  "buildNumber": "12",
+  "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
     "package.json",
@@ -15,21 +16,14 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-C7VWnzC4.js",
-    "stylesheet": "assets/index-B7mFp1Qt.css"
+    "javascript": "assets/index-DpRr4ZjK.js",
+    "stylesheet": "assets/index-Bt6yUjaB.css"
   },
-  "remove": [
-    "mobile-dist/assets/index-C7_8J8gr.js",
-    "mobile-dist/assets/index-ZYqhXQy4.css",
-    "ios/App/App/public/assets/index-C7_8J8gr.js",
-    "ios/App/App/public/assets/index-ZYqhXQy4.css",
-    "android/app/src/main/assets/public/assets/index-C7_8J8gr.js",
-    "android/app/src/main/assets/public/assets/index-ZYqhXQy4.css"
-  ],
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Root npm ci, mobile lint/build, Capacitor iOS/Android sync, mobile doctor and production audits passed.",
+    "Build 12: onboarding, navigation, cockpit, forum, passport map, alerts, admin access and performance were audited together.",
+    "Root build/lint/tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]
 }

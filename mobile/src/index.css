@@ -28,5 +28,5 @@ button { cursor: pointer; touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 button:active:not(:disabled) { transform: scale(.985); }
 body.sheet-open { overflow: hidden; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid rgba(25,198,211,.5); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid #075f7a; outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }

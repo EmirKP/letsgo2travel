@@ -6,8 +6,13 @@ const config: CapacitorConfig = {
   webDir: "mobile-dist",
   backgroundColor: "#071B33",
   appendUserAgent: " LetsGo2TravelNative/1.4",
-  loggingBehavior: "production",
-  zoomEnabled: false,
+  // Yayında bridge yanıtları (özellikle push kayıt sonucu) cihaz konsoluna
+  // yazılmasın. Geliştirici gerektiğinde Xcode/Safari debug araçlarını açar.
+  loggingBehavior: "none",
+  // Sistem erişilebilirlik yakınlaştırmasını engelleme. Harita kendi
+  // yakınlaştırmasını ayrıca yönettiği için uygulama geneli de %200'e
+  // kadar okunabilir kalabilir.
+  zoomEnabled: true,
 
   server: {
     errorPath: "error.html",

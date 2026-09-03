@@ -1,27 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireAdmin } from "@/lib/admin-auth";
-import { adminSessionFromRequest } from "@/lib/admin-session";
+import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 
 const ADMIN_ROLES = ["moderator", "admin", "super_admin"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-async function reviewerIdFromRequest(request: Request, supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>) {
-  const signedSession = await adminSessionFromRequest(request);
-  if (signedSession?.subject && signedSession.subject !== "legacy-admin") return signedSession.subject;
-
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const { data } = await supabase.auth.getUser(authHeader.slice(7).trim());
-  return data.user?.id || null;
-}
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const authError = await requireAdmin(request, ADMIN_ROLES);
-  if (authError) return authError;
+  const principal = await adminPrincipalFromRequest(request, ADMIN_ROLES);
+  if (!principal) return NextResponse.json({ error: "Yetkisiz işlem. Yetkiniz bulunmuyor." }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
   if (!supabase) return NextResponse.json({ error: "Veritabanı bağlantısı kurulamadı." }, { status: 500 });
@@ -40,7 +29,7 @@ export async function POST(
     return NextResponse.json({ error: "Red sebebi en fazla 1000 karakter olabilir." }, { status: 400 });
   }
 
-  const reviewerId = await reviewerIdFromRequest(request, supabase);
+  const reviewerId = principal.subject;
   const reviewedAt = new Date().toISOString();
   const { data: verification, error: claimError } = await supabase
     .from("travel_verifications")

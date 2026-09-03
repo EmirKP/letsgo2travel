@@ -3,13 +3,14 @@ import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
 const changes = [
-  ["shield", "Hesaba özel Admin Paneli", "Yalnız sunucuda yönetici olarak doğrulanan hesap, siteyle ortak canlı yönetim kuyruklarını görür."],
-  ["users", "Site ve uygulama forumu eşitlendi", "Sorular ve cevaplar iki tarafta aynı kaynaktan gelir; açık ülke kilitleri uygulamada da geçerlidir."],
-  ["globe", "Daha hafif ve akıcı uygulama", "Harita çizimi, bölüm yüklemeleri, açılış görseli ve havalimanı araması performans için iyileştirildi."],
-  ["sparkles", "Yeni animasyonlu açılış", "LetsGo2Travel simgesi artık uygulamayı kısa ve akıcı bir animasyonla açar."],
-  ["suitcase", "Taşmayan Kokpit formu", "Uçuşlu ve uçuşsuz seyahat alanları her iPhone genişliğine tam oturur."],
-  ["globe", "Geliştirilmiş Pasaport haritası", "16 kata kadar yakınlaştır, iki parmakla odaklan ve ülkeye dokunarak ayrıntıya geç."],
-  ["compass", "Daha ferah Beni Şaşırt", "Rota seçimi ve sonuç kartı daha dengeli, hızlı okunur bir düzene kavuştu."],
+  ["compass", "Ne yapacağını hemen seç", "Ana sayfadaki hızlı başlangıç alanı; keşfetme, rota planlama ve seyahat yönetme yollarını açıkça anlatır."],
+  ["route", "Rotaların artık gerçekten açılıyor", "Kaydettiğin rota kartına dokunarak bütçeyi, süreyi, günlük planı ve uyarıları yeniden okuyabilirsin."],
+  ["suitcase", "Daha güvenilir Seyahat Kokpiti", "Durum değişiklikleri, silinen seyahatler, hatırlatmalar ve Live Activity kayıtları birbiriyle tutarlı çalışır."],
+  ["users", "Site ve uygulama aynı topluluk", "Soru ve cevap sayıları iki tarafta eşleşir; genel sorular ile üyelik kilitleri aynı kurala uyar."],
+  ["bell", "Hata göstermeyen boş ekran yok", "Fiyat alarmı ve canlı veri sorunları artık boş liste gibi görünmez; nedeni ve tekrar deneme yolu açıkça gösterilir."],
+  ["globe", "Daha kullanışlı Pasaport haritası", "Yakınlaştırma, sürükleme, klavye desteği, açıklamalar ve ülke listesiyle haritayı kullanmak kolaylaştı."],
+  ["shield", "Güvenli hesap ve yönetim", "Yönetici yetkisi yalnız sunucudan doğrulanır; misafir kayıtların da isteğinle uygulama ve web hesabına aktarılır."],
+  ["sparkles", "Daha hafif ve akıcı", "Ağır ekranlar ihtiyaç olduğunda açılır; rota görselleri yaklaşık yüzde 80 küçülerek ilk açılış hızlandırıldı."],
 ] as const;
 
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -17,8 +18,8 @@ export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: (
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
-      <h3>Forum artık siteyle eksiksiz eşitleniyor.</h3>
-      <p>Build 11, webdeki soruları ve hesabının açık cevap kilitlerini uygulamaya güvenli biçimde taşır.</p>
+      <h3>LetsGo2Travel artık daha anlaşılır.</h3>
+      <p>Build 12, ilk dokunuştan seyahat gününe kadar uygulamanın ne işe yaradığını açıkça gösterir ve kayıtlarını daha güvenli korur.</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, text]) => <div key={title}>

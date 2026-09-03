@@ -1,17 +1,33 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
-import { isTopSheet, registerSheet, unregisterSheet } from "../lib/sheetStack";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { isTopSheet, registerSheet, subscribeSheetStack, unregisterSheet } from "../lib/sheetStack";
 import { Icon } from "./Icon";
 
 let openSheetCount = 0;
+let rootWasInert = false;
+let rootAriaHidden: string | null = null;
 
 function lockBodyScroll() {
   openSheetCount += 1;
   document.body.classList.add("sheet-open");
+  if (openSheetCount !== 1) return;
+  const root = document.getElementById("root");
+  if (!root) return;
+  rootWasInert = root.inert;
+  rootAriaHidden = root.getAttribute("aria-hidden");
+  root.inert = true;
+  root.setAttribute("aria-hidden", "true");
 }
 
 function unlockBodyScroll() {
   openSheetCount = Math.max(0, openSheetCount - 1);
-  if (openSheetCount === 0) document.body.classList.remove("sheet-open");
+  if (openSheetCount !== 0) return;
+  document.body.classList.remove("sheet-open");
+  const root = document.getElementById("root");
+  if (!root) return;
+  root.inert = rootWasInert;
+  if (rootAriaHidden === null) root.removeAttribute("aria-hidden");
+  else root.setAttribute("aria-hidden", rootAriaHidden);
 }
 
 export function Sheet({ open, title, onClose, children, size = "normal" }: {
@@ -25,6 +41,7 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
   const onCloseRef = useRef(onClose);
   const sheetToken = useRef(Symbol("sheet"));
   const titleId = useId();
+  const [topSheet, setTopSheet] = useState(open);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -33,7 +50,10 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
   useEffect(() => {
     if (!open) return;
     const token = sheetToken.current;
+    const updateTopSheet = () => setTopSheet(isTopSheet(token));
+    const unsubscribe = subscribeSheetStack(updateTopSheet);
     registerSheet(token, () => onCloseRef.current());
+    updateTopSheet();
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const onKey = (event: KeyboardEvent) => {
       if (!isTopSheet(token)) return;
@@ -70,18 +90,23 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKey);
       const wasTopSheet = isTopSheet(token);
+      unsubscribe();
       unregisterSheet(token);
       unlockBodyScroll();
-      if (wasTopSheet && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+      if (wasTopSheet && previousFocus?.isConnected) {
+        window.requestAnimationFrame(() => {
+          if (previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
+        });
+      }
     };
   }, [open]);
 
   if (!open) return null;
-  return (
-    <div className="sheet-layer" role="presentation" onMouseDown={(event) => {
+  return createPortal(
+    <div className="sheet-layer" role="presentation" style={{ zIndex: topSheet ? 131 : 130 }} inert={!topSheet || undefined} aria-hidden={!topSheet || undefined} onMouseDown={(event) => {
       if (event.currentTarget === event.target) onClose();
     }}>
-      <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId}>{title}</h2>
@@ -89,6 +114,7 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
         </header>
         <div className="sheet-body">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

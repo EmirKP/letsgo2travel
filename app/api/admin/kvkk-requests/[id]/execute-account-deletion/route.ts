@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { adminSessionFromRequest } from "@/lib/admin-session";
+import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -11,22 +10,12 @@ function isMissingOptionalTable(error: { code?: string } | null) {
   return error?.code === "42P01" || error?.code === "PGRST205";
 }
 
-async function actorId(request: Request, supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>) {
-  const signed = await adminSessionFromRequest(request);
-  if (signed?.subject && UUID_PATTERN.test(signed.subject)) return signed.subject;
-
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) return null;
-  const { data } = await supabase.auth.getUser(header.slice(7).trim());
-  return data.user?.id || null;
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const permissionError = await requireAdmin(request, ["admin", "super_admin"]);
-  if (permissionError) return permissionError;
+  const principal = await adminPrincipalFromRequest(request, ["admin", "super_admin"]);
+  if (!principal) return NextResponse.json({ error: "Yetkisiz işlem. Yetkiniz bulunmuyor." }, { status: 401 });
 
   const { id } = await params;
   if (!UUID_PATTERN.test(id)) {
@@ -59,7 +48,7 @@ export async function POST(
   }
 
   const targetUserId = deletionRequest.user_id as string;
-  const actingAdminId = await actorId(request, supabase);
+  const actingAdminId = principal.subject;
   if (actingAdminId === targetUserId) {
     return NextResponse.json({ error: "Yönetici kendi hesabını bu ekrandan silemez." }, { status: 403 });
   }

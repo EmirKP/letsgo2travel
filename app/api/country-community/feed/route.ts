@@ -31,12 +31,21 @@ export async function GET() {
 
   const questionIds = (questions || []).map((item) => item.id);
   const answersResult = questionIds.length
-    ? await supabase.from("forum_replies").select("topic_id").eq("status", "published").in("topic_id", questionIds)
-    : { data: [] as Array<{ topic_id: string }>, error: null };
+    ? await supabase.rpc("get_forum_reply_counts", { p_topic_ids: questionIds })
+    : { data: [] as Array<{ topic_id: string; reply_count: number | string }>, error: null };
+
+  if (answersResult.error) {
+    console.error("country_community_cevap_sayisi_hatasi", { code: answersResult.error.code || "unknown" });
+    return NextResponse.json({ error: "Topluluk cevap sayıları alınamadı.", data: [] }, { status: 500 });
+  }
 
   const answerCounts = new Map<string, number>();
-  for (const answer of answersResult.data || []) {
-    answerCounts.set(answer.topic_id, (answerCounts.get(answer.topic_id) || 0) + 1);
+  for (const row of answersResult.data || []) {
+    const topicId = typeof row.topic_id === "string" ? row.topic_id : "";
+    const replyCount = Number(row.reply_count);
+    if (topicId && Number.isSafeInteger(replyCount) && replyCount >= 0) {
+      answerCounts.set(topicId, replyCount);
+    }
   }
 
   const data = (questions || []).map((item) => serializeQuestionSummary(

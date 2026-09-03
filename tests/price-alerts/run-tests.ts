@@ -10,6 +10,7 @@ import {
   buildAlertEventKey,
   buildPriceDropPushMessage,
   classifyPushFailure,
+  resolveAlertDeliveryState,
   shouldNotifyForPrice,
 } from "../../lib/price-alerts";
 import { disablePushDevices, sendPushToUser } from "../../lib/push";
@@ -245,6 +246,37 @@ test("buildPriceDropPushMessage: rota/tarih icerir, arama imasi icermez", () => 
   assert.ok(m.body.includes("2026-10-10"));
   assert.ok(!/ara\b|karşılaştır/i.test(m.body));
   assert.equal(m.data?.screen, "price-alerts");
+});
+
+test("alarm kanalları: aktif alarm teslim kanalsız bırakılamaz", () => {
+  const emailOnly = { is_active: true, notify_email: true, notify_push: false };
+  assert.equal(resolveAlertDeliveryState(emailOnly, { notify_email: false }).valid, false,
+    "aktif e-posta alarmında son kanal kapatılamamalı");
+
+  const pushOnly = { is_active: true, notify_email: false, notify_push: true };
+  assert.equal(resolveAlertDeliveryState(pushOnly, { notify_push: false }).valid, false,
+    "aktif push alarmında son kanal kapatılamamalı");
+
+  const noChannels = { is_active: false, notify_email: false, notify_push: false };
+  assert.equal(resolveAlertDeliveryState(noChannels, { is_active: true }).valid, false,
+    "kanalsız alarm yeniden başlatılamamalı");
+});
+
+test("alarm kanalları: duraklatılmış alarm yönetilebilir ve kanal açılarak başlatılabilir", () => {
+  const paused = { is_active: false, notify_email: false, notify_push: false };
+  assert.equal(resolveAlertDeliveryState(paused, {}).valid, true,
+    "duraklatılmış alarm geçici olarak kanalsız kalabilmeli");
+  assert.deepEqual(
+    resolveAlertDeliveryState(paused, { is_active: true, notify_push: true }),
+    { active: true, email: false, push: true, valid: true },
+  );
+
+  // Tarihsel kayıtların boş e-posta değeri varsayılan açık kanal olarak
+  // yorumlanır; mevcut kullanıcı verisi geriye dönük uyumla korunur.
+  assert.deepEqual(
+    resolveAlertDeliveryState({ is_active: true, notify_email: null, notify_push: false }, {}),
+    { active: true, email: true, push: false, valid: true },
+  );
 });
 
 // ------------------------- sendPushToUser ----------------------------

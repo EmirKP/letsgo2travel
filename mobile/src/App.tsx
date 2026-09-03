@@ -1,28 +1,41 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./App.css";
 import { AccountSheet } from "./components/AccountSheet";
 import { AnimatedSplash } from "./components/AnimatedSplash";
+import { GuestDataImportSheet } from "./components/GuestDataImportSheet";
 import { Icon, type IconName } from "./components/Icon";
 import { MenuSheet } from "./components/MenuSheet";
 import { NotificationCenter } from "./components/NotificationCenter";
 import { Onboarding } from "./components/Onboarding";
 import { ReleaseNotesSheet } from "./components/ReleaseNotesSheet";
 import { useAuth } from "./hooks/useAuth";
-import { getMobileAdminOverview, type MobileAdminOverview } from "./lib/admin";
+import { getMobileAdminAccess, getMobileAdminOverview, type MobileAdminOverview } from "./lib/admin";
+import { ApiError } from "./lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
 import { initLiveActivityRetry, initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
-import { initPushTapListener } from "./lib/push";
+import {
+  hasPendingPushDetach,
+  initPushTapListener,
+  isPushEnabledForDevice,
+  retryPendingPushDetach,
+  syncPushAfterLogin,
+} from "./lib/push";
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
   completeOnboarding,
   getMobilePreferences,
+  getGuestDataSummary,
   hasCompletedOnboarding,
   hasSeenRelease,
+  importGuestDataForUser,
+  markGuestDataImportDecision,
   markReleaseSeen,
+  shouldOfferGuestDataImport,
 } from "./lib/storage";
 import { HomeScreen } from "./screens/HomeScreen";
 import type { RouteSuggestion, TabId, ViewId } from "./types";
@@ -43,12 +56,25 @@ const TripsScreen = lazy(() => import("./screens/PlansScreen").then((module) => 
 const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "home", label: "Ana Sayfa", icon: "home" },
   { id: "explore", label: "Keşfet", icon: "compass" },
-  { id: "route", label: "Rota", icon: "route" },
+  { id: "route", label: "Planla", icon: "route" },
   { id: "trips", label: "Seyahatlerim", icon: "suitcase" },
   { id: "profile", label: "Profil", icon: "user" },
 ];
 
 const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "admin"]);
+const viewTitles: Record<ViewId, string> = {
+  home: "Ana Sayfa",
+  explore: "Keşfet",
+  route: "Rota Planla",
+  trips: "Seyahatlerim",
+  profile: "Profil",
+  passport: "Pasaport Gücü",
+  surprise: "Beni Şaşırt",
+  cockpit: "Seyahat Kokpiti",
+  community: "Topluluk",
+  alerts: "Fiyat Alarmlarım",
+  admin: "Yönetim Merkezi",
+};
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -87,6 +113,15 @@ function rootTabFor(view: ViewId): TabId {
   return view as TabId;
 }
 
+function highlightedTabFor(view: ViewId): TabId | null {
+  // Özel araçları kullanıcının zihnindeki en yakın ana bölüme bağla:
+  // topluluk keşfin, alarmlar seyahatin, yönetim ise hesabın parçasıdır.
+  if (view === "community") return "explore";
+  if (view === "alerts") return "trips";
+  if (view === "admin") return "profile";
+  return rootTabFor(view);
+}
+
 export default function App() {
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromUrl(window.location.href) || "home");
@@ -94,18 +129,25 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => getMobilePreferences().inAppNotifications);
   const [releaseOpen, setReleaseOpen] = useState(() => hasCompletedOnboarding() && !hasSeenRelease(releaseId));
   const [onboardingOpen, setOnboardingOpen] = useState(() => !hasCompletedOnboarding());
   const [online, setOnline] = useState(navigator.onLine);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [surpriseRoute, setSurpriseRoute] = useState<RouteSuggestion | null>(null);
+  const [routeSeedKind, setRouteSeedKind] = useState<"surprise" | "explore">("surprise");
+  const [routeResetToken, setRouteResetToken] = useState(0);
   const [cockpitFocusTripId, setCockpitFocusTripId] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [adminOverview, setAdminOverview] = useState<MobileAdminOverview | null>(null);
+  const [adminAllowed, setAdminAllowed] = useState(false);
   const [adminChecking, setAdminChecking] = useState(false);
+  const [guestImportOpen, setGuestImportOpen] = useState(false);
+  const [guestImportBusy, setGuestImportBusy] = useState(false);
+  const [guestSummary, setGuestSummary] = useState(() => getGuestDataSummary());
   const noticeTimer = useRef<number | null>(null);
   const pullStart = useRef<number | null>(null);
   const edgeSwipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -117,14 +159,41 @@ export default function App() {
   const accessTokenRef = useRef(auth.accessToken);
   // Giriş geçişi tespiti "" ile başlar: geri yüklenen oturumda da (soğuk
   // açılış) ilk dolu değerde senkron çalışır.
-  const lastSyncedTokenRef = useRef("");
-  const activeTab = rootTabFor(activeView);
+  const lastLiveActivityOwnerRef = useRef("");
+  const lastPushOwnerRef = useRef("");
+  const lastUiOwnerRef = useRef(ownerId || "guest");
+  const adminTokenRef = useRef("");
+  const authUiKey = ownerId ? `user-${ownerId}` : "guest";
+  const activeTab = highlightedTabFor(activeView);
   const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "admin";
+  const nativeUiRef = useRef({
+    accountOpen,
+    activeView,
+    menuOpen,
+    nestedView,
+    notificationsOpen,
+    onboardingOpen,
+    releaseOpen,
+  });
+  const interactionBlocked = launching || onboardingOpen;
   const finishLaunching = useCallback(() => setLaunching(false), []);
 
   useEffect(() => {
     activeViewRef.current = activeView;
+    document.title = `${viewTitles[activeView]} · LetsGo2Travel`;
   }, [activeView]);
+
+  useEffect(() => {
+    nativeUiRef.current = {
+      accountOpen,
+      activeView,
+      menuOpen,
+      nestedView,
+      notificationsOpen,
+      onboardingOpen,
+      releaseOpen,
+    };
+  }, [accountOpen, activeView, menuOpen, nestedView, notificationsOpen, onboardingOpen, releaseOpen]);
 
   const showNotice = useCallback((message: string) => {
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
@@ -138,6 +207,17 @@ export default function App() {
   useEffect(() => () => {
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
   }, []);
+
+  useEffect(() => {
+    const refreshPreferences = () => setNotificationsEnabled(getMobilePreferences().inAppNotifications);
+    const reportStorageError = () => showNotice("Bu cihazda kayıt alanına yazılamadı. Depolama iznini veya boş alanı kontrol et.");
+    window.addEventListener("l2t:storage-change", refreshPreferences);
+    window.addEventListener("l2t:storage-error", reportStorageError);
+    return () => {
+      window.removeEventListener("l2t:storage-change", refreshPreferences);
+      window.removeEventListener("l2t:storage-error", reportStorageError);
+    };
+  }, [showNotice]);
 
   useEffect(() => {
     window.history.replaceState({ view: activeView, depth: 0 }, "", `#${activeView}`);
@@ -163,7 +243,8 @@ export default function App() {
   const navigate = useCallback((view: ViewId, options?: { replace?: boolean }) => {
     const current = activeViewRef.current;
     if (current === view && !options?.replace) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
       window.requestAnimationFrame(() => mainRef.current?.focus({ preventScroll: true }));
       return;
     }
@@ -187,45 +268,267 @@ export default function App() {
   }, [navigate]);
 
   useEffect(() => {
+    const nextOwner = ownerId || "guest";
+    if (lastUiOwnerRef.current === nextOwner) return;
+    lastUiOwnerRef.current = nextOwner;
+
+    // Hesap değişiminde önceki kullanıcının taslakları, seçili seyahati veya
+    // açık yönetim/topluluk yüzeyi yeni hesaba taşınmasın. İçerik alt ağacı da
+    // authUiKey ile yeniden kurulur; geç tamamlanan A hesabı istekleri B
+    // hesabının ekran durumuna yazamaz.
+    setSurpriseRoute(null);
+    setRouteSeedKind("surprise");
+    setRouteResetToken((value) => value + 1);
+    setCockpitFocusTripId("");
+    setAdminOverview(null);
+    setMenuOpen(false);
+    setAccountOpen(false);
+    setNotificationsOpen(false);
+    setGuestImportOpen(false);
+    if (activeViewRef.current === "admin") navigate("profile", { replace: true });
+  }, [navigate, ownerId]);
+
+  useEffect(() => {
     // Bildirime dokunulduğunda "Fiyat Alarmlarım" ekranı açılır (web'de sessiz no-op).
     return initPushTapListener(() => navigate("alerts"));
   }, [navigate]);
 
   useEffect(() => {
-    accessTokenRef.current = auth.accessToken;
-    // HER boş → dolu geçişinde (giriş / hesap değişimi / geri yüklenen
-    // oturum) native'deki en son push-to-start tokenı GÜNCEL kullanıcı
-    // adına yeniden kaydedilir ve bekleyenler gönderilir (A logout →
-    // B login senaryosu).
-    if (!lastSyncedTokenRef.current && auth.accessToken) syncTokensAfterLogin();
-    lastSyncedTokenRef.current = auth.accessToken;
-  }, [auth.accessToken]);
-
-  useEffect(() => {
-    let active = true;
-    setAdminOverview(null);
-    if (!auth.accessToken) {
-      setAdminChecking(false);
-      return () => { active = false; };
-    }
-    setAdminChecking(true);
-    void getMobileAdminOverview(auth.accessToken)
-      .then((overview) => { if (active) setAdminOverview(overview); })
-      // Normal kullanıcı için 403 beklenen sonuçtur; yönetim bağlantısı hiç
-      // çizilmez. Yetki kararı yalnız sunucudan gelir.
-      .catch(() => { if (active) setAdminOverview(null); })
-      .finally(() => { if (active) setAdminChecking(false); });
-    return () => { active = false; };
-  }, [auth.accessToken]);
-
-  useEffect(() => {
-    // Live Activity push tokenları (push-to-start / bitirme) sunucuya
-    // kaydedilir; gönderim anında güncel oturum okunur. Bekleyen kayıtlar
-    // ağ dönüşünde / öne gelişte / sınırlı geri çekilmeyle yeniden denenir.
+    // Dinleyici/getter, giriş eşitlemesinden ÖNCE kurulur. Böylece soğuk
+    // açılışta geri yüklenen oturum ilk karede hazır olsa bile native tampon
+    // boş access token yüzünden atlanmaz.
     const cleanupSync = initLiveActivityTokenSync(() => accessTokenRef.current);
     const cleanupRetry = initLiveActivityRetry();
     return () => { cleanupSync(); cleanupRetry(); };
   }, []);
+
+  useEffect(() => {
+    accessTokenRef.current = auth.accessToken;
+    const userId = auth.user?.id || "";
+    if (!userId || !auth.accessToken) {
+      lastLiveActivityOwnerRef.current = "";
+      lastPushOwnerRef.current = "";
+      return;
+    }
+    if (!online || !isNativePlatform()) return;
+
+    let active = true;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+    const accessToken = auth.accessToken;
+
+    const syncNativeSession = () => {
+      if (!active || !accessTokenRef.current) return;
+
+      // Live Activity oturumu yalnız gerçek kullanıcı/oturum geçişinde yeni
+      // generation açar. Başarısızlıkta sahip işaretlenmez; ağ dönüşü veya
+      // foreground aynı güvenli generation ile tekrar dener.
+      if (lastLiveActivityOwnerRef.current !== userId) {
+        void syncTokensAfterLogin(userId).then((synced) => {
+          if (active && synced && auth.user?.id === userId && accessTokenRef.current === accessToken) {
+            lastLiveActivityOwnerRef.current = userId;
+          }
+        });
+      }
+
+      // Eski logout isteği yalnız aynı hesabın bearer'ıyla yeniden denenir.
+      // Ardından, kullanıcı tercihi açıksa mevcut APNs/FCM tokenı hesaba
+      // atomik bağlanır. Başarı gelmeden sahip işareti yazılmaz.
+      const syncNormalPush = async () => {
+        if (hasPendingPushDetach()) {
+          await retryPendingPushDetach(() => accessTokenRef.current, userId);
+        }
+        if (!active || auth.user?.id !== userId || accessTokenRef.current !== accessToken) return;
+        if (!isPushEnabledForDevice()) {
+          lastPushOwnerRef.current = userId;
+          return;
+        }
+        if (lastPushOwnerRef.current === userId) return;
+        const synced = await syncPushAfterLogin(() => accessTokenRef.current);
+        if (active && synced && auth.user?.id === userId && accessTokenRef.current === accessToken) {
+          lastPushOwnerRef.current = userId;
+        }
+      };
+      void syncNormalPush();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncNativeSession();
+    };
+    syncNativeSession();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void addPluginListener("App", "appStateChange", (value) => {
+      if (value.isActive === true) syncNativeSession();
+    }).then((handle) => {
+      if (!active) void handle?.remove();
+      else appStateListener = handle;
+    });
+
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      void appStateListener?.remove();
+    };
+  }, [auth.accessToken, auth.user?.id, online]);
+
+  useEffect(() => {
+    let active = true;
+    let inFlight = false;
+    let retryAttempt = 0;
+    let retryTimer: number | null = null;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+    const accessToken = auth.accessToken;
+    const tokenChanged = adminTokenRef.current !== accessToken;
+    adminTokenRef.current = accessToken;
+
+    if (tokenChanged) {
+      setAdminOverview(null);
+      setAdminAllowed(false);
+    }
+    if (!accessToken) {
+      setAdminChecking(false);
+      return () => { active = false; };
+    }
+
+    const scheduleRetry = () => {
+      if (!active || retryTimer !== null || retryAttempt >= 5) return;
+      const delays = [2_000, 5_000, 12_000, 25_000, 45_000];
+      const delay = delays[retryAttempt++] ?? 45_000;
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        checkAccess();
+      }, delay);
+    };
+
+    // Oturum açan her kullanıcıda pahalı yönetim kuyruklarını indirme.
+    // Önce yalnız rolü doğrula; ağ/5xx hatası yetki reddi SAYILMAZ. Böylece
+    // geçici kesinti tek yönetici girişini oturum boyunca görünmez yapmaz.
+    const checkAccess = () => {
+      if (!active || inFlight || !online) {
+        if (active && !online) scheduleRetry();
+        return;
+      }
+      inFlight = true;
+      setAdminChecking(true);
+      void getMobileAdminAccess(accessToken)
+        .then((access) => {
+          if (!active || adminTokenRef.current !== accessToken) return;
+          retryAttempt = 0;
+          setAdminAllowed(access.allowed);
+        })
+        .catch((error) => {
+          if (!active || adminTokenRef.current !== accessToken) return;
+          if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+            setAdminAllowed(false);
+            return;
+          }
+          scheduleRetry();
+        })
+        .finally(() => {
+          inFlight = false;
+          if (active && adminTokenRef.current === accessToken) setAdminChecking(false);
+        });
+    };
+
+    const resumeCheck = () => {
+      retryAttempt = 0;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      retryTimer = null;
+      checkAccess();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") resumeCheck();
+    };
+    checkAccess();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void addPluginListener("App", "appStateChange", (value) => {
+      if (value.isActive === true) resumeCheck();
+    }).then((handle) => {
+      if (!active) void handle?.remove();
+      else appStateListener = handle;
+    });
+
+    return () => {
+      active = false;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      void appStateListener?.remove();
+    };
+  }, [auth.accessToken, online]);
+
+  useEffect(() => {
+    if (activeView !== "admin" || !adminAllowed || !auth.accessToken || adminOverview) return;
+    let active = true;
+    setAdminChecking(true);
+    void getMobileAdminOverview(auth.accessToken)
+      .then((overview) => { if (active) setAdminOverview(overview); })
+      .catch(() => {
+        if (!active) return;
+        // Erişim daha önce sunucuda doğrulandı. Özetin geçici yükleme hatası
+        // yetkiyi kaldırmaz; profil girişini koruyup yeniden denemeye izin ver.
+        setAdminOverview(null);
+        showNotice("Yönetim merkezi şu an açılamadı. Bağlantı gelince yeniden deneyebilirsin.");
+        navigate("profile", { replace: true });
+      })
+      .finally(() => { if (active) setAdminChecking(false); });
+    return () => { active = false; };
+  }, [activeView, adminAllowed, adminOverview, auth.accessToken, navigate, showNotice]);
+
+  useEffect(() => {
+    const userId = auth.user?.id || "";
+    if (!userId || onboardingOpen || releaseOpen) {
+      setGuestImportOpen(false);
+      return;
+    }
+    try {
+      const summary = getGuestDataSummary();
+      setGuestSummary(summary);
+      setGuestImportOpen(summary.total > 0 && shouldOfferGuestDataImport(userId));
+    } catch {
+      setGuestImportOpen(false);
+    }
+  }, [auth.user?.id, onboardingOpen, releaseOpen]);
+
+  useEffect(() => {
+    if (!ownerId || !auth.accessToken || !online) return;
+    let active = true;
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+    // Önceki açılışta ağ kesildiyse misafir kayıtlarının web eşitlemesini
+    // kullanıcıdan yeniden işlem istemeden açılışta, ağ dönüşünde ve uygulama
+    // her öne geldiğinde güvenli/idempotent biçimde tamamla.
+    const flushGuestData = () => {
+      // Native WebView'da navigator.onLine eski kalabilir; bu effect zaten
+      // Capacitor Network'ten gelen güvenilir `online` durumuyla sınırlandı.
+      if (!active) return;
+      void import("./lib/guestDataSync")
+        .then((module) => module.flushPendingGuestDataSync(ownerId, auth.accessToken))
+        .then((report) => {
+          if (!active || !report) return;
+          if (report.status === "synced") showNotice("Bekleyen kayıtların web hesabınla eşitlendi.");
+          else if (report.status === "partial") showNotice("Bazı kayıtların web eşitlemesi bekliyor; cihazdaki kopyaların güvende.");
+        })
+        .catch(() => undefined);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") flushGuestData();
+    };
+
+    flushGuestData();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (isNativePlatform()) {
+      void addPluginListener("App", "appStateChange", (value) => {
+        if (value.isActive === true) flushGuestData();
+      }).then((handle) => {
+        if (!active) void handle?.remove();
+        else appStateListener = handle;
+      });
+    }
+
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      void appStateListener?.remove();
+    };
+  }, [auth.accessToken, online, ownerId, showNotice]);
 
   useEffect(() => {
     // Uçuş hatırlatmasına dokununca İLGİLİ Kokpit kaydı açılır (tripId ile).
@@ -278,22 +581,36 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Sheet'ler erişilebilirlik izolasyonu için body'ye portal edilir. Klavye
+    // durumunu da body'ye taşıyarak eski iOS WebView'larında (:has öncesi)
+    // sheet'in görünür alana sığmasını koru.
+    document.body.classList.toggle("keyboard-open", keyboardOpen);
+    return () => document.body.classList.remove("keyboard-open");
+  }, [keyboardOpen]);
+
+  useEffect(() => {
     if (!isNativePlatform()) return;
+    let active = true;
     let backListener: { remove: () => Promise<void> } | null = null;
     let urlListener: { remove: () => Promise<void> } | null = null;
 
     void addPluginListener("App", "backButton", () => {
-      if (onboardingOpen) return;
+      const state = nativeUiRef.current;
+      if (state.onboardingOpen) return;
       if (closeTopSheet()) return;
-      if (releaseOpen) return setReleaseOpen(false);
-      if (notificationsOpen) return setNotificationsOpen(false);
-      if (accountOpen) return setAccountOpen(false);
-      if (menuOpen) return setMenuOpen(false);
-      if (historyDepth.current > 0 || nestedView) return goBack();
-      if (activeView !== "home") return navigate("home", { replace: true });
+      if (state.releaseOpen) return setReleaseOpen(false);
+      if (state.notificationsOpen) return setNotificationsOpen(false);
+      if (state.accountOpen) return setAccountOpen(false);
+      if (state.menuOpen) return setMenuOpen(false);
+      if (historyDepth.current > 0 || state.nestedView) return goBack();
+      if (state.activeView !== "home") return navigate("home", { replace: true });
       const app = plugin("App");
       void app?.exitApp?.().catch(() => undefined);
-    }).then((handle) => { backListener = handle; });
+    }).then((handle) => {
+      if (!handle) return;
+      if (!active) void handle.remove();
+      else backListener = handle;
+    });
 
     void addPluginListener("App", "appUrlOpen", (event) => {
       const url = typeof event.url === "string" ? event.url : "";
@@ -303,11 +620,16 @@ export default function App() {
       if (tripId) setCockpitFocusTripId(tripId);
       if (target) navigate(target);
       else if (tripId) navigate("cockpit");
-    }).then((handle) => { urlListener = handle; });
+    }).then((handle) => {
+      if (!handle) return;
+      if (!active) void handle.remove();
+      else urlListener = handle;
+    });
 
     const app = plugin("App");
     if (app?.getLaunchUrl) {
       void app.getLaunchUrl().then((value) => {
+        if (!active) return;
         const url = value && typeof value === "object" && "url" in value ? String((value as { url?: string }).url || "") : "";
         if (url && !/\/auth\/callback|auth\/callback/i.test(url)) {
           const target = viewFromUrl(url);
@@ -320,15 +642,20 @@ export default function App() {
     }
 
     return () => {
+      active = false;
       void backListener?.remove();
       void urlListener?.remove();
     };
-  }, [accountOpen, activeView, goBack, menuOpen, navigate, nestedView, notificationsOpen, onboardingOpen, releaseOpen]);
+  }, [goBack, navigate]);
 
   const completeWelcome = () => {
     completeOnboarding();
+    // İlk açılış tanıtımından hemen sonra ikinci bir pencere göstermek
+    // kullanıcıyı daha ana sayfayı görmeden yoruyordu. Yeni kullanıcı bu
+    // sürümün özelliklerini tanıtımda zaten gördüğü için sürüm notunu okundu
+    // say; sonraki build'in yenilikleri yine normal biçimde gösterilir.
+    markReleaseSeen(releaseId);
     setOnboardingOpen(false);
-    if (!hasSeenRelease(releaseId)) setReleaseOpen(true);
   };
 
   const closeRelease = () => {
@@ -380,24 +707,22 @@ export default function App() {
   };
 
   const content = useMemo(() => {
-    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} refreshToken={refreshTick} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
-    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
+    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
+    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
-    if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={setSurpriseRoute} onBuildRoute={(route) => { setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
-    if (activeView === "route") return <RouteAssistantScreen surpriseRoute={surpriseRoute} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
+    if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
+    if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
     if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    if (activeView === "admin") return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
-    return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={Boolean(adminOverview)} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
-
-  const notificationsEnabled = getMobilePreferences().inAppNotifications;
+    if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
+    return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
 
   return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
-    <header className="topbar">
+    <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label="Önceki ekrana dön"><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label="Ana sayfa"><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
@@ -414,20 +739,78 @@ export default function App() {
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.</div>}
     {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
-    <main ref={mainRef} className="app-content" tabIndex={-1}>
-      <Suspense fallback={<div className="screen screen-module-loading" role="status" aria-label="Bölüm yükleniyor"><div className="skeleton-list"><div /><div /><div /></div></div>}>
+    <main ref={mainRef} className="app-content" tabIndex={-1} inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
+      <Suspense key={authUiKey} fallback={<div className="screen screen-module-loading" role="status" aria-label="Bölüm yükleniyor"><div className="skeleton-list"><div /><div /><div /></div></div>}>
         {content}
       </Suspense>
     </main>
 
-    <nav className="bottom-nav" aria-label="Ana menü">
-      {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
+    <nav className="bottom-nav" aria-label="Ana menü" inert={interactionBlocked || keyboardOpen} aria-hidden={interactionBlocked || keyboardOpen || undefined}>
+      {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => { if (tab.id === "route") { setRouteSeedKind("surprise"); setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(tab.id); }} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
     </nav>
 
-    {notice && <div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>}
-    <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onUnreadChange={setUnreadCount} />
+    {notice && createPortal(<div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>, document.body)}
+    <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onUnreadChange={setUnreadCount} />
     <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
-    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={navigate} onOpenAccount={() => setAccountOpen(true)} />
+    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={(view) => { if (view === "route") { setRouteSeedKind("surprise"); setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenAccount={() => setAccountOpen(true)} />
+    <GuestDataImportSheet
+      open={guestImportOpen}
+      summary={guestSummary}
+      busy={guestImportBusy}
+      onClose={() => setGuestImportOpen(false)}
+      onKeepSeparate={() => {
+        if (!ownerId) return;
+        try {
+          markGuestDataImportDecision(ownerId, "keep_separate");
+          setGuestImportOpen(false);
+          showNotice("Misafir kayıtların ayrı tutulacak.");
+        } catch {
+          showNotice("Seçimin kaydedilemedi. Daha sonra tekrar deneyebilirsin.");
+        }
+      }}
+      onImport={() => { void (async () => {
+        if (!ownerId || guestImportBusy) return;
+        setGuestImportBusy(true);
+        let localImportCompleted = false;
+        try {
+          const result = importGuestDataForUser(ownerId);
+          localImportCompleted = true;
+          setGuestImportOpen(false);
+          setRefreshTick((value) => value + 1);
+          if (!auth.accessToken) {
+            showNotice(result.added.total
+              ? `${result.added.total} misafir kaydı hesabına eklendi.`
+              : "Kayıtların zaten hesabında bulunuyor.");
+            return;
+          }
+
+          showNotice(result.added.total
+            ? `${result.added.total} kayıt eklendi; web hesabınla eşitleniyor…`
+            : "Kayıtların web hesabınla kontrol ediliyor…");
+          const guestSync = await import("./lib/guestDataSync");
+          const sync = await guestSync.flushPendingGuestDataSync(ownerId, auth.accessToken);
+          if (!sync) {
+            showNotice("Kayıtların hesabında hazır.");
+            return;
+          }
+          if (sync.status === "synced" || sync.status === "unchanged") {
+            showNotice(result.added.total
+              ? `${result.added.total} misafir kaydı uygulama ve web hesabınla eşitlendi.`
+              : "Kayıtların uygulama ve web hesabınla eşitlendi.");
+          } else if (sync.status === "partial") {
+            showNotice("Kayıtların cihazda güvende; bazıları web hesabıyla daha sonra eşitlenecek.");
+          } else {
+            showNotice("Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı.");
+          }
+        } catch {
+          showNotice(localImportCompleted
+            ? "Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı."
+            : "Misafir kayıtları eklenemedi; hiçbir kayıt silinmedi.");
+        } finally {
+          setGuestImportBusy(false);
+        }
+      })(); }}
+    />
     <ReleaseNotesSheet open={releaseOpen} onClose={closeRelease} />
     {onboardingOpen && <Onboarding onComplete={completeWelcome} />}
   </div>;

@@ -1,4 +1,4 @@
-LETSGO2TRAVEL MOBİL 1.4 — iOS ÖNCELİKLİ KURULUM
+LETSGO2TRAVEL MOBİL 1.4 — BUILD 12 iOS ÖNCELİKLİ KURULUM
 
 ÖNEMLİ
 
@@ -81,7 +81,7 @@ Apple Developer tarafında Bundle ID için Sign in with Apple capability'sini a�
 - Uygulama adı: LetsGo2Travel
 - Bundle ID: tr.com.letsgo2travel.app
 - Sürüm: 1.4.0
-- Build: 5
+- Build: 12
 - Minimum iOS: 15.0
 - Özel OAuth şeması: tr.com.letsgo2travel.app
 - Gizlilik manifesti: ios/App/App/PrivacyInfo.xcprivacy

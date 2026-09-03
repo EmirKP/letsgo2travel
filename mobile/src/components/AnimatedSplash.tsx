@@ -5,8 +5,9 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const leaveTimer = window.setTimeout(() => setLeaving(true), 1050);
-    const finishTimer = window.setTimeout(onFinish, 1380);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const leaveTimer = window.setTimeout(() => setLeaving(true), reducedMotion ? 40 : 680);
+    const finishTimer = window.setTimeout(onFinish, reducedMotion ? 120 : 900);
     return () => {
       window.clearTimeout(leaveTimer);
       window.clearTimeout(finishTimer);

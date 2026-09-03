@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { COUNTRY_LIST, STATUS_LABEL, STATUS_ORDER, VISA_DATA } from "../data/countries";
 import type { MapStatus } from "../components/PassportWorldMap";
 
@@ -14,6 +14,7 @@ import type { VerifiedVisaRule } from "../types";
 
 const MFA_SOURCE = "https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa";
 const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
+const INITIAL_ROW_COUNT = 40;
 
 const filters: Array<{ id: "all" | VisaStatus; label: string }> = [
   { id: "all", label: "Tümü" },
@@ -36,15 +37,20 @@ export function PassportScreen() {
   const [selected, setSelected] = useState<Country | null>(null);
   const [verifiedRule, setVerifiedRule] = useState<VerifiedVisaRule | null>(null);
   const [ruleLoading, setRuleLoading] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_ROW_COUNT);
   const ruleRequest = useRef(0);
+  const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(() => COUNTRY_LIST
-    .filter((country) => country.name.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR")))
+    .filter((country) => country.name.toLocaleLowerCase("tr-TR").includes(deferredQuery.toLocaleLowerCase("tr-TR")))
     .filter((country) => filter === "all" || statusOf(country.alpha3) === filter)
     .sort((a, b) => {
       const statusDiff = STATUS_ORDER[statusOf(a.alpha3)] - STATUS_ORDER[statusOf(b.alpha3)];
       return statusDiff || a.name.localeCompare(b.name, "tr");
-    }), [filter, query]);
+    }), [deferredQuery, filter]);
+  const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
+
+  useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter]);
 
   // Harita her ülke path'i için çalıştığından O(n) arama yerine sabit
   // zamanda üyelik kontrolü kullanılır; pan/zoom sırasında ek yük oluşmaz.
@@ -91,6 +97,9 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>Kolay vize</span></div>
       </div>
 
+      <p id="passport-map-help" className="passport-map-help"><strong>Haritayı kullan:</strong> Bir ülkeye dokun; yakınlaşmak için iki parmak veya +/− düğmelerini kullan. İstersen aşağıdaki listeden de ülke seçebilirsin.</p>
+      <p id="passport-map-keyboard-help" className="sr-only">Klavyede haritayı ok tuşlarıyla hareket ettir, artı ve eksi tuşlarıyla yakınlaştır, Home tuşuyla başlangıç görünümüne dön. Ülke seçmek için aşağıdaki arama ve ülke listesini kullan.</p>
+
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
           dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen
           ülkeler için veri uydurulmaz; "Bilinmiyor" gösterilir. */}
@@ -98,8 +107,8 @@ export function PassportScreen() {
       <PassportWorldMap
         statusFor={(alpha3) => (alpha3 ? statusOf(alpha3) : "unknown") as MapStatus}
         isHighlighted={(alpha3) => {
-          if (!alpha3) return !query && filter === "all";
-          if (!COUNTRY_BY_ALPHA3.has(alpha3)) return !query && filter === "all";
+          if (!alpha3) return !deferredQuery && filter === "all";
+          if (!COUNTRY_BY_ALPHA3.has(alpha3)) return !deferredQuery && filter === "all";
           return highlightedAlpha3.has(alpha3);
         }}
         selectedAlpha3={selected?.alpha3 || null}
@@ -122,8 +131,10 @@ export function PassportScreen() {
         {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
       </div>
 
+      <div className="country-results-summary" role="status"><strong>{rows.length} ülke</strong><span>Listeden veya haritadan bir ülkeye dokun.</span></div>
+
       <div className="country-list">
-        {rows.map((country) => {
+        {visibleRows.map((country) => {
           const rowStatus = statusOf(country.alpha3);
           return (
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
@@ -135,6 +146,7 @@ export function PassportScreen() {
           );
         })}
         {!rows.length && <div className="empty-state compact"><Icon name="search" /><strong>Sonuç bulunamadı</strong><span>Arama kelimesini veya filtreyi değiştir.</span></div>}
+        {visibleRows.length < rows.length && <button className="country-load-more" onClick={() => setVisibleCount((current) => Math.min(rows.length, current + INITIAL_ROW_COUNT))}>Daha fazla ülke göster <span>{visibleRows.length}/{rows.length}</span></button>}
       </div>
 
       <Sheet open={Boolean(selected)} title={selected?.name || "Ülke"} onClose={closeCountry}>

@@ -5,7 +5,7 @@ import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
 import { closeBrowser, openExternal } from "../lib/native";
 import { endAllFlightActivities } from "../lib/liveActivity";
 import { disableLiveActivityTokensForLogout } from "../lib/liveActivityPush";
-import { disablePush } from "../lib/push";
+import { detachPushForLogout } from "../lib/push";
 import type { AuthSession, AuthUser } from "../types";
 
 const NATIVE_REDIRECT = "tr.com.letsgo2travel.app://auth/callback";
@@ -281,6 +281,7 @@ export function useAuth() {
   const refreshInFlight = useRef<RefreshInFlight | null>(null);
   const consumedAuthUrls = useRef(new Set<string>());
   const authCallbackInProgress = useRef(false);
+  const signOutInFlight = useRef<Promise<void> | null>(null);
 
   const setRecoveryPending = useCallback((next: boolean) => {
     setRecoveryPendingState(next);
@@ -675,32 +676,55 @@ export function useAuth() {
     }
   };
 
-  const signOut = async () => {
-    const accessToken = session?.access_token;
-    // Çıkışta cihaz kayıtlarının kapatılması, oturum temizlenmeden ÖNCE
-    // beklenir (kontrollü 4 sn timeout ile); başarısızlık çıkışı engellemez.
-    // Live Activity temizliği bu kurulumu kapatır; ağ/timeout yüzünden
-    // ulaşamazsa sonraki login'in daha yüksek kalıcı generation'ı sunucuda
-    // eski hesabı geçersiz kılar. Diğer cihazlar (örn. iPad) etkilenmez.
-    if (accessToken) {
-      await Promise.race([
-        Promise.allSettled([
-          disablePush(() => accessToken),
-          disableLiveActivityTokensForLogout(accessToken),
+  const signOut = () => {
+    if (signOutInFlight.current) return signOutInFlight.current;
+    const accessToken = session?.access_token || "";
+    const ownerId = session?.user.id || "";
+    const task = (async () => {
+      // Push/Live Activity temizliği ve yerel uçuş hatırlatmaları, eski
+      // bearer yakalanmışken başlatılır. endAllFlightActivities kendi sync kuyruğunda
+      // seri çalıştığı için yoldaki eski snapshot logout sonrasında bildirim
+      // planlayamaz. Sunucu detach başarısızlıkları opak kimlikle kalıcı
+      // kuyruğa alınır; hiçbir push/bearer tokenı depolanmaz.
+      const cleanup = accessToken
+        ? Promise.allSettled([
+          detachPushForLogout(() => accessToken, ownerId),
+          disableLiveActivityTokensForLogout(accessToken, ownerId),
           endAllFlightActivities(),
-        ]),
-        new Promise((resolve) => setTimeout(resolve, 4000)),
-      ]);
-    }
-    setSession(null);
-    storageRemove(OAUTH_TRANSACTION_KEY);
-    storageRemove(EMAIL_TRANSACTION_KEY);
-    if (accessToken) {
-      await requestJson<Record<string, unknown>>(authUrl("/logout"), {
+        ])
+        : Promise.allSettled([endAllFlightActivities()]);
+
+      // Oturumu beklemeden yerelde kapat: arka plandaki native temizliği
+      // sürerken App eski hesabı hâlâ aktif görüp tokenı yeniden bağlayamaz.
+      // Temizlik fonksiyonları gereken eski bearer/owner değerlerini yukarıda
+      // kendi closure'larına aldı; kullanıcı arayüzü ağ yüzünden beklemez.
+      setSession(null);
+      storageRemove(OAUTH_TRANSACTION_KEY);
+      storageRemove(EMAIL_TRANSACTION_KEY);
+
+      if (!accessToken) return;
+
+      // Normal "çıkış" yalnız bu cihazdaki refresh token ailesini kapatır.
+      // Global scope başka cihazları ve gecikme sırasında açılmış yeni bir
+      // oturumu yanlışlıkla sonlandırabileceği için açıkça local kullanılır.
+      const revokeAuthSession = () => requestJson<Record<string, unknown>>(authUrl("/logout?scope=local"), {
         method: "POST",
         headers: authHeaders(accessToken),
       }).catch(() => undefined);
-    }
+
+      // Yerel çıkış bu noktada tamamdır; hesap penceresi/ağ beklemez. Eski
+      // bearer yalnız arka plandaki detach tamamlanana (en çok 45 sn) kadar
+      // bellekte tutulur, ardından sunucu oturumu da kapatılır.
+      void Promise.race([
+        cleanup,
+        new Promise((resolve) => window.setTimeout(resolve, 45_000)),
+      ]).then(revokeAuthSession, revokeAuthSession);
+    })();
+    const tracked = task.finally(() => {
+      if (signOutInFlight.current === tracked) signOutInFlight.current = null;
+    });
+    signOutInFlight.current = tracked;
+    return tracked;
   };
 
   return {

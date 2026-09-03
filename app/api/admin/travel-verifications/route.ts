@@ -1,29 +1,24 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { adminSessionFromRequest } from "@/lib/admin-session";
+import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 async function checkAdmin(request: Request) {
-  const permissionError = await requireAdmin(request, ["moderator", "admin", "super_admin"]);
-  if (permissionError) return { response: permissionError, supabase: null, userId: null };
+  const principal = await adminPrincipalFromRequest(request, ["moderator", "admin", "super_admin"]);
+  if (!principal) {
+    return {
+      response: NextResponse.json({ error: "Yetkisiz işlem. Yetkiniz bulunmuyor." }, { status: 401 }),
+      supabase: null,
+    };
+  }
 
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return {
       response: NextResponse.json({ error: "DB missing" }, { status: 500 }),
       supabase: null,
-      userId: null,
     };
   }
-
-  const signedSession = await adminSessionFromRequest(request);
-  let userId = signedSession?.subject !== "legacy-admin" ? signedSession?.subject || null : null;
-  const authHeader = request.headers.get("Authorization");
-  if (!userId && authHeader?.startsWith("Bearer ")) {
-    const { data } = await supabase.auth.getUser(authHeader.slice(7).trim());
-    userId = data.user?.id || null;
-  }
-  return { response: null, supabase, userId };
+  return { response: null, supabase };
 }
 
 export async function GET(request: Request) {

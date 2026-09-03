@@ -56,6 +56,55 @@ function hash(buffer) {
   return buffer ? createHash("sha256").update(buffer).digest("hex") : "";
 }
 
+function parseJsonValue(source, label) {
+  try {
+    return JSON.parse(source);
+  } catch {
+    errors.push(`${label} geçerli JSON değil.`);
+    return null;
+  }
+}
+
+const releaseManifestText = await text("release-manifest.json", { label: "tekil yayın manifesti" });
+const releaseManifest = parseJsonValue(releaseManifestText, "release-manifest.json") || {};
+const expectedAppVersion = typeof releaseManifest.appVersion === "string" ? releaseManifest.appVersion : "";
+const expectedBuildNumber = Number.isSafeInteger(releaseManifest.buildNumber) ? releaseManifest.buildNumber : 0;
+if (/^\d+\.\d+\.\d+$/.test(expectedAppVersion) && expectedBuildNumber > 0) ok.push(`yayın manifesti ${expectedAppVersion} (${expectedBuildNumber})`);
+else errors.push("Yayın manifestinde geçerli appVersion/buildNumber yok.");
+
+const destinationArtworkFiles = [
+  "baku.webp",
+  "bangkok.webp",
+  "belgrade.webp",
+  "dubai.webp",
+  "rome.webp",
+  "sarajevo.webp",
+  "tbilisi.webp",
+  "tirana.webp",
+  "tokyo.webp",
+];
+
+async function checkOptimizedDestinationArtwork() {
+  let totalBytes = 0;
+  let complete = true;
+  for (const file of destinationArtworkFiles) {
+    const relative = path.posix.join("mobile/src/assets/destination-artwork", file);
+    const buffer = await read(relative, { label: `mobil rota görseli: ${file}` });
+    if (!buffer) {
+      complete = false;
+      continue;
+    }
+    const webp = buffer.length >= 12
+      && buffer.toString("ascii", 0, 4) === "RIFF"
+      && buffer.toString("ascii", 8, 12) === "WEBP";
+    if (!webp) errors.push(`Mobil rota görseli WebP değil: ${relative}`);
+    if (buffer.length > 170 * 1024) errors.push(`Mobil rota görseli fazla büyük (${Math.ceil(buffer.length / 1024)} KiB): ${file}`);
+    totalBytes += buffer.length;
+  }
+  if (complete && totalBytes <= 550 * 1024) ok.push(`optimize mobil rota görselleri (${Math.ceil(totalBytes / 1024)} KiB)`);
+  else if (complete) errors.push(`Mobil rota görsel paketi 550 KiB sınırını aşıyor (${Math.ceil(totalBytes / 1024)} KiB).`);
+}
+
 async function checkReferencedAssets(index) {
   const refs = [...index.matchAll(/(?:src|href)=["']\.\/([^"'#?]+)["']/g)].map((match) => match[1]);
   for (const ref of new Set(refs)) await exists(path.posix.join("mobile-dist", ref), `mobil varlık: ${ref}`);
@@ -111,6 +160,10 @@ async function compareNativeWebPackage(nativeRoot, label) {
 
 const mobileIndexBuffer = await read("mobile-dist/index.html", { label: "mobil web paketi" });
 const mobileIndex = mobileIndexBuffer?.toString("utf8") || "";
+const packagedReleaseText = await text("mobile-dist/release.json", { label: "paketlenmiş yayın manifesti" });
+const packagedRelease = parseJsonValue(packagedReleaseText, "mobile-dist/release.json");
+if (packagedRelease?.appVersion === expectedAppVersion && packagedRelease?.buildNumber === expectedBuildNumber) ok.push("mobil paket yayın sürümü güncel");
+else errors.push("Mobil paket yayın manifesti kaynak sürümle eşleşmiyor; mobile:build çalıştır.");
 await exists("mobile-dist/error.html", "mobil hata sayfası");
 await exists("mobile-dist/.mobile-build-ok", "mobil build doğrulama işareti");
 
@@ -124,16 +177,29 @@ if (mobileIndex) {
     .filter((asset) => !referencedEntryAssets.includes(asset.slice("mobile-dist/".length)));
   if (staleEntryAssets.length) errors.push(`Mobil paket eski hash'li giriş varlıkları içeriyor: ${staleEntryAssets.join(", ")}`);
   else ok.push("mobil paket eski hash'li giriş varlığı içermiyor");
+
+  const packagedArtwork = (await filesBelow("mobile-dist/assets"))
+    .filter((asset) => destinationArtworkFiles.some((file) => asset.includes(`${file.slice(0, -5)}-`) && asset.endsWith(".webp")));
+  if (packagedArtwork.length === destinationArtworkFiles.length) ok.push("optimize rota görselleri mobil pakete dahil");
+  else errors.push(`Mobil pakette ${destinationArtworkFiles.length - packagedArtwork.length} optimize rota görseli eksik; mobile:build çalıştır.`);
 }
+
+await checkOptimizedDestinationArtwork();
+const artworkSource = await text("mobile/src/data/artwork.ts", { label: "mobil rota görsel eşlemesi" });
+expectAbsent(artworkSource, /apiBaseUrl|\.(?:jpe?g)(?:["'])/i, "rota kartları tam boy web JPEG'i indirmiyor", "Mobil rota görsel eşlemesi tam boy web JPEG'i kullanıyor.");
 
 const cap = await text("capacitor.config.ts");
 expect(cap, /appId:\s*["']tr\.com\.letsgo2travel\.app["']/, "Capacitor bundle kimliği", "Capacitor appId beklenen değerle eşleşmiyor.");
 expect(cap, /webDir:\s*["']mobile-dist["']/, "Capacitor yerel web paketi", "Capacitor webDir mobile-dist değil.");
 expect(cap, /CapacitorHttp/, "yerel HTTP köprüsü", "CapacitorHttp etkin değil; canlı API çağrıları CORS nedeniyle bozulabilir.");
 expectAbsent(cap, /server\s*:\s*\{[\s\S]*?\burl\s*:/, "uzak WebView adresi kullanılmıyor", "Capacitor ayarı uzak server.url içeriyor; yayın paketi yerel istemciyi kullanmalı.");
+expect(cap, /loggingBehavior:\s*["']none["']/, "yayın bridge logları kapalı", "Capacitor loggingBehavior 'none' değil; hassas bridge sonuçları yayın konsoluna yazılabilir.");
+expect(cap, /zoomEnabled:\s*true/, "sistem erişilebilirlik yakınlaştırması açık", "Capacitor zoomEnabled=true değil.");
 
 const mobilePackage = await text("mobile/package.json");
-expect(mobilePackage, /"version"\s*:\s*"1\.4\.0"/, "mobil uygulama sürümü 1.4.0", "Mobil uygulama sürümü 1.4.0 değil.");
+const mobilePackageJson = parseJsonValue(mobilePackage, "mobile/package.json");
+if (mobilePackageJson?.version === expectedAppVersion) ok.push(`mobil uygulama sürümü ${expectedAppVersion}`);
+else errors.push(`Mobil uygulama sürümü ${expectedAppVersion} değil.`);
 const rootPackage = await text("package.json");
 expect(rootPackage, /@capacitor\/push-notifications/, "push bildirim eklentisi tanımlı", "Push bildirim eklentisi package.json içinde yok (fiyat alarmı bildirimleri için gerekli).");
 
@@ -159,8 +225,8 @@ if (checkIos) {
   expect(privacy, /NSPrivacyCollectedDataTypeEmailAddress/, "e-posta veri beyanı", "Gizlilik manifestinde e-posta veri beyanı eksik.");
   expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
-  expect(project, /MARKETING_VERSION = 1\.4\.0;/, "iOS pazarlama sürümü 1.4.0", "Xcode MARKETING_VERSION 1.4.0 değil.");
-  expect(project, /CURRENT_PROJECT_VERSION = 11;/, "iOS build numarası 11", "Xcode CURRENT_PROJECT_VERSION 11 değil.");
+  expect(project, new RegExp(`MARKETING_VERSION = ${expectedAppVersion.replaceAll(".", "\\.")};`), `iOS pazarlama sürümü ${expectedAppVersion}`, `Xcode MARKETING_VERSION ${expectedAppVersion} değil.`);
+  expect(project, new RegExp(`CURRENT_PROJECT_VERSION = ${expectedBuildNumber};`), `iOS build numarası ${expectedBuildNumber}`, `Xcode CURRENT_PROJECT_VERSION ${expectedBuildNumber} değil.`);
   expect(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/, "Sign in with Apple entitlement bağlantısı", "Apple entitlement dosyası Xcode hedefine bağlı değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
   // Live Activity / Widget Extension: elle Xcode adımı KALMAMALI —
@@ -213,11 +279,18 @@ if (checkIos) {
     else errors.push("Kopyalanmış iOS capacitor.config.json appId değeri yanlış.");
     if (!iosConfig.server?.url) ok.push("kopyalanmış iOS ayarında uzak server.url yok");
     else errors.push("Kopyalanmış iOS ayarı uzak server.url içeriyor.");
+    if (iosConfig.loggingBehavior === "none") ok.push("kopyalanmış iOS bridge logları kapalı");
+    else errors.push("Kopyalanmış iOS loggingBehavior 'none' değil; cap sync çalıştır.");
+    if (iosConfig.zoomEnabled === true) ok.push("kopyalanmış iOS erişilebilirlik yakınlaştırması açık");
+    else errors.push("Kopyalanmış iOS zoomEnabled=true değil; cap sync çalıştır.");
   } catch {
     errors.push("ios/App/App/capacitor.config.json geçerli JSON değil.");
   }
 
   if (mobileIndexBuffer && iosIndexBuffer) await compareNativeWebPackage("ios/App/App/public", "iOS");
+  const iosRelease = parseJsonValue(await text("ios/App/App/public/release.json", { label: "iOS yayın manifesti" }), "iOS release.json");
+  if (iosRelease?.appVersion === expectedAppVersion && iosRelease?.buildNumber === expectedBuildNumber) ok.push("iOS paket sürümü yayın manifestiyle eşleşiyor");
+  else errors.push("iOS paket sürümü yayın manifestiyle eşleşmiyor; cap sync ios çalıştır.");
 
   const appIcon = pngDimensions(await read("ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png", { label: "iOS 1024px uygulama ikonu" }));
   if (appIcon?.width === 1024 && appIcon.height === 1024) ok.push("iOS uygulama ikonu 1024×1024");
@@ -233,7 +306,7 @@ if (checkIos) {
 
 if (checkAndroid) {
   const manifest = await text("android/app/src/main/AndroidManifest.xml", { label: "Android manifest" });
-  await exists("android/app/src/main/assets/capacitor.config.json", "Android Capacitor ayarı");
+  const androidConfigText = await text("android/app/src/main/assets/capacitor.config.json", { label: "Android Capacitor ayarı" });
   await exists("android/app/src/main/res/xml/backup_rules.xml", "Android yedekleme kuralları");
   await exists("android/app/src/main/res/xml/data_extraction_rules.xml", "Android veri aktarım kuralları");
   expect(manifest, /android\.permission\.INTERNET/, "Android internet izni", "Android INTERNET izni eksik.");
@@ -242,8 +315,8 @@ if (checkAndroid) {
   expect(manifest, /android:dataExtractionRules=["']@xml\/data_extraction_rules["']/, "Android veri aktarım kuralları bağlı", "Android veri aktarım kuralları bağlı değil.");
 
   const androidBuild = await text("android/app/build.gradle");
-  expect(androidBuild, /versionCode\s+11\b/, "Android versionCode 11", "Android versionCode 11 değil.");
-  expect(androidBuild, /versionName\s+["']1\.4\.0["']/, "Android versionName 1.4.0", "Android versionName 1.4.0 değil.");
+  expect(androidBuild, new RegExp(`versionCode\\s+${expectedBuildNumber}\\b`), `Android versionCode ${expectedBuildNumber}`, `Android versionCode ${expectedBuildNumber} değil.`);
+  expect(androidBuild, new RegExp(`versionName\\s+["']${expectedAppVersion.replaceAll(".", "\\.")}["']`), `Android versionName ${expectedAppVersion}`, `Android versionName ${expectedAppVersion} değil.`);
   for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
     expect(androidBuild, new RegExp(key), `Android release imza ayarı: ${key}`, `Android release imza ayarı eksik: ${key}`);
   }
@@ -256,6 +329,17 @@ if (checkAndroid) {
   expect(generatedPlugins, /@capacitor\/push-notifications/, "Android yerel projede push eklentisi senkron", "Android yerel projede push eklentisi yok; cap sync çalıştırılmalı.");
   expect(generatedPlugins, /@capacitor\/share/, "Android yerel paylaşım eklentisi", "Android yerel paylaşım eklentisi senkronize edilmemiş.");
   await compareNativeWebPackage("android/app/src/main/assets/public", "Android");
+  const androidConfig = parseJsonValue(androidConfigText, "Android capacitor.config.json");
+  if (androidConfig?.loggingBehavior === "none") ok.push("kopyalanmış Android bridge logları kapalı");
+  else errors.push("Kopyalanmış Android loggingBehavior 'none' değil; cap sync android çalıştır.");
+  if (androidConfig?.zoomEnabled === true) ok.push("kopyalanmış Android erişilebilirlik yakınlaştırması açık");
+  else errors.push("Kopyalanmış Android zoomEnabled=true değil; cap sync android çalıştır.");
+  const androidRelease = parseJsonValue(await text("android/app/src/main/assets/public/release.json", { label: "Android yayın manifesti" }), "Android release.json");
+  if (androidRelease?.appVersion === expectedAppVersion && androidRelease?.buildNumber === expectedBuildNumber) ok.push("Android paket sürümü yayın manifestiyle eşleşiyor");
+  else errors.push("Android paket sürümü yayın manifestiyle eşleşmiyor; cap sync android çalıştır.");
+  const googleServicesPresent = await read("android/app/google-services.json", { required: false });
+  if (googleServicesPresent?.length) ok.push("Android FCM yapılandırması mevcut");
+  else warnings.push("Android FCM google-services.json yerelde yok; Gradle release görevi dosya sağlanmadan güvenli biçimde durur.");
 }
 
 console.log(`\nLetsGo2Travel Mobil Kontrolü (${platform})`);

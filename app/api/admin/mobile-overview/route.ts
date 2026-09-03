@@ -3,11 +3,14 @@ import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export const dynamic = "force-dynamic";
 
-const MOBILE_ADMIN_ROLES = new Set(["admin", "super_admin"]);
+const MOBILE_ADMIN_ROLES = new Set(["super_admin"]);
 
 export async function GET(request: Request) {
   const auth = await requireAuthenticatedUser(request);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    auth.response.headers.set("Cache-Control", "private, no-store");
+    return auth.response;
+  }
 
   const { supabase, user } = auth;
   const { data: profile, error: profileError } = await supabase
@@ -17,10 +20,16 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (profileError) {
-    return NextResponse.json({ error: "Yönetici yetkisi doğrulanamadı." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Yönetici yetkisi doğrulanamadı." },
+      { status: 500, headers: { "Cache-Control": "private, no-store" } },
+    );
   }
   if (!MOBILE_ADMIN_ROLES.has(String(profile?.role || ""))) {
-    return NextResponse.json({ error: "Yönetici yetkiniz bulunmuyor." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Yönetici yetkiniz bulunmuyor." },
+      { status: 403, headers: { "Cache-Control": "private, no-store" } },
+    );
   }
 
   const [

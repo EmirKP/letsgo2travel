@@ -4,6 +4,10 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, PenTool, AlertCircle, Info, Loader2, CheckCircle2, AlertTriangle, User } from "lucide-react";
+import {
+  countryCodeFromForumSlug,
+  forumCountrySlugFromCode,
+} from "@/lib/community/forum-sync";
 import { supabase } from "@/lib/supabase-client";
 
 // Form bileşeni - Sadece giriş yapmış kullanıcılar için render edilecek
@@ -45,18 +49,6 @@ function NewTopicForm({ session }: { session: any }) {
     ? [initialCountryName, ...popularCountries]
     : popularCountries;
 
-  const normalizeCountrySlug = (text: string) => {
-    const trMap: Record<string, string> = {
-      'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
-      'Ç': 'C', 'Ğ': 'G', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U'
-    };
-    return text
-      .replace(/[çğıöşüÇĞİÖŞÜ]/g, match => trMap[match] || match)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-  };
-
   const generateSlug = (text: string) => {
     const trMap: Record<string, string> = {
       'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
@@ -87,13 +79,24 @@ function NewTopicForm({ session }: { session: any }) {
       return;
     }
 
+    const hasSelectedCountry = Boolean(country && country !== "Genel / Ülke Bağımsız");
+    const selectedCountrySlug = hasSelectedCountry
+      ? (
+        country === initialCountryName && initialCountrySlug
+          ? forumCountrySlugFromCode(countryCodeFromForumSlug(initialCountrySlug))
+          : null
+      ) ?? forumCountrySlugFromCode(countryCodeFromForumSlug(country))
+      : null;
+
+    if (hasSelectedCountry && !selectedCountrySlug) {
+      setError("Geçerli bir ülke seçilemedi. Lütfen listeden bir ülke seçin.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const generatedSlug = generateSlug(title);
-      const selectedCountrySlug = country && country !== "Genel / Ülke Bağımsız"
-        ? (initialCountrySlug || normalizeCountrySlug(country))
-        : null;
       const { error: dbError } = await supabase.from("forum_topics").insert([
         {
           slug: generatedSlug,
@@ -123,9 +126,6 @@ function NewTopicForm({ session }: { session: any }) {
         setCategory("");
         setCountry("");
         setTimeout(() => {
-          const selectedCountrySlug = country && country !== "Genel / Ülke Bağımsız"
-            ? (initialCountrySlug || normalizeCountrySlug(country))
-            : "";
           router.push(selectedCountrySlug ? `/forum/ulke/${selectedCountrySlug}` : "/forum");
         }, 3000);
       }

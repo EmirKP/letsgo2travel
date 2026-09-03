@@ -9,7 +9,7 @@ import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { VerificationForm } from "../components/VerificationForm";
 import { addPluginListener } from "../lib/capacitor";
 import { shareContent } from "../lib/native";
-import { disablePush, enablePushForUser, getPushPermissionState, type PushPermissionSummary } from "../lib/push";
+import { disablePush, enablePushForUser, getPushPermissionState, isPushEnabledForDevice, type PushPermissionSummary } from "../lib/push";
 import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile, type UserProfileData } from "../lib/supabaseData";
 import {
   getFavoriteDestinations,
@@ -64,7 +64,7 @@ function profileIdsForDestinations(original: string[], destinations: FavoriteDes
   return Array.from(new Set([...preserved, ...mapped]));
 }
 
-export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onNotice }: {
+export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -72,12 +72,14 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
+  onOpenOnboarding: () => void;
   onNotice: (message: string) => void;
 }) {
   const [tick, setTick] = useState(0);
   const [visitedOpen, setVisitedOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [visibleCountryCount, setVisibleCountryCount] = useState(60);
   const [preferences, setPreferences] = useState<MobilePreferences>(() => getMobilePreferences());
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -101,7 +103,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       void getPushPermissionState().then((state) => {
         if (!active) return;
         setPushState(state);
-        setPushEnabled(state === "granted");
+        setPushEnabled(state === "granted" && isPushEnabledForDevice());
       });
     };
     refreshPushState();
@@ -176,6 +178,12 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const progress = Math.min(100, Math.max(8, Math.round((visited.length / 25) * 100)));
   const approvedCount = verifications.filter((item) => item.status === "approved").length;
   const countries = useMemo(() => COUNTRY_LIST.filter((country) => country.name.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR"))), [query]);
+  const visibleCountries = useMemo(() => countries.slice(0, visibleCountryCount), [countries, visibleCountryCount]);
+  const visitedCodes = useMemo(() => new Set(visited.map((item) => item.alpha3)), [visited]);
+
+  useEffect(() => {
+    setVisibleCountryCount(60);
+  }, [query, visitedOpen]);
 
   const updatePreference = (key: keyof MobilePreferences, value: boolean) => {
     const next = { ...preferences, [key]: value };
@@ -196,7 +204,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     setPushBusy(true);
     try {
       if (pushEnabled) {
-        const ok = await disablePush(() => accessToken);
+        const ok = await disablePush(() => accessToken, user?.id || "");
         setPushEnabled(false);
         onNotice(ok ? "Telefon bildirimleri kapatıldı." : "Telefon bildirimleri bu cihazda kapatıldı.");
         return;
@@ -329,6 +337,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         <label><span><Icon name="sparkles" size={19} /><em><strong>Dokunma titreşimi</strong><small>Desteklenen cihazlarda hafif geri bildirim</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>Kaşifler Ligi'nde görün</strong><small>Yalnız güvenli profil özeti paylaşılır</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>Sürüm yenilikleri</strong><small>Build {config.buildNumber} ile gelenleri gör</small></em></span><Icon name="chevron" size={17} /></button>
+        <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>Uygulama turu</strong><small>Temel özellikleri yeniden, adım adım gör</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>Gizlilik ve veri işlemleri</strong><small>Veri hakların ve gizlilik politikası (uygulama içinde)</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
       <p className="profile-version">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
@@ -336,17 +345,18 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
 
     <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />
 
-    <Sheet open={visitedOpen} title="Ziyaret ettiğim ülkeler" onClose={() => setVisitedOpen(false)} size="large">
+    {visitedOpen && <Sheet open title="Ziyaret ettiğim ülkeler" onClose={() => setVisitedOpen(false)} size="large">
       <label className="sr-only" htmlFor="visited-country-search">Ülke ara</label>
       <div className="search-input"><Icon name="search" size={18} /><input id="visited-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
       <p className="visited-helper">Gittiğin ülkelere dokun. Giriş yaptıysan seçimlerin web seyahat haritanla da eşitlenir.</p>
       <div className="visited-country-list">
-        {countries.map((country) => {
-          const selected = visited.some((item) => item.alpha3 === country.alpha3);
+        {visibleCountries.map((country) => {
+          const selected = visitedCodes.has(country.alpha3);
           return <button type="button" className={selected ? "selected" : ""} key={country.alpha3} aria-pressed={selected} disabled={Boolean(profileBusy)} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{country.name}</strong><small>{profileBusy === `country-${country.alpha3}` ? "Kaydediliyor" : country.alpha3}</small></button>;
         })}
       </div>
-    </Sheet>
+      {visibleCountryCount < countries.length && <button className="country-load-more" type="button" onClick={() => setVisibleCountryCount((count) => count + 60)}>Daha fazla ülke göster <span>{countries.length - visibleCountryCount} kaldı</span></button>}
+    </Sheet>}
 
     <Sheet open={verificationOpen} title="Belgeli Gezgin" onClose={() => setVerificationOpen(false)} size="large">
       <div className="verification-summary"><span><Icon name="shield" size={28} /></span><div><small>SEYAHAT DOĞRULAMALARI</small><strong>{approvedCount} onaylı kayıt</strong><p>Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.</p></div></div>

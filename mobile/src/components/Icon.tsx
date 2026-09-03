@@ -3,13 +3,15 @@ import type { ReactNode } from "react";
 export type IconName =
   | "home" | "passport" | "search" | "route" | "plans" | "user" | "menu"
   | "plane" | "bell" | "map" | "heart" | "chevron" | "back" | "globe"
-  | "check" | "alert" | "close" | "swap" | "calendar" | "mail" | "lock"
+  | "check" | "alert" | "close" | "swap" | "calendar" | "mail" | "lock" | "unlock"
   | "trash" | "external" | "wifi" | "offline" | "refresh" | "plus"
   | "cloud" | "sun" | "wallet" | "users" | "bookmark" | "info" | "logout"
   | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield";
 
-export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
-  const paths: Record<IconName, ReactNode> = {
+// Sabit ikon ağacı modül yüklenirken yalnız bir kez oluşturulur. Önceki
+// sürümde bu 41 öğelik nesne her <Icon> renderında yeniden kuruluyordu;
+// uzun ülke listelerinde on binlerce gereksiz React düğümü üretiyordu.
+const ICON_PATHS: Record<IconName, ReactNode> = {
     home: <><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></>,
     passport: <><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M9 11h6M12 8v6"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></>,
@@ -32,6 +34,7 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
     mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
     lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
+    unlock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.4-2.1"/></>,
     trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14"/><path d="M10 11v6M14 11v6"/></>,
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></>,
     wifi: <><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r=".8" fill="currentColor" stroke="none"/></>,
@@ -51,11 +54,12 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
     sparkles: <><path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2z"/><path d="m19 14 .7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7zM5 15l.5 1.5L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.5z"/></>,
     flag: <><path d="M5 21V4"/><path d="M5 5c5-3 7 3 14 0v9c-7 3-9-3-14 0"/></>,
     shield: <><path d="M12 3 4.5 6v5.5c0 4.5 3 7.7 7.5 9.5 4.5-1.8 7.5-5 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></>,
-  };
+};
 
+export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths[name]}
+      {ICON_PATHS[name]}
     </svg>
   );
 }

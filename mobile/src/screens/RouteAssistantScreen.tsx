@@ -6,6 +6,7 @@ import { createFallbackPlan } from "../data/routes";
 import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
+import { snapshotPlannerInput } from "../lib/plannerState";
 import { saveRoutePlan } from "../lib/storage";
 import { getSupabaseDataErrorMessage, upsertUserTrip } from "../lib/supabaseData";
 import type { PlannerInput, RoutePlan, RouteSuggestion, WeatherSummary } from "../types";
@@ -14,7 +15,7 @@ const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağu
 const VIBES = ["Şehir", "Kültür", "Yeme-içme", "Deniz", "Doğa", "Gece hayatı", "Alışveriş", "Macera"];
 
 const INITIAL: PlannerInput = {
-  origin: "İstanbul",
+  origin: "",
   days: "4–6 gün",
   month: MONTHS[new Date().getMonth()],
   budget: "Orta",
@@ -41,9 +42,10 @@ function planClientKey(plan: RoutePlan, input: PlannerInput) {
   return `route-${(hash >>> 0).toString(36)}-${plan.routes.length}`;
 }
 
-export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessToken }: {
+export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken }: {
   onNotice: (message: string) => void;
   surpriseRoute?: RouteSuggestion | null;
+  routeSeedKind?: "surprise" | "explore";
   ownerId?: string | null;
   accessToken: string;
 }) {
@@ -51,8 +53,10 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
   const [step, setStep] = useState(0);
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [loading, setLoading] = useState(false);
-  const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: "Sana sürpriz olarak seçtiğimiz rota.", routes: [surpriseRoute] } : null);
-  const [source, setSource] = useState<"ai" | "local" | "surprise">(surpriseRoute ? "surprise" : "local");
+  const seededSummary = routeSeedKind === "explore" ? "Keşfettiğin rota için ayrıntılı plan." : "Sana sürpriz olarak seçtiğimiz rota.";
+  const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
+  const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(INITIAL));
+  const [source, setSource] = useState<"ai" | "local" | "surprise" | "explore">(surpriseRoute ? routeSeedKind : "local");
   const [expanded, setExpanded] = useState<string>(surpriseRoute?.name || "");
   const [weather, setWeather] = useState<Record<string, WeatherSummary>>({});
   const [weatherLoading, setWeatherLoading] = useState("");
@@ -61,10 +65,11 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
 
   useEffect(() => {
     if (!surpriseRoute) return;
-    setPlan({ summary: "Sana sürpriz olarak seçtiğimiz rota.", routes: [surpriseRoute] });
-    setSource("surprise");
+    setPlan({ summary: routeSeedKind === "explore" ? "Keşfettiğin rota için ayrıntılı plan." : "Sana sürpriz olarak seçtiğimiz rota.", routes: [surpriseRoute] });
+    setPlanInput(snapshotPlannerInput(form));
+    setSource(routeSeedKind);
     setExpanded(surpriseRoute.name);
-  }, [surpriseRoute]);
+  }, [routeSeedKind, surpriseRoute]);
 
   const ready = useMemo(() => Boolean(form.origin && form.days && form.month && form.budget && form.vibe.length), [form]);
 
@@ -78,17 +83,20 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
 
   const generate = async () => {
     if (!ready) return onNotice("Rota oluşturmak için temel seçimleri tamamla.");
+    const requestInput = snapshotPlannerInput(form);
     setLoading(true);
     try {
-      const response = await generateRoutePlan(form);
+      const response = await generateRoutePlan(requestInput);
       if (response.data?.routes?.length) {
         setPlan(response.data);
+        setPlanInput(requestInput);
         setSource("ai");
         setExpanded(response.data.routes[0]?.name || "");
         setSavedKey("");
       } else {
-        const fallback = createFallbackPlan(form);
+        const fallback = createFallbackPlan(requestInput);
         setPlan(fallback);
+        setPlanInput(requestInput);
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
         setSavedKey("");
@@ -96,8 +104,9 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
       }
       await hapticSuccess();
     } catch {
-      const fallback = createFallbackPlan(form);
+      const fallback = createFallbackPlan(requestInput);
       setPlan(fallback);
+      setPlanInput(requestInput);
       setSource("local");
       setExpanded(fallback.routes[0]?.name || "");
       setSavedKey("");
@@ -109,11 +118,12 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
 
   const save = async () => {
     if (!plan || saveBusy) return;
-    const clientKey = planClientKey(plan, form);
+    const input = snapshotPlannerInput(planInput);
+    const clientKey = planClientKey(plan, input);
     if (savedKey === clientKey) return onNotice("Bu rota zaten kayıtlı.");
     setSaveBusy(true);
     const createdAt = new Date().toISOString();
-    saveRoutePlan({ id: clientKey, createdAt, input: form, plan }, ownerId);
+    saveRoutePlan({ id: clientKey, createdAt, input, plan }, ownerId);
     try {
       if (ownerId && accessToken) {
         await upsertUserTrip(ownerId, {
@@ -121,7 +131,7 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
           destination: plan.routes.map((route) => route.country).join(" · ").slice(0, 160),
           mobileKind: "route_plan",
           clientKey,
-          tripData: { input: form, plan, source, saved_at: createdAt },
+          tripData: { input, plan, source, saved_at: createdAt },
         }, accessToken);
       }
       setSavedKey(clientKey);
@@ -164,17 +174,18 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
             label="Çıkış noktası"
             placeholder={form.origin ? `${form.origin} (değiştirmek için yaz)` : "Şehir veya havalimanı yaz"}
             value={originAirport}
+            required
             onChange={(airport) => {
               setOriginAirport(airport);
-              if (airport) setForm({ ...form, origin: airport.city || airport.name });
+              setForm({ ...form, origin: airport ? airport.city || airport.name : "" });
             }}
           />
-          {!originAirport && <p className="planner-hint">Şu anki çıkış noktan: <strong>{form.origin}</strong></p>}
+          {!originAirport && <p className="planner-hint">Rota önerebilmemiz için çıkış şehrini veya havalimanını seç.</p>}
           <div className="form-grid two stack-narrow">
             <label>Süre<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option>2–3 gün</option><option>4–6 gün</option><option>7–10 gün</option><option>10+ gün</option></select></label>
             <label>Dönem<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month) => <option key={month}>{month}</option>)}</select></label>
           </div>
-          <button className="primary-wide" onClick={() => setStep(1)}><Icon name="chevron" size={17} /> Devam et</button>
+          <button className="primary-wide" disabled={!form.origin} onClick={() => setStep(1)}><Icon name="chevron" size={17} /> Devam et</button>
         </div>}
 
         {step === 1 && <div className="planner-step">
@@ -206,8 +217,8 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, ownerId, accessT
 
       {plan && <section className="plan-results">
         <div className="results-heading">
-          <div><span>{source === "surprise" ? "SÜRPRİZ ROTA" : "SANA ÖZEL ÖNERİLER"}</span><h2>Senin için seçtiklerimiz</h2></div>
-          <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, form) ? "check" : "bookmark"} size={17} />} {saveBusy ? "Kaydediliyor" : savedKey === planClientKey(plan, form) ? "Kaydedildi" : "Kaydet"}</button>
+          <div><span>{source === "surprise" ? "SÜRPRİZ ROTA" : source === "explore" ? "SEÇTİĞİN ROTA" : "SANA ÖZEL ÖNERİLER"}</span><h2>{source === "explore" ? "Planlamaya hazır" : "Senin için seçtiklerimiz"}</h2></div>
+          <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, planInput) ? "check" : "bookmark"} size={17} />} {saveBusy ? "Kaydediliyor" : savedKey === planClientKey(plan, planInput) ? "Kaydedildi" : "Kaydet"}</button>
         </div>
         <p className="plan-summary">{plan.summary}</p>
         <div className="route-result-list">

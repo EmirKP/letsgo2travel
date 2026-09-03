@@ -1,10 +1,14 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const mobileDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(mobileDir, "..");
+const releaseManifest = JSON.parse(
+  readFileSync(path.join(rootDir, "release-manifest.json"), "utf8"),
+) as { appVersion: string; buildNumber: number };
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, rootDir, "");
@@ -16,7 +20,19 @@ export default defineConfig(({ mode }) => {
   return {
     base: "./",
     envDir: rootDir,
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: "letsgo2travel-release-manifest",
+        generateBundle() {
+          this.emitFile({
+            type: "asset",
+            fileName: "release.json",
+            source: `${JSON.stringify(releaseManifest)}\n`,
+          });
+        },
+      },
+    ],
     define: {
       __L2T_CONFIG__: JSON.stringify({
         apiBaseUrl,
@@ -25,8 +41,8 @@ export default defineConfig(({ mode }) => {
           env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
         supportEmail:
           env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
-        appVersion: env.VITE_APP_VERSION || "1.4.0",
-        buildNumber: env.VITE_BUILD_NUMBER || "11",
+        appVersion: releaseManifest.appVersion,
+        buildNumber: String(releaseManifest.buildNumber),
         appleAuthEnabled: (env.VITE_APPLE_AUTH_ENABLED || "").trim().toLowerCase() !== "false",
       }),
     },
