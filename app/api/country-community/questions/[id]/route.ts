@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { serializeAnswer, serializeQuestionDetail } from "@/lib/community/serializers";
+import { countryCodeFromForumSlug } from "@/lib/community/forum-sync";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +27,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { data: question, error } = await supabase
-    .from("country_questions")
-    .select("id,user_id,country_code,title,body,category,created_at,status")
+    .from("forum_topics")
+    .select("id,country_slug,title,content,category,author_name,created_at,status,is_paywalled")
     .eq("id", questionId)
-    .eq("status", "visible")
+    .eq("status", "published")
     .maybeSingle();
 
   if (error) {
@@ -38,31 +39,36 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
   if (!question) return NextResponse.json({ error: "Soru bulunamadı." }, { status: 404 });
 
+  const isPaywalled = Boolean(question.is_paywalled)
+    || String(question.category || "").toLocaleLowerCase("tr-TR").includes("vize");
   const { data: answers, error: answersError } = await supabase
-    .from("country_answers")
-    .select("id,user_id,body,created_at")
-    .eq("question_id", questionId)
-    .eq("status", "visible")
+    .from("forum_replies")
+    .select("id,author_name,content,created_at")
+    .eq("topic_id", questionId)
+    .eq("status", "published")
     .order("created_at", { ascending: true })
-    .limit(100);
+    .order("id", { ascending: true })
+    .limit(isPaywalled ? 2 : 100);
   if (answersError) {
     console.error("country_community_cevap_hatasi", { code: (answersError as { code?: string }).code || "unknown" });
     return NextResponse.json({ error: "Cevaplar yüklenemedi." }, { status: 500 });
   }
 
-  const userIds = Array.from(new Set([
-    question.user_id,
-    ...(answers || []).map((answer) => answer.user_id),
-  ].filter(Boolean)));
-  const { data: profiles } = userIds.length
-    ? await supabase.from("profiles").select("id,username").in("id", userIds)
-    : { data: [] as Array<{ id: string; username: string | null }> };
-  const usernames = new Map((profiles || []).map((item) => [item.id, item.username]));
-
   const data = serializeQuestionDetail(
-    question,
-    usernames.get(question.user_id),
-    (answers || []).map((answer) => serializeAnswer(answer, usernames.get(answer.user_id))),
+    {
+      id: question.id,
+      country_code: countryCodeFromForumSlug(question.country_slug),
+      title: question.title,
+      body: question.content,
+      category: question.category,
+      created_at: question.created_at,
+    },
+    question.author_name,
+    (answers || []).map((answer) => serializeAnswer({
+      id: answer.id,
+      body: answer.content,
+      created_at: answer.created_at,
+    }, answer.author_name)),
   );
 
   return NextResponse.json({ data }, { headers: { "Cache-Control": "no-store" } });

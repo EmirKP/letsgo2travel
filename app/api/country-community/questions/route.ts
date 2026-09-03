@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { moderateUserText } from "@/lib/community/moderation";
+import {
+  createForumTopicSlug,
+  forumCategoryFromCommunityCategory,
+  forumCountrySlugFromCode,
+  forumStatusFromModeration,
+} from "@/lib/community/forum-sync";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export async function POST(request: Request) {
@@ -24,22 +31,32 @@ export async function POST(request: Request) {
     }
 
     const moderation = moderateUserText(title + " " + body);
+    const id = randomUUID();
+    const authorName = String(
+      user.user_metadata?.full_name
+      || user.user_metadata?.username
+      || user.email?.split("@")[0]
+      || "Gezgin",
+    ).replace(/\s+/g, " ").trim().slice(0, 80);
 
-    const { data, error } = await supabase.from('country_questions').insert({
-      user_id: user.id,
-      country_code: countryCode,
+    const { error } = await supabase.from("forum_topics").insert({
+      id,
+      slug: createForumTopicSlug(title, id),
       title,
-      body,
-      category,
-      status: moderation.action
-    }).select();
+      content: body,
+      category: forumCategoryFromCommunityCategory(category),
+      country_slug: forumCountrySlugFromCode(countryCode),
+      author_id: user.id,
+      author_name: authorName,
+      status: forumStatusFromModeration(moderation.action),
+    });
 
     if (error) {
       console.error(error);
       return NextResponse.json({ error: "Soru kaydedilemedi" }, { status: 500 });
     }
 
-    return NextResponse.json({ data: data[0], moderation });
+    return NextResponse.json({ data: { id }, moderation });
   } catch {
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }

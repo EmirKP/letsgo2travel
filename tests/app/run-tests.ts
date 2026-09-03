@@ -9,6 +9,14 @@ import assert from "node:assert";
 import { readFileSync, readdirSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
+import {
+  countryCodeFromForumSlug,
+  createForumTopicSlug,
+  forumCategoryFromCommunityCategory,
+  forumCountrySlugFromCode,
+  forumStatusFromModeration,
+  GENERAL_FORUM_COUNTRY_CODE,
+} from "../../lib/community/forum-sync";
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
 import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
 import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
@@ -341,6 +349,39 @@ test("forum: yanıtlar user_id/e-posta/gizli profil alanı içermez", () => {
   assert.equal(detail.answers[0].username, "anonim_gezgin");
   assert.equal(summary.answerCount, 3);
   assert.equal(detail.answers.length, 1);
+});
+
+test("forum senkronu: web ülke slug'ı mobil ISO koduna çift yönlü çevrilir", () => {
+  assert.equal(countryCodeFromForumSlug("almanya"), "DE");
+  assert.equal(countryCodeFromForumSlug("bae"), "AE", "geçmiş kısa web slug'ı korunmalı");
+  assert.equal(countryCodeFromForumSlug(null), GENERAL_FORUM_COUNTRY_CODE);
+  assert.equal(forumCountrySlugFromCode("DE"), "almanya");
+  assert.equal(forumCountrySlugFromCode(GENERAL_FORUM_COUNTRY_CODE), null);
+});
+
+test("forum senkronu: mobil kategori ve moderasyon web sözleşmesine çevrilir", () => {
+  assert.equal(forumCategoryFromCommunityCategory("general"), "Ülke Bazlı Sorunlar");
+  assert.equal(forumCategoryFromCommunityCategory("visa"), "Vize & Konsolosluk");
+  assert.equal(forumStatusFromModeration("visible"), "published");
+  assert.equal(forumStatusFromModeration("pending_review"), "pending");
+  assert.equal(
+    createForumTopicSlug("Almanya girişinde dönüş bileti?", "AABBCCDD-1122-4333-8444-556677889900"),
+    "almanya-girisinde-donus-bileti-aabbccdd11",
+  );
+});
+
+test("forum senkronu: mobil API uçları yalnız ortak web forum tablolarını kullanır", () => {
+  const routeFiles = [
+    "app/api/country-community/feed/route.ts",
+    "app/api/country-community/questions/route.ts",
+    "app/api/country-community/questions/[id]/route.ts",
+    "app/api/country-community/answers/route.ts",
+  ];
+  const source = routeFiles.map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.ok(source.includes('.from("forum_topics")'), "ortak konu tablosu kullanılmalı");
+  assert.ok(source.includes('.from("forum_replies")'), "ortak cevap tablosu kullanılmalı");
+  assert.ok(!/\.from\(["']country_questions["']\)/.test(source), "eski mobil konu tablosu kullanılmamalı");
+  assert.ok(!/\.from\(["']country_answers["']\)/.test(source), "eski mobil cevap tablosu kullanılmamalı");
 });
 
 test("forum SQL: temiz projede akış ve cevap tablolarını güvenli biçimde kurar", () => {

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { moderateUserText } from "@/lib/community/moderation";
 import { getCountryPermission } from "@/lib/community/permissions";
+import {
+  countryCodeFromForumSlug,
+  forumStatusFromModeration,
+  GENERAL_FORUM_COUNTRY_CODE,
+} from "@/lib/community/forum-sync";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
 export async function POST(request: Request) {
@@ -20,30 +25,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Ülke, soru veya cevap geçersiz." }, { status: 400 });
     }
 
-    // Permission check
-    const perms = await getCountryPermission(supabase, user.id, countryCode);
-    if (!perms.canAnswer) {
-      return NextResponse.json({ error: "Bu ülke için cevap yazma yetkiniz yok (Doğrulama gerekli)." }, { status: 403 });
-    }
-
     const { data: question, error: questionError } = await supabase
-      .from("country_questions")
-      .select("id,country_code,status")
+      .from("forum_topics")
+      .select("id,country_slug,status")
       .eq("id", questionId)
       .maybeSingle();
-    if (questionError || !question || question.country_code !== countryCode || question.status !== "visible") {
+    const questionCountryCode = question ? countryCodeFromForumSlug(question.country_slug) : "";
+    if (questionError || !question || questionCountryCode !== countryCode || question.status !== "published") {
       return NextResponse.json({ error: "Yanıtlanabilir soru bulunamadı." }, { status: 404 });
     }
 
-    const moderation = moderateUserText(body);
+    // Ülke deneyimi isteyen konularda Belgeli Gezgin kuralı korunur. Genel web
+    // konularına ise webde olduğu gibi giriş yapan herkes cevap verebilir.
+    if (questionCountryCode !== GENERAL_FORUM_COUNTRY_CODE) {
+      const perms = await getCountryPermission(supabase, user.id, questionCountryCode);
+      if (!perms.canAnswer) {
+        return NextResponse.json({ error: "Bu ülke için cevap yazma yetkiniz yok (Doğrulama gerekli)." }, { status: 403 });
+      }
+    }
 
-    const { data, error } = await supabase.from('country_answers').insert({
-      question_id: questionId,
+    const moderation = moderateUserText(body);
+    const authorName = String(
+      user.user_metadata?.full_name
+      || user.user_metadata?.username
+      || user.email?.split("@")[0]
+      || "Gezgin",
+    ).replace(/\s+/g, " ").trim().slice(0, 80);
+
+    const { data, error } = await supabase.from("forum_replies").insert({
+      topic_id: questionId,
       user_id: user.id,
-      country_code: countryCode,
-      body,
-      status: moderation.action
-    }).select();
+      author_name: authorName,
+      content: body,
+      status: forumStatusFromModeration(moderation.action),
+    }).select("id");
 
     if (error) {
       return NextResponse.json({ error: "Cevap kaydedilemedi" }, { status: 500 });
