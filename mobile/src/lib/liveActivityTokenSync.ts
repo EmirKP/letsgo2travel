@@ -6,8 +6,8 @@
 //   temizler ve native tamponu ack'ler; 503 (migration bekliyor) dahil
 //   başarısız kayıt ACK EDİLMEZ — bekler, sonra yeniden denenir.
 // - onLogin(): HER accessToken boş → dolu geçişinde çağrılır; YENİ oturum
-//   kuşağı (epoch) açar ve native'deki en son push-to-start tokenını
-//   GÜNCEL kullanıcı adına yeniden kaydeder.
+//   kuşağı (epoch) + kalıcı monoton generation açar. Önce sunucuda bu
+//   oturumu etkinleştirir, sonra native'deki tokenları kaydeder.
 // - onLogout(): kuyruğu temizler ve EPOCH'U İLERLETİR.
 //
 // ESKİ HESABIN GECİKMİŞ İSTEĞİ (v8): her gönderim, başladığı andaki yerel
@@ -17,10 +17,10 @@
 // Ayrıca aynı anahtar için eşzamanlı gönderimler in-flight dedup ile
 // TEKİLLENİR (retained event + getBufferedTokens aynı kaydı iki paralel
 // POST'a çeviremez). Yalnız istemci yeterli olmadığından sunucu tarafında
-// da oturum-kuşağı fencing'i vardır: her login'e istemcinin ürettiği bir
-// sessionEpochId (uuid) eşlik eder, logout bu kuşağı sunucuda BARLAR ve
-// bar'lı kuşakla gelen kayıt isteği sunucuda 409 ile reddedilir — istek
-// geliş SIRASINDAN bağımsız.
+// da generation fencing'i vardır: her login kalıcı sayacı artırır; sunucu
+// yalnız kurulumun güncel generation+epoch+user üçlüsünü kabul eder.
+// Logout DELETE'i hiç ulaşmasa dahi sonraki login daha yüksek generation
+// ile eski hesabın gecikmiş yazımlarını geçersiz kılar.
 
 export type SyncTokenEntry = {
   tokenType: "push_to_start" | "activity_update";
@@ -35,7 +35,10 @@ export type TokenSyncDeps = {
   getInstallationId: () => string;
   /** Login başına istemci tarafında üretilen oturum-kuşağı kimliği (uuid). */
   makeEpochId: () => string;
-  send: (entry: SyncTokenEntry, accessToken: string, installationId: string, sessionEpochId: string) => Promise<SyncSendResult>;
+  /** Kurulumda kalıcı olarak artırılan login generation değeri. */
+  nextGeneration: () => number;
+  beginSession: (accessToken: string, installationId: string, sessionEpochId: string, generation: number) => Promise<SyncSendResult>;
+  send: (entry: SyncTokenEntry, accessToken: string, installationId: string, sessionEpochId: string, generation: number) => Promise<SyncSendResult>;
   ack: (entry: SyncTokenEntry) => Promise<void>;
   getLatestPushToStartToken: () => Promise<string>;
 };
@@ -48,6 +51,7 @@ export type TokenSyncEngine = {
   pendingCount(): number;
   /** Mevcut oturum-kuşağı kimliği (logout DELETE isteğine eklenir). */
   sessionEpochId(): string;
+  sessionGeneration(): number;
 };
 
 function keyOf(entry: SyncTokenEntry) {
@@ -61,21 +65,60 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
   let epochNumber = 0;
   // Sunucu fencing'i için login başına üretilen kuşak kimliği.
   let currentEpochId = "";
+  let currentGeneration = 0;
+  let sessionReady = false;
+  let sessionRejected = false;
+  let sessionInFlight: Promise<SyncSendResult> | null = null;
+
+  async function ensureSession(): Promise<boolean> {
+    const accessToken = deps.getAccessToken();
+    const installationId = deps.getInstallationId();
+    if (!accessToken || !installationId || !currentEpochId || currentGeneration < 1 || sessionRejected) return false;
+    if (sessionReady) return true;
+    const sendEpochNumber = epochNumber;
+    const sendEpochId = currentEpochId;
+    const sendGeneration = currentGeneration;
+    if (!sessionInFlight) {
+      sessionInFlight = deps.beginSession(accessToken, installationId, sendEpochId, sendGeneration);
+    }
+    const ownPromise = sessionInFlight;
+    let result: SyncSendResult;
+    try {
+      result = await ownPromise;
+    } catch {
+      result = { ok: false, status: 0 };
+    }
+    if (sessionInFlight === ownPromise) sessionInFlight = null;
+    if (sendEpochNumber !== epochNumber || sendEpochId !== currentEpochId || sendGeneration !== currentGeneration) return false;
+    if (result.ok) {
+      sessionReady = true;
+      return true;
+    }
+    if (result.status === 409) sessionRejected = true;
+    return false;
+  }
 
   async function trySend(entry: SyncTokenEntry, key: string) {
-    const accessToken = deps.getAccessToken();
-    if (!accessToken) return; // Giriş sonrası onLogin/flush yeniden dener.
-    const installationId = deps.getInstallationId();
-    if (!installationId) return;
     // IN-FLIGHT DEDUP: aynı anahtar için ikinci paralel POST açılmaz.
     if (inFlight.has(key)) return;
     inFlight.add(key);
+    if (!await ensureSession()) {
+      inFlight.delete(key);
+      return;
+    }
+    const accessToken = deps.getAccessToken();
+    const installationId = deps.getInstallationId();
+    if (!accessToken || !installationId) {
+      inFlight.delete(key);
+      return;
+    }
     // Gönderim, BAŞLADIĞI andaki kuşağa bağlanır.
     const sendEpochNumber = epochNumber;
     const sendEpochId = currentEpochId;
+    const sendGeneration = currentGeneration;
     let result: SyncSendResult;
     try {
-      result = await deps.send(entry, accessToken, installationId, sendEpochId);
+      result = await deps.send(entry, accessToken, installationId, sendEpochId, sendGeneration);
     } catch {
       inFlight.delete(key);
       return; // Ağ hatası: bekler, ack edilmez.
@@ -84,7 +127,7 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
 
     // ESKİ KUŞAĞIN GECİKMİŞ SONUCU TAMAMEN ATILIR: yeni pending silinmez,
     // native tampon ACK edilmez, yeni kullanıcının retry'ı engellenmez.
-    if (sendEpochNumber !== epochNumber) return;
+    if (sendEpochNumber !== epochNumber || sendGeneration !== currentGeneration) return;
 
     if (result.ok) {
       pending.delete(key);
@@ -117,13 +160,21 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
       void trySend(entry, key);
     },
     flush() {
-      for (const [key, entry] of pending) void trySend(entry, key);
+      void ensureSession().then((ready) => {
+        if (!ready) return;
+        for (const [key, entry] of pending) void trySend(entry, key);
+      });
     },
     async onLogin() {
       // YENİ oturum kuşağı: yerel sayaç ilerler, sunucu kuşak kimliği
       // yenilenir — önceki oturumun uçuştaki sonuçları artık ATILIR.
       epochNumber += 1;
       currentEpochId = deps.makeEpochId();
+      currentGeneration = deps.nextGeneration();
+      sessionReady = false;
+      sessionRejected = false;
+      sessionInFlight = null;
+      const ready = await ensureSession();
       try {
         const latest = await deps.getLatestPushToStartToken();
         if (latest && latest.length >= 16 && latest.length <= 512) {
@@ -133,19 +184,29 @@ export function createTokenSyncEngine(deps: TokenSyncDeps): TokenSyncEngine {
       } catch {
         // Native yüzey yoksa yalnız bekleyenler gönderilir.
       }
+      if (!ready) return;
       for (const [key, entry] of pending) await trySend(entry, key);
     },
     onLogout() {
       // Epoch İLERLETİLİR: uçuştaki eski isteklerin sonuçları atılır.
       epochNumber += 1;
       currentEpochId = "";
+      currentGeneration = 0;
+      sessionReady = false;
+      sessionRejected = false;
+      sessionInFlight = null;
       pending.clear();
     },
     pendingCount() {
-      return pending.size;
+      if (sessionRejected) return 0; // bu kuşakta retry yok; sonraki login pending'i kurtarır
+      const sessionPending = currentEpochId && currentGeneration > 0 && deps.getAccessToken() && !sessionReady && !sessionRejected ? 1 : 0;
+      return pending.size + (sessionPending ? 1 : 0);
     },
     sessionEpochId() {
       return currentEpochId;
+    },
+    sessionGeneration() {
+      return currentGeneration;
     },
   };
 }

@@ -679,10 +679,9 @@ export function useAuth() {
     const accessToken = session?.access_token;
     // Çıkışta cihaz kayıtlarının kapatılması, oturum temizlenmeden ÖNCE
     // beklenir (kontrollü 4 sn timeout ile); başarısızlık çıkışı engellemez.
-    // Live Activity temizliği HESAPLAR ARASI SIZINTIYI önler: bu kurulumun
-    // push-to-start/activity-update tokenları sunucuda kapatılır (yalnız BU
-    // cihaz — iPad etkilenmez) ve cihazda çalışan aktiviteler sonlandırılır;
-    // aksi halde A çıkıp B girse bile A'nın uçuşu Ada'da başlayabilirdi.
+    // Live Activity temizliği bu kurulumu kapatır; ağ/timeout yüzünden
+    // ulaşamazsa sonraki login'in daha yüksek kalıcı generation'ı sunucuda
+    // eski hesabı geçersiz kılar. Diğer cihazlar (örn. iPad) etkilenmez.
     if (accessToken) {
       await Promise.race([
         Promise.allSettled([

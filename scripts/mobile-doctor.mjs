@@ -195,6 +195,9 @@ if (checkIos) {
   const liveActivityTokenSyncJs = await text("mobile/src/lib/liveActivityTokenSync.ts", { label: "Live Activity token sync motoru" });
   expect(liveActivityTokenSyncJs, /retryBackoffDelayMs/, "sınırlı geri çekilme hesabı motorda", "liveActivityTokenSync.ts retryBackoffDelayMs içermiyor.");
   expect(liveActivityTokenSyncJs, /sessionEpochId/, "oturum kuşağı (epoch) fencing'i motorda", "liveActivityTokenSync.ts oturum kuşağı (sessionEpochId) taşımıyor — eski hesabın gecikmiş isteği fencing'siz kalır.");
+  expect(liveActivityTokenSyncJs, /nextGeneration/, "kalıcı monoton session generation motorda", "liveActivityTokenSync.ts login generation taşımıyor.");
+  expect(liveActivityTokenSyncJs, /beginSession/, "token replay öncesi sunucu session başlangıcı", "Live Activity tokenları sunucu session generation açılmadan gönderiliyor.");
+  expect(liveActivityPushJs, /\/api\/live-activity\/session/, "Live Activity session API bağlantısı", "Mobil istemci Live Activity session başlangıç API'sini çağırmıyor.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
   expect(appDelegate, /continue userActivity/, "Universal Link yönlendirme köprüsü", "AppDelegate Universal Link yönlendirmesini desteklemiyor.");
   for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorShare", "CapacitorSplashScreen", "CapacitorStatusBar"]) {

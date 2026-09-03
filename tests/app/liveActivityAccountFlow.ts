@@ -23,7 +23,16 @@ type ServerTokenRow = {
   tokenType: "push_to_start" | "activity_update";
   token: string;
   installationId: string | null;
+  sessionEpoch: string;
+  sessionGeneration: number;
   enabled: boolean;
+};
+
+type ServerInstallationSession = {
+  userId: string;
+  epoch: string;
+  generation: number;
+  active: boolean;
 };
 
 // SQL fonksiyonlarının semantiğini uygulayan sahte sunucu.
@@ -34,7 +43,8 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
   let networkDown = false;
   const sessions = new Map<string, string>(); // accessToken -> userId
   const tripOwners = new Map<string, string>(); // tripId -> userId
-  // Kuşak barları: installationId -> barlanan epoch kümesi (logout yazar).
+  // Kalıcı güncel kurulum oturumu + ek logout barları.
+  const installationSessions = new Map<string, ServerInstallationSession>();
   const bars = new Map<string, Set<string>>();
   // Gecikmiş istek simülasyonu: armHold() sonrası GELEN kayıt isteği,
   // releaseHeld() çağrılana dek sunucuda İŞLENMEDEN bekletilir.
@@ -52,13 +62,37 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
     releaseHeld() { for (const release of held.splice(0)) release(); },
     heldCount() { return held.length; },
     registerArrivalCount() { return registerArrivals; },
+    currentSession(installationId: string) { return installationSessions.get(installationId); },
     barEpoch(installationId: string, epoch: string) {
       if (!epoch) return;
       if (!bars.has(installationId)) bars.set(installationId, new Set());
       bars.get(installationId)!.add(epoch);
     },
-    /** POST /api/live-activity/tokens eşdeğeri (v8: epoch zorunlu). */
-    async register(entry: SyncTokenEntry, accessToken: string, installationId: string, epoch: string) {
+    /** POST /api/live-activity/session: monoton generation'ı etkinleştirir. */
+    async begin(accessToken: string, installationId: string, epoch: string, generation: number) {
+      const userId = sessions.get(accessToken);
+      if (!userId) return { ok: false as const, status: 401 };
+      if (networkDown) throw new Error("network");
+      if (!migrationApplied) return { ok: false as const, status: 503 };
+      if (!epoch || generation < 1) return { ok: false as const, status: 400 };
+      if (bars.get(installationId)?.has(epoch)) return { ok: false as const, status: 409 };
+      const current = installationSessions.get(installationId);
+      if (current && (generation < current.generation
+        || (generation === current.generation && (current.userId !== userId || current.epoch !== epoch)))) {
+        return { ok: false as const, status: 409 };
+      }
+      if (!current || generation > current.generation) {
+        for (const row of rows) {
+          if (row.installationId === installationId) row.enabled = false;
+        }
+        installationSessions.set(installationId, { userId, epoch, generation, active: true });
+      } else {
+        current.active = true;
+      }
+      return { ok: true as const };
+    },
+    /** POST /api/live-activity/tokens; iki tür de atomik RPC semantiğinde. */
+    async register(entry: SyncTokenEntry, accessToken: string, installationId: string, epoch: string, generation: number) {
       registerArrivals += 1;
       if (holdArm) {
         holdArm = false;
@@ -68,10 +102,12 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
       const userId = sessions.get(accessToken);
       if (!userId) return { ok: false as const, status: 401 };
       if (networkDown) throw new Error("network");
-      // v8: oturum kuşağı ZORUNLU; barlı kuşak — geliş sırasından bağımsız —
-      // 409 ile reddedilir (register RPC'de LA001, activity_update yolunda
-      // bar tablosu kontrolü).
-      if (!epoch) return { ok: false as const, status: 400 };
+      if (!epoch || generation < 1) return { ok: false as const, status: 400 };
+      const current = installationSessions.get(installationId);
+      if (!current || !current.active || current.userId !== userId
+        || current.epoch !== epoch || current.generation !== generation) {
+        return { ok: false as const, status: 409 };
+      }
       if (bars.get(installationId)?.has(epoch)) return { ok: false as const, status: 409 };
       // activity_update: trip sahipliği doğrulanır; per-user upsert.
       if (entry.tokenType === "activity_update") {
@@ -80,10 +116,13 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
         if (!migrationApplied) return { ok: false as const, status: 503 };
         let own = rows.find((row) => row.userId === userId && row.tokenType === "activity_update" && row.token === entry.token);
         if (!own) {
-          own = { id: `srv-${nextId++}`, userId, tokenType: "activity_update", token: entry.token, installationId: installationId || null, enabled: true };
+          own = { id: `srv-${nextId++}`, userId, tokenType: "activity_update", token: entry.token, installationId: installationId || null, sessionEpoch: epoch, sessionGeneration: generation, enabled: true };
           rows.push(own);
         } else {
           own.enabled = true;
+          own.installationId = installationId;
+          own.sessionEpoch = epoch;
+          own.sessionGeneration = generation;
         }
         return { ok: true as const };
       }
@@ -97,11 +136,13 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
       }
       let own = rows.find((row) => row.userId === userId && row.tokenType === "push_to_start" && row.token === entry.token);
       if (!own) {
-        own = { id: `srv-${nextId++}`, userId, tokenType: "push_to_start", token: entry.token, installationId, enabled: true };
+        own = { id: `srv-${nextId++}`, userId, tokenType: "push_to_start", token: entry.token, installationId, sessionEpoch: epoch, sessionGeneration: generation, enabled: true };
         rows.push(own);
       } else {
         own.enabled = true;
         own.installationId = installationId;
+        own.sessionEpoch = epoch;
+        own.sessionGeneration = generation;
       }
       for (const row of rows) {
         if (row.userId === userId && row.tokenType === "push_to_start"
@@ -111,13 +152,18 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
     },
     /** DELETE /api/live-activity/tokens (çıkış) eşdeğeri: kurulum tokenları
         kapatılır ve verilen oturum kuşağı BARLANIR (v8). */
-    deactivate(userId: string, installationId: string, epoch?: string) {
+    deactivate(userId: string, installationId: string, epoch: string, generation: number) {
       if (epoch) {
         if (!bars.has(installationId)) bars.set(installationId, new Set());
         bars.get(installationId)!.add(epoch);
       }
       for (const row of rows) {
-        if (row.userId === userId && row.installationId === installationId) row.enabled = false;
+        if (row.userId === userId && row.installationId === installationId
+          && row.sessionEpoch === epoch && row.sessionGeneration === generation) row.enabled = false;
+      }
+      const current = installationSessions.get(installationId);
+      if (current && current.userId === userId && current.epoch === epoch && current.generation === generation) {
+        current.active = false;
       }
     },
     enabledRows() { return rows.filter((row) => row.enabled); },
@@ -128,7 +174,13 @@ function createFakeServer(options: { migrationApplied?: boolean } = {}) {
 // uygulama yeniden başlatma senaryosunda UserDefaults'tan geri yüklenen
 // "en son push-to-start token" (JS durumu sıfırlanır, native kalıcıdır).
 let deviceContextSeq = 0; // gerçek uygulamada createId() uuid'leri bağlamlar arası da TEKİLDİR
-function createDevice(server: ReturnType<typeof createFakeServer>, installationId: string, initialLatest = "") {
+type GenerationStore = { value: number };
+function createDevice(
+  server: ReturnType<typeof createFakeServer>,
+  installationId: string,
+  initialLatest = "",
+  generationStore: GenerationStore = { value: 0 },
+) {
   let accessToken = "";
   let latestPushToStartToken = initialLatest;
   const contextId = ++deviceContextSeq;
@@ -143,7 +195,9 @@ function createDevice(server: ReturnType<typeof createFakeServer>, installationI
     // Gerçekte createId() (uuid v4); testte deterministik ve TEKİL —
     // bağlam (restart) + login sayacıyla uuid tekilliği modellenir.
     makeEpochId: () => `epoch:${installationId}:${contextId}:${++epochCounter}`,
-    send: (entry, token, installation, epochId) => server.register(entry, token, installation, epochId),
+    nextGeneration: () => ++generationStore.value,
+    beginSession: (token, installation, epochId, generation) => server.begin(token, installation, epochId, generation),
+    send: (entry, token, installation, epochId, generation) => server.register(entry, token, installation, epochId, generation),
     ack: async (entry) => {
       // UserDefaults kaydı YALNIZ sunucu başarısında ack ile silinir.
       nativeBuffer.delete(entry.token);
@@ -180,16 +234,18 @@ function createDevice(server: ReturnType<typeof createFakeServer>, installationI
       accessToken = token;
       return engine.onLogin();
     },
-    logout(userId: string) {
+    logout(userId: string, deliverToServer = true) {
       // Uygulamadaki sıra (disableLiveActivityTokensForLogout): önce mevcut
       // kuşak OKUNUR, motor kuyruğu temizlenir + epoch ilerler, sonra DELETE
       // sunucuda kurulum tokenlarını kapatır ve kuşağı BARLAR; latest kalır.
       const epoch = engine.sessionEpochId();
+      const generation = engine.sessionGeneration();
       engine.onLogout();
-      server.deactivate(userId, installationId, epoch);
+      if (deliverToServer) server.deactivate(userId, installationId, epoch, generation);
       accessToken = "";
     },
     latest: () => latestPushToStartToken,
+    generationStore,
   };
 }
 
@@ -316,7 +372,7 @@ export function registerLiveActivityAccountFlowTests(test: (name: string, fn: ()
     // Uygulama yeniden başlar: YENİ JS bağlamı (in-flight seti ve epoch
     // sayacı SIFIR — istemci fencing'i artık koruyamaz), native latest
     // UserDefaults'tan geri gelir. TEK koruma sunucu barıdır.
-    const after = createDevice(server, INSTALL_IPHONE, before.latest());
+    const after = createDevice(server, INSTALL_IPHONE, before.latest(), before.generationStore);
     await after.login("bearer-B");
     await settle();
     let owners = server.rows.filter((row) => row.token === IPHONE_TOKEN && row.enabled);
@@ -352,7 +408,119 @@ export function registerLiveActivityAccountFlowTests(test: (name: string, fn: ()
     assert.equal(calls[0].token, IPHONE_TOKEN, "telefon tokenına yalnız B'nin uçuşu gider");
   });
 
-  test("v8: sunucu 409 (barlı kuşak) pending'i düşürür ama ACK ETMEZ — token native tamponda kalır ve SONRAKİ login yeni kuşakla kurtarır", async () => {
+  test("KRİTİK generation: logout DELETE tamamen KAYBOLSA bile B login sonrası gecikmiş A isteği sahipliği geri alamaz", async () => {
+    const server = createFakeServer();
+    server.sessions.set("bearer-A", "user-A");
+    server.sessions.set("bearer-B", "user-B");
+    const iphone = createDevice(server, INSTALL_IPHONE);
+
+    await iphone.login("bearer-A"); // generation 1 sunucuda güncel
+    server.armHold();
+    iphone.receivePushToStartToken(IPHONE_TOKEN);
+    await settle();
+    assert.equal(server.heldCount(), 1, "A token isteği gecikmeli");
+
+    iphone.logout("user-A", false); // ağ hatası/4 sn timeout: DELETE ve bar YOK
+    await iphone.login("bearer-B"); // generation 2, logout'tan bağımsız fence
+    assert.equal(server.currentSession(INSTALL_IPHONE)?.userId, "user-B");
+    assert.equal(server.currentSession(INSTALL_IPHONE)?.generation, 2);
+
+    server.releaseHeld(); // A generation 1 artık stale → 409
+    await settle();
+    assert.equal(server.enabledRows().length, 0, "gecikmiş A yazımı oluşmamalı");
+    assert.equal(iphone.ackLog.length, 0, "stale A sonucu ACK üretmemeli");
+    iphone.engine.flush();
+    await settle();
+    const owners = server.enabledRows().filter((row) => row.token === IPHONE_TOKEN);
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].userId, "user-B", "yalnız B etkin sahip");
+  });
+
+  test("KRİTİK generation + restart: logout barı yok, JS sıfırlandı, yine de geç A isteği B'yi ezemez", async () => {
+    const server = createFakeServer();
+    server.sessions.set("bearer-A", "user-A");
+    server.sessions.set("bearer-B", "user-B");
+    const generationStore = { value: 0 };
+    const before = createDevice(server, INSTALL_IPHONE, "", generationStore);
+
+    await before.login("bearer-A");
+    server.armHold();
+    before.receivePushToStartToken(IPHONE_TOKEN);
+    await settle();
+    before.logout("user-A", false); // DELETE sunucuya hiç ulaşmadı
+
+    const after = createDevice(server, INSTALL_IPHONE, before.latest(), generationStore);
+    await after.login("bearer-B"); // kalıcı sayaç 2; token replay edilir
+    await settle();
+    assert.equal(server.enabledRows().find((row) => row.token === IPHONE_TOKEN)?.userId, "user-B");
+
+    server.releaseHeld();
+    await settle();
+    const owners = server.enabledRows().filter((row) => row.token === IPHONE_TOKEN);
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].userId, "user-B", "restart sonrası da sahip B kalmalı");
+    assert.equal(before.ackLog.length, 0, "eski bağlam stale sonucu ACK'lemez");
+  });
+
+  test("KRİTİK gecikmiş logout: aynı kullanıcı yeniden girdiyse eski generation yeni tokenı kapatamaz", async () => {
+    const server = createFakeServer();
+    server.sessions.set("bearer-A", "user-A");
+    const iphone = createDevice(server, INSTALL_IPHONE);
+
+    await iphone.login("bearer-A");
+    iphone.receivePushToStartToken(IPHONE_TOKEN);
+    await settle();
+    const oldEpoch = iphone.engine.sessionEpochId();
+    const oldGeneration = iphone.engine.sessionGeneration();
+
+    iphone.logout("user-A", false); // DELETE ağda gecikti
+    await iphone.login("bearer-A"); // aynı hesap, generation 2
+    await settle();
+    assert.equal(server.enabledRows().filter((row) => row.token === IPHONE_TOKEN).length, 1);
+
+    server.deactivate("user-A", INSTALL_IPHONE, oldEpoch, oldGeneration);
+    const active = server.enabledRows().filter((row) => row.token === IPHONE_TOKEN);
+    assert.equal(active.length, 1, "eski logout yalnız kendi epoch+generation satırını kapatmalı");
+    assert.equal(server.currentSession(INSTALL_IPHONE)?.generation, 2);
+    assert.equal(server.currentSession(INSTALL_IPHONE)?.active, true);
+  });
+
+  test("KRİTİK activity_update yarışı: logout eski kaydın atomik RPC'sinden önceyse stale token etkinleşemez", async () => {
+    const server = createFakeServer();
+    server.sessions.set("bearer-A", "user-A");
+    server.tripOwners.set("trip-A", "user-A");
+    const iphone = createDevice(server, INSTALL_IPHONE);
+    await iphone.login("bearer-A");
+
+    server.armHold();
+    iphone.engine.queue({
+      tokenType: "activity_update",
+      tripId: "trip-A",
+      token: "dd44dd44dd44dd44dd44dd44dd44dd44",
+    });
+    await settle();
+    assert.equal(server.heldCount(), 1);
+    iphone.logout("user-A"); // bar + disable atomik olarak önce tamamlanır
+    server.releaseHeld();
+    await settle();
+    assert.equal(server.enabledRows().filter((row) => row.tokenType === "activity_update").length, 0,
+      "logout sonrası gecikmiş activity_update enabled yazamamalı");
+
+    await iphone.login("bearer-A");
+    iphone.engine.queue({
+      tokenType: "activity_update",
+      tripId: "trip-A",
+      token: "ee55ee55ee55ee55ee55ee55ee55ee55",
+    });
+    await settle();
+    assert.equal(server.enabledRows().filter((row) => row.tokenType === "activity_update").length, 1,
+      "ters sırada kayıt önce tamamlanmalı");
+    iphone.logout("user-A");
+    assert.equal(server.enabledRows().filter((row) => row.tokenType === "activity_update").length, 0,
+      "ardından logout aynı kurulumun tokenını kapatmalı");
+  });
+
+  test("v9: sunucu 409 (stale generation/epoch) pending'i düşürür ama ACK ETMEZ — token sonraki login'de kurtarılır", async () => {
     const server = createFakeServer();
     server.sessions.set("bearer-A", "user-A");
     const iphone = createDevice(server, INSTALL_IPHONE);
@@ -447,7 +615,7 @@ export function registerLiveActivityAccountFlowTests(test: (name: string, fn: ()
     await settle();
     assert.equal(iphone.ackLog.length, 0, "503'te ACK EDİLMEMELİ");
     assert.equal(iphone.nativeBuffer.size, 2, "tampon korunmalı");
-    assert.equal(iphone.engine.pendingCount(), 2, "kuyrukta beklemeli");
+    assert.equal(iphone.engine.pendingCount(), 3, "iki token + başlatılamayan session beklemeli");
 
     // AĞ hatası da aynı: ack yok, tampon korunur.
     server.setMigrationApplied(true);
@@ -476,7 +644,7 @@ export function registerLiveActivityAccountFlowTests(test: (name: string, fn: ()
     await settle();
     assert.equal(iphone.ackLog.length, 0, "503'te ack EDİLMEMELİ");
     assert.equal(iphone.nativeBuffer.size, 1, "token native tamponda beklemeli");
-    assert.equal(iphone.engine.pendingCount(), 1, "kuyrukta beklemeli");
+    assert.equal(iphone.engine.pendingCount(), 2, "token + başlatılamayan session beklemeli");
     assert.equal(server.enabledRows().length, 0, "sunucuda kayıt oluşmamalı");
 
     // Migration uygulanır → flush ile retry BAŞARILI + ack.

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // lib/live-activity-tokens.ts'tedir (birim testli). Kurallar:
 // - Yalnız giriş yapmış kullanıcı (Bearer) KENDİ tokenlarını yönetebilir.
 // - Token değeri hiçbir yanıt/log/hata mesajına yazılmaz.
-// - POST: kayıt + push-to-start rotasyonu + hesaplar-arası tekil sahiplik.
+// - POST: iki token türünde de güncel generation doğrulaması + atomik kayıt.
 // - DELETE: çıkışta BU kurulumun (fiziksel cihaz) tüm LA tokenlarını
 //   kapatır; kullanıcının diğer cihazları (iPad) ETKİLENMEZ. Mobil bunu
 //   oturum silinmeden ÖNCE çağırır — hesaplar arası sızıntı koruması.
@@ -42,7 +42,13 @@ export async function DELETE(request: Request) {
   const user = await requireUser(request, supabase);
   if (!user) return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
 
-  const body = await request.json().catch(() => null) as { installationId?: unknown; sessionEpoch?: unknown } | null;
-  const result = await deactivateLiveActivityInstallation(supabase, user.id, body?.installationId, body?.sessionEpoch);
+  const body = await request.json().catch(() => null) as { installationId?: unknown; sessionEpoch?: unknown; generation?: unknown } | null;
+  const result = await deactivateLiveActivityInstallation(
+    supabase,
+    user.id,
+    body?.installationId,
+    body?.sessionEpoch,
+    body?.generation,
+  );
   return NextResponse.json(result.body, { status: result.status });
 }

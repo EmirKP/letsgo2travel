@@ -19,6 +19,7 @@ writeFileSync(
 writeFileSync(path.join(mirrorDir, "deepLink.ts"), readFileSync("mobile/src/lib/deepLink.ts", "utf8"));
 writeFileSync(path.join(mirrorDir, "id.ts"), readFileSync("mobile/src/lib/id.ts", "utf8"));
 writeFileSync(path.join(mirrorDir, "liveActivityTokenSync.ts"), readFileSync("mobile/src/lib/liveActivityTokenSync.ts", "utf8"));
+writeFileSync(path.join(mirrorDir, "liveActivityGeneration.ts"), readFileSync("mobile/src/lib/liveActivityGeneration.ts", "utf8"));
 
 const tsNodeCli = path.join(process.cwd(), "node_modules", "ts-node", "dist", "bin.js");
 const compilerOptions = {

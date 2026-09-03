@@ -1,42 +1,34 @@
 -- =====================================================================
--- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v8) — HAZIRLANDI, UYGULANMADI
--- ---------------------------------------------------------------------
--- Amaç: uygulama KAPALIYKEN Dynamic Island / kilit ekranı aktivitesinin
--- APNs "liveactivity" push'u ile başlatılıp bitirilebilmesi (iOS 17.2+
--- push-to-start; iOS 16.2-17.1 yalnız uygulama içi başlatma + yerel
--- bildirim fallback'i).
---
--- Teslim modeli: teslim durumu TRIP DEĞİL, trip + token(cihaz) + event
--- bazında tutulur (live_activity_deliveries). Cron atomik claim ile
--- çalışır: lease (claimed_until), fencing (claim_token uuid), attempt_count
--- ve next_retry_at. DÜRÜST GARANTİ: "aynı anda tek gönderici + en az bir
--- kez" — APNs başarısından sonra settle yazılamadan çökülürse lease bitince
--- yeniden gönderim mümkündür (apns-collapse-id cihazda tekilleştirir).
--- Bir token'ın başarısı diğerinin yeniden denemesini engellemez.
---
--- Güvenlik modeli push_devices ile aynıdır: RLS default-deny, anon/
--- authenticated için hiçbir policy YOK; tüm erişim service-role üzerinden
--- sunucu katmanında, kullanıcı sahipliği Bearer oturumuyla doğrulanarak
--- yapılır. Token değerleri istemciye/loga geri yazılmaz.
+-- LIVE ACTIVITY PUSH ALTYAPISI (v9) — HAZIRLANDI, UYGULANMADI
+-- Güvenlik: service-role RPC, RLS default-deny, atomik kayıt ve kalıcı
+-- monoton kurulum generation fencing'i. Logout isteği kaybolsa bile yeni
+-- login daha yüksek generation ile eski hesabın gecikmiş yazımını keser.
+-- Teslim: trip + token + event, lease/fencing ve en az-bir-kez semantiği.
 -- =====================================================================
 begin;
+
+create table if not exists public.live_activity_installation_sessions (
+  installation_id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  session_epoch uuid not null,
+  generation bigint not null check (generation > 0),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists live_activity_installation_sessions_user_idx
+  on public.live_activity_installation_sessions (user_id);
 
 create table if not exists public.live_activity_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  -- push_to_start: cihaz başına tek genel token (iOS 17.2+).
-  -- activity_update: BAŞLAMIŞ bir aktivitenin güncelleme/bitirme tokenı
-  --   (trip_id zorunlu; kalkış sonrası "end" push'u bununla gönderilir).
   token_type text not null check (token_type in ('push_to_start', 'activity_update')),
   trip_id uuid references public.trips(id) on delete cascade,
   token text not null check (char_length(token) between 16 and 512),
-  -- Kalıcı kurulum (cihaz) kimliği: mobil istemci üretir ve her kayıtla
-  -- gönderir. Apple push-to-start tokenı zamanla DEĞİŞEBİLİR; aynı
-  -- kullanıcı + aynı kurulum için yeni token kaydolduğunda eskisi
-  -- register_live_activity_push_to_start ile ATOMİK kapatılır. Eski
-  -- istemciler (installation_id göndermeyen) NULL bırakır; NULL satırlara
-  -- rotasyon dokunmaz.
-  installation_id uuid,
+  installation_id uuid not null,
+  session_epoch uuid not null,
+  session_generation bigint not null check (session_generation > 0),
   enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -52,29 +44,18 @@ create index if not exists live_activity_tokens_trip_idx
 create index if not exists live_activity_tokens_installation_idx
   on public.live_activity_tokens (user_id, installation_id) where enabled;
 
--- DB DÜZEYİNDE KESİN GARANTİ (v6): aynı push-to-start tokenı için AYNI
--- ANDA en fazla BİR enabled sahip olabilir. Fonksiyondaki advisory lock
--- yarışları serileştirir; bu partial unique index ise garantiyi veri
--- düzeyinde MUTLAK kılar (lock atlansa bile iki enabled satır yazılamaz).
 create unique index if not exists live_activity_push_to_start_single_owner_idx
   on public.live_activity_tokens (token)
   where token_type = 'push_to_start' and enabled;
-
--- v7: kurulum başına da en fazla BİR etkin push-to-start satırı (aynı
--- installation için T1/T2 farklı tokenlar eşzamanlı kaydolsa bile iki
--- enabled satır kalamaz — fonksiyon atlansa dahi veri düzeyinde mutlak).
 create unique index if not exists live_activity_pts_single_installation_idx
   on public.live_activity_tokens (installation_id)
-  where token_type = 'push_to_start' and enabled and installation_id is not null;
+  where token_type = 'push_to_start' and enabled;
+create unique index if not exists live_activity_update_single_owner_idx
+  on public.live_activity_tokens (token)
+  where token_type = 'activity_update' and enabled;
 
--- ---------------------------------------------------------------------
--- OTURUM-KUŞAĞI BARLARI (v8): sıra bağımsız stale-write fencing.
--- Her login'de istemci yeni bir sessionEpoch (uuid) üretir ve TÜM kayıt
--- isteklerine ekler. Logout, o kuşağı BARLAR. Barlı kuşakla gelen kayıt
--- isteği — SUNUCUYA NE ZAMAN ULAŞIRSA ULAŞSIN — reddedilir: A'nın
--- logout'tan önce yola çıkmış gecikmiş POST'u, B kayıt olduktan sonra
--- gelse bile sahipliği B'den A'ya GEÇİREMEZ.
--- ---------------------------------------------------------------------
+-- Logout barları generation protokolüne ek savunmadır ve eski kuşakların
+-- açıkça sonlandırıldığını kaydeder.
 create table if not exists public.live_activity_epoch_bars (
   installation_id uuid not null,
   epoch uuid not null,
@@ -82,24 +63,73 @@ create table if not exists public.live_activity_epoch_bars (
   primary key (installation_id, epoch)
 );
 
--- ---------------------------------------------------------------------
--- Push-to-start token KAYIT + ROTASYON + TEK-HESAP garantisi (v8).
--- EŞZAMANLILIK: TEK GLOBAL registry advisory kilidi. v7'deki kurulum→
--- token kilit sırası advisory düzeyinde çelişmese de UPDATE'lerin aldığı
--- SATIR kilitleri çapraz (swap) senaryoda deadlock üretebiliyordu
--- (I1'de T1, I2'de T2 varken paralel T2→I1 ve T1→I2 kayıtları). Kayıt/
--- çıkış işlemleri nadir olduğundan registry İŞLEMLERİ GLOBAL olarak
--- serileştirilir: bu fonksiyon ve deactivate AYNI kilidi alır; iki
--- registry işlemi asla eşzamanlı satır kilidi yarışına girmez (deadlock
--- karşı-testi gerçek PostgreSQL'de swap senaryosuyla kanıtlanır).
--- Partial unique index'ler garantiyi veri düzeyinde MUTLAK kılar.
--- Yalnız service-role çağırabilir.
--- ---------------------------------------------------------------------
+-- Her login token replay'den önce bunu çağırır. Aynı generation yalnız
+-- aynı user+epoch için idempotenttir; düşük veya çakışan generation stale.
+-- Daha yüksek generation bütün eski kurulum tokenlarını atomik kapatır.
+create or replace function public.begin_live_activity_session(
+  p_user_id uuid,
+  p_installation_id uuid,
+  p_epoch uuid,
+  p_generation bigint
+) returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current public.live_activity_installation_sessions%rowtype;
+begin
+  if p_user_id is null or p_installation_id is null or p_epoch is null
+     or p_generation is null or p_generation < 1 then
+    raise exception 'invalid_session';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
+  if exists (
+    select 1 from public.live_activity_epoch_bars
+     where installation_id = p_installation_id and epoch = p_epoch
+  ) then
+    raise exception using errcode = 'LA001', message = 'stale_session_generation';
+  end if;
+  select * into v_current
+    from public.live_activity_installation_sessions
+   where installation_id = p_installation_id;
+
+  if not found then
+    insert into public.live_activity_installation_sessions
+      (installation_id, user_id, session_epoch, generation, active, updated_at)
+    values (p_installation_id, p_user_id, p_epoch, p_generation, true, now());
+  elsif p_generation < v_current.generation
+     or (p_generation = v_current.generation
+         and (p_user_id <> v_current.user_id or p_epoch <> v_current.session_epoch)) then
+    raise exception using errcode = 'LA001', message = 'stale_session_generation';
+  elsif p_generation > v_current.generation then
+    update public.live_activity_tokens
+       set enabled = false, updated_at = now()
+     where installation_id = p_installation_id and enabled;
+    update public.live_activity_installation_sessions
+       set user_id = p_user_id,
+           session_epoch = p_epoch,
+           generation = p_generation,
+           active = true,
+           updated_at = now()
+     where installation_id = p_installation_id;
+  else
+    update public.live_activity_installation_sessions
+       set active = true, updated_at = now()
+     where installation_id = p_installation_id;
+  end if;
+
+  return p_generation;
+end;
+$$;
+
 create or replace function public.register_live_activity_push_to_start(
   p_user_id uuid,
   p_installation_id uuid,
   p_token text,
-  p_epoch uuid
+  p_epoch uuid,
+  p_generation bigint
 ) returns uuid
 language plpgsql
 security definer
@@ -109,67 +139,133 @@ declare
   v_id uuid;
 begin
   if p_user_id is null or p_installation_id is null or p_epoch is null
-     or p_token is null or char_length(p_token) not between 16 and 512 then
+     or p_generation is null or p_generation < 1 or p_token is null
+     or char_length(p_token) not between 16 and 512 then
     raise exception 'invalid_registration';
   end if;
-
-  -- GLOBAL registry kilidi (register + deactivate aynı kilit sözleşmesi).
   perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
 
-  -- STALE-WRITE FENCING (v8): barlanmış kuşakla gelen kayıt — geliş
-  -- sırasından bağımsız — reddedilir (özel SQLSTATE 'LA001'; API 409'a
-  -- çevirir, istemci ACK ETMEDEN düşürür).
-  if exists (
+  if not exists (
+    select 1 from public.live_activity_installation_sessions
+     where installation_id = p_installation_id
+       and user_id = p_user_id and session_epoch = p_epoch
+       and generation = p_generation and active
+  ) or exists (
     select 1 from public.live_activity_epoch_bars
      where installation_id = p_installation_id and epoch = p_epoch
   ) then
-    raise exception using errcode = 'LA001', message = 'stale_epoch';
+    raise exception using errcode = 'LA001', message = 'stale_session_generation';
   end if;
 
-  -- 1) HESAPLAR ARASI TEK SAHİP: aynı fiziksel token diğer hesap(lar)
-  --    altında ÖNCE kapatılır (token bazlı partial unique index ihlali
-  --    hiçbir ara adımda oluşmaz).
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
-   where token_type = 'push_to_start'
-     and token = p_token
-     and user_id <> p_user_id
-     and enabled;
-
-  -- 2) ROTASYON — ENABLE'DAN ÖNCE (v7): bu kurulumun ESKİ etkin
-  --    push-to-start satırları (kendi hesabımızın eski tokenı dahil,
-  --    hangi hesapta olursa olsun) yeni token etkinleştirilmeden ÖNCE
-  --    kapatılır — kurulum bazlı partial unique index hiçbir ara adımda
-  --    ihlal edilmez.
+   where token_type = 'push_to_start' and token = p_token
+     and user_id <> p_user_id and enabled;
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
-   where token_type = 'push_to_start'
-     and installation_id = p_installation_id
-     and token <> p_token
-     and enabled;
+   where token_type = 'push_to_start' and installation_id = p_installation_id
+     and token <> p_token and enabled;
 
-  -- 3) Kendi satırı: upsert + enabled (bu noktada hem token hem kurulum
-  --    için başka etkin satır kalmamıştır).
-  insert into public.live_activity_tokens (user_id, token_type, token, installation_id, enabled, updated_at)
-  values (p_user_id, 'push_to_start', p_token, p_installation_id, true, now())
+  insert into public.live_activity_tokens
+    (user_id, token_type, token, installation_id, session_epoch, session_generation, enabled, updated_at)
+  values
+    (p_user_id, 'push_to_start', p_token, p_installation_id, p_epoch, p_generation, true, now())
   on conflict on constraint live_activity_tokens_unique
-  do update set enabled = true, installation_id = excluded.installation_id, updated_at = now()
+  do update set enabled = true,
+                installation_id = excluded.installation_id,
+                session_epoch = excluded.session_epoch,
+                session_generation = excluded.session_generation,
+                updated_at = now()
   returning id into v_id;
-
   return v_id;
 end;
 $$;
 
--- ---------------------------------------------------------------------
--- ÇIKIŞ (logout) temizliği (v5): kullanıcının BU kurulumdaki (fiziksel
--- cihaz) push_to_start VE activity_update tokenlarını tek transaksiyonda
--- kapatır. Diğer kurulumlar (örn. iPad) ETKİLENMEZ. Bearer doğrulaması
--- API katmanında yapılır; fonksiyon yalnız service-role'dan çağrılır.
--- ---------------------------------------------------------------------
+-- Trip sahipliği + güncel session + kota + rotasyon + upsert aynı global
+-- kilit ve aynı SQL transaksiyonundadır; bar-kontrolü/upsert TOCTOU yoktur.
+create or replace function public.register_live_activity_update(
+  p_user_id uuid,
+  p_installation_id uuid,
+  p_token text,
+  p_trip_id uuid,
+  p_epoch uuid,
+  p_generation bigint
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_count integer;
+begin
+  if p_user_id is null or p_installation_id is null or p_trip_id is null
+     or p_epoch is null or p_generation is null or p_generation < 1
+     or p_token is null or char_length(p_token) not between 16 and 512 then
+    raise exception 'invalid_registration';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
+
+  if not exists (
+    select 1 from public.live_activity_installation_sessions
+     where installation_id = p_installation_id
+       and user_id = p_user_id and session_epoch = p_epoch
+       and generation = p_generation and active
+  ) or exists (
+    select 1 from public.live_activity_epoch_bars
+     where installation_id = p_installation_id and epoch = p_epoch
+  ) then
+    raise exception using errcode = 'LA001', message = 'stale_session_generation';
+  end if;
+  if not exists (
+    select 1 from public.trips where id = p_trip_id and user_id = p_user_id
+  ) then
+    raise exception using errcode = 'LA003', message = 'trip_forbidden';
+  end if;
+
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where token_type = 'activity_update' and token = p_token
+     and user_id <> p_user_id and enabled;
+  update public.live_activity_tokens
+     set enabled = false, updated_at = now()
+   where token_type = 'activity_update' and installation_id = p_installation_id
+     and trip_id = p_trip_id and token <> p_token and enabled;
+
+  select count(*) into v_count
+    from public.live_activity_tokens
+   where user_id = p_user_id and token_type = 'activity_update' and enabled;
+  if v_count >= 10 then
+    update public.live_activity_tokens
+       set enabled = false, updated_at = now()
+     where id = (
+       select id from public.live_activity_tokens
+        where user_id = p_user_id and token_type = 'activity_update' and enabled
+        order by updated_at asc, id asc limit 1
+     );
+  end if;
+
+  insert into public.live_activity_tokens
+    (user_id, token_type, trip_id, token, installation_id, session_epoch, session_generation, enabled, updated_at)
+  values
+    (p_user_id, 'activity_update', p_trip_id, p_token, p_installation_id, p_epoch, p_generation, true, now())
+  on conflict on constraint live_activity_tokens_unique
+  do update set trip_id = excluded.trip_id,
+                installation_id = excluded.installation_id,
+                session_epoch = excluded.session_epoch,
+                session_generation = excluded.session_generation,
+                enabled = true,
+                updated_at = now()
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
 create or replace function public.deactivate_live_activity_installation(
   p_user_id uuid,
   p_installation_id uuid,
-  p_epoch uuid default null
+  p_epoch uuid,
+  p_generation bigint
 ) returns integer
 language plpgsql
 security definer
@@ -178,48 +274,38 @@ as $$
 declare
   v_count integer;
 begin
-  if p_user_id is null or p_installation_id is null then
+  if p_user_id is null or p_installation_id is null or p_epoch is null
+     or p_generation is null or p_generation < 1 then
     raise exception 'invalid_deactivation';
   end if;
-
-  -- Register ile AYNI global registry kilidi: çıkış ve kayıt işlemleri
-  -- birbirine göre de serileşir (fencing sözleşmesinin parçası).
   perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
 
-  -- Bu oturum kuşağı BARLANIR: eski hesabın gecikmiş kayıt isteği bundan
-  -- sonra ne zaman gelirse gelsin reddedilir.
-  if p_epoch is not null then
-    insert into public.live_activity_epoch_bars (installation_id, epoch)
-    values (p_installation_id, p_epoch)
-    on conflict do nothing;
-    -- Sınırlı büyüme: bu kurulumun 30 günden eski barları temizlenir.
-    delete from public.live_activity_epoch_bars
-     where installation_id = p_installation_id
-       and barred_at < now() - interval '30 days';
-  end if;
+  insert into public.live_activity_epoch_bars (installation_id, epoch)
+  values (p_installation_id, p_epoch) on conflict do nothing;
+  delete from public.live_activity_epoch_bars
+   where installation_id = p_installation_id
+     and barred_at < now() - interval '30 days';
+
+  update public.live_activity_installation_sessions
+     set active = false, updated_at = now()
+   where installation_id = p_installation_id and user_id = p_user_id
+     and session_epoch = p_epoch and generation = p_generation;
 
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
-   where user_id = p_user_id
-     and installation_id = p_installation_id
+   where user_id = p_user_id and installation_id = p_installation_id
+     and session_epoch = p_epoch and session_generation = p_generation
      and enabled;
   get diagnostics v_count = row_count;
   return v_count;
 end;
 $$;
 
-revoke all on function public.deactivate_live_activity_installation(uuid, uuid, uuid) from public;
-revoke all on function public.deactivate_live_activity_installation(uuid, uuid, uuid) from anon, authenticated;
+revoke all on function public.begin_live_activity_session(uuid, uuid, uuid, bigint) from public, anon, authenticated;
+revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text, uuid, bigint) from public, anon, authenticated;
+revoke all on function public.register_live_activity_update(uuid, uuid, text, uuid, uuid, bigint) from public, anon, authenticated;
+revoke all on function public.deactivate_live_activity_installation(uuid, uuid, uuid, bigint) from public, anon, authenticated;
 
-revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text, uuid) from public;
-revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text, uuid) from anon, authenticated;
-
--- ---------------------------------------------------------------------
--- Teslim kayıtları: (trip, token, event) başına TEK satır.
--- Durum makinesi: pending → sent | transient_failed (≤3 deneme, sonra
--- permanent_failed) | permanent_failed. Claim: claim_token + claimed_until
--- (lease). next_retry_at transient geri çekilme zamanıdır.
--- ---------------------------------------------------------------------
 create table if not exists public.live_activity_deliveries (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null references public.trips(id) on delete cascade,
@@ -243,10 +329,11 @@ create index if not exists live_activity_deliveries_due_idx
 create index if not exists live_activity_deliveries_trip_idx
   on public.live_activity_deliveries (trip_id, event);
 
+alter table public.live_activity_installation_sessions enable row level security;
 alter table public.live_activity_tokens enable row level security;
 alter table public.live_activity_deliveries enable row level security;
 alter table public.live_activity_epoch_bars enable row level security;
--- Policy YOK: default-deny. Erişim yalnız service-role (sunucu katmanı).
+revoke all on public.live_activity_installation_sessions from anon, authenticated;
 revoke all on public.live_activity_tokens from anon, authenticated;
 revoke all on public.live_activity_deliveries from anon, authenticated;
 revoke all on public.live_activity_epoch_bars from anon, authenticated;

@@ -1,4 +1,5 @@
 import { createId } from "./id";
+import { nextSessionGenerationValue } from "./liveActivityGeneration";
 import type {
   FavoriteDestination,
   MobilePreferences,
@@ -13,6 +14,7 @@ const READ_NOTIFICATIONS_KEY = "l2t.mobile.read-notifications.v1";
 const PREFERENCES_KEY = "l2t.mobile.preferences.v1";
 const ONBOARDING_KEY = "l2t.mobile.onboarding.v2";
 const INSTALLATION_KEY = "l2t.mobile.installation-id.v1";
+const LIVE_ACTIVITY_SESSION_GENERATION_KEY = "l2t.mobile.live-activity-session-generation.v1";
 const RELEASE_KEY = "l2t.mobile.release-seen";
 
 // Uçuş arama özelliği kaldırıldı; eski cihaz kayıtları modül açılışında bir kez temizlenir.
@@ -211,5 +213,24 @@ export function getInstallationId(): string {
     return generated;
   } catch {
     return ""; // depolama yoksa kimliksiz kayıt (rotasyonsuz eski yol)
+  }
+}
+
+/**
+ * Bu kurulumdaki her yeni giriş için kalıcı ve monoton bir generation.
+ * Sunucu yalnız en yüksek generation'ı güncel kabul eder; böylece logout
+ * isteği ağa hiç ulaşmasa bile eski hesabın gecikmiş token isteği sonraki
+ * hesabın oturumunu geri alamaz. Depolama yazılamıyorsa 0 döner ve güvenli
+ * biçimde Live Activity kaydı yapılmaz.
+ */
+export function nextLiveActivitySessionGeneration(): number {
+  try {
+    const raw = window.localStorage.getItem(LIVE_ACTIVITY_SESSION_GENERATION_KEY) || "0";
+    const next = nextSessionGenerationValue(raw);
+    if (!next) return 0;
+    window.localStorage.setItem(LIVE_ACTIVITY_SESSION_GENERATION_KEY, String(next));
+    return next;
+  } catch {
+    return 0;
   }
 }

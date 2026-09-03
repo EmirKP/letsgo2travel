@@ -7,15 +7,15 @@ import {
   type SyncSendResult,
   type SyncTokenEntry,
 } from "./liveActivityTokenSync";
-import { getInstallationId } from "./storage";
+import { getInstallationId, nextLiveActivitySessionGeneration } from "./storage";
 
 // Live Activity push tokenlarının sunucuya kaydı — GERÇEK bağlantılar.
 // Akış mantığı liveActivityTokenSync.ts motorundadır (saf, birim testli):
 // - Native gözlemci tamponlar + EN SON push-to-start tokenı kalıcı tutar.
 // - Başarılı kayıt native tamponu ack'ler; 503'te ACK EDİLMEZ.
-// - HER giriş yeni OTURUM KUŞAĞI (epoch) açar: eski hesabın gecikmiş
-//   isteğinin sonucu istemcide ATILIR ve sunucu, logout'ta barlanan
-//   kuşakla gelen kayıtları 409 ile reddeder (sıra bağımsız fencing).
+// - HER giriş kalıcı monoton generation + yeni epoch açar ve önce sunucu
+//   session'ını etkinleştirir. Logout isteği kaybolsa bile sonraki login
+//   eski hesabın gecikmiş kayıtlarını sunucuda 409 ile reddettirir.
 // - Bekleyen kayıtlar ağ dönüşü / foreground / sınırlı geri çekilme ile
 //   yeniden denenir; scheduler lifecycle-generation'lıdır (cleanup sonrası
 //   geç callback yeni timer KURAMAZ).
@@ -33,7 +33,20 @@ function surface(): PluginSurface | undefined {
   return plugin("FlightLiveActivity") as PluginSurface | undefined;
 }
 
-async function sendEntry(entry: SyncTokenEntry, accessToken: string, installationId: string, sessionEpochId: string): Promise<SyncSendResult> {
+async function beginSession(accessToken: string, installationId: string, sessionEpochId: string, generation: number): Promise<SyncSendResult> {
+  try {
+    await requestJson("/api/live-activity/session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: { installationId, sessionEpoch: sessionEpochId, generation },
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, status: error instanceof ApiError ? error.status : 0 };
+  }
+}
+
+async function sendEntry(entry: SyncTokenEntry, accessToken: string, installationId: string, sessionEpochId: string, generation: number): Promise<SyncSendResult> {
   try {
     await requestJson("/api/live-activity/tokens", {
       method: "POST",
@@ -44,6 +57,7 @@ async function sendEntry(entry: SyncTokenEntry, accessToken: string, installatio
         ...(entry.tripId ? { tripId: entry.tripId } : {}),
         installationId,
         sessionEpoch: sessionEpochId,
+        generation,
       },
     });
     return { ok: true };
@@ -56,6 +70,8 @@ const engine = createTokenSyncEngine({
   getAccessToken: () => accessTokenGetter?.() || "",
   getInstallationId: () => getInstallationId(),
   makeEpochId: () => createId(),
+  nextGeneration: () => nextLiveActivitySessionGeneration(),
+  beginSession,
   send: sendEntry,
   ack: async (entry) => {
     await surface()?.ackToken?.({
@@ -139,9 +155,9 @@ async function drainBufferedTokens() {
 }
 
 /**
- * GİRİŞ geçişinde çağrılır (accessToken boş → dolu): YENİ oturum kuşağı
- * açılır, native'deki en son push-to-start tokenı GÜNCEL kullanıcı adına
- * yeniden kaydedilir ve tampon drain edilir.
+ * GİRİŞ geçişinde çağrılır (accessToken boş → dolu): monoton generation
+ * + yeni epoch sunucuda açılır; ardından native tokenlar güncel kullanıcı
+ * adına kaydedilir ve tampon drain edilir.
  */
 export function syncTokensAfterLogin() {
   if (!isIOSNative()) return;
@@ -153,13 +169,13 @@ export function syncTokensAfterLogin() {
 
 /**
  * ÇIKIŞ temizliği: BU kurulumun (fiziksel cihaz) tüm Live Activity
- * tokenlarını sunucuda kapatır ve bu oturum kuşağını sunucuda BARLAR
- * (eski hesabın gecikmiş kayıt isteği artık sunucuda da reddedilir).
+ * tokenlarını sunucuda kapatır ve generation+epoch'u sonlandırır.
  * Bekleyen kuyruk temizlenir; native'deki "en son token" kaydı KORUNUR.
  * Oturum silinmeden ÖNCE çağrılmalıdır; diğer cihazlar etkilenmez.
  */
 export async function disableLiveActivityTokensForLogout(accessToken: string): Promise<void> {
   const sessionEpoch = engine.sessionEpochId();
+  const generation = engine.sessionGeneration();
   engine.onLogout();
   retryScheduler.poke();
   const installationId = getInstallationId();
@@ -168,11 +184,11 @@ export async function disableLiveActivityTokensForLogout(accessToken: string): P
     await requestJson("/api/live-activity/tokens", {
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: { installationId, ...(sessionEpoch ? { sessionEpoch } : {}) },
+      body: { installationId, sessionEpoch, generation },
     });
   } catch {
-    // Başarısızlık çıkışı ENGELLEMEZ; sunucudaki rotasyon + tek-hesap
-    // garantisi (register RPC'si) ikinci savunma hattıdır.
+    // Başarısızlık çıkışı ENGELLEMEZ. Sonraki login'in daha yüksek kalıcı
+    // generation'ı, logout/bar kaybolsa bile eski yazımları geçersiz kılar.
   }
 }
 

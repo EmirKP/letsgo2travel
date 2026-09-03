@@ -16,6 +16,7 @@ import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
 import { randomFallbackUuid } from "./_mobile/id";
+import { nextSessionGenerationValue } from "./_mobile/liveActivityGeneration";
 import { RETRY_MAX_DELAY_MS, retryBackoffDelayMs } from "./_mobile/liveActivityTokenSync";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
 import { registerLiveActivityAccountFlowTests } from "./liveActivityAccountFlow";
@@ -373,6 +374,44 @@ test("id: SON ÇARE fallback bile geçerli RFC 4122 UUID v4 üretir", () => {
   // Uç değerler: hep 0 / hep 1'e yakın random bile version/variant bitlerini korur.
   assert.match(randomFallbackUuid(() => 0), UUID_V4);
   assert.match(randomFallbackUuid(() => 0.999999), UUID_V4);
+});
+
+test("Live Activity generation: kalıcı sayaç monoton ve güvenli sınırda", () => {
+  assert.equal(nextSessionGenerationValue(null), 1);
+  assert.equal(nextSessionGenerationValue("1"), 2);
+  assert.equal(nextSessionGenerationValue(42), 43);
+  assert.equal(nextSessionGenerationValue(-5), 1);
+  assert.equal(nextSessionGenerationValue("bozuk"), 1);
+  assert.equal(nextSessionGenerationValue(Number.MAX_SAFE_INTEGER), 0, "taşmada kayıt güvenli biçimde durmalı");
+});
+
+test("Live Activity SQL: activity_update güvenlik kontrolleri ve upsert TEK atomik RPC'de", () => {
+  const sql = readFileSync("supabase/migrations/20260902120000_live_activity_push_tokens.sql", "utf8");
+  const match = sql.match(/create or replace function public\.register_live_activity_update\([\s\S]*?\n\$\$;/);
+  assert.ok(match, "register_live_activity_update RPC bulunmalı");
+  const fn = match![0];
+  for (const required of [
+    "pg_advisory_xact_lock",
+    "live_activity_installation_sessions",
+    "public.trips",
+    "live_activity_epoch_bars",
+    "insert into public.live_activity_tokens",
+  ]) assert.ok(fn.includes(required), `atomik activity_update RPC eksik: ${required}`);
+  const serverLogic = readFileSync("lib/live-activity-tokens.ts", "utf8");
+  assert.ok(!serverLogic.includes('.from("live_activity_epoch_bars")'), "bar SELECT + ayrı upsert TOCTOU geri gelmemeli");
+  assert.ok(!serverLogic.includes('.from("live_activity_tokens")'), "token yazımı RPC dışına çıkmamalı");
+});
+
+test("Live Activity SQL: her token kaydı güncel generation+epoch+user oturumunu zorunlu kılar", () => {
+  const sql = readFileSync("supabase/migrations/20260902120000_live_activity_push_tokens.sql", "utf8");
+  assert.ok(sql.includes("create table if not exists public.live_activity_installation_sessions"));
+  assert.ok(sql.includes("create or replace function public.begin_live_activity_session"));
+  assert.ok(sql.includes("p_generation < v_current.generation"), "düşük generation reddedilmeli");
+  assert.ok(sql.includes("p_generation = v_current.generation"), "eşit generation kimlik çakışması reddedilmeli");
+  assert.equal((sql.match(/and generation = p_generation and active/g) || []).length, 2,
+    "PTS ve activity_update yalnız güncel aktif oturumdan yazılmalı");
+  assert.ok(sql.includes("and session_epoch = p_epoch and session_generation = p_generation"),
+    "gecikmiş logout yalnız kendi generation tokenlarını kapatmalı");
 });
 
 test("retry: geri çekilme SINIRLI ve tavanlı (agresif istek/sonsuz büyüme yok)", () => {
