@@ -343,6 +343,26 @@ test("forum: yanıtlar user_id/e-posta/gizli profil alanı içermez", () => {
   assert.equal(detail.answers.length, 1);
 });
 
+test("forum SQL: temiz projede akış ve cevap tablolarını güvenli biçimde kurar", () => {
+  const sql = readFileSync(
+    "supabase/migrations/20260903143000_country_community_foundation.sql",
+    "utf8",
+  ).toLowerCase();
+  for (const table of [
+    "country_questions",
+    "country_answers",
+    "country_experience_permissions",
+    "user_points_log",
+  ]) {
+    assert.ok(sql.includes(`create table if not exists public.${table}`), `${table} idempotent kurulmalı`);
+    assert.ok(sql.includes(`alter table public.${table} enable row level security`), `${table} RLS kullanmalı`);
+    assert.ok(sql.includes(`revoke all on public.${table} from anon, authenticated`), `${table} doğrudan istemciye kapalı olmalı`);
+    assert.ok(sql.includes(`grant all on public.${table} to service_role`), `${table} yalnız sunucuya açık olmalı`);
+  }
+  assert.ok(sql.includes("where status = 'visible'"), "görünür içerik sorgusu indekslenmeli");
+  assert.ok(sql.includes("notify pgrst, 'reload schema'"), "postgrest şeması yenilenmeli");
+});
+
 test("liveActivity: kalkış geçince TERS geri sayım aralığı oluşturulmaz (widget ayna kuralı)", () => {
   const departure = "2026-10-10T10:00:00.000Z";
   // Kalkıştan önce: canlı geri sayım.
