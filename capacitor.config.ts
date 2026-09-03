@@ -37,7 +37,9 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"],
     },
     SplashScreen: {
-      launchShowDuration: 1100,
+      // Native katman yalnızca WebView hazır olana kadar düz lacivert kalır;
+      // asıl marka animasyonu React katmanında akıcı biçimde oynar.
+      launchShowDuration: 350,
       launchAutoHide: true,
       backgroundColor: "#071B33",
       showSpinner: false,

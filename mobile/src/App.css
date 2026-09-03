@@ -1,5 +1,23 @@
 #root { min-height: 100vh; min-height: 100dvh; }
 .app-shell { min-height: 100vh; min-height: 100dvh; padding-bottom: calc(88px + env(safe-area-inset-bottom)); background: #f5f7f9; }
+.animated-splash { position: fixed; inset: 0; z-index: 300; min-height: 100vh; min-height: 100dvh; padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: #fff; background: radial-gradient(circle at 50% 44%,rgba(44,112,255,.2),transparent 26%),radial-gradient(circle at 50% 55%,rgba(246,196,69,.08),transparent 34%),#071b33; opacity: 1; transition: opacity .32s ease,transform .32s ease; }
+.animated-splash.leaving { opacity: 0; transform: scale(1.025); }
+.animated-splash-glow { position: absolute; width: min(82vw,360px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle,rgba(52,122,255,.2),rgba(25,198,211,.07) 42%,transparent 68%); animation: splash-glow 1.2s ease-out both; }
+.animated-splash-logo { position: relative; width: clamp(118px,34vw,158px); aspect-ratio: 1; border-radius: 29%; animation: splash-logo-in .78s cubic-bezier(.2,.85,.25,1.16) both; }
+.animated-splash-logo img { position: relative; z-index: 2; display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; box-shadow: 0 24px 65px rgba(0,0,0,.34),0 0 0 1px rgba(255,255,255,.18); }
+.animated-splash-ring { position: absolute; z-index: 1; inset: -15px; border: 1px solid rgba(246,196,69,.42); border-radius: 32%; animation: splash-ring 1.05s .18s cubic-bezier(.2,.75,.2,1) both; }
+.animated-splash-brand { position: relative; margin-top: 25px; font-size: clamp(24px,7vw,34px); font-weight: 850; letter-spacing: -.055em; animation: splash-copy-in .55s .3s ease-out both; }
+.animated-splash-brand strong { margin: 0 2px; color: var(--gold); font-size: 1.28em; line-height: 0; }
+.animated-splash-line { position: relative; width: 68px; height: 3px; margin-top: 13px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.12); animation: splash-copy-in .55s .4s ease-out both; }
+.animated-splash-line::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg,transparent,var(--gold),transparent); animation: splash-line 1s .42s ease-in-out both; }
+@keyframes splash-logo-in { from { opacity: 0; transform: translateY(18px) scale(.72) rotate(-5deg); } to { opacity: 1; transform: none; } }
+@keyframes splash-copy-in { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+@keyframes splash-ring { from { opacity: 0; transform: scale(.62) rotate(-10deg); } 60% { opacity: 1; } to { opacity: .55; transform: scale(1.08) rotate(3deg); } }
+@keyframes splash-glow { from { opacity: 0; transform: scale(.45); } to { opacity: 1; transform: scale(1); } }
+@keyframes splash-line { from { transform: translateX(-105%); } to { transform: translateX(105%); } }
+@media (prefers-reduced-motion: reduce) {
+  .animated-splash-glow,.animated-splash-logo,.animated-splash-ring,.animated-splash-brand,.animated-splash-line,.animated-splash-line::after { animation: none; }
+}
 .topbar { position: sticky; top: 0; z-index: 40; height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 14px 0; display: flex; align-items: center; justify-content: space-between; background: rgba(7,27,51,.97); color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(18px); }
 .brand-button { min-height: 44px; border: 0; background: transparent; padding: 8px 4px; color: inherit; }
 .brand { display: inline-flex; align-items: baseline; font-weight: 850; letter-spacing: -.045em; font-size: 17px; }
@@ -637,23 +655,28 @@
 .cloud-saved-card { border-color: #b8d8df; background: linear-gradient(145deg,#fff,#f5fbfc); }
 
 /* Beni Şaşırt */
-.surprise-screen { padding-top: 0; }
-.surprise-stage { position: relative; overflow: hidden; margin: 0 -14px; padding: 28px 20px 34px; display: flex; flex-direction: column; align-items: center; text-align: center; color: #fff; background: radial-gradient(circle at 50% 48%,rgba(25,198,211,.22),transparent 31%),radial-gradient(circle at 82% 8%,rgba(246,196,69,.14),transparent 22%),linear-gradient(155deg,#06182e,#0b3152); }
+.surprise-screen { padding-top: 0; overflow-x: clip; }
+.surprise-stage { position: relative; overflow: hidden; margin: 0 -14px; padding: 22px 18px 24px; color: #fff; background: radial-gradient(circle at 83% 58%,rgba(25,198,211,.23),transparent 27%),radial-gradient(circle at 82% 8%,rgba(246,196,69,.14),transparent 22%),linear-gradient(150deg,#06182e,#0b3152); }
 .surprise-stage::before { content: ""; position: absolute; inset: 0; opacity: .16; background-image: radial-gradient(circle,#fff 1px,transparent 1px); background-size: 31px 31px; mask-image: linear-gradient(#000,transparent 78%); }
-.surprise-kicker { position: relative; display: flex; align-items: center; gap: 6px; color: var(--gold-soft); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
-.surprise-stage h1 { position: relative; margin: 11px 0 8px; max-width: 430px; font-size: clamp(30px,9vw,43px); line-height: 1.03; letter-spacing: -.055em; }
-.surprise-stage > p { position: relative; margin: 0; max-width: 390px; color: rgba(255,255,255,.7); font-size: 13px; line-height: 1.55; }
-.surprise-stage > small { position: relative; margin-top: 12px; color: rgba(255,255,255,.58); font-size: 11px; }
-.world-die { position: relative; width: min(50vw,190px); aspect-ratio: 1; margin-top: 24px; border: 1px solid rgba(108,226,233,.32); border-radius: 34%; color: var(--gold); background: radial-gradient(circle at 35% 26%,rgba(255,255,255,.18),transparent 13%),radial-gradient(circle at 45% 40%,#14527b,#082743 68%); box-shadow: inset -18px -22px 35px rgba(0,0,0,.28),0 22px 55px rgba(0,0,0,.3),0 0 42px rgba(25,198,211,.12); transform: rotate(-7deg); }
+.surprise-kicker { position: relative; display: flex; align-items: center; gap: 6px; color: var(--gold-soft); font-size: 9px; font-weight: 900; letter-spacing: .13em; }
+.surprise-stage-layout { position: relative; margin-top: 15px; display: grid; grid-template-columns: minmax(0,1fr) 128px; align-items: center; gap: 16px; }
+.surprise-stage-copy { min-width: 0; }
+.surprise-stage h1 { margin: 0 0 9px; max-width: 330px; font-size: clamp(27px,7.8vw,38px); line-height: 1.02; letter-spacing: -.055em; }
+.surprise-stage-copy > p { margin: 0; max-width: 310px; color: rgba(255,255,255,.72); font-size: 12px; line-height: 1.55; }
+.surprise-stage-copy > span { margin-top: 13px; display: flex; align-items: center; gap: 6px; color: rgba(255,255,255,.62); font-size: 10px; font-weight: 700; }
+.surprise-stage-copy > span svg { color: var(--gold); }
+.surprise-action { display: grid; justify-items: center; gap: 9px; }
+.surprise-action small { color: rgba(255,255,255,.68); font-size: 10px; font-weight: 750; }
+.world-die { position: relative; width: 118px; aspect-ratio: 1; border: 1px solid rgba(108,226,233,.36); border-radius: 34%; color: var(--gold); background: radial-gradient(circle at 35% 26%,rgba(255,255,255,.2),transparent 13%),radial-gradient(circle at 45% 40%,#14527b,#082743 68%); box-shadow: inset -14px -17px 27px rgba(0,0,0,.28),0 16px 34px rgba(0,0,0,.28),0 0 32px rgba(25,198,211,.12); transform: rotate(-6deg); }
 .world-die:disabled { opacity: .9; }
 .world-grid { position: absolute; inset: 16%; border: 1px solid rgba(74,213,224,.2); border-radius: 50%; box-shadow: 0 -22px 0 -21px rgba(74,213,224,.5),0 22px 0 -21px rgba(74,213,224,.5),22px 0 0 -21px rgba(74,213,224,.5),-22px 0 0 -21px rgba(74,213,224,.5); }
-.world-pin { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; background: rgba(246,196,69,.16); transform: translate(-50%,-50%); box-shadow: 0 0 0 11px rgba(246,196,69,.06),0 0 24px rgba(246,196,69,.35); }
+.world-pin { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: rgba(246,196,69,.16); transform: translate(-50%,-50%); box-shadow: 0 0 0 9px rgba(246,196,69,.06),0 0 24px rgba(246,196,69,.35); }
 .world-orbit { position: absolute; inset: 47% -22%; height: 2px; border-radius: 50%; background: linear-gradient(90deg,transparent,var(--gold),transparent); transform: rotate(-10deg); box-shadow: 0 0 13px rgba(246,196,69,.8); }
 .world-orbit i { position: absolute; right: 18%; top: -4px; width: 9px; height: 9px; border-radius: 50%; background: #fff2b1; box-shadow: 0 0 15px var(--gold); }
 .world-die.spinning { animation: world-spin .72s cubic-bezier(.3,.7,.2,1); }
 @keyframes world-spin { 50% { transform: rotate(175deg) scale(.9); } 100% { transform: rotate(353deg); } }
-.surprise-result { overflow: hidden; margin-top: -14px; position: relative; border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: 0 18px 40px rgba(7,27,51,.14); }
-.surprise-photo { min-height: 235px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; background-size: cover; background-position: center; }
+.surprise-result { overflow: hidden; margin-top: 14px; position: relative; border: 1px solid var(--line); border-radius: 22px; background: #fff; box-shadow: 0 13px 34px rgba(7,27,51,.11); }
+.surprise-photo { min-height: 205px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; background-size: cover; background-position: center; }
 .surprise-photo > span { align-self: flex-start; padding: 6px 9px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(7,27,51,.52); font-size: 11px; font-weight: 800; backdrop-filter: blur(9px); }
 .surprise-photo small { color: var(--gold-soft); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
 .surprise-photo h2 { margin: 5px 0 0; font-size: 32px; letter-spacing: -.045em; }
@@ -664,15 +687,23 @@
 .surprise-tags span { min-height: 36px; padding: 0 9px; display: flex; align-items: center; gap: 5px; border-radius: 11px; background: #edf6f8; color: var(--navy-700); font-size: 11px; font-weight: 750; }
 .surprise-copy .primary-wide,.surprise-copy .secondary-wide { margin-top: 8px; }
 .surprise-again { width: 100%; min-height: 46px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: transparent; color: var(--navy-700); font-size: 12px; font-weight: 850; }
+@media (max-width: 350px) {
+  .surprise-stage-layout { grid-template-columns: minmax(0,1fr) 106px; gap: 10px; }
+  .world-die { width: 100px; }
+  .surprise-stage h1 { font-size: 26px; }
+  .surprise-stage-copy > span { display: none; }
+}
 
 /* Yerel Seyahat Kokpiti */
 .cockpit-native-intro { background: linear-gradient(135deg,#071b33,#0d4663); }
 .cockpit-native-toolbar { margin: 12px 0; display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; }
 .cockpit-native-toolbar .primary-button,.cockpit-native-toolbar .secondary-button { width: 100%; }
 .cockpit-native-toolbar .secondary-button { border: 1px solid #ccd9e1; background: #fff; color: var(--navy-900); }
-.cockpit-trip-form { display: grid; gap: 13px; margin-bottom: 12px; }
+.cockpit-trip-form { width: 100%; min-width: 0; max-width: 100%; display: grid; gap: 13px; margin-bottom: 12px; overflow: visible; }
+.cockpit-trip-form > *,.cockpit-trip-form > label,.cockpit-status-field,.cockpit-trip-form .form-grid,.cockpit-trip-form .form-grid > label,.cockpit-trip-form .airport-field,.cockpit-trip-form .airport-field > label { min-width: 0; max-width: 100%; }
 .cockpit-trip-form > label,.cockpit-status-field { display: grid; gap: 6px; color: #4f6072; font-size: 11.5px; font-weight: 800; }
-.cockpit-trip-form > label input,.cockpit-status-field select { width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid #d8e1e7; border-radius: 13px; background: #fff; color: var(--ink); font-size: 16px; }
+.cockpit-trip-form > label input,.cockpit-trip-form > label select,.cockpit-status-field select { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid #d8e1e7; border-radius: 13px; background: #fff; color: var(--ink); font-size: 16px; }
+.cockpit-trip-form input[type="date"],.cockpit-trip-form input[type="time"] { min-width: 0; -webkit-min-logical-width: 0; }
 .cockpit-native-error,.cockpit-native-loading,.cockpit-native-empty { margin-top: 12px; }
 .cockpit-trip-selector { margin-top: 14px; }
 .cockpit-native-card { overflow: hidden; border: 1px solid #cddce3; border-radius: 22px; background: #fff; box-shadow: 0 12px 30px rgba(7,27,51,.08); }
@@ -835,13 +866,14 @@
 }
 
 /* === Havalimani secici (AirportField) === */
-.airport-field { position: relative; }
-.airport-field > label { display: grid; gap: 6px; font-size: 12px; font-weight: 800; color: #33465c; }
+.airport-field { position: relative; width: 100%; min-width: 0; max-width: 100%; }
+.airport-field > label { min-width: 0; max-width: 100%; display: grid; gap: 6px; font-size: 12px; font-weight: 800; color: #33465c; }
+.airport-field input { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid #d8e1e7; border-radius: 13px; outline: 0; background: #fff; color: var(--ink); }
 .airport-field-selected { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 52px; padding: 9px 12px; border: 1px solid #cfdbe4; border-radius: 12px; background: #f4f9f4; text-align: left; }
-.airport-field-selected span { display: grid; gap: 2px; }
-.airport-field-selected strong { display: flex; gap: 7px; align-items: baseline; font-size: 14px; color: #12263c; }
+.airport-field-selected span { min-width: 0; display: grid; gap: 2px; }
+.airport-field-selected strong { min-width: 0; display: flex; gap: 7px; align-items: baseline; font-size: 14px; color: #12263c; }
 .airport-field-selected strong em { font-style: normal; font-weight: 800; font-size: 11px; color: #0b5566; background: #e3f1f6; border-radius: 6px; padding: 1px 6px; }
-.airport-field-selected small { font-size: 11px; color: #62748a; }
+.airport-field-selected small { overflow: hidden; font-size: 11px; color: #62748a; text-overflow: ellipsis; white-space: nowrap; }
 .airport-field-options { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #d7e1ea; border-radius: 14px; box-shadow: 0 18px 44px rgba(7,27,51,.16); max-height: 300px; overflow-y: auto; padding: 6px; display: grid; gap: 2px; }
 .airport-field-options button { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 10px 12px; min-height: 52px; }
 .airport-field-options button:active { background: #fdf4d7; }
@@ -864,8 +896,10 @@
 }
 
 /* === Kokpit form sadelestirme === */
-.cockpit-mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
-.cockpit-mode-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border-radius: 12px; border: 1px solid #cfdbe4; background: #fff; font-size: 13px; font-weight: 800; color: #33465c; }
+.cockpit-native-screen { min-width: 0; max-width: 100%; overflow-x: clip; }
+.cockpit-native-toolbar { min-width: 0; max-width: 100%; }
+.cockpit-mode-tabs { width: 100%; min-width: 0; max-width: 100%; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 4px; }
+.cockpit-mode-tabs button { min-width: 0; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 8px; border-radius: 13px; border: 1px solid #cfdbe4; background: #fff; font-size: 13px; font-weight: 800; color: #33465c; }
 .cockpit-mode-tabs button.active { background: #071b33; border-color: #071b33; color: #ffd76a; }
 .secondary-button.icon-only { min-width: 44px; padding-left: 0; padding-right: 0; justify-content: center; }
 .form-card { scroll-margin-bottom: 130px; }
@@ -892,12 +926,23 @@
 .community-answer-form textarea { min-height: 86px; }
 
 /* === Pasaport Gucu dunya haritasi === */
-.passport-map { position: relative; margin-top: 12px; border-radius: 18px; overflow: hidden; background: #eaf3f9; border: 1px solid #dbe7ef; }
-.passport-map svg { display: block; width: 100%; height: auto; touch-action: none; }
-.passport-map-controls { position: absolute; right: 9px; bottom: 9px; display: grid; gap: 6px; }
-.passport-map-controls button { width: 38px; height: 38px; border-radius: 11px; border: 1px solid #d3e0e9; background: rgba(255,255,255,.95); color: #071b33; font-size: 17px; font-weight: 800; box-shadow: 0 5px 14px rgba(7,27,51,.12); }
-.passport-map-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 2px; }
-.legend-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 9px; border-radius: 999px; font-size: 10px; font-weight: 800; color: #26374a; background: #f1f6fa; }
+.passport-screen { min-width: 0; max-width: 100%; overflow-x: clip; }
+.passport-map { position: relative; isolation: isolate; min-width: 0; margin-top: 14px; overflow: hidden; border: 1px solid #cbdce8; border-radius: 21px; background: radial-gradient(circle at 50% 45%,rgba(255,255,255,.85),transparent 48%),linear-gradient(155deg,#dceaf3,#edf5fa); box-shadow: inset 0 0 30px rgba(29,83,116,.08),0 10px 26px rgba(7,27,51,.07); }
+.passport-map::before { content: ""; position: absolute; z-index: 0; inset: 0; opacity: .26; pointer-events: none; background-image: radial-gradient(circle,rgba(31,91,126,.18) .7px,transparent .8px); background-size: 18px 18px; }
+.passport-map svg { position: relative; z-index: 1; display: block; width: 100%; height: auto; min-height: 178px; touch-action: none; user-select: none; cursor: grab; }
+.passport-map.dragging svg { cursor: grabbing; }
+.passport-map path { transition: fill-opacity .18s ease,filter .18s ease; }
+.passport-map path:active { filter: brightness(1.08); }
+.passport-map-toolbar { position: absolute; z-index: 3; top: 9px; left: 9px; right: 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; pointer-events: none; }
+.passport-map-toolbar span,.passport-map-toolbar output { min-height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.56); border-radius: 999px; color: #fff; background: rgba(7,27,51,.76); box-shadow: 0 5px 16px rgba(7,27,51,.16); backdrop-filter: blur(9px); }
+.passport-map-toolbar span { min-width: 0; overflow: hidden; font-size: 9.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.passport-map-toolbar output { flex: 0 0 auto; color: var(--gold-soft); font-size: 10px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.passport-map-controls { position: absolute; z-index: 4; right: 10px; bottom: 10px; display: grid; gap: 7px; }
+.passport-map-controls button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(189,206,218,.9); border-radius: 13px; background: rgba(255,255,255,.96); color: #071b33; font-size: 22px; font-weight: 800; box-shadow: 0 7px 18px rgba(7,27,51,.15); backdrop-filter: blur(10px); }
+.passport-map-controls button:disabled { opacity: .42; }
+.passport-map-controls .map-reset { font-size: 0; }
+.passport-map-legend { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 10px 0 12px; }
+.legend-chip { min-width: 0; min-height: 31px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e5ebef; border-radius: 10px; color: #26374a; background: #fff; font-size: 9.5px; font-weight: 800; white-space: nowrap; }
 .legend-chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; }
 .legend-id_card::before { background: #2E9BD6; }
 .legend-free::before { background: #2FA981; }
@@ -906,7 +951,15 @@
 .legend-required::before { background: #D96470; }
 .legend-unknown::before { background: #C7D2DB; }
 .passport-map-loading { min-height: 180px; animation: pulse-bg 1.2s ease-in-out infinite alternate; }
+.passport-screen .search-input { box-shadow: 0 6px 17px rgba(7,27,51,.045); }
+.passport-screen .chip-scroll { max-width: calc(100% + 28px); overscroll-behavior-inline: contain; scroll-snap-type: x proximity; }
+.passport-screen .chip-scroll button { scroll-snap-align: start; }
 @keyframes pulse-bg { from { opacity: .55; } to { opacity: .9; } }
+
+@media (max-width: 350px) {
+  .passport-map-toolbar span { max-width: 215px; }
+  .passport-map-legend { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
 
 /* === Rota Asistani sekansli akis === */
 .planner-progress { display: flex; gap: 7px; justify-content: center; margin-bottom: 4px; }

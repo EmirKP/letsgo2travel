@@ -41,20 +41,27 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
   return <div className="screen surprise-screen">
     <section className="surprise-stage">
       <div className="surprise-kicker"><Icon name="sparkles" size={15} /> KARARINI DÜNYAYA BIRAK</div>
-      <h1>Kararsızsan dünyayı döndür.</h1>
-      <p>Her dokunuşta sana yeni ve gerçek bir rota seçelim.</p>
-      <button
-        className={`world-die ${spinning ? "spinning" : ""}`}
-        type="button"
-        onClick={surpriseMe}
-        disabled={spinning}
-        aria-label={spinning ? "Yeni rota seçiliyor" : "Dünyayı döndür ve yeni rota seç"}
-      >
-        <span className="world-grid" aria-hidden="true" />
-        <span className="world-pin"><Icon name="compass" size={28} /></span>
-        <span className="world-orbit" aria-hidden="true"><i /></span>
-      </button>
-      <small>{spinning ? "Dünya dönüyor…" : "Döndürmek için dünyaya dokun"}</small>
+      <div className="surprise-stage-layout">
+        <div className="surprise-stage-copy">
+          <h1>Kararsızsan dünyayı döndür.</h1>
+          <p>Tek dokunuşla sana uygun, gerçek bir rota bulalım.</p>
+          <span><Icon name="sparkles" size={14} /> Bütçe, vize ve tempo bilgisiyle</span>
+        </div>
+        <div className="surprise-action">
+          <button
+            className={`world-die ${spinning ? "spinning" : ""}`}
+            type="button"
+            onClick={surpriseMe}
+            disabled={spinning}
+            aria-label={spinning ? "Yeni rota seçiliyor" : "Dünyayı döndür ve yeni rota seç"}
+          >
+            <span className="world-grid" aria-hidden="true" />
+            <span className="world-pin"><Icon name="compass" size={25} /></span>
+            <span className="world-orbit" aria-hidden="true"><i /></span>
+          </button>
+          <small>{spinning ? "Seçiliyor…" : "Dokun ve döndür"}</small>
+        </div>
+      </div>
     </section>
 
     <article className="surprise-result">

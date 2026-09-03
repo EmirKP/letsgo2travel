@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { AccountSheet } from "./components/AccountSheet";
+import { AnimatedSplash } from "./components/AnimatedSplash";
 import { Icon, type IconName } from "./components/Icon";
 import { MenuSheet } from "./components/MenuSheet";
 import { NotificationCenter } from "./components/NotificationCenter";
@@ -82,6 +83,7 @@ function rootTabFor(view: ViewId): TabId {
 }
 
 export default function App() {
+  const [launching, setLaunching] = useState(() => isNativePlatform());
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromUrl(window.location.href) || "home");
   const [notice, setNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -111,6 +113,7 @@ export default function App() {
   const lastSyncedTokenRef = useRef("");
   const activeTab = rootTabFor(activeView);
   const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts";
+  const finishLaunching = useCallback(() => setLaunching(false), []);
 
   useEffect(() => {
     activeViewRef.current = activeView;
@@ -368,6 +371,7 @@ export default function App() {
   const notificationsEnabled = getMobilePreferences().inAppNotifications;
 
   return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
+    {launching && <AnimatedSplash onFinish={finishLaunching} />}
     <header className="topbar">
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label="Önceki ekrana dön"><Icon name="back" size={21} /></button>}

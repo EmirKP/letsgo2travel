@@ -13,6 +13,7 @@ import { getVisaEntryRule } from "../lib/api";
 import type { VerifiedVisaRule } from "../types";
 
 const MFA_SOURCE = "https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa";
+const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
 
 const filters: Array<{ id: "all" | VisaStatus; label: string }> = [
   { id: "all", label: "Tümü" },
@@ -45,6 +46,10 @@ export function PassportScreen() {
       return statusDiff || a.name.localeCompare(b.name, "tr");
     }), [filter, query]);
 
+  // Harita her ülke path'i için çalıştığından O(n) arama yerine sabit
+  // zamanda üyelik kontrolü kullanılır; pan/zoom sırasında ek yük oluşmaz.
+  const highlightedAlpha3 = useMemo(() => new Set(rows.map((country) => country.alpha3)), [rows]);
+
   const counts = useMemo(() => COUNTRY_LIST.reduce<Record<VisaStatus, number>>((acc, country) => {
     acc[statusOf(country.alpha3)] += 1;
     return acc;
@@ -74,7 +79,7 @@ export function PassportScreen() {
   };
 
   return (
-    <div className="screen">
+    <div className="screen passport-screen">
       <section className="page-intro passport-intro">
         <span className="page-icon"><Icon name="passport" size={27} /></span>
         <div><small>TÜRKİYE PASAPORTU</small><h1>Pasaport Gücü</h1><p>Ülkeleri giriş kolaylığına göre keşfet. Seyahat öncesinde resmî kaynaklardan son koşulları mutlaka doğrula.</p></div>
@@ -94,13 +99,12 @@ export function PassportScreen() {
         statusFor={(alpha3) => (alpha3 ? statusOf(alpha3) : "unknown") as MapStatus}
         isHighlighted={(alpha3) => {
           if (!alpha3) return !query && filter === "all";
-          const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
-          if (!country) return !query && filter === "all";
-          return rows.some((row) => row.alpha3 === alpha3);
+          if (!COUNTRY_BY_ALPHA3.has(alpha3)) return !query && filter === "all";
+          return highlightedAlpha3.has(alpha3);
         }}
         selectedAlpha3={selected?.alpha3 || null}
         onSelectCountry={(alpha3) => {
-          const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
+          const country = COUNTRY_BY_ALPHA3.get(alpha3);
           if (country) void openCountry(country);
         }}
       />
