@@ -1,9 +1,9 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (02.09.2026 — 7. tur/v7 ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (03.09.2026 — 8. tur/v8 ile güncellendi)
 
 > Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
 > Main'e merge ve deploy YAPILMADI. Branch, teslim edilen
-> `denetim-mobil-oncelik.bundle` dosyasından alınır:
+> `denetim-mobil-oncelik-v8.bundle` dosyasından alınır:
 > `git fetch <bundle-yolu> denetim-mobil-oncelik:denetim-mobil-oncelik`
 
 ## Commit listesi (baz → uç)
@@ -67,7 +67,13 @@
 
 40. `a955ee5` Retained token event'leri + installation serileştirme + retry akışı
 41. `1ce81cf` Üç mobil paket kopyası v7 build ile eşitlendi
-42. (bu rapor)
+42. `555a62a` Denetim raporu (7. tur)
+
+**8. tur (v7 bağımsız denetim blokajları, 555a62a → uç):**
+
+43. `ef6c946` Oturum kuşağı (epoch) fencing'i + global registry kilidi + retry yaşam döngüsü
+44. `ac52df5` Üç mobil paket kopyası v8 build ile eşitlendi
+45. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -270,6 +276,61 @@ high / sanitize-html moderate — onay bekliyor).
   fiziksel token yalnız B'de etkin; A'nın uçuşu için etkin iPhone
   push_to_start/activity_update YOK (iPad'e gider), B'ninki gider; A hiç
   çıkmadan bile B kaydı A'nın satırını kapattı.
+  **v8 düzeltmeleri (v7 bağımsız denetim):** (1) ESKİ HESABIN GECİKMİŞ
+  KAYIT İSTEĞİ (KRİTİK yarış) kapatıldı — v7'de A'nın logout'tan önce
+  yola çıkan token POST'u, B login olduktan SONRA sunucuya ulaşırsa
+  register RPC'si sahipliği A'ya geri verebilir, dönen "başarı" B'nin
+  pending kaydını silip native tamponu ack'leyebilirdi. v8 İKİ katmanlı
+  fencing getirir. İstemci: her login'de motor yerel epoch sayacını
+  ilerletir ve `createId()` ile yeni `sessionEpoch` (uuid) üretir; her
+  gönderim başladığı andaki kuşağa bağlanır ve kuşak uyuşmayan GEÇ sonuç
+  TAMAMEN atılır (yeni pending silinmez, native ACK yok, retry
+  engellenmez); ayrıca in-flight dedup aynı anahtar için ikinci paralel
+  POST'u açmaz (retained event + getBufferedTokens çakışması). Sunucu
+  (geliş SIRASINDAN bağımsız gerçek fencing — istemci durumu uygulama
+  yeniden başlayınca sıfırlanabildiği için zorunlu): logout DELETE'i
+  mevcut kuşağı `live_activity_epoch_bars(installation_id, epoch)`
+  tablosuna BARLAR (deactivate RPC'si; 30 günden eski barlar budanır);
+  register RPC'si barlı kuşakta özel SQLSTATE `LA001` (stale_epoch)
+  fırlatır → API 409; activity_update yolu bar tablosunu doğrudan
+  kontrol eder → 409. push_to_start VE activity_update için
+  installationId + sessionEpoch artık ZORUNLU geçerli UUID'dir (400).
+  İstemci 409'u kuyruktan düşürür ama ACK ETMEZ: token native tamponda
+  kalır ve bir SONRAKİ login'in taze kuşağıyla yeniden kaydedilir.
+  Kanıtlar — gerçek sync motoru: bekletilen A POST + logout + B login +
+  geç tamamlama (sahiplik yalnız B, B pending'i silinmedi, sıfır ACK,
+  cron A'nın uçuşunu telefona gönderemedi/B'ninkini gönderdi) hem tek
+  JS bağlamında hem UYGULAMA YENİDEN BAŞLADI senaryosunda (in-flight ve
+  epoch durumu sıfır — yalnız sunucu barı korur); gerçek PostgreSQL: bar
+  önce/kayıt geç VE kayıt önce/bar+B sonra iki sırada da LA001 + sahip B.
+  (2) "DEADLOCK İMKÂNSIZ" İDDİASI DÜZELTİLDİ — v7'nin kurulum→token
+  advisory sırası satır kilitlerini kapsamıyordu (denetimin swap
+  karşı-örneği doğru). v8: register ve deactivate artık TEK global
+  `pg_advisory_xact_lock(hashtextextended('live_activity_registry',0))`
+  kilidini alır — tüm sahiplik kaynakları (token satırları + kurulum
+  satırları + bar tablosu) tek kuyruğa serileşir; kayıt olayı nadir
+  olduğundan (login/token rotasyonu) global serileştirme ölçek sorunu
+  değildir. Kanıt: swap senaryosu gerçek PG'de paralel çalıştırıldı —
+  hata/40P01 YOK, ikinci işlem ~1.4 sn kilitte bekledi (serileşme),
+  son durum tam takas ve token başına + kurulum başına TAM BİR enabled
+  satır. "Deadlock imkânsız" genel iddiası yerine bu raporda yalnız
+  ŞU söylenir: registry işlemleri (register/deactivate) tek global
+  kilitle serileştirilmiştir ve swap karşı-testi dahil paralel testleri
+  geçer. (3) RETRY ZAMANLAYICI SIZINTISI kapatıldı — v7'de flush sonrası
+  kurulan 2 sn'lik kontrol `setTimeout`'u saklanmıyordu; tam o pencerede
+  cleanup gelirse geç callback YENİ timer kurabiliyordu. v8: zamanlayıcı
+  `createRetryScheduler`'a alındı (saf; setTimeout/clearTimeout enjekte
+  edilir) — ana ve post-flush timer AYNI slotta saklanır, `stop()`
+  lifecycle generation'ı ilerletir (sıraya çoktan girmiş geç callback
+  hiçbir şey yapamaz), kuyruk boşalınca timer + deneme sayacı sıfırlanır.
+  Fake-timer testleri (gerçek bekleme yok): tekrarlı poke/post-flush
+  penceresi dahil tek timer; stop sonrası sıfır timer ve geç
+  main/post-flush callback'lerin yeniden kuramaması; boş kuyrukta
+  temizlik + taze 30 sn; geri çekilme 30→60 sn büyümesi. Ağ
+  dönüşü/foreground olaylarının paralel aynı-token POST açmadığı motorun
+  in-flight dedup testiyle ayrıca kanıtlıdır. Cihazda uçtan uca epoch
+  akışı (gerçek logout/login + APNs) Xcode/fiziksel cihaz olmadan
+  DOĞRULANMADI → **NOT VERIFIED**.
   **v7 düzeltmeleri (v6 bağımsız denetim):** (1) NATIVE activity_update
   TOKEN KAYBI kapatıldı — v6'da notifyListeners varsayılan davranışla
   çağrılıyordu; JS listener henüz kurulmadıysa event kayboluyor ve
@@ -284,9 +345,14 @@ high / sanitize-html moderate — onay bekliyor).
   ve sonraki denemede gönderilir. mobile:doctor bu mekanizmaları statik
   denetler. Retained event/replay davranışı Xcode/fiziksel cihazda
   DOĞRULANMADI → **NOT VERIFIED**. (2) AYNI INSTALLATION İÇİN EŞZAMANLI
-  ROTASYON — kilitler artık SABİT sırada İKİ advisory xact kilidi (önce
-  kurulum, sonra token; tüm transaksiyonlar aynı sıra → deadlock
-  imkânsız) ve eski token, yenisi ETKİNLEŞTİRİLMEDEN ÖNCE kapatılır;
+  ROTASYON — v7 sabit sıralı kurulum→token advisory kilit çifti kullandı
+  ve bu raporun önceki sürümü "deadlock imkânsız" dedi; bu ifade YANLIŞTI:
+  advisory kilit sırası SATIR kilitlerini kapsamaz ve v8 denetiminin swap
+  karşı-örneği (I1'de T1, I2'de T2 varken paralel T2→I1 ve T1→I2) satır
+  kilidi üzerinden deadlock üretebilirdi. v8'de kilitleme TEK global
+  registry kilidiyle değiştirildi ve tam bu swap senaryosu gerçek
+  PostgreSQL'de paralel test edildi (aşağıdaki v8 bölümü). v7'nin kalan
+  garantileri geçerli: eski token, yenisi ETKİNLEŞTİRİLMEDEN ÖNCE kapatılır;
   `live_activity_pts_single_installation_idx` kurulum başına en fazla
   bir etkin push-to-start satırını VERİ düzeyinde garanti eder. Gerçek
   PG paralel testleri: aynı kullanıcı+kurulum T1/T2 farklı token → T2
@@ -387,16 +453,19 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
-| `test:app` | **61/61 PASS** (v7: listener öncesi tampon replay — PTS+2 activity_update tamamı kayıt+ACK + idempotens; 503/ağ hatasında tampon korunur ve sonraki denemede gönderilir; geri çekilme monoton/tavanlı/negatif-güvenli) (v6: gerçek token-sync akışıyla hesap değişimi — A login kayıt+ack, logout yalnız iPhone, B login'de native latest OTOMATİK yeniden kaydolur [elle ekleme yok], cron A'nınkini iPhone'a gönderemez/iPad'e gönderir, B'ninkini gönderir; RPC yokken 503 + ack edilmez + migration sonrası retry başarılı; PGRST202 register artık 503 [fallback yok]; kimliksiz push_to_start 400) (+8 v5 testi: rotasyon RPC çağrısı; PGRST202/42883 gerçek-PostgREST fallback'i; tablo yokken 503; geçersiz installationId 400 — kayıt VE çıkışta; çıkış filtreleri yalnız user+installation; hesap değişimi cron senaryosu — A'nın uçuşu iPhone'a gidemez/iPad'e gider, B'ninki gider; createId son fallback RFC4122 v4) (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
+| `test:app` | **72/72 PASS** (v8 — 11 yeni test: KRİTİK yarış — bekletilen A POST'u + logout + B login + geç tamamlama → sahiplik yalnız B, B pending'i silinmez, sıfır native ACK; aynı yarış UYGULAMA YENİDEN BAŞLADI varyantında [istemci durumu sıfır, yalnız sunucu barı korur] + cron yalnız B'nin uçuşunu telefona gönderir; 409 pending düşürür ama ACK etmez → sonraki login taze kuşakla kurtarır; in-flight dedup — retained tekrar + online/foreground flush'ları ikinci paralel POST açmaz; RPC LA001→409; sessionEpoch eksik/geçersiz→400 [iki token türünde]; activity_update bar kontrolü — barlıyken 409 + tokens tablosuna dokunulmaz, bar tablosu yokken 503; deactivate p_epoch taşır [null dahil] + geçersiz kuşak 400; fake-timer scheduler 3 test — tek timer/poke tekrarı/post-flush penceresi, stop sonrası sıfır timer + geç main/post-flush callback yeniden kuramaz, boş kuyrukta timer+attempt sıfırlanır + taze 30 sn + geri çekilme büyür) (v7: listener öncesi tampon replay — PTS+2 activity_update tamamı kayıt+ACK + idempotens; 503/ağ hatasında tampon korunur ve sonraki denemede gönderilir; geri çekilme monoton/tavanlı/negatif-güvenli) (v6: gerçek token-sync akışıyla hesap değişimi — A login kayıt+ack, logout yalnız iPhone, B login'de native latest OTOMATİK yeniden kaydolur [elle ekleme yok], cron A'nınkini iPhone'a gönderemez/iPad'e gönderir, B'ninkini gönderir; RPC yokken 503 + ack edilmez + migration sonrası retry başarılı; PGRST202 register artık 503 [fallback yok]; kimliksiz push_to_start 400) (+8 v5 testi: rotasyon RPC çağrısı; PGRST202/42883 gerçek-PostgREST fallback'i; tablo yokken 503; geçersiz installationId 400 — kayıt VE çıkışta; çıkış filtreleri yalnız user+installation; hesap değişimi cron senaryosu — A'nın uçuşu iPhone'a gidemez/iPad'e gider, B'ninki gider; createId son fallback RFC4122 v4) (+UUID claim sözleşmesi 2 test: üretilen her token geçerli/benzersiz UUID + v3 hatalı biçiminin TÜM teslimi durdurduğunun kanıtı; +widget ayna testi: kalkış sonrası ters geri sayım aralığı oluşturulmaz) (+9 cron güvenilirlik senaryosu: paralel iki cron→cihaz başına tek start; kısmi başarı retry; transient ≤3; kalıcı hata yalnız ilgili token; end tokensız tamamlanmaz; end transient retry; başarılı end tekrar gönderilmez; fencing; soft deadline deferred): airport 11 (dünya kapsamı ≥7000 + küçük ada havalimanları dahil), ülke 2 (ISO kaynağı ≥240 + alan bütünlüğü + web/mobil bayt eşitliği), saat dilimi 3 (IANA doğrulama, Kiritimati/Midway geçmiş gün, 730 gün kayması), tarih 5, kokpit form 11 (kalkış/varış zorunluluğu, aynı havalimanı reddi, saat+PNR zorunluluğu, uçuş no normalize), Live Activity + deep link 4, forum serileştirici 1 (gizli alan sızıntı taraması) |
 | `mobile:prepare:all` (cap sync iOS+Android 9/9 eklenti + doctor) | PASS (yalnız placeholder-env uyarıları; Package.swift ters bölü 0; çapraz rename yok) |
 | Smoke (gerçek next start, 1. tur) | PASS: 410'lar, alarm uçları, cron auth 4 durum, admin |
 | `npm ci` + `npm --prefix mobile ci` (2. tur, temiz kurulum sonrası tüm testler) | PASS |
-| Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + v3 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity_tokens + live_activity_deliveries RLS=t, policy=0, anon/authenticated grant=0; eski live_activity_events tablosu YOK) |
+| Migration zinciri (izole PostgreSQL, sıfırdan; 20260902100000 + v8 20260902120000 dahil) | PASS (CHAIN_FAIL=0; live_activity_tokens + live_activity_deliveries + live_activity_epoch_bars RLS=t, policy=0, anon/authenticated grant=0; register 4 parametreli `(p_user_id,p_installation_id,p_token,p_epoch)` ve deactivate `(p_user_id,p_installation_id,p_epoch)`; iki partial unique index mevcut; fonksiyonlarda anon/authenticated/PUBLIC EXECUTE=0) |
+| Gerçek PG SWAP deadlock karşı-testi (v8, ZORUNLU) | PASS: I1'de T1, I2'de T2 kayıtlıyken paralel `register(T2→I1)` (açık transaksiyon, 2 sn) + 0.6 sn sonra `register(T1→I2)` → HİÇ hata yok (40P01 dahil), ikinci işlem 1438 ms global registry kilidinde BEKLEDİ (serileşme kanıtı); son durum tam takas (T2@I1, T1@I2) ve token başına + kurulum başına TAM BİR enabled satır |
+| Gerçek PG stale-epoch fencing — İKİ istek sırası (v8, ZORUNLU) | PASS — Sıra 1 (bar önce, kayıt geç): A kayıt → deactivate(e1) bar → A'nın e1 replay'i LA001, enabled=0; B taze e2 ile kayıt → sahip B; A tekrar geç dener → yine LA001, sahip B. Sıra 2 (kayıt önce işlenir): A'nın register'ı açık transaksiyonda, logout+B kaydı global kilitte 1443 ms bekledi → sıralama: A sahip → bar(e1)+devre dışı → B sahip; A'nın e1 ile geç replay'i LA001, sahip HÂLÂ B, enabled=1 |
+| Gerçek PG deactivate bar sözleşmesi (v8) | PASS: deactivate(epoch) bar satırı ekler; 40 günlük eski bar BUDANIR, 5 günlük kalır; epochsuz (NULL) çıkış bar EKLEMEZ (eski istemci uyumu) ve bar sayısını değiştirmez |
 | Atomik claim/fencing SQL sözleşmesi (gerçek PostgreSQL) | PASS: A claim → lease doluyken B alamaz → lease bitince B devralır → B 'sent' yazar → A'nın gecikmiş yazımı 0 satır etkiler |
 | Gerçek PG claim — UYGULAMANIN ÜRETTİĞİ tokenla (v4) | PASS: ts-node ile `defaultClaimToken()` çağrıldı, dönen UUID gerçek DB'de 1 satır claim etti; v3'ün `claim-<ts>-<rnd>` biçimi AYNI DB'de 22P02 ile reddedildi |
 | Gerçek PG token rotasyonu (v4) | PASS: iPhone(kurulum A) yeni token → eski kapandı; iPad(kurulum B) ve NULL kimlikli eski kayıt DOKUNULMADI; yeniden kayıt idempotent; fonksiyonda PUBLIC/anon/authenticated EXECUTE yok |
-| Gerçek PG PARALEL aynı-kurulum T1/T2 (v7, ZORUNLU) | PASS: aynı kullanıcı + aynı installation + iki farklı token eşzamanlı → T2 kurulum kilidinde 1.45 sn bekledi; sonuç tam olarak BİR enabled token; kurulum index'i (live_activity_pts_single_installation_idx) doğrudan INSERT'i de reddetti |
-| Gerçek PG PARALEL kayıt serileştirme (v6, ZORUNLU) | PASS: A'nın açık transaksiyonu advisory lock'u tutarken B aynı token için 1.46 sn BEKLEDİ; commit sonrası B kazandı → TEK enabled sahip, hata yok; fonksiyonu atlayan doğrudan INSERT partial unique index (live_activity_push_to_start_single_owner_idx) tarafından reddedildi |
+| Gerçek PG PARALEL aynı-kurulum T1/T2 (v7, ZORUNLU; v8'de 4 parametreli imza + global kilitle YENİDEN koşuldu) | PASS: aynı kullanıcı + aynı installation + iki farklı token eşzamanlı → ikinci token registry kilidinde 1435 ms bekledi; sonuç kurulumda tam olarak BİR enabled token (sonraki kazandı); kurulum index'i (live_activity_pts_single_installation_idx) veri düzeyinde garantiyi korur |
+| Gerçek PG PARALEL kayıt serileştirme (v6, ZORUNLU; v8'de 4 parametreli imza + global kilitle YENİDEN koşuldu) | PASS: A'nın açık transaksiyonu kilidi tutarken B aynı token için 1440 ms BEKLEDİ; commit sonrası B kazandı → TEK enabled sahip (user B), hata yok; fonksiyonu atlayan doğrudan INSERT partial unique index (live_activity_push_to_start_single_owner_idx) tarafından reddedilir (v6'da kanıtlandı) |
 | Gerçek PG hesaplar-arası senaryo (v5, ZORUNLU) | PASS: A logout(iPhone)→2 token kapandı+iPad açık; B login(aynı iPhone)→fiziksel token yalnız B'de etkin; A'nın etkin iPhone tokenı YOK (start/update/end gidemez), iPad'i alır; B gönderebilir; A çıkış yapmasa bile B kaydı A'yı atomik kapatır |
 | `git diff --check` | PASS |
 | Secret/staging taraması (.env/.p8/google-services/supabase/.temp) | PASS (branch diff temiz) |
@@ -444,6 +513,13 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 11. Yasal metinler: Menü → Gizlilik/Kullanım Şartları uygulama İÇİNDE
     açılmalı; çevrimdışıyken hata + "Tekrar dene" görünmeli; "Hesap ve
     veri silme" Hesap sayfasını açmalı (tarayıcı YOK).
+12. Hesap değişimi yarışı (v8, migration uygulanmış olmalı): zayıf/uçak
+    modu sınırında ağla A'dan çık → hemen B ile gir; B'nin Live Activity
+    push'ları çalışmalı ve A'nın hiçbir uçuşu bu telefona düşmemeli.
+    Uygulamayı tamamen kapatıp yeniden açarak da tekrarla (sunucu bar
+    fencing'inin cihazda teyidi). Eski sürümden güncellenen istemci
+    (sessionEpoch göndermeyen build) migration sonrası 400 alır ve
+    güncel build'e geçince kayıt olur — mağaza geçişinde beklenen durum.
 
 ## Kalan GERÇEK dış adımlar (2. tur sonrası; hiçbiri kod adımı değil)
 
