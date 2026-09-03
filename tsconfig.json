@@ -42,6 +42,7 @@
     "android",
     "ios",
     "mobile-dist",
-    "visa-worker"
+    "visa-worker",
+    "tests"
   ]
 }
