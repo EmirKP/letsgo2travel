@@ -1,6 +1,7 @@
 -- =========================================================
 -- LETSGO2TRAVEL - SPRINT 6
 -- AKILLI SEYAHAT KOKPİTİ
+-- Benzersiz migration surumu: 20260722 explorer migration'i ile cakisma yok.
 -- =========================================================
 
 create extension if not exists pgcrypto;

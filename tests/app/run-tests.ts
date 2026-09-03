@@ -6,7 +6,7 @@
 // =====================================================================
 
 import assert from "node:assert";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
@@ -361,6 +361,18 @@ test("forum SQL: temiz projede akış ve cevap tablolarını güvenli biçimde k
   }
   assert.ok(sql.includes("where status = 'visible'"), "görünür içerik sorgusu indekslenmeli");
   assert.ok(sql.includes("notify pgrst, 'reload schema'"), "postgrest şeması yenilenmeli");
+});
+
+test("Supabase migration: her dosyanın sürüm numarası benzersizdir", () => {
+  const versions = readdirSync("supabase/migrations")
+    .filter((file) => file.endsWith(".sql"))
+    .map((file) => ({ file, version: file.split("_", 1)[0] }));
+  const seen = new Map<string, string>();
+  for (const item of versions) {
+    const previous = seen.get(item.version);
+    assert.equal(previous, undefined, `${item.version} hem ${previous} hem ${item.file} tarafından kullanılıyor`);
+    seen.set(item.version, item.file);
+  }
 });
 
 test("liveActivity: kalkış geçince TERS geri sayım aralığı oluşturulmaz (widget ayna kuralı)", () => {
