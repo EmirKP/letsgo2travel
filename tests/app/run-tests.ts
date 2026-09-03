@@ -780,7 +780,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const doctor = readFileSync("scripts/mobile-doctor.mjs", "utf8");
   const android = readFileSync("android/app/build.gradle", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 12);
+  assert.equal(release.buildNumber, 13);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");

@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "12",
+  "buildNumber": "13",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,14 +16,14 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-CxvJ6MnX.js",
+    "javascript": "assets/index-BkQJ_cN4.js",
     "stylesheet": "assets/index-Bt6yUjaB.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 12: onboarding, navigation, cockpit, forum, passport map, alerts, admin access and performance were audited together.",
-    "Build 12 hotfix: iOS klavyesi açıkken havalimanı sonuçlarına dokunma seçimi düzeltildi.",
+    "Build 13: onboarding, navigation, cockpit, forum, passport map, alerts, admin access and performance were audited together.",
+    "Build 13 hotfix: iOS klavyesi açıkken havalimanı sonuçlarına dokunma seçimi düzeltildi.",
     "Root build/lint/tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]

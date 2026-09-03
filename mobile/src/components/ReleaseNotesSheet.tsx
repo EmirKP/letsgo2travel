@@ -19,7 +19,7 @@ export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: (
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
       <h3>LetsGo2Travel artık daha anlaşılır.</h3>
-      <p>Build 12, ilk dokunuştan seyahat gününe kadar uygulamanın ne işe yaradığını açıkça gösterir ve kayıtlarını daha güvenli korur.</p>
+      <p>Build {config.buildNumber}, ilk dokunuştan seyahat gününe kadar uygulamanın ne işe yaradığını açıkça gösterir ve kayıtlarını daha güvenli korur.</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, text]) => <div key={title}>
