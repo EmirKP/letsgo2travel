@@ -1,10 +1,10 @@
-# Mobil Öncelikli Denetim ve Düzeltme Raporu (03.09.2026 — 8. tur/v8 ile güncellendi)
+# Mobil Öncelikli Denetim ve Düzeltme Raporu (03.09.2026 — 9. tur/v9 ile güncellendi)
 
-> Branch: `denetim-mobil-oncelik` · Baz (başlangıç): `a7e5e61` (origin/main
+> Branch: `denetim-mobil-oncelik-v9` · Baz (başlangıç): `a7e5e61` (origin/main
 > HEAD, beklenenle birebir) · Bitiş: bu raporun commit'i (aşağıdaki listede).
 > Main'e merge ve deploy YAPILMADI. Branch, teslim edilen
-> `denetim-mobil-oncelik-v8.bundle` dosyasından alınır:
-> `git fetch <bundle-yolu> denetim-mobil-oncelik:denetim-mobil-oncelik`
+> `denetim-mobil-oncelik-v9.bundle` dosyasından alınır:
+> `git fetch <bundle-yolu> denetim-mobil-oncelik-v9:denetim-mobil-oncelik-v9`
 
 ## Commit listesi (baz → uç)
 
@@ -73,7 +73,13 @@
 
 43. `ef6c946` Oturum kuşağı (epoch) fencing'i + global registry kilidi + retry yaşam döngüsü
 44. `ac52df5` Üç mobil paket kopyası v8 build ile eşitlendi
-45. (bu rapor)
+45. `b28c54a` Denetim raporu (8. tur)
+
+**9. tur (v8 bağımsız denetim blokajları, b28c54a → uç):**
+
+46. `a08341e` Atomik activity-update kaydı + kalıcı monoton session generation fencing
+47. `94d5701` Üç mobil paket kopyası v9 build ile eşitlendi
+48. (bu rapor)
 
 ## TAM ÇALIŞAN maddeler
 
@@ -276,6 +282,29 @@ high / sanitize-html moderate — onay bekliyor).
   fiziksel token yalnız B'de etkin; A'nın uçuşu için etkin iPhone
   push_to_start/activity_update YOK (iPad'e gider), B'ninki gider; A hiç
   çıkmadan bile B kaydı A'nın satırını kapattı.
+  **v9 düzeltmeleri (v8 bağımsız denetim):** (1) `activity_update`
+  kaydındaki bar SELECT → ayrı upsert TOCTOU yarışı kaldırıldı. Trip
+  sahipliği, güncel oturum denetimi, logout barı, kota, token rotasyonu ve
+  upsert artık `register_live_activity_update` RPC'sinde TEK global kilit
+  ve TEK SQL transaksiyonunda çalışır. İstemci doğrudan token/bar tablosuna
+  yazmaz; RPC/migration yoksa güvenli 503 döner. (2) v8'in sunucu fencing'i
+  başarılı logout DELETE'ine bağlıydı; istek 4 saniyelik çıkış penceresinde
+  kaybolursa eski hesabın gecikmiş POST'u yeni hesabın token sahipliğini
+  geri alabilirdi. v9 her login'de cihazda kalıcı ve monoton bir
+  `generation` artırır; token replay'den önce
+  `begin_live_activity_session` çağrılır. Sunucu kurulum başına yalnız en
+  yüksek generation + doğru user + doğru epoch üçlüsünü kabul eder ve daha
+  yüksek generation eski kurulum tokenlarını atomik kapatır. Böylece logout
+  hiç ulaşmasa ve JS yeniden başlasa dahi eski istek 409 alır. Gecikmiş
+  eski logout da yalnız kendi `session_epoch + session_generation`
+  satırlarını kapatır; aynı kullanıcının yeni login tokenına dokunamaz.
+  (3) `push_to_start` ve `activity_update` iki ayrı atomik RPC kullanır;
+  her ikisinde kurulum oturumu zorunludur. Özel `LA001` 409, trip sahipliği
+  `LA003` 403, migration/RPC yokluğu 503 olarak eşlenir; tokenlar loglanmaz.
+  Birim/sahte-sunucu sözleşmeleri 79/79 geçti. Bu ortamda PostgreSQL,
+  Xcode/Codemagic ve fiziksel iPhone olmadığı için v9 migration'ının gerçek
+  PG yürütümü ile cihaz üstü APNs akışı **NOT VERIFIED**; production'a
+  uygulanmadan önce aşağıdaki dış adımlar zorunludur.
   **v8 düzeltmeleri (v7 bağımsız denetim):** (1) ESKİ HESABIN GECİKMİŞ
   KAYIT İSTEĞİ (KRİTİK yarış) kapatıldı — v7'de A'nın logout'tan önce
   yola çıkan token POST'u, B login olduktan SONRA sunucuya ulaşırsa
@@ -448,8 +477,15 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 
 ## Test matrisi
 
+V8 ve daha eski ayrıntılı satırlar tarihsel kanıttır. V9 için geçerli son
+durum ilk üç satırdadır; bu ortamda PostgreSQL çalıştırıcısı bulunmadığından
+v9 SQL'i için geçmiş sürümlerin gerçek-PG sonucu devralınmamıştır.
+
 | Test | Sonuç |
 |---|---|
+| **V9 son koşum — `test:app`** | **79/79 PASS**: logout isteği tamamen kayıp + aynı süreç, logout kayıp + uygulama restart, gecikmiş aynı-hesap logout, activity-update iki işlem sırası, atomik RPC/statik SQL sözleşmesi, generation doğrulaması ve önceki tüm regresyonlar |
+| **V9 migration zinciri / gerçek PostgreSQL yarışları** | **NOT VERIFIED** — bu çalışma ortamında PostgreSQL/psql/docker yok. Migration üretime uygulanmadı. SQL statik sözleşme ve sahte sunucu yarış testleri PASS; temiz PostgreSQL yürütümü ve eşzamanlı yarış testi production onayından önce zorunlu |
+| **V9 Xcode/Codemagic/fiziksel cihaz APNs** | **NOT VERIFIED** — macOS/Xcode/iPhone yok; TestFlight kontrol listesinde doğrulanacak |
 | Web ESLint (`--max-warnings=0`) / production build | PASS — kök lint'teki 4 uyarı giderildi, artık 0 uyarı |
 | Mobil ESLint (--max-warnings=0) / Vite build | PASS |
 | `test:alerts` | **37/37 PASS** (mevcut davranış korunuyor) |
@@ -513,13 +549,13 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
 11. Yasal metinler: Menü → Gizlilik/Kullanım Şartları uygulama İÇİNDE
     açılmalı; çevrimdışıyken hata + "Tekrar dene" görünmeli; "Hesap ve
     veri silme" Hesap sayfasını açmalı (tarayıcı YOK).
-12. Hesap değişimi yarışı (v8, migration uygulanmış olmalı): zayıf/uçak
-    modu sınırında ağla A'dan çık → hemen B ile gir; B'nin Live Activity
-    push'ları çalışmalı ve A'nın hiçbir uçuşu bu telefona düşmemeli.
-    Uygulamayı tamamen kapatıp yeniden açarak da tekrarla (sunucu bar
-    fencing'inin cihazda teyidi). Eski sürümden güncellenen istemci
-    (sessionEpoch göndermeyen build) migration sonrası 400 alır ve
-    güncel build'e geçince kayıt olur — mağaza geçişinde beklenen durum.
+12. Hesap değişimi yarışı (v9, migration uygulanmış olmalı): zayıf/uçak
+    modu sınırında A'nın çıkış isteğini yarıda bırak → hemen B ile gir;
+    B'nin Live Activity push'ları çalışmalı ve A'nın hiçbir uçuşu bu
+    telefona düşmemeli. Uygulamayı tamamen kapatıp yeniden açarak tekrarla;
+    kalıcı generation artmalı. Aynı A hesabıyla yeniden girişte gecikmiş
+    eski logout yeni tokenı kapatmamalı. Eski build generation göndermediği
+    için 400 alır; v9 build ile kayıt yeniden kurulmalıdır.
 
 ## Kalan GERÇEK dış adımlar (2. tur sonrası; hiçbiri kod adımı değil)
 
@@ -529,8 +565,9 @@ kontrol etmek kök neden düzeltmesinin canlı teyididir.
    portalda bir kez elle açılır. Live Activity için ek entitlement gerekmez.
 2. **Migration onayı**: `20260902100000_cockpit_flight_fields.sql` ve
    `20260902120000_live_activity_push_tokens.sql` production Supabase'e
-   uygulanmalı (uygulanana kadar hiçbir akış kırılmaz; kod güvenli eski
-   moda düşer).
+   uygulanmalı. İkinci migration gelene kadar temel uygulama çalışır fakat
+   Live Activity token kaydı güvenli 503 verir, tokenı ACK etmez ve retry
+   için tamponda tutar; güvensiz eski tablo yazımına düşmez.
 3. **Cron zamanlaması**: harici zamanlayıcıya (fiyat alarmı cron'uyla aynı
    mekanizma) `GET /api/cron/live-activity`, `Authorization: Bearer
    <CRON_SECRET>`, 10–15 dakikada bir.
