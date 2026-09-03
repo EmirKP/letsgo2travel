@@ -221,6 +221,96 @@ const ROUTE_CATALOG: CatalogRoute[] = [
   },
 ];
 
+// The catalogue remains Turkish at rest so existing saved plans and matching
+// rules stay backwards compatible. English presentation copies are applied at
+// the boundary; user-created content is never translated or rewritten.
+const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
+  GYD: {
+    name: "Baku", country: "Azerbaijan", cityOrRegion: "Baku",
+    why: "ID-card entry, a short flight and a walkable centre make this a comfortable first international trip.",
+    visaStatus: "Entry with Turkish ID card", estimatedBudget: "Economy–mid-range", idealDuration: "3–4 days",
+    bestFor: "First-time international travellers and city explorers", difficulty: "Easy", transportEase: "Easy",
+    safetyNote: "Standard city precautions are generally appropriate in central areas.",
+    dailyPlan: ["Day 1: Old City, Maiden Tower and the waterfront.", "Day 2: Heydar Aliyev Centre, Ateshgah and Yanar Dag.", "Day 3: Nizami Street, local food and free time."],
+    warnings: ["Confirm current Turkish ID-card entry rules with official sources before travel."],
+  },
+  TBS: {
+    name: "Tbilisi", country: "Georgia", cityOrRegion: "Tbilisi",
+    why: "ID-card entry, a strong food culture and affordable local costs make it a balanced short break.",
+    visaStatus: "Entry with Turkish ID card", estimatedBudget: "Economy", idealDuration: "3–5 days",
+    bestFor: "Food, culture and affordable travel", difficulty: "Easy", transportEase: "Easy",
+    safetyNote: "Use normal city precautions and take extra care in quiet streets late at night.",
+    dailyPlan: ["Day 1: Old Tbilisi, Bridge of Peace and Narikala.", "Day 2: Rustaveli, museums and Georgian food.", "Day 3: Day trip to Mtskheta or Kazbegi."],
+    warnings: ["Mountain weather can change quickly; pack layers."],
+  },
+  SJJ: {
+    name: "Sarajevo", country: "Bosnia and Herzegovina", cityOrRegion: "Sarajevo",
+    why: "Visa-free entry and a good balance of history, nature and familiar food make this an affordable Balkan route.",
+    visaStatus: "Visa-free", estimatedBudget: "Economy–mid-range", idealDuration: "4–5 days",
+    bestFor: "History, nature and Balkan food", difficulty: "Easy", transportEase: "Moderate",
+    safetyNote: "The centre is generally easy to explore; stay on marked paths in rural areas.",
+    dailyPlan: ["Day 1: Baščaršija, Sebilj and Latin Bridge.", "Day 2: Tunnel of Hope and city viewpoints.", "Day 3: Day trip to Mostar and Blagaj.", "Day 4: Local market and a relaxed finish."],
+    warnings: ["Check transport times in advance for a Mostar day trip."],
+  },
+  BEG: {
+    name: "Belgrade", country: "Serbia", cityOrRegion: "Belgrade",
+    why: "Visa-free entry, lively city life and straightforward transport make it a strong choice for groups of friends.",
+    visaStatus: "Visa-free", estimatedBudget: "Mid-range", idealDuration: "3–4 days",
+    bestFor: "Nightlife, city breaks and groups of friends", difficulty: "Easy", transportEase: "Easy",
+    safetyNote: "Keep an eye on personal belongings in crowded places.",
+    dailyPlan: ["Day 1: Kalemegdan and Knez Mihailova.", "Day 2: Saint Sava, Zemun and the riverfront.", "Day 3: Nikola Tesla Museum and local restaurants."],
+    warnings: ["Use licensed taxis or trusted apps for late-night transport."],
+  },
+  TIA: {
+    name: "Tirana & Ksamil", country: "Albania", cityOrRegion: "Tirana",
+    why: "Visa-free entry and affordable coastal options suit travellers who want to combine a summer break with city discovery.",
+    visaStatus: "Visa-free", estimatedBudget: "Economy–mid-range", idealDuration: "5–7 days",
+    bestFor: "Coast, nature and an affordable summer trip", difficulty: "Moderate", transportEase: "Moderate",
+    safetyNote: "Arrange coastal transfers ahead and use licensed transport.",
+    dailyPlan: ["Day 1: Central Tirana and Bunk'Art.", "Day 2: Berat or Gjirokastër.", "Days 3–5: Sarandë and the beaches of Ksamil."],
+    warnings: ["Coastal accommodation fills quickly in summer; book early."],
+  },
+  FCO: {
+    name: "Rome", country: "Italy", cityOrRegion: "Rome",
+    why: "A classic but rewarding choice for travellers who want art, history and food in an energetic city itinerary.",
+    visaStatus: "Schengen visa required", estimatedBudget: "Mid-range–premium", idealDuration: "4–5 days",
+    bestFor: "History, art and food", difficulty: "Moderate", transportEase: "Easy",
+    safetyNote: "Be alert to pickpocketing around busy tourist areas.",
+    dailyPlan: ["Day 1: Colosseum, Roman Forum and Monti.", "Day 2: Vatican, Castel Sant'Angelo and Prati.", "Day 3: Trevi, Pantheon, Navona and Trastevere.", "Day 4: Villa Borghese and free exploration."],
+    warnings: ["Plan Schengen applications and high-season bookings early."],
+  },
+  DXB: {
+    name: "Dubai", country: "United Arab Emirates", cityOrRegion: "Dubai",
+    why: "Modern city experiences, shopping and structured transport suit travellers who prioritise comfort.",
+    visaStatus: "Check current visa/e-Visa rules", estimatedBudget: "Premium", idealDuration: "4–6 days",
+    bestFor: "Comfort, shopping and a modern city break", difficulty: "Easy", transportEase: "Easy",
+    safetyNote: "Respect local law and public-behaviour rules.",
+    dailyPlan: ["Day 1: Downtown, Dubai Mall and the Burj Khalifa area.", "Day 2: Marina, JBR and Palm Jumeirah.", "Day 3: Old Dubai, Deira and a desert safari.", "Day 4: Museum, beach or an Abu Dhabi day trip."],
+    warnings: ["Daytime temperatures can be extremely high in summer."],
+  },
+  BKK: {
+    name: "Bangkok", country: "Thailand", cityOrRegion: "Bangkok",
+    why: "A varied long-haul choice for travellers seeking street food, culture and a city-and-island combination.",
+    visaStatus: "Check current visa-waiver rules", estimatedBudget: "Mid-range", idealDuration: "7–10 days",
+    bestFor: "Long-haul travel, food and culture", difficulty: "Moderate", transportEase: "Moderate",
+    safetyNote: "Use official apps or agencies for taxis and tour bookings.",
+    dailyPlan: ["Days 1–2: Bangkok temples, river and night markets.", "Day 3: Day trip to Ayutthaya.", "Days 4–7: Add Phuket, Krabi or Koh Samui."],
+    warnings: ["Check the rainy season and domestic-flight baggage rules."],
+  },
+};
+
+function presentRoute(route: RouteSuggestion, locale: "tr" | "en" = "tr"): RouteSuggestion {
+  const translated = locale === "en" && route.destinationCode ? ROUTE_EN[route.destinationCode] : undefined;
+  const value = translated ? { ...route, ...translated } : route;
+  return {
+    ...value,
+    scores: { ...value.scores },
+    dailyPlan: [...value.dailyPlan],
+    warnings: [...value.warnings],
+    cta: value.cta ? { ...value.cta } : undefined,
+  };
+}
+
 function budgetTier(value: string): 1 | 2 | 3 {
   const normalized = value.toLocaleLowerCase("tr-TR");
   if (normalized.includes("ekonomik") || normalized.includes("düşük")) return 1;
@@ -251,33 +341,48 @@ function scoreRoute(route: CatalogRoute, input: PlannerInput) {
   return score;
 }
 
-export function createFallbackPlan(input: PlannerInput): RoutePlan {
+export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" = "tr"): RoutePlan {
   const routes = [...ROUTE_CATALOG]
     .sort((a, b) => scoreRoute(b, input) - scoreRoute(a, input))
     .slice(0, 3)
-    .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => route);
+    .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => presentRoute(route, locale));
 
   return {
-    summary: "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.",
+    summary: locale === "en"
+      ? "We considered your budget, entry preference and travel style together. Check the latest official entry rules before deciding."
+      : "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.",
     routes,
   };
 }
 
-export function randomRoute(): RouteSuggestion {
+export function randomRoute(locale: "tr" | "en" = "tr"): RouteSuggestion {
   const route = ROUTE_CATALOG[Math.floor(Math.random() * ROUTE_CATALOG.length)];
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
-  return suggestion;
+  return presentRoute(suggestion, locale);
 }
 
-export function routeByDestinationCode(destinationCode: string): RouteSuggestion | null {
+export function randomRouteFor(preferences: {
+  budget: "economy" | "balanced" | "premium";
+  entry: "easy" | "all";
+  pace: "easy" | "balanced" | "adventure";
+}, locale: "tr" | "en" = "tr"): RouteSuggestion {
+  const budgetMap = { economy: 1, balanced: 2, premium: 3 } as const;
+  const candidates = ROUTE_CATALOG.filter((route) => {
+    if (preferences.entry === "easy" && route.visaEase !== "easy") return false;
+    if (Math.abs(route.budgetTier - budgetMap[preferences.budget]) > 1) return false;
+    if (preferences.pace === "easy" && route.difficulty !== "Kolay") return false;
+    if (preferences.pace === "adventure" && route.firstTimeFriendly && route.difficulty === "Kolay") return false;
+    return true;
+  });
+  const pool = candidates.length ? candidates : ROUTE_CATALOG;
+  const route = pool[Math.floor(Math.random() * pool.length)];
+  const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
+  return presentRoute(suggestion, locale);
+}
+
+export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" = "tr"): RouteSuggestion | null {
   const route = ROUTE_CATALOG.find((item) => item.destinationCode === destinationCode.trim().toUpperCase());
   if (!route) return null;
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
-  return {
-    ...suggestion,
-    scores: { ...suggestion.scores },
-    dailyPlan: [...suggestion.dailyPlan],
-    warnings: [...suggestion.warnings],
-    cta: suggestion.cta ? { ...suggestion.cta } : undefined,
-  };
+  return presentRoute(suggestion, locale);
 }

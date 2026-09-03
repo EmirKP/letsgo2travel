@@ -10,6 +10,7 @@ import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
 import { openExternal } from "../lib/native";
 import { getVisaEntryRule } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import type { VerifiedVisaRule } from "../types";
 
 const MFA_SOURCE = "https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa";
@@ -32,6 +33,7 @@ function statusOf(alpha3: string): VisaStatus {
 }
 
 export function PassportScreen() {
+  const { copy, countryName, locale } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | VisaStatus>("all");
   const [selected, setSelected] = useState<Country | null>(null);
@@ -42,12 +44,12 @@ export function PassportScreen() {
   const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(() => COUNTRY_LIST
-    .filter((country) => country.name.toLocaleLowerCase("tr-TR").includes(deferredQuery.toLocaleLowerCase("tr-TR")))
+    .filter((country) => `${country.name} ${countryName(country.alpha3, country.name)}`.toLocaleLowerCase(locale).includes(deferredQuery.toLocaleLowerCase(locale)))
     .filter((country) => filter === "all" || statusOf(country.alpha3) === filter)
     .sort((a, b) => {
       const statusDiff = STATUS_ORDER[statusOf(a.alpha3)] - STATUS_ORDER[statusOf(b.alpha3)];
-      return statusDiff || a.name.localeCompare(b.name, "tr");
-    }), [deferredQuery, filter]);
+      return statusDiff || countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale);
+    }), [countryName, deferredQuery, filter, locale]);
   const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
 
   useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter]);
@@ -88,22 +90,22 @@ export function PassportScreen() {
     <div className="screen passport-screen">
       <section className="page-intro passport-intro">
         <span className="page-icon"><Icon name="passport" size={27} /></span>
-        <div><small>TÜRKİYE PASAPORTU</small><h1>Pasaport Gücü</h1><p>Ülkeleri giriş kolaylığına göre keşfet. Seyahat öncesinde resmî kaynaklardan son koşulları mutlaka doğrula.</p></div>
+        <div><small>{copy("TÜRKİYE PASAPORTU", "TURKISH PASSPORT")}</small><h1>{copy("Pasaport Gücü", "Passport Power")}</h1><p>{copy("Ülkeleri giriş kolaylığına göre keşfet. Seyahat öncesinde resmî kaynaklardan son koşulları mutlaka doğrula.", "Explore countries by entry ease. Always verify the latest rules with official sources before travel.")}</p></div>
       </section>
 
       <div className="passport-stats">
-        <div><strong>{counts.id_card}</strong><span>Kimlikle</span></div>
-        <div><strong>{counts.free}</strong><span>Vizesiz</span></div>
-        <div><strong>{counts.evisa + counts.on_arrival}</strong><span>Kolay vize</span></div>
+        <div><strong>{counts.id_card}</strong><span>{copy("Kimlikle", "ID card")}</span></div>
+        <div><strong>{counts.free}</strong><span>{copy("Vizesiz", "Visa-free")}</span></div>
+        <div><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("Kolay vize", "Easy visa")}</span></div>
       </div>
 
-      <p id="passport-map-help" className="passport-map-help"><strong>Haritayı kullan:</strong> Bir ülkeye dokun; yakınlaşmak için iki parmak veya +/− düğmelerini kullan. İstersen aşağıdaki listeden de ülke seçebilirsin.</p>
-      <p id="passport-map-keyboard-help" className="sr-only">Klavyede haritayı ok tuşlarıyla hareket ettir, artı ve eksi tuşlarıyla yakınlaştır, Home tuşuyla başlangıç görünümüne dön. Ülke seçmek için aşağıdaki arama ve ülke listesini kullan.</p>
+      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("Bir ülkeye dokun; yakınlaşmak için iki parmak veya +/− düğmelerini kullan. İstersen aşağıdaki listeden de ülke seçebilirsin.", "Tap a country; pinch or use +/− to zoom. You can also choose from the list below.")}</p>
+      <p id="passport-map-keyboard-help" className="sr-only">{copy("Klavyede haritayı ok tuşlarıyla hareket ettir, artı ve eksi tuşlarıyla yakınlaştır, Home tuşuyla başlangıç görünümüne dön.", "Use arrow keys to move the map, plus and minus to zoom, and Home to reset the view.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
           dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen
           ülkeler için veri uydurulmaz; "Bilinmiyor" gösterilir. */}
-      <Suspense fallback={<div className="passport-map passport-map-loading" aria-label="Harita yükleniyor" />}>
+      <Suspense fallback={<div className="passport-map passport-map-loading" aria-label={copy("Harita yükleniyor", "Map loading")} />}>
       <PassportWorldMap
         statusFor={(alpha3) => (alpha3 ? statusOf(alpha3) : "unknown") as MapStatus}
         isHighlighted={(alpha3) => {
@@ -118,20 +120,20 @@ export function PassportScreen() {
         }}
       />
       </Suspense>
-      <div className="passport-map-legend" role="list" aria-label="Harita renk açıklaması">
+      <div className="passport-map-legend" role="list" aria-label={copy("Harita renk açıklaması", "Map colour legend")}>
         {(["id_card", "free", "evisa", "on_arrival", "required"] as const).map((status) => (
-          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{STATUS_LABEL[status]}</span>
+          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{copy(STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required" } as const)[status])}</span>
         ))}
-        <span role="listitem" className="legend-chip legend-unknown">Bilinmiyor</span>
+        <span role="listitem" className="legend-chip legend-unknown">{copy("Bilinmiyor", "Unknown")}</span>
       </div>
 
-      <label className="sr-only" htmlFor="passport-country-search">Ülke ara</label>
-      <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ülke ara" /></div>
-      <div className="chip-scroll" role="group" aria-label="Giriş durumuna göre filtrele">
-        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
+      <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
+      <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
+      <div className="chip-scroll" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
       </div>
 
-      <div className="country-results-summary" role="status"><strong>{rows.length} ülke</strong><span>Listeden veya haritadan bir ülkeye dokun.</span></div>
+      <div className="country-results-summary" role="status"><strong>{rows.length} {copy("ülke", "countries")}</strong><span>{copy("Listeden veya haritadan bir ülkeye dokun.", "Tap a country in the list or on the map.")}</span></div>
 
       <div className="country-list">
         {visibleRows.map((country) => {
@@ -139,29 +141,29 @@ export function PassportScreen() {
           return (
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
               <span className={`status-dot status-${rowStatus}`}><Icon name={rowStatus === "required" ? "lock" : rowStatus === "unknown" ? "alert" : "check"} size={16} /></span>
-              <span><strong>{country.name}</strong><small>{country.alpha3}</small></span>
-              <em className={`status-pill status-${rowStatus}`}>{STATUS_LABEL[rowStatus]}</em>
+              <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small></span>
+              <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus])}</em>
               <Icon name="chevron" size={17} />
             </button>
           );
         })}
-        {!rows.length && <div className="empty-state compact"><Icon name="search" /><strong>Sonuç bulunamadı</strong><span>Arama kelimesini veya filtreyi değiştir.</span></div>}
-        {visibleRows.length < rows.length && <button className="country-load-more" onClick={() => setVisibleCount((current) => Math.min(rows.length, current + INITIAL_ROW_COUNT))}>Daha fazla ülke göster <span>{visibleRows.length}/{rows.length}</span></button>}
+        {!rows.length && <div className="empty-state compact"><Icon name="search" /><strong>{copy("Sonuç bulunamadı", "No results")}</strong><span>{copy("Arama kelimesini veya filtreyi değiştir.", "Change the search or filter.")}</span></div>}
+        {visibleRows.length < rows.length && <button className="country-load-more" onClick={() => setVisibleCount((current) => Math.min(rows.length, current + INITIAL_ROW_COUNT))}>{copy("Daha fazla ülke göster", "Show more countries")} <span>{visibleRows.length}/{rows.length}</span></button>}
       </div>
 
-      <Sheet open={Boolean(selected)} title={selected?.name || "Ülke"} onClose={closeCountry}>
+      <Sheet open={Boolean(selected)} title={selected ? countryName(selected.alpha3, selected.name) : copy("Ülke", "Country")} onClose={closeCountry}>
         {selected && <div className="country-detail">
-          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>Türkiye pasaportu için</small><strong>{verifiedRule?.label || STATUS_LABEL[status]}</strong></div></div>
-          {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{verifiedRule?.note || (status === "unknown"
-            ? "Bu ülke için doğrulanmış giriş sınıfı verimiz yok; tahmin gösterilmez. Güncel koşulu resmî kaynaktan kontrol et."
-            : "Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir.")}</p></div>}
+          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{copy("Türkiye pasaportu için", "For a Turkish passport")}</small><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status])}</strong></div></div>
+          {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{(locale === "tr" ? verifiedRule?.note : "") || (status === "unknown"
+            ? copy("Bu ülke için doğrulanmış giriş sınıfı verimiz yok; tahmin gösterilmez. Güncel koşulu resmî kaynaktan kontrol et.", "We have no verified entry classification for this country, so no guess is shown. Check an official source.")
+            : copy("Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir.", "This category is for general discovery. Stay length, passport validity, transit and travel purpose can change the result."))}</p></div>}
           <div className="detail-list">
-            <div><span>Ülke kodu</span><strong>{selected.alpha3}</strong></div>
-            <div><span>Giriş sınıfı</span><strong>{verifiedRule?.label || STATUS_LABEL[status]}</strong></div>
-            <div><span>Son veri kontrolü</span><strong>{verifiedRule?.verifiedAt || "Resmî kaynaktan doğrula"}</strong></div>
+            <div><span>{copy("Ülke kodu", "Country code")}</span><strong>{selected.alpha3}</strong></div>
+            <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status])}</strong></div>
+            <div><span>{copy("Son veri kontrolü", "Last checked")}</span><strong>{verifiedRule?.verifiedAt || copy("Resmî kaynaktan doğrula", "Verify officially")}</strong></div>
           </div>
-          <button className="primary-wide" onClick={() => void openExternal(verifiedRule?.sourceUrl || MFA_SOURCE)}><Icon name="external" size={18} /> Dışişleri kaynağını aç</button>
-          <p className="legal-note">Koşullar değişebilir. Bilet almadan önce havayolu, konsolosluk ve Dışişleri Bakanlığı bilgisini birlikte doğrula.</p>
+          <button className="primary-wide" onClick={() => void openExternal(verifiedRule?.sourceUrl || MFA_SOURCE)}><Icon name="external" size={18} /> {copy("Dışişleri kaynağını aç", "Open official source")}</button>
+          <p className="legal-note">{copy("Koşullar değişebilir. Bilet almadan önce havayolu, konsolosluk ve Dışişleri Bakanlığı bilgisini birlikte doğrula.", "Rules can change. Cross-check the airline, consulate and Ministry information before booking.")}</p>
         </div>}
       </Sheet>
     </div>

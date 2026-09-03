@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 
 export const LIVE_ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala start
 export const LIVE_ACTIVITY_TAIL_MS = 60 * 60 * 1000; // kalkıştan 1 saat sonra end
+export const LIVE_ACTIVITY_ARRIVAL_GRACE_MS = 20 * 60 * 1000;
 export const LIVE_ACTIVITY_MAX_ATTEMPTS = 3; // en fazla 3 transient deneme
 export const LIVE_ACTIVITY_LEASE_MS = 60 * 1000;
 export const LIVE_ACTIVITY_RETRY_BACKOFF_MS = 5 * 60 * 1000;
@@ -35,6 +36,9 @@ export type CronTrip = {
   originIata: string;
   destinationIata: string;
   departureAtMs: number;
+  /** Planlanan varış; eski kayıtlarda yoksa güvenli +1 saat fallback kullanılır. */
+  arrivalAtMs?: number;
+  language?: "tr" | "en";
 };
 
 export type CronToken = {
@@ -96,11 +100,12 @@ export type LiveActivitySendPayload =
   | {
     event: "start";
     tripId: string;
-    attributes: { tripId: string; title: string; originIata: string; destinationIata: string; deepLink: string };
+    attributes: { tripId: string; title: string; originIata: string; destinationIata: string; deepLink: string; language: string };
     departureAtMs: number;
+    arrivalAtMs: number;
     alert: { title: string; body: string };
   }
-  | { event: "end"; tripId: string; departureAtMs: number };
+  | { event: "end"; tripId: string; departureAtMs: number; arrivalAtMs: number };
 
 export type LiveActivityTransport = (token: string, payload: LiveActivitySendPayload) => Promise<LiveActivityPushOutcome>;
 
@@ -138,21 +143,32 @@ export function cockpitDeepLinkFor(tripId: string) {
   return `letsgo2travel://cockpit?tripId=${encodeURIComponent(tripId)}`;
 }
 
+export function activityArrivalAtMs(trip: Pick<CronTrip, "departureAtMs" | "arrivalAtMs">) {
+  return Number.isFinite(trip.arrivalAtMs) && Number(trip.arrivalAtMs) > trip.departureAtMs
+    ? Number(trip.arrivalAtMs)
+    : trip.departureAtMs + LIVE_ACTIVITY_TAIL_MS;
+}
+
 export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
+  const english = trip.language === "en";
   return {
     event: "start",
     tripId: trip.id,
     attributes: {
       tripId: trip.id,
-      title: trip.title || "Yaklaşan uçuş",
+      title: trip.title || (english ? "Upcoming flight" : "Yaklaşan uçuş"),
       originIata: trip.originIata || "",
       destinationIata: trip.destinationIata || "",
       deepLink: cockpitDeepLinkFor(trip.id),
+      language: english ? "en" : "tr",
     },
     departureAtMs: trip.departureAtMs,
+    arrivalAtMs: activityArrivalAtMs(trip),
     alert: {
-      title: "Uçuşun yaklaşıyor ✈️",
-      body: `${trip.title || "Yaklaşan uçuş"} uçuşuna 3 saat kaldı.`,
+      title: english ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
+      body: english
+        ? `3 hours until your ${trip.title || "upcoming"} flight.`
+        : `${trip.title || "Yaklaşan uçuş"} uçuşuna 3 saat kaldı.`,
     },
   };
 }
@@ -177,7 +193,7 @@ async function seedPhase(
   if (startRows.length) await store.seedDeliveries(startRows);
   summary.seededStarts = startRows.length;
 
-  // END: kalkış+1 saat geçmiş uçuşlar × o kaydın activity_update
+  // END: planlanan varış + karşılama payı geçmiş uçuşlar × o kaydın activity_update
   // tokenları. Token YOKSA satır açılmaz → end "tamamlanmış" SAYILMAZ;
   // token sonradan kaydolursa bir sonraki cron satırı açar.
   const endTrips = await store.tripsEndDue(nowMs, LIVE_ACTIVITY_END_SEED_HORIZON_MS, seedTripLimit);
@@ -216,8 +232,9 @@ async function processDelivery(
     return;
   }
 
-  // Stale start: kalkış+1 saat geçtiyse başlatma push'u artık anlamsız.
-  if (row.event === "start" && nowMs > trip.departureAtMs + LIVE_ACTIVITY_TAIL_MS) {
+  // Push-to-start kalkıştan sonra ulaşırsa "3 saat kaldı" bildirimi yanlış
+  // olur. Uygulama içindeki yerel aktivite uçuş görünümünü ayrıca yönetir.
+  if (row.event === "start" && nowMs >= trip.departureAtMs) {
     if (await settle({ status: "permanent_failed", attemptCount: row.attemptCount, lastError: "stale_start" })) {
       summary.permanentFailed += 1;
     }
@@ -226,7 +243,7 @@ async function processDelivery(
 
   const payload: LiveActivitySendPayload = row.event === "start"
     ? buildStartPayload(trip)
-    : { event: "end", tripId: trip.id, departureAtMs: trip.departureAtMs };
+    : { event: "end", tripId: trip.id, departureAtMs: trip.departureAtMs, arrivalAtMs: activityArrivalAtMs(trip) };
 
   let outcome: LiveActivityPushOutcome;
   try {

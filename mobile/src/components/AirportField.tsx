@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Icon } from "./Icon";
 import { airportTitle, searchAirports, type AirportOption } from "../lib/airports";
+import { useI18n } from "../lib/i18n";
 
 // Mobil havalimanı seçici: kullanıcı şehir, ülke, havalimanı adı veya
 // IATA koduyla arar; IATA bilmek zorunda değildir. Sonuç satırı ad,
@@ -15,6 +16,7 @@ type AirportFieldProps = {
 };
 
 export function AirportField({ label, value, onChange, placeholder, required = false }: AirportFieldProps) {
+  const { copy } = useI18n();
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<AirportOption[]>([]);
   const [open, setOpen] = useState(false);
@@ -110,9 +112,9 @@ export function AirportField({ label, value, onChange, placeholder, required = f
   return (
     <div className="airport-field" ref={wrapperRef}>
       <label htmlFor={!value ? inputId : undefined}>
-        <span>{label}{required && <em className="required-mark"> · zorunlu</em>}</span>
+        <span>{label}{required && <em className="required-mark"> · {copy("zorunlu", "required")}</em>}</span>
         {value ? (
-          <button type="button" className="airport-field-selected" onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={`${airportTitle(value)} seçimini değiştir`}>
+          <button type="button" className="airport-field-selected" onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={copy(`${airportTitle(value)} seçimini değiştir`, `Change ${airportTitle(value)} selection`)}>
             <span>
               <strong>{airportTitle(value)} <em>{value.iata}</em></strong>
               <small>{value.name} · {value.country}</small>
@@ -134,7 +136,7 @@ export function AirportField({ label, value, onChange, placeholder, required = f
             inputMode="search"
             autoComplete="off"
             autoCorrect="off"
-            placeholder={placeholder || "Şehir, ülke veya havalimanı yaz"}
+            placeholder={placeholder || copy("Şehir, ülke veya havalimanı yaz", "Type a city, country or airport")}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => { if (options.length) setOpen(true); }}
             onKeyDown={onInputKeyDown}
@@ -142,11 +144,11 @@ export function AirportField({ label, value, onChange, placeholder, required = f
         )}
       </label>
       {open && !value && (
-        <div className="airport-field-options" id={listId} role="listbox" aria-label={`${label} sonuçları`}>
-          {loading && !options.length && <p className="airport-field-note">Aranıyor…</p>}
-          {failed && !loading && <p className="airport-field-note">Arama şu an yapılamadı. Bağlantını kontrol edip tekrar yaz.</p>}
+        <div className="airport-field-options" id={listId} role="listbox" aria-label={copy(`${label} sonuçları`, `${label} results`)}>
+          {loading && !options.length && <p className="airport-field-note">{copy("Aranıyor…", "Searching…")}</p>}
+          {failed && !loading && <p className="airport-field-note">{copy("Arama şu an yapılamadı. Bağlantını kontrol edip tekrar yaz.", "Search is unavailable. Check your connection and try again.")}</p>}
           {!loading && !failed && !options.length && query.trim().length >= 2 && (
-            <p className="airport-field-note">Sonuç yok. Şehir veya havalimanı adıyla dene.</p>
+            <p className="airport-field-note">{copy("Sonuç yok. Şehir veya havalimanı adıyla dene.", "No results. Try a city or airport name.")}</p>
           )}
           {options.map((option, index) => (
             <button

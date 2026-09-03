@@ -1,5 +1,6 @@
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
+import { localeFromStorage } from "./i18n";
 import type {
   FlightAlert,
   PlannerInput,
@@ -7,8 +8,44 @@ import type {
   VerifiedVisaRule,
   VisaAppointmentNotification,
   TravelVerification,
+  TravelEvent,
+  TravelNowResult,
   WeatherSummary,
 } from "../types";
+
+export async function listTravelEvents(params: {
+  countryCode?: string;
+  city?: string;
+  startDate?: string;
+  endDate?: string;
+  category?: TravelEvent["category"] | "all";
+  featured?: boolean;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params.countryCode) query.set("countryCode", params.countryCode);
+  if (params.city) query.set("city", params.city);
+  if (params.startDate) query.set("startDate", params.startDate);
+  if (params.endDate) query.set("endDate", params.endDate);
+  if (params.category && params.category !== "all") query.set("category", params.category);
+  if (params.featured) query.set("featured", "true");
+  query.set("limit", String(params.limit || 24));
+  return requestJson<{ data: TravelEvent[]; meta: { providerConfigured: boolean; partial: boolean; updatedAt: string } }>(`/api/events?${query}`, { timeoutMs: 14_000 });
+}
+
+export async function getTravelNow(params: {
+  latitude: number;
+  longitude: number;
+  budget: "free" | "low" | "flexible";
+  interest: "culture" | "food" | "outdoors" | "calm";
+  locale: "tr" | "en";
+}) {
+  return requestJson<{ data: TravelNowResult }>("/api/travel-now", {
+    method: "POST",
+    body: params,
+    timeoutMs: 14_000,
+  });
+}
 
 export class ApiError extends Error {
   status: number;
@@ -33,6 +70,10 @@ type RequestOptions = {
 function absoluteUrl(path: string) {
   if (/^https?:\/\//i.test(path)) return path;
   return `${config.apiBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function apiCopy(tr: string, en: string) {
+  return localeFromStorage() === "en" ? en : tr;
 }
 
 function errorMessage(data: unknown, fallback: string) {
@@ -64,12 +105,16 @@ function errorCode(data: unknown) {
 export async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const url = absoluteUrl(path);
   const method = options.method || "GET";
-  const headers = { Accept: "application/json", ...options.headers };
+  const headers = {
+    Accept: "application/json",
+    "Accept-Language": localeFromStorage() === "en" ? "en" : "tr",
+    ...options.headers,
+  };
   const timeoutMs = options.timeoutMs ?? 18_000;
 
   if (isNativePlatform()) {
     const http = plugin("CapacitorHttp");
-    if (!http?.request) throw new ApiError("Yerel HTTP köprüsü bulunamadı.");
+    if (!http?.request) throw new ApiError(apiCopy("Yerel HTTP köprüsü bulunamadı.", "The native HTTP bridge is unavailable."));
     const nativeOptions = {
       url,
       method,
@@ -86,12 +131,12 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
         try { data = JSON.parse(data); } catch { /* Metin yanıtı olduğu gibi bırak. */ }
       }
       if (response.status < 200 || response.status >= 300) {
-        throw new ApiError(errorMessage(data, `Sunucu hatası (${response.status})`), response.status, errorCode(data), data);
+        throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`)), response.status, errorCode(data), data);
       }
       return data as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(error instanceof Error ? error.message : "Sunucuya bağlanılamadı.");
+      throw new ApiError(error instanceof Error ? error.message : apiCopy("Sunucuya bağlanılamadı.", "Could not connect to the server."));
     }
   }
 
@@ -113,14 +158,14 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
         data = text;
       }
     }
-    if (!response.ok) throw new ApiError(errorMessage(data, `Sunucu hatası (${response.status})`), response.status, errorCode(data), data);
+    if (!response.ok) throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`)), response.status, errorCode(data), data);
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new ApiError("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.");
+      throw new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again."));
     }
-    throw new ApiError(error instanceof Error ? error.message : "Bağlantı kurulamadı.");
+    throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect."));
   } finally {
     window.clearTimeout(timer);
   }
@@ -262,7 +307,8 @@ function cleanStringList(value: unknown, fallback: string[] = []) {
   return items.length ? items : fallback;
 }
 
-function sanitizeRoutePlan(value: unknown): RoutePlan | null {
+function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" = "tr"): RoutePlan | null {
+  const fallback = (tr: string, en: string) => locale === "en" ? en : tr;
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   if (!Array.isArray(record.routes)) return null;
@@ -279,21 +325,21 @@ function sanitizeRoutePlan(value: unknown): RoutePlan | null {
       country,
       cityOrRegion: cleanText(route.cityOrRegion, name),
       destinationCode: /^[A-Z0-9]{3}$/.test(cleanText(route.destinationCode).toUpperCase()) ? cleanText(route.destinationCode).toUpperCase() : undefined,
-      why: cleanText(route.why, `${name}, seçtiğin seyahat tercihlerine uygun bir rota.`),
-      visaStatus: cleanText(route.visaStatus, "Seyahat öncesi doğrula"),
+      why: cleanText(route.why, fallback(`${name}, seçtiğin seyahat tercihlerine uygun bir rota.`, `${name} fits the travel preferences you selected.`)),
+      visaStatus: cleanText(route.visaStatus, fallback("Seyahat öncesi doğrula", "Verify before travel")),
       visaNote: cleanText(route.visaNote),
       visaSourceUrl: /^https:\/\//i.test(cleanText(route.visaSourceUrl)) ? cleanText(route.visaSourceUrl) : undefined,
       visaVerifiedAt: cleanText(route.visaVerifiedAt) || null,
       verifiedEntryStatus: ["identity_card", "visa_free", "e_visa", "visa_on_arrival", "visa_required", "unknown"].includes(cleanText(route.verifiedEntryStatus))
         ? cleanText(route.verifiedEntryStatus) as import("../types").RouteSuggestion["verifiedEntryStatus"]
         : "unknown",
-      estimatedBudget: cleanText(route.estimatedBudget, "Tarihlere göre değişir"),
-      idealDuration: cleanText(route.idealDuration, "3–5 gün"),
-      bestFor: cleanText(route.bestFor, "Genel keşif"),
-      difficulty: cleanText(route.difficulty, "Orta"),
+      estimatedBudget: cleanText(route.estimatedBudget, fallback("Tarihlere göre değişir", "Varies by dates")),
+      idealDuration: cleanText(route.idealDuration, fallback("3–5 gün", "3–5 days")),
+      bestFor: cleanText(route.bestFor, fallback("Genel keşif", "General discovery")),
+      difficulty: cleanText(route.difficulty, fallback("Orta", "Moderate")),
       firstTimeFriendly: typeof route.firstTimeFriendly === "boolean" ? route.firstTimeFriendly : true,
-      transportEase: cleanText(route.transportEase, "Orta"),
-      safetyNote: cleanText(route.safetyNote, "Güncel yerel uyarıları seyahat öncesinde kontrol et."),
+      transportEase: cleanText(route.transportEase, fallback("Orta", "Moderate")),
+      safetyNote: cleanText(route.safetyNote, fallback("Güncel yerel uyarıları seyahat öncesinde kontrol et.", "Check current local guidance before travel.")),
       scores: {
         budget: cleanScore(rawScores.budget, 75),
         visaEase: cleanScore(rawScores.visaEase, 70),
@@ -301,7 +347,7 @@ function sanitizeRoutePlan(value: unknown): RoutePlan | null {
         transport: cleanScore(rawScores.transport, 75),
         overall: cleanScore(rawScores.overall, 80 - index * 3),
       },
-      dailyPlan: cleanStringList(route.dailyPlan, ["1. Gün: Şehir merkezini ve ana noktaları keşfet."]),
+      dailyPlan: cleanStringList(route.dailyPlan, [fallback("1. Gün: Şehir merkezini ve ana noktaları keşfet.", "Day 1: Explore the centre and main sights.")]),
       warnings: cleanStringList(route.warnings),
       cta: route.cta && typeof route.cta === "object" ? {
         guideText: cleanText((route.cta as Record<string, unknown>).guideText),
@@ -312,18 +358,18 @@ function sanitizeRoutePlan(value: unknown): RoutePlan | null {
 
   if (!routes.length) return null;
   return {
-    summary: cleanText(record.summary, "Seçimlerine uygun rota seçenekleri hazırlandı."),
+    summary: cleanText(record.summary, fallback("Seçimlerine uygun rota seçenekleri hazırlandı.", "Route options matching your choices are ready.")),
     routes,
   };
 }
 
-export async function generateRoutePlan(input: PlannerInput) {
+export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" = "tr") {
   const response = await requestJson<{ success: boolean; data: unknown; isFallback?: boolean }>("/api/ai-plan", {
     method: "POST",
-    body: input,
+    body: { ...input, locale },
     timeoutMs: 60_000,
   });
-  return { ...response, data: sanitizeRoutePlan(response.data) };
+  return { ...response, data: sanitizeRoutePlan(response.data, locale) };
 }
 
 export async function checkApiHealth() {
@@ -389,11 +435,18 @@ const WEATHER_CODES: Record<number, string> = {
   99: "Kuvvetli dolu ihtimali",
 };
 
-export async function getWeather(place: string): Promise<WeatherSummary> {
-  const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=tr&format=json`;
+const WEATHER_CODES_EN: Record<number, string> = {
+  0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Foggy", 48: "Rime fog",
+  51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle", 61: "Light rain", 63: "Rainy", 65: "Heavy rain",
+  71: "Light snow", 73: "Snowy", 75: "Heavy snow", 80: "Showers", 81: "Heavy showers", 82: "Severe showers",
+  95: "Thunderstorms", 96: "Chance of hail", 99: "Severe hail risk",
+};
+
+export async function getWeather(place: string, locale: "tr" | "en" = "tr"): Promise<WeatherSummary> {
+  const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=${locale}&format=json`;
   const geo = await requestJson<{ results?: Array<{ name: string; country?: string; latitude: number; longitude: number }> }>(geocodingUrl, { timeoutMs: 12_000 });
   const result = geo.results?.[0];
-  if (!result) throw new ApiError("Bu konum için hava durumu bulunamadı.");
+  if (!result) throw new ApiError(locale === "en" ? "Weather is unavailable for this location." : "Bu konum için hava durumu bulunamadı.");
 
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${result.latitude}&longitude=${result.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
   const weather = await requestJson<{
@@ -401,13 +454,13 @@ export async function getWeather(place: string): Promise<WeatherSummary> {
     daily?: { temperature_2m_max: number[]; temperature_2m_min: number[] };
   }>(weatherUrl, { timeoutMs: 12_000 });
 
-  if (!weather.current) throw new ApiError("Hava durumu verisi alınamadı.");
+  if (!weather.current) throw new ApiError(locale === "en" ? "Weather data is unavailable." : "Hava durumu verisi alınamadı.");
   return {
     place: [result.name, result.country].filter(Boolean).join(", "),
     temperature: Math.round(weather.current.temperature_2m),
     windSpeed: Math.round(weather.current.wind_speed_10m),
     weatherCode: weather.current.weather_code,
-    description: WEATHER_CODES[weather.current.weather_code] || "Değişken hava",
+    description: (locale === "en" ? WEATHER_CODES_EN : WEATHER_CODES)[weather.current.weather_code] || (locale === "en" ? "Variable weather" : "Değişken hava"),
     min: Math.round(weather.daily?.temperature_2m_min?.[0] ?? weather.current.temperature_2m),
     max: Math.round(weather.daily?.temperature_2m_max?.[0] ?? weather.current.temperature_2m),
   };

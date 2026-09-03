@@ -11,6 +11,7 @@ type SessionPayload = {
 };
 
 function roleCanAccess(path: string, role: string) {
+  if (path.startsWith("/admin/etkinlikler")) return role === "super_admin";
   if (["admin", "super_admin"].includes(role)) return true;
 
   const moderatorPrefixes = [

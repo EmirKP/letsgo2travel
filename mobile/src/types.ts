@@ -1,6 +1,6 @@
 export type TabId = "home" | "explore" | "route" | "trips" | "profile";
 
-export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts" | "admin";
+export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts" | "events" | "companion" | "phrases" | "admin";
 
 export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required" | "unknown";
 
@@ -74,6 +74,46 @@ export type WeatherSummary = {
   description: string;
   min: number;
   max: number;
+};
+
+export type TravelEvent = {
+  id: string;
+  provider: "curated" | "ticketmaster";
+  title: string;
+  description: string;
+  category: "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
+  countryCode: string;
+  city: string;
+  venue: string;
+  startsAt: string;
+  endsAt: string | null;
+  status: "scheduled" | "postponed" | "cancelled" | "completed";
+  imageUrl: string | null;
+  ticketUrl: string | null;
+  sourceUrl: string;
+  featured: boolean;
+  updatedAt: string;
+};
+
+export type TravelNowResult = {
+  weather: {
+    temperature: number;
+    apparentTemperature: number;
+    precipitation: number;
+    weatherCode: number;
+    description: string;
+    localTime: string;
+    timeZone: string;
+  };
+  recommendations: Array<{
+    id: string;
+    title: string;
+    reason: string;
+    duration: string;
+    mapQuery: string;
+    indoor: boolean;
+  }>;
+  privacy: string;
 };
 
 export type VerifiedVisaRule = {

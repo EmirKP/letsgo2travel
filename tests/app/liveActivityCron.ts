@@ -6,9 +6,11 @@
 
 import assert from "node:assert";
 import {
+  LIVE_ACTIVITY_ARRIVAL_GRACE_MS,
   LIVE_ACTIVITY_LEAD_MS,
   LIVE_ACTIVITY_RETRY_BACKOFF_MS,
-  LIVE_ACTIVITY_TAIL_MS,
+  activityArrivalAtMs,
+  buildStartPayload,
   defaultClaimToken,
   runLiveActivityCron,
   type CronToken,
@@ -52,7 +54,7 @@ export function createMemoryStore(seed: { trips?: MemoryTrip[]; tokens?: MemoryT
     },
     async tripsEndDue(nowMs, horizonMs, limit) {
       return Array.from(trips.values())
-        .filter((trip) => trip.departureAtMs < nowMs - LIVE_ACTIVITY_TAIL_MS && trip.departureAtMs >= nowMs - horizonMs)
+        .filter((trip) => activityArrivalAtMs(trip) + LIVE_ACTIVITY_ARRIVAL_GRACE_MS < nowMs && trip.departureAtMs >= nowMs - horizonMs)
         .slice(0, limit);
     },
     async pushToStartTokensByUser(userIds) {
@@ -176,6 +178,57 @@ function updateToken(id: string, userId: string, tripId: string): MemoryToken {
 }
 
 export function registerLiveActivityCronTests(test: (name: string, fn: () => Promise<void> | void) => void) {
+  test("cron: İngilizce Live Activity varış süresini ve dilini taşır", () => {
+    const departureAtMs = Date.parse("2026-10-10T10:00:00Z");
+    const arrivalAtMs = Date.parse("2026-10-10T18:00:00Z");
+    const payload = buildStartPayload({
+      id: "trip-en",
+      userId: "user-en",
+      title: "",
+      originIata: "IST",
+      destinationIata: "JFK",
+      departureAtMs,
+      arrivalAtMs,
+      language: "en",
+    });
+    assert.equal(payload.event, "start");
+    if (payload.event !== "start") return;
+    assert.equal(payload.arrivalAtMs, arrivalAtMs);
+    assert.equal(payload.attributes.language, "en");
+    assert.equal(payload.attributes.title, "Upcoming flight");
+    assert.ok(payload.alert.title.startsWith("Your flight"));
+  });
+
+  test("cron: kalkıştan sonra geciken start bildirimi gönderilmez", async () => {
+    const trip = tripUpcoming("trip-stale", "user-stale");
+    const { store, deliveries } = createMemoryStore({
+      trips: [trip],
+      tokens: [pushToStartToken("tok-stale", "user-stale")],
+    });
+    const first = makeTransport(() => TRANSIENT);
+    await runLiveActivityCron(store, first.transport, { nowMs: T0 });
+    assert.equal(first.calls.length, 1);
+    const late = makeTransport(() => OK);
+    const summary = await runLiveActivityCron(store, late.transport, { nowMs: trip.departureAtMs + 1 });
+    assert.equal(late.calls.length, 0, "kalkıştan sonra 3 saat kaldı bildirimi gitmemeli");
+    assert.equal(summary.permanentFailed, 1);
+    assert.equal(Array.from(deliveries.values())[0].status, "permanent_failed");
+  });
+
+  test("cron: end planlanan varış ve karşılama payından önce açılmaz", async () => {
+    const departureAtMs = T0 - 2 * 60 * 60 * 1000;
+    const arrivalAtMs = T0 + 60 * 60 * 1000;
+    const trip: MemoryTrip = { id: "trip-long", userId: "user-long", title: "New York", originIata: "IST", destinationIata: "JFK", departureAtMs, arrivalAtMs, status: "active" };
+    const { store, deliveries } = createMemoryStore({
+      trips: [trip],
+      tokens: [updateToken("tok-long", "user-long", "trip-long")],
+    });
+    await runLiveActivityCron(store, makeTransport(() => OK).transport, { nowMs: T0 });
+    assert.equal(Array.from(deliveries.values()).filter((item) => item.event === "end").length, 0);
+    await runLiveActivityCron(store, makeTransport(() => OK).transport, { nowMs: arrivalAtMs + LIVE_ACTIVITY_ARRIVAL_GRACE_MS + 1 });
+    assert.equal(Array.from(deliveries.values()).filter((item) => item.event === "end").length, 1);
+  });
+
   test("cron: paralel iki çalışma cihaz başına TEK start gönderir", async () => {
     const { store } = createMemoryStore({
       trips: [tripUpcoming("trip-1", "user-1")],

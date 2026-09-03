@@ -376,6 +376,8 @@ function makeTripForm(overrides: Partial<TripFormState> = {}): TripFormState {
     startDate: localIsoDate(10),
     endDate: localIsoDate(15),
     departureTime: "10:30",
+    arrivalDate: localIsoDate(10),
+    arrivalTime: "13:30",
     airline: "Türk Hava Yolları",
     flightNumber: "TK1979",
     flightPnr: "ABC123",
@@ -402,6 +404,16 @@ test("kokpit: kalkış ve varış aynı havalimanı olamaz", () => {
 test("kokpit: uçuşlu seyahatte kalkış saati ve PNR zorunlu", () => {
   assert.ok(tripFormError(makeTripForm({ departureTime: "" })).includes("saat"));
   assert.ok(tripFormError(makeTripForm({ flightPnr: "" })).includes("PNR"));
+});
+
+test("kokpit: planlanan varış uçuş geri sayımı için zorunlu ve kalkıştan sonradır", () => {
+  assert.ok(tripFormError(makeTripForm({ arrivalDate: "" })).includes("varış"));
+  assert.ok(tripFormError(makeTripForm({ arrivalTime: "" })).includes("varış"));
+  assert.ok(tripFormError(makeTripForm({ arrivalTime: "09:30" })).includes("kalkıştan sonra"));
+  assert.equal(
+    tripFormError(makeTripForm({ arrivalTime: "09:30" }), new Date(), "en"),
+    "Scheduled arrival must be after departure.",
+  );
 });
 
 test("kokpit: uçuş numarası normalize edilir ve doğrulanır", () => {
@@ -468,7 +480,7 @@ test("mobil fiyat alarmı: hata durumu veriyi korur, yeniden deneme ve zorunlu a
   assert.ok(screen.includes("Ekrandaki son kayıtların korunuyor."), "yenileme hatasında mevcut kayıtların korunduğu anlatılmalı");
   assert.ok(screen.includes("Tekrar dene"), "yükleme hatasının yeniden deneme eylemi olmalı");
   assert.ok(screen.includes("!loadError && !actionError"), "hata ile boş durum aynı anda çizilmemeli");
-  assert.ok(screen.includes('<AirportField label="Nereden" required'), "kalkış seçimi semantik olarak zorunlu olmalı");
+  assert.match(screen, /<AirportField label=\{copy\("Nereden", "From"\)\} required/, "kalkış seçimi iki dilde de semantik olarak zorunlu olmalı");
   assert.ok(screen.includes('type="date" required aria-required="true"'), "tarih semantik olarak zorunlu olmalı");
   assert.ok(screen.includes('<fieldset className="alert-channels"'), "bildirim kanalları erişilebilir bir alan grubu olmalı");
   assert.ok(screen.includes("alert.last_error_message"), "sunucunun alarm uyarısı kullanıcıya gösterilmeli");
@@ -494,6 +506,14 @@ test("liveActivity: evreler doğru (before/active/ended)", () => {
   assert.equal(activityPhase(departure, new Date("2026-10-10T11:30:00Z")), "ended", "1 saat sonra biter");
   assert.equal(activityPhase(null), "ended");
   assert.equal(activityPhase("bozuk-tarih"), "ended");
+});
+
+test("liveActivity: uzun uçuş planlanan varışa ve karşılama payına kadar sürer", () => {
+  const departure = "2026-10-10T10:00:00.000Z";
+  const arrival = "2026-10-10T18:00:00.000Z";
+  assert.equal(activityPhase(departure, new Date("2026-10-10T17:59:59Z"), arrival), "active");
+  assert.equal(activityPhase(departure, new Date("2026-10-10T18:19:59Z"), arrival), "active");
+  assert.equal(activityPhase(departure, new Date("2026-10-10T18:20:01Z"), arrival), "ended");
 });
 
 test("liveActivity: iptal/tamamlandı durumu aktif uçuşu yeniden başlatmaz", () => {
@@ -665,8 +685,8 @@ test("forum senkronu: kilitli cevap önizlemesi ve hesap yetkisi aynı kuralı k
   assert.ok(feedRoute.includes('rpc("get_forum_reply_counts"'), "akış cevap sayısını sınırsız toplu sayım RPC'sinden almalı");
   assert.ok(!feedRoute.includes(".limit(5000)"), "cevap sayısı sabit satır limitinde kesilmemeli");
   assert.ok(mobile.includes("Authorization: `Bearer ${accessToken}`"), "mobil detay isteği oturumunu taşımalı");
-  assert.ok(mobile.includes("totalAnswerCount ? `${totalAnswerCount} cevap`"), "detay başlığı toplam cevap sayısını kullanmalı");
-  assert.ok(mobile.includes("${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli"), "gösterilen ve kilitli cevap sayıları açıklanmalı");
+  assert.ok(mobile.includes("totalAnswerCount ? copy(`${totalAnswerCount} cevap`"), "detay başlığı toplam cevap sayısını kullanmalı");
+  assert.ok(mobile.includes("copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`"), "gösterilen ve kilitli cevap sayıları açıklanmalı");
 });
 
 test("forum senkronu: mobil API uçları yalnız ortak web forum tablolarını kullanır", () => {
@@ -704,7 +724,7 @@ test("mobil admin: görünürlük ve bütün işlemler sunucu rolüyle korunur",
   assert.ok(app.includes("scheduleRetry"), "geçici yönetim erişim hatası sınırlı biçimde yeniden denenmeli");
   assert.ok(!app.includes('.catch(() => { if (active) setAdminAllowed(false); })'), "ağ hatası yetki reddi sayılmamalı");
   assert.ok(admin.includes("getVerificationEvidence"), "belgeli gezgin kararı öncesi güvenli belge açılmalı");
-  assert.ok(admin.includes("!openedEvidenceIds.has(item.id)"), "belge görülmeden onay/red düğmeleri kapalı olmalı");
+  assert.ok(admin.includes("!opened.has(item.id)"), "belge görülmeden onay/red düğmeleri kapalı olmalı");
 });
 
 test("profil güvenliği: kullanıcı kendi rolünü yükseltemez, güvenli tercihlerini güncelleyebilir", () => {
@@ -780,7 +800,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const doctor = readFileSync("scripts/mobile-doctor.mjs", "utf8");
   const android = readFileSync("android/app/build.gradle", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 13);
+  assert.equal(release.buildNumber, 14);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -789,6 +809,53 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   assert.ok(doctor.includes('iosConfig.loggingBehavior === "none"'), "doktor iOS üretilmiş log ayarını doğrulamalı");
   assert.ok(doctor.includes('androidConfig?.loggingBehavior === "none"'), "doktor Android üretilmiş log ayarını doğrulamalı");
   assert.ok(android.includes("releaseRequested && !googleServicesReady"), "Android release FCM yapılandırması olmadan çıkmamalı");
+});
+
+test("Build 14: etkinlik radarı güvenilir kaynak, durum ve yönetici sözleşmesini korur", () => {
+  const publicRoute = readFileSync("app/api/events/route.ts", "utf8");
+  const adminRoute = readFileSync("app/api/admin/events/route.ts", "utf8");
+  const source = readFileSync("lib/travel-events.ts", "utf8");
+  const sql = readFileSync("supabase/migrations/20260903190000_travel_events.sql", "utf8");
+  const screen = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  assert.ok(publicRoute.includes("validIsoDate") && publicRoute.includes("rangeMs > 366"), "etkinlik tarih aralığı sınırlandırılmalı");
+  assert.ok(publicRoute.includes("Math.floor(Number"), "sağlayıcıya kesirli sonuç limiti gönderilmemeli");
+  assert.ok(source.includes("TICKETMASTER_API_KEY") && source.includes("Promise.allSettled"), "otomatik sağlayıcı editoryal akışı düşürmemeli");
+  assert.ok(source.includes("statusFromTicketmaster"), "iptal/erteleme durumu sağlayıcıdan taşınmalı");
+  assert.ok(source.includes("mapped.category !== search.category"), "sağlayıcı sonuçları seçili kategori dışına taşmamalı");
+  assert.ok(adminRoute.includes('adminPrincipalFromRequest(request, ["super_admin"])'), "etkinlik yönetimi yalnız super_admin olmalı");
+  assert.ok(sql.includes("enable row level security") && sql.includes("revoke insert, update, delete"), "etkinlik tablosu doğrudan yazıma kapalı olmalı");
+  assert.ok(sql.includes("ends_at is null or ends_at >= starts_at"), "etkinlik bitişi başlangıçtan önce olamamalı");
+  assert.ok(screen.includes("reconcileEventReminders") && screen.includes("cancelEventReminder"), "tarih/durum değişiklikleri cihaz hatırlatmalarına yansıtılmalı");
+});
+
+test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {
+  const route = readFileSync("app/api/travel-now/route.ts", "utf8");
+  const client = readFileSync("mobile/src/lib/api.ts", "utf8");
+  const android = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+  assert.ok(client.includes('requestJson<{ data: TravelNowResult }>("/api/travel-now"') && client.includes('method: "POST"'), "konum URL sorgusuna yazılmamalı");
+  assert.ok(route.includes("Math.round(latitude * 100) / 100"), "hassas konum dış sağlayıcıdan önce yaklaşıklaştırılmalı");
+  assert.ok(route.includes('cache: "no-store"') && route.includes('"Cache-Control": "private, no-store"'), "konumlu yanıt kalıcı cache'e girmemeli");
+  assert.ok(android.includes("ACCESS_COARSE_LOCATION") && !android.includes("ACCESS_FINE_LOCATION"), "Android yalnız yaklaşık konum istemeli");
+});
+
+test("Build 14: dil tercihi cihazda kalır ve uçuş ekranına kadar taşınır", () => {
+  const i18n = readFileSync("mobile/src/lib/i18n.tsx", "utf8");
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
+  const sql = readFileSync("supabase/migrations/20260903200000_cockpit_arrival_time.sql", "utf8");
+  assert.ok(i18n.includes('LOCALE_KEY = "l2t-language-v1"') && i18n.includes("navigator.language"), "dil cihaz dilinden başlamalı ve saklanmalı");
+  assert.ok(app.includes('className="language-toggle"') && app.includes("Switch app language to Turkish") && app.includes("Uygulama dilini İngilizce yap"), "TR/EN seçici erişilebilir olmalı");
+  assert.ok(cockpit.includes("appLanguage: locale") && cockpit.includes("arrivalAt"), "dil ve varış uçuş kaydına gitmeli");
+  assert.ok(sql.includes("app_language") && sql.includes("arrival_at > departure_at"), "veritabanı dil ve varış bütünlüğünü korumalı");
+});
+
+test("Build 14: ana sayfadaki çevrimdışı ifade kısayolu doğru aracı doğrudan açar", () => {
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
+  assert.ok(home.includes('view: "phrases"'), "ana sayfa kısayolu genel yardımcı yerine ifade sekmesine gitmeli");
+  assert.ok(app.includes('initialTab={activeView === "phrases" ? "phrases" : "now"}'), "uygulama ifade derin bağlantısını doğru sekmeye çevirmeli");
+  assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
 });
 
 test("mobil erişilebilirlik: üst modal arka planı ayırır ve klavye odağı görünürdür", () => {

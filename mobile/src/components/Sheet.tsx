@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { isTopSheet, registerSheet, subscribeSheetStack, unregisterSheet } from "../lib/sheetStack";
 import { Icon } from "./Icon";
+import { useI18n } from "../lib/i18n";
 
 let openSheetCount = 0;
 let rootWasInert = false;
@@ -37,6 +38,7 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
   children: ReactNode;
   size?: "normal" | "large";
 }) {
+  const { copy } = useI18n();
   const sheetRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
   const sheetToken = useRef(Symbol("sheet"));
@@ -110,7 +112,7 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="icon-button compact" onClick={onClose} aria-label="Kapat"><Icon name="close" size={20} /></button>
+          <button className="icon-button compact" onClick={onClose} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
         </header>
         <div className="sheet-body">{children}</div>
       </section>

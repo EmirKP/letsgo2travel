@@ -98,7 +98,7 @@ const KULLANIM_SARTLARI: LegalDocument = {
 const GIZLILIK_POLITIKASI: LegalDocument = {
   slug: "gizlilik-politikasi",
   title: "Gizlilik Politikası",
-  updatedAt: "Ağustos 2026",
+  updatedAt: "Eylül 2026",
   sections: [
     {
       blocks: [
@@ -114,8 +114,10 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
           "Yorumlar ve kullanıcı tarafından paylaşılan içerikler",
           "Doğrulanmış gezgin başvuru kayıtları", "KVKK talep kayıtları",
           "İşletme itiraz kayıtları", "Teknik işlem güvenliği kayıtları",
+          "Kullanıcı açıkça 'Konumuma göre öner' dediğinde anlık olarak kullanılan yaklaşık konum",
         ] },
         { type: "p", text: "Doğrulama belgeleri kalıcı olarak saklanmaz. Belge özel erişimli alanda yalnızca inceleme için geçici olarak tutulur; karar verilirken önce, karar verilmemişse yüklemeden itibaren en geç 30 gün içinde silinir." },
+        { type: "p", text: "Yaklaşık konum, yalnız o anda hava durumuna ve çevredeki aramaya uygun öneri üretmek için kullanılır; LetsGo2Travel hesabına veya veri tabanına kaydedilmez. Kullanıcı bu özelliği açmadıkça konum izni istenmez." },
       ],
     },
     {
@@ -125,6 +127,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
         { type: "list", items: [
           "Platform üyeliğini yönetmek", "Kullanıcı deneyimini geliştirmek",
           "Doğrulanmış gezgin sistemini çalıştırmak",
+          "Kullanıcının talebiyle anlık hava ve yakındaki aktivite önerisi sunmak",
           "Yorum ve içerik güvenliğini sağlamak", "Spam ve kötüye kullanımı önlemek",
           "İşletme itirazlarını değerlendirmek", "KVKK taleplerini yönetmek",
           "Hukuki yükümlülükleri yerine getirmek",
@@ -141,7 +144,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
     {
       heading: "4. Üçüncü Taraf Hizmetler",
       blocks: [
-        { type: "p", text: "Platform; hosting, veri tabanı, e-posta gönderimi, güvenlik, analitik veya seyahat affiliate hizmetleri için üçüncü taraf servislerden yararlanabilir." },
+        { type: "p", text: "Platform; hosting, veri tabanı, e-posta gönderimi, güvenlik, analitik, hava durumu, harita veya seyahat affiliate hizmetleri için üçüncü taraf servislerden yararlanabilir." },
         { type: "p", text: "Bu hizmet sağlayıcılar yalnızca gerekli bilgilerle ve ilgili amaç kapsamında işlem yapar." },
       ],
     },

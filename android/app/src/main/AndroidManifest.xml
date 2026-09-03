@@ -49,6 +49,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Yalnız kullanıcı "Konumuma göre öner" dediğinde yaklaşık konum okunur; saklanmaz. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Android 13+ bildirim izni; calisma zamaninda kullanici onayiyla istenir -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

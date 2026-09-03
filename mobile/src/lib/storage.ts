@@ -4,6 +4,7 @@ import type {
   FavoriteDestination,
   MobilePreferences,
   SavedRoutePlan,
+  TravelEvent,
 } from "../types";
 import {
   guestDataCounts,
@@ -19,6 +20,7 @@ const VISITED_KEY = "l2t.mobile.visited-countries.v1";
 const RECENT_KEY = "l2t.mobile.recent-destinations.v1";
 const READ_NOTIFICATIONS_KEY = "l2t.mobile.read-notifications.v1";
 const PREFERENCES_KEY = "l2t.mobile.preferences.v1";
+const SAVED_EVENTS_KEY = "l2t.mobile.saved-events.v1";
 const ONBOARDING_KEY = "l2t.mobile.onboarding.v2";
 const INSTALLATION_KEY = "l2t.mobile.installation-id.v1";
 const LIVE_ACTIVITY_SESSION_GENERATION_KEY = "l2t.mobile.live-activity-session-generation.v1";
@@ -463,6 +465,42 @@ export function markNotificationsRead(ids: string[], ownerId?: string | null) {
   const next = Array.from(new Set([...getReadNotificationIds(ownerId), ...ids]));
   write(scopedKey(READ_NOTIFICATIONS_KEY, ownerId), next, 120);
   return next;
+}
+
+export function getSavedTravelEvents(ownerId?: string | null) {
+  return readScoped<TravelEvent>(SAVED_EVENTS_KEY, ownerId)
+    .filter((event) => event && typeof event.id === "string" && Number.isFinite(Date.parse(event.startsAt)))
+    .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+}
+
+export function toggleSavedTravelEvent(event: TravelEvent, ownerId?: string | null) {
+  const current = getSavedTravelEvents(ownerId);
+  const exists = current.some((item) => item.id === event.id);
+  const next = exists ? current.filter((item) => item.id !== event.id) : [event, ...current];
+  write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  return { saved: !exists, events: next };
+}
+
+export function removeSavedTravelEvent(id: string, ownerId?: string | null) {
+  const next = getSavedTravelEvents(ownerId).filter((event) => event.id !== id);
+  write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  return next;
+}
+
+/** Refreshes saved event facts without changing the user's saved selection. */
+export function mergeSavedTravelEvents(events: TravelEvent[], ownerId?: string | null) {
+  const current = getSavedTravelEvents(ownerId);
+  const incoming = new Map(events.map((event) => [event.id, event]));
+  let changed = false;
+  const next = current.map((event) => {
+    const update = incoming.get(event.id);
+    if (!update || ["updatedAt", "startsAt", "endsAt", "status", "title", "city", "venue", "sourceUrl", "ticketUrl"]
+      .every((key) => update[key as keyof TravelEvent] === event[key as keyof TravelEvent])) return event;
+    changed = true;
+    return update;
+  });
+  if (changed) write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  return { events: next, changed };
 }
 
 export function getMobilePreferences(): MobilePreferences {

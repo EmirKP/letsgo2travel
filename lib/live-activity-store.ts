@@ -21,24 +21,30 @@ type TripSqlRow = {
   destination_country: string | null;
   destination_city: string | null;
   departure_at: string | null;
+  arrival_at?: string | null;
+  app_language?: string | null;
   origin_iata?: string | null;
   destination_iata?: string | null;
 };
 
 const TRIP_BASE_SELECT = "id,user_id,destination_country,destination_city,departure_at";
-const TRIP_FLIGHT_SELECT = `${TRIP_BASE_SELECT},origin_iata,destination_iata`;
+const TRIP_FLIGHT_SELECT = `${TRIP_BASE_SELECT},origin_iata,destination_iata,arrival_at,app_language`;
 let tripFlightColumnsSupported = true;
 
 function toCronTrip(row: TripSqlRow): CronTrip | null {
   const departureAtMs = Date.parse(String(row.departure_at || ""));
+  const parsedArrivalAtMs = Date.parse(String(row.arrival_at || ""));
   if (!Number.isFinite(departureAtMs)) return null;
   return {
     id: String(row.id),
     userId: String(row.user_id),
-    title: [row.destination_city, row.destination_country].filter(Boolean).join(", ") || "Yaklaşan uçuş",
+    // Dil bağımsız fallback buildStartPayload içinde seçilir.
+    title: [row.destination_city, row.destination_country].filter(Boolean).join(", "),
     originIata: String(row.origin_iata || ""),
     destinationIata: String(row.destination_iata || ""),
     departureAtMs,
+    arrivalAtMs: Number.isFinite(parsedArrivalAtMs) && parsedArrivalAtMs > departureAtMs ? parsedArrivalAtMs : undefined,
+    language: row.app_language === "en" ? "en" : "tr",
   };
 }
 
@@ -85,13 +91,16 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
     },
 
     async tripsEndDue(nowMs, horizonMs, limit) {
-      // Kalkış + 1 saat geçmiş, ufuk içindeki kayıtlar (iptal dahil:
+      // Planlanan varış (+ kısa karşılama payı) geçmiş kayıtlar (iptal dahil:
       // iptal edilen seyahatin açık aktivitesi de bitirilmelidir).
-      return selectTrips(supabase, (query) => query
-        .lt("departure_at", new Date(nowMs - 60 * 60 * 1000).toISOString())
+      const candidates = await selectTrips(supabase, (query) => query
+        .lt("departure_at", new Date(nowMs).toISOString())
         .gte("departure_at", new Date(nowMs - horizonMs).toISOString())
         .order("departure_at", { ascending: true })
-        .limit(limit));
+        .limit(limit * 4));
+      return candidates
+        .filter((trip) => (trip.arrivalAtMs || trip.departureAtMs + 60 * 60 * 1000) + 20 * 60 * 1000 < nowMs)
+        .slice(0, limit);
     },
 
     async pushToStartTokensByUser(userIds) {

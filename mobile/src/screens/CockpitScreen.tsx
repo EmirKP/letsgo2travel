@@ -8,6 +8,7 @@ import { localIsoDate } from "../lib/dates";
 import { normalizeFlightNumber, normalizePnr, tripFormError } from "../lib/cockpitForm";
 import { endAllFlightActivities, syncFlightReminders } from "../lib/liveActivity";
 import { createId } from "../lib/id";
+import { useI18n } from "../lib/i18n";
 import {
   areFlightFieldsSupported,
   createCockpitTrip,
@@ -44,6 +45,8 @@ type TripForm = {
   startDate: string;
   endDate: string;
   departureTime: string;
+  arrivalDate: string;
+  arrivalTime: string;
   airline: string;
   flightNumber: string;
   flightPnr: string;
@@ -60,23 +63,14 @@ const EMPTY_FORM: TripForm = {
   startDate: "",
   endDate: "",
   departureTime: "",
+  arrivalDate: "",
+  arrivalTime: "",
   airline: "",
   flightNumber: "",
   flightPnr: "",
 };
 
 // Ülke listesi ada göre sıralı; seçim ülke adını ve ISO kodunu OTOMATİK doldurur.
-const COUNTRY_OPTIONS = [...COUNTRY_LIST].sort((a, b) => a.name.localeCompare(b.name, "tr"));
-
-
-
-const STATUS_LABELS: Record<TripStatus, string> = {
-  upcoming: "Yaklaşan",
-  active: "Devam ediyor",
-  completed: "Tamamlandı",
-  cancelled: "İptal edildi",
-};
-
 const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   documents: "Belge",
   health: "Sağlık",
@@ -85,20 +79,50 @@ const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   other: "Diğer",
 };
 
-function defaultChecklist(): ChecklistItem[] {
+function defaultChecklist(locale: "tr" | "en" = "tr"): ChecklistItem[] {
   const createdAt = new Date().toISOString();
+  const labels = locale === "en" ? [
+    "Check passport / ID validity",
+    "Download flight and accommodation documents",
+    "Pack a plug adapter",
+    "Pack medication and prescriptions",
+    "Set up an eSIM or data plan",
+  ] : [
+    "Pasaport / kimlik geçerliliğini kontrol et",
+    "Uçuş ve konaklama belgelerini indir",
+    "Priz adaptörü hazırla",
+    "İlaçları ve reçeteleri hazırla",
+    "eSIM veya internet paketini ayarla",
+  ];
   return [
-    { id: createId(), label: "Pasaport / kimlik geçerliliğini kontrol et", completed: false, category: "documents", createdAt },
-    { id: createId(), label: "Uçuş ve konaklama belgelerini indir", completed: false, category: "documents", createdAt },
-    { id: createId(), label: "Priz adaptörü hazırla", completed: false, category: "technology", createdAt },
-    { id: createId(), label: "İlaçları ve reçeteleri hazırla", completed: false, category: "health", createdAt },
-    { id: createId(), label: "eSIM veya internet paketini ayarla", completed: false, category: "technology", createdAt },
+    { id: createId(), label: labels[0], completed: false, category: "documents", createdAt },
+    { id: createId(), label: labels[1], completed: false, category: "documents", createdAt },
+    { id: createId(), label: labels[2], completed: false, category: "technology", createdAt },
+    { id: createId(), label: labels[3], completed: false, category: "health", createdAt },
+    { id: createId(), label: labels[4], completed: false, category: "technology", createdAt },
   ];
 }
 
-function formatDate(value: string) {
+const DEFAULT_CHECKLIST_LABELS = new Map<string, { tr: string; en: string }>([
+  ["Pasaport / kimlik geçerliliğini kontrol et", { tr: "Pasaport / kimlik geçerliliğini kontrol et", en: "Check passport / ID validity" }],
+  ["Check passport / ID validity", { tr: "Pasaport / kimlik geçerliliğini kontrol et", en: "Check passport / ID validity" }],
+  ["Uçuş ve konaklama belgelerini indir", { tr: "Uçuş ve konaklama belgelerini indir", en: "Download flight and accommodation documents" }],
+  ["Download flight and accommodation documents", { tr: "Uçuş ve konaklama belgelerini indir", en: "Download flight and accommodation documents" }],
+  ["Priz adaptörü hazırla", { tr: "Priz adaptörü hazırla", en: "Pack a plug adapter" }],
+  ["Pack a plug adapter", { tr: "Priz adaptörü hazırla", en: "Pack a plug adapter" }],
+  ["İlaçları ve reçeteleri hazırla", { tr: "İlaçları ve reçeteleri hazırla", en: "Pack medication and prescriptions" }],
+  ["Pack medication and prescriptions", { tr: "İlaçları ve reçeteleri hazırla", en: "Pack medication and prescriptions" }],
+  ["eSIM veya internet paketini ayarla", { tr: "eSIM veya internet paketini ayarla", en: "Set up an eSIM or data plan" }],
+  ["Set up an eSIM or data plan", { tr: "eSIM veya internet paketini ayarla", en: "Set up an eSIM or data plan" }],
+]);
+
+function checklistLabel(label: string, locale: "tr" | "en") {
+  return DEFAULT_CHECKLIST_LABELS.get(label)?.[locale] || label;
+}
+
+function formatDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short", year: "numeric" })
+    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
       .format(new Date(`${value}T12:00:00`));
   } catch {
     return value;
@@ -111,14 +135,16 @@ function tripTitle(trip: CockpitTrip) {
 
 
 
-function reminderTrips(items: CockpitTrip[]) {
+function reminderTrips(items: CockpitTrip[], language: "tr" | "en") {
   return items.map((trip) => ({
     id: trip.id,
     title: tripTitle(trip),
     departureAt: trip.departureAt,
+    arrivalAt: trip.arrivalAt,
     status: trip.status,
     originIata: trip.originIata,
     destinationIata: trip.destinationIata,
+    language,
   }));
 }
 
@@ -135,6 +161,9 @@ type CockpitSessionSnapshot = {
 };
 
 export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
+  const { copy, countryName, dateLocale, locale } = useI18n();
+  const countryOptions = useMemo(() => [...COUNTRY_LIST]
+    .sort((a, b) => countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale)), [countryName, locale]);
   const [trips, setTrips] = useState<CockpitTrip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -219,7 +248,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       .catch(() => undefined)
       .then(() => {
         if (!isCurrentSession(snapshot)) return;
-        return syncFlightReminders(reminderTrips(items));
+        return syncFlightReminders(reminderTrips(items, locale));
       });
   };
 
@@ -251,12 +280,12 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setSelectedTripId((current) => next.some((trip) => trip.id === current) ? current : next[0]?.id || "");
     } catch (requestError) {
       if (generation === loadGeneration.current && isCurrentSession(session)) {
-        setError(getSupabaseDataErrorMessage(requestError, "Seyahatlerin yüklenemedi."));
+        setError(getSupabaseDataErrorMessage(requestError, copy("Seyahatlerin yüklenemedi.", "Your trips could not be loaded.")));
       }
     } finally {
       if (generation === loadGeneration.current && isCurrentSession(session)) setLoading(false);
     }
-  }, [accessToken, userId]);
+  }, [accessToken, copy, locale, userId]);
 
   useEffect(() => {
     void load();
@@ -278,7 +307,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     event.preventDefault();
     const session = captureSession();
     if (!session || busy || loading) return;
-    const validation = tripFormError(form);
+    const validation = tripFormError(form, new Date(), locale);
     if (validation) {
       setError(validation);
       return;
@@ -288,10 +317,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     setError("");
     try {
       let departureAt: string | null = null;
+      let arrivalAt: string | null = null;
       if (form.departureTime) {
         const departure = new Date(`${form.startDate}T${form.departureTime}:00`);
         if (Number.isNaN(departure.getTime())) throw new Error("invalid departure");
         departureAt = departure.toISOString();
+        const arrival = new Date(`${form.arrivalDate}T${form.arrivalTime}:00`);
+        if (Number.isNaN(arrival.getTime()) || arrival <= departure) throw new Error("invalid arrival");
+        arrivalAt = arrival.toISOString();
       }
       const created = await createCockpitTrip(session.userId, {
         destinationCountry: form.destinationCountry,
@@ -300,12 +333,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         startDate: form.startDate,
         endDate: form.endDate,
         departureAt,
+        arrivalAt,
+        appLanguage: locale,
         flightPnr: normalizePnr(form.flightPnr),
         originIata: form.mode === "flight" ? form.originAirport?.iata || "" : "",
         destinationIata: form.mode === "flight" ? form.airport?.iata || "" : "",
         airline: form.mode === "flight" ? form.airline.trim() : "",
         flightNumber: form.mode === "flight" ? normalizeFlightNumber(form.flightNumber) : "",
-        checklistItems: defaultChecklist(),
+        checklistItems: defaultChecklist(locale),
       }, session.accessToken);
       if (!isCurrentSession(session)) return;
       const next = [...trips, created].sort((left, right) => left.startDate.localeCompare(right.startDate));
@@ -314,10 +349,10 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setSelectedTripId(created.id);
       setForm(EMPTY_FORM);
       setFormOpen(false);
-      onNotice("Seyahatin kokpite eklendi.");
+      onNotice(copy("Seyahatin kokpite eklendi.", "Your trip was added to the cockpit."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
-      setError(getSupabaseDataErrorMessage(requestError, "Seyahat kaydedilemedi. Bilgileri kontrol edip tekrar dene."));
+      setError(getSupabaseDataErrorMessage(requestError, copy("Seyahat kaydedilemedi. Bilgileri kontrol edip tekrar dene.", "The trip could not be saved. Check the details and try again.")));
     } finally {
       if (isCurrentSession(session)) setBusy("");
     }
@@ -336,10 +371,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       // İptal/tamamlandı seçildiği anda bekleyen yerel bildirimleri iptal et
       // ve varsa Live Activity'yi sonlandır; ekranın yeniden açılmasını bekleme.
       syncRemindersForSession(session, next);
-      onNotice(`Seyahat durumu “${STATUS_LABELS[status]}” olarak güncellendi.`);
+      const statusLabel = status === "upcoming" ? copy("Yaklaşan", "Upcoming") : status === "active" ? copy("Devam ediyor", "In progress") : status === "completed" ? copy("Tamamlandı", "Completed") : copy("İptal edildi", "Cancelled");
+      onNotice(copy(`Seyahat durumu “${statusLabel}” olarak güncellendi.`, `Trip status updated to “${statusLabel}”.`));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
-      const message = getSupabaseDataErrorMessage(requestError, "Seyahat durumu güncellenemedi.");
+      const message = getSupabaseDataErrorMessage(requestError, copy("Seyahat durumu güncellenemedi.", "Trip status could not be updated."));
       await load();
       if (isCurrentSession(session)) setError(message);
     } finally {
@@ -359,7 +395,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       if (notice) onNotice(notice);
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
-      const message = getSupabaseDataErrorMessage(requestError, "Kontrol listesi kaydedilemedi.");
+      const message = getSupabaseDataErrorMessage(requestError, copy("Kontrol listesi kaydedilemedi.", "The checklist could not be saved."));
       await load();
       if (isCurrentSession(session)) setError(message);
     } finally {
@@ -378,7 +414,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     const label = newChecklistLabel.replace(/\s+/g, " ").trim().slice(0, 90);
     if (!label) return;
     if (selectedTrip.checklistItems.length >= 50) {
-      setError("Bir seyahatte en fazla 50 kontrol listesi maddesi olabilir.");
+      setError(copy("Bir seyahatte en fazla 50 kontrol listesi maddesi olabilir.", "A trip can have at most 50 checklist items."));
       return;
     }
     const next = [...selectedTrip.checklistItems, {
@@ -389,13 +425,13 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       createdAt: new Date().toISOString(),
     }];
     setNewChecklistLabel("");
-    void persistChecklist(selectedTrip, next, "Kontrol listesine yeni madde eklendi.");
+    void persistChecklist(selectedTrip, next, copy("Kontrol listesine yeni madde eklendi.", "A new checklist item was added."));
   };
 
   const removeTrip = async (trip: CockpitTrip) => {
     const session = captureSession();
     if (!session || busy || loading) return;
-    if (!window.confirm(`${tripTitle(trip)} seyahatini kalıcı olarak silmek istiyor musun?`)) return;
+    if (!window.confirm(copy(`${tripTitle(trip)} seyahatini kalıcı olarak silmek istiyor musun?`, `Permanently delete the ${tripTitle(trip)} trip?`))) return;
     setBusy(`delete-${trip.id}`);
     setError("");
     try {
@@ -407,10 +443,10 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       // cihazdaki olası Live Activity de kapatılır.
       syncRemindersForSession(session, [...next, { ...trip, status: "cancelled" }]);
       setSelectedTripId("");
-      onNotice("Seyahat kokpitten silindi.");
+      onNotice(copy("Seyahat kokpitten silindi.", "The trip was removed from your cockpit."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
-      const message = getSupabaseDataErrorMessage(requestError, "Seyahat silinemedi.");
+      const message = getSupabaseDataErrorMessage(requestError, copy("Seyahat silinemedi.", "The trip could not be deleted."));
       await load();
       if (isCurrentSession(session)) setError(message);
     } finally {
@@ -422,13 +458,13 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     return <div className="screen cockpit-native-screen">
       <section className="page-intro compact-intro">
         <span className="page-icon"><Icon name="suitcase" size={27} /></span>
-        <div><small>AKILLI SEYAHAT KOKPİTİ</small><h1>Yolculuğunu yönet</h1><p>Seyahatlerin aynı hesabınla web ve mobilde birlikte çalışır.</p></div>
+        <div><small>{copy("AKILLI SEYAHAT KOKPİTİ", "SMART TRAVEL COCKPIT")}</small><h1>{copy("Yolculuğunu yönet", "Manage your journey")}</h1><p>{copy("Seyahatlerin aynı hesabınla web ve mobilde birlikte çalışır.", "Your trips stay in sync across web and mobile.")}</p></div>
       </section>
       <div className="login-required cockpit-auth-state">
         <span><Icon name="lock" size={28} /></span>
-        <h2>Kokpitini açmak için giriş yap</h2>
-        <p>Seyahat tarihlerin ve hazırlık listen yalnızca hesabına bağlı olarak saklanır.</p>
-        <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> Giriş yap / hesap aç</button>
+        <h2>{copy("Kokpitini açmak için giriş yap", "Sign in to open your cockpit")}</h2>
+        <p>{copy("Seyahat tarihlerin ve hazırlık listen yalnızca hesabına bağlı olarak saklanır.", "Your trip dates and checklist are stored securely with your account.")}</p>
+        <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> {copy("Giriş yap / hesap aç", "Sign in / create account")}</button>
       </div>
     </div>;
   }
@@ -436,28 +472,28 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   return <div className="screen cockpit-native-screen">
     <section className="page-intro compact-intro cockpit-native-intro">
       <span className="page-icon"><Icon name="suitcase" size={27} /></span>
-      <div><small>AKILLI SEYAHAT KOKPİTİ</small><h1>Yolculuğuna hazır ol</h1><p>Tarihlerini, seyahat durumunu ve hazırlık listesini tek yerde yönet.</p></div>
+      <div><small>{copy("AKILLI SEYAHAT KOKPİTİ", "SMART TRAVEL COCKPIT")}</small><h1>{copy("Yolculuğuna hazır ol", "Be ready for your journey")}</h1><p>{copy("Tarihlerini, seyahat durumunu ve hazırlık listesini tek yerde yönet.", "Manage dates, trip status and your checklist in one place.")}</p></div>
     </section>
 
     <div className="cockpit-native-toolbar">
       <button className="primary-button" aria-expanded={formOpen} aria-controls="cockpit-trip-form" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setError(""); }}>
-        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? "Kapat" : "Seyahat ekle"}
+        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? copy("Kapat", "Close") : copy("Seyahat ekle", "Add trip")}
       </button>
-      <button className="secondary-button icon-only" aria-label="Listeyi yenile" disabled={loading || Boolean(busy)} onClick={() => void load()}>
+      <button className="secondary-button icon-only" aria-label={copy("Listeyi yenile", "Refresh list")} disabled={loading || Boolean(busy)} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />}
       </button>
     </div>
 
     {formOpen && <form id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
-      <p className="required-note"><span>*</span> Zorunlu alanlar</p>
-      <div className="cockpit-mode-tabs" role="group" aria-label="Seyahat türü">
-        <button type="button" aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => setForm({ ...form, mode: "flight" })}><Icon name="plane" size={16} /> Uçuşlu</button>
-        <button type="button" aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", originAirport: null, airport: null })}><Icon name="suitcase" size={16} /> Uçuşsuz</button>
+      <p className="required-note"><span>*</span> {copy("Zorunlu alanlar", "Required fields")}</p>
+      <div className="cockpit-mode-tabs" role="group" aria-label={copy("Seyahat türü", "Trip type")}>
+        <button type="button" aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => setForm({ ...form, mode: "flight" })}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
+        <button type="button" aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", originAirport: null, airport: null })}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
       </div>
 
       {form.mode === "flight" && (
         <AirportField
-          label="Kalkış havalimanı"
+          label={copy("Kalkış havalimanı", "Departure airport")}
           required
           value={form.originAirport}
           onChange={(airport) => setForm({ ...form, originAirport: airport })}
@@ -466,7 +502,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
 
       {form.mode === "flight" && (
         <AirportField
-          label="Varış havalimanı"
+          label={copy("Varış havalimanı", "Arrival airport")}
           required
           value={form.airport}
           onChange={(airport) => {
@@ -487,14 +523,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         />
       )}
 
-      <label><span>Ülke <em className="required-mark">· zorunlu</em></span>
+      <label><span>{copy("Ülke", "Country")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span>
         <select
           required
           aria-required="true"
           value={form.countryAlpha3 || (form.airport ? `iso2:${form.destinationCode}` : "")}
           onChange={(event) => {
             const alpha3 = event.target.value;
-            const country = COUNTRY_OPTIONS.find((item) => item.alpha3 === alpha3);
+            const country = countryOptions.find((item) => item.alpha3 === alpha3);
             if (!country) return;
             setForm({
               ...form,
@@ -504,44 +540,48 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
             });
           }}
         >
-          <option value="" disabled>{form.airport ? `${flagEmoji(form.destinationCode)} ${form.destinationCountry} (havalimanından)` : "Ülke seç"}</option>
+          <option value="" disabled>{form.airport ? `${flagEmoji(form.destinationCode)} ${form.destinationCountry} (${copy("havalimanından", "from airport")})` : copy("Ülke seç", "Choose country")}</option>
           {form.airport && <option value={`iso2:${form.destinationCode}`} disabled hidden>{`${flagEmoji(form.destinationCode)} ${form.destinationCountry}`}</option>}
-          {COUNTRY_OPTIONS.map((country) => (
+          {countryOptions.map((country) => (
             <option key={country.alpha3} value={country.alpha3}>
-              {flagEmoji(alpha2FromAlpha3(country.alpha3))} {country.name}
+              {flagEmoji(alpha2FromAlpha3(country.alpha3))} {countryName(country.alpha3, country.name)}
             </option>
           ))}
         </select>
       </label>
 
-      <label>Şehir (isteğe bağlı)<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder="Roma" /></label>
+      <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder={copy("Roma", "Rome")} /></label>
       <div className="form-grid two stack-narrow">
-        <label><span>Başlangıç <em className="required-mark">· zorunlu</em></span><input required aria-required="true" type="date" min={localIsoDate(0)} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: form.endDate && form.endDate < event.target.value ? event.target.value : form.endDate })} /></label>
-        <label><span>Bitiş <em className="required-mark">· zorunlu</em></span><input required aria-required="true" type="date" min={form.startDate || localIsoDate(0)} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
+        <label><span>{copy("Başlangıç", "Start")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={localIsoDate(0)} value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value, endDate: form.endDate && form.endDate < event.target.value ? event.target.value : form.endDate, arrivalDate: form.arrivalDate && form.arrivalDate < event.target.value ? event.target.value : form.arrivalDate || event.target.value })} /></label>
+        <label><span>{copy("Seyahat bitişi", "Trip end")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={form.startDate || localIsoDate(0)} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
       </div>
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <label>Havayolu (isteğe bağlı)<input value={form.airline} maxLength={80} onChange={(event) => setForm({ ...form, airline: event.target.value })} placeholder="Türk Hava Yolları" /></label>
-        <label>Uçuş no (isteğe bağlı)<input value={form.flightNumber} maxLength={8} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightNumber: normalizeFlightNumber(event.target.value) })} placeholder="TK1979" /></label>
+        <label>{copy("Havayolu (isteğe bağlı)", "Airline (optional)")}<input value={form.airline} maxLength={80} onChange={(event) => setForm({ ...form, airline: event.target.value })} placeholder={copy("Türk Hava Yolları", "Turkish Airlines")} /></label>
+        <label>{copy("Uçuş no (isteğe bağlı)", "Flight no. (optional)")}<input value={form.flightNumber} maxLength={8} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightNumber: normalizeFlightNumber(event.target.value) })} placeholder="TK1979" /></label>
       </div>}
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <label><span>Kalkış saati <em className="required-mark">· zorunlu</em></span><input required aria-required="true" type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
-        <label><span>PNR <em className="required-mark">· rezervasyon kodu</em></span><input required aria-required="true" value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder="Örn. ABC123" /></label>
+        <label><span>{copy("Kalkış saati", "Departure time")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="time" value={form.departureTime} onChange={(event) => setForm({ ...form, departureTime: event.target.value })} /></label>
+        <label><span>PNR <em className="required-mark">· {copy("rezervasyon kodu", "booking code")}</em></span><input required aria-required="true" value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder={copy("Örn. ABC123", "E.g. ABC123")} /></label>
       </div>}
-      {form.mode === "flight" && !areFlightFieldsSupported() && <p className="form-hint">Uçuş detayları (IATA/uçuş no) sunucu güncellemesi tamamlanana kadar kaydedilmeyebilir; diğer bilgiler güvenle saklanır.</p>}
+      {form.mode === "flight" && <div className="form-grid two stack-narrow cockpit-arrival-fields">
+        <label><span>{copy("Planlanan varış tarihi", "Scheduled arrival date")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={form.startDate || localIsoDate(0)} value={form.arrivalDate} onChange={(event) => setForm({ ...form, arrivalDate: event.target.value })} /></label>
+        <label><span>{copy("Planlanan varış saati", "Scheduled arrival time")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="time" value={form.arrivalTime} onChange={(event) => setForm({ ...form, arrivalTime: event.target.value })} /></label>
+      </div>}
+      {form.mode === "flight" && !areFlightFieldsSupported() && <p className="form-hint">{copy("Uçuş detayları (IATA/uçuş no) sunucu güncellemesi tamamlanana kadar kaydedilmeyebilir; diğer bilgiler güvenle saklanır.", "Flight details (IATA/flight number) may not save until the server update is complete; other details remain safe.")}</p>}
       <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading} type="submit">
-        {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? "Kaydediliyor" : "Kokpite ekle"}
+        {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Kokpite ekle", "Add to cockpit")}
       </button>
     </form>}
 
-    {error && <div className="info-box error cockpit-native-error" role="alert"><Icon name="alert" size={20} /><p>{error}</p>{!formOpen && <button disabled={loading} onClick={() => void load()}>Tekrar dene</button>}</div>}
+    {error && <div className="info-box error cockpit-native-error" role="alert"><Icon name="alert" size={20} /><p>{error}</p>{!formOpen && <button disabled={loading} onClick={() => void load()}>{copy("Tekrar dene", "Try again")}</button>}</div>}
 
-    {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label="Seyahatler yükleniyor"><div /><div /><div /></div>
+    {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label={copy("Seyahatler yükleniyor", "Loading trips")}><div /><div /><div /></div>
       : error && !trips.length ? null
       : !trips.length ? <div className="empty-state cockpit-native-empty">
-        <span><Icon name="suitcase" size={30} /></span><strong>Henüz kokpit seyahatin yok</strong><p>İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> İlk seyahatimi ekle</button>
+        <span><Icon name="suitcase" size={30} /></span><strong>{copy("Henüz kokpit seyahatin yok", "No cockpit trips yet")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
       </div>
       : <>
-        <div className="chip-scroll cockpit-trip-selector" role="group" aria-label="Seyahat seçimi">
+        <div className="chip-scroll cockpit-trip-selector" role="group" aria-label={copy("Seyahat seçimi", "Choose trip")}>
           {trips.map((trip) => <button type="button" key={trip.id} className={selectedTrip?.id === trip.id ? "active" : ""} aria-pressed={selectedTrip?.id === trip.id} onClick={() => setSelectedTripId(trip.id)}>
             {trip.destinationCode} · {trip.destinationCity || trip.destinationCountry}
           </button>)}
@@ -550,41 +590,42 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         {selectedTrip && <article className="cockpit-native-card">
           <header className="cockpit-native-card-head">
             <span className="saved-icon"><Icon name="plane" size={21} /></span>
-            <div><small>{STATUS_LABELS[selectedTrip.status]}</small><h2>{tripTitle(selectedTrip)}</h2><p>{formatDate(selectedTrip.startDate)} – {formatDate(selectedTrip.endDate)}</p></div>
-            <button disabled={Boolean(busy) || loading} onClick={() => void removeTrip(selectedTrip)} aria-label="Seyahati sil"><Icon name="trash" size={18} /></button>
+            <div><small>{selectedTrip.status === "upcoming" ? copy("Yaklaşan", "Upcoming") : selectedTrip.status === "active" ? copy("Devam ediyor", "In progress") : selectedTrip.status === "completed" ? copy("Tamamlandı", "Completed") : copy("İptal edildi", "Cancelled")}</small><h2>{tripTitle(selectedTrip)}</h2><p>{formatDate(selectedTrip.startDate, dateLocale)} – {formatDate(selectedTrip.endDate, dateLocale)}</p></div>
+            <button disabled={Boolean(busy) || loading} onClick={() => void removeTrip(selectedTrip)} aria-label={copy("Seyahati sil", "Delete trip")}><Icon name="trash" size={18} /></button>
           </header>
 
           <div className="cockpit-native-details">
-            <div><span>Başlangıç</span><strong>{formatDate(selectedTrip.startDate)}</strong></div>
-            <div><span>PNR</span><strong>{selectedTrip.flightPnr || "Eklenmedi"}</strong></div>
-            {(selectedTrip.originIata || selectedTrip.destinationIata) && <div><span>Rota</span><strong>{selectedTrip.originIata || "—"} → {selectedTrip.destinationIata || "—"}</strong></div>}
-            {(selectedTrip.airline || selectedTrip.flightNumber) && <div><span>Uçuş</span><strong>{[selectedTrip.airline, selectedTrip.flightNumber].filter(Boolean).join(" · ")}</strong></div>}
+            <div><span>{copy("Başlangıç", "Start")}</span><strong>{formatDate(selectedTrip.startDate, dateLocale)}</strong></div>
+            <div><span>PNR</span><strong>{selectedTrip.flightPnr || copy("Eklenmedi", "Not added")}</strong></div>
+            {(selectedTrip.originIata || selectedTrip.destinationIata) && <div><span>{copy("Rota", "Route")}</span><strong>{selectedTrip.originIata || "—"} → {selectedTrip.destinationIata || "—"}</strong></div>}
+            {(selectedTrip.airline || selectedTrip.flightNumber) && <div><span>{copy("Uçuş", "Flight")}</span><strong>{[selectedTrip.airline, selectedTrip.flightNumber].filter(Boolean).join(" · ")}</strong></div>}
+            {selectedTrip.arrivalAt && <div><span>{copy("Planlanan varış", "Scheduled arrival")}</span><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(selectedTrip.arrivalAt))}</strong></div>}
           </div>
 
-          <label className="cockpit-status-field">Seyahat durumu
+          <label className="cockpit-status-field">{copy("Seyahat durumu", "Trip status")}
             <select value={selectedTrip.status} disabled={Boolean(busy) || loading} onChange={(event) => void changeStatus(selectedTrip, event.target.value as TripStatus)}>
-              <option value="upcoming">Yaklaşan</option>
-              <option value="active">Devam ediyor</option>
-              <option value="completed">Tamamlandı</option>
-              <option value="cancelled">İptal edildi</option>
+              <option value="upcoming">{copy("Yaklaşan", "Upcoming")}</option>
+              <option value="active">{copy("Devam ediyor", "In progress")}</option>
+              <option value="completed">{copy("Tamamlandı", "Completed")}</option>
+              <option value="cancelled">{copy("İptal edildi", "Cancelled")}</option>
             </select>
           </label>
 
           <section className="cockpit-checklist-section">
-            <div className="section-heading"><div><span>HAZIRLIK</span><h2>Kontrol listesi</h2></div><small>{selectedTrip.checklistItems.filter((item) => item.completed).length}/{selectedTrip.checklistItems.length}</small></div>
-            <progress value={selectedTrip.checklistItems.filter((item) => item.completed).length} max={Math.max(1, selectedTrip.checklistItems.length)} aria-label="Hazırlık ilerlemesi" />
+            <div className="section-heading"><div><span>{copy("HAZIRLIK", "PREPARATION")}</span><h2>{copy("Kontrol listesi", "Checklist")}</h2></div><small>{selectedTrip.checklistItems.filter((item) => item.completed).length}/{selectedTrip.checklistItems.length}</small></div>
+            <progress value={selectedTrip.checklistItems.filter((item) => item.completed).length} max={Math.max(1, selectedTrip.checklistItems.length)} aria-label={copy("Hazırlık ilerlemesi", "Preparation progress")} />
             <div className="cockpit-checklist-list">
-              {selectedTrip.checklistItems.map((item) => <button type="button" key={item.id} className={item.completed ? "completed" : ""} aria-pressed={item.completed} aria-label={`${item.label}: ${item.completed ? "tamamlandı" : "tamamlanmadı"}`} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
-                <span><Icon name={item.completed ? "check" : "plus"} size={17} /></span><strong>{item.label}</strong><small>{CATEGORY_LABELS[item.category]}</small>
+              {selectedTrip.checklistItems.map((item) => <button type="button" key={item.id} className={item.completed ? "completed" : ""} aria-pressed={item.completed} aria-label={`${checklistLabel(item.label, locale)}: ${item.completed ? copy("tamamlandı", "complete") : copy("tamamlanmadı", "incomplete")}`} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
+                <span><Icon name={item.completed ? "check" : "plus"} size={17} /></span><strong>{checklistLabel(item.label, locale)}</strong><small>{item.category === "documents" ? copy("Belge", "Documents") : item.category === "health" ? copy("Sağlık", "Health") : item.category === "technology" ? copy("Teknoloji", "Technology") : item.category === "luggage" ? copy("Bavul", "Luggage") : copy("Diğer", "Other")}</small>
               </button>)}
-              {!selectedTrip.checklistItems.length && <div className="empty-inline"><Icon name="info" size={19} /><div><strong>Liste boş</strong><span>Aşağıdan ilk hazırlık maddeni ekleyebilirsin.</span></div></div>}
+              {!selectedTrip.checklistItems.length && <div className="empty-inline"><Icon name="info" size={19} /><div><strong>{copy("Liste boş", "The list is empty")}</strong><span>{copy("Aşağıdan ilk hazırlık maddeni ekleyebilirsin.", "Add your first preparation item below.")}</span></div></div>}
             </div>
             <form className="cockpit-checklist-form" onSubmit={addChecklistItem}>
-              <input value={newChecklistLabel} maxLength={90} onChange={(event) => setNewChecklistLabel(event.target.value)} placeholder="Yeni hazırlık maddesi" aria-label="Yeni hazırlık maddesi" />
-              <select value={newChecklistCategory} onChange={(event) => setNewChecklistCategory(event.target.value as ChecklistCategory)} aria-label="Hazırlık kategorisi">
-                {Object.entries(CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <input value={newChecklistLabel} maxLength={90} onChange={(event) => setNewChecklistLabel(event.target.value)} placeholder={copy("Yeni hazırlık maddesi", "New checklist item")} aria-label={copy("Yeni hazırlık maddesi", "New checklist item")} />
+              <select value={newChecklistCategory} onChange={(event) => setNewChecklistCategory(event.target.value as ChecklistCategory)} aria-label={copy("Hazırlık kategorisi", "Checklist category")}>
+                {Object.keys(CATEGORY_LABELS).map((value) => <option key={value} value={value}>{value === "documents" ? copy("Belge", "Documents") : value === "health" ? copy("Sağlık", "Health") : value === "technology" ? copy("Teknoloji", "Technology") : value === "luggage" ? copy("Bavul", "Luggage") : copy("Diğer", "Other")}</option>)}
               </select>
-              <button type="submit" disabled={Boolean(busy) || loading || !newChecklistLabel.trim()} aria-label="Madde ekle"><Icon name="plus" size={18} /></button>
+              <button type="submit" disabled={Boolean(busy) || loading || !newChecklistLabel.trim()} aria-label={copy("Madde ekle", "Add item")}><Icon name="plus" size={18} /></button>
             </form>
           </section>
         </article>}

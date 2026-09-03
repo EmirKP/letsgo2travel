@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import appIcon from "../assets/splash-mark.webp";
+import { useI18n } from "../lib/i18n";
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
+  const { copy } = useI18n();
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -15,7 +17,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   }, [onFinish]);
 
   return (
-    <div className={`animated-splash ${leaving ? "leaving" : ""}`} role="status" aria-label="LetsGo2Travel açılıyor">
+    <div className={`animated-splash ${leaving ? "leaving" : ""}`} role="status" aria-label={copy("LetsGo2Travel açılıyor", "LetsGo2Travel is opening")}>
       <div className="animated-splash-glow" aria-hidden="true" />
       <div className="animated-splash-logo">
         <span className="animated-splash-ring" aria-hidden="true" />

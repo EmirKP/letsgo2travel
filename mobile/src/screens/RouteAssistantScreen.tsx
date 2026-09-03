@@ -9,6 +9,7 @@ import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
 import { saveRoutePlan } from "../lib/storage";
 import { getSupabaseDataErrorMessage, upsertUserTrip } from "../lib/supabaseData";
+import { useI18n } from "../lib/i18n";
 import type { PlannerInput, RoutePlan, RouteSuggestion, WeatherSummary } from "../types";
 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
@@ -49,11 +50,12 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
   ownerId?: string | null;
   accessToken: string;
 }) {
+  const { copy, locale } = useI18n();
   const [form, setForm] = useState<PlannerInput>(INITIAL);
   const [step, setStep] = useState(0);
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [loading, setLoading] = useState(false);
-  const seededSummary = routeSeedKind === "explore" ? "Keşfettiğin rota için ayrıntılı plan." : "Sana sürpriz olarak seçtiğimiz rota.";
+  const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
   const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
   const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(INITIAL));
   const [source, setSource] = useState<"ai" | "local" | "surprise" | "explore">(surpriseRoute ? routeSeedKind : "local");
@@ -65,11 +67,11 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
 
   useEffect(() => {
     if (!surpriseRoute) return;
-    setPlan({ summary: routeSeedKind === "explore" ? "Keşfettiğin rota için ayrıntılı plan." : "Sana sürpriz olarak seçtiğimiz rota.", routes: [surpriseRoute] });
+    setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
     setPlanInput(snapshotPlannerInput(form));
     setSource(routeSeedKind);
     setExpanded(surpriseRoute.name);
-  }, [routeSeedKind, surpriseRoute]);
+  }, [copy, routeSeedKind, surpriseRoute]);
 
   const ready = useMemo(() => Boolean(form.origin && form.days && form.month && form.budget && form.vibe.length), [form]);
 
@@ -82,35 +84,35 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
   };
 
   const generate = async () => {
-    if (!ready) return onNotice("Rota oluşturmak için temel seçimleri tamamla.");
+    if (!ready) return onNotice(copy("Rota oluşturmak için temel seçimleri tamamla.", "Complete the required choices to build a route."));
     const requestInput = snapshotPlannerInput(form);
     setLoading(true);
     try {
-      const response = await generateRoutePlan(requestInput);
+      const response = await generateRoutePlan(requestInput, locale);
       if (response.data?.routes?.length) {
-        setPlan(response.data);
+        setPlan(response.isFallback ? createFallbackPlan(requestInput, locale) : response.data);
         setPlanInput(requestInput);
         setSource("ai");
-        setExpanded(response.data.routes[0]?.name || "");
+        setExpanded((response.isFallback ? createFallbackPlan(requestInput, locale) : response.data).routes[0]?.name || "");
         setSavedKey("");
       } else {
-        const fallback = createFallbackPlan(requestInput);
+        const fallback = createFallbackPlan(requestInput, locale);
         setPlan(fallback);
         setPlanInput(requestInput);
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
         setSavedKey("");
-        onNotice("Önerilerin hazır.");
+        onNotice(copy("Önerilerin hazır.", "Your suggestions are ready."));
       }
       await hapticSuccess();
     } catch {
-      const fallback = createFallbackPlan(requestInput);
+      const fallback = createFallbackPlan(requestInput, locale);
       setPlan(fallback);
       setPlanInput(requestInput);
       setSource("local");
       setExpanded(fallback.routes[0]?.name || "");
       setSavedKey("");
-      onNotice("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.");
+      onNotice(copy("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.", "We are using offline suggestions for now; try again when you are online."));
     } finally {
       setLoading(false);
     }
@@ -120,7 +122,7 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
     if (!plan || saveBusy) return;
     const input = snapshotPlannerInput(planInput);
     const clientKey = planClientKey(plan, input);
-    if (savedKey === clientKey) return onNotice("Bu rota zaten kayıtlı.");
+    if (savedKey === clientKey) return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
     setSaveBusy(true);
     const createdAt = new Date().toISOString();
     saveRoutePlan({ id: clientKey, createdAt, input, plan }, ownerId);
@@ -136,9 +138,9 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
       }
       setSavedKey(clientKey);
       await hapticSuccess();
-      onNotice(ownerId && accessToken ? "Rota web ve mobil hesabına kaydedildi." : "Rota bu cihaza kaydedildi.");
+      onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."));
     } catch (error) {
-      onNotice(`${getSupabaseDataErrorMessage(error, "Rota hesabınla eşitlenemedi.")} Cihaz kaydı korundu.`);
+      onNotice(`${getSupabaseDataErrorMessage(error, copy("Rota hesabınla eşitlenemedi.", "The route could not sync with your account."))} ${copy("Cihaz kaydı korundu.", "The on-device copy was kept.")}`);
     } finally {
       setSaveBusy(false);
     }
@@ -147,10 +149,12 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
   const loadWeather = async (route: RouteSuggestion) => {
     setWeatherLoading(route.name);
     try {
-      const result = await getWeather(route.cityOrRegion || route.name);
+      const result = await getWeather(route.cityOrRegion || route.name, locale);
       setWeather((current) => ({ ...current, [route.name]: result }));
     } catch (error) {
-      onNotice(error instanceof Error ? error.message : "Hava durumu alınamadı.");
+      onNotice(locale === "tr" && error instanceof Error && error.message
+        ? error.message
+        : copy("Hava durumu alınamadı.", "Weather data is unavailable."));
     } finally {
       setWeatherLoading("");
     }
@@ -160,19 +164,19 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
     <div className="screen">
       <section className="page-intro compact-intro route-intro">
         <span className="page-icon"><Icon name="route" size={27} /></span>
-        <div><small>AKILLI KEŞİF</small><h1>Rota Asistanı</h1><p>Üç kısa adımda tercihlerini seç; sana uygun rotaları önerelim.</p></div>
+        <div><small>{copy("AKILLI KEŞİF", "SMART DISCOVERY")}</small><h1>{copy("Rota Asistanı", "Route Assistant")}</h1><p>{copy("Üç kısa adımda tercihlerini seç; sana uygun rotaları önerelim.", "Make your choices in three short steps and get routes that fit you.")}</p></div>
       </section>
 
       <section className="form-card planner-form planner-steps">
-        <div className="planner-progress" aria-label={`Adım ${step + 1} / 3`}>
-          {[0, 1, 2].map((index) => <button type="button" key={index} className={index === step ? "active" : index < step ? "done" : ""} aria-label={`Adım ${index + 1}`} onClick={() => index < step && setStep(index)} />)}
+        <div className="planner-progress" aria-label={copy(`Adım ${step + 1} / 3`, `Step ${step + 1} / 3`)}>
+          {[0, 1, 2].map((index) => <button type="button" key={index} className={index === step ? "active" : index < step ? "done" : ""} aria-label={copy(`Adım ${index + 1}`, `Step ${index + 1}`)} onClick={() => index < step && setStep(index)} />)}
         </div>
 
         {step === 0 && <div className="planner-step">
-          <h2 className="planner-step-title">Nereden ve ne zaman?</h2>
+          <h2 className="planner-step-title">{copy("Nereden ve ne zaman?", "From where and when?")}</h2>
           <AirportField
-            label="Çıkış noktası"
-            placeholder={form.origin ? `${form.origin} (değiştirmek için yaz)` : "Şehir veya havalimanı yaz"}
+            label={copy("Çıkış noktası", "Departure point")}
+            placeholder={form.origin ? copy(`${form.origin} (değiştirmek için yaz)`, `${form.origin} (type to change)`) : copy("Şehir veya havalimanı yaz", "Type a city or airport")}
             value={originAirport}
             required
             onChange={(airport) => {
@@ -180,45 +184,45 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
               setForm({ ...form, origin: airport ? airport.city || airport.name : "" });
             }}
           />
-          {!originAirport && <p className="planner-hint">Rota önerebilmemiz için çıkış şehrini veya havalimanını seç.</p>}
+          {!originAirport && <p className="planner-hint">{copy("Rota önerebilmemiz için çıkış şehrini veya havalimanını seç.", "Choose a departure city or airport so we can suggest a route.")}</p>}
           <div className="form-grid two stack-narrow">
-            <label>Süre<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option>2–3 gün</option><option>4–6 gün</option><option>7–10 gün</option><option>10+ gün</option></select></label>
-            <label>Dönem<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month) => <option key={month}>{month}</option>)}</select></label>
+            <label>{copy("Süre", "Duration")}<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option value="2–3 gün">{copy("2–3 gün", "2–3 days")}</option><option value="4–6 gün">{copy("4–6 gün", "4–6 days")}</option><option value="7–10 gün">{copy("7–10 gün", "7–10 days")}</option><option value="10+ gün">{copy("10+ gün", "10+ days")}</option></select></label>
+            <label>{copy("Dönem", "Month")}<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month, index) => <option key={month} value={month}>{copy(month, ["January","February","March","April","May","June","July","August","September","October","November","December"][index])}</option>)}</select></label>
           </div>
-          <button className="primary-wide" disabled={!form.origin} onClick={() => setStep(1)}><Icon name="chevron" size={17} /> Devam et</button>
+          <button className="primary-wide" disabled={!form.origin} onClick={() => setStep(1)}><Icon name="chevron" size={17} /> {copy("Devam et", "Continue")}</button>
         </div>}
 
         {step === 1 && <div className="planner-step">
-          <h2 className="planner-step-title">Bütçe ve yol arkadaşların</h2>
+          <h2 className="planner-step-title">{copy("Bütçe ve yol arkadaşların", "Budget and companions")}</h2>
           <div className="form-grid two stack-narrow">
-            <label>Bütçe<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option>Ekonomik</option><option>Orta</option><option value="Yüksek / premium">Premium</option></select></label>
-            <label>Konaklama<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option>Otel</option><option>Apart / ev</option><option>Fark etmez</option></select></label>
+            <label>{copy("Bütçe", "Budget")}<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option value="Ekonomik">{copy("Ekonomik", "Economy")}</option><option value="Orta">{copy("Orta", "Balanced")}</option><option value="Yüksek / premium">Premium</option></select></label>
+            <label>{copy("Konaklama", "Accommodation")}<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option value="Otel">{copy("Otel", "Hotel")}</option><option value="Apart / ev">{copy("Apart / ev", "Apartment / home")}</option><option value="Fark etmez">{copy("Fark etmez", "Any")}</option></select></label>
           </div>
           <div className="form-grid two stack-narrow">
-            <label>Kiminle?<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option>Tek başıma</option><option>Partnerimle</option><option>Arkadaşlarımla</option><option>Ailemle</option><option value="İlk yurt dışı deneyimim">İlk seyahatim</option></select></label>
-            <label>Tempo<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option>Rahat</option><option>Dengeli</option><option>Yoğun</option></select></label>
+            <label>{copy("Kiminle?", "With whom?")}<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option value="Tek başıma">{copy("Tek başıma", "Solo")}</option><option value="Partnerimle">{copy("Partnerimle", "With my partner")}</option><option value="Arkadaşlarımla">{copy("Arkadaşlarımla", "With friends")}</option><option value="Ailemle">{copy("Ailemle", "With family")}</option><option value="İlk yurt dışı deneyimim">{copy("İlk seyahatim", "My first trip")}</option></select></label>
+            <label>{copy("Tempo", "Pace")}<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option value="Rahat">{copy("Rahat", "Easy")}</option><option value="Dengeli">{copy("Dengeli", "Balanced")}</option><option value="Yoğun">{copy("Yoğun", "Busy")}</option></select></label>
           </div>
-          <label>Giriş tercihi<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">Vizesiz / kolay</option><option>Vize olabilir</option><option>Fark etmez</option></select></label>
+          <label>{copy("Giriş tercihi", "Entry preference")}<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">{copy("Vizesiz / kolay", "Visa-free / easy")}</option><option value="Vize olabilir">{copy("Vize olabilir", "Visa is okay")}</option><option value="Fark etmez">{copy("Fark etmez", "Any")}</option></select></label>
           <div className="planner-step-nav">
-            <button className="secondary-button" onClick={() => setStep(0)}><Icon name="back" size={16} /> Geri</button>
-            <button className="primary-button" onClick={() => setStep(2)}>Devam et <Icon name="chevron" size={16} /></button>
+            <button className="secondary-button" onClick={() => setStep(0)}><Icon name="back" size={16} /> {copy("Geri", "Back")}</button>
+            <button className="primary-button" onClick={() => setStep(2)}>{copy("Devam et", "Continue")} <Icon name="chevron" size={16} /></button>
           </div>
         </div>}
 
         {step === 2 && <div className="planner-step">
-          <h2 className="planner-step-title">Nasıl bir seyahat istiyorsun?</h2>
-          <fieldset className="vibe-fieldset"><legend className="sr-only">İlgi alanların</legend><div className="choice-grid">{VIBES.map((vibe) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{vibe}</button>)}</div></fieldset>
+          <h2 className="planner-step-title">{copy("Nasıl bir seyahat istiyorsun?", "What kind of trip do you want?")}</h2>
+          <fieldset className="vibe-fieldset"><legend className="sr-only">{copy("İlgi alanların", "Your interests")}</legend><div className="choice-grid">{VIBES.map((vibe, index) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{copy(vibe, ["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div></fieldset>
           <div className="planner-step-nav">
-            <button className="secondary-button" onClick={() => setStep(1)}><Icon name="back" size={16} /> Geri</button>
-            <button className="primary-button planner-generate" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={18} />} {loading ? "Hazırlanıyor" : "Bana rota öner"}</button>
+            <button className="secondary-button" onClick={() => setStep(1)}><Icon name="back" size={16} /> {copy("Geri", "Back")}</button>
+            <button className="primary-button planner-generate" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={18} />} {loading ? copy("Hazırlanıyor", "Building") : copy("Bana rota öner", "Suggest a route")}</button>
           </div>
         </div>}
       </section>
 
       {plan && <section className="plan-results">
         <div className="results-heading">
-          <div><span>{source === "surprise" ? "SÜRPRİZ ROTA" : source === "explore" ? "SEÇTİĞİN ROTA" : "SANA ÖZEL ÖNERİLER"}</span><h2>{source === "explore" ? "Planlamaya hazır" : "Senin için seçtiklerimiz"}</h2></div>
-          <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, planInput) ? "check" : "bookmark"} size={17} />} {saveBusy ? "Kaydediliyor" : savedKey === planClientKey(plan, planInput) ? "Kaydedildi" : "Kaydet"}</button>
+          <div><span>{source === "surprise" ? copy("SÜRPRİZ ROTA", "SURPRISE ROUTE") : source === "explore" ? copy("SEÇTİĞİN ROTA", "YOUR ROUTE") : copy("SANA ÖZEL ÖNERİLER", "PERSONALISED PICKS")}</span><h2>{source === "explore" ? copy("Planlamaya hazır", "Ready to plan") : copy("Senin için seçtiklerimiz", "Picked for you")}</h2></div>
+          <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={savedKey === planClientKey(plan, planInput) ? "check" : "bookmark"} size={17} />} {saveBusy ? copy("Kaydediliyor", "Saving") : savedKey === planClientKey(plan, planInput) ? copy("Kaydedildi", "Saved") : copy("Kaydet", "Save")}</button>
         </div>
         <p className="plan-summary">{plan.summary}</p>
         <div className="route-result-list">
@@ -236,16 +240,16 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
               <div id={panelId} className="route-result-body" role="region" aria-labelledby={triggerId} hidden={!open}>{open && <>
                 <p>{route.why}</p>
                 <div className="route-meta-grid">
-                  <div><Icon name="wallet" size={17} /><span>Bütçe<strong>{route.estimatedBudget}</strong></span></div>
-                  <div><Icon name="users" size={17} /><span>Uygunluk<strong>{route.bestFor}</strong></span></div>
-                  <div><Icon name="map" size={17} /><span>Ulaşım<strong>{route.transportEase}</strong></span></div>
-                  <div><Icon name="passport" size={17} /><span>Giriş<strong>{route.visaStatus}</strong></span></div>
+                  <div><Icon name="wallet" size={17} /><span>{copy("Bütçe", "Budget")}<strong>{route.estimatedBudget}</strong></span></div>
+                  <div><Icon name="users" size={17} /><span>{copy("Uygunluk", "Best for")}<strong>{route.bestFor}</strong></span></div>
+                  <div><Icon name="map" size={17} /><span>{copy("Ulaşım", "Transport")}<strong>{route.transportEase}</strong></span></div>
+                  <div><Icon name="passport" size={17} /><span>{copy("Giriş", "Entry")}<strong>{route.visaStatus}</strong></span></div>
                 </div>
                 {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? ` · Son kontrol: ${route.visaVerifiedAt}` : ""}</p></div>}
-                {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> Resmî giriş kaynağını aç</button>}
-                <div className="daily-plan"><h3>Örnek plan</h3>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
+                {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> {copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
+                <div className="daily-plan"><h3>{copy("Örnek plan", "Sample plan")}</h3>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
-                {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>Bugün {currentWeather.min}° / {currentWeather.max}° · Rüzgâr {currentWeather.windSpeed} km/sa</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} Güncel havayı göster</button>}
+                {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>{copy("Bugün", "Today")} {currentWeather.min}° / {currentWeather.max}° · {copy("Rüzgâr", "Wind")} {currentWeather.windSpeed} km/h</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} {copy("Güncel havayı göster", "Show current weather")}</button>}
               </>}</div>
             </article>;
           })}

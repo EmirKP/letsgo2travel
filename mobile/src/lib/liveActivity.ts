@@ -14,9 +14,11 @@ export type FlightReminderTrip = {
   id: string;
   title: string;
   departureAt: string | null;
+  arrivalAt?: string | null;
   status: string;
   originIata?: string | null;
   destinationIata?: string | null;
+  language?: "tr" | "en";
 };
 
 /** Kokpit kaydına giden derin bağlantı (bildirim + Live Activity aynı adresi kullanır). */
@@ -27,7 +29,8 @@ export function cockpitDeepLink(tripId: string) {
 export type ActivityPhase = "before" | "active" | "ended";
 
 const ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala başlat
-const ACTIVITY_TAIL_MS = 60 * 60 * 1000; // kalkıştan 1 saat sonra bitir
+const ACTIVITY_FALLBACK_TAIL_MS = 60 * 60 * 1000;
+const ACTIVITY_ARRIVAL_GRACE_MS = 20 * 60 * 1000;
 const REMINDER_ID_BASE = 411_000; // yerel bildirim kimlik alanımız
 
 /**
@@ -44,12 +47,16 @@ export function countdownMode(departureAtIso: string | null, now: Date = new Dat
 }
 
 /** Uçuş için Live Activity/hatırlatma evresi (saf; birim testli). */
-export function activityPhase(departureAtIso: string | null, now: Date = new Date()): ActivityPhase {
+export function activityPhase(departureAtIso: string | null, now: Date = new Date(), arrivalAtIso?: string | null): ActivityPhase {
   if (!departureAtIso) return "ended";
   const departure = Date.parse(departureAtIso);
   if (!Number.isFinite(departure)) return "ended";
   if (now.getTime() < departure - ACTIVITY_LEAD_MS) return "before";
-  if (now.getTime() > departure + ACTIVITY_TAIL_MS) return "ended";
+  const parsedArrival = arrivalAtIso ? Date.parse(arrivalAtIso) : Number.NaN;
+  const endAt = Number.isFinite(parsedArrival) && parsedArrival > departure
+    ? parsedArrival + ACTIVITY_ARRIVAL_GRACE_MS
+    : departure + ACTIVITY_FALLBACK_TAIL_MS;
+  if (now.getTime() > endAt) return "ended";
   return "active";
 }
 
@@ -61,7 +68,7 @@ export type ActivitySyncAction = "start" | "end" | "none";
  */
 export function activitySyncAction(trip: FlightReminderTrip, now: Date = new Date()): ActivitySyncAction {
   if (trip.status !== "upcoming" && trip.status !== "active") return "end";
-  const phase = activityPhase(trip.departureAt, now);
+  const phase = activityPhase(trip.departureAt, now, trip.arrivalAt);
   if (phase === "active") return "start";
   return phase === "ended" ? "end" : "none";
 }
@@ -76,8 +83,10 @@ export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Da
     .map((trip, index) => ({
       id: REMINDER_ID_BASE + index,
       tripId: trip.id,
-      title: "Uçuşun yaklaşıyor ✈️",
-      body: `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`,
+      title: trip.language === "en" ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
+      body: trip.language === "en"
+        ? `3 hours until your ${trip.title} flight. Your checklist is ready in Cockpit.`
+        : `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`,
       at: new Date(Date.parse(trip.departureAt!) - ACTIVITY_LEAD_MS),
     }));
 }
@@ -145,8 +154,10 @@ async function performFlightReminderSync(
               tripId: trip.id,
               title: trip.title,
               departureAt: trip.departureAt,
+              arrivalAt: trip.arrivalAt,
               originIata: trip.originIata || "",
               destinationIata: trip.destinationIata || "",
+              language: trip.language || "tr",
               deepLink: cockpitDeepLink(trip.id),
             });
           } else if (action === "end") {

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { config } from "../lib/config";
 import { requestJson } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 
 // Belgeli Gezgin NATIVE başvuru formu: web'e yönlendirme olmadan, mevcut
 // Supabase oturumuyla /api/travel-verifications ucuna gönderir.
@@ -23,6 +24,8 @@ type VerificationFormProps = {
 };
 
 export function VerificationForm({ accessToken, onSubmitted, onNotice }: VerificationFormProps) {
+  const { copy, locale } = useI18n();
+  const regionNames = useMemo(() => new Intl.DisplayNames(locale === "tr" ? "tr-TR" : "en-GB", { type: "region" }), [locale]);
   const [countries, setCountries] = useState<VerificationCountry[]>([]);
   const [countriesError, setCountriesError] = useState(false);
   const [countryCode, setCountryCode] = useState("");
@@ -49,12 +52,12 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
     }
     if (!ALLOWED_TYPES.has(selected.type)) {
       setFile(null);
-      setError("Yalnız JPG, PNG, WEBP veya PDF yükleyebilirsin.");
+      setError(copy("Yalnız JPG, PNG, WEBP veya PDF yükleyebilirsin.", "You can upload JPG, PNG, WEBP or PDF files only."));
       return;
     }
     if (selected.size === 0 || selected.size > MAX_FILE_SIZE) {
       setFile(null);
-      setError("Dosya 5MB'dan küçük olmalı.");
+      setError(copy("Dosya 5MB'dan küçük olmalı.", "The file must be smaller than 5 MB."));
       return;
     }
     setFile(selected);
@@ -62,9 +65,9 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
 
   const submit = async () => {
     if (submitting) return;
-    if (!countryCode) return setError("Önce ülkeyi seç.");
-    if (!file) return setError("Kanıt belgesi veya fotoğraf seç.");
-    if (!consent) return setError("İnceleme onayını işaretlemelisin.");
+    if (!countryCode) return setError(copy("Önce ülkeyi seç.", "Choose a country first."));
+    if (!file) return setError(copy("Kanıt belgesi veya fotoğraf seç.", "Choose an evidence document or photo."));
+    if (!consent) return setError(copy("İnceleme onayını işaretlemelisin.", "You must accept the review consent."));
     setSubmitting(true);
     setError("");
     try {
@@ -74,22 +77,26 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
       formData.append("file", file);
       const response = await fetch(`${config.apiBaseUrl}/api/travel-verifications`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Accept-Language": locale === "tr" ? "tr" : "en",
+        },
         body: formData,
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(typeof (data as { error?: string }).error === "string" ? (data as { error: string }).error : "Başvuru gönderilemedi.");
+        const serverError = typeof (data as { error?: string }).error === "string" ? (data as { error: string }).error : "";
+        throw new Error(locale === "tr" && serverError ? serverError : copy("Başvuru gönderilemedi.", "The application could not be submitted."));
       }
       setCountryCode("");
       setFile(null);
       setNote("");
       setConsent(false);
       if (fileInput.current) fileInput.current.value = "";
-      onNotice("Başvurun alındı. Sonuç bildirimlerde ve bu listede görünecek.");
+      onNotice(copy("Başvurun alındı. Sonuç bildirimlerde ve bu listede görünecek.", "Your application was received. The result will appear in notifications and this list."));
       onSubmitted();
     } catch (submitError) {
-      setError(submitError instanceof Error && submitError.message ? submitError.message : "Başvuru gönderilemedi. Tekrar dene.");
+      setError(submitError instanceof Error && submitError.message ? submitError.message : copy("Başvuru gönderilemedi. Tekrar dene.", "The application could not be submitted. Try again."));
     } finally {
       setSubmitting(false);
     }
@@ -97,15 +104,15 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
 
   return (
     <div className="verification-form">
-      <label>Ülke
+      <label>{copy("Ülke", "Country")}
         <select value={countryCode} onChange={(event) => { setCountryCode(event.target.value); setError(""); }}>
-          <option value="" disabled>{countriesError ? "Liste yüklenemedi — tekrar aç" : "Doğrulamak istediğin ülke"}</option>
-          {countries.map((country) => <option key={country.code} value={country.code}>{country.flag} {country.name}</option>)}
+          <option value="" disabled>{countriesError ? copy("Liste yüklenemedi — tekrar aç", "List unavailable — reopen") : copy("Doğrulamak istediğin ülke", "Country to verify")}</option>
+          {countries.map((country) => <option key={country.code} value={country.code}>{country.flag} {country.code === "XK" ? (locale === "tr" ? "Kosova" : "Kosovo") : regionNames.of(country.code) || country.name}</option>)}
         </select>
       </label>
 
       <label className="verification-file">
-        Kanıt belgesi / fotoğraf
+        {copy("Kanıt belgesi / fotoğraf", "Evidence document / photo")}
         <input
           ref={fileInput}
           type="file"
@@ -113,25 +120,25 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
           onChange={(event) => pickFile(event.target.files?.[0] || null)}
         />
         <span className="verification-file-hint">
-          {file ? `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB` : "Kamera, Fotoğraflar veya Dosyalar'dan seç (maks 5MB)"}
+          {file ? `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB` : copy("Kamera, Fotoğraflar veya Dosyalar'dan seç (maks 5MB)", "Choose from Camera, Photos or Files (max 5 MB)")}
         </span>
       </label>
-      <p className="verification-help">PNR, kimlik numarası gibi gereksiz kişisel bilgileri kapat. Belge herkese açık gösterilmez; yalnız inceleme ekibi güvenli bağlantıyla görür.</p>
+      <p className="verification-help">{copy("PNR, kimlik numarası gibi gereksiz kişisel bilgileri kapat. Belge herkese açık gösterilmez; yalnız inceleme ekibi güvenli bağlantıyla görür.", "Hide unnecessary personal details such as your PNR or ID number. The document is not public; only the review team can access it through a secure link.")}</p>
 
-      <label>Not (isteğe bağlı)
-        <textarea value={note} maxLength={1000} onChange={(event) => setNote(event.target.value)} placeholder="Eklemek istediğin bir şey var mı?" />
+      <label>{copy("Not (isteğe bağlı)", "Note (optional)")}
+        <textarea value={note} maxLength={1000} onChange={(event) => setNote(event.target.value)} placeholder={copy("Eklemek istediğin bir şey var mı?", "Anything you want to add?")} />
       </label>
 
       <label className="verification-consent">
         <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-        <span>Belgenin yalnız seyahat doğrulaması için yönetici ekibince incelenmesini kabul ediyorum.</span>
+        <span>{copy("Belgenin yalnız seyahat doğrulaması için yönetici ekibince incelenmesini kabul ediyorum.", "I agree that the admin team may review this document only for travel verification.")}</span>
       </label>
 
       {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p></div>}
-      {submitting && <div className="verification-progress" role="status" aria-label="Belge yükleniyor"><span /></div>}
+      {submitting && <div className="verification-progress" role="status" aria-label={copy("Belge yükleniyor", "Uploading document")}><span /></div>}
 
       <button className="primary-wide" disabled={submitting || !consent} onClick={() => void submit()}>
-        {submitting ? <span className="button-loader" /> : <Icon name="shield" size={18} />} {submitting ? "Belge yükleniyor" : "Doğrulama gönder"}
+        {submitting ? <span className="button-loader" /> : <Icon name="shield" size={18} />} {submitting ? copy("Belge yükleniyor", "Uploading document") : copy("Doğrulama gönder", "Submit verification")}
       </button>
     </div>
   );

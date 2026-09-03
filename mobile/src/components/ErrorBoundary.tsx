@@ -13,12 +13,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 
   render() {
     if (!this.state.error) return this.props.children;
+    const english = document.documentElement.lang === "en";
     return (
       <main className="fatal-screen">
         <div className="fatal-logo">LetsGo<span>2</span>Travel</div>
-        <h1>Uygulama açılırken bir sorun oluştu</h1>
-        <p>{this.state.error.message || "Beklenmeyen bir hata oluştu."}</p>
-        <button onClick={() => window.location.reload()}>Tekrar dene</button>
+        <h1>{english ? "The app could not be opened" : "Uygulama açılırken bir sorun oluştu"}</h1>
+        <p>{this.state.error.message || (english ? "An unexpected error occurred." : "Beklenmeyen bir hata oluştu.")}</p>
+        <button onClick={() => window.location.reload()}>{english ? "Try again" : "Tekrar dene"}</button>
       </main>
     );
   }

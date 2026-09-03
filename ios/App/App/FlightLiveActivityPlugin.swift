@@ -95,7 +95,10 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         if #available(iOS 16.2, *) {
             guard let tripId = call.getString("tripId"),
                   let departureIso = call.getString("departureAt"),
-                  let departureAt = ISO8601DateFormatter().date(from: departureIso) else {
+                  let departureAt = ISO8601DateFormatter().date(from: departureIso),
+                  let arrivalIso = call.getString("arrivalAt"),
+                  let arrivalAt = ISO8601DateFormatter().date(from: arrivalIso),
+                  arrivalAt > departureAt else {
                 call.reject("Eksik uçuş bilgisi")
                 return
             }
@@ -109,10 +112,11 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 title: call.getString("title") ?? "Yaklaşan uçuş",
                 originIata: call.getString("originIata") ?? "",
                 destinationIata: call.getString("destinationIata") ?? "",
-                deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit"
+                deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit",
+                language: call.getString("language") ?? "tr"
             )
-            let state = FlightActivityAttributes.ContentState(departureAt: departureAt)
-            let content = ActivityContent(state: state, staleDate: departureAt.addingTimeInterval(3600))
+            let state = FlightActivityAttributes.ContentState(departureAt: departureAt, arrivalAt: arrivalAt)
+            let content = ActivityContent(state: state, staleDate: arrivalAt.addingTimeInterval(1200))
             do {
                 // pushType .token: güncelleme/bitirme tokenı üretilir; cron
                 // kalkış+1 saat sonrasında aktiviteyi uzaktan bitirebilir.

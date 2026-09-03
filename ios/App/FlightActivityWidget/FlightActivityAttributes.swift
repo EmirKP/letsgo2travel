@@ -11,6 +11,9 @@ struct FlightActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         // Kalkış zamanı (geri sayım bundan hesaplanır).
         var departureAt: Date
+        // Kullanıcının girdiği planlanan varış. Eski aktivitelerle geriye
+        // uyumluluk için optional tutulur.
+        var arrivalAt: Date?
     }
 
     var tripId: String
@@ -18,4 +21,5 @@ struct FlightActivityAttributes: ActivityAttributes {
     var originIata: String   // Örn: "IST" (kayıtta yoksa boş gelir)
     var destinationIata: String
     var deepLink: String     // letsgo2travel://cockpit
+    var language: String?    // "tr" / "en"; eski aktivitelerde nil olabilir
 }

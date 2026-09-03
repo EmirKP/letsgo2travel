@@ -107,6 +107,51 @@ export const DISCOVERY_DESTINATIONS: DiscoveryDestination[] = [
   },
 ];
 
+const DISCOVERY_EN: Record<string, Partial<DiscoveryDestination>> = {
+  TBS: {
+    name: "Tbilisi", country: "Georgia", tag: "Food · Culture", entry: "Entry with Turkish ID card",
+    description: "An old town, a strong food culture and balanced costs for a short break.", bestMonths: "April–June · September–October", budget: "Economy–mid-range",
+    highlights: ["Old Tbilisi streets", "Sulphur baths", "Georgian cuisine"],
+    localTip: "Start in Sololaki and walk down into the old town for a rewarding first look at the city.",
+  },
+  GYD: {
+    name: "Baku", country: "Azerbaijan", tag: "City · First trip", entry: "Entry with Turkish ID card",
+    description: "A short flight, walkable centre and modern city experience.", bestMonths: "April–June · September", budget: "Mid-range",
+    highlights: ["Old City", "Flame Towers", "Caspian waterfront"],
+    localTip: "Pair the Old City with the waterfront boulevard; the evening lights reveal a different side of Baku.",
+  },
+  SJJ: {
+    name: "Sarajevo", country: "Bosnia and Herzegovina", tag: "History · Nature", entry: "Visa-free",
+    description: "An affordable Balkan route from Baščaršija to Mostar.", bestMonths: "May–June · September", budget: "Economy",
+    highlights: ["Baščaršija", "Latin Bridge", "Mostar day trip"],
+    localTip: "Explore the centre on foot and take an early bus to make the most of a Mostar day trip.",
+  },
+  BEG: {
+    name: "Belgrade", country: "Serbia", tag: "City · Nightlife", entry: "Visa-free",
+    description: "Riverfronts, lively streets and straightforward city transport.", bestMonths: "April–June · September–October", budget: "Economy–mid-range",
+    highlights: ["Kalemegdan", "Zemun", "Sava and Danube riverfronts"],
+    localTip: "Walk the centre and Kalemegdan, then plan Zemun as a separate half-day by public transport.",
+  },
+  TIA: {
+    name: "Tirana", country: "Albania", tag: "Coast · Economy", entry: "Visa-free",
+    description: "A flexible route combining Tirana with the beaches around Ksamil.", bestMonths: "May–June · September", budget: "Economy",
+    highlights: ["Skanderbeg Square", "Blloku", "Albanian Riviera"],
+    localTip: "If the coast is your priority, keep Tirana to one night and leave more time for the Riviera.",
+  },
+  TYO: {
+    name: "Tokyo", country: "Japan", tag: "Culture · Long-haul", entry: "Visa-free",
+    description: "A major trip combining tradition, technology and food.", bestMonths: "March–May · October–November", budget: "Premium",
+    highlights: ["Asakusa", "Shibuya", "Neighbourhood markets"],
+    localTip: "Group nearby districts on the same day; it saves both time and transport cost in Tokyo.",
+  },
+};
+
+export function localizedDiscovery(destination: DiscoveryDestination, locale: "tr" | "en" = "tr"): DiscoveryDestination {
+  if (locale !== "en") return destination;
+  const translated = DISCOVERY_EN[destination.code];
+  return translated ? { ...destination, ...translated } : destination;
+}
+
 export function dailyDiscovery() {
   const day = Math.floor(Date.now() / 86_400_000);
   return DISCOVERY_DESTINATIONS[day % DISCOVERY_DESTINATIONS.length];

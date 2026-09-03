@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert, type AlertMutationResponse } from "../lib/api";
@@ -6,6 +6,7 @@ import type { AirportOption } from "../lib/airports";
 import { isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
 import type { AuthUser, FlightAlert } from "../types";
+import { useI18n } from "../lib/i18n";
 
 type PriceAlertsScreenProps = {
   user: AuthUser | null;
@@ -32,52 +33,49 @@ const EMPTY_FORM: AlertForm = {
   notifyPush: false,
 };
 
-const priceFormat = new Intl.NumberFormat("tr-TR");
-
-function formatDate(value: string) {
+function formatDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short", year: "numeric" })
+    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
       .format(new Date(`${value}T12:00:00`));
   } catch {
     return value;
   }
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
       .format(new Date(value));
   } catch {
     return value;
   }
 }
 
-function formError(form: AlertForm) {
-  if (!form.origin) return "Kalkış havalimanını listeden seç.";
-  if (!form.destination) return "Varış havalimanını listeden seç.";
-  if (form.origin.iata === form.destination.iata) return "Kalkış ve varış aynı olamaz.";
-  if (!form.departureDate) return "Gidiş tarihini seç.";
-  if (isPastLocalDate(form.departureDate)) return "Gidiş tarihi geçmiş bir gün olamaz.";
+function formError(form: AlertForm, locale: "tr" | "en" = "tr") {
+  const message = (tr: string, en: string) => locale === "en" ? en : tr;
+  if (!form.origin) return message("Kalkış havalimanını listeden seç.", "Choose the departure airport from the list.");
+  if (!form.destination) return message("Varış havalimanını listeden seç.", "Choose the arrival airport from the list.");
+  if (form.origin.iata === form.destination.iata) return message("Kalkış ve varış aynı olamaz.", "Departure and arrival cannot be the same.");
+  if (!form.departureDate) return message("Gidiş tarihini seç.", "Choose a departure date.");
+  if (isPastLocalDate(form.departureDate)) return message("Gidiş tarihi geçmiş bir gün olamaz.", "The departure date cannot be in the past.");
   if (form.targetPrice) {
     const price = Number(form.targetPrice);
-    if (!Number.isFinite(price) || price <= 0) return "Hedef fiyat pozitif bir sayı olmalı.";
+    if (!Number.isFinite(price) || price <= 0) return message("Hedef fiyat pozitif bir sayı olmalı.", "Target price must be a positive number.");
   }
-  if (!form.notifyEmail && !form.notifyPush) return "En az bir bildirim kanalı seçmelisin.";
+  if (!form.notifyEmail && !form.notifyPush) return message("En az bir bildirim kanalı seçmelisin.", "Choose at least one notification channel.");
   return "";
 }
 
-function alertStatusLabel(alert: FlightAlert) {
-  if (alert.is_active === false) return "DURAKLATILDI";
-  if (alert.status === "triggered") return "HEDEF YAKALANDI";
-  return "TAKİPTE";
-}
-
-function errorText(error: unknown, fallback: string) {
-  if (error instanceof ApiError && error.message) return error.message;
+function errorText(error: unknown, fallback: string, locale: "tr" | "en") {
+  if (locale === "tr" && error instanceof ApiError && error.message) return error.message;
   return fallback;
 }
 
-function responseNotice(result: AlertMutationResponse, fallback: string, preferServerMessage = false) {
+function responseNotice(result: AlertMutationResponse, fallback: string, locale: "tr" | "en", preferServerMessage = false) {
+  if (locale === "en") {
+    const hasWarning = Boolean(result.warning?.trim()) || Boolean(result.warnings?.some((item) => item?.trim()));
+    return hasWarning ? `${fallback} One or more delivery channels may need attention.` : fallback;
+  }
   const warnings = [result.warning, ...(Array.isArray(result.warnings) ? result.warnings : [])]
     .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
     .map((item) => item.trim());
@@ -94,6 +92,7 @@ function hasAlertChannel(alert: FlightAlert) {
 }
 
 export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }: PriceAlertsScreenProps) {
+  const { copy, dateLocale, locale } = useI18n();
   const [alerts, setAlerts] = useState<FlightAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -103,6 +102,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   const [form, setForm] = useState<AlertForm>(EMPTY_FORM);
   const [pushBusy, setPushBusy] = useState(false);
   const loadGeneration = useRef(0);
+  const priceFormat = useMemo(() => new Intl.NumberFormat(dateLocale), [dateLocale]);
 
   const getToken = useCallback(() => accessToken, [accessToken]);
 
@@ -122,11 +122,11 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       if (generation !== loadGeneration.current) return;
       setAlerts(next);
     } catch (requestError) {
-      if (generation === loadGeneration.current) setLoadError(errorText(requestError, "Fiyat alarmların yüklenemedi."));
+      if (generation === loadGeneration.current) setLoadError(errorText(requestError, copy("Fiyat alarmların yüklenemedi.", "Your price alerts could not be loaded."), locale));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
-  }, [accessToken, user]);
+  }, [accessToken, copy, locale, user]);
 
   useEffect(() => {
     void load();
@@ -135,7 +135,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
 
   const requestPushOptIn = useCallback(async () => {
     if (!isPushAvailable()) {
-      onNotice("Telefon bildirimleri yalnızca uygulamanın cihaz sürümünde açılabilir. E-posta ile devam edebilirsin.");
+      onNotice(copy("Telefon bildirimleri yalnızca uygulamanın cihaz sürümünde açılabilir. E-posta ile devam edebilirsin.", "Phone notifications are available only in the installed app. You can continue with email."));
       return false;
     }
     setPushBusy(true);
@@ -143,20 +143,20 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       const result = await enablePushForUser(getToken);
       if (result.ok) return true;
       if (result.reason === "denied") {
-        onNotice("Bildirim izni verilmedi. E-posta bildirimleri çalışmaya devam eder; izni cihaz ayarlarından açabilirsin.");
+        onNotice(copy("Bildirim izni verilmedi. E-posta bildirimleri çalışmaya devam eder; izni cihaz ayarlarından açabilirsin.", "Notification permission was denied. Email alerts will continue; enable permission in device settings."));
       } else {
-        onNotice("Telefon bildirimi şu an açılamadı. E-posta ile devam edebilirsin.");
+        onNotice(copy("Telefon bildirimi şu an açılamadı. E-posta ile devam edebilirsin.", "Phone notifications could not be enabled. You can continue with email."));
       }
       return false;
     } finally {
       setPushBusy(false);
     }
-  }, [getToken, onNotice]);
+  }, [copy, getToken, onNotice]);
 
   const toggleFormPush = async (checked: boolean) => {
     if (!checked) {
       if (!form.notifyEmail) {
-        setActionError("En az bir bildirim kanalı açık kalmalı. Önce e-posta bildirimini aç.");
+        setActionError(copy("En az bir bildirim kanalı açık kalmalı. Önce e-posta bildirimini aç.", "Keep at least one notification channel on. Enable email first."));
         return;
       }
       setActionError("");
@@ -172,7 +172,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
 
   const toggleFormEmail = (checked: boolean) => {
     if (!checked && !form.notifyPush) {
-      setActionError("En az bir bildirim kanalı açık kalmalı. Telefon bildirimi istiyorsan önce onu aç.");
+      setActionError(copy("En az bir bildirim kanalı açık kalmalı. Telefon bildirimi istiyorsan önce onu aç.", "Keep at least one notification channel on. Enable phone notifications first if you want to turn off email."));
       return;
     }
     setActionError("");
@@ -182,7 +182,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   const submitAlert = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user || !accessToken || busy || loading) return;
-    const validation = formError(form);
+    const validation = formError(form, locale);
     if (validation) {
       setActionError(validation);
       return;
@@ -202,10 +202,10 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       }, accessToken);
       setForm(EMPTY_FORM);
       setFormOpen(false);
-      onNotice(responseNotice(result, "Fiyat alarmın kuruldu.", true));
+      onNotice(responseNotice(result, copy("Fiyat alarmın kuruldu.", "Your price alert is active."), locale, true));
       await load();
     } catch (requestError) {
-      setActionError(errorText(requestError, "Alarm kaydedilemedi. Bilgileri kontrol edip tekrar dene."));
+      setActionError(errorText(requestError, copy("Alarm kaydedilemedi. Bilgileri kontrol edip tekrar dene.", "The alert could not be saved. Check the details and try again."), locale));
     } finally {
       setBusy("");
     }
@@ -223,11 +223,11 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     try {
       const result = await updateAlert(alert.id, body, accessToken);
       setAlerts((current) => current.map((item) => item.id === alert.id ? { ...item, ...body } : item));
-      onNotice(responseNotice(result, notice));
+      onNotice(responseNotice(result, notice, locale));
     } catch (requestError) {
       // İstek başarısızsa ekrandaki doğrulanmış son listeyi koru. Kullanıcı
       // isterse üstteki Yenile düğmesiyle sunucudan yeniden eşitleyebilir.
-      setActionError(errorText(requestError, failNotice));
+      setActionError(errorText(requestError, failNotice, locale));
     } finally {
       setBusy("");
     }
@@ -236,55 +236,55 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   const toggleActive = (alert: FlightAlert) => {
     const nextActive = alert.is_active === false;
     if (nextActive && !hasAlertChannel(alert)) {
-      setActionError("Bu alarmı başlatmadan önce e-posta veya telefon bildirimini aç.");
+      setActionError(copy("Bu alarmı başlatmadan önce e-posta veya telefon bildirimini aç.", "Enable email or phone notifications before restarting this alert."));
       return;
     }
     void patchAlert(
       alert,
       { is_active: nextActive },
-      nextActive ? "Alarm yeniden başlatıldı." : "Alarm duraklatıldı.",
-      "Alarm durumu güncellenemedi.",
+      nextActive ? copy("Alarm yeniden başlatıldı.", "Alert restarted.") : copy("Alarm duraklatıldı.", "Alert paused."),
+      copy("Alarm durumu güncellenemedi.", "Alert status could not be updated."),
     );
   };
 
   const toggleEmailChannel = (alert: FlightAlert, checked: boolean) => {
     if (!checked && isActiveAlert(alert) && alert.notify_push !== true) {
-      setActionError("Aktif alarmın son bildirim kanalını kapatamazsın. Önce telefon bildirimini aç veya alarmı durdur.");
+      setActionError(copy("Aktif alarmın son bildirim kanalını kapatamazsın. Önce telefon bildirimini aç veya alarmı durdur.", "You cannot turn off the last channel on an active alert. Enable phone notifications or pause the alert first."));
       return;
     }
     void patchAlert(
       alert,
       { notify_email: checked },
-      checked ? "E-posta bildirimi açıldı." : "E-posta bildirimi kapatıldı.",
-      "Bildirim kanalı güncellenemedi.",
+      checked ? copy("E-posta bildirimi açıldı.", "Email notifications enabled.") : copy("E-posta bildirimi kapatıldı.", "Email notifications disabled."),
+      copy("Bildirim kanalı güncellenemedi.", "Notification channel could not be updated."),
     );
   };
 
   const togglePushChannel = async (alert: FlightAlert, checked: boolean) => {
     if (!checked) {
       if (isActiveAlert(alert) && alert.notify_email === false) {
-        setActionError("Aktif alarmın son bildirim kanalını kapatamazsın. Önce e-posta bildirimini aç veya alarmı durdur.");
+        setActionError(copy("Aktif alarmın son bildirim kanalını kapatamazsın. Önce e-posta bildirimini aç veya alarmı durdur.", "You cannot turn off the last channel on an active alert. Enable email or pause the alert first."));
         return;
       }
-      void patchAlert(alert, { notify_push: false }, "Bu alarm için telefon bildirimi kapatıldı.", "Bildirim kanalı güncellenemedi.");
+      void patchAlert(alert, { notify_push: false }, copy("Bu alarm için telefon bildirimi kapatıldı.", "Phone notifications disabled for this alert."), copy("Bildirim kanalı güncellenemedi.", "Notification channel could not be updated."));
       return;
     }
     const enabled = await requestPushOptIn();
     if (!enabled) return;
-    void patchAlert(alert, { notify_push: true }, "Bu alarm için telefon bildirimi açıldı.", "Bildirim kanalı güncellenemedi.");
+    void patchAlert(alert, { notify_push: true }, copy("Bu alarm için telefon bildirimi açıldı.", "Phone notifications enabled for this alert."), copy("Bildirim kanalı güncellenemedi.", "Notification channel could not be updated."));
   };
 
   const removeAlert = async (alert: FlightAlert) => {
     if (!accessToken || busy) return;
-    if (!window.confirm(`${alert.origin_code} → ${alert.destination_code} alarmını silmek istiyor musun?`)) return;
+    if (!window.confirm(copy(`${alert.origin_code} → ${alert.destination_code} alarmını silmek istiyor musun?`, `Delete the ${alert.origin_code} → ${alert.destination_code} alert?`))) return;
     setBusy(alert.id);
     setActionError("");
     try {
       await deleteAlert(alert.id, accessToken);
       setAlerts((current) => current.filter((item) => item.id !== alert.id));
-      onNotice("Fiyat alarmı silindi.");
+      onNotice(copy("Fiyat alarmı silindi.", "Price alert deleted."));
     } catch (requestError) {
-      setActionError(errorText(requestError, "Alarm silinemedi."));
+      setActionError(errorText(requestError, copy("Alarm silinemedi.", "The alert could not be deleted."), locale));
     } finally {
       setBusy("");
     }
@@ -294,13 +294,13 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     return <div className="screen alerts-screen">
       <section className="page-intro compact-intro">
         <span className="page-icon"><Icon name="bell" size={27} /></span>
-        <div><small>FİYAT ALARMLARIM</small><h1>Fiyat düşünce haber al</h1><p>Takip ettiğin rota hedef fiyata inince e-posta veya telefon bildirimiyle haberdar olursun.</p></div>
+        <div><small>{copy("FİYAT ALARMLARIM", "PRICE ALERTS")}</small><h1>{copy("Fiyat düşünce haber al", "Know when the price drops")}</h1><p>{copy("Takip ettiğin rota hedef fiyata inince e-posta veya telefon bildirimiyle haberdar olursun.", "Get an email or phone notification when a tracked route reaches your target.")}</p></div>
       </section>
       <div className="login-required">
         <span><Icon name="lock" size={28} /></span>
-        <h2>Alarmların için giriş yap</h2>
-        <p>Fiyat alarmların hesabına bağlı saklanır ve web ile mobilde birlikte çalışır.</p>
-        <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> Giriş yap / hesap aç</button>
+        <h2>{copy("Alarmların için giriş yap", "Sign in for price alerts")}</h2>
+        <p>{copy("Fiyat alarmların hesabına bağlı saklanır ve web ile mobilde birlikte çalışır.", "Your alerts are linked to your account and stay in sync on web and mobile.")}</p>
+        <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> {copy("Giriş yap / hesap aç", "Sign in / create account")}</button>
       </div>
     </div>;
   }
@@ -308,33 +308,33 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   return <div className="screen alerts-screen">
     <section className="page-intro compact-intro">
       <span className="page-icon"><Icon name="bell" size={27} /></span>
-      <div><small>FİYAT ALARMLARIM</small><h1>Rotanı takibe al</h1><p>Hangi tarihte, hangi rotayı takip ettiğini burada yönet; fiyat hedefe inince haber verilir.</p></div>
+      <div><small>{copy("FİYAT ALARMLARIM", "PRICE ALERTS")}</small><h1>{copy("Rotanı takibe al", "Track your route")}</h1><p>{copy("Hangi tarihte, hangi rotayı takip ettiğini burada yönet; fiyat hedefe inince haber verilir.", "Manage routes and dates here; we'll notify you when a fare reaches your target.")}</p></div>
     </section>
 
     <div className="alerts-toolbar">
       <button type="button" className="primary-button" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setActionError(""); }}>
-        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? "Formu kapat" : "Alarm kur"}
+        <Icon name={formOpen ? "close" : "plus"} size={18} /> {formOpen ? copy("Formu kapat", "Close form") : copy("Alarm kur", "Create alert")}
       </button>
       <button type="button" className="secondary-button" disabled={loading || Boolean(busy)} onClick={() => void load()}>
-        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} Yenile
+        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} {copy("Yenile", "Refresh")}
       </button>
     </div>
 
     {formOpen && <form className="form-card alert-form" onSubmit={submitAlert}>
-      <AirportField label="Nereden" required value={form.origin} onChange={(origin) => setForm({ ...form, origin })} />
-      <AirportField label="Nereye" required value={form.destination} onChange={(destination) => setForm({ ...form, destination })} />
+      <AirportField label={copy("Nereden", "From")} required value={form.origin} onChange={(origin) => setForm({ ...form, origin })} />
+      <AirportField label={copy("Nereye", "To")} required value={form.destination} onChange={(destination) => setForm({ ...form, destination })} />
       <div className="form-grid two stack-narrow">
-        <label><span>Gidiş tarihi <em className="required-mark">· zorunlu</em></span><input type="date" required aria-required="true" min={localIsoDate(0)} value={form.departureDate} onChange={(event) => setForm({ ...form, departureDate: event.target.value })} /></label>
-        <label>Hedef fiyat (TL, isteğe bağlı)<input type="number" min={1} step={1} inputMode="numeric" value={form.targetPrice} onChange={(event) => setForm({ ...form, targetPrice: event.target.value })} placeholder="Boşsa %5 düşüşte haber verilir" /></label>
+        <label><span>{copy("Gidiş tarihi", "Departure date")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input type="date" required aria-required="true" min={localIsoDate(0)} value={form.departureDate} onChange={(event) => setForm({ ...form, departureDate: event.target.value })} /></label>
+        <label>{copy("Hedef fiyat (TL, isteğe bağlı)", "Target price (TRY, optional)")}<input type="number" min={1} step={1} inputMode="numeric" value={form.targetPrice} onChange={(event) => setForm({ ...form, targetPrice: event.target.value })} placeholder={copy("Boşsa %5 düşüşte haber verilir", "Leave empty for a 5% drop alert")} /></label>
       </div>
       <fieldset className="alert-channels" aria-describedby="alert-channel-help">
-        <legend>Bildirim kanalları · en az biri zorunlu</legend>
-        <label><input type="checkbox" checked={form.notifyEmail} onChange={(event) => toggleFormEmail(event.target.checked)} /> E-posta</label>
-        <label><input type="checkbox" checked={form.notifyPush} disabled={pushBusy} onChange={(event) => void toggleFormPush(event.target.checked)} /> Telefon bildirimi</label>
-        <p className="alert-push-note" id="alert-channel-help">En az bir kanal açık kalmalı.{form.notifyPush ? " Fiyat hedefe inince telefonuna anlık bildirim gönderilir." : " Telefon bildirimi için cihaz izni gerekir."}</p>
+        <legend>{copy("Bildirim kanalları · en az biri zorunlu", "Notification channels · choose at least one")}</legend>
+        <label><input type="checkbox" checked={form.notifyEmail} onChange={(event) => toggleFormEmail(event.target.checked)} /> {copy("E-posta", "Email")}</label>
+        <label><input type="checkbox" checked={form.notifyPush} disabled={pushBusy} onChange={(event) => void toggleFormPush(event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
+        <p className="alert-push-note" id="alert-channel-help">{copy("En az bir kanal açık kalmalı.", "At least one channel must stay on.")}{form.notifyPush ? copy(" Fiyat hedefe inince telefonuna anlık bildirim gönderilir.", " You'll get an instant notification when the target is reached.") : copy(" Telefon bildirimi için cihaz izni gerekir.", " Device permission is required for phone notifications.")}</p>
       </fieldset>
       <button className="primary-wide" disabled={busy === "create" || loading || pushBusy} type="submit">
-        {busy === "create" ? <span className="button-loader" /> : <Icon name="bell" size={18} />} {busy === "create" ? "Kaydediliyor" : "Alarmı kur"}
+        {busy === "create" ? <span className="button-loader" /> : <Icon name="bell" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Alarmı kur", "Create alert")}
       </button>
     </form>}
 
@@ -343,52 +343,52 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     {loadError && <div className="info-box error alert-load-error" role="alert">
       <Icon name="alert" size={19} />
       <div>
-        <strong>{alerts.length ? "Liste yenilenemedi" : "Alarmlar yüklenemedi"}</strong>
-        <p>{loadError}{alerts.length ? " Ekrandaki son kayıtların korunuyor." : " Bağlantını kontrol edip tekrar dene."}</p>
+        <strong>{alerts.length ? copy("Liste yenilenemedi", "List could not refresh") : copy("Alarmlar yüklenemedi", "Alerts could not be loaded")}</strong>
+        <p>{loadError}{alerts.length ? copy(" Ekrandaki son kayıtların korunuyor.", " Your most recent items remain on screen.") : copy(" Bağlantını kontrol edip tekrar dene.", " Check your connection and try again.")}</p>
       </div>
       <button type="button" className="secondary-button" disabled={loading} onClick={() => void load()}>
-        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={16} />} Tekrar dene
+        {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={16} />} {copy("Tekrar dene", "Try again")}
       </button>
     </div>}
 
     <div className="saved-list alert-list" aria-busy={loading}>
       {loading && !alerts.length
-        ? <div className="skeleton-list" role="status" aria-label="Fiyat alarmları yükleniyor"><div /><div /></div>
+        ? <div className="skeleton-list" role="status" aria-label={copy("Fiyat alarmları yükleniyor", "Loading price alerts")}><div /><div /></div>
         : alerts.length ? alerts.map((alert) => {
           const paused = alert.is_active === false;
           return <article className={`saved-card alert-card ${paused ? "paused" : ""}`} key={alert.id}>
             <div className="saved-card-head">
               <span className="saved-icon"><Icon name="bell" /></span>
               <div>
-                <small>{alertStatusLabel(alert)} · {formatDate(alert.departure_date)} gidiş</small>
+                <small>{alert.is_active === false ? copy("DURAKLATILDI", "PAUSED") : alert.status === "triggered" ? copy("HEDEF YAKALANDI", "TARGET REACHED") : copy("TAKİPTE", "TRACKING")} · {formatDate(alert.departure_date, dateLocale)} {copy("gidiş", "departure")}</small>
                 <strong>{alert.origin_label || alert.origin_code} ({alert.origin_code}) → {alert.destination_label || alert.destination_code} ({alert.destination_code})</strong>
               </div>
-              <button type="button" disabled={busy === alert.id} onClick={() => void removeAlert(alert)} aria-label="Alarmı sil"><Icon name="trash" size={18} /></button>
+              <button type="button" disabled={busy === alert.id} onClick={() => void removeAlert(alert)} aria-label={copy("Alarmı sil", "Delete alert")}><Icon name="trash" size={18} /></button>
             </div>
             <div className="alert-metrics">
-              <div><span>Hedef</span><strong>{alert.target_price ? `${priceFormat.format(alert.target_price)} TL` : `%${alert.threshold_percent || 5} düşüş`}</strong></div>
-              <div><span>Son kontrol</span><strong>{alert.last_checked_price
-                ? `${priceFormat.format(alert.last_checked_price)} TL${alert.last_checked_at ? ` · ${formatDateTime(alert.last_checked_at)}` : ""}`
-                : "Henüz fiyat verisi yok"}</strong></div>
+              <div><span>{copy("Hedef", "Target")}</span><strong>{alert.target_price ? `${priceFormat.format(alert.target_price)} TL` : copy(`%${alert.threshold_percent || 5} düşüş`, `${alert.threshold_percent || 5}% drop`)}</strong></div>
+              <div><span>{copy("Son kontrol", "Last checked")}</span><strong>{alert.last_checked_price
+                ? `${priceFormat.format(alert.last_checked_price)} TL${alert.last_checked_at ? ` · ${formatDateTime(alert.last_checked_at, dateLocale)}` : ""}`
+                : copy("Henüz fiyat verisi yok", "No price data yet")}</strong></div>
             </div>
             {alert.last_error_message && <div className="alert-server-warning" role="status">
               <Icon name="alert" size={17} />
-              <div><strong>Bildirim uyarısı</strong><p>{alert.last_error_message}</p></div>
+              <div><strong>{copy("Bildirim uyarısı", "Notification warning")}</strong><p>{alert.last_error_message}</p></div>
             </div>}
             <fieldset className="alert-channels compact">
-              <legend className="sr-only">Bu alarmın bildirim kanalları</legend>
-              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={busy === alert.id} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> E-posta</label>
-              <label><input type="checkbox" checked={alert.notify_push === true} disabled={busy === alert.id || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> Telefon bildirimi</label>
+              <legend className="sr-only">{copy("Bu alarmın bildirim kanalları", "Notification channels for this alert")}</legend>
+              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={busy === alert.id} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> {copy("E-posta", "Email")}</label>
+              <label><input type="checkbox" checked={alert.notify_push === true} disabled={busy === alert.id || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
             </fieldset>
             <button type="button" className="secondary-wide" disabled={busy === alert.id} onClick={() => toggleActive(alert)}>
-              {busy === alert.id ? <span className="button-loader dark" /> : <Icon name={paused ? "check" : "close"} size={17} />} {paused ? "Başlat" : "Durdur"}
+              {busy === alert.id ? <span className="button-loader dark" /> : <Icon name={paused ? "check" : "close"} size={17} />} {paused ? copy("Başlat", "Resume") : copy("Durdur", "Pause")}
             </button>
           </article>;
         }) : !loadError && !actionError ? <div className="empty-state compact">
           <span><Icon name="bell" size={26} /></span>
-          <strong>Henüz fiyat alarmın yok</strong>
-          <p>Bir rota ve gidiş tarihi seç; fiyat hedefe inince e-posta veya telefon bildirimiyle haber verelim.</p>
-          <button type="button" className="primary-wide" onClick={() => setFormOpen(true)}><Icon name="plus" size={17} /> İlk alarmını kur</button>
+          <strong>{copy("Henüz fiyat alarmın yok", "No price alerts yet")}</strong>
+          <p>{copy("Bir rota ve gidiş tarihi seç; fiyat hedefe inince e-posta veya telefon bildirimiyle haber verelim.", "Choose a route and departure date; we'll notify you when the fare reaches your target.")}</p>
+          <button type="button" className="primary-wide" onClick={() => setFormOpen(true)}><Icon name="plus" size={17} /> {copy("İlk alarmını kur", "Create your first alert")}</button>
         </div> : null}
     </div>
   </div>;

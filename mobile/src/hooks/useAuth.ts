@@ -6,6 +6,7 @@ import { closeBrowser, openExternal } from "../lib/native";
 import { endAllFlightActivities } from "../lib/liveActivity";
 import { disableLiveActivityTokensForLogout } from "../lib/liveActivityPush";
 import { detachPushForLogout } from "../lib/push";
+import { localeFromStorage } from "../lib/i18n";
 import type { AuthSession, AuthUser } from "../types";
 
 const NATIVE_REDIRECT = "tr.com.letsgo2travel.app://auth/callback";
@@ -41,6 +42,10 @@ type RefreshInFlight = {
   generation: number;
   promise: Promise<AuthSession>;
 };
+
+function authCopy(tr: string, en: string) {
+  return localeFromStorage() === "en" ? en : tr;
+}
 
 function storageGet(key: string) {
   try {
@@ -160,7 +165,10 @@ function saveOAuthTransaction(transaction: OAuthTransaction) {
   storageSet(OAUTH_TRANSACTION_KEY, JSON.stringify(transaction));
   const saved = readOAuthTransaction();
   if (!saved || saved.verifier !== transaction.verifier) {
-    throw new Error("Güvenli giriş bilgisi bu cihazda saklanamadı.");
+    throw new Error(authCopy(
+      "Güvenli giriş bilgisi bu cihazda saklanamadı.",
+      "Secure sign-in information could not be saved on this device.",
+    ));
   }
 }
 
@@ -191,7 +199,10 @@ function saveEmailTransaction(transaction: EmailTransaction) {
   storageSet(EMAIL_TRANSACTION_KEY, JSON.stringify(transaction));
   const saved = readEmailTransaction();
   if (!saved || saved.verifier !== transaction.verifier) {
-    throw new Error("E-posta doğrulama bilgisi bu cihazda saklanamadı.");
+    throw new Error(authCopy(
+      "E-posta doğrulama bilgisi bu cihazda saklanamadı.",
+      "Email verification information could not be saved on this device.",
+    ));
   }
 }
 
@@ -224,7 +235,7 @@ function authHeaders(accessToken?: string) {
 
 function normalizeSession(value: Partial<AuthSession>): AuthSession {
   if (!value.access_token || !value.refresh_token || !value.user) {
-    throw new Error("Oturum bilgisi eksik döndü.");
+    throw new Error(authCopy("Oturum bilgisi eksik döndü.", "The session response is incomplete."));
   }
   return {
     access_token: value.access_token,
@@ -248,24 +259,24 @@ function isDefinitiveRefreshRejection(error: unknown) {
   return error instanceof ApiError && (error.status === 400 || error.status === 401);
 }
 
-function localizedAuthError(error: unknown, fallback = "İşlem tamamlanamadı. Lütfen tekrar dene.") {
+function localizedAuthError(error: unknown, fallback?: string) {
   const raw = error instanceof Error ? error.message.trim() : "";
   const lower = raw.toLocaleLowerCase("en-US");
-  if (error instanceof ApiError && error.status === 429) return "Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar dene.";
-  if (lower.includes("invalid login credentials")) return "E-posta adresi veya şifre hatalı.";
-  if (lower.includes("email not confirmed")) return "Giriş yapmadan önce e-posta adresini doğrulamalısın.";
-  if (lower.includes("user already registered") || lower.includes("already been registered")) return "Bu e-posta adresiyle daha önce hesap açılmış.";
-  if (lower.includes("signup is disabled")) return "Yeni hesap oluşturma şu anda kapalı.";
-  if (lower.includes("password should be at least") || lower.includes("weak password")) return "Şifre en az 8 karakter olmalı.";
-  if (lower.includes("new password should be different")) return "Yeni şifre önceki şifreden farklı olmalı.";
-  if (lower.includes("provider is not enabled") || lower.includes("unsupported provider")) return "Bu giriş yöntemi henüz etkinleştirilmemiş.";
-  if (lower.includes("access_denied") || lower.includes("cancel") || lower.includes("user denied")) return "Giriş işlemi iptal edildi.";
-  if (lower.includes("database error saving new user")) return "Hesap profili oluşturulamadı. Kullanıcı adını değiştirip tekrar dene.";
-  if (lower.includes("rate limit") || lower.includes("email rate")) return "Çok fazla e-posta istendi. Birkaç dakika sonra tekrar dene.";
-  if (lower.includes("code verifier") || lower.includes("pkce")) return "Güvenli giriş süresi doldu. Girişi yeniden başlat.";
-  if (lower.includes("failed to fetch") || lower.includes("network request failed")) return "Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.";
-  if (/bağlantı|sunucu|zaman aşımı|oturum|giriş|e-posta|şifre|güvenli/i.test(raw)) return raw;
-  return fallback;
+  if (error instanceof ApiError && error.status === 429) return authCopy("Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar dene.", "Too many attempts. Please try again in a few minutes.");
+  if (lower.includes("invalid login credentials")) return authCopy("E-posta adresi veya şifre hatalı.", "Incorrect email address or password.");
+  if (lower.includes("email not confirmed")) return authCopy("Giriş yapmadan önce e-posta adresini doğrulamalısın.", "Verify your email address before signing in.");
+  if (lower.includes("user already registered") || lower.includes("already been registered")) return authCopy("Bu e-posta adresiyle daha önce hesap açılmış.", "An account already exists with this email address.");
+  if (lower.includes("signup is disabled")) return authCopy("Yeni hesap oluşturma şu anda kapalı.", "New account creation is currently unavailable.");
+  if (lower.includes("password should be at least") || lower.includes("weak password")) return authCopy("Şifre en az 8 karakter olmalı.", "Your password must be at least 8 characters.");
+  if (lower.includes("new password should be different")) return authCopy("Yeni şifre önceki şifreden farklı olmalı.", "Your new password must be different from the previous one.");
+  if (lower.includes("provider is not enabled") || lower.includes("unsupported provider")) return authCopy("Bu giriş yöntemi henüz etkinleştirilmemiş.", "This sign-in method is not enabled yet.");
+  if (lower.includes("access_denied") || lower.includes("cancel") || lower.includes("user denied")) return authCopy("Giriş işlemi iptal edildi.", "Sign-in was cancelled.");
+  if (lower.includes("database error saving new user")) return authCopy("Hesap profili oluşturulamadı. Kullanıcı adını değiştirip tekrar dene.", "Your account profile could not be created. Try another username.");
+  if (lower.includes("rate limit") || lower.includes("email rate")) return authCopy("Çok fazla e-posta istendi. Birkaç dakika sonra tekrar dene.", "Too many emails were requested. Please try again in a few minutes.");
+  if (lower.includes("code verifier") || lower.includes("pkce")) return authCopy("Güvenli giriş süresi doldu. Girişi yeniden başlat.", "The secure sign-in session expired. Start signing in again.");
+  if (lower.includes("failed to fetch") || lower.includes("network request failed")) return authCopy("Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.", "Could not connect. Check your internet connection and try again.");
+  if (localeFromStorage() === "tr" && /bağlantı|sunucu|zaman aşımı|oturum|giriş|e-posta|şifre|güvenli/i.test(raw)) return raw;
+  return fallback || authCopy("İşlem tamamlanamadı. Lütfen tekrar dene.", "The action could not be completed. Please try again.");
 }
 
 function nativeRedirect(flow?: EmailFlow) {
@@ -344,7 +355,7 @@ export function useAuth() {
   }, [setSession]);
 
   const sessionFromCallbackTokens = useCallback(async (params: ReturnType<typeof callbackParams>) => {
-    if (!params.accessToken || !params.refreshToken) throw new Error("Giriş dönüş bilgisi eksik.");
+    if (!params.accessToken || !params.refreshToken) throw new Error(authCopy("Giriş dönüş bilgisi eksik.", "The sign-in callback is incomplete."));
     const user = await requestJson<AuthUser>(authUrl("/user"), {
       headers: authHeaders(params.accessToken),
     });
@@ -379,7 +390,7 @@ export function useAuth() {
     };
 
     if (callback.error) {
-      const message = localizedAuthError(new Error(callback.error), "Giriş sağlayıcısı işlemi tamamlayamadı.");
+      const message = localizedAuthError(new Error(callback.error), authCopy("Giriş sağlayıcısı işlemi tamamlayamadı.", "The sign-in provider could not complete the request."));
       setAuthError(message);
       clearCallbackTransaction();
       setLoading(false);
@@ -389,7 +400,7 @@ export function useAuth() {
     }
 
     if (nativeCallback && (!callback.code || !effectiveTransaction)) {
-      setAuthError("Güvenli giriş dönüşü doğrulanamadı. Girişi yeniden başlat.");
+      setAuthError(authCopy("Güvenli giriş dönüşü doğrulanamadı. Girişi yeniden başlat.", "The secure sign-in callback could not be verified. Start signing in again."));
       clearCallbackTransaction();
       setLoading(false);
       await closeBrowser();
@@ -403,7 +414,7 @@ export function useAuth() {
       let next: AuthSession;
       if (callback.code) {
         const verifier = effectiveEmailTransaction?.verifier || effectiveOAuthTransaction?.verifier;
-        if (!verifier) throw new Error("Güvenli giriş bilgisi bulunamadı veya süresi doldu.");
+        if (!verifier) throw new Error(authCopy("Güvenli giriş bilgisi bulunamadı veya süresi doldu.", "Secure sign-in information is missing or expired."));
         const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=pkce"), {
           method: "POST",
           headers: authHeaders(),
@@ -413,13 +424,15 @@ export function useAuth() {
       } else if (!nativeCallback) {
         next = await sessionFromCallbackTokens(callback);
       } else {
-        throw new Error("Güvenli giriş dönüş kodu bulunamadı.");
+        throw new Error(authCopy("Güvenli giriş dönüş kodu bulunamadı.", "The secure sign-in callback code is missing."));
       }
       setSession(next);
       setRecoveryPending(Boolean(isRecovery));
       clearCallbackTransaction();
     } catch (error) {
-      const message = localizedAuthError(error, isRecovery ? "Şifre yenileme bağlantısı tamamlanamadı." : "Giriş tamamlanamadı.");
+      const message = localizedAuthError(error, isRecovery
+        ? authCopy("Şifre yenileme bağlantısı tamamlanamadı.", "The password reset link could not be completed.")
+        : authCopy("Giriş tamamlanamadı.", "Sign-in could not be completed."));
       setAuthError(message);
       clearCallbackTransaction();
     } finally {
@@ -492,7 +505,7 @@ export function useAuth() {
             && currentTransaction.createdAt === pendingTransaction.createdAt
           ) {
             storageRemove(OAUTH_TRANSACTION_KEY);
-            setAuthError("Giriş işlemi iptal edildi.");
+            setAuthError(authCopy("Giriş işlemi iptal edildi.", "Sign-in was cancelled."));
             setLoading(false);
           }
         }, 600);
@@ -521,8 +534,8 @@ export function useAuth() {
   }, [consumeAuthUrl, refreshSession, setSession]);
 
   const signInWithEmail = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
-    if (!password) throw new Error("Şifreni yazmalısın.");
+    if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing."));
+    if (!password) throw new Error(authCopy("Şifreni yazmalısın.", "Enter your password."));
     setAuthError("");
     try {
       const result = await requestJson<Partial<AuthSession>>(authUrl("/token?grant_type=password"), {
@@ -534,17 +547,17 @@ export function useAuth() {
       setRecoveryPending(false);
       storageRemove(EMAIL_TRANSACTION_KEY);
     } catch (error) {
-      fail(error, "Giriş yapılamadı. Bilgilerini kontrol edip tekrar dene.");
+      fail(error, authCopy("Giriş yapılamadı. Bilgilerini kontrol edip tekrar dene.", "Could not sign in. Check your details and try again."));
     }
   };
 
   const signUpWithEmail = async (email: string, password: string, profile: { fullName: string; username: string }) => {
-    if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
+    if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing."));
     const fullName = profile.fullName.replace(/\s+/g, " ").trim();
     const username = profile.username.trim().toLowerCase();
-    if (fullName.length < 2 || fullName.length > 100) throw new Error("Ad soyad 2–100 karakter arasında olmalı.");
-    if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error("Kullanıcı adı 3–20 karakter olmalı; yalnızca küçük harf, rakam ve alt çizgi içermeli.");
-    if (password.length < 8 || password.length > 128) throw new Error("Şifre 8–128 karakter arasında olmalı.");
+    if (fullName.length < 2 || fullName.length > 100) throw new Error(authCopy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters."));
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error(authCopy("Kullanıcı adı 3–20 karakter olmalı; yalnızca küçük harf, rakam ve alt çizgi içermeli.", "Username must be 3–20 characters and contain only lowercase letters, numbers and underscores."));
+    if (password.length < 8 || password.length > 128) throw new Error(authCopy("Şifre 8–128 karakter arasında olmalı.", "Password must be between 8 and 128 characters."));
     setAuthError("");
 
     let challenge = "";
@@ -571,17 +584,17 @@ export function useAuth() {
       if (result.access_token && result.refresh_token && result.user) {
         storageRemove(EMAIL_TRANSACTION_KEY);
         setSession(normalizeSession(result));
-        return "Hesabın açıldı.";
+        return authCopy("Hesabın açıldı.", "Your account is ready.");
       }
-      return "Onay bağlantısı e-posta adresine gönderildi.";
+      return authCopy("Onay bağlantısı e-posta adresine gönderildi.", "A confirmation link was sent to your email address.");
     } catch (error) {
       storageRemove(EMAIL_TRANSACTION_KEY);
-      return fail(error, "Hesap oluşturulamadı. Bilgilerini kontrol edip tekrar dene.");
+      return fail(error, authCopy("Hesap oluşturulamadı. Bilgilerini kontrol edip tekrar dene.", "Could not create your account. Check your details and try again."));
     }
   };
 
   const sendPasswordReset = async (email: string) => {
-    if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
+    if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing."));
     setAuthError("");
     let challenge = "";
     if (isNativePlatform()) {
@@ -603,14 +616,14 @@ export function useAuth() {
       });
     } catch (error) {
       storageRemove(EMAIL_TRANSACTION_KEY);
-      fail(error, "Şifre yenileme e-postası gönderilemedi.");
+      fail(error, authCopy("Şifre yenileme e-postası gönderilemedi.", "The password reset email could not be sent."));
     }
   };
 
   const signInWithProvider = async (provider: Provider) => {
-    if (!isSupabaseConfigured) throw new Error("Supabase ayarları eksik.");
-    if (provider === "apple" && !config.appleAuthEnabled) throw new Error("Apple ile giriş henüz etkin değil.");
-    if (readOAuthTransaction()) throw new Error("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.");
+    if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing."));
+    if (provider === "apple" && !config.appleAuthEnabled) throw new Error(authCopy("Apple ile giriş henüz etkin değil.", "Sign in with Apple is not enabled yet."));
+    if (readOAuthTransaction()) throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first."));
     setAuthError("");
     setLoading(true);
     const verifier = randomVerifier();
@@ -630,7 +643,10 @@ export function useAuth() {
     } catch (error) {
       storageRemove(OAUTH_TRANSACTION_KEY);
       setLoading(false);
-      fail(error, `${provider === "apple" ? "Apple" : "Google"} ile giriş başlatılamadı.`);
+      fail(error, authCopy(
+        `${provider === "apple" ? "Apple" : "Google"} ile giriş başlatılamadı.`,
+        `Sign in with ${provider === "apple" ? "Apple" : "Google"} could not be started.`,
+      ));
     }
   };
 
@@ -638,8 +654,8 @@ export function useAuth() {
   const signInWithApple = () => signInWithProvider("apple");
 
   const updatePassword = async (password: string) => {
-    if (!session?.access_token || !recoveryPending) throw new Error("Şifre yenileme oturumu bulunamadı.");
-    if (password.length < 8 || password.length > 128) throw new Error("Şifre 8–128 karakter arasında olmalı.");
+    if (!session?.access_token || !recoveryPending) throw new Error(authCopy("Şifre yenileme oturumu bulunamadı.", "No password reset session was found."));
+    if (password.length < 8 || password.length > 128) throw new Error(authCopy("Şifre 8–128 karakter arasında olmalı.", "Password must be between 8 and 128 characters."));
     setAuthError("");
     try {
       const result = await requestJson<AuthUser | { user?: AuthUser }>(authUrl("/user"), {
@@ -651,16 +667,16 @@ export function useAuth() {
       setSession({ ...session, user: user?.id ? user : session.user });
       setRecoveryPending(false);
     } catch (error) {
-      fail(error, "Şifre güncellenemedi. Bağlantıyı yeniden istemeyi dene.");
+      fail(error, authCopy("Şifre güncellenemedi. Bağlantıyı yeniden istemeyi dene.", "The password could not be updated. Try requesting a new link."));
     }
   };
 
   const updateProfile = async (fullNameValue: string, usernameValue: string) => {
-    if (!session?.access_token) throw new Error("Profil güncelleme oturumu bulunamadı.");
+    if (!session?.access_token) throw new Error(authCopy("Profil güncelleme oturumu bulunamadı.", "No profile update session was found."));
     const fullName = fullNameValue.replace(/\s+/g, " ").trim();
     const username = usernameValue.trim().toLowerCase();
-    if (fullName.length < 2 || fullName.length > 100) throw new Error("Ad soyad 2–100 karakter arasında olmalı.");
-    if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error("Kullanıcı adı 3–20 karakter olmalı; yalnızca küçük harf, rakam ve alt çizgi içermeli.");
+    if (fullName.length < 2 || fullName.length > 100) throw new Error(authCopy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters."));
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error(authCopy("Kullanıcı adı 3–20 karakter olmalı; yalnızca küçük harf, rakam ve alt çizgi içermeli.", "Username must be 3–20 characters and contain only lowercase letters, numbers and underscores."));
     setAuthError("");
     try {
       const result = await requestJson<AuthUser | { user?: AuthUser }>(authUrl("/user"), {
@@ -669,10 +685,10 @@ export function useAuth() {
         body: { data: { ...session.user.user_metadata, full_name: fullName, username } },
       });
       const user = "user" in result && result.user ? result.user : result as AuthUser;
-      if (!user?.id) throw new Error("Profil bilgisi güncellenemedi.");
+      if (!user?.id) throw new Error(authCopy("Profil bilgisi güncellenemedi.", "Profile details could not be updated."));
       setSession({ ...session, user });
     } catch (error) {
-      fail(error, "Profil bilgileri güncellenemedi.");
+      fail(error, authCopy("Profil bilgileri güncellenemedi.", "Profile details could not be updated."));
     }
   };
 

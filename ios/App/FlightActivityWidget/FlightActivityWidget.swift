@@ -22,17 +22,32 @@ private extension Color {
 // Tüm görünümler geri sayımı BU tek yardımcıdan alır: gelecekte → canlı
 // geri sayım; geçti → güvenli "kalkış gerçekleşti" görünümü.
 // (TS ayna testi: mobile/src/lib/liveActivity.ts countdownMode.)
-private struct DepartureCountdown: View {
+private struct FlightStatus: View {
     let departureAt: Date
+    let arrivalAt: Date?
+    let language: String
     var compact = false
+
+    private var isEnglish: Bool { language == "en" }
 
     var body: some View {
         if departureAt > Date.now {
             Text(timerInterval: Date.now...departureAt, countsDown: true)
+        } else if let arrivalAt, arrivalAt > Date.now, arrivalAt > departureAt {
+            if compact {
+                Text(timerInterval: Date.now...arrivalAt, countsDown: true)
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "airplane")
+                    Text(isEnglish ? "Flying" : "Uçuyoruz")
+                    Text("·")
+                    Text(timerInterval: Date.now...arrivalAt, countsDown: true)
+                }
+            }
         } else if compact {
-            Text("Uçtu")
+            Image(systemName: "checkmark.circle.fill")
         } else {
-            Text("Kalkış gerçekleşti")
+            Text(isEnglish ? "Welcome · You have arrived" : "Hoş geldin · Varış tamamlandı")
         }
     }
 }
@@ -51,37 +66,54 @@ struct FlightActivityWidget: Widget {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                             .font(.title2.bold()).foregroundStyle(Color.l2tGold)
-                        Text("Kalkış").font(.caption2).foregroundStyle(.secondary)
+                        Text(context.attributes.language == "en" ? "Departure" : "Kalkış").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(context.attributes.destinationIata.isEmpty ? "—" : context.attributes.destinationIata)
                             .font(.title2.bold()).foregroundStyle(Color.l2tGold)
-                        Text("Varış").font(.caption2).foregroundStyle(.secondary)
+                        Text(context.attributes.language == "en" ? "Arrival" : "Varış").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.attributes.title).font(.caption).lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Text(context.state.departureAt, style: .time)
-                        Spacer()
-                        DepartureCountdown(departureAt: context.state.departureAt)
+                    VStack(spacing: 7) {
+                        HStack {
+                            Text(context.state.departureAt, style: .time)
+                            Spacer()
+                            FlightStatus(
+                                departureAt: context.state.departureAt,
+                                arrivalAt: context.state.arrivalAt,
+                                language: context.attributes.language ?? "tr"
+                            )
                             .font(.headline.monospacedDigit())
                             .foregroundStyle(Color.l2tGold)
+                        }
+                        if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
+                            ProgressView(timerInterval: context.state.departureAt...arrivalAt)
+                                .tint(Color.l2tGold)
+                        }
                     }
                 }
             } compactLeading: {
                 Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                     .font(.caption2.bold()).foregroundStyle(Color.l2tGold)
             } compactTrailing: {
-                DepartureCountdown(departureAt: context.state.departureAt, compact: true)
+                FlightStatus(
+                    departureAt: context.state.departureAt,
+                    arrivalAt: context.state.arrivalAt,
+                    language: context.attributes.language ?? "tr",
+                    compact: true
+                )
                     .font(.caption2.monospacedDigit())
                     .frame(maxWidth: 52)
             } minimal: {
-                Image(systemName: "airplane.departure").foregroundStyle(Color.l2tGold)
+                let arrived = context.state.arrivalAt.map { $0 <= Date.now } ?? false
+                Image(systemName: arrived ? "checkmark.circle.fill" : (context.state.departureAt > Date.now ? "airplane.departure" : "airplane"))
+                    .foregroundStyle(Color.l2tGold)
             }
             .widgetURL(URL(string: context.attributes.deepLink))
         }
@@ -107,9 +139,17 @@ private struct LockScreenView: View {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(context.state.departureAt, style: .time)
                         .font(.subheadline).foregroundStyle(.white)
-                    DepartureCountdown(departureAt: context.state.departureAt)
+                    FlightStatus(
+                        departureAt: context.state.departureAt,
+                        arrivalAt: context.state.arrivalAt,
+                        language: context.attributes.language ?? "tr"
+                    )
                         .font(.headline.monospacedDigit()).foregroundStyle(Color.l2tGold)
                 }
+            }
+            if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
+                ProgressView(timerInterval: context.state.departureAt...arrivalAt)
+                    .tint(Color.l2tGold)
             }
         }
         .padding(14)

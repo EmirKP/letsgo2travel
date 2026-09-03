@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "13",
+  "buildNumber": "14",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,14 +16,15 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-BkQJ_cN4.js",
-    "stylesheet": "assets/index-Bt6yUjaB.css"
+    "javascript": "assets/index-C9nUrvbu.js",
+    "stylesheet": "assets/index-DtB1CphZ.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 13: onboarding, navigation, cockpit, forum, passport map, alerts, admin access and performance were audited together.",
-    "Build 13 hotfix: iOS klavyesi açıkken havalimanı sonuçlarına dokunma seçimi düzeltildi.",
+    "Build 14: home and surprise experiences were redesigned around clear next actions.",
+    "Build 14: world events, live travel suggestions, offline phrases, local etiquette and full TR/EN navigation were added.",
+    "Build 14: Cockpit now carries scheduled arrival into Live Activity and the mobile admin shares the site's protected event workflow.",
     "Root build/lint/tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]

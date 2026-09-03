@@ -10,12 +10,13 @@ Bu dosya Play Console'a körlemesine kopyalanacak bir hukuk beyanı değildir. Y
 | Ad, kullanıcı adı | Hesap oluştururken | Profil ve topluluk kimliği | Profil ayarları veya silme talebi |
 | Kullanıcı içeriği | Forum/ülke deneyimi kullanılırsa | Topluluk özelliği ve moderasyon | İçerik yönetimi; hesap silmede anonimleştirme |
 | Uçuş alarmı tercihleri | Fiyat alarmı kurulursa | İstenen rotayı ve fiyat eşiğini izleme | Alarm kapatılabilir veya silinebilir |
+| Yaklaşık konum | Kullanıcı “Konumuma göre öner” düğmesine basarsa, anlık ve geçici | Hava ve yakındaki aktivite türlerini eşleştirme | İzin reddedilebilir; konum hesaba/veri tabanına kaydedilmez |
 | Seyahat kanıtı dosyası | Kullanıcı isteğe bağlı yüklerse | Gezgin doğrulaması | Karar verildiğinde veya en geç 30 günde silinir |
 | Hak/silme talebi bilgileri | Talep formu gönderilirse | Yasal talebi inceleme ve sonuçlandırma | Talep sürecinin gerektirdiği süreyle sınırlı tutulur |
 
 ## Kodda istenmeyen veri türleri
 
-- Kesin konum izni yoktur.
+- Kesin konum kullanılmaz. Cihazdan alınan değer hemen yaklaşık 1 km düzeyine yuvarlanır; yalnız kullanıcı isteğiyle anlık işlenir ve saklanmaz.
 - Kişi listesi, SMS, arama geçmişi, fotoğraf galerisi veya mikrofon izni yoktur.
 - Uygulama içinde ödeme/kredi kartı verisi işlenmez.
 - Reklam kimliği izni veya yapılandırılmış reklam SDK'sı yoktur.

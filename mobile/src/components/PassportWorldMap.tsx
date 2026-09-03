@@ -13,6 +13,7 @@ import worldPaths from "../data/worldMapPaths.json";
 import { ALPHA3_TO_GEO_ID } from "../data/countryCodes";
 import { Icon } from "./Icon";
 import type { VisaStatus } from "../types";
+import { useI18n } from "../lib/i18n";
 
 // Geometri build sırasında üretilir; çalışma anında ağ isteği veya ağır
 // harita kütüphanesi yoktur. Etkileşimler SVG koordinatında hesaplanır:
@@ -109,6 +110,7 @@ const WorldCountries = memo(function WorldCountries({
 });
 
 export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onSelectCountry }: PassportWorldMapProps) {
+  const { copy } = useI18n();
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -306,7 +308,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
       className={`passport-map ${dragging ? "dragging" : ""}`}
       data-no-gesture
       role="region"
-      aria-label="Vize durumuna göre renklendirilmiş dünya haritası"
+      aria-label={copy("Vize durumuna göre renklendirilmiş dünya haritası", "World map coloured by visa status")}
       aria-describedby="passport-map-help"
     >
       <div className="passport-map-toolbar" aria-hidden="true">
@@ -317,7 +319,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         viewBox="0 0 800 400"
         role="group"
         tabIndex={0}
-        aria-label="Etkileşimli harita alanı"
+        aria-label={copy("Etkileşimli harita alanı", "Interactive map area")}
         aria-describedby="passport-map-help passport-map-keyboard-help"
         aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - Home"
         onPointerDown={onPointerDown}
@@ -327,8 +329,8 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         onWheel={onWheel}
         onKeyDown={onKeyDown}
       >
-        <title>Türkiye pasaportu vize haritası</title>
-        <desc>Renkler ülkelerin giriş koşullarını gösterir. Ülke ayrıntısına erişmek için aşağıdaki arama ve ülke listesi de kullanılabilir.</desc>
+        <title>{copy("Türkiye pasaportu vize haritası", "Turkish passport visa map")}</title>
+        <desc>{copy("Renkler ülkelerin giriş koşullarını gösterir. Ülke ayrıntısına erişmek için aşağıdaki arama ve ülke listesi de kullanılabilir.", "Colours show entry requirements. You can also use the search and country list below to open country details.")}</desc>
         <g transform={`translate(${CENTER.x + view.x} ${CENTER.y + view.y}) scale(${view.scale}) translate(${-CENTER.x} ${-CENTER.y})`}>
           <WorldCountries
             isHighlighted={isHighlighted}
@@ -339,9 +341,9 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         </g>
       </svg>
       <div className="passport-map-controls">
-        <button type="button" aria-label="Haritayı yakınlaştır" aria-keyshortcuts="+" disabled={view.scale >= MAX_SCALE - .01} onClick={() => zoomAt(viewRef.current.scale * 1.7)}>+</button>
-        <button type="button" aria-label="Haritayı uzaklaştır" aria-keyshortcuts="-" disabled={view.scale <= MIN_SCALE + .01} onClick={() => zoomAt(viewRef.current.scale / 1.7)}>−</button>
-        <button type="button" className="map-reset" aria-label="Haritayı başlangıç görünümüne döndür" aria-keyshortcuts="Home" disabled={view.scale <= 1.01 && Math.abs(view.x) < 1 && Math.abs(view.y) < 1} onClick={reset}><Icon name="refresh" size={17} /></button>
+        <button type="button" aria-label={copy("Haritayı yakınlaştır", "Zoom in")} aria-keyshortcuts="+" disabled={view.scale >= MAX_SCALE - .01} onClick={() => zoomAt(viewRef.current.scale * 1.7)}>+</button>
+        <button type="button" aria-label={copy("Haritayı uzaklaştır", "Zoom out")} aria-keyshortcuts="-" disabled={view.scale <= MIN_SCALE + .01} onClick={() => zoomAt(viewRef.current.scale / 1.7)}>−</button>
+        <button type="button" className="map-reset" aria-label={copy("Haritayı başlangıç görünümüne döndür", "Reset map view")} aria-keyshortcuts="Home" disabled={view.scale <= 1.01 && Math.abs(view.x) < 1 && Math.abs(view.y) < 1} onClick={reset}><Icon name="refresh" size={17} /></button>
       </div>
     </div>
   );

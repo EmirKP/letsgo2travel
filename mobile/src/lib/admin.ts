@@ -26,6 +26,27 @@ export type MobileAdminAccess = {
   role: "super_admin" | null;
 };
 
+export type AdminTravelEvent = {
+  id: string;
+  title: string;
+  description: string;
+  category: "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
+  countryCode: string;
+  city: string;
+  venue: string;
+  startsAt: string;
+  endsAt: string | null;
+  status: "scheduled" | "postponed" | "cancelled" | "completed";
+  imageUrl: string | null;
+  ticketUrl: string | null;
+  sourceUrl: string;
+  featured: boolean;
+  published: boolean;
+  updatedAt: string;
+};
+
+export type AdminTravelEventInput = Omit<AdminTravelEvent, "id" | "updatedAt">;
+
 function adminHeaders(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
 }
@@ -91,4 +112,32 @@ export async function reviewVerification(
     headers: adminHeaders(accessToken),
     body: { adminNote },
   });
+}
+
+export async function listAdminTravelEvents(accessToken: string) {
+  const result = await requestJson<{ data?: AdminTravelEvent[] }>("/api/admin/events", {
+    headers: adminHeaders(accessToken),
+    timeoutMs: 15_000,
+  });
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+export async function createAdminTravelEvent(input: AdminTravelEventInput, accessToken: string) {
+  const result = await requestJson<{ data?: AdminTravelEvent }>("/api/admin/events", {
+    method: "POST",
+    headers: adminHeaders(accessToken),
+    body: input,
+  });
+  if (!result.data) throw new Error("Etkinlik eklenemedi.");
+  return result.data;
+}
+
+export async function updateAdminTravelEvent(event: AdminTravelEvent, accessToken: string) {
+  const result = await requestJson<{ data?: AdminTravelEvent }>("/api/admin/events", {
+    method: "PATCH",
+    headers: adminHeaders(accessToken),
+    body: event,
+  });
+  if (!result.data) throw new Error("Etkinlik güncellenemedi.");
+  return result.data;
 }

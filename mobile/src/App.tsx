@@ -17,6 +17,8 @@ import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
+import { initEventReminderTapListener } from "./lib/eventReminders";
+import { useI18n } from "./lib/i18n";
 import { initLiveActivityRetry, initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
 import {
   hasPendingPushDetach,
@@ -46,35 +48,24 @@ const AdminScreen = lazy(() => import("./screens/AdminScreen").then((module) => 
 const CockpitScreen = lazy(() => import("./screens/CockpitScreen").then((module) => ({ default: module.CockpitScreen })));
 const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then((module) => ({ default: module.CommunityScreen })));
 const ExploreScreen = lazy(() => import("./screens/ExploreScreen").then((module) => ({ default: module.ExploreScreen })));
+const EventsScreen = lazy(() => import("./screens/EventsScreen").then((module) => ({ default: module.EventsScreen })));
 const PassportScreen = lazy(() => import("./screens/PassportScreen").then((module) => ({ default: module.PassportScreen })));
 const PriceAlertsScreen = lazy(() => import("./screens/PriceAlertsScreen").then((module) => ({ default: module.PriceAlertsScreen })));
 const ProfileScreen = lazy(() => import("./screens/ProfileScreen").then((module) => ({ default: module.ProfileScreen })));
 const RouteAssistantScreen = lazy(() => import("./screens/RouteAssistantScreen").then((module) => ({ default: module.RouteAssistantScreen })));
 const SurpriseScreen = lazy(() => import("./screens/SurpriseScreen").then((module) => ({ default: module.SurpriseScreen })));
 const TripsScreen = lazy(() => import("./screens/PlansScreen").then((module) => ({ default: module.TripsScreen })));
+const TravelCompanionScreen = lazy(() => import("./screens/TravelCompanionScreen").then((module) => ({ default: module.TravelCompanionScreen })));
 
-const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
-  { id: "home", label: "Ana Sayfa", icon: "home" },
-  { id: "explore", label: "Keşfet", icon: "compass" },
-  { id: "route", label: "Planla", icon: "route" },
-  { id: "trips", label: "Seyahatlerim", icon: "suitcase" },
-  { id: "profile", label: "Profil", icon: "user" },
+const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
+  { id: "home", icon: "home" },
+  { id: "explore", icon: "compass" },
+  { id: "route", icon: "route" },
+  { id: "trips", icon: "suitcase" },
+  { id: "profile", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "admin"]);
-const viewTitles: Record<ViewId, string> = {
-  home: "Ana Sayfa",
-  explore: "Keşfet",
-  route: "Rota Planla",
-  trips: "Seyahatlerim",
-  profile: "Profil",
-  passport: "Pasaport Gücü",
-  surprise: "Beni Şaşırt",
-  cockpit: "Seyahat Kokpiti",
-  community: "Topluluk",
-  alerts: "Fiyat Alarmlarım",
-  admin: "Yönetim Merkezi",
-};
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -98,6 +89,14 @@ function viewFromUrl(value: string): ViewId | null {
       "fiyat-alarmlarim": "alerts",
       "fiyat-alarmlarım": "alerts",
       "price-alerts": "alerts",
+      etkinlikler: "events",
+      events: "events",
+      "seyahat-yardimcisi": "companion",
+      "seyahat-yardımcısı": "companion",
+      companion: "companion",
+      "hazir-ifadeler": "phrases",
+      "hazır-ifadeler": "phrases",
+      phrases: "phrases",
     };
     const candidate = aliases[raw] || raw as ViewId;
     return validViews.has(candidate) ? candidate : null;
@@ -107,7 +106,7 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "passport" || view === "surprise") return "explore";
+  if (view === "passport" || view === "surprise" || view === "events" || view === "companion" || view === "phrases") return "explore";
   if (view === "cockpit") return "trips";
   if (view === "community" || view === "alerts" || view === "admin") return "profile";
   return view as TabId;
@@ -123,6 +122,7 @@ function highlightedTabFor(view: ViewId): TabId | null {
 }
 
 export default function App() {
+  const { locale, setLocale, copy } = useI18n();
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromUrl(window.location.href) || "home");
   const [notice, setNotice] = useState("");
@@ -165,7 +165,7 @@ export default function App() {
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
   const activeTab = highlightedTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "admin";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin";
   const nativeUiRef = useRef({
     accountOpen,
     activeView,
@@ -180,8 +180,11 @@ export default function App() {
 
   useEffect(() => {
     activeViewRef.current = activeView;
-    document.title = `${viewTitles[activeView]} · LetsGo2Travel`;
-  }, [activeView]);
+    const titles: Record<ViewId, string> = {
+      home: copy("Ana Sayfa", "Home"), explore: copy("Keşfet", "Explore"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Seyahatlerim", "My Trips"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahat Kokpiti", "Travel Cockpit"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Seyahat Yardımcısı", "Travel Companion"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
+    };
+    document.title = `${titles[activeView]} · LetsGo2Travel`;
+  }, [activeView, copy, locale]);
 
   useEffect(() => {
     nativeUiRef.current = {
@@ -210,14 +213,14 @@ export default function App() {
 
   useEffect(() => {
     const refreshPreferences = () => setNotificationsEnabled(getMobilePreferences().inAppNotifications);
-    const reportStorageError = () => showNotice("Bu cihazda kayıt alanına yazılamadı. Depolama iznini veya boş alanı kontrol et.");
+    const reportStorageError = () => showNotice(copy("Bu cihazda kayıt alanına yazılamadı. Depolama iznini veya boş alanı kontrol et.", "This device could not save your data. Check storage access or free space."));
     window.addEventListener("l2t:storage-change", refreshPreferences);
     window.addEventListener("l2t:storage-error", reportStorageError);
     return () => {
       window.removeEventListener("l2t:storage-change", refreshPreferences);
       window.removeEventListener("l2t:storage-error", reportStorageError);
     };
-  }, [showNotice]);
+  }, [copy, showNotice]);
 
   useEffect(() => {
     window.history.replaceState({ view: activeView, depth: 0 }, "", `#${activeView}`);
@@ -466,12 +469,12 @@ export default function App() {
         // Erişim daha önce sunucuda doğrulandı. Özetin geçici yükleme hatası
         // yetkiyi kaldırmaz; profil girişini koruyup yeniden denemeye izin ver.
         setAdminOverview(null);
-        showNotice("Yönetim merkezi şu an açılamadı. Bağlantı gelince yeniden deneyebilirsin.");
+        showNotice(copy("Yönetim merkezi şu an açılamadı. Bağlantı gelince yeniden deneyebilirsin.", "The admin centre is unavailable right now. Try again when your connection returns."));
         navigate("profile", { replace: true });
       })
       .finally(() => { if (active) setAdminChecking(false); });
     return () => { active = false; };
-  }, [activeView, adminAllowed, adminOverview, auth.accessToken, navigate, showNotice]);
+  }, [activeView, adminAllowed, adminOverview, auth.accessToken, copy, navigate, showNotice]);
 
   useEffect(() => {
     const userId = auth.user?.id || "";
@@ -503,8 +506,8 @@ export default function App() {
         .then((module) => module.flushPendingGuestDataSync(ownerId, auth.accessToken))
         .then((report) => {
           if (!active || !report) return;
-          if (report.status === "synced") showNotice("Bekleyen kayıtların web hesabınla eşitlendi.");
-          else if (report.status === "partial") showNotice("Bazı kayıtların web eşitlemesi bekliyor; cihazdaki kopyaların güvende.");
+          if (report.status === "synced") showNotice(copy("Bekleyen kayıtların web hesabınla eşitlendi.", "Your pending items are now synced with your web account."));
+          else if (report.status === "partial") showNotice(copy("Bazı kayıtların web eşitlemesi bekliyor; cihazdaki kopyaların güvende.", "Some items are still waiting to sync; the copies on this device are safe."));
         })
         .catch(() => undefined);
     };
@@ -528,7 +531,7 @@ export default function App() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       void appStateListener?.remove();
     };
-  }, [auth.accessToken, online, ownerId, showNotice]);
+  }, [auth.accessToken, copy, online, ownerId, showNotice]);
 
   useEffect(() => {
     // Uçuş hatırlatmasına dokununca İLGİLİ Kokpit kaydı açılır (tripId ile).
@@ -537,6 +540,8 @@ export default function App() {
       navigate("cockpit");
     });
   }, [navigate]);
+
+  useEffect(() => initEventReminderTapListener(() => navigate("events")), [navigate]);
 
   useEffect(() => {
     if (!isNativePlatform()) return;
@@ -695,7 +700,7 @@ export default function App() {
       setRefreshTick((value) => value + 1);
       window.setTimeout(() => {
         setRefreshing(false);
-        showNotice(online ? "İçerik yenilendi." : "Çevrimdışı kayıtlar yenilendi.");
+        showNotice(online ? copy("İçerik yenilendi.", "Content refreshed.") : copy("Çevrimdışı kayıtlar yenilendi.", "Offline items refreshed."));
       }, 550);
     }
     setPullDistance(0);
@@ -709,6 +714,8 @@ export default function App() {
   const content = useMemo(() => {
     if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
     if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
+    if (activeView === "events") return <EventsScreen ownerId={ownerId} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen initialTab={activeView === "phrases" ? "phrases" : "now"} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
@@ -718,38 +725,44 @@ export default function App() {
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+
+  const tabs = tabDefinitions.map((tab) => ({
+    ...tab,
+    label: tab.id === "home" ? copy("Ana Sayfa", "Home") : tab.id === "explore" ? copy("Keşfet", "Explore") : tab.id === "route" ? copy("Planla", "Plan") : tab.id === "trips" ? copy("Seyahatlerim", "My Trips") : copy("Profil", "Profile"),
+  }));
 
   return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
     <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
-        {nestedView && <button className="topbar-back" onClick={goBack} aria-label="Önceki ekrana dön"><Icon name="back" size={21} /></button>}
-        <button className="brand-button" onClick={() => navigate("home")} aria-label="Ana sayfa"><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
+        {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
+        <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("Ana sayfa", "Home")}><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
       </div>
       <div className="topbar-actions">
         {/* Header sade: geri/logo + bildirim + menü. Profil BottomNav'da;
             buradaki kısayol ve işlevi belirsiz durum noktası kaldırıldı
             (çevrimdışı durumu zaten banner ile gösterilir). Bildirim
             rozeti YALNIZ gerçekten okunmamış içerik varken görünür. */}
-        <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`Bildirimler${unreadCount ? `, ${unreadCount} okunmamış` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
-        <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label="Daha fazla"><Icon name="menu" size={21} /></button>
+        <button className="language-toggle" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={locale === "tr" ? "Uygulama dilini İngilizce yap" : "Switch app language to Turkish"}><span>{locale === "tr" ? "🇹🇷" : "🇬🇧"}</span><strong>{locale.toUpperCase()}</strong></button>
+        <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
+        <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>
       </div>
     </header>
 
-    {!online && <div className="offline-banner"><Icon name="offline" size={16} /> Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.</div>}
-    {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
+    {!online && <div className="offline-banner"><Icon name="offline" size={16} /> {copy("Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.", "You're offline. Saved plans and offline travel tools remain available.")}</div>}
+    {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? copy("Yenileniyor", "Refreshing") : copy("Yenilemek için bırak", "Release to refresh")}</div>}
     <main ref={mainRef} className="app-content" tabIndex={-1} inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
-      <Suspense key={authUiKey} fallback={<div className="screen screen-module-loading" role="status" aria-label="Bölüm yükleniyor"><div className="skeleton-list"><div /><div /><div /></div></div>}>
+      <Suspense key={authUiKey} fallback={<div className="screen screen-module-loading" role="status" aria-label={copy("Bölüm yükleniyor", "Loading section")}><div className="skeleton-list"><div /><div /><div /></div></div>}>
         {content}
       </Suspense>
     </main>
 
-    <nav className="bottom-nav" aria-label="Ana menü" inert={interactionBlocked || keyboardOpen} aria-hidden={interactionBlocked || keyboardOpen || undefined}>
+    <nav className="bottom-nav" aria-label={copy("Ana menü", "Main navigation")} inert={interactionBlocked || keyboardOpen} aria-hidden={interactionBlocked || keyboardOpen || undefined}>
       {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => { if (tab.id === "route") { setRouteSeedKind("surprise"); setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(tab.id); }} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
     </nav>
 
-    {notice && createPortal(<div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Bildirimi kapat"><Icon name="close" size={15} /></button></div>, document.body)}
+    {notice && createPortal(<div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label={copy("Bildirimi kapat", "Dismiss notification")}><Icon name="close" size={15} /></button></div>, document.body)}
     <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onUnreadChange={setUnreadCount} />
     <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
     <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={(view) => { if (view === "route") { setRouteSeedKind("surprise"); setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenAccount={() => setAccountOpen(true)} />
@@ -763,9 +776,9 @@ export default function App() {
         try {
           markGuestDataImportDecision(ownerId, "keep_separate");
           setGuestImportOpen(false);
-          showNotice("Misafir kayıtların ayrı tutulacak.");
+          showNotice(copy("Misafir kayıtların ayrı tutulacak.", "Your guest items will remain separate."));
         } catch {
-          showNotice("Seçimin kaydedilemedi. Daha sonra tekrar deneyebilirsin.");
+          showNotice(copy("Seçimin kaydedilemedi. Daha sonra tekrar deneyebilirsin.", "Your choice could not be saved. Try again later."));
         }
       }}
       onImport={() => { void (async () => {
@@ -779,33 +792,33 @@ export default function App() {
           setRefreshTick((value) => value + 1);
           if (!auth.accessToken) {
             showNotice(result.added.total
-              ? `${result.added.total} misafir kaydı hesabına eklendi.`
-              : "Kayıtların zaten hesabında bulunuyor.");
+              ? copy(`${result.added.total} misafir kaydı hesabına eklendi.`, `${result.added.total} guest items were added to your account.`)
+              : copy("Kayıtların zaten hesabında bulunuyor.", "Your items are already in your account."));
             return;
           }
 
           showNotice(result.added.total
-            ? `${result.added.total} kayıt eklendi; web hesabınla eşitleniyor…`
-            : "Kayıtların web hesabınla kontrol ediliyor…");
+            ? copy(`${result.added.total} kayıt eklendi; web hesabınla eşitleniyor…`, `${result.added.total} items added; syncing with your web account…`)
+            : copy("Kayıtların web hesabınla kontrol ediliyor…", "Checking your items against your web account…"));
           const guestSync = await import("./lib/guestDataSync");
           const sync = await guestSync.flushPendingGuestDataSync(ownerId, auth.accessToken);
           if (!sync) {
-            showNotice("Kayıtların hesabında hazır.");
+            showNotice(copy("Kayıtların hesabında hazır.", "Your items are ready in your account."));
             return;
           }
           if (sync.status === "synced" || sync.status === "unchanged") {
             showNotice(result.added.total
-              ? `${result.added.total} misafir kaydı uygulama ve web hesabınla eşitlendi.`
-              : "Kayıtların uygulama ve web hesabınla eşitlendi.");
+              ? copy(`${result.added.total} misafir kaydı uygulama ve web hesabınla eşitlendi.`, `${result.added.total} guest items synced with your app and web account.`)
+              : copy("Kayıtların uygulama ve web hesabınla eşitlendi.", "Your items are synced across the app and web."));
           } else if (sync.status === "partial") {
-            showNotice("Kayıtların cihazda güvende; bazıları web hesabıyla daha sonra eşitlenecek.");
+            showNotice(copy("Kayıtların cihazda güvende; bazıları web hesabıyla daha sonra eşitlenecek.", "Your items are safe on this device; some will sync with the web later."));
           } else {
-            showNotice("Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı.");
+            showNotice(copy("Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı.", "Your items were added to this device, but web sync could not finish right now."));
           }
         } catch {
           showNotice(localImportCompleted
-            ? "Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı."
-            : "Misafir kayıtları eklenemedi; hiçbir kayıt silinmedi.");
+            ? copy("Kayıtların cihaza eklendi fakat web eşitlemesi şu an tamamlanamadı.", "Your items were added to this device, but web sync could not finish right now.")
+            : copy("Misafir kayıtları eklenemedi; hiçbir kayıt silinmedi.", "Guest items could not be added; nothing was deleted."));
         } finally {
           setGuestImportBusy(false);
         }

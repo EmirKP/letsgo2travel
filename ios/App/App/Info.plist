@@ -68,5 +68,7 @@
 	<false/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Yakınındaki hava durumuna göre anlık seyahat önerileri sunmak için yaklaşık konumun kullanılır; konumun kaydedilmez.</string>
 </dict>
 </plist>

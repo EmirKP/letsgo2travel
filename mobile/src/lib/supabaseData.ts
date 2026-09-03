@@ -1,5 +1,6 @@
 import { ApiError, requestJson } from "./api";
 import { config, isSupabaseConfigured } from "./config";
+import { localeFromStorage } from "./i18n";
 
 export type SupabaseDataErrorCode =
   | "not_configured"
@@ -22,6 +23,17 @@ const ERROR_MESSAGES: Record<SupabaseDataErrorCode, string> = {
   service_unavailable: "Veri servisi şu anda kullanılamıyor. Biraz sonra tekrar dene.",
 };
 
+const ERROR_MESSAGES_EN: Record<SupabaseDataErrorCode, string> = {
+  not_configured: "The data connection has not been configured yet.",
+  not_authenticated: "Sign in to your account to do this.",
+  forbidden: "You do not have permission to access this item.",
+  not_found: "The requested item was not found or is no longer available.",
+  conflict: "This item changed elsewhere. Refresh and try again.",
+  invalid_data: "The submitted information is not valid.",
+  network: "Could not connect to the server. Check your connection and try again.",
+  service_unavailable: "The data service is currently unavailable. Try again shortly.",
+};
+
 export class SupabaseDataError extends Error {
   readonly code: SupabaseDataErrorCode;
   readonly status: number;
@@ -35,7 +47,8 @@ export class SupabaseDataError extends Error {
 }
 
 export function getSupabaseDataErrorMessage(error: unknown, fallback = ERROR_MESSAGES.service_unavailable) {
-  return error instanceof SupabaseDataError ? error.message : fallback;
+  if (!(error instanceof SupabaseDataError)) return fallback;
+  return localeFromStorage() === "en" ? ERROR_MESSAGES_EN[error.code] : error.message;
 }
 
 export type UserProfileData = {
@@ -92,6 +105,8 @@ export type CockpitTrip = {
   startDate: string;
   endDate: string;
   departureAt: string | null;
+  arrivalAt: string | null;
+  appLanguage: "tr" | "en";
   flightPnr: string | null;
   originIata: string | null;
   destinationIata: string | null;
@@ -110,6 +125,8 @@ export type CreateCockpitTripInput = {
   startDate: string;
   endDate: string;
   departureAt?: string | null;
+  arrivalAt?: string | null;
+  appLanguage?: "tr" | "en";
   flightPnr?: string;
   originIata?: string;
   destinationIata?: string;
@@ -148,6 +165,8 @@ type TripRow = {
   start_date?: unknown;
   end_date?: unknown;
   departure_at?: unknown;
+  arrival_at?: unknown;
+  app_language?: unknown;
   flight_pnr?: unknown;
   origin_iata?: unknown;
   destination_iata?: unknown;
@@ -175,7 +194,7 @@ const TRIP_BASE_COLUMNS = [
   "updated_at",
 ];
 // 20260902100000_cockpit_flight_fields.sql migration'ının eklediği sütunlar.
-const TRIP_FLIGHT_COLUMNS = ["origin_iata", "destination_iata", "airline", "flight_number"];
+const TRIP_FLIGHT_COLUMNS = ["origin_iata", "destination_iata", "airline", "flight_number", "arrival_at", "app_language"];
 
 // GÜVENLİ DAĞITIM SIRASI: uygulama, migration üretime uygulanmadan da
 // çalışmalı. İlk 42703 (undefined column) yanıtında bu bayrak kapanır;
@@ -342,6 +361,8 @@ function normalizeTrip(row: TripRow): CockpitTrip | null {
     startDate,
     endDate,
     departureAt: nullableString(row.departure_at, 40),
+    arrivalAt: nullableString(row.arrival_at, 40),
+    appLanguage: row.app_language === "en" ? "en" : "tr",
     flightPnr: nullableString(row.flight_pnr, 20),
     originIata: nullableString(row.origin_iata, 3)?.toUpperCase() || null,
     destinationIata: nullableString(row.destination_iata, 3)?.toUpperCase() || null,
@@ -385,12 +406,16 @@ function assertTripInput(input: CreateCockpitTripInput) {
   const code = safeString(input.destinationCode, 2).toUpperCase();
   const pnr = safeString(input.flightPnr, 20);
   const departureAt = safeString(input.departureAt, 40);
+  const arrivalAt = safeString(input.arrivalAt, 40);
   const originIata = safeString(input.originIata, 3).toUpperCase();
   const destinationIata = safeString(input.destinationIata, 3).toUpperCase();
   const flightNumber = safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (country.length < 2 || !/^[A-Z]{2}$/.test(code)
+    || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en")
     || !validDate(input.startDate) || !validDate(input.endDate) || input.endDate < input.startDate
     || (departureAt && Number.isNaN(Date.parse(departureAt)))
+    || (arrivalAt && Number.isNaN(Date.parse(arrivalAt)))
+    || (departureAt && arrivalAt && Date.parse(arrivalAt) <= Date.parse(departureAt))
     || (pnr && !/^[A-Za-z0-9-]{3,20}$/.test(pnr))
     || (originIata && !/^[A-Z]{3}$/.test(originIata))
     || (destinationIata && !/^[A-Z]{3}$/.test(destinationIata))
@@ -399,12 +424,14 @@ function assertTripInput(input: CreateCockpitTripInput) {
   }
 }
 
-function flightFieldValues(input: Pick<CreateCockpitTripInput, "originIata" | "destinationIata" | "airline" | "flightNumber">) {
+function flightFieldValues(input: Pick<CreateCockpitTripInput, "originIata" | "destinationIata" | "airline" | "flightNumber" | "arrivalAt" | "appLanguage">) {
   return {
     origin_iata: nullableString(input.originIata, 3)?.toUpperCase() || null,
     destination_iata: nullableString(input.destinationIata, 3)?.toUpperCase() || null,
     airline: nullableString(input.airline, 80),
     flight_number: nullableString(safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""), 8),
+    arrival_at: nullableString(input.arrivalAt, 40),
+    app_language: input.appLanguage === "en" ? "en" : "tr",
   };
 }
 
@@ -660,6 +687,8 @@ export async function updateCockpitTrip(
       if (update.destinationIata !== undefined) body.destination_iata = flightValues.destination_iata;
       if (update.airline !== undefined) body.airline = flightValues.airline;
       if (update.flightNumber !== undefined) body.flight_number = flightValues.flight_number;
+      if (update.arrivalAt !== undefined) body.arrival_at = flightValues.arrival_at;
+      if (update.appLanguage !== undefined) body.app_language = flightValues.app_language;
     }
     if (update.checklistItems !== undefined) body.checklist_items = cleanChecklist(update.checklistItems) || [];
     if (update.status !== undefined) body.status = normalizeTripStatus(update.status);

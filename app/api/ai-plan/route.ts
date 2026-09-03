@@ -11,7 +11,7 @@ import {
 export const maxDuration = 45;
 
 const AI_REQUEST_TIMEOUT_MS = 18_000;
-const PLAN_CACHE_VERSION = "verified-visa-v2-2026-08-05";
+const PLAN_CACHE_VERSION = "verified-visa-v3-i18n-2026-09-03";
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 type PlannerInput = ReturnType<typeof normalizeInput>;
@@ -197,6 +197,7 @@ function normalizeInput(body: unknown) {
       ? record.vibe.map((value) => String(value).slice(0, 40)).slice(0, 8)
       : [],
     visa: String(record.visa || "Belirtilmedi").slice(0, 60),
+    locale: record.locale === "en" ? "en" as const : "tr" as const,
   };
 }
 
@@ -267,7 +268,7 @@ function score(value: unknown, fallback: number, max = 10) {
   return Math.max(0, Math.min(max, Math.round(numeric)));
 }
 
-function normalizeRoute(value: unknown): AiRouteData | null {
+function normalizeRoute(value: unknown, locale: "tr" | "en" = "tr"): AiRouteData | null {
   const route = asRecord(value);
   const name = cleanText(route.name, "", 80);
   const country = cleanText(route.country, "", 80);
@@ -281,27 +282,41 @@ function normalizeRoute(value: unknown): AiRouteData | null {
   const scores = asRecord(route.scores);
   const cta = asRecord(route.cta);
   const warnings = cleanStringArray(route.warnings, [], 5);
-  if (!warnings.some((warning) => warning.toLocaleLowerCase("tr-TR").includes("giriş"))) {
-    warnings.push("Giriş kuralını bilet almadan önce T.C. Dışişleri Bakanlığı kaynağından yeniden doğrula.");
+  if (!warnings.some((warning) => /giriş|entry|visa/i.test(warning))) {
+    warnings.push(locale === "en"
+      ? "Reconfirm the entry rule with the official Turkish Ministry of Foreign Affairs source before booking."
+      : "Giriş kuralını bilet almadan önce T.C. Dışişleri Bakanlığı kaynağından yeniden doğrula.");
   }
+
+  const verifiedLabel = locale === "en" ? ({
+    identity_card: "Entry with Turkish ID card",
+    visa_free: "Visa-free",
+    e_visa: "e-Visa required",
+    visa_on_arrival: "Visa on arrival",
+    visa_required: verifiedRule.label.toLocaleLowerCase("tr-TR").includes("schengen") ? "Schengen visa required" : "Visa required",
+    unknown: "Verify with an official source",
+  } as const)[verifiedRule.status] : verifiedRule.label;
+  const verifiedNote = locale === "en"
+    ? "Entry conditions can depend on passport validity, travel purpose and length of stay. Verify the current rule with the linked official source before booking."
+    : verifiedRule.note;
 
   return {
     name,
-    country: verifiedRule.status === "unknown" ? country : verifiedRule.country,
+    country: verifiedRule.status === "unknown" || locale === "en" ? country : verifiedRule.country,
     cityOrRegion: cleanText(route.cityOrRegion, name, 100),
-    why: cleanText(route.why, "Seçimlerinle uyumlu bir rota seçeneği.", 600),
-    visaStatus: verifiedRule.label,
-    visaNote: verifiedRule.note,
+    why: cleanText(route.why, locale === "en" ? "A route that matches your choices." : "Seçimlerinle uyumlu bir rota seçeneği.", 600),
+    visaStatus: verifiedLabel,
+    visaNote: verifiedNote,
     visaSourceUrl: verifiedRule.sourceUrl,
     visaVerifiedAt: verifiedRule.verifiedAt,
     verifiedEntryStatus: verifiedRule.status,
-    estimatedBudget: cleanText(route.estimatedBudget, "Seçilen tarihler için ayrıca hesaplanmalı", 120),
-    idealDuration: cleanText(route.idealDuration, "3 gün", 80),
-    bestFor: cleanText(route.bestFor, "Şehir keşfi", 180),
-    difficulty: cleanText(route.difficulty, "Kolay", 40),
+    estimatedBudget: cleanText(route.estimatedBudget, locale === "en" ? "Estimate separately for your dates" : "Seçilen tarihler için ayrıca hesaplanmalı", 120),
+    idealDuration: cleanText(route.idealDuration, locale === "en" ? "3 days" : "3 gün", 80),
+    bestFor: cleanText(route.bestFor, locale === "en" ? "City discovery" : "Şehir keşfi", 180),
+    difficulty: cleanText(route.difficulty, locale === "en" ? "Easy" : "Kolay", 40),
     firstTimeFriendly: route.firstTimeFriendly !== false,
-    transportEase: cleanText(route.transportEase, "Orta", 80),
-    safetyNote: cleanText(route.safetyNote, "Güncel resmî seyahat uyarılarını kontrol et.", 500),
+    transportEase: cleanText(route.transportEase, locale === "en" ? "Moderate" : "Orta", 80),
+    safetyNote: cleanText(route.safetyNote, locale === "en" ? "Check current official travel advice." : "Güncel resmî seyahat uyarılarını kontrol et.", 500),
     scores: {
       budget: score(scores.budget, 8),
       visaEase: score(scores.visaEase, verifiedRule.status === "visa_required" ? 4 : 9),
@@ -309,11 +324,11 @@ function normalizeRoute(value: unknown): AiRouteData | null {
       transport: score(scores.transport, 8),
       overall: score(scores.overall, 85, 100),
     },
-    dailyPlan: cleanStringArray(route.dailyPlan, ["Şehir merkezini ve ana ulaşım noktalarını keşfet."], 10),
+    dailyPlan: cleanStringArray(route.dailyPlan, [locale === "en" ? "Explore the city centre and main transport points." : "Şehir merkezini ve ana ulaşım noktalarını keşfet."], 10),
     warnings,
     cta: {
-      guideText: cleanText(cta.guideText, "Rehberi gör", 100),
-      forumText: cleanText(cta.forumText, "Forumda sor", 100),
+      guideText: cleanText(cta.guideText, locale === "en" ? "View guide" : "Rehberi gör", 100),
+      forumText: cleanText(cta.forumText, locale === "en" ? "Ask the community" : "Forumda sor", 100),
     },
   };
 }
@@ -332,7 +347,7 @@ function fallbackRoute(profile: FallbackProfile, input: PlannerInput): AiRouteDa
     warnings: [
       "Uçak bileti ücreti bu tahmine dahil değildir; konaklama tutarlarını tarihler için yeniden kontrol et.",
     ],
-  })!;
+  }, input.locale)!;
 }
 
 function fallbackKeys(input: PlannerInput) {
@@ -350,7 +365,9 @@ function fallbackKeys(input: PlannerInput) {
 
 function buildFallbackPlan(input: PlannerInput): AiPlanData {
   return {
-    summary: "Seçimlerine göre doğrulanmış giriş kuralları kullanılan üç uygulanabilir başlangıç rotası hazırladık.",
+    summary: input.locale === "en"
+      ? "We prepared three practical starter routes using verified entry-rule classifications."
+      : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan üç uygulanabilir başlangıç rotası hazırladık.",
     routes: fallbackKeys(input).map((key) => fallbackRoute(fallbackProfiles[key], input)),
   };
 }
@@ -359,7 +376,7 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   const plan = asRecord(value);
   const rawRoutes = Array.isArray(plan.routes) ? plan.routes : [];
   const normalizedRoutes = rawRoutes
-    .map(normalizeRoute)
+    .map((route) => normalizeRoute(route, input.locale))
     .filter((route): route is AiRouteData => Boolean(route));
   const preferenceIsRestricted = input.visa.toLocaleLowerCase("tr-TR").includes("kimlikle")
     || input.visa.toLocaleLowerCase("tr-TR").includes("sadece vizesiz");
@@ -378,7 +395,7 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   return {
     summary: cleanText(
       plan.summary,
-      "Seçimlerine göre doğrulanmış giriş kuralları kullanılan rota seçenekleri hazırladık.",
+      input.locale === "en" ? "We prepared route options using verified entry-rule classifications." : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan rota seçenekleri hazırladık.",
       500,
     ),
     routes,
@@ -438,6 +455,7 @@ export async function POST(req: Request) {
 
     const prompt = `
       Sen profesyonel bir seyahat rota danışmanısın. Kullanıcının seçimlerine göre tam 3 farklı rota oluştur.
+      ${input.locale === "en" ? "Açıklamalar, plan, uyarılar ve tüm kullanıcıya gösterilen metinler tamamen İngilizce olmalı. Şehir ve ülke adlarını İngilizce yaz." : "Tüm kullanıcıya gösterilen metinleri Türkçe yaz."}
       Yalnızca şu doğrulanabilir rota havuzundan seçim yap: ${destinationCatalog}.
       Vize veya kimlikle giriş bilgisini tahmin etme. visaStatus alanına yalnızca "Sistem doğrulayacak" yaz;
       sunucu bu alanı T.C. Dışişleri Bakanlığı verisiyle değiştirecek.

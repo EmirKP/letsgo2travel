@@ -50,9 +50,10 @@ function transport(token: string, payload: LiveActivitySendPayload) {
       collapseId,
       attributes: payload.attributes,
       departureAtMs: payload.departureAtMs,
+      arrivalAtMs: payload.arrivalAtMs,
       alert: payload.alert,
     })
-    : sendApnsLiveActivity(token, { event: "end", collapseId, departureAtMs: payload.departureAtMs });
+    : sendApnsLiveActivity(token, { event: "end", collapseId, departureAtMs: payload.departureAtMs, arrivalAtMs: payload.arrivalAtMs });
 }
 
 export async function GET(request: Request) {
