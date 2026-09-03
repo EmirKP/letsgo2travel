@@ -42,7 +42,7 @@ export async function DELETE(request: Request) {
   const user = await requireUser(request, supabase);
   if (!user) return NextResponse.json({ error: "Oturum gerekli." }, { status: 401 });
 
-  const body = await request.json().catch(() => null) as { installationId?: unknown } | null;
-  const result = await deactivateLiveActivityInstallation(supabase, user.id, body?.installationId);
+  const body = await request.json().catch(() => null) as { installationId?: unknown; sessionEpoch?: unknown } | null;
+  const result = await deactivateLiveActivityInstallation(supabase, user.id, body?.installationId, body?.sessionEpoch);
   return NextResponse.json(result.body, { status: result.status });
 }

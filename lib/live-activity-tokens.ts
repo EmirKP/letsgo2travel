@@ -18,6 +18,13 @@
 //   kurulumdaki push_to_start VE activity_update tokenlarını kapatır;
 //   diğer cihazlara dokunmaz. Çıkışta RPC yoksa user_id+installation_id
 //   filtreli tek UPDATE fallback'i GÜVENLİDİR ve korunur.
+// - STALE-WRITE FENCING (v8): her kayıt isteği istemcinin login'de
+//   ürettiği sessionEpoch (uuid) taşır; logout o kuşağı sunucuda BARLAR
+//   (deactivate RPC'sine geçirilir). Barlı kuşakla gelen kayıt — geliş
+//   sırasından bağımsız — 409 ile reddedilir (RPC özel SQLSTATE LA001;
+//   activity_update yolunda bar tablosu doğrudan kontrol edilir). Böylece
+//   eski hesabın GECİKMİŞ isteği yeni hesabın sahipliğini EZEMEZ.
+//   sessionEpoch push_to_start VE activity_update için ZORUNLUDUR.
 
 type SupabaseLike = any;
 
@@ -53,6 +60,7 @@ export type RegisterTokenInput = {
   token?: unknown;
   tripId?: unknown;
   installationId?: unknown;
+  sessionEpoch?: unknown;
 };
 
 export async function registerLiveActivityToken(
@@ -67,14 +75,16 @@ export async function registerLiveActivityToken(
     return { status: 400, body: { error: "Geçersiz token kaydı isteği." } };
   }
 
-  // push_to_start için kurulum kimliği ZORUNLU ve geçerli UUID olmalı:
-  // kimliksiz/geçersiz kayıt sızıntı korumasını atlatırdı → 400.
+  // Kurulum kimliği + oturum kuşağı HER kayıt için ZORUNLU ve geçerli
+  // UUID olmalı: kimliksiz/kuşaksız kayıt sızıntı korumasını ve çıkış
+  // sınırını (bar) atlatırdı → 400.
   const installationId = cleanUuid(input?.installationId);
-  if (tokenType === "push_to_start" && !installationId) {
+  if (!installationId) {
     return { status: 400, body: { error: "Geçersiz kurulum kimliği (UUID olmalı)." } };
   }
-  if (input?.installationId !== undefined && input?.installationId !== null && input?.installationId !== "" && !installationId) {
-    return { status: 400, body: { error: "Geçersiz kurulum kimliği (UUID olmalı)." } };
+  const sessionEpoch = cleanUuid(input?.sessionEpoch);
+  if (!sessionEpoch) {
+    return { status: 400, body: { error: "Geçersiz oturum kuşağı (UUID olmalı)." } };
   }
 
   // activity_update: trip SAHİPLİĞİ doğrulanır.
@@ -99,14 +109,38 @@ export async function registerLiveActivityToken(
       p_user_id: userId,
       p_installation_id: installationId,
       p_token: token,
+      p_epoch: sessionEpoch,
     });
     if (!rpcError) return { status: 200, body: { success: true } };
     const rpcCode = errorCode(rpcError);
+    // LA001 = stale_epoch: bu kuşak çıkışta barlanmış (eski oturumun
+    // gecikmiş isteği). Sahiplik DEĞİŞMEZ; istemci ack etmeden düşürür.
+    if (rpcCode === "LA001") {
+      return { status: 409, body: { error: "Oturum kuşağı geçersiz (çıkış yapılmış)." } };
+    }
     if (rpcCode === "42P01" || RPC_MISSING_CODES.has(rpcCode) || rpcCode === "42703") {
       return { status: 503, body: { error: "Servis henüz hazır değil." } };
     }
     console.error("live_activity_token_rotasyon_hatasi", { code: rpcCode });
     return { status: 500, body: { error: "Token kaydedilemedi." } };
+  }
+
+  // activity_update da ÇIKIŞ SINIRINA uyar: barlı kuşakla gelen kayıt
+  // (eski hesabın gecikmiş isteği) reddedilir.
+  const { data: bars, error: barError } = await supabase
+    .from("live_activity_epoch_bars")
+    .select("epoch")
+    .eq("installation_id", installationId)
+    .eq("epoch", sessionEpoch)
+    .limit(1);
+  if (barError) {
+    const barCode = errorCode(barError);
+    if (barCode === "42P01") return { status: 503, body: { error: "Servis henüz hazır değil." } };
+    console.error("live_activity_bar_kontrol_hatasi", { code: barCode });
+    return { status: 500, body: { error: "Token kaydedilemedi." } };
+  }
+  if (bars?.length) {
+    return { status: 409, body: { error: "Oturum kuşağı geçersiz (çıkış yapılmış)." } };
   }
 
   // Tür başına kullanıcı kotası: en eski etkin kayıt kapatılarak yer açılır.
@@ -164,15 +198,25 @@ export async function deactivateLiveActivityInstallation(
   supabase: SupabaseLike,
   userId: string,
   installationIdInput: unknown,
+  sessionEpochInput?: unknown,
 ): Promise<TokenRouteResult> {
   const installationId = cleanUuid(installationIdInput);
   if (!installationId) {
     return { status: 400, body: { error: "Geçersiz kurulum kimliği (UUID olmalı)." } };
   }
+  // Kuşak verilmişse geçerli olmalı; verilmemişse yalnız devre dışı
+  // bırakma yapılır (bar eklenmez — eski istemci uyumu).
+  const sessionEpoch = sessionEpochInput === undefined || sessionEpochInput === null || sessionEpochInput === ""
+    ? null
+    : cleanUuid(sessionEpochInput);
+  if (sessionEpochInput !== undefined && sessionEpochInput !== null && sessionEpochInput !== "" && !sessionEpoch) {
+    return { status: 400, body: { error: "Geçersiz oturum kuşağı (UUID olmalı)." } };
+  }
 
   const { error: rpcError } = await supabase.rpc("deactivate_live_activity_installation", {
     p_user_id: userId,
     p_installation_id: installationId,
+    p_epoch: sessionEpoch,
   });
   if (!rpcError) return { status: 200, body: { success: true } };
 

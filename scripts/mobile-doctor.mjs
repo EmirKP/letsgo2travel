@@ -188,7 +188,13 @@ if (checkIos) {
   expect(liveActivityPlugin, /retainUntilConsumed:\s*true/, "token event'leri retained (dinleyicisiz kaybolmaz)", "FlightLiveActivityPlugin notifyListeners retainUntilConsumed:true kullanmıyor — listener'dan önce gelen activity_update tokenları kaybolur.");
   expect(liveActivityPlugin, /func getBufferedTokens/, "native token tamponu pull/replay ucu", "FlightLiveActivityPlugin getBufferedTokens metodu yok.");
   expect(liveActivityPushJs, /getBufferedTokens/, "JS tampon drain'i (listener sonrası replay)", "liveActivityPush.ts getBufferedTokens ile tamponu çekmiyor.");
-  expect(liveActivityPushJs, /retryBackoffDelayMs/, "bekleyen token'lar için sınırlı geri çekilmeli retry", "liveActivityPush.ts geri çekilmeli retry kullanmıyor.");
+  // v8: retry, lifecycle-generation'lı zamanlayıcıdadır (createRetryScheduler
+  // sınırlı geri çekilmeyi içerir); cleanup stop() ile timer sızıntısı kapanır.
+  expect(liveActivityPushJs, /createRetryScheduler/, "bekleyen token'lar için sınırlı geri çekilmeli retry zamanlayıcısı", "liveActivityPush.ts createRetryScheduler kullanmıyor — bekleyen tokenlar yeniden denenmez.");
+  expect(liveActivityPushJs, /retryScheduler\.stop\(\)/, "retry zamanlayıcısı cleanup'ta durduruluyor", "liveActivityPush.ts cleanup'ta retryScheduler.stop() çağırmıyor — geç callback timer sızdırır.");
+  const liveActivityTokenSyncJs = await text("mobile/src/lib/liveActivityTokenSync.ts", { label: "Live Activity token sync motoru" });
+  expect(liveActivityTokenSyncJs, /retryBackoffDelayMs/, "sınırlı geri çekilme hesabı motorda", "liveActivityTokenSync.ts retryBackoffDelayMs içermiyor.");
+  expect(liveActivityTokenSyncJs, /sessionEpochId/, "oturum kuşağı (epoch) fencing'i motorda", "liveActivityTokenSync.ts oturum kuşağı (sessionEpochId) taşımıyor — eski hesabın gecikmiş isteği fencing'siz kalır.");
   expect(appDelegate, /ApplicationDelegateProxy\.shared\.application\(app, open: url/, "özel URL yönlendirmesi", "AppDelegate özel URL dönüşünü Capacitor'a aktarmıyor.");
   expect(appDelegate, /continue userActivity/, "Universal Link yönlendirme köprüsü", "AppDelegate Universal Link yönlendirmesini desteklemiyor.");
   for (const pluginName of ["CapacitorApp", "CapacitorBrowser", "CapacitorNetwork", "CapacitorShare", "CapacitorSplashScreen", "CapacitorStatusBar"]) {

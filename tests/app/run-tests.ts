@@ -19,6 +19,7 @@ import { randomFallbackUuid } from "./_mobile/id";
 import { RETRY_MAX_DELAY_MS, retryBackoffDelayMs } from "./_mobile/liveActivityTokenSync";
 import { registerLiveActivityCronTests } from "./liveActivityCron";
 import { registerLiveActivityAccountFlowTests } from "./liveActivityAccountFlow";
+import { registerLiveActivityRetryTests } from "./liveActivityRetry";
 import { registerLiveActivityTokenTests } from "./liveActivityTokens";
 
 const tests: Array<[string, () => Promise<void> | void]> = [];
@@ -394,6 +395,7 @@ test("retry: geri çekilme SINIRLI ve tavanlı (agresif istek/sonsuz büyüme yo
 registerLiveActivityCronTests(test);
 registerLiveActivityTokenTests(test);
 registerLiveActivityAccountFlowTests(test);
+registerLiveActivityRetryTests(test);
 
 // ------------------------------ runner -------------------------------
 

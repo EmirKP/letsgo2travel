@@ -3,6 +3,8 @@
 // (lib/live-activity-tokens). Sahte Supabase istemcisi PostgREST
 // zincirini taklit eder; RPC-yokluğu GERÇEK PostgREST koduyla (PGRST202)
 // simüle edilir — migration uygulanmadan önceki davranış kanıtlanır.
+// v8: sessionEpoch zorunluluğu, LA001 (stale_epoch) → 409 ve
+// activity_update yolundaki bar tablosu kontrolü de burada sabitlenir.
 // =====================================================================
 
 import assert from "node:assert";
@@ -70,15 +72,18 @@ function makeFakeSupabase(options: {
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const INSTALL_IPHONE = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa";
+const EPOCH_A = "cccccccc-1111-4111-8111-cccccccccccc";
+const TRIP_ID = "dddddddd-1111-4111-8111-dddddddddddd";
 const PUSH_TOKEN = "abcdef0123456789abcdef0123456789";
 
 export function registerLiveActivityTokenTests(test: (name: string, fn: () => Promise<void> | void) => void) {
-  test("token kaydı: RPC varken rotasyon TEK çağrıyla yapılır (upsert yolu çalışmaz)", async () => {
+  test("token kaydı: RPC varken rotasyon TEK çağrıyla yapılır (upsert yolu çalışmaz) ve p_epoch taşınır", async () => {
     const fake = makeFakeSupabase({ rpc: () => ({ error: null }) });
     const result = await registerLiveActivityToken(fake.client, USER_A, {
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
       installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
     });
     assert.equal(result.status, 200);
     assert.equal(fake.rpcCalls.length, 1);
@@ -87,8 +92,23 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
       p_user_id: USER_A,
       p_installation_id: INSTALL_IPHONE,
       p_token: PUSH_TOKEN.toLowerCase(),
+      p_epoch: EPOCH_A,
     });
     assert.equal(fake.queries.length, 0, "RPC başarılıysa tablo sorgusu yapılmamalı");
+  });
+
+  test("token kaydı (v8): barlı kuşak — RPC LA001 (stale_epoch) → 409; hiçbir tablo yazımı yok", async () => {
+    const fake = makeFakeSupabase({
+      rpc: () => ({ error: { code: "LA001", message: "stale_epoch" } }),
+    });
+    const result = await registerLiveActivityToken(fake.client, USER_A, {
+      tokenType: "push_to_start",
+      token: PUSH_TOKEN,
+      installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
+    });
+    assert.equal(result.status, 409, "çıkışta barlanan kuşakla kayıt 409 olmalı");
+    assert.equal(fake.queries.length, 0, "409'da hiçbir tablo yazımı olmamalı");
   });
 
   test("token kaydı: RPC migration'ı YOKKEN (gerçek PostgREST kodu PGRST202) GÜVENLİKSİZ fallback YOK → 503", async () => {
@@ -103,13 +123,14 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
       installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
     });
     assert.equal(result.status, 503, "migration öncesi 503 dönmeli (fallback yok)");
     assert.equal(fake.queries.length, 0, "HİÇBİR tablo yazımı olmamalı (upsert dahil)");
     // 42883 (doğrudan PG eşdeğeri) de aynı davranış.
     const fake2 = makeFakeSupabase({ rpc: () => ({ error: { code: "42883" } }) });
     const result2 = await registerLiveActivityToken(fake2.client, USER_A, {
-      tokenType: "push_to_start", token: PUSH_TOKEN, installationId: INSTALL_IPHONE,
+      tokenType: "push_to_start", token: PUSH_TOKEN, installationId: INSTALL_IPHONE, sessionEpoch: EPOCH_A,
     });
     assert.equal(result2.status, 503);
     assert.equal(fake2.queries.length, 0);
@@ -121,6 +142,7 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
       installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
     });
     assert.equal(result.status, 503);
     assert.equal(fake.queries.length, 0);
@@ -132,6 +154,7 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
       installationId: "not-a-uuid",
+      sessionEpoch: EPOCH_A,
     });
     assert.equal(result.status, 400);
     assert.equal(fake.rpcCalls.length, 0, "RPC çağrılmamalı");
@@ -142,24 +165,117 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
     const missingResult = await registerLiveActivityToken(missing.client, USER_A, {
       tokenType: "push_to_start",
       token: PUSH_TOKEN,
+      sessionEpoch: EPOCH_A,
     });
     assert.equal(missingResult.status, 400, "kimliksiz push_to_start reddedilmeli");
     assert.equal(missing.rpcCalls.length + missing.queries.length, 0);
   });
 
-  test("çıkış: kurulum tokenları RPC ile kapatılır; RPC yoksa (PGRST202) tek UPDATE fallback", async () => {
+  test("token kaydı (v8): sessionEpoch ZORUNLU — eksik/geçersiz kuşak 400 (fencing atlatılamaz)", async () => {
+    const missing = makeFakeSupabase({});
+    const missingResult = await registerLiveActivityToken(missing.client, USER_A, {
+      tokenType: "push_to_start",
+      token: PUSH_TOKEN,
+      installationId: INSTALL_IPHONE,
+    });
+    assert.equal(missingResult.status, 400, "kuşaksız kayıt reddedilmeli");
+    assert.equal(missing.rpcCalls.length + missing.queries.length, 0);
+
+    const invalid = makeFakeSupabase({});
+    const invalidResult = await registerLiveActivityToken(invalid.client, USER_A, {
+      tokenType: "activity_update",
+      token: PUSH_TOKEN,
+      tripId: TRIP_ID,
+      installationId: INSTALL_IPHONE,
+      sessionEpoch: "bozuk-kusak",
+    });
+    assert.equal(invalidResult.status, 400, "geçersiz kuşak reddedilmeli (activity_update dahil)");
+    assert.equal(invalid.rpcCalls.length + invalid.queries.length, 0);
+  });
+
+  test("activity_update (v8): barlı kuşak 409 — bar kontrolü kota/upsert'ten ÖNCE, tokens tablosuna dokunulmaz", async () => {
+    const fake = makeFakeSupabase({
+      respond: (query) => {
+        if (query.table === "trips") return { data: [{ id: TRIP_ID }], error: null };
+        if (query.table === "live_activity_epoch_bars") return { data: [{ epoch: EPOCH_A }], error: null };
+        return { data: [], error: null, count: 0 };
+      },
+    });
+    const result = await registerLiveActivityToken(fake.client, USER_A, {
+      tokenType: "activity_update",
+      token: PUSH_TOKEN,
+      tripId: TRIP_ID,
+      installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
+    });
+    assert.equal(result.status, 409, "barlı kuşakla activity_update kaydı 409 olmalı");
+    const barQuery = fake.queries.find((query) => query.table === "live_activity_epoch_bars");
+    assert.ok(barQuery, "bar tablosu sorgulanmalı");
+    assert.deepEqual(barQuery!.filters, [["installation_id", INSTALL_IPHONE], ["epoch", EPOCH_A]]);
+    assert.equal(fake.queries.filter((query) => query.table === "live_activity_tokens").length, 0,
+      "409'da tokens tablosuna HİÇ dokunulmamalı (kota/upsert dahil)");
+  });
+
+  test("activity_update (v8): bar yoksa kayıt upsert ile tamamlanır; bar tablosu henüz yoksa (42P01) 503", async () => {
+    const fake = makeFakeSupabase({
+      respond: (query) => {
+        if (query.table === "trips") return { data: [{ id: TRIP_ID }], error: null };
+        if (query.table === "live_activity_epoch_bars") return { data: [], error: null };
+        return { data: [], error: null, count: 0 };
+      },
+    });
+    const result = await registerLiveActivityToken(fake.client, USER_A, {
+      tokenType: "activity_update",
+      token: PUSH_TOKEN,
+      tripId: TRIP_ID,
+      installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
+    });
+    assert.equal(result.status, 200);
+    const upsert = fake.queries.find((query) => query.op === "upsert");
+    assert.ok(upsert, "bar yokken upsert çalışmalı");
+    const payload = (upsert!.payload as { payload: Record<string, unknown> }).payload;
+    assert.equal(payload.user_id, USER_A);
+    assert.equal(payload.trip_id, TRIP_ID);
+    assert.equal(payload.installation_id, INSTALL_IPHONE);
+
+    const missingBars = makeFakeSupabase({
+      respond: (query) => {
+        if (query.table === "trips") return { data: [{ id: TRIP_ID }], error: null };
+        if (query.table === "live_activity_epoch_bars") return { data: null, error: { code: "42P01" } };
+        return { data: [], error: null, count: 0 };
+      },
+    });
+    const missingResult = await registerLiveActivityToken(missingBars.client, USER_A, {
+      tokenType: "activity_update",
+      token: PUSH_TOKEN,
+      tripId: TRIP_ID,
+      installationId: INSTALL_IPHONE,
+      sessionEpoch: EPOCH_A,
+    });
+    assert.equal(missingResult.status, 503, "bar tablosu yokken dürüst 503 (fencing'siz kayıt YOK)");
+    assert.equal(missingBars.queries.filter((query) => query.op === "upsert").length, 0);
+  });
+
+  test("çıkış: kurulum tokenları RPC ile kapatılır (p_epoch taşınır); RPC yoksa (PGRST202) tek UPDATE fallback", async () => {
     const fake = makeFakeSupabase({ rpc: () => ({ error: null }) });
-    const result = await deactivateLiveActivityInstallation(fake.client, USER_A, INSTALL_IPHONE);
+    const result = await deactivateLiveActivityInstallation(fake.client, USER_A, INSTALL_IPHONE, EPOCH_A);
     assert.equal(result.status, 200);
     assert.equal(fake.rpcCalls[0].name, "deactivate_live_activity_installation");
-    assert.deepEqual(fake.rpcCalls[0].args, { p_user_id: USER_A, p_installation_id: INSTALL_IPHONE });
+    assert.deepEqual(fake.rpcCalls[0].args, { p_user_id: USER_A, p_installation_id: INSTALL_IPHONE, p_epoch: EPOCH_A });
     assert.equal(fake.queries.length, 0);
+
+    // Kuşaksız (eski istemci) çıkış da çalışır: p_epoch null geçer.
+    const legacy = makeFakeSupabase({ rpc: () => ({ error: null }) });
+    const legacyResult = await deactivateLiveActivityInstallation(legacy.client, USER_A, INSTALL_IPHONE);
+    assert.equal(legacyResult.status, 200);
+    assert.deepEqual(legacy.rpcCalls[0].args, { p_user_id: USER_A, p_installation_id: INSTALL_IPHONE, p_epoch: null });
 
     const fallback = makeFakeSupabase({
       rpc: () => ({ error: { code: "PGRST202" } }),
       respond: () => ({ data: [], error: null }),
     });
-    const fallbackResult = await deactivateLiveActivityInstallation(fallback.client, USER_A, INSTALL_IPHONE);
+    const fallbackResult = await deactivateLiveActivityInstallation(fallback.client, USER_A, INSTALL_IPHONE, EPOCH_A);
     assert.equal(fallbackResult.status, 200);
     const update = fallback.queries.find((query) => query.op === "update");
     assert.ok(update, "fallback UPDATE çalışmalı");
@@ -168,13 +284,15 @@ export function registerLiveActivityTokenTests(test: (name: string, fn: () => Pr
     assert.equal((update!.payload as { enabled?: boolean }).enabled, false);
   });
 
-  test("çıkış: eksik/geçersiz installationId 400; tablo yoksa 503", async () => {
+  test("çıkış: eksik/geçersiz installationId 400; geçersiz sessionEpoch 400; tablo yoksa 503", async () => {
     const fake = makeFakeSupabase({});
     assert.equal((await deactivateLiveActivityInstallation(fake.client, USER_A, undefined)).status, 400);
     assert.equal((await deactivateLiveActivityInstallation(fake.client, USER_A, "bozuk")).status, 400);
+    assert.equal((await deactivateLiveActivityInstallation(fake.client, USER_A, INSTALL_IPHONE, "bozuk-kusak")).status, 400,
+      "verilmiş ama geçersiz kuşak reddedilmeli (bar'sız çıkışa sessizce düşülmez)");
     assert.equal(fake.rpcCalls.length, 0);
 
     const missingTable = makeFakeSupabase({ rpc: () => ({ error: { code: "42P01" } }) });
-    assert.equal((await deactivateLiveActivityInstallation(missingTable.client, USER_A, INSTALL_IPHONE)).status, 503);
+    assert.equal((await deactivateLiveActivityInstallation(missingTable.client, USER_A, INSTALL_IPHONE, EPOCH_A)).status, 503);
   });
 }

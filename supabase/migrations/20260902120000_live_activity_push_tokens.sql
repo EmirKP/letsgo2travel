@@ -1,5 +1,5 @@
 -- =====================================================================
--- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v7) — HAZIRLANDI, UYGULANMADI
+-- LIVE ACTIVITY PUSH-TO-START ALTYAPISI (v8) — HAZIRLANDI, UYGULANMADI
 -- ---------------------------------------------------------------------
 -- Amaç: uygulama KAPALIYKEN Dynamic Island / kilit ekranı aktivitesinin
 -- APNs "liveactivity" push'u ile başlatılıp bitirilebilmesi (iOS 17.2+
@@ -68,20 +68,38 @@ create unique index if not exists live_activity_pts_single_installation_idx
   where token_type = 'push_to_start' and enabled and installation_id is not null;
 
 -- ---------------------------------------------------------------------
--- Push-to-start token KAYIT + ROTASYON + TEK-HESAP garantisi (v6).
--- EŞZAMANLILIK: transaction-scoped advisory lock token bazında yarışan
--- kayıtları SERİLEŞTİRİR (A ve B aynı anda kaydolsa bile işlemler sırayla
--- çalışır); live_activity_push_to_start_single_owner_idx partial unique
--- index'i garantiyi veri düzeyinde MUTLAK kılar. SIRA ÖNEMLİ: önce diğer
--- hesapların aynı token satırları kapatılır, SONRA kendi satırı enabled
--- yazılır — böylece unique index hiçbir ara adımda ihlal edilmez.
--- Farklı fiziksel cihazlar (farklı token) ve NULL installation_id'li
--- eski kayıtlar ETKİLENMEZ. Yalnız service-role çağırabilir.
+-- OTURUM-KUŞAĞI BARLARI (v8): sıra bağımsız stale-write fencing.
+-- Her login'de istemci yeni bir sessionEpoch (uuid) üretir ve TÜM kayıt
+-- isteklerine ekler. Logout, o kuşağı BARLAR. Barlı kuşakla gelen kayıt
+-- isteği — SUNUCUYA NE ZAMAN ULAŞIRSA ULAŞSIN — reddedilir: A'nın
+-- logout'tan önce yola çıkmış gecikmiş POST'u, B kayıt olduktan sonra
+-- gelse bile sahipliği B'den A'ya GEÇİREMEZ.
+-- ---------------------------------------------------------------------
+create table if not exists public.live_activity_epoch_bars (
+  installation_id uuid not null,
+  epoch uuid not null,
+  barred_at timestamptz not null default now(),
+  primary key (installation_id, epoch)
+);
+
+-- ---------------------------------------------------------------------
+-- Push-to-start token KAYIT + ROTASYON + TEK-HESAP garantisi (v8).
+-- EŞZAMANLILIK: TEK GLOBAL registry advisory kilidi. v7'deki kurulum→
+-- token kilit sırası advisory düzeyinde çelişmese de UPDATE'lerin aldığı
+-- SATIR kilitleri çapraz (swap) senaryoda deadlock üretebiliyordu
+-- (I1'de T1, I2'de T2 varken paralel T2→I1 ve T1→I2 kayıtları). Kayıt/
+-- çıkış işlemleri nadir olduğundan registry İŞLEMLERİ GLOBAL olarak
+-- serileştirilir: bu fonksiyon ve deactivate AYNI kilidi alır; iki
+-- registry işlemi asla eşzamanlı satır kilidi yarışına girmez (deadlock
+-- karşı-testi gerçek PostgreSQL'de swap senaryosuyla kanıtlanır).
+-- Partial unique index'ler garantiyi veri düzeyinde MUTLAK kılar.
+-- Yalnız service-role çağırabilir.
 -- ---------------------------------------------------------------------
 create or replace function public.register_live_activity_push_to_start(
   p_user_id uuid,
   p_installation_id uuid,
-  p_token text
+  p_token text,
+  p_epoch uuid
 ) returns uuid
 language plpgsql
 security definer
@@ -90,20 +108,23 @@ as $$
 declare
   v_id uuid;
 begin
-  if p_user_id is null or p_installation_id is null
+  if p_user_id is null or p_installation_id is null or p_epoch is null
      or p_token is null or char_length(p_token) not between 16 and 512 then
     raise exception 'invalid_registration';
   end if;
 
-  -- SERİLEŞTİRME (v7): her kayıt SABİT/DETERMİNİSTİK sırada İKİ advisory
-  -- xact kilidi alır — ÖNCE kurulum kilidi, SONRA token kilidi. Tüm
-  -- transaksiyonlar aynı sırayı izlediği için deadlock oluşamaz.
-  -- * Kurulum kilidi: aynı installation için T1/T2 FARKLI tokenlar
-  --   eşzamanlı kaydolsa bile işlemler sırayla çalışır.
-  -- * Token kilidi: aynı token için FARKLI hesaplar/kurulumlar yarışsa
-  --   bile işlemler sırayla çalışır.
-  perform pg_advisory_xact_lock(hashtextextended('live_activity_inst:' || p_installation_id::text, 0));
-  perform pg_advisory_xact_lock(hashtextextended('live_activity_pts:' || p_token, 0));
+  -- GLOBAL registry kilidi (register + deactivate aynı kilit sözleşmesi).
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
+
+  -- STALE-WRITE FENCING (v8): barlanmış kuşakla gelen kayıt — geliş
+  -- sırasından bağımsız — reddedilir (özel SQLSTATE 'LA001'; API 409'a
+  -- çevirir, istemci ACK ETMEDEN düşürür).
+  if exists (
+    select 1 from public.live_activity_epoch_bars
+     where installation_id = p_installation_id and epoch = p_epoch
+  ) then
+    raise exception using errcode = 'LA001', message = 'stale_epoch';
+  end if;
 
   -- 1) HESAPLAR ARASI TEK SAHİP: aynı fiziksel token diğer hesap(lar)
   --    altında ÖNCE kapatılır (token bazlı partial unique index ihlali
@@ -147,7 +168,8 @@ $$;
 -- ---------------------------------------------------------------------
 create or replace function public.deactivate_live_activity_installation(
   p_user_id uuid,
-  p_installation_id uuid
+  p_installation_id uuid,
+  p_epoch uuid default null
 ) returns integer
 language plpgsql
 security definer
@@ -160,6 +182,22 @@ begin
     raise exception 'invalid_deactivation';
   end if;
 
+  -- Register ile AYNI global registry kilidi: çıkış ve kayıt işlemleri
+  -- birbirine göre de serileşir (fencing sözleşmesinin parçası).
+  perform pg_advisory_xact_lock(hashtextextended('live_activity_registry', 0));
+
+  -- Bu oturum kuşağı BARLANIR: eski hesabın gecikmiş kayıt isteği bundan
+  -- sonra ne zaman gelirse gelsin reddedilir.
+  if p_epoch is not null then
+    insert into public.live_activity_epoch_bars (installation_id, epoch)
+    values (p_installation_id, p_epoch)
+    on conflict do nothing;
+    -- Sınırlı büyüme: bu kurulumun 30 günden eski barları temizlenir.
+    delete from public.live_activity_epoch_bars
+     where installation_id = p_installation_id
+       and barred_at < now() - interval '30 days';
+  end if;
+
   update public.live_activity_tokens
      set enabled = false, updated_at = now()
    where user_id = p_user_id
@@ -170,11 +208,11 @@ begin
 end;
 $$;
 
-revoke all on function public.deactivate_live_activity_installation(uuid, uuid) from public;
-revoke all on function public.deactivate_live_activity_installation(uuid, uuid) from anon, authenticated;
+revoke all on function public.deactivate_live_activity_installation(uuid, uuid, uuid) from public;
+revoke all on function public.deactivate_live_activity_installation(uuid, uuid, uuid) from anon, authenticated;
 
-revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text) from public;
-revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text) from anon, authenticated;
+revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text, uuid) from public;
+revoke all on function public.register_live_activity_push_to_start(uuid, uuid, text, uuid) from anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- Teslim kayıtları: (trip, token, event) başına TEK satır.
@@ -207,8 +245,10 @@ create index if not exists live_activity_deliveries_trip_idx
 
 alter table public.live_activity_tokens enable row level security;
 alter table public.live_activity_deliveries enable row level security;
+alter table public.live_activity_epoch_bars enable row level security;
 -- Policy YOK: default-deny. Erişim yalnız service-role (sunucu katmanı).
 revoke all on public.live_activity_tokens from anon, authenticated;
 revoke all on public.live_activity_deliveries from anon, authenticated;
+revoke all on public.live_activity_epoch_bars from anon, authenticated;
 
 commit;
