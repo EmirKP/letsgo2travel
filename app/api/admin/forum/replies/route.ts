@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+const ALLOWED_STATUSES = new Set(["pending", "published", "rejected", "hidden"]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function GET(request: Request) {
   const authError = await requireAdmin(request, ['moderator', 'admin', 'super_admin']);
   if (authError) return authError;
@@ -11,8 +14,8 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get("page") || "1", 10);
-    const limit = parseInt(url.searchParams.get("limit") || "20", 10);
+    const page = Math.max(1, Math.min(10_000, parseInt(url.searchParams.get("page") || "1", 10) || 1));
+    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "20", 10) || 20));
     const status = url.searchParams.get("status");
     const search = url.searchParams.get("search");
 
@@ -47,10 +50,10 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { id, ids, status } = body;
-    if (!status) return NextResponse.json({ error: "status required" }, { status: 400 });
+    if (typeof status !== "string" || !ALLOWED_STATUSES.has(status)) return NextResponse.json({ error: "invalid status" }, { status: 400 });
 
-    const targetIds = ids || (id ? [id] : []);
-    if (targetIds.length === 0) return NextResponse.json({ error: "id or ids required" }, { status: 400 });
+    const targetIds = (Array.isArray(ids) ? ids : id ? [id] : []).filter((value): value is string => typeof value === "string");
+    if (targetIds.length === 0 || targetIds.length > 100 || targetIds.some((value) => !UUID_PATTERN.test(value))) return NextResponse.json({ error: "invalid ids" }, { status: 400 });
 
     const { error } = await supabase.from("forum_replies").update({ status }).in("id", targetIds);
     if (error) throw error;
@@ -72,8 +75,8 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const { id, ids } = body;
     
-    const targetIds = ids || (id ? [id] : []);
-    if (targetIds.length === 0) return NextResponse.json({ error: "id or ids required" }, { status: 400 });
+    const targetIds = (Array.isArray(ids) ? ids : id ? [id] : []).filter((value): value is string => typeof value === "string");
+    if (targetIds.length === 0 || targetIds.length > 100 || targetIds.some((value) => !UUID_PATTERN.test(value))) return NextResponse.json({ error: "invalid ids" }, { status: 400 });
 
     const { error } = await supabase.from("forum_replies").delete().in("id", targetIds);
     if (error) throw error;
@@ -83,4 +86,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

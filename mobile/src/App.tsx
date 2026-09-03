@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { AccountSheet } from "./components/AccountSheet";
 import { AnimatedSplash } from "./components/AnimatedSplash";
@@ -8,6 +8,7 @@ import { NotificationCenter } from "./components/NotificationCenter";
 import { Onboarding } from "./components/Onboarding";
 import { ReleaseNotesSheet } from "./components/ReleaseNotesSheet";
 import { useAuth } from "./hooks/useAuth";
+import { getMobileAdminOverview, type MobileAdminOverview } from "./lib/admin";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
@@ -23,17 +24,21 @@ import {
   hasSeenRelease,
   markReleaseSeen,
 } from "./lib/storage";
-import { ExploreScreen } from "./screens/ExploreScreen";
 import { HomeScreen } from "./screens/HomeScreen";
-import { CockpitScreen } from "./screens/CockpitScreen";
-import { CommunityScreen } from "./screens/CommunityScreen";
-import { PassportScreen } from "./screens/PassportScreen";
-import { PriceAlertsScreen } from "./screens/PriceAlertsScreen";
-import { ProfileScreen } from "./screens/ProfileScreen";
-import { RouteAssistantScreen } from "./screens/RouteAssistantScreen";
-import { SurpriseScreen } from "./screens/SurpriseScreen";
-import { TripsScreen } from "./screens/PlansScreen";
 import type { RouteSuggestion, TabId, ViewId } from "./types";
+
+// Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
+// indirilir. Böylece açılış paketi ve düşük bağlantıda ilk etkileşim hafifler.
+const AdminScreen = lazy(() => import("./screens/AdminScreen").then((module) => ({ default: module.AdminScreen })));
+const CockpitScreen = lazy(() => import("./screens/CockpitScreen").then((module) => ({ default: module.CockpitScreen })));
+const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then((module) => ({ default: module.CommunityScreen })));
+const ExploreScreen = lazy(() => import("./screens/ExploreScreen").then((module) => ({ default: module.ExploreScreen })));
+const PassportScreen = lazy(() => import("./screens/PassportScreen").then((module) => ({ default: module.PassportScreen })));
+const PriceAlertsScreen = lazy(() => import("./screens/PriceAlertsScreen").then((module) => ({ default: module.PriceAlertsScreen })));
+const ProfileScreen = lazy(() => import("./screens/ProfileScreen").then((module) => ({ default: module.ProfileScreen })));
+const RouteAssistantScreen = lazy(() => import("./screens/RouteAssistantScreen").then((module) => ({ default: module.RouteAssistantScreen })));
+const SurpriseScreen = lazy(() => import("./screens/SurpriseScreen").then((module) => ({ default: module.SurpriseScreen })));
+const TripsScreen = lazy(() => import("./screens/PlansScreen").then((module) => ({ default: module.TripsScreen })));
 
 const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "home", label: "Ana Sayfa", icon: "home" },
@@ -43,7 +48,7 @@ const tabs: Array<{ id: TabId; label: string; icon: IconName }> = [
   { id: "profile", label: "Profil", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "admin"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
@@ -78,7 +83,7 @@ function viewFromUrl(value: string): ViewId | null {
 function rootTabFor(view: ViewId): TabId {
   if (view === "passport" || view === "surprise") return "explore";
   if (view === "cockpit") return "trips";
-  if (view === "community" || view === "alerts") return "profile";
+  if (view === "community" || view === "alerts" || view === "admin") return "profile";
   return view as TabId;
 }
 
@@ -99,6 +104,8 @@ export default function App() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [adminOverview, setAdminOverview] = useState<MobileAdminOverview | null>(null);
+  const [adminChecking, setAdminChecking] = useState(false);
   const noticeTimer = useRef<number | null>(null);
   const pullStart = useRef<number | null>(null);
   const edgeSwipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -112,7 +119,7 @@ export default function App() {
   // açılış) ilk dolu değerde senkron çalışır.
   const lastSyncedTokenRef = useRef("");
   const activeTab = rootTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "admin";
   const finishLaunching = useCallback(() => setLaunching(false), []);
 
   useEffect(() => {
@@ -192,6 +199,23 @@ export default function App() {
     // B login senaryosu).
     if (!lastSyncedTokenRef.current && auth.accessToken) syncTokensAfterLogin();
     lastSyncedTokenRef.current = auth.accessToken;
+  }, [auth.accessToken]);
+
+  useEffect(() => {
+    let active = true;
+    setAdminOverview(null);
+    if (!auth.accessToken) {
+      setAdminChecking(false);
+      return () => { active = false; };
+    }
+    setAdminChecking(true);
+    void getMobileAdminOverview(auth.accessToken)
+      .then((overview) => { if (active) setAdminOverview(overview); })
+      // Normal kullanıcı için 403 beklenen sonuçtur; yönetim bağlantısı hiç
+      // çizilmez. Yetki kararı yalnız sunucudan gelir.
+      .catch(() => { if (active) setAdminOverview(null); })
+      .finally(() => { if (active) setAdminChecking(false); });
+    return () => { active = false; };
   }, [auth.accessToken]);
 
   useEffect(() => {
@@ -365,8 +389,9 @@ export default function App() {
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
-  }, [activeView, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
+    if (activeView === "admin") return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
+    return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={Boolean(adminOverview)} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onNotice={showNotice} />;
+  }, [activeView, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, navigate, ownerId, refreshTick, showNotice, surpriseRoute]);
 
   const notificationsEnabled = getMobilePreferences().inAppNotifications;
 
@@ -389,7 +414,11 @@ export default function App() {
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.</div>}
     {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? "Yenileniyor" : "Yenilemek için bırak"}</div>}
-    <main ref={mainRef} className="app-content" tabIndex={-1}>{content}</main>
+    <main ref={mainRef} className="app-content" tabIndex={-1}>
+      <Suspense fallback={<div className="screen screen-module-loading" role="status" aria-label="Bölüm yükleniyor"><div className="skeleton-list"><div /><div /><div /></div></div>}>
+        {content}
+      </Suspense>
+    </main>
 
     <nav className="bottom-nav" aria-label="Ana menü">
       {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => navigate(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}

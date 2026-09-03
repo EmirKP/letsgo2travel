@@ -1,6 +1,6 @@
 export type TabId = "home" | "explore" | "route" | "trips" | "profile";
 
-export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts";
+export type ViewId = TabId | "passport" | "surprise" | "cockpit" | "community" | "alerts" | "admin";
 
 export type VisaStatus = "id_card" | "free" | "evisa" | "on_arrival" | "required" | "unknown";
 

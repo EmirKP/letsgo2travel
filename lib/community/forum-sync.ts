@@ -1,6 +1,8 @@
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../countries/isoSource";
 
 export const GENERAL_FORUM_COUNTRY_CODE = "ZZ";
+export const PUBLIC_FORUM_REPLY_PREVIEW_COUNT = 2;
+export const MAX_FORUM_REPLIES_PER_DETAIL = 100;
 
 const TURKISH_CHARACTERS: Record<string, string> = {
   ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u",
@@ -58,6 +60,12 @@ export function forumCategoryFromCommunityCategory(value: string) {
 
 export function forumStatusFromModeration(action: "visible" | "pending_review") {
   return action === "visible" ? "published" : "pending";
+}
+
+export function forumReplyLimit(isPaywalled: boolean, hasFullAccess: boolean) {
+  return isPaywalled && !hasFullAccess
+    ? PUBLIC_FORUM_REPLY_PREVIEW_COUNT
+    : MAX_FORUM_REPLIES_PER_DETAIL;
 }
 
 export function createForumTopicSlug(title: string, id: string) {

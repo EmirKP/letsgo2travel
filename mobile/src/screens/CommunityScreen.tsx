@@ -19,7 +19,12 @@ type CommunityAnswer = {
   username: string;
 };
 
-type CommunityQuestionDetail = CommunityQuestion & { answers: CommunityAnswer[] };
+type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
+  answers: CommunityAnswer[];
+  totalAnswerCount?: number;
+  hiddenAnswerCount?: number;
+  hasFullAccess?: boolean;
+};
 
 type CommunityScreenProps = {
   user: AuthUser | null;
@@ -229,7 +234,10 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     setAnswerBody("");
     setDetailLoading(true);
     try {
-      const response = await requestJson<{ data?: CommunityQuestionDetail }>(`/api/country-community/questions/${encodeURIComponent(questionId)}`, { timeoutMs: 15_000 });
+      const response = await requestJson<{ data?: CommunityQuestionDetail }>(`/api/country-community/questions/${encodeURIComponent(questionId)}`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        timeoutMs: 15_000,
+      });
       if (generation !== detailGeneration.current) return;
       if (!response.data) throw new Error("Soru bulunamadı.");
       setDetail(response.data);
@@ -240,7 +248,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     } finally {
       if (generation === detailGeneration.current) setDetailLoading(false);
     }
-  }, []);
+  }, [accessToken]);
 
   const closeDetail = () => {
     detailGeneration.current += 1;
@@ -393,6 +401,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
             <header><strong>@{answer.username}</strong><small>{formatQuestionDate(answer.createdAt)}</small></header>
             <p>{answer.body}</p>
           </article>)}
+          {(detail.hiddenAnswerCount || 0) > 0 && <div className="empty-inline"><Icon name="lock" size={18} /><div><strong>{detail.hiddenAnswerCount} cevap kilitli</strong><span>Kaşifler Ligi üyeliğinle ülke kilidini açarak tüm cevapları okuyabilirsin.</span></div></div>}
           {!detail.answers.length && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>İlk cevabı sen yaz</strong><span>Deneyimini paylaşarak gezginlere yardım et.</span></div></div>}
         </div>
         {user ? <div className="community-answer-form">

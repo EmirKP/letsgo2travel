@@ -1,0 +1,1 @@
+import{n as e}from"./countries-CHTI7dhr.js";var t=Object.fromEntries(e.map(e=>[e.alpha3,e.alpha2]));Object.fromEntries(e.map(e=>[e.alpha2,e.alpha3]));var n=Object.fromEntries(e.map(e=>[e.alpha2,e.flag]));function r(e){return t[e.toUpperCase()]||``}function i(e){return n[e.toUpperCase()]||`🏳️`}export{i as n,r as t};

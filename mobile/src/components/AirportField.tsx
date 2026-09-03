@@ -22,6 +22,9 @@ export function AirportField({ label, value, onChange, placeholder }: AirportFie
   const generation = useRef(0);
 
   useEffect(() => {
+    // Alan temizlendiğinde veya seçim yapıldığında da önceki ağ cevabını
+    // geçersiz kıl; geç gelen sonuç kapatılmış listeyi yeniden açmasın.
+    const requestId = ++generation.current;
     const term = query.trim();
     if (value || term.length < 2) {
       setOptions([]);
@@ -29,7 +32,6 @@ export function AirportField({ label, value, onChange, placeholder }: AirportFie
       setFailed(false);
       return;
     }
-    const requestId = ++generation.current;
     setLoading(true);
     setFailed(false);
     const timer = window.setTimeout(() => {
@@ -49,7 +51,10 @@ export function AirportField({ label, value, onChange, placeholder }: AirportFie
           if (requestId === generation.current) setLoading(false);
         });
     }, 220);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (generation.current === requestId) generation.current += 1;
+    };
   }, [query, value]);
 
   return (

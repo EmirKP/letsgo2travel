@@ -64,10 +64,11 @@ function profileIdsForDestinations(original: string[], destinations: FavoriteDes
   return Array.from(new Set([...preserved, ...mapped]));
 }
 
-export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNavigate, onOpenRelease, onNotice }: {
+export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
+  isAdmin: boolean;
   onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
@@ -302,6 +303,7 @@ export function ProfileScreen({ user, ownerId, accessToken, onOpenAccount, onNav
     <section className="profile-section">
       <div className="section-heading"><div><span>SEYAHAT PROFİLİN</span><h2>Kaşif alanın</h2></div></div>
       <div className="profile-action-list">
+        {isAdmin && <button className="admin-entry" onClick={() => onNavigate("admin")}><span><Icon name="shield" size={21} /></span><div><strong>Admin Paneli</strong><small>Site ve uygulamanın canlı yönetim merkezi</small></div><Icon name="chevron" size={17} /></button>}
         <button onClick={() => setVisitedOpen(true)}><span><Icon name="flag" size={21} /></span><div><strong>Ziyaret ettiğim ülkeler</strong><small>{visited.length ? visited.map((item) => item.name).slice(0, 3).join(" · ") : "Haritana ilk ülkeyi ekle"}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("trips")}><span><Icon name="suitcase" size={21} /></span><div><strong>Seyahatlerim</strong><small>Rotaların ve seyahat planların</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("alerts")}><span><Icon name="bell" size={21} /></span><div><strong>Fiyat Alarmlarım</strong><small>Takip ettiğin rotalar ve hedef fiyatlar</small></div><Icon name="chevron" size={17} /></button>

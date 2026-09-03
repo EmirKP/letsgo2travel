@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -34,6 +35,7 @@ const STATUS_FILL: Record<MapStatus, string> = {
 const GEO_TO_ALPHA3: Record<string, string> = Object.fromEntries(
   Object.entries(ALPHA3_TO_GEO_ID).map(([alpha3, geoId]) => [geoId, alpha3]),
 );
+const WORLD_PATHS = worldPaths as WorldPath[];
 
 const CENTER = { x: 400, y: 200 };
 const MIN_SCALE = 1;
@@ -64,6 +66,48 @@ type Gesture = {
   moved: boolean;
 };
 
+type WorldCountriesProps = {
+  isHighlighted: PassportWorldMapProps["isHighlighted"];
+  onTapCountry: (geoId: string) => void;
+  pathRefs: React.MutableRefObject<Map<string, SVGPathElement>>;
+  selectedGeoId: string;
+  statusFor: PassportWorldMapProps["statusFor"];
+};
+
+// Pan ve pinch sırasında yalnız <g> dönüşümü değişir. Ülke geometrilerini
+// ayrı memo katmanında tutmak, yüzlerce SVG path'inin her parmak hareketinde
+// React tarafından yeniden oluşturulmasını engeller.
+const WorldCountries = memo(function WorldCountries({
+  isHighlighted,
+  onTapCountry,
+  pathRefs,
+  selectedGeoId,
+  statusFor,
+}: WorldCountriesProps) {
+  return WORLD_PATHS.map((country) => {
+    const alpha3 = GEO_TO_ALPHA3[country.id] || null;
+    const status = statusFor(alpha3);
+    const highlighted = isHighlighted(alpha3);
+    const isSelected = Boolean(selectedGeoId) && country.id === selectedGeoId;
+    return (
+      <path
+        ref={(node) => {
+          if (node) pathRefs.current.set(country.id, node);
+          else pathRefs.current.delete(country.id);
+        }}
+        key={country.id}
+        d={country.d}
+        fill={STATUS_FILL[status]}
+        fillOpacity={highlighted ? (status === "unknown" ? 0.68 : 0.94) : 0.12}
+        stroke={isSelected ? "#071B33" : "rgba(255,255,255,.92)"}
+        strokeWidth={isSelected ? 2.2 : 0.65}
+        vectorEffect="non-scaling-stroke"
+        onPointerUp={() => onTapCountry(country.id)}
+      />
+    );
+  });
+});
+
 export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onSelectCountry }: PassportWorldMapProps) {
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -72,8 +116,8 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture | null>(null);
   const pathRefs = useRef(new Map<string, SVGPathElement>());
-
-  const paths = worldPaths as WorldPath[];
+  const pendingView = useRef<View | null>(null);
+  const viewFrame = useRef<number | null>(null);
   const selectedGeoId = useMemo(
     () => (selectedAlpha3 ? ALPHA3_TO_GEO_ID[selectedAlpha3] || "" : ""),
     [selectedAlpha3],
@@ -82,7 +126,16 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   const commitView = useCallback((next: View) => {
     const clamped = clampView(next);
     viewRef.current = clamped;
-    setView(clamped);
+    pendingView.current = clamped;
+    if (viewFrame.current !== null) return;
+    viewFrame.current = window.requestAnimationFrame(() => {
+      viewFrame.current = null;
+      if (pendingView.current) setView(pendingView.current);
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (viewFrame.current !== null) window.cancelAnimationFrame(viewFrame.current);
   }, []);
 
   const svgPoint = useCallback((clientX: number, clientY: number): Point => {
@@ -191,13 +244,13 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
     }
   };
 
-  const tapCountry = (geoId: string) => {
+  const tapCountry = useCallback((geoId: string) => {
     if (gesture.current?.moved) return;
     const alpha3 = GEO_TO_ALPHA3[geoId];
     if (!alpha3) return;
     focusCountry(geoId);
     onSelectCountry(alpha3);
-  };
+  }, [focusCountry, onSelectCountry]);
 
   const onWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
     event.preventDefault();
@@ -209,7 +262,6 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   return (
     <div className={`passport-map ${dragging ? "dragging" : ""}`} data-no-gesture aria-label="Vize durumuna göre renklendirilmiş dünya haritası">
       <div className="passport-map-toolbar" aria-hidden="true">
-        <span><Icon name="globe" size={16} /> Sürükle · iki parmakla yakınlaştır</span>
         <output>{view.scale.toFixed(view.scale < 10 ? 1 : 0)}×</output>
       </div>
       <svg
@@ -224,27 +276,13 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         onWheel={onWheel}
       >
         <g transform={`translate(${CENTER.x + view.x} ${CENTER.y + view.y}) scale(${view.scale}) translate(${-CENTER.x} ${-CENTER.y})`}>
-          {paths.map((country) => {
-            const alpha3 = GEO_TO_ALPHA3[country.id] || null;
-            const status = statusFor(alpha3);
-            const highlighted = isHighlighted(alpha3);
-            const isSelected = Boolean(selectedGeoId) && country.id === selectedGeoId;
-            return (
-              <path
-                ref={(node) => {
-                  if (node) pathRefs.current.set(country.id, node);
-                  else pathRefs.current.delete(country.id);
-                }}
-                key={country.id}
-                d={country.d}
-                fill={STATUS_FILL[status]}
-                fillOpacity={highlighted ? (status === "unknown" ? 0.68 : 0.94) : 0.12}
-                stroke={isSelected ? "#071B33" : "rgba(255,255,255,.92)"}
-                strokeWidth={isSelected ? 2.2 / view.scale : 0.65 / view.scale}
-                onPointerUp={() => tapCountry(country.id)}
-              />
-            );
-          })}
+          <WorldCountries
+            isHighlighted={isHighlighted}
+            onTapCountry={tapCountry}
+            pathRefs={pathRefs}
+            selectedGeoId={selectedGeoId}
+            statusFor={statusFor}
+          />
         </g>
       </svg>
       <div className="passport-map-controls">

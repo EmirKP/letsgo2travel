@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import appIcon from "../../../ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png";
+import appIcon from "../assets/splash-mark.webp";
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const [leaving, setLeaving] = useState(false);

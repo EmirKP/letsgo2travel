@@ -160,7 +160,7 @@ if (checkIos) {
   expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
   expect(project, /MARKETING_VERSION = 1\.4\.0;/, "iOS pazarlama sürümü 1.4.0", "Xcode MARKETING_VERSION 1.4.0 değil.");
-  expect(project, /CURRENT_PROJECT_VERSION = 10;/, "iOS build numarası 10", "Xcode CURRENT_PROJECT_VERSION 10 değil.");
+  expect(project, /CURRENT_PROJECT_VERSION = 11;/, "iOS build numarası 11", "Xcode CURRENT_PROJECT_VERSION 11 değil.");
   expect(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/, "Sign in with Apple entitlement bağlantısı", "Apple entitlement dosyası Xcode hedefine bağlı değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
   // Live Activity / Widget Extension: elle Xcode adımı KALMAMALI —
@@ -242,7 +242,7 @@ if (checkAndroid) {
   expect(manifest, /android:dataExtractionRules=["']@xml\/data_extraction_rules["']/, "Android veri aktarım kuralları bağlı", "Android veri aktarım kuralları bağlı değil.");
 
   const androidBuild = await text("android/app/build.gradle");
-  expect(androidBuild, /versionCode\s+10\b/, "Android versionCode 10", "Android versionCode 10 değil.");
+  expect(androidBuild, /versionCode\s+11\b/, "Android versionCode 11", "Android versionCode 11 değil.");
   expect(androidBuild, /versionName\s+["']1\.4\.0["']/, "Android versionName 1.4.0", "Android versionName 1.4.0 değil.");
   for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
     expect(androidBuild, new RegExp(key), `Android release imza ayarı: ${key}`, `Android release imza ayarı eksik: ${key}`);

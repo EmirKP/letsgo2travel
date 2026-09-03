@@ -6,7 +6,7 @@
 // =====================================================================
 
 import assert from "node:assert";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
 import {
@@ -14,8 +14,11 @@ import {
   createForumTopicSlug,
   forumCategoryFromCommunityCategory,
   forumCountrySlugFromCode,
+  forumReplyLimit,
   forumStatusFromModeration,
   GENERAL_FORUM_COUNTRY_CODE,
+  MAX_FORUM_REPLIES_PER_DETAIL,
+  PUBLIC_FORUM_REPLY_PREVIEW_COUNT,
 } from "../../lib/community/forum-sync";
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
 import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
@@ -370,6 +373,18 @@ test("forum senkronu: mobil kategori ve moderasyon web sözleşmesine çevrilir"
   );
 });
 
+test("forum senkronu: kilitli cevap önizlemesi ve hesap yetkisi aynı kuralı kullanır", () => {
+  assert.equal(forumReplyLimit(true, false), PUBLIC_FORUM_REPLY_PREVIEW_COUNT);
+  assert.equal(forumReplyLimit(true, true), MAX_FORUM_REPLIES_PER_DETAIL);
+  assert.equal(forumReplyLimit(false, false), MAX_FORUM_REPLIES_PER_DETAIL);
+
+  const route = readFileSync("app/api/country-community/questions/[id]/route.ts", "utf8");
+  const mobile = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
+  assert.ok(route.includes('supabase.rpc("has_forum_topic_unlock"'), "sunucu hesap kilidini doğrulamalı");
+  assert.ok(route.includes("supabase.auth.getUser(token)"), "yetki yalnız doğrulanmış oturumdan alınmalı");
+  assert.ok(mobile.includes("Authorization: `Bearer ${accessToken}`"), "mobil detay isteği oturumunu taşımalı");
+});
+
 test("forum senkronu: mobil API uçları yalnız ortak web forum tablolarını kullanır", () => {
   const routeFiles = [
     "app/api/country-community/feed/route.ts",
@@ -382,6 +397,42 @@ test("forum senkronu: mobil API uçları yalnız ortak web forum tablolarını k
   assert.ok(source.includes('.from("forum_replies")'), "ortak cevap tablosu kullanılmalı");
   assert.ok(!/\.from\(["']country_questions["']\)/.test(source), "eski mobil konu tablosu kullanılmamalı");
   assert.ok(!/\.from\(["']country_answers["']\)/.test(source), "eski mobil cevap tablosu kullanılmamalı");
+});
+
+test("mobil admin: görünürlük ve bütün işlemler sunucu rolüyle korunur", () => {
+  const route = readFileSync("app/api/admin/mobile-overview/route.ts", "utf8");
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
+  assert.ok(route.includes("requireAuthenticatedUser(request)"), "mobil admin oturumu sunucuda doğrulanmalı");
+  assert.ok(route.includes('new Set(["admin", "super_admin"])'), "yalnız yönetici rolleri kabul edilmeli");
+  assert.ok(!route.toLocaleLowerCase("tr-TR").includes("@letsgo2travel"), "yönetici e-postası koda gömülmemeli");
+  assert.ok(app.includes("isAdmin={Boolean(adminOverview)}"), "admin bağlantısı yalnız doğrulanmış özetten sonra çizilmeli");
+  assert.ok(admin.includes("getVerificationEvidence"), "belgeli gezgin kararı öncesi güvenli belge açılmalı");
+  assert.ok(admin.includes("!openedEvidenceIds.has(item.id)"), "belge görülmeden onay/red düğmeleri kapalı olmalı");
+});
+
+test("mobil optimizasyon: ağır modüller bölünür, harita sabit katmanda çizilir", () => {
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const map = readFileSync("mobile/src/components/PassportWorldMap.tsx", "utf8");
+  const splash = readFileSync("mobile/src/components/AnimatedSplash.tsx", "utf8");
+  const airport = readFileSync("mobile/src/components/AirportField.tsx", "utf8");
+  assert.ok(app.includes('lazy(() => import("./screens/PassportScreen")'), "pasaport modülü açılış paketinden ayrılmalı");
+  assert.ok(app.includes('lazy(() => import("./screens/AdminScreen")'), "admin kodu yalnız gerektiğinde yüklenmeli");
+  assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri pan sırasında yeniden çizilmemeli");
+  assert.ok(map.includes("window.requestAnimationFrame"), "harita güncellemeleri ekran karesine göre sınırlanmalı");
+  assert.ok(!map.includes("Sürükle · iki parmakla yakınlaştır"), "haritayı kapatan kalıcı yazı kaldırılmalı");
+  assert.ok(airport.includes("const requestId = ++generation.current"), "eski havalimanı cevapları geçersiz kılınmalı");
+  assert.ok(splash.includes('assets/splash-mark.webp'), "açılışta büyük App Store ikonu taşınmamalı");
+  assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
+});
+
+test("admin forum API: durum ve toplu işlem girdileri sınırlıdır", () => {
+  for (const file of ["topics", "replies", "reports"]) {
+    const route = readFileSync(`app/api/admin/forum/${file}/route.ts`, "utf8");
+    assert.ok(route.includes("ALLOWED_STATUSES"), `${file} durum beyaz listesi olmalı`);
+    assert.ok(route.includes("targetIds.length > 100"), `${file} toplu işlem sınırı olmalı`);
+    assert.ok(route.includes("UUID_PATTERN"), `${file} kayıt kimlikleri doğrulanmalı`);
+  }
 });
 
 test("forum SQL: temiz projede akış ve cevap tablolarını güvenli biçimde kurar", () => {
