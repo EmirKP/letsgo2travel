@@ -832,7 +832,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 16);
+  assert.equal(release.buildNumber, 17);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -873,6 +873,18 @@ test("Build 16: etkinlik radarı Kosova, tarih, öne çıkan sanatçı ve mobil 
   assert.ok(sql.includes("enable row level security") && sql.includes("revoke insert, update, delete"), "etkinlik tablosu doğrudan yazıma kapalı olmalı");
   assert.ok(sql.includes("ends_at is null or ends_at >= starts_at"), "etkinlik bitişi başlangıçtan önce olamamalı");
   assert.ok(screen.includes("reconcileEventReminders") && screen.includes("cancelEventReminder"), "tarih/durum değişiklikleri cihaz hatırlatmalarına yansıtılmalı");
+});
+
+test("Build 17: açılış videosu hafif, sessiz ve güvenli geri dönüşlüdür", () => {
+  const component = readFileSync("mobile/src/components/AnimatedSplash.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const video = statSync("mobile/src/assets/launch-travel.mp4");
+  const poster = statSync("mobile/src/assets/launch-travel-poster.webp");
+  assert.ok(video.size > 100_000 && video.size < 750_000, "açılış videosu mobil için makul boyutta olmalı");
+  assert.ok(poster.size > 1_000 && poster.size < 100_000, "video posteri hafif olmalı");
+  assert.ok(component.includes("autoPlay") && component.includes("muted") && component.includes("playsInline"), "video mobilde otomatik, sessiz ve tam ekran içinde oynamalı");
+  assert.ok(component.includes("onEnded={beginExit}") && component.includes("onError={beginExit}") && component.includes("4_400"), "video bitince, hata verince veya takılınca açılış kapanmalı");
+  assert.ok(component.includes("prefers-reduced-motion") && styles.includes(".animated-splash-media") && styles.includes("object-fit: cover"), "azaltılmış hareket ve dikey ekran yerleşimi korunmalı");
 });
 
 test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {

@@ -6,18 +6,18 @@ import { Sheet } from "./Sheet";
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { copy } = useI18n();
   const changes = [
-    ["globe", copy("Kosova etkinlikleri", "Events in Kosovo"), copy("Kosova aramaları artık XK engeline takılmadan PRN konum kapsamıyla çalışır.", "Kosovo searches now use PRN location coverage instead of failing on XK.")],
-    ["sparkles", copy("Dünya sahnesi", "World stage"), copy("Yüksek ilgi gören yaklaşan konserler, ülkeye öncelik verilerek otomatik öne çıkarılır.", "High-impact upcoming concerts are highlighted automatically, prioritising the selected country.")],
-    ["calendar", copy("Güvenli tarih ve saatler", "Safe dates and times"), copy("Geçmiş günler, geçmiş saatler ve ters tarih aralıkları artık kabul edilmez.", "Past days, past times and reversed date ranges are no longer accepted.")],
-    ["check", copy("Hizalı mobil formlar", "Aligned mobile forms"), copy("iOS tarih ve saat kutuları kart içinde kalır; gereksiz varış arka planı kaldırıldı.", "iOS date and time fields stay inside their cards, with the extra arrival background removed.")],
+    ["globe", copy("Yeni açılış sahnesi", "New opening scene"), copy("Dönen dünya üzerinde yürüyen gezgin, uygulama açılırken tam ekran ve akıcı biçimde karşılar.", "A traveller walking across the rotating globe now welcomes you in a fluid full-screen opening.")],
+    ["sparkles", copy("LetsGo2Travel imzası", "LetsGo2Travel signature"), copy("Marka yazısı, kısa slogan ve altın ilerleme çizgisi animasyona uyumlu biçimde eklendi.", "The wordmark, short message and gold progress line now move in harmony with the scene.")],
+    ["check", copy("Hızlı ve hafif", "Fast and lightweight"), copy("Video kısaltıldı, sessizleştirildi ve görüntü kalitesi korunarak mobil için sıkıştırıldı.", "The video was shortened, muted and compressed for mobile while preserving visual quality.")],
+    ["shield", copy("Güvenli geçiş", "Reliable transition"), copy("Video yüklenemezse uygulama açılışta kalmaz; azaltılmış hareket tercihi de korunur.", "If the video cannot load, the app never gets stuck, and reduced-motion preferences remain respected.")],
   ] as const;
 
   return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`)} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
-      <h3>{copy("Büyük konserleri kaçırma; planını doğru tarihle kur.", "Catch major concerts and plan with the right dates.")}</h3>
-      <p>{copy(`Build ${config.buildNumber}, etkinlik kapsamını, tarih güvenliğini ve iOS form düzenini yeniler.`, `Build ${config.buildNumber} improves event coverage, date safety and iOS form layouts.`)}</p>
+      <h3>{copy("Yeni yolculuğun daha uygulama açılırken başlasın.", "Let your next journey begin the moment the app opens.")}</h3>
+      <p>{copy(`Build ${config.buildNumber}, yeni ve hafif LetsGo2Travel açılış animasyonunu getirir.`, `Build ${config.buildNumber} introduces the new lightweight LetsGo2Travel opening animation.`)}</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, description]) => <div key={title}>
