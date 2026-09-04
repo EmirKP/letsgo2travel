@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "18",
+  "buildNumber": "19",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,19 +16,18 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-BlrrZn3b.js",
-    "stylesheet": "assets/index-D3iHAUZv.css"
+    "javascript": "assets/index-CJgs3yp7.js",
+    "stylesheet": "assets/index-DKbENp0G.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 18: the approved white, black, #2352C4 blue and #EAC361 yellow theme is applied while Build 17 remains the Git rollback point.",
-    "Build 18: searchable country sheets cover 250 countries and territories; Kosovo uses a bundled real flag and unsupported phrase packs fall back transparently to offline English emergency cards.",
-    "Build 18: the passport map is larger, renders country flags and owns its pinch-zoom, pan and reset gestures without zooming the page.",
-    "Build 18: past dates and invalid ranges are clamped in mobile/web forms and rejected again in the data or API layer; historical records remain intact.",
-    "Build 18: mobile admin evidence opens in-app and approve/reject stays locked until review; destination artwork and narrow-screen form alignment were refreshed.",
-    "Build 18 requires no new environment variable or database migration.",
-    "Root build/lint, 130 app tests, 39 alert tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
+    "Build 19: mobile date/time controls share one left-aligned accessible field while existing past-date and range validation remains enforced.",
+    "Build 19: the passport map stays vector-sharp, zooms to 8x, shows larger progressive flags including the bundled Kosovo flag, and opens full-screen without zooming the page.",
+    "Build 19: the local companion removes its duplicate country card and the home screen highlights an active or upcoming Cockpit trip.",
+    "Build 19: iOS Live Activity changes phase on its own, shows Flying after departure and moves the yellow countdown to the arrival side.",
+    "Build 19 requires no new environment variable or database migration.",
+    "Root/mobile lint and build, 132 app tests, 39 alert tests, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
+import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, alpha3FromAlpha2 } from "../data/countryIso";
@@ -556,46 +557,41 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
 
       <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder={copy("Roma", "Rome")} /></label>
       <div className="form-grid two stack-narrow">
-        <label><span>{copy("Başlangıç", "Start")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={localIsoDate(0)} max={localIsoDate(730)} value={form.startDate} onChange={(event) => {
-          const requested = event.target.value;
+        <DateTimeField type="date" required label={copy("Başlangıç", "Start")} min={localIsoDate(0)} max={localIsoDate(730)} value={form.startDate} onChange={(requested) => {
           const next = clampLocalDate(requested, localIsoDate(0), localIsoDate(730));
           setForm({ ...form, startDate: next, endDate: form.endDate && form.endDate < next ? next : form.endDate, arrivalDate: form.arrivalDate && form.arrivalDate < next ? next : form.arrivalDate || next });
           if (requested && requested !== next) onNotice(copy("Geçmiş bir başlangıç tarihi seçilemez.", "A past start date cannot be selected."));
-        }} /></label>
-        <label><span>{copy("Seyahat bitişi", "Trip end")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={form.startDate || localIsoDate(0)} max={localIsoDate(730)} value={form.endDate} onChange={(event) => {
-          const requested = event.target.value;
+        }} />
+        <DateTimeField type="date" required label={copy("Seyahat bitişi", "Trip end")} min={form.startDate || localIsoDate(0)} max={localIsoDate(730)} value={form.endDate} onChange={(requested) => {
           const next = clampLocalDate(requested, form.startDate || localIsoDate(0), localIsoDate(730));
           setForm({ ...form, endDate: next, arrivalDate: form.arrivalDate && form.arrivalDate > next ? next : form.arrivalDate });
           if (requested && requested !== next) onNotice(copy("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date."));
-        }} /></label>
+        }} />
       </div>
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
         <label>{copy("Havayolu (isteğe bağlı)", "Airline (optional)")}<input value={form.airline} maxLength={80} onChange={(event) => setForm({ ...form, airline: event.target.value })} placeholder={copy("Türk Hava Yolları", "Turkish Airlines")} /></label>
         <label>{copy("Uçuş no (isteğe bağlı)", "Flight no. (optional)")}<input value={form.flightNumber} maxLength={8} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightNumber: normalizeFlightNumber(event.target.value) })} placeholder="TK1979" /></label>
       </div>}
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <label><span>{copy("Kalkış saati", "Departure time")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="time" value={form.departureTime} onChange={(event) => {
-          const requested = event.target.value;
+        <DateTimeField type="time" required label={copy("Kalkış saati", "Departure time")} value={form.departureTime} onChange={(requested) => {
           const next = form.startDate && isPastLocalDateTime(form.startDate, requested) ? localIsoDateTime(5).slice(11, 16) : requested;
           setForm({ ...form, departureTime: next });
           if (requested && requested !== next) onNotice(copy("Geçmiş bir kalkış saati seçilemez.", "A past departure time cannot be selected."));
-        }} /></label>
+        }} />
         <label><span>PNR <em className="required-mark">· {copy("rezervasyon kodu", "booking code")}</em></span><input required aria-required="true" value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder={copy("Örn. ABC123", "E.g. ABC123")} /></label>
       </div>}
       {form.mode === "flight" && <div className="form-grid two stack-narrow cockpit-arrival-fields">
-        <label><span>{copy("Planlanan varış tarihi", "Scheduled arrival date")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="date" min={form.startDate || localIsoDate(0)} max={form.endDate || localIsoDate(730)} value={form.arrivalDate} onChange={(event) => {
-          const requested = event.target.value;
+        <DateTimeField type="date" required label={copy("Planlanan varış tarihi", "Scheduled arrival date")} min={form.startDate || localIsoDate(0)} max={form.endDate || localIsoDate(730)} value={form.arrivalDate} onChange={(requested) => {
           const next = clampLocalDate(requested, form.startDate || localIsoDate(0), form.endDate || localIsoDate(730));
           setForm({ ...form, arrivalDate: next });
           if (requested && requested !== next) onNotice(copy("Varış tarihi seyahat aralığının dışında olamaz.", "Arrival must stay within the trip dates."));
-        }} /></label>
-        <label><span>{copy("Planlanan varış saati", "Scheduled arrival time")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input required aria-required="true" type="time" min={form.arrivalDate === form.startDate ? minuteAfter(form.departureTime) || undefined : undefined} value={form.arrivalTime} onChange={(event) => {
-          const requested = event.target.value;
+        }} />
+        <DateTimeField type="time" required label={copy("Planlanan varış saati", "Scheduled arrival time")} min={form.arrivalDate === form.startDate ? minuteAfter(form.departureTime) || undefined : undefined} value={form.arrivalTime} onChange={(requested) => {
           const earliest = form.arrivalDate === form.startDate ? form.departureTime : "";
           const next = earliest && requested <= earliest ? minuteAfter(earliest) || requested : requested;
           setForm({ ...form, arrivalTime: next });
           if (requested && requested !== next) onNotice(copy("Varış saati kalkıştan sonra olmalı.", "Arrival time must be after departure."));
-        }} /></label>
+        }} />
       </div>}
       {form.mode === "flight" && !areFlightFieldsSupported() && <p className="form-hint">{copy("Uçuş detayları (IATA/uçuş no) sunucu güncellemesi tamamlanana kadar kaydedilmeyebilir; diğer bilgiler güvenle saklanır.", "Flight details (IATA/flight number) may not save until the server update is complete; other details remain safe.")}</p>}
       <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading} type="submit">

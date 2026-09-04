@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import worldPaths from "../data/worldMapPaths.json";
 import kosovoFlag from "../assets/flags/kosovo.svg";
+import { Icon } from "./Icon";
 import { ALPHA3_TO_GEO_ID } from "../data/countryCodes";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
 import type { VisaStatus } from "../types";
@@ -13,14 +14,14 @@ type TouchPoint = { x: number; y: number };
 export type MapStatus = VisaStatus | "unknown";
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 4;
+const MAX_SCALE = 8;
 const STATUS_FILL: Record<MapStatus, string> = {
-  id_card: "#3A86D9",
-  free: "#3BAE83",
-  evisa: "#7359C7",
-  on_arrival: "#E2AF3B",
-  required: "#D96972",
-  unknown: "#C4CBD4",
+  id_card: "#397FD1",
+  free: "#28A47B",
+  evisa: "#745FC5",
+  on_arrival: "#DCA936",
+  required: "#D76472",
+  unknown: "#D6DCE5",
 };
 const PINNED_FLAGS = new Set(["USA", "CAN", "BRA", "ARG", "GBR", "FRA", "DEU", "TUR", "RUS", "CHN", "IND", "JPN", "AUS", "ZAF", "EGY", "SAU", "ARE", "IDN", "XKK"]);
 
@@ -83,6 +84,8 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   const mouseRef = useRef<{ point: TouchPoint; transform: MapTransform } | null>(null);
   const suppressClickRef = useRef(false);
   const [transform, setTransform] = useState<MapTransform>({ scale: 1, x: 0, y: 0 });
+  const [fullscreen, setFullscreen] = useState(false);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 400 });
 
   const commitTransform = (next: MapTransform) => {
     const viewport = viewportRef.current;
@@ -160,6 +163,31 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
     };
   }, []);
 
+  useEffect(() => {
+    if (!fullscreen) return;
+    document.body.classList.add("passport-map-open");
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => {
+      document.body.classList.remove("passport-map-open");
+      window.removeEventListener("keydown", close);
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.max(1, entry.contentRect.width);
+      const height = Math.max(1, entry.contentRect.height);
+      setViewportSize((current) => current.width === width && current.height === height ? current : { width, height });
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
   const flags = useMemo(() => WORLD_PATHS.flatMap((country) => {
     const alpha3 = alpha3ForCountry(country);
     if (!alpha3 || country.x === null || country.y === null) return [];
@@ -192,8 +220,11 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
     window.setTimeout(() => { suppressClickRef.current = false; }, 80);
   };
   const zoom = (delta: number) => commitTransform({ ...transformRef.current, scale: transformRef.current.scale + delta });
+  const translateX = transform.x * 800 / viewportSize.width;
+  const translateY = transform.y * 400 / viewportSize.height;
+  const groupTransform = `translate(${400 + translateX} ${200 + translateY}) scale(${transform.scale}) translate(-400 -200)`;
 
-  return <div className="passport-map" data-no-gesture role="region" aria-label={copy("Vize durumuna göre renklendirilmiş, yakınlaştırılabilir dünya haritası", "Zoomable world map coloured by visa status")} aria-describedby="passport-map-help">
+  return <div className={`passport-map ${fullscreen ? "fullscreen" : ""}`} data-no-gesture role={fullscreen ? "dialog" : "region"} aria-modal={fullscreen || undefined} aria-label={copy("Vize durumuna göre renklendirilmiş, yakınlaştırılabilir dünya haritası", "Zoomable world map coloured by visa status")} aria-describedby="passport-map-help">
     <div ref={viewportRef} className={`passport-map-viewport ${transform.scale > 1 ? "zoomed" : ""}`} onPointerDown={mouseDown} onPointerMove={mouseMove} onPointerUp={mouseUp} onPointerCancel={mouseUp}>
       <svg
         viewBox="0 0 800 400"
@@ -201,38 +232,44 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         aria-label={copy("İki parmakla yakınlaştırıp sürükleyebileceğin dünya haritası", "World map you can pinch to zoom and drag")}
         aria-describedby="passport-map-help"
         onClick={selectCountry}
-        style={{ transform: `translate3d(${transform.x}px,${transform.y}px,0) scale(${transform.scale})` }}
       >
         <title>{copy("Türkiye pasaportu vize haritası", "Turkish passport visa map")}</title>
         <desc>{copy("Renkler giriş koşullarını gösterir. Haritayı iki parmakla yakınlaştırabilir, sürükleyebilir ve ülkeye dokunabilirsin.", "Colours show entry requirements. Pinch to zoom, drag the map and tap a country.")}</desc>
-        <WorldCountries isHighlighted={isHighlighted} selectedAlpha3={selectedAlpha3} statusFor={statusFor} />
-        <g className={`passport-map-flags flag-level-${transform.scale >= 2.6 ? 3 : transform.scale >= 1.55 ? 2 : 1}`} aria-hidden="true">
-          {flags.map((country) => country.alpha3 === "XKK"
-            ? <image
+        <rect width="800" height="400" fill="#F4F8FD" />
+        <g transform={groupTransform}>
+          <WorldCountries isHighlighted={isHighlighted} selectedAlpha3={selectedAlpha3} statusFor={statusFor} />
+        </g>
+        <g className={`passport-map-flags flag-level-${transform.scale >= 4.25 ? 3 : transform.scale >= 2.25 ? 2 : 1}`} aria-hidden="true">
+          {flags.map((country) => {
+            const x = 400 + ((country.x || 0) - 400) * transform.scale + translateX;
+            const y = 200 + ((country.y || 0) - 200) * transform.scale + translateY;
+            return country.alpha3 === "XKK" ? <image
               key={`flag-${country.id}-${country.name}`}
               href={kosovoFlag}
-              x={(country.x || 0) - 8 / transform.scale}
-              y={(country.y || 0) - 6 / transform.scale}
-              width={16 / transform.scale}
-              height={12 / transform.scale}
+              x={x - 11}
+              y={y - 8}
+              width={22}
+              height={16}
               className={`passport-map-flag passport-map-kosovo-flag map-flag-level-${country.level} ${selectedAlpha3 === country.alpha3 ? "selected" : ""}`}
               data-country-alpha3={country.alpha3}
               preserveAspectRatio="xMidYMid meet"
             />
             : <text
               key={`flag-${country.id}-${country.name}`}
-              x={country.x || 0}
-              y={country.y || 0}
+              x={x}
+              y={y}
               className={`passport-map-flag map-flag-level-${country.level} ${selectedAlpha3 === country.alpha3 ? "selected" : ""}`}
-              fontSize={13 / transform.scale}
+              fontSize={19}
               data-country-alpha3={country.alpha3}
-            >{flagEmoji(country.alpha2)}</text>)}
+            >{flagEmoji(country.alpha2)}</text>;
+          })}
         </g>
       </svg>
     </div>
     <div className="passport-map-controls" aria-label={copy("Harita yakınlaştırma kontrolleri", "Map zoom controls")}>
-      <button type="button" disabled={transform.scale >= MAX_SCALE} onClick={() => zoom(.5)} aria-label={copy("Haritayı yakınlaştır", "Zoom map in")}>+</button>
-      <button type="button" disabled={transform.scale <= MIN_SCALE} onClick={() => zoom(-.5)} aria-label={copy("Haritayı uzaklaştır", "Zoom map out")}>−</button>
+      <button type="button" disabled={transform.scale >= MAX_SCALE} onClick={() => zoom(1)} aria-label={copy("Haritayı yakınlaştır", "Zoom map in")}>+</button>
+      <button type="button" disabled={transform.scale <= MIN_SCALE} onClick={() => zoom(-1)} aria-label={copy("Haritayı uzaklaştır", "Zoom map out")}>−</button>
+      <button type="button" onClick={() => { commitTransform({ scale: 1, x: 0, y: 0 }); setFullscreen((value) => !value); }} aria-pressed={fullscreen} aria-label={fullscreen ? copy("Tam ekrandan çık", "Exit full screen") : copy("Haritayı tam ekran aç", "Open map full screen")}><span className="sr-only">{fullscreen ? copy("Tam ekrandan çık", "Exit full screen") : copy("Tam ekran", "Full screen")}</span><Icon name={fullscreen ? "close" : "expand"} size={19} /></button>
       <button type="button" className="passport-map-reset" disabled={transform.scale <= MIN_SCALE} onClick={() => commitTransform({ scale: 1, x: 0, y: 0 })}>{copy("Sıfırla", "Reset")}</button>
     </div>
     <output className="sr-only" aria-live="polite">{copy(`Harita yüzde ${Math.round(transform.scale * 100)} yakınlıkta`, `Map zoom ${Math.round(transform.scale * 100)} percent`)}</output>

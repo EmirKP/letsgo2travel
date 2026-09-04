@@ -5,6 +5,8 @@ import { listTravelEvents } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { randomRoute } from "../data/routes";
 import { getFavoriteDestinations, getSavedRoutePlans, getSavedTravelEvents } from "../lib/storage";
+import { listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
+import { localIsoDate } from "../lib/dates";
 import type { AuthUser, RouteSuggestion, TravelEvent, ViewId } from "../types";
 
 type HomeAction = { titleTr: string; titleEn: string; textTr: string; textEn: string; icon: IconName; view: ViewId };
@@ -33,9 +35,21 @@ function greeting(locale: "tr" | "en") {
   return hour < 11 ? "Günaydın" : hour < 18 ? "Merhaba" : "İyi akşamlar";
 }
 
-export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise, onNotice }: {
+function daysUntil(value: string) {
+  const target = new Date(`${value}T12:00:00`);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86_400_000));
+}
+
+function tripName(trip: CockpitTrip) {
+  return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
+}
+
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onSurprise, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
+  accessToken?: string;
   refreshToken?: number;
   onNavigate: (view: ViewId) => void;
   onSurprise: (route: RouteSuggestion) => void;
@@ -44,6 +58,9 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
   const { locale, copy, dateLocale } = useI18n();
   const [storageTick, setStorageTick] = useState(0);
   const [event, setEvent] = useState<TravelEvent | null>(null);
+  const [nextTrip, setNextTrip] = useState<CockpitTrip | null>(null);
+  const [tripLoading, setTripLoading] = useState(false);
+  const [tripError, setTripError] = useState(false);
   const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, storageTick]);
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, storageTick]);
   const savedEvents = useMemo(() => getSavedTravelEvents(ownerId), [ownerId, storageTick]);
@@ -60,12 +77,35 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
 
   useEffect(() => {
     let active = true;
+    if (!ownerId || !accessToken) {
+      setNextTrip(null);
+      setTripLoading(false);
+      setTripError(false);
+      return () => { active = false; };
+    }
+    setTripLoading(true);
+    setTripError(false);
+    void listCockpitTrips(ownerId, accessToken)
+      .then((items) => {
+        if (!active) return;
+        const current = items.find((item) => item.status === "active")
+          || items.find((item) => item.status === "upcoming" && item.endDate >= localIsoDate(0))
+          || null;
+        setNextTrip(current);
+      })
+      .catch(() => { if (active) setTripError(true); })
+      .finally(() => { if (active) setTripLoading(false); });
+    return () => { active = false; };
+  }, [accessToken, ownerId, refreshToken]);
+
+  useEffect(() => {
+    let active = true;
     const savedUpcoming = getSavedTravelEvents(ownerId).find((item) => Date.parse(item.startsAt) > Date.now());
     if (savedUpcoming) {
       setEvent(savedUpcoming);
       return () => { active = false; };
     }
-    void listTravelEvents({ startDate: new Date().toISOString().slice(0, 10), limit: 1 })
+    void listTravelEvents({ startDate: localIsoDate(0), limit: 1 })
       .then((result) => { if (active) setEvent(result.data?.[0] || null); })
       .catch(() => undefined);
     return () => { active = false; };
@@ -87,12 +127,14 @@ export function HomeScreen({ user, ownerId, refreshToken, onNavigate, onSurprise
       <span className="home-purpose-badge"><Icon name="globe" size={18} /> LetsGo2Travel</span>
       <h2>{copy("Karardan dönüşe kadar seyahat yardımcın.", "Your travel companion, from decision to return.")}</h2>
       <p>{copy("Yerini seç, rotanı kur, fırsatları ve etkinlikleri yakala; seyahatte ihtiyacın olan araçları yanında taşı.", "Choose a place, build your route, catch events and deals, and carry the tools you need on the road.")}</p>
-      <div className="home-purpose-steps" aria-label={copy("Uygulamanın üç adımı", "Three steps in the app")}>
-        <span><b>1</b>{copy("Keşfet", "Discover")}</span><i />
-        <span><b>2</b>{copy("Planla", "Plan")}</span><i />
-        <span><b>3</b>{copy("Yolda kullan", "Use on trip")}</span>
-      </div>
+      <button className="home-purpose-action" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> {copy("Yeni seyahat planla", "Plan a new trip")} <Icon name="chevron" size={16} /></button>
     </section>
+
+    {(ownerId && accessToken) && <section className={`home-trip-focus ${!nextTrip ? "empty" : ""}`} aria-live="polite">
+      {tripLoading ? <><span className="button-loader dark" /><div><small>{copy("SEYAHATİN YÜKLENİYOR", "LOADING YOUR TRIP")}</small><strong>{copy("Kokpit hazırlanıyor…", "Preparing your cockpit…")}</strong></div></>
+        : nextTrip ? <><span><Icon name="plane" size={22} /></span><div><small>{nextTrip.status === "active" ? copy("ŞU ANDA SEYAHATTESİN", "YOU'RE TRAVELLING") : copy("SIRADAKİ SEYAHATİN", "YOUR NEXT TRIP")}</small><strong>{tripName(nextTrip)}</strong><p>{nextTrip.originIata || "—"} → {nextTrip.destinationIata || nextTrip.destinationCode} · {nextTrip.status === "active" ? copy("Kokpiti aç", "Open cockpit") : copy(`${daysUntil(nextTrip.startDate)} gün kaldı`, `${daysUntil(nextTrip.startDate)} days to go`)}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>
+          : <><span><Icon name={tripError ? "offline" : "suitcase"} size={22} /></span><div><small>{tripError ? copy("BAĞLANTI KURULAMADI", "CONNECTION UNAVAILABLE") : copy("SIRADAKİ SEYAHAT", "YOUR NEXT TRIP")}</small><strong>{tripError ? copy("Kayıtların güvende", "Your records are safe") : copy("Henüz planlanmış seyahat yok", "No upcoming trip yet")}</strong><p>{tripError ? copy("Kokpit ekranından yeniden deneyebilirsin.", "Retry from the Cockpit screen.") : copy("Uçuşunu ekle, geri sayımı ve hazırlığını buradan takip et.", "Add a flight and follow its countdown and preparation here.")}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>}
+    </section>}
 
     <section className="home-decision" aria-labelledby="home-decision-title">
       <div className="home-section-title"><div><small>{copy("BURADAN BAŞLA", "START HERE")}</small><h2 id="home-decision-title">{copy("Ne yapmak istiyorsun?", "What do you want to do?")}</h2></div><span>{copy("Tek dokunuş", "One tap")}</span></div>

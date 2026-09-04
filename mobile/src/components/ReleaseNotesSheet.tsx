@@ -6,19 +6,19 @@ import { Sheet } from "./Sheet";
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { copy } = useI18n();
   const changes = [
-    ["sparkles", copy("Yeni renk sistemi", "New colour system"), copy("Beyaz, siyah, canlı mavi ve marka sarısı bütün ekranlarda daha temiz ve tutarlı kullanılıyor.", "White, black, vivid blue and the signature yellow now create a cleaner, consistent experience across every screen.")],
-    ["globe", copy("Dünya artık daha erişilebilir", "More of the world, within reach"), copy("Aranabilir ülke seçiciler, çevrimdışı acil ifade kartları ve gerçek Kosova bayrağı eklendi.", "Searchable country pickers, offline emergency phrase cards and the correct Kosovo flag are now included.")],
-    ["map", copy("Etkileşimli pasaport haritası", "Interactive passport map"), copy("Haritayı kendi alanında yakınlaştırabilir, sürükleyebilir ve ülkeleri bayraklarıyla keşfedebilirsin.", "Zoom and pan inside the map itself, then explore countries together with their flags.")],
-    ["calendar", copy("Daha güvenli tarih akışları", "Safer date flows"), copy("Geçmiş tarihler ve hatalı tarih aralıkları hem ekranda hem sunucuda engelleniyor.", "Past dates and invalid date ranges are now blocked in both the interface and the server.")],
-    ["check", copy("Mobil ayrıntılar düzeltildi", "Mobile details refined"), copy("Taşan alanlar, görseller, seçim vurguları ve yönetici belge inceleme akışı iyileştirildi.", "Overflowing fields, destination artwork, selection states and the admin evidence review flow have been refined.")],
+    ["calendar", copy("Tarihler artık gerçek alanlarda", "Dates now sit in real fields"), copy("Etkinlik, kokpit, fiyat alarmı ve yönetici ekranındaki tarih-saat seçimleri aynı, sola hizalı mobil alanı kullanıyor.", "Event, cockpit, price alert and admin date-time pickers now use the same left-aligned mobile field.")],
+    ["map", copy("Net ve tam ekran pasaport haritası", "Crisp full-screen passport map"), copy("Vektör harita sekiz kata kadar yakınlaşıyor; büyük bayraklar, sürükleme ve tam ekran görünüm haritanın içinde çalışıyor.", "The vector map zooms up to eight times with larger flags, panning and a full-screen view contained inside the map.")],
+    ["plane", copy("Canlı uçuş evreleri", "Live flight phases"), copy("Kalkıştan sonra Uçuyoruz görünür; geri sayım kalkıştan varış tarafına otomatik geçer.", "After departure, Flying appears and the countdown moves automatically from departure to arrival.")],
+    ["suitcase", copy("Kişisel ana sayfa", "A personal home screen"), copy("Yaklaşan veya devam eden seyahatin ana sayfada öne çıkar; planlama kısayolları daha sıkı bir düzende sunulur.", "Your next or active trip is highlighted on the home screen in a tighter, more useful layout.")],
+    ["offline", copy("Daha sade yerel yardımcı", "A cleaner local companion"), copy("Seçilen ülkeyi tekrar eden büyük kart kaldırıldı; çevrimdışı dil durumu küçük bir notla gösteriliyor.", "The large duplicate country card is gone, replaced by a compact offline-language note.")],
   ] as const;
 
   return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`)} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
-      <h3>{copy("Daha temiz, daha geniş, daha kullanışlı.", "Cleaner, broader and easier to use.")}</h3>
-      <p>{copy(`Build ${config.buildNumber}, dünya araçlarını ve mobil deneyimi baştan sona iyileştirir.`, `Build ${config.buildNumber} upgrades the world tools and mobile experience from end to end.`)}</p>
+      <h3>{copy("Daha net, daha kişisel, daha canlı.", "Sharper, more personal and more alive.")}</h3>
+      <p>{copy(`Build ${config.buildNumber}, tarih alanlarını, pasaport haritasını, ana sayfayı ve uçuş canlı etkinliğini yeniler.`, `Build ${config.buildNumber} refreshes date fields, the passport map, home screen and flight Live Activity.`)}</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, description]) => <div key={title}>

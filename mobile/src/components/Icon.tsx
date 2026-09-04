@@ -6,7 +6,8 @@ export type IconName =
   | "check" | "alert" | "close" | "swap" | "calendar" | "mail" | "lock" | "unlock"
   | "trash" | "external" | "wifi" | "offline" | "refresh" | "plus"
   | "cloud" | "sun" | "wallet" | "users" | "bookmark" | "info" | "logout"
-  | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield";
+  | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield"
+  | "clock" | "expand";
 
 // Sabit ikon ağacı modül yüklenirken yalnız bir kez oluşturulur. Önceki
 // sürümde bu 41 öğelik nesne her <Icon> renderında yeniden kuruluyordu;
@@ -32,6 +33,8 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     close: <path d="m6 6 12 12M18 6 6 18"/>,
     swap: <path d="M7 7h12l-3-3m3 3-3 3M17 17H5l3 3m-3-3 3-3"/>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
+    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="M3 8l5-5M21 8l-5-5M3 16l5 5M21 16l-5 5"/></>,
     mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
     lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
     unlock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.4-2.1"/></>,

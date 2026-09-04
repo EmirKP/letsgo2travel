@@ -17,37 +17,97 @@ private extension Color {
     static let l2tGold = Color(red: 0xF6 / 255, green: 0xC4 / 255, blue: 0x45 / 255)
 }
 
-// Kalkış GEÇMİŞSE Date.now...departureAt TERS ClosedRange olur (aktivite
-// kalkıştan sonra +1 saat açık kalır) — ters aralık runtime hatasıdır.
-// Tüm görünümler geri sayımı BU tek yardımcıdan alır: gelecekte → canlı
-// geri sayım; geçti → güvenli "kalkış gerçekleşti" görünümü.
-// (TS ayna testi: mobile/src/lib/liveActivity.ts countdownMode.)
-private struct FlightStatus: View {
+private enum FlightPhase: Equatable {
+    case waiting
+    case flying
+    case arrived
+}
+
+private func flightPhase(departureAt: Date, arrivalAt: Date?, now: Date) -> FlightPhase {
+    if now < departureAt { return .waiting }
+    if let arrivalAt, arrivalAt > departureAt, now < arrivalAt { return .flying }
+    return .arrived
+}
+
+// TimelineView, uygulama kapalıyken de kalkış anında "Uçuyoruz" evresine
+// ve ardından varış evresine geçer. Her sayaç yalnız gelecekteki bir tarih
+// için oluşturulur; ters ClosedRange kaynaklı 0:00 takılması oluşmaz.
+private struct FlightPhaseLabel: View {
     let departureAt: Date
     let arrivalAt: Date?
     let language: String
-    var compact = false
+    let title: String
 
     private var isEnglish: Bool { language == "en" }
 
     var body: some View {
-        if departureAt > Date.now {
-            Text(timerInterval: Date.now...departureAt, countsDown: true)
-        } else if let arrivalAt, arrivalAt > Date.now, arrivalAt > departureAt {
-            if compact {
-                Text(timerInterval: Date.now...arrivalAt, countsDown: true)
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "airplane")
-                    Text(isEnglish ? "Flying" : "Uçuyoruz")
-                    Text("·")
-                    Text(timerInterval: Date.now...arrivalAt, countsDown: true)
+        TimelineView(.periodic(from: .now, by: 15)) { timeline in
+            VStack(spacing: 2) {
+                switch flightPhase(departureAt: departureAt, arrivalAt: arrivalAt, now: timeline.date) {
+                case .waiting:
+                    Text(isEnglish ? "Getting ready" : "Uçuşa hazırlan")
+                case .flying:
+                    HStack(spacing: 4) {
+                        Image(systemName: "airplane")
+                        Text(isEnglish ? "Flying" : "Uçuyoruz")
+                    }
+                    .foregroundStyle(Color.l2tGold)
+                case .arrived:
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text(isEnglish ? "Arrived" : "Varış tamamlandı")
+                    }
                 }
+                Text(title).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
-        } else if compact {
-            Image(systemName: "checkmark.circle.fill")
-        } else {
-            Text(isEnglish ? "Welcome · You have arrived" : "Hoş geldin · Varış tamamlandı")
+        }
+    }
+}
+
+private struct FlightCountdown: View {
+    let departureAt: Date
+    let arrivalAt: Date?
+    let language: String
+    let kind: FlightPhase
+
+    private var isEnglish: Bool { language == "en" }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 15)) { timeline in
+            let currentPhase = flightPhase(departureAt: departureAt, arrivalAt: arrivalAt, now: timeline.date)
+            if kind == .waiting, currentPhase == .waiting {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(isEnglish ? "Departs in" : "Kalkışa").font(.system(size: 9, weight: .semibold))
+                    Text(timerInterval: timeline.date...departureAt, countsDown: true).font(.caption.bold().monospacedDigit())
+                }
+                .foregroundStyle(Color.l2tGold)
+            } else if kind == .flying, currentPhase == .flying, let arrivalAt = arrivalAt {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(isEnglish ? "Arrives in" : "Varışa").font(.system(size: 9, weight: .semibold))
+                    Text(timerInterval: timeline.date...arrivalAt, countsDown: true).font(.caption.bold().monospacedDigit())
+                }
+                .foregroundStyle(Color.l2tGold)
+            }
+        }
+    }
+}
+
+private struct CompactFlightStatus: View {
+    let departureAt: Date
+    let arrivalAt: Date?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 15)) { timeline in
+            switch flightPhase(departureAt: departureAt, arrivalAt: arrivalAt, now: timeline.date) {
+            case .waiting:
+                Text(timerInterval: timeline.date...departureAt, countsDown: true)
+            case .flying:
+                if let arrivalAt = arrivalAt {
+                    Text(timerInterval: timeline.date...arrivalAt, countsDown: true)
+                }
+            case .arrived:
+                Image(systemName: "checkmark.circle.fill")
+            }
         }
     }
 }
@@ -67,6 +127,13 @@ struct FlightActivityWidget: Widget {
                         Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                             .font(.title2.bold()).foregroundStyle(Color.l2tGold)
                         Text(context.attributes.language == "en" ? "Departure" : "Kalkış").font(.caption2).foregroundStyle(.secondary)
+                        Text(context.state.departureAt, style: .time).font(.caption).foregroundStyle(.white)
+                        FlightCountdown(
+                            departureAt: context.state.departureAt,
+                            arrivalAt: context.state.arrivalAt,
+                            language: context.attributes.language ?? "tr",
+                            kind: .waiting
+                        )
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -74,46 +141,48 @@ struct FlightActivityWidget: Widget {
                         Text(context.attributes.destinationIata.isEmpty ? "—" : context.attributes.destinationIata)
                             .font(.title2.bold()).foregroundStyle(Color.l2tGold)
                         Text(context.attributes.language == "en" ? "Arrival" : "Varış").font(.caption2).foregroundStyle(.secondary)
+                        if let arrivalAt = context.state.arrivalAt {
+                            Text(arrivalAt, style: .time).font(.caption).foregroundStyle(.white)
+                        }
+                        FlightCountdown(
+                            departureAt: context.state.departureAt,
+                            arrivalAt: context.state.arrivalAt,
+                            language: context.attributes.language ?? "tr",
+                            kind: .flying
+                        )
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.attributes.title).font(.caption).lineLimit(1)
+                    FlightPhaseLabel(
+                        departureAt: context.state.departureAt,
+                        arrivalAt: context.state.arrivalAt,
+                        language: context.attributes.language ?? "tr",
+                        title: context.attributes.title
+                    )
+                    .font(.caption.bold())
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 7) {
-                        HStack {
-                            Text(context.state.departureAt, style: .time)
-                            Spacer()
-                            FlightStatus(
-                                departureAt: context.state.departureAt,
-                                arrivalAt: context.state.arrivalAt,
-                                language: context.attributes.language ?? "tr"
-                            )
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(Color.l2tGold)
-                        }
-                        if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
-                            ProgressView(timerInterval: context.state.departureAt...arrivalAt)
-                                .tint(Color.l2tGold)
-                        }
+                    if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
+                        ProgressView(timerInterval: context.state.departureAt...arrivalAt)
+                            .tint(Color.l2tGold)
                     }
                 }
             } compactLeading: {
                 Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                     .font(.caption2.bold()).foregroundStyle(Color.l2tGold)
             } compactTrailing: {
-                FlightStatus(
+                CompactFlightStatus(
                     departureAt: context.state.departureAt,
-                    arrivalAt: context.state.arrivalAt,
-                    language: context.attributes.language ?? "tr",
-                    compact: true
+                    arrivalAt: context.state.arrivalAt
                 )
                     .font(.caption2.monospacedDigit())
                     .frame(maxWidth: 52)
             } minimal: {
-                let arrived = context.state.arrivalAt.map { $0 <= Date.now } ?? false
-                Image(systemName: arrived ? "checkmark.circle.fill" : (context.state.departureAt > Date.now ? "airplane.departure" : "airplane"))
-                    .foregroundStyle(Color.l2tGold)
+                TimelineView(.periodic(from: .now, by: 15)) { timeline in
+                    let phase = flightPhase(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt, now: timeline.date)
+                    Image(systemName: phase == .arrived ? "checkmark.circle.fill" : (phase == .waiting ? "airplane.departure" : "airplane"))
+                        .foregroundStyle(Color.l2tGold)
+                }
             }
             .widgetURL(URL(string: context.attributes.deepLink))
         }
@@ -127,24 +196,43 @@ private struct LockScreenView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "airplane.departure").foregroundStyle(Color.l2tGold)
-                Text(context.attributes.title).font(.headline).foregroundStyle(.white).lineLimit(1)
+                FlightPhaseLabel(
+                    departureAt: context.state.departureAt,
+                    arrivalAt: context.state.arrivalAt,
+                    language: context.attributes.language ?? "tr",
+                    title: context.attributes.title
+                )
+                .font(.headline)
+                .foregroundStyle(.white)
                 Spacer()
             }
-            HStack(alignment: .firstTextBaseline) {
-                if !context.attributes.originIata.isEmpty || !context.attributes.destinationIata.isEmpty {
-                    Text("\(context.attributes.originIata) → \(context.attributes.destinationIata)")
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                         .font(.title3.bold()).foregroundStyle(Color.l2tGold)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(context.state.departureAt, style: .time)
-                        .font(.subheadline).foregroundStyle(.white)
-                    FlightStatus(
+                    Text(context.attributes.language == "en" ? "Departure" : "Kalkış").font(.caption2).foregroundStyle(.secondary)
+                    Text(context.state.departureAt, style: .time).font(.subheadline).foregroundStyle(.white)
+                    FlightCountdown(
                         departureAt: context.state.departureAt,
                         arrivalAt: context.state.arrivalAt,
-                        language: context.attributes.language ?? "tr"
+                        language: context.attributes.language ?? "tr",
+                        kind: .waiting
                     )
-                        .font(.headline.monospacedDigit()).foregroundStyle(Color.l2tGold)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(context.attributes.destinationIata.isEmpty ? "—" : context.attributes.destinationIata)
+                        .font(.title3.bold()).foregroundStyle(Color.l2tGold)
+                    Text(context.attributes.language == "en" ? "Arrival" : "Varış").font(.caption2).foregroundStyle(.secondary)
+                    if let arrivalAt = context.state.arrivalAt {
+                        Text(arrivalAt, style: .time).font(.subheadline).foregroundStyle(.white)
+                    }
+                    FlightCountdown(
+                        departureAt: context.state.departureAt,
+                        arrivalAt: context.state.arrivalAt,
+                        language: context.attributes.language ?? "tr",
+                        kind: .flying
+                    )
                 }
             }
             if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {

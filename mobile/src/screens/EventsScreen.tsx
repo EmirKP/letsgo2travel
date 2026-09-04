@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
+import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
@@ -219,19 +220,17 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
           <option value="">{citiesLoading ? copy("Şehirler yükleniyor…", "Loading cities…") : countryCode ? copy("Tüm şehirler", "All cities") : copy("Önce ülke seç", "Choose a country first")}</option>
           {cities.map((option) => <option value={option.placeCode} key={option.placeCode}>{option.name}</option>)}
         </select></label>
-        <label>{copy("Başlangıç", "From")}<input type="date" min={localIsoDate(0)} max={localIsoDate(366)} value={startDate} onChange={(event) => {
-          const requested = event.target.value;
+        <DateTimeField type="date" label={copy("Başlangıç", "From")} min={localIsoDate(0)} max={localIsoDate(366)} value={startDate} onChange={(requested) => {
           const nextStartDate = clampLocalDate(requested, localIsoDate(0), localIsoDate(366));
           setStartDate(nextStartDate);
           if (endDate && nextStartDate && endDate < nextStartDate) setEndDate(nextStartDate);
           if (requested && requested !== nextStartDate) onNotice(copy("Geçmiş bir başlangıç tarihi seçilemez.", "A past start date cannot be selected."));
-        }} /></label>
-        <label>{copy("Bitiş", "To")}<input type="date" min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(event) => {
-          const requested = event.target.value;
+        }} />
+        <DateTimeField type="date" label={copy("Bitiş", "To")} min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(requested) => {
           const nextEndDate = clampLocalDate(requested, startDate || localIsoDate(0), localIsoDate(366));
           setEndDate(nextEndDate);
           if (requested && requested !== nextEndDate) onNotice(copy("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date."));
-        }} /></label>
+        }} />
       </div>
       {countryCode && !cityPlaceCode && !citiesLoading && !citiesError && <p className="event-city-scope"><Icon name="info" size={14} /> {copy("Tüm şehirler seçiliyken ülke genelindeki sonuçlar aranır; canlı kapsam sağlayıcıya göre değişebilir.", "With all cities selected, results are searched countrywide; live coverage can vary by provider.")}</p>}
       {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}

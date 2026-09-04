@@ -513,7 +513,8 @@ test("mobil fiyat alarmı: hata durumu veriyi korur, yeniden deneme ve zorunlu a
   assert.ok(screen.includes("Tekrar dene"), "yükleme hatasının yeniden deneme eylemi olmalı");
   assert.ok(screen.includes("!loadError && !actionError"), "hata ile boş durum aynı anda çizilmemeli");
   assert.match(screen, /<AirportField label=\{copy\("Nereden", "From"\)\} required/, "kalkış seçimi iki dilde de semantik olarak zorunlu olmalı");
-  assert.ok(screen.includes('type="date" required aria-required="true"'), "tarih semantik olarak zorunlu olmalı");
+  const dateField = readFileSync("mobile/src/components/DateTimeField.tsx", "utf8");
+  assert.ok(screen.includes('<DateTimeField type="date" required') && dateField.includes("aria-required={required || undefined}"), "tarih semantik olarak zorunlu olmalı");
   assert.ok(screen.includes('<fieldset className="alert-channels"'), "bildirim kanalları erişilebilir bir alan grubu olmalı");
   assert.ok(screen.includes("alert.last_error_message"), "sunucunun alarm uyarısı kullanıcıya gösterilmeli");
 });
@@ -804,7 +805,7 @@ test("mobil optimizasyon: ağır modüller bölünür, harita kendi alanında ya
   assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri gereksiz yere yeniden çizilmemeli");
   assert.ok(map.includes("onClick={selectCountry}"), "haritada ülkeye dokunma çalışmalı");
   assert.ok(map.includes('data-no-gesture') && map.includes('touchmove') && map.includes('passport-map-controls'), "pinch/pan yalnız harita alanında çalışmalı ve görünür kontroller sunmalı");
-  assert.ok(map.includes("MAX_SCALE = 4") && map.includes("commitTransform"), "harita yakınlığı güvenli aralıkta tutulmalı");
+  assert.ok(map.includes("MAX_SCALE = 8") && map.includes("commitTransform"), "harita yakınlığı güvenli aralıkta tutulmalı");
   assert.ok(airport.includes("const requestId = ++generation.current"), "eski havalimanı cevapları geçersiz kılınmalı");
   assert.ok(splash.includes('assets/splash-mark.webp'), "açılışta büyük App Store ikonu taşınmamalı");
   assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
@@ -833,7 +834,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 18);
+  assert.equal(release.buildNumber, 19);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -912,8 +913,8 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
   assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
   assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
-  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = 4") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
-  assert.ok(styles.includes("height: clamp(260px,68vw,330px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
+  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = 8") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
+  assert.ok(styles.includes("height: clamp(300px,78vw,380px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
   assert.ok(admin.includes("setEvidencePreview") && admin.includes('evidencePreview.evidenceType === "application/pdf"') && admin.includes("disabled={!evidenceLoaded}"), "belge uygulama içinde önizlenmeden incelendi sayılamamalı");
   assert.ok(admin.includes("!opened.has(item.id)") && admin.includes("Önce belgeyi incele"), "onay ve red belge incelemesine kadar kilitli kalmalı");
 });
@@ -947,6 +948,37 @@ test("Build 18: öneri kartlarında şehirle eşleşen yerel görseller bulunur"
     assert.ok(image.size > 30_000 && image.size < 250_000, `${name} görseli gerçek içerik taşımalı ve mobil boyutta kalmalı`);
   }
   assert.ok(artwork.includes('fallbackArtwork from "../assets/launch-travel-poster.webp"'), "bilinmeyen şehir başka bir destinasyon gibi gösterilmemeli");
+});
+
+test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde sadeleşir", () => {
+  const field = readFileSync("mobile/src/components/DateTimeField.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const events = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
+  const alerts = readFileSync("mobile/src/screens/PriceAlertsScreen.tsx", "utf8");
+  const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
+  const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
+
+  assert.ok(field.includes('type: "date" | "time" | "datetime-local"') && field.includes("date-time-control"), "tarih ve saatler tek erişilebilir bileşende toplanmalı");
+  for (const [name, source] of [["etkinlik", events], ["kokpit", cockpit], ["fiyat alarmı", alerts], ["yönetici", admin]] as const) {
+    assert.ok(source.includes("<DateTimeField"), `${name} ortak tarih alanını kullanmalı`);
+  }
+  assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
+  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-focus") && home.includes("Yeni seyahat planla"), "ana sayfa yaklaşan seyahati ve doğrudan planlama eylemini göstermeli");
+  assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
+});
+
+test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etkinliği kendi kendine evre değiştirir", () => {
+  const map = readFileSync("mobile/src/components/PassportWorldMap.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const widget = readFileSync("ios/App/FlightActivityWidget/FlightActivityWidget.swift", "utf8");
+
+  assert.ok(map.includes("MAX_SCALE = 8") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sekiz kat yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
+  assert.ok(!map.includes("style={{ transform:") && styles.includes("shape-rendering: geometricPrecision"), "SVG CSS ile büyütülüp bulanıklaştırılmamalı");
+  assert.ok(map.includes("fontSize={19}") && map.includes("width={22}") && map.includes("href={kosovoFlag}"), "bayraklar okunur boyutta ve Kosova gerçek görseliyle kalmalı");
+  assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('Text(isEnglish ? "Flying" : "Uçuyoruz")'), "canlı etkinlik uygulama kapalıyken uçuş evresine geçmeli");
+  assert.ok(widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")') && widget.includes("kind: .flying"), "varış sayacı sağ tarafta sarı uçuş sayacı olarak görünmeli");
 });
 
 test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {

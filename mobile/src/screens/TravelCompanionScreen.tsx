@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
-import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
@@ -147,7 +146,9 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
 
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" role="tabpanel">
       <CountryPicker value={countryCode} options={countryOptions} onChange={setCountryCode} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
-      <div className="essential-heading"><span><CountryFlag code={profile.code} label={locale === "tr" ? profile.nameTr : profile.nameEn} /></span><div><small>{tab === "phrases" ? copy("İNTERNETSİZ HAZIR İFADELER", "OFFLINE ESSENTIAL PHRASES") : copy("GÖRGÜ, KÜLTÜR VE UYARILAR", "ETIQUETTE, CULTURE & CAUTIONS")}</small><h2>{locale === "tr" ? profile.nameTr : profile.nameEn}</h2><p>{tab === "phrases" ? (locale === "tr" ? profile.languageTr : profile.languageEn) : copy("Kısa ve pratik yerel notlar", "Short, practical local notes")}</p></div></div>
+      {supportedProfiles.has(countryCode) && <p className="essential-language-note"><Icon name="offline" size={15} /> {tab === "phrases"
+        ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`)
+        : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
       {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}><small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}<div><button onClick={() => void copyPhrase(phrase.local)}><Icon name="bookmark" size={16} />{copy("Kopyala", "Copy")}</button><button onClick={() => speak(phrase.local)}><Icon name="bell" size={16} />{copy("Dinle", "Listen")}</button></div></article>)}</div>
         : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><p>{locale === "tr" ? rule.tr : rule.en}</p></article>)}</div>}

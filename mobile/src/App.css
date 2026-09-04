@@ -1619,3 +1619,61 @@ body,.app-shell { color: #111; background: #fff; }
   .passport-map-viewport { height: 270px; }
   .admin-actions button { flex: 1 1 calc(50% - 4px); }
 }
+
+/* =====================================================================
+   Build 19 — ortak iOS alanları, kişisel ana sayfa ve net dünya haritası
+   ===================================================================== */
+.date-time-field { min-width: 0; width: 100%; display: grid; gap: 6px; color: #424a58; font-size: 11.5px; font-weight: 800; }
+.date-time-label { min-width: 0; line-height: 1.35; }
+.date-time-control { position: relative; width: 100%; min-width: 0; min-height: 52px; padding: 0 13px; display: grid; grid-template-columns: 23px minmax(0,1fr) 17px; align-items: center; gap: 9px; overflow: hidden; border: 1px solid #d6dce6; border-radius: 14px; color: #7a828e; background: #fff; box-shadow: 0 2px 5px rgba(20,28,45,.025); }
+.date-time-control.has-value { color: #111; }
+.date-time-control > svg:first-child { color: var(--brand-blue); }
+.date-time-control > svg:nth-of-type(2) { color: #818995; transform: rotate(90deg); }
+.date-time-control strong { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 800; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.date-time-control input { position: absolute; z-index: 2; inset: 0; width: 100%; min-width: 0; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: inherit; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.date-time-control:focus-within { border-color: var(--brand-blue); outline: 2px solid rgba(35,82,196,.25); outline-offset: 1px; }
+.date-time-field.disabled { opacity: .55; }
+.date-time-field.disabled .date-time-control { background: #f3f4f7; }
+.form-grid > .date-time-field,.event-search-grid > .date-time-field,.admin-event-form .date-time-field { min-width: 0; max-width: 100%; }
+.cockpit-arrival-fields { padding: 12px; display: grid; gap: 11px; border: 1px solid #e1e5ed; border-radius: 17px; background: #fafbfe; }
+
+.essential-language-note { width: max-content; max-width: 100%; margin: 9px 0 0; padding: 6px 9px; display: flex; align-items: center; gap: 6px; border-radius: 999px; color: #31466f; background: #eef2ff; font-size: 10px; font-weight: 750; }
+.essential-language-note svg { flex: 0 0 auto; color: var(--brand-blue); }
+.phrase-list,.etiquette-list { margin-top: 9px; }
+
+.home-purpose { padding: 18px; }
+.home-purpose h2 { max-width: 390px; margin: 11px 0 7px; font-size: clamp(25px,7vw,34px); }
+.home-purpose > p { max-width: 470px; font-size: 12px; line-height: 1.48; }
+.home-purpose-action { position: relative; z-index: 1; width: 100%; min-height: 48px; margin-top: 14px; padding: 0 12px; display: grid; grid-template-columns: 21px minmax(0,1fr) 17px; align-items: center; gap: 8px; border: 0; border-radius: 14px; color: #111; background: var(--brand-yellow); font-size: 12px; font-weight: 850; text-align: left; box-shadow: 0 8px 18px rgba(189,143,35,.2); }
+.home-trip-focus { min-height: 88px; padding: 13px; display: grid; grid-template-columns: 45px minmax(0,1fr) 44px; align-items: center; gap: 10px; border: 1px solid #d9e1fb; border-radius: 19px; color: #111; background: linear-gradient(120deg,#f3f6ff,#fff); box-shadow: 0 8px 22px rgba(35,82,196,.055); }
+.home-trip-focus > span:first-child { width: 45px; height: 45px; display: grid; place-items: center; border-radius: 14px; color: var(--brand-blue); background: #e5ebff; }
+.home-trip-focus > div { min-width: 0; display: grid; gap: 3px; }
+.home-trip-focus small { color: var(--brand-blue); font-size: 9px; font-weight: 900; letter-spacing: .1em; }
+.home-trip-focus strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.home-trip-focus p { margin: 0; overflow: hidden; color: #646d79; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.home-trip-focus > button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 13px; color: var(--brand-blue); background: #e8edff; }
+.home-trip-focus.empty { border-color: #e0e3e9; background: #fff; }
+.home-trip-focus.empty > span:first-child { color: #5f6671; background: #f0f2f5; }
+.home-decision-list > button { min-height: 66px; }
+
+body.passport-map-open { overflow: hidden; overscroll-behavior: none; }
+.passport-map { background: #f4f8fd; box-shadow: 0 10px 28px rgba(20,28,45,.08); }
+.passport-map::before { display: none; }
+.passport-map-viewport { height: clamp(300px,78vw,380px); background: #f4f8fd; }
+.passport-map svg { width: 100%; height: 100%; transform: none; will-change: auto; shape-rendering: geometricPrecision; }
+.passport-map path { shape-rendering: geometricPrecision; }
+.passport-map-controls { top: 9px; right: 9px; grid-template-columns: repeat(3,40px); gap: 5px; }
+.passport-map-controls button { width: 40px; height: 40px; border-radius: 12px; font-size: 21px; box-shadow: 0 4px 13px rgba(20,28,45,.11); }
+.passport-map-controls .passport-map-reset { grid-column: 1 / -1; width: 130px; height: 34px; justify-self: end; }
+.passport-map-flag { font-family: "Apple Color Emoji","Segoe UI Emoji",sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.98); stroke-width: 3px; filter: drop-shadow(0 1px 1px rgba(20,28,45,.23)); }
+.passport-map-flag.selected { stroke: var(--brand-yellow); stroke-width: 5px; }
+.passport-map.fullscreen { position: fixed; z-index: 200; inset: 0; margin: 0; border: 0; border-radius: 0; background: #f4f8fd; }
+.passport-map.fullscreen .passport-map-viewport { width: 100%; height: 100dvh; }
+.passport-map.fullscreen .passport-map-controls { top: max(12px,env(safe-area-inset-top)); right: max(12px,env(safe-area-inset-right)); }
+
+@media (max-width: 380px) {
+  .date-time-control { min-height: 50px; padding: 0 11px; }
+  .date-time-control strong { font-size: 14px; }
+  .passport-map-viewport { height: 300px; }
+  .home-trip-focus { grid-template-columns: 42px minmax(0,1fr) 42px; padding: 11px; }
+}
