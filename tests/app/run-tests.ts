@@ -794,7 +794,7 @@ test("profil güvenliği: kullanıcı kendi rolünü yükseltemez, güvenli terc
     "rol değişikliği anonim istemci yerine service-role sunucu istemcisinden yapılmalı");
 });
 
-test("mobil optimizasyon: ağır modüller bölünür, harita sabit katmanda çizilir", () => {
+test("mobil optimizasyon: ağır modüller bölünür, harita kendi alanında yakınlaşır", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const map = readFileSync("mobile/src/components/PassportWorldMap.tsx", "utf8");
   const splash = readFileSync("mobile/src/components/AnimatedSplash.tsx", "utf8");
@@ -802,8 +802,9 @@ test("mobil optimizasyon: ağır modüller bölünür, harita sabit katmanda çi
   assert.ok(app.includes('lazy(() => import("./screens/PassportScreen")'), "pasaport modülü açılış paketinden ayrılmalı");
   assert.ok(app.includes('lazy(() => import("./screens/AdminScreen")'), "admin kodu yalnız gerektiğinde yüklenmeli");
   assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri gereksiz yere yeniden çizilmemeli");
-  assert.ok(map.includes("onClick={selectCountry}"), "sabit haritada ülkeye dokunma çalışmalı");
-  assert.ok(!map.includes("onWheel") && !map.includes("onPointerMove") && !map.includes("passport-map-controls"), "harita pan/pinch/zoom içermemeli");
+  assert.ok(map.includes("onClick={selectCountry}"), "haritada ülkeye dokunma çalışmalı");
+  assert.ok(map.includes('data-no-gesture') && map.includes('touchmove') && map.includes('passport-map-controls'), "pinch/pan yalnız harita alanında çalışmalı ve görünür kontroller sunmalı");
+  assert.ok(map.includes("MAX_SCALE = 4") && map.includes("commitTransform"), "harita yakınlığı güvenli aralıkta tutulmalı");
   assert.ok(airport.includes("const requestId = ++generation.current"), "eski havalimanı cevapları geçersiz kılınmalı");
   assert.ok(splash.includes('assets/splash-mark.webp'), "açılışta büyük App Store ikonu taşınmamalı");
   assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
@@ -832,7 +833,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 17);
+  assert.equal(release.buildNumber, 18);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -887,6 +888,67 @@ test("Build 17: açılış videosu hafif, sessiz ve güvenli geri dönüşlüdü
   assert.ok(component.includes("prefers-reduced-motion") && styles.includes(".animated-splash-media") && styles.includes("object-fit: cover"), "azaltılmış hareket ve dikey ekran yerleşimi korunmalı");
 });
 
+test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sözleşmesini korur", () => {
+  const indexStyles = readFileSync("mobile/src/index.css", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const capacitor = readFileSync("capacitor.config.ts", "utf8");
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const picker = readFileSync("mobile/src/components/CountryPicker.tsx", "utf8");
+  const flag = readFileSync("mobile/src/components/CountryFlag.tsx", "utf8");
+  const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
+  const community = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
+  const verification = readFileSync("mobile/src/components/VerificationForm.tsx", "utf8");
+  const essentials = readFileSync("mobile/src/data/travelEssentials.ts", "utf8");
+  const map = readFileSync("mobile/src/components/PassportWorldMap.tsx", "utf8");
+  const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
+  const countries = JSON.parse(readFileSync("mobile/src/data/iso3166.json", "utf8")) as Array<{ alpha2: string; alpha3: string; flag: string }>;
+
+  assert.ok(indexStyles.includes("--brand-blue: #2352c4") && indexStyles.includes("--brand-yellow: #eac361") && indexStyles.includes("background: #ffffff"), "onaylanan beyaz, siyah, mavi ve sarı palet korunmalı");
+  assert.ok(styles.includes("Build 17 tema değerleri Git geçmişindeki ana committe korunur") && styles.includes("Build 18 — beyaz / siyah / marka mavisi / sıcak sarı tema"), "eski tema geri dönüş noktası belgelenmeli");
+  assert.ok(capacitor.includes('backgroundColor: "#2352C4"') && capacitor.includes("overlaysWebView: true") && app.includes("setOverlaysWebView?.({ overlay: true })"), "açılış ve üst güvenli alan kesintisiz marka mavisi olmalı");
+  assert.ok(picker.includes('type="search"') && picker.includes('role="listbox"') && picker.includes("CountryFlag"), "ülke seçimi aranabilir ve erişilebilir özel panel kullanmalı");
+  assert.ok(countries.length >= 250 && countries.some((country) => country.alpha2 === "XK" && country.alpha3 === "XKK"), "tam ülke listesi Kosova koduyla birlikte paketlenmeli");
+  assert.ok(flag.includes("assets/flags/kosovo.svg") && statSync("mobile/src/assets/flags/kosovo.svg").size > 200, "Kosova beyaz bayrak yerine yerel gerçek bayrağı kullanmalı");
+  assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
+  assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
+  assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
+  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = 4") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
+  assert.ok(styles.includes("height: clamp(260px,68vw,330px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
+  assert.ok(admin.includes("setEvidencePreview") && admin.includes('evidencePreview.evidenceType === "application/pdf"') && admin.includes("disabled={!evidenceLoaded}"), "belge uygulama içinde önizlenmeden incelendi sayılamamalı");
+  assert.ok(admin.includes("!opened.has(item.id)") && admin.includes("Önce belgeyi incele"), "onay ve red belge incelemesine kadar kilitli kalmalı");
+});
+
+test("Build 18: geçmiş tarih engeli bütün kullanıcı ve yönetici girişlerinde uygulanır", () => {
+  const events = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
+  const alerts = readFileSync("mobile/src/screens/PriceAlertsScreen.tsx", "utf8");
+  const mobileData = readFileSync("mobile/src/lib/supabaseData.ts", "utf8");
+  const webAlerts = readFileSync("app/components/FiyatAlarmClient.tsx", "utf8");
+  const webCockpit = readFileSync("app/components/cockpit/Cockpit.tsx", "utf8");
+  const webCockpitData = readFileSync("app/seyahat-kokpiti/CockpitPageClient.tsx", "utf8");
+  const visa = readFileSync("app/vize-randevu/VisaAppointmentClient.tsx", "utf8");
+  const adminRoute = readFileSync("app/api/admin/events/route.ts", "utf8");
+
+  assert.ok(events.includes("clampLocalDate") && events.includes("isValidDateRange"), "mobil etkinlik tarihleri hem girişte hem aramada doğrulanmalı");
+  assert.ok(cockpit.includes("isPastLocalDateTime") && cockpit.includes("minuteAfter(form.departureTime)"), "kokpit geçmiş saati ve kalkıştan önce varışı engellemeli");
+  assert.ok(alerts.includes("clampLocalDate") && mobileData.includes("input.startDate < localIsoDate(0)"), "mobil seyahat ve fiyat alarmı girişleri veri katmanına ulaşmadan geçmişi reddetmeli");
+  assert.ok(webAlerts.includes('min={localIsoDate(0)}') && webAlerts.includes("form.departureDate < localIsoDate(0)"), "web fiyat alarmı geçmiş tarihi engellemeli");
+  assert.ok(webCockpit.includes('min={today}') && webCockpit.includes("Uçuş tarihi ve saati geçmişte olamaz"), "web kokpit takvim ve gönderimde geçmişi engellemeli");
+  assert.ok(webCockpitData.includes("input.startDate < today") && webCockpitData.includes("Date.parse(departureAt) < Date.now()"), "web kokpit veri yazımından hemen önce tarihi yeniden doğrulamalı");
+  assert.ok(visa.includes('min={inputDate(1)}') && visa.includes('max={inputDate(365)}') && visa.includes("clampInputDate"), "vize randevusu yalnız geçerli gelecek aralığını kabul etmeli");
+  assert.ok(adminRoute.includes('status === "scheduled" || status === "postponed"') && adminRoute.includes("Date.now() - 60_000"), "yönetici API'si yeni veya ertelenmiş geçmiş etkinliği reddetmeli");
+});
+
+test("Build 18: öneri kartlarında şehirle eşleşen yerel görseller bulunur", () => {
+  const artwork = readFileSync("mobile/src/data/artwork.ts", "utf8");
+  for (const [code, name] of [["BKK", "bangkok"], ["TIA", "tirana"], ["TYO", "tokyo"]] as const) {
+    assert.ok(artwork.includes(`${code}: ${name}Artwork`), `${name} kendi öneri görselini kullanmalı`);
+    const image = statSync(`mobile/src/assets/destination-artwork/${name}.webp`);
+    assert.ok(image.size > 30_000 && image.size < 250_000, `${name} görseli gerçek içerik taşımalı ve mobil boyutta kalmalı`);
+  }
+  assert.ok(artwork.includes('fallbackArtwork from "../assets/launch-travel-poster.webp"'), "bilinmeyen şehir başka bir destinasyon gibi gösterilmemeli");
+});
+
 test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {
   const route = readFileSync("app/api/travel-now/route.ts", "utf8");
   const client = readFileSync("mobile/src/lib/api.ts", "utf8");
@@ -924,7 +986,7 @@ test("mobil erişilebilirlik: üst modal arka planı ayırır ve klavye odağı 
   assert.ok(sheet.includes("root.inert = true"), "açık modal ana uygulamayı etkileşime kapatmalı");
   assert.ok(sheet.includes("inert={!topSheet || undefined}"), "üst üste modallarda alt katman inert olmalı");
   assert.ok(sheet.includes("aria-modal={topSheet || undefined}"), "yalnız en üst modal aria-modal olmalı");
-  assert.ok(indexCss.includes("button:focus-visible") && indexCss.includes("outline: 3px solid"), "klavye odağı yüksek kontrastlı olmalı");
+  assert.ok(indexCss.includes("button:focus-visible") && indexCss.includes("outline: 2px solid var(--brand-blue)"), "klavye odağı marka mavisiyle görünür olmalı");
   assert.ok(!/\.search-input input[^}]*outline:\s*0/.test(css), "arama alanı global odak halkasını bastırmamalı");
   assert.ok(!/\.alert-form input[^}]*outline:\s*0/.test(css), "alarm alanı global odak halkasını bastırmamalı");
   assert.ok(!/\.airport-field input[^}]*outline:\s*0/.test(css), "havalimanı alanı global odak halkasını bastırmamalı");

@@ -99,7 +99,7 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("Kolay vize", "Easy visa")}</span></div>
       </div>
 
-      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("Ayrıntısını açmak için bir ülkeye dokun. İstersen aşağıdaki erişilebilir ülke listesini de kullanabilirsin.", "Tap a country to open its details. You can also use the accessible country list below.")}</p>
+      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("İki parmakla yalnız haritayı yakınlaştır, sürükleyerek gez ve ayrıntı için ülkeye dokun. Sıfırla düğmesi başlangıç görünümüne döndürür.", "Pinch to zoom only the map, drag to explore and tap a country for details. Reset returns to the initial view.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
           dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen

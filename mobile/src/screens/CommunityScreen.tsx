@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { CountryPicker } from "../components/CountryPicker";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
 import { COUNTRY_LIST } from "../data/countries";
@@ -141,6 +142,11 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
     .filter((country) => /^[A-Z]{2}$/.test(country.alpha2))
     .sort((a, b) => a.name.localeCompare(b.name, locale)), [countryName, locale]);
+  const questionCountryOptions = useMemo(() => questionCountries.map((country) => ({
+    code: country.alpha2,
+    flagCode: country.alpha2,
+    name: country.name,
+  })), [questionCountries]);
   const [tab, setTab] = useState<"feed" | "league">("feed");
   const [leaders, setLeaders] = useState<CommunityLeader[]>([]);
   const [loading, setLoading] = useState(false);
@@ -410,12 +416,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
       <div className="community-feed-toolbar"><div><small>{copy("ÜLKE TOPLULUKLARI", "COUNTRY COMMUNITIES")}</small><h2>{copy("Gezginlerin soruları", "Traveller questions")}</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? copy("Kapat", "Close") : copy("Soru sor", "Ask")}</button></div>
       {questionOpen && <div className="form-card community-question-form">
-        <label>{copy("Ülke", "Country")}
-          <select value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>
-            <option value="" disabled>{copy("Hangi ülkeyle ilgili?", "Which country is this about?")}</option>
-            {questionCountries.map((country) => <option key={country.alpha2} value={country.alpha2}>{flagEmoji(country.alpha2)} {country.name}</option>)}
-          </select>
-        </label>
+        <CountryPicker value={countryCode} options={questionCountryOptions} onChange={setCountryCode} label={copy("Ülke", "Country")} placeholder={copy("Hangi ülkeyle ilgili?", "Which country is this about?")} />
         <label>{copy("Başlık", "Title")}<input value={questionTitle} maxLength={160} onChange={(event) => setQuestionTitle(event.target.value)} placeholder={copy("Gezginlere ne sormak istiyorsun?", "What would you like to ask travellers?")} /></label>
         <label>{copy("Açıklama", "Description")}<textarea value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder={copy("Sorunu anlaşılır biçimde anlat…", "Explain your question clearly…")} /></label>
         <button className="primary-wide" disabled={posting} onClick={() => void submitQuestion()}>{posting ? <span className="button-loader" /> : <Icon name="users" size={18} />} {posting ? copy("Gönderiliyor", "Sending") : copy("Topluluğa gönder", "Post to community")}</button>

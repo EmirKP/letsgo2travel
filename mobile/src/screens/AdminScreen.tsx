@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "../components/Icon";
+import { Sheet } from "../components/Sheet";
 import {
   closeForumReport,
   createAdminTravelEvent,
@@ -15,8 +16,10 @@ import {
 } from "../lib/admin";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
+import { clampLocalDateTime, localIsoDateTime } from "../lib/dates";
 
 type AdminTab = "overview" | "content" | "events" | "reports";
+type EvidencePreview = { id: string; signedUrl: string; evidenceType: string };
 
 const EMPTY_EVENT: AdminTravelEventInput = {
   title: "", description: "", category: "concert", countryCode: "", city: "", venue: "",
@@ -25,12 +28,17 @@ const EMPTY_EVENT: AdminTravelEventInput = {
 };
 
 function cleanEventInput(form: AdminTravelEventInput): AdminTravelEventInput {
+  const startsAt = new Date(form.startsAt);
+  const endsAt = form.endsAt ? new Date(form.endsAt) : null;
+  if (!Number.isFinite(startsAt.getTime())) throw new Error("invalid start");
+  if ((form.status === "scheduled" || form.status === "postponed") && startsAt.getTime() < Date.now()) throw new Error("past start");
+  if (endsAt && (!Number.isFinite(endsAt.getTime()) || endsAt < startsAt)) throw new Error("invalid end");
   return {
     ...form,
     countryCode: form.countryCode.trim().toUpperCase(),
     title: form.title.trim(), city: form.city.trim(), venue: form.venue.trim(),
-    description: form.description.trim(), startsAt: new Date(form.startsAt).toISOString(),
-    endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
+    description: form.description.trim(), startsAt: startsAt.toISOString(),
+    endsAt: endsAt ? endsAt.toISOString() : null,
     sourceUrl: form.sourceUrl.trim(), ticketUrl: form.ticketUrl?.trim() || null,
     imageUrl: form.imageUrl?.trim() || null,
   };
@@ -56,6 +64,9 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [openedEvidenceIds, setOpenedEvidenceIds] = useState<Set<string>>(() => new Set());
+  const [evidencePreview, setEvidencePreview] = useState<EvidencePreview | null>(null);
+  const [evidenceLoaded, setEvidenceLoaded] = useState(false);
+  const [evidenceError, setEvidenceError] = useState("");
   const [events, setEvents] = useState<AdminTravelEvent[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [eventFormOpen, setEventFormOpen] = useState(false);
@@ -79,7 +90,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     accessTokenRef.current = accessToken;
     epochRef.current += 1;
     requestRef.current += 1;
-    setLoading(false); setBusyId(""); setOpenedEvidenceIds(new Set());
+    setLoading(false); setBusyId(""); setOpenedEvidenceIds(new Set()); setEvidencePreview(null); setEvidenceLoaded(false); setEvidenceError("");
     setEvents([]); setEventsLoaded(false); setEventFormOpen(false); setEditingEventId(""); setEventForm(EMPTY_EVENT);
     setOverviewState({ accessToken, value: initialOverview });
   }, [accessToken, initialOverview]);
@@ -138,11 +149,29 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     setBusyId(id);
     try {
       const result = await getVerificationEvidence(id, session.token);
-      if (!current(session) || !(await openExternal(result.signedUrl))) throw new Error("open");
-      setOpenedEvidenceIds((value) => new Set(value).add(id));
-      onNotice(copy("Belge güvenli önizlemede açıldı.", "Evidence opened in a secure preview."));
-    } catch { if (current(session)) onNotice(copy("Başvuru belgesi açılamadı.", "Evidence could not be opened.")); }
+      if (!current(session) || !result.signedUrl) throw new Error("open");
+      setEvidenceLoaded(false);
+      setEvidenceError("");
+      setEvidencePreview({ id, signedUrl: result.signedUrl, evidenceType: result.evidenceType || "" });
+    } catch (reason) {
+      if (current(session)) onNotice(reason instanceof Error && reason.message && reason.message !== "open" ? reason.message : copy("Başvuru belgesi açılamadı.", "Evidence could not be opened."));
+    }
     finally { if (current(session)) setBusyId(""); }
+  };
+
+  const confirmEvidenceReviewed = () => {
+    if (!evidencePreview || !evidenceLoaded) return;
+    setOpenedEvidenceIds((value) => new Set(value).add(evidencePreview.id));
+    setEvidencePreview(null);
+    onNotice(copy("Belge incelendi; onay ve red işlemleri açıldı.", "Evidence reviewed; approve and reject actions are now enabled."));
+  };
+
+  const openEvidenceExternally = async () => {
+    if (!evidencePreview || !(await openExternal(evidencePreview.signedUrl))) {
+      setEvidenceError(copy("Belge cihaz görüntüleyicisinde açılamadı.", "The evidence could not be opened in the device viewer."));
+      return;
+    }
+    setEvidenceLoaded(true);
   };
 
   const decideVerification = (id: string, action: "approve" | "reject") => {
@@ -235,6 +264,19 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     {tab === "events" && <EventManager events={events} loading={loading} busyId={busyId} formOpen={eventFormOpen} editingId={editingEventId} form={eventForm} setForm={setEventForm} toggleForm={toggleEventForm} submit={submitEvent} editEvent={editEvent} patchEvent={patchEvent} formatDate={formatDate} copy={copy} />}
     {tab === "reports" && <ReportQueue overview={overview} busyId={busyId} formatDate={formatDate} run={run} copy={copy} />}
     <p className="admin-sync-note"><Icon name="wifi" size={15} /> {copy("Son senkron", "Last sync")}: {formatDate(overview.generatedAt)} · {overview.role}</p>
+    <Sheet open={Boolean(evidencePreview)} title={copy("Başvuru belgesi", "Application evidence")} onClose={() => setEvidencePreview(null)} size="large">
+      {evidencePreview && <div className="admin-evidence-preview">
+        <div className="admin-evidence-security"><Icon name="lock" size={18} /><p>{copy("Bu geçici bağlantı yalnız yönetici incelemesi içindir ve kısa süre sonra kapanır.", "This temporary link is only for admin review and expires shortly.")}</p></div>
+        {evidencePreview.evidenceType === "application/pdf"
+          ? <iframe title={copy("Başvuru PDF belgesi", "Application PDF evidence")} src={evidencePreview.signedUrl} onLoad={() => { setEvidenceLoaded(true); setEvidenceError(""); }} onError={() => setEvidenceError(copy("PDF önizlemesi yüklenemedi.", "The PDF preview could not be loaded."))} />
+          : <img src={evidencePreview.signedUrl} alt={copy("Kullanıcının gönderdiği doğrulama belgesi", "Verification evidence submitted by the user")} onLoad={() => { setEvidenceLoaded(true); setEvidenceError(""); }} onError={() => setEvidenceError(copy("Görsel önizlemesi yüklenemedi.", "The image preview could not be loaded."))} />}
+        {evidenceError && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{evidenceError}</p></div>}
+        <div className="admin-evidence-actions">
+          <button type="button" className="secondary-wide" onClick={() => void openEvidenceExternally()}><Icon name="external" size={17} /> {copy("Cihaz görüntüleyicisinde aç", "Open in device viewer")}</button>
+          <button type="button" className="primary-wide" disabled={!evidenceLoaded} onClick={confirmEvidenceReviewed}><Icon name="check" size={17} /> {evidenceLoaded ? copy("İnceledim, işlemleri aç", "Reviewed, enable actions") : copy("Belge yükleniyor…", "Loading evidence…")}</button>
+        </div>
+      </div>}
+    </Sheet>
   </div>;
 }
 
@@ -267,7 +309,11 @@ function EventManager({ events, loading, busyId, formOpen, editingId, form, setF
       <div className="admin-event-form-title"><strong>{editingId ? copy("Etkinliği düzenle", "Edit event") : copy("Yeni güvenilir etkinlik", "New trusted event")}</strong><small>{copy("Değişiklikler web ve mobilde aynı anda görünür.", "Changes appear on web and mobile together.")}</small></div>
       <label>{copy("Etkinlik adı", "Event title")}<input required maxLength={240} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
       <div className="form-grid two"><label>{copy("Ülke kodu", "Country code")}<input required pattern="[A-Za-z]{2}" maxLength={2} autoCapitalize="characters" placeholder="XK" value={form.countryCode} onChange={(e) => setForm({ ...form, countryCode: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} /></label><label>{copy("Şehir", "City")}<input required maxLength={120} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></label></div>
-      <div className="form-grid two"><label>{copy("Başlangıç", "Starts")}<input required type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} /></label><label>{copy("Bitiş (isteğe bağlı)", "Ends (optional)")}<input type="datetime-local" value={form.endsAt || ""} onChange={(e) => setForm({ ...form, endsAt: e.target.value || null })} /></label></div>
+      <div className="form-grid two"><label>{copy("Başlangıç", "Starts")}<input required type="datetime-local" min={form.status === "scheduled" || form.status === "postponed" ? localIsoDateTime(1) : undefined} value={form.startsAt} onChange={(e) => {
+        const requested = e.target.value;
+        const next = form.status === "scheduled" || form.status === "postponed" ? clampLocalDateTime(requested, localIsoDateTime(1)) : requested;
+        setForm({ ...form, startsAt: next, endsAt: form.endsAt && form.endsAt < next ? next : form.endsAt });
+      }} /></label><label>{copy("Bitiş (isteğe bağlı)", "Ends (optional)")}<input type="datetime-local" min={form.startsAt || undefined} value={form.endsAt || ""} onChange={(e) => setForm({ ...form, endsAt: e.target.value ? clampLocalDateTime(e.target.value, form.startsAt || localIsoDateTime(1)) : null })} /></label></div>
       <div className="form-grid two"><label>{copy("Mekân", "Venue")}<input maxLength={180} value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} /></label><label>{copy("Durum", "Status")}<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as AdminTravelEventInput["status"] })}><option value="scheduled">{copy("Planlandı", "Scheduled")}</option><option value="postponed">{copy("Ertelendi", "Postponed")}</option><option value="cancelled">{copy("İptal edildi", "Cancelled")}</option><option value="completed">{copy("Tamamlandı", "Completed")}</option></select></label></div>
       <div className="form-grid two"><label>{copy("Kategori", "Category")}<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as AdminTravelEventInput["category"] })}><option value="concert">{copy("Konser", "Concert")}</option><option value="festival">Festival</option><option value="sport">{copy("Spor", "Sport")}</option><option value="culture">{copy("Kültür", "Culture")}</option><option value="food">{copy("Yeme-içme", "Food")}</option><option value="family">{copy("Aile", "Family")}</option><option value="other">{copy("Diğer", "Other")}</option></select></label><label>{copy("Resmî kaynak", "Official source")}<input required type="url" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} /></label></div>
       <div className="form-grid two"><label>{copy("Kapak görseli URL (isteğe bağlı)", "Cover image URL (optional)")}<input type="url" inputMode="url" placeholder="https://" value={form.imageUrl || ""} onChange={(e) => setForm({ ...form, imageUrl: e.target.value || null })} /></label><label>{copy("Bilet bağlantısı (isteğe bağlı)", "Ticket link (optional)")}<input type="url" inputMode="url" placeholder="https://" value={form.ticketUrl || ""} onChange={(e) => setForm({ ...form, ticketUrl: e.target.value || null })} /></label></div>

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { CountryFlag } from "../components/CountryFlag";
 import { Icon } from "../components/Icon";
+import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
-import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
+import { alpha2FromAlpha3 } from "../data/countryIso";
 import { listEventCities, listTravelEvents } from "../lib/api";
-import { localIsoDate } from "../lib/dates";
+import { clampLocalDate, isValidDateRange, localIsoDate } from "../lib/dates";
 import { cancelEventReminder, reconcileEventReminders, scheduleEventReminder } from "../lib/eventReminders";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
@@ -50,6 +52,24 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
     () => cities.find((option) => option.placeCode === cityPlaceCode),
     [cities, cityPlaceCode],
   );
+
+  const countryOptions = useMemo(() => countries.map((country) => ({
+    code: country.code,
+    flagCode: country.code,
+    name: country.name,
+  })), [countries]);
+
+  useEffect(() => {
+    const refreshDateBounds = () => {
+      const today = localIsoDate(0);
+      const latest = localIsoDate(366);
+      setStartDate((value) => clampLocalDate(value, today, latest));
+      setEndDate((value) => clampLocalDate(value, clampLocalDate(startDate, today, latest), latest));
+    };
+    refreshDateBounds();
+    document.addEventListener("visibilitychange", refreshDateBounds);
+    return () => document.removeEventListener("visibilitychange", refreshDateBounds);
+  }, [endDate, startDate]);
 
   useEffect(() => {
     let current = true;
@@ -115,7 +135,7 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
     if (loading) return;
     const today = localIsoDate(0);
     const latest = localIsoDate(366);
-    if (!startDate || !endDate || startDate < today || endDate < startDate || startDate > latest || endDate > latest) {
+    if (!isValidDateRange(startDate, endDate, today, latest)) {
       setSearched(true);
       setEvents([]);
       setError(copy("Tarihleri bugünden başlayarak en fazla bir yıllık geçerli bir aralıkta seç.", "Choose a valid date range from today through the next year."));
@@ -189,26 +209,31 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
 
     <section className="event-search-card" aria-label={copy("Etkinlik araması", "Event search")}>
       <div className="event-search-grid">
-        <label>{copy("Ülke", "Country")}<select value={countryCode} onChange={(event) => {
-          setCountryCode(event.target.value);
+        <CountryPicker value={countryCode} options={countryOptions} includeWorldwide label={copy("Ülke", "Country")} placeholder={copy("Tüm dünya", "Worldwide")} onChange={(nextCountryCode) => {
+          setCountryCode(nextCountryCode);
           setCityPlaceCode("");
           setCities([]);
           setCitiesError(false);
-        }}>
-          <option value="">{copy("Tüm dünya", "Worldwide")}</option>
-          {countries.map((country) => <option value={country.code} key={country.alpha3}>{flagEmoji(country.code)} {country.name}</option>)}
-        </select></label>
+        }} />
         <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<select value={cityPlaceCode} disabled={!countryCode || citiesLoading} onChange={(event) => setCityPlaceCode(event.target.value)}>
           <option value="">{citiesLoading ? copy("Şehirler yükleniyor…", "Loading cities…") : countryCode ? copy("Tüm şehirler", "All cities") : copy("Önce ülke seç", "Choose a country first")}</option>
           {cities.map((option) => <option value={option.placeCode} key={option.placeCode}>{option.name}</option>)}
         </select></label>
         <label>{copy("Başlangıç", "From")}<input type="date" min={localIsoDate(0)} max={localIsoDate(366)} value={startDate} onChange={(event) => {
-          const nextStartDate = event.target.value;
+          const requested = event.target.value;
+          const nextStartDate = clampLocalDate(requested, localIsoDate(0), localIsoDate(366));
           setStartDate(nextStartDate);
           if (endDate && nextStartDate && endDate < nextStartDate) setEndDate(nextStartDate);
+          if (requested && requested !== nextStartDate) onNotice(copy("Geçmiş bir başlangıç tarihi seçilemez.", "A past start date cannot be selected."));
         }} /></label>
-        <label>{copy("Bitiş", "To")}<input type="date" min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <label>{copy("Bitiş", "To")}<input type="date" min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(event) => {
+          const requested = event.target.value;
+          const nextEndDate = clampLocalDate(requested, startDate || localIsoDate(0), localIsoDate(366));
+          setEndDate(nextEndDate);
+          if (requested && requested !== nextEndDate) onNotice(copy("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date."));
+        }} /></label>
       </div>
+      {countryCode && !cityPlaceCode && !citiesLoading && !citiesError && <p className="event-city-scope"><Icon name="info" size={14} /> {copy("Tüm şehirler seçiliyken ülke genelindeki sonuçlar aranır; canlı kapsam sağlayıcıya göre değişebilir.", "With all cities selected, results are searched countrywide; live coverage can vary by provider.")}</p>}
       {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
       <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
         {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{categoryLabel(item)}</button>)}
@@ -220,7 +245,7 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
       <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Dünyaca ünlü sanatçılar", "Global headline artists")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
       {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
         : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
-          <span className="featured-event-mark">{flagEmoji(event.countryCode) || "🎤"}</span>
+          <span className="featured-event-mark"><CountryFlag code={event.countryCode} label={event.countryCode} className="featured-country-flag" /></span>
           <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(event.startsAt))}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
           <Icon name="external" size={17} />
         </button>)}</div>
@@ -242,7 +267,7 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
             {event.imageUrl ? <div className="event-card-image" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.04),rgba(7,27,51,.78)),url(${event.imageUrl})` }}><span>{categoryLabel(event.category)}</span></div> : <div className="event-card-image event-card-placeholder"><Icon name="calendar" size={31} /><span>{categoryLabel(event.category)}</span></div>}
             <div className="event-card-body">
               <div className="event-card-date"><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit" }).format(new Date(event.startsAt))}</strong><span>{new Intl.DateTimeFormat(dateLocale, { month: "short" }).format(new Date(event.startsAt))}</span></div>
-              <div className="event-card-copy"><small>{flagEmoji(event.countryCode)} {[event.city, event.venue].filter(Boolean).join(" · ") || copy("Konum kaynağında", "See source for location")}</small><h3>{event.title}</h3><p>{new Intl.DateTimeFormat(dateLocale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.startsAt))}</p></div>
+              <div className="event-card-copy"><small><CountryFlag code={event.countryCode} label={event.countryCode} className="event-inline-flag" /><span>{[event.city, event.venue].filter(Boolean).join(" · ") || copy("Konum kaynağında", "See source for location")}</span></small><h3>{event.title}</h3><p>{new Intl.DateTimeFormat(dateLocale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.startsAt))}</p></div>
               {event.status !== "scheduled" && <em className={`event-status ${event.status}`}>{event.status === "cancelled" ? copy("İptal", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : copy("Tamamlandı", "Ended")}</em>}
             </div>
             {event.description && <p className="event-description">{event.description}</p>}

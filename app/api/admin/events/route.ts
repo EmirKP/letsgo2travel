@@ -40,6 +40,9 @@ function normalizedPayload(body: Record<string, unknown>) {
   const category = clean(body.category, 30);
   const status = clean(body.status, 30);
   if (!CATEGORIES.has(category) || !STATUSES.has(status)) return null;
+  // Geçmiş kayıtlar raporlama için korunabilir; yeni/ertelenmiş bir duyuru
+  // geçmiş zamana planlanamaz. Bir dakikalık pay ağ/geçiş gecikmesini tolere eder.
+  if ((status === "scheduled" || status === "postponed") && startsAtMs < Date.now() - 60_000) return null;
   return {
     provider: "curated",
     title: clean(body.title, 240),

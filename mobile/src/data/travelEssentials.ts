@@ -30,10 +30,22 @@ const labels = [
   ["allergy", "Bu yemekte alerjen var mı?", "Does this food contain allergens?"],
   ["airport", "Havalimanına gitmek istiyorum.", "I want to go to the airport."],
   ["bill", "Hesabı alabilir miyim?", "Could I have the bill, please?"],
+  ["hello", "Merhaba.", "Hello."],
+  ["police", "Polisi arayın.", "Call the police."],
+  ["directions", "Buraya nasıl gidebilirim?", "How can I get here?"],
+  ["price", "Bu ne kadar?", "How much is this?"],
 ] as const;
 
 function phrases(values: Array<[string, string]>) {
   return labels.map(([id, tr, en], index) => ({ id, tr, en, local: values[index]?.[0] || en, phonetic: values[index]?.[1] || "" }));
+}
+
+function practicalEtiquette(tr: string, en: string, warningTr: string, warningEn: string): EtiquetteRule[] {
+  return [
+    { id: "courtesy", icon: "check", tr, en },
+    { id: "cash", icon: "info", tr: "Küçük işletmeler için bir miktar yerel para bulundur.", en: "Carry some local currency for smaller businesses." },
+    { id: "warning", icon: "alert", tr: warningTr, en: warningEn },
+  ];
 }
 
 export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
@@ -45,6 +57,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["A ka alergjenë në këtë ushqim?", "a ka a-ler-gye-ne ne ke-te oosh-cheem"],
       ["Dua të shkoj në aeroport.", "doo-a te sh-koy ne a-e-ro-port"],
       ["A mund ta marr faturën?", "a moond ta marr fa-too-ren"],
+      ["Përshëndetje.", "per-shen-det-ye"],
+      ["Telefononi policinë.", "te-le-fo-no-nee po-lee-tsee-ne"],
+      ["Si mund të shkoj këtu?", "see moond te sh-koy ke-too"],
+      ["Sa kushton kjo?", "sa koosh-ton kyo"],
     ]),
     etiquette: [
       { id: "cash", icon: "info", tr: "Euro kullanılır; küçük işletmelerde nakit bulundurmak faydalıdır.", en: "The euro is used; carrying cash helps at smaller businesses." },
@@ -60,6 +76,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["Enthält dieses Essen Allergene?", "ent-helt dee-zes es-en a-ler-ge-ne"],
       ["Ich möchte zum Flughafen.", "ih möh-te tsoom floog-ha-fen"],
       ["Die Rechnung, bitte.", "dee reh-noong bit-te"],
+      ["Guten Tag.", "goo-ten tak"],
+      ["Rufen Sie die Polizei.", "roo-fen zee dee po-lee-tsai"],
+      ["Wie komme ich hierhin?", "vee kom-me ih heer-hin"],
+      ["Wie viel kostet das?", "vee feel kos-tet das"],
     ]),
     etiquette: [
       { id: "time", icon: "check", tr: "Randevulara ve rezervasyon saatlerine dakik gitmek önemlidir.", en: "Punctuality matters for appointments and reservations." },
@@ -75,6 +95,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["Questo piatto contiene allergeni?", "kwe-sto pee-at-to kon-tee-e-ne al-ler-ge-nee"],
       ["Vorrei andare all'aeroporto.", "vor-rey an-da-re al-la-e-ro-por-to"],
       ["Il conto, per favore.", "eel kon-to per fa-vo-re"],
+      ["Buongiorno.", "bwon-jor-no"],
+      ["Chiami la polizia.", "kya-mee la po-lee-tsee-a"],
+      ["Come posso arrivare qui?", "ko-me pos-so ar-ree-va-re kwee"],
+      ["Quanto costa?", "kwan-to kos-ta"],
     ]),
     etiquette: [
       { id: "church", icon: "check", tr: "Kiliselerde omuz ve dizleri örten kıyafet tercih et.", en: "Cover shoulders and knees when entering churches." },
@@ -90,6 +114,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["Ce plat contient-il des allergènes?", "se pla kon-tyen eel dez a-ler-jen"],
       ["Je voudrais aller à l'aéroport.", "je voo-dre a-le a la-e-ro-por"],
       ["L'addition, s'il vous plaît.", "la-dee-syon seel voo ple"],
+      ["Bonjour.", "bon-joor"],
+      ["Appelez la police.", "ap-le la po-lees"],
+      ["Comment puis-je aller ici ?", "ko-man pwee-je a-le ee-see"],
+      ["Combien ça coûte ?", "kom-byan sa koot"],
     ]),
     etiquette: [
       { id: "hello", icon: "check", tr: "Bir mağaza veya kafeye girerken “Bonjour” demek temel nezakettir.", en: "Saying “Bonjour” when entering a shop or café is basic courtesy." },
@@ -105,6 +133,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["¿Este plato contiene alérgenos?", "es-te pla-to kon-tye-ne a-ler-he-nos"],
       ["Quiero ir al aeropuerto.", "kye-ro eer al a-e-ro-pwer-to"],
       ["La cuenta, por favor.", "la kwen-ta por fa-vor"],
+      ["Hola.", "o-la"],
+      ["Llame a la policía.", "ya-me a la po-lee-see-a"],
+      ["¿Cómo puedo llegar aquí?", "ko-mo pwe-do ye-gar a-kee"],
+      ["¿Cuánto cuesta esto?", "kwan-to kwes-ta es-to"],
     ]),
     etiquette: [
       { id: "hours", icon: "info", tr: "Yemek saatleri Türkiye'ye göre daha geç olabilir; rezervasyon saatini kontrol et.", en: "Meal times can be later than you expect; check reservation hours." },
@@ -120,6 +152,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["この料理にアレルゲンはありますか？", "ko-no ryo-ree nee a-re-ru-gen wa a-ree-mas ka"],
       ["空港に行きたいです。", "koo-ko nee ee-kee-tay des"],
       ["お会計をお願いします。", "o-kai-ke o o-ne-gai shee-mas"],
+      ["こんにちは。", "kon-nee-chee-wa"],
+      ["警察を呼んでください。", "kay-sat-so o yon-de koo-da-sai"],
+      ["ここへはどう行けばいいですか？", "ko-ko e wa do ee-ke-ba ee des ka"],
+      ["これはいくらですか？", "ko-re wa ee-koo-ra des ka"],
     ]),
     etiquette: [
       { id: "train", icon: "check", tr: "Toplu taşımada telefonla konuşma ve yüksek sesle sohbet etme.", en: "Avoid phone calls and loud conversation on public transport." },
@@ -135,6 +171,10 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       ["อาหารนี้มีสารก่อภูมิแพ้ไหม", "a-han nee mee san ko phum-phae mai"],
       ["ฉันต้องการไปสนามบิน", "chan tong-kan pai sa-nam-bin"],
       ["ขอเช็คบิลด้วย", "kho chek bin duay"],
+      ["สวัสดี", "sa-wat-dee"],
+      ["กรุณาเรียกตำรวจ", "ka-ru-na re-ak tam-ruat"],
+      ["ฉันจะไปที่นี่ได้อย่างไร", "chan ja pai tee nee dai yang rai"],
+      ["อันนี้ราคาเท่าไหร่", "an nee ra-ka tao-rai"],
     ]),
     etiquette: [
       { id: "temple", icon: "check", tr: "Tapınaklarda omuz ve dizlerini ört; ayakkabı uyarılarını takip et.", en: "Cover shoulders and knees at temples and follow shoe signs." },
@@ -151,8 +191,122 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
       { id: "service", icon: "info", tr: "Hesapta servis ücreti varsa ayrıca bahşiş bırakman gerekmez.", en: "If the bill includes a service charge, an extra tip is not expected." },
     ],
   },
+  {
+    code: "AL", flag: "🇦🇱", nameTr: "Arnavutluk", nameEn: "Albania", languageTr: "Arnavutça", languageEn: "Albanian",
+    phrases: phrases([
+      ["Kam nevojë për ndihmë.", ""], ["Duhet të shkoj në spital.", ""], ["A ka alergjenë në këtë ushqim?", ""], ["Dua të shkoj në aeroport.", ""], ["A mund ta marr faturën?", ""],
+      ["Përshëndetje.", ""], ["Telefononi policinë.", ""], ["Si mund të shkoj këtu?", ""], ["Sa kushton kjo?", ""],
+    ]),
+    etiquette: practicalEtiquette("Selamlaşırken tokalaşmak ve göz teması kurmak yaygındır.", "Handshakes and eye contact are common greetings.", "Dinî yapılarda kıyafet uyarılarını takip et.", "Follow dress guidance at religious sites."),
+  },
+  {
+    code: "BA", flag: "🇧🇦", nameTr: "Bosna-Hersek", nameEn: "Bosnia and Herzegovina", languageTr: "Boşnakça", languageEn: "Bosnian",
+    phrases: phrases([
+      ["Treba mi pomoć.", ""], ["Moram ići u bolnicu.", ""], ["Ima li alergena u ovoj hrani?", ""], ["Želim ići na aerodrom.", ""], ["Mogu li dobiti račun?", ""],
+      ["Dobar dan.", ""], ["Pozovite policiju.", ""], ["Kako mogu doći ovdje?", ""], ["Koliko ovo košta?", ""],
+    ]),
+    etiquette: practicalEtiquette("Bir eve girerken ayakkabı konusunda ev sahibini takip et.", "Follow your host's lead about shoes when entering a home.", "Savaş ve etnik kimlik konularında hassas ve saygılı ol.", "Be sensitive and respectful around war and ethnic identity."),
+  },
+  {
+    code: "RS", flag: "🇷🇸", nameTr: "Sırbistan", nameEn: "Serbia", languageTr: "Sırpça", languageEn: "Serbian",
+    phrases: phrases([
+      ["Треба ми помоћ.", "tre-ba mee po-moch"], ["Морам у болницу.", "mo-ram oo bol-nee-tsoo"], ["Да ли ова храна садржи алергене?", "da lee o-va hra-na sa-dr-zhee a-ler-ge-ne"], ["Желим на аеродром.", "zhe-leem na a-e-ro-drom"], ["Рачун, молим.", "ra-choon mo-leem"],
+      ["Добар дан.", "do-bar dan"], ["Позовите полицију.", "po-zo-vee-te po-lee-tsee-yoo"], ["Како да стигнем овде?", "ka-ko da steeg-nem ov-de"], ["Колико ово кошта?", "ko-lee-ko o-vo kosh-ta"],
+    ]),
+    etiquette: practicalEtiquette("Bir eve davet edildiğinde küçük bir hediye götürmek nazikçedir.", "A small gift is polite when invited to someone's home.", "Siyaset ve yakın tarih konuşmalarında temkinli ol.", "Use care when discussing politics and recent history."),
+  },
+  {
+    code: "PT", flag: "🇵🇹", nameTr: "Portekiz", nameEn: "Portugal", languageTr: "Portekizce", languageEn: "Portuguese",
+    phrases: phrases([
+      ["Preciso de ajuda.", ""], ["Preciso de ir ao hospital.", ""], ["Esta comida contém alergénios?", ""], ["Quero ir para o aeroporto.", ""], ["A conta, por favor.", ""],
+      ["Olá.", ""], ["Chame a polícia.", ""], ["Como chego aqui?", ""], ["Quanto custa isto?", ""],
+    ]),
+    etiquette: practicalEtiquette("Selamlaşırken kısa ve nazik bir “Bom dia” kullan.", "Use a brief, polite “Bom dia” when greeting people.", "Tarihî alanlarda ve kıyılarda işaretli güvenlik kurallarına uy.", "Follow posted safety rules at historic sites and coastlines."),
+  },
+  {
+    code: "NL", flag: "🇳🇱", nameTr: "Hollanda", nameEn: "Netherlands", languageTr: "Felemenkçe", languageEn: "Dutch",
+    phrases: phrases([
+      ["Ik heb hulp nodig.", ""], ["Ik moet naar het ziekenhuis.", ""], ["Bevat dit eten allergenen?", ""], ["Ik wil naar de luchthaven.", ""], ["De rekening, alstublieft.", ""],
+      ["Goedendag.", ""], ["Bel de politie.", ""], ["Hoe kom ik hier?", ""], ["Hoeveel kost dit?", ""],
+    ]),
+    etiquette: practicalEtiquette("Bisiklet yollarını boş bırak ve işaretli yaya alanlarını kullan.", "Keep bicycle lanes clear and use marked pedestrian areas.", "Bisiklet ve tramvay geçişlerinde iki yönü de kontrol et.", "Check both directions at bicycle and tram crossings."),
+  },
+  {
+    code: "GR", flag: "🇬🇷", nameTr: "Yunanistan", nameEn: "Greece", languageTr: "Yunanca", languageEn: "Greek",
+    phrases: phrases([
+      ["Χρειάζομαι βοήθεια.", "hree-a-zo-me vo-ee-thee-a"], ["Πρέπει να πάω στο νοσοκομείο.", "pre-pee na pa-o sto no-so-ko-mee-o"], ["Αυτό το φαγητό περιέχει αλλεργιογόνα;", "af-to to fa-yee-to pe-ree-e-hee al-er-yee-o-na"], ["Θέλω να πάω στο αεροδρόμιο.", "the-lo na pa-o sto a-e-ro-dro-mee-o"], ["Τον λογαριασμό, παρακαλώ.", "ton lo-ya-ree-as-mo pa-ra-ka-lo"],
+      ["Γεια σας.", "ya sas"], ["Καλέστε την αστυνομία.", "ka-les-te teen as-tee-no-mee-a"], ["Πώς μπορώ να πάω εδώ;", "pos bo-ro na pa-o e-tho"], ["Πόσο κοστίζει αυτό;", "po-so ko-stee-zee af-to"],
+    ]),
+    etiquette: practicalEtiquette("Kilise ve manastırlarda ölçülü giyin.", "Dress modestly at churches and monasteries.", "Arkeolojik alanlarda bariyer ve fotoğraf kurallarına uy.", "Follow barriers and photography rules at archaeological sites."),
+  },
+  {
+    code: "KR", flag: "🇰🇷", nameTr: "Güney Kore", nameEn: "South Korea", languageTr: "Korece", languageEn: "Korean",
+    phrases: phrases([
+      ["도움이 필요해요.", "do-oo-mee pee-ryo-he-yo"], ["병원에 가야 해요.", "byong-won-e ga-ya he-yo"], ["이 음식에 알레르기 유발 물질이 있나요?", "ee um-shee-ge al-le-ru-gee yoo-bal mul-jee-ree eet-na-yo"], ["공항에 가고 싶어요.", "gong-hang-e ga-go shee-po-yo"], ["계산서 주세요.", "gye-san-so joo-se-yo"],
+      ["안녕하세요.", "an-nyong-ha-se-yo"], ["경찰을 불러 주세요.", "gyong-chal-ul bool-lo joo-se-yo"], ["여기로 어떻게 가나요?", "yo-gee-ro o-tto-ke ga-na-yo"], ["이거 얼마예요?", "ee-go ol-ma-ye-yo"],
+    ]),
+    etiquette: practicalEtiquette("Yaşça büyük kişilere karşı saygılı hitap kullan.", "Use respectful forms of address with older people.", "Toplu taşımadaki öncelikli koltuk işaretlerine uy.", "Observe priority-seat signs on public transport."),
+  },
+  {
+    code: "AE", flag: "🇦🇪", nameTr: "Birleşik Arap Emirlikleri", nameEn: "United Arab Emirates", languageTr: "Arapça", languageEn: "Arabic",
+    phrases: phrases([
+      ["أحتاج إلى مساعدة", "ah-taj ee-la mu-sa-a-da"], ["أحتاج للذهاب إلى المستشفى", "ah-taj lil-tha-hab ee-la al-mus-tash-fa"], ["هل يحتوي هذا الطعام على مسببات الحساسية؟", "hal yah-ta-wee ha-tha at-ta-am a-la mu-sa-bi-bat al-ha-sa-see-ya"], ["أريد الذهاب إلى المطار", "u-reed ath-tha-hab ee-la al-ma-tar"], ["الحساب من فضلك", "al-hi-sab min fad-lak"],
+      ["مرحباً", "mar-ha-ban"], ["اتصل بالشرطة", "it-ta-sil bil-shur-ta"], ["كيف أذهب إلى هنا؟", "kay-fa ath-hab ee-la hu-na"], ["كم سعر هذا؟", "kam si-ru ha-tha"],
+    ]),
+    etiquette: [
+      { id: "dress", icon: "check", tr: "Kamusal ve dinî alanlarda ölçülü giyin.", en: "Dress modestly in public and religious spaces." },
+      { id: "photos", icon: "alert", tr: "İnsanları ve resmî binaları izinsiz fotoğraflama.", en: "Do not photograph people or official buildings without permission." },
+      { id: "laws", icon: "alert", tr: "Alkol, ilaç ve kamusal davranış kuralları emirliğe göre değişebilir.", en: "Rules on alcohol, medicines and public conduct vary by emirate." },
+    ],
+  },
+  {
+    code: "GE", flag: "🇬🇪", nameTr: "Gürcistan", nameEn: "Georgia", languageTr: "Gürcüce", languageEn: "Georgian",
+    phrases: phrases([
+      ["დახმარება მჭირდება.", "dakh-ma-re-ba mchur-de-ba"], ["საავადმყოფოში უნდა წავიდე.", "sa-a-vad-mko-fo-shee un-da tsa-vee-de"], ["ამ საკვებში ალერგენებია?", "am sak-veb-shee a-ler-ge-ne-bee-a"], ["აეროპორტში მინდა წასვლა.", "a-e-ro-port-shee meen-da tsas-vla"], ["ანგარიში, გთხოვთ.", "an-ga-ree-shee gtkhovt"],
+      ["გამარჯობა.", "ga-mar-jo-ba"], ["გამოიძახეთ პოლიცია.", "ga-mo-ee-dza-khet po-lee-tsee-a"], ["როგორ მივიდე აქ?", "ro-gor mee-vee-de ak"], ["ეს რა ღირს?", "es ra gheers"],
+    ]),
+    etiquette: practicalEtiquette("Kiliselerde ölçülü giyin ve sessiz ol.", "Dress modestly and remain quiet in churches.", "Dağ yollarında hava ve ulaşım uyarılarını önceden kontrol et.", "Check weather and transport warnings before mountain travel."),
+  },
+  {
+    code: "AZ", flag: "🇦🇿", nameTr: "Azerbaycan", nameEn: "Azerbaijan", languageTr: "Azerbaycanca", languageEn: "Azerbaijani",
+    phrases: phrases([
+      ["Mənə kömək lazımdır.", ""], ["Xəstəxanaya getməliyəm.", ""], ["Bu yeməkdə allergen varmı?", ""], ["Hava limanına getmək istəyirəm.", ""], ["Hesabı verin, zəhmət olmasa.", ""],
+      ["Salam.", ""], ["Polis çağırın.", ""], ["Buraya necə gedə bilərəm?", ""], ["Bu nə qədərdir?", ""],
+    ]),
+    etiquette: practicalEtiquette("Çay ikramını ve ev sahipliğini nazikçe karşıla.", "Receive tea and hospitality politely.", "Sınır ve askerî alanlarda fotoğraf uyarılarına dikkat et.", "Observe photography restrictions near borders and military areas."),
+  },
+  {
+    code: "BR", flag: "🇧🇷", nameTr: "Brezilya", nameEn: "Brazil", languageTr: "Portekizce", languageEn: "Portuguese",
+    phrases: phrases([
+      ["Preciso de ajuda.", ""], ["Preciso ir ao hospital.", ""], ["Esta comida contém alérgenos?", ""], ["Quero ir ao aeroporto.", ""], ["A conta, por favor.", ""],
+      ["Olá.", ""], ["Chame a polícia.", ""], ["Como chego aqui?", ""], ["Quanto custa isto?", ""],
+    ]),
+    etiquette: practicalEtiquette("Selamlaşmalar samimi olabilir; kişisel sınırlara yine de dikkat et.", "Greetings may be warm; still respect personal boundaries.", "Kalabalık bölgelerde değerli eşyalarını görünür taşıma.", "Keep valuables out of sight in crowded areas."),
+  },
 ];
 
 export function essentialProfile(code: string) {
-  return TRAVEL_ESSENTIALS.find((profile) => profile.code === code) || TRAVEL_ESSENTIALS[0];
+  return TRAVEL_ESSENTIALS.find((profile) => profile.code === code) || null;
+}
+
+/**
+ * Tum ulkeler secilebilir kalir. Henuz yerel dil paketi olmayan bir ulkeyi
+ * Kosova gibi gostermek yerine, hangi dilin kullanildigini acikca soyleyen
+ * cevrimdisi Ingilizce acil durum karti sunulur.
+ */
+export function fallbackEssentialProfile(code: string, name: string, flag: string): TravelEssentialProfile {
+  return {
+    code,
+    flag,
+    nameTr: name,
+    nameEn: name,
+    languageTr: "İngilizce acil durum yedeği",
+    languageEn: "English emergency fallback",
+    phrases: phrases(labels.map(([, , en]) => [en, ""])),
+    etiquette: [
+      { id: "language", icon: "info", tr: "Bu ülke için yerel dil paketi hazırlanıyor; kartlardaki ifadeler şimdilik İngilizcedir.", en: "The local-language pack for this country is being prepared; these cards currently use English." },
+      { id: "official", icon: "check", tr: "Giriş, sağlık ve yerel davranış kurallarını seyahatten önce resmî kaynaktan doğrula.", en: "Verify entry, health and local conduct rules with official sources before travel." },
+      { id: "emergency", icon: "alert", tr: "Acil durum numarası ülkeye göre değişir; varıştan önce kaydet.", en: "Emergency numbers vary by country; save the correct number before arrival." },
+    ],
+  };
 }

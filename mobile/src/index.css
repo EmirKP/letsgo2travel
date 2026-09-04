@@ -1,32 +1,37 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f5f7f9;
+  color: #111111;
+  background: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --navy-950: #071b33;
-  --navy-900: #0b2a4a;
-  --navy-700: #174d70;
-  --gold: #f6c445;
-  --gold-soft: #ffe08a;
-  --cyan: #19c6d3;
-  --paper: #f8f5ee;
+  /* Build 18 marka paleti: açılış görselinden örneklenen mavi + sıcak sarı. */
+  --brand-blue: #2352c4;
+  --brand-blue-deep: #183b91;
+  --brand-yellow: #eac361;
+  --navy-950: #111111;
+  --navy-900: #2352c4;
+  --navy-800: #2352c4;
+  --navy-700: #2352c4;
+  --gold: #eac361;
+  --gold-soft: #f5d98f;
+  --cyan: #2352c4;
+  --paper: #ffffff;
   --surface: #ffffff;
-  --ink: #172033;
-  --muted: #667085;
-  --line: #e3e9ee;
+  --ink: #111111;
+  --muted: #626874;
+  --line: #e2e5eb;
   --success: #0a9f78;
   --danger: #d54855;
 }
 * { box-sizing: border-box; }
-html { background: #f5f7f9; color-scheme: light; scroll-behavior: smooth; }
+html { background: #ffffff; color-scheme: light; scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; min-height: 100dvh; line-height: 1.5; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: .6; }
 button:active:not(:disabled) { transform: scale(.985); }
 body.sheet-open { overflow: hidden; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid #075f7a; outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue); outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }

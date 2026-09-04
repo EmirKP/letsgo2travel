@@ -59,6 +59,12 @@ function sortTrips(trips: Trip[]) {
   );
 }
 
+function localIsoDate(daysFromNow = 0, now: Date = new Date()) {
+  const date = new Date(now);
+  date.setDate(date.getDate() + daysFromNow);
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 export default function CockpitPageClient() {
   const [state, setState] = useState<PageState>("loading");
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -153,7 +159,7 @@ export default function CockpitPageClient() {
   }, [loadTrips]);
 
   const activeTripId = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localIsoDate();
     return (
       trips.find((trip) => trip.endDate >= today)?.id ?? trips[0]?.id ?? null
     );
@@ -163,6 +169,17 @@ export default function CockpitPageClient() {
     setIsSaving(true);
 
     try {
+      const today = localIsoDate();
+      const latest = localIsoDate(730);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate)
+        || !/^\d{4}-\d{2}-\d{2}$/.test(input.endDate)
+        || input.startDate < today
+        || input.startDate > latest
+        || input.endDate < input.startDate
+        || input.endDate > latest) {
+        throw new Error("Seyahat tarihleri geçmişte olamaz ve geçerli sırada olmalıdır.");
+      }
+
       const {
         data: { session },
         error: authError,
@@ -177,6 +194,10 @@ export default function CockpitPageClient() {
       const departureAt = input.departureTime
         ? new Date(`${input.startDate}T${input.departureTime}:00`).toISOString()
         : null;
+
+      if (departureAt && Date.parse(departureAt) < Date.now()) {
+        throw new Error("Uçuş tarihi ve saati geçmişte olamaz.");
+      }
 
       const { data, error } = await supabase
         .from("trips")

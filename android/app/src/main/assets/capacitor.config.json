@@ -2,7 +2,7 @@
 	"appId": "tr.com.letsgo2travel.app",
 	"appName": "LetsGo2Travel",
 	"webDir": "mobile-dist",
-	"backgroundColor": "#071B33",
+	"backgroundColor": "#2352C4",
 	"appendUserAgent": " LetsGo2TravelNative/1.4",
 	"loggingBehavior": "none",
 	"zoomEnabled": false,
@@ -10,11 +10,11 @@
 		"errorPath": "error.html"
 	},
 	"android": {
-		"backgroundColor": "#071B33",
+		"backgroundColor": "#2352C4",
 		"allowMixedContent": false
 	},
 	"ios": {
-		"backgroundColor": "#071B33",
+		"backgroundColor": "#2352C4",
 		"contentInset": "never",
 		"scrollEnabled": true,
 		"allowsLinkPreview": false,
@@ -35,7 +35,7 @@
 		"SplashScreen": {
 			"launchShowDuration": 350,
 			"launchAutoHide": true,
-			"backgroundColor": "#071B33",
+			"backgroundColor": "#2352C4",
 			"showSpinner": false,
 			"androidScaleType": "CENTER_CROP",
 			"splashFullScreen": true,
@@ -43,8 +43,8 @@
 		},
 		"StatusBar": {
 			"style": "LIGHT",
-			"backgroundColor": "#071B33",
-			"overlaysWebView": false
+			"backgroundColor": "#2352C4",
+			"overlaysWebView": true
 		}
 	}
 }

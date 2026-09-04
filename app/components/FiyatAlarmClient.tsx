@@ -19,12 +19,20 @@ const POPULAR_ROUTES: Array<{ label: string; origin: AirportOption; destination:
 // Saat dilimi guvenli: toISOString UTC gunu verdigi icin gece saatlerinde
 // tarihi bir gun geri kaydirir; yerel takvim gunu kullanilir.
 function localIsoDate(daysFromNow = 0) {
-  const date = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
   return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
 function defaultDepartureDate() {
   return localIsoDate(30);
+}
+
+function clampDepartureDate(value: string) {
+  const minimum = localIsoDate(0);
+  const maximum = localIsoDate(730);
+  if (!value || value < minimum) return minimum;
+  return value > maximum ? maximum : value;
 }
 
 export default function FiyatAlarmClient() {
@@ -188,7 +196,15 @@ export default function FiyatAlarmClient() {
               min={localIsoDate(0)}
               max={localIsoDate(730)}
               value={form.departureDate}
-              onChange={(e) => setForm((f) => ({ ...f, departureDate: e.target.value }))}
+              onChange={(e) => {
+                const requested = e.target.value;
+                const next = clampDepartureDate(requested);
+                setForm((f) => ({ ...f, departureDate: next }));
+                if (requested && requested !== next) {
+                  setStatus("error");
+                  setMessage("Geçmiş bir gidiş tarihi seçilemez.");
+                }
+              }}
               required
             />
           </label>

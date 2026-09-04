@@ -3,7 +3,7 @@ import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert, type AlertMutationResponse } from "../lib/api";
 import type { AirportOption } from "../lib/airports";
-import { isPastLocalDate, localIsoDate } from "../lib/dates";
+import { clampLocalDate, isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
 import type { AuthUser, FlightAlert } from "../types";
 import { useI18n } from "../lib/i18n";
@@ -325,7 +325,12 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       <AirportField label={copy("Nereden", "From")} required value={form.origin} onChange={(origin) => setForm({ ...form, origin })} />
       <AirportField label={copy("Nereye", "To")} required value={form.destination} onChange={(destination) => setForm({ ...form, destination })} />
       <div className="form-grid two stack-narrow">
-        <label><span>{copy("Gidiş tarihi", "Departure date")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input type="date" required aria-required="true" min={localIsoDate(0)} max={localIsoDate(730)} value={form.departureDate} onChange={(event) => setForm({ ...form, departureDate: event.target.value })} /></label>
+        <label><span>{copy("Gidiş tarihi", "Departure date")} <em className="required-mark">· {copy("zorunlu", "required")}</em></span><input type="date" required aria-required="true" min={localIsoDate(0)} max={localIsoDate(730)} value={form.departureDate} onChange={(event) => {
+          const requested = event.target.value;
+          const next = clampLocalDate(requested, localIsoDate(0), localIsoDate(730));
+          setForm({ ...form, departureDate: next });
+          if (requested && requested !== next) onNotice(copy("Geçmiş bir gidiş tarihi seçilemez.", "A past departure date cannot be selected."));
+        }} /></label>
         <label>{copy("Hedef fiyat (TL, isteğe bağlı)", "Target price (TRY, optional)")}<input type="number" min={1} step={1} inputMode="numeric" value={form.targetPrice} onChange={(event) => setForm({ ...form, targetPrice: event.target.value })} placeholder={copy("Boşsa %5 düşüşte haber verilir", "Leave empty for a 5% drop alert")} /></label>
       </div>
       <fieldset className="alert-channels" aria-describedby="alert-channel-help">

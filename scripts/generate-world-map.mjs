@@ -20,11 +20,17 @@ const projection = geoNaturalEarth1().fitSize([800, 400], { type: "FeatureCollec
 const path = geoPath(projection);
 
 const rows = features
-  .map((f) => ({
-    id: String(f.id ?? "").padStart(3, "0"),
-    name: String(f.properties?.name || ""),
-    d: path(f),
-  }))
+  .map((f) => {
+    const [x, y] = path.centroid(f);
+    return {
+      id: String(f.id ?? "").padStart(3, "0"),
+      name: String(f.properties?.name || ""),
+      d: path(f),
+      x: Number.isFinite(x) ? Number(x.toFixed(2)) : null,
+      y: Number.isFinite(y) ? Number(y.toFixed(2)) : null,
+      area: Number(path.area(f).toFixed(2)),
+    };
+  })
   .filter((row) => row.d && row.id !== "010"); // Antarktika haritada gereksiz
 
 // Yol verisini kucult: 2 ondalik yeterli

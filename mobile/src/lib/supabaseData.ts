@@ -1,5 +1,6 @@
 import { ApiError, requestJson } from "./api";
 import { config, isSupabaseConfigured } from "./config";
+import { localIsoDate } from "./dates";
 import { localeFromStorage } from "./i18n";
 
 export type SupabaseDataErrorCode =
@@ -412,7 +413,9 @@ function assertTripInput(input: CreateCockpitTripInput) {
   const flightNumber = safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (country.length < 2 || !/^[A-Z]{2}$/.test(code)
     || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en")
-    || !validDate(input.startDate) || !validDate(input.endDate) || input.endDate < input.startDate
+    || !validDate(input.startDate) || !validDate(input.endDate)
+    || input.startDate < localIsoDate(0) || input.startDate > localIsoDate(730)
+    || input.endDate < input.startDate || input.endDate > localIsoDate(730)
     || (departureAt && Number.isNaN(Date.parse(departureAt)))
     || (arrivalAt && Number.isNaN(Date.parse(arrivalAt)))
     || (departureAt && arrivalAt && Date.parse(arrivalAt) <= Date.parse(departureAt))

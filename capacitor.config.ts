@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: "tr.com.letsgo2travel.app",
   appName: "LetsGo2Travel",
   webDir: "mobile-dist",
-  backgroundColor: "#071B33",
+  backgroundColor: "#2352C4",
   appendUserAgent: " LetsGo2TravelNative/1.4",
   // Yayında bridge yanıtları (özellikle push kayıt sonucu) cihaz konsoluna
   // yazılmasın. Geliştirici gerektiğinde Xcode/Safari debug araçlarını açar.
@@ -18,12 +18,12 @@ const config: CapacitorConfig = {
   },
 
   android: {
-    backgroundColor: "#071B33",
+    backgroundColor: "#2352C4",
     allowMixedContent: false,
   },
 
   ios: {
-    backgroundColor: "#071B33",
+    backgroundColor: "#2352C4",
     contentInset: "never",
     scrollEnabled: true,
     allowsLinkPreview: false,
@@ -41,11 +41,11 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"],
     },
     SplashScreen: {
-      // Native katman yalnızca WebView hazır olana kadar düz lacivert kalır;
+      // Native katman yalnızca WebView hazır olana kadar marka mavisi kalır;
       // asıl marka animasyonu React katmanında akıcı biçimde oynar.
       launchShowDuration: 350,
       launchAutoHide: true,
-      backgroundColor: "#071B33",
+      backgroundColor: "#2352C4",
       showSpinner: false,
       androidScaleType: "CENTER_CROP",
       splashFullScreen: true,
@@ -53,8 +53,10 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: "LIGHT",
-      backgroundColor: "#071B33",
-      overlaysWebView: false,
+      backgroundColor: "#2352C4",
+      // Video ve üst menü güvenli alanın arkasına kesintisiz uzanır;
+      // her iki yüzey safe-area dolgusu kullandığı için içerik çentiğe girmez.
+      overlaysWebView: true,
     },
   },
 };

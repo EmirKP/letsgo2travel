@@ -29,6 +29,14 @@ function localDateTime(value: string | null) {
   return local.toISOString().slice(0, 16);
 }
 
+function minimumDateTime() {
+  return localDateTime(new Date(Date.now() + 60_000).toISOString());
+}
+
+function clampDateTime(value: string, min: string) {
+  return !value || value < min ? min : value;
+}
+
 function displayDate(value: string) {
   try { return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
   catch { return value; }
@@ -76,7 +84,14 @@ export default function AdminEventsPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
-    setBusy(editingId || "new"); setError(""); setMessage("");
+    setError(""); setMessage("");
+    const startsAtMs = Date.parse(form.startsAt);
+    const endsAtMs = form.endsAt ? Date.parse(form.endsAt) : 0;
+    if (!Number.isFinite(startsAtMs) || ((form.status === "scheduled" || form.status === "postponed") && startsAtMs < Date.now()) || (form.endsAt && (!Number.isFinite(endsAtMs) || endsAtMs < startsAtMs))) {
+      setError("Başlangıç geçmişte olamaz; bitiş de başlangıçtan önce olamaz.");
+      return;
+    }
+    setBusy(editingId || "new");
     const body = { ...form, id: editingId || undefined, countryCode: form.countryCode.trim().toUpperCase() };
     try {
       const response = await fetch("/api/admin/events", {
@@ -123,7 +138,11 @@ export default function AdminEventsPage() {
       <div className="event-form-title"><div><small>{editingId ? "ETKİNLİĞİ DÜZENLE" : "YENİ DUYURU"}</small><h2>{editingId ? "Tarih, durum veya içeriği güncelle" : "Güvenilir bir etkinlik ekle"}</h2></div><button type="button" aria-label="Formu kapat" onClick={reset}><X size={20} /></button></div>
       <label>Etkinlik adı<input required maxLength={240} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
       <div className="event-form-grid"><label>Ülke kodu<input required pattern="[A-Za-z]{2}" maxLength={2} placeholder="XK" value={form.countryCode} onChange={(e) => setForm({ ...form, countryCode: e.target.value.toUpperCase().replace(/[^A-Z]/g, "") })} /></label><label>Şehir<input required maxLength={120} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></label><label>Mekân<input maxLength={180} value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} /></label></div>
-      <div className="event-form-grid"><label>Başlangıç<input required type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} /></label><label>Bitiş (isteğe bağlı)<input type="datetime-local" value={form.endsAt || ""} onChange={(e) => setForm({ ...form, endsAt: e.target.value || null })} /></label><label>Durum<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventStatus })}><option value="scheduled">Planlandı</option><option value="postponed">Ertelendi</option><option value="cancelled">İptal edildi</option><option value="completed">Tamamlandı</option></select></label></div>
+      <div className="event-form-grid"><label>Başlangıç<input required type="datetime-local" min={form.status === "scheduled" || form.status === "postponed" ? minimumDateTime() : undefined} value={form.startsAt} onChange={(e) => {
+        const requested = e.target.value;
+        const next = form.status === "scheduled" || form.status === "postponed" ? clampDateTime(requested, minimumDateTime()) : requested;
+        setForm({ ...form, startsAt: next, endsAt: form.endsAt && form.endsAt < next ? next : form.endsAt });
+      }} /></label><label>Bitiş (isteğe bağlı)<input type="datetime-local" min={form.startsAt || undefined} value={form.endsAt || ""} onChange={(e) => setForm({ ...form, endsAt: e.target.value ? clampDateTime(e.target.value, form.startsAt || minimumDateTime()) : null })} /></label><label>Durum<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventStatus })}><option value="scheduled">Planlandı</option><option value="postponed">Ertelendi</option><option value="cancelled">İptal edildi</option><option value="completed">Tamamlandı</option></select></label></div>
       <div className="event-form-grid"><label>Kategori<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as EventCategory })}><option value="concert">Konser</option><option value="festival">Festival</option><option value="sport">Spor</option><option value="culture">Kültür</option><option value="food">Yeme-içme</option><option value="family">Aile</option><option value="other">Diğer</option></select></label><label>Resmî kaynak URL<input required type="url" inputMode="url" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} /></label><label>Bilet URL (isteğe bağlı)<input type="url" inputMode="url" value={form.ticketUrl || ""} onChange={(e) => setForm({ ...form, ticketUrl: e.target.value || null })} /></label></div>
       <label>Kapak görseli URL (isteğe bağlı)<input type="url" inputMode="url" placeholder="https://" value={form.imageUrl || ""} onChange={(e) => setForm({ ...form, imageUrl: e.target.value || null })} /></label>
       <label>Kısa açıklama<textarea maxLength={2000} rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>

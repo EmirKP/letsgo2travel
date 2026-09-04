@@ -73,7 +73,8 @@ const categoryLabels: Record<ChecklistCategory, string> = {
 };
 
 function localIsoDate(daysFromNow = 0, now: Date = new Date()) {
-  const date = new Date(now.getTime() + daysFromNow * 24 * 60 * 60 * 1000);
+  const date = new Date(now);
+  date.setDate(date.getDate() + daysFromNow);
   return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
@@ -786,8 +787,11 @@ function TripForm({
           max={maxDate}
           value={startDate}
           onChange={(event) => {
-            setStartDate(event.target.value);
-            if (event.target.value > endDate) setEndDate(event.target.value);
+            const requested = event.target.value;
+            const next = !requested || requested < today ? today : requested > maxDate ? maxDate : requested;
+            setStartDate(next);
+            if (next > endDate) setEndDate(next);
+            if (requested && requested !== next) setFormError("Geçmiş bir başlangıç tarihi seçilemez.");
           }}
           required
         />
@@ -800,7 +804,12 @@ function TripForm({
           min={startDate}
           max={maxDate}
           value={endDate}
-          onChange={(event) => setEndDate(event.target.value)}
+          onChange={(event) => {
+            const requested = event.target.value;
+            const next = !requested || requested < startDate ? startDate : requested > maxDate ? maxDate : requested;
+            setEndDate(next);
+            if (requested && requested !== next) setFormError("Dönüş tarihi başlangıçtan önce olamaz.");
+          }}
           required
         />
       </label>
@@ -810,7 +819,14 @@ function TripForm({
         <input
           type="time"
           value={departureTime}
-          onChange={(event) => setDepartureTime(event.target.value)}
+          onChange={(event) => {
+            const requested = event.target.value;
+            const now = new Date(Date.now() + 60_000);
+            const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+            const next = startDate === today && requested < current ? current : requested;
+            setDepartureTime(next);
+            if (requested && requested !== next) setFormError("Geçmiş bir uçuş saati seçilemez.");
+          }}
         />
       </label>
 

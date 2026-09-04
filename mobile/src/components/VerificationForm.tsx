@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CountryPicker } from "./CountryPicker";
 import { Icon } from "./Icon";
 import { config } from "../lib/config";
 import { requestJson } from "../lib/api";
@@ -35,6 +36,11 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const countryOptions = useMemo(() => countries.map((country) => ({
+    code: country.code,
+    flagCode: country.code,
+    name: country.code === "XK" ? (locale === "tr" ? "Kosova" : "Kosovo") : regionNames.of(country.code) || country.name,
+  })), [countries, locale, regionNames]);
 
   useEffect(() => {
     let active = true;
@@ -104,12 +110,14 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
 
   return (
     <div className="verification-form">
-      <label>{copy("Ülke", "Country")}
-        <select value={countryCode} onChange={(event) => { setCountryCode(event.target.value); setError(""); }}>
-          <option value="" disabled>{countriesError ? copy("Liste yüklenemedi — tekrar aç", "List unavailable — reopen") : copy("Doğrulamak istediğin ülke", "Country to verify")}</option>
-          {countries.map((country) => <option key={country.code} value={country.code}>{country.flag} {country.code === "XK" ? (locale === "tr" ? "Kosova" : "Kosovo") : regionNames.of(country.code) || country.name}</option>)}
-        </select>
-      </label>
+      <CountryPicker
+        value={countryCode}
+        options={countryOptions}
+        onChange={(value) => { setCountryCode(value); setError(""); }}
+        label={copy("Ülke", "Country")}
+        placeholder={countriesError ? copy("Liste yüklenemedi — tekrar aç", "List unavailable — reopen") : copy("Doğrulamak istediğin ülke", "Country to verify")}
+        disabled={countriesError || !countryOptions.length}
+      />
 
       <label className="verification-file">
         {copy("Kanıt belgesi / fotoğraf", "Evidence document / photo")}

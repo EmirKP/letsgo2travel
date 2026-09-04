@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
-import { TRAVEL_ESSENTIALS, essentialProfile } from "../data/travelEssentials";
+import { CountryFlag } from "../components/CountryFlag";
+import { CountryPicker } from "../components/CountryPicker";
+import { COUNTRY_LIST } from "../data/countries";
+import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
+import { TRAVEL_ESSENTIALS, essentialProfile, fallbackEssentialProfile } from "../data/travelEssentials";
 import { getTravelNow } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
@@ -8,14 +12,18 @@ import type { TravelNowResult, ViewId } from "../types";
 
 type CompanionTab = "now" | "phrases" | "etiquette";
 
-const SPEECH_LANG: Record<string, string> = { XK: "sq-AL", DE: "de-DE", IT: "it-IT", FR: "fr-FR", ES: "es-ES", JP: "ja-JP", TH: "th-TH", GB: "en-GB" };
+const SPEECH_LANG: Record<string, string> = {
+  XK: "sq-AL", AL: "sq-AL", BA: "bs-BA", RS: "sr-RS", DE: "de-DE", IT: "it-IT", FR: "fr-FR",
+  ES: "es-ES", PT: "pt-PT", NL: "nl-NL", GR: "el-GR", JP: "ja-JP", KR: "ko-KR", TH: "th-TH",
+  AE: "ar-AE", GE: "ka-GE", AZ: "az-AZ", BR: "pt-BR", GB: "en-GB",
+};
 
 export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice }: {
   initialTab?: CompanionTab;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
-  const { locale, copy } = useI18n();
+  const { locale, copy, countryName } = useI18n();
   const [tab, setTab] = useState<CompanionTab>(initialTab);
   const [countryCode, setCountryCode] = useState("XK");
   const [budget, setBudget] = useState<"free" | "low" | "flexible">("low");
@@ -24,7 +32,23 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [result, setResult] = useState<TravelNowResult | null>(null);
   const [error, setError] = useState("");
-  const profile = useMemo(() => essentialProfile(countryCode), [countryCode]);
+  const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
+  const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
+    const code = alpha2FromAlpha3(country.alpha3);
+    const supported = supportedProfiles.get(code);
+    return {
+      code,
+      flagCode: code,
+      name: countryName(country.alpha3, country.name),
+      meta: supported
+        ? (locale === "tr" ? supported.languageTr : supported.languageEn)
+        : copy("İngilizce acil kart", "English emergency fallback"),
+      supported: Boolean(supported),
+    };
+  }).filter((country) => country.code).sort((a, b) => Number(b.supported) - Number(a.supported) || a.name.localeCompare(b.name, locale)), [copy, countryName, locale, supportedProfiles]);
+  const selectedCountry = useMemo(() => countryOptions.find((country) => country.code === countryCode), [countryCode, countryOptions]);
+  const profile = useMemo(() => essentialProfile(countryCode)
+    || fallbackEssentialProfile(countryCode, selectedCountry?.name || countryCode, flagEmoji(countryCode)), [countryCode, selectedCountry?.name]);
 
   useEffect(() => setTab(initialTab), [initialTab]);
 
@@ -122,8 +146,9 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
     </section>}
 
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" role="tabpanel">
-      <label className="essential-country-select">{copy("Gideceğin ülke", "Destination")}<select value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>{TRAVEL_ESSENTIALS.map((item) => <option value={item.code} key={item.code}>{item.flag} {locale === "tr" ? item.nameTr : item.nameEn}</option>)}</select></label>
-      <div className="essential-heading"><span>{profile.flag}</span><div><small>{tab === "phrases" ? copy("İNTERNETSİZ HAZIR İFADELER", "OFFLINE ESSENTIAL PHRASES") : copy("GÖRGÜ, KÜLTÜR VE UYARILAR", "ETIQUETTE, CULTURE & CAUTIONS")}</small><h2>{locale === "tr" ? profile.nameTr : profile.nameEn}</h2><p>{tab === "phrases" ? (locale === "tr" ? profile.languageTr : profile.languageEn) : copy("Kısa ve pratik yerel notlar", "Short, practical local notes")}</p></div></div>
+      <CountryPicker value={countryCode} options={countryOptions} onChange={setCountryCode} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
+      <div className="essential-heading"><span><CountryFlag code={profile.code} label={locale === "tr" ? profile.nameTr : profile.nameEn} /></span><div><small>{tab === "phrases" ? copy("İNTERNETSİZ HAZIR İFADELER", "OFFLINE ESSENTIAL PHRASES") : copy("GÖRGÜ, KÜLTÜR VE UYARILAR", "ETIQUETTE, CULTURE & CAUTIONS")}</small><h2>{locale === "tr" ? profile.nameTr : profile.nameEn}</h2><p>{tab === "phrases" ? (locale === "tr" ? profile.languageTr : profile.languageEn) : copy("Kısa ve pratik yerel notlar", "Short, practical local notes")}</p></div></div>
+      {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}><small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}<div><button onClick={() => void copyPhrase(phrase.local)}><Icon name="bookmark" size={16} />{copy("Kopyala", "Copy")}</button><button onClick={() => speak(phrase.local)}><Icon name="bell" size={16} />{copy("Dinle", "Listen")}</button></div></article>)}</div>
         : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><p>{locale === "tr" ? rule.tr : rule.en}</p></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>

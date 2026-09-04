@@ -43,7 +43,12 @@ import styles from "./visa-appointment.module.css";
 function inputDate(offsetDays: number) {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+function clampInputDate(value: string, minimum: string, maximum?: string) {
+  if (!value || value < minimum) return minimum;
+  return maximum && value > maximum ? maximum : value;
 }
 
 function formatDate(value: string | null, withTime = false) {
@@ -179,6 +184,11 @@ export default function VisaAppointmentClient() {
       return;
     }
 
+    if (form.earliestDate < inputDate(1) || form.latestDate < form.earliestDate) {
+      setMessage("Tarih aralığı yarından başlamalı ve bitiş başlangıçtan önce olmamalı.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await authorizedFetch("/api/visa-appointments", {
@@ -305,12 +315,15 @@ export default function VisaAppointmentClient() {
 
               <label>
                 <span>En erken uygun tarih</span>
-                <div className={styles.iconInput}><CalendarDays size={18} /><input type="date" min={inputDate(1)} value={form.earliestDate} onChange={(event) => setForm({ ...form, earliestDate: event.target.value })} /></div>
+                <div className={styles.iconInput}><CalendarDays size={18} /><input type="date" min={inputDate(1)} max={inputDate(365)} value={form.earliestDate} onChange={(event) => {
+                  const next = clampInputDate(event.target.value, inputDate(1), inputDate(365));
+                  setForm({ ...form, earliestDate: next, latestDate: form.latestDate < next ? next : form.latestDate });
+                }} /></div>
               </label>
 
               <label>
                 <span>En geç uygun tarih</span>
-                <div className={styles.iconInput}><CalendarDays size={18} /><input type="date" min={form.earliestDate} value={form.latestDate} onChange={(event) => setForm({ ...form, latestDate: event.target.value })} /></div>
+                <div className={styles.iconInput}><CalendarDays size={18} /><input type="date" min={form.earliestDate} max={inputDate(365)} value={form.latestDate} onChange={(event) => setForm({ ...form, latestDate: clampInputDate(event.target.value, form.earliestDate, inputDate(365)) })} /></div>
               </label>
 
               <div className={styles.providerInfo}>

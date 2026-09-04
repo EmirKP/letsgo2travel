@@ -3,7 +3,8 @@
 // TEK ortak ISO 3166-1 ülke kaynağı üreticisi.
 // Kod eşlemeleri: i18n-iso-countries (MIT). Türkçe adlar: Node ICU
 // (Intl.DisplayNames 'tr'; yoksa paketin tr sözlüğü). Bayrak: bölgesel
-// gösterge emojisi (XK gibi resmî emojisi olmayanlarda 🏳️).
+// gösterge emojisi. Kosova'nın XK dizisi bazı sistemlerde beyaz bayrağa
+// düşebildiği için mobil CountryFlag bileşeni her cihazda yerel SVG kullanır.
 // Çıktılar (ikisi de commit edilir; içerik AYNIDIR):
 //   lib/countries/iso3166.json          (web/API)
 //   mobile/src/data/iso3166.json        (mobil paket)
@@ -20,7 +21,7 @@ iso.registerLocale(trLang);
 const display = new Intl.DisplayNames(["tr"], { type: "region" });
 
 function flagEmoji(alpha2) {
-  if (!/^[A-Z]{2}$/.test(alpha2) || alpha2 === "XK") return "🏳️";
+  if (!/^[A-Z]{2}$/.test(alpha2)) return "🏳️";
   return String.fromCodePoint(...[...alpha2].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
