@@ -6,18 +6,18 @@ import { Sheet } from "./Sheet";
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { copy } = useI18n();
   const changes = [
-    ["globe", copy("Daha geniş etkinlik kapsamı", "Broader event coverage"), copy("Ticketmaster'ın kapsamadığı ülkelerde küresel yedek kaynak otomatik devreye girer.", "A global fallback source now takes over automatically where Ticketmaster has no coverage.")],
-    ["calendar", copy("Gerçek şehir seçimi", "Working city selection"), copy("Ülkeyi seçince o ülkenin şehirleri gelir; yazım farkları artık aramayı bozmaz.", "Choose a country to load its cities, without spelling differences breaking the search.")],
-    ["check", copy("Düzgün mobil satırlar", "Aligned mobile layouts"), copy("Form alanları, durum etiketleri ve etkinlik düğmeleri dar ekranlarda hizalı kalır.", "Fields, status labels and event actions stay aligned on narrow screens.")],
-    ["shield", copy("Sabit ve kontrollü görünüm", "Stable, controlled view"), copy("Uygulama ve pasaport haritasında yanlışlıkla yakınlaştırma kaldırıldı; ülkeye dokunma korunuyor.", "Accidental zoom is disabled in the app and passport map while country taps still work.")],
+    ["globe", copy("Kosova etkinlikleri", "Events in Kosovo"), copy("Kosova aramaları artık XK engeline takılmadan PRN konum kapsamıyla çalışır.", "Kosovo searches now use PRN location coverage instead of failing on XK.")],
+    ["sparkles", copy("Dünya sahnesi", "World stage"), copy("Yüksek ilgi gören yaklaşan konserler, ülkeye öncelik verilerek otomatik öne çıkarılır.", "High-impact upcoming concerts are highlighted automatically, prioritising the selected country.")],
+    ["calendar", copy("Güvenli tarih ve saatler", "Safe dates and times"), copy("Geçmiş günler, geçmiş saatler ve ters tarih aralıkları artık kabul edilmez.", "Past days, past times and reversed date ranges are no longer accepted.")],
+    ["check", copy("Hizalı mobil formlar", "Aligned mobile forms"), copy("iOS tarih ve saat kutuları kart içinde kalır; gereksiz varış arka planı kaldırıldı.", "iOS date and time fields stay inside their cards, with the extra arrival background removed.")],
   ] as const;
 
   return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`)} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
-      <h3>{copy("Etkinlik Radarı artık daha fazla ülkeye ulaşıyor.", "Event Radar now reaches more countries.")}</h3>
-      <p>{copy(`Build ${config.buildNumber}, şehir aramasını ve dar ekran deneyimini daha güvenilir hâle getirir.`, `Build ${config.buildNumber} makes city search and narrow-screen layouts more reliable.`)}</p>
+      <h3>{copy("Büyük konserleri kaçırma; planını doğru tarihle kur.", "Catch major concerts and plan with the right dates.")}</h3>
+      <p>{copy(`Build ${config.buildNumber}, etkinlik kapsamını, tarih güvenliğini ve iOS form düzenini yeniler.`, `Build ${config.buildNumber} improves event coverage, date safety and iOS form layouts.`)}</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, description]) => <div key={title}>

@@ -1,4 +1,4 @@
-# LetsGo2Travel iOS 1.4.0 (Build 15) yayın kontrol listesi
+# LetsGo2Travel iOS 1.4.0 (Build 16) yayın kontrol listesi
 
 ## Kodda tamamlanan hazırlıklar
 

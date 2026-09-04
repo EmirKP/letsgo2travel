@@ -92,6 +92,7 @@ export type TravelEvent = {
   ticketUrl: string | null;
   sourceUrl: string;
   featured: boolean;
+  impactRank?: number | null;
   updatedAt: string;
 };
 

@@ -32,6 +32,7 @@ export async function listTravelEvents(params: {
   if (params.endDate) query.set("endDate", params.endDate);
   if (params.category && params.category !== "all") query.set("category", params.category);
   if (params.featured) query.set("featured", "true");
+  query.set("timeZone", Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   query.set("limit", String(params.limit || 24));
   return requestJson<{
     data: TravelEvent[];
@@ -40,6 +41,7 @@ export async function listTravelEvents(params: {
       providers?: Record<string, { configured: boolean; attempted: boolean; succeeded: boolean }>;
       fallbackUsed?: boolean;
       coverageLimited?: boolean;
+      coverageStatus?: "live" | "no_results" | "provider_unavailable" | "limited" | "not_configured";
       partial: boolean;
       updatedAt: string;
     };

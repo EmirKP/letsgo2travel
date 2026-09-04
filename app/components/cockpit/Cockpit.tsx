@@ -72,6 +72,11 @@ const categoryLabels: Record<ChecklistCategory, string> = {
   other: "Diğer",
 };
 
+function localIsoDate(daysFromNow = 0, now: Date = new Date()) {
+  const date = new Date(now.getTime() + daysFromNow * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 function calculateCountdown(targetIso: string): CountdownValue {
   const difference = new Date(targetIso).getTime() - Date.now();
 
@@ -684,7 +689,8 @@ function TripForm({
   onCancel: () => void;
   onSubmit: (input: CreateTripInput) => Promise<void>;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localIsoDate();
+  const maxDate = localIsoDate(730);
   const [countryCode, setCountryCode] = useState("AE");
   const [city, setCity] = useState("");
   const [startDate, setStartDate] = useState(today);
@@ -697,8 +703,25 @@ function TripForm({
     event.preventDefault();
     setFormError("");
 
+    if (startDate < today) {
+      setFormError("Başlangıç tarihi geçmiş bir gün olamaz.");
+      return;
+    }
+
+    if (startDate > maxDate || endDate > maxDate) {
+      setFormError("Seyahat tarihleri bugünden itibaren iki yıl içinde olmalı.");
+      return;
+    }
+
     if (endDate < startDate) {
       setFormError("Dönüş tarihi başlangıç tarihinden önce olamaz.");
+      return;
+    }
+
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    if (departureTime && startDate === today && departureTime < currentTime) {
+      setFormError("Uçuş tarihi ve saati geçmişte olamaz.");
       return;
     }
 
@@ -760,6 +783,7 @@ function TripForm({
         <input
           type="date"
           min={today}
+          max={maxDate}
           value={startDate}
           onChange={(event) => {
             setStartDate(event.target.value);
@@ -774,6 +798,7 @@ function TripForm({
         <input
           type="date"
           min={startDate}
+          max={maxDate}
           value={endDate}
           onChange={(event) => setEndDate(event.target.value)}
           required

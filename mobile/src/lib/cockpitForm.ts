@@ -1,6 +1,6 @@
 // Kokpit formu saf yardımcıları (birim testlenebilir; ekran dosyasından ayrı).
 import type { AirportOption } from "./airports";
-import { isPastLocalDate } from "./dates";
+import { isPastLocalDate, isPastLocalDateTime, localIsoDate } from "./dates";
 
 export type TripFormState = {
   mode: "flight" | "other";
@@ -44,10 +44,13 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
   }
   if (!form.startDate || !form.endDate) return message("Başlangıç ve bitiş tarihlerini seç.", "Choose start and end dates.");
   if (isPastLocalDate(form.startDate, now)) return message("Başlangıç tarihi geçmiş bir gün olamaz.", "The start date cannot be in the past.");
+  if (form.startDate > localIsoDate(730, now) || form.endDate > localIsoDate(730, now)) return message("Seyahat tarihleri bugünden itibaren iki yıl içinde olmalı.", "Travel dates must be within two years from today.");
   if (form.endDate < form.startDate) return message("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date.");
   if (form.mode === "flight") {
     if (!/^\d{2}:\d{2}$/.test(form.departureTime)) return message("Kalkış saatini seç (Ada/hatırlatma geri sayımı için gerekli).", "Choose the departure time (needed for Live Activity and reminders).");
+    if (isPastLocalDateTime(form.startDate, form.departureTime, now)) return message("Kalkış tarihi ve saati geçmişte olamaz.", "The departure date and time cannot be in the past.");
     if (!form.arrivalDate || !/^\d{2}:\d{2}$/.test(form.arrivalTime)) return message("Planlanan varış tarihini ve saatini seç (uçuşta kalan süre için gerekli).", "Choose the scheduled arrival date and time (needed for the in-flight countdown).");
+    if (form.arrivalDate > form.endDate) return message("Planlanan varış tarihi seyahat bitişinden sonra olamaz.", "Scheduled arrival cannot be after the trip end date.");
     const departureAt = new Date(`${form.startDate}T${form.departureTime}:00`).getTime();
     const arrivalAt = new Date(`${form.arrivalDate}T${form.arrivalTime}:00`).getTime();
     if (!Number.isFinite(departureAt) || !Number.isFinite(arrivalAt) || arrivalAt <= departureAt) return message("Planlanan varış, kalkıştan sonra olmalı.", "Scheduled arrival must be after departure.");

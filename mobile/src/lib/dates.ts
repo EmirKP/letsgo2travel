@@ -11,3 +11,13 @@ export function isPastLocalDate(value: string, now: Date = new Date()): boolean 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
   return value < localIsoDate(0, now);
 }
+
+/** Bugünün içinde seçilen bir saat artık geçmişte kaldı mı? */
+export function isPastLocalDateTime(date: string, time: string, now: Date = new Date()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return true;
+  const today = localIsoDate(0, now);
+  if (date < today) return true;
+  if (date > today) return false;
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return time < currentTime;
+}

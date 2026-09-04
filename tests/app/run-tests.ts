@@ -24,7 +24,7 @@ import {
 import { ISO_COUNTRIES, isoCountryByAlpha2 } from "../../lib/countries/isoSource";
 import { isIsoDateString, isPastTravelDate, isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "../../lib/date-utils";
 import { normalizeFlightNumber, normalizePnr, tripFormError, type TripFormState } from "./_mobile/cockpitForm";
-import { isPastLocalDate, localIsoDate } from "./_mobile/dates";
+import { isPastLocalDate, isPastLocalDateTime, localIsoDate } from "./_mobile/dates";
 import { tripIdFromUrl } from "./_mobile/deepLink";
 import { activityPhase, activitySyncAction, cockpitDeepLink, countdownMode, plannedReminders } from "./_mobile/liveActivity";
 import { randomFallbackUuid } from "./_mobile/id";
@@ -426,6 +426,24 @@ test("kokpit: planlanan varış uçuş geri sayımı için zorunlu ve kalkışta
   );
 });
 
+test("kokpit: bugün içinde geçmiş kalkış saati ve seyahat sonrası varış reddedilir", () => {
+  const now = new Date(2026, 8, 4, 16, 44, 0);
+  assert.ok(tripFormError(makeTripForm({
+    startDate: "2026-09-04",
+    endDate: "2026-09-08",
+    departureTime: "10:00",
+    arrivalDate: "2026-09-04",
+    arrivalTime: "13:00",
+  }), now).includes("geçmişte"));
+  assert.ok(tripFormError(makeTripForm({
+    startDate: "2026-09-05",
+    endDate: "2026-09-08",
+    departureTime: "10:00",
+    arrivalDate: "2026-09-09",
+    arrivalTime: "13:00",
+  }), now).includes("seyahat bitişinden"));
+});
+
 test("kokpit: uçuş numarası normalize edilir ve doğrulanır", () => {
   assert.equal(normalizeFlightNumber(" tk 19-79 "), "TK1979");
   assert.equal(tripFormError(makeTripForm({ flightNumber: "TK1979" })), "");
@@ -459,6 +477,10 @@ test("mobil tarih yardımcıları: geçmiş/bugün ayrımı", () => {
   assert.equal(isPastLocalDate(localIsoDate(0)), false, "bugün geçmiş değildir");
   assert.equal(isPastLocalDate(localIsoDate(-1)), true, "dün geçmiştir");
   assert.equal(isPastLocalDate("bozuk"), true);
+  const now = new Date(2026, 8, 4, 16, 44, 0);
+  assert.equal(isPastLocalDateTime("2026-09-04", "10:00", now), true, "bugünün geçmiş saati reddedilmeli");
+  assert.equal(isPastLocalDateTime("2026-09-04", "16:44", now), false, "mevcut dakika kabul edilmeli");
+  assert.equal(isPastLocalDateTime("2026-09-05", "00:01", now), false, "gelecek gün geçmiş sayılmamalı");
 });
 
 test("rota: üretilen planın tercihleri değişen formdan bağımsız saklanır", () => {
@@ -810,7 +832,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 15);
+  assert.equal(release.buildNumber, 16);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -822,22 +844,30 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   assert.ok(android.includes("releaseRequested && !googleServicesReady"), "Android release FCM yapılandırması olmadan çıkmamalı");
 });
 
-test("Build 15: etkinlik radarı otomatik fallback, şehir ve güvenilir kaynak sözleşmesini korur", () => {
+test("Build 16: etkinlik radarı Kosova, tarih, öne çıkan sanatçı ve mobil düzen sözleşmesini korur", () => {
   const publicRoute = readFileSync("app/api/events/route.ts", "utf8");
   const adminRoute = readFileSync("app/api/admin/events/route.ts", "utf8");
   const source = readFileSync("lib/travel-events.ts", "utf8");
   const sql = readFileSync("supabase/migrations/20260903190000_travel_events.sql", "utf8");
   const screen = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
   const envExample = readFileSync(".env.example", "utf8");
   assert.ok(publicRoute.includes("validIsoDate") && publicRoute.includes("rangeMs > 366"), "etkinlik tarih aralığı sınırlandırılmalı");
+  assert.ok(publicRoute.includes("todayIsoInTimeZone") && publicRoute.includes("EVENT_DATE_PAST"), "geçmiş tarih sunucuda kullanıcının saat dilimine göre reddedilmeli");
   assert.ok(publicRoute.includes("Math.floor(Number"), "sağlayıcıya kesirli sonuç limiti gönderilmemeli");
   assert.ok(source.includes("TICKETMASTER_API_KEY") && source.includes("Promise.allSettled"), "otomatik sağlayıcı editoryal akışı düşürmemeli");
   assert.ok(source.includes("PREDICTHQ_ACCESS_TOKEN") && source.includes("ticketmasterSupportsCountry"), "kapsam dışı ülkeler küresel yedek sağlayıcıya yönlenmeli");
   assert.ok(source.includes("const needsFallback = events.length === 0") && source.includes("await predictHqEvents(search)"), "Ticketmaster sıfır sonuçta fallback otomatik çalışmalı");
+  assert.ok(source.includes('kosovoSearch') && source.includes('search.placeCode || "PRN"'), "Kosova XK yerine PRN IATA kapsamıyla aranmalı");
+  assert.ok(source.includes('params.set("rank.gte", "55")') && source.includes('params.set("sort", "rank,start")'), "önemli konserler sağlayıcının etki puanıyla seçilmeli");
   assert.ok(source.includes("statusFromTicketmaster"), "iptal/erteleme durumu sağlayıcıdan taşınmalı");
   assert.ok(source.includes("mapped.category !== search.category"), "sağlayıcı sonuçları seçili kategori dışına taşmamalı");
   assert.ok(publicRoute.includes("listEventCities") && publicRoute.includes("placeCode"), "şehir kodu sunucuda ülkeyle doğrulanmalı");
   assert.ok(screen.includes("listEventCities") && screen.includes("cityPlaceCode"), "şehir serbest metin yerine ülkeye bağlı seçenek olmalı");
+  assert.ok(screen.includes('min={localIsoDate(0)}') && screen.includes('max={localIsoDate(366)}'), "mobil etkinlik takvimi geçmişi ve aşırı uzak tarihleri seçtirmemeli");
+  assert.ok(screen.includes("Dünyaca ünlü sanatçılar") && screen.includes("featured: true"), "öne çıkan sanatçılar alanı canlı veriden yüklenmeli");
+  assert.ok(screen.includes("citiesError") && screen.includes("citiesReloadKey"), "şehir API hatası sessizce tüm şehirler gibi gösterilmemeli");
+  assert.ok(styles.includes('.cockpit-arrival-fields { width: 100%; padding: 0;') && styles.includes('input[type="date"]::-webkit-date-and-time-value'), "iOS tarih alanı taşması ve gereksiz varış arka planı düzeltilmeli");
   assert.ok(envExample.includes("PREDICTHQ_ACCESS_TOKEN="), "fallback anahtar adı güvenli env örneğinde bulunmalı");
   assert.ok(adminRoute.includes('adminPrincipalFromRequest(request, ["super_admin"])'), "etkinlik yönetimi yalnız super_admin olmalı");
   assert.ok(sql.includes("enable row level security") && sql.includes("revoke insert, update, delete"), "etkinlik tablosu doğrudan yazıma kapalı olmalı");

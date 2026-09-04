@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
 import { listEventCities, listTravelEvents } from "../lib/api";
+import { localIsoDate } from "../lib/dates";
 import { cancelEventReminder, reconcileEventReminders, scheduleEventReminder } from "../lib/eventReminders";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
@@ -10,10 +11,6 @@ import { getSavedTravelEvents, mergeSavedTravelEvents, toggleSavedTravelEvent } 
 import type { EventCityOption, TravelEvent, ViewId } from "../types";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
-
-function isoDateAfter(days: number) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
 
 export function EventsScreen({ ownerId, onNavigate, onNotice }: {
   ownerId?: string | null;
@@ -25,8 +22,10 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
   const [cityPlaceCode, setCityPlaceCode] = useState("");
   const [cities, setCities] = useState<EventCityOption[]>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
-  const [startDate, setStartDate] = useState(isoDateAfter(0));
-  const [endDate, setEndDate] = useState(isoDateAfter(120));
+  const [citiesError, setCitiesError] = useState(false);
+  const [citiesReloadKey, setCitiesReloadKey] = useState(0);
+  const [startDate, setStartDate] = useState(localIsoDate(0));
+  const [endDate, setEndDate] = useState(localIsoDate(120));
   const [category, setCategory] = useState<(typeof CATEGORY_IDS)[number]>("all");
   const [events, setEvents] = useState<TravelEvent[]>([]);
   const [savedIds, setSavedIds] = useState(() => new Set(getSavedTravelEvents(ownerId).map((event) => event.id)));
@@ -35,7 +34,12 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
   const [searched, setSearched] = useState(false);
   const [providerConfigured, setProviderConfigured] = useState(true);
   const [coverageLimited, setCoverageLimited] = useState(false);
+  const [coverageStatus, setCoverageStatus] = useState("");
   const [updatedAt, setUpdatedAt] = useState("");
+  const [featuredEvents, setFeaturedEvents] = useState<TravelEvent[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+  const [featuredUnavailable, setFeaturedUnavailable] = useState(false);
+  const [featuredGlobal, setFeaturedGlobal] = useState(false);
 
   const countries = useMemo(() => COUNTRY_LIST
     .map((country) => ({ ...country, name: countryName(country.alpha3, country.name), code: alpha2FromAlpha3(country.alpha3) }))
@@ -51,6 +55,7 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
     let current = true;
     setCityPlaceCode("");
     setCities([]);
+    setCitiesError(false);
     if (!countryCode) {
       setCitiesLoading(false);
       return () => { current = false; };
@@ -58,8 +63,43 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
     setCitiesLoading(true);
     void listEventCities(countryCode)
       .then((options) => { if (current) setCities(options); })
-      .catch(() => { if (current) setCities([]); })
+      .catch(() => { if (current) { setCities([]); setCitiesError(true); } })
       .finally(() => { if (current) setCitiesLoading(false); });
+    return () => { current = false; };
+  }, [countryCode, citiesReloadKey]);
+
+  useEffect(() => {
+    let current = true;
+    const dates = { startDate: localIsoDate(0), endDate: localIsoDate(180) };
+    setFeaturedLoading(true);
+    setFeaturedUnavailable(false);
+    setFeaturedGlobal(false);
+    void (async () => {
+      try {
+        const selected = await listTravelEvents({ countryCode, ...dates, featured: true, limit: 6 });
+        let next = Array.isArray(selected.data) ? selected.data : [];
+        let usesGlobal = false;
+        let unavailable = selected.meta?.coverageStatus === "provider_unavailable" || selected.meta?.coverageStatus === "limited" || selected.meta?.coverageStatus === "not_configured";
+        if (countryCode && !next.length && selected.meta?.coverageStatus === "no_results") {
+          const worldwide = await listTravelEvents({ ...dates, featured: true, limit: 6 });
+          next = Array.isArray(worldwide.data) ? worldwide.data : [];
+          usesGlobal = true;
+          unavailable = worldwide.meta?.coverageStatus === "provider_unavailable" || worldwide.meta?.coverageStatus === "limited" || worldwide.meta?.coverageStatus === "not_configured";
+        }
+        if (current) {
+          setFeaturedEvents(next);
+          setFeaturedGlobal(usesGlobal);
+          setFeaturedUnavailable(unavailable && !next.length);
+        }
+      } catch {
+        if (current) {
+          setFeaturedEvents([]);
+          setFeaturedUnavailable(true);
+        }
+      } finally {
+        if (current) setFeaturedLoading(false);
+      }
+    })();
     return () => { current = false; };
   }, [countryCode]);
 
@@ -73,9 +113,18 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
 
   const search = async () => {
     if (loading) return;
+    const today = localIsoDate(0);
+    const latest = localIsoDate(366);
+    if (!startDate || !endDate || startDate < today || endDate < startDate || startDate > latest || endDate > latest) {
+      setSearched(true);
+      setEvents([]);
+      setError(copy("Tarihleri bugünden başlayarak en fazla bir yıllık geçerli bir aralıkta seç.", "Choose a valid date range from today through the next year."));
+      return;
+    }
     setLoading(true);
     setError("");
     setCoverageLimited(false);
+    setCoverageStatus("");
     setSearched(true);
     try {
       const result = await listTravelEvents({
@@ -95,11 +144,15 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
       if (reminderChanges > 0) onNotice(copy("Kayıtlı etkinliklerin tarih veya durum değişiklikleri güncellendi.", "Date or status changes for your saved events were updated."));
       setProviderConfigured(result.meta?.providerConfigured !== false);
       setCoverageLimited(result.meta?.coverageLimited === true);
+      setCoverageStatus(result.meta?.coverageStatus || "");
       setUpdatedAt(result.meta?.updatedAt || "");
-    } catch {
+    } catch (requestError) {
       setEvents([]);
       setCoverageLimited(false);
-      setError(copy("Etkinlikler yüklenemedi. Bağlantını kontrol edip yeniden dene.", "Events could not be loaded. Check your connection and try again."));
+      setCoverageStatus("");
+      setError(requestError instanceof Error && requestError.message
+        ? requestError.message
+        : copy("Etkinlikler yüklenemedi. Bağlantını kontrol edip yeniden dene.", "Events could not be loaded. Check your connection and try again."));
     } finally {
       setLoading(false);
     }
@@ -140,6 +193,7 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
           setCountryCode(event.target.value);
           setCityPlaceCode("");
           setCities([]);
+          setCitiesError(false);
         }}>
           <option value="">{copy("Tüm dünya", "Worldwide")}</option>
           {countries.map((country) => <option value={country.code} key={country.alpha3}>{flagEmoji(country.code)} {country.name}</option>)}
@@ -148,21 +202,34 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
           <option value="">{citiesLoading ? copy("Şehirler yükleniyor…", "Loading cities…") : countryCode ? copy("Tüm şehirler", "All cities") : copy("Önce ülke seç", "Choose a country first")}</option>
           {cities.map((option) => <option value={option.placeCode} key={option.placeCode}>{option.name}</option>)}
         </select></label>
-        <label>{copy("Başlangıç", "From")}<input type="date" value={startDate} onChange={(event) => {
+        <label>{copy("Başlangıç", "From")}<input type="date" min={localIsoDate(0)} max={localIsoDate(366)} value={startDate} onChange={(event) => {
           const nextStartDate = event.target.value;
           setStartDate(nextStartDate);
           if (endDate && nextStartDate && endDate < nextStartDate) setEndDate(nextStartDate);
         }} /></label>
-        <label>{copy("Bitiş", "To")}<input type="date" min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <label>{copy("Bitiş", "To")}<input type="date" min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
       </div>
+      {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
       <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
         {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{categoryLabel(item)}</button>)}
       </div>
       <button className="primary-wide" disabled={loading || !startDate || !endDate} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
     </section>
 
+    <section className="featured-events" aria-labelledby="featured-events-title">
+      <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Dünyaca ünlü sanatçılar", "Global headline artists")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
+      {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
+        : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
+          <span className="featured-event-mark">{flagEmoji(event.countryCode) || "🎤"}</span>
+          <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(event.startsAt))}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
+          <Icon name="external" size={17} />
+        </button>)}</div>
+          : <div className="featured-event-empty"><Icon name={featuredUnavailable ? "offline" : "calendar"} size={22} /><p>{featuredUnavailable ? copy("Öne çıkan konser kaynağına şu anda ulaşılamıyor.", "Headline concert data is temporarily unavailable.") : copy("Önümüzdeki dönemde öne çıkan konser bulunamadı.", "No headline concerts were found for the coming months.")}</p></div>}
+    </section>
+
     {!providerConfigured && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Otomatik etkinlik sağlayıcısı henüz etkin değil. Bu sırada yönetici tarafından doğrulanmış duyurular gösterilir.", "The automatic event provider is not enabled yet. Verified editorial listings are shown in the meantime.")}</p></div>}
-    {providerConfigured && coverageLimited && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Bu ülke için canlı etkinlik kapsamı şu anda sınırlı. Yönetici tarafından doğrulanmış duyurular gösteriliyor.", "Live event coverage is currently limited for this country. Verified editorial listings are being shown.")}</p></div>}
+    {providerConfigured && coverageStatus === "provider_unavailable" && <div className="info-box event-provider-note event-provider-unavailable"><Icon name="alert" size={18} /><p>{copy("Canlı etkinlik kaynağına şu anda ulaşılamıyor. Biraz sonra yeniden dene; doğrulanmış duyurular gösterilmeye devam ediyor.", "The live event source is temporarily unavailable. Try again shortly; verified listings remain visible.")}</p><button onClick={() => void search()}>{copy("Yeniden dene", "Retry")}</button></div>}
+    {providerConfigured && coverageLimited && coverageStatus !== "provider_unavailable" && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Bu ülke için canlı etkinlik kapsamı şu anda sınırlı. Yönetici tarafından doğrulanmış duyurular gösteriliyor.", "Live event coverage is currently limited for this country. Verified editorial listings are being shown.")}</p></div>}
     {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p><button onClick={() => void search()}>{copy("Tekrar dene", "Try again")}</button></div>}
 
     <section className="section-block event-results">

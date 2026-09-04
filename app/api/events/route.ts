@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchTravelEvents, type TravelEventCategory } from "@/lib/travel-events";
 import { listEventCities } from "@/lib/airport-search";
+import { isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +15,29 @@ function validIsoDate(value: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const now = new Date();
-  const after = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+  const rawTimeZone = url.searchParams.get("timeZone");
+  if (rawTimeZone && !isValidTimeZone(rawTimeZone.trim())) {
+    return NextResponse.json({ error: "Geçersiz saat dilimi.", code: "EVENT_TIME_ZONE_INVALID" }, { status: 400 });
+  }
+  const timeZone = sanitizeTimeZone(rawTimeZone);
+  const today = todayIsoInTimeZone(timeZone);
+  const maxDate = isoDateAfterDays(366, timeZone);
   const rawStartDate = url.searchParams.get("startDate");
   const rawEndDate = url.searchParams.get("endDate");
   if ((rawStartDate && !validIsoDate(rawStartDate)) || (rawEndDate && !validIsoDate(rawEndDate))) {
-    return NextResponse.json({ error: "Geçersiz etkinlik tarihi." }, { status: 400 });
+    return NextResponse.json({ error: "Geçersiz etkinlik tarihi.", code: "EVENT_DATE_INVALID" }, { status: 400 });
   }
-  const startDate = rawStartDate || now.toISOString().slice(0, 10);
-  const endDate = rawEndDate || after.toISOString().slice(0, 10);
+  const startDate = rawStartDate || today;
+  const endDate = rawEndDate || isoDateAfterDays(120, timeZone);
+  if (startDate < today) {
+    return NextResponse.json({ error: "Etkinlik başlangıcı geçmiş bir tarih olamaz.", code: "EVENT_DATE_PAST" }, { status: 400 });
+  }
+  if (startDate > maxDate || endDate > maxDate) {
+    return NextResponse.json({ error: "Etkinlikler bugünden itibaren en fazla bir yıl için aranabilir.", code: "EVENT_DATE_TOO_FAR" }, { status: 400 });
+  }
   const rangeMs = Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`);
   if (rangeMs < 0 || rangeMs > 366 * 24 * 60 * 60 * 1000) {
-    return NextResponse.json({ error: "Geçersiz etkinlik tarih aralığı." }, { status: 400 });
+    return NextResponse.json({ error: "Geçersiz etkinlik tarih aralığı.", code: "EVENT_DATE_RANGE_INVALID" }, { status: 400 });
   }
   const rawCountry = (url.searchParams.get("countryCode") || "").trim().toUpperCase();
   if (rawCountry && !/^([A-Z]{2}|XK)$/.test(rawCountry)) {
@@ -46,11 +58,12 @@ export async function GET(request: Request) {
   // kanonik ad kullanılır. Kodsuz city eski istemcilerle uyumluluk içindir.
   const city = cityOption?.name || (url.searchParams.get("city") || "").trim().slice(0, 120) || undefined;
   const placeCode = cityOption?.placeCode;
+  const featured = url.searchParams.get("featured") === "true";
   const rawCategory = url.searchParams.get("category") as TravelEventCategory | null;
   if (rawCategory && !CATEGORIES.has(rawCategory)) {
     return NextResponse.json({ error: "Geçersiz etkinlik kategorisi." }, { status: 400 });
   }
-  const category = rawCategory && CATEGORIES.has(rawCategory) ? rawCategory : undefined;
+  const category = featured ? "concert" : rawCategory && CATEGORIES.has(rawCategory) ? rawCategory : undefined;
   const limit = Math.max(1, Math.min(Math.floor(Number(url.searchParams.get("limit")) || 24), 50));
 
   try {
@@ -61,7 +74,7 @@ export async function GET(request: Request) {
       startDate,
       endDate,
       category,
-      featured: url.searchParams.get("featured") === "true",
+      featured,
       limit,
     });
     return NextResponse.json({
@@ -71,6 +84,7 @@ export async function GET(request: Request) {
         providers: result.providers,
         fallbackUsed: result.fallbackUsed,
         coverageLimited: result.coverageLimited,
+        coverageStatus: result.coverageStatus,
         partial: result.partial,
         updatedAt: new Date().toISOString(),
       },

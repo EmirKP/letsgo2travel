@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "15",
+  "buildNumber": "16",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,15 +16,17 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-BeQg9PdK.js",
-    "stylesheet": "assets/index-D90z6xFG.css"
+    "javascript": "assets/index-CSqZwJb_.js",
+    "stylesheet": "assets/index-BTCtjLK4.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 15: PredictHQ provides automatic fallback when Ticketmaster has no country coverage or no results.",
-    "Build 15: country-linked city selection now uses validated shared place data.",
-    "Build 15: narrow-screen rows were aligned and native/map zoom was disabled.",
+    "Build 16: Kosovo event searches use the PRN IATA scope when the provider does not accept XK.",
+    "Build 16: high-impact concerts are presented in the new worldwide artist section.",
+    "Build 16: future-planning dates and same-day departure times reject past values.",
+    "Build 16: provider and city failures are separated from genuine empty results.",
+    "Build 16: iOS date/time overflow, cockpit arrival styling, category clipping and narrow navigation spacing were corrected.",
     "Root build/lint/tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]

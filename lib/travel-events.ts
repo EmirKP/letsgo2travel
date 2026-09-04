@@ -20,6 +20,7 @@ export type TravelEvent = {
   ticketUrl: string | null;
   sourceUrl: string;
   featured: boolean;
+  impactRank?: number | null;
   updatedAt: string;
 };
 
@@ -68,6 +69,7 @@ type PredictHqEvent = {
   cancelled?: unknown;
   postponed?: unknown;
   url?: unknown;
+  rank?: unknown;
   entities?: PredictHqEntity[];
 };
 
@@ -118,6 +120,11 @@ function stringList(value: unknown) {
   return Array.isArray(value)
     ? value.map((item) => text(item, 100)).filter(Boolean)
     : [];
+}
+
+function impactRank(value: unknown) {
+  const rank = Number(value);
+  return Number.isFinite(rank) && rank >= 0 && rank <= 100 ? Math.round(rank) : null;
 }
 
 function categoryFromTicketmaster(event: TicketmasterEvent): TravelEventCategory {
@@ -268,8 +275,18 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     "brand_unsafe.exclude": "true",
     "private.include": "false",
   });
-  if (search.countryCode) params.set("country", search.countryCode);
-  if (search.placeCode) params.set("place.scope", search.placeCode);
+  const kosovoSearch = search.countryCode?.toUpperCase() === "XK";
+  // PredictHQ ülke filtresi resmî ISO-3166 alpha-2 bekler. Kosova için
+  // yaygın kullanılan XK atanmış bir ISO kodu olmadığından ülke filtresi
+  // yerine desteklenen PRN IATA kapsamını kullanırız.
+  if (search.countryCode && !kosovoSearch) params.set("country", search.countryCode);
+  if (search.placeCode || kosovoSearch) params.set("place.scope", search.placeCode || "PRN");
+  if (search.featured) {
+    params.set("category", "concerts");
+    params.set("rank.gte", "55");
+    // PredictHQ'da `rank` en yüksek etki puanını önce getirir.
+    params.set("sort", "rank,start");
+  }
 
   const response = await fetch(`https://api.predicthq.com/v1/events/?${params}`, {
     headers: {
@@ -288,9 +305,11 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     const title = text(event.title, 240);
     const startsAt = validDate(event.start);
     if (!id || !title || !startsAt) return [];
-    const category = categoryFromPredictHq(event, search.category);
+    const category = categoryFromPredictHq(event, search.featured ? "concert" : search.category);
     if (search.category && category !== search.category) return [];
     const location = predictHqLocation(event, search);
+    const rank = impactRank(event.rank);
+    if (search.featured && (rank === null || rank < 55)) return [];
     const directUrl = httpsUrl(event.url);
     const sourceUrl = directUrl || eventVerificationUrl(title, location.city, startsAt);
     return [{
@@ -299,7 +318,7 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
       title,
       description: text(event.description, 1000),
       category,
-      countryCode: text(event.country || search.countryCode, 3).toUpperCase(),
+      countryCode: kosovoSearch ? "XK" : text(event.country || search.countryCode, 3).toUpperCase(),
       city: location.city,
       venue: location.venue,
       startsAt,
@@ -308,7 +327,8 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
       imageUrl: null,
       ticketUrl: null,
       sourceUrl,
-      featured: false,
+      featured: search.featured ? rank !== null && rank >= 55 : false,
+      impactRank: rank,
       updatedAt: validDate(event.updated) || startsAt,
     } satisfies TravelEvent];
   });
@@ -366,6 +386,25 @@ async function automaticProviderEvents(search: EventSearch): Promise<AutomaticPr
   };
   let events: TravelEvent[] = [];
   let partial = false;
+
+  if (search.featured) {
+    if (predicthqConfigured) {
+      providers.predicthq.attempted = true;
+      try {
+        events = await predictHqEvents({ ...search, category: "concert" });
+        providers.predicthq.succeeded = true;
+      } catch {
+        partial = true;
+      }
+    }
+    return {
+      events,
+      providers,
+      fallbackUsed: false,
+      coverageLimited: !predicthqConfigured || !providers.predicthq.succeeded,
+      partial,
+    };
+  }
 
   if (ticketmasterConfigured && ticketmasterEligible) {
     providers.ticketmaster.attempted = true;
@@ -429,20 +468,32 @@ export async function searchTravelEvents(search: EventSearch) {
   };
   const [curatedResult, providerResult] = await Promise.allSettled([
     curatedEvents(search),
-    search.featured ? Promise.resolve({ ...emptyAutomatic, partial: false }) : automaticProviderEvents(search),
+    automaticProviderEvents(search),
   ]);
   const curated = curatedResult.status === "fulfilled" ? curatedResult.value : [];
   const automatic = providerResult.status === "fulfilled" ? providerResult.value : emptyAutomatic;
   const events = [...curated, ...automatic.events]
     .filter((event, index, all) => all.findIndex((candidate) => sameEvent(candidate, event)) === index)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .sort((a, b) => search.featured
+      ? (b.impactRank || 0) - (a.impactRank || 0) || a.startsAt.localeCompare(b.startsAt)
+      : a.startsAt.localeCompare(b.startsAt))
     .slice(0, search.limit);
+  const providerStates = Object.values(automatic.providers);
+  const attempted = providerStates.some((provider) => provider.attempted);
+  const succeeded = providerStates.some((provider) => provider.succeeded);
+  const providerConfigured = providerStates.some((provider) => provider.configured);
+  const coverageStatus = !providerConfigured
+    ? "not_configured"
+    : automatic.coverageLimited
+      ? attempted && !succeeded ? "provider_unavailable" : "limited"
+      : events.length ? "live" : "no_results";
   return {
     events,
-    providerConfigured: automatic.providers.ticketmaster.configured || automatic.providers.predicthq.configured,
+    providerConfigured,
     providers: automatic.providers,
     fallbackUsed: automatic.fallbackUsed,
     coverageLimited: automatic.coverageLimited,
+    coverageStatus,
     partial: curatedResult.status === "rejected" || providerResult.status === "rejected" || automatic.partial,
   };
 }

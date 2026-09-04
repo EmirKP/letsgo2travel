@@ -77,6 +77,11 @@ export default function FiyatAlarmClient() {
       setMessage("Gidiş tarihi geçmiş bir gün olamaz.");
       return;
     }
+    if (form.departureDate > localIsoDate(730)) {
+      setStatus("error");
+      setMessage("Gidiş tarihi bugünden itibaren iki yıl içinde olmalı.");
+      return;
+    }
     if (!notifyEmail && !notifyPush) {
       setStatus("error");
       setMessage("En az bir bildirim kanalı seçmelisin (e-posta veya telefon bildirimi).");
@@ -181,6 +186,7 @@ export default function FiyatAlarmClient() {
             <input
               type="date"
               min={localIsoDate(0)}
+              max={localIsoDate(730)}
               value={form.departureDate}
               onChange={(e) => setForm((f) => ({ ...f, departureDate: e.target.value }))}
               required
