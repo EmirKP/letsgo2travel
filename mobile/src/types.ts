@@ -78,7 +78,7 @@ export type WeatherSummary = {
 
 export type TravelEvent = {
   id: string;
-  provider: "curated" | "ticketmaster";
+  provider: "curated" | "ticketmaster" | "predicthq";
   title: string;
   description: string;
   category: "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
@@ -93,6 +93,11 @@ export type TravelEvent = {
   sourceUrl: string;
   featured: boolean;
   updatedAt: string;
+};
+
+export type EventCityOption = {
+  name: string;
+  placeCode: string;
 };
 
 export type TravelNowResult = {

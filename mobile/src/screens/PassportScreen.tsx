@@ -55,7 +55,7 @@ export function PassportScreen() {
   useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter]);
 
   // Harita her ülke path'i için çalıştığından O(n) arama yerine sabit
-  // zamanda üyelik kontrolü kullanılır; pan/zoom sırasında ek yük oluşmaz.
+  // zamanda üyelik kontrolü kullanılır; filtreleme sırasında ek yük oluşmaz.
   const highlightedAlpha3 = useMemo(() => new Set(rows.map((country) => country.alpha3)), [rows]);
 
   const counts = useMemo(() => COUNTRY_LIST.reduce<Record<VisaStatus, number>>((acc, country) => {
@@ -99,8 +99,7 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("Kolay vize", "Easy visa")}</span></div>
       </div>
 
-      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("Bir ülkeye dokun; yakınlaşmak için iki parmak veya +/− düğmelerini kullan. İstersen aşağıdaki listeden de ülke seçebilirsin.", "Tap a country; pinch or use +/− to zoom. You can also choose from the list below.")}</p>
-      <p id="passport-map-keyboard-help" className="sr-only">{copy("Klavyede haritayı ok tuşlarıyla hareket ettir, artı ve eksi tuşlarıyla yakınlaştır, Home tuşuyla başlangıç görünümüne dön.", "Use arrow keys to move the map, plus and minus to zoom, and Home to reset the view.")}</p>
+      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("Ayrıntısını açmak için bir ülkeye dokun. İstersen aşağıdaki erişilebilir ülke listesini de kullanabilirsin.", "Tap a country to open its details. You can also use the accessible country list below.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
           dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen

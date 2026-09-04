@@ -9,10 +9,9 @@ const config: CapacitorConfig = {
   // Yayında bridge yanıtları (özellikle push kayıt sonucu) cihaz konsoluna
   // yazılmasın. Geliştirici gerektiğinde Xcode/Safari debug araçlarını açar.
   loggingBehavior: "none",
-  // Sistem erişilebilirlik yakınlaştırmasını engelleme. Harita kendi
-  // yakınlaştırmasını ayrıca yönettiği için uygulama geneli de %200'e
-  // kadar okunabilir kalabilir.
-  zoomEnabled: true,
+  // Native WebView ölçeklemesi kapalıdır; form alanları 16px ve tüm ana
+  // yüzeyler dar ekranda tek sütuna indiği için odak zoom'una gerek kalmaz.
+  zoomEnabled: false,
 
   server: {
     errorPath: "error.html",

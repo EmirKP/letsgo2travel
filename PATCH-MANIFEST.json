@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "14",
+  "buildNumber": "15",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,15 +16,15 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-C9nUrvbu.js",
-    "stylesheet": "assets/index-DtB1CphZ.css"
+    "javascript": "assets/index-BeQg9PdK.js",
+    "stylesheet": "assets/index-D90z6xFG.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 14: home and surprise experiences were redesigned around clear next actions.",
-    "Build 14: world events, live travel suggestions, offline phrases, local etiquette and full TR/EN navigation were added.",
-    "Build 14: Cockpit now carries scheduled arrival into Live Activity and the mobile admin shares the site's protected event workflow.",
+    "Build 15: PredictHQ provides automatic fallback when Ticketmaster has no country coverage or no results.",
+    "Build 15: country-linked city selection now uses validated shared place data.",
+    "Build 15: narrow-screen rows were aligned and native/map zoom was disabled.",
     "Root build/lint/tests, mobile lint/build, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]

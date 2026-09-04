@@ -5,7 +5,7 @@
 	"backgroundColor": "#071B33",
 	"appendUserAgent": " LetsGo2TravelNative/1.4",
 	"loggingBehavior": "none",
-	"zoomEnabled": true,
+	"zoomEnabled": false,
 	"server": {
 		"errorPath": "error.html"
 	},

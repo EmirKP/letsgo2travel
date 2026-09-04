@@ -23,6 +23,11 @@ export type AirportEntry = {
   priority: number;
 };
 
+export type EventCityOption = {
+  name: string;
+  placeCode: string;
+};
+
 export function normalizeSearchText(value: string) {
   return value
     .toLocaleLowerCase("tr-TR")
@@ -59,6 +64,35 @@ const PREPARED: PreparedAirport[] = (dataset as AirportEntry[]).map((entry) => (
   country: normalizeSearchText(entry.country),
   alias: (aliasByIata.get(entry.iata) || []).join(" | "),
 }));
+
+// OurAirports belediye alanı bazı büyük havalimanlarında ilçeyi taşır
+// (IST=Arnavutköy, SAW=Pendik gibi). Etkinlik filtresi şehir beklediği için
+// yalnız bu açıkça bilinen metropol sapmalarını kanonik şehir adına çevir.
+const EVENT_CITY_OVERRIDES: Record<string, string> = {
+  ADA: "Adana",
+  CIA: "Rome",
+  ECN: "Nicosia",
+  EWR: "New York",
+  FCO: "Rome",
+  IST: "Istanbul",
+  LGW: "London",
+  LHR: "London",
+  LIN: "Milan",
+  MXP: "Milan",
+  NRT: "Tokyo",
+  SAW: "Istanbul",
+  STN: "London",
+};
+
+function eventCityName(entry: AirportEntry) {
+  const override = EVENT_CITY_OVERRIDES[entry.iata];
+  if (override) return override;
+  // "Bakırköy, Istanbul" ve "Cincinnati / Covington" gibi belediye
+  // değerlerini etkinlik sağlayıcılarının anlayacağı ana şehre indirger.
+  const commaParts = entry.city.split(",").map((part) => part.trim()).filter(Boolean);
+  const city = commaParts.length > 1 ? commaParts[commaParts.length - 1] : entry.city;
+  return city.split("/")[0].trim().slice(0, 120);
+}
 
 function scoreAirport(query: string, airport: PreparedAirport) {
   if (airport.iata === query) return 0;
@@ -101,6 +135,37 @@ export function findAirportByIata(code: string): AirportEntry | null {
   if (!/^[A-Z]{3}$/.test(iata)) return null;
   const found = (dataset as AirportEntry[]).find((entry) => entry.iata === iata);
   return found || null;
+}
+
+/**
+ * Ülkeye bağlı etkinlik şehirlerini, PredictHQ'nun place.scope filtresinde
+ * kullanılabilecek temsilî bir IATA koduyla döndürür. Aynı şehrin birden
+ * fazla havalimanı varsa büyük/tarifeli olan tek seçenek olarak kalır.
+ */
+export function listEventCities(countryCode: string, limit = 120): EventCityOption[] {
+  const country = String(countryCode || "").trim().toUpperCase();
+  if (!/^([A-Z]{2}|XK)$/.test(country)) return [];
+
+  const byCity = new Map<string, { option: EventCityOption; priority: number }>();
+  for (const entry of dataset as AirportEntry[]) {
+    if (entry.countryCode !== country || !entry.city.trim()) continue;
+    const name = eventCityName(entry);
+    const normalized = normalizeSearchText(name);
+    if (!normalized) continue;
+    const current = byCity.get(normalized);
+    if (!current || entry.priority < current.priority) {
+      byCity.set(normalized, {
+        option: { name, placeCode: entry.iata },
+        priority: entry.priority,
+      });
+    }
+  }
+
+  return [...byCity.values()]
+    .sort((left, right) => left.priority - right.priority
+      || left.option.name.localeCompare(right.option.name, "tr"))
+    .slice(0, Math.min(Math.max(Math.floor(limit) || 1, 1), 160))
+    .map((item) => item.option);
 }
 
 export function airportCount() {

@@ -194,7 +194,7 @@ expect(cap, /webDir:\s*["']mobile-dist["']/, "Capacitor yerel web paketi", "Capa
 expect(cap, /CapacitorHttp/, "yerel HTTP köprüsü", "CapacitorHttp etkin değil; canlı API çağrıları CORS nedeniyle bozulabilir.");
 expectAbsent(cap, /server\s*:\s*\{[\s\S]*?\burl\s*:/, "uzak WebView adresi kullanılmıyor", "Capacitor ayarı uzak server.url içeriyor; yayın paketi yerel istemciyi kullanmalı.");
 expect(cap, /loggingBehavior:\s*["']none["']/, "yayın bridge logları kapalı", "Capacitor loggingBehavior 'none' değil; hassas bridge sonuçları yayın konsoluna yazılabilir.");
-expect(cap, /zoomEnabled:\s*true/, "sistem erişilebilirlik yakınlaştırması açık", "Capacitor zoomEnabled=true değil.");
+expect(cap, /zoomEnabled:\s*false/, "native WebView yakınlaştırması kapalı", "Capacitor zoomEnabled=false değil.");
 
 const mobilePackage = await text("mobile/package.json");
 const mobilePackageJson = parseJsonValue(mobilePackage, "mobile/package.json");
@@ -281,8 +281,8 @@ if (checkIos) {
     else errors.push("Kopyalanmış iOS ayarı uzak server.url içeriyor.");
     if (iosConfig.loggingBehavior === "none") ok.push("kopyalanmış iOS bridge logları kapalı");
     else errors.push("Kopyalanmış iOS loggingBehavior 'none' değil; cap sync çalıştır.");
-    if (iosConfig.zoomEnabled === true) ok.push("kopyalanmış iOS erişilebilirlik yakınlaştırması açık");
-    else errors.push("Kopyalanmış iOS zoomEnabled=true değil; cap sync çalıştır.");
+    if (iosConfig.zoomEnabled === false) ok.push("kopyalanmış iOS WebView yakınlaştırması kapalı");
+    else errors.push("Kopyalanmış iOS zoomEnabled=false değil; cap sync çalıştır.");
   } catch {
     errors.push("ios/App/App/capacitor.config.json geçerli JSON değil.");
   }
@@ -332,8 +332,8 @@ if (checkAndroid) {
   const androidConfig = parseJsonValue(androidConfigText, "Android capacitor.config.json");
   if (androidConfig?.loggingBehavior === "none") ok.push("kopyalanmış Android bridge logları kapalı");
   else errors.push("Kopyalanmış Android loggingBehavior 'none' değil; cap sync android çalıştır.");
-  if (androidConfig?.zoomEnabled === true) ok.push("kopyalanmış Android erişilebilirlik yakınlaştırması açık");
-  else errors.push("Kopyalanmış Android zoomEnabled=true değil; cap sync android çalıştır.");
+  if (androidConfig?.zoomEnabled === false) ok.push("kopyalanmış Android WebView yakınlaştırması kapalı");
+  else errors.push("Kopyalanmış Android zoomEnabled=false değil; cap sync android çalıştır.");
   const androidRelease = parseJsonValue(await text("android/app/src/main/assets/public/release.json", { label: "Android yayın manifesti" }), "Android release.json");
   if (androidRelease?.appVersion === expectedAppVersion && androidRelease?.buildNumber === expectedBuildNumber) ok.push("Android paket sürümü yayın manifestiyle eşleşiyor");
   else errors.push("Android paket sürümü yayın manifestiyle eşleşmiyor; cap sync android çalıştır.");

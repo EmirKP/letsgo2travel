@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchTravelEvents, type TravelEventCategory } from "@/lib/travel-events";
+import { listEventCities } from "@/lib/airport-search";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Geçersiz ülke kodu." }, { status: 400 });
   }
   const countryCode = /^[A-Z]{2}$/.test(rawCountry) || rawCountry === "XK" ? rawCountry : undefined;
-  const city = (url.searchParams.get("city") || "").trim().slice(0, 120) || undefined;
+  const rawPlaceCode = (url.searchParams.get("placeCode") || "").trim().toUpperCase();
+  if (rawPlaceCode && !/^[A-Z]{3}$/.test(rawPlaceCode)) {
+    return NextResponse.json({ error: "Geçersiz şehir kodu." }, { status: 400 });
+  }
+  const cityOption = rawPlaceCode && countryCode
+    ? listEventCities(countryCode).find((option) => option.placeCode === rawPlaceCode)
+    : undefined;
+  if (rawPlaceCode && !cityOption) {
+    return NextResponse.json({ error: "Şehir seçilen ülkeyle eşleşmiyor." }, { status: 400 });
+  }
+  // Kodlu seçimde şehir adı istemciden güvenilmez; ortak veri kaynağındaki
+  // kanonik ad kullanılır. Kodsuz city eski istemcilerle uyumluluk içindir.
+  const city = cityOption?.name || (url.searchParams.get("city") || "").trim().slice(0, 120) || undefined;
+  const placeCode = cityOption?.placeCode;
   const rawCategory = url.searchParams.get("category") as TravelEventCategory | null;
   if (rawCategory && !CATEGORIES.has(rawCategory)) {
     return NextResponse.json({ error: "Geçersiz etkinlik kategorisi." }, { status: 400 });
@@ -43,13 +57,24 @@ export async function GET(request: Request) {
     const result = await searchTravelEvents({
       countryCode,
       city,
+      placeCode,
       startDate,
       endDate,
       category,
       featured: url.searchParams.get("featured") === "true",
       limit,
     });
-    return NextResponse.json({ data: result.events, meta: { providerConfigured: result.providerConfigured, partial: result.partial, updatedAt: new Date().toISOString() } }, {
+    return NextResponse.json({
+      data: result.events,
+      meta: {
+        providerConfigured: result.providerConfigured,
+        providers: result.providers,
+        fallbackUsed: result.fallbackUsed,
+        coverageLimited: result.coverageLimited,
+        partial: result.partial,
+        updatedAt: new Date().toISOString(),
+      },
+    }, {
       headers: { "Cache-Control": "public, max-age=120, s-maxage=900, stale-while-revalidate=1800" },
     });
   } catch {

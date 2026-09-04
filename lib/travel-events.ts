@@ -2,10 +2,11 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export type TravelEventStatus = "scheduled" | "postponed" | "cancelled" | "completed";
 export type TravelEventCategory = "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
+export type TravelEventProvider = "curated" | "ticketmaster" | "predicthq";
 
 export type TravelEvent = {
   id: string;
-  provider: "curated" | "ticketmaster";
+  provider: TravelEventProvider;
   title: string;
   description: string;
   category: TravelEventCategory;
@@ -25,6 +26,7 @@ export type TravelEvent = {
 export type EventSearch = {
   countryCode?: string;
   city?: string;
+  placeCode?: string;
   startDate: string;
   endDate: string;
   category?: TravelEventCategory;
@@ -44,6 +46,60 @@ type TicketmasterEvent = {
   _embedded?: { venues?: Array<{ name?: unknown; city?: { name?: unknown }; country?: { countryCode?: unknown } }> };
 };
 
+type PredictHqEntity = {
+  entity_id?: unknown;
+  name?: unknown;
+  type?: unknown;
+  formatted_address?: unknown;
+};
+
+type PredictHqEvent = {
+  id?: unknown;
+  title?: unknown;
+  description?: unknown;
+  category?: unknown;
+  labels?: unknown;
+  start?: unknown;
+  end?: unknown;
+  country?: unknown;
+  updated?: unknown;
+  state?: unknown;
+  deleted_reason?: unknown;
+  cancelled?: unknown;
+  postponed?: unknown;
+  url?: unknown;
+  entities?: PredictHqEntity[];
+};
+
+type ProviderState = {
+  configured: boolean;
+  attempted: boolean;
+  succeeded: boolean;
+};
+
+type AutomaticProviderResult = {
+  events: TravelEvent[];
+  providers: {
+    ticketmaster: ProviderState;
+    predicthq: ProviderState;
+  };
+  fallbackUsed: boolean;
+  coverageLimited: boolean;
+  partial: boolean;
+};
+
+// Ticketmaster Discovery API'nin resmî "Supported Country Codes" listesi.
+// Ülke bu kümede değilse boşuna kota harcamadan küresel yedek sağlayıcıya
+// geçilir. Kümede olsa bile sıfır sonuçta yine otomatik fallback çalışır.
+const TICKETMASTER_COUNTRIES = new Set([
+  "AD", "AE", "AI", "AN", "AR", "AT", "AU", "AZ", "BB", "BE", "BG", "BH", "BM", "BR", "BS",
+  "CA", "CH", "CL", "CN", "CO", "CR", "CY", "CZ", "DE", "DK", "DO", "EC", "EE", "ES", "FI",
+  "FO", "FR", "GB", "GE", "GH", "GI", "GR", "HK", "HR", "HU", "IE", "IL", "IN", "IS", "IT",
+  "JM", "JP", "KR", "LB", "LC", "LT", "LU", "LV", "MA", "MC", "ME", "MT", "MX", "MY", "ND",
+  "NL", "NO", "NZ", "PE", "PL", "PT", "RO", "RS", "RU", "SA", "SE", "SG", "SI", "SK", "TH",
+  "TR", "TT", "TW", "UA", "US", "UY", "VE", "ZA",
+]);
+
 function text(value: unknown, max = 500) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
@@ -53,15 +109,26 @@ function httpsUrl(value: unknown) {
   return /^https:\/\//i.test(candidate) ? candidate : null;
 }
 
+function validDate(value: unknown) {
+  const candidate = text(value, 50);
+  return Number.isFinite(Date.parse(candidate)) ? new Date(candidate).toISOString() : null;
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => text(item, 100)).filter(Boolean)
+    : [];
+}
+
 function categoryFromTicketmaster(event: TicketmasterEvent): TravelEventCategory {
   const classification = event.classifications?.[0];
   const source = `${text(classification?.segment?.name)} ${text(classification?.genre?.name)}`.toLocaleLowerCase("en");
+  if (/festival/.test(source)) return "festival";
   if (/music|concert/.test(source)) return "concert";
   if (/sport/.test(source)) return "sport";
   if (/family|children/.test(source)) return "family";
   if (/food|drink/.test(source)) return "food";
   if (/arts|theatre|theater|film|museum/.test(source)) return "culture";
-  if (/festival/.test(source)) return "festival";
   return "other";
 }
 
@@ -81,6 +148,10 @@ function ticketmasterImage(event: TicketmasterEvent) {
   return httpsUrl(preferred?.url);
 }
 
+export function ticketmasterSupportsCountry(countryCode?: string) {
+  return !countryCode || TICKETMASTER_COUNTRIES.has(countryCode.toUpperCase());
+}
+
 export async function ticketmasterEvents(search: EventSearch): Promise<TravelEvent[]> {
   const apiKey = process.env.TICKETMASTER_API_KEY?.trim();
   if (!apiKey) return [];
@@ -98,7 +169,7 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
 
   const response = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`, {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(6_000),
     next: { revalidate: 900 },
   });
   if (!response.ok) throw new Error(`ticketmaster_${response.status}`);
@@ -108,9 +179,10 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
     const id = text(event.id, 160);
     const title = text(event.name, 240);
     const sourceUrl = httpsUrl(event.url);
-    const startsAt = text(event.dates?.start?.dateTime, 50) || (text(event.dates?.start?.localDate, 20) ? `${text(event.dates?.start?.localDate, 20)}T12:00:00Z` : "");
+    const localDate = text(event.dates?.start?.localDate, 20);
+    const startsAt = validDate(event.dates?.start?.dateTime) || (localDate ? validDate(`${localDate}T12:00:00Z`) : null);
     const venue = event._embedded?.venues?.[0];
-    if (!id || !title || !sourceUrl || !Number.isFinite(Date.parse(startsAt))) return [];
+    if (!id || !title || !sourceUrl || !startsAt) return [];
     const mapped = {
       id: `ticketmaster:${id}`,
       provider: "ticketmaster" as const,
@@ -120,19 +192,125 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
       countryCode: text(venue?.country?.countryCode, 3).toUpperCase(),
       city: text(venue?.city?.name, 120),
       venue: text(venue?.name, 180),
-      startsAt: new Date(startsAt).toISOString(),
-      endsAt: Number.isFinite(Date.parse(text(event.dates?.end?.dateTime, 50))) ? new Date(text(event.dates?.end?.dateTime, 50)).toISOString() : null,
+      startsAt,
+      endsAt: validDate(event.dates?.end?.dateTime),
       status: statusFromTicketmaster(event.dates?.status?.code),
       imageUrl: ticketmasterImage(event),
       ticketUrl: sourceUrl,
       sourceUrl,
       featured: false,
-      // Discovery does not expose a reliable modification timestamp. Using
-      // the event time keeps client reconciliation stable while still
-      // detecting the date changes that affect saved reminders.
-      updatedAt: new Date(startsAt).toISOString(),
-    };
+      // Discovery güvenilir bir değişiklik zamanı vermediğinden hatırlatıcı
+      // uzlaştırması için etkinlik zamanı kararlı bir sürüm değeri olur.
+      updatedAt: startsAt,
+    } satisfies TravelEvent;
     return search.category && mapped.category !== search.category ? [] : [mapped];
+  });
+}
+
+function predictHqCategories(category?: TravelEventCategory) {
+  switch (category) {
+    case "concert": return "concerts";
+    case "festival": return "festivals";
+    case "sport": return "sports";
+    case "culture": return "performing-arts,expos,conferences";
+    case "food": return "community,festivals,expos";
+    case "family": return "community,festivals,performing-arts";
+    default: return "concerts,festivals,performing-arts,community,sports,conferences,expos";
+  }
+}
+
+function categoryFromPredictHq(event: PredictHqEvent, requested?: TravelEventCategory): TravelEventCategory {
+  const category = text(event.category, 80).toLocaleLowerCase("en");
+  const labels = stringList(event.labels).join(" ").toLocaleLowerCase("en");
+  if (requested === "food" && /food|drink|beverage|culinary/.test(labels)) return "food";
+  if (requested === "family" && /family|children|kids/.test(labels)) return "family";
+  if (category === "concerts") return "concert";
+  if (category === "festivals") return "festival";
+  if (category === "sports") return "sport";
+  if (/food|drink|beverage|culinary/.test(labels)) return "food";
+  if (/family|children|kids/.test(labels)) return "family";
+  if (["performing-arts", "expos", "conferences"].includes(category)) return "culture";
+  return "other";
+}
+
+function statusFromPredictHq(event: PredictHqEvent): TravelEventStatus {
+  const state = text(event.state, 40).toLocaleLowerCase("en");
+  const deletedReason = text(event.deleted_reason, 80).toLocaleLowerCase("en");
+  if (event.cancelled || deletedReason === "cancelled" || state === "cancelled") return "cancelled";
+  if (event.postponed || state === "postponed") return "postponed";
+  return "scheduled";
+}
+
+function predictHqLocation(event: PredictHqEvent, search: EventSearch) {
+  const entities = Array.isArray(event.entities) ? event.entities : [];
+  const venue = entities.find((entity) => text(entity.type, 40).toLocaleLowerCase("en") === "venue");
+  const locality = entities.find((entity) => ["locality", "city"].includes(text(entity.type, 40).toLocaleLowerCase("en")));
+  return {
+    city: text(search.city || locality?.name, 120),
+    venue: text(venue?.name, 180),
+  };
+}
+
+function eventVerificationUrl(title: string, city: string, startsAt: string) {
+  const query = [title, city, startsAt.slice(0, 10), "event"].filter(Boolean).join(" ");
+  return `https://www.google.com/search?${new URLSearchParams({ q: query })}`;
+}
+
+export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[]> {
+  const accessToken = process.env.PREDICTHQ_ACCESS_TOKEN?.trim();
+  if (!accessToken) return [];
+  const params = new URLSearchParams({
+    "start.gte": search.startDate,
+    "start.lte": search.endDate,
+    category: predictHqCategories(search.category),
+    limit: String(Math.min(search.limit, 50)),
+    sort: "start",
+    "brand_unsafe.exclude": "true",
+    "private.include": "false",
+  });
+  if (search.countryCode) params.set("country", search.countryCode);
+  if (search.placeCode) params.set("place.scope", search.placeCode);
+
+  const response = await fetch(`https://api.predicthq.com/v1/events/?${params}`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal: AbortSignal.timeout(6_000),
+    next: { revalidate: 900 },
+  });
+  if (!response.ok) throw new Error(`predicthq_${response.status}`);
+  const payload = await response.json() as { results?: PredictHqEvent[] };
+  const events = Array.isArray(payload.results) ? payload.results : [];
+
+  return events.flatMap((event) => {
+    const id = text(event.id, 160);
+    const title = text(event.title, 240);
+    const startsAt = validDate(event.start);
+    if (!id || !title || !startsAt) return [];
+    const category = categoryFromPredictHq(event, search.category);
+    if (search.category && category !== search.category) return [];
+    const location = predictHqLocation(event, search);
+    const directUrl = httpsUrl(event.url);
+    const sourceUrl = directUrl || eventVerificationUrl(title, location.city, startsAt);
+    return [{
+      id: `predicthq:${id}`,
+      provider: "predicthq" as const,
+      title,
+      description: text(event.description, 1000),
+      category,
+      countryCode: text(event.country || search.countryCode, 3).toUpperCase(),
+      city: location.city,
+      venue: location.venue,
+      startsAt,
+      endsAt: validDate(event.end),
+      status: statusFromPredictHq(event),
+      imageUrl: null,
+      ticketUrl: null,
+      sourceUrl,
+      featured: false,
+      updatedAt: validDate(event.updated) || startsAt,
+    } satisfies TravelEvent];
   });
 }
 
@@ -158,6 +336,8 @@ export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]>
   }
   return (data || []).map((item) => ({
     id: String(item.id),
+    // Haricî sağlayıcı sonuçları veritabanına yazılmaz. Eski/veri dışı bir
+    // değer görülürse güvenli biçimde editoryal kayıt kabul edilir.
     provider: item.provider === "ticketmaster" ? "ticketmaster" : "curated",
     title: text(item.title, 240),
     description: text(item.description, 1000),
@@ -176,24 +356,93 @@ export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]>
   }));
 }
 
+async function automaticProviderEvents(search: EventSearch): Promise<AutomaticProviderResult> {
+  const ticketmasterConfigured = Boolean(process.env.TICKETMASTER_API_KEY?.trim());
+  const predicthqConfigured = Boolean(process.env.PREDICTHQ_ACCESS_TOKEN?.trim());
+  const ticketmasterEligible = ticketmasterSupportsCountry(search.countryCode);
+  const providers = {
+    ticketmaster: { configured: ticketmasterConfigured, attempted: false, succeeded: false },
+    predicthq: { configured: predicthqConfigured, attempted: false, succeeded: false },
+  };
+  let events: TravelEvent[] = [];
+  let partial = false;
+
+  if (ticketmasterConfigured && ticketmasterEligible) {
+    providers.ticketmaster.attempted = true;
+    try {
+      events = await ticketmasterEvents(search);
+      providers.ticketmaster.succeeded = true;
+    } catch {
+      partial = true;
+    }
+  }
+
+  const needsFallback = events.length === 0;
+  if (needsFallback && predicthqConfigured) {
+    providers.predicthq.attempted = true;
+    try {
+      events = await predictHqEvents(search);
+      providers.predicthq.succeeded = true;
+    } catch {
+      partial = true;
+    }
+  }
+
+  return {
+    events,
+    providers,
+    fallbackUsed: providers.predicthq.attempted,
+    coverageLimited: needsFallback && (!predicthqConfigured || !providers.predicthq.succeeded),
+    partial,
+  };
+}
+
+function normalizedEventText(value: string) {
+  return value
+    .toLocaleLowerCase("en")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function sameEvent(left: TravelEvent, right: TravelEvent) {
+  if (left.id === right.id) return true;
+  if (normalizedEventText(left.title) !== normalizedEventText(right.title)) return false;
+  if (left.startsAt.slice(0, 10) !== right.startsAt.slice(0, 10)) return false;
+  if (left.countryCode && right.countryCode && left.countryCode !== right.countryCode) return false;
+  const leftCity = normalizedEventText(left.city);
+  const rightCity = normalizedEventText(right.city);
+  return !leftCity || !rightCity || leftCity === rightCity;
+}
+
 export async function searchTravelEvents(search: EventSearch) {
+  const emptyAutomatic: AutomaticProviderResult = {
+    events: [],
+    providers: {
+      ticketmaster: { configured: Boolean(process.env.TICKETMASTER_API_KEY?.trim()), attempted: false, succeeded: false },
+      predicthq: { configured: Boolean(process.env.PREDICTHQ_ACCESS_TOKEN?.trim()), attempted: false, succeeded: false },
+    },
+    fallbackUsed: false,
+    coverageLimited: false,
+    partial: true,
+  };
   const [curatedResult, providerResult] = await Promise.allSettled([
     curatedEvents(search),
-    search.featured ? Promise.resolve([]) : ticketmasterEvents(search),
+    search.featured ? Promise.resolve({ ...emptyAutomatic, partial: false }) : automaticProviderEvents(search),
   ]);
   const curated = curatedResult.status === "fulfilled" ? curatedResult.value : [];
-  const provider = providerResult.status === "fulfilled" ? providerResult.value : [];
-  const events = [...curated, ...provider]
-    .filter((event, index, all) => all.findIndex((candidate) => candidate.id === event.id || (
-      candidate.title.toLocaleLowerCase() === event.title.toLocaleLowerCase()
-      && candidate.city.toLocaleLowerCase() === event.city.toLocaleLowerCase()
-      && candidate.startsAt.slice(0, 10) === event.startsAt.slice(0, 10)
-    )) === index)
+  const automatic = providerResult.status === "fulfilled" ? providerResult.value : emptyAutomatic;
+  const events = [...curated, ...automatic.events]
+    .filter((event, index, all) => all.findIndex((candidate) => sameEvent(candidate, event)) === index)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
     .slice(0, search.limit);
   return {
     events,
-    providerConfigured: Boolean(process.env.TICKETMASTER_API_KEY),
-    partial: curatedResult.status === "rejected" || providerResult.status === "rejected",
+    providerConfigured: automatic.providers.ticketmaster.configured || automatic.providers.predicthq.configured,
+    providers: automatic.providers,
+    fallbackUsed: automatic.fallbackUsed,
+    coverageLimited: automatic.coverageLimited,
+    partial: curatedResult.status === "rejected" || providerResult.status === "rejected" || automatic.partial,
   };
 }

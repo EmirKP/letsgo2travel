@@ -8,6 +8,7 @@ import type {
   VerifiedVisaRule,
   VisaAppointmentNotification,
   TravelVerification,
+  EventCityOption,
   TravelEvent,
   TravelNowResult,
   WeatherSummary,
@@ -16,6 +17,7 @@ import type {
 export async function listTravelEvents(params: {
   countryCode?: string;
   city?: string;
+  placeCode?: string;
   startDate?: string;
   endDate?: string;
   category?: TravelEvent["category"] | "all";
@@ -25,12 +27,29 @@ export async function listTravelEvents(params: {
   const query = new URLSearchParams();
   if (params.countryCode) query.set("countryCode", params.countryCode);
   if (params.city) query.set("city", params.city);
+  if (params.placeCode) query.set("placeCode", params.placeCode);
   if (params.startDate) query.set("startDate", params.startDate);
   if (params.endDate) query.set("endDate", params.endDate);
   if (params.category && params.category !== "all") query.set("category", params.category);
   if (params.featured) query.set("featured", "true");
   query.set("limit", String(params.limit || 24));
-  return requestJson<{ data: TravelEvent[]; meta: { providerConfigured: boolean; partial: boolean; updatedAt: string } }>(`/api/events?${query}`, { timeoutMs: 14_000 });
+  return requestJson<{
+    data: TravelEvent[];
+    meta: {
+      providerConfigured: boolean;
+      providers?: Record<string, { configured: boolean; attempted: boolean; succeeded: boolean }>;
+      fallbackUsed?: boolean;
+      coverageLimited?: boolean;
+      partial: boolean;
+      updatedAt: string;
+    };
+  }>(`/api/events?${query}`, { timeoutMs: 18_000 });
+}
+
+export async function listEventCities(countryCode: string) {
+  const query = new URLSearchParams({ countryCode });
+  const result = await requestJson<{ data: EventCityOption[] }>(`/api/event-cities?${query}`, { timeoutMs: 10_000 });
+  return Array.isArray(result.data) ? result.data : [];
 }
 
 export async function getTravelNow(params: {

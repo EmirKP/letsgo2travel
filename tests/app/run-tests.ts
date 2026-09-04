@@ -7,7 +7,7 @@
 
 import assert from "node:assert";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { airportCount, findAirportByIata, normalizeSearchText, searchAirports } from "../../lib/airport-search";
+import { airportCount, findAirportByIata, listEventCities, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
 import {
   countryCodeFromForumSlug,
@@ -268,6 +268,16 @@ test("normalizeSearchText: aksan/ı normalizasyonu", () => {
   assert.equal(normalizeSearchText("İstanbul"), "istanbul");
   assert.equal(normalizeSearchText("MÜNİH"), "munih");
   assert.equal(normalizeSearchText("  Çok   Boşluk  "), "cok bosluk");
+});
+
+test("etkinlik şehirleri: ülkeye bağlı, tekil ve konum kodlu döner", () => {
+  const turkey = listEventCities("TR");
+  const istanbul = turkey.filter((city) => city.name === "Istanbul");
+  assert.equal(istanbul.length, 1, "İstanbul birden fazla havalimanına rağmen tek seçenek olmalı");
+  assert.match(istanbul[0]!.placeCode, /^[A-Z]{3}$/);
+  assert.ok(turkey.some((city) => city.name === "Adana" && city.placeCode === "ADA"));
+  assert.ok(listEventCities("BA").some((city) => city.name === "Sarajevo" && city.placeCode === "SJJ"));
+  assert.deepEqual(listEventCities("not-a-country"), []);
 });
 
 // ------------------------ ülke kapsamı (ISO) -------------------------
@@ -769,10 +779,9 @@ test("mobil optimizasyon: ağır modüller bölünür, harita sabit katmanda çi
   const airport = readFileSync("mobile/src/components/AirportField.tsx", "utf8");
   assert.ok(app.includes('lazy(() => import("./screens/PassportScreen")'), "pasaport modülü açılış paketinden ayrılmalı");
   assert.ok(app.includes('lazy(() => import("./screens/AdminScreen")'), "admin kodu yalnız gerektiğinde yüklenmeli");
-  assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri pan sırasında yeniden çizilmemeli");
-  assert.ok(map.includes("window.requestAnimationFrame"), "harita güncellemeleri ekran karesine göre sınırlanmalı");
-  assert.ok(map.includes("pointerCountries.current.set"), "pointer capture ülke dokunuş hedefini kaybetmemeli");
-  assert.ok(!map.includes("Sürükle · iki parmakla yakınlaştır"), "haritayı kapatan kalıcı yazı kaldırılmalı");
+  assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri gereksiz yere yeniden çizilmemeli");
+  assert.ok(map.includes("onClick={selectCountry}"), "sabit haritada ülkeye dokunma çalışmalı");
+  assert.ok(!map.includes("onWheel") && !map.includes("onPointerMove") && !map.includes("passport-map-controls"), "harita pan/pinch/zoom içermemeli");
   assert.ok(airport.includes("const requestId = ++generation.current"), "eski havalimanı cevapları geçersiz kılınmalı");
   assert.ok(splash.includes('assets/splash-mark.webp'), "açılışta büyük App Store ikonu taşınmamalı");
   assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
@@ -799,29 +808,37 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const capacitor = readFileSync("capacitor.config.ts", "utf8");
   const doctor = readFileSync("scripts/mobile-doctor.mjs", "utf8");
   const android = readFileSync("android/app/build.gradle", "utf8");
+  const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 14);
+  assert.equal(release.buildNumber, 15);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
-  assert.ok(capacitor.includes("zoomEnabled: true"), "sistem erişilebilirlik yakınlaştırması açık kalmalı");
+  assert.ok(capacitor.includes("zoomEnabled: false"), "native WebView yakınlaştırması kapalı olmalı");
+  assert.ok(mobileIndex.includes("maximum-scale=1") && mobileIndex.includes("user-scalable=no"), "mobil sayfa ölçeklendirmesi kapalı olmalı");
   assert.ok(doctor.includes("packagedRelease?.appVersion === expectedAppVersion"), "doktor paket sürümünü kaynakla karşılaştırmalı");
   assert.ok(doctor.includes('iosConfig.loggingBehavior === "none"'), "doktor iOS üretilmiş log ayarını doğrulamalı");
   assert.ok(doctor.includes('androidConfig?.loggingBehavior === "none"'), "doktor Android üretilmiş log ayarını doğrulamalı");
   assert.ok(android.includes("releaseRequested && !googleServicesReady"), "Android release FCM yapılandırması olmadan çıkmamalı");
 });
 
-test("Build 14: etkinlik radarı güvenilir kaynak, durum ve yönetici sözleşmesini korur", () => {
+test("Build 15: etkinlik radarı otomatik fallback, şehir ve güvenilir kaynak sözleşmesini korur", () => {
   const publicRoute = readFileSync("app/api/events/route.ts", "utf8");
   const adminRoute = readFileSync("app/api/admin/events/route.ts", "utf8");
   const source = readFileSync("lib/travel-events.ts", "utf8");
   const sql = readFileSync("supabase/migrations/20260903190000_travel_events.sql", "utf8");
   const screen = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  const envExample = readFileSync(".env.example", "utf8");
   assert.ok(publicRoute.includes("validIsoDate") && publicRoute.includes("rangeMs > 366"), "etkinlik tarih aralığı sınırlandırılmalı");
   assert.ok(publicRoute.includes("Math.floor(Number"), "sağlayıcıya kesirli sonuç limiti gönderilmemeli");
   assert.ok(source.includes("TICKETMASTER_API_KEY") && source.includes("Promise.allSettled"), "otomatik sağlayıcı editoryal akışı düşürmemeli");
+  assert.ok(source.includes("PREDICTHQ_ACCESS_TOKEN") && source.includes("ticketmasterSupportsCountry"), "kapsam dışı ülkeler küresel yedek sağlayıcıya yönlenmeli");
+  assert.ok(source.includes("const needsFallback = events.length === 0") && source.includes("await predictHqEvents(search)"), "Ticketmaster sıfır sonuçta fallback otomatik çalışmalı");
   assert.ok(source.includes("statusFromTicketmaster"), "iptal/erteleme durumu sağlayıcıdan taşınmalı");
   assert.ok(source.includes("mapped.category !== search.category"), "sağlayıcı sonuçları seçili kategori dışına taşmamalı");
+  assert.ok(publicRoute.includes("listEventCities") && publicRoute.includes("placeCode"), "şehir kodu sunucuda ülkeyle doğrulanmalı");
+  assert.ok(screen.includes("listEventCities") && screen.includes("cityPlaceCode"), "şehir serbest metin yerine ülkeye bağlı seçenek olmalı");
+  assert.ok(envExample.includes("PREDICTHQ_ACCESS_TOKEN="), "fallback anahtar adı güvenli env örneğinde bulunmalı");
   assert.ok(adminRoute.includes('adminPrincipalFromRequest(request, ["super_admin"])'), "etkinlik yönetimi yalnız super_admin olmalı");
   assert.ok(sql.includes("enable row level security") && sql.includes("revoke insert, update, delete"), "etkinlik tablosu doğrudan yazıma kapalı olmalı");
   assert.ok(sql.includes("ends_at is null or ends_at >= starts_at"), "etkinlik bitişi başlangıçtan önce olamamalı");
