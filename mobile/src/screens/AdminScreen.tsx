@@ -16,6 +16,8 @@ import {
   type MobileAdminOverview,
 } from "../lib/admin";
 import { useI18n } from "../lib/i18n";
+import { ApiError } from "../lib/api";
+import { alpha3FromAlpha2 } from "../data/countryIso";
 import { openExternal } from "../lib/native";
 import { clampLocalDateTime, localIsoDateTime } from "../lib/dates";
 
@@ -59,12 +61,15 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   onOverviewChange: (overview: MobileAdminOverview | null) => void;
   onNotice: (message: string) => void;
 }) {
-  const { copy, dateLocale } = useI18n();
+  const { copy, countryName, dateLocale } = useI18n();
   const [tab, setTab] = useState<AdminTab>("overview");
   const [overviewState, setOverviewState] = useState(() => ({ accessToken, value: initialOverview }));
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [openedEvidenceIds, setOpenedEvidenceIds] = useState<Set<string>>(() => new Set());
+  const [missingEvidenceIds, setMissingEvidenceIds] = useState<Set<string>>(() => new Set(
+    (initialOverview?.pendingVerifications || []).filter((item) => !item.hasEvidence).map((item) => item.id),
+  ));
   const [evidencePreview, setEvidencePreview] = useState<EvidencePreview | null>(null);
   const [evidenceLoaded, setEvidenceLoaded] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
@@ -91,7 +96,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     accessTokenRef.current = accessToken;
     epochRef.current += 1;
     requestRef.current += 1;
-    setLoading(false); setBusyId(""); setOpenedEvidenceIds(new Set()); setEvidencePreview(null); setEvidenceLoaded(false); setEvidenceError("");
+    setLoading(false); setBusyId(""); setOpenedEvidenceIds(new Set()); setMissingEvidenceIds(new Set((initialOverview?.pendingVerifications || []).filter((item) => !item.hasEvidence).map((item) => item.id))); setEvidencePreview(null); setEvidenceLoaded(false); setEvidenceError("");
     setEvents([]); setEventsLoaded(false); setEventFormOpen(false); setEditingEventId(""); setEventForm(EMPTY_EVENT);
     setOverviewState({ accessToken, value: initialOverview });
   }, [accessToken, initialOverview]);
@@ -104,6 +109,10 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
       const next = await getMobileAdminOverview(session.token);
       if (!current(session) || requestRef.current !== requestId) return;
       setOverviewState({ accessToken: session.token, value: next });
+      setMissingEvidenceIds((currentIds) => new Set([
+        ...Array.from(currentIds).filter((id) => next.pendingVerifications.some((item) => item.id === id)),
+        ...next.pendingVerifications.filter((item) => !item.hasEvidence).map((item) => item.id),
+      ]));
       onOverviewChange(next);
     } catch { if (current(session)) onNotice(copy("Yönetim verileri yenilenemedi.", "Admin data could not be refreshed.")); }
     finally { if (current(session) && requestRef.current === requestId) setLoading(false); }
@@ -134,7 +143,11 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
       if (!current(session)) return;
       onNotice(success);
       await refresh(session);
-    } catch { if (current(session)) onNotice(copy("İşlem tamamlanamadı.", "The action could not be completed.")); }
+    } catch (reason) {
+      if (current(session)) onNotice(reason instanceof ApiError && reason.message
+        ? reason.message
+        : copy("İşlem tamamlanamadı.", "The action could not be completed."));
+    }
     finally { if (current(session)) setBusyId(""); }
   };
 
@@ -155,7 +168,13 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
       setEvidenceError("");
       setEvidencePreview({ id, signedUrl: result.signedUrl, evidenceType: result.evidenceType || "" });
     } catch (reason) {
-      if (current(session)) onNotice(reason instanceof Error && reason.message && reason.message !== "open" ? reason.message : copy("Başvuru belgesi açılamadı.", "Evidence could not be opened."));
+      if (current(session) && reason instanceof ApiError && (reason.status === 404 || reason.code === "EVIDENCE_MISSING")) {
+        setMissingEvidenceIds((value) => new Set(value).add(id));
+        setOpenedEvidenceIds((value) => { const next = new Set(value); next.delete(id); return next; });
+        onNotice(copy("Belge kaydı eksik. Başvuru yalnızca gerekçe yazılarak reddedilebilir.", "Evidence is missing. The application can only be rejected with a reason."));
+      } else if (current(session)) {
+        onNotice(reason instanceof Error && reason.message && reason.message !== "open" ? reason.message : copy("Başvuru belgesi açılamadı.", "Evidence could not be opened."));
+      }
     }
     finally { if (current(session)) setBusyId(""); }
   };
@@ -163,6 +182,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   const confirmEvidenceReviewed = () => {
     if (!evidencePreview || !evidenceLoaded) return;
     setOpenedEvidenceIds((value) => new Set(value).add(evidencePreview.id));
+    setMissingEvidenceIds((value) => { const next = new Set(value); next.delete(evidencePreview.id); return next; });
     setEvidencePreview(null);
     onNotice(copy("Belge incelendi; onay ve red işlemleri açıldı.", "Evidence reviewed; approve and reject actions are now enabled."));
   };
@@ -176,8 +196,11 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   };
 
   const decideVerification = (id: string, action: "approve" | "reject") => {
-    if (!openedEvidenceIds.has(id)) { onNotice(copy("Önce belgeyi incele.", "Review the evidence first.")); return; }
-    const note = action === "reject" ? window.prompt(copy("Red sebebini yaz:", "Enter a rejection reason:"), "") : window.confirm(copy("Başvuruyu onayla?", "Approve this verification?")) ? "" : null;
+    const evidenceMissing = missingEvidenceIds.has(id);
+    if (action === "approve" && evidenceMissing) { onNotice(copy("Belgesiz başvuru onaylanamaz.", "An application without evidence cannot be approved.")); return; }
+    if (!evidenceMissing && !openedEvidenceIds.has(id)) { onNotice(copy("Önce belgeyi incele.", "Review the evidence first.")); return; }
+    const defaultReason = evidenceMissing ? copy("Başvuru belgesi bulunamadı.", "Application evidence is missing.") : "";
+    const note = action === "reject" ? window.prompt(copy("Red sebebini yaz:", "Enter a rejection reason:"), defaultReason) : window.confirm(copy("Başvuruyu onayla?", "Approve this verification?")) ? "" : null;
     if (note === null || (action === "reject" && !note.trim())) return;
     void run(id, (token) => reviewVerification(id, action, note.trim(), token), action === "approve" ? copy("Doğrulama onaylandı.", "Verification approved.") : copy("Doğrulama reddedildi.", "Verification rejected."));
   };
@@ -260,7 +283,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     {overview.unavailableCount > 0 && <div className="info-box error"><Icon name="alert" size={18} /><p>{copy(`${overview.unavailableCount} modül okunamadı; diğer veriler güncel.`, `${overview.unavailableCount} modules are unavailable; other data is current.`)}</p></div>}
     <nav className="admin-tabs" aria-label={copy("Yönetim bölümleri", "Admin sections")}>{tabs.map(([id, label, icon, count]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><Icon name={icon} size={18} /><span>{label}</span>{count > 0 && <em>{count}</em>}</button>)}</nav>
 
-    {tab === "overview" && <><section className="admin-stat-grid" aria-label={copy("Yönetim özeti", "Admin overview")}>{statCards.map(([label, value, icon]) => <article key={label}><span><Icon name={icon} size={19} /></span><strong>{value}</strong><small>{label}</small></article>)}</section><VerificationQueue items={overview.pendingVerifications} busyId={busyId} opened={openedEvidenceIds} formatDate={formatDate} openEvidence={openEvidence} decide={decideVerification} copy={copy} /></>}
+    {tab === "overview" && <><section className="admin-stat-grid" aria-label={copy("Yönetim özeti", "Admin overview")}>{statCards.map(([label, value, icon]) => <article key={label}><span><Icon name={icon} size={19} /></span><strong>{value}</strong><small>{label}</small></article>)}</section><VerificationQueue items={overview.pendingVerifications} busyId={busyId} opened={openedEvidenceIds} missing={missingEvidenceIds} formatCountry={(code, fallback) => countryName(alpha3FromAlpha2(code), fallback || code)} formatDate={formatDate} openEvidence={openEvidence} decide={decideVerification} copy={copy} /></>}
     {tab === "content" && <ContentQueues overview={overview} busyId={busyId} formatDate={formatDate} updateForum={updateForum} copy={copy} />}
     {tab === "events" && <EventManager events={events} loading={loading} busyId={busyId} formOpen={eventFormOpen} editingId={editingEventId} form={eventForm} setForm={setEventForm} toggleForm={toggleEventForm} submit={submitEvent} editEvent={editEvent} patchEvent={patchEvent} formatDate={formatDate} copy={copy} />}
     {tab === "reports" && <ReportQueue overview={overview} busyId={busyId} formatDate={formatDate} run={run} copy={copy} />}
@@ -283,11 +306,14 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
 
 type Copy = (tr: string, en: string) => string;
 
-function VerificationQueue({ items, busyId, opened, formatDate, openEvidence, decide, copy }: {
-  items: MobileAdminOverview["pendingVerifications"]; busyId: string; opened: Set<string>; formatDate: (value: string) => string;
+function VerificationQueue({ items, busyId, opened, missing, formatCountry, formatDate, openEvidence, decide, copy }: {
+  items: MobileAdminOverview["pendingVerifications"]; busyId: string; opened: Set<string>; missing: Set<string>; formatCountry: (code: string, fallback: string) => string; formatDate: (value: string) => string;
   openEvidence: (id: string) => Promise<void>; decide: (id: string, action: "approve" | "reject") => void; copy: Copy;
 }) {
-  return <section className="admin-section"><div className="section-heading"><div><span>{copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER")}</span><h2>{copy("Bekleyen doğrulamalar", "Pending verifications")}</h2></div></div><div className="admin-queue">{items.map((item) => <article key={item.id}><div><strong>{item.countryName || item.countryCode}</strong><small>{formatDate(item.createdAt)}</small></div><div className="admin-actions"><button disabled={busyId === item.id} onClick={() => void openEvidence(item.id)}><Icon name="external" size={15} /> {copy("Belge", "Evidence")}</button><button disabled={busyId === item.id || !opened.has(item.id)} className="approve" onClick={() => decide(item.id, "approve")}><Icon name="check" size={15} /> {copy("Onayla", "Approve")}</button><button disabled={busyId === item.id || !opened.has(item.id)} className="reject" onClick={() => decide(item.id, "reject")}><Icon name="close" size={15} /> {copy("Reddet", "Reject")}</button></div></article>)}{!items.length && <p className="admin-empty">{copy("Bekleyen doğrulama yok.", "No pending verifications.")}</p>}</div></section>;
+  return <section className="admin-section"><div className="section-heading"><div><span>{copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER")}</span><h2>{copy("Bekleyen doğrulamalar", "Pending verifications")}</h2></div></div><div className="admin-queue">{items.map((item) => {
+    const evidenceMissing = missing.has(item.id) || !item.hasEvidence;
+    return <article className={evidenceMissing ? "evidence-missing" : ""} key={item.id}><div><strong>{formatCountry(item.countryCode, item.countryName)}</strong><small>{formatDate(item.createdAt)}</small>{evidenceMissing && <em className="admin-missing-evidence"><Icon name="alert" size={13} /> {copy("Belge eksik", "Evidence missing")}</em>}</div><div className="admin-actions"><button disabled={busyId === item.id || evidenceMissing} onClick={() => void openEvidence(item.id)}><Icon name={evidenceMissing ? "alert" : "external"} size={15} /> {evidenceMissing ? copy("Belge yok", "No evidence") : copy("Belge", "Evidence")}</button><button disabled={busyId === item.id || evidenceMissing || !opened.has(item.id)} className="approve" onClick={() => decide(item.id, "approve")}><Icon name="check" size={15} /> {copy("Onayla", "Approve")}</button><button disabled={busyId === item.id || (!evidenceMissing && !opened.has(item.id))} className="reject" onClick={() => decide(item.id, "reject")}><Icon name="close" size={15} /> {copy("Reddet", "Reject")}</button></div></article>;
+  })}{!items.length && <p className="admin-empty">{copy("Bekleyen doğrulama yok.", "No pending verifications.")}</p>}</div></section>;
 }
 
 function ContentQueues({ overview, busyId, formatDate, updateForum, copy }: { overview: MobileAdminOverview; busyId: string; formatDate: (value: string) => string; updateForum: (kind: "topics" | "replies", id: string, status: "published" | "rejected") => void; copy: Copy }) {

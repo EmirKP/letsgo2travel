@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
+import { CountryFlag } from "../components/CountryFlag";
 import { dailyDiscovery, localizedDiscovery } from "../data/discovery";
+import { alpha3FromAlpha2 } from "../data/countryIso";
 import { listTravelEvents } from "../lib/api";
+import { listCommunityQuestions, type CommunityQuestion } from "../lib/community";
 import { useI18n } from "../lib/i18n";
 import { randomRoute } from "../data/routes";
 import { getFavoriteDestinations, getSavedRoutePlans, getSavedTravelEvents } from "../lib/storage";
@@ -46,26 +49,35 @@ function tripName(trip: CockpitTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onSurprise, onNotice }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenCommunity, onSurprise, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken?: string;
   refreshToken?: number;
   onNavigate: (view: ViewId) => void;
+  onOpenCommunity: (countryCode?: string) => void;
   onSurprise: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
-  const { locale, copy, dateLocale } = useI18n();
+  const { locale, copy, countryName, dateLocale } = useI18n();
   const [storageTick, setStorageTick] = useState(0);
   const [event, setEvent] = useState<TravelEvent | null>(null);
   const [nextTrip, setNextTrip] = useState<CockpitTrip | null>(null);
   const [tripLoading, setTripLoading] = useState(false);
   const [tripError, setTripError] = useState(false);
+  const [communityQuestions, setCommunityQuestions] = useState<CommunityQuestion[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(true);
+  const [communityError, setCommunityError] = useState(false);
   const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, storageTick]);
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, storageTick]);
   const savedEvents = useMemo(() => getSavedTravelEvents(ownerId), [ownerId, storageTick]);
   const discovery = localizedDiscovery(dailyDiscovery(), locale);
   const name = firstName(user, copy("Kaşif", "Explorer"));
+  const communityCountryCodes = useMemo(() => {
+    const live = Array.from(new Set(communityQuestions.map((question) => question.countryCode))).filter((code) => code !== "ZZ");
+    return (live.length ? live : ["TR", "AE", "GB"]).slice(0, 4);
+  }, [communityQuestions]);
+  const localizedCountryName = (code: string) => code === "ZZ" ? copy("Tüm dünya", "Worldwide") : countryName(alpha3FromAlpha2(code), code);
 
   useEffect(() => {
     const update = () => setStorageTick((value) => value + 1);
@@ -111,6 +123,17 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     return () => { active = false; };
   }, [ownerId]);
 
+  useEffect(() => {
+    let active = true;
+    setCommunityLoading(true);
+    setCommunityError(false);
+    void listCommunityQuestions(3)
+      .then((items) => { if (active) setCommunityQuestions(items); })
+      .catch(() => { if (active) { setCommunityQuestions([]); setCommunityError(true); } })
+      .finally(() => { if (active) setCommunityLoading(false); });
+    return () => { active = false; };
+  }, [refreshToken]);
+
   const surprise = () => {
     const selected = randomRoute(locale);
     onSurprise(selected);
@@ -135,6 +158,25 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
         : nextTrip ? <><span><Icon name="plane" size={22} /></span><div><small>{nextTrip.status === "active" ? copy("ŞU ANDA SEYAHATTESİN", "YOU'RE TRAVELLING") : copy("SIRADAKİ SEYAHATİN", "YOUR NEXT TRIP")}</small><strong>{tripName(nextTrip)}</strong><p>{nextTrip.originIata || "—"} → {nextTrip.destinationIata || nextTrip.destinationCode} · {nextTrip.status === "active" ? copy("Kokpiti aç", "Open cockpit") : copy(`${daysUntil(nextTrip.startDate)} gün kaldı`, `${daysUntil(nextTrip.startDate)} days to go`)}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>
           : <><span><Icon name={tripError ? "offline" : "suitcase"} size={22} /></span><div><small>{tripError ? copy("BAĞLANTI KURULAMADI", "CONNECTION UNAVAILABLE") : copy("SIRADAKİ SEYAHAT", "YOUR NEXT TRIP")}</small><strong>{tripError ? copy("Kayıtların güvende", "Your records are safe") : copy("Henüz planlanmış seyahat yok", "No upcoming trip yet")}</strong><p>{tripError ? copy("Kokpit ekranından yeniden deneyebilirsin.", "Retry from the Cockpit screen.") : copy("Uçuşunu ekle, geri sayımı ve hazırlığını buradan takip et.", "Add a flight and follow its countdown and preparation here.")}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>}
     </section>}
+
+    <section className="home-community" aria-labelledby="home-community-title">
+      <div className="home-community-heading">
+        <span><Icon name="users" size={22} /></span>
+        <div><small>{copy("GEZGİNLERDEN GERÇEK DENEYİM", "REAL TRAVELLER EXPERIENCE")}</small><h2 id="home-community-title">{copy("Gezginlere sor", "Ask travellers")}</h2><p>{copy("Gideceğin yeri daha önce yaşayanlardan öğren.", "Learn from people who have already been there.")}</p></div>
+        <button type="button" onClick={() => onOpenCommunity()} aria-label={copy("Topluluğu aç", "Open community")}><Icon name="chevron" size={18} /></button>
+      </div>
+      <div className="home-community-countries" role="group" aria-label={copy("Ülke toplulukları", "Country communities")}>
+        {communityCountryCodes.map((code) => <button type="button" key={code} onClick={() => onOpenCommunity(code)}><CountryFlag code={code} label={localizedCountryName(code)} /><span>{localizedCountryName(code)}</span></button>)}
+      </div>
+      {communityLoading ? <div className="home-community-loading" aria-label={copy("Topluluk yükleniyor", "Loading community")}><i /><i /></div>
+        : communityQuestions.length ? <div className="home-community-questions">{communityQuestions.slice(0, 2).map((question) => <button type="button" key={question.id} onClick={() => onOpenCommunity(question.countryCode)}>
+          <CountryFlag code={question.countryCode} label={localizedCountryName(question.countryCode)} />
+          <span><small>{localizedCountryName(question.countryCode)} · @{question.username}</small><strong>{question.title}</strong><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></span>
+          <Icon name="chevron" size={16} />
+        </button>)}</div>
+          : <button className="home-community-empty" type="button" onClick={() => onOpenCommunity()}><Icon name={communityError ? "offline" : "users"} size={20} /><span><strong>{communityError ? copy("Topluluğa şu an ulaşılamıyor", "Community is temporarily unavailable") : copy("İlk soruyu sen sor", "Ask the first question")}</strong><small>{copy("Soruları okumak için giriş gerekmez.", "No sign-in is needed to read questions.")}</small></span><Icon name="chevron" size={16} /></button>}
+      <button className="home-community-action" type="button" onClick={() => onOpenCommunity()}><Icon name="users" size={18} /> {copy("Tüm topluluğa gir", "Open the full community")} <Icon name="chevron" size={16} /></button>
+    </section>
 
     <section className="home-decision" aria-labelledby="home-decision-title">
       <div className="home-section-title"><div><small>{copy("BURADAN BAŞLA", "START HERE")}</small><h2 id="home-decision-title">{copy("Ne yapmak istiyorsun?", "What do you want to do?")}</h2></div><span>{copy("Tek dokunuş", "One tap")}</span></div>

@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase
       .from("travel_verifications")
-      .select("id,country_code,country_name,created_at,status", { count: "exact" })
+      .select("id,country_code,country_name,created_at,status,evidence_path,evidence_type", { count: "exact" })
       .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(6),
@@ -133,6 +133,8 @@ export async function GET(request: Request) {
         countryCode: text(item.country_code, 8),
         countryName: text(item.country_name, 100),
         createdAt: item.created_at,
+        hasEvidence: Boolean(text(item.evidence_path, 500)),
+        evidenceType: text(item.evidence_type, 120) || null,
       })),
       pendingTopics: (topicsResult.data || []).map((item) => ({
         id: item.id,

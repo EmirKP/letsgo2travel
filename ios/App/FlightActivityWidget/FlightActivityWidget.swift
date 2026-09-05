@@ -45,7 +45,10 @@ private struct FlightPhaseLabel: View {
             VStack(spacing: 2) {
                 switch flightPhase(departureAt: departureAt, arrivalAt: arrivalAt, now: timeline.date) {
                 case .waiting:
-                    Text(isEnglish ? "Getting ready" : "Uçuşa hazırlan")
+                    HStack(spacing: 4) {
+                        Image(systemName: "airplane.departure")
+                        Text(isEnglish ? "Getting ready" : "Uçuşa hazırlan")
+                    }
                 case .flying:
                     HStack(spacing: 4) {
                         Image(systemName: "airplane")
@@ -60,6 +63,8 @@ private struct FlightPhaseLabel: View {
                 }
                 Text(title).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 }
@@ -78,13 +83,21 @@ private struct FlightCountdown: View {
             if kind == .waiting, currentPhase == .waiting {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(isEnglish ? "Departs in" : "Kalkışa").font(.system(size: 9, weight: .semibold))
-                    Text(timerInterval: timeline.date...departureAt, countsDown: true).font(.caption.bold().monospacedDigit())
+                    Text(timerInterval: timeline.date...departureAt, countsDown: true)
+                        .font(.caption.bold().monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .frame(minWidth: 46, alignment: .leading)
                 }
                 .foregroundStyle(Color.l2tGold)
             } else if kind == .flying, currentPhase == .flying, let arrivalAt = arrivalAt {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(isEnglish ? "Arrives in" : "Varışa").font(.system(size: 9, weight: .semibold))
-                    Text(timerInterval: timeline.date...arrivalAt, countsDown: true).font(.caption.bold().monospacedDigit())
+                    Text(timerInterval: timeline.date...arrivalAt, countsDown: true)
+                        .font(.caption.bold().monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .frame(minWidth: 46, alignment: .trailing)
                 }
                 .foregroundStyle(Color.l2tGold)
             }
@@ -164,6 +177,7 @@ struct FlightActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
                         ProgressView(timerInterval: context.state.departureAt...arrivalAt)
+                            .labelsHidden()
                             .tint(Color.l2tGold)
                     }
                 }
@@ -195,7 +209,7 @@ private struct LockScreenView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "airplane.departure").foregroundStyle(Color.l2tGold)
+                Spacer(minLength: 0)
                 FlightPhaseLabel(
                     departureAt: context.state.departureAt,
                     arrivalAt: context.state.arrivalAt,
@@ -204,9 +218,9 @@ private struct LockScreenView: View {
                 )
                 .font(.headline)
                 .foregroundStyle(.white)
-                Spacer()
+                Spacer(minLength: 0)
             }
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.originIata.isEmpty ? "✈︎" : context.attributes.originIata)
                         .font(.title3.bold()).foregroundStyle(Color.l2tGold)
@@ -233,10 +247,12 @@ private struct LockScreenView: View {
                         language: context.attributes.language ?? "tr",
                         kind: .flying
                     )
+                    .frame(maxWidth: 62, alignment: .trailing)
                 }
             }
             if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {
                 ProgressView(timerInterval: context.state.departureAt...arrivalAt)
+                    .labelsHidden()
                     .tint(Color.l2tGold)
             }
         }

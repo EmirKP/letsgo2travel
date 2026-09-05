@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
 import { COUNTRY_LIST } from "../data/countries";
-import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
+import { alpha2FromAlpha3 } from "../data/countryIso";
 import { ApiError, requestJson } from "../lib/api";
+import {
+  communityCount as count,
+  communityText as text,
+  listCommunityQuestions,
+  type CommunityQuestion,
+} from "../lib/community";
 import type { AuthUser } from "../types";
 import { useI18n } from "../lib/i18n";
 
@@ -27,6 +34,7 @@ type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
 type CommunityScreenProps = {
   user: AuthUser | null;
   accessToken: string;
+  initialCountryCode?: string;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
 };
@@ -39,30 +47,10 @@ export type CommunityLeader = {
   verified: boolean;
 };
 
-type CommunityQuestion = {
-  id: string;
-  countryCode: string;
-  title: string;
-  body: string;
-  category: string;
-  createdAt: string;
-  username: string;
-  answerCount: number;
-};
-
 function record(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
-}
-
-function text(value: unknown, maxLength: number) {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
-}
-
-function count(value: unknown) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.max(0, Math.min(10_000_000, Math.round(number))) : 0;
 }
 
 function normalizeLeader(value: unknown): CommunityLeader | null {
@@ -86,25 +74,6 @@ function normalizeLeader(value: unknown): CommunityLeader | null {
   };
 }
 
-function normalizeQuestion(value: unknown): CommunityQuestion | null {
-  const item = record(value);
-  const id = text(item.id, 80);
-  const title = text(item.title, 160);
-  const body = text(item.body, 800);
-  const countryCode = text(item.countryCode ?? item.country_code, 2).toUpperCase();
-  if (!id || !title || !body || !/^[A-Z]{2}$/.test(countryCode)) return null;
-  return {
-    id,
-    countryCode,
-    title,
-    body,
-    category: text(item.category, 60) || "general",
-    createdAt: text(item.createdAt ?? item.created_at, 40),
-    username: text(item.username, 40) || "anonim_gezgin",
-    answerCount: count(item.answerCount ?? item.answer_count),
-  };
-}
-
 function formatQuestionDate(value: string, locale = "tr-TR") {
   try {
     return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
@@ -114,7 +83,9 @@ function formatQuestionDate(value: string, locale = "tr-TR") {
 }
 
 function questionScopeLabel(countryCode: string, general = "Genel") {
-  return countryCode === "ZZ" ? `🌍 ${general}` : `${flagEmoji(countryCode)} ${countryCode}`;
+  return countryCode === "ZZ"
+    ? <><span className="community-world-flag" aria-hidden="true">🌍</span><b>{general}</b></>
+    : <><CountryFlag code={countryCode} label={countryCode} className="community-scope-flag" /><b>{countryCode}</b></>;
 }
 
 function userName(user: AuthUser | null) {
@@ -136,7 +107,7 @@ function initials(username: string) {
     .join("") || "K";
 }
 
-export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: CommunityScreenProps) {
+export function CommunityScreen({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice }: CommunityScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const questionCountries = useMemo(() => [...COUNTRY_LIST]
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
@@ -155,6 +126,7 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
   const [questions, setQuestions] = useState<CommunityQuestion[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [feedError, setFeedError] = useState("");
+  const [countryFilter, setCountryFilter] = useState(() => /^[A-Z]{2}$/.test(initialCountryCode) ? initialCountryCode : "");
   const [questionOpen, setQuestionOpen] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [questionTitle, setQuestionTitle] = useState("");
@@ -177,6 +149,18 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     count(detail?.totalAnswerCount),
     shownAnswerCount + hiddenAnswerCount,
   );
+  const feedCountries = useMemo(() => {
+    const codes = Array.from(new Set(questions.map((question) => question.countryCode)));
+    if (countryFilter && !codes.includes(countryFilter)) codes.unshift(countryFilter);
+    return codes.slice(0, 8);
+  }, [countryFilter, questions]);
+  const filteredQuestions = useMemo(() => countryFilter
+    ? questions.filter((question) => question.countryCode === countryFilter)
+    : questions, [countryFilter, questions]);
+
+  useEffect(() => {
+    setCountryFilter(/^[A-Z]{2}$/.test(initialCountryCode) ? initialCountryCode : "");
+  }, [initialCountryCode]);
 
   const selectTab = (nextTab: "feed" | "league") => {
     setTab(nextTab);
@@ -219,13 +203,9 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
     setFeedLoading(true);
     setFeedError("");
     try {
-      const response = await requestJson<{ data?: unknown }>("/api/country-community/feed", { timeoutMs: 15_000 });
+      const next = await listCommunityQuestions();
       if (generation !== feedGeneration.current) return;
-      const rows = Array.isArray(response.data) ? response.data : [];
-      setQuestions(rows.flatMap((item) => {
-        const question = normalizeQuestion(item);
-        return question ? [question] : [];
-      }));
+      setQuestions(next);
     } catch {
       if (generation === feedGeneration.current) {
         setQuestions([]);
@@ -421,15 +401,19 @@ export function CommunityScreen({ user, accessToken, onOpenAccount, onNotice }: 
         <label>{copy("Açıklama", "Description")}<textarea value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder={copy("Sorunu anlaşılır biçimde anlat…", "Explain your question clearly…")} /></label>
         <button className="primary-wide" disabled={posting} onClick={() => void submitQuestion()}>{posting ? <span className="button-loader" /> : <Icon name="users" size={18} />} {posting ? copy("Gönderiliyor", "Sending") : copy("Topluluğa gönder", "Post to community")}</button>
       </div>}
+      {!feedLoading && (questions.length > 0 || Boolean(countryFilter)) && <div className="community-country-filters" role="group" aria-label={copy("Ülke topluluğunu filtrele", "Filter country community")}>
+        <button type="button" className={!countryFilter ? "active" : ""} aria-pressed={!countryFilter} onClick={() => setCountryFilter("")}><Icon name="globe" size={15} /> {copy("Tümü", "All")}</button>
+        {feedCountries.map((code) => <button type="button" key={code} className={countryFilter === code ? "active" : ""} aria-pressed={countryFilter === code} onClick={() => setCountryFilter(code)}>{questionScopeLabel(code, copy("Genel", "General"))}</button>)}
+      </div>}
       {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20} /><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
       {feedLoading ? <div className="skeleton-list community-native-loading"><div /><div /><div /></div>
-        : questions.length ? <div className="community-question-list">{questions.map((question) => <article key={question.id}>
+        : filteredQuestions.length ? <div className="community-question-list">{filteredQuestions.map((question) => <article key={question.id}>
           <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}>
             <header><span>{questionScopeLabel(question.countryCode, copy("Genel", "General"))}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
             <h3>{question.title}</h3><p>{question.body}</p>
           </button>
         </article>)}</div>
-        : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>{copy("Henüz görünür soru yok", "No visible questions yet")}</strong><p>{copy("İlk soruyu sorarak ülke topluluğunu başlatabilirsin.", "Ask the first question to start this country community.")}</p></div>}
+        : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>{countryFilter ? copy("Bu ülke topluluğunda henüz soru yok", "No questions in this country community yet") : copy("Henüz görünür soru yok", "No visible questions yet")}</strong><p>{copy("İlk soruyu sorarak ülke topluluğunu başlatabilirsin.", "Ask the first question to start this country community.")}</p>{countryFilter && <button className="secondary-button" type="button" onClick={() => setCountryFilter("")}>{copy("Tüm soruları gör", "See all questions")}</button>}</div>}
     </section>
 
     <Sheet open={Boolean(detailId)} title={copy("Soru detayı", "Question details")} onClose={closeDetail} size="large">

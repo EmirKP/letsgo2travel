@@ -24,7 +24,7 @@ export async function GET(
       .single();
 
     if (error || !verification || !verification.evidence_path) {
-      return NextResponse.json({ error: "Belge bulunamadı." }, { status: 404 });
+      return NextResponse.json({ error: "Belge bulunamadı.", code: "EVIDENCE_MISSING" }, { status: 404 });
     }
 
     const { data, error: signedUrlError } = await supabase.storage
@@ -32,7 +32,12 @@ export async function GET(
       .createSignedUrl(verification.evidence_path, 300); // 5 minutes
 
     if (signedUrlError || !data) {
-      return NextResponse.json({ error: "Önizleme oluşturulamadı." }, { status: 500 });
+      const status = Number((signedUrlError as { statusCode?: unknown } | null)?.statusCode);
+      const missing = status === 404 || /not[ -]?found|does not exist/i.test(String(signedUrlError?.message || ""));
+      return NextResponse.json(
+        { error: missing ? "Belge depolama alanında bulunamadı." : "Önizleme oluşturulamadı.", code: missing ? "EVIDENCE_MISSING" : "EVIDENCE_PREVIEW_FAILED" },
+        { status: missing ? 404 : 500 },
+      );
     }
 
     return NextResponse.json({ signedUrl: data.signedUrl, evidenceType: verification.evidence_type || null });

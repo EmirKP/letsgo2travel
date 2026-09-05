@@ -11,6 +11,7 @@ import { normalizeFlightNumber, normalizePnr, tripFormError } from "../lib/cockp
 import { endAllFlightActivities, syncFlightReminders } from "../lib/liveActivity";
 import { createId } from "../lib/id";
 import { useI18n } from "../lib/i18n";
+import { openExternal } from "../lib/native";
 import {
   areFlightFieldsSupported,
   createCockpitTrip,
@@ -271,6 +272,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     () => trips.find((trip) => trip.id === selectedTripId) || trips[0] || null,
     [selectedTripId, trips],
   );
+  const selectedTripEvents = useMemo(() => selectedTrip?.checklistItems.filter((item) => item.kind === "event") || [], [selectedTrip]);
+  const selectedChecklistItems = useMemo(() => selectedTrip?.checklistItems.filter((item) => item.kind !== "event") || [], [selectedTrip]);
 
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -441,6 +444,17 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     }];
     setNewChecklistLabel("");
     void persistChecklist(selectedTrip, next, copy("Kontrol listesine yeni madde eklendi.", "A new checklist item was added."));
+  };
+
+  const removeTripEvent = (trip: CockpitTrip, itemId: string) => {
+    if (busy || loading) return;
+    const item = trip.checklistItems.find((candidate) => candidate.id === itemId && candidate.kind === "event");
+    if (!item || !window.confirm(copy(`“${item.label}” etkinliğini bu seyahatten çıkar?`, `Remove “${item.label}” from this trip?`))) return;
+    void persistChecklist(
+      trip,
+      trip.checklistItems.filter((candidate) => candidate.id !== itemId),
+      copy("Etkinlik seyahatten çıkarıldı.", "Event removed from the trip."),
+    );
   };
 
   const removeTrip = async (trip: CockpitTrip) => {
@@ -637,14 +651,23 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
             </select>
           </label>
 
+          {selectedTripEvents.length > 0 && <section className="cockpit-events-section">
+            <div className="section-heading"><div><span>{copy("SEYAHAT TAKVİMİ", "TRIP CALENDAR")}</span><h2>{copy("Eklediğin etkinlikler", "Events in this trip")}</h2></div><small>{selectedTripEvents.length}</small></div>
+            <div className="cockpit-event-list">{selectedTripEvents.map((item) => <article key={item.id}>
+              <span className="cockpit-event-date"><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit" }).format(new Date(item.eventStartsAt || item.createdAt))}</strong><small>{new Intl.DateTimeFormat(dateLocale, { month: "short" }).format(new Date(item.eventStartsAt || item.createdAt))}</small></span>
+              <button type="button" className="cockpit-event-open" disabled={!item.eventSourceUrl} onClick={() => item.eventSourceUrl && void openExternal(item.eventSourceUrl)}><small>{[item.eventCity, item.eventVenue].filter(Boolean).join(" · ") || copy("Etkinlik", "Event")}</small><strong>{item.label}</strong><em>{new Intl.DateTimeFormat(dateLocale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(item.eventStartsAt || item.createdAt))}</em></button>
+              <button type="button" className="cockpit-event-remove" disabled={Boolean(busy) || loading} aria-label={copy("Etkinliği seyahatten çıkar", "Remove event from trip")} onClick={() => removeTripEvent(selectedTrip, item.id)}><Icon name="trash" size={17} /></button>
+            </article>)}</div>
+          </section>}
+
           <section className="cockpit-checklist-section">
-            <div className="section-heading"><div><span>{copy("HAZIRLIK", "PREPARATION")}</span><h2>{copy("Kontrol listesi", "Checklist")}</h2></div><small>{selectedTrip.checklistItems.filter((item) => item.completed).length}/{selectedTrip.checklistItems.length}</small></div>
-            <progress value={selectedTrip.checklistItems.filter((item) => item.completed).length} max={Math.max(1, selectedTrip.checklistItems.length)} aria-label={copy("Hazırlık ilerlemesi", "Preparation progress")} />
+            <div className="section-heading"><div><span>{copy("HAZIRLIK", "PREPARATION")}</span><h2>{copy("Kontrol listesi", "Checklist")}</h2></div><small>{selectedChecklistItems.filter((item) => item.completed).length}/{selectedChecklistItems.length}</small></div>
+            <progress value={selectedChecklistItems.filter((item) => item.completed).length} max={Math.max(1, selectedChecklistItems.length)} aria-label={copy("Hazırlık ilerlemesi", "Preparation progress")} />
             <div className="cockpit-checklist-list">
-              {selectedTrip.checklistItems.map((item) => <button type="button" key={item.id} className={item.completed ? "completed" : ""} aria-pressed={item.completed} aria-label={`${checklistLabel(item.label, locale)}: ${item.completed ? copy("tamamlandı", "complete") : copy("tamamlanmadı", "incomplete")}`} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
+              {selectedChecklistItems.map((item) => <button type="button" key={item.id} className={item.completed ? "completed" : ""} aria-pressed={item.completed} aria-label={`${checklistLabel(item.label, locale)}: ${item.completed ? copy("tamamlandı", "complete") : copy("tamamlanmadı", "incomplete")}`} disabled={Boolean(busy) || loading} onClick={() => toggleChecklistItem(selectedTrip, item.id)}>
                 <span><Icon name={item.completed ? "check" : "plus"} size={17} /></span><strong>{checklistLabel(item.label, locale)}</strong><small>{item.category === "documents" ? copy("Belge", "Documents") : item.category === "health" ? copy("Sağlık", "Health") : item.category === "technology" ? copy("Teknoloji", "Technology") : item.category === "luggage" ? copy("Bavul", "Luggage") : copy("Diğer", "Other")}</small>
               </button>)}
-              {!selectedTrip.checklistItems.length && <div className="empty-inline"><Icon name="info" size={19} /><div><strong>{copy("Liste boş", "The list is empty")}</strong><span>{copy("Aşağıdan ilk hazırlık maddeni ekleyebilirsin.", "Add your first preparation item below.")}</span></div></div>}
+              {!selectedChecklistItems.length && <div className="empty-inline"><Icon name="info" size={19} /><div><strong>{copy("Liste boş", "The list is empty")}</strong><span>{copy("Aşağıdan ilk hazırlık maddeni ekleyebilirsin.", "Add your first preparation item below.")}</span></div></div>}
             </div>
             <form className="cockpit-checklist-form" onSubmit={addChecklistItem}>
               <input value={newChecklistLabel} maxLength={90} onChange={(event) => setNewChecklistLabel(event.target.value)} placeholder={copy("Yeni hazırlık maddesi", "New checklist item")} aria-label={copy("Yeni hazırlık maddesi", "New checklist item")} />

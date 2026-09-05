@@ -15,7 +15,14 @@ export type MobileAdminOverview = {
     pendingKvkk: number;
     pendingObjections: number;
   };
-  pendingVerifications: Array<{ id: string; countryCode: string; countryName: string; createdAt: string }>;
+  pendingVerifications: Array<{
+    id: string;
+    countryCode: string;
+    countryName: string;
+    createdAt: string;
+    hasEvidence: boolean;
+    evidenceType: string | null;
+  }>;
   pendingTopics: Array<{ id: string; title: string; authorName: string; createdAt: string }>;
   pendingReplies: Array<{ id: string; body: string; authorName: string; topicTitle: string; createdAt: string }>;
   openReports: Array<{ id: string; targetType: string; reason: string; createdAt: string }>;

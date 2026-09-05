@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { Sheet } from "../components/Sheet";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
@@ -11,12 +12,15 @@ import { cancelEventReminder, reconcileEventReminders, scheduleEventReminder } f
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
 import { getSavedTravelEvents, mergeSavedTravelEvents, toggleSavedTravelEvent } from "../lib/storage";
+import { attachTravelEventToCockpitTrip, getSupabaseDataErrorMessage, listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
 import type { EventCityOption, TravelEvent, ViewId } from "../types";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
-export function EventsScreen({ ownerId, onNavigate, onNotice }: {
+export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, onNotice }: {
   ownerId?: string | null;
+  accessToken?: string;
+  onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -43,6 +47,11 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const [featuredUnavailable, setFeaturedUnavailable] = useState(false);
   const [featuredGlobal, setFeaturedGlobal] = useState(false);
+  const [tripEvent, setTripEvent] = useState<TravelEvent | null>(null);
+  const [cockpitTrips, setCockpitTrips] = useState<CockpitTrip[]>([]);
+  const [tripPickerLoading, setTripPickerLoading] = useState(false);
+  const [tripPickerError, setTripPickerError] = useState("");
+  const [tripPickerBusy, setTripPickerBusy] = useState("");
 
   const countries = useMemo(() => COUNTRY_LIST
     .map((country) => ({ ...country, name: countryName(country.alpha3, country.name), code: alpha2FromAlpha3(country.alpha3) }))
@@ -200,6 +209,49 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
     }
   };
 
+  const openTripPicker = async (event: TravelEvent) => {
+    if (!ownerId || !accessToken) {
+      onNotice(copy("Etkinliği bir seyahate eklemek için giriş yap.", "Sign in to add the event to a trip."));
+      onOpenAccount();
+      return;
+    }
+    setTripEvent(event);
+    setTripPickerLoading(true);
+    setTripPickerError("");
+    try {
+      const trips = await listCockpitTrips(ownerId, accessToken);
+      setCockpitTrips(trips.filter((trip) => trip.status === "upcoming" || trip.status === "active"));
+    } catch (requestError) {
+      setCockpitTrips([]);
+      setTripPickerError(getSupabaseDataErrorMessage(requestError, copy("Seyahatlerin yüklenemedi.", "Your trips could not be loaded.")));
+    } finally {
+      setTripPickerLoading(false);
+    }
+  };
+
+  const attachToTrip = async (trip: CockpitTrip) => {
+    if (!tripEvent || !ownerId || !accessToken || tripPickerBusy) return;
+    setTripPickerBusy(trip.id);
+    setTripPickerError("");
+    try {
+      const result = await attachTravelEventToCockpitTrip(ownerId, trip, tripEvent, accessToken);
+      setCockpitTrips((items) => items.map((item) => item.id === trip.id ? result.trip : item));
+      if (!savedIds.has(tripEvent.id)) save(tripEvent);
+      onNotice(result.attached ? copy("Etkinlik seçtiğin seyahate eklendi.", "Event added to the selected trip.") : copy("Bu etkinlik zaten seçtiğin seyahatte.", "This event is already in the selected trip."));
+      setTripEvent(null);
+    } catch (requestError) {
+      setTripPickerError(getSupabaseDataErrorMessage(requestError, copy("Etkinlik seyahate eklenemedi.", "The event could not be added to the trip.")));
+    } finally {
+      setTripPickerBusy("");
+    }
+  };
+
+  const eventDateForTrip = tripEvent ? new Date(tripEvent.startsAt) : null;
+  const eventDay = eventDateForTrip && Number.isFinite(eventDateForTrip.getTime())
+    ? `${eventDateForTrip.getFullYear()}-${String(eventDateForTrip.getMonth() + 1).padStart(2, "0")}-${String(eventDateForTrip.getDate()).padStart(2, "0")}`
+    : "";
+  const hasCompatibleTrip = cockpitTrips.some((trip) => Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate));
+
   return <div className="screen events-screen">
     <section className="events-hero">
       <div className="events-live"><i /> {copy("CANLI ETKİNLİK RADARI", "LIVE EVENT RADAR")}</div>
@@ -270,8 +322,9 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
               {event.status !== "scheduled" && <em className={`event-status ${event.status}`}>{event.status === "cancelled" ? copy("İptal", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : copy("Tamamlandı", "Ended")}</em>}
             </div>
             {event.description && <p className="event-description">{event.description}</p>}
-            <div className={`event-card-actions ${cancelled ? "two-actions" : ""}`}>
-              <button className={saved ? "saved" : ""} onClick={() => save(event)}><Icon name={saved ? "check" : "plus"} size={16} />{saved ? copy("Planımda", "In my plan") : copy("Planıma ekle", "Add to plan")}</button>
+            <div className={`event-card-actions with-trip-action ${cancelled ? "two-actions" : ""}`}>
+              <button className={saved ? "saved" : ""} onClick={() => save(event)}><Icon name={saved ? "check" : "bookmark"} size={16} />{saved ? copy("Kaydedildi", "Saved") : copy("Kaydet", "Save")}</button>
+              {!cancelled && <button className="event-add-to-trip" onClick={() => void openTripPicker(event)}><Icon name="suitcase" size={16} />{copy("Seyahate ekle", "Add to trip")}</button>}
               {!cancelled && <button onClick={() => void remind(event)}><Icon name="bell" size={16} />{copy("Hatırlat", "Remind me")}</button>}
               <button onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}><Icon name="external" size={16} />{event.ticketUrl ? copy("Bilet / kaynak", "Tickets / source") : copy("Kaynağı doğrula", "Verify source")}</button>
             </div>
@@ -281,5 +334,19 @@ export function EventsScreen({ ownerId, onNavigate, onNotice }: {
       </div>}
     </section>
     <p className="event-disclaimer"><Icon name="shield" size={15} /> {copy("Saat, mekân, bilet ve iptal durumunu satın almadan önce bağlantılı kaynaktan ve etkinliğin resmî sitesinden doğrula.", "Before purchase, verify the time, venue, tickets and cancellation status through the linked source and the event's official site.")}</p>
+    <Sheet open={Boolean(tripEvent)} title={copy("Etkinliği seyahate ekle", "Add event to trip")} onClose={() => { if (!tripPickerBusy) setTripEvent(null); }}>
+      {tripEvent && <div className="event-trip-picker">
+        <header><span><Icon name="calendar" size={21} /></span><div><small>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(tripEvent.startsAt))}</small><strong>{tripEvent.title}</strong><p>{[tripEvent.city, tripEvent.venue].filter(Boolean).join(" · ")}</p></div></header>
+        <p>{copy("Etkinlik tarihiyle örtüşen seyahatlerden birini seç.", "Choose a trip that covers the event date.")}</p>
+        {tripPickerLoading ? <div className="skeleton-list"><div /><div /></div>
+          : tripPickerError ? <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{tripPickerError}</p><button type="button" onClick={() => void openTripPicker(tripEvent)}>{copy("Yeniden dene", "Retry")}</button></div>
+            : cockpitTrips.length ? <><div className="event-trip-options">{cockpitTrips.map((trip) => {
+              const compatible = Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate);
+              const alreadyAdded = trip.checklistItems.some((item) => item.kind === "event" && item.eventId === tripEvent.id);
+              return <button type="button" key={trip.id} disabled={Boolean(tripPickerBusy) || !compatible} onClick={() => void attachToTrip(trip)}><span><Icon name={alreadyAdded ? "check" : compatible ? "suitcase" : "calendar"} size={18} /></span><div><strong>{[trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ") || copy("İsimsiz seyahat", "Untitled trip")}</strong><small>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${trip.startDate}T12:00:00`))} – {new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${trip.endDate}T12:00:00`))}</small><em>{alreadyAdded ? copy("Zaten eklendi", "Already added") : compatible ? copy("Tarih uygun", "Date matches") : copy("Etkinlik tarihi bu seyahatin dışında", "Event date is outside this trip")}</em></div><Icon name="chevron" size={16} /></button>;
+            })}</div>{!hasCompatibleTrip && <button className="secondary-wide event-trip-create" type="button" onClick={() => { setTripEvent(null); onNavigate("cockpit"); }}><Icon name="plus" size={16} /> {copy("Tarihleri uygun seyahat oluştur", "Create a trip with matching dates")}</button>}</>
+              : <div className="empty-state"><span><Icon name="suitcase" size={27} /></span><strong>{copy("Uygun seyahat bulunamadı", "No suitable trip found")}</strong><p>{copy("Önce tarihleri bu etkinliği kapsayan bir seyahat oluştur.", "Create a trip whose dates cover this event first.")}</p><button className="primary-button" type="button" onClick={() => { setTripEvent(null); onNavigate("cockpit"); }}><Icon name="plus" size={16} /> {copy("Seyahat oluştur", "Create trip")}</button></div>}
+      </div>}
+    </Sheet>
   </div>;
 }

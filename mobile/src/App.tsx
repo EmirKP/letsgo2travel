@@ -139,6 +139,7 @@ export default function App() {
   const [routeSeedKind, setRouteSeedKind] = useState<"surprise" | "explore">("surprise");
   const [routeResetToken, setRouteResetToken] = useState(0);
   const [cockpitFocusTripId, setCockpitFocusTripId] = useState("");
+  const [communityCountryCode, setCommunityCountryCode] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,7 +244,8 @@ export default function App() {
     // İlk tarihçe kaydı yalnızca uygulama açılırken yazılır.
   }, []);
 
-  const navigate = useCallback((view: ViewId, options?: { replace?: boolean }) => {
+  const navigate = useCallback((view: ViewId, options?: { replace?: boolean; communityCountryCode?: string }) => {
+    if (view === "community") setCommunityCountryCode(options?.communityCountryCode || "");
     const current = activeViewRef.current;
     if (current === view && !options?.replace) {
       const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -713,20 +715,20 @@ export default function App() {
   };
 
   const content = useMemo(() => {
-    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
+    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
     if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
-    if (activeView === "events") return <EventsScreen ownerId={ownerId} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "events") return <EventsScreen ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen initialTab={activeView === "phrases" ? "phrases" : "now"} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
     if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, communityCountryCode, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
 
   const tabs = tabDefinitions.map((tab) => ({
     ...tab,

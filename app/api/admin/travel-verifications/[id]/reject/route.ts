@@ -65,7 +65,9 @@ export async function POST(
       const { error: removeError } = await supabase.storage
         .from("travel-evidence")
         .remove([verification.evidence_path]);
-      if (removeError) throw new Error("Özel belge silinemedi.");
+      const removeStatus = Number((removeError as { statusCode?: unknown } | null)?.statusCode);
+      const alreadyMissing = removeStatus === 404 || /not[ -]?found|does not exist/i.test(String(removeError?.message || ""));
+      if (removeError && !alreadyMissing) throw new Error("Özel belge silinemedi.");
 
       const { error: clearPathError } = await supabase
         .from("travel_verifications")

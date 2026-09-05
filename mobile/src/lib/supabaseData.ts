@@ -2,6 +2,8 @@ import { ApiError, requestJson } from "./api";
 import { config, isSupabaseConfigured } from "./config";
 import { localIsoDate } from "./dates";
 import { localeFromStorage } from "./i18n";
+import { createId } from "./id";
+import type { TravelEvent } from "../types";
 
 export type SupabaseDataErrorCode =
   | "not_configured"
@@ -95,6 +97,13 @@ export type ChecklistItem = {
   completed: boolean;
   category: ChecklistCategory;
   createdAt: string;
+  kind?: "checklist" | "event";
+  eventId?: string;
+  eventStartsAt?: string;
+  eventCity?: string;
+  eventVenue?: string;
+  eventCountryCode?: string;
+  eventSourceUrl?: string;
 };
 
 export type CockpitTrip = {
@@ -329,12 +338,26 @@ function normalizeChecklist(value: unknown): ChecklistItem[] {
     const id = safeString(row.id, 100) || `item-${index}`;
     if (seenIds.has(id)) return [];
     seenIds.add(id);
+    const kind = row.kind === "event" ? "event" : "checklist";
+    const eventId = kind === "event" ? safeString(row.eventId ?? row.event_id, 180) : "";
+    const eventStartsAt = kind === "event" ? safeString(row.eventStartsAt ?? row.event_starts_at, 40) : "";
+    if (kind === "event" && (!eventId || Number.isNaN(Date.parse(eventStartsAt)))) return [];
+    const sourceUrl = safeString(row.eventSourceUrl ?? row.event_source_url, 800);
     return [{
       id,
       label,
       completed: row.completed === true,
       category: normalizeCategory(row.category),
       createdAt: safeString(row.createdAt, 40) || safeString(row.created_at, 40) || new Date(0).toISOString(),
+      kind,
+      ...(kind === "event" ? {
+        eventId,
+        eventStartsAt,
+        eventCity: safeString(row.eventCity ?? row.event_city, 120),
+        eventVenue: safeString(row.eventVenue ?? row.event_venue, 180),
+        eventCountryCode: safeString(row.eventCountryCode ?? row.event_country_code, 2).toUpperCase(),
+        eventSourceUrl: /^https:\/\//i.test(sourceUrl) ? sourceUrl : "",
+      } : {}),
     }];
   });
 }
@@ -735,6 +758,34 @@ export function updateCockpitChecklist(
   accessToken: string,
 ) {
   return updateCockpitTrip(userId, trip.id, { checklistItems }, accessToken, trip.updatedAt);
+}
+
+export async function attachTravelEventToCockpitTrip(
+  userId: string,
+  trip: CockpitTrip,
+  event: TravelEvent,
+  accessToken: string,
+) {
+  const existing = trip.checklistItems.some((item) => item.kind === "event" && item.eventId === event.id);
+  if (existing) return { trip, attached: false };
+  if (trip.checklistItems.length >= 50) throw new SupabaseDataError("invalid_data", 400);
+
+  const next: ChecklistItem[] = [...trip.checklistItems, {
+    id: createId(),
+    label: event.title.slice(0, 90),
+    completed: false,
+    category: "other",
+    createdAt: new Date().toISOString(),
+    kind: "event",
+    eventId: event.id,
+    eventStartsAt: event.startsAt,
+    eventCity: event.city,
+    eventVenue: event.venue || "",
+    eventCountryCode: event.countryCode,
+    eventSourceUrl: event.ticketUrl || event.sourceUrl,
+  }];
+  const updated = await updateCockpitChecklist(userId, trip, next, accessToken);
+  return { trip: updated, attached: true };
 }
 
 export async function deleteCockpitTrip(

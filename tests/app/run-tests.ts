@@ -834,7 +834,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 19);
+  assert.equal(release.buildNumber, 20);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -979,6 +979,43 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   assert.ok(map.includes("fontSize={19}") && map.includes("width={22}") && map.includes("href={kosovoFlag}"), "bayraklar okunur boyutta ve Kosova gerçek görseliyle kalmalı");
   assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('Text(isEnglish ? "Flying" : "Uçuyoruz")'), "canlı etkinlik uygulama kapalıyken uçuş evresine geçmeli");
   assert.ok(widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")') && widget.includes("kind: .flying"), "varış sayacı sağ tarafta sarı uçuş sayacı olarak görünmeli");
+});
+
+test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağı korunur", () => {
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const community = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
+  const communityData = readFileSync("mobile/src/lib/community.ts", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+
+  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(3)"), "ana sayfa gerçek topluluk akışını öne çıkarmalı");
+  assert.ok(home.includes("onOpenCommunity(question.countryCode)") && app.includes("communityCountryCode"), "ülke kısayolu topluluğu seçili ülkeyle açmalı");
+  assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
+  assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");
+  assert.ok(communityData.includes('requestJson<{ data?: unknown }>("/api/country-community/feed"'), "ana sayfa ve topluluk aynı güvenli veri kaynağını kullanmalı");
+  assert.ok(styles.includes("Build 20 — ana sayfa topluluğu") && styles.includes(".home-community-action"), "dar ekran uyumlu topluluk tasarımı paketlenmeli");
+});
+
+test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları güvenlidir", () => {
+  const overviewRoute = readFileSync("app/api/admin/mobile-overview/route.ts", "utf8");
+  const evidenceRoute = readFileSync("app/api/admin/travel-verifications/[id]/signed-url/route.ts", "utf8");
+  const approveRoute = readFileSync("app/api/admin/travel-verifications/[id]/approve/route.ts", "utf8");
+  const rejectRoute = readFileSync("app/api/admin/travel-verifications/[id]/reject/route.ts", "utf8");
+  const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
+  const events = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
+  const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
+  const mobileData = readFileSync("mobile/src/lib/supabaseData.ts", "utf8");
+  const widget = readFileSync("ios/App/FlightActivityWidget/FlightActivityWidget.swift", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+
+  assert.ok(overviewRoute.includes("evidence_path,evidence_type") && overviewRoute.includes("hasEvidence"), "yönetici özeti eksik belge durumunu açıkça taşımalı");
+  assert.ok(evidenceRoute.includes('code: "EVIDENCE_MISSING"') && approveRoute.includes(".createSignedUrl(verification.evidence_path, 30)"), "olmayan depolama belgesi açma ve onay sırasında sunucuda engellenmeli");
+  assert.ok(rejectRoute.includes("alreadyMissing") && rejectRoute.includes("adminNote"), "depoda zaten silinmiş belge gerekçeli red işlemini kilitlememeli");
+  assert.ok(admin.includes("missingEvidenceIds") && admin.includes("Belgesiz başvuru onaylanamaz") && admin.includes("admin-missing-evidence"), "mobil yönetici eksik belgeyi işaretleyip onayı kapatmalı");
+  assert.ok(styles.includes(".admin-tabs { position: relative; top: auto") && admin.includes("alpha3FromAlpha2"), "yönetici sekmeleri içeriği örtmemeli ve ülke adları yerelleştirilmeli");
+  assert.ok(events.includes("attachTravelEventToCockpitTrip") && events.includes("eventDay >= trip.startDate") && events.includes("Seyahate ekle"), "yalnız tarihi örtüşen seyahate etkinlik eklenebilmeli");
+  assert.ok(mobileData.includes('kind: "event"') && mobileData.includes("eventStartsAt") && cockpit.includes("selectedTripEvents") && cockpit.includes("cockpit-event-list"), "etkinlikler mevcut senkron seyahat verisinde yapısal olarak saklanıp ayrı gösterilmeli");
+  assert.ok(widget.includes(".labelsHidden()") && widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip sarı varış sayacı korunmalı");
 });
 
 test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {

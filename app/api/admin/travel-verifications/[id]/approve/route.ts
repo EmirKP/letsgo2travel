@@ -55,21 +55,38 @@ export async function POST(
       .eq("reviewed_at", reviewStartedAt);
   };
 
-  try {
-    if (verification.evidence_path) {
-      const { error: removeError } = await supabase.storage
-        .from("travel-evidence")
-        .remove([verification.evidence_path]);
-      if (removeError) throw new Error("Özel belge silinemedi.");
+  if (!verification.evidence_path) {
+    await releaseClaim();
+    return NextResponse.json(
+      { error: "Belgesiz başvuru onaylanamaz.", code: "EVIDENCE_MISSING" },
+      { status: 422 },
+    );
+  }
 
-      const { error: clearPathError } = await supabase
-        .from("travel_verifications")
-        .update({ evidence_path: null, proof_deleted_at: reviewStartedAt })
-        .eq("id", id)
-        .eq("status", "pending")
-        .eq("reviewed_at", reviewStartedAt);
-      if (clearPathError) throw clearPathError;
-    }
+  const { error: evidenceError } = await supabase.storage
+    .from("travel-evidence")
+    .createSignedUrl(verification.evidence_path, 30);
+  if (evidenceError) {
+    await releaseClaim();
+    return NextResponse.json(
+      { error: "Başvuru belgesi depolama alanında bulunamadı; onay yerine reddet.", code: "EVIDENCE_MISSING" },
+      { status: 422 },
+    );
+  }
+
+  try {
+    const { error: removeError } = await supabase.storage
+      .from("travel-evidence")
+      .remove([verification.evidence_path]);
+    if (removeError) throw new Error("Özel belge silinemedi.");
+
+    const { error: clearPathError } = await supabase
+      .from("travel_verifications")
+      .update({ evidence_path: null, proof_deleted_at: reviewStartedAt })
+      .eq("id", id)
+      .eq("status", "pending")
+      .eq("reviewed_at", reviewStartedAt);
+    if (clearPathError) throw clearPathError;
 
     const unlockResult = await supabase.from("user_country_unlocks").upsert({
       user_id: verification.user_id,
