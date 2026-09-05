@@ -1,4 +1,4 @@
-# LetsGo2Travel iOS 1.4.0 (Build 21) yayın kontrol listesi
+# LetsGo2Travel iOS 1.4.0 (Build 22) yayın kontrol listesi
 
 ## Kodda tamamlanan hazırlıklar
 
@@ -51,7 +51,7 @@ Not: Bu sürüm Supabase'in tarayıcı tabanlı Apple OAuth akışını kullanı
 
 - Ad: `LetsGo2Travel`
 - Birincil kategori: `Travel`
-- Sürüm: `1.4.0` (Build `21`)
+- Sürüm: `1.4.0` (Build `22`)
 - Bundle ID: `tr.com.letsgo2travel.app`
 - Gizlilik Politikası: `https://www.letsgo2travel.com.tr/gizlilik-politikasi`
 - Destek: `https://www.letsgo2travel.com.tr` veya çalışan destek sayfası

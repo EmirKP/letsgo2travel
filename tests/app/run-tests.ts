@@ -834,7 +834,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 21);
+  assert.equal(release.buildNumber, 22);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -1345,6 +1345,23 @@ test("retry: geri çekilme SINIRLI ve tavanlı (agresif istek/sonsuz büyüme yo
     assert.ok(delay >= previous && delay <= RETRY_MAX_DELAY_MS, "monoton ve tavanlı olmalı");
     previous = delay;
   }
+});
+
+test("Build 22: ortak seyahat davet, yetki, oylama ve masraf akışı güvenlidir", () => {
+  const sql = readFileSync("supabase/migrations/20260905000100_trip_collaboration.sql", "utf8");
+  const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
+  const hub = readFileSync("mobile/src/components/TripCollaborationHub.tsx", "utf8");
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  assert.ok(sql.includes("trip_members_one_owner_idx") && sql.includes("check (role in ('owner', 'editor', 'viewer'))"), "tek sahip ve sınırlı roller veritabanında zorunlu olmalı");
+  assert.ok(sql.includes("token_hash text not null unique") && sql.includes("revoke all on public.trip_members"), "ham davet kodu ve doğrudan tablo erişimi açık olmamalı");
+  assert.ok(sql.includes("accept_trip_invite") && sql.includes("pgcrypto") && sql.includes("pg_advisory_xact_lock"), "davet kabulü yarış güvenli atomik sunucu RPC'siyle yapılmalı");
+  assert.ok(route.includes('requireAuthenticatedUser(request)') && route.includes("requireTripMember"), "her ortak seyahat isteği doğrulanmış kullanıcı ve üyelik istemeli");
+  assert.ok(route.includes('access.member.role !== "owner"') && route.includes('result.member.role === "viewer"'), "sahip ve izleyici yetkileri API'de uygulanmalı");
+  assert.ok(route.includes("Math.floor(cents / participantIds.length)") && route.includes("remainder"), "kuruş farkı kaybolmadan eşit masraf paylaşımı yapılmalı");
+  assert.ok(hub.includes('type CollaborationTab = "team" | "vote" | "budget"') && hub.includes("Kim alacak, kim ödeyecek?"), "mobil çalışma alanı ekip, oylama ve bütçe bölümlerini taşımalı");
+  assert.ok(app.includes("tripInviteFromUrl") && app.includes("setCockpitInviteCode"), "davet bağlantısı uygulamada Kokpit'e yönlenmeli");
+  assert.ok(styles.includes("Build 22 — Ortak seyahat") && styles.includes(".trip-expense-form"), "ortak seyahat arayüzü iPhone güvenli stillere sahip olmalı");
 });
 
 // ------------------- Live Activity cron çekirdeği --------------------

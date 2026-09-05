@@ -16,6 +16,7 @@ import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
 import { tripIdFromUrl } from "./lib/deepLink";
+import { tripInviteFromUrl } from "./lib/tripCollaboration";
 import { initFlightReminderTapListener } from "./lib/liveActivity";
 import { initEventReminderTapListener } from "./lib/eventReminders";
 import { useI18n } from "./lib/i18n";
@@ -124,7 +125,7 @@ function highlightedTabFor(view: ViewId): TabId | null {
 export default function App() {
   const { locale, setLocale, copy } = useI18n();
   const [launching, setLaunching] = useState(() => isNativePlatform());
-  const [activeView, setActiveView] = useState<ViewId>(() => viewFromUrl(window.location.href) || "home");
+  const [activeView, setActiveView] = useState<ViewId>(() => tripInviteFromUrl(window.location.href) ? "cockpit" : viewFromUrl(window.location.href) || "home");
   const [notice, setNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -139,6 +140,7 @@ export default function App() {
   const [routeSeedKind, setRouteSeedKind] = useState<"surprise" | "explore">("surprise");
   const [routeResetToken, setRouteResetToken] = useState(0);
   const [cockpitFocusTripId, setCockpitFocusTripId] = useState("");
+  const [cockpitInviteCode, setCockpitInviteCode] = useState(() => tripInviteFromUrl(window.location.href));
   const [communityCountryCode, setCommunityCountryCode] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
@@ -625,9 +627,11 @@ export default function App() {
       if (/\/auth\/callback|auth\/callback/i.test(url)) return;
       const target = url ? viewFromUrl(url) : null;
       const tripId = url ? tripIdFromUrl(url) : null;
+      const inviteCode = url ? tripInviteFromUrl(url) : "";
       if (tripId) setCockpitFocusTripId(tripId);
+      if (inviteCode) setCockpitInviteCode(inviteCode);
       if (target) navigate(target);
-      else if (tripId) navigate("cockpit");
+      else if (tripId || inviteCode) navigate("cockpit");
     }).then((handle) => {
       if (!handle) return;
       if (!active) void handle.remove();
@@ -642,9 +646,11 @@ export default function App() {
         if (url && !/\/auth\/callback|auth\/callback/i.test(url)) {
           const target = viewFromUrl(url);
           const tripId = tripIdFromUrl(url);
+          const inviteCode = tripInviteFromUrl(url);
           if (tripId) setCockpitFocusTripId(tripId);
+          if (inviteCode) setCockpitInviteCode(inviteCode);
           if (target) navigate(target, { replace: true });
-          else if (tripId) navigate("cockpit", { replace: true });
+          else if (tripId || inviteCode) navigate("cockpit", { replace: true });
         }
       });
     }
@@ -723,12 +729,12 @@ export default function App() {
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
     if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
-    if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => setCockpitInviteCode("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, communityCountryCode, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, cockpitInviteCode, communityCountryCode, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
 
   const tabs = tabDefinitions.map((tab) => ({
     ...tab,

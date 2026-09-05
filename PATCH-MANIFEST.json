@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "21",
+  "buildNumber": "22",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,18 +16,18 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-DiXraC3O.js",
-    "stylesheet": "assets/index-B4Ork-dS.css"
+    "javascript": "assets/index-jgNI_bk6.js",
+    "stylesheet": "assets/index-CqjYRdqn.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 21: the Community question sheet opens at the beginning instead of focusing and scrolling to the reply field.",
-    "Build 21: the reply composer is full-width, iPhone-safe and includes guidance, focus styling and a character counter.",
-    "Build 21: unused optional admin services no longer create a false module failure warning.",
-    "Build 21: genuine admin module failures name the affected section and include a retry action.",
-    "Build 21 requires no new environment variable or database migration.",
-    "Root/mobile lint and build, 135 app tests, 39 alert tests, Capacitor iOS/Android copy and mobile doctor passed.",
+    "Build 22: trip owners can create expiring invitations and manage editor/viewer roles.",
+    "Build 22: members can add and vote on route, stay, transport and activity suggestions.",
+    "Build 22: shared budgets, equal expense splitting and per-member balances are available in the Cockpit.",
+    "Build 22: invitation URLs route the native app directly to the shared trip join flow.",
+    "Build 22 requires the included Supabase migration; no new environment variable is required.",
+    "Root/mobile lint and build, 136 app tests, 39 alert tests, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]
 }

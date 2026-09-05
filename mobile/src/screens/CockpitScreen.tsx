@@ -3,6 +3,7 @@ import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { TripCollaborationHub } from "../components/TripCollaborationHub";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, alpha3FromAlpha2 } from "../data/countryIso";
 import type { AirportOption } from "../lib/airports";
@@ -33,6 +34,8 @@ type CockpitScreenProps = {
   /** Derin bağlantı/bildirimden gelen kayıt: liste yüklenince otomatik seçilir. */
   focusTripId?: string;
   onFocusHandled?: () => void;
+  inviteCode?: string;
+  onInviteHandled?: () => void;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
 };
@@ -171,7 +174,7 @@ type CockpitSessionSnapshot = {
   userId: string;
 };
 
-export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
+export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, inviteCode, onInviteHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const countryOptions = useMemo(() => [...COUNTRY_LIST]
     .sort((a, b) => countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale)), [countryName, locale]);
@@ -614,6 +617,15 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     </form>}
 
     {error && <div className="info-box error cockpit-native-error" role="alert"><Icon name="alert" size={20} /><p>{error}</p>{!formOpen && <button disabled={loading} onClick={() => void load()}>{copy("Tekrar dene", "Try again")}</button>}</div>}
+
+    <TripCollaborationHub
+      accessToken={accessToken}
+      userId={user.id}
+      refreshKey={trips.map((trip) => `${trip.id}:${trip.updatedAt}`).join("|")}
+      initialInviteCode={inviteCode}
+      onInviteHandled={onInviteHandled}
+      onNotice={onNotice}
+    />
 
     {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label={copy("Seyahatler yükleniyor", "Loading trips")}><div /><div /><div /></div>
       : error && !trips.length ? null

@@ -3,7 +3,7 @@
 ## Kodda tamamlananlar
 
 - Paket kimliği: `tr.com.letsgo2travel.app`
-- Sürüm: `1.4.0` / `versionCode 21`
+- Sürüm: `1.4.0` / `versionCode 22`
 - Android hedefi: API 36
 - HTTP cleartext kapalı
 - Uygulama yedeklemesi ve cihazlar arası veri aktarımı kapalı
