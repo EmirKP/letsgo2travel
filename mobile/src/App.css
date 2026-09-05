@@ -1766,3 +1766,37 @@ body.passport-map-open { overflow: hidden; overscroll-behavior: none; }
   .cockpit-event-date { width: 40px; }
   .admin-tabs button span { font-size: 9px; }
 }
+
+/* =====================================================================
+   Build 21 — topluluk cevap alanı ve yönetim modülü sağlığı
+   ===================================================================== */
+.community-question-detail[data-autofocus]:focus { outline: none; }
+.community-answer-form { min-width: 0; margin-top: 3px; padding: 13px; gap: 10px; border: 1px solid #d9e1fb; border-radius: 18px; background: linear-gradient(145deg,#f2f5ff,#fff 65%); box-shadow: 0 9px 24px rgba(35,82,196,.07); scroll-margin-bottom: calc(130px + env(safe-area-inset-bottom)); }
+.community-answer-form-heading { min-width: 0; display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: 9px; }
+.community-answer-form-heading > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: #111; background: var(--brand-yellow); }
+.community-answer-form-heading > div { min-width: 0; display: grid; gap: 2px; }
+.community-answer-form-heading strong { color: #111; font-size: 13px; }
+.community-answer-form-heading small { color: #676f7b; font-size: 9.5px; line-height: 1.4; }
+.community-answer-form > label { min-width: 0; width: 100%; display: grid; gap: 6px; color: #343b47; font-size: 11px; font-weight: 850; }
+.community-answer-form > label > span { display: block; }
+.community-answer-form textarea { display: block; box-sizing: border-box; width: 100%; max-width: 100%; min-height: 128px; margin: 0; padding: 13px 14px; resize: vertical; border: 1px solid #cfd7e6; border-radius: 14px; outline: 0; color: #111; background: #fff; font: inherit; font-size: 16px; font-weight: 500; line-height: 1.5; appearance: none; -webkit-appearance: none; touch-action: manipulation; }
+.community-answer-form textarea::placeholder { color: #8a919c; opacity: 1; }
+.community-answer-form textarea:focus { border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(35,82,196,.13); }
+.community-answer-form-meta { min-width: 0; margin-top: -3px; display: flex; align-items: center; justify-content: space-between; gap: 9px; color: #727a86; }
+.community-answer-form-meta small { min-width: 0; font-size: 9px; line-height: 1.35; }
+.community-answer-form-meta span { flex: 0 0 auto; font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.community-answer-form .primary-wide { width: 100%; min-height: 50px; margin: 0; border-radius: 14px; }
+.admin-module-warning { min-width: 0; align-items: center; border: 1px solid #efc7cc; }
+.admin-module-warning p { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.admin-module-warning p strong { color: #812d39; font-size: 10px; }
+.admin-module-warning p span { overflow-wrap: anywhere; font-size: 9px; }
+.admin-module-warning > button { min-height: 40px; padding: 0 10px; flex: 0 0 auto; border: 1px solid #e5b8be; border-radius: 11px; color: #812d39; background: #fff; font-size: 9px; font-weight: 850; }
+
+@media (max-width: 380px) {
+  .community-answer-form { padding: 11px; }
+  .community-answer-form-heading { grid-template-columns: 36px minmax(0,1fr); gap: 8px; }
+  .community-answer-form-heading > span { width: 36px; height: 36px; }
+  .community-answer-form textarea { min-height: 116px; padding: 12px; }
+  .admin-module-warning { align-items: flex-start; flex-wrap: wrap; }
+  .admin-module-warning > button { margin-left: 26px; }
+}

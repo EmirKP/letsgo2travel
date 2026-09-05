@@ -16,7 +16,7 @@ export const config: PublicConfig = {
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",
   appVersion: injected?.appVersion || "1.4.0",
-  buildNumber: injected?.buildNumber || "20",
+  buildNumber: injected?.buildNumber || "21",
   appleAuthEnabled: injected?.appleAuthEnabled !== false,
 };
 

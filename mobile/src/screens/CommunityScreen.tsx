@@ -144,6 +144,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
   const feedGeneration = useRef(0);
   const currentUsername = useMemo(() => userName(user).toLocaleLowerCase("tr-TR"), [user]);
   const shownAnswerCount = detail?.answers.length || 0;
+  const answerRemaining = 4000 - answerBody.length;
   const hiddenAnswerCount = count(detail?.hiddenAnswerCount);
   const totalAnswerCount = Math.max(
     count(detail?.totalAnswerCount),
@@ -419,7 +420,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     <Sheet open={Boolean(detailId)} title={copy("Soru detayı", "Question details")} onClose={closeDetail} size="large">
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
-      {detail && !detailLoading && <div className="community-question-detail">
+      {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
         <header><span>{questionScopeLabel(detail.countryCode, copy("Genel", "General"))}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
         <p>{detail.body}</p>
@@ -433,8 +434,13 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
           {!shownAnswerCount && !hiddenAnswerCount && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>{copy("İlk cevabı sen yaz", "Write the first answer")}</strong><span>{copy("Deneyimini paylaşarak gezginlere yardım et.", "Share your experience to help travellers.")}</span></div></div>}
         </div>
         {user ? <div className="community-answer-form">
-          <label>{copy("Cevabın", "Your answer")}<textarea value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Deneyimini paylaş…", "Share your experience…")} /></label>
-          <button className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? copy("Gönderiliyor", "Sending") : copy("Cevabı gönder", "Send answer")}</button>
+          <div className="community-answer-form-heading">
+            <span><Icon name="users" size={18} /></span>
+            <div><strong>{copy("Deneyimini paylaş", "Share your experience")}</strong><small>{copy("Kısa, açık ve kişisel bilgi içermeyen bir cevap yaz.", "Write a clear answer without personal information.")}</small></div>
+          </div>
+          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
+          <div className="community-answer-form-meta"><small>{answerBody.trim().length < 3 ? copy("Göndermek için en az 3 karakter yaz.", "Write at least 3 characters to send.") : copy("Göndermeye hazır", "Ready to send")}</small><span>{answerRemaining}</span></div>
+          <button type="button" className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? copy("Gönderiliyor", "Sending") : copy("Cevabı gönder", "Send answer")}</button>
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
       </div>}
     </Sheet>

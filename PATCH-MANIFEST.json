@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "20",
+  "buildNumber": "21",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,18 +16,18 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-CMgVEHa8.js",
-    "stylesheet": "assets/index-DDKRcZNY.css"
+    "javascript": "assets/index-DiXraC3O.js",
+    "stylesheet": "assets/index-B4Ork-dS.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 20: Home exposes a prominent country-aware community entry and the latest traveller questions while guests retain read access.",
-    "Build 20: missing verification evidence is marked and cannot be approved; rejection remains available with a required reason and valid evidence must be reviewed in-app.",
-    "Build 20: events can be attached to date-compatible Cockpit trips and are displayed separately from preparation checklist items.",
-    "Build 20: iOS Live Activity balances departure, flight phase and arrival countdown without a duplicate progress timer.",
-    "Build 20 requires no new environment variable or database migration.",
-    "Root/mobile lint and build, 134 app tests, 39 alert tests, Capacitor iOS/Android copy and mobile doctor passed.",
+    "Build 21: the Community question sheet opens at the beginning instead of focusing and scrolling to the reply field.",
+    "Build 21: the reply composer is full-width, iPhone-safe and includes guidance, focus styling and a character counter.",
+    "Build 21: unused optional admin services no longer create a false module failure warning.",
+    "Build 21: genuine admin module failures name the affected section and include a retry action.",
+    "Build 21 requires no new environment variable or database migration.",
+    "Root/mobile lint and build, 135 app tests, 39 alert tests, Capacitor iOS/Android copy and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]
 }

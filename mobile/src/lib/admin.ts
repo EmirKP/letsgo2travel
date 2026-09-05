@@ -4,6 +4,7 @@ export type MobileAdminOverview = {
   role: "super_admin";
   generatedAt: string;
   unavailableCount: number;
+  unavailableModules: string[];
   stats: {
     profiles: number;
     pendingVerifications: number;
@@ -12,8 +13,6 @@ export type MobileAdminOverview = {
     openReports: number;
     activeVisaTracks: number;
     activePriceAlerts: number;
-    pendingKvkk: number;
-    pendingObjections: number;
   };
   pendingVerifications: Array<{
     id: string;

@@ -834,7 +834,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 20);
+  assert.equal(release.buildNumber, 21);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -1016,6 +1016,19 @@ test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları gü
   assert.ok(events.includes("attachTravelEventToCockpitTrip") && events.includes("eventDay >= trip.startDate") && events.includes("Seyahate ekle"), "yalnız tarihi örtüşen seyahate etkinlik eklenebilmeli");
   assert.ok(mobileData.includes('kind: "event"') && mobileData.includes("eventStartsAt") && cockpit.includes("selectedTripEvents") && cockpit.includes("cockpit-event-list"), "etkinlikler mevcut senkron seyahat verisinde yapısal olarak saklanıp ayrı gösterilmeli");
   assert.ok(widget.includes(".labelsHidden()") && widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip sarı varış sayacı korunmalı");
+});
+
+test("Build 21: forum cevap alanı ve yönetim sağlık uyarısı dar ekranda güvenlidir", () => {
+  const community = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
+  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const overviewRoute = readFileSync("app/api/admin/mobile-overview/route.ts", "utf8");
+  const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
+
+  assert.ok(community.includes("data-autofocus tabIndex={-1}"), "soru detayı cevap alanına otomatik atlamadan baştan açılmalı");
+  assert.ok(community.includes("community-answer-form-heading") && community.includes("answerRemaining"), "cevap kutusu açıklama ve karakter sayacı taşımalı");
+  assert.ok(styles.includes("Build 21 — topluluk cevap alanı") && styles.includes(".community-answer-form textarea { display: block; box-sizing: border-box; width: 100%"), "cevap alanı tam genişlikte ve kutu hesabı güvenli olmalı");
+  assert.ok(!overviewRoute.includes('.from("kvkk_requests")') && !overviewRoute.includes('.from("business_objections")'), "mobil panelde gösterilmeyen isteğe bağlı tablolar yanlış sağlık uyarısı üretmemeli");
+  assert.ok(overviewRoute.includes("unavailableModules") && admin.includes("overview.unavailableModules.join"), "gerçek modül hatası bölüm adıyla ve yeniden deneme eylemiyle gösterilmeli");
 });
 
 test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cache olmadan kullanır", () => {

@@ -40,8 +40,6 @@ export async function GET(request: Request) {
     reportsResult,
     visaTracksResult,
     alertsResult,
-    kvkkResult,
-    objectionsResult,
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase
@@ -76,31 +74,26 @@ export async function GET(request: Request) {
       .from("flight_price_alerts")
       .select("id", { count: "exact", head: true })
       .eq("is_active", true),
-    supabase
-      .from("kvkk_requests")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "reviewing"]),
-    supabase
-      .from("business_objections")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "reviewing"]),
   ]);
 
-  const results = [
-    profilesResult,
-    verificationsResult,
-    topicsResult,
-    repliesResult,
-    reportsResult,
-    visaTracksResult,
-    alertsResult,
-    kvkkResult,
-    objectionsResult,
+  // Yalnız bu ekranda gösterilen modülleri sağlık durumuna dahil et.
+  // Önceki sürüm, panelde kullanılmayan isteğe bağlı tabloları da sorguladığı
+  // için bütün görünür veriler çalışırken yanıltıcı hata gösterebiliyordu.
+  const modules = [
+    { label: "Kullanıcılar", result: profilesResult },
+    { label: "Doğrulamalar", result: verificationsResult },
+    { label: "Forum konuları", result: topicsResult },
+    { label: "Forum cevapları", result: repliesResult },
+    { label: "Raporlar", result: reportsResult },
+    { label: "Vize takipleri", result: visaTracksResult },
+    { label: "Fiyat alarmları", result: alertsResult },
   ];
-  const unavailableCount = results.filter((result) => Boolean(result.error)).length;
+  const unavailableModules = modules.flatMap(({ label, result }) => result.error ? [label] : []);
+  const unavailableCount = unavailableModules.length;
   if (unavailableCount) {
     console.error("mobile_admin_overview_partial", {
-      codes: results.flatMap((result) => result.error?.code ? [result.error.code] : []),
+      modules: unavailableModules,
+      codes: modules.flatMap(({ result }) => result.error?.code ? [result.error.code] : []),
     });
   }
 
@@ -117,6 +110,7 @@ export async function GET(request: Request) {
       role: profile?.role,
       generatedAt: new Date().toISOString(),
       unavailableCount,
+      unavailableModules,
       stats: {
         profiles: profilesResult.count || 0,
         pendingVerifications: verificationsResult.count || 0,
@@ -125,8 +119,6 @@ export async function GET(request: Request) {
         openReports: reportsResult.count || 0,
         activeVisaTracks: visaTracksResult.count || 0,
         activePriceAlerts: alertsResult.count || 0,
-        pendingKvkk: kvkkResult.count || 0,
-        pendingObjections: objectionsResult.count || 0,
       },
       pendingVerifications: (verificationsResult.data || []).map((item) => ({
         id: item.id,
