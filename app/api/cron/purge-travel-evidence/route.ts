@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { cleanupReviewedEvidence } from "@/lib/verification-review";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -21,12 +22,16 @@ export async function GET(request: Request) {
   if (!supabase) return NextResponse.json({ error: "Sunucu yapılandırması eksik." }, { status: 503 });
 
   const now = new Date().toISOString();
+  // Close first. This update serialises with the review transaction's row lock.
+  const { error: expireError } = await supabase.from("travel_verifications")
+    .update({ status: "rejected", admin_note: "Özel belgenin azami saklama süresi doldu.", reviewed_at: now })
+    .eq("status", "pending").lte("evidence_expires_at", now);
+  if (expireError) return NextResponse.json({ error: "Başvurular kapatılamadı; belgeler korundu." }, { status: 500 });
   const { data: expired, error: lookupError } = await supabase
     .from("travel_verifications")
-    .select("id,evidence_path")
-    .eq("status", "pending")
+    .select("id,status,evidence_path")
+    .in("status", ["approved", "rejected"])
     .not("evidence_path", "is", null)
-    .lte("evidence_expires_at", now)
     .order("evidence_expires_at", { ascending: true })
     .limit(100);
 
@@ -37,27 +42,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, purged: 0, checkedAt: now });
   }
 
-  const paths = expired.map((item) => item.evidence_path).filter((value): value is string => typeof value === "string" && Boolean(value));
-  const { error: storageError } = await supabase.storage.from("travel-evidence").remove(paths);
-  if (storageError) {
-    return NextResponse.json({ error: "Süresi dolan özel belgeler silinemedi; kayıtlar değiştirilmedi." }, { status: 500 });
-  }
-
-  const ids = expired.map((item) => item.id);
-  const { error: updateError } = await supabase
-    .from("travel_verifications")
-    .update({
-      evidence_path: null,
-      proof_deleted_at: now,
-      status: "rejected",
-      admin_note: "Özel belgenin 30 günlük azami saklama süresi dolduğu için başvuru kapatıldı.",
-      reviewed_at: now,
-    })
-    .in("id", ids)
-    .eq("status", "pending");
-  if (updateError) {
-    return NextResponse.json({ error: "Belgeler silindi ancak kayıtların durumu güncellenemedi." }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, purged: ids.length, checkedAt: now });
+  const results = await Promise.all(expired.map(item => cleanupReviewedEvidence(supabase, { id: item.id, status: item.status, evidencePath: item.evidence_path })));
+  return NextResponse.json({ success: results.every(Boolean), purged: results.filter(Boolean).length, retryPending: results.filter(result => !result).length, checkedAt: now });
 }

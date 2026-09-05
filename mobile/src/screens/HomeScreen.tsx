@@ -146,21 +146,6 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
       <button onClick={() => onNavigate("profile")} aria-label={copy("Profili aç", "Open profile")}>{name.slice(0, 1).toLocaleUpperCase(locale)}</button>
     </section>
 
-    <section className="home-purpose">
-      <span className="home-purpose-badge"><Icon name="globe" size={18} /> LetsGo2Travel</span>
-      <h2>{copy("Karardan dönüşe kadar seyahat yardımcın.", "Your travel companion, from decision to return.")}</h2>
-      <p>{copy("Yerini seç, rotanı kur, fırsatları ve etkinlikleri yakala; seyahatte ihtiyacın olan araçları yanında taşı.", "Choose a place, build your route, catch events and deals, and carry the tools you need on the road.")}</p>
-      <button className="home-purpose-action" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> {copy("Yeni seyahat planla", "Plan a new trip")} <Icon name="chevron" size={16} /></button>
-    </section>
-
-    {(ownerId && accessToken) && <section className={`home-trip-focus ${!nextTrip ? "empty" : ""}`} aria-live="polite">
-      {tripLoading ? <><span className="button-loader dark" /><div><small>{copy("SEYAHATİN YÜKLENİYOR", "LOADING YOUR TRIP")}</small><strong>{copy("Kokpit hazırlanıyor…", "Preparing your cockpit…")}</strong></div></>
-        : nextTrip ? <><span><Icon name="plane" size={22} /></span><div><small>{nextTrip.status === "active" ? copy("ŞU ANDA SEYAHATTESİN", "YOU'RE TRAVELLING") : copy("SIRADAKİ SEYAHATİN", "YOUR NEXT TRIP")}</small><strong>{tripName(nextTrip)}</strong><p>{nextTrip.originIata || "—"} → {nextTrip.destinationIata || nextTrip.destinationCode} · {nextTrip.status === "active" ? copy("Kokpiti aç", "Open cockpit") : copy(`${daysUntil(nextTrip.startDate)} gün kaldı`, `${daysUntil(nextTrip.startDate)} days to go`)}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>
-          : <><span><Icon name={tripError ? "offline" : "suitcase"} size={22} /></span><div><small>{tripError ? copy("BAĞLANTI KURULAMADI", "CONNECTION UNAVAILABLE") : copy("SIRADAKİ SEYAHAT", "YOUR NEXT TRIP")}</small><strong>{tripError ? copy("Kayıtların güvende", "Your records are safe") : copy("Henüz planlanmış seyahat yok", "No upcoming trip yet")}</strong><p>{tripError ? copy("Kokpit ekranından yeniden deneyebilirsin.", "Retry from the Cockpit screen.") : copy("Uçuşunu ekle, geri sayımı ve hazırlığını buradan takip et.", "Add a flight and follow its countdown and preparation here.")}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>}
-    </section>}
-
-    <button className="home-shared-trip" type="button" onClick={() => onNavigate("trips")}><span><Icon name="users" size={24} /></span><div><small>{copy("ARKADAŞLARINLA PLANLA", "PLAN WITH FRIENDS")}</small><strong>{copy("Ortak seyahat oluştur veya davete katıl", "Create a shared trip or join an invitation")}</strong><p>{copy("Oylama, ortak bütçe ve masraflar tek yerde.", "Voting, shared budget and expenses in one place.")}</p></div><Icon name="chevron" size={18} /></button>
-
     <section className="home-community" aria-labelledby="home-community-title">
       <div className="home-community-heading">
         <span><Icon name="users" size={22} /></span>
@@ -179,6 +164,22 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
           : <button className="home-community-empty" type="button" onClick={() => onOpenCommunity()}><Icon name={communityError ? "offline" : "users"} size={20} /><span><strong>{communityError ? copy("Topluluğa şu an ulaşılamıyor", "Community is temporarily unavailable") : copy("İlk soruyu sen sor", "Ask the first question")}</strong><small>{copy("Soruları okumak için giriş gerekmez.", "No sign-in is needed to read questions.")}</small></span><Icon name="chevron" size={16} /></button>}
       <button className="home-community-action" type="button" onClick={() => onOpenCommunity()}><Icon name="users" size={18} /> {copy("Tüm topluluğa gir", "Open the full community")} <Icon name="chevron" size={16} /></button>
     </section>
+
+    <section className="home-purpose">
+      <span className="home-purpose-badge"><Icon name="globe" size={18} /> LetsGo2Travel</span>
+      <h2>{copy("Sıradaki rotanı birlikte bulalım.", "Let’s find your next route.")}</h2>
+      <p>{copy("Yerini seç, rotanı kur, fırsatları ve etkinlikleri yakala; seyahatte ihtiyacın olan araçları yanında taşı.", "Choose a place, build your route, catch events and deals, and carry the tools you need on the road.")}</p>
+      <button className="home-purpose-action" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> {copy("Yeni seyahat planla", "Plan a new trip")} <Icon name="chevron" size={16} /></button>
+    </section>
+
+    {(ownerId && accessToken) && <section className={`home-trip-focus ${!nextTrip ? "empty" : ""}`} aria-live="polite">
+      {tripLoading ? <><span className="button-loader dark" /><div><small>{copy("SEYAHATİN YÜKLENİYOR", "LOADING YOUR TRIP")}</small><strong>{copy("Kokpit hazırlanıyor…", "Preparing your cockpit…")}</strong></div></>
+        : nextTrip ? <><span><Icon name="plane" size={22} /></span><div><small>{nextTrip.status === "active" ? copy("ŞU ANDA SEYAHATTESİN", "YOU'RE TRAVELLING") : copy("SIRADAKİ SEYAHATİN", "YOUR NEXT TRIP")}</small><strong>{tripName(nextTrip)}</strong><p>{nextTrip.originIata || "—"} → {nextTrip.destinationIata || nextTrip.destinationCode} · {nextTrip.status === "active" ? copy("Kokpiti aç", "Open cockpit") : copy(`${daysUntil(nextTrip.startDate)} gün kaldı`, `${daysUntil(nextTrip.startDate)} days to go`)}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>
+          : <><span><Icon name={tripError ? "offline" : "suitcase"} size={22} /></span><div><small>{tripError ? copy("BAĞLANTI KURULAMADI", "CONNECTION UNAVAILABLE") : copy("SIRADAKİ SEYAHAT", "YOUR NEXT TRIP")}</small><strong>{tripError ? copy("Kayıtların güvende", "Your records are safe") : copy("Henüz planlanmış seyahat yok", "No upcoming trip yet")}</strong><p>{tripError ? copy("Kokpit ekranından yeniden deneyebilirsin.", "Retry from the Cockpit screen.") : copy("Uçuşunu ekle, geri sayımı ve hazırlığını buradan takip et.", "Add a flight and follow its countdown and preparation here.")}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>}
+    </section>}
+
+    <button className="home-shared-trip" type="button" onClick={() => onNavigate("trips")}><span><Icon name="users" size={24} /></span><div><small>{copy("ARKADAŞLARINLA PLANLA", "PLAN WITH FRIENDS")}</small><strong>{copy("Ortak seyahat oluştur veya davete katıl", "Create a shared trip or join an invitation")}</strong><p>{copy("Oylama, ortak bütçe ve masraflar tek yerde.", "Voting, shared budget and expenses in one place.")}</p></div><Icon name="chevron" size={18} /></button>
+
 
     <section className="home-decision" aria-labelledby="home-decision-title">
       <div className="home-section-title"><div><small>{copy("BURADAN BAŞLA", "START HERE")}</small><h2 id="home-decision-title">{copy("Ne yapmak istiyorsun?", "What do you want to do?")}</h2></div><span>{copy("Tek dokunuş", "One tap")}</span></div>

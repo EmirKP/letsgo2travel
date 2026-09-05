@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import worldPaths from "../data/worldMapPaths.json";
 import kosovoFlag from "../assets/flags/kosovo.svg";
+import { boundedMapTransform, mapPixelsPerUnit, MAP_MAX_SCALE, type MapTransform } from "../lib/mapGeometry";
 import { Icon } from "./Icon";
 import { ALPHA3_TO_GEO_ID } from "../data/countryCodes";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
@@ -8,13 +9,13 @@ import type { VisaStatus } from "../types";
 import { useI18n } from "../lib/i18n";
 
 type WorldPath = { id: string; name: string; d: string; x: number | null; y: number | null; area: number };
-type MapTransform = { scale: number; x: number; y: number };
+
 type TouchPoint = { x: number; y: number };
 
 export type MapStatus = VisaStatus | "unknown";
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 8;
+const MAX_SCALE = MAP_MAX_SCALE;
 const STATUS_FILL: Record<MapStatus, string> = {
   id_card: "#397FD1",
   free: "#28A47B",
@@ -96,9 +97,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
       setTransform(reset);
       return;
     }
-    const maxX = viewport.clientWidth * (scale - 1) / 2;
-    const maxY = viewport.clientHeight * (scale - 1) / 2;
-    const bounded = { scale, x: Math.max(-maxX, Math.min(maxX, next.x)), y: Math.max(-maxY, Math.min(maxY, next.y)) };
+    const bounded = boundedMapTransform(next,viewport.clientWidth,viewport.clientHeight);
     transformRef.current = bounded;
     setTransform(bounded);
   };
@@ -183,6 +182,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
       const width = Math.max(1, entry.contentRect.width);
       const height = Math.max(1, entry.contentRect.height);
       setViewportSize((current) => current.width === width && current.height === height ? current : { width, height });
+      commitTransform(transformRef.current);
     });
     observer.observe(viewport);
     return () => observer.disconnect();
@@ -206,7 +206,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
 
   const mouseDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "mouse" || transform.scale <= 1) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+
     mouseRef.current = { point: { x: event.clientX, y: event.clientY }, transform };
   };
   const mouseMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -219,13 +219,29 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
     mouseRef.current = null;
     window.setTimeout(() => { suppressClickRef.current = false; }, 80);
   };
-  const zoom = (delta: number) => commitTransform({ ...transformRef.current, scale: transformRef.current.scale + delta });
-  const translateX = transform.x * 800 / viewportSize.width;
-  const translateY = transform.y * 400 / viewportSize.height;
+  const zoom = (direction: number) => {
+    const current = transformRef.current;
+    const scale = Math.max(MIN_SCALE,Math.min(MAX_SCALE,current.scale * (direction > 0 ? 1.5 : 1/1.5)));
+    commitTransform({scale,x:current.x*scale/current.scale,y:current.y*scale/current.scale});
+  };
+  // preserveAspectRatio="meet" uses ONE unit size on both axes, including
+  // the letterboxed area on portrait screens.
+  const pixelsPerUnit = mapPixelsPerUnit(viewportSize.width,viewportSize.height);
+  const translateX = transform.x / pixelsPerUnit;
+  const translateY = transform.y / pixelsPerUnit;
   const groupTransform = `translate(${400 + translateX} ${200 + translateY}) scale(${transform.scale}) translate(-400 -200)`;
+  const flagSize = 24 / pixelsPerUnit;
+  const visibleFlags = flags.filter(country => country.level <= (transform.scale >= 4 ? 3 : transform.scale >= 2 ? 2 : 1) || country.alpha3 === selectedAlpha3)
+    .map(country => ({...country,displayX:400 + ((country.x || 0)-400)*transform.scale+translateX,displayY:200 + ((country.y || 0)-200)*transform.scale+translateY}))
+    .filter(country => Math.abs((country.displayX-400)*pixelsPerUnit) < viewportSize.width/2 + 24 && Math.abs((country.displayY-200)*pixelsPerUnit) < viewportSize.height/2+24)
+    .sort((a,b) => Number(b.alpha3 === selectedAlpha3)-Number(a.alpha3 === selectedAlpha3) || b.area-a.area)
+    .reduce<Array<(typeof flags)[number] & {displayX:number;displayY:number}>>((placed,country) => {
+      if (!placed.some(other => Math.abs(other.displayX-country.displayX)*pixelsPerUnit < 28 && Math.abs(other.displayY-country.displayY)*pixelsPerUnit < 22)) placed.push(country);
+      return placed;
+    },[]);
 
   return <div className={`passport-map ${fullscreen ? "fullscreen" : ""}`} data-no-gesture role={fullscreen ? "dialog" : "region"} aria-modal={fullscreen || undefined} aria-label={copy("Vize durumuna göre renklendirilmiş, yakınlaştırılabilir dünya haritası", "Zoomable world map coloured by visa status")} aria-describedby="passport-map-help">
-    <div ref={viewportRef} className={`passport-map-viewport ${transform.scale > 1 ? "zoomed" : ""}`} onPointerDown={mouseDown} onPointerMove={mouseMove} onPointerUp={mouseUp} onPointerCancel={mouseUp}>
+    <div ref={viewportRef} className={`passport-map-viewport ${transform.scale > 1 ? "zoomed" : ""}`} onPointerDown={mouseDown} onPointerMove={mouseMove} onPointerUp={mouseUp} onPointerCancel={mouseUp} onPointerLeave={mouseUp}>
       <svg
         viewBox="0 0 800 400"
         role="img"
@@ -239,17 +255,17 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         <g transform={groupTransform}>
           <WorldCountries isHighlighted={isHighlighted} selectedAlpha3={selectedAlpha3} statusFor={statusFor} />
         </g>
-        <g className={`passport-map-flags flag-level-${transform.scale >= 4.25 ? 3 : transform.scale >= 2.25 ? 2 : 1}`} aria-hidden="true">
-          {flags.map((country) => {
-            const x = 400 + ((country.x || 0) - 400) * transform.scale + translateX;
-            const y = 200 + ((country.y || 0) - 200) * transform.scale + translateY;
+        <g className="passport-map-flags flag-level-3" aria-hidden="true">
+          {visibleFlags.map((country) => {
+            const x = country.displayX;
+            const y = country.displayY;
             return country.alpha3 === "XKK" ? <image
               key={`flag-${country.id}-${country.name}`}
               href={kosovoFlag}
-              x={x - 11}
-              y={y - 8}
-              width={22}
-              height={16}
+              x={x - flagSize/2}
+              y={y - flagSize*0.35}
+              width={flagSize}
+              height={flagSize*0.7}
               className={`passport-map-flag passport-map-kosovo-flag map-flag-level-${country.level} ${selectedAlpha3 === country.alpha3 ? "selected" : ""}`}
               data-country-alpha3={country.alpha3}
               preserveAspectRatio="xMidYMid meet"
@@ -259,7 +275,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
               x={x}
               y={y}
               className={`passport-map-flag map-flag-level-${country.level} ${selectedAlpha3 === country.alpha3 ? "selected" : ""}`}
-              fontSize={19}
+              fontSize={flagSize}
               data-country-alpha3={country.alpha3}
             >{flagEmoji(country.alpha2)}</text>;
           })}

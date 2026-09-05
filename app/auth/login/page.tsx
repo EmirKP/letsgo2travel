@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
+import { safeAuthNext } from "@/lib/auth-next";
 import { getSiteUrl } from "@/lib/site-url";
 
 function GoogleMark() {
@@ -34,18 +35,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const getSafeNextPath = () => {
-    const requested = new URLSearchParams(window.location.search).get("next");
-    if (!requested?.startsWith("/") || requested.startsWith("//") || requested.includes("\\")) return "/profil";
-    try {
-      const target = new URL(requested, window.location.origin);
-      return target.origin === window.location.origin
-        ? `${target.pathname}${target.search}${target.hash}`
-        : "/profil";
-    } catch {
-      return "/profil";
-    }
-  };
+  const [nextPath,setNextPath] = useState("/profil");
+  const getSafeNextPath = () => safeAuthNext(window.location.search,window.location.origin);
+  useEffect(() => { setNextPath(getSafeNextPath()); },[]);
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
@@ -202,7 +194,7 @@ export default function LoginPage() {
           </button>
 
           <p className="l2t-auth-register">
-            Henüz hesabın yok mu? <Link href="/auth/register">Ücretsiz hesap oluştur</Link>
+            Henüz hesabın yok mu? <Link href={`/auth/register?next=${encodeURIComponent(nextPath)}`}>Ücretsiz hesap oluştur</Link>
           </p>
 
           <p className="l2t-auth-legal">

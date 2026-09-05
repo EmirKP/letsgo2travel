@@ -69,6 +69,8 @@ const releaseManifestText = await text("release-manifest.json", { label: "tekil 
 const releaseManifest = parseJsonValue(releaseManifestText, "release-manifest.json") || {};
 const expectedAppVersion = typeof releaseManifest.appVersion === "string" ? releaseManifest.appVersion : "";
 const expectedBuildNumber = Number.isSafeInteger(releaseManifest.buildNumber) ? releaseManifest.buildNumber : 0;
+const expectedNativeBuildNumber = releaseManifest.nativeBuildNumber ?? expectedBuildNumber;
+if (!Number.isSafeInteger(expectedNativeBuildNumber) || expectedNativeBuildNumber < expectedBuildNumber) errors.push("Native build numarası geçersiz.");
 if (/^\d+\.\d+\.\d+$/.test(expectedAppVersion) && expectedBuildNumber > 0) ok.push(`yayın manifesti ${expectedAppVersion} (${expectedBuildNumber})`);
 else errors.push("Yayın manifestinde geçerli appVersion/buildNumber yok.");
 
@@ -226,7 +228,9 @@ if (checkIos) {
   expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
   expect(project, new RegExp(`MARKETING_VERSION = ${expectedAppVersion.replaceAll(".", "\\.")};`), `iOS pazarlama sürümü ${expectedAppVersion}`, `Xcode MARKETING_VERSION ${expectedAppVersion} değil.`);
-  expect(project, new RegExp(`CURRENT_PROJECT_VERSION = ${expectedBuildNumber};`), `iOS build numarası ${expectedBuildNumber}`, `Xcode CURRENT_PROJECT_VERSION ${expectedBuildNumber} değil.`);
+  const nativeVersions = [...project.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map(match => Number(match[1]));
+  if (nativeVersions.length && nativeVersions.every(version => version === expectedNativeBuildNumber)) ok.push(`Tüm iOS hedeflerinde build numarası ${expectedNativeBuildNumber}`);
+  else errors.push(`Xcode CURRENT_PROJECT_VERSION tüm hedeflerde ${expectedNativeBuildNumber} değil.`);
   expect(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/, "Sign in with Apple entitlement bağlantısı", "Apple entitlement dosyası Xcode hedefine bağlı değil.");
   expect(project, /PrivacyInfo\.xcprivacy in Resources/, "gizlilik manifesti Xcode hedefine bağlı", "PrivacyInfo.xcprivacy Xcode Resources aşamasına bağlı değil.");
   // Live Activity / Widget Extension: elle Xcode adımı KALMAMALI —
@@ -315,7 +319,7 @@ if (checkAndroid) {
   expect(manifest, /android:dataExtractionRules=["']@xml\/data_extraction_rules["']/, "Android veri aktarım kuralları bağlı", "Android veri aktarım kuralları bağlı değil.");
 
   const androidBuild = await text("android/app/build.gradle");
-  expect(androidBuild, new RegExp(`versionCode\\s+${expectedBuildNumber}\\b`), `Android versionCode ${expectedBuildNumber}`, `Android versionCode ${expectedBuildNumber} değil.`);
+  expect(androidBuild, new RegExp(`versionCode\\s+${expectedNativeBuildNumber}\\b`), `Android versionCode ${expectedNativeBuildNumber}`, `Android versionCode ${expectedNativeBuildNumber} değil.`);
   expect(androidBuild, new RegExp(`versionName\\s+["']${expectedAppVersion.replaceAll(".", "\\.")}["']`), `Android versionName ${expectedAppVersion}`, `Android versionName ${expectedAppVersion} değil.`);
   for (const key of ["L2T_UPLOAD_STORE_FILE", "L2T_UPLOAD_STORE_PASSWORD", "L2T_UPLOAD_KEY_ALIAS", "L2T_UPLOAD_KEY_PASSWORD"]) {
     expect(androidBuild, new RegExp(key), `Android release imza ayarı: ${key}`, `Android release imza ayarı eksik: ${key}`);

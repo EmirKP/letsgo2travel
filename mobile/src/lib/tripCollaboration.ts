@@ -1,4 +1,5 @@
 import { requestJson } from "./api";
+import { parseTripInvite } from "../../../lib/trip-invite";
 
 export type TripMemberRole = "owner" | "editor" | "viewer";
 
@@ -59,7 +60,7 @@ export type TripCollaborationWorkspace = {
   options: TripPlanOption[];
   budget: { currency: string; targetAmount: number; updatedAt: string | null };
   expenses: TripExpense[];
-  balances: Array<{ userId: string; name: string; balance: number }>;
+  balances: Array<{ userId: string; name: string; currency: string; balance: number }>;
 };
 
 function authHeaders(accessToken: string) {
@@ -81,11 +82,22 @@ export async function collaborationAction<T = { success: boolean }>(accessToken:
 }
 
 export function tripInviteFromUrl(value: string) {
+  return parseTripInvite(value);
+}
+
+const pendingKey = "l2t:pending-trip-invite:v1";
+export function rememberTripInvite(value: string) {
+  const code = parseTripInvite(value);
+  try { if (code) localStorage.setItem(pendingKey,JSON.stringify({code,expires:Date.now()+7*86400000})); else localStorage.removeItem(pendingKey); } catch { /* the current screen still holds the code */ }
+  return code;
+}
+export function pendingTripInvite(url: string) {
+  const incoming = parseTripInvite(url);
+  if (incoming) return rememberTripInvite(incoming);
   try {
-    const parsed = new URL(value, window.location.origin);
-    const code = parsed.searchParams.get("tripInvite")?.trim() || "";
-    return code.length >= 20 && code.length <= 200 ? code : "";
-  } catch {
-    return "";
-  }
+    const pending = JSON.parse(localStorage.getItem(pendingKey) || "null");
+    if (pending?.expires > Date.now()) return parseTripInvite(String(pending.code || ""));
+    localStorage.removeItem(pendingKey);
+  } catch { /* unavailable storage */ }
+  return "";
 }

@@ -1,3 +1,4 @@
+import { parseTripInvite } from "@/lib/trip-invite";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
@@ -30,6 +31,13 @@ function databaseUnavailable(error: { code?: string } | null | undefined) {
   return error?.code === "42P01" || error?.code === "PGRST205";
 }
 
+function collaborationWriteError(error: { code?: string; message?: string }) {
+  const missing = error.code === "PGRST202" || error.code === "42883";
+  const currency = error.message?.includes("currency_locked");
+  const forbidden = error.message?.includes("trip_forbidden");
+  return NextResponse.json({ error: missing ? "Ortak masraflar için Build 24 veritabanı güncellemesi gerekli." : currency ? "Masrafların para birimi farklı. Bütçeyi mevcut masrafların para birimine ayarla." : forbidden ? "Bu seyahati düzenleme yetkin yok." : "İşlem kaydedilemedi; yeniden deneyebilirsin.", code: missing ? "COLLAB_SCHEMA_MISSING" : currency ? "CURRENCY_CONFLICT" : "COLLAB_WRITE_FAILED" }, { status: missing ? 503 : currency ? 409 : forbidden ? 403 : 500 });
+}
+
 async function memberFor(supabase: any, tripId: string, userId: string) {
   const { data, error } = await supabase
     .from("trip_members")
@@ -48,15 +56,6 @@ async function requireTripMember(supabase: any, tripId: string, userId: string, 
   return { member: result.member };
 }
 
-async function hasFinancialHistory(supabase: any, tripId: string, userId: string) {
-  const { data: expenses, error } = await supabase.from("trip_expenses").select("id,paid_by").eq("trip_id", tripId);
-  if (error) return { value: false, error };
-  if ((expenses || []).some((expense: any) => expense.paid_by === userId)) return { value: true, error: null };
-  const expenseIds = (expenses || []).map((expense: any) => expense.id);
-  if (!expenseIds.length) return { value: false, error: null };
-  const { data: shares, error: shareError } = await supabase.from("trip_expense_shares").select("expense_id").eq("user_id", userId).in("expense_id", expenseIds).limit(1);
-  return { value: Boolean(shares?.length), error: shareError };
-}
 
 function titleForTrip(trip: any) {
   return [trip?.destination_city, trip?.destination_country].filter(Boolean).join(", ") || "Seyahat";
@@ -168,11 +167,13 @@ async function workspace(supabase: any, tripId: string, userId: string) {
     spentAt: expense.spent_at,
     shares: shares.filter((share: any) => share.expense_id === expense.id).map((share: any) => ({ userId: share.user_id, amount: Number(share.amount) })),
   }));
-  const balances = namedMembers.map((member: any) => {
-    const paid = expenses.filter((expense: any) => expense.paidBy === member.userId).reduce((sum: number, expense: any) => sum + expense.amount, 0);
-    const owes = expenses.flatMap((expense: any) => expense.shares).filter((share: any) => share.userId === member.userId).reduce((sum: number, share: any) => sum + share.amount, 0);
-    return { userId: member.userId, name: member.name, balance: Math.round((paid - owes) * 100) / 100 };
-  });
+  const currencies = [...new Set(expenses.map((expense: any) => expense.currency))];
+  const balances = namedMembers.flatMap((member: any) => (currencies.length ? currencies : [budgetResult.data?.currency || "TRY"]).map((currency) => {
+    const sameCurrency = expenses.filter((expense: any) => expense.currency === currency);
+    const paid = sameCurrency.filter((expense: any) => expense.paidBy === member.userId).reduce((sum: number, expense: any) => sum + Math.round(expense.amount * 100), 0);
+    const owes = sameCurrency.flatMap((expense: any) => expense.shares).filter((share: any) => share.userId === member.userId).reduce((sum: number, share: any) => sum + Math.round(share.amount * 100), 0);
+    return { userId: member.userId, name: member.name, currency, balance: (paid - owes) / 100 };
+  }));
   const trip = tripResult.data;
   return { data: {
     trip: {
@@ -220,11 +221,12 @@ export async function POST(request: Request) {
   const { supabase, user } = auth;
   let body: ActionBody;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   const action = cleanText(body.action, 40);
 
   if (action === "accept_invite") {
-    const inviteCode = cleanText(body.inviteCode, 200);
-    if (inviteCode.length < 20) return NextResponse.json({ error: "Davet kodu geçersiz." }, { status: 400 });
+    const inviteCode = parseTripInvite(typeof body.inviteCode === "string" ? body.inviteCode : "");
+    if (!inviteCode) return NextResponse.json({ error: "Davet kodu geçersiz." }, { status: 400 });
     const { data, error } = await supabase.rpc("accept_trip_invite", { p_token_hash: inviteHash(inviteCode), p_user_id: user.id });
     if (error || !data) return NextResponse.json({ error: error?.message?.includes("invite_invalid") ? "Davet geçersiz, süresi dolmuş veya kullanım sınırına ulaşmış." : "Davet kabul edilemedi." }, { status: error?.message?.includes("invite_invalid") ? 410 : 500 });
     return NextResponse.json({ data: { tripId: data }, message: "Ortak seyahate katıldın." });
@@ -246,33 +248,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: { inviteCode: rawToken, inviteUrl: `${origin}/davet/${encodeURIComponent(rawToken)}`, expiresAt, role: invitedRole } });
   }
 
-  if (action === "set_role" || action === "remove_member") {
-    if (access.member.role !== "owner") return NextResponse.json({ error: "Katılımcıları yalnızca seyahat sahibi yönetebilir." }, { status: 403 });
-    const memberId = uuid(body.userId);
-    if (!memberId || memberId === user.id) return NextResponse.json({ error: "Katılımcı seçimi geçersiz." }, { status: 400 });
-    const { data: target } = await supabase.from("trip_members").select("role").eq("trip_id", tripId).eq("user_id", memberId).maybeSingle();
-    if (!target || target.role === "owner") return NextResponse.json({ error: "Seyahat sahibi değiştirilemez." }, { status: 409 });
-    if (action === "remove_member") {
-      const financial = await hasFinancialHistory(supabase, tripId, memberId);
-      if (financial.error) return NextResponse.json({ error: "Katılımcının masraf geçmişi kontrol edilemedi." }, { status: 500 });
-      if (financial.value) return NextResponse.json({ error: "Bu katılımcının masraf kaydı var. Alacak/borç dengesi kapatılmadan katılımcı çıkarılamaz." }, { status: 409 });
-    }
-    const mutation = action === "remove_member"
-      ? supabase.from("trip_members").delete().eq("trip_id", tripId).eq("user_id", memberId)
-      : supabase.from("trip_members").update({ role: body.role === "viewer" ? "viewer" : "editor" }).eq("trip_id", tripId).eq("user_id", memberId);
-    const { error } = await mutation;
-    if (error) return NextResponse.json({ error: "Katılımcı güncellenemedi." }, { status: 500 });
-    return NextResponse.json({ success: true });
-  }
-
-  if (action === "leave_trip") {
-    if (access.member.role === "owner") return NextResponse.json({ error: "Seyahat sahibi ortak seyahatten ayrılamaz; seyahati silebilir." }, { status: 409 });
-    const financial = await hasFinancialHistory(supabase, tripId, user.id);
-    if (financial.error) return NextResponse.json({ error: "Masraf geçmişin kontrol edilemedi." }, { status: 500 });
-    if (financial.value) return NextResponse.json({ error: "Masraf kaydın var. Alacak/borç dengesi kapatılmadan ortak seyahatten ayrılamazsın." }, { status: 409 });
-    const { error } = await supabase.from("trip_members").delete().eq("trip_id", tripId).eq("user_id", user.id);
-    if (error) return NextResponse.json({ error: "Ortak seyahatten ayrılamadın." }, { status: 500 });
-    return NextResponse.json({ success: true });
+  if (["set_role","remove_member","leave_trip"].includes(action)) {
+    const target = action === "leave_trip" ? user.id : uuid(body.userId);
+    if (!target) return NextResponse.json({error:"Katılımcı seçimi geçersiz."},{status:400});
+    const {error} = await supabase.rpc("change_shared_trip_member",{p_trip_id:tripId,p_actor:user.id,p_target:target,p_action:action,p_role:body.role === "viewer" ? "viewer" : "editor"});
+    if(error?.message.includes("financial_history")) return NextResponse.json({error:"Bu katılımcının masraf geçmişi var; hesapları korumak için katılımcı çıkarılamaz."},{status:409});
+    if(error) return collaborationWriteError(error);
+    return NextResponse.json({success:true});
   }
 
   if (action === "add_option") {
@@ -311,14 +293,8 @@ export async function POST(request: Request) {
     const targetAmount = money(body.targetAmount);
     const currency = cleanText(body.currency, 3).toUpperCase();
     if (!Number.isFinite(targetAmount) || targetAmount < 0 || targetAmount > 100_000_000 || !/^[A-Z]{3}$/.test(currency)) return NextResponse.json({ error: "Bütçe veya para birimi geçersiz." }, { status: 400 });
-    const [{ data: existingBudget }, { count: expenseCount, error: expenseCountError }] = await Promise.all([
-      supabase.from("trip_budgets").select("currency").eq("trip_id", tripId).maybeSingle(),
-      supabase.from("trip_expenses").select("id", { count: "exact", head: true }).eq("trip_id", tripId),
-    ]);
-    if (expenseCountError) return NextResponse.json({ error: "Masraflar kontrol edilemedi." }, { status: 500 });
-    if ((expenseCount || 0) > 0 && existingBudget?.currency && existingBudget.currency !== currency) return NextResponse.json({ error: "Masraf eklendikten sonra para birimi değiştirilemez." }, { status: 409 });
-    const { error } = await supabase.from("trip_budgets").upsert({ trip_id: tripId, target_amount: targetAmount, currency, updated_by: user.id, updated_at: new Date().toISOString() });
-    if (error) return NextResponse.json({ error: "Bütçe kaydedilemedi." }, { status: 500 });
+    const { error } = await supabase.rpc("set_shared_trip_budget", { p_trip_id: tripId, p_user_id: user.id, p_amount: targetAmount, p_currency: currency });
+    if (error) return collaborationWriteError(error);
     return NextResponse.json({ success: true });
   }
 
@@ -329,25 +305,20 @@ export async function POST(request: Request) {
     const spentAt = cleanText(body.spentAt, 10);
     const rawParticipants = Array.isArray(body.participantIds) ? body.participantIds.map(uuid).filter(Boolean) : [];
     const participantIds = [...new Set(rawParticipants)];
-    const { data: budget } = await supabase.from("trip_budgets").select("currency").eq("trip_id", tripId).maybeSingle();
-    const currency = cleanText(budget?.currency || body.currency || "TRY", 3).toUpperCase();
-    const { data: memberRows } = await supabase.from("trip_members").select("user_id").eq("trip_id", tripId);
-    const memberIds = new Set((memberRows || []).map((item: any) => item.user_id));
-    if (title.length < 2 || !Number.isFinite(amount) || amount <= 0 || amount > 100_000_000 || !memberIds.has(paidBy) || !participantIds.length || participantIds.some((id) => !memberIds.has(id)) || !/^\d{4}-\d{2}-\d{2}$/.test(spentAt) || spentAt > new Date().toISOString().slice(0, 10)) {
+    const currency = cleanText(body.currency, 3).toUpperCase() || null;
+    const parsedDate = new Date(`${spentAt}T12:00:00Z`);
+    // Accept today's local date throughout the world; SQL validates membership,
+    // currency and the complete expense/share write under one transaction lock.
+    const latestLocalDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Pacific/Kiritimati" }).format(new Date());
+    if (title.length < 2 || !Number.isFinite(amount) || amount <= 0 || amount > 100_000_000 || !paidBy || !participantIds.length || !/^\d{4}-\d{2}-\d{2}$/.test(spentAt) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== spentAt || spentAt > latestLocalDay || (currency && !/^[A-Z]{3}$/.test(currency))) {
       return NextResponse.json({ error: "Masraf bilgileri veya katılımcılar geçersiz." }, { status: 400 });
     }
-    const expenseId = randomUUID();
-    const { error: expenseError } = await supabase.from("trip_expenses").insert({ id: expenseId, trip_id: tripId, paid_by: paidBy, created_by: user.id, title, amount, currency, spent_at: spentAt });
-    if (expenseError) return NextResponse.json({ error: "Masraf eklenemedi." }, { status: 500 });
-    const cents = Math.round(amount * 100);
-    const base = Math.floor(cents / participantIds.length);
-    const remainder = cents - base * participantIds.length;
-    const shares = participantIds.map((participantId, index) => ({ expense_id: expenseId, user_id: participantId, amount: (base + (index < remainder ? 1 : 0)) / 100 }));
-    const { error: shareError } = await supabase.from("trip_expense_shares").insert(shares);
-    if (shareError) {
-      await supabase.from("trip_expenses").delete().eq("id", expenseId);
-      return NextResponse.json({ error: "Masraf payları oluşturulamadı." }, { status: 500 });
-    }
+    const expenseId = uuid(body.clientRequestId) || randomUUID();
+    const { error } = await supabase.rpc("add_shared_trip_expense", {
+      p_trip_id: tripId, p_user_id: user.id, p_expense_id: expenseId, p_title: title,
+      p_amount: amount, p_paid_by: paidBy, p_spent_at: spentAt, p_participants: participantIds, p_currency: currency,
+    });
+    if (error) return collaborationWriteError(error);
     return NextResponse.json({ success: true });
   }
 

@@ -1924,3 +1924,16 @@ body.passport-map-open { overflow: hidden; overscroll-behavior: none; }
 @media(max-width:370px){.journey-tools{padding:14px}.journey-tool-grid{grid-template-columns:1fr}.journey-tool-grid>button,.journey-tool-grid>button:last-child{grid-column:auto;min-height:74px}.journey-form-row{grid-template-columns:1fr}.year-recap-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.emergency-card{grid-template-columns:39px minmax(0,1fr)}.emergency-card a{grid-column:1/-1;justify-content:center}}
 
 .journey-tools-loading{min-height:96px;margin:16px 0;padding:16px;display:flex;align-items:center;justify-content:center;gap:12px;border:1px solid #d8e1f0;border-radius:22px;background:#fff;color:#111}.journey-tools-loading div{display:grid;gap:3px}.journey-tools-loading strong{font-size:12px}.journey-tools-loading small{color:#738096;font-size:10px}.journey-map-loading{min-height:330px;display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid #dce4ef;border-radius:18px;background:#f6f8fd;color:#667286;font-size:11px;font-weight:800}.journey-inline-loading{min-height:58px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #dce4ef;border-radius:14px;background:#f6f8fd;color:#667286;font-size:11px;font-weight:800}
+
+/* Build 24: shared form alignment and larger, sharp map labels. */
+.emergency-card{grid-template-columns:45px minmax(0,1fr);margin-top:12px}
+.emergency-call-list{display:grid;gap:8px;margin-top:10px}
+.emergency-call-list a{display:grid;grid-template-columns:1fr auto auto;min-height:46px;gap:10px}
+.emergency-call-list strong{margin:0;font-size:18px}
+.journey-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+.journey-toggle input{width:20px;height:20px;flex:0 0 auto}
+.trip-expense-form .date-time-field{min-width:0}
+.trip-share-code strong{overflow-wrap:anywhere;user-select:text;font-size:11px}
+.passport-map-flag{filter:none;stroke-width:1px}
+.passport-map-flag.selected{stroke-width:2px}
+.home-purpose h2{font-size:clamp(23px,6.2vw,30px);line-height:1.12}

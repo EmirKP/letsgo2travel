@@ -2,6 +2,12 @@
 // icin gece saatlerinde tarihi bir gun geri kaydirir; bu yuzden yerel
 // takvim gunu Intl ile uretilir.
 
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value;
+}
+
 export function localIsoDate(daysFromNow = 0, now: Date = new Date()): string {
   // Takvim gunu eklerken sabit 24 saat kullanmak yaz/kis saati gecislerinde
   // yanlis gune kayabilir. Cihazin yerel takviminde gunu ilerlet.
@@ -11,13 +17,13 @@ export function localIsoDate(daysFromNow = 0, now: Date = new Date()): string {
 }
 
 export function isPastLocalDate(value: string, now: Date = new Date()): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
+  if (!isCalendarDate(value)) return true;
   return value < localIsoDate(0, now);
 }
 
 /** Bugünün içinde seçilen bir saat artık geçmişte kaldı mı? */
 export function isPastLocalDateTime(date: string, time: string, now: Date = new Date()): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return true;
+  if (!isCalendarDate(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return true;
   const today = localIsoDate(0, now);
   if (date < today) return true;
   if (date > today) return false;
@@ -34,7 +40,7 @@ export function localIsoDateTime(minutesFromNow = 0, now: Date = new Date()): st
 
 /** Takvim alanından gelen günü izin verilen aralığa anında sıkıştırır. */
 export function clampLocalDate(value: string, min = localIsoDate(0), max?: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < min) return min;
+  if (!isCalendarDate(value) || value < min) return min;
   if (max && value > max) return max;
   return value;
 }

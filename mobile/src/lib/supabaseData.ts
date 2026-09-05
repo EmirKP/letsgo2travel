@@ -553,9 +553,13 @@ export async function listUserTrips(userId: string, accessToken: string, mobileK
       limit: "100",
     });
     if (mobileKind) params.set("trip_data->>mobile_kind", `eq.${safeString(mobileKind, 60)}`);
-    const rows = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), {
-      headers: dataHeaders(accessToken),
-    });
+    const rows: UserTripRow[] = [];
+    for (let offset = 0; ; offset += 100) {
+      params.set("offset",String(offset));
+      const page = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), { headers:dataHeaders(accessToken) });
+      rows.push(...page);
+      if (!mobileKind || page.length < 100) break;
+    }
     return rows.flatMap((row) => {
       const normalized = normalizeUserTrip(row);
       return normalized ? [normalized] : [];

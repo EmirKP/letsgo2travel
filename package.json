@@ -23,7 +23,8 @@
     "mobile:doctor": "node scripts/mobile-doctor.mjs",
     "smoke": "node scripts/smoke-test.mjs",
     "test:alerts": "node scripts/run-alert-tests.mjs",
-    "test:app": "node scripts/run-app-tests.mjs"
+    "test:app": "node scripts/run-app-tests.mjs",
+    "test:integrity": "node tests/integrity/run.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
@@ -57,6 +58,7 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
+    "@electric-sql/pglite": "^0.5.8",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",

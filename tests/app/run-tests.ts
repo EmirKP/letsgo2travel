@@ -805,7 +805,7 @@ test("mobil optimizasyon: ağır modüller bölünür, harita kendi alanında ya
   assert.ok(map.includes("const WorldCountries = memo"), "ülke path'leri gereksiz yere yeniden çizilmemeli");
   assert.ok(map.includes("onClick={selectCountry}"), "haritada ülkeye dokunma çalışmalı");
   assert.ok(map.includes('data-no-gesture') && map.includes('touchmove') && map.includes('passport-map-controls'), "pinch/pan yalnız harita alanında çalışmalı ve görünür kontroller sunmalı");
-  assert.ok(map.includes("MAX_SCALE = 8") && map.includes("commitTransform"), "harita yakınlığı güvenli aralıkta tutulmalı");
+  assert.ok(map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("commitTransform"), "harita yakınlığı güvenli aralıkta tutulmalı");
   assert.ok(airport.includes("const requestId = ++generation.current"), "eski havalimanı cevapları geçersiz kılınmalı");
   assert.ok(splash.includes('assets/splash-mark.webp'), "açılışta büyük App Store ikonu taşınmamalı");
   assert.ok(statSync("mobile/src/assets/splash-mark.webp").size < 100_000, "açılış görseli 100 KB altında olmalı");
@@ -827,14 +827,15 @@ test("mobil hesap geçişi: hesaba duyarlı ekran ağacı yeni sahipte yeniden k
 });
 
 test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğrular", () => {
-  const release = JSON.parse(readFileSync("release-manifest.json", "utf8")) as { appVersion: string; buildNumber: number };
+  const release = JSON.parse(readFileSync("release-manifest.json", "utf8")) as { appVersion: string; buildNumber: number; nativeBuildNumber: number };
   const vite = readFileSync("mobile/vite.config.ts", "utf8");
   const capacitor = readFileSync("capacitor.config.ts", "utf8");
   const doctor = readFileSync("scripts/mobile-doctor.mjs", "utf8");
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 23);
+  assert.equal(release.buildNumber, 24);
+  assert.equal(release.nativeBuildNumber, 25);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -913,7 +914,7 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
   assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
   assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
-  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = 8") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
+  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
   assert.ok(styles.includes("height: clamp(300px,78vw,380px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
   assert.ok(admin.includes("setEvidencePreview") && admin.includes('evidencePreview.evidenceType === "application/pdf"') && admin.includes("disabled={!evidenceLoaded}"), "belge uygulama içinde önizlenmeden incelendi sayılamamalı");
   assert.ok(admin.includes("!opened.has(item.id)") && admin.includes("Önce belgeyi incele"), "onay ve red belge incelemesine kadar kilitli kalmalı");
@@ -974,9 +975,9 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   const styles = readFileSync("mobile/src/App.css", "utf8");
   const widget = readFileSync("ios/App/FlightActivityWidget/FlightActivityWidget.swift", "utf8");
 
-  assert.ok(map.includes("MAX_SCALE = 8") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sekiz kat yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
+  assert.ok(map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sınırlandırılmış aralıkta yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
   assert.ok(!map.includes("style={{ transform:") && styles.includes("shape-rendering: geometricPrecision"), "SVG CSS ile büyütülüp bulanıklaştırılmamalı");
-  assert.ok(map.includes("fontSize={19}") && map.includes("width={22}") && map.includes("href={kosovoFlag}"), "bayraklar okunur boyutta ve Kosova gerçek görseliyle kalmalı");
+  assert.ok(map.includes("fontSize={flagSize}") && map.includes("width={flagSize}") && map.includes("href={kosovoFlag}"), "bayraklar okunur boyutta ve Kosova gerçek görseliyle kalmalı");
   assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('Text(isEnglish ? "Flying" : "Uçuyoruz")'), "canlı etkinlik uygulama kapalıyken uçuş evresine geçmeli");
   assert.ok(widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")') && widget.includes("kind: .flying"), "varış sayacı sağ tarafta sarı uçuş sayacı olarak görünmeli");
 });
@@ -999,7 +1000,7 @@ test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağ�
 test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları güvenlidir", () => {
   const overviewRoute = readFileSync("app/api/admin/mobile-overview/route.ts", "utf8");
   const evidenceRoute = readFileSync("app/api/admin/travel-verifications/[id]/signed-url/route.ts", "utf8");
-  const approveRoute = readFileSync("app/api/admin/travel-verifications/[id]/approve/route.ts", "utf8");
+  const approveRoute = readFileSync("lib/verification-review.ts", "utf8");
   const rejectRoute = readFileSync("app/api/admin/travel-verifications/[id]/reject/route.ts", "utf8");
   const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
   const events = readFileSync("mobile/src/screens/EventsScreen.tsx", "utf8");
@@ -1010,7 +1011,7 @@ test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları gü
 
   assert.ok(overviewRoute.includes("evidence_path,evidence_type") && overviewRoute.includes("hasEvidence"), "yönetici özeti eksik belge durumunu açıkça taşımalı");
   assert.ok(evidenceRoute.includes('code: "EVIDENCE_MISSING"') && approveRoute.includes(".createSignedUrl(verification.evidence_path, 30)"), "olmayan depolama belgesi açma ve onay sırasında sunucuda engellenmeli");
-  assert.ok(rejectRoute.includes("alreadyMissing") && rejectRoute.includes("adminNote"), "depoda zaten silinmiş belge gerekçeli red işlemini kilitlememeli");
+  assert.ok(rejectRoute.includes("reviewVerification") && approveRoute.includes("alreadyMissing"), "depoda zaten silinmiş belge gerekçeli red işlemini kilitlememeli");
   assert.ok(admin.includes("missingEvidenceIds") && admin.includes("Belgesiz başvuru onaylanamaz") && admin.includes("admin-missing-evidence"), "mobil yönetici eksik belgeyi işaretleyip onayı kapatmalı");
   assert.ok(styles.includes(".admin-tabs { position: relative; top: auto") && admin.includes("alpha3FromAlpha2"), "yönetici sekmeleri içeriği örtmemeli ve ülke adları yerelleştirilmeli");
   assert.ok(events.includes("attachTravelEventToCockpitTrip") && events.includes("eventDay >= trip.startDate") && events.includes("Seyahate ekle"), "yalnız tarihi örtüşen seyahate etkinlik eklenebilmeli");
@@ -1358,7 +1359,7 @@ test("Build 22: ortak seyahat davet, yetki, oylama ve masraf akışı güvenlidi
   assert.ok(sql.includes("accept_trip_invite") && sql.includes("pgcrypto") && sql.includes("pg_advisory_xact_lock"), "davet kabulü yarış güvenli atomik sunucu RPC'siyle yapılmalı");
   assert.ok(route.includes('requireAuthenticatedUser(request)') && route.includes("requireTripMember"), "her ortak seyahat isteği doğrulanmış kullanıcı ve üyelik istemeli");
   assert.ok(route.includes('access.member.role !== "owner"') && route.includes('result.member.role === "viewer"'), "sahip ve izleyici yetkileri API'de uygulanmalı");
-  assert.ok(route.includes("Math.floor(cents / participantIds.length)") && route.includes("remainder"), "kuruş farkı kaybolmadan eşit masraf paylaşımı yapılmalı");
+  assert.ok(route.includes('rpc("add_shared_trip_expense"'), "kuruş paylaşımı ve masraf tek veritabanı işlemi olmalı; test:integrity gerçek sonuçları doğrular");
   assert.ok(hub.includes('type CollaborationTab = "team" | "vote" | "budget"') && hub.includes("Kim alacak, kim ödeyecek?"), "mobil çalışma alanı ekip, oylama ve bütçe bölümlerini taşımalı");
   assert.ok(app.includes("tripInviteFromUrl") && app.includes("setCockpitInviteCode"), "davet bağlantısı uygulamada ortak seyahat akışına yönlenmeli");
   assert.ok(styles.includes("Build 22 — Ortak seyahat") && styles.includes(".trip-expense-form"), "ortak seyahat arayüzü iPhone güvenli stillere sahip olmalı");
@@ -1371,19 +1372,19 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const tools = readFileSync("mobile/src/components/JourneyToolsHub.tsx", "utf8");
   const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
-  const invite = readFileSync("app/davet/[token]/page.tsx", "utf8");
+  const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
   assert.ok(home.includes("home-shared-trip") && home.includes('onNavigate("trips")'), "ortak plan ana sayfadan tek dokunuşla bulunmalı");
   assert.ok(trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak plan Kokpit'e gizlenmemeli, Seyahatlerim'in üstünde olmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
   assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");
   assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");
-  assert.ok(invite.includes("Kod kopyalamana gerek yok") && !invite.includes("<code>{token}</code>") && !invite.includes("Kodu yapıştır"), "davet akışı kullanıcıya ham kod kopyalatmamalı");
+  assert.ok(invite.includes("Seyahate katıl") && !invite.includes("<code>{token}</code>") && !invite.includes("Kodu yapıştır"), "davet akışı kullanıcıya ham kod kopyalatmamalı");
   assert.ok(tools.includes('type ToolId = "journal" | "map" | "airport" | "safety" | "summary"'), "beş seyahat aracı tek merkezde bulunmalı");
-  assert.ok(tools.includes("travel_journal") && tools.includes("PassportWorldMap") && tools.includes("emergencyNumbers"), "günlük, dünya haritası ve güvenlik içeriği gerçek veri akışına bağlı olmalı");
+  assert.ok(tools.includes("readJournal") && tools.includes("PassportWorldMap") && tools.includes("emergencyNumbers"), "günlük, dünya haritası ve güvenlik içeriği gerçek veri akışına bağlı olmalı");
   assert.ok(trips.includes('lazy(() => import("../components/JourneyToolsHub")') && tools.includes('lazy(() => import("./PassportWorldMap")') && tools.includes('lazy(() => import("./AirportField")') && tools.includes('import("../data/travelEssentials")'), "ağır seyahat araçları, harita, havalimanı ve yerel güvenlik verisi ihtiyaç anında yüklenmeli");
-  assert.ok(tools.includes("Promise.allSettled") && tools.includes("bağlantı gelince eşitleme yeniden denenecek") && !tools.includes("listUserTrips"), "çevrimdışı günlükler otomatik eşitlenmeli ve yinelenen hesap isteği yapılmamalı");
-  assert.ok(codemagic.includes("CURRENT_PROJECT_VERSION = 24"), "Apple'da kullanılan 23 numarası nedeniyle yeni TestFlight paketi 24 olmalı");
+  assert.ok(app.includes('import("./lib/journalSync")') && !tools.includes("listUserTrips"), "günlük kuyruğu ekran kapansa da uygulama katmanında çalışmalı");
+  assert.ok(!codemagic.includes("sed -i") && codemagic.includes("mobile:prepare:ios"), "Codemagic doktor kontrolünden sonra sürümü gizlice değiştirmemeli");
 });
 
 // ------------------- Live Activity cron çekirdeği --------------------

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase-client";
+import { safeAuthNext } from "@/lib/auth-next";
 import { getSiteUrl } from "@/lib/site-url";
 
 import styles from "./Auth.module.css";
@@ -81,6 +82,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  const [nextPath,setNextPath] = useState("/profil");
+  const getNext = () => safeAuthNext(window.location.search,window.location.origin);
+  useEffect(() => { setNextPath(getNext()); },[]);
+
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setError("");
@@ -89,7 +94,7 @@ export default function RegisterPage() {
       const siteUrl = getSiteUrl();
       const redirectTo = Capacitor.isNativePlatform()
         ? "tr.com.letsgo2travel.app://auth/callback"
-        : `${siteUrl}/auth/callback`;
+        : `${siteUrl}/auth/callback?next=${encodeURIComponent(getNext())}`;
 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -144,7 +149,7 @@ export default function RegisterPage() {
         password,
         options: {
           data: { full_name: name.trim(), username: username.trim() },
-          emailRedirectTo: `${getSiteUrl()}/auth/callback`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(getNext())}`,
         },
       });
 
@@ -155,7 +160,7 @@ export default function RegisterPage() {
       }
 
       if (authData.session) {
-        router.push("/profil");
+        router.push(getNext());
         return;
       }
 
@@ -179,7 +184,7 @@ export default function RegisterPage() {
             Kaydını onaylamak için <strong>{email}</strong> adresine doğrulama
             bağlantısı gönderdik. Gelen kutunu ve gereksiz klasörünü kontrol et.
           </p>
-          <Link href="/auth/login" className="l2t-auth-success-link">
+          <Link href={`/auth/login?next=${encodeURIComponent(nextPath)}`} className="l2t-auth-success-link">
             <span>Giriş ekranına dön</span><ArrowRight size={18} />
           </Link>
         </section>
@@ -316,7 +321,7 @@ export default function RegisterPage() {
           </button>
 
           <p className="l2t-auth-register">
-            Zaten hesabın var mı? <Link href="/auth/login">Giriş yap</Link>
+            Zaten hesabın var mı? <Link href={`/auth/login?next=${encodeURIComponent(nextPath)}`}>Giriş yap</Link>
           </p>
 
           <p className="l2t-auth-legal">

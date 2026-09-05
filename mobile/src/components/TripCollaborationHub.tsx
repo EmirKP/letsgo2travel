@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { localIsoDate } from "../lib/dates";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { isCalendarDate, localIsoDate } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { shareContent } from "../lib/native";
 import {
   collaborationAction,
+  tripInviteFromUrl,
+  rememberTripInvite,
   getTripCollaboration,
   listSharedTrips,
   type SharedTripSummary,
   type TripCollaborationWorkspace,
   type TripMemberRole,
 } from "../lib/tripCollaboration";
+import { DateTimeField } from "./DateTimeField";
+import { createId } from "../lib/id";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 
@@ -71,17 +75,25 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const [expenseDate, setExpenseDate] = useState(localIsoDate(0));
   const [paidBy, setPaidBy] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const selectedRef = useRef("");
+  const workspaceRequest = useRef(0);
+  const tripRequest = useRef(0);
+  const mounted = useRef(true);
+  const expenseRequest = useRef<{signature:string;id:string} | null>(null);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; workspaceRequest.current++; tripRequest.current++; }; },[]);
 
   const loadTrips = useCallback(async () => {
     if (!accessToken) return;
+    const request = ++tripRequest.current;
     setLoading(true);
     setError("");
     try {
-      setTrips(await listSharedTrips(accessToken));
+      const next = await listSharedTrips(accessToken);
+      if (mounted.current && request === tripRequest.current) setTrips(next);
     } catch (requestError) {
-      setError(errorText(requestError, copy("Ortak seyahatler yüklenemedi.", "Shared trips could not be loaded.")));
+      if (mounted.current && request === tripRequest.current) setError(errorText(requestError, copy("Ortak seyahatler yüklenemedi.", "Shared trips could not be loaded.")));
     } finally {
-      setLoading(false);
+      if (mounted.current && request === tripRequest.current) setLoading(false);
     }
   }, [accessToken, copy]);
 
@@ -92,25 +104,30 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   }, [initialInviteCode]);
 
   const loadWorkspace = useCallback(async (tripId: string) => {
+    const request = ++workspaceRequest.current;
     setBusy("workspace");
     setError("");
     try {
       const next = await getTripCollaboration(tripId, accessToken);
+      if (!mounted.current || request !== workspaceRequest.current || selectedRef.current !== tripId) return;
       setWorkspace(next);
       setBudgetAmount(next.budget.targetAmount ? String(next.budget.targetAmount) : "");
       setBudgetCurrency(next.budget.currency || "TRY");
       setPaidBy((current) => next.members.some((member) => member.userId === current) ? current : userId);
       setParticipantIds((current) => current.length && current.every((id) => next.members.some((member) => member.userId === id)) ? current : next.members.map((member) => member.userId));
     } catch (requestError) {
+      if (!mounted.current || request !== workspaceRequest.current) return;
       setError(errorText(requestError, copy("Ortak seyahat açılmadı.", "The shared trip could not be opened.")));
       setWorkspace(null);
     } finally {
-      setBusy("");
+      if (mounted.current && request === workspaceRequest.current) setBusy("");
     }
   }, [accessToken, copy, userId]);
 
   const openTrip = (tripId: string) => {
+    selectedRef.current = tripId;
     setSelectedTripId(tripId);
+    setExpenseTitle(""); setExpenseAmount(""); expenseRequest.current = null;
     setWorkspace(null);
     setTab("team");
     setShareCode("");
@@ -118,6 +135,9 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   };
 
   const closeWorkspace = () => {
+    selectedRef.current = "";
+    workspaceRequest.current++;
+    setBusy("");
     setSelectedTripId("");
     setWorkspace(null);
     setShareCode("");
@@ -126,32 +146,37 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
   const mutate = async (key: string, body: Record<string, unknown>, notice?: string, closeAfter = false) => {
     if (busy) return false;
+    const operationTrip = selectedRef.current;
+    const stillHere = () => mounted.current && selectedRef.current === operationTrip;
     setBusy(key);
     setError("");
     try {
       await collaborationAction(accessToken, body);
+      if (!mounted.current) return false;
       if (notice) onNotice(notice);
-      if (closeAfter) closeWorkspace();
+      if (closeAfter && stillHere()) closeWorkspace();
       await loadTrips();
-      if (!closeAfter && selectedTripId) await loadWorkspace(selectedTripId);
-      return true;
+      if (!closeAfter && stillHere()) await loadWorkspace(operationTrip);
+      return stillHere();
     } catch (requestError) {
-      setError(errorText(requestError, copy("İşlem tamamlanamadı.", "The action could not be completed.")));
+      if (stillHere()) setError(errorText(requestError, copy("İşlem tamamlanamadı.", "The action could not be completed.")));
       return false;
     } finally {
-      setBusy("");
+      if (stillHere()) setBusy("");
     }
   };
 
   const acceptInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const code = inviteCode.trim();
-    if (code.length < 20 || busy) return;
+    const code = tripInviteFromUrl(inviteCode);
+    if (!code || busy) return;
     setBusy("accept");
     setError("");
     try {
       const result = await collaborationAction<{ data: { tripId: string }; message: string }>(accessToken, { action: "accept_invite", inviteCode: code });
+      if (!mounted.current) return;
       setInviteCode("");
+      rememberTripInvite("");
       onInviteHandled?.();
       onNotice(copy("Ortak seyahate katıldın.", "You joined the shared trip."));
       await loadTrips();
@@ -159,7 +184,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     } catch (requestError) {
       setError(errorText(requestError, copy("Davet kabul edilemedi.", "The invitation could not be accepted.")));
     } finally {
-      setBusy("");
+      if (mounted.current && !selectedRef.current) setBusy("");
     }
   };
 
@@ -169,17 +194,18 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     setError("");
     try {
       const result = await collaborationAction<{ data: { inviteCode: string; inviteUrl: string; expiresAt: string } }>(accessToken, { action: "create_invite", tripId: workspace.trip.id, role: "editor" });
-      setShareCode(result.data.inviteCode);
+      if (!mounted.current || selectedRef.current !== workspace.trip.id) return;
+      setShareCode(result.data.inviteUrl);
       const shared = await shareContent({
         title: copy("LetsGo2Travel ortak seyahat daveti", "LetsGo2Travel shared trip invitation"),
-        text: copy(`“${workspace.trip.title}” seyahatimize katıl. Davet kodu: ${result.data.inviteCode}`, `Join our “${workspace.trip.title}” trip. Invitation code: ${result.data.inviteCode}`),
+        text: copy(`“${workspace.trip.title}” seyahatimize katıl.`, `Join our “${workspace.trip.title}” trip.`),
         url: result.data.inviteUrl,
       });
-      onNotice(shared ? copy("Davet paylaşım ekranı açıldı.", "The share sheet is open.") : copy("Davet kodu hazır; aşağıdan kopyalayabilirsin.", "Invitation code ready; you can copy it below."));
+      onNotice(shared ? copy("Davet paylaşım ekranı açıldı.", "The share sheet is open.") : copy("Davet bağlantısı hazır; aşağıdan kopyalayabilirsin.", "Invitation link ready; you can copy it below."));
     } catch (requestError) {
       setError(errorText(requestError, copy("Davet oluşturulamadı.", "The invitation could not be created.")));
     } finally {
-      setBusy("");
+      if (mounted.current && selectedRef.current === workspace.trip.id) setBusy("");
     }
   };
 
@@ -187,7 +213,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     if (!shareCode) return;
     try {
       await navigator.clipboard.writeText(shareCode);
-      onNotice(copy("Davet kodu kopyalandı.", "Invitation code copied."));
+      onNotice(copy("Davet bağlantısı kopyalandı.", "Invitation link copied."));
     } catch {
       onNotice(copy("Kod kopyalanamadı; basılı tutarak kopyalayabilirsin.", "The code could not be copied; press and hold to copy."));
     }
@@ -208,13 +234,16 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
   const addExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!workspace || !participantIds.length) return;
-    const saved = await mutate("expense", { action: "add_expense", tripId: workspace.trip.id, title: expenseTitle, amount: expenseAmount, spentAt: expenseDate, paidBy, participantIds }, copy("Masraf eşit olarak paylaştırıldı.", "The expense was split equally."));
-    if (saved) { setExpenseTitle(""); setExpenseAmount(""); }
+    if (!workspace || !participantIds.length || !isCalendarDate(expenseDate) || expenseDate > localIsoDate()) return;
+    const body = { action:"add_expense",tripId:workspace.trip.id,title:expenseTitle,amount:expenseAmount,spentAt:expenseDate,paidBy,participantIds,currency:workspace.budget.currency };
+    const signature = JSON.stringify(body);
+    if (expenseRequest.current?.signature !== signature) expenseRequest.current = {signature,id:createId()};
+    const saved = await mutate("expense", { ...body,clientRequestId:expenseRequest.current.id }, copy("Masraf eşit olarak paylaştırıldı.", "The expense was split equally."));
+    if (saved) { setExpenseTitle(""); setExpenseAmount(""); expenseRequest.current = null; }
   };
 
   const canEdit = workspace?.myRole === "owner" || workspace?.myRole === "editor";
-  const totalSpent = useMemo(() => workspace?.expenses.reduce((sum, expense) => sum + expense.amount, 0) || 0, [workspace]);
+  const totalSpent = useMemo(() => (workspace?.expenses.filter(expense => expense.currency === workspace.budget.currency).reduce((sum, expense) => sum + Math.round(expense.amount*100), 0) || 0) / 100, [workspace]);
   const progress = workspace?.budget.targetAmount ? Math.min(100, Math.round(totalSpent / workspace.budget.targetAmount * 100)) : 0;
 
   return <>
@@ -225,8 +254,8 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       </div>
 
       <form className="trip-invite-join" onSubmit={acceptInvite}>
-        <label>{copy("Davet kodun var mı?", "Have an invitation code?")}<input value={inviteCode} maxLength={200} autoCapitalize="none" autoCorrect="off" onChange={(event) => setInviteCode(event.target.value.trim())} placeholder={copy("Davet kodunu yapıştır", "Paste invitation code")} /></label>
-        <button type="submit" disabled={Boolean(busy) || inviteCode.trim().length < 20}>{busy === "accept" ? <span className="button-loader dark" /> : <Icon name="users" size={18} />} {copy("Katıl", "Join")}</button>
+        <label>{copy("Davet bağlantısı veya kodu", "Invitation link or code")}<input value={inviteCode} maxLength={600} autoCapitalize="none" autoCorrect="off" onChange={(event) => setInviteCode(event.target.value.trim())} placeholder={copy("Arkadaşının bağlantısını buraya yapıştır", "Paste your friend’s invitation here")} /></label>
+        <button type="submit" disabled={Boolean(busy) || !tripInviteFromUrl(inviteCode)}>{busy === "accept" ? <span className="button-loader dark" /> : <Icon name="users" size={18} />} {copy("Katıl", "Join")}</button>
       </form>
 
       {error && !selectedTripId && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{error}</span><button onClick={() => void loadTrips()}>{copy("Yenile", "Retry")}</button></div>}
@@ -244,14 +273,14 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
     <Sheet open={Boolean(selectedTripId)} title={copy("Ortak seyahat", "Shared trip")} size="large" onClose={closeWorkspace}>
       {error && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{error}</span></div>}
-      {!workspace || busy === "workspace" ? <div className="trip-workspace-loading"><span className="button-loader dark" /><p>{copy("Çalışma alanı hazırlanıyor…", "Preparing workspace…")}</p></div> : <div className="trip-workspace">
+      {!workspace && error ? <button className="secondary-wide" type="button" onClick={() => void loadWorkspace(selectedTripId)}>{copy("Yeniden dene", "Retry")}</button> : !workspace || busy === "workspace" ? <div className="trip-workspace-loading"><span className="button-loader dark" /><p>{copy("Çalışma alanı hazırlanıyor…", "Preparing workspace…")}</p></div> : <div className="trip-workspace">
         <header className="trip-workspace-hero">
           <span><Icon name="users" size={25} /></span>
           <div><small>{copy("ORTAK SEYAHAT", "SHARED TRIP")}</small><h3>{workspace.trip.title}</h3><p>{dateText(workspace.trip.startDate, locale)} – {dateText(workspace.trip.endDate, locale)} · {workspace.members.length} {copy("kişi", "people")}</p></div>
           {workspace.myRole === "owner" && <button type="button" onClick={() => void createInvite()} disabled={Boolean(busy)} aria-label={copy("Arkadaş davet et", "Invite a friend")}><Icon name="share" size={19} /></button>}
         </header>
 
-        {shareCode && <div className="trip-share-code"><span><small>{copy("7 gün geçerli davet kodu", "Invitation code valid for 7 days")}</small><strong>{shareCode}</strong></span><button type="button" onClick={() => void copyInvite()}>{copy("Kopyala", "Copy")}</button></div>}
+        {shareCode && <div className="trip-share-code"><span><small>{copy("7 gün geçerli davet bağlantısı", "Invitation link valid for 7 days")}</small><strong>{shareCode}</strong></span><button type="button" onClick={() => void copyInvite()}>{copy("Kopyala", "Copy")}</button></div>}
 
         <div className="trip-workspace-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}><Icon name="users" size={17} /> {copy("Ekip", "Team")}</button>
@@ -295,22 +324,23 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
             <span><Icon name="wallet" size={22} /></span><div><small>{copy("TOPLAM HARCAMA", "TOTAL SPEND")}</small><strong>{moneyText(totalSpent, workspace.budget.currency, locale)}</strong><p>{workspace.budget.targetAmount ? copy(`${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} bütçenin %${progress}'i`, `${progress}% of ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} budget`) : copy("Henüz hedef bütçe belirlenmedi", "No target budget yet")}</p></div>
             <em>{progress}%</em>
           </div>
+          {workspace.expenses.some(expense => expense.currency !== workspace.budget.currency) && <p className="trip-collaboration-error" role="alert">{copy("Eski kayıtların para birimleri farklı. Toplam yalnız bütçenin para birimini içerir; bakiyeler ayrı gösterilir.", "Older entries use different currencies. The total includes only the budget currency; balances are shown separately.")}</p>}
           <progress className="trip-budget-progress" value={progress} max={100} aria-label={copy("Bütçe kullanım oranı", "Budget usage")} />
           {canEdit && <form className="trip-budget-form" onSubmit={saveBudget}>
             <label>{copy("Hedef bütçe", "Target budget")}<input type="number" min="0" max="100000000" step="0.01" inputMode="decimal" value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} placeholder="25000" /></label>
-            <label>{copy("Para birimi", "Currency")}<select value={budgetCurrency} onChange={(event) => setBudgetCurrency(event.target.value)}><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="AED">AED</option></select></label>
+            <label>{copy("Para birimi", "Currency")}<select disabled={workspace.expenses.length > 0 && workspace.expenses.every(expense => expense.currency === workspace.budget.currency)} value={budgetCurrency} onChange={(event) => setBudgetCurrency(event.target.value)}><option value="TRY">TRY</option><option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option><option value="AED">AED</option></select></label>
             <button type="submit" disabled={Boolean(busy)}>{copy("Bütçeyi kaydet", "Save budget")}</button>
           </form>}
 
-          <div className="trip-balance-list"><h3>{copy("Kim alacak, kim ödeyecek?", "Who receives and who owes?")}</h3>{workspace.balances.map((balance) => <div key={balance.userId}><span>{balance.name}</span><strong className={balance.balance < 0 ? "owes" : balance.balance > 0 ? "receives" : ""}>{balance.balance > 0 ? "+" : ""}{moneyText(balance.balance, workspace.budget.currency, locale)}</strong></div>)}</div>
+          <div className="trip-balance-list"><h3>{copy("Kim alacak, kim ödeyecek?", "Who receives and who owes?")}</h3>{workspace.balances.map((balance) => <div key={`${balance.userId}:${balance.currency}`}><span>{balance.name}</span><strong className={balance.balance < 0 ? "owes" : balance.balance > 0 ? "receives" : ""}>{balance.balance > 0 ? "+" : ""}{moneyText(balance.balance, balance.currency || workspace.budget.currency, locale)}</strong></div>)}</div>
 
           {canEdit && <form className="trip-expense-form" onSubmit={addExpense}>
             <h3>{copy("Yeni masraf ekle", "Add expense")}</h3>
             <input value={expenseTitle} maxLength={120} onChange={(event) => setExpenseTitle(event.target.value)} placeholder={copy("Örn. Akşam yemeği", "E.g. Dinner")} aria-label={copy("Masraf adı", "Expense name")} />
-            <div><input type="number" min="0.01" max="100000000" step="0.01" inputMode="decimal" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="0.00" aria-label={copy("Masraf tutarı", "Expense amount")} /><input type="date" value={expenseDate} max={localIsoDate(0)} onChange={(event) => setExpenseDate(event.target.value)} aria-label={copy("Masraf tarihi", "Expense date")} /></div>
+            <div><label>{copy("Tutar", "Amount")}<input type="number" min="0.01" max="100000000" step="0.01" inputMode="decimal" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="0.00" aria-label={copy("Masraf tutarı", "Expense amount")} /></label><DateTimeField type="date" label={copy("Masraf tarihi", "Expense date")} required value={expenseDate} max={localIsoDate(0)} onChange={setExpenseDate} /></div>
             <label>{copy("Kim ödedi?", "Who paid?")}<select value={paidBy} onChange={(event) => setPaidBy(event.target.value)}>{workspace.members.map((member) => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select></label>
             <fieldset><legend>{copy("Kimler arasında bölünsün?", "Split between whom?")}</legend>{workspace.members.map((member) => <label key={member.userId}><input type="checkbox" checked={participantIds.includes(member.userId)} onChange={(event) => setParticipantIds((current) => event.target.checked ? [...new Set([...current, member.userId])] : current.filter((id) => id !== member.userId))} /> <span>{member.name}</span></label>)}</fieldset>
-            <button type="submit" disabled={Boolean(busy) || expenseTitle.trim().length < 2 || Number(expenseAmount) <= 0 || !participantIds.length}><Icon name="plus" size={17} /> {copy("Eşit böl ve ekle", "Split equally and add")}</button>
+            <button type="submit" disabled={Boolean(busy) || expenseTitle.trim().length < 2 || (!Number.isFinite(Number(expenseAmount)) || Number(expenseAmount) <= 0) || !participantIds.length || !isCalendarDate(expenseDate) || expenseDate > localIsoDate()}><Icon name="plus" size={17} /> {copy("Eşit böl ve ekle", "Split equally and add")}</button>
           </form>}
 
           <div className="trip-expense-list"><h3>{copy("Masraflar", "Expenses")}</h3>{workspace.expenses.map((expense) => <article key={expense.id}>
