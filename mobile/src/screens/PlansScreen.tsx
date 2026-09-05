@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
+import { TripCollaborationHub } from "../components/TripCollaborationHub";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import {
   deleteRoutePlan,
@@ -12,6 +13,8 @@ import {
 import type { AuthUser, PlannerInput, RoutePlan, SavedRoutePlan, TravelEvent, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
 import { cancelEventReminder } from "../lib/eventReminders";
+
+const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then((module) => ({ default: module.JourneyToolsHub })));
 
 type PendingDelete =
   | { kind: "cloud"; item: UserTripData }
@@ -52,10 +55,13 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ user, ownerId, accessToken, onNavigate, onNotice }: {
+export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
+  inviteCode?: string;
+  onInviteHandled?: () => void;
+  onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -151,6 +157,19 @@ export function TripsScreen({ user, ownerId, accessToken, onNavigate, onNotice }
         <span className="page-icon"><Icon name="plans" size={27} /></span>
         <div><small>{copy("SEYAHAT MERKEZİ", "TRAVEL HUB")}</small><h1>{copy("Seyahatlerim", "My Trips")}</h1><p>{copy("Rotaların, favorilerin ve seyahat planların tek yerde.", "Your routes, favourites and trip plans in one place.")}</p></div>
       </section>
+
+      {user && accessToken ? <TripCollaborationHub
+        accessToken={accessToken}
+        userId={user.id}
+        refreshKey={cloudItems.map((item) => `${item.id}:${item.createdAt}`).join("|")}
+        initialInviteCode={inviteCode}
+        onInviteHandled={onInviteHandled}
+        onNotice={onNotice}
+      /> : <button className={`trips-collaboration-entry${inviteCode ? " has-invite" : ""}`} type="button" onClick={onOpenAccount}><span><Icon name="users" size={24} /></span><div><small>{inviteCode ? copy("DAVETİN HAZIR", "YOUR INVITE IS READY") : copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><strong>{inviteCode ? copy("Katılmak için hesabına giriş yap", "Sign in to join the trip") : copy("Arkadaşlarınla aynı seyahate katıl", "Join the same trip with friends")}</strong><p>{inviteCode ? copy("Giriş yaptıktan sonra davet otomatik açılacak; kodu yeniden girmeyeceksin.", "Your invitation will open automatically after sign-in—no need to enter the code again.") : copy("Davet bağlantısı, oylama ve ortak masraflar için giriş yap.", "Sign in for invitations, voting and shared expenses.")}</p></div><Icon name="chevron" size={17} /></button>}
+
+      <Suspense fallback={<section className="journey-tools-loading" role="status" aria-live="polite"><span className="button-loader dark" /><div><strong>{copy("Seyahat araçların hazırlanıyor", "Preparing your travel tools")}</strong><small>{copy("Yalnız gerekli bölüm yükleniyor.", "Only the required section is loading.")}</small></div></section>}>
+        <JourneyToolsHub user={user} ownerId={ownerId} accessToken={accessToken} cloudItems={cloudItems} cloudLoading={cloudLoading} onNavigate={onNavigate} onNotice={onNotice} />
+      </Suspense>
 
       <div className="trips-overview">
         <div><span><Icon name="route" size={18} /></span><strong>{routes.length + cloudRoutes.length}</strong><small>{copy("Kayıtlı rota", "Saved routes")}</small></div>

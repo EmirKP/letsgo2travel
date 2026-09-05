@@ -243,7 +243,7 @@ export async function POST(request: Request) {
     const { error } = await supabase.from("trip_invites").insert({ trip_id: tripId, created_by: user.id, token_hash: inviteHash(rawToken), invited_role: invitedRole, expires_at: expiresAt, max_uses: 12 });
     if (error) return NextResponse.json({ error: "Davet oluşturulamadı." }, { status: 500 });
     const origin = new URL(request.url).origin;
-    return NextResponse.json({ data: { inviteCode: rawToken, inviteUrl: `${origin}/?view=cockpit&tripInvite=${encodeURIComponent(rawToken)}`, expiresAt, role: invitedRole } });
+    return NextResponse.json({ data: { inviteCode: rawToken, inviteUrl: `${origin}/davet/${encodeURIComponent(rawToken)}`, expiresAt, role: invitedRole } });
   }
 
   if (action === "set_role" || action === "remove_member") {

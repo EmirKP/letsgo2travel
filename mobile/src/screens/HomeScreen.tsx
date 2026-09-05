@@ -159,6 +159,8 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
           : <><span><Icon name={tripError ? "offline" : "suitcase"} size={22} /></span><div><small>{tripError ? copy("BAĞLANTI KURULAMADI", "CONNECTION UNAVAILABLE") : copy("SIRADAKİ SEYAHAT", "YOUR NEXT TRIP")}</small><strong>{tripError ? copy("Kayıtların güvende", "Your records are safe") : copy("Henüz planlanmış seyahat yok", "No upcoming trip yet")}</strong><p>{tripError ? copy("Kokpit ekranından yeniden deneyebilirsin.", "Retry from the Cockpit screen.") : copy("Uçuşunu ekle, geri sayımı ve hazırlığını buradan takip et.", "Add a flight and follow its countdown and preparation here.")}</p></div><button onClick={() => onNavigate("cockpit")} aria-label={copy("Seyahat kokpitini aç", "Open travel cockpit")}><Icon name="chevron" size={18} /></button></>}
     </section>}
 
+    <button className="home-shared-trip" type="button" onClick={() => onNavigate("trips")}><span><Icon name="users" size={24} /></span><div><small>{copy("ARKADAŞLARINLA PLANLA", "PLAN WITH FRIENDS")}</small><strong>{copy("Ortak seyahat oluştur veya davete katıl", "Create a shared trip or join an invitation")}</strong><p>{copy("Oylama, ortak bütçe ve masraflar tek yerde.", "Voting, shared budget and expenses in one place.")}</p></div><Icon name="chevron" size={18} /></button>
+
     <section className="home-community" aria-labelledby="home-community-title">
       <div className="home-community-heading">
         <span><Icon name="users" size={22} /></span>

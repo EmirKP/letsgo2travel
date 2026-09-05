@@ -1,6 +1,6 @@
 {
   "appVersion": "1.4.0",
-  "buildNumber": "22",
+  "buildNumber": "23",
   "releaseManifest": "release-manifest.json",
   "rootConfiguration": [
     ".npmrc",
@@ -16,18 +16,21 @@
     "next": "16.3.0"
   },
   "entryAssets": {
-    "javascript": "assets/index-jgNI_bk6.js",
-    "stylesheet": "assets/index-CqjYRdqn.css"
+    "javascript": "assets/index-BuuFT6Sk.js",
+    "stylesheet": "assets/index-CZbSD2B6.css"
   },
   "notes": [
     "Apply this archive at the project root.",
     "Do not add .env files, signing certificates or provisioning profiles to source control.",
-    "Build 22: trip owners can create expiring invitations and manage editor/viewer roles.",
-    "Build 22: members can add and vote on route, stay, transport and activity suggestions.",
-    "Build 22: shared budgets, equal expense splitting and per-member balances are available in the Cockpit.",
-    "Build 22: invitation URLs route the native app directly to the shared trip join flow.",
-    "Build 22 requires the included Supabase migration; no new environment variable is required.",
-    "Root/mobile lint and build, 136 app tests, 39 alert tests, Capacitor iOS/Android sync and mobile doctor passed.",
+    "Build 23: shared trip planning is now visible from Home and at the top of My Trips.",
+    "Build 23: HTTPS invitations open a safe app-launch page and preserve the invite through sign-in.",
+    "Build 23: travel journal, visited-world map and a shareable yearly travel recap are available in My Trips.",
+    "Build 23: airport transfer guidance and a destination-aware safety centre are included.",
+    "Build 23: My Trips and the world map are split into on-demand chunks; duplicate account loading is removed.",
+    "Build 23: offline journal entries retry account sync automatically and storage failures remain recoverable.",
+    "Build 23: invitation pages no longer require copying or pasting raw invite codes.",
+    "Build 23 requires no new migration or environment variable; existing Build 22 collaboration tables remain in use.",
+    "Root/mobile lint and build, 137 app tests, 39 alert tests, Capacitor iOS/Android sync and mobile doctor passed.",
     "The duplicate uploaded Codemagic YAML was intentionally excluded."
   ]
 }

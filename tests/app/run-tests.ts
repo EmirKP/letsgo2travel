@@ -834,7 +834,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 22);
+  assert.equal(release.buildNumber, 23);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -1360,8 +1360,30 @@ test("Build 22: ortak seyahat davet, yetki, oylama ve masraf akışı güvenlidi
   assert.ok(route.includes('access.member.role !== "owner"') && route.includes('result.member.role === "viewer"'), "sahip ve izleyici yetkileri API'de uygulanmalı");
   assert.ok(route.includes("Math.floor(cents / participantIds.length)") && route.includes("remainder"), "kuruş farkı kaybolmadan eşit masraf paylaşımı yapılmalı");
   assert.ok(hub.includes('type CollaborationTab = "team" | "vote" | "budget"') && hub.includes("Kim alacak, kim ödeyecek?"), "mobil çalışma alanı ekip, oylama ve bütçe bölümlerini taşımalı");
-  assert.ok(app.includes("tripInviteFromUrl") && app.includes("setCockpitInviteCode"), "davet bağlantısı uygulamada Kokpit'e yönlenmeli");
+  assert.ok(app.includes("tripInviteFromUrl") && app.includes("setCockpitInviteCode"), "davet bağlantısı uygulamada ortak seyahat akışına yönlenmeli");
   assert.ok(styles.includes("Build 22 — Ortak seyahat") && styles.includes(".trip-expense-form"), "ortak seyahat arayüzü iPhone güvenli stillere sahip olmalı");
+});
+
+test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyahat araçları tek merkezde bulunur", () => {
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const trips = readFileSync("mobile/src/screens/PlansScreen.tsx", "utf8");
+  const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
+  const tools = readFileSync("mobile/src/components/JourneyToolsHub.tsx", "utf8");
+  const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
+  const invite = readFileSync("app/davet/[token]/page.tsx", "utf8");
+  const codemagic = readFileSync("codemagic.yaml", "utf8");
+  assert.ok(home.includes("home-shared-trip") && home.includes('onNavigate("trips")'), "ortak plan ana sayfadan tek dokunuşla bulunmalı");
+  assert.ok(trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak plan Kokpit'e gizlenmemeli, Seyahatlerim'in üstünde olmalı");
+  assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
+  assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");
+  assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");
+  assert.ok(invite.includes("Kod kopyalamana gerek yok") && !invite.includes("<code>{token}</code>") && !invite.includes("Kodu yapıştır"), "davet akışı kullanıcıya ham kod kopyalatmamalı");
+  assert.ok(tools.includes('type ToolId = "journal" | "map" | "airport" | "safety" | "summary"'), "beş seyahat aracı tek merkezde bulunmalı");
+  assert.ok(tools.includes("travel_journal") && tools.includes("PassportWorldMap") && tools.includes("emergencyNumbers"), "günlük, dünya haritası ve güvenlik içeriği gerçek veri akışına bağlı olmalı");
+  assert.ok(trips.includes('lazy(() => import("../components/JourneyToolsHub")') && tools.includes('lazy(() => import("./PassportWorldMap")') && tools.includes('lazy(() => import("./AirportField")') && tools.includes('import("../data/travelEssentials")'), "ağır seyahat araçları, harita, havalimanı ve yerel güvenlik verisi ihtiyaç anında yüklenmeli");
+  assert.ok(tools.includes("Promise.allSettled") && tools.includes("bağlantı gelince eşitleme yeniden denenecek") && !tools.includes("listUserTrips"), "çevrimdışı günlükler otomatik eşitlenmeli ve yinelenen hesap isteği yapılmamalı");
+  assert.ok(codemagic.includes("CURRENT_PROJECT_VERSION = 24"), "Apple'da kullanılan 23 numarası nedeniyle yeni TestFlight paketi 24 olmalı");
 });
 
 // ------------------- Live Activity cron çekirdeği --------------------

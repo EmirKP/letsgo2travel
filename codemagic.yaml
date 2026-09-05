@@ -49,9 +49,11 @@ workflows:
         script: |
           npm run mobile:prepare:ios
 
-      - name: Set TestFlight re-upload build number
+      - name: Set TestFlight Build 23 upload number
         script: |
-          sed -i '' 's/CURRENT_PROJECT_VERSION = 22;/CURRENT_PROJECT_VERSION = 23;/g' ios/App/App.xcodeproj/project.pbxproj
+          # Apple'da 23 numarası, yanlışlıkla silinen Build 22'yi yeniden
+          # yüklemek için kullanıldı. Kaynak Build 23 bu yüzden 24 olarak gider.
+          sed -i '' 's/CURRENT_PROJECT_VERSION = 23;/CURRENT_PROJECT_VERSION = 24;/g' ios/App/App.xcodeproj/project.pbxproj
 
       - name: Apply App Store signing
         script: |
