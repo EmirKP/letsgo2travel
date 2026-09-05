@@ -49,6 +49,10 @@ workflows:
         script: |
           npm run mobile:prepare:ios
 
+      - name: Set TestFlight re-upload build number
+        script: |
+          sed -i '' 's/CURRENT_PROJECT_VERSION = 22;/CURRENT_PROJECT_VERSION = 23;/g' ios/App/App.xcodeproj/project.pbxproj
+
       - name: Apply App Store signing
         script: |
           xcode-project use-profiles --project "$XCODE_PROJECT"
