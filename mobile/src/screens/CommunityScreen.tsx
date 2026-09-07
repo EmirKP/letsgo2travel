@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
@@ -270,6 +271,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     const body = answerBody.trim();
     if (body.length < 3) return onNotice(copy("Cevap en az 3 karakter olmalı.", "Your answer must be at least 3 characters."));
     if (answerPosting) return;
+    const generation = detailGeneration.current;
     setAnswerPosting(true);
     try {
       const result = await requestJson<{ moderation?: { action?: string } }>("/api/country-community/answers", {
@@ -277,6 +279,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { countryCode: detail.countryCode, questionId: detail.id, body },
       });
+      if (generation !== detailGeneration.current) return;
       setAnswerBody("");
       onNotice(result.moderation?.action === "visible" ? copy("Cevabın yayınlandı.", "Your answer is live.") : copy("Cevabın incelemeye alındı.", "Your answer was sent for review."));
       if (result.moderation?.action === "visible") await openDetail(detail.id);
@@ -342,10 +345,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
   };
 
   return <div className="screen community-native-screen">
-    <section className="page-intro compact-intro community-native-intro">
-      <span className="page-icon"><Icon name="users" size={27} /></span>
-      <div><small>{copy("TOPLULUK", "COMMUNITY")}</small><h1>{copy("Sor, gerçek deneyimleri oku", "Ask and read real experiences")}</h1><p>{copy("Gezginlerin sorularını ve paylaştığı deneyimleri gör; istersen sıralamaya katıl.", "Read travellers' questions and experiences, or join the ranking.")}</p></div>
-    </section>
+    <PageHero scene="journey" title={copy("Gezgin Topluluğu", "Traveller Community")} subtitle={copy("Sor, deneyimini paylaş, birlikte keşfet.", "Ask, share your experience, discover together.")} />
 
     <div className="segmented community-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
       <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> {copy("Sorular", "Questions")}</button>
@@ -397,9 +397,9 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
       <div className="community-feed-toolbar"><div><small>{copy("ÜLKE TOPLULUKLARI", "COUNTRY COMMUNITIES")}</small><h2>{copy("Gezginlerin soruları", "Traveller questions")}</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? copy("Kapat", "Close") : copy("Soru sor", "Ask")}</button></div>
       {questionOpen && <div className="form-card community-question-form">
-        <CountryPicker value={countryCode} options={questionCountryOptions} onChange={setCountryCode} label={copy("Ülke", "Country")} placeholder={copy("Hangi ülkeyle ilgili?", "Which country is this about?")} />
-        <label>{copy("Başlık", "Title")}<input value={questionTitle} maxLength={160} onChange={(event) => setQuestionTitle(event.target.value)} placeholder={copy("Gezginlere ne sormak istiyorsun?", "What would you like to ask travellers?")} /></label>
-        <label>{copy("Açıklama", "Description")}<textarea value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder={copy("Sorunu anlaşılır biçimde anlat…", "Explain your question clearly…")} /></label>
+        <CountryPicker value={countryCode} options={questionCountryOptions} onChange={(value) => { if (!posting) setCountryCode(value); }} label={copy("Ülke", "Country")} placeholder={copy("Hangi ülkeyle ilgili?", "Which country is this about?")} />
+        <label>{copy("Başlık", "Title")}<input disabled={posting} value={questionTitle} maxLength={160} onChange={(event) => setQuestionTitle(event.target.value)} placeholder={copy("Gezginlere ne sormak istiyorsun?", "What would you like to ask travellers?")} /></label>
+        <label>{copy("Açıklama", "Description")}<textarea disabled={posting} value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder={copy("Sorunu anlaşılır biçimde anlat…", "Explain your question clearly…")} /></label>
         <button className="primary-wide" disabled={posting} onClick={() => void submitQuestion()}>{posting ? <span className="button-loader" /> : <Icon name="users" size={18} />} {posting ? copy("Gönderiliyor", "Sending") : copy("Topluluğa gönder", "Post to community")}</button>
       </div>}
       {!feedLoading && (questions.length > 0 || Boolean(countryFilter)) && <div className="community-country-filters" role="group" aria-label={copy("Ülke topluluğunu filtrele", "Filter country community")}>
@@ -438,7 +438,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
             <span><Icon name="users" size={18} /></span>
             <div><strong>{copy("Deneyimini paylaş", "Share your experience")}</strong><small>{copy("Kısa, açık ve kişisel bilgi içermeyen bir cevap yaz.", "Write a clear answer without personal information.")}</small></div>
           </div>
-          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
+          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea disabled={answerPosting} id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
           <div className="community-answer-form-meta"><small>{answerBody.trim().length < 3 ? copy("Göndermek için en az 3 karakter yaz.", "Write at least 3 characters to send.") : copy("Göndermeye hazır", "Ready to send")}</small><span>{answerRemaining}</span></div>
           <button type="button" className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? copy("Gönderiliyor", "Sending") : copy("Cevabı gönder", "Send answer")}</button>
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}

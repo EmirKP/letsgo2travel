@@ -7,6 +7,9 @@ import type { MapStatus } from "../components/PassportWorldMap";
 const PassportWorldMap = lazy(() => import("../components/PassportWorldMap").then((mod) => ({ default: mod.PassportWorldMap })));
 import type { Country, VisaStatus } from "../types";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
+import { CountryFlag } from "../components/CountryFlag";
+import { alpha2FromAlpha3 } from "../data/countryIso";
 import { Sheet } from "../components/Sheet";
 import { openExternal } from "../lib/native";
 import { getVisaEntryRule } from "../lib/api";
@@ -88,10 +91,11 @@ export function PassportScreen() {
 
   return (
     <div className="screen passport-screen">
-      <section className="page-intro passport-intro">
-        <span className="page-icon"><Icon name="passport" size={27} /></span>
-        <div><small>{copy("TÜRKİYE PASAPORTU", "TURKISH PASSPORT")}</small><h1>{copy("Pasaport Gücü", "Passport Power")}</h1><p>{copy("Ülkeleri giriş kolaylığına göre keşfet. Seyahat öncesinde resmî kaynaklardan son koşulları mutlaka doğrula.", "Explore countries by entry ease. Always verify the latest rules with official sources before travel.")}</p></div>
-      </section>
+      <PageHero scene="passport" title={copy("Pasaport Gücü", "Passport Power")} subtitle={copy("Pasaportunla nerelere gidebilirsin?", "Where can your passport take you?")} />
+
+      <div className="chip-scroll passport-filters" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
+      </div>
 
       <div className="passport-stats">
         <div><strong>{counts.id_card}</strong><span>{copy("Kimlikle", "ID card")}</span></div>
@@ -99,7 +103,7 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("Kolay vize", "Easy visa")}</span></div>
       </div>
 
-      <p id="passport-map-help" className="passport-map-help"><strong>{copy("Haritayı kullan:", "Use the map:")}</strong> {copy("İki parmakla yalnız haritayı 8 kata kadar yakınlaştır, sürükleyerek gez veya tam ekran aç; ayrıntı için ülkeye dokun.", "Pinch to zoom only the map up to 8×, drag to explore or open full screen; tap a country for details.")}</p>
+      <p id="passport-map-help" className="passport-map-help">{copy("Türkiye pasaportu · Haritayı yakınlaştır, ülkeye dokun.", "Turkish passport · Pinch the map and tap a country.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
           dokununca liste ile AYNI detay sayfası açılır. Eşleşmeyen
@@ -128,9 +132,16 @@ export function PassportScreen() {
 
       <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
       <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
-      <div className="chip-scroll" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
-        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
-      </div>
+
+      {!query && filter === "all" && <section className="passport-picks" aria-label={copy("Ülke kısayolları", "Country shortcuts")}>
+        <div className="editorial-heading"><h2>{copy("Ülkeleri keşfet", "Explore countries")}</h2></div>
+        <div>{["SRB", "MNE", "ARE", "JPN", "USA"].map(code => {
+          const country = COUNTRY_BY_ALPHA3.get(code);
+          if (!country) return null;
+          const entry = statusOf(code);
+          return <button type="button" key={code} onClick={() => void openCountry(country)}><CountryFlag code={alpha2FromAlpha3(code)} label={countryName(code, country.name)} /><strong>{countryName(code, country.name)}</strong><small className={`entry-${entry}`}>{copy(STATUS_LABEL[entry], ({ id_card:"ID card", free:"Visa-free", evisa:"e-Visa", on_arrival:"On arrival", required:"Visa required", unknown:"Unknown" } as const)[entry])}</small></button>;
+        })}</div>
+      </section>}
 
       <div className="country-results-summary" role="status"><strong>{rows.length} {copy("ülke", "countries")}</strong><span>{copy("Listeden veya haritadan bir ülkeye dokun.", "Tap a country in the list or on the map.")}</span></div>
 
@@ -139,7 +150,7 @@ export function PassportScreen() {
           const rowStatus = statusOf(country.alpha3);
           return (
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
-              <span className={`status-dot status-${rowStatus}`}><Icon name={rowStatus === "required" ? "lock" : rowStatus === "unknown" ? "alert" : "check"} size={16} /></span>
+              <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={countryName(country.alpha3, country.name)} />
               <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small></span>
               <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus])}</em>
               <Icon name="chevron" size={17} />

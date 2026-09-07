@@ -1,0 +1,11 @@
+/* Shared web surfaces; business logic and page content stay in their existing modules. */
+:root{--l2t-gold:#ffd426;--l2t-navy:#092e57;--l2t-blue:#006ded;--l2t-accent:#006ded;}
+button,input,textarea,select{max-width:100%;}input,select,textarea{min-width:0;}textarea{line-height:1.6;caret-color:#006ded;}
+:focus-visible{outline:2px solid #006ded;outline-offset:3px;}
+.l2t-btn,.l2t-btn-primary{border-radius:14px;min-height:44px;}.l2t-card,.l2t-panel,.l2t-community-hero{border-radius:20px;border-color:#e0e8f2;box-shadow:0 5px 24px #123b6610;}
+.l2t-community-hero{background:linear-gradient(105deg,#e8f2ff,#fff);}.l2t-community-hero h2{color:#092e57;}
+.l2t-budget-v25-hero{background:linear-gradient(90deg,#092e57,#164b80);}.l2t-budget-v25-hero h1{color:white;}
+.l2t-bottom-nav.l2t-bottom-nav-v24{background:#fff;border:1px solid #e0e8f2;border-radius:20px 20px 0 0;box-shadow:0 -4px 22px #14345208;}
+.l2t-bottom-nav a{color:#74829a;}.l2t-bottom-nav a.is-active{color:#006ded;}.l2t-bottom-nav a.is-main .l2t-bottom-nav-icon{background:#006ded;color:#fff;border-radius:50%;}
+@media(max-width:600px){input,select,textarea{font-size:16px;}main{min-width:0;}.l2t-container{width:calc(100% - 28px);}h1,h2,h3{overflow-wrap:break-word;}[role="dialog"]{max-width:calc(100vw - 20px);}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}

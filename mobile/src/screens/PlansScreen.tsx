@@ -1,5 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon, type IconName } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
+import { CountryFlag } from "../components/CountryFlag";
+import { alpha2FromAlpha3 } from "../data/countryIso";
+import { destinationArtwork } from "../data/artwork";
+import { DISCOVERY_DESTINATIONS } from "../data/discovery";
 import { Sheet } from "../components/Sheet";
 import { TripCollaborationHub } from "../components/TripCollaborationHub";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
@@ -55,7 +60,9 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
+export function TripsScreen({ initialTool, onOpenDestination, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
+  initialTool?: "airport";
+  onOpenDestination: (code: string) => void;
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -67,7 +74,10 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
 }) {
   const { copy, dateLocale, locale } = useI18n();
   const [routes, setRoutes] = useState<SavedRoutePlan[]>([]);
-  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
+  const favoriteCount = favorites.length;
+  const [libraryTab, setLibraryTab] = useState<"all" | "routes" | "countries" | "events" | "travel">(inviteCode || initialTool ? "travel" : "all");
+  useEffect(() => { if (inviteCode || initialTool) setLibraryTab("travel"); }, [inviteCode, initialTool]);
   const [savedEvents, setSavedEvents] = useState<TravelEvent[]>([]);
   const [cloudItems, setCloudItems] = useState<UserTripData[]>([]);
   const [cloudLoading, setCloudLoading] = useState(false);
@@ -77,7 +87,7 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
 
   const refreshLocal = useCallback(() => {
     setRoutes(getSavedRoutePlans(ownerId));
-    setFavoriteCount(getFavoriteDestinations(ownerId).length);
+    setFavorites(getFavoriteDestinations(ownerId));
     setSavedEvents(getSavedTravelEvents(ownerId));
   }, [ownerId]);
 
@@ -152,12 +162,14 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
   const cloudRoutes = cloudItems.filter((item) => item.mobileKind === "route_plan" && !routes.some((route) => route.id === item.clientKey));
 
   return (
-    <div className="screen">
-      <section className="page-intro compact-intro">
-        <span className="page-icon"><Icon name="plans" size={27} /></span>
-        <div><small>{copy("SEYAHAT MERKEZİ", "TRAVEL HUB")}</small><h1>{copy("Seyahatlerim", "My Trips")}</h1><p>{copy("Rotaların, favorilerin ve seyahat planların tek yerde.", "Your routes, favourites and trip plans in one place.")}</p></div>
-      </section>
+    <div className="screen saved-screen">
+      <PageHero scene="coast" title={copy("Kaydedilenler", "Saved")} subtitle={copy("Favori yerlerin, rotaların ve seyahatlerin.", "Your favourite places, routes and journeys.")} />
 
+      <div className="chip-scroll saved-filters" role="group" aria-label={copy("Kaydedilenleri filtrele", "Filter saved items")}>
+        {(["all","routes","countries","events","travel"] as const).map((tab,index) => <button type="button" key={tab} className={libraryTab === tab ? "active" : ""} aria-pressed={libraryTab === tab} onClick={() => setLibraryTab(tab)}>{[copy("Tümü","All"),copy("Rotalar","Routes"),copy("Ülkeler","Countries"),copy("Etkinlikler","Events"),copy("Seyahatlerim","My Trips")][index]}</button>)}
+      </div>
+      {libraryTab !== "travel" && <button type="button" className="saved-travel-entry" onClick={() => setLibraryTab("travel")}><Icon name="suitcase" size={19} /><span>{copy("Seyahatlerim ve ortak planlar", "My trips and shared plans")}</span><Icon name="chevron" size={17} /></button>}
+      {libraryTab === "travel" && <section className="saved-travel-tools">
       {user && accessToken ? <TripCollaborationHub
         key={user.id}
         accessToken={accessToken}
@@ -169,7 +181,7 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
       /> : <button className={`trips-collaboration-entry${inviteCode ? " has-invite" : ""}`} type="button" onClick={onOpenAccount}><span><Icon name="users" size={24} /></span><div><small>{inviteCode ? copy("DAVETİN HAZIR", "YOUR INVITE IS READY") : copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><strong>{inviteCode ? copy("Katılmak için hesabına giriş yap", "Sign in to join the trip") : copy("Arkadaşlarınla aynı seyahate katıl", "Join the same trip with friends")}</strong><p>{inviteCode ? copy("Giriş yaptıktan sonra davet otomatik açılacak; kodu yeniden girmeyeceksin.", "Your invitation will open automatically after sign-in—no need to enter the code again.") : copy("Davet bağlantısı, oylama ve ortak masraflar için giriş yap.", "Sign in for invitations, voting and shared expenses.")}</p></div><Icon name="chevron" size={17} /></button>}
 
       <Suspense fallback={<section className="journey-tools-loading" role="status" aria-live="polite"><span className="button-loader dark" /><div><strong>{copy("Seyahat araçların hazırlanıyor", "Preparing your travel tools")}</strong><small>{copy("Yalnız gerekli bölüm yükleniyor.", "Only the required section is loading.")}</small></div></section>}>
-        <JourneyToolsHub user={user} ownerId={ownerId} accessToken={accessToken} onNavigate={onNavigate} onNotice={onNotice} />
+        <JourneyToolsHub initialTool={initialTool} user={user} ownerId={ownerId} accessToken={accessToken} onNavigate={onNavigate} onNotice={onNotice} />
       </Suspense>
 
       <div className="trips-overview">
@@ -180,7 +192,19 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
 
       <button className="trips-cockpit" onClick={() => onNavigate("cockpit")}><span><Icon name="suitcase" size={23} /></span><div><small>{copy("AKILLI SEYAHAT KOKPİTİ", "SMART TRAVEL COCKPIT")}</small><strong>{copy("Yaklaşan seyahatini yönet", "Manage your next trip")}</strong><p>{copy("Tarihlerini ve hazırlık listesini hesabınla eşitle.", "Sync dates and your checklist with your account.")}</p></div><Icon name="chevron" size={16} /></button>
 
-      <section className="saved-events-section">
+
+      </section>}
+      {(libraryTab === "all" || libraryTab === "countries") && <section className="saved-country-section">
+        {favorites.map(country => {
+          const destination = DISCOVERY_DESTINATIONS.find(item => item.alpha3 === country.alpha3);
+          return <button type="button" className="saved-country-row" key={country.alpha3} onClick={() => destination ? onOpenDestination(destination.code) : onNavigate("profile")}>
+            {destination ? <img src={destinationArtwork(destination.code)} alt="" loading="lazy" width="64" height="52" /> : <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={country.name} />}
+            <span><strong>{country.name}</strong><small>{copy("Favori ülken", "Your favourite country")}</small></span><Icon name="heart" size={19} />
+          </button>;
+        })}
+        {libraryTab === "countries" && !favorites.length && <Empty icon="heart" title={copy("Yeni bir yerle başla","Start with a new place")} text={copy("Keşfet'teki kalbe dokun; favori ülkelerin burada olsun.","Tap a heart in Explore to keep your favourite countries here.")} action={copy("Ülkeleri keşfet","Explore countries")} onAction={() => onNavigate("explore")} />}
+      </section>}
+      {(libraryTab === "all" || libraryTab === "events") && <section className="saved-events-section">
         <div className="section-heading"><div><span>{copy("PLANINDAKİ ETKİNLİKLER", "EVENTS IN YOUR PLAN")}</span><h2>{copy("Kaçırmak istemediklerin", "Events you don't want to miss")}</h2></div><button type="button" onClick={() => onNavigate("events")}>{copy("Etkinlik bul", "Find events")}</button></div>
         {savedEvents.length > 0 ? <div className="saved-event-list">{savedEvents.map((event) => <article key={event.id} className={event.status === "cancelled" ? "cancelled" : ""}>
           <button type="button" className="saved-event-open" onClick={() => onNavigate("events")}>
@@ -189,11 +213,11 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
           </button>
           <button type="button" className="saved-event-remove" aria-label={copy("Etkinliği planımdan çıkar", "Remove event from my plan")} onClick={() => setPendingDelete({ kind: "event", item: event })}><Icon name="trash" size={17} /></button>
         </article>)}</div> : <button className="saved-events-empty" type="button" onClick={() => onNavigate("events")}><span><Icon name="calendar" size={22} /></span><div><strong>{copy("Henüz etkinlik kaydetmedin", "No saved events yet")}</strong><small>{copy("Tarihine uygun konser, festival ve maçları bul.", "Find concerts, festivals and sport for your dates.")}</small></div><Icon name="chevron" size={16} /></button>}
-      </section>
+      </section>}
 
-      <div className="saved-list">
+      {(libraryTab === "all" || libraryTab === "routes") && <div className="saved-list">
         {routes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><span className="saved-icon"><Icon name="route" /></span><button className="saved-card-open" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
           <p>{saved.plan.summary}</p>
           <button className="saved-card-detail-action" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>
         </article>)}
@@ -206,7 +230,7 @@ export function TripsScreen({ user, ownerId, accessToken, inviteCode, onInviteHa
         </article>})}
         {cloudLoading && <div className="skeleton-list"><div /></div>}
         {!routes.length && !cloudRoutes.length && !cloudLoading && <Empty icon="route" title={copy("Henüz kayıtlı rotan yok", "No saved routes yet")} text={copy("Tercihlerini seç, sana uygun rotayı birlikte oluşturalım.", "Choose your preferences and we'll create a route that fits you.")} action={copy("İlk rotamı oluştur", "Create my first route")} onAction={() => onNavigate("route")} />}
-      </div>
+      </div>}
 
       <DeleteConfirmation pending={pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
       <PlanDetail selected={selectedPlan} onClose={() => setSelectedPlan(null)} />
@@ -246,6 +270,6 @@ function PlanDetail({ selected, onClose }: { selected: SelectedPlan | null; onCl
   </Sheet>;
 }
 
-function Empty({ icon, title, text, action, onAction }: { icon: "route"; title: string; text: string; action: string; onAction: () => void }) {
+function Empty({ icon, title, text, action, onAction }: { icon: IconName; title: string; text: string; action: string; onAction: () => void }) {
   return <div className="empty-state"><span><Icon name={icon} size={28} /></span><strong>{title}</strong><p>{text}</p><button className="primary-button empty-state-action" onClick={onAction}><Icon name="route" size={17} />{action}</button></div>;
 }

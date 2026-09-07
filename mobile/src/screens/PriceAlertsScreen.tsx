@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { AirportField } from "../components/AirportField";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert, type AlertMutationResponse } from "../lib/api";
 import type { AirportOption } from "../lib/airports";
 import { clampLocalDate, isPastLocalDate, localIsoDate } from "../lib/dates";
@@ -294,10 +295,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
 
   if (!user || !accessToken) {
     return <div className="screen alerts-screen">
-      <section className="page-intro compact-intro">
-        <span className="page-icon"><Icon name="bell" size={27} /></span>
-        <div><small>{copy("FİYAT ALARMLARIM", "PRICE ALERTS")}</small><h1>{copy("Fiyat düşünce haber al", "Know when the price drops")}</h1><p>{copy("Takip ettiğin rota hedef fiyata inince e-posta veya telefon bildirimiyle haberdar olursun.", "Get an email or phone notification when a tracked route reaches your target.")}</p></div>
-      </section>
+      <PageHero scene="city" title={copy("Fiyat Alarmlarım", "Price Alerts")} subtitle={copy("Takip ettiğin rotalar, tek bir yerde.", "Your tracked routes, all in one place.")} />
       <div className="login-required">
         <span><Icon name="lock" size={28} /></span>
         <h2>{copy("Alarmların için giriş yap", "Sign in for price alerts")}</h2>
@@ -308,10 +306,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   }
 
   return <div className="screen alerts-screen">
-    <section className="page-intro compact-intro">
-      <span className="page-icon"><Icon name="bell" size={27} /></span>
-      <div><small>{copy("FİYAT ALARMLARIM", "PRICE ALERTS")}</small><h1>{copy("Rotanı takibe al", "Track your route")}</h1><p>{copy("Hangi tarihte, hangi rotayı takip ettiğini burada yönet; fiyat hedefe inince haber verilir.", "Manage routes and dates here; we'll notify you when a fare reaches your target.")}</p></div>
-    </section>
+    <PageHero scene="city" title={copy("Fiyat Alarmlarım", "Price Alerts")} subtitle={copy("Takip ettiğin rotalar, tek bir yerde.", "Your tracked routes, all in one place.")} />
 
     <div className="alerts-toolbar">
       <button type="button" className="primary-button" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setActionError(""); }}>

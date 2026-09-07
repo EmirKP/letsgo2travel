@@ -47,15 +47,25 @@ export function clampLocalDate(value: string, min = localIsoDate(0), max?: strin
 
 /** datetime-local alanından gelen değeri izin verilen aralığa anında sıkıştırır. */
 export function clampLocalDateTime(value: string, min = localIsoDateTime(0), max?: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value) || value < min) return min;
+  if (!/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(value) || !isCalendarDate(value.slice(0, 10)) || value < min) return min;
   if (max && value > max) return max;
   return value;
 }
 
 export function isValidDateRange(start: string, end: string, min = localIsoDate(0), max?: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(start)
-    && /^\d{4}-\d{2}-\d{2}$/.test(end)
+  return isCalendarDate(start)
+    && isCalendarDate(end)
     && start >= min
     && end >= start
     && (!max || (start <= max && end <= max));
+}
+
+/** Validate the native picker value before changing the parent form. */
+export function validPickerValue(value: string, type: "date" | "time" | "datetime-local", min?: string, max?: string): boolean {
+  if (!value) return true; // Clearing remains possible; required is handled by the form.
+  const clock = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const valid = type === "date" ? isCalendarDate(value)
+    : type === "time" ? clock.test(value)
+    : value.length === 16 && value[10] === "T" && isCalendarDate(value.slice(0,10)) && clock.test(value.slice(11));
+  return valid && (!min || value >= min) && (!max || value <= max);
 }

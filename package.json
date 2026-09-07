@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -24,7 +24,8 @@
     "smoke": "node scripts/smoke-test.mjs",
     "test:alerts": "node scripts/run-alert-tests.mjs",
     "test:app": "node scripts/run-app-tests.mjs",
-    "test:integrity": "node tests/integrity/run.mjs"
+    "test:integrity": "node tests/integrity/run.mjs",
+    "dev:mobile": "node scripts/dev.mjs --mobile"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

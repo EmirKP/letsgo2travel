@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { DateTimeField } from "../components/DateTimeField";
 import { Sheet } from "../components/Sheet";
 import {
@@ -278,7 +279,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   ];
 
   return <div className="screen admin-screen admin-v14">
-    <section className="admin-hero admin-v14-hero"><span><Icon name="shield" size={27} /></span><div><small>{copy("CANLI OPERASYON MERKEZİ", "LIVE OPERATIONS")}</small><h1>{copy("Yönetim Paneli", "Admin Console")}</h1><p>{copy("Web ve mobil aynı veriyi, aynı anda yönetir.", "Manage web and app from one live source.")}</p></div><button type="button" disabled={loading} onClick={() => tab === "events" ? void loadEvents() : void refresh()} aria-label={copy("Yenile", "Refresh")}><Icon name="refresh" size={19} /></button></section>
+    <PageHero scene="city" title={copy("Yönetim Paneli", "Admin Console")} subtitle={copy("Web ve mobilin ortak yönetim merkezi.", "One management hub for web and mobile.")}><button type="button" disabled={loading} onClick={() => tab === "events" ? void loadEvents() : void refresh()} aria-label={copy("Yenile", "Refresh")}><Icon name="refresh" size={19} /></button></PageHero>
     <div className="admin-live-strip"><span /><strong>{copy("Canlı ve senkron", "Live and synced")}</strong><small>{copy("Yalnız super admin", "Super admin only")}</small></div>
     {overview.unavailableCount > 0 && <div className="info-box error admin-module-warning" role="alert"><Icon name="alert" size={18} /><p><strong>{copy("Bazı yönetim verileri yüklenemedi.", "Some admin data could not be loaded.")}</strong><span>{overview.unavailableModules.join(", ") || copy(`${overview.unavailableCount} modül`, `${overview.unavailableCount} modules`)}</span></p><button type="button" disabled={loading} onClick={() => void refresh()}>{copy("Tekrar dene", "Try again")}</button></div>}
     <nav className="admin-tabs" aria-label={copy("Yönetim bölümleri", "Admin sections")}>{tabs.map(([id, label, icon, count]) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><Icon name={icon} size={18} /><span>{label}</span>{count > 0 && <em>{count}</em>}</button>)}</nav>
@@ -292,8 +293,9 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
       {evidencePreview && <div className="admin-evidence-preview">
         <div className="admin-evidence-security"><Icon name="lock" size={18} /><p>{copy("Bu geçici bağlantı yalnız yönetici incelemesi içindir ve kısa süre sonra kapanır.", "This temporary link is only for admin review and expires shortly.")}</p></div>
         {evidencePreview.evidenceType === "application/pdf"
-          ? <iframe title={copy("Başvuru PDF belgesi", "Application PDF evidence")} src={evidencePreview.signedUrl} onLoad={() => { setEvidenceLoaded(true); setEvidenceError(""); }} onError={() => setEvidenceError(copy("PDF önizlemesi yüklenemedi.", "The PDF preview could not be loaded."))} />
-          : <img src={evidencePreview.signedUrl} alt={copy("Kullanıcının gönderdiği doğrulama belgesi", "Verification evidence submitted by the user")} onLoad={() => { setEvidenceLoaded(true); setEvidenceError(""); }} onError={() => setEvidenceError(copy("Görsel önizlemesi yüklenemedi.", "The image preview could not be loaded."))} />}
+          ? <iframe key={evidencePreview.id} title={copy("Başvuru PDF belgesi", "Application PDF evidence")} src={evidencePreview.signedUrl} onError={() => setEvidenceError(copy("PDF önizlemesi yüklenemedi. Cihaz görüntüleyicisini kullan.", "PDF preview could not be loaded. Use the device viewer."))} />
+          : <img key={evidencePreview.id} src={evidencePreview.signedUrl} alt={copy("Kullanıcının gönderdiği doğrulama belgesi", "Verification evidence submitted by the user")} onLoad={() => { setEvidenceLoaded(true); setEvidenceError(""); }} onError={() => { setEvidenceLoaded(false); setEvidenceError(copy("Görsel önizlemesi yüklenemedi.", "The image preview could not be loaded.")); }} />}
+        {evidencePreview.evidenceType === "application/pdf" && <p className="guide-note">{copy("PDF açıldığını ve okunabildiğini doğrulamak için cihaz görüntüleyicisinde aç, ardından incelemeyi tamamla.", "Open the PDF in the device viewer and confirm it is readable before completing the review.")}</p>}
         {evidenceError && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{evidenceError}</p></div>}
         <div className="admin-evidence-actions">
           <button type="button" className="secondary-wide" onClick={() => void openEvidenceExternally()}><Icon name="external" size={17} /> {copy("Cihaz görüntüleyicisinde aç", "Open in device viewer")}</button>

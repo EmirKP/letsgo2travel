@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
@@ -141,7 +142,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
     all: copy("Tümü", "All"), concert: copy("Konser", "Concert"), festival: copy("Festival", "Festival"), sport: copy("Spor", "Sport"), culture: copy("Kültür", "Culture"), food: copy("Yeme içme", "Food"), family: copy("Aile", "Family"), other: copy("Diğer", "Other"),
   })[value];
 
-  const search = async () => {
+  const search = async (nextCategory = category) => {
     if (loading) return;
     const today = localIsoDate(0);
     const latest = localIsoDate(366);
@@ -163,7 +164,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
         placeCode: selectedCity?.placeCode,
         startDate,
         endDate,
-        category,
+        category: nextCategory,
         limit: 30,
       });
       const freshEvents = Array.isArray(result.data) ? result.data : [];
@@ -180,7 +181,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
       setEvents([]);
       setCoverageLimited(false);
       setCoverageStatus("");
-      setError(requestError instanceof Error && requestError.message
+      setError(requestError instanceof Error && requestError.message && !/fetch|network|load failed/i.test(requestError.message)
         ? requestError.message
         : copy("Etkinlikler yüklenemedi. Bağlantını kontrol edip yeniden dene.", "Events could not be loaded. Check your connection and try again."));
     } finally {
@@ -253,13 +254,12 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
   const hasCompatibleTrip = cockpitTrips.some((trip) => Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate));
 
   return <div className="screen events-screen">
-    <section className="events-hero">
-      <div className="events-live"><i /> {copy("CANLI ETKİNLİK RADARI", "LIVE EVENT RADAR")}</div>
-      <h1>{copy("Seyahatin bir tarihten fazlası olsun.", "Make your trip more than a date.")}</h1>
-      <p>{copy("Konserleri, festivalleri, spor ve kültür etkinliklerini ülkeye ve tarihe göre bul.", "Find concerts, festivals, sports and cultural events by country and date.")}</p>
-      <button onClick={() => onNavigate("companion")}><Icon name="sparkles" size={17} /> {copy("Şu anda ne yapabilirim?", "What can I do right now?")}</button>
-    </section>
+    <PageHero scene="events" title={copy("Etkinlikler & Festivaller", "Events & Festivals")} subtitle={copy("Konserler, festivaller, kültür ve yeni anılar.", "Concerts, festivals, culture and new memories.")} />
 
+          <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
+        {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} disabled={loading} onClick={() => { setCategory(item); void search(item); }}>{categoryLabel(item)}</button>)}
+      </div>
+    <details className="event-filter-disclosure"><summary><Icon name="calendar" size={17} /><span>{copy("Ülke ve tarih seç", "Choose country and dates")}</span><Icon name="chevron" size={15} /></summary>
     <section className="event-search-card" aria-label={copy("Etkinlik araması", "Event search")}>
       <div className="event-search-grid">
         <CountryPicker value={countryCode} options={countryOptions} includeWorldwide label={copy("Ülke", "Country")} placeholder={copy("Tüm dünya", "Worldwide")} onChange={(nextCountryCode) => {
@@ -286,17 +286,18 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
       </div>
       {countryCode && !cityPlaceCode && !citiesLoading && !citiesError && <p className="event-city-scope"><Icon name="info" size={14} /> {copy("Tüm şehirler seçiliyken ülke genelindeki sonuçlar aranır; canlı kapsam sağlayıcıya göre değişebilir.", "With all cities selected, results are searched countrywide; live coverage can vary by provider.")}</p>}
       {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
-      <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
-        {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{categoryLabel(item)}</button>)}
-      </div>
+
       <button className="primary-wide" disabled={loading || !startDate || !endDate} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
     </section>
+
+    </details>
+    <button type="button" className="event-now-link" onClick={() => onNavigate("companion")}><Icon name="sparkles" size={16} />{copy("Şu anda ne yapabilirim?", "What can I do right now?")}<Icon name="chevron" size={15} /></button>
 
     <section className="featured-events" aria-labelledby="featured-events-title">
       <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Dünyaca ünlü sanatçılar", "Global headline artists")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
       {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
         : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
-          <span className="featured-event-mark"><CountryFlag code={event.countryCode} label={event.countryCode} className="featured-country-flag" /></span>
+          <span className="featured-event-mark">{event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" width="58" height="62" onError={e => { e.currentTarget.hidden = true; }} /> : <Icon name="calendar" size={23} />}</span>
           <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(event.startsAt))}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
           <Icon name="external" size={17} />
         </button>)}</div>

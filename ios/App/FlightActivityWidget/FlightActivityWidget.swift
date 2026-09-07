@@ -84,20 +84,20 @@ private struct FlightCountdown: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(isEnglish ? "Departs in" : "Kalkışa").font(.system(size: 9, weight: .semibold))
                     Text(timerInterval: timeline.date...departureAt, countsDown: true)
-                        .font(.caption.bold().monospacedDigit())
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
-                        .frame(minWidth: 46, alignment: .leading)
+                        .frame(width: 88, alignment: .leading)
                 }
                 .foregroundStyle(Color.l2tGold)
             } else if kind == .flying, currentPhase == .flying, let arrivalAt = arrivalAt {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(isEnglish ? "Arrives in" : "Varışa").font(.system(size: 9, weight: .semibold))
                     Text(timerInterval: timeline.date...arrivalAt, countsDown: true)
-                        .font(.caption.bold().monospacedDigit())
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
-                        .frame(minWidth: 46, alignment: .trailing)
+                        .frame(width: 88, alignment: .trailing)
                 }
                 .foregroundStyle(Color.l2tGold)
             }
@@ -247,7 +247,7 @@ private struct LockScreenView: View {
                         language: context.attributes.language ?? "tr",
                         kind: .flying
                     )
-                    .frame(maxWidth: 62, alignment: .trailing)
+                    .frame(width: 100, alignment: .trailing)
                 }
             }
             if let arrivalAt = context.state.arrivalAt, arrivalAt > context.state.departureAt {

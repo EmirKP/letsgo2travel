@@ -81,3 +81,6 @@ android/app/google-services.json
 
 supabase/.temp/
 tests/app/_mobile/
+
+.vercel
+.env*

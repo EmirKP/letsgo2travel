@@ -1,17 +1,17 @@
 /* LetsGo2Travel foundation tokens — new work must use these variables. */
 :root {
-  --color-page: #f2f6f7;
-  --color-page-deep: #e5eef1;
+  --color-page: #f5f8fd;
+  --color-page-deep: #e6f0ff;
   --color-surface: #ffffff;
-  --color-surface-soft: #f8fbfb;
-  --color-text: #0c2436;
+  --color-surface-soft: #f5f8fd;
+  --color-text: #10253e;
   --color-text-muted: #5c7180;
-  --color-primary: #0a2c3f;
-  --color-primary-hover: #123f55;
-  --color-secondary: #16778b;
-  --color-secondary-soft: #dceef1;
-  --color-accent: #d0a53d;
-  --color-border: #c9d8de;
+  --color-primary: #092e57;
+  --color-primary-hover: #164b80;
+  --color-secondary: #006ded;
+  --color-secondary-soft: #e6f0ff;
+  --color-accent: #ffd426;
+  --color-border: #e0e8f2;
   --color-success: #168065;
   --color-warning: #b7791f;
   --color-danger: #c44b59;

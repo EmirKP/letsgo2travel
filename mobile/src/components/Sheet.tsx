@@ -82,8 +82,9 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
     const focusFrame = window.requestAnimationFrame(() => {
       const sheet = sheetRef.current;
       if (!sheet || !isTopSheet(token)) return;
+      // Keep focus if the user already tapped a field while the sheet opened.
+      if (document.activeElement && sheet.contains(document.activeElement)) return;
       const preferred = sheet.querySelector<HTMLElement>("[data-autofocus]")
-        || sheet.querySelector<HTMLElement>(".sheet-body input:not([disabled]), .sheet-body select:not([disabled]), .sheet-body textarea:not([disabled])")
         || sheet.querySelector<HTMLElement>(".sheet-header button:not([disabled])")
         || sheet.querySelector<HTMLElement>("button:not([disabled]), a[href]");
       preferred?.focus({ preventScroll: true });

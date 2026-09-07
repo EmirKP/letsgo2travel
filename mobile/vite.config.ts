@@ -54,7 +54,8 @@ export default defineConfig(({ mode }) => {
       cssCodeSplit: true,
     },
     server: {
-      host: true,
+      host: "0.0.0.0",
+      allowedHosts: ["terminal.local"],
       port: 5173,
       proxy: {
         "/api": {

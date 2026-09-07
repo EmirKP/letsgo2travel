@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
+import { CountryFlag } from "../components/CountryFlag";
+import { alpha2FromAlpha3 } from "../data/countryIso";
 import { Sheet } from "../components/Sheet";
 import { DISCOVERY_DESTINATIONS, dailyDiscovery, localizedDiscovery, type DiscoveryDestination } from "../data/discovery";
 import { COUNTRY_LIST } from "../data/countries";
@@ -18,7 +21,8 @@ import type { RouteSuggestion, ViewId } from "../types";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
-export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
+export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
+  initialDestinationCode?: string;
   ownerId?: string | null;
   accessToken: string;
   onNavigate: (view: ViewId) => void;
@@ -31,7 +35,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
-  const [selectedDestination, setSelectedDestination] = useState<DiscoveryDestination | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
   const featured = localizedDiscovery(dailyDiscovery(), locale);
 
   useEffect(() => {
@@ -147,10 +151,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
   };
 
   return <div className="screen explore-screen">
-    <section className="page-intro explore-intro">
-      <span className="page-icon"><Icon name="compass" size={28} /></span>
-      <div><small>{copy("DÜNYANI GENİŞLET", "EXPAND YOUR WORLD")}</small><h1>{copy("Keşfet", "Discover")}</h1><p>{copy("Pasaportuna, bütçene ve merakına göre yeni rotalar bul.", "Find destinations that fit your passport, budget and curiosity.")}</p></div>
-    </section>
+    <PageHero scene="coast" title={copy("Keşfet", "Explore")} subtitle={copy("Dünyanın bir yerinde, yeni hikâyen seni bekliyor.", "Your next story is waiting somewhere in the world.")} />
 
     <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools")}>
       <button onClick={() => onNavigate("passport")}><span><Icon name="passport" size={22} /></span><strong>{copy("Pasaport Gücü", "Passport Power")}</strong><small>{copy("Giriş durumları", "Entry rules")}</small></button>
@@ -162,7 +163,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
     <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
       <div className="daily-discovery-copy">
         <span>{copy("GÜNÜN KEŞFİ", "TODAY'S DISCOVERY")} · {featured.entry}</span>
-        <h2>{featured.flag} {featured.name}</h2>
+        <h2><CountryFlag code={alpha2FromAlpha3(featured.alpha3)} label={featured.country} /> {featured.name}</h2>
         <p>{featured.description}</p>
         <button onClick={() => openDetails(featured)}>{copy("Ayrıntıları gör", "View details")} <Icon name="chevron" size={17} /></button>
       </div>
@@ -179,7 +180,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
           const favorite = favorites.some((item) => item.alpha3 === destination.alpha3);
           return <article className="discovery-card" key={destination.alpha3}>
             <div className="discovery-visual" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.88)),url(${destinationArtwork(destination.code)})` }}>
-              <span className="destination-flag">{destination.flag}</span>
+              <span className="destination-flag"><CountryFlag code={alpha2FromAlpha3(destination.alpha3)} label={destination.country} /></span>
               <button className={favorite ? "favorite active" : "favorite"} disabled={Boolean(favoriteBusy)} onClick={() => void toggleFavorite(destination)} aria-label={favorite ? copy("Favorilerden çıkar", "Remove from favourites") : copy("Favorilere ekle", "Add to favourites")}>{favoriteBusy === destination.alpha3 ? <span className="button-loader" /> : <Icon name="heart" size={17} />}</button>
               <small>{destination.entry}</small>
               <h3>{destination.name}</h3>
@@ -195,7 +196,7 @@ export function ExploreScreen({ ownerId, accessToken, onNavigate, onSurprise, on
       {selectedDestination && <div className="destination-detail">
         <div className="destination-detail-hero" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.9)),url(${destinationArtwork(selectedDestination.code)})` }}>
           <span>{selectedDestination.entry} · {selectedDestination.tag}</span>
-          <div><small>{selectedDestination.flag} {selectedDestination.country}</small><h3>{selectedDestination.name}</h3><p>{selectedDestination.description}</p></div>
+          <div><small><CountryFlag code={alpha2FromAlpha3(selectedDestination.alpha3)} label={selectedDestination.country} /> {selectedDestination.country}</small><h3>{selectedDestination.name}</h3><p>{selectedDestination.description}</p></div>
         </div>
         <div className="destination-facts">
           <div><span><Icon name="calendar" size={17} /></span><small>{copy("En iyi dönem", "Best season")}</small><strong>{selectedDestination.bestMonths}</strong></div>

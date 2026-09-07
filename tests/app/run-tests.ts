@@ -834,8 +834,13 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
   assert.equal(release.appVersion, "1.4.0");
-  assert.equal(release.buildNumber, 24);
-  assert.equal(release.nativeBuildNumber, 25);
+  assert.equal(release.buildNumber, 27);
+  assert.equal(release.nativeBuildNumber, 27);
+  const xcode = readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8");
+  const nativeTargets = [...xcode.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map(match => Number(match[1]));
+  assert.equal(nativeTargets.length, 4, "iOS app ve widget Debug/Release hedefleri bulunmalı");
+  assert.ok(nativeTargets.every(version => version === release.nativeBuildNumber), "iOS uygulama ve widget sürümleri manifestle eşleşmeli");
+  assert.equal(Number(/versionCode\s+(\d+)/.exec(android)?.[1]), release.nativeBuildNumber);
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
@@ -914,7 +919,8 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
   assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
   assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
-  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("href={kosovoFlag}"), "yakınlaştırma sayfada değil haritada çalışmalı ve Kosova bayrağı haritada görünmeli");
+  assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("href={countryFlagAsset(country.alpha2)}"), "yakınlaştırma sayfada değil haritada çalışmalı ve yerel bayraklar haritada görünmeli");
+  assert.ok(statSync("mobile/public/flags/xk.svg").size > 200, "Kosova harita bayrağı paket içinde kalmalı");
   assert.ok(styles.includes("height: clamp(300px,78vw,380px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
   assert.ok(admin.includes("setEvidencePreview") && admin.includes('evidencePreview.evidenceType === "application/pdf"') && admin.includes("disabled={!evidenceLoaded}"), "belge uygulama içinde önizlenmeden incelendi sayılamamalı");
   assert.ok(admin.includes("!opened.has(item.id)") && admin.includes("Önce belgeyi incele"), "onay ve red belge incelemesine kadar kilitli kalmalı");
@@ -951,6 +957,30 @@ test("Build 18: öneri kartlarında şehirle eşleşen yerel görseller bulunur"
   assert.ok(artwork.includes('fallbackArtwork from "../assets/launch-travel-poster.webp"'), "bilinmeyen şehir başka bir destinasyon gibi gösterilmemeli");
 });
 
+test("Referans tasarım: tüm ISO ülke bayrakları ağsız SVG olarak paketlenir", () => {
+  const countries = JSON.parse(readFileSync("mobile/src/data/iso3166.json", "utf8")) as Array<{ alpha2: string }>;
+  for (const country of countries) {
+    const file = `mobile/public/flags/${country.alpha2.toLowerCase()}.svg`;
+    assert.ok(statSync(file).size > 50, `${country.alpha2} bayrağı eksik`);
+    assert.ok(readFileSync(file, "utf8").includes("<svg"), `${country.alpha2} geçerli SVG değil`);
+  }
+  const flag = readFileSync("mobile/src/components/CountryFlag.tsx", "utf8");
+  const assets = readFileSync("mobile/src/data/flagAssets.ts", "utf8");
+  assert.ok(flag.includes("countryFlagAsset(alpha2)"), "tüm ülke listeleri ortak SVG kaynağını kullanmalı");
+  assert.ok(assets.includes("import.meta.env.BASE_URL") && assets.includes('normalized === "xkk"'), "bayrak yolu mobil göreli tabanı ve Kosova aliasını korumalı");
+});
+
+test("Referans tasarım: mevcut özellikler sekiz ana ekranın yanında erişilebilir kalır", () => {
+  const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const plans = readFileSync("mobile/src/screens/PlansScreen.tsx", "utf8");
+  const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const route = readFileSync("mobile/src/screens/RouteAssistantScreen.tsx", "utf8");
+  assert.ok(app.includes('activeView === "costs"') && app.includes('activeView === "airports"'), "maliyet ve havalimanı ekranları gerçek yönlendirmeye bağlı olmalı");
+  assert.ok(home.includes("onBuildRoute={onBuildRoute}") || home.includes("onSelect={onBuildRoute}"), "ana sayfa fotoğrafı rota planına bağlanmalı");
+  assert.ok(plans.includes("<TripCollaborationHub") && plans.includes("<JourneyToolsHub") && plans.includes("saved-travel-entry"), "ortak seyahat ve yol araçları erişilebilir kalmalı");
+  assert.ok(route.includes('"SJJ","FCO","BKK"') && route.includes("snapshotPlannerInput"), "ilham kartları var olan rotalardan ve plan tercihlerinden beslenmeli");
+});
+
 test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde sadeleşir", () => {
   const field = readFileSync("mobile/src/components/DateTimeField.tsx", "utf8");
   const styles = readFileSync("mobile/src/App.css", "utf8");
@@ -966,7 +996,8 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
     assert.ok(source.includes("<DateTimeField"), `${name} ortak tarih alanını kullanmalı`);
   }
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
-  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-focus") && home.includes("Yeni seyahat planla"), "ana sayfa yaklaşan seyahati ve doğrudan planlama eylemini göstermeli");
+  const cover = readFileSync("mobile/src/components/DiscoveryCover.tsx", "utf8");
+  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-focus") && home.includes("<DiscoveryCover") && cover.includes('view: "route"') && cover.includes("onNavigate(item.view)"), "ana sayfa yaklaşan seyahati ve doğrudan planlama kısayolunu göstermeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
 });
 
@@ -977,7 +1008,7 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
 
   assert.ok(map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sınırlandırılmış aralıkta yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
   assert.ok(!map.includes("style={{ transform:") && styles.includes("shape-rendering: geometricPrecision"), "SVG CSS ile büyütülüp bulanıklaştırılmamalı");
-  assert.ok(map.includes("fontSize={flagSize}") && map.includes("width={flagSize}") && map.includes("href={kosovoFlag}"), "bayraklar okunur boyutta ve Kosova gerçek görseliyle kalmalı");
+  assert.ok(map.includes("width={flagSize}") && map.includes("height={flagSize*0.7}") && map.includes("href={countryFlagAsset(country.alpha2)}"), "bayraklar okunur boyutta yerel SVG olarak kalmalı");
   assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('Text(isEnglish ? "Flying" : "Uçuyoruz")'), "canlı etkinlik uygulama kapalıyken uçuş evresine geçmeli");
   assert.ok(widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")') && widget.includes("kind: .flying"), "varış sayacı sağ tarafta sarı uçuş sayacı olarak görünmeli");
 });

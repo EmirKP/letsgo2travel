@@ -1,7 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./App.css";
+import "./fonts.css";
+import "./editorial.css";
+import "./merged-functional.css";
 import { AccountSheet } from "./components/AccountSheet";
+import { CountryFlag } from "./components/CountryFlag";
 import { AnimatedSplash } from "./components/AnimatedSplash";
 import { GuestDataImportSheet } from "./components/GuestDataImportSheet";
 import { Icon, type IconName } from "./components/Icon";
@@ -41,10 +45,12 @@ import {
   shouldOfferGuestDataImport,
 } from "./lib/storage";
 import { HomeScreen } from "./screens/HomeScreen";
+import { BrandMark } from "./components/BrandMark";
 import type { RouteSuggestion, TabId, ViewId } from "./types";
 
 // Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
 // indirilir. Böylece açılış paketi ve düşük bağlantıda ilk etkileşim hafifler.
+const CostsScreen = lazy(() => import("./screens/CostsScreen").then(m => ({ default: m.CostsScreen })));
 const AdminScreen = lazy(() => import("./screens/AdminScreen").then((module) => ({ default: module.AdminScreen })));
 const CockpitScreen = lazy(() => import("./screens/CockpitScreen").then((module) => ({ default: module.CockpitScreen })));
 const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then((module) => ({ default: module.CommunityScreen })));
@@ -57,22 +63,24 @@ const RouteAssistantScreen = lazy(() => import("./screens/RouteAssistantScreen")
 const SurpriseScreen = lazy(() => import("./screens/SurpriseScreen").then((module) => ({ default: module.SurpriseScreen })));
 const TripsScreen = lazy(() => import("./screens/PlansScreen").then((module) => ({ default: module.TripsScreen })));
 const TravelCompanionScreen = lazy(() => import("./screens/TravelCompanionScreen").then((module) => ({ default: module.TravelCompanionScreen })));
+const AirportGuideScreen = lazy(() => import("./screens/AirportGuideScreen").then((module) => ({ default: module.AirportGuideScreen })));
 
 const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "home", icon: "home" },
   { id: "explore", icon: "compass" },
-  { id: "route", icon: "route" },
-  { id: "trips", icon: "suitcase" },
+  { id: "route", icon: "plus" },
+  { id: "trips", icon: "heart" },
   { id: "profile", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
     const parsed = new URL(value, window.location.origin);
     const raw = (parsed.hash.replace(/^#\/?/, "") || parsed.searchParams.get("view") || parsed.pathname.split("/").filter(Boolean).pop() || parsed.host).toLocaleLowerCase("tr-TR");
     const aliases: Record<string, ViewId> = {
+      "ulke-maliyetleri": "costs", "havalimani-rehberi": "airports", "kaydedilenler": "trips",
       "ana-sayfa": "home",
       "kesfet": "explore",
       "keşfet": "explore",
@@ -107,6 +115,7 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
+  if (view === "costs" || view === "airports") return "explore";
   if (view === "passport" || view === "surprise" || view === "events" || view === "companion" || view === "phrases") return "explore";
   if (view === "cockpit") return "trips";
   if (view === "community" || view === "alerts" || view === "admin") return "profile";
@@ -125,6 +134,8 @@ function highlightedTabFor(view: ViewId): TabId | null {
 export default function App() {
   const { locale, setLocale, copy } = useI18n();
   const [launching, setLaunching] = useState(() => isNativePlatform());
+  const [openTransfer, setOpenTransfer] = useState(false);
+  const [exploreCode, setExploreCode] = useState("");
   const [activeView, setActiveView] = useState<ViewId>(() => pendingTripInvite(window.location.href) ? "trips" : viewFromUrl(window.location.href) || "home");
   const [notice, setNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,7 +179,7 @@ export default function App() {
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
   const activeTab = highlightedTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin" || activeView === "costs" || activeView === "airports";
   const nativeUiRef = useRef({
     accountOpen,
     activeView,
@@ -184,6 +195,7 @@ export default function App() {
   useEffect(() => {
     activeViewRef.current = activeView;
     const titles: Record<ViewId, string> = {
+      costs: copy("Ülke Maliyetleri", "Country Costs"), airports: copy("Havalimanı Rehberi", "Airport Guide"),
       home: copy("Ana Sayfa", "Home"), explore: copy("Keşfet", "Explore"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Seyahatlerim", "My Trips"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahat Kokpiti", "Travel Cockpit"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Seyahat Yardımcısı", "Travel Companion"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
     };
     document.title = `${titles[activeView]} · LetsGo2Travel`;
@@ -247,6 +259,8 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((view: ViewId, options?: { replace?: boolean; communityCountryCode?: string }) => {
+    setOpenTransfer(false);
+    setExploreCode("");
     if (view === "community") setCommunityCountryCode(options?.communityCountryCode || "");
     const current = activeViewRef.current;
     if (current === view && !options?.replace) {
@@ -591,7 +605,12 @@ export default function App() {
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
-    const update = () => setKeyboardOpen(window.innerHeight - viewport.height > 150);
+    const update = () => {
+      setKeyboardOpen(window.innerHeight - viewport.height > 150);
+      document.documentElement.style.setProperty("--visual-height", `${viewport.height}px`);
+      document.documentElement.style.setProperty("--visual-top", `${viewport.offsetTop}px`);
+    };
+    update();
     viewport.addEventListener("resize", update);
     viewport.addEventListener("scroll", update);
     return () => {
@@ -733,39 +752,41 @@ export default function App() {
   };
 
   const content = useMemo(() => {
-    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onNotice={showNotice} />;
-    if (activeView === "explore") return <ExploreScreen ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
+    if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
+    if (activeView === "explore") return <ExploreScreen initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "events") return <EventsScreen ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "costs") return <CostsScreen />;
+    if (activeView === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
     if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen initialTab={activeView === "phrases" ? "phrases" : "now"} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen />;
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
-    if (activeView === "trips") return <TripsScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "trips") return <TripsScreen initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, cockpitInviteCode, communityCountryCode, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, cockpitInviteCode, communityCountryCode, exploreCode, openTransfer, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
 
   const tabs = tabDefinitions.map((tab) => ({
     ...tab,
-    label: tab.id === "home" ? copy("Ana Sayfa", "Home") : tab.id === "explore" ? copy("Keşfet", "Explore") : tab.id === "route" ? copy("Planla", "Plan") : tab.id === "trips" ? copy("Seyahatlerim", "My Trips") : copy("Profil", "Profile"),
+    label: tab.id === "home" ? copy("Ana Sayfa", "Home") : tab.id === "explore" ? copy("Keşfet", "Explore") : tab.id === "route" ? copy("Planla", "Plan") : tab.id === "trips" ? copy("Kaydedilenler", "Saved") : copy("Profil", "Profile"),
   }));
 
-  return <div className={`app-shell ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
+  return <div className={`app-shell editorial-app view-${activeView} ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
     <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
-        <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("Ana sayfa", "Home")}><span className="brand">LetsGo<strong>2</strong>Travel</span></button>
+        <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("Ana sayfa", "Home")}><BrandMark /><span className="brand-lockup"><span className="brand">LetsGo<strong>2</strong>Travel</span><span className="brand-tagline">{copy("DAHA FAZLA KEŞFET", "DISCOVER MORE")}</span></span></button>
       </div>
       <div className="topbar-actions">
         {/* Header sade: geri/logo + bildirim + menü. Profil BottomNav'da;
             buradaki kısayol ve işlevi belirsiz durum noktası kaldırıldı
             (çevrimdışı durumu zaten banner ile gösterilir). Bildirim
             rozeti YALNIZ gerçekten okunmamış içerik varken görünür. */}
-        <button className="language-toggle" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={locale === "tr" ? "Uygulama dilini İngilizce yap" : "Switch app language to Turkish"}><span>{locale === "tr" ? "🇹🇷" : "🇬🇧"}</span><strong>{locale.toUpperCase()}</strong></button>
+        <button className="language-toggle" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={locale === "tr" ? "Uygulama dilini İngilizce yap" : "Switch app language to Turkish"}><CountryFlag code={locale === "tr" ? "TR" : "GB"} label={locale === "tr" ? "Türkçe" : "English"} /><strong>{locale.toUpperCase()}</strong></button>
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>
       </div>

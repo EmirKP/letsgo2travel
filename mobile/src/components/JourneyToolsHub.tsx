@@ -42,7 +42,8 @@ function tripLabel(trip: SafetyTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-export function JourneyToolsHub({ user, ownerId, accessToken, onNavigate, onNotice }: {
+export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNavigate, onNotice }: {
+  initialTool?: ToolId;
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -50,7 +51,7 @@ export function JourneyToolsHub({ user, ownerId, accessToken, onNavigate, onNoti
   onNotice: (message: string) => void;
 }) {
   const { copy, locale, countryName, dateLocale } = useI18n();
-  const [active, setActive] = useState<ToolId | null>(null);
+  const [active, setActive] = useState<ToolId | null>(initialTool || null);
   const [trips, setTrips] = useState<SafetyTrip[]>(() => readSafetyTrips(ownerId));
   const [journal, setJournal] = useState<JournalEntry[]>(() => { try { return readJournal(ownerId).entries; } catch { return []; } });
   const [busy, setBusy] = useState("");

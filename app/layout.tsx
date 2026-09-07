@@ -3,6 +3,7 @@ import "./globals.css";
 import "./styles/legacy-consolidated.css";
 import "./styles/tokens.css";
 import "./styles/foundation.css";
+import "./styles/reference.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
@@ -17,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: "#0A2C3F",
+  themeColor: "#092e57",
   viewportFit: "cover",
 };
 

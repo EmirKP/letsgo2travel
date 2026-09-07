@@ -34,8 +34,31 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {
 
 await test("raw codes, HTTPS links and app links resolve to the same invitation",()=>{
   const {parseTripInvite}=modules()("lib/trip-invite.ts");const token="A_valid-invite-token_123456789";
-  for(const input of [token,`https://www.letsgo2travel.com.tr/davet/${token}`,`https://letsgo2travel.com.tr/davet/${token}/?utm_source=share`,`tr.com.letsgo2travel.app://open?tripInvite=${token}`]) assert.equal(parseTripInvite(input),token);
-  for(const input of ["", "broken",`https://evil.test/davet/${token}`,"javascript:alert(1)","https://letsgo2travel.com.tr/davet/%ZZ"]) assert.equal(parseTripInvite(input),"");
+  for(const input of [token,`https://www.letsgo2travel.com.tr/davet/${token}`,`https://letsgo2travel.com.tr/davet/${token}/?utm_source=share`,`tr.com.letsgo2travel.app://open?tripInvite=${token}`,`tr.com.letsgo2travel.app://davet/${token}`]) assert.equal(parseTripInvite(input),token);
+  for(const input of ["", "broken",`https://evil.test/davet/${token}`,"javascript:alert(1)",`https://user:secret@letsgo2travel.com.tr/davet/${token}`,`https://letsgo2travel.com.tr:8080/davet/${token}`,"https://letsgo2travel.com.tr/davet/%ZZ"]) assert.equal(parseTripInvite(input),"");
+});
+await test("native picker rejects invalid calendar days, times and ranges without UTC drift",()=>{
+  const dates=modules()("mobile/src/lib/dates.ts");
+  assert.equal(dates.validPickerValue("2028-02-29","date"),true);
+  for(const value of ["2026-02-29","2026-04-31","2026-00-10","no date"]) assert.equal(dates.validPickerValue(value,"date"),false);
+  assert.equal(dates.validPickerValue("2026-09-07","date","2026-09-08"),false);
+  assert.equal(dates.validPickerValue("2026-09-10","date",undefined,"2026-09-09"),false);
+  assert.equal(dates.validPickerValue("24:00","time"),false);
+  assert.equal(dates.validPickerValue("23:59","time"),true);
+  assert.equal(dates.validPickerValue("2026-02-30T10:00","datetime-local"),false);
+  assert.equal(dates.validPickerValue("2026-09-07T10:30","datetime-local","2026-09-07T10:31"),false);
+  assert.equal(dates.validPickerValue("","date"),true);
+  assert.equal(dates.isValidDateRange("2026-02-30","2026-03-02","2026-01-01"),false);
+  assert.equal(dates.clampLocalDateTime("2026-02-30T12:00","2026-01-01T12:00"),"2026-01-01T12:00");
+});
+await test("budget multiplies per-person daily allowances and rejects invalid inputs",()=>{
+  const {budgetTotal,costPerDay,COST_EXAMPLES}=modules()("mobile/src/data/costEstimates.ts");
+  assert.equal(budgetTotal(["1300","700","180","250"],"4","2"),19440);
+  assert.equal(budgetTotal(["0.10","0.20","0","0"],"1","1"),0.3);
+  for(const values of [["-1"],[""],["NaN"],["Infinity"],["1000001"]]) assert.equal(budgetTotal(values,"1","1"),null);
+  for(const days of ["0","366","1.5",""]) assert.equal(budgetTotal(["1"],days,"1"),null);
+  for(const people of ["0","100","1.5"]) assert.equal(budgetTotal(["1"],"1",people),null);
+  assert.equal(costPerDay(COST_EXAMPLES[0]),2430);
 });
 await test("login/signup returns to the invite without allowing external redirects",()=>{
   const {safeAuthNext}=modules()("lib/auth-next.ts");

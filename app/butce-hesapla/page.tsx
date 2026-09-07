@@ -128,6 +128,7 @@ export default function BudgetCalculatorPage() {
   return (
     <div className="l2t-budget-v25-page">
       <section className="l2t-budget-v25-hero">
+        <p role="note" className="l2t-container" style={{ color: "#fff", paddingTop: 16 }}>Örnek bütçe hesabı: Tutarlar canlı fiyat veya ölçülmüş ülke ortalaması değildir. Kişi başı günlük tahmini tutarlardır; uçak bileti dahil değildir.</p>
         <div className="l2t-wrap l2t-budget-v25-hero-grid">
           <div>
             <span className="l2t-v25-kicker"><Calculator size={15} /> Seyahat bütçe planlayıcı</span>

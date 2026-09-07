@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
+import { DiscoveryCover } from "../components/DiscoveryCover";
 import { CountryFlag } from "../components/CountryFlag";
 import { dailyDiscovery, localizedDiscovery } from "../data/discovery";
-import { alpha3FromAlpha2 } from "../data/countryIso";
+import { alpha3FromAlpha2, alpha2FromAlpha3 } from "../data/countryIso";
 import { listTravelEvents } from "../lib/api";
 import { listCommunityQuestions, type CommunityQuestion } from "../lib/community";
 import { useI18n } from "../lib/i18n";
@@ -49,7 +50,7 @@ function tripName(trip: CockpitTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenCommunity, onSurprise, onNotice }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenCommunity, onSurprise, onBuildRoute, onNotice }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken?: string;
@@ -57,6 +58,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   onNavigate: (view: ViewId) => void;
   onOpenCommunity: (countryCode?: string) => void;
   onSurprise: (route: RouteSuggestion) => void;
+  onBuildRoute: (route: RouteSuggestion) => void;
   onNotice: (message: string) => void;
 }) {
   const { locale, copy, countryName, dateLocale } = useI18n();
@@ -141,8 +143,9 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   };
 
   return <div className="screen home-screen home-v14">
+    <DiscoveryCover onNavigate={onNavigate} onSelect={onBuildRoute} />
     <section className="home-welcome">
-      <div><small>{greeting(locale)}</small><h1>{name} <span aria-hidden="true">👋</span></h1><p>{copy("Bugün seyahatin için neyi çözmek istiyorsun?", "What would you like to solve for your trip today?")}</p></div>
+      <div><small>{greeting(locale)}</small><h2>{name}</h2><p>{copy("Bugün seyahatin için neyi çözmek istiyorsun?", "What would you like to solve for your trip today?")}</p></div>
       <button onClick={() => onNavigate("profile")} aria-label={copy("Profili aç", "Open profile")}>{name.slice(0, 1).toLocaleUpperCase(locale)}</button>
     </section>
 
@@ -163,13 +166,6 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
         </button>)}</div>
           : <button className="home-community-empty" type="button" onClick={() => onOpenCommunity()}><Icon name={communityError ? "offline" : "users"} size={20} /><span><strong>{communityError ? copy("Topluluğa şu an ulaşılamıyor", "Community is temporarily unavailable") : copy("İlk soruyu sen sor", "Ask the first question")}</strong><small>{copy("Soruları okumak için giriş gerekmez.", "No sign-in is needed to read questions.")}</small></span><Icon name="chevron" size={16} /></button>}
       <button className="home-community-action" type="button" onClick={() => onOpenCommunity()}><Icon name="users" size={18} /> {copy("Tüm topluluğa gir", "Open the full community")} <Icon name="chevron" size={16} /></button>
-    </section>
-
-    <section className="home-purpose">
-      <span className="home-purpose-badge"><Icon name="globe" size={18} /> LetsGo2Travel</span>
-      <h2>{copy("Sıradaki rotanı birlikte bulalım.", "Let’s find your next route.")}</h2>
-      <p>{copy("Yerini seç, rotanı kur, fırsatları ve etkinlikleri yakala; seyahatte ihtiyacın olan araçları yanında taşı.", "Choose a place, build your route, catch events and deals, and carry the tools you need on the road.")}</p>
-      <button className="home-purpose-action" onClick={() => onNavigate("route")}><Icon name="route" size={18} /> {copy("Yeni seyahat planla", "Plan a new trip")} <Icon name="chevron" size={16} /></button>
     </section>
 
     {(ownerId && accessToken) && <section className={`home-trip-focus ${!nextTrip ? "empty" : ""}`} aria-live="polite">
@@ -207,7 +203,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     </section>
 
     <section className="home-discovery-row">
-      <div><small>{copy("BUGÜNÜN FİKRİ", "TODAY'S IDEA")}</small><h2>{discovery.flag} {discovery.name}</h2><p>{discovery.tag} · {discovery.entry}</p></div>
+      <div><small>{copy("BUGÜNÜN FİKRİ", "TODAY'S IDEA")}</small><h2><CountryFlag code={alpha2FromAlpha3(discovery.alpha3)} label={discovery.country} /> {discovery.name}</h2><p>{discovery.tag} · {discovery.entry}</p></div>
       <button onClick={() => onNavigate("explore")}>{copy("İncele", "Explore")} <Icon name="chevron" size={16} /></button>
     </section>
 

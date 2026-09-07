@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
+import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
-import { createFallbackPlan } from "../data/routes";
+import { createFallbackPlan, routeByDestinationCode } from "../data/routes";
 import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
@@ -52,7 +54,7 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
 }) {
   const { copy, locale } = useI18n();
   const [form, setForm] = useState<PlannerInput>(INITIAL);
-  const [step, setStep] = useState(0);
+  const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [loading, setLoading] = useState(false);
   const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
@@ -161,62 +163,42 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
   };
 
   return (
-    <div className="screen">
-      <section className="page-intro compact-intro route-intro">
-        <span className="page-icon"><Icon name="route" size={27} /></span>
-        <div><small>{copy("AKILLI KEŞİF", "SMART DISCOVERY")}</small><h1>{copy("Rota Asistanı", "Route Assistant")}</h1><p>{copy("Üç kısa adımda tercihlerini seç; sana uygun rotaları önerelim.", "Make your choices in three short steps and get routes that fit you.")}</p></div>
-      </section>
+    <div className="screen route-screen">
+      <PageHero scene="journey" title={copy("Rota Asistanı", "Route Assistant")} subtitle={copy("Hayalindeki seyahati birlikte planlayalım.", "Let's plan the journey you have in mind.")} />
 
-      <section className="form-card planner-form planner-steps">
-        <div className="planner-progress" aria-label={copy(`Adım ${step + 1} / 3`, `Step ${step + 1} / 3`)}>
-          {[0, 1, 2].map((index) => <button type="button" key={index} className={index === step ? "active" : index < step ? "done" : ""} aria-label={copy(`Adım ${index + 1}`, `Step ${index + 1}`)} onClick={() => index < step && setStep(index)} />)}
-        </div>
-
-        {step === 0 && <div className="planner-step">
-          <h2 className="planner-step-title">{copy("Nereden ve ne zaman?", "From where and when?")}</h2>
-          <AirportField
-            label={copy("Çıkış noktası", "Departure point")}
-            placeholder={form.origin ? copy(`${form.origin} (değiştirmek için yaz)`, `${form.origin} (type to change)`) : copy("Şehir veya havalimanı yaz", "Type a city or airport")}
-            value={originAirport}
-            required
-            onChange={(airport) => {
-              setOriginAirport(airport);
-              setForm({ ...form, origin: airport ? airport.city || airport.name : "" });
-            }}
-          />
-          {!originAirport && <p className="planner-hint">{copy("Rota önerebilmemiz için çıkış şehrini veya havalimanını seç.", "Choose a departure city or airport so we can suggest a route.")}</p>}
-          <div className="form-grid two stack-narrow">
-            <label>{copy("Süre", "Duration")}<select value={form.days} onChange={(event) => setForm({ ...form, days: event.target.value })}><option value="2–3 gün">{copy("2–3 gün", "2–3 days")}</option><option value="4–6 gün">{copy("4–6 gün", "4–6 days")}</option><option value="7–10 gün">{copy("7–10 gün", "7–10 days")}</option><option value="10+ gün">{copy("10+ gün", "10+ days")}</option></select></label>
-            <label>{copy("Dönem", "Month")}<select value={form.month} onChange={(event) => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month, index) => <option key={month} value={month}>{copy(month, ["January","February","March","April","May","June","July","August","September","October","November","December"][index])}</option>)}</select></label>
+      <div className="editorial-segments planner-modes" role="group" aria-label={copy("Planlama bölümleri", "Planning sections")}>
+        {(["plan", "ready", "preferences"] as const).map((tab, index) => <button type="button" key={tab} aria-pressed={plannerTab === tab} onClick={() => setPlannerTab(tab)}>{[copy("Rota Planı", "Route Plan"), copy("Hazır Rotalar", "Ready Routes"), copy("Tercihlerim", "Preferences")][index]}</button>)}
+      </div>
+      {plannerTab !== "ready" && <section className="form-card planner-form reference-planner">
+        {plannerTab === "plan" ? <>
+          <AirportField label={copy("Nereden?", "From?")} placeholder={copy("Şehir veya havalimanı", "City or airport")} value={originAirport} required onChange={(airport) => { setOriginAirport(airport); setForm(current => ({ ...current, origin: airport ? airport.city || airport.name : "" })); }} />
+          <div className="form-grid two">
+            <label>{copy("Süre", "Duration")}<select value={form.days} onChange={event => setForm({ ...form, days: event.target.value })}>{["2–3 gün","4–6 gün","7–10 gün","10+ gün"].map((value,index) => <option key={value} value={value}>{copy(value,["2–3 days","4–6 days","7–10 days","10+ days"][index])}</option>)}</select></label>
+            <label>{copy("Dönem", "Month")}<select value={form.month} onChange={event => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month,index) => <option key={month} value={month}>{copy(month,["January","February","March","April","May","June","July","August","September","October","November","December"][index])}</option>)}</select></label>
           </div>
-          <button className="primary-wide" disabled={!form.origin} onClick={() => setStep(1)}><Icon name="chevron" size={17} /> {copy("Devam et", "Continue")}</button>
-        </div>}
-
-        {step === 1 && <div className="planner-step">
-          <h2 className="planner-step-title">{copy("Bütçe ve yol arkadaşların", "Budget and companions")}</h2>
-          <div className="form-grid two stack-narrow">
-            <label>{copy("Bütçe", "Budget")}<select value={form.budget} onChange={(event) => setForm({ ...form, budget: event.target.value })}><option value="Ekonomik">{copy("Ekonomik", "Economy")}</option><option value="Orta">{copy("Orta", "Balanced")}</option><option value="Yüksek / premium">Premium</option></select></label>
-            <label>{copy("Konaklama", "Accommodation")}<select value={form.accommodation} onChange={(event) => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option value="Otel">{copy("Otel", "Hotel")}</option><option value="Apart / ev">{copy("Apart / ev", "Apartment / home")}</option><option value="Fark etmez">{copy("Fark etmez", "Any")}</option></select></label>
+          <label className="planner-inline-field"><Icon name="users" size={18} /><span>{copy("Kiminle?", "With whom?")}</span><select value={form.who} onChange={event => setForm({ ...form, who: event.target.value })}>{["Tek başıma","Partnerimle","Arkadaşlarımla","Ailemle","İlk yurt dışı deneyimim"].map((value,index) => <option key={value} value={value}>{copy(value,["Solo","With my partner","With friends","With family","My first trip"][index])}</option>)}</select></label>
+          <label className="planner-inline-field"><Icon name="wallet" size={18} /><span>{copy("Bütçe", "Budget")}</span><select value={form.budget} onChange={event => setForm({ ...form, budget: event.target.value })}><option value="Ekonomik">{copy("Ekonomik","Economy")}</option><option value="Orta">{copy("Orta","Balanced")}</option><option value="Yüksek / premium">Premium</option></select></label>
+          <button type="button" className="planner-preferences-link" onClick={() => setPlannerTab("preferences")}><Icon name="settings" size={17} /><span>{copy("Seyahat tarzı ve diğer tercihler", "Travel style and more preferences")}</span><Icon name="chevron" size={15} /></button>
+        </> : <>
+          <h2>{copy("Sana göre bir yolculuk", "A journey that feels like you")}</h2>
+          <div className="form-grid two">
+            <label>{copy("Konaklama", "Stay")}<select value={form.accommodation} onChange={event => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option value="Otel">{copy("Otel","Hotel")}</option><option value="Apart / ev">{copy("Apart / ev","Apartment / home")}</option><option value="Fark etmez">{copy("Fark etmez","Any")}</option></select></label>
+            <label>{copy("Tempo", "Pace")}<select value={form.tempo} onChange={event => setForm({ ...form, tempo: event.target.value })}>{["Rahat","Dengeli","Yoğun"].map((value,index) => <option key={value} value={value}>{copy(value,["Easy","Balanced","Busy"][index])}</option>)}</select></label>
           </div>
-          <div className="form-grid two stack-narrow">
-            <label>{copy("Kiminle?", "With whom?")}<select value={form.who} onChange={(event) => setForm({ ...form, who: event.target.value })}><option value="Tek başıma">{copy("Tek başıma", "Solo")}</option><option value="Partnerimle">{copy("Partnerimle", "With my partner")}</option><option value="Arkadaşlarımla">{copy("Arkadaşlarımla", "With friends")}</option><option value="Ailemle">{copy("Ailemle", "With family")}</option><option value="İlk yurt dışı deneyimim">{copy("İlk seyahatim", "My first trip")}</option></select></label>
-            <label>{copy("Tempo", "Pace")}<select value={form.tempo} onChange={(event) => setForm({ ...form, tempo: event.target.value })}><option value="Rahat">{copy("Rahat", "Easy")}</option><option value="Dengeli">{copy("Dengeli", "Balanced")}</option><option value="Yoğun">{copy("Yoğun", "Busy")}</option></select></label>
-          </div>
-          <label>{copy("Giriş tercihi", "Entry preference")}<select value={form.visa} onChange={(event) => setForm({ ...form, visa: event.target.value })}><option value="Vizesiz veya kolay giriş">{copy("Vizesiz / kolay", "Visa-free / easy")}</option><option value="Vize olabilir">{copy("Vize olabilir", "Visa is okay")}</option><option value="Fark etmez">{copy("Fark etmez", "Any")}</option></select></label>
-          <div className="planner-step-nav">
-            <button className="secondary-button" onClick={() => setStep(0)}><Icon name="back" size={16} /> {copy("Geri", "Back")}</button>
-            <button className="primary-button" onClick={() => setStep(2)}>{copy("Devam et", "Continue")} <Icon name="chevron" size={16} /></button>
-          </div>
-        </div>}
-
-        {step === 2 && <div className="planner-step">
-          <h2 className="planner-step-title">{copy("Nasıl bir seyahat istiyorsun?", "What kind of trip do you want?")}</h2>
-          <fieldset className="vibe-fieldset"><legend className="sr-only">{copy("İlgi alanların", "Your interests")}</legend><div className="choice-grid">{VIBES.map((vibe, index) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{form.vibe.includes(vibe) && <Icon name="check" size={15} />}{copy(vibe, ["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div></fieldset>
-          <div className="planner-step-nav">
-            <button className="secondary-button" onClick={() => setStep(1)}><Icon name="back" size={16} /> {copy("Geri", "Back")}</button>
-            <button className="primary-button planner-generate" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : <Icon name="route" size={18} />} {loading ? copy("Hazırlanıyor", "Building") : copy("Bana rota öner", "Suggest a route")}</button>
-          </div>
-        </div>}
+          <label>{copy("Giriş tercihi", "Entry preference")}<select value={form.visa} onChange={event => setForm({ ...form, visa: event.target.value })}>{["Vizesiz veya kolay giriş","Vize olabilir","Fark etmez"].map((value,index) => <option key={value} value={value}>{copy(value,["Visa-free / easy","Visa is okay","Any"][index])}</option>)}</select></label>
+          <fieldset className="vibe-fieldset"><legend>{copy("İlgi alanların", "Your interests")}</legend><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div></fieldset>
+          <button type="button" className="secondary-wide" onClick={() => setPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
+        </>}
+        <button type="button" className="primary-wide" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
+        {!form.origin && <p className="planner-hint">{copy("Başlamak için çıkış şehrini seç.", "Choose your departure city to begin.")}</p>}
+      </section>}
+      <section className="planner-inspiration">
+        <div className="editorial-heading"><h2>{copy("İlham Al", "Get Inspired")}</h2><button type="button" onClick={() => setPlannerTab(plannerTab === "ready" ? "plan" : "ready")}>{plannerTab === "ready" ? copy("Planıma dön","Back to plan") : copy("Rotaları keşfet","Explore routes")}<Icon name="chevron" size={14} /></button></div>
+        <div className="planner-photo-grid">{(plannerTab === "ready" ? ["SJJ","FCO","BKK","TBS","DXB","BEG"] : ["SJJ","FCO","BKK"]).map(code => {
+          const route = routeByDestinationCode(code, locale);
+          if (!route) return null;
+          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput(form)); setSource("explore"); setExpanded(route.name); setSavedKey(""); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
+        })}</div>
       </section>
 
       {plan && <section className="plan-results">

@@ -1,4 +1,5 @@
-import { useId } from "react";
+import { isCalendarDate, validPickerValue } from "../lib/dates";
+import { useId, useState } from "react";
 import { Icon } from "./Icon";
 import { useI18n } from "../lib/i18n";
 
@@ -16,7 +17,7 @@ type DateTimeFieldProps = {
 
 function localDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return null;
+  if (!match || !isCalendarDate(value.slice(0,10))) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -38,6 +39,7 @@ function visibleValue(value: string, type: DateTimeFieldProps["type"], locale: "
 
 export function DateTimeField({ type, label, value, onChange, min, max, required = false, disabled = false, className = "" }: DateTimeFieldProps) {
   const inputId = useId();
+  const [invalid, setInvalid] = useState(false);
   const { copy, locale } = useI18n();
   const display = visibleValue(value || "", type, locale);
   const placeholder = type === "time"
@@ -45,6 +47,13 @@ export function DateTimeField({ type, label, value, onChange, min, max, required
     : type === "datetime-local"
       ? copy("Tarih ve saat seç", "Choose date and time")
       : copy("Tarih seç", "Choose date");
+
+  // iOS date/time wheels can emit input before committing change on dismissal.
+  const accept = (requested: string) => {
+    const valid = validPickerValue(requested, type, min, max);
+    setInvalid(!valid);
+    if (valid && requested !== (value || "")) onChange(requested);
+  };
 
   return <label className={`date-time-field ${disabled ? "disabled" : ""} ${className}`.trim()} htmlFor={inputId}>
     <span className="date-time-label">{label}{required && <em className="required-mark"> · {copy("zorunlu", "required")}</em>}</span>
@@ -61,9 +70,17 @@ export function DateTimeField({ type, label, value, onChange, min, max, required
         required={required}
         aria-required={required || undefined}
         aria-label={label}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${inputId}-error` : undefined}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        onClick={(event) => {
+          // Open the picker from the whole accessible control, not just its tiny icon.
+          try { event.currentTarget.showPicker?.(); } catch { /* Native focus remains available. */ }
+        }}
+        onInput={(event) => accept(event.currentTarget.value)}
+        onChange={(event) => accept(event.currentTarget.value)}
       />
     </span>
+    {invalid && <span id={`${inputId}-error`} className="date-time-error" role="alert">{copy("İzin verilen aralıkta geçerli bir tarih veya saat seç.", "Choose a valid date or time within the allowed range.")}</span>}
   </label>;
 }

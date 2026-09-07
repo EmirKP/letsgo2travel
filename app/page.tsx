@@ -81,6 +81,8 @@ function getRouteHighlights() {
 // Ana sayfanın dört temel aracı. Fiyat Alarmı bir arama motoru DEĞİLDİR;
 // takip ettiğin rotada fiyat düşünce haber veren bağımsız bir araçtır.
 const quickActions = [
+  { href: "/pasaport-gucu", icon: ShieldCheck, title: "Pasaport Gücü", text: "Pasaportuna göre giriş durumlarını karşılaştır." },
+  { href: "/butce-hesapla", icon: Calculator, title: "Ülke Maliyetleri", text: "Örnek bütçeyi kendi seyahatine göre hesapla." },
   {
     href: "/ulke-rehberi",
     icon: Compass,
@@ -119,7 +121,7 @@ export default async function HomePage() {
         <div className={`l2t-container ${styles.heroGrid}`}>
           <div className={styles.heroCopy}>
             <span className={styles.eyebrow}><Globe2 size={16} /> Akıllı seyahat platformu</span>
-            <h1>Pasaportuna göre keşfet. <span>Bütçene göre planla.</span></h1>
+            <h1>Sıradaki Hikayen <span>Nerede?</span></h1>
             <p>
               Gidebileceğin ülkeleri gör, etkinlikleri ve rotaları keşfet, bütün seyahatini tek bir panoda düzenle.
             </p>
@@ -178,6 +180,22 @@ export default async function HomePage() {
               <ArrowRight size={18} />
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className={`l2t-container ${styles.communityCard}`}>
+        <div className={styles.communityPhoto}>
+          <Image src="/destinations/georgia/tbilisi.jpg" alt="Tiflis şehir manzarası" fill sizes="(max-width: 900px) 92vw, 46vw" />
+          <div className={styles.photoShade} />
+        </div>
+        <div className={styles.communityCopy}>
+          <span className={styles.kicker}><Users size={15} /> Gerçek gezgin deneyimleri</span>
+          <h2>Sınırda ne sorulduğunu topluluktan öğren.</h2>
+          <p>Doğrulanmış seyahat deneyimleri, ülke soruları ve güncel giriş notlarıyla bilinmezliği azalt.</p>
+          <div>
+            <Link href="/forum">Topluluğu keşfet <ArrowRight size={16} /></Link>
+            <Link href="/profil/dogrulamalar">Deneyimimi doğrula</Link>
+          </div>
         </div>
       </section>
 
@@ -274,21 +292,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className={`l2t-container ${styles.communityCard}`}>
-        <div className={styles.communityPhoto}>
-          <Image src="/destinations/georgia/tbilisi.jpg" alt="Tiflis şehir manzarası" fill sizes="(max-width: 900px) 92vw, 46vw" />
-          <div className={styles.photoShade} />
-        </div>
-        <div className={styles.communityCopy}>
-          <span className={styles.kicker}><Users size={15} /> Gerçek gezgin deneyimleri</span>
-          <h2>Sınırda ne sorulduğunu topluluktan öğren.</h2>
-          <p>Doğrulanmış seyahat deneyimleri, ülke soruları ve güncel giriş notlarıyla bilinmezliği azalt.</p>
-          <div>
-            <Link href="/forum">Topluluğu keşfet <ArrowRight size={16} /></Link>
-            <Link href="/profil/dogrulamalar">Deneyimimi doğrula</Link>
-          </div>
-        </div>
-      </section>
+
 
       <HomeSavedBoard />
 

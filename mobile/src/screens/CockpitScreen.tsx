@@ -3,6 +3,7 @@ import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, alpha3FromAlpha2 } from "../data/countryIso";
 import type { AirportOption } from "../lib/airports";
@@ -485,10 +486,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
 
   if (!user || !accessToken) {
     return <div className="screen cockpit-native-screen">
-      <section className="page-intro compact-intro">
-        <span className="page-icon"><Icon name="suitcase" size={27} /></span>
-        <div><small>{copy("AKILLI SEYAHAT KOKPİTİ", "SMART TRAVEL COCKPIT")}</small><h1>{copy("Yolculuğunu yönet", "Manage your journey")}</h1><p>{copy("Seyahatlerin aynı hesabınla web ve mobilde birlikte çalışır.", "Your trips stay in sync across web and mobile.")}</p></div>
-      </section>
+      <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
       <div className="login-required cockpit-auth-state">
         <span><Icon name="lock" size={28} /></span>
         <h2>{copy("Kokpitini açmak için giriş yap", "Sign in to open your cockpit")}</h2>
@@ -499,10 +497,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   }
 
   return <div className="screen cockpit-native-screen">
-    <section className="page-intro compact-intro cockpit-native-intro">
-      <span className="page-icon"><Icon name="suitcase" size={27} /></span>
-      <div><small>{copy("AKILLI SEYAHAT KOKPİTİ", "SMART TRAVEL COCKPIT")}</small><h1>{copy("Yolculuğuna hazır ol", "Be ready for your journey")}</h1><p>{copy("Tarihlerini, seyahat durumunu ve hazırlık listesini tek yerde yönet.", "Manage dates, trip status and your checklist in one place.")}</p></div>
-    </section>
+    <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
 
     <div className="cockpit-native-toolbar">
       <button className="primary-button" aria-expanded={formOpen} aria-controls="cockpit-trip-form" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setError(""); }}>

@@ -1,0 +1,17 @@
+/* Preserved budget editor and native keyboard behaviour. */
+.cost-toolbar { display:flex; gap:6px; padding:5px; border-radius:25px; background:#f3f6fb; }.cost-toolbar button { flex:1; min-height:36px; border:0; border-radius:22px; padding:5px 7px; background:transparent; font-size:12px; color:#173451; }.cost-toolbar button.active { background:#092e57; color:#fff; }
+.guide-note { padding:12px 14px; background:#f2f7fd; border-radius:12px; color:#4e6781; font-size:13px; line-height:1.5; }.guide-note strong { color:#183e62; }.guide-note a { color:#0066c2; }
+.guide-search { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:18px; background:#f4f7fc; }.guide-search input { flex:1; background:none; border:0; min-height:30px; outline-offset:6px; }
+.cost-list,.airport-guide-list { display:grid; gap:0; }.cost-row,.airport-guide-row { width:100%; min-height:69px; display:grid; grid-template-columns:30px minmax(0,1fr) auto 16px; align-items:center; gap:10px; padding:11px 1px; border:0; border-bottom:1px solid #edf1f6; background:#fff; color:#133150; text-align:left; }
+.cost-row img,.cost-row .country-flag { width:28px; height:20px; }.cost-row strong,.airport-guide-row strong { display:block; font-size:14px; }.cost-row small,.airport-guide-row small { display:block; color:#79889b; font-size:11px; }.cost-row em { font-style:normal; font-size:13px; font-weight:650; }.cost-row .estimate-tag { color:#8a6811; font-size:10px; text-align:right; }
+.cost-editor { display:grid; gap:14px; }.cost-editor label { display:grid; gap:5px; color:#34516e; font-size:13px; }.cost-editor input { width:100%; padding:10px 12px; }.cost-editor .cost-inputs { display:grid; grid-template-columns:1fr 1fr; gap:13px; }.cost-total { padding:18px; border-radius:16px; background:#fff8d6; color:#123456; }.cost-total strong { display:block; font-size:29px; }.cost-total small { font-size:12px; }.cost-editor .field-error { color:#b42332; font-size:13px; }
+.search-empty { color:#66768c; padding:15px 2px; font-size:14px; }
+.sheet-layer {height:var(--visual-height,100dvh);top:var(--visual-top,0px);bottom:auto;}.sheet {max-height:calc(var(--visual-height,100dvh) - max(12px,env(safe-area-inset-top)));}.community-answer-form textarea{min-height:150px;width:100%;user-select:text;-webkit-user-select:text;}
+.saved-country-row{width:100%;text-align:left;color:inherit;background:white;border:0;font:inherit;}
+.date-time-error{font-size:12px;color:#b42332;}
+.cost-row{grid-template-columns:30px minmax(0,1fr) auto 16px;}
+.cost-row span{min-width:0;overflow-wrap:anywhere;}
+.cost-inputs input{min-width:0;}
+.cost-editor input{min-height:46px;border:1px solid #dfe7f1;border-radius:10px;background:#f4f7fc;color:#16304e;font:inherit;font-size:16px;box-shadow:none;}
+.cost-editor input:focus{outline:none;border-color:#6c8aaa;}
+.cost-editor input:focus-visible{outline:2px solid #416d9d;outline-offset:2px;}

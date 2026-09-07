@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
 import { useI18n } from "../lib/i18n";
+import { BrandMark } from "./BrandMark";
 
 const slides: Array<{ icon: IconName; eyebrow: [string, string]; title: [string, string]; text: [string, string]; points: Array<[string, string]> }> = [
   {
@@ -56,11 +57,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   }, [index]);
 
   return (
-    <div ref={dialogRef} className="onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div ref={dialogRef} className={`onboarding reference-onboarding onboarding-scene-${index}`} role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       <div className="onboarding-orbit orbit-one" />
       <div className="onboarding-orbit orbit-two" />
       <header className="onboarding-header">
-        <span className="onboarding-brand">LetsGo<strong>2</strong>Travel</span>
+        <span className="onboarding-brand"><BrandMark />LetsGo<strong>2</strong>Travel</span>
         <div>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
       </header>
 

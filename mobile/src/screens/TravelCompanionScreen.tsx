@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
@@ -119,10 +120,7 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
   };
 
   return <div className="screen companion-screen">
-    <section className="companion-hero">
-      <span><Icon name="compass" size={29} /></span>
-      <div><small>{copy("CEBİNDEKİ YEREL YARDIMCI", "YOUR LOCAL TRAVEL COMPANION")}</small><h1>{copy("Yabancı hissetme.", "Feel at home, anywhere.")}</h1><p>{copy("Bulunduğun ana göre öneri al, gerekli cümleyi göster ve yerel kuralları önceden bil.", "Get a live suggestion, show the phrase you need and understand local customs before you go.")}</p></div>
-    </section>
+    <PageHero scene="city" title={copy("Yol Arkadaşın", "Travel Companion")} subtitle={copy("Yerel ipuçları ve ihtiyacın olan cümleler.", "Local tips and the words you need.")} />
 
     <div className="companion-tabs" role="tablist" aria-label={copy("Seyahat yardımcısı araçları", "Travel companion tools")}>
       {(["now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{tabLabel(item)}</button>)}

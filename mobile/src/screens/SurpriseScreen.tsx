@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Icon } from "../components/Icon";
+import { PageHero } from "../components/PageHero";
 import { destinationArtwork } from "../data/artwork";
 import { randomRouteFor, routeByDestinationCode } from "../data/routes";
 import { useI18n } from "../lib/i18n";
@@ -55,12 +56,7 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
   const choice = <T extends Budget | Entry | Pace>(value: T, current: T, set: Dispatch<SetStateAction<T>>, tr: string, en: string) => <button type="button" className={value === current ? "active" : ""} aria-pressed={value === current} onClick={() => set(value)}>{copy(tr, en)}</button>;
 
   return <div className="screen surprise-screen surprise-v14">
-    <section className="surprise-v14-hero">
-      <span><Icon name="sparkles" size={26} /></span>
-      <small>{copy("AKILLI SÜRPRİZ ROTA", "SMART SURPRISE ROUTE")}</small>
-      <h1>{copy("Üç seçim yap. Gerisini bize bırak.", "Make three choices. Leave the rest to us.")}</h1>
-      <p>{copy("Rastgele bir şehir atmak yerine bütçene, giriş tercihine ve seyahat tempoya uyan gerçek bir rota seçeriz.", "Instead of throwing you a random city, we pick a real route that fits your budget, entry preference and pace.")}</p>
-    </section>
+    <PageHero scene="journey" title={copy("Beni Şaşırt", "Surprise Me")} subtitle={copy("Tercihlerini seç. Sıradaki rotanı birlikte bulalım.", "Choose your preferences. Find your next journey.")} />
 
     <section className="surprise-preferences" aria-label={copy("Sürpriz rota tercihleri", "Surprise route preferences")}>
       <fieldset><legend><b>1</b><span><strong>{copy("Bütçe", "Budget")}</strong><small>{copy("Bu gezi ne kadar rahat olsun?", "How flexible should the spend be?")}</small></span></legend><div>{choice("economy", budget, setBudget, "Ekonomik", "Economy")}{choice("balanced", budget, setBudget, "Dengeli", "Balanced")}{choice("premium", budget, setBudget, "Rahat", "Premium")}</div></fieldset>
