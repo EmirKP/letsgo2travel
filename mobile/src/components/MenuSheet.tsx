@@ -18,6 +18,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
   const { locale, copy } = useI18n();
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
   const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: ViewId }> = [
+    { label: copy("Ülke Gündemi", "Country Updates"), text: copy("Seyahat uyarıları, haberler ve önemli günler", "Travel advice, news and important dates"), icon: "globe", view: "country-news" },
     { label: copy("Ülke Maliyetleri", "Country Costs"), text: copy("Şehir bazında tahmini bütçeler", "Estimated budgets by city"), icon: "wallet", view: "costs" },
     { label: copy("Havalimanı Rehberi", "Airport Guide"), text: copy("Havalimanı arama ve yolculuk hazırlığı", "Airport search and travel preparation"), icon: "plane", view: "airports" },
     { label: copy("Etkinlik Radarı", "Event Radar"), text: copy("Konser, festival, spor ve kültür", "Concerts, festivals, sport and culture"), icon: "calendar", view: "events" },

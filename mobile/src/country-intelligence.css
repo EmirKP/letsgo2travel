@@ -1,0 +1,88 @@
+/* Scoped to the new country information surfaces; native inputs keep a
+   readable 16px font and labels remain above their controls on small phones. */
+.ci-content { display:grid; gap:16px; min-width:0; padding:4px 0 20px; color:#172b42; }
+.ci-content *, .ci-inline-advice * { box-sizing:border-box; }
+.ci-content p,.ci-inline-advice p { margin:0; font-size:13px; line-height:1.6; }
+.ci-content h2,.ci-inline-advice h2 { margin:0; font-size:18px; line-height:1.35; }
+.ci-content h3 { margin:0; font-size:16px; line-height:1.45; }
+.ci-muted { color:#66768a; font-size:12px; line-height:1.55; }
+.ci-eyebrow { color:#526d87; font-size:11px; font-weight:650; line-height:1.5; }
+.ci-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; min-width:0; }
+.ci-heading p { flex:1; font-size:11px; color:#60738a; }
+.ci-heading select { max-width:55%; padding:9px; min-height:44px; background:#f3f6fb; border:0; border-radius:10px; color:#183950; font-size:13px; }
+.ci-icon-button { flex:none; display:grid; place-items:center; width:44px; height:44px; border:1px solid #dbe4ed; border-radius:14px; background:#fff; color:#146fcc; }
+.ci-segments { display:flex; flex-wrap:wrap; gap:5px; padding:4px; border-radius:14px; background:#f3f5fa; }
+.ci-segments button { flex:1; min-width:60px; min-height:44px; padding:8px 6px; border:0; border-radius:11px; background:transparent; color:#213a53; font-size:12px; line-height:1.35; }
+.ci-segments button[aria-pressed="true"] { background:#0b3558; color:#fff; font-weight:650; }
+.ci-cost-list { display:grid; }
+.ci-cost-row { display:grid; grid-template-columns:28px minmax(0,1fr) auto 13px; align-items:center; gap:9px; width:100%; padding:16px 0; background:#fff; color:#1a3047; border:0; border-bottom:1px solid #e8edf3; text-align:left; }
+.ci-cost-row .country-flag { width:26px; height:20px; }
+.ci-cost-place,.ci-cost-price { display:grid; gap:3px; min-width:0; }
+.ci-cost-place strong { font-size:14px; line-height:1.3; overflow-wrap:anywhere; }
+.ci-cost-row small { font-size:10px; color:#6b7c8e; line-height:1.4; }
+.ci-cost-price { text-align:right; }
+.ci-cost-price strong { font-size:13px; font-variant-numeric:tabular-nums; }
+.ci-cost-place .ci-risk { font-size:10px; }
+.ci-risk { display:inline-flex; align-items:center; gap:4px; width:fit-content; max-width:100%; color:#9f3528; font-size:11px; line-height:1.4; font-style:normal; }
+.ci-risk svg { flex:none; }
+.ci-risk-regional { color:#936010; }
+.ci-advisory { padding:16px; display:grid; gap:10px; border:1px solid #e8bbaf; border-left:4px solid #c4523e; border-radius:15px; background:#fff9f6; }
+.ci-advisory-regional { background:#fffbef; border-color:#ead8a5; border-left-color:#c98f20; }
+.ci-advisory-unavailable,.ci-advisory-no-specific-warning { background:#f7f9fc; border-color:#dbe4ee; border-left-color:#6b87a4; }
+.ci-card-title { display:flex; align-items:flex-start; gap:9px; }
+.ci-card-title > svg { flex:none; margin-top:2px; }
+.ci-card-title h2 { font-size:16px !important; }
+.ci-advisory small { font-size:11px; color:#617183; line-height:1.55; }
+.ci-tags { display:flex; flex-wrap:wrap; gap:5px; }
+.ci-tags span { padding:3px 7px; border:1px solid #dec7b9; border-radius:6px; font-size:10px; color:#72503c; }
+.ci-source-line { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; color:#627182; font-size:10px; }
+.ci-source-line button,.ci-text-button { display:inline-flex; align-items:center; gap:5px; width:fit-content; max-width:100%; min-height:44px; padding:6px 0; border:0; background:transparent; color:#126bc2; text-align:left; font-size:12px; font-weight:600; line-height:1.4; }
+.ci-source-detail { display:grid; gap:5px; padding:0 0 14px; border-bottom:1px solid #e4eaf0; }
+.ci-source-detail strong { font-size:13px; }
+.ci-source-detail p { color:#65768a; font-size:12px; }
+.ci-button { display:flex; justify-content:center; align-items:center; gap:8px; width:100%; min-height:48px; border:0; border-radius:13px; padding:12px; background:#ffd633; color:#13283c; font-size:14px; font-weight:700; }
+.ci-button:disabled,.ci-icon-button:disabled { opacity:.5; }
+.ci-link-row { display:flex; align-items:center; gap:12px; width:100%; min-height:66px; padding:13px; margin:0; border:1px solid #dce7f3; border-radius:14px; background:#f6f9fe; color:#1b456c; text-align:left; }
+.ci-link-row > svg { flex:none; }
+.ci-link-row > span { flex:1; display:grid; min-width:0; gap:4px; }
+.ci-link-row strong { font-size:13px; line-height:1.4; }
+.ci-link-row small { font-size:11px; line-height:1.45; color:#667a90; }
+.ci-section { display:grid; gap:12px; padding-top:10px; }
+.ci-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px 12px; }
+.ci-fields label { display:grid; grid-template-rows:auto 48px; align-content:end; gap:8px; min-width:0; color:#50667d; font-size:12px; line-height:1.4; font-weight:600; }
+.ci-fields input { display:block; box-sizing:border-box; width:100%; min-width:0; height:48px; padding:10px; margin:0; border:1px solid #dbe4ed; border-radius:11px; background:#f6f8fc; color:#152b42; font:inherit; font-size:16px; appearance:none; }
+.ci-fields input[type="month"] { min-height:48px; text-align:left; }
+.ci-fields input::-webkit-date-and-time-value { min-height:26px; text-align:left; }
+.ci-calculator .country-picker-field { display:grid; gap:8px; margin:0; font-size:12px; }
+.ci-calculator .country-picker-trigger { width:100%; min-height:54px; margin:0; }
+.ci-calculator .country-picker-trigger strong { font-size:15px; }
+.ci-result { display:grid; gap:8px; padding:18px; border:1px solid #f0df9d; border-radius:15px; background:#fffbea; color:#263b4e; }
+.ci-result > strong { font-size:28px; line-height:1.2; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.ci-result span,.ci-result small { font-size:12px; line-height:1.5; }
+.ci-result p { font-size:12px; color:#655d43; }
+.ci-compare { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.ci-compare span { display:grid; gap:7px; }
+.ci-compare strong { font-size:18px; overflow-wrap:anywhere; }
+.ci-method { padding:12px 14px; border:1px solid #e2e8ef; border-radius:13px; background:#fafbfd; }
+.ci-method summary { min-height:24px; padding:2px 0; color:#355773; font-size:13px; font-weight:650; cursor:pointer; }
+.ci-method p { margin:12px 0 0; color:#617389; font-size:12px; }
+.ci-empty { display:grid; gap:9px; padding:18px 15px; border-radius:13px; background:#f5f7fb; color:#64768a; font-size:13px; line-height:1.55; }
+.ci-error { color:#ac3932; }
+.ci-calendar-row { display:flex; align-items:flex-start; gap:13px; padding:15px 0; border-bottom:1px solid #e4eaf0; }
+.ci-calendar-row > div:last-child { min-width:0; flex:1; display:grid; gap:5px; }
+.ci-calendar-row h3 { font-size:14px; overflow-wrap:anywhere; }
+.ci-calendar-row p { font-size:12px; color:#66778a; }
+.ci-date-tile { display:grid; justify-items:center; align-content:center; width:49px; height:57px; flex:none; border-radius:11px; background:#eef4fc; color:#225c96; }
+.ci-date-tile strong { font-size:22px; line-height:1.2; }
+.ci-date-tile small { font-size:11px; }
+.ci-news-card { display:grid; gap:9px; padding:17px 0; border-bottom:1px solid #e5ebf2; }
+.ci-news-card h3 button { display:block; width:100%; padding:0; background:none; border:0; text-align:left; color:#182e43; font:inherit; line-height:1.5; overflow-wrap:anywhere; }
+.ci-news-card h3 svg { display:inline; margin-left:6px; vertical-align:middle; color:#176abd; }
+.ci-impact { padding:11px 13px; border-left:3px solid #f4cc39; background:#fffcf0; border-radius:0 8px 8px 0; }
+.ci-impact strong { display:block; font-size:11px; color:#7a642a; margin-bottom:5px; }
+.ci-impact p { font-size:12px; color:#696351; }
+.ci-inline-advice { display:grid; gap:12px; }
+.ci-footnote { padding:8px 0; }
+.ci-details { padding-top:8px; }
+.ci-content button:focus-visible,.ci-content input:focus-visible,.ci-content select:focus-visible,.ci-content summary:focus-visible,.ci-inline-advice button:focus-visible { outline:2px solid #1276ce; outline-offset:3px; }
+@media(max-width:359px) { .ci-cost-row { grid-template-columns:24px minmax(0,1fr) auto; gap:7px; }.ci-cost-row > svg {display:none}.ci-cost-place strong {font-size:12px}.ci-cost-price strong {font-size:12px}.ci-fields {gap:14px 9px}.ci-heading {flex-wrap:wrap}.ci-heading select {max-width:100%}.ci-segments button {font-size:11px}.ci-content .country-picker-trigger strong {font-size:14px} }

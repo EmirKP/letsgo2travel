@@ -4,6 +4,7 @@ import "./App.css";
 import "./fonts.css";
 import "./editorial.css";
 import "./merged-functional.css";
+import "./country-intelligence.css";
 import { AccountSheet } from "./components/AccountSheet";
 import { CountryFlag } from "./components/CountryFlag";
 import { AnimatedSplash } from "./components/AnimatedSplash";
@@ -50,6 +51,7 @@ import type { RouteSuggestion, TabId, ViewId } from "./types";
 
 // Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
 // indirilir. Böylece açılış paketi ve düşük bağlantıda ilk etkileşim hafifler.
+const CountryNewsScreen = lazy(() => import("./screens/CountryNewsScreen").then(m => ({ default: m.CountryNewsScreen })));
 const CostsScreen = lazy(() => import("./screens/CostsScreen").then(m => ({ default: m.CostsScreen })));
 const AdminScreen = lazy(() => import("./screens/AdminScreen").then((module) => ({ default: module.AdminScreen })));
 const CockpitScreen = lazy(() => import("./screens/CockpitScreen").then((module) => ({ default: module.CockpitScreen })));
@@ -73,14 +75,14 @@ const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "profile", icon: "user" },
 ];
 
-const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports"]);
+const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports", "country-news"]);
 
 function viewFromUrl(value: string): ViewId | null {
   try {
     const parsed = new URL(value, window.location.origin);
     const raw = (parsed.hash.replace(/^#\/?/, "") || parsed.searchParams.get("view") || parsed.pathname.split("/").filter(Boolean).pop() || parsed.host).toLocaleLowerCase("tr-TR");
     const aliases: Record<string, ViewId> = {
-      "ulke-maliyetleri": "costs", "havalimani-rehberi": "airports", "kaydedilenler": "trips",
+      "ulke-gundemi": "country-news", "ulke-maliyetleri": "costs", "havalimani-rehberi": "airports", "kaydedilenler": "trips",
       "ana-sayfa": "home",
       "kesfet": "explore",
       "keşfet": "explore",
@@ -115,7 +117,7 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "costs" || view === "airports") return "explore";
+  if (view === "costs" || view === "airports" || view === "country-news") return "explore";
   if (view === "passport" || view === "surprise" || view === "events" || view === "companion" || view === "phrases") return "explore";
   if (view === "cockpit") return "trips";
   if (view === "community" || view === "alerts" || view === "admin") return "profile";
@@ -136,6 +138,7 @@ export default function App() {
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [openTransfer, setOpenTransfer] = useState(false);
   const [exploreCode, setExploreCode] = useState("");
+  const [newsCountryCode, setNewsCountryCode] = useState("TR");
   const [activeView, setActiveView] = useState<ViewId>(() => pendingTripInvite(window.location.href) ? "trips" : viewFromUrl(window.location.href) || "home");
   const [notice, setNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -179,7 +182,7 @@ export default function App() {
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
   const activeTab = highlightedTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin" || activeView === "costs" || activeView === "airports";
+  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin" || activeView === "costs" || activeView === "airports" || activeView === "country-news";
   const nativeUiRef = useRef({
     accountOpen,
     activeView,
@@ -195,7 +198,7 @@ export default function App() {
   useEffect(() => {
     activeViewRef.current = activeView;
     const titles: Record<ViewId, string> = {
-      costs: copy("Ülke Maliyetleri", "Country Costs"), airports: copy("Havalimanı Rehberi", "Airport Guide"),
+      "country-news": copy("Ülke Gündemi", "Country Updates"), costs: copy("Ülke Maliyetleri", "Country Costs"), airports: copy("Havalimanı Rehberi", "Airport Guide"),
       home: copy("Ana Sayfa", "Home"), explore: copy("Keşfet", "Explore"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Seyahatlerim", "My Trips"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahat Kokpiti", "Travel Cockpit"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Seyahat Yardımcısı", "Travel Companion"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
     };
     document.title = `${titles[activeView]} · LetsGo2Travel`;
@@ -755,10 +758,11 @@ export default function App() {
     if (activeView === "home") return <HomeScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={(view) => { if (view === "route") { setSurpriseRoute(null); setRouteResetToken((value) => value + 1); } navigate(view); }} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "explore") return <ExploreScreen initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={(route) => { setRouteSeedKind("explore"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "events") return <EventsScreen ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
-    if (activeView === "costs") return <CostsScreen />;
+    if (activeView === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
+    if (activeView === "costs") return <CostsScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (activeView === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
     if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen initialTab={activeView === "phrases" ? "phrases" : "now"} onNavigate={navigate} onNotice={showNotice} />;
-    if (activeView === "passport") return <PassportScreen />;
+    if (activeView === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;
     if (activeView === "trips") return <TripsScreen initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
@@ -767,7 +771,7 @@ export default function App() {
     if (activeView === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (activeView === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
-  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, cockpitInviteCode, communityCountryCode, exploreCode, openTransfer, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
+  }, [activeView, adminAllowed, adminChecking, adminOverview, auth.accessToken, auth.user, cockpitFocusTripId, cockpitInviteCode, communityCountryCode, exploreCode, newsCountryCode, openTransfer, locale, navigate, ownerId, refreshTick, routeResetToken, routeSeedKind, showNotice, surpriseRoute]);
 
   const tabs = tabDefinitions.map((tab) => ({
     ...tab,

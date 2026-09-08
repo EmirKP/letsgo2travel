@@ -8,6 +8,8 @@ const PassportWorldMap = lazy(() => import("../components/PassportWorldMap").the
 import type { Country, VisaStatus } from "../types";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
+import { CountryAdvisory, CountryRiskBadge } from "../components/CountryAdvisory";
+import { useCountryData, type Advisory } from "../lib/countryIntelligence";
 import { CountryFlag } from "../components/CountryFlag";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { Sheet } from "../components/Sheet";
@@ -35,7 +37,7 @@ function statusOf(alpha3: string): VisaStatus {
   return VISA_DATA[alpha3] || "unknown";
 }
 
-export function PassportScreen() {
+export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code: string) => void }) {
   const { copy, countryName, locale } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | VisaStatus>("all");
@@ -54,6 +56,8 @@ export function PassportScreen() {
       return statusDiff || countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale);
     }), [countryName, deferredQuery, filter, locale]);
   const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
+  const warningCodes = [...new Set(["RU", "IR", "UA", "IL", ...visibleRows.map(row => alpha2FromAlpha3(row.alpha3)).filter(Boolean)])].slice(0, 8).join(",");
+  const { data: riskData } = useCountryData<{ data: Advisory[] }>(`/api/country-advisories?countries=${warningCodes}`);
 
   useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter]);
 
@@ -103,6 +107,7 @@ export function PassportScreen() {
         <div><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("Kolay vize", "Easy visa")}</span></div>
       </div>
 
+      <button type="button" className="ci-link-row" onClick={() => onOpenCountryNews("TR")}><Icon name="alert" size={19}/><span><strong>{copy("Seyahat uyarıları ve ülke gündemi", "Travel advice and country updates")}</strong><small>{copy("Vize durumu, seyahat güvenliğiyle aynı şey değildir.", "Visa status does not indicate travel safety.")}</small></span><Icon name="chevron" size={17}/></button>
       <p id="passport-map-help" className="passport-map-help">{copy("Türkiye pasaportu · Haritayı yakınlaştır, ülkeye dokun.", "Turkish passport · Pinch the map and tap a country.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
@@ -151,7 +156,7 @@ export function PassportScreen() {
           return (
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
               <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={countryName(country.alpha3, country.name)} />
-              <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small></span>
+              <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small><CountryRiskBadge advisory={riskData?.data.find(row => row.code === alpha2FromAlpha3(country.alpha3))}/></span>
               <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus])}</em>
               <Icon name="chevron" size={17} />
             </button>
@@ -167,6 +172,7 @@ export function PassportScreen() {
           {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{(locale === "tr" ? verifiedRule?.note : "") || (status === "unknown"
             ? copy("Bu ülke için doğrulanmış giriş sınıfı verimiz yok; tahmin gösterilmez. Güncel koşulu resmî kaynaktan kontrol et.", "We have no verified entry classification for this country, so no guess is shown. Check an official source.")
             : copy("Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir.", "This category is for general discovery. Stay length, passport validity, transit and travel purpose can change the result."))}</p></div>}
+          <CountryAdvisory code={alpha2FromAlpha3(selected.alpha3)} onOpenNews={code => { closeCountry(); onOpenCountryNews(code); }}/>
           <div className="detail-list">
             <div><span>{copy("Ülke kodu", "Country code")}</span><strong>{selected.alpha3}</strong></div>
             <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status])}</strong></div>
