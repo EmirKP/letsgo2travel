@@ -45,6 +45,61 @@ workflows:
             exit 1
           fi
 
+      - name: Set iOS build number from App Store Connect
+        script: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          bundle_id = "tr.com.letsgo2travel.app"
+          manifest_path = Path("release-manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          project_path = Path(os.environ["XCODE_PROJECT"]) / "project.pbxproj"
+          project = project_path.read_text(encoding="utf-8")
+
+          def apple(*args):
+              return subprocess.check_output(
+                  ["app-store-connect", *args, "--log-stream", "stderr", "--no-color"],
+                  text=True,
+              ).strip()
+
+          apps = json.loads(apple(
+              "apps", "list", "--bundle-id-identifier", bundle_id,
+              "--strict-match-identifier", "--json",
+          ))
+          if isinstance(apps, dict):
+              apps = apps.get("data", [])
+          matches = [app for app in apps
+                     if app.get("attributes", {}).get("bundleId") == bundle_id]
+          if len(matches) != 1 or not str(matches[0].get("id", "")).isdigit():
+              raise SystemExit("Could not uniquely resolve the LetsGo2Travel Apple app ID.")
+
+          latest = apple(
+              "get-latest-testflight-build-number", str(matches[0]["id"]),
+              "--platform", "IOS", "--pre-release-version", manifest["appVersion"],
+          )
+          if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}", latest):
+              raise SystemExit("Apple did not return a valid build number; upload stopped.")
+          ci_build = os.environ.get("PROJECT_BUILD_NUMBER", "")
+          if not re.fullmatch(r"[0-9]+", ci_build):
+              raise SystemExit("Codemagic PROJECT_BUILD_NUMBER is missing or invalid.")
+
+          version_pattern = r"\bCURRENT_PROJECT_VERSION = ([0-9]+);"
+          current = [int(value) for value in re.findall(version_pattern, project)]
+          if len(current) != 4:
+              raise SystemExit("Expected Debug/Release build settings for App and FlightActivityWidget.")
+          next_build = max(int(latest.split(".")[0]) + 1, int(ci_build), max(current) + 1)
+          project = re.sub(version_pattern, f"CURRENT_PROJECT_VERSION = {next_build};", project)
+          manifest["nativeBuildNumber"] = next_build
+          project_path.write_text(project, encoding="utf-8")
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print(f"Apple build: {latest}; Codemagic build: {ci_build}; next iOS build: {next_build}")
+          PY
+
       - name: Build mobile app and sync iOS
         script: |
           npm run mobile:prepare:ios
