@@ -37,6 +37,7 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
+  { href: "/ulke-gundemi", label: "Ülke Gündemi", icon: Newspaper },
   { href: "/ulke-rehberi", label: "Keşfet", icon: Compass },
   { href: "/vize-merkezi", label: "Vize Merkezi", icon: FileText },
   { href: "/blog", label: "Blog", icon: Newspaper },

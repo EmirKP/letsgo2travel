@@ -915,7 +915,7 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   assert.ok(capacitor.includes('backgroundColor: "#2352C4"') && capacitor.includes("overlaysWebView: true") && app.includes("setOverlaysWebView?.({ overlay: true })"), "açılış ve üst güvenli alan kesintisiz marka mavisi olmalı");
   assert.ok(picker.includes('type="search"') && picker.includes('role="listbox"') && picker.includes("CountryFlag"), "ülke seçimi aranabilir ve erişilebilir özel panel kullanmalı");
   assert.ok(countries.length >= 250 && countries.some((country) => country.alpha2 === "XK" && country.alpha3 === "XKK"), "tam ülke listesi Kosova koduyla birlikte paketlenmeli");
-  assert.ok(flag.includes("assets/flags/kosovo.svg") && statSync("mobile/src/assets/flags/kosovo.svg").size > 200, "Kosova beyaz bayrak yerine yerel gerçek bayrağı kullanmalı");
+  assert.ok(flag.includes("countryFlagAsset(alpha2)") && statSync("mobile/public/flags/xk.svg").size > 200 && statSync("public/flags/xk.svg").size > 200, "Kosova web ve mobilde beyaz bayrak yerine yerel gerçek bayrağı kullanmalı");
   assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
   assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
   assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
@@ -967,7 +967,7 @@ test("Referans tasarım: tüm ISO ülke bayrakları ağsız SVG olarak paketleni
   const flag = readFileSync("mobile/src/components/CountryFlag.tsx", "utf8");
   const assets = readFileSync("mobile/src/data/flagAssets.ts", "utf8");
   assert.ok(flag.includes("countryFlagAsset(alpha2)"), "tüm ülke listeleri ortak SVG kaynağını kullanmalı");
-  assert.ok(assets.includes("import.meta.env.BASE_URL") && assets.includes('normalized === "xkk"'), "bayrak yolu mobil göreli tabanı ve Kosova aliasını korumalı");
+  assert.ok(assets.includes('"./" : "/"') && assets.includes('normalized === "xkk"'), "bayrak yolu mobil göreli / web mutlak tabanı ve Kosova aliasını korumalı");
 });
 
 test("Referans tasarım: mevcut özellikler sekiz ana ekranın yanında erişilebilir kalır", () => {
@@ -997,7 +997,7 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
   }
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
   const cover = readFileSync("mobile/src/components/DiscoveryCover.tsx", "utf8");
-  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-focus") && home.includes("<DiscoveryCover") && cover.includes('view: "route"') && cover.includes("onNavigate(item.view)"), "ana sayfa yaklaşan seyahati ve doğrudan planlama kısayolunu göstermeli");
+  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-compact") && home.includes("<DiscoveryCover") && cover.includes('view: "route"') && cover.includes("onNavigate(item.view)"), "ana sayfa yaklaşan seyahati ve doğrudan planlama kısayolunu göstermeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
 });
 
@@ -1020,7 +1020,7 @@ test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağ�
   const communityData = readFileSync("mobile/src/lib/community.ts", "utf8");
   const styles = readFileSync("mobile/src/App.css", "utf8");
 
-  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(3)"), "ana sayfa gerçek topluluk akışını öne çıkarmalı");
+  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(1)"), "kompakt ana sayfa gerçek topluluk akışından bir soruyu öne çıkarmalı");
   assert.ok(home.includes("onOpenCommunity(question.countryCode)") && app.includes("communityCountryCode"), "ülke kısayolu topluluğu seçili ülkeyle açmalı");
   assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
   assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");
@@ -1088,7 +1088,7 @@ test("Build 14: ana sayfadaki çevrimdışı ifade kısayolu doğru aracı doğr
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
-  assert.ok(home.includes('view: "phrases"'), "ana sayfa kısayolu genel yardımcı yerine ifade sekmesine gitmeli");
+  assert.ok(home.includes('onNavigate("phrases")'), "ana sayfa kısayolu genel yardımcı yerine ifade sekmesine gitmeli");
   assert.ok(app.includes('initialTab={activeView === "phrases" ? "phrases" : "now"}'), "uygulama ifade derin bağlantısını doğru sekmeye çevirmeli");
   assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
 });
@@ -1405,7 +1405,7 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
   const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
-  assert.ok(home.includes("home-shared-trip") && home.includes('onNavigate("trips")'), "ortak plan ana sayfadan tek dokunuşla bulunmalı");
+  assert.ok(home.includes("home-secondary-links") && home.includes('onNavigate("trips")'), "ortak plan kompakt ana sayfadan tek dokunuşla bulunmalı");
   assert.ok(trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak plan Kokpit'e gizlenmemeli, Seyahatlerim'in üstünde olmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
   assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
 import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { destinationArtwork } from "../data/artwork";
@@ -16,7 +16,7 @@ const shortcuts: { icon: IconName; tr: string; en: string; view: ViewId }[] = [
   { icon: "calendar", tr: "Etkinlikler", en: "Events", view: "events" },
 ];
 
-export function DiscoveryCover({ onNavigate, onSelect }: { onNavigate: (view: ViewId) => void; onSelect: (route: RouteSuggestion) => void }) {
+export function DiscoveryCover({ onNavigate, onSelect, children }: { onNavigate: (view: ViewId) => void; onSelect: (route: RouteSuggestion) => void; children?: ReactNode }) {
   const { copy, locale } = useI18n();
   const [query, setQuery] = useState("");
   const all = [
@@ -43,11 +43,11 @@ export function DiscoveryCover({ onNavigate, onSelect }: { onNavigate: (view: Vi
       <label className="discovery-search"><Icon name="search" size={19} /><span className="sr-only">{copy("Şehir veya ülke ara", "Search city or country")}</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Nereye gitmek istersin?", "Where would you like to go?")} /></label>
       <nav className="discovery-shortcuts" aria-label={copy("Hızlı araçlar", "Quick tools")}>{shortcuts.map((item) => <button type="button" key={item.view} onClick={() => onNavigate(item.view)}><Icon name={item.icon} size={22} /><span>{copy(item.tr, item.en)}</span></button>)}</nav>
     </section>
+    {children}
     <section className="editorial-destinations">
       <div className="editorial-heading"><h2>{query ? copy("Arama sonuçları", "Search results") : copy("İlham veren rotalar", "Inspiring destinations")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü gör", "See all")} <Icon name="chevron" size={14} /></button></div>
       <div className="editorial-route-grid">{matches.map((item) => <button type="button" key={item.code} onClick={() => select(item.code)}><img src={destinationArtwork(item.code)} alt="" loading="lazy" width="180" height="240" /><span><strong>{item.name}</strong><small><CountryFlag code={item.alpha2} label={item.country} /> {item.country}</small></span></button>)}</div>
       {!matches.length && <p role="status">{copy("Bu aramayla eşleşen rota bulunamadı. Başka bir şehir veya ülke dene.", "No matching destination. Try another city or country.")}</p>}
     </section>
-    <section className="editorial-inspiration"><div className="editorial-heading"><h2>{copy("Sana özel öneriler", "Ideas for your next trip")}</h2></div><div><button type="button" className="inspiration-coast" onClick={() => select("FCO")}><span>{copy("Akdeniz'e doğru", "Towards the Mediterranean")}</span><small>{copy("Kültür, sahil ve yeni sokaklar", "Culture, coast and new streets")}</small><b>{copy("Keşfet", "Explore")}</b></button><button type="button" className="inspiration-balkans" onClick={() => select("SJJ")}><span>{copy("Balkan hikâyeleri", "Balkan stories")}</span><small>{copy("Yakın rotalar, yeni anılar", "Short journeys, lasting memories")}</small><b>{copy("Keşfet", "Explore")}</b></button></div></section>
   </>;
 }

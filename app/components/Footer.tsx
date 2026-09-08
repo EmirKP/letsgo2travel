@@ -36,7 +36,7 @@ export default function Footer() {
         </div>
         <div className={styles.column}>
           <h3>Keşfet</h3>
-          {productLinks.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}
+          {productLinks.map(([label, href]) => <Link href={href} key={`${href}:${label}`}>{label}</Link>)}
         </div>
         <div className={styles.column}>
           <h3>Yasal</h3>

@@ -13,7 +13,8 @@ const TITLES = {
 
 export function CountryRiskBadge({ advisory }: { advisory?: Advisory }) {
   const { copy } = useI18n();
-  if (!advisory || advisory.level === "unavailable" || advisory.level === "no-specific-warning") return null;
+  if (!advisory || advisory.level === "unavailable") return <span className="ci-risk ci-risk-unavailable"><Icon name="info" size={13}/>{copy("Uyarı doğrulanmadı", "Advice unverified")}</span>;
+  if (advisory.level === "no-specific-warning") return null;
   return <span className={`ci-risk ci-risk-${advisory.level}`} title={copy(TITLES[advisory.level][0], TITLES[advisory.level][1])}><Icon name="alert" size={14}/>{advisory.freshness === "last-known" ? copy("Son bilinen uyarı", "Last known warning") : advisory.scope === "regional" ? copy("Bölgesel uyarı", "Regional warning") : copy("Seyahat uyarısı", "Travel warning")}</span>;
 }
 

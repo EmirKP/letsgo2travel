@@ -2,6 +2,17 @@ import { publicJson } from "./fetch";
 import { PRICE_BASELINES } from "./prices";
 import type { CostData, InflationData, Rate } from "./types";
 import { VERIFIED_MONTHLY_INDICES } from "./last-verified";
+import { CITY_FX_REFERENCE_DATE } from "./city-benchmarks";
+
+export async function getReferenceRate(currency: string): Promise<Rate | null> {
+  if (currency === "GBP") return { base: "GBP", quote: "GBP", rate: 1, date: CITY_FX_REFERENCE_DATE, sourceUrl: "https://frankfurter.dev/" };
+  const url = `https://api.frankfurter.dev/v2/rates?date=${CITY_FX_REFERENCE_DATE}&base=GBP&quotes=${currency}`;
+  try {
+    const rows = await publicJson<Array<{ base: string; quote: string; date: string; rate: number }>>(url, 86400);
+    const row = Array.isArray(rows) ? rows.find(r => r.base === "GBP" && r.quote === currency && r.date === CITY_FX_REFERENCE_DATE && Number.isFinite(r.rate) && r.rate > 0) : null;
+    return row ? { ...row, sourceUrl: "https://frankfurter.dev/" } : null;
+  } catch { return null; }
+}
 
 type Eurostat = {
   id: string[]; size: number[]; value: Record<string, number>;

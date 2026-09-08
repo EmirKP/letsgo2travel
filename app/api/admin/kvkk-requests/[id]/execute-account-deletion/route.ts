@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminPrincipalFromRequest } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { ownedAvatarPath } from "@/lib/profile-photo";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CONFIRMATION = "HESABI KALICI SIL";
@@ -67,6 +68,11 @@ export async function POST(
     return NextResponse.json({ error: "Silinecek kullanıcı hesabı doğrulanamadı." }, { status: 500 });
   }
   const targetEmail = String(targetAuthResult.user.email || "").trim().toLowerCase();
+  const avatarPath = targetAuthResult.user.user_metadata?.l2t_avatar_path;
+  if (ownedAvatarPath(avatarPath, targetUserId)) {
+    const { error } = await supabase.storage.from("profile-avatars").remove([avatarPath]);
+    if (error) return NextResponse.json({ error: "Profil fotoğrafı silinemedi; hesap silinmedi." }, { status: 500 });
+  }
 
   const { data: evidenceRows, error: evidenceLookupError } = await supabase
     .from("travel_verifications")

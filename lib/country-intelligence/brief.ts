@@ -1,5 +1,8 @@
 import { getAdvisory } from "./advisories";
-import { plainText, publicJson, publicLink } from "./fetch";
+import { plainText, publicJson, publicLink, publicText } from "./fetch";
+import { COUNTRY_TIME_ZONES } from "./time-zones";
+import { parseNewsRss } from "./rss";
+import { verifiedElections } from "./elections";
 import type { CalendarItem, CountryBrief, NewsItem } from "./types";
 
 const ZONES: Record<string, string> = {
@@ -10,7 +13,7 @@ const ZONES: Record<string, string> = {
   FR: "Europe/Paris", DE: "Europe/Berlin", ES: "Europe/Madrid", CN: "Asia/Shanghai", CA: "America/Toronto",
 };
 export function localDateForCountry(code: string, now = new Date()) {
-  const timeZone = ZONES[code] || "UTC";
+  const timeZone = ZONES[code] || COUNTRY_TIME_ZONES[code] || "UTC";
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
   const part = (type: string) => parts.find(p => p.type === type)?.value;
   return { timeZone, today: `${part("year")}-${part("month")}-${part("day")}` };
@@ -39,7 +42,7 @@ export function normalizeNews(raw: { articles?: Article[] }, now = new Date()): 
     if (!url || !title || !Number.isFinite(age) || age < 0 || age > 7 * 86_400_000 || seen.has(dedupe)) continue;
     seen.add(dedupe);
     result.push({ title, url, publisher: new URL(url).hostname.replace(/^www\./, ""), language: plainText(row.language, 30),
-      firstSeenAt: new Date(timestamp).toISOString(), topic: newsTopic(title), publishedAt: null, eventDate: null });
+      firstSeenAt: new Date(timestamp).toISOString(), topic: newsTopic(title), publishedAt: null, eventDate: null, provider: "GDELT" });
     if (result.length === 8) break;
   }
   return result;
@@ -50,11 +53,15 @@ async function getNews(code: string): Promise<{ news: NewsItem[]; newsState: Cou
   const countryQuery = code === "GE" ? '"Georgia" "Tbilisi"' : code === "TR" ? '("Turkey" OR "Türkiye")' : `"${name.replace(/["\\]/g, "")}"`;
   const query = `${countryQuery} (election OR tourism OR airport OR airspace OR conflict OR protest OR flood OR strike)`;
   const params = new URLSearchParams({ query, mode: "artlist", format: "json", maxrecords: "12", timespan: "7d", sort: "datedesc" });
-  try {
-    const raw = await publicJson<{ articles?: Article[] }>(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, 1800, 8000);
-    if (!Array.isArray(raw.articles)) throw new Error("Invalid news response");
-    return { news: normalizeNews(raw), newsState: "ok" };
-  } catch { return { news: [], newsState: "unavailable" }; }
+  const results = await Promise.allSettled([
+    publicJson<{ articles?: Article[] }>(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, 1800, 8000).then(raw => { if (!Array.isArray(raw.articles)) throw new Error("Invalid news response"); return normalizeNews(raw); }),
+    publicText("https://www.aa.com.tr/tr/rss/default?cat=guncel", 900, 6000).then(xml => { if (!/<rss/i.test(xml)) throw new Error("Invalid feed"); return parseNewsRss(xml, code, "Anadolu Ajansı"); }),
+    publicText("https://feeds.bbci.co.uk/news/world/rss.xml", 900, 6000).then(xml => { if (!/<rss/i.test(xml)) throw new Error("Invalid feed"); return parseNewsRss(xml, code, "BBC"); }),
+  ]);
+  const rows = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+  const unique = [...new Map(rows.map(row => [row.url, { ...row, topic: newsTopic(row.title) }])).values()];
+  unique.sort((a,b) => (b.publishedAt || b.firstSeenAt).localeCompare(a.publishedAt || a.firstSeenAt));
+  return { news: unique.slice(0,12), newsState: results.some(row => row.status === "fulfilled") ? "ok" : "unavailable" };
 }
 
 type Holiday = { date: string; localName: string; name: string; countryCode: string; global: boolean; counties: string[] | null; types: string[] };
@@ -83,7 +90,8 @@ async function getCalendar(code: string, today: string) {
   const years = end.getUTCFullYear() === year ? [year] : [year, year + 1];
   const results = await Promise.allSettled(years.map(y => publicJson<Holiday[]>(`https://date.nager.at/api/v3/PublicHolidays/${y}/${code}`, 86_400, 6000)));
   const values = results.flatMap(result => result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []);
-  return { calendar: upcomingCalendar(values, code, today), calendarState: results.every(r => r.status === "fulfilled" && Array.isArray(r.value)) ? "ok" as const : "unavailable" as const };
+  const elections = await verifiedElections(code, today);
+  return { calendar: [...upcomingCalendar(values, code, today), ...elections].sort((a,b)=>a.date.localeCompare(b.date)), calendarState: results.every(r => r.status === "fulfilled" && Array.isArray(r.value)) ? "ok" as const : "unavailable" as const };
 }
 
 export async function getCountryBrief(code: string): Promise<CountryBrief> {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { ProfilePhoto } from "../components/ProfilePhoto";
 import { Sheet } from "../components/Sheet";
 import { LegalSheet } from "../components/LegalSheet";
 import { COUNTRY_LIST } from "../data/countries";
@@ -7,7 +8,7 @@ import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { VerificationForm } from "../components/VerificationForm";
-import { addPluginListener } from "../lib/capacitor";
+import { addPluginListener, plugin } from "../lib/capacitor";
 import { shareContent } from "../lib/native";
 import { disablePush, enablePushForUser, getPushPermissionState, isPushEnabledForDevice, type PushPermissionSummary } from "../lib/push";
 import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile, type UserProfileData } from "../lib/supabaseData";
@@ -92,6 +93,8 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [testBusy, setTestBusy] = useState(false);
+  const [nativeVersion, setNativeVersion] = useState<{ version: string; build: string } | null>(null);
+  useEffect(() => { let current = true; const app = plugin("App"); if (app?.getInfo) void app.getInfo().then((raw: unknown) => { const info = raw as {version?:unknown;build?:unknown}; if (current && typeof info?.version === "string" && typeof info?.build === "string") setNativeVersion({version:info.version,build:info.build}); }).catch(() => {}); return () => { current = false; }; }, []);
 
   useEffect(() => {
     const update = () => setTick((value) => value + 1);
@@ -309,7 +312,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     <div className="profile-cover scene-journey" aria-hidden="true"><span>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
     <section className="profile-hero">
       <div className="profile-identity">
-        <span className="profile-initial">{name.slice(0, 1).toLocaleUpperCase(locale)}</span>
+        <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={onNotice}/>
         <div><small>{user ? approvedCount > 0 ? copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER") : copy("HESAP AÇIK", "SIGNED IN") : copy("MİSAFİR MODU", "GUEST MODE")}</small><h1>{name}</h1><p>{user?.email || copy("Kayıtlarını bu cihazda güvenle saklıyorsun.", "Your saved items are kept safely on this device.")}</p></div>
       </div>
       <button onClick={onOpenAccount}><Icon name={user ? "settings" : "user"} size={18} /> {user ? copy("Hesabı yönet", "Manage account") : copy("Giriş yap", "Sign in")}</button>
@@ -354,7 +357,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulama turu", "App tour")}</strong><small>{copy("Temel özellikleri yeniden, adım adım gör", "Review the main features step by step")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
-      <p className="profile-version">LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</p>
+      <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · {nativeVersion ? "iOS/Android" : "Web"} Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
     </section>
 
     <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />

@@ -6,6 +6,12 @@ import { localDateForCountry, normalizeNews, newsTopic, upcomingCalendar } from 
 import { publicJson, publicLink } from "../../lib/country-intelligence/fetch";
 import type { CostData } from "../../lib/country-intelligence/types";
 import { lastVerifiedAdvice, VERIFIED_MONTHLY_INDICES } from "../../lib/country-intelligence/last-verified";
+import { parseNewsRss } from "../../lib/country-intelligence/rss";
+import { CITY_BENCHMARKS, CITY_PRICE_MONTH } from "../../lib/country-intelligence/city-benchmarks";
+import { COUNTRY_TIME_ZONES } from "../../lib/country-intelligence/time-zones";
+import { COST_CURRENCIES } from "../../lib/country-intelligence/currencies";
+import { PASSPORTS, DESTINATION_INDEX, passportStatus } from "../../lib/country-intelligence/passports";
+import { decodeAvatar, ownedAvatarPath } from "../../lib/profile-photo";
 
 const now = new Date("2026-09-08T12:00:00Z");
 const fixture: CostData = {
@@ -85,4 +91,47 @@ async function networkContracts() {
   } finally { globalThis.fetch = original; }
   console.log(`PASS ${count} country-intelligence checks`);
 }
+test("50 city benchmarks have distinct identities, nonnegative components and local currencies", () => {
+  assert.equal(CITY_BENCHMARKS.length,50); assert.equal(new Set(CITY_BENCHMARKS.map(row=>row.id)).size,50);
+  for(const row of CITY_BENCHMARKS) { assert.ok(COST_CURRENCIES[row.code]); assert.ok(row.basket > row.hotel); assert.ok(row.hotel > 0 && row.meal > 0 && row.travel >= 0); }
+  assert.equal(CITY_PRICE_MONTH,"2026-05");
+});
+test("Rome and Florence do not collide under a shared country code", () => {
+  const italy=CITY_BENCHMARKS.filter(row=>row.code==="IT");assert.equal(italy.length,3);assert.equal(new Set(italy.map(row=>row.id)).size,3);
+});
+test("reference FX to local, then CPI, then current FX avoids double conversion", () => {
+  const data={...fixture,baseline:{...fixture.baseline,daily:100*1.2}};assert.equal(estimateCost(data,"average",now).converted,7200);
+});
+test("passport matrix has 199 complete rows and ETA is never labelled visa-free", () => {
+  assert.equal(Object.keys(PASSPORTS).length,199);for(const row of Object.values(PASSPORTS))assert.equal(row.length,DESTINATION_INDEX.size);
+  assert.equal(passportStatus("XX","ordinary","IT"),"unknown");assert.equal(passportStatus("DE","diplomatic","US"),"unknown");
+  assert.equal(passportStatus("TR","invalid-type","IT"),"unknown");
+  assert.equal(passportStatus("TR","special","IT"),"free");assert.equal(passportStatus("TR","special","GB"),"required");
+  for(const [code,index] of DESTINATION_INDEX)if(PASSPORTS.GB[index]==="t")assert.equal(passportStatus("GB","ordinary",code),"unknown");
+});
+test("ID-card override is restricted to reviewed Turkish entries", () => {
+  assert.equal(passportStatus("TR","ordinary","GE"),"id_card");assert.notEqual(passportStatus("US","ordinary","GE"),"id_card");assert.equal(passportStatus("TR","ordinary","AZ"),"id_card");
+});
+test("IANA reference zones cover 247 territories and remain valid", () => {
+  assert.ok(Object.keys(COUNTRY_TIME_ZONES).length>=240);for(const zone of Object.values(COUNTRY_TIME_ZONES))assert.doesNotThrow(()=>new Intl.DateTimeFormat("en",{timeZone:zone}));
+  assert.equal(localDateForCountry("NZ",new Date("2026-11-06T12:30:00Z")).today,"2026-11-07");
+});
+const rss=(title:string,date="Tue, 08 Sep 2026 09:00:00 GMT",url="https://www.bbc.com/news/example")=>`<rss><channel><item><title><![CDATA[${title}]]></title><link>${url}</link><pubDate>${date}</pubDate></item></channel></rss>`;
+test("publisher RSS preserves publication date but never invents event date",()=>{
+  const rows=parseNewsRss(rss("Sweden election update"),"SE","BBC",now);assert.equal(rows.length,1);assert.equal(rows[0].publishedAt,"2026-09-08T09:00:00.000Z");assert.equal(rows[0].eventDate,null);
+});
+test("RSS discards future, stale, unrelated and unsafe publisher stories",()=>{
+  assert.equal(parseNewsRss(rss("Sweden election update","Tue, 08 Sep 2027 09:00:00 GMT"),"SE","BBC",now).length,0);
+  assert.equal(parseNewsRss(rss("Sweden election update","Tue, 08 Aug 2026 09:00:00 GMT"),"SE","BBC",now).length,0);
+  assert.equal(parseNewsRss(rss("Canada update"),"SE","BBC",now).length,0);
+  assert.equal(parseNewsRss(rss("Sweden update",undefined,"https://example.com/a"),"SE","BBC",now).length,0);
+  assert.equal(parseNewsRss('<!DOCTYPE x>'+rss("Sweden update"),"SE","BBC",now).length,0);
+});
+test("avatars reject active formats, external URLs and oversized data",()=>{
+  assert.equal(decodeAvatar("https://example.com/x.jpg"),null);assert.equal(decodeAvatar("data:image/svg+xml;base64,PHN2Zz4="),null);assert.equal(decodeAvatar("data:image/jpeg;base64,"+"A".repeat(400000)),null);
+});
+test("avatar paths cannot reference another account or escape the user folder",()=>{
+  const a="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", b="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  assert.equal(ownedAvatarPath(`${a}/${b}.jpg`,a),true);assert.equal(ownedAvatarPath(`${b}/${a}.jpg`,a),false);assert.equal(ownedAvatarPath(`${a}/../${b}.jpg`,a),false);assert.equal(ownedAvatarPath(`${a}/${b}.jpg`,".*"),false);
+});
 void networkContracts().catch(error => { console.error(error); process.exitCode = 1; });

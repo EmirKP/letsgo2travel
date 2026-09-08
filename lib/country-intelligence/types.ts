@@ -26,11 +26,13 @@ export type NewsItem = {
   title: string; url: string; publisher: string; language: string;
   firstSeenAt: string; topic: "elections" | "transport" | "weather" | "security" | "general";
   // GDELT supplies indexing time, not a verified publication/event date.
-  publishedAt: null; eventDate: null;
+  publishedAt: string | null; eventDate: string | null;
+  provider?: "GDELT" | "Anadolu Ajansı" | "BBC";
 };
 export type CalendarItem = {
-  id: string; date: string; name: Bilingual; type: "public-holiday" | "observance";
+  id: string; date: string; name: Bilingual; type: "public-holiday" | "observance" | "election";
   countryWide: boolean; regions: string[]; sourceUrl: string;
+  checkedAt?: string; verification?: "live" | "last-known";
 };
 export type CountryBrief = {
   code: string; checkedAt: string; timeZone: string; today: string;

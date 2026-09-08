@@ -81,6 +81,7 @@ function getRouteHighlights() {
 // Ana sayfanın dört temel aracı. Fiyat Alarmı bir arama motoru DEĞİLDİR;
 // takip ettiğin rotada fiyat düşünce haber veren bağımsız bir araçtır.
 const quickActions = [
+  { href: "/ulke-gundemi", icon: Globe2, title: "Ülke Gündemi", text: "Kaynaklı seyahat uyarıları, haberler ve önemli günler." },
   { href: "/pasaport-gucu", icon: ShieldCheck, title: "Pasaport Gücü", text: "Pasaportuna göre giriş durumlarını karşılaştır." },
   { href: "/butce-hesapla", icon: Calculator, title: "Ülke Maliyetleri", text: "Örnek bütçeyi kendi seyahatine göre hesapla." },
   {

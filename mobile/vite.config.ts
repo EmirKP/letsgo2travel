@@ -2,13 +2,16 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const mobileDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(mobileDir, "..");
 const releaseManifest = JSON.parse(
   readFileSync(path.join(rootDir, "release-manifest.json"), "utf8"),
-) as { appVersion: string; buildNumber: number };
+) as { appVersion: string; buildNumber: number; nativeBuildNumber?: number };
+const commitId = (() => { try { return execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { cwd:rootDir, encoding:"utf8" }).trim(); } catch { return "unknown"; } })();
+const artifactIdentity = { ...releaseManifest, sourceCommit:commitId, builtAt:new Date().toISOString(), updateId:"unified-20260908" };
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, rootDir, "");
@@ -28,7 +31,7 @@ export default defineConfig(({ mode }) => {
           this.emitFile({
             type: "asset",
             fileName: "release.json",
-            source: `${JSON.stringify(releaseManifest)}\n`,
+            source: `${JSON.stringify(artifactIdentity)}\n`,
           });
         },
       },
@@ -42,7 +45,9 @@ export default defineConfig(({ mode }) => {
         supportEmail:
           env.VITE_SUPPORT_EMAIL || env.NEXT_PUBLIC_SUPPORT_EMAIL || env.SUPPORT_EMAIL || "hello@letsgo2travel.com.tr",
         appVersion: releaseManifest.appVersion,
-        buildNumber: String(releaseManifest.buildNumber),
+        buildNumber: String(releaseManifest.nativeBuildNumber || releaseManifest.buildNumber),
+        sourceCommit: commitId,
+        updateId: artifactIdentity.updateId,
         appleAuthEnabled: (env.VITE_APPLE_AUTH_ENABLED || "").trim().toLowerCase() !== "false",
       }),
     },

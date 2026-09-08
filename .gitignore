@@ -13,6 +13,7 @@
 
 # testing
 /coverage
+/tests/browser/results/
 
 # next.js
 /.next/

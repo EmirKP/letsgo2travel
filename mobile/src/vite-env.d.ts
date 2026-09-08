@@ -7,5 +7,7 @@ declare const __L2T_CONFIG__: {
   supportEmail: string;
   appVersion: string;
   buildNumber: string;
+  sourceCommit: string;
+  updateId: string;
   appleAuthEnabled: boolean;
 };

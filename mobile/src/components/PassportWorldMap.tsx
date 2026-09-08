@@ -238,8 +238,8 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
   const translateX = transform.x / pixelsPerUnit;
   const translateY = transform.y / pixelsPerUnit;
   const groupTransform = `translate(${400 + translateX} ${200 + translateY}) scale(${transform.scale}) translate(-400 -200)`;
-  const flagSize = (transform.scale >= 2 ? 24 : 18) / pixelsPerUnit;
-  const visibleFlags = flags.filter(country => country.level <= (transform.scale >= 4 ? 3 : transform.scale >= 2 ? 2 : 1) || country.alpha3 === selectedAlpha3)
+  const flagSize = (transform.scale >= 3 ? 19 : 14) / pixelsPerUnit;
+  const visibleFlags = flags.filter(country => (transform.scale >= 1.8 && country.level <= (transform.scale >= 4 ? 3 : transform.scale >= 2.5 ? 2 : 1)) || country.alpha3 === selectedAlpha3)
     .map(country => ({...country,displayX:400 + ((country.x || 0)-400)*transform.scale+translateX,displayY:200 + ((country.y || 0)-200)*transform.scale+translateY}))
     .filter(country => Math.abs((country.displayX-400)*pixelsPerUnit) < viewportSize.width/2 + 24 && Math.abs((country.displayY-200)*pixelsPerUnit) < viewportSize.height/2+24)
     .sort((a,b) => Number(b.alpha3 === selectedAlpha3)-Number(a.alpha3 === selectedAlpha3) || b.area-a.area)
@@ -257,7 +257,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
         aria-describedby="passport-map-help"
         onClick={selectCountry}
       >
-        <title>{copy("Türkiye pasaportu vize haritası", "Turkish passport visa map")}</title>
+        <title>{copy("Seçili pasaporta göre giriş haritası", "Entry map for the selected passport")}</title>
         <desc>{copy("Renkler giriş koşullarını gösterir. Haritayı iki parmakla yakınlaştırabilir, sürükleyebilir ve ülkeye dokunabilirsin.", "Colours show entry requirements. Pinch to zoom, drag the map and tap a country.")}</desc>
         <rect width="800" height="400" fill="#F4F8FD" />
         <g transform={groupTransform}>
