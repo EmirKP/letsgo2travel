@@ -56,7 +56,6 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
     "@electric-sql/pglite": "^0.5.8",
@@ -79,7 +78,6 @@
   },
   "allowScripts": {
     "sharp@0.34.5": true,
-    "unrs-resolver@1.11.1": true,
-    "sharp@0.32.6": true
+    "unrs-resolver@1.11.1": true
   }
 }
