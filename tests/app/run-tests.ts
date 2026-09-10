@@ -709,13 +709,15 @@ test("forum senkronu: kilitli cevap önizlemesi ve hesap yetkisi aynı kuralı k
   const mobile = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
   const web = readFileSync("app/forum/[id]/page.tsx", "utf8");
   assert.ok(route.includes('supabase.rpc("has_forum_topic_unlock"'), "sunucu hesap kilidini doğrulamalı");
-  assert.ok(route.includes('supabase.rpc(\n    "is_forum_topic_paywalled"'), "mobil detay API'si kanonik DB paywall kararını kullanmalı");
+  assert.match(route, /supabase\.rpc\(\s*"is_forum_topic_paywalled"/, "mobil detay API'si kanonik DB paywall kararını kullanmalı");
   assert.ok(web.includes("forumTopicIsPaywalled("), "web ve mobil aynı paywall yardımcısını kullanmalı");
-  assert.ok(route.includes("supabase.auth.getUser(token)"), "yetki yalnız doğrulanmış oturumdan alınmalı");
+  const viewer = readFileSync("lib/community/viewer.ts", "utf8");
+  const authenticated = readFileSync("lib/authenticated-user.ts", "utf8");
+  assert.ok(route.includes("communityViewer(request)") && viewer.includes("requireAuthenticatedUser(request)") && authenticated.includes("supabase.auth.getUser(token)"), "yetki yalnız doğrulanmış oturumdan alınmalı");
   assert.ok(unlockRoute.includes("requireAuthenticatedUser(request)"), "kilit açma yalnız doğrulanmış kullanıcıyla çalışmalı");
   assert.ok(unlockRoute.includes('from("forum_country_unlocks")'), "mobil üyelik webdeki ülke kilidi kaydını kullanmalı");
   assert.ok(mobile.includes("/unlock`"), "kilitli cevaplarda kullanıcıya çalışan açma eylemi sunulmalı");
-  assert.ok(feedRoute.includes('rpc("get_forum_reply_counts"'), "akış cevap sayısını sınırsız toplu sayım RPC'sinden almalı");
+  assert.ok(feedRoute.includes('rpc("get_forum_visible_reply_counts"'), "akış cevap sayısını sınırsız toplu sayım RPC'sinden almalı");
   assert.ok(!feedRoute.includes(".limit(5000)"), "cevap sayısı sabit satır limitinde kesilmemeli");
   assert.ok(mobile.includes("Authorization: `Bearer ${accessToken}`"), "mobil detay isteği oturumunu taşımalı");
   assert.ok(mobile.includes("totalAnswerCount ? copy(`${totalAnswerCount} cevap`"), "detay başlığı toplam cevap sayısını kullanmalı");
@@ -1020,7 +1022,7 @@ test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağ�
   const communityData = readFileSync("mobile/src/lib/community.ts", "utf8");
   const styles = readFileSync("mobile/src/App.css", "utf8");
 
-  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(1)"), "kompakt ana sayfa gerçek topluluk akışından bir soruyu öne çıkarmalı");
+  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(1, accessToken)"), "kompakt ana sayfa gerçek topluluk akışından bir soruyu öne çıkarmalı");
   assert.ok(home.includes("onOpenCommunity(question.countryCode)") && app.includes("communityCountryCode"), "ülke kısayolu topluluğu seçili ülkeyle açmalı");
   assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
   assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");

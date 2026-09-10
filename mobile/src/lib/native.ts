@@ -1,6 +1,7 @@
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import { getMobilePreferences } from "./storage";
+import { handoffMailDraft, type MailDraftResult, type SupportDraft } from "./support";
 
 export function resolveExternalUrl(url: string) {
   const clean = url.trim();
@@ -8,10 +9,25 @@ export function resolveExternalUrl(url: string) {
   try {
     const parsed = new URL(clean, `${config.apiBaseUrl}/`);
     if (parsed.protocol === "https:") return parsed.toString();
-    if (parsed.protocol === "mailto:" && !/[\r\n]/.test(clean)) return parsed.toString();
     return "";
   } catch {
     return "";
+  }
+}
+
+export function openMailDraft(draft: SupportDraft): MailDraftResult {
+  // Capacitor's installed iOS/Android navigation delegate passes mailto to the
+  // operating system. Browser.open only supports HTTP(S) on iOS. Keep the
+  // support sheet open: the OS does not report whether a mail account exists.
+  return handoffMailDraft(draft, (url) => window.location.assign(url));
+}
+
+export async function copySupportText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -31,14 +47,14 @@ export async function openExternal(url: string): Promise<boolean> {
     }
   }
 
-  const opened = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
-  if (opened) return true;
-  if (/^https?:/i.test(resolvedUrl)) {
+  try {
+    const opened = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+    if (opened) return true;
     window.location.assign(resolvedUrl);
     return true;
+  } catch {
+    return false;
   }
-  window.location.href = resolvedUrl;
-  return true;
 }
 
 export async function closeBrowser() {

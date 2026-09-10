@@ -55,7 +55,8 @@ export async function PATCH(request: Request) {
     const targetIds = (Array.isArray(ids) ? ids : id ? [id] : []).filter((value): value is string => typeof value === "string");
     if (targetIds.length === 0 || targetIds.length > 100 || targetIds.some((value) => !UUID_PATTERN.test(value))) return NextResponse.json({ error: "invalid ids" }, { status: 400 });
 
-    const { error } = await supabase.from("forum_replies").update({ status }).in("id", targetIds);
+    const { data: updated, error } = await supabase.from("forum_replies").update({ status }).in("id", targetIds).select("id");
+    if (!error && updated?.length !== new Set(targetIds).size) return NextResponse.json({ error: "Bazı içerikler bulunamadı. Listeyi yenileyin." }, { status: 404 });
     if (error) throw error;
 
     return NextResponse.json({ success: true });

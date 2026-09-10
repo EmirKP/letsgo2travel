@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/authenticated-user';
+import { ACCOUNT_DELETION_TYPE, deletionSummary } from '@/lib/account-deletion-policy';
 
 const REQUEST_TYPES = new Set([
   'Verilerimi görmek istiyorum',
@@ -13,6 +14,19 @@ const REQUEST_TYPES = new Set([
 
 function cleanText(value: unknown, maxLength: number) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+export async function GET(req: Request) {
+  try {
+    const auth = await requireAuthenticatedUser(req);
+    if (!auth.ok) return auth.response;
+    const result = await auth.supabase.from('kvkk_requests')
+      .select('id,status,created_at,target_completion_at,processed_at,completion_notification_status')
+      .eq('user_id', auth.user.id).eq('request_type', ACCOUNT_DELETION_TYPE)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (result.error) return NextResponse.json({ error: 'Hesap silme durumu şu anda alınamıyor.' }, { status: 503 });
+    return NextResponse.json({ request: result.data ? deletionSummary(result.data) : null }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch { return NextResponse.json({ error: 'Talep durumu alınamadı.' }, { status: 503 }); }
 }
 
 export async function POST(req: Request) {
@@ -32,8 +46,17 @@ export async function POST(req: Request) {
     const description = cleanText(body.description, 4000);
     const confirmed = body.confirmed;
 
-    if (!confirmed) {
+    if (confirmed !== true) {
       return NextResponse.json({ error: 'Doğrulama kutusu işaretlenmelidir.' }, { status: 400 });
+    }
+
+    if (requestType === ACCOUNT_DELETION_TYPE) {
+      const result = await supabase.rpc('create_account_deletion_request', {
+        p_user_id: user.id, p_locale: body.locale === 'en' ? 'en' : 'tr',
+      });
+      const record = result.data?.[0];
+      if (result.error || !record) return NextResponse.json({ error: 'Hesap silme talebi şu anda kaydedilemiyor. Lütfen tekrar deneyin.' }, { status: 503 });
+      return NextResponse.json({ success: true, request: deletionSummary(record), message: 'Hesap silme talebiniz alındı. En geç 30 gün içinde tamamlanması hedeflenir; sonuç e-posta ile bildirilir.' }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     if (!name || !requestType || !description || !REQUEST_TYPES.has(requestType)) {

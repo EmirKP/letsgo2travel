@@ -100,6 +100,10 @@ workflows:
           print(f"Apple build: {latest}; Codemagic build: {ci_build}; next iOS build: {next_build}")
           PY
 
+      - name: Test account, community and privacy release requirements
+        script: |
+          npm run test:release
+
       - name: Build mobile app and sync iOS
         script: |
           npm run mobile:prepare:ios

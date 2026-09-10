@@ -24,11 +24,22 @@ export async function POST(request: Request) {
     }
     const { reportId, targetType, targetId, action, reason } = parsed.value;
 
+    // A report cannot be closed by supplying another content UUID/type.
+    if (reportId) {
+      const { data: report, error: reportError } = await supabase.from("content_reports")
+        .select("id,target_type,target_id").eq("id", reportId).maybeSingle();
+      if (reportError) return NextResponse.json({ error: "Rapor doğrulanamadı." }, { status: 500 });
+      if (!report || report.target_type !== targetType || report.target_id !== targetId) {
+        return NextResponse.json({ error: "Rapor ve içerik eşleşmiyor." }, { status: 409 });
+      }
+    }
+
     if (action !== "close") {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from(MODERATION_TARGET_TABLES[targetType])
         .update({ status: MODERATION_STATUS_BY_ACTION[action] })
-        .eq("id", targetId);
+        .eq("id", targetId).select("id");
+      if (!error && updated?.length !== 1) return NextResponse.json({ error: "İçerik bulunamadı; rapor kapatılmadı." }, { status: 404 });
       if (error) {
         return NextResponse.json({ error: "İçerik durumu güncellenemedi." }, { status: 500 });
       }

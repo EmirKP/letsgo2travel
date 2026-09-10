@@ -25,7 +25,8 @@
     "test:alerts": "node scripts/run-alert-tests.mjs",
     "test:app": "node scripts/run-app-tests.mjs",
     "test:integrity": "node tests/integrity/run.mjs",
-    "dev:mobile": "node scripts/dev.mjs --mobile"
+    "dev:mobile": "node scripts/dev.mjs --mobile",
+    "test:release": "node scripts/test-release-readiness.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

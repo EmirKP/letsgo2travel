@@ -54,6 +54,12 @@ export async function PATCH(req: Request) {
       .maybeSingle();
     if (currentError) return NextResponse.json({ error: 'Talep okunamadı.' }, { status: 500 });
     if (!current) return NextResponse.json({ error: 'Talep bulunamadı.' }, { status: 404 });
+    if (current.status === 'processed') return NextResponse.json({ error: 'Tamamlanmış hesap silme talebi yeniden açılamaz.' }, { status: 409 });
+    if (current.request_type === ACCOUNT_DELETION_TYPE) {
+      const job = await supabase.from('account_deletion_jobs').select('request_id').eq('request_id', id).maybeSingle();
+      if (job.error) return NextResponse.json({ error: 'Silme işlem durumu doğrulanamadı.' }, { status: 503 });
+      if (job.data) return NextResponse.json({ error: 'Silme işlemi başlatılmış. Durumu değiştirmek yerine kayıtlı işlemi tamamlayın.' }, { status: 409 });
+    }
     if (current.request_type === ACCOUNT_DELETION_TYPE && status === 'resolved') {
       return NextResponse.json({ error: 'Hesap kapatma talebi yalnızca kalıcı silme işlemi tamamlandıktan sonra sonuçlanabilir.' }, { status: 409 });
     }

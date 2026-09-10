@@ -184,7 +184,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const name = !user && rawName === "Misafir Kaşif" ? copy("Misafir Kaşif", "Guest Explorer") : rawName;
   const level = explorerLevel(visited.length);
   const localizedLevel = level === "Dünya Gezgini" ? copy(level, "World Traveller") : level === "Balkan Kaşifi" ? copy(level, "Balkan Explorer") : level === "Rota Meraklısı" ? copy(level, "Route Enthusiast") : copy(level, "New Explorer");
-  const progress = Math.min(100, Math.max(8, Math.round((visited.length / 25) * 100)));
+  const progress = Math.min(100, Math.max(0, Math.round((visited.length / 25) * 100)));
   const approvedCount = verifications.filter((item) => item.status === "approved").length;
   const countries = useMemo(() => COUNTRY_LIST.filter((country) => `${country.name} ${countryName(country.alpha3, country.name)}`.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale))), [countryName, locale, query]);
   const visibleCountries = useMemo(() => countries.slice(0, visibleCountryCount), [countries, visibleCountryCount]);

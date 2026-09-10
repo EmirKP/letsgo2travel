@@ -1,0 +1,16 @@
+.community-safety-toolbar { display:flex; flex-wrap:wrap; gap:8px; padding:12px 0; }
+.community-safety-toolbar button, .community-safety-action { min-height:44px; border:1px solid #dce4ee; border-radius:12px; background:#fff; color:#164b72; padding:8px 12px; font:inherit; font-size:14px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+.community-safety-action { margin:8px 0; }
+.community-question-list article > .community-safety-action { margin-left:16px; }
+.community-safety-form { display:grid; gap:14px; color:#172033; }
+.community-safety-form p { margin:0; line-height:1.5; overflow-wrap:anywhere; }
+.community-safety-form form, .community-safety-form [role="status"] { display:grid; gap:14px; }
+.community-safety-form fieldset { border:0; margin:0; padding:0; min-width:0; display:grid; gap:8px; }
+.community-safety-form legend { padding:0 0 12px; font-weight:700; }
+.community-safety-option { display:flex; align-items:center; gap:12px; min-height:48px; padding:10px 12px; border:1px solid #dce4ee; border-radius:12px; }
+.community-safety-option input { flex:0 0 20px; width:20px; height:20px; margin:0; }
+.community-safety-note { display:grid; gap:8px; padding-top:8px; }
+.community-safety-note textarea { box-sizing:border-box; width:100%; border:1px solid #c6d4e5; border-radius:12px; padding:12px; font:inherit; font-size:16px; resize:vertical; }
+.community-safety-author { font-weight:700; }
+.community-block-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid #e3eaf3; padding:10px 0; }
+.community-block-row strong { min-width:0; overflow-wrap:anywhere; }

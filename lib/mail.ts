@@ -4,6 +4,7 @@ export interface SendMailParams {
   html: string;
   category?: string;
   referenceId?: string | null;
+  idempotencyKey?: string;
 }
 
 export interface SendMailResult {
@@ -56,6 +57,7 @@ export async function sendMail(params: SendMailParams): Promise<SendMailResult> 
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(params.idempotencyKey ? { "Idempotency-Key": params.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: process.env.RESEND_FROM || "LetsGo2Travel <hello@letsgo2travel.com.tr>",
@@ -63,18 +65,19 @@ export async function sendMail(params: SendMailParams): Promise<SendMailResult> 
         subject: params.subject,
         html: params.html,
       }),
+      signal: AbortSignal.timeout(15_000),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      console.error("Resend API error:", data);
+      console.error("Resend API error:", res.status);
       return { success: false, error: data.message || data.error || "Failed to send email" };
     }
 
     return { success: true, providerId: data.id };
   } catch (error) {
-    console.error("Failed to send email:", error);
+    console.error("Failed to send email:", error instanceof Error ? error.name : "unknown");
     return { success: false, error: error instanceof Error ? error.message : "Network error" };
   }
 }

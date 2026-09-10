@@ -1,3 +1,4 @@
+import { ForumSafetyProvider, ForumUserContent } from "@/components/ForumVisibility";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -150,7 +151,7 @@ export default async function ForumTopicPage({
   const [replyResult, paywallState] = await Promise.all([
     supabase
       .from("forum_replies")
-      .select("id,topic_id,author_name,content,created_at")
+      .select("id,user_id,topic_id,author_name,content,created_at")
       .eq("topic_id", topic.id)
       .eq("status", "published")
       .order("created_at", { ascending: true })
@@ -202,6 +203,8 @@ export default async function ForumTopicPage({
   };
 
   return (
+    <ForumSafetyProvider>
+    <ForumUserContent authorId={topic.author_id} showHiddenMessage>
     <div className={styles.page}>
       <script
         type="application/ld+json"
@@ -278,7 +281,8 @@ export default async function ForumTopicPage({
           {visibleReplies.length > 0 ? (
             <div className={styles.replyList}>
               {visibleReplies.map((reply) => (
-                <article className={styles.replyCard} key={reply.id}>
+                <ForumUserContent key={reply.id} authorId={reply.user_id}>
+                <article className={styles.replyCard}>
                   <header className={styles.replyHeader}>
                     <div className={styles.replyIdentity}>
                       <span className={styles.replyAvatar} aria-hidden="true">
@@ -295,6 +299,7 @@ export default async function ForumTopicPage({
                   </header>
                   <p className={styles.replyContent}>{reply.content}</p>
                 </article>
+                </ForumUserContent>
               ))}
             </div>
           ) : (
@@ -322,5 +327,7 @@ export default async function ForumTopicPage({
         </section>
       </div>
     </div>
+    </ForumUserContent>
+    </ForumSafetyProvider>
   );
 }

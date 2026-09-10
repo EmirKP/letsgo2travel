@@ -66,13 +66,20 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, ids, status } = body;
+    const { id, ids, status, action } = body;
     if (typeof status !== "string" || !ALLOWED_STATUSES.has(status)) return NextResponse.json({ error: "invalid status" }, { status: 400 });
 
     const targetIds = (Array.isArray(ids) ? ids : id ? [id] : []).filter((value): value is string => typeof value === "string");
     if (targetIds.length === 0 || targetIds.length > 100 || targetIds.some((value) => !UUID_PATTERN.test(value))) return NextResponse.json({ error: "invalid ids" }, { status: 400 });
 
-    const { error } = await supabase.from("forum_reports").update({ status }).in("id", targetIds);
+    if (action !== undefined) {
+      if (action !== "hide" || status !== "resolved") return NextResponse.json({ error: "invalid action" }, { status: 400 });
+      const { data, error } = await supabase.rpc("hide_reported_forum_content", { p_report_ids: targetIds });
+      if (error) return NextResponse.json({ error: "İçerik ve rapor güncellenemedi. Hedefi kontrol edip yeniden dene." }, { status: 409 });
+      return NextResponse.json({ success: true, updated: data });
+    }
+    const { data: updated, error } = await supabase.from("forum_reports").update({ status }).in("id", targetIds).select("id");
+    if (!error && updated?.length !== new Set(targetIds).size) return NextResponse.json({ error: "Bazı raporlar bulunamadı. Listeyi yenileyin." }, { status: 404 });
     if (error) throw error;
 
     return NextResponse.json({ success: true });

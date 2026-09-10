@@ -116,7 +116,9 @@ export default function ForumPaywallClient({
       }
     });
 
-    return () => subscription.unsubscribe();
+    const blocksChanged = () => { setHiddenReplies([]); void checkViewer(); };
+    window.addEventListener("l2t:community-blocks-changed", blocksChanged);
+    return () => { subscription.unsubscribe(); window.removeEventListener("l2t:community-blocks-changed", blocksChanged); };
   }, [checkViewer]);
 
   const unlockCountry = async () => {

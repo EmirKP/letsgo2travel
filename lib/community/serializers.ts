@@ -1,9 +1,11 @@
 // Topluluk (Kaşifler Ligi forumu) HERKESE AÇIK yanıt serileştiricileri.
 // Beyaz-liste yaklaşımı: yalnız burada adı geçen alanlar yanıtta yer alır.
-// user_id, e-posta veya profil gizli alanları HİÇBİR koşulda dönmez —
+// authorId yalnız engelleme/kendi içeriğini tanıma için açık UUID alanıdır.
+// user_id, e-posta veya diğer profil gizli alanları HİÇBİR koşulda dönmez —
 // satırda fazladan alan olsa bile kopyalanmaz (testle güvence altında).
 
 type Unknown = Record<string, unknown>;
+const publicAuthorId = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
 
 function text(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.slice(0, maxLength) : "";
@@ -11,6 +13,7 @@ function text(value: unknown, maxLength: number) {
 
 export type PublicAnswer = {
   id: string;
+  authorId: string | null;
   body: string;
   createdAt: string;
   username: string;
@@ -18,6 +21,7 @@ export type PublicAnswer = {
 
 export type PublicQuestionSummary = {
   id: string;
+  authorId: string | null;
   countryCode: string;
   title: string;
   body: string;
@@ -34,6 +38,7 @@ export type PublicQuestionDetail = Omit<PublicQuestionSummary, "answerCount"> & 
 export function serializeAnswer(row: Unknown, username: string | null | undefined): PublicAnswer {
   return {
     id: text(row.id, 80),
+    authorId: publicAuthorId(row.authorId),
     body: text(row.body, 10_000),
     createdAt: text(row.created_at, 40),
     username: username || "anonim_gezgin",
@@ -47,6 +52,7 @@ export function serializeQuestionSummary(
 ): PublicQuestionSummary {
   return {
     id: text(row.id, 80),
+    authorId: publicAuthorId(row.authorId),
     countryCode: text(row.country_code, 8),
     title: text(row.title, 300),
     body: text(row.body, 10_000),
@@ -65,6 +71,7 @@ export function serializeQuestionDetail(
   const summary = serializeQuestionSummary(row, username, answers.length);
   return {
     id: summary.id,
+    authorId: summary.authorId,
     countryCode: summary.countryCode,
     title: summary.title,
     body: summary.body,

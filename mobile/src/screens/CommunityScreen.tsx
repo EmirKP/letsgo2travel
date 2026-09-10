@@ -4,6 +4,8 @@ import { CountryPicker } from "../components/CountryPicker";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
+import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
+import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { ApiError, requestJson } from "../lib/api";
@@ -12,7 +14,9 @@ import {
   communityText as text,
   listCommunityQuestions,
   type CommunityQuestion,
+  type CommunitySafetyTarget,
 } from "../lib/community";
+import { openExternal } from "../lib/native";
 import type { AuthUser } from "../types";
 import { useI18n } from "../lib/i18n";
 
@@ -22,6 +26,7 @@ type CommunityAnswer = {
   body: string;
   createdAt: string;
   username: string;
+  authorId: string | null;
 };
 
 type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
@@ -108,7 +113,11 @@ function initials(username: string) {
     .join("") || "K";
 }
 
-export function CommunityScreen({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice }: CommunityScreenProps) {
+export function CommunityScreen(props: CommunityScreenProps) {
+  return <CommunityScreenForAccount key={props.user?.id || "guest"} {...props} />;
+}
+
+function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice }: CommunityScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const questionCountries = useMemo(() => [...COUNTRY_LIST]
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
@@ -140,6 +149,10 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
   const [answerBody, setAnswerBody] = useState("");
   const [answerPosting, setAnswerPosting] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
+  const [blocksOpen, setBlocksOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const active = useRef(true);
   const detailGeneration = useRef(0);
   const requestGeneration = useRef(0);
   const feedGeneration = useRef(0);
@@ -205,7 +218,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     setFeedLoading(true);
     setFeedError("");
     try {
-      const next = await listCommunityQuestions();
+      const next = await listCommunityQuestions(40, accessToken);
       if (generation !== feedGeneration.current) return;
       setQuestions(next);
     } catch {
@@ -216,13 +229,16 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     } finally {
       if (generation === feedGeneration.current) setFeedLoading(false);
     }
-  }, [copy]);
+  }, [accessToken, copy]);
 
   useEffect(() => {
+    active.current = true;
     void loadFeed();
     return () => {
+      active.current = false;
       requestGeneration.current += 1;
       feedGeneration.current += 1;
+      detailGeneration.current += 1;
     };
   }, [loadFeed]);
 
@@ -265,6 +281,27 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     setUnlocking(false);
   };
 
+  const openSafety = (target: CommunitySafetyTarget) => {
+    if (!user || !accessToken) return onOpenAccount();
+    if (target.authorId === user.id) return;
+    setSafetyTarget(target);
+  };
+
+  const safetyButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => item.authorId !== user?.id && <button
+    type="button" className="community-safety-action" onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
+    aria-label={copy(`@${item.username} içeriğini şikâyet et veya kullanıcıyı engelle`, `Report content or block @${item.username}`)}
+  ><Icon name="shield" size={16} /> {copy("Şikâyet / Engelle", "Report / Block")}</button>;
+
+  const onBlocked = (blockedId: string) => {
+    setSafetyTarget(null);
+    setQuestions((rows) => rows.filter((row) => row.authorId !== blockedId));
+    // Reload server-derived counts and access state after filtering any blocked reply.
+    if (detail?.authorId === blockedId) closeDetail();
+    else if (detail) void openDetail(detail.id);
+    void loadFeed();
+    onNotice(copy("Kullanıcı engellendi. Engellenen hesaplar bölümünden yönetebilirsin.", "User blocked. You can manage this in Blocked accounts."));
+  };
+
   const submitAnswer = async () => {
     if (!user || !accessToken) return onOpenAccount();
     if (!detail) return;
@@ -286,17 +323,19 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
     } catch (requestError) {
       // 403: cevap için Belgeli Gezgin doğrulaması gerekir — teknik detay
       // göstermeden anlaşılır biçimde aktarılır.
+      if (!active.current || generation !== detailGeneration.current) return;
       onNotice(locale === "tr" && requestError instanceof ApiError && requestError.message
         ? requestError.message
         : copy("Cevap gönderilemedi. Tekrar dene.", "The answer could not be sent. Try again."));
     } finally {
-      setAnswerPosting(false);
+      if (active.current) setAnswerPosting(false);
     }
   };
 
   const unlockReplies = async () => {
     if (!user || !accessToken) return onOpenAccount();
     if (!detail || unlocking) return;
+    const generation = detailGeneration.current;
     setUnlocking(true);
     try {
       await requestJson<{ data?: { unlocked?: boolean } }>(
@@ -307,14 +346,16 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
           timeoutMs: 15_000,
         },
       );
+      if (!active.current || generation !== detailGeneration.current) return;
       onNotice(copy("Ülke kilidi açıldı. Tüm cevaplar artık görünür.", "Country access unlocked. All answers are now visible."));
       await openDetail(detail.id);
     } catch (requestError) {
+      if (!active.current || generation !== detailGeneration.current) return;
       onNotice(locale === "tr" && requestError instanceof ApiError && requestError.message
         ? requestError.message
         : copy("Ülke kilidi şu anda açılamadı. Tekrar dene.", "Country access could not be unlocked. Try again."));
     } finally {
-      setUnlocking(false);
+      if (active.current) setUnlocking(false);
     }
   };
 
@@ -331,6 +372,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { countryCode, title: questionTitle.trim(), body: questionBody.trim(), category: "general" },
       });
+      if (!active.current) return;
       setQuestionOpen(false);
       setCountryCode("");
       setQuestionTitle("");
@@ -338,14 +380,20 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
       if (result.moderation?.action === "visible") await loadFeed();
       onNotice(result.moderation?.action === "visible" ? copy("Sorun toplulukta yayınlandı.", "Your question is live in the community.") : copy("Sorun incelemeye alındı.", "Your question was sent for review."));
     } catch (requestError) {
+      if (!active.current) return;
       onNotice(locale === "tr" && requestError instanceof Error ? requestError.message : copy("Soru gönderilemedi.", "The question could not be sent."));
     } finally {
-      setPosting(false);
+      if (active.current) setPosting(false);
     }
   };
 
   return <div className="screen community-native-screen">
     <PageHero scene="journey" title={copy("Gezgin Topluluğu", "Traveller Community")} subtitle={copy("Sor, deneyimini paylaş, birlikte keşfet.", "Ask, share your experience, discover together.")} />
+    <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
+      <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="shield" size={17} />{copy("Engellenen hesaplar", "Blocked accounts")}</button>
+      <button type="button" onClick={() => setSupportOpen(true)}>{copy("Destek", "Support")}</button>
+      <button type="button" onClick={() => void openExternal("/topluluk-kurallari").then((opened) => { if (!opened && active.current) onNotice(copy("Topluluk kuralları açılamadı. Tekrar dene.", "Community rules could not be opened. Please retry.")); })}>{copy("Topluluk kuralları", "Community rules")}</button>
+    </div>
 
     <div className="segmented community-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
       <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> {copy("Sorular", "Questions")}</button>
@@ -413,6 +461,7 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
             <header><span>{questionScopeLabel(question.countryCode, copy("Genel", "General"))}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
             <h3>{question.title}</h3><p>{question.body}</p>
           </button>
+          {safetyButton(question, "question")}
         </article>)}</div>
         : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>{countryFilter ? copy("Bu ülke topluluğunda henüz soru yok", "No questions in this country community yet") : copy("Henüz görünür soru yok", "No visible questions yet")}</strong><p>{copy("İlk soruyu sorarak ülke topluluğunu başlatabilirsin.", "Ask the first question to start this country community.")}</p>{countryFilter && <button className="secondary-button" type="button" onClick={() => setCountryFilter("")}>{copy("Tüm soruları gör", "See all questions")}</button>}</div>}
     </section>
@@ -424,11 +473,13 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
         <header><span>{questionScopeLabel(detail.countryCode, copy("Genel", "General"))}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
         <p>{detail.body}</p>
+        {safetyButton(detail, "question")}
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
             <header><strong>@{answer.username}</strong><small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
             <p>{answer.body}</p>
+            {safetyButton(answer, "answer")}
           </article>)}
           {hiddenAnswerCount > 0 && <div className="empty-inline community-unlock-box"><Icon name="lock" size={18} /><div><strong>{copy(`${hiddenAnswerCount} cevap kilitli`, `${hiddenAnswerCount} answers locked`)}</strong><span>{copy("Ücretsiz hesabınla ülke kilidini açıp tüm deneyimleri okuyabilirsin.", "Use your free account to unlock this country and read every experience.")}</span><button type="button" className="secondary-wide" disabled={unlocking} onClick={() => user ? void unlockReplies() : onOpenAccount()}>{unlocking ? <span className="button-loader dark" /> : <Icon name={user ? "unlock" : "user"} size={17} />} {user ? (unlocking ? copy("Açılıyor", "Unlocking") : copy("Tüm cevapların kilidini aç", "Unlock all answers")) : copy("Giriş yap ve kilidi aç", "Sign in and unlock")}</button></div></div>}
           {!shownAnswerCount && !hiddenAnswerCount && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>{copy("İlk cevabı sen yaz", "Write the first answer")}</strong><span>{copy("Deneyimini paylaşarak gezginlere yardım et.", "Share your experience to help travellers.")}</span></div></div>}
@@ -444,5 +495,8 @@ export function CommunityScreen({ user, accessToken, initialCountryCode = "", on
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
       </div>}
     </Sheet>
+    <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} />
+    {blocksOpen && <CommunityBlocksSheet accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
+    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
   </div>;
 }
