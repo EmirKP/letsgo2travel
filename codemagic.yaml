@@ -45,6 +45,12 @@ workflows:
             exit 1
           fi
 
+      # Validate the committed cross-platform release before CI assigns an
+      # iOS-only build number. mobile:prepare:ios checks the stamped IPA inputs.
+      - name: Test account, community and privacy release requirements
+        script: |
+          npm run test:release
+
       - name: Set iOS build number from App Store Connect
         script: |
           set -euo pipefail
@@ -99,10 +105,6 @@ workflows:
           manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
           print(f"Apple build: {latest}; Codemagic build: {ci_build}; next iOS build: {next_build}")
           PY
-
-      - name: Test account, community and privacy release requirements
-        script: |
-          npm run test:release
 
       - name: Build mobile app and sync iOS
         script: |
