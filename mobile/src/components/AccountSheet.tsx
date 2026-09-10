@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReturnTypeUseAuth } from "../types-auth";
-import { requestAccountDeletion } from "../lib/api";
 import { isIOSNative } from "../lib/capacitor";
 import { config } from "../lib/config";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
@@ -8,6 +7,7 @@ import { getSupabaseDataErrorMessage, updateUserProfile } from "../lib/supabaseD
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { useI18n } from "../lib/i18n";
+import { AccountDeletionPanel } from "./AccountDeletionPanel";
 
 export function AccountSheet({ open, onClose, auth, onNotice }: {
   open: boolean;
@@ -15,8 +15,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   auth: ReturnTypeUseAuth;
   onNotice: (message: string) => void;
 }) {
-  const { copy, dateLocale, locale } = useI18n();
-  const deleteWord = locale === "en" ? "DELETE" : "SİL";
+  const { copy, dateLocale } = useI18n();
   const [mode, setMode] = useState<"login" | "register" | "reset">("login");
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
   const [email, setEmail] = useState(auth.user?.email || "");
@@ -26,8 +25,6 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [deletionMode, setDeletionMode] = useState(false);
-  const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [profileFullName, setProfileFullName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
@@ -45,8 +42,6 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
     setNewPassword("");
     setConfirmPassword("");
     setMode("login");
-    setDeletionMode(false);
-    setDeletionConfirmation("");
     setProfileEditMode(false);
     setProfileFullName("");
     setProfileUsername("");
@@ -66,8 +61,6 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
     setNewPassword("");
     setConfirmPassword("");
     setMode("login");
-    setDeletionMode(false);
-    setDeletionConfirmation("");
     setProfileEditMode(false);
     setProfileFullName(authFullName);
     setProfileUsername(authUsername);
@@ -178,34 +171,6 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       }
     };
 
-    const submitDeletionRequest = async () => {
-      if (deletionConfirmation.trim().toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US") !== deleteWord) {
-        onNotice(copy("Devam etmek için SİL yazmalısın.", "Type DELETE to continue."));
-        return;
-      }
-      if (!auth.accessToken || !user.email) {
-        onNotice(copy("Hesap oturumu doğrulanamadı. Yeniden giriş yapıp tekrar dene.", "Your account session could not be verified. Sign in again and retry."));
-        return;
-      }
-      setBusy(true);
-      try {
-        const result = await requestAccountDeletion({
-          accessToken: auth.accessToken,
-          name: displayName,
-          email: user.email,
-          username: String(user.user_metadata?.username || ""),
-        });
-        onNotice(locale === "tr" && result.message ? result.message : copy("Hesap silme talebin alındı.", "Your account deletion request was received."));
-        handleClose();
-      } catch (error) {
-        onNotice(locale === "tr" && error instanceof Error && error.message
-          ? error.message
-          : copy("Hesap silme talebi gönderilemedi.", "The account deletion request could not be sent."));
-      } finally {
-        setBusy(false);
-      }
-    };
-
     const submitSignOut = async () => {
       if (busy) return;
       setBusy(true);
@@ -220,7 +185,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       }
     };
 
-    return <Sheet open={open} title={copy("Hesabım", "My account")} onClose={handleClose}>
+    return <Sheet open={open} title={copy("Hesabım", "My account")} onClose={handleClose} dismissible={!busy}>
       <div className="account-profile">
         <span className="profile-avatar"><Icon name="user" size={30} /></span>
         <small>{copy("OTURUM AÇIK", "SIGNED IN")}</small>
@@ -235,15 +200,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
           {!needsProfileCompletion && <button className="secondary-wide" disabled={busy} onClick={() => setProfileEditMode(false)}>{copy("Vazgeç", "Cancel")}</button>}
         </div>}
         {!needsProfileCompletion && !profileEditMode && <button className="secondary-wide" onClick={() => setProfileEditMode(true)}><Icon name="settings" size={18} /> {copy("Profil bilgilerini düzenle", "Edit profile")}</button>}
-        {deletionMode ? <div className="account-deletion-box">
-          <strong>{copy("Hesap silme talebi", "Account deletion request")}</strong>
-          <p>{copy("Talep yönetici incelemesine gider. Onaylandığında hesabın, profil verilerin ve sana bağlı özel kayıtlar silinir; topluluk konuşmalarındaki diğer kullanıcı cevapları korunurken senin içeriklerin anonimleştirilir.", "The request is reviewed by an administrator. Once approved, your account, profile and private records are deleted; other users' replies remain while your community content is anonymised.")}</p>
-          <label>{copy("Onaylamak için", "Type")} <b>{deleteWord}</b> {copy("yaz", "to confirm")}<input value={deletionConfirmation} autoCapitalize="characters" onChange={(event) => setDeletionConfirmation(event.target.value)} placeholder={deleteWord} /></label>
-          <div className="account-deletion-actions">
-            <button className="secondary-wide" disabled={busy} onClick={() => { setDeletionMode(false); setDeletionConfirmation(""); }}>{copy("Vazgeç", "Cancel")}</button>
-            <button className="danger-wide" disabled={busy || deletionConfirmation.trim().toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US") !== deleteWord} onClick={() => void submitDeletionRequest()}>{busy ? <span className="button-loader" /> : <Icon name="trash" size={18} />} {copy("Talebi gönder", "Send request")}</button>
-          </div>
-        </div> : <button className="secondary-wide" onClick={() => setDeletionMode(true)}><Icon name="trash" size={18} /> {copy("Hesabımı silme talebi oluştur", "Request account deletion")}</button>}
+        <AccountDeletionPanel key={user.id} accessToken={auth.accessToken || ""} email={user.email || ""} onBusyChange={setBusy} />
         <button className="danger-wide" disabled={busy} onClick={() => void submitSignOut()}>{busy ? <span className="button-loader dark" /> : <Icon name="logout" size={18} />} {copy("Çıkış yap", "Sign out")}</button>
       </div>
     </Sheet>;

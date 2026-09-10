@@ -626,9 +626,9 @@ export function useAuth() {
     if (readOAuthTransaction()) throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first."));
     setAuthError("");
     setLoading(true);
-    const verifier = randomVerifier();
-    const challenge = await challengeFor(verifier);
     try {
+      const verifier = randomVerifier();
+      const challenge = await challengeFor(verifier);
       saveOAuthTransaction({ provider, verifier, createdAt: Date.now() });
       const redirectTo = isNativePlatform() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback`;
       const params = new URLSearchParams({
@@ -638,7 +638,10 @@ export function useAuth() {
         code_challenge_method: "s256",
       });
       const url = `${authUrl("/authorize")}?${params.toString()}`;
-      if (isNativePlatform()) await openExternal(url);
+      if (isNativePlatform()) {
+        const opened = await openExternal(url);
+        if (!opened) throw new Error(authCopy("Giriş penceresi açılamadı. Yeniden deneyin.", "The sign-in window could not be opened. Please retry."));
+      }
       else window.location.assign(url);
     } catch (error) {
       storageRemove(OAUTH_TRANSACTION_KEY);
@@ -682,7 +685,7 @@ export function useAuth() {
       const result = await requestJson<AuthUser | { user?: AuthUser }>(authUrl("/user"), {
         method: "PUT",
         headers: authHeaders(session.access_token),
-        body: { data: { ...session.user.user_metadata, full_name: fullName, username } },
+        body: { data: { full_name: fullName, username } },
       });
       const user = "user" in result && result.user ? result.user : result as AuthUser;
       if (!user?.id) throw new Error(authCopy("Profil bilgisi güncellenemedi.", "Profile details could not be updated."));

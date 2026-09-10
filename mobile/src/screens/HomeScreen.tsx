@@ -15,7 +15,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
 }) {
   const { locale, copy } = useI18n();
   const [trip, setTrip] = useState<{ owner: string; value: CockpitTrip } | null>(null);
-  const [question, setQuestion] = useState<CommunityQuestion | null>(null);
+  const [questionResult, setQuestionResult] = useState<{ owner: string; question: CommunityQuestion | null } | null>(null);
   const [tripError, setTripError] = useState(false);
   useEffect(() => {
     let active = true;
@@ -29,9 +29,12 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   }, [ownerId, accessToken, refreshToken]);
   useEffect(() => {
     let active = true;
-    void listCommunityQuestions(1).then(items => { if (active) setQuestion(items[0] || null); }).catch(() => undefined);
+    void listCommunityQuestions(1, accessToken).then(items => {
+      if (active) setQuestionResult({ owner: user?.id || "guest", question: items[0] || null });
+    }).catch(() => { if (active) setQuestionResult(null); });
     return () => { active = false; };
-  }, [refreshToken]);
+  }, [refreshToken, accessToken, user?.id]);
+  const question = questionResult?.owner === (user?.id || "guest") ? questionResult.question : null;
   const nextTrip = trip && trip.owner === ownerId && user ? trip.value : null;
   const community = <section className="home-community-compact" aria-labelledby="home-community-title">
     <button type="button" onClick={() => onOpenCommunity()}><span className="home-community-icon"><Icon name="users" size={24}/></span><span><small>{copy("BİRLİKTE KEŞFET", "EXPLORE TOGETHER")}</small><h2 id="home-community-title">{copy("Gezginlere sor", "Ask travellers")}</h2><p>{copy("Gerçek deneyimler, yeni yol arkadaşları.", "Real experiences. New travel friends.")}</p></span><Icon name="chevron" size={18}/></button>

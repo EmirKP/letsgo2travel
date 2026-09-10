@@ -1,3 +1,4 @@
+import { ForumSafetyProvider, ForumUserContent } from "@/components/ForumVisibility";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -24,6 +25,7 @@ interface PageProps {
 }
 
 interface ForumTopicRow {
+  author_id: string | null;
   id: string;
   title: string;
   content: string;
@@ -36,6 +38,7 @@ interface ForumTopicRow {
 }
 
 interface ForumReplyRow {
+  user_id: string | null;
   id: string;
   author_name: string | null;
   content: string;
@@ -102,7 +105,7 @@ export default async function CountryForumPage({ params }: PageProps) {
 
   const { data: topicData, error: topicsError } = await supabase
     .from("forum_topics")
-    .select("id,title,content,category,country_slug,author_name,created_at,updated_at,is_paywalled")
+    .select("id,author_id,title,content,category,country_slug,author_name,created_at,updated_at,is_paywalled")
     .eq("status", "published")
     .eq("country_slug", slug)
     .order("created_at", { ascending: false })
@@ -124,7 +127,7 @@ export default async function CountryForumPage({ params }: PageProps) {
     const [replyResult, stateResult] = await Promise.all([
       supabase
         .from("forum_replies")
-        .select("id,author_name,content,created_at")
+        .select("id,user_id,author_name,content,created_at")
         .eq("topic_id", featuredTopic.id)
         .eq("status", "published")
         .order("created_at", { ascending: true })
@@ -186,6 +189,7 @@ export default async function CountryForumPage({ params }: PageProps) {
     : null;
 
   return (
+    <ForumSafetyProvider>
     <div className={styles.page}>
       {jsonLd ? (
         <script
@@ -275,6 +279,7 @@ export default async function CountryForumPage({ params }: PageProps) {
         ) : null}
 
         {featuredTopic ? (
+          <ForumUserContent authorId={featuredTopic.author_id}>
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <div>
@@ -299,13 +304,15 @@ export default async function CountryForumPage({ params }: PageProps) {
             {visibleReplies.length > 0 ? (
               <div className={styles.answers}>
                 {visibleReplies.map((reply) => (
-                  <article className={styles.answerCard} key={reply.id}>
+                  <ForumUserContent key={reply.id} authorId={reply.user_id}>
+                  <article className={styles.answerCard}>
                     <header className={styles.answerHeader}>
                       <strong>{reply.author_name || "Gezgin"}</strong>
                       <time dateTime={reply.created_at}>{dateLabel(reply.created_at)}</time>
                     </header>
                     <p>{reply.content}</p>
                   </article>
+                  </ForumUserContent>
                 ))}
               </div>
             ) : null}
@@ -334,6 +341,7 @@ export default async function CountryForumPage({ params }: PageProps) {
               </section>
             ) : null}
           </section>
+          </ForumUserContent>
         ) : (
           <section className={styles.section}>
             <div className={styles.emptyState}>
@@ -353,7 +361,8 @@ export default async function CountryForumPage({ params }: PageProps) {
 
             <div className={styles.topicList}>
               {countryTopics.map((topic) => (
-                <Link key={topic.id} href={`/forum/${topic.id}`} className={styles.topicCard}>
+                <ForumUserContent key={topic.id} authorId={topic.author_id}>
+                <Link href={`/forum/${topic.id}`} className={styles.topicCard}>
                   <div>
                     <h3>{topic.title}</h3>
                     <p>
@@ -364,6 +373,7 @@ export default async function CountryForumPage({ params }: PageProps) {
                   </div>
                   <span className={styles.topicAction}>İncele →</span>
                 </Link>
+                </ForumUserContent>
               ))}
             </div>
           </section>
@@ -404,5 +414,6 @@ export default async function CountryForumPage({ params }: PageProps) {
         </section>
       </div>
     </div>
+    </ForumSafetyProvider>
   );
 }

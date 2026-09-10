@@ -1,3 +1,4 @@
+import { canCommunityUsersInteract } from "@/lib/community/safety";
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: topic, error: topicError } = await auth.supabase
     .from("forum_topics")
-    .select("id,country_slug,status")
+    .select("id,author_id,country_slug,status")
     .eq("id", questionId)
     .eq("status", "published")
     .maybeSingle();
@@ -34,6 +35,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (!topic) {
     return NextResponse.json({ error: "Soru bulunamadı." }, { status: 404, headers: NO_STORE_HEADERS });
+  }
+
+  try {
+    if (!await canCommunityUsersInteract(auth.supabase, auth.user.id, topic.author_id)) {
+      return NextResponse.json({ error: "Bu kullanıcıyla etkileşim kapalı." }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+  } catch {
+    return NextResponse.json({ error: "Soru erişimi doğrulanamadı." }, { status: 503, headers: NO_STORE_HEADERS });
   }
 
   const { data: isPaywalled, error: paywallError } = await auth.supabase.rpc(

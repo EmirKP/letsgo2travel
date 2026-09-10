@@ -1,3 +1,4 @@
+import { canCommunityUsersInteract } from "@/lib/community/safety";
 import { NextResponse } from "next/server";
 import { moderateUserText } from "@/lib/community/moderation";
 import { getCountryPermission } from "@/lib/community/permissions";
@@ -27,12 +28,16 @@ export async function POST(request: Request) {
 
     const { data: question, error: questionError } = await supabase
       .from("forum_topics")
-      .select("id,country_slug,status")
+      .select("id,author_id,country_slug,status")
       .eq("id", questionId)
       .maybeSingle();
     const questionCountryCode = question ? countryCodeFromForumSlug(question.country_slug) : "";
     if (questionError || !question || questionCountryCode !== countryCode || question.status !== "published") {
       return NextResponse.json({ error: "Yanıtlanabilir soru bulunamadı." }, { status: 404 });
+    }
+
+    if (!await canCommunityUsersInteract(supabase, user.id, question.author_id)) {
+      return NextResponse.json({ error: "Bu kullanıcıyla etkileşim kapalı." }, { status: 403 });
     }
 
     // Ülke deneyimi isteyen konularda Belgeli Gezgin kuralı korunur. Genel web

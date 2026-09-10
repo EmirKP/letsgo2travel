@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { config } from "../lib/config";
-import { openExternal } from "../lib/native";
 import { useI18n } from "../lib/i18n";
 import { Icon, type IconName } from "./Icon";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
+import { SupportSheet } from "./SupportSheet";
 import type { ViewId } from "../types";
 
 // Yasal metinler artık UYGULAMA İÇİNDE okunur (tarayıcıya yönlendirme yok).
@@ -17,6 +17,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
 }) {
   const { locale, copy } = useI18n();
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
+  const [supportOpen, setSupportOpen] = useState(false);
   const nativeLinks: Array<{ label: string; text: string; icon: IconName; view: ViewId }> = [
     { label: copy("Ülke Gündemi", "Country Updates"), text: copy("Seyahat uyarıları, haberler ve önemli günler", "Travel advice, news and important dates"), icon: "globe", view: "country-news" },
     { label: copy("Ülke Maliyetleri", "Country Costs"), text: copy("Şehir bazında tahmini bütçeler", "Estimated budgets by city"), icon: "wallet", view: "costs" },
@@ -55,11 +56,12 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
     <div className="menu-link-list compact-links">
       {legalSheets.map((link) => <button key={link.slug} onClick={() => setLegalSlug(link.slug)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16} /></button>)}
       <button onClick={() => { onClose(); onOpenAccount(); }}><span><Icon name="trash" size={20} /></span><div><strong>{copy("Hesap ve veri silme", "Account & data deletion")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section")}</small></div><Icon name="chevron" size={16} /></button>
-      <button onClick={() => void openExternal(`mailto:${config.supportEmail}?subject=LetsGo2Travel%20Mobile%20Support`)}><span><Icon name="mail" size={20} /></span><div><strong>{copy("Destek", "Support")}</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
+      <button onClick={() => setSupportOpen(true)}><span><Icon name="mail" size={20} /></span><div><strong>{copy("Destek", "Support")}</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>
 
     <p className="version-note">LetsGo2Travel {config.appVersion} · Build {config.buildNumber} · {locale.toUpperCase()}</p>
 
     {legalSlug && <LegalSheet open={Boolean(legalSlug)} slug={legalSlug} onClose={() => setLegalSlug(null)} />}
+    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
   </Sheet>;
 }

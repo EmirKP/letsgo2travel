@@ -1,0 +1,9 @@
+.support-draft { display:grid; gap:12px; min-width:0; color:#172033; }
+.support-draft p { margin:0; line-height:1.55; overflow-wrap:anywhere; }
+.support-draft label { font-size:15px; font-weight:700; }
+.support-draft input,.support-draft textarea { box-sizing:border-box; width:100%; min-width:0; padding:12px; border:1px solid #cdd9e7; border-radius:12px; color:#172033; background:#fff; font:inherit; font-size:16px; user-select:text; -webkit-user-select:text; }
+.support-draft textarea { min-height:150px; resize:vertical; }
+.support-draft button { min-height:48px; height:auto; white-space:normal; padding:12px; }
+.support-draft-note { color:#52647b; font-size:14px; }
+.support-draft-status { padding:12px; border-radius:12px; background:#eef5ff; color:#123f70; }
+.support-draft-actions,.support-draft-manual { display:grid; gap:10px; }

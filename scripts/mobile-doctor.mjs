@@ -2,6 +2,7 @@ import { access, readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
+import { validateIosPrivacyManifest } from "./ios-privacy.mjs";
 
 const root = process.cwd();
 const errors = [];
@@ -223,9 +224,9 @@ if (checkIos) {
   expect(plist, /<string>tr\.com\.letsgo2travel\.app<\/string>/, "iOS OAuth URL şeması", "iOS OAuth özel URL şeması eksik.");
   expect(plist, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/, "iOS şifreleme ihracat beyanı", "ITSAppUsesNonExemptEncryption beyanı eksik veya yanlış.");
   expectAbsent(plist, /<string>armv7<\/string>/, "modern iOS cihaz uyumluluğu", "Info.plist eski armv7 cihaz şartı içeriyor.");
-  expect(privacy, /<key>NSPrivacyTracking<\/key>\s*<false\/>/, "izleme yapılmadığına ilişkin gizlilik beyanı", "Gizlilik manifestinde NSPrivacyTracking=false yok.");
-  expect(privacy, /NSPrivacyCollectedDataTypeEmailAddress/, "e-posta veri beyanı", "Gizlilik manifestinde e-posta veri beyanı eksik.");
-  expect(privacy, /NSPrivacyCollectedDataTypeUserID/, "kullanıcı kimliği veri beyanı", "Gizlilik manifestinde kullanıcı kimliği beyanı eksik.");
+  const privacyErrors = validateIosPrivacyManifest(privacy);
+  if (privacyErrors.length) errors.push(...privacyErrors);
+  else ok.push("iOS gizlilik manifesti: UserDefaults CA92.1 ve saklanan veri envanteri doğrulandı");
   expect(project, /PRODUCT_BUNDLE_IDENTIFIER = tr\.com\.letsgo2travel\.app;/, "Xcode bundle kimliği", "Xcode bundle kimliği beklenen değerle eşleşmiyor.");
   expect(project, new RegExp(`MARKETING_VERSION = ${expectedAppVersion.replaceAll(".", "\\.")};`), `iOS pazarlama sürümü ${expectedAppVersion}`, `Xcode MARKETING_VERSION ${expectedAppVersion} değil.`);
   const nativeVersions = [...project.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map(match => Number(match[1]));

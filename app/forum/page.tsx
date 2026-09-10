@@ -1,3 +1,5 @@
+import { ForumSafetyProvider, ForumUserContent } from "@/components/ForumVisibility";
+import { ForumBlocksButton } from "@/components/ForumReportModal";
 import Link from "next/link";
 import { MessageSquare, MapPin, Search, ChevronRight, PenTool, Flame, Users, AlertCircle, CheckSquare, ArrowRight } from "lucide-react";
 
@@ -33,7 +35,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
   // Fetch from Supabase
   let query = supabase
     .from("forum_topics")
-    .select("id, title, category, country_slug, author_name, created_at")
+    .select("id, author_id, title, category, country_slug, author_name, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(50);
@@ -47,6 +49,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
   const fetchError = error ? "Forum konuları şu anda yüklenemiyor. Lütfen biraz sonra tekrar deneyin." : "";
 
   return (
+    <ForumSafetyProvider>
     <div className="l2t-page" style={{ minHeight: "80vh", background: "#f8fafc", paddingBottom: "80px" }}>
       
       {/* Hero */}
@@ -94,6 +97,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
             )}
           </div>
 
+          <ForumBlocksButton />
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {fetchError ? (
               <div role="alert" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "16px", borderRadius: "14px", background: "#fef2f2", color: "#b91c1c" }}>
@@ -102,7 +106,8 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
             ) : null}
             {filteredTopics.length > 0 ? (
               filteredTopics.map((topic) => (
-                <Link key={topic.id} href={`/forum/${topic.id}`} style={{ textDecoration: "none", display: "block", position: "relative", zIndex: 20 }}>
+                <ForumUserContent key={topic.id} authorId={topic.author_id}>
+                <Link href={`/forum/${topic.id}`} style={{ textDecoration: "none", display: "block", position: "relative", zIndex: 20 }}>
                   <div style={{ background: "#fff", padding: "24px", borderRadius: "16px", border: "1px solid #e2e8f0", transition: "all 0.2s" }} className="hover-tilt">
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
                       <div>
@@ -123,6 +128,7 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
                     </div>
                   </div>
                 </Link>
+                </ForumUserContent>
               ))
             ) : (
               <>
@@ -227,5 +233,6 @@ export default async function ForumPage(props: { searchParams: Promise<{ kategor
         .hover-tilt:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
       `}} />
     </div>
+    </ForumSafetyProvider>
   );
 }

@@ -44,6 +44,8 @@ type KvkkRequest = {
   notes?: string | null;
   created_at: string;
   processed_at?: string | null;
+  target_completion_at?: string | null;
+  completion_notification_status?: "pending" | "sent" | null;
 };
 
 const tabItems: Array<{ id: Tab; label: string; icon: typeof ShieldCheck }> = [
@@ -132,8 +134,8 @@ export default function ModerationPanel() {
     }
   }
 
-  async function executeDeletion(request: KvkkRequest) {
-    const confirmation = window.prompt(
+  async function executeDeletion(request: KvkkRequest, notificationOnly = false) {
+    const confirmation = notificationOnly ? "HESABI KALICI SIL" : window.prompt(
       "Bu işlem hesabı kalıcı siler ve kullanıcı içeriklerini anonimleştirir. Devam etmek için HESABI KALICI SIL yazın.",
     );
     if (confirmation === null) return;
@@ -232,6 +234,12 @@ export default function ModerationPanel() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}><strong style={{ color: "var(--l2t-ink)" }}>{item.request_type}</strong><span style={{ color: "var(--l2t-gold)" }}>{item.status}</span></div>
                 <p style={{ color: "var(--l2t-soft)", whiteSpace: "pre-wrap" }}>{item.notes || "Açıklama yok"}</p>
                 <small style={{ color: "var(--l2t-muted)" }}>{new Date(item.created_at).toLocaleString("tr-TR")}</small>
+                {accountDeletion && item.target_completion_at && <p style={{ color: !finished && Date.parse(item.target_completion_at) < Date.now() ? "#ef4444" : "var(--l2t-soft)" }}>
+                  Hedef tamamlanma: {new Date(item.target_completion_at).toLocaleDateString("tr-TR")}
+                  {!finished && Date.parse(item.target_completion_at) < Date.now() ? " — Süre aşıldı; öncelikli işlem gerekli." : ""}
+                </p>}
+                {accountDeletion && item.status === "processed" && item.completion_notification_status === "pending" && <button className="l2t-btn l2t-btn-small" disabled={busyId === item.id} onClick={() => void executeDeletion(item, true)}>Tamamlanma e-postasını yeniden dene</button>}
+                {accountDeletion && item.completion_notification_status === "sent" && <p>E-posta gönderim için kabul edildi.</p>}
                 {!finished && <div style={{ display: "flex", gap: "9px", flexWrap: "wrap", marginTop: "13px" }}>
                   <select value={item.status} disabled={busyId === item.id} onChange={(event) => void updateKvkk(item.id, event.target.value)} style={selectStyle}>
                     <option value="pending">Bekliyor</option><option value="reviewing">İnceleniyor</option>{!accountDeletion && <option value="resolved">Çözüldü</option>}<option value="rejected">Reddedildi</option>

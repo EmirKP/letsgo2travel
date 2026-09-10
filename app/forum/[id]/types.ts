@@ -1,6 +1,7 @@
 export interface ForumReplyView {
   id: string;
   topic_id: string;
+  user_id?: string | null;
   author_name: string | null;
   content: string;
   created_at: string;

@@ -129,7 +129,9 @@ export default function AdminForumPage() {
 
     try {
       const method = action === "delete" ? "DELETE" : "PATCH";
-      const body = action === "delete" ? { ids } : { ids, status: action };
+      const body = action === "delete" ? { ids } : action === "hide-and-resolve"
+        ? { ids, status: "resolved", action: "hide" }
+        : { ids, status: action };
       
       const res = await fetch(`/api/admin/forum/${type}`, {
         method,
@@ -139,7 +141,10 @@ export default function AdminForumPage() {
         body: JSON.stringify(body)
       });
 
-      if (!res.ok) throw new Error("İşlem sırasında hata oluştu.");
+      if (!res.ok) {
+        const result = await res.json().catch(() => ({}));
+        throw new Error(typeof result.error === "string" ? result.error : "İşlem sırasında hata oluştu.");
+      }
       
       // refresh
       fetchStats();
@@ -537,6 +542,7 @@ export default function AdminForumPage() {
                   <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", marginBottom: "8px" }}>Rapor Nedeni</div>
                   <div style={{ background: "#FEF2F2", padding: "20px", borderRadius: "12px", marginBottom: "24px", color: "#991B1B", fontWeight: "500", border: "1px solid #FECACA" }}>
                     {detailItem.reason}
+                    {detailItem.note && <p style={{ marginTop: 12, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{detailItem.note}</p>}
                   </div>
 
                   <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", marginBottom: "8px" }}>Raporlanan İçerik Özeti ({detailItem.target_type})</div>
@@ -574,6 +580,9 @@ export default function AdminForumPage() {
                 </>
               ) : (
                 <>
+                  <button disabled={!detailItem.targetContent} onClick={() => openActionModal("hide-and-resolve", detailItem.id)} style={{ flex: "1 1 100%", background: "#991B1B", color: "#fff", border: "none", padding: "12px", borderRadius: "12px", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <EyeOff size={18} /> İçeriği gizle ve çöz
+                  </button>
                   <button onClick={() => openActionModal("resolved", detailItem.id)} style={{ flex: 1, background: "#10B981", color: "#fff", border: "none", padding: "12px", borderRadius: "12px", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                     <CheckCircle size={18} /> Çözüldü
                   </button>
@@ -613,6 +622,7 @@ export default function AdminForumPage() {
               <p style={{ color: "var(--l2t-soft)", lineHeight: "1.5", marginBottom: "24px" }}>
                 {actionModal.action === "delete" 
                   ? "Bu işlem geri alınamaz. Silmek yerine önce 'Gizle' seçeneğini kullanmanız önerilir. Yine de kalıcı olarak silmek istiyor musunuz?" 
+                  : actionModal.action === "hide-and-resolve" ? "Raporlanan içerik web ve mobil toplulukta gizlenecek, ardından şikâyet çözüldü olarak işaretlenecek. İçerik bulunamazsa işlem tamamlanmayacak."
                   : `${actionModal.isBulk ? selectedIds.length + " kaydı" : "Bu kaydı"} ${actionModal.action} statüsüne geçirmek üzeresiniz.`}
               </p>
 
