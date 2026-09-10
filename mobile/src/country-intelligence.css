@@ -29,6 +29,11 @@
 .ci-advisory { padding:16px; display:grid; gap:10px; border:1px solid #e8bbaf; border-left:4px solid #c4523e; border-radius:15px; background:#fff9f6; }
 .ci-advisory-regional { background:#fffbef; border-color:#ead8a5; border-left-color:#c98f20; }
 .ci-advisory-unavailable,.ci-advisory-no-specific-warning { background:#f7f9fc; border-color:#dbe4ee; border-left-color:#6b87a4; }
+.ci-advisory-stack { display:grid; gap:14px; min-width:0; }
+.ci-advisory-turkey { background:#f7f9fc; border-color:#dbe4ee; border-left-color:#1768a1; }
+.ci-official-links { display:grid; gap:4px; min-width:0; }
+.ci-advisory-turkey .ci-text-button { text-align:start; overflow-wrap:anywhere; white-space:normal; }
+.ci-advisory-turkey .ci-text-button svg { flex-shrink:0; }
 .ci-card-title { display:flex; align-items:flex-start; gap:9px; }
 .ci-card-title > svg { flex:none; margin-top:2px; }
 .ci-card-title h2 { font-size:16px !important; }

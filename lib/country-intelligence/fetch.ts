@@ -3,7 +3,7 @@ const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<unknown>>();
 const failures = new Map<string, number>();
 const providerCooldown = new Map<string, number>();
-const ALLOWED_HOSTS = new Set(["api.frankfurter.dev", "ec.europa.eu", "api.worldbank.org", "www.gov.uk", "travel.gc.ca", "api.gdeltproject.org", "date.nager.at", "www.aa.com.tr", "feeds.bbci.co.uk", "www.val.se", "elections.nz"]);
+const ALLOWED_HOSTS = new Set(["api.frankfurter.dev", "ec.europa.eu", "api.worldbank.org", "www.gov.uk", "travel.gc.ca", "www.mfa.gov.tr", "api.gdeltproject.org", "date.nager.at", "www.aa.com.tr", "feeds.bbci.co.uk", "www.val.se", "elections.nz"]);
 
 async function publicData<T>(url: string, ttlSeconds: number, timeoutMs = 8000, textOnly = false): Promise<T> {
   const parsed = new URL(url);

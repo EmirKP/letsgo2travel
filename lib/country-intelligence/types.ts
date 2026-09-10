@@ -25,7 +25,12 @@ export type AdvisoryReport = {
 };
 // Keep the original FCDO fields for installed clients; newer clients read each
 // provider separately. Their different warning systems are never averaged.
-export type Advisory = AdvisoryReport & { reports?: AdvisoryReport[] };
+export type TurkishTravelNotice = { title: string; url: string; publishedAt: string };
+export type TurkishTravelNotices = {
+  code: string; state: "ok" | "unavailable"; source: Source;
+  verifiedAt: string | null; notices: TurkishTravelNotice[];
+};
+export type Advisory = AdvisoryReport & { reports?: AdvisoryReport[]; turkishNotices?: TurkishTravelNotices };
 export type NewsItem = {
   title: string; url: string; publisher: string; language: string;
   firstSeenAt: string; topic: "elections" | "transport" | "weather" | "security" | "general";

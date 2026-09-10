@@ -4,6 +4,8 @@ import { readMonthlyIndex, getRates } from "../../lib/country-intelligence/econo
 import { advisoryLevel, getAdvisory } from "../../lib/country-intelligence/advisories";
 import { parseCanadaAdvisory } from "../../lib/country-intelligence/canada-advisories";
 import { prominentAdvisory, advisoryReports } from "../../lib/country-intelligence/advisory-reports";
+import { parseTurkishNotices, noticeCountries, lastReviewedTurkishNotices } from "../../lib/country-intelligence/turkish-notices";
+import { TURKISH_TRAVEL_SOURCES } from "../../lib/country-intelligence/turkish-travel-sources";
 import { getCountryNews, localDateForCountry, normalizeNews, newsTopic, upcomingCalendar } from "../../lib/country-intelligence/brief";
 import { publicJson, publicLink } from "../../lib/country-intelligence/fetch";
 import type { CostData } from "../../lib/country-intelligence/types";
@@ -77,6 +79,43 @@ test("offline warnings explicitly retain their verification date", () => {
   assert.equal(advice.source.checkedAt, "2026-09-08T00:00:00Z"); assert.equal(lastVerifiedAdvice("XX"), null);
   assert.equal(VERIFIED_MONTHLY_INDICES.TR.points["2025-08"], undefined);
 });
+const turkishList = (body: string) => `<h1>Yurt Dışı Seyahat Duyuruları</h1>${body}`;
+const turkishNotice = (title = "İran’a Yönelik Güvenlik ve Seyahat Duyurusu, 13 Haziran 2025", path = "/iran-a-yonelik-guvenlik-ve-seyahat-duyurusu-13-haziran-2025.tr.mfa") => `<a href="${path}">${title}</a>`;
+test("Turkish notices match inflected and joint destinations without Sudan collisions", () => {
+  assert.deepEqual(noticeCountries("İran’a Yönelik Güvenlik ve Seyahat Duyurusu"), ["IR"]);
+  assert.deepEqual(noticeCountries("ABD’ye Yönelik Güvenlik ve Seyahat Duyurusu"), ["US"]);
+  assert.deepEqual(noticeCountries("İsrail’e ve Filistin’e Yönelik Güvenlik ve Seyahat Duyurusu"), ["IL", "PS"]);
+  assert.deepEqual(noticeCountries("Güney Sudan’a Yönelik Güvenlik ve Seyahat Duyurusu"), ["SS"]);
+});
+test("Turkish notices retain publication dates, decode text and deduplicate safe official links", () => {
+  const data = parseTurkishNotices(turkishList(turkishNotice() + turkishNotice().replace("İ", "&#304;") + turkishNotice("İran’a Yönelik Güvenlik ve Seyahat Duyurusu, 14 Haziran 2025", "https://evil.example/notice.tr.mfa")), "IR", now);
+  assert.equal(data.state, "ok"); assert.equal(data.notices.length, 1);
+  assert.equal(data.notices[0].publishedAt, "2025-06-13"); assert.equal(data.verifiedAt, now.toISOString());
+  assert.equal(data.notices[0].title[0], "İ");
+});
+test("Turkish notice dates use Istanbul and reject invalid dates, unsafe links and unrelated news", () => {
+  const dateNow = new Date("2026-09-08T21:30:00Z");
+  assert.equal(parseTurkishNotices(turkishList(turkishNotice("İran için Seyahat Uyarısı, 9 Eylül 2026")), "IR", dateNow).notices.length, 1);
+  for (const title of ["İran için Seyahat Uyarısı, 10 Eylül 2026", "İran için Seyahat Uyarısı, 30 Şubat 2026", "İran Bakanı ile Görüşme, 8 Eylül 2026", "Memur Sınavı Duyurusu, 8 Eylül 2026"]) {
+    assert.equal(parseTurkishNotices(turkishList(turkishNotice(title)), "IR", dateNow).state, "unavailable");
+  }
+  for (const path of ["http://www.mfa.gov.tr/notice.tr.mfa", "https://user@www.mfa.gov.tr/notice.tr.mfa", "https://www.mfa.gov.tr/notice.tr.mfa?redirect=bad", "javascript:alert(1)"]) {
+    assert.equal(parseTurkishNotices(turkishList(turkishNotice(undefined, path)), "IR", now).notices.length, 0);
+  }
+});
+test("An unmatched latest Turkish list is distinct from a blocked or changed page", () => {
+  const data = parseTurkishNotices(turkishList(turkishNotice()), "AF", now);
+  assert.equal(data.state, "ok"); assert.equal(data.notices.length, 0);
+  assert.equal(parseTurkishNotices("Access denied", "AF", now).state, "unavailable");
+  assert.equal(parseTurkishNotices(turkishList("Changed markup"), "AF", now).state, "unavailable");
+});
+test("Reviewed Turkish links never masquerade as live advice or replace their publication dates", () => {
+  const data = lastReviewedTurkishNotices("IR", new Date("2026-09-10T12:00:00Z"));
+  assert.equal(data.state, "unavailable"); assert.equal(data.notices[0].publishedAt, "2025-06-13");
+  assert.equal(data.verifiedAt, "2026-09-10"); assert.equal(lastReviewedTurkishNotices("IR", now).notices.length, 0);
+  assert.equal(lastReviewedTurkishNotices("AF", new Date("2026-09-10T12:00:00Z")).verifiedAt, null);
+  assert.deepEqual(lastReviewedTurkishNotices("IL", new Date("2026-09-10T12:00:00Z")).notices, lastReviewedTurkishNotices("PS", new Date("2026-09-10T12:00:00Z")).notices);
+});
 test("Turkey remembrance uses the local date across midnight", () => assert.equal(localDateForCountry("TR", new Date("2026-11-09T22:30:00Z")).today, "2026-11-10"));
 test("10 November is an observance, not a public holiday", () => {
   const items = upcomingCalendar([], "TR", "2026-11-10");
@@ -137,6 +176,7 @@ async function networkContracts() {
     const advisoryRequests: string[] = [];
     globalThis.fetch = async input => {
       const url = String(input); advisoryRequests.push(url);
+      if (url === TURKISH_TRAVEL_SOURCES.notices) return new Response("Forbidden", { status: 403 });
       if (url === "https://travel.gc.ca/travelling/advisories") return new Response(canadaTable("Avoid all travel"));
       if (url.endsWith("/afghanistan")) return new Response("unavailable", { status: 503 });
       return new Response(JSON.stringify({ details: { alert_status: ["avoid_all_travel_to_parts"] }, public_updated_at: "2026-09-07T10:00:00Z" }));
@@ -151,6 +191,12 @@ async function networkContracts() {
       assert.ok(advisoryRequests.includes("https://www.gov.uk/api/content/foreign-travel-advice/palestine"));
       assert.ok(!advisoryRequests.includes("https://www.gov.uk/api/content/foreign-travel-advice"));
       assert.equal(advisoryRequests.filter(url => url.startsWith("https://travel.gc.ca/")).length, 1);
+    });
+    test("MFA access failure keeps official Turkish links available without blocking other providers", () => {
+      assert.equal(afghanistan.turkishNotices?.state, "unavailable");
+      assert.equal(afghanistan.turkishNotices?.source.url, TURKISH_TRAVEL_SOURCES.notices);
+      assert.equal(prominentAdvisory(afghanistan).level, "avoid-all");
+      assert.equal(advisoryRequests.filter(url => url === TURKISH_TRAVEL_SOURCES.notices).length, 1);
     });
     calls = 0;
     globalThis.fetch = async () => { calls++; return new Response("", { status: 429, headers: { "retry-after": "600" } }); };

@@ -4,6 +4,7 @@ import type { Advisory, AdvisoryLevel } from "./types";
 import { lastVerifiedAdvice } from "./last-verified";
 import destinations from "./advisory-destinations.json";
 import { getCanadaAdvisory } from "./canada-advisories";
+import { getTurkishNotices } from "./turkish-notices";
 
 type AdviceContent = {
   public_updated_at?: string; withdrawn_notice?: unknown;
@@ -55,6 +56,6 @@ async function getFcdoAdvisory(code: string): Promise<Advisory> {
 
 export async function getAdvisory(code: string): Promise<Advisory> {
   code = code.toUpperCase();
-  const [fcdo, canada] = await Promise.all([getFcdoAdvisory(code), getCanadaAdvisory(code)]);
-  return { ...fcdo, reports: [fcdo, canada] };
+  const [fcdo, canada, turkishNotices] = await Promise.all([getFcdoAdvisory(code), getCanadaAdvisory(code), getTurkishNotices(code)]);
+  return { ...fcdo, reports: [fcdo, canada], turkishNotices };
 }
