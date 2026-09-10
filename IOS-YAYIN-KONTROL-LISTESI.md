@@ -1,4 +1,8 @@
-# LetsGo2Travel iOS 1.4.0 (ürün Build 23 / TestFlight Build 24) yayın kontrol listesi
+# LetsGo2Travel iOS 1.4.0 yayın kontrol listesi
+
+Güncellendi: **10 Eylül 2026**. Güncel mağaza metinleri, doğrulama durumu ve kalan konsol alanları [App Store gönderim dosyasında](store/apple/APP-STORE-SUBMISSION.md).
+
+`main` dalındaki `fcb4937` için [Codemagic iOS derlemesi](https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6aa31c346699407235116e40) 10 Eylül 2026 21:14:52 UTC'de başarılı tamamlandı. Yayın testleri, imzalı IPA ve Publishing aşamaları geçti. Yeni paketin gerçek build numarası ve Apple tarafındaki işleme durumu bu oturumda okunmadı; eski Build 23/24 veya depodaki başlangıç değeri yeni TestFlight numarası olarak kullanılmamalı.
 
 ## Kodda tamamlanan hazırlıklar
 
@@ -17,10 +21,12 @@
 - Oturumun uygulama ön plana geldiğinde yenilenmesi ve aynı anda çift token yenilemenin önlenmesi.
 - iOS'ta 16px form alanları, güvenli alanlar, klavye odak yönetimi ve azaltılmış hareket desteği.
 
-## Apple Developer hesabında yapılacaklar
+## Apple Developer kurulum başvurusu
+
+Mevcut App ID ve uygulama kaydı yeniden oluşturulmaz. Aşağıdaki bölüm mevcut kurulumun kontrolü veya yeniden kurulması gerektiğinde başvuru içindir. Apple hesap silme dönüşü ve sunucu ayarları [ACCOUNT-DELETION-SETUP.md](store/apple/ACCOUNT-DELETION-SETUP.md) dosyasındadır.
 
 1. Apple Developer > Certificates, Identifiers & Profiles içinde `tr.com.letsgo2travel.app` App ID'sini oluşturun ve **Sign in with Apple** capability'sini etkinleştirin.
-2. Web OAuth dönüşü için bir Services ID oluşturun ve birincil App ID olarak `tr.com.letsgo2travel.app` değerini seçin.
+2. Web OAuth dönüşü için mevcut `tr.com.letsgo2travel.web` Services ID kaydını kullanın; birincil App ID `tr.com.letsgo2travel.app` olmalıdır.
 3. Services ID > Sign in with Apple yapılandırmasında domain olarak `<SUPABASE_PROJECT_REF>.supabase.co`, return URL olarak `https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback` ekleyin.
 4. Sign in with Apple için bir anahtar oluşturun. Team ID, Key ID, Services ID ve private key ile üretilen client secret değerini yalnız Supabase Apple provider ekranına girin. Private key/client secret mobil pakete veya Git'e eklenmez.
 5. Apple client secret'ın son kullanma tarihini takip edin ve süresi dolmadan yenileyin.
@@ -51,24 +57,27 @@ Not: Bu sürüm Supabase'in tarayıcı tabanlı Apple OAuth akışını kullanı
 
 - Ad: `LetsGo2Travel`
 - Birincil kategori: `Travel`
-- Sürüm: `1.4.0` (uygulama içi Build `23`, TestFlight Build `24`)
+- Sürüm: `1.4.0`; paket build numarası App Store Connect'teki son başarılı yüklemeden okunur.
 - Bundle ID: `tr.com.letsgo2travel.app`
 - Gizlilik Politikası: `https://www.letsgo2travel.com.tr/gizlilik-politikasi`
-- Destek: `https://www.letsgo2travel.com.tr` veya çalışan destek sayfası
-- Hesap silme: uygulamada `Hesabım > Hesabı ve verileri sil`
+- Destek: `https://www.letsgo2travel.com.tr/destek` — `hello@letsgo2travel.com.tr`
+- Hesap silme: uygulamada `Hesabım > Hesap silme > Hesabımı silme talebi oluştur`
 
-App Privacy bölümündeki yanıtlar gerçek üretim davranışıyla aynı olmalıdır. Mevcut uygulama e-posta adresi, kullanıcı kimliği ve arama/rota tercihlerini uygulama işlevi ve kişiselleştirme için işleyebilir; izleme amacı beyan edilmemiştir.
+App Privacy bölümündeki yanıtlar gerçek üretim davranışıyla aynı olmalıdır. Mevcut manifestte profil fotoğrafı, günlük, ortak masraf ve bildirim kayıtları dahil **12 veri türü** vardır; ayrıntılı eşleme [PRIVACY-INVENTORY.md](store/apple/PRIVACY-INVENTORY.md) içindedir. Üç veri türüyle sınırlı eski beyan kullanılmamalıdır. Mağaza açıklamaları [Türkçe](store/apple/metadata/tr-TR.json) ve [İngilizce](store/apple/metadata/en-US.json) olarak hazırdır.
 
 ## İnceleme hesabı
 
-App Review Information alanına çalışan, e-postası doğrulanmış standart kullanıcı hesabı ekleyin. İnceleme notunda aşağıdakileri yazın:
+App Review Information alanına çalışan, e-postası doğrulanmış standart kullanıcı hesabı ekleyin. Kimlik bilgileri yalnız konsolun özel alanına girilir. [Hazır inceleme notları](store/apple/APP-REVIEW-NOTES.md) şu akışları açıklar:
 
 - Uygulamanın temel keşif, pasaport ve rota özellikleri giriş yapmadan kullanılabilir.
-- Fiyat alarmlarını uygulama içinde yönetmek için inceleme hesabı kullanılabilir.
-- Hesap silme talebi `Hesabım` ekranındadır.
+- Hesap eşitleme, Kokpit, ortak planlar ve topluluk etkileşimleri için inceleme hesabı kullanılır.
+- Şikâyet/engelleme yazar adına dokununca açılır; engeli kaldırma Profil ayarlarındadır.
+- Hesap silme talebi `Hesabım > Hesap silme` ekranındadır.
 - Uygulamada ücretli dijital içerik veya uygulama içi satın alma yoktur.
 
-## Mac üzerinde son doğrulama
+## Mac ve cihaz doğrulaması için başvuru
+
+İmzalı build ve yükleme Codemagic'te tamamlandı. Aşağıdaki yerel komutlar bu başarıyı yeniden elde etmek için zorunlu değildir; cihaz veya Xcode incelemesi gerektiğinde kullanılır. Son paket üzerinde fiziksel iPhone/iPad, gerçek Apple yetkilendirme iptali ve APNs/Live Activity teslimi bu oturumda doğrulanmadı.
 
 ```bash
 npm ci
@@ -91,5 +100,5 @@ Xcode'da sırasıyla:
 - Hiçbir buton veya yasal bağlantı bozuk olmamalı.
 - Backend ve Supabase üretim ortamı çalışır durumda olmalı.
 - Demo hesap ile giriş yapılabilmeli.
-- App Store ekran görüntülerinde test verisi, kişisel e-posta veya gizli anahtar görünmemeli.
+- App Store ekran görüntüleri gerçek uygulamadan alınmalı; kontrollü örnek içerik kullanılabilir, kişisel e-posta veya gizli anahtar görünmemeli. [Çekim planı](store/apple/SCREENSHOT-PLAN.md).
 - `.env.local`, service-role anahtarı ve Apple özel anahtarları Git'e veya teslim paketine eklenmemeli.

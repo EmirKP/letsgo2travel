@@ -110,14 +110,21 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
       blocks: [
         { type: "p", text: "Platformda aşağıdaki bilgiler işlenebilir:" },
         { type: "list", items: [
-          "Üyelik bilgileri", "E-posta adresi", "Kullanıcı adı", "Profil bilgileri",
-          "Yorumlar ve kullanıcı tarafından paylaşılan içerikler",
-          "Doğrulanmış gezgin başvuru kayıtları", "KVKK talep kayıtları",
-          "İşletme itiraz kayıtları", "Teknik işlem güvenliği kayıtları",
+          "Üyelik bilgileri, e-posta adresi, ad, kullanıcı adı ve hesap kimliği",
+          "Kullanıcının seçip yüklemeyi onayladığı profil fotoğrafı",
+          "Kaydedilen rota arama tercihleri, rota sonuçları, seyahat planları ve kontrol listeleri",
+          "Seyahat günlüğü notları ve kullanıcının kendi bildirdiği ziyaret edilmiş ülke ve yer bilgileri",
+          "Topluluk soruları, yanıtları, yararlı oyları, içerik şikâyetleri ve engelleme kayıtları",
+          "Ortak seyahat üyelikleri, plan oyları, bütçe, masraf ve katılımcıların borç payları; bu özellikler kart veya banka hesabı bilgisi istemez",
+          "Doğrulanmış gezgin başvuruları ve kullanıcının yüklediği görsel veya belge",
+          "Hesap silme, diğer veri hakları ve destek talepleri ile işletme itiraz kayıtları",
+          "Telefon bildirimi ve Live Activity için cihaz/kurulum tanımlayıcıları, bildirim adresleme tokenları ve teslim durumu veya hata kayıtları",
+          "Teknik işlem güvenliği kayıtları",
           "Kullanıcı açıkça 'Konumuma göre öner' dediğinde anlık olarak kullanılan yaklaşık konum",
         ] },
         { type: "p", text: "Doğrulama belgeleri kalıcı olarak saklanmaz. Belge özel erişimli alanda yalnızca inceleme için geçici olarak tutulur; karar verilirken önce, karar verilmemişse yüklemeden itibaren en geç 30 gün içinde silinir." },
         { type: "p", text: "Yaklaşık konum, yalnız o anda hava durumuna ve çevredeki aramaya uygun öneri üretmek için kullanılır; LetsGo2Travel hesabına veya veri tabanına kaydedilmez. Kullanıcı bu özelliği açmadıkça konum izni istenmez." },
+        { type: "p", text: "Anlık cihaz konumundan farklı olarak, profil veya günlükte kendiniz kaydettiğiniz ülke ve yer bilgileri hesabınıza bağlı seyahat geçmişinin parçası olabilir. Misafir kullanımında yalnız cihazda tutulan kayıtlar, hesapla eşitleme gerçekleşene kadar hesabınıza kaydedilmiş sayılmaz." },
       ],
     },
     {
@@ -126,6 +133,9 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
         { type: "p", text: "Bilgiler şu amaçlarla kullanılır:" },
         { type: "list", items: [
           "Platform üyeliğini yönetmek", "Kullanıcı deneyimini geliştirmek",
+          "Rota önerisi üretmek, kaydedilen plan ve günlükleri hesaba eşitlemek",
+          "Ortak seyahat, kontrol listesi, oylama ve masraf paylaşımı özelliklerini sunmak",
+          "Kullanıcının etkinleştirdiği hatırlatma, telefon bildirimi ve Live Activity özelliklerini çalıştırmak; teslim hatalarını çözmek",
           "Doğrulanmış gezgin sistemini çalıştırmak",
           "Kullanıcının talebiyle anlık hava ve yakındaki aktivite önerisi sunmak",
           "Yorum ve içerik güvenliğini sağlamak", "Spam ve kötüye kullanımı önlemek",
@@ -144,8 +154,10 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
     {
       heading: "4. Üçüncü Taraf Hizmetler",
       blocks: [
-        { type: "p", text: "Platform; hosting, veri tabanı, e-posta gönderimi, güvenlik, analitik, hava durumu, harita veya seyahat affiliate hizmetleri için üçüncü taraf servislerden yararlanabilir." },
-        { type: "p", text: "Bu hizmet sağlayıcılar yalnızca gerekli bilgilerle ve ilgili amaç kapsamında işlem yapar." },
+        { type: "p", text: "Platform; sunucu barındırma için Vercel, hesap ve veri depolama için Supabase, uygulamanın işlem e-postaları için Resend ve iOS bildirimlerinin iletimi için Apple hizmetlerinden yararlanır." },
+        { type: "p", text: "Yapay zekâ ile rota üretimi etkin olduğunda, rota formundaki seyahat tercihleri öneri oluşturulması için Google Gemini hizmetine gönderilir. Hava durumu isteğinde yaklaşık konum Open-Meteo hizmetine iletilir. Bu sağlayıcıların işlemleri ve saklama koşulları kendi hizmet koşulları ve gizlilik politikalarına da tabidir." },
+        { type: "p", text: "Harita, rezervasyon veya seyahat ortağı bağlantısını açtığınızda ilgili hizmetin sayfasına geçersiniz. Bu hizmetlerde paylaştığınız bilgilere ilgili sağlayıcının politikası uygulanır. Web sitesindeki seyahat ortağı yönlendirmeleri tıklama ve teknik işlem kayıtları oluşturabilir." },
+        { type: "p", text: "Mevcut mobil uygulama reklam kimliğiyle uygulamalar arası hedefli reklam takibi yapmaz. Bildirim ve Live Activity tanımlayıcıları, bildirimi ilgili cihaz ve seyahatle eşleştirmek için kullanılır." },
       ],
     },
     {
@@ -158,7 +170,9 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
     {
       heading: "6. Kullanıcı Hakları",
       blocks: [
-        { type: "p", text: "Kullanıcılar, kişisel verilerine ilişkin taleplerini web'de /veri-silme-ve-hak-talebi sayfasından, mobil uygulamada ise Profil → Hesap bölümündeki veri silme akışından iletebilir." },
+        { type: "p", text: "Kullanıcılar, kişisel verilerine ilişkin taleplerini web'de /veri-silme-ve-hak-talebi sayfasından, mobil uygulamada ise Hesabım → Hesap silme bölümünden iletebilir. Uygulama talebin durumunu ve sonuçlandırma süresini gösterir; sonuç hesaba kayıtlı e-posta adresine bildirilir. Apple ile bağlantılı hesaplarda silme sırasında Apple yetkilendirmesinin de kaldırılması için yeniden doğrulama istenebilir." },
+        { type: "p", text: "Kamera, fotoğraf ve konum erişimleri ilgili özelliğin kullanımı sırasında istenir. Bu izinler cihaz ayarlarından yönetilebilir. Bildirimleri kapatmak veya hesaptan çıkmak, daha önce kaydedilmiş tüm hesap verilerinin silinmesi anlamına gelmez." },
+        { type: "p", text: "Hesaba kaydedilen plan, günlük, profil ve topluluk kayıtları ilgili özellik veya hesap silme akışıyla yönetilir. Teknik güvenlik ve talep kayıtlarının saklanması, işleme amacı ve geçerli yükümlülükler kapsamında değerlendirilir. Veri hakları ve destek için hello@letsgo2travel.com.tr adresine veya /destek sayfasına başvurabilirsiniz." },
       ],
     },
   ],
