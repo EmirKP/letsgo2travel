@@ -1,5 +1,7 @@
 "use client";
 
+import { wallTimeToUtc, zonedParts, validTimeZone } from "@/lib/zoned-time";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -169,7 +171,7 @@ export default function CockpitPageClient() {
     setIsSaving(true);
 
     try {
-      const today = localIsoDate();
+      const today = input.departureTime && validTimeZone(input.departureTimeZone) ? zonedParts(Date.now(), input.departureTimeZone).date : localIsoDate();
       const latest = localIsoDate(730);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate)
         || !/^\d{4}-\d{2}-\d{2}$/.test(input.endDate)
@@ -191,11 +193,14 @@ export default function CockpitPageClient() {
 
       const user = session.user;
 
-      const departureAt = input.departureTime
-        ? new Date(`${input.startDate}T${input.departureTime}:00`).toISOString()
-        : null;
+      let departureAt: string | null = null;
+      if (input.departureTime) {
+        const result = wallTimeToUtc(input.startDate, input.departureTime, input.departureTimeZone || "");
+        departureAt = result.ok ? result.iso : result.reason === "ambiguous" && result.candidates?.includes(input.departureUtc || "") ? input.departureUtc! : null;
+        if (!departureAt) throw new Error("Kalkışın yerel saatini ve saat dilimini doğrula.");
+      }
 
-      if (departureAt && Date.parse(departureAt) < Date.now()) {
+      if (departureAt && Date.parse(departureAt) <= Date.now()) {
         throw new Error("Uçuş tarihi ve saati geçmişte olamaz.");
       }
 

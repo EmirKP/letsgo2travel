@@ -1,3 +1,4 @@
+import { getWorkerHealth } from "@/lib/visa-appointments/worker-health";
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
 
@@ -29,6 +30,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if ((body.action === "resume" || body.action === "retry") && !existing.provider_code) {
     return NextResponse.json({ error: "Takip sağlayıcısı henüz etkinleştirilmemiş." }, { status: 409 });
+  }
+
+  if (body.action !== "pause" && (await getWorkerHealth()).state !== "online") {
+    return NextResponse.json({ error: "Otomatik vize takibi şu anda kullanılamıyor. Yeni takip başlatılmadı; resmî randevu sayfasından kontrol edebilirsin.", code: "worker_unavailable" }, { status: 503, headers: { "Retry-After": "60" } });
   }
 
   const nextStatus = body.action === "pause" ? "paused" : existing.provider_code ? "active" : "pending_activation";

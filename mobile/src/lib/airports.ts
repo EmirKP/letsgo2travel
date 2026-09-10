@@ -11,6 +11,7 @@ export type AirportOption = {
   city: string;
   country: string;
   countryCode: string;
+  timeZone?: string | null;
 };
 
 const cache = new Map<string, AirportOption[]>();

@@ -1,4 +1,5 @@
 import { createId } from "./id";
+import { queueRouteSave, queueRouteDelete, routesWithOutbox } from "./routeOutbox";
 import { nextSessionGenerationValue } from "./liveActivityGeneration";
 import type {
   FavoriteDestination,
@@ -27,7 +28,7 @@ const LIVE_ACTIVITY_SESSION_GENERATION_KEY = "l2t.mobile.live-activity-session-g
 const RELEASE_KEY = "l2t.mobile.release-seen";
 const GUEST_DATA_DECISION_KEY = "l2t.mobile.guest-data-decision.v1";
 const GUEST_DATA_SYNC_KEY = "l2t.mobile.guest-data-web-sync.v1";
-const ROUTES_LIMIT = 100;
+const ROUTES_LIMIT = Number.POSITIVE_INFINITY;
 // ISO ülke kümesi 250'nin altındadır; favori/ziyaret aktarımında iki yerel
 // koleksiyon birleşse bile gerçek bir ülke sessizce kırpılmasın.
 const COUNTRY_COLLECTION_LIMIT = 250;
@@ -157,18 +158,23 @@ function readScoped<T>(base: string, ownerId?: string | null) {
 }
 
 export function getSavedRoutePlans(ownerId?: string | null) {
-  return readScoped<SavedRoutePlan>(ROUTES_KEY, ownerId);
+  return routesWithOutbox(readScoped<SavedRoutePlan>(ROUTES_KEY, ownerId), ownerId);
 }
 
 export function saveRoutePlan(plan: SavedRoutePlan, ownerId?: string | null) {
   const next = [plan, ...getSavedRoutePlans(ownerId).filter((item) => item.id !== plan.id)];
-  write(scopedKey(ROUTES_KEY, ownerId), next, ROUTES_LIMIT);
+  if (ownerId) queueRouteSave(ownerId, plan);
+  // Throw on failure so callers cannot announce a save that was never durable.
+  window.localStorage.setItem(scopedKey(ROUTES_KEY, ownerId), JSON.stringify(next));
+  emitChange();
   return next;
 }
 
 export function deleteRoutePlan(id: string, ownerId?: string | null) {
   const next = getSavedRoutePlans(ownerId).filter((item) => item.id !== id);
-  write(scopedKey(ROUTES_KEY, ownerId), next, ROUTES_LIMIT);
+  if (ownerId) queueRouteDelete(ownerId, id);
+  window.localStorage.setItem(scopedKey(ROUTES_KEY, ownerId), JSON.stringify(next));
+  emitChange();
   // Kullanıcı, web aktarımı bekleyen bir rotayı silerse artık var olmayan
   // kaydı sonsuza kadar yeniden deneme. Yalnız yerel silme gerçekten başarılı
   // olduysa ilgili kuyruk girdisini de kaldır.
@@ -477,13 +483,15 @@ export function toggleSavedTravelEvent(event: TravelEvent, ownerId?: string | nu
   const current = getSavedTravelEvents(ownerId);
   const exists = current.some((item) => item.id === event.id);
   const next = exists ? current.filter((item) => item.id !== event.id) : [event, ...current];
-  write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next));
+  emitChange();
   return { saved: !exists, events: next };
 }
 
 export function removeSavedTravelEvent(id: string, ownerId?: string | null) {
   const next = getSavedTravelEvents(ownerId).filter((event) => event.id !== id);
-  write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next));
+  emitChange();
   return next;
 }
 
@@ -494,12 +502,12 @@ export function mergeSavedTravelEvents(events: TravelEvent[], ownerId?: string |
   let changed = false;
   const next = current.map((event) => {
     const update = incoming.get(event.id);
-    if (!update || ["updatedAt", "startsAt", "endsAt", "status", "title", "city", "venue", "sourceUrl", "ticketUrl"]
+    if (!update || ["updatedAt", "startsAt", "endsAt", "localDate", "timeZone", "timePrecision", "status", "title", "city", "venue", "sourceUrl", "ticketUrl"]
       .every((key) => update[key as keyof TravelEvent] === event[key as keyof TravelEvent])) return event;
     changed = true;
     return update;
   });
-  if (changed) write(scopedKey(SAVED_EVENTS_KEY, ownerId), next, 80);
+  if (changed) { window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next)); emitChange(); }
   return { events: next, changed };
 }
 

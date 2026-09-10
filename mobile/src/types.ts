@@ -86,6 +86,9 @@ export type TravelEvent = {
   city: string;
   venue: string;
   startsAt: string;
+  localDate?: string;
+  timeZone?: string | null;
+  timePrecision?: "exact" | "date";
   endsAt: string | null;
   status: "scheduled" | "postponed" | "cancelled" | "completed";
   imageUrl: string | null;

@@ -1,3 +1,4 @@
+import { getWorkerHealth } from "@/lib/visa-appointments/worker-health";
 import { NextResponse } from "next/server";
 import { getSchengenCountry } from "@/lib/visa-appointments/catalog";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
@@ -92,6 +93,10 @@ export async function POST(request: Request) {
 
   const validationError = validate(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+
+  if ((await getWorkerHealth()).state !== "online") {
+    return NextResponse.json({ error: "Otomatik vize takibi şu anda kullanılamıyor. Yeni takip başlatılmadı; resmî randevu sayfasından kontrol edebilirsin.", code: "worker_unavailable" }, { status: 503, headers: { "Retry-After": "60" } });
+  }
 
   const country = getSchengenCountry(body.countryCode)!;
   const { count, error: countError } = await auth.supabase

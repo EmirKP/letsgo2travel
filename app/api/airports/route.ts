@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchAirports } from "@/lib/airport-search";
 import { CACHE_TIMES } from "@/lib/http-cache";
+import { airportTimeZone } from "@/lib/airport-time-zones";
 
 // Dünya çapında havalimanı arama ucu (web + mobil ortak kaynak).
 // Veri: lib/airports-dataset.json (OurAirports, kamu malı; ~3.2k tarifeli
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     city: airport.city,
     country: airport.country,
     countryCode: airport.countryCode,
+    timeZone: airportTimeZone(airport.iata) || null,
     // Geriye dönük alanlar (önceki yanıt sözleşmesiyle uyum):
     id: airport.iata,
     code: airport.iata,

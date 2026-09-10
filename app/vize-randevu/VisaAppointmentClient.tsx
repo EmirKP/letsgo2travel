@@ -184,6 +184,7 @@ export default function VisaAppointmentClient() {
       return;
     }
 
+    if (workerStatus.state !== "online") { setMessage("Otomatik takip şu anda kullanılamıyor. Resmî randevu sayfasından kontrol edebilirsin."); return; }
     if (form.earliestDate < inputDate(1) || form.latestDate < form.earliestDate) {
       setMessage("Tarih aralığı yarından başlamalı ve bitiş başlangıçtan önce olmamalı.");
       return;
@@ -243,7 +244,7 @@ export default function VisaAppointmentClient() {
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
               <span className={styles.kicker}><SearchCheck size={16} /> Vize Randevu Asistanı</span>
-              <h1>Randevu sayfalarını tekrar tekrar kontrol etme.</h1>
+              <h1>Vize randevu sürecini tek yerden izle.</h1>
               <p>
                 Ülke, başvuru şehri ve tarih aralığını kaydet. LetsGo2Travel uygunluk kontrollerini tek panelde
                 düzenlesin ve işlem gerektiğinde seni haberdar etsin.
@@ -346,7 +347,7 @@ export default function VisaAppointmentClient() {
                 <p>Sistem CAPTCHA, SMS, e-posta doğrulaması veya ödeme onayını atlamaz. Bu adımlar gerektiğinde işlem sana devredilir.</p>
               </div>
 
-              <button className={styles.submit} type="submit" disabled={submitting}>
+              <button className={styles.submit} type="submit" disabled={submitting || workerStatus.state !== "online"}>
                 {submitting ? <RefreshCw className={styles.spin} size={19} /> : <SearchCheck size={19} />}
                 {isLoggedIn ? (submitting ? "Oluşturuluyor..." : "24 saatlik takibi başlat") : "Giriş yap ve takibi başlat"}
               </button>
@@ -450,7 +451,7 @@ export default function VisaAppointmentClient() {
                                 Resmî sağlayıcı sayfasına git <ExternalLink size={15} />
                               </a>
                             )}
-                            <button type="button" onClick={() => void changeStatus(track.id, "retry")} disabled={busyTrackId === track.id}>
+                            <button type="button" onClick={() => void changeStatus(track.id, "retry")} disabled={busyTrackId === track.id || workerStatus.state !== "online"}>
                               <RefreshCw className={busyTrackId === track.id ? styles.spin : ""} size={15} /> Doğrulamayı yaptım, yeniden kontrol et
                             </button>
                           </div>
@@ -475,7 +476,7 @@ export default function VisaAppointmentClient() {
                     )}
                     <div className={styles.trackActions}>
                       {track.status === "paused" ? (
-                        <button type="button" onClick={() => void changeStatus(track.id, "resume")} disabled={busyTrackId === track.id}><Play size={16} /> Takibi sürdür</button>
+                        <button type="button" onClick={() => void changeStatus(track.id, "resume")} disabled={busyTrackId === track.id || workerStatus.state !== "online"}><Play size={16} /> Takibi sürdür</button>
                       ) : track.status === "active" || track.status === "pending_activation" ? (
                         <button type="button" onClick={() => void changeStatus(track.id, "pause")} disabled={busyTrackId === track.id}><Pause size={16} /> Duraklat</button>
                       ) : null}

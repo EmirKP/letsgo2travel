@@ -1,5 +1,5 @@
 import { alpha3ToGeoId, profileIdToAlpha3 } from "../data/countryCodes";
-import type { SavedRoutePlan } from "../types";
+import { syncRoutePlan } from "./routeSync";
 import {
   getFavoriteDestinations,
   getPendingGuestDataSync,
@@ -11,8 +11,6 @@ import {
 import {
   getSupabaseDataErrorMessage,
   mergeUserProfileCountries,
-  upsertUserTrip,
-  type UserTripUpsertInput,
 } from "./supabaseData";
 import {
   guestSyncOverallStatus,
@@ -77,26 +75,6 @@ function safeOwnerId(ownerId: string) {
   return value;
 }
 
-function routeUpsertInput(saved: SavedRoutePlan): UserTripUpsertInput {
-  const routes = Array.isArray(saved?.plan?.routes) ? saved.plan.routes : [];
-  const routeNames = routes.map((route) => String(route?.name || "").trim()).filter(Boolean);
-  const countries = routes.map((route) => String(route?.country || "").trim()).filter(Boolean);
-  if (!routeNames.length || !countries.length) throw new Error("Rota içeriği eksik olduğu için eşitlenemedi.");
-
-  return {
-    title: routeNames.join(" · ").slice(0, 160),
-    destination: countries.join(" · ").slice(0, 160),
-    mobileKind: "route_plan",
-    clientKey: String(saved.id || "").trim(),
-    tripData: {
-      input: saved.input,
-      plan: saved.plan,
-      source: "guest_import",
-      saved_at: saved.createdAt,
-    },
-  };
-}
-
 async function syncRoutes(
   ownerId: string,
   accessToken: string,
@@ -121,7 +99,7 @@ async function syncRoutes(
   const outcomes = await runGuestSyncQueue(
     importedRoutes,
     (route) => route.id,
-    (route) => upsertUserTrip(ownerId, routeUpsertInput(route), accessToken),
+    (route) => syncRoutePlan(ownerId, accessToken, route),
     (error) => getSupabaseDataErrorMessage(error, error instanceof Error ? error.message : "Rota web hesabına eşitlenemedi."),
   );
   const failures = [

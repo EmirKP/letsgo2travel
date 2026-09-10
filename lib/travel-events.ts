@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { validTimeZone, zonedParts } from "./zoned-time";
 
 export type TravelEventStatus = "scheduled" | "postponed" | "cancelled" | "completed";
 export type TravelEventCategory = "concert" | "festival" | "sport" | "culture" | "food" | "family" | "other";
@@ -14,6 +15,9 @@ export type TravelEvent = {
   city: string;
   venue: string;
   startsAt: string;
+  localDate?: string;
+  timeZone?: string | null;
+  timePrecision?: "exact" | "date";
   endsAt: string | null;
   status: TravelEventStatus;
   imageUrl: string | null;
@@ -42,7 +46,7 @@ type TicketmasterEvent = {
   info?: unknown;
   pleaseNote?: unknown;
   images?: Array<{ url?: unknown; ratio?: unknown; width?: unknown }>;
-  dates?: { start?: { dateTime?: unknown; localDate?: unknown }; end?: { dateTime?: unknown }; status?: { code?: unknown } };
+  dates?: { timezone?: unknown; start?: { dateTime?: unknown; localDate?: unknown; dateTBD?: boolean; dateTBA?: boolean; timeTBA?: boolean; noSpecificTime?: boolean }; end?: { dateTime?: unknown }; status?: { code?: unknown } };
   classifications?: Array<{ segment?: { name?: unknown }; genre?: { name?: unknown } }>;
   _embedded?: { venues?: Array<{ name?: unknown; city?: { name?: unknown }; country?: { countryCode?: unknown } }> };
 };
@@ -61,6 +65,8 @@ type PredictHqEvent = {
   category?: unknown;
   labels?: unknown;
   start?: unknown;
+  start_local?: unknown;
+  timezone?: unknown;
   end?: unknown;
   country?: unknown;
   updated?: unknown;
@@ -187,7 +193,12 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
     const title = text(event.name, 240);
     const sourceUrl = httpsUrl(event.url);
     const localDate = text(event.dates?.start?.localDate, 20);
-    const startsAt = validDate(event.dates?.start?.dateTime) || (localDate ? validDate(`${localDate}T12:00:00Z`) : null);
+    if (event.dates?.start?.dateTBD || event.dates?.start?.dateTBA) return [];
+    const instant = validDate(event.dates?.start?.dateTime);
+    const exact = Boolean(instant && !event.dates?.start?.timeTBA && !event.dates?.start?.noSpecificTime);
+    const timeZone = validTimeZone(event.dates?.timezone) ? event.dates.timezone : null;
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(localDate) ? localDate : instant ? zonedParts(Date.parse(instant), timeZone || "UTC").date : "";
+    const startsAt = exact ? instant : day;
     const venue = event._embedded?.venues?.[0];
     if (!id || !title || !sourceUrl || !startsAt) return [];
     const mapped = {
@@ -200,6 +211,9 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
       city: text(venue?.city?.name, 120),
       venue: text(venue?.name, 180),
       startsAt,
+      localDate: day,
+      timeZone,
+      timePrecision: exact ? "exact" as const : "date" as const,
       endsAt: validDate(event.dates?.end?.dateTime),
       status: statusFromTicketmaster(event.dates?.status?.code),
       imageUrl: ticketmasterImage(event),
@@ -312,6 +326,9 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     if (search.featured && (rank === null || rank < 55)) return [];
     const directUrl = httpsUrl(event.url);
     const sourceUrl = directUrl || eventVerificationUrl(title, location.city, startsAt);
+    const timeZone = validTimeZone(event.timezone) ? event.timezone : null;
+    const local = timeZone ? zonedParts(Date.parse(startsAt), timeZone) : { date: text(event.start_local || event.start, 40).slice(0, 10), time: "00:00:00" };
+    const exact = Boolean(timeZone && event.state !== "predicted" && local.time !== "00:00:00");
     return [{
       id: `predicthq:${id}`,
       provider: "predicthq" as const,
@@ -321,7 +338,10 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
       countryCode: kosovoSearch ? "XK" : text(event.country || search.countryCode, 3).toUpperCase(),
       city: location.city,
       venue: location.venue,
-      startsAt,
+      startsAt: exact ? startsAt : local.date,
+      localDate: local.date,
+      timeZone,
+      timePrecision: exact ? "exact" as const : "date" as const,
       endsAt: validDate(event.end),
       status: statusFromPredictHq(event),
       imageUrl: null,
@@ -366,6 +386,9 @@ export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]>
     city: text(item.city, 120),
     venue: text(item.venue, 180),
     startsAt: String(item.starts_at),
+    localDate: String(item.starts_at).slice(0, 10),
+    timeZone: "UTC",
+    timePrecision: "exact" as const,
     endsAt: item.ends_at ? String(item.ends_at) : null,
     status: item.status as TravelEventStatus,
     imageUrl: httpsUrl(item.image_url),

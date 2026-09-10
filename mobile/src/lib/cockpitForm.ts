@@ -1,6 +1,8 @@
 // Kokpit formu saf yardımcıları (birim testlenebilir; ekran dosyasından ayrı).
 import type { AirportOption } from "./airports";
-import { isPastLocalDate, isPastLocalDateTime, localIsoDate } from "./dates";
+import { isPastLocalDate, localIsoDate } from "./dates";
+import { airportTimeZone } from "../../../lib/airport-time-zones";
+import { wallTimeToUtc } from "../../../lib/zoned-time";
 
 export type TripFormState = {
   mode: "flight" | "other";
@@ -17,6 +19,8 @@ export type TripFormState = {
   departureTime: string;
   arrivalDate: string;
   arrivalTime: string;
+  departureUtc?: string;
+  arrivalUtc?: string;
   airline: string;
   flightNumber: string;
   flightPnr: string;
@@ -43,16 +47,23 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
     return message("Gideceğin ülkeyi listeden seç.", "Choose your destination country from the list.");
   }
   if (!form.startDate || !form.endDate) return message("Başlangıç ve bitiş tarihlerini seç.", "Choose start and end dates.");
-  if (isPastLocalDate(form.startDate, now)) return message("Başlangıç tarihi geçmiş bir gün olamaz.", "The start date cannot be in the past.");
+  if (form.mode !== "flight" && isPastLocalDate(form.startDate, now)) return message("Başlangıç tarihi geçmiş bir gün olamaz.", "The start date cannot be in the past.");
   if (form.startDate > localIsoDate(730, now) || form.endDate > localIsoDate(730, now)) return message("Seyahat tarihleri bugünden itibaren iki yıl içinde olmalı.", "Travel dates must be within two years from today.");
   if (form.endDate < form.startDate) return message("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date.");
   if (form.mode === "flight") {
     if (!/^\d{2}:\d{2}$/.test(form.departureTime)) return message("Kalkış saatini seç (Ada/hatırlatma geri sayımı için gerekli).", "Choose the departure time (needed for Live Activity and reminders).");
-    if (isPastLocalDateTime(form.startDate, form.departureTime, now)) return message("Kalkış tarihi ve saati geçmişte olamaz.", "The departure date and time cannot be in the past.");
     if (!form.arrivalDate || !/^\d{2}:\d{2}$/.test(form.arrivalTime)) return message("Planlanan varış tarihini ve saatini seç (uçuşta kalan süre için gerekli).", "Choose the scheduled arrival date and time (needed for the in-flight countdown).");
     if (form.arrivalDate > form.endDate) return message("Planlanan varış tarihi seyahat bitişinden sonra olamaz.", "Scheduled arrival cannot be after the trip end date.");
-    const departureAt = new Date(`${form.startDate}T${form.departureTime}:00`).getTime();
-    const arrivalAt = new Date(`${form.arrivalDate}T${form.arrivalTime}:00`).getTime();
+    const times = flightTimes(form);
+    if (!times.departure.ok || !times.arrival.ok) {
+      const reason = !times.departure.ok ? times.departure.reason : !times.arrival.ok ? times.arrival.reason : "invalid";
+      if (reason === "timezone") return message("Havalimanının saat dilimini seç.", "Select the airport time zone.");
+      if (reason === "ambiguous") return message("Bu yerel saat, yaz saati değişiminde iki kez yaşanıyor. Alttaki seçeneklerden biletindeki UTC karşılığını seç.", "This local time occurs twice during the clock change. Select its UTC equivalent from your ticket below.");
+      return message("Bu tarih ve saat geçersiz veya saat değişimi nedeniyle mevcut değil. Biletteki yerel saati kontrol et.", "This date/time is invalid or does not exist during the clock change. Check the local time on your ticket.");
+    }
+    const departureAt = Date.parse(times.departure.iso);
+    const arrivalAt = Date.parse(times.arrival.iso);
+    if (departureAt <= now.getTime()) return message("Kalkış tarihi ve saati geçmişte olamaz.", "The departure date and time cannot be in the past.");
     if (!Number.isFinite(departureAt) || !Number.isFinite(arrivalAt) || arrivalAt <= departureAt) return message("Planlanan varış, kalkıştan sonra olmalı.", "Scheduled arrival must be after departure.");
     if (!form.flightPnr.trim()) return message("PNR kodunu yaz (biletindeki rezervasyon kodu).", "Enter the PNR (the booking code on your ticket).");
   }
@@ -60,4 +71,12 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
   if (form.flightNumber && !/^[A-Z0-9]{2,8}$/.test(form.flightNumber.trim())) return message("Uçuş numarası 2–8 harf/rakam olabilir (örn. TK1979).", "Flight number must contain 2–8 letters or numbers (e.g. TK1979).");
   if (form.airline.trim().length > 80) return message("Havayolu adı en fazla 80 karakter olabilir.", "Airline name can contain at most 80 characters.");
   return "";
+}
+
+export function flightTimes(form: TripFormState) {
+  const resolve = (result: ReturnType<typeof wallTimeToUtc>, chosen?: string) => !result.ok && result.reason === "ambiguous" && chosen && result.candidates?.includes(chosen) ? { ok: true as const, iso: chosen } : result;
+  return {
+    departure: resolve(wallTimeToUtc(form.startDate, form.departureTime, airportTimeZone(form.originAirport?.iata || "", form.originAirport?.timeZone)), form.departureUtc),
+    arrival: resolve(wallTimeToUtc(form.arrivalDate, form.arrivalTime, airportTimeZone(form.airport?.iata || "", form.airport?.timeZone)), form.arrivalUtc),
+  };
 }

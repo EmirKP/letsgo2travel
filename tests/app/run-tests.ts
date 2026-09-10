@@ -145,7 +145,7 @@ test("misafir web eşitlemesi: yalnız sunucuya yazar, yerel kaynakları silmez"
   const storage = readFileSync("mobile/src/lib/storage.ts", "utf8");
   const dataClient = readFileSync("mobile/src/lib/supabaseData.ts", "utf8");
   const securitySql = readFileSync("supabase/migrations/20260903170000_protect_profile_roles.sql", "utf8");
-  assert.ok(source.includes("upsertUserTrip("), "yeni rotalar web hesabına upsert edilmeli");
+  assert.ok(source.includes("syncRoutePlan(") && readFileSync("mobile/src/lib/routeSync.ts", "utf8").includes("upsertUserTrip("), "yeni rotalar web hesabına upsert edilmeli");
   assert.ok(source.includes("mergeUserProfileCountries("), "favori ve ziyaretler atomik profil birleştirmesine gitmeli");
   assert.ok(dataClient.includes('dataUrl("rpc/merge_mobile_profile_countries")'), "profil birleşimi RPC üzerinden yapılmalı");
   assert.ok(dataClient.includes('dataUrl("rpc/upsert_mobile_user_trip")'), "rota upsert ayrı cihazlarda da atomik RPC kullanmalı");
@@ -419,15 +419,15 @@ test("kokpit: uçuşlu seyahatte kalkış saati ve PNR zorunlu", () => {
 test("kokpit: planlanan varış uçuş geri sayımı için zorunlu ve kalkıştan sonradır", () => {
   assert.ok(tripFormError(makeTripForm({ arrivalDate: "" })).includes("varış"));
   assert.ok(tripFormError(makeTripForm({ arrivalTime: "" })).includes("varış"));
-  assert.ok(tripFormError(makeTripForm({ arrivalTime: "09:30" })).includes("kalkıştan sonra"));
+  assert.ok(tripFormError(makeTripForm({ arrivalTime: "06:30" })).includes("kalkıştan sonra"));
   assert.equal(
-    tripFormError(makeTripForm({ arrivalTime: "09:30" }), new Date(), "en"),
+    tripFormError(makeTripForm({ arrivalTime: "06:30" }), new Date(), "en"),
     "Scheduled arrival must be after departure.",
   );
 });
 
 test("kokpit: bugün içinde geçmiş kalkış saati ve seyahat sonrası varış reddedilir", () => {
-  const now = new Date(2026, 8, 4, 16, 44, 0);
+  const now = new Date("2026-09-04T13:44:00Z");
   assert.ok(tripFormError(makeTripForm({
     startDate: "2026-09-04",
     endDate: "2026-09-08",
@@ -502,7 +502,8 @@ test("rota: üretilen planın tercihleri değişen formdan bağımsız saklanır
   assert.deepEqual(snapshot.vibe, ["Şehir", "Kültür"]);
 
   const screen = readFileSync("mobile/src/screens/RouteAssistantScreen.tsx", "utf8");
-  assert.ok(screen.includes("tripData: { input, plan, source"), "hesap kaydı üretim snapshot'ını kullanmalı");
+  const sync = readFileSync("mobile/src/lib/routeSync.ts", "utf8");
+  assert.ok(screen.includes("syncRoutePlan(") && sync.includes("tripData: { input: route.input, plan: route.plan"), "hesap kaydı kuyruktaki üretim snapshot'ını kullanmalı");
   assert.ok(!screen.includes("tripData: { input: form"), "güncel form yanlış planla kaydedilmemeli");
 });
 
@@ -940,11 +941,12 @@ test("Build 18: geçmiş tarih engeli bütün kullanıcı ve yönetici girişler
   const adminRoute = readFileSync("app/api/admin/events/route.ts", "utf8");
 
   assert.ok(events.includes("clampLocalDate") && events.includes("isValidDateRange"), "mobil etkinlik tarihleri hem girişte hem aramada doğrulanmalı");
-  assert.ok(cockpit.includes("isPastLocalDateTime") && cockpit.includes("minuteAfter(form.departureTime)"), "kokpit geçmiş saati ve kalkıştan önce varışı engellemeli");
+  const flightForm = readFileSync("mobile/src/lib/cockpitForm.ts", "utf8");
+  assert.ok(cockpit.includes("flightTimes(form)") && flightForm.includes("arrivalAt <= departureAt") && flightForm.includes("departureAt <= now.getTime()"), "kokpit havalimanı saatlerini UTC'ye çevirerek geçmişi ve varış sırasını doğrulamalı");
   assert.ok(alerts.includes("clampLocalDate") && mobileData.includes("input.startDate < localIsoDate(0)"), "mobil seyahat ve fiyat alarmı girişleri veri katmanına ulaşmadan geçmişi reddetmeli");
   assert.ok(webAlerts.includes('min={localIsoDate(0)}') && webAlerts.includes("form.departureDate < localIsoDate(0)"), "web fiyat alarmı geçmiş tarihi engellemeli");
-  assert.ok(webCockpit.includes('min={today}') && webCockpit.includes("Uçuş tarihi ve saati geçmişte olamaz"), "web kokpit takvim ve gönderimde geçmişi engellemeli");
-  assert.ok(webCockpitData.includes("input.startDate < today") && webCockpitData.includes("Date.parse(departureAt) < Date.now()"), "web kokpit veri yazımından hemen önce tarihi yeniden doğrulamalı");
+  assert.ok(webCockpit.includes('min={today}') && webCockpit.includes("Date.parse(iso) <= Date.now()"), "web kokpit takvim ve UTC gönderiminde geçmişi engellemeli");
+  assert.ok(webCockpitData.includes("input.startDate < today") && webCockpitData.includes("Date.parse(departureAt) <= Date.now()"), "web kokpit veri yazımından hemen önce tarihi yeniden doğrulamalı");
   assert.ok(visa.includes('min={inputDate(1)}') && visa.includes('max={inputDate(365)}') && visa.includes("clampInputDate"), "vize randevusu yalnız geçerli gelecek aralığını kabul etmeli");
   assert.ok(adminRoute.includes('status === "scheduled" || status === "postponed"') && adminRoute.includes("Date.now() - 60_000"), "yönetici API'si yeni veya ertelenmiş geçmiş etkinliği reddetmeli");
 });
