@@ -2,6 +2,7 @@ import { getAdvisory } from "./advisories";
 import { plainText, publicJson, publicLink, publicText } from "./fetch";
 import { COUNTRY_TIME_ZONES } from "./time-zones";
 import { parseNewsRss } from "./rss";
+import { countryNewsTerms } from "./news-countries";
 import { verifiedElections } from "./elections";
 import type { CalendarItem, CountryBrief, NewsItem } from "./types";
 
@@ -21,10 +22,10 @@ export function localDateForCountry(code: string, now = new Date()) {
 
 export function newsTopic(title: string): NewsItem["topic"] {
   const has = (terms: string) => new RegExp(`(^|[^\\p{L}])(${terms})([^\\p{L}]|$)`, "iu").test(title);
-  if (has("elections?|ballots?|polling|seçim|seçimler|sandık")) return "elections";
-  if (has("airports?|airspace|flights?|rail|strikes?|uçuş|uçuşlar|havalimanı|grev")) return "transport";
-  if (has("floods?|storms?|earthquakes?|wildfires?|sel|deprem|fırtına|yangın")) return "weather";
-  if (has("conflicts?|attacks?|wars?|protests?|savaş|saldırı|çatışma|protesto")) return "security";
+  if (has("elections?|ballots?|polling|seçim\\p{L}*|sandık\\p{L}*")) return "elections";
+  if (has("airports?|airspace|flights?|rail|strikes?|uçuş\\p{L}*|havaliman\\p{L}*|havaalan\\p{L}*|hava sahası|grev\\p{L}*")) return "transport";
+  if (has("floods?|flooding|storms?|earthquakes?|wildfires?|sel|deprem\\p{L}*|fırtına\\p{L}*|yangın\\p{L}*")) return "weather";
+  if (has("conflicts?|attacks?|wars?|protests?|savaş\\p{L}*|saldırı\\p{L}*|çatışma\\p{L}*|protesto\\p{L}*")) return "security";
   return "general";
 }
 
@@ -48,20 +49,38 @@ export function normalizeNews(raw: { articles?: Article[] }, now = new Date()): 
   return result;
 }
 
-async function getNews(code: string): Promise<{ news: NewsItem[]; newsState: CountryBrief["newsState"] }> {
-  const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code;
-  const countryQuery = code === "GE" ? '"Georgia" "Tbilisi"' : code === "TR" ? '("Turkey" OR "Türkiye")' : `"${name.replace(/["\\]/g, "")}"`;
+export async function getCountryNews(code: string): Promise<{ news: NewsItem[]; newsState: CountryBrief["newsState"] }> {
+  const terms = countryNewsTerms(code).filter(name => code !== "GE" || name !== "Georgia");
+  const countryQuery = `(${terms.map(name => `"${name.replace(/["\\]/g, "")}"`).join(" OR ")})`;
   const query = `${countryQuery} (election OR tourism OR airport OR airspace OR conflict OR protest OR flood OR strike)`;
   const params = new URLSearchParams({ query, mode: "artlist", format: "json", maxrecords: "12", timespan: "7d", sort: "datedesc" });
+  const feeds = [
+    { url: "https://www.aa.com.tr/tr/rss/default?cat=guncel", provider: "Anadolu Ajansı" as const },
+    { url: "https://www.aa.com.tr/tr/rss/default?cat=dunya", provider: "Anadolu Ajansı" as const },
+    { url: "https://feeds.bbci.co.uk/news/world/rss.xml", provider: "BBC" as const },
+    ...(code === "GB" ? [{ url: "https://feeds.bbci.co.uk/news/uk/rss.xml", provider: "BBC" as const, countryScope: "GB" }] : []),
+  ];
   const results = await Promise.allSettled([
     publicJson<{ articles?: Article[] }>(`https://api.gdeltproject.org/api/v2/doc/doc?${params}`, 1800, 8000).then(raw => { if (!Array.isArray(raw.articles)) throw new Error("Invalid news response"); return normalizeNews(raw); }),
-    publicText("https://www.aa.com.tr/tr/rss/default?cat=guncel", 900, 6000).then(xml => { if (!/<rss/i.test(xml)) throw new Error("Invalid feed"); return parseNewsRss(xml, code, "Anadolu Ajansı"); }),
-    publicText("https://feeds.bbci.co.uk/news/world/rss.xml", 900, 6000).then(xml => { if (!/<rss/i.test(xml)) throw new Error("Invalid feed"); return parseNewsRss(xml, code, "BBC"); }),
+    ...feeds.map(feed => publicText(feed.url, 900, 8000).then(xml => {
+      if (!/<rss(?:\s|>)/i.test(xml) || !/<channel(?:\s|>)/i.test(xml) || /<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error("Invalid news feed");
+      return parseNewsRss(xml, code, feed.provider, new Date(), "countryScope" in feed ? feed.countryScope : undefined);
+    })),
   ]);
   const rows = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
-  const unique = [...new Map(rows.map(row => [row.url, { ...row, topic: newsTopic(row.title) }])).values()];
-  unique.sort((a,b) => (b.publishedAt || b.firstSeenAt).localeCompare(a.publishedAt || a.firstSeenAt));
-  return { news: unique.slice(0,12), newsState: results.some(row => row.status === "fulfilled") ? "ok" : "unavailable" };
+  rows.sort((a,b) => (b.publishedAt || b.firstSeenAt).localeCompare(a.publishedAt || a.firstSeenAt));
+  const urls = new Set<string>(); const titles = new Set<string>();
+  const unique = rows.filter(row => {
+    const title = row.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (urls.has(row.url) || titles.has(title)) return false;
+    urls.add(row.url); titles.add(title); return true;
+  }).map(row => ({ ...row, topic: newsTopic(row.title) }));
+  // A healthy world feed with no matching headlines does not establish that
+  // this country's news search succeeded. Only a country query/scoped feed
+  // can establish an empty result when no matching stories were returned.
+  const countrySourceOk = results[0].status === "fulfilled" || feeds.some((feed, index) =>
+    "countryScope" in feed && feed.countryScope === code && results[index + 1].status === "fulfilled");
+  return { news: unique.slice(0,12), newsState: unique.length || countrySourceOk ? "ok" : "unavailable" };
 }
 
 type Holiday = { date: string; localName: string; name: string; countryCode: string; global: boolean; counties: string[] | null; types: string[] };
@@ -96,6 +115,6 @@ async function getCalendar(code: string, today: string) {
 
 export async function getCountryBrief(code: string): Promise<CountryBrief> {
   const { timeZone, today } = localDateForCountry(code);
-  const [advisory, news, calendar] = await Promise.all([getAdvisory(code), getNews(code), getCalendar(code, today)]);
+  const [advisory, news, calendar] = await Promise.all([getAdvisory(code), getCountryNews(code), getCalendar(code, today)]);
   return { code, today, timeZone, checkedAt: new Date().toISOString(), advisory, ...news, ...calendar };
 }

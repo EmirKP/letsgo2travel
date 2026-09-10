@@ -1,0 +1,15 @@
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  object-fit: contain;
+  border-radius: 0;
+  background: transparent;
+}
+
+.editorial-app .topbar-brand-group { flex: 1; margin-right: 8px; }
+.editorial-app .brand-button { width: min(100%, 210px); flex: 0 1 210px; }
+.editorial-app .topbar-actions { flex: none; }
+.reference-onboarding .onboarding-brand { width: min(65%, 220px); min-width: 0; }
+.animated-splash-copy > .brand-logo { width: min(100%, 360px); }

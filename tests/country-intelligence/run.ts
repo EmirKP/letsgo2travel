@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { estimateCost, quoteComparison } from "../../lib/country-intelligence/cost-model";
 import { readMonthlyIndex, getRates } from "../../lib/country-intelligence/economy";
 import { advisoryLevel } from "../../lib/country-intelligence/advisories";
-import { localDateForCountry, normalizeNews, newsTopic, upcomingCalendar } from "../../lib/country-intelligence/brief";
+import { getCountryNews, localDateForCountry, normalizeNews, newsTopic, upcomingCalendar } from "../../lib/country-intelligence/brief";
 import { publicJson, publicLink } from "../../lib/country-intelligence/fetch";
 import type { CostData } from "../../lib/country-intelligence/types";
 import { lastVerifiedAdvice, VERIFIED_MONTHLY_INDICES } from "../../lib/country-intelligence/last-verified";
 import { parseNewsRss } from "../../lib/country-intelligence/rss";
+import { matchesNewsCountry } from "../../lib/country-intelligence/news-countries";
 import { CITY_BENCHMARKS, CITY_PRICE_MONTH } from "../../lib/country-intelligence/city-benchmarks";
 import { COUNTRY_TIME_ZONES } from "../../lib/country-intelligence/time-zones";
 import { COST_CURRENCIES } from "../../lib/country-intelligence/currencies";
@@ -81,6 +82,32 @@ async function networkContracts() {
     globalThis.fetch = async () => { calls++; return new Response(JSON.stringify([{ base: "TRY", quote: "EUR", rate: 0.02, date: "2026-09-08" }])); };
     const rates = await getRates(["EUR"]);
     test("provider TRY-to-local FX is correctly inverted", () => assert.equal(rates.EUR.rate, 50));
+    const recent = new Date(Date.now() - 60_000).toUTCString();
+    globalThis.fetch = async input => {
+      const url = String(input);
+      if (url.includes("gdeltproject")) {
+        return url.includes("France") ? new Response('{"articles":[]}') : new Response("upstream failed", { status: 503 });
+      }
+      if (url.includes("news/uk/")) return new Response(rss("Rail strike disrupts travel", recent));
+      if (url.includes("aa.com.tr")) return new Response(rss("Dubai airport announces flight changes", recent, "https://www.aa.com.tr/tr/dunya/dubai-update/123"));
+      return new Response(rss("Dubai airport announces flight changes", recent));
+    };
+    const uae = await getCountryNews("AE");
+    test("UAE gets Dubai headlines during a GDELT outage and deduplicates feeds", () => {
+      assert.equal(uae.newsState, "ok"); assert.equal(uae.news.length, 1); assert.equal(uae.news[0].topic, "transport");
+    });
+    const uk = await getCountryNews("GB");
+    test("UK national feed includes stories without the formal country name", () => {
+      assert.equal(uk.newsState, "ok"); assert.equal(uk.news[0].title, "Rail strike disrupts travel");
+    });
+    const georgia = await getCountryNews("GE");
+    test("unrelated successful world feeds do not mask a failed country search", () => {
+      assert.equal(georgia.newsState, "unavailable"); assert.equal(georgia.news.length, 0);
+    });
+    const france = await getCountryNews("FR");
+    test("an empty successful country search is distinct from an outage", () => {
+      assert.equal(france.newsState, "ok"); assert.equal(france.news.length, 0);
+    });
     calls = 0;
     globalThis.fetch = async () => { calls++; return new Response("", { status: 429, headers: { "retry-after": "600" } }); };
     const url = "https://api.gdeltproject.org/api/v2/doc/doc?query=isolated-test";
@@ -126,6 +153,27 @@ test("RSS discards future, stale, unrelated and unsafe publisher stories",()=>{
   assert.equal(parseNewsRss(rss("Canada update"),"SE","BBC",now).length,0);
   assert.equal(parseNewsRss(rss("Sweden update",undefined,"https://example.com/a"),"SE","BBC",now).length,0);
   assert.equal(parseNewsRss('<!DOCTYPE x>'+rss("Sweden update"),"SE","BBC",now).length,0);
+});
+test("country aliases match common destinations without substring collisions", () => {
+  for (const title of ["Dubai airport update", "UAE tourism news", "Abu Dhabi flights", "BAE'de grev"]) assert.equal(matchesNewsCountry(title, "AE"), true);
+  for (const title of ["Britain rail strike", "British flights cancelled", "UK airport update", "Londra'da ulaşım"]) assert.equal(matchesNewsCountry(title, "GB"), true);
+  assert.equal(matchesNewsCountry("Thai airport update", "TH"), true);
+  assert.equal(matchesNewsCountry("Thailander unrelated substring", "TH"), false);
+  assert.equal(matchesNewsCountry("Georgia governor visits Atlanta", "GE"), false);
+  assert.equal(matchesNewsCountry("Georgian airports in Tbilisi", "GE"), true);
+  assert.equal(matchesNewsCountry("Washington comments on world affairs", "US"), false);
+});
+test("a country-scoped feed cannot leak into another country", () => {
+  assert.equal(parseNewsRss(rss("Rail strike disrupts travel"), "GB", "BBC", now, "GB").length, 1);
+  assert.equal(parseNewsRss(rss("Rail strike disrupts travel"), "AE", "BBC", now, "GB").length, 0);
+  assert.equal(parseNewsRss(rss("Sweden election update"), "SE", "Anadolu Ajansı", now).length, 0);
+});
+test("Turkish inflected headlines appear in the correct news filters", () => {
+  assert.equal(newsTopic("Dubai havalimanındaki uçuşların bazıları iptal edildi"), "transport");
+  assert.equal(newsTopic("İngiltere'de demiryolu grevinin etkileri"), "transport");
+  assert.equal(newsTopic("Gazze'de saldırısında yaralananlar var"), "security");
+  assert.equal(newsTopic("Yunanistan yangınları için uyarı"), "weather");
+  assert.equal(newsTopic("İsveç seçimlerine hazırlanıyor"), "elections");
 });
 test("avatars reject active formats, external URLs and oversized data",()=>{
   assert.equal(decodeAvatar("https://example.com/x.jpg"),null);assert.equal(decodeAvatar("data:image/svg+xml;base64,PHN2Zz4="),null);assert.equal(decodeAvatar("data:image/jpeg;base64,"+"A".repeat(400000)),null);

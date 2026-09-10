@@ -61,7 +61,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="onboarding-orbit orbit-one" />
       <div className="onboarding-orbit orbit-two" />
       <header className="onboarding-header">
-        <span className="onboarding-brand"><BrandMark />LetsGo<strong>2</strong>Travel</span>
+        <span className="onboarding-brand"><BrandMark /></span>
         <div>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
       </header>
 

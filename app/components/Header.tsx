@@ -25,6 +25,7 @@ import {
 import { supabase } from "@/lib/supabase-client";
 import LanguageSelector from "./LanguageSelector";
 import styles from "./Header.module.css";
+import BrandLogo from "./BrandLogo";
 
 const TripDashboard = dynamic(() => import("./TripDashboard"), { ssr: false });
 
@@ -67,7 +68,7 @@ export default function Header() {
     <header className={styles.header}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand} aria-label="LetsGo2Travel ana sayfa">
-          <span>LetsGo</span><b>2</b><span>Travel</span><Plane size={20} />
+          <BrandLogo priority />
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Ana menü">

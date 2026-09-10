@@ -3,6 +3,7 @@ import appIcon from "../assets/splash-mark.webp";
 import launchPoster from "../assets/launch-travel-poster.webp";
 import launchVideo from "../assets/launch-travel.mp4";
 import { useI18n } from "../lib/i18n";
+import { BrandMark } from "./BrandMark";
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const { copy } = useI18n();
@@ -52,7 +53,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         />}
       <div className="animated-splash-scrim" aria-hidden="true" />
       <div className="animated-splash-copy" aria-hidden="true">
-        <div className="animated-splash-brand">LetsGo<strong>2</strong>Travel</div>
+        <BrandMark decorative />
         <p>{copy("Yeni rotan burada başlıyor.", "Your next journey starts here.")}</p>
         <span className="animated-splash-line" />
       </div>

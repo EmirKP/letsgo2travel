@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Mail, Plane } from "lucide-react";
+import { Mail } from "lucide-react";
 import { siteSettings, trackedAffiliateUrl } from "@/lib/affiliate";
 import styles from "./Footer.module.css";
+import BrandLogo from "./BrandLogo";
 
 const productLinks = [
   ["Pasaport Gücü", "/pasaport-gucu"],
@@ -29,7 +30,7 @@ export default function Footer() {
       <div className={styles.main}>
         <div className={styles.brandBlock}>
           <Link href="/" className={styles.brand}>
-            <span>LetsGo</span><b>2</b><span>Travel</span><Plane size={19} />
+            <BrandLogo />
           </Link>
           <p>Pasaport gücü, rota planlama, seyahat bütçesi ve gerçek gezgin deneyimleri tek seyahat platformunda.</p>
           <a href={`mailto:${siteSettings.supportEmail}`}><Mail size={16} /> {siteSettings.supportEmail}</a>

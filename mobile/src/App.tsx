@@ -784,7 +784,7 @@ export default function App() {
     <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
-        <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("Ana sayfa", "Home")}><BrandMark /><span className="brand-lockup"><span className="brand">LetsGo<strong>2</strong>Travel</span><span className="brand-tagline">{copy("DAHA FAZLA KEŞFET", "DISCOVER MORE")}</span></span></button>
+        <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
       </div>
       <div className="topbar-actions">
         {/* Header sade: geri/logo + bildirim + menü. Profil BottomNav'da;
