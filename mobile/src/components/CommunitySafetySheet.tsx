@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { useI18n } from "../lib/i18n";
 import { ApiError } from "../lib/api";
@@ -14,19 +15,20 @@ const REASONS = [
   ["other", "Diğer", "Other"],
 ] as const;
 
-export function CommunitySafetySheet({ target, accessToken, userId, onClose, onBlocked }: {
+export function CommunitySafetySheet({ target, accessToken, userId, onClose, onBlocked, onManageBlocks }: {
   target: CommunitySafetyTarget | null;
   accessToken: string;
   userId: string;
   onClose: () => void;
   onBlocked: (userId: string) => void;
+  onManageBlocks: () => void;
 }) {
   // A target/owner change discards form state and pending callbacks from the old account.
-  return target ? <SafetyForm key={`${userId}:${target.targetType}:${target.targetId}`} target={target} accessToken={accessToken} userId={userId} onClose={onClose} onBlocked={onBlocked} /> : null;
+  return target ? <SafetyForm key={`${userId}:${target.targetType}:${target.targetId}`} target={target} accessToken={accessToken} userId={userId} onClose={onClose} onBlocked={onBlocked} onManageBlocks={onManageBlocks} /> : null;
 }
 
-function SafetyForm({ target, accessToken, userId, onClose, onBlocked }: {
-  target: CommunitySafetyTarget; accessToken: string; userId: string; onClose: () => void; onBlocked: (userId: string) => void;
+function SafetyForm({ target, accessToken, userId, onClose, onBlocked, onManageBlocks }: {
+  target: CommunitySafetyTarget; accessToken: string; userId: string; onClose: () => void; onBlocked: (userId: string) => void; onManageBlocks: () => void;
 }) {
   const { copy, locale } = useI18n();
   const [mode, setMode] = useState<"menu" | "report" | "block" | "success">("menu");
@@ -58,15 +60,16 @@ function SafetyForm({ target, accessToken, userId, onClose, onBlocked }: {
       if (active.current) setBusy(false);
     }
   }
-  return <Sheet open title={copy("Topluluk güvenliği", "Community safety")} onClose={onClose} dismissible={!busy}>
+  return <Sheet open title={copy("Kullanıcı seçenekleri", "User options")} onClose={onClose} dismissible={!busy}>
     <div className="community-safety-form">
       <p className="community-safety-author">@{target.username}</p>
       {error && <p className="info-box error" role="alert">{error}</p>}
       {mode === "menu" && <>
         <p>{copy("Kurallara aykırı bir içeriği bildirebilir veya bu hesabı engelleyebilirsin.", "Report content that breaks the rules or block this account.")}</p>
-        <button type="button" className="secondary-wide" onClick={() => setMode("report")}>{copy("İçeriği şikâyet et", "Report content")}</button>
-        {canBlock && <button type="button" className="secondary-wide" onClick={() => setMode("block")}>{copy("Kullanıcıyı engelle", "Block user")}</button>}
+        <button type="button" className="community-user-action" onClick={() => setMode("report")}><Icon name="flag" size={21} /><span><strong>{copy("İçeriği şikâyet et", "Report content")}</strong><small>{copy("Bu paylaşımı incelemeye gönder", "Send this post for review")}</small></span><Icon name="chevron" size={16} /></button>
+        {canBlock && <button type="button" className="community-user-action" onClick={() => setMode("block")}><Icon name="shield" size={21} /><span><strong>{copy("Kullanıcıyı engelle", "Block user")}</strong><small>{copy("Sorularını ve yorumlarını gizle", "Hide their questions and replies")}</small></span><Icon name="chevron" size={16} /></button>}
       </>}
+      {mode === "menu" && <button type="button" className="community-manage-blocks" onClick={onManageBlocks}><Icon name="unlock" size={17} />{copy("Engellenenler · Engeli kaldır", "Blocked users · Unblock")}</button>}
       {mode === "report" && <form onSubmit={(event) => { event.preventDefault(); void submit("report"); }}>
         <fieldset disabled={busy}>
           <legend>{copy("Şikâyet nedeni", "Report reason")}</legend>
@@ -102,6 +105,7 @@ export function CommunityBlocksSheet({ accessToken, onClose, onChanged }: { acce
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [revision, setRevision] = useState(0);
   const active = useRef(true);
   const pending = useRef(false);
@@ -124,6 +128,7 @@ export function CommunityBlocksSheet({ accessToken, onClose, onChanged }: { acce
       await unblockCommunityAuthor(accessToken, userId);
       if (!active.current) return;
       setBlocks((rows) => rows.filter((row) => row.userId !== userId));
+      setNotice(copy("Engel kaldırıldı. Bu kullanıcının paylaşımlarını yeniden görebilirsin.", "User unblocked. You can see their posts again."));
       onChanged();
     } catch (failure) {
       if (active.current) setError(locale === "tr" && failure instanceof ApiError ? failure.message : copy("Engel kaldırılamadı. Tekrar dene.", "Could not unblock this account. Please retry."));
@@ -132,14 +137,16 @@ export function CommunityBlocksSheet({ accessToken, onClose, onChanged }: { acce
       if (active.current) setBusy("");
     }
   }
-  return <Sheet open title={copy("Engellenen hesaplar", "Blocked accounts")} onClose={onClose} dismissible={!busy}>
+  return <Sheet open title={copy("Engellenen kullanıcılar", "Blocked users")} onClose={onClose} dismissible={!busy}>
     <div className="community-safety-form">
+      <p>{copy("Yeniden görmek istediğin kişinin yanındaki Engeli kaldır düğmesine dokun.", "Tap Unblock beside the person whose posts you want to see again.")}</p>
+      {notice && <p className="info-box" role="status">{notice}</p>}
       {loading && <p role="status">{copy("Yükleniyor…", "Loading…")}</p>}
       {error && <div className="info-box error" role="alert"><p>{error}</p><button type="button" disabled={Boolean(busy)} onClick={() => setRevision((value) => value + 1)}>{copy("Tekrar dene", "Retry")}</button></div>}
       {!loading && !error && !blocks.length && <p role="status">{copy("Engellediğin hesap yok.", "You have no blocked accounts.")}</p>}
       {!loading && blocks.map((block) => <div className="community-block-row" key={block.userId}>
         <strong>@{block.authorName || copy("Gezgin", "Traveller")}</strong>
-        <button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={() => void unblock(block.userId)}>{busy === block.userId ? copy("Kaldırılıyor…", "Unblocking…") : copy("Engeli kaldır", "Unblock")}</button>
+        <button type="button" className="community-unblock-button" disabled={Boolean(busy)} onClick={() => void unblock(block.userId)}>{busy === block.userId ? copy("Kaldırılıyor…", "Unblocking…") : copy("Engeli kaldır", "Unblock")}</button>
       </div>)}
     </div>
   </Sheet>;

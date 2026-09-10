@@ -287,10 +287,12 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     setSafetyTarget(target);
   };
 
-  const safetyButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => item.authorId !== user?.id && <button
-    type="button" className="community-safety-action" onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
-    aria-label={copy(`@${item.username} içeriğini şikâyet et veya kullanıcıyı engelle`, `Report content or block @${item.username}`)}
-  ><Icon name="shield" size={16} /> {copy("Şikâyet / Engelle", "Report / Block")}</button>;
+  const authorButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => item.authorId === user?.id
+    ? <strong className="community-author-self">@{item.username}</strong>
+    : <button type="button" className="community-author-button" aria-haspopup="dialog"
+      onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
+      aria-label={copy(`@${item.username} için kullanıcı seçenekleri`, `User options for @${item.username}`)}
+    ><strong>@{item.username}</strong><Icon name="chevron" size={12} /></button>;
 
   const onBlocked = (blockedId: string) => {
     setSafetyTarget(null);
@@ -390,7 +392,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   return <div className="screen community-native-screen">
     <PageHero scene="journey" title={copy("Gezgin Topluluğu", "Traveller Community")} subtitle={copy("Sor, deneyimini paylaş, birlikte keşfet.", "Ask, share your experience, discover together.")} />
     <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
-      <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="shield" size={17} />{copy("Engellenen hesaplar", "Blocked accounts")}</button>
+      <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="unlock" size={17} /><span>{copy("Engellenenler", "Blocked users")}<small>{copy("Engeli kaldır", "Unblock")}</small></span></button>
       <button type="button" onClick={() => setSupportOpen(true)}>{copy("Destek", "Support")}</button>
       <button type="button" onClick={() => void openExternal("/topluluk-kurallari").then((opened) => { if (!opened && active.current) onNotice(copy("Topluluk kuralları açılamadı. Tekrar dene.", "Community rules could not be opened. Please retry.")); })}>{copy("Topluluk kuralları", "Community rules")}</button>
     </div>
@@ -457,11 +459,10 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20} /><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
       {feedLoading ? <div className="skeleton-list community-native-loading"><div /><div /><div /></div>
         : filteredQuestions.length ? <div className="community-question-list">{filteredQuestions.map((question) => <article key={question.id}>
+          <header><span>{questionScopeLabel(question.countryCode, copy("Genel", "General"))}</span><div>{authorButton(question, "question")}<small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
           <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}>
-            <header><span>{questionScopeLabel(question.countryCode, copy("Genel", "General"))}</span><div><strong>@{question.username}</strong><small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
             <h3>{question.title}</h3><p>{question.body}</p>
           </button>
-          {safetyButton(question, "question")}
         </article>)}</div>
         : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>{countryFilter ? copy("Bu ülke topluluğunda henüz soru yok", "No questions in this country community yet") : copy("Henüz görünür soru yok", "No visible questions yet")}</strong><p>{copy("İlk soruyu sorarak ülke topluluğunu başlatabilirsin.", "Ask the first question to start this country community.")}</p>{countryFilter && <button className="secondary-button" type="button" onClick={() => setCountryFilter("")}>{copy("Tüm soruları gör", "See all questions")}</button>}</div>}
     </section>
@@ -470,16 +471,14 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
-        <header><span>{questionScopeLabel(detail.countryCode, copy("Genel", "General"))}</span><div><strong>@{detail.username}</strong><small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
+        <header><span>{questionScopeLabel(detail.countryCode, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
         <p>{detail.body}</p>
-        {safetyButton(detail, "question")}
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
-            <header><strong>@{answer.username}</strong><small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
+            <header>{authorButton(answer, "answer")}<small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
             <p>{answer.body}</p>
-            {safetyButton(answer, "answer")}
           </article>)}
           {hiddenAnswerCount > 0 && <div className="empty-inline community-unlock-box"><Icon name="lock" size={18} /><div><strong>{copy(`${hiddenAnswerCount} cevap kilitli`, `${hiddenAnswerCount} answers locked`)}</strong><span>{copy("Ücretsiz hesabınla ülke kilidini açıp tüm deneyimleri okuyabilirsin.", "Use your free account to unlock this country and read every experience.")}</span><button type="button" className="secondary-wide" disabled={unlocking} onClick={() => user ? void unlockReplies() : onOpenAccount()}>{unlocking ? <span className="button-loader dark" /> : <Icon name={user ? "unlock" : "user"} size={17} />} {user ? (unlocking ? copy("Açılıyor", "Unlocking") : copy("Tüm cevapların kilidini aç", "Unlock all answers")) : copy("Giriş yap ve kilidi aç", "Sign in and unlock")}</button></div></div>}
           {!shownAnswerCount && !hiddenAnswerCount && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>{copy("İlk cevabı sen yaz", "Write the first answer")}</strong><span>{copy("Deneyimini paylaşarak gezginlere yardım et.", "Share your experience to help travellers.")}</span></div></div>}
@@ -495,8 +494,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
       </div>}
     </Sheet>
-    <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} />
-    {blocksOpen && <CommunityBlocksSheet accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
+    <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} onManageBlocks={() => { setSafetyTarget(null); setBlocksOpen(true); }} />
+    {blocksOpen && <CommunityBlocksSheet key={user?.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
     <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
   </div>;
 }
