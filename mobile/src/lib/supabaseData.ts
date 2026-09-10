@@ -100,6 +100,9 @@ export type ChecklistItem = {
   kind?: "checklist" | "event";
   eventId?: string;
   eventStartsAt?: string;
+  eventLocalDate?: string;
+  eventTimeZone?: string | null;
+  eventTimePrecision?: "exact" | "date";
   eventCity?: string;
   eventVenue?: string;
   eventCountryCode?: string;
@@ -353,6 +356,9 @@ function normalizeChecklist(value: unknown): ChecklistItem[] {
       ...(kind === "event" ? {
         eventId,
         eventStartsAt,
+        eventLocalDate: safeString(row.eventLocalDate, 10),
+        eventTimeZone: nullableString(row.eventTimeZone, 80),
+        eventTimePrecision: row.eventTimePrecision === "exact" ? "exact" as const : "date" as const,
         eventCity: safeString(row.eventCity ?? row.event_city, 120),
         eventVenue: safeString(row.eventVenue ?? row.event_venue, 180),
         eventCountryCode: safeString(row.eventCountryCode ?? row.event_country_code, 2).toUpperCase(),
@@ -437,7 +443,8 @@ function assertTripInput(input: CreateCockpitTripInput) {
   if (country.length < 2 || !/^[A-Z]{2}$/.test(code)
     || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en")
     || !validDate(input.startDate) || !validDate(input.endDate)
-    || input.startDate < localIsoDate(0) || input.startDate > localIsoDate(730)
+    || (!departureAt && input.startDate < localIsoDate(0)) || input.startDate > localIsoDate(730)
+    || (departureAt && Date.parse(departureAt) <= Date.now())
     || input.endDate < input.startDate || input.endDate > localIsoDate(730)
     || (departureAt && Number.isNaN(Date.parse(departureAt)))
     || (arrivalAt && Number.isNaN(Date.parse(arrivalAt)))
@@ -623,6 +630,16 @@ export async function deleteUserTrip(userId: string, tripId: number | string, ac
   });
 }
 
+/** Delete without needing a successful cloud-list request first. Idempotent. */
+export async function deleteUserRouteByClientKey(userId: string, clientKey: string, accessToken: string) {
+  assertUserId(userId);
+  if (!/^[A-Za-z0-9._:-]{1,160}$/.test(clientKey)) throw new SupabaseDataError("invalid_data", 400);
+  return safely(async () => {
+    const params = new URLSearchParams({ user_id: `eq.${userId}`, "trip_data->>mobile_kind": "eq.route_plan", "trip_data->>client_key": `eq.${clientKey}`, select: "id" });
+    await requestJson(dataUrl("user_trips", params), { method: "DELETE", headers: dataHeaders(accessToken, "return=representation") });
+  });
+}
+
 export async function listCockpitTrips(userId: string, accessToken: string, includeCancelled = false) {
   assertUserId(userId);
   return safely(async () => {
@@ -783,6 +800,9 @@ export async function attachTravelEventToCockpitTrip(
     kind: "event",
     eventId: event.id,
     eventStartsAt: event.startsAt,
+    eventLocalDate: event.localDate,
+    eventTimeZone: event.timeZone,
+    eventTimePrecision: event.timePrecision,
     eventCity: event.city,
     eventVenue: event.venue || "",
     eventCountryCode: event.countryCode,

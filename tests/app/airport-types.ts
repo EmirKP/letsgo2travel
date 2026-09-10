@@ -5,4 +5,5 @@ export type AirportOption = {
   city: string;
   country: string;
   countryCode: string;
+  timeZone?: string | null;
 };

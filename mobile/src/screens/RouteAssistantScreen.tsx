@@ -9,8 +9,10 @@ import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
+import { syncRoutePlan } from "../lib/routeSync";
+import { readRouteOutbox } from "../lib/routeOutbox";
 import { saveRoutePlan } from "../lib/storage";
-import { getSupabaseDataErrorMessage, upsertUserTrip } from "../lib/supabaseData";
+import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
 import type { PlannerInput, RoutePlan, RouteSuggestion, WeatherSummary } from "../types";
 
@@ -92,10 +94,10 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
     try {
       const response = await generateRoutePlan(requestInput, locale);
       if (response.data?.routes?.length) {
-        setPlan(response.isFallback ? createFallbackPlan(requestInput, locale) : response.data);
+        setPlan(response.data);
         setPlanInput(requestInput);
-        setSource("ai");
-        setExpanded((response.isFallback ? createFallbackPlan(requestInput, locale) : response.data).routes[0]?.name || "");
+        setSource(response.isFallback ? "local" : "ai");
+        setExpanded(response.data.routes[0]?.name || "");
         setSavedKey("");
       } else {
         const fallback = createFallbackPlan(requestInput, locale);
@@ -127,22 +129,18 @@ export function RouteAssistantScreen({ onNotice, surpriseRoute, routeSeedKind = 
     if (savedKey === clientKey) return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
     setSaveBusy(true);
     const createdAt = new Date().toISOString();
-    saveRoutePlan({ id: clientKey, createdAt, input, plan }, ownerId);
     try {
-      if (ownerId && accessToken) {
-        await upsertUserTrip(ownerId, {
-          title: plan.routes.map((route) => route.name).join(" · ").slice(0, 160),
-          destination: plan.routes.map((route) => route.country).join(" · ").slice(0, 160),
-          mobileKind: "route_plan",
-          clientKey,
-          tripData: { input, plan, source, saved_at: createdAt },
-        }, accessToken);
-      }
+      const saved = { id: clientKey, createdAt, input, plan };
+      saveRoutePlan(saved, ownerId);
+      setSavedKey(clientKey);
+      if (ownerId && accessToken) await syncRoutePlan(ownerId, accessToken, saved);
       setSavedKey(clientKey);
       await hapticSuccess();
       onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."));
     } catch (error) {
-      onNotice(`${getSupabaseDataErrorMessage(error, copy("Rota hesabınla eşitlenemedi.", "The route could not sync with your account."))} ${copy("Cihaz kaydı korundu.", "The on-device copy was kept.")}`);
+      let queued = false;
+      try { queued = Boolean(ownerId && readRouteOutbox(ownerId)[clientKey]?.kind === "save"); } catch { /* Preserve unreadable storage. */ }
+      onNotice(queued ? copy("Rota cihazda kayıtlı; bağlantı gelince hesabına eşitlenecek.", "Route saved on this device; it will sync when connected.") : getSupabaseDataErrorMessage(error, copy("Rota kaydedilemedi. Cihazda boş alan açıp tekrar dene.", "Route could not be saved. Free some device storage and retry.")));
     } finally {
       setSaveBusy(false);
     }

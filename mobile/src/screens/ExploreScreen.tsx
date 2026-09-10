@@ -19,6 +19,10 @@ import { getSupabaseDataErrorMessage, getUserProfile, updateUserProfile } from "
 import { useI18n } from "../lib/i18n";
 import type { RouteSuggestion, ViewId } from "../types";
 
+import { usePassportPreference } from "../hooks/usePassportPreference";
+import { preferredEntry } from "../lib/passportPreference";
+import passportIndex from "../data/passport-index.json";
+
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
 export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
@@ -31,12 +35,16 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
   onNotice: (message: string) => void;
 }) {
   const { copy, locale } = useI18n();
+  const preference = usePassportPreference();
+  const entryFor = (destination: DiscoveryDestination) => preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale);
+  const withEntry = (destination: DiscoveryDestination) => ({ ...localizedDiscovery(destination, locale), entry: entryFor(destination).label });
   const [category, setCategory] = useState<(typeof categories)[number]>("Tümü");
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
-  const [selectedDestination, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
-  const featured = localizedDiscovery(dailyDiscovery(), locale);
+  const [selectedDestinationValue, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
+  const selectedDestination = selectedDestinationValue ? withEntry(selectedDestinationValue) : null;
+  const featured = withEntry(dailyDiscovery());
 
   useEffect(() => {
     const refreshFavorites = () => setFavorites(getFavoriteDestinations(ownerId));
@@ -85,9 +93,9 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
 
   const destinations = useMemo(() => DISCOVERY_DESTINATIONS.filter((destination) => {
     if (category === "Tümü") return true;
-    if (category === "Vizesiz") return destination.entry === "Vizesiz" || destination.entry === "Kimlikle";
+    if (category === "Vizesiz") return preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale).visaFree;
     return destination.tag.toLocaleLowerCase("tr-TR").includes(category.toLocaleLowerCase("tr-TR"));
-  }).map((destination) => localizedDiscovery(destination, locale)), [category, locale]);
+  }).map((destination) => ({ ...localizedDiscovery(destination, locale), entry: preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale).label })), [category, locale, preference.country, preference.type]);
 
   const surprise = () => {
     const route = randomRoute(locale);
@@ -147,7 +155,7 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
       warnings: [copy("Giriş koşullarını ve rezervasyonlarını seyahatten önce resmî kaynaklardan doğrula.", "Verify entry requirements and bookings with official sources before travel.")],
     };
     setSelectedDestination(null);
-    onBuildRoute(route);
+    onBuildRoute({ ...route, visaStatus: entryFor(destination).label, visaNote: copy(`Seçili pasaport: ${preference.country} (${preference.type}). Keşif verisi: ${passportIndex.asOf}; güncel koşulları resmî kaynaktan doğrula.`, `Selected passport: ${preference.country} (${preference.type}). Discovery data: ${passportIndex.asOf}; verify current official entry rules.`), visaVerifiedAt: null, visaSourceUrl: undefined, verifiedEntryStatus: undefined });
   };
 
   return <div className="screen explore-screen">
@@ -172,6 +180,7 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
 
     <section className="section-block">
       <div className="section-heading"><div><span>{copy("İLHAM PANOSU", "INSPIRATION")}</span><h2>{copy("Sana göre rotalar", "Routes for you")}</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
+      <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{copy("Pasaporta göre", "For passport")}: {new Intl.DisplayNames([locale], { type: "region" }).of(preference.country)} · {copy(({ordinary:"Umuma mahsus", special:"Hususi", service:"Hizmet", diplomatic:"Diplomatik"} as Record<string,string>)[preference.type], preference.type)} · {copy("Değiştir", "Change")}</button>
       <div className="chip-scroll explore-filter" role="group" aria-label={copy("Rotaları kategoriye göre filtrele", "Filter routes by category")}>
         {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{copy(item, ({ "Tümü": "All", "Vizesiz": "Visa-free", "Şehir": "City", "Deniz": "Coast", "Uzak rota": "Long-haul" } as const)[item])}</button>)}
       </div>

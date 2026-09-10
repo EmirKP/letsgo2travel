@@ -1,3 +1,4 @@
+import { eventDateLabel, eventTimeLabel, eventLocalDate, hasEventTime } from "../../../lib/event-time";
 import { useEffect, useMemo, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
@@ -18,7 +19,9 @@ import type { EventCityOption, TravelEvent, ViewId } from "../types";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
-export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, onNotice }: {
+export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onNavigate, onNotice }: {
+  focusEventId?: string;
+  onFocusHandled?: () => void;
   ownerId?: string | null;
   accessToken?: string;
   onOpenAccount: () => void;
@@ -26,6 +29,14 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
   onNotice: (message: string) => void;
 }) {
   const { locale, copy, countryName, dateLocale } = useI18n();
+  const [focusedEvent, setFocusedEvent] = useState<TravelEvent | null>(null);
+  useEffect(() => {
+    if (!focusEventId) return;
+    const event = getSavedTravelEvents(ownerId).find(item => item.id === focusEventId);
+    if (event) setFocusedEvent(event);
+    else onNotice(copy("Bu etkinlik artık kayıtlı değil. Güncel etkinlikleri arayabilirsin.", "This event is no longer saved. Search for current events."));
+    onFocusHandled?.();
+  }, [focusEventId, ownerId, onFocusHandled, onNotice, copy]);
   const [countryCode, setCountryCode] = useState("TR");
   const [cityPlaceCode, setCityPlaceCode] = useState("");
   const [cities, setCities] = useState<EventCityOption[]>([]);
@@ -171,7 +182,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
       setEvents(freshEvents);
       const merged = mergeSavedTravelEvents(freshEvents, ownerId);
       setSavedIds(new Set(merged.events.map((item) => item.id)));
-      const reminderChanges = await reconcileEventReminders(freshEvents, locale);
+      const reminderChanges = await reconcileEventReminders(freshEvents, locale, ownerId);
       if (reminderChanges > 0) onNotice(copy("Kayıtlı etkinliklerin tarih veya durum değişiklikleri güncellendi.", "Date or status changes for your saved events were updated."));
       setProviderConfigured(result.meta?.providerConfigured !== false);
       setCoverageLimited(result.meta?.coverageLimited === true);
@@ -192,17 +203,25 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
   useEffect(() => { void search(); /* İlk ekran gerçek sonuçla açılır. */ }, []);
 
   const save = (event: TravelEvent) => {
+    try {
     const result = toggleSavedTravelEvent(event, ownerId);
     setSavedIds(new Set(result.events.map((item) => item.id)));
-    if (!result.saved) void cancelEventReminder(event.id);
+    if (!result.saved) void cancelEventReminder(event.id, ownerId).then(ok => { if (!ok) onNotice(copy("Hatırlatıcı iptali bekliyor; yeniden denenecek.", "Reminder cancellation is pending and will retry.")); }).catch(() => onNotice(copy("Hatırlatıcı iptal edilemedi.", "Reminder could not be cancelled.")));
     onNotice(result.saved ? copy("Etkinlik planına eklendi.", "Event added to your plan.") : copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
+    } catch { onNotice(copy("Etkinlik kaydı değiştirilemedi. Cihaz depolamasını kontrol et.", "Could not update saved events. Check device storage.")); }
   };
 
   const remind = async (event: TravelEvent) => {
     try {
-      const result = await scheduleEventReminder(event, locale);
-      if (result.ok) onNotice(copy("Etkinlik hatırlatıcısı kuruldu.", "Event reminder set."));
+      // Keep the tap target durable before asking the OS to schedule anything.
+      if (!getSavedTravelEvents(ownerId).some(item => item.id === event.id)) {
+        const saved = toggleSavedTravelEvent(event, ownerId);
+        setSavedIds(new Set(saved.events.map(item => item.id)));
+      }
+      const result = await scheduleEventReminder(event, locale, ownerId);
+      if (result.ok) onNotice(copy("Etkinlik kaydedildi ve hatırlatıcısı kuruldu.", "Event saved and reminder set."));
       else if (result.reason === "permission") onNotice(copy("Hatırlatma için bildirim izni vermelisin.", "Enable notifications to set a reminder."));
+      else if (result.reason === "time") onNotice(copy("Saat açıklanmadan hatırlatıcı kurulamaz.", "A reminder needs a confirmed start time."));
       else if (result.reason === "past" || result.reason === "status") onNotice(copy("Geçmiş, tamamlanmış veya iptal edilmiş etkinliğe hatırlatma kurulamaz.", "A reminder cannot be set for a past, completed or cancelled event."));
       else onNotice(copy("Etkinlik hatırlatıcısı yalnız mobil uygulamada kullanılabilir.", "Event reminders are available in the mobile app."));
     } catch {
@@ -247,13 +266,13 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
     }
   };
 
-  const eventDateForTrip = tripEvent ? new Date(tripEvent.startsAt) : null;
-  const eventDay = eventDateForTrip && Number.isFinite(eventDateForTrip.getTime())
-    ? `${eventDateForTrip.getFullYear()}-${String(eventDateForTrip.getMonth() + 1).padStart(2, "0")}-${String(eventDateForTrip.getDate()).padStart(2, "0")}`
-    : "";
+  const eventDay = tripEvent ? eventLocalDate(tripEvent) : "";
   const hasCompatibleTrip = cockpitTrips.some((trip) => Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate));
 
   return <div className="screen events-screen">
+    <Sheet open={Boolean(focusedEvent)} title={copy("Etkinlik ayrıntıları", "Event details")} onClose={() => setFocusedEvent(null)}>
+      {focusedEvent && <div className="form-card"><h3>{focusedEvent.title}</h3><p>{focusedEvent.city} · {focusedEvent.venue}</p><p>{eventDateLabel(focusedEvent, dateLocale)} · {eventTimeLabel(focusedEvent, dateLocale)}</p><p>{focusedEvent.description}</p><button className="primary-wide" onClick={() => void openExternal(focusedEvent.ticketUrl || focusedEvent.sourceUrl)}>{copy("Kaynağı aç", "Open source")}</button></div>}
+    </Sheet>
     <PageHero scene="events" title={copy("Etkinlikler & Festivaller", "Events & Festivals")} subtitle={copy("Konserler, festivaller, kültür ve yeni anılar.", "Concerts, festivals, culture and new memories.")} />
 
           <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
@@ -298,7 +317,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
       {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
         : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
           <span className="featured-event-mark">{event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" width="58" height="62" onError={e => { e.currentTarget.hidden = true; }} /> : <Icon name="calendar" size={23} />}</span>
-          <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(event.startsAt))}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
+          <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{eventDateLabel(event, dateLocale)}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
           <Icon name="external" size={17} />
         </button>)}</div>
           : <div className="featured-event-empty"><Icon name={featuredUnavailable ? "offline" : "calendar"} size={22} /><p>{featuredUnavailable ? copy("Öne çıkan konser kaynağına şu anda ulaşılamıyor.", "Headline concert data is temporarily unavailable.") : copy("Önümüzdeki dönemde öne çıkan konser bulunamadı.", "No headline concerts were found for the coming months.")}</p></div>}
@@ -318,15 +337,15 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
           return <article className={`event-card ${cancelled ? "cancelled" : ""}`} key={event.id}>
             {event.imageUrl ? <div className="event-card-image" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.04),rgba(7,27,51,.78)),url(${event.imageUrl})` }}><span>{categoryLabel(event.category)}</span></div> : <div className="event-card-image event-card-placeholder"><Icon name="calendar" size={31} /><span>{categoryLabel(event.category)}</span></div>}
             <div className="event-card-body">
-              <div className="event-card-date"><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit" }).format(new Date(event.startsAt))}</strong><span>{new Intl.DateTimeFormat(dateLocale, { month: "short" }).format(new Date(event.startsAt))}</span></div>
-              <div className="event-card-copy"><small><CountryFlag code={event.countryCode} label={event.countryCode} className="event-inline-flag" /><span>{[event.city, event.venue].filter(Boolean).join(" · ") || copy("Konum kaynağında", "See source for location")}</span></small><h3>{event.title}</h3><p>{new Intl.DateTimeFormat(dateLocale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.startsAt))}</p></div>
+              <div className="event-card-date"><strong>{eventDateLabel(event, dateLocale, { day: "2-digit" })}</strong><span>{eventDateLabel(event, dateLocale, { month: "short" })}</span></div>
+              <div className="event-card-copy"><small><CountryFlag code={event.countryCode} label={event.countryCode} className="event-inline-flag" /><span>{[event.city, event.venue].filter(Boolean).join(" · ") || copy("Konum kaynağında", "See source for location")}</span></small><h3>{event.title}</h3><p>{eventTimeLabel(event, dateLocale)}</p></div>
               {event.status !== "scheduled" && <em className={`event-status ${event.status}`}>{event.status === "cancelled" ? copy("İptal", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : copy("Tamamlandı", "Ended")}</em>}
             </div>
             {event.description && <p className="event-description">{event.description}</p>}
             <div className={`event-card-actions with-trip-action ${cancelled ? "two-actions" : ""}`}>
               <button className={saved ? "saved" : ""} onClick={() => save(event)}><Icon name={saved ? "check" : "bookmark"} size={16} />{saved ? copy("Kaydedildi", "Saved") : copy("Kaydet", "Save")}</button>
               {!cancelled && <button className="event-add-to-trip" onClick={() => void openTripPicker(event)}><Icon name="suitcase" size={16} />{copy("Seyahate ekle", "Add to trip")}</button>}
-              {!cancelled && <button onClick={() => void remind(event)}><Icon name="bell" size={16} />{copy("Hatırlat", "Remind me")}</button>}
+              {!cancelled && <button disabled={!hasEventTime(event) || event.status !== "scheduled"} onClick={() => void remind(event)}><Icon name="bell" size={16} />{copy("Hatırlat", "Remind me")}</button>}
               <button onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}><Icon name="external" size={16} />{event.ticketUrl ? copy("Bilet / kaynak", "Tickets / source") : copy("Kaynağı doğrula", "Verify source")}</button>
             </div>
           </article>;
@@ -337,7 +356,7 @@ export function EventsScreen({ ownerId, accessToken, onOpenAccount, onNavigate, 
     <p className="event-disclaimer"><Icon name="shield" size={15} /> {copy("Saat, mekân, bilet ve iptal durumunu satın almadan önce bağlantılı kaynaktan ve etkinliğin resmî sitesinden doğrula.", "Before purchase, verify the time, venue, tickets and cancellation status through the linked source and the event's official site.")}</p>
     <Sheet open={Boolean(tripEvent)} title={copy("Etkinliği seyahate ekle", "Add event to trip")} onClose={() => { if (!tripPickerBusy) setTripEvent(null); }}>
       {tripEvent && <div className="event-trip-picker">
-        <header><span><Icon name="calendar" size={21} /></span><div><small>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(tripEvent.startsAt))}</small><strong>{tripEvent.title}</strong><p>{[tripEvent.city, tripEvent.venue].filter(Boolean).join(" · ")}</p></div></header>
+        <header><span><Icon name="calendar" size={21} /></span><div><small>{`${eventDateLabel(tripEvent, dateLocale)} · ${eventTimeLabel(tripEvent, dateLocale)}`}</small><strong>{tripEvent.title}</strong><p>{[tripEvent.city, tripEvent.venue].filter(Boolean).join(" · ")}</p></div></header>
         <p>{copy("Etkinlik tarihiyle örtüşen seyahatlerden birini seç.", "Choose a trip that covers the event date.")}</p>
         {tripPickerLoading ? <div className="skeleton-list"><div /><div /></div>
           : tripPickerError ? <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{tripPickerError}</p><button type="button" onClick={() => void openTripPicker(tripEvent)}>{copy("Yeniden dene", "Retry")}</button></div>

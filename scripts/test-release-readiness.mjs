@@ -5,6 +5,7 @@ const checks = [
   ["scripts/run-alert-tests.mjs"],
   ["scripts/test-country-intelligence.mjs"],
   ["tests/integrity/run.mjs"],
+  ["tests/travel-readiness/run.mjs"],
   ["tests/account-deletion/run.mjs"],
   ["tests/account-deletion/database.mjs"],
   ["tests/account-deletion-ui/run.mjs"],

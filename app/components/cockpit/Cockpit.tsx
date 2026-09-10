@@ -1,5 +1,7 @@
 "use client";
 
+import { wallTimeToUtc, zonedParts } from "@/lib/zoned-time";
+
 import {
   AlertCircle,
   CalendarDays,
@@ -386,7 +388,7 @@ export default function Cockpit({
                     {selectedTrip.departureAt
                       ? new Intl.DateTimeFormat("tr-TR", {
                           hour: "2-digit",
-                          minute: "2-digit",
+                          minute: "2-digit", timeZone: "UTC", timeZoneName: "short",
                         }).format(new Date(selectedTrip.departureAt))
                       : "Saat eklenmedi"}
                   </span>
@@ -690,13 +692,19 @@ function TripForm({
   onCancel: () => void;
   onSubmit: (input: CreateTripInput) => Promise<void>;
 }) {
-  const today = localIsoDate();
+  const [departureTimeZone, setDepartureTimeZone] = useState("Europe/Istanbul");
+  const [departureUtc, setDepartureUtc] = useState("");
+  const [formClock, setFormClock] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setFormClock(Date.now()), 60_000); return () => window.clearInterval(timer); }, []);
+  const today = zonedParts(formClock, departureTimeZone).date;
   const maxDate = localIsoDate(730);
   const [countryCode, setCountryCode] = useState("AE");
   const [city, setCity] = useState("");
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
-  const [departureTime, setDepartureTime] = useState("09:00");
+  const [departureTime, setDepartureTime] = useState("");
+  const zoneChoices = useMemo(() => Intl.supportedValuesOf("timeZone"), []);
+  const departureResult = wallTimeToUtc(startDate, departureTime, departureTimeZone);
   const [flightPnr, setFlightPnr] = useState("");
   const [formError, setFormError] = useState("");
 
@@ -719,11 +727,10 @@ function TripForm({
       return;
     }
 
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    if (departureTime && startDate === today && departureTime < currentTime) {
-      setFormError("Uçuş tarihi ve saati geçmişte olamaz.");
-      return;
+    if (departureTime) {
+      const result = wallTimeToUtc(startDate, departureTime, departureTimeZone);
+      const iso = result.ok ? result.iso : result.reason === "ambiguous" && result.candidates?.includes(departureUtc) ? departureUtc : "";
+      if (!iso || Date.parse(iso) <= Date.now()) { setFormError("Kalkışın yerel tarihini, saatini ve saat dilimini kontrol et. Tekrarlanan saat için biletteki UTC karşılığını seç."); return; }
     }
 
     const country = destinationOptions.find((option) => option.code === countryCode);
@@ -740,6 +747,8 @@ function TripForm({
         startDate,
         endDate,
         departureTime: departureTime || undefined,
+        departureTimeZone,
+        departureUtc,
         flightPnr: flightPnr.trim().toUpperCase() || undefined,
       });
     } catch (error) {
@@ -814,19 +823,14 @@ function TripForm({
         />
       </label>
 
+      <label><span>Kalkış havalimanının saat dilimi</span><select value={departureTimeZone} onChange={event => { setDepartureTimeZone(event.target.value); setDepartureUtc(""); }}>{zoneChoices.map(zone => <option key={zone} value={zone}>{zone}</option>)}</select></label>
+      {!departureResult.ok && departureResult.reason === "ambiguous" && <label><span>Saat geri alınıyor: biletteki UTC karşılığı</span><select required value={departureUtc} onChange={event => setDepartureUtc(event.target.value)}><option value="">Seç</option>{departureResult.candidates?.map(value => <option key={value} value={value}>{value}</option>)}</select></label>}
       <label>
-        <span>Uçuş saati <small>isteğe bağlı</small></span>
+        <span>Kalkış · havalimanı yerel saati <small>isteğe bağlı</small></span>
         <input
           type="time"
           value={departureTime}
-          onChange={(event) => {
-            const requested = event.target.value;
-            const now = new Date(Date.now() + 60_000);
-            const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-            const next = startDate === today && requested < current ? current : requested;
-            setDepartureTime(next);
-            if (requested && requested !== next) setFormError("Geçmiş bir uçuş saati seçilemez.");
-          }}
+          onChange={(event) => { setDepartureTime(event.target.value); setDepartureUtc(""); }}
         />
       </label>
 

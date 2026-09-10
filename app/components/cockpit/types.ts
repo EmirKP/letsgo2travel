@@ -38,6 +38,8 @@ export interface CreateTripInput {
   startDate: string;
   endDate: string;
   departureTime?: string;
+  departureTimeZone?: string;
+  departureUtc?: string;
   flightPnr?: string;
 }
 

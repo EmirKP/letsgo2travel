@@ -1,3 +1,4 @@
+import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
@@ -17,6 +18,9 @@ import {
 } from "../lib/storage";
 import type { AuthUser, PlannerInput, RoutePlan, SavedRoutePlan, TravelEvent, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
+import { openExternal } from "../lib/native";
+import { queueRouteDelete, readRouteOutbox } from "../lib/routeOutbox";
+import { syncSavedRoutes } from "../lib/routeSync";
 import { cancelEventReminder } from "../lib/eventReminders";
 
 const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then((module) => ({ default: module.JourneyToolsHub })));
@@ -60,9 +64,10 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ initialTool, onOpenDestination, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
+export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
   initialTool?: "airport";
   onOpenDestination: (code: string) => void;
+  onOpenEvent?: (id: string) => void;
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -105,45 +110,37 @@ export function TripsScreen({ initialTool, onOpenDestination, user, ownerId, acc
       return () => { active = false; };
     }
     setCloudLoading(true);
-    void listUserTrips(user.id, accessToken)
+    void listUserTrips(user.id, accessToken, "route_plan")
       .then((items) => { if (active) setCloudItems(items); })
       .catch((error) => { if (active) onNotice(getSupabaseDataErrorMessage(error, copy("Hesaptaki kayıtlar alınamadı.", "Account items could not be loaded."))); })
       .finally(() => { if (active) setCloudLoading(false); });
     return () => { active = false; };
   }, [accessToken, copy, onNotice, user]);
 
+  const removeSavedRoute = async (saved: { id: string }, remoteId?: number | string) => {
+    try {
+      if (remoteId === undefined) setRoutes(deleteRoutePlan(saved.id, ownerId));
+      else if (ownerId) { queueRouteDelete(ownerId, saved.id, remoteId); refreshLocal(); }
+      setCloudItems(current => current.filter(item => item.clientKey !== saved.id && item.id !== remoteId));
+      onNotice(ownerId ? copy("Rota cihazdan kaldırıldı; hesabından da kaldırılıyor.", "Route removed from this device; removing it from your account.") : copy("Rota silindi.", "Route deleted."));
+      if (ownerId && accessToken) await syncSavedRoutes(ownerId, accessToken);
+      if (ownerId && accessToken) onNotice(copy("Rota hesabından da kaldırıldı.", "Route also removed from your account."));
+    } catch {
+      let queued = false;
+      try { queued = Boolean(ownerId && readRouteOutbox(ownerId)[saved.id]?.kind === "delete"); } catch { /* Preserve unreadable storage. */ }
+      onNotice(queued ? copy("Silme isteği cihazda kayıtlı; bağlantı gelince yeniden denenecek.", "The deletion is saved on this device and will retry when connected.") : copy("Rota silinemedi. Cihaz depolamasını kontrol edip tekrar dene.", "Route could not be deleted. Check device storage and retry."));
+    }
+  };
   const removeCloudItem = async (item: UserTripData) => {
     if (!user || !accessToken || busyCloud) return;
+    if (item.clientKey) return removeSavedRoute({ id: item.clientKey }, item.id);
     setBusyCloud(String(item.id));
     try {
       await deleteUserTrip(user.id, item.id, accessToken);
-      setCloudItems((current) => current.filter((candidate) => candidate.id !== item.id));
-      if (item.clientKey && item.mobileKind === "route_plan") {
-        setRoutes(deleteRoutePlan(item.clientKey, ownerId));
-      }
+      setCloudItems(current => current.filter(candidate => candidate.id !== item.id));
       onNotice(copy("Kayıt hesabından silindi.", "The item was removed from your account."));
-    } catch (error) {
-      onNotice(getSupabaseDataErrorMessage(error, copy("Kayıt silinemedi.", "The item could not be deleted.")));
-    } finally {
-      setBusyCloud("");
-    }
-  };
-
-  const removeSavedRoute = async (saved: SavedRoutePlan) => {
-    const remote = cloudItems.find((item) => item.mobileKind === "route_plan" && item.clientKey === saved.id);
-    if (remote && user && accessToken) {
-      setBusyCloud(String(remote.id));
-      try {
-        await deleteUserTrip(user.id, remote.id, accessToken);
-        setCloudItems((current) => current.filter((item) => item.id !== remote.id));
-      } catch (error) {
-        setBusyCloud("");
-        return onNotice(getSupabaseDataErrorMessage(error, copy("Rota hesap kaydından silinemedi.", "The route could not be removed from your account.")));
-      }
-      setBusyCloud("");
-    }
-    setRoutes(deleteRoutePlan(saved.id, ownerId));
-    onNotice(copy("Rota silindi.", "Route deleted."));
+    } catch (error) { onNotice(getSupabaseDataErrorMessage(error, copy("Kayıt silinemedi.", "The item could not be deleted."))); }
+    finally { setBusyCloud(""); }
   };
 
   const confirmDelete = () => {
@@ -153,13 +150,17 @@ export function TripsScreen({ initialTool, onOpenDestination, user, ownerId, acc
     if (pending.kind === "cloud") void removeCloudItem(pending.item);
     if (pending.kind === "route") void removeSavedRoute(pending.item);
     if (pending.kind === "event") {
-      setSavedEvents(removeSavedTravelEvent(pending.item.id, ownerId));
-      void cancelEventReminder(pending.item.id);
-      onNotice(copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
+      try {
+        setSavedEvents(removeSavedTravelEvent(pending.item.id, ownerId));
+        void cancelEventReminder(pending.item.id, ownerId).then(ok => { if (!ok) onNotice(copy("Hatırlatıcı iptali bekliyor; yeniden denenecek.", "Reminder cancellation is pending and will retry.")); }).catch(() => onNotice(copy("Hatırlatıcı iptal edilemedi.", "Reminder could not be cancelled.")));
+        onNotice(copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
+      } catch { onNotice(copy("Etkinlik silinemedi. Cihaz depolamasını kontrol et.", "Event could not be removed. Check device storage.")); }
     }
   };
 
-  const cloudRoutes = cloudItems.filter((item) => item.mobileKind === "route_plan" && !routes.some((route) => route.id === item.clientKey));
+  const routeQueue = ownerId ? readRouteOutbox(ownerId) : {};
+  const pendingRoutes = Object.values(routeQueue).filter(item => item.pending).length;
+  const cloudRoutes = cloudItems.filter((item) => item.mobileKind === "route_plan" && routeQueue[item.clientKey || ""]?.kind !== "delete" && !routes.some((route) => route.id === item.clientKey));
 
   return (
     <div className="screen saved-screen">
@@ -207,17 +208,19 @@ export function TripsScreen({ initialTool, onOpenDestination, user, ownerId, acc
       {(libraryTab === "all" || libraryTab === "events") && <section className="saved-events-section">
         <div className="section-heading"><div><span>{copy("PLANINDAKİ ETKİNLİKLER", "EVENTS IN YOUR PLAN")}</span><h2>{copy("Kaçırmak istemediklerin", "Events you don't want to miss")}</h2></div><button type="button" onClick={() => onNavigate("events")}>{copy("Etkinlik bul", "Find events")}</button></div>
         {savedEvents.length > 0 ? <div className="saved-event-list">{savedEvents.map((event) => <article key={event.id} className={event.status === "cancelled" ? "cancelled" : ""}>
-          <button type="button" className="saved-event-open" onClick={() => onNavigate("events")}>
-            <span><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit" }).format(new Date(event.startsAt))}</strong><small>{new Intl.DateTimeFormat(dateLocale, { month: "short" }).format(new Date(event.startsAt))}</small></span>
-            <div><small>{event.city}{event.venue ? ` · ${event.venue}` : ""}</small><strong>{event.title}</strong><em>{event.status === "cancelled" ? copy("İptal edildi", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : new Intl.DateTimeFormat(dateLocale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.startsAt))}</em></div>
+          <button type="button" className="saved-event-open" onClick={() => onOpenEvent ? onOpenEvent(event.id) : onNavigate("events")}>
+            <span><strong>{eventDateLabel(event, dateLocale, { day: "2-digit" })}</strong><small>{eventDateLabel(event, dateLocale, { month: "short" })}</small></span>
+            <div><small>{event.city}{event.venue ? ` · ${event.venue}` : ""}</small><strong>{event.title}</strong><em>{event.status === "cancelled" ? copy("İptal edildi", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : eventTimeLabel(event, dateLocale)}</em></div>
           </button>
           <button type="button" className="saved-event-remove" aria-label={copy("Etkinliği planımdan çıkar", "Remove event from my plan")} onClick={() => setPendingDelete({ kind: "event", item: event })}><Icon name="trash" size={17} /></button>
         </article>)}</div> : <button className="saved-events-empty" type="button" onClick={() => onNavigate("events")}><span><Icon name="calendar" size={22} /></span><div><strong>{copy("Henüz etkinlik kaydetmedin", "No saved events yet")}</strong><small>{copy("Tarihine uygun konser, festival ve maçları bul.", "Find concerts, festivals and sport for your dates.")}</small></div><Icon name="chevron" size={16} /></button>}
       </section>}
 
       {(libraryTab === "all" || libraryTab === "routes") && <div className="saved-list">
+        {pendingRoutes > 0 && <div className="info-box" role="status"><p>{copy(`${pendingRoutes} kayıt işlemi eşitleme bekliyor.`, `${pendingRoutes} changes waiting to sync.`)}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && accessToken) void syncSavedRoutes(ownerId, accessToken).catch(() => onNotice(copy("Bağlantı kurulamadı; kayıtlar cihazda korundu.", "Could not connect; on-device records were kept."))); }}>{copy("Tekrar dene", "Retry")}</button></div>}
         {routes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
+          <small role="status">{!ownerId ? copy("Bu cihazda", "On this device") : routeQueue[saved.id]?.pending || !routeQueue[saved.id] ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesaba kaydedildi", "Saved to account")}</small>
           <p>{saved.plan.summary}</p>
           <button className="saved-card-detail-action" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>
         </article>)}
@@ -261,6 +264,9 @@ function PlanDetail({ selected, onClose }: { selected: SelectedPlan | null; onCl
       {selected.plan.routes.map((route, index) => <article key={`${route.name}-${index}`}>
         <div className="saved-plan-route-head"><span>{index + 1}</span><div><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong></div></div>
         <p>{route.why}</p>
+        {route.visaNote && <p>{route.visaNote}</p>}
+        {route.visaVerifiedAt && <small>{copy("Kaynak kontrol tarihi", "Source checked")}: {route.visaVerifiedAt}</small>}
+        {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}>{copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
         <div className="saved-plan-facts"><span><small>{copy("Bütçe", "Budget")}</small><strong>{route.estimatedBudget}</strong></span><span><small>{copy("Süre", "Duration")}</small><strong>{route.idealDuration}</strong></span></div>
         {Array.isArray(route.dailyPlan) && route.dailyPlan.length > 0 && <div className="saved-plan-days"><strong>{copy("Örnek gezi planı", "Sample itinerary")}</strong>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>}
         {Array.isArray(route.warnings) && route.warnings.length > 0 && <div className="saved-plan-warnings">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={15} /><span>{warning}</span></div>)}</div>}

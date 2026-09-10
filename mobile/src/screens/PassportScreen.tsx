@@ -19,6 +19,7 @@ import { Sheet } from "../components/Sheet";
 import { openExternal } from "../lib/native";
 import { getVisaEntryRule } from "../lib/api";
 import { useI18n } from "../lib/i18n";
+import { usePassportPreference } from "../hooks/usePassportPreference";
 import type { VerifiedVisaRule } from "../types";
 
 const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
@@ -38,13 +39,7 @@ const filters: Array<{ id: "all" | VisaStatus; label: string }> = [
 
 export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code: string) => void }) {
   const { copy, countryName, locale } = useI18n();
-  const [passport, setPassport] = useState(() => {
-    try {
-      const saved = localStorage.getItem("l2t:passport-country");
-      return saved && Object.hasOwn(PASSPORTS, saved) ? saved : "TR";
-    } catch { return "TR"; }
-  });
-  const [passportType, setPassportType] = useState("ordinary");
+  const { country: passport, type: passportType, setPreference } = usePassportPreference();
   const passportName = new Intl.DisplayNames([locale], { type: "region" }).of(passport) || passport;
   const passportOptions = useMemo(() => { const names = new Intl.DisplayNames([locale], { type: "region" }); return Object.keys(PASSPORTS).map(code => ({ code, name: names.of(code) || code })).sort((a,b) => a.name.localeCompare(b.name, locale)); }, [locale]);
   const statusOf = useMemo(() => (alpha3: string): VisaStatus => {
@@ -109,8 +104,8 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       <PageHero scene="passport" title={copy("Pasaport Gücü", "Passport Power")} subtitle={copy("Pasaportunla nerelere gidebilirsin?", "Where can your passport take you?")} />
 
       <div className="passport-selection">
-        <CountryPicker value={passport} options={passportOptions} label={copy("Pasaport ülkesi", "Passport country")} placeholder={copy("Ülke seç", "Choose country")} onChange={code => { closeCountry(); setPassport(code); setFilter("all"); try { localStorage.setItem("l2t:passport-country", code); } catch { /* Private browsing. */ } }}/>
-        <label>{copy("Pasaport türü", "Passport type")}<select value={passportType} onChange={event => { closeCountry(); setPassportType(event.target.value); setFilter("all"); }}><option value="ordinary">{copy("Umuma mahsus", "Ordinary")}</option><option value="special">{copy("Hususi", "Special")}</option><option value="service">{copy("Hizmet", "Service")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic")}</option></select></label>
+        <CountryPicker value={passport} options={passportOptions} label={copy("Pasaport ülkesi", "Passport country")} placeholder={copy("Ülke seç", "Choose country")} onChange={code => { closeCountry(); setPreference(code, passportType); setFilter("all"); }}/>
+        <label>{copy("Pasaport türü", "Passport type")}<select value={passportType} onChange={event => { closeCountry(); setPreference(passport, event.target.value); setFilter("all"); }}><option value="ordinary">{copy("Umuma mahsus", "Ordinary")}</option><option value="special">{copy("Hususi", "Special")}</option><option value="service">{copy("Hizmet", "Service")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic")}</option></select></label>
       </div>
       <details className="passport-coverage"><summary>{copy("Veri kapsamı ve tarihi", "Coverage and data date")} · {passportIndex.asOf}</summary><p>{passportType === "ordinary" ? copy("199 pasaport için tarihli keşif verisi; güncel resmî giriş izni değildir. ETA ve giriş kısıtlamaları bilinmiyor renginde gösterilir, ülke detayında açıklanır. Türkiye için kimlik kartıyla geçişte üç MFA kaydı ayrıca işlendi; ek koşullar ülke detayındadır.", "Dated discovery data for 199 passports, not current official entry clearance. ETA and entry restrictions use the unknown colour and are explained in details. Three Turkish ID-card entries from the MFA are separately included; see conditions in details.") : copy("Türkiye'nin özel pasaport türlerinde 13 destinasyon için tarihli MFA ön bilgisi var; diğerleri bilinmiyor. Kalış süresi ve seyahat amacı için resmî kaynağı kontrol et.", "For special Turkish passport types, dated MFA guidance covers 13 destinations; other entries are unknown. Check official duration and purpose conditions.")}</p><button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Veri kaynağı", "Dataset source")}</button></details>
 
