@@ -68,7 +68,7 @@ export default function Header() {
     <header className={styles.header}>
       <div className={styles.inner}>
         <Link href="/" className={styles.brand} aria-label="LetsGo2Travel ana sayfa">
-          <BrandLogo priority />
+          <BrandLogo priority onLight />
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Ana menü">

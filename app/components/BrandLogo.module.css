@@ -9,6 +9,11 @@
   border-radius: 0;
 }
 
+.colorFilter {
+  position: absolute;
+  pointer-events: none;
+}
+
 @media (max-width: 720px) {
   .logo { width: 180px; }
 }
