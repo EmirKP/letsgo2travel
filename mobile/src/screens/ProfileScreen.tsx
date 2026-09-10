@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
 import { ProfilePhoto } from "../components/ProfilePhoto";
 import { Sheet } from "../components/Sheet";
+import { CommunityBlocksSheet } from "../components/CommunitySafetySheet";
 import { LegalSheet } from "../components/LegalSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
@@ -80,6 +81,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const { copy, countryName, locale } = useI18n();
   const [tick, setTick] = useState(0);
   const [visitedOpen, setVisitedOpen] = useState(false);
+  const [blocksOpen, setBlocksOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [visibleCountryCount, setVisibleCountryCount] = useState(60);
@@ -355,11 +357,13 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         {user && <label><span><Icon name="users" size={19} /><em><strong>{copy("Kaşifler Ligi'nde görün", "Appear in Explorer League")}</strong><small>{copy("Yalnız güvenli profil özeti paylaşılır", "Only a safe profile summary is shared")}</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulama turu", "App tour")}</strong><small>{copy("Temel özellikleri yeniden, adım adım gör", "Review the main features step by step")}</small></em></span><Icon name="chevron" size={17} /></button>
+        <button onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><span><Icon name="unlock" size={19} /><em><strong>{copy("Engellenen kullanıcılar", "Blocked users")}</strong><small>{copy("Engellediğin kişileri gör ve engeli kaldır", "View and unblock people")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
       <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · {nativeVersion ? "iOS/Android" : "Web"} Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
     </section>
 
+    {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked."))} />}
     <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />
 
     {visitedOpen && <Sheet open title={copy("Ziyaret ettiğim ülkeler", "Countries I've visited")} onClose={() => setVisitedOpen(false)} size="large">
