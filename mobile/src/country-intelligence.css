@@ -36,6 +36,12 @@
 .ci-tags { display:flex; flex-wrap:wrap; gap:5px; }
 .ci-tags span { padding:3px 7px; border:1px solid #dec7b9; border-radius:6px; font-size:10px; color:#72503c; }
 .ci-source-line { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; color:#627182; font-size:10px; }
+.ci-provider-list { display:grid; gap:10px; min-width:0; }
+.ci-provider-row { display:grid; gap:2px; padding-top:8px; border-top:1px solid #dbe4ee; min-width:0; }
+.ci-provider-row > span { font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.ci-provider-row .ci-text-button { padding-block:4px; min-height:36px; }
+.ci-card-title > svg { flex-shrink:0; }
+.ci-card-title h2 { min-width:0; overflow-wrap:anywhere; }
 .ci-source-line button,.ci-text-button { display:inline-flex; align-items:center; gap:5px; width:fit-content; max-width:100%; min-height:44px; padding:6px 0; border:0; background:transparent; color:#126bc2; text-align:left; font-size:12px; font-weight:600; line-height:1.4; }
 .ci-source-detail { display:grid; gap:5px; padding:0 0 14px; border-bottom:1px solid #e4eaf0; }
 .ci-source-detail strong { font-size:13px; }

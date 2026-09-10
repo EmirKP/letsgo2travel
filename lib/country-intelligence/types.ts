@@ -15,13 +15,17 @@ export type InflationData = {
 export type Rate = { base: string; quote: string; rate: number; date: string; sourceUrl: string };
 export type CostData = { baseline: PriceBaseline; fx: Rate | null; inflation: InflationData | null };
 export type AdvisoryLevel = "avoid-all" | "essential-only" | "regional" | "no-specific-warning" | "unavailable";
-export type Advisory = {
+export type AdvisoryReport = {
   freshness?: "live" | "last-known";
+  precaution?: "heightened";
   code: string; level: AdvisoryLevel; scope: "whole-country" | "regional" | "unspecified";
   source: Source; updatedAt: string | null;
   topics: Array<"conflict" | "diplomatic" | "security">;
   updates: Array<{ text: string; date: string }>;
 };
+// Keep the original FCDO fields for installed clients; newer clients read each
+// provider separately. Their different warning systems are never averaged.
+export type Advisory = AdvisoryReport & { reports?: AdvisoryReport[] };
 export type NewsItem = {
   title: string; url: string; publisher: string; language: string;
   firstSeenAt: string; topic: "elections" | "transport" | "weather" | "security" | "general";

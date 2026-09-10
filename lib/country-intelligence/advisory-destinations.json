@@ -1,0 +1,916 @@
+{
+  "AD": {
+    "fcdo": "andorra",
+    "canada": "andorra"
+  },
+  "AE": {
+    "fcdo": "united-arab-emirates",
+    "canada": "united-arab-emirates"
+  },
+  "AF": {
+    "fcdo": "afghanistan",
+    "canada": "afghanistan"
+  },
+  "AG": {
+    "fcdo": "antigua-and-barbuda",
+    "canada": "antigua-and-barbuda"
+  },
+  "AI": {
+    "fcdo": "anguilla",
+    "canada": "anguilla"
+  },
+  "AL": {
+    "fcdo": "albania",
+    "canada": "albania"
+  },
+  "AM": {
+    "fcdo": "armenia",
+    "canada": "armenia"
+  },
+  "AO": {
+    "fcdo": "angola",
+    "canada": "angola"
+  },
+  "AQ": {
+    "canada": "antarctica"
+  },
+  "AR": {
+    "fcdo": "argentina",
+    "canada": "argentina"
+  },
+  "AS": {
+    "canada": "american-samoa"
+  },
+  "AT": {
+    "fcdo": "austria",
+    "canada": "austria"
+  },
+  "AU": {
+    "fcdo": "australia",
+    "canada": "australia"
+  },
+  "AW": {
+    "fcdo": "aruba",
+    "canada": "aruba"
+  },
+  "AZ": {
+    "fcdo": "azerbaijan",
+    "canada": "azerbaijan"
+  },
+  "BA": {
+    "fcdo": "bosnia-and-herzegovina",
+    "canada": "bosnia-and-herzegovina"
+  },
+  "BB": {
+    "fcdo": "barbados",
+    "canada": "barbados"
+  },
+  "BD": {
+    "fcdo": "bangladesh",
+    "canada": "bangladesh"
+  },
+  "BE": {
+    "fcdo": "belgium",
+    "canada": "belgium"
+  },
+  "BF": {
+    "fcdo": "burkina-faso",
+    "canada": "burkina-faso"
+  },
+  "BG": {
+    "fcdo": "bulgaria",
+    "canada": "bulgaria"
+  },
+  "BH": {
+    "fcdo": "bahrain",
+    "canada": "bahrain"
+  },
+  "BI": {
+    "fcdo": "burundi",
+    "canada": "burundi"
+  },
+  "BJ": {
+    "fcdo": "benin",
+    "canada": "benin"
+  },
+  "BL": {
+    "canada": "saint-barthelemy"
+  },
+  "BM": {
+    "fcdo": "bermuda",
+    "canada": "bermuda"
+  },
+  "BN": {
+    "fcdo": "brunei",
+    "canada": "brunei"
+  },
+  "BO": {
+    "fcdo": "bolivia",
+    "canada": "bolivia"
+  },
+  "BR": {
+    "fcdo": "brazil",
+    "canada": "brazil"
+  },
+  "BS": {
+    "fcdo": "bahamas",
+    "canada": "bahamas"
+  },
+  "BT": {
+    "fcdo": "bhutan",
+    "canada": "bhutan"
+  },
+  "BW": {
+    "fcdo": "botswana",
+    "canada": "botswana"
+  },
+  "BY": {
+    "fcdo": "belarus",
+    "canada": "belarus"
+  },
+  "BZ": {
+    "fcdo": "belize",
+    "canada": "belize"
+  },
+  "CA": {
+    "fcdo": "canada"
+  },
+  "CD": {
+    "fcdo": "democratic-republic-of-the-congo",
+    "canada": "congo-kinshasa"
+  },
+  "CF": {
+    "fcdo": "central-african-republic",
+    "canada": "central-african-republic"
+  },
+  "CG": {
+    "fcdo": "congo",
+    "canada": "congo-brazzaville"
+  },
+  "CH": {
+    "fcdo": "switzerland",
+    "canada": "switzerland"
+  },
+  "CI": {
+    "fcdo": "cote-d-ivoire",
+    "canada": "cote-d-ivoire-ivory-coast"
+  },
+  "CK": {
+    "canada": "cook-islands"
+  },
+  "CL": {
+    "fcdo": "chile",
+    "canada": "chile"
+  },
+  "CM": {
+    "fcdo": "cameroon",
+    "canada": "cameroon"
+  },
+  "CN": {
+    "fcdo": "china",
+    "canada": "china"
+  },
+  "CO": {
+    "fcdo": "colombia",
+    "canada": "colombia"
+  },
+  "CR": {
+    "fcdo": "costa-rica",
+    "canada": "costa-rica"
+  },
+  "CU": {
+    "fcdo": "cuba",
+    "canada": "cuba"
+  },
+  "CV": {
+    "fcdo": "cape-verde",
+    "canada": "cabo-verde"
+  },
+  "CW": {
+    "fcdo": "curacao",
+    "canada": "curacao"
+  },
+  "CY": {
+    "fcdo": "cyprus",
+    "canada": "cyprus"
+  },
+  "CZ": {
+    "fcdo": "czechia",
+    "canada": "czechia"
+  },
+  "DE": {
+    "fcdo": "germany",
+    "canada": "germany"
+  },
+  "DJ": {
+    "fcdo": "djibouti",
+    "canada": "djibouti"
+  },
+  "DK": {
+    "fcdo": "denmark",
+    "canada": "denmark"
+  },
+  "DM": {
+    "fcdo": "dominica",
+    "canada": "dominica"
+  },
+  "DO": {
+    "fcdo": "dominican-republic",
+    "canada": "dominican-republic"
+  },
+  "DZ": {
+    "fcdo": "algeria",
+    "canada": "algeria"
+  },
+  "EC": {
+    "fcdo": "ecuador",
+    "canada": "ecuador"
+  },
+  "EE": {
+    "fcdo": "estonia",
+    "canada": "estonia"
+  },
+  "EG": {
+    "fcdo": "egypt",
+    "canada": "egypt"
+  },
+  "EH": {
+    "fcdo": "western-sahara"
+  },
+  "ER": {
+    "fcdo": "eritrea",
+    "canada": "eritrea"
+  },
+  "ES": {
+    "fcdo": "spain",
+    "canada": "spain"
+  },
+  "ET": {
+    "fcdo": "ethiopia",
+    "canada": "ethiopia"
+  },
+  "FI": {
+    "fcdo": "finland",
+    "canada": "finland"
+  },
+  "FJ": {
+    "fcdo": "fiji",
+    "canada": "fiji"
+  },
+  "FK": {
+    "fcdo": "falkland-islands",
+    "canada": "falkland-islands"
+  },
+  "FM": {
+    "fcdo": "federated-states-of-micronesia",
+    "canada": "micronesia-fsm"
+  },
+  "FR": {
+    "fcdo": "france",
+    "canada": "france"
+  },
+  "GA": {
+    "fcdo": "gabon",
+    "canada": "gabon"
+  },
+  "GB": {
+    "canada": "united-kingdom"
+  },
+  "GD": {
+    "fcdo": "grenada",
+    "canada": "grenada"
+  },
+  "GE": {
+    "fcdo": "georgia",
+    "canada": "georgia"
+  },
+  "GF": {
+    "fcdo": "french-guiana",
+    "canada": "french-guiana"
+  },
+  "GH": {
+    "fcdo": "ghana",
+    "canada": "ghana"
+  },
+  "GI": {
+    "fcdo": "gibraltar",
+    "canada": "gibraltar"
+  },
+  "GL": {
+    "canada": "greenland"
+  },
+  "GM": {
+    "fcdo": "the-gambia",
+    "canada": "gambia-the"
+  },
+  "GN": {
+    "fcdo": "guinea",
+    "canada": "guinea"
+  },
+  "GP": {
+    "fcdo": "guadeloupe",
+    "canada": "guadeloupe"
+  },
+  "GQ": {
+    "fcdo": "equatorial-guinea",
+    "canada": "equatorial-guinea"
+  },
+  "GR": {
+    "fcdo": "greece",
+    "canada": "greece"
+  },
+  "GS": {
+    "fcdo": "south-georgia-and-south-sandwich-islands"
+  },
+  "GT": {
+    "fcdo": "guatemala",
+    "canada": "guatemala"
+  },
+  "GU": {
+    "canada": "guam"
+  },
+  "GW": {
+    "fcdo": "guinea-bissau",
+    "canada": "guinea-bissau"
+  },
+  "GY": {
+    "fcdo": "guyana",
+    "canada": "guyana"
+  },
+  "HK": {
+    "fcdo": "hong-kong",
+    "canada": "hong-kong"
+  },
+  "HN": {
+    "fcdo": "honduras",
+    "canada": "honduras"
+  },
+  "HR": {
+    "fcdo": "croatia",
+    "canada": "croatia"
+  },
+  "HT": {
+    "fcdo": "haiti",
+    "canada": "haiti"
+  },
+  "HU": {
+    "fcdo": "hungary",
+    "canada": "hungary"
+  },
+  "ID": {
+    "fcdo": "indonesia",
+    "canada": "indonesia"
+  },
+  "IE": {
+    "fcdo": "ireland",
+    "canada": "ireland"
+  },
+  "IL": {
+    "fcdo": "israel"
+  },
+  "IN": {
+    "fcdo": "india",
+    "canada": "india"
+  },
+  "IO": {
+    "fcdo": "british-indian-ocean-territory"
+  },
+  "IQ": {
+    "fcdo": "iraq",
+    "canada": "iraq"
+  },
+  "IR": {
+    "fcdo": "iran",
+    "canada": "iran"
+  },
+  "IS": {
+    "fcdo": "iceland",
+    "canada": "iceland"
+  },
+  "IT": {
+    "fcdo": "italy",
+    "canada": "italy"
+  },
+  "JM": {
+    "fcdo": "jamaica",
+    "canada": "jamaica"
+  },
+  "JO": {
+    "fcdo": "jordan",
+    "canada": "jordan"
+  },
+  "JP": {
+    "fcdo": "japan",
+    "canada": "japan"
+  },
+  "KE": {
+    "fcdo": "kenya",
+    "canada": "kenya"
+  },
+  "KG": {
+    "fcdo": "kyrgyzstan",
+    "canada": "kyrgyzstan"
+  },
+  "KH": {
+    "fcdo": "cambodia",
+    "canada": "cambodia"
+  },
+  "KI": {
+    "fcdo": "kiribati",
+    "canada": "kiribati"
+  },
+  "KM": {
+    "fcdo": "comoros",
+    "canada": "comoros"
+  },
+  "KN": {
+    "fcdo": "st-kitts-and-nevis",
+    "canada": "saint-kitts-and-nevis"
+  },
+  "KP": {
+    "fcdo": "north-korea",
+    "canada": "north-korea"
+  },
+  "KR": {
+    "fcdo": "south-korea",
+    "canada": "south-korea"
+  },
+  "KW": {
+    "fcdo": "kuwait",
+    "canada": "kuwait"
+  },
+  "KY": {
+    "fcdo": "cayman-islands",
+    "canada": "cayman-islands"
+  },
+  "KZ": {
+    "fcdo": "kazakhstan",
+    "canada": "kazakhstan"
+  },
+  "LA": {
+    "fcdo": "laos",
+    "canada": "laos"
+  },
+  "LB": {
+    "fcdo": "lebanon",
+    "canada": "lebanon"
+  },
+  "LC": {
+    "fcdo": "st-lucia",
+    "canada": "saint-lucia"
+  },
+  "LI": {
+    "fcdo": "liechtenstein",
+    "canada": "liechtenstein"
+  },
+  "LK": {
+    "fcdo": "sri-lanka",
+    "canada": "sri-lanka"
+  },
+  "LR": {
+    "fcdo": "liberia",
+    "canada": "liberia"
+  },
+  "LS": {
+    "fcdo": "lesotho",
+    "canada": "lesotho"
+  },
+  "LT": {
+    "fcdo": "lithuania",
+    "canada": "lithuania"
+  },
+  "LU": {
+    "fcdo": "luxembourg",
+    "canada": "luxembourg"
+  },
+  "LV": {
+    "fcdo": "latvia",
+    "canada": "latvia"
+  },
+  "LY": {
+    "fcdo": "libya",
+    "canada": "libya"
+  },
+  "MA": {
+    "fcdo": "morocco",
+    "canada": "morocco"
+  },
+  "MC": {
+    "fcdo": "monaco",
+    "canada": "monaco"
+  },
+  "MD": {
+    "fcdo": "moldova",
+    "canada": "moldova"
+  },
+  "ME": {
+    "fcdo": "montenegro",
+    "canada": "montenegro"
+  },
+  "MF": {
+    "canada": "saint-martin"
+  },
+  "MG": {
+    "fcdo": "madagascar",
+    "canada": "madagascar"
+  },
+  "MH": {
+    "fcdo": "marshall-islands",
+    "canada": "marshall-islands"
+  },
+  "MK": {
+    "fcdo": "north-macedonia",
+    "canada": "north-macedonia"
+  },
+  "ML": {
+    "fcdo": "mali",
+    "canada": "mali"
+  },
+  "MM": {
+    "fcdo": "myanmar",
+    "canada": "myanmar"
+  },
+  "MN": {
+    "fcdo": "mongolia",
+    "canada": "mongolia"
+  },
+  "MO": {
+    "fcdo": "macao",
+    "canada": "macao"
+  },
+  "MP": {
+    "canada": "northern-marianas"
+  },
+  "MQ": {
+    "fcdo": "martinique",
+    "canada": "martinique"
+  },
+  "MR": {
+    "fcdo": "mauritania",
+    "canada": "mauritania"
+  },
+  "MS": {
+    "fcdo": "montserrat",
+    "canada": "montserrat"
+  },
+  "MT": {
+    "fcdo": "malta",
+    "canada": "malta"
+  },
+  "MU": {
+    "fcdo": "mauritius",
+    "canada": "mauritius"
+  },
+  "MV": {
+    "fcdo": "maldives",
+    "canada": "maldives"
+  },
+  "MW": {
+    "fcdo": "malawi",
+    "canada": "malawi"
+  },
+  "MX": {
+    "fcdo": "mexico",
+    "canada": "mexico"
+  },
+  "MY": {
+    "fcdo": "malaysia",
+    "canada": "malaysia"
+  },
+  "MZ": {
+    "fcdo": "mozambique",
+    "canada": "mozambique"
+  },
+  "NA": {
+    "fcdo": "namibia",
+    "canada": "namibia"
+  },
+  "NC": {
+    "fcdo": "new-caledonia",
+    "canada": "new-caledonia"
+  },
+  "NE": {
+    "fcdo": "niger",
+    "canada": "niger"
+  },
+  "NG": {
+    "fcdo": "nigeria",
+    "canada": "nigeria"
+  },
+  "NI": {
+    "fcdo": "nicaragua",
+    "canada": "nicaragua"
+  },
+  "NL": {
+    "fcdo": "netherlands",
+    "canada": "netherlands"
+  },
+  "NO": {
+    "fcdo": "norway",
+    "canada": "norway"
+  },
+  "NP": {
+    "fcdo": "nepal",
+    "canada": "nepal"
+  },
+  "NR": {
+    "fcdo": "nauru",
+    "canada": "nauru"
+  },
+  "NU": {
+    "canada": "niue"
+  },
+  "NZ": {
+    "fcdo": "new-zealand",
+    "canada": "new-zealand"
+  },
+  "OM": {
+    "fcdo": "oman",
+    "canada": "oman"
+  },
+  "PA": {
+    "fcdo": "panama",
+    "canada": "panama"
+  },
+  "PE": {
+    "fcdo": "peru",
+    "canada": "peru"
+  },
+  "PF": {
+    "fcdo": "french-polynesia",
+    "canada": "french-polynesia"
+  },
+  "PG": {
+    "fcdo": "papua-new-guinea",
+    "canada": "papua-new-guinea"
+  },
+  "PH": {
+    "fcdo": "philippines",
+    "canada": "philippines"
+  },
+  "PK": {
+    "fcdo": "pakistan",
+    "canada": "pakistan"
+  },
+  "PL": {
+    "fcdo": "poland",
+    "canada": "poland"
+  },
+  "PM": {
+    "fcdo": "st-pierre-and-miquelon",
+    "canada": "saint-pierre-et-miquelon"
+  },
+  "PN": {
+    "fcdo": "pitcairn-island"
+  },
+  "PR": {
+    "canada": "puerto-rico"
+  },
+  "PS": {
+    "fcdo": "palestine"
+  },
+  "PT": {
+    "fcdo": "portugal",
+    "canada": "portugal"
+  },
+  "PW": {
+    "fcdo": "palau",
+    "canada": "palau"
+  },
+  "PY": {
+    "fcdo": "paraguay",
+    "canada": "paraguay"
+  },
+  "QA": {
+    "fcdo": "qatar",
+    "canada": "qatar"
+  },
+  "RE": {
+    "fcdo": "reunion",
+    "canada": "reunion"
+  },
+  "RO": {
+    "fcdo": "romania",
+    "canada": "romania"
+  },
+  "RS": {
+    "fcdo": "serbia",
+    "canada": "serbia"
+  },
+  "RU": {
+    "fcdo": "russia",
+    "canada": "russia"
+  },
+  "RW": {
+    "fcdo": "rwanda",
+    "canada": "rwanda"
+  },
+  "SA": {
+    "fcdo": "saudi-arabia",
+    "canada": "saudi-arabia"
+  },
+  "SB": {
+    "fcdo": "solomon-islands",
+    "canada": "solomon-islands"
+  },
+  "SC": {
+    "fcdo": "seychelles",
+    "canada": "seychelles"
+  },
+  "SD": {
+    "fcdo": "sudan",
+    "canada": "sudan"
+  },
+  "SE": {
+    "fcdo": "sweden",
+    "canada": "sweden"
+  },
+  "SG": {
+    "fcdo": "singapore",
+    "canada": "singapore"
+  },
+  "SH": {
+    "fcdo": "st-helena-ascension-and-tristan-da-cunha"
+  },
+  "SI": {
+    "fcdo": "slovenia",
+    "canada": "slovenia"
+  },
+  "SK": {
+    "fcdo": "slovakia",
+    "canada": "slovakia"
+  },
+  "SL": {
+    "fcdo": "sierra-leone",
+    "canada": "sierra-leone"
+  },
+  "SM": {
+    "fcdo": "san-marino",
+    "canada": "san-marino"
+  },
+  "SN": {
+    "fcdo": "senegal",
+    "canada": "senegal"
+  },
+  "SO": {
+    "fcdo": "somalia",
+    "canada": "somalia"
+  },
+  "SR": {
+    "fcdo": "suriname",
+    "canada": "suriname"
+  },
+  "SS": {
+    "fcdo": "south-sudan",
+    "canada": "south-sudan"
+  },
+  "ST": {
+    "fcdo": "sao-tome-and-principe",
+    "canada": "sao-tome-and-principe"
+  },
+  "SV": {
+    "fcdo": "el-salvador",
+    "canada": "el-salvador"
+  },
+  "SX": {
+    "fcdo": "st-maarten",
+    "canada": "sint-maarten"
+  },
+  "SY": {
+    "fcdo": "syria",
+    "canada": "syria"
+  },
+  "SZ": {
+    "fcdo": "eswatini",
+    "canada": "eswatini"
+  },
+  "TC": {
+    "fcdo": "turks-and-caicos-islands",
+    "canada": "turks-and-caicos-islands"
+  },
+  "TD": {
+    "fcdo": "chad",
+    "canada": "chad"
+  },
+  "TG": {
+    "fcdo": "togo",
+    "canada": "togo"
+  },
+  "TH": {
+    "fcdo": "thailand",
+    "canada": "thailand"
+  },
+  "TJ": {
+    "fcdo": "tajikistan",
+    "canada": "tajikistan"
+  },
+  "TK": {
+    "canada": "tokelau"
+  },
+  "TL": {
+    "fcdo": "timor-leste",
+    "canada": "timor-leste-east-timor"
+  },
+  "TM": {
+    "fcdo": "turkmenistan",
+    "canada": "turkmenistan"
+  },
+  "TN": {
+    "fcdo": "tunisia",
+    "canada": "tunisia"
+  },
+  "TO": {
+    "fcdo": "tonga",
+    "canada": "tonga"
+  },
+  "TR": {
+    "fcdo": "turkey",
+    "canada": "turkiye"
+  },
+  "TT": {
+    "fcdo": "trinidad-and-tobago",
+    "canada": "trinidad-and-tobago"
+  },
+  "TV": {
+    "fcdo": "tuvalu",
+    "canada": "tuvalu"
+  },
+  "TW": {
+    "fcdo": "taiwan",
+    "canada": "taiwan"
+  },
+  "TZ": {
+    "fcdo": "tanzania",
+    "canada": "tanzania"
+  },
+  "UA": {
+    "fcdo": "ukraine",
+    "canada": "ukraine"
+  },
+  "UG": {
+    "fcdo": "uganda",
+    "canada": "uganda"
+  },
+  "US": {
+    "fcdo": "usa",
+    "canada": "united-states"
+  },
+  "UY": {
+    "fcdo": "uruguay",
+    "canada": "uruguay"
+  },
+  "UZ": {
+    "fcdo": "uzbekistan",
+    "canada": "uzbekistan"
+  },
+  "VE": {
+    "fcdo": "venezuela",
+    "canada": "venezuela"
+  },
+  "VG": {
+    "fcdo": "british-virgin-islands",
+    "canada": "british-virgin-islands"
+  },
+  "VI": {
+    "canada": "virgin-islands-u-s"
+  },
+  "VN": {
+    "fcdo": "vietnam",
+    "canada": "vietnam"
+  },
+  "VU": {
+    "fcdo": "vanuatu",
+    "canada": "vanuatu"
+  },
+  "WF": {
+    "fcdo": "wallis-and-futuna"
+  },
+  "WS": {
+    "fcdo": "samoa",
+    "canada": "samoa"
+  },
+  "XK": {
+    "fcdo": "kosovo",
+    "canada": "kosovo"
+  },
+  "YE": {
+    "fcdo": "yemen",
+    "canada": "yemen"
+  },
+  "YT": {
+    "fcdo": "mayotte",
+    "canada": "mayotte"
+  },
+  "ZA": {
+    "fcdo": "south-africa",
+    "canada": "south-africa"
+  },
+  "ZM": {
+    "fcdo": "zambia",
+    "canada": "zambia"
+  },
+  "ZW": {
+    "fcdo": "zimbabwe",
+    "canada": "zimbabwe"
+  }
+}

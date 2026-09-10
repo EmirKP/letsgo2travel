@@ -31,12 +31,13 @@ function unlockBodyScroll() {
   else root.setAttribute("aria-hidden", rootAriaHidden);
 }
 
-export function Sheet({ open, title, onClose, children, size = "normal" }: {
+export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   size?: "normal" | "large";
+  dismissible?: boolean;
 }) {
   const { copy } = useI18n();
   const sheetRef = useRef<HTMLElement>(null);
@@ -46,8 +47,8 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
   const [topSheet, setTopSheet] = useState(open);
 
   useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+    onCloseRef.current = () => { if (dismissible) onClose(); };
+  }, [onClose, dismissible]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,13 +108,13 @@ export function Sheet({ open, title, onClose, children, size = "normal" }: {
   if (!open) return null;
   return createPortal(
     <div className="sheet-layer" role="presentation" style={{ zIndex: topSheet ? 131 : 130 }} inert={!topSheet || undefined} aria-hidden={!topSheet || undefined} onMouseDown={(event) => {
-      if (event.currentTarget === event.target) onClose();
+      if (event.currentTarget === event.target && dismissible) onClose();
     }}>
       <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="icon-button compact" onClick={onClose} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
+          <button className="icon-button compact" disabled={!dismissible} onClick={onClose} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
         </header>
         <div className="sheet-body">{children}</div>
       </section>

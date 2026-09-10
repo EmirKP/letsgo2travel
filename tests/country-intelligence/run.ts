@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { estimateCost, quoteComparison } from "../../lib/country-intelligence/cost-model";
 import { readMonthlyIndex, getRates } from "../../lib/country-intelligence/economy";
-import { advisoryLevel } from "../../lib/country-intelligence/advisories";
+import { advisoryLevel, getAdvisory } from "../../lib/country-intelligence/advisories";
+import { parseCanadaAdvisory } from "../../lib/country-intelligence/canada-advisories";
+import { prominentAdvisory, advisoryReports } from "../../lib/country-intelligence/advisory-reports";
 import { getCountryNews, localDateForCountry, normalizeNews, newsTopic, upcomingCalendar } from "../../lib/country-intelligence/brief";
 import { publicJson, publicLink } from "../../lib/country-intelligence/fetch";
 import type { CostData } from "../../lib/country-intelligence/types";
@@ -44,6 +46,30 @@ test("countrywide and regional warnings remain distinct", () => {
   assert.equal(advisoryLevel(["avoid_all_travel_to_whole_country"]).scope, "whole-country");
   assert.equal(advisoryLevel(["avoid_all_travel_to_parts"]).level, "regional");
   assert.equal(advisoryLevel(["new_unknown_provider_code"]).level, "unavailable");
+});
+const canadaTable = (label: string, date = "2026-09-07 10:00:00", slug = "afghanistan") => `<table><tr><td>${slug}</td><td><a href='/destinations/${slug}'>Destination</a></td><td><div><!-- label -->${label}</div></td><td>${date}</td></tr></table>`;
+test("Canada national, regional and heightened-caution advice stay distinct", () => {
+  const parse = (label: string) => parseCanadaAdvisory(canadaTable(label), "AF", now);
+  assert.equal(parse("Avoid all travel").scope, "whole-country");
+  assert.equal(parse("Avoid non-essential travel (with regional advisories)").level, "essential-only");
+  assert.equal(parse("Take normal security precautions (with regional advisories)").level, "regional");
+  assert.equal(parse("Exercise a high degree of caution").precaution, "heightened");
+  assert.equal(parse("Take normal security precautions").precaution, undefined);
+  assert.equal(parse("Avoid all travel").updatedAt, "2026-09-07");
+});
+test("Canada rejects unknown labels, future dates, invalid dates and other destinations", () => {
+  for (const html of [canadaTable("new provider wording"), canadaTable("Avoid all travel", "2027-01-01 10:00:00"), canadaTable("Avoid all travel", "2026-02-30 10:00:00"), canadaTable("Avoid all travel", "2026-09-07 10:00:00", "albania"), "<html>Temporarily unavailable</html>"]) {
+    assert.equal(parseCanadaAdvisory(html, "AF", now).level, "unavailable");
+  }
+  assert.equal(parseCanadaAdvisory(canadaTable("Avoid all travel"), "XX", now).level, "unavailable");
+});
+test("independent advice survives one provider outage without lowering severe warnings", () => {
+  const unavailable = parseCanadaAdvisory("", "AF", now);
+  const severe = parseCanadaAdvisory(canadaTable("Avoid all travel"), "AF", now);
+  const general = parseCanadaAdvisory(canadaTable("Take normal security precautions"), "AF", now);
+  assert.equal(prominentAdvisory({ ...unavailable, reports: [unavailable, severe] }).level, "avoid-all");
+  assert.equal(prominentAdvisory({ ...general, reports: [general, { ...severe, freshness: "last-known" }] }).level, "avoid-all");
+  assert.equal(advisoryReports(general).length, 1); // Installed/older server compatibility.
 });
 test("offline warnings explicitly retain their verification date", () => {
   const advice = lastVerifiedAdvice("UA")!;
@@ -107,6 +133,24 @@ async function networkContracts() {
     const france = await getCountryNews("FR");
     test("an empty successful country search is distinct from an outage", () => {
       assert.equal(france.newsState, "ok"); assert.equal(france.news.length, 0);
+    });
+    const advisoryRequests: string[] = [];
+    globalThis.fetch = async input => {
+      const url = String(input); advisoryRequests.push(url);
+      if (url === "https://travel.gc.ca/travelling/advisories") return new Response(canadaTable("Avoid all travel"));
+      if (url.endsWith("/afghanistan")) return new Response("unavailable", { status: 503 });
+      return new Response(JSON.stringify({ details: { alert_status: ["avoid_all_travel_to_parts"] }, public_updated_at: "2026-09-07T10:00:00Z" }));
+    };
+    const afghanistan = await getAdvisory("AF");
+    const palestine = await getAdvisory("PS");
+    test("FCDO outage preserves Canada advice and verified country URLs avoid index dependency", () => {
+      assert.equal(afghanistan.level, "unavailable"); // Compatible fields for installed clients.
+      assert.equal(prominentAdvisory(afghanistan).level, "avoid-all");
+      assert.equal(afghanistan.reports?.length, 2);
+      assert.equal(palestine.level, "regional");
+      assert.ok(advisoryRequests.includes("https://www.gov.uk/api/content/foreign-travel-advice/palestine"));
+      assert.ok(!advisoryRequests.includes("https://www.gov.uk/api/content/foreign-travel-advice"));
+      assert.equal(advisoryRequests.filter(url => url.startsWith("https://travel.gc.ca/")).length, 1);
     });
     calls = 0;
     globalThis.fetch = async () => { calls++; return new Response("", { status: 429, headers: { "retry-after": "600" } }); };

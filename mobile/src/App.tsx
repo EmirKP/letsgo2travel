@@ -578,8 +578,8 @@ export default function App() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     const statusBar = plugin("StatusBar");
-    void statusBar?.setStyle?.({ style: "LIGHT" }).catch(() => undefined);
-    void statusBar?.setBackgroundColor?.({ color: "#2352C4" }).catch(() => undefined);
+    void statusBar?.setStyle?.({ style: "DARK" }).catch(() => undefined);
+    void statusBar?.setBackgroundColor?.({ color: "#093459" }).catch(() => undefined);
     void statusBar?.setOverlaysWebView?.({ overlay: true }).catch(() => undefined);
   }, []);
 

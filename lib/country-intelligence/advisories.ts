@@ -2,13 +2,14 @@ import { isoCountryByAlpha2 } from "../countries/isoSource";
 import { plainText, publicJson } from "./fetch";
 import type { Advisory, AdvisoryLevel } from "./types";
 import { lastVerifiedAdvice } from "./last-verified";
+import destinations from "./advisory-destinations.json";
+import { getCanadaAdvisory } from "./canada-advisories";
 
 type AdviceContent = {
   public_updated_at?: string; withdrawn_notice?: unknown;
   details?: { alert_status?: string[]; parts?: Array<{ slug: string; body: string }>;
     change_history?: Array<{ note: string; public_timestamp: string }> };
 };
-type AdviceIndex = { links?: { children?: Array<{ base_path: string; details?: { country?: { name: string; slug: string } } }> } };
 
 export function advisoryLevel(alerts: string[]): { level: AdvisoryLevel; scope: Advisory["scope"] } {
   if (alerts.includes("avoid_all_travel_to_whole_country")) return { level: "avoid-all", scope: "whole-country" };
@@ -18,32 +19,19 @@ export function advisoryLevel(alerts: string[]): { level: AdvisoryLevel; scope: 
   return { level: alerts.length ? "unavailable" : "no-specific-warning", scope: "unspecified" };
 }
 
-const SLUG_OVERRIDES: Record<string, string> = {
-  RU: "russia", IR: "iran", UA: "ukraine", IL: "israel", PS: "the-occupied-palestinian-territories",
-  TR: "turkey", US: "usa", AE: "united-arab-emirates", BA: "bosnia-and-herzegovina", XK: "kosovo",
-  CZ: "czechia", KR: "south-korea", KP: "north-korea", MD: "moldova", MK: "north-macedonia",
-  TL: "timor-leste", CD: "democratic-republic-of-the-congo", CG: "congo", CI: "cote-d-ivoire",
-};
-const englishNames = new Intl.DisplayNames(["en"], { type: "region" });
-const normalize = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+// Destination URLs verified against the official UK/Canada indexes on 2026-09-10.
+// Static routing avoids a second network dependency and country-name mismatches.
+// No risk levels or advice dates are stored in this mapping.
+const paths: Record<string, { fcdo?: string; canada?: string }> = destinations;
 
-async function countrySlug(code: string): Promise<string | null> {
-  if (SLUG_OVERRIDES[code]) return SLUG_OVERRIDES[code];
-  const english = englishNames.of(code) || code;
-  const data = await publicJson<AdviceIndex>("https://www.gov.uk/api/content/foreign-travel-advice", 86_400);
-  const item = data.links?.children?.find(row => normalize(row.details?.country?.name || "") === normalize(english));
-  const slug = item?.details?.country?.slug;
-  return slug && /^[a-z0-9-]+$/.test(slug) ? slug : null;
-}
-
-export async function getAdvisory(code: string): Promise<Advisory> {
+async function getFcdoAdvisory(code: string): Promise<Advisory> {
   const checkedAt = new Date().toISOString();
   const empty: Advisory = { code, level: "unavailable", scope: "unspecified", updatedAt: null, topics: [], updates: [],
     source: { name: "FCDO · GOV.UK", url: "https://www.gov.uk/foreign-travel-advice", checkedAt } };
   const fallback = lastVerifiedAdvice(code) || empty;
   if (!isoCountryByAlpha2(code)) return empty;
   try {
-    const slug = await countrySlug(code);
+    const slug = paths[code]?.fcdo;
     if (!slug) return fallback;
     const url = `https://www.gov.uk/foreign-travel-advice/${slug}`;
     empty.source.url = url;
@@ -63,4 +51,10 @@ export async function getAdvisory(code: string): Promise<Advisory> {
     return { ...empty, ...status, freshness: "live", topics, updates,
       updatedAt: data.public_updated_at && Number.isFinite(Date.parse(data.public_updated_at)) && Date.parse(data.public_updated_at) <= Date.now() ? data.public_updated_at : null };
   } catch { return fallback; }
+}
+
+export async function getAdvisory(code: string): Promise<Advisory> {
+  code = code.toUpperCase();
+  const [fcdo, canada] = await Promise.all([getFcdoAdvisory(code), getCanadaAdvisory(code)]);
+  return { ...fcdo, reports: [fcdo, canada] };
 }
