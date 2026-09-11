@@ -48,7 +48,7 @@
     "framer-motion": "^12.40.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.18.0",
-    "next": "16.3.0",
+    "next": "16.3.5",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -70,7 +70,7 @@
     "airports-json": "1.0.0",
     "d3-geo": "3.1.1",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
+    "eslint-config-next": "16.3.5",
     "i18n-iso-countries": "7.14.0",
     "topojson-client": "3.1.0",
     "ts-node": "^10.9.2",
@@ -78,7 +78,7 @@
     "world-atlas": "2.0.2"
   },
   "allowScripts": {
-    "sharp@0.34.5": true,
+    "sharp@0.35.4": true,
     "unrs-resolver@1.11.1": true
   }
 }
