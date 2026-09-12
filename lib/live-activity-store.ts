@@ -14,6 +14,7 @@ import type {
 } from "./live-activity-cron";
 
 type SupabaseLike = any;
+import { readLiveActivityTrips, tripReadFailure } from "./live-activity-read";
 
 type TripSqlRow = {
   id: string;
@@ -65,14 +66,15 @@ function toDeliveryRow(row: Record<string, unknown>): DeliveryRow {
 }
 
 async function selectTrips(supabase: SupabaseLike, build: (query: any) => any): Promise<CronTrip[]> {
-  const run = async (select: string) => build(supabase.from("trips").select(select));
+  const run = (select: string) => readLiveActivityTrips<TripSqlRow[]>(signal =>
+    build(supabase.from("trips").select(select)).abortSignal(signal));
   let result = tripFlightColumnsSupported ? await run(TRIP_FLIGHT_SELECT) : await run(TRIP_BASE_SELECT);
   if (result.error && tripFlightColumnsSupported && (result.error as { code?: string }).code === "42703") {
     // Uçuş kolonu migration'ı üretimde yoksa IATA'sız devam edilir.
     tripFlightColumnsSupported = false;
     result = await run(TRIP_BASE_SELECT);
   }
-  if (result.error) throw new Error(`trips_query_failed:${(result.error as { code?: string }).code || "unknown"}`);
+  if (result.error) throw tripReadFailure(result.error, result.status);
   return ((result.data || []) as TripSqlRow[]).flatMap((row) => {
     const trip = toCronTrip(row);
     return trip ? [trip] : [];

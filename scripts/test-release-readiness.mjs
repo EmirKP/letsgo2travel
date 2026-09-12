@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const checks = [
+  ["--test", "tests/live-activity-read.test.mjs"],
   ["--test", "tests/mobile-public-config.test.mjs"],
   ["scripts/run-app-tests.mjs"],
   ["scripts/run-alert-tests.mjs"],
