@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
+import { createClient } from "@supabase/supabase-js";
 
 function modules(extra = {}) {
   const logs = [], cache = new Map();
@@ -28,7 +29,7 @@ test("transient read recovers; fresh abort signal per attempt and bounded backof
     signals.push(signal); return Promise.resolve(signals.length < 3 ? { data: null, error: { code: "", message: "fetch failed" }, status: 0 } : ok);
   }, async ms => waits.push(ms));
   assert.equal(result, ok); assert.equal(new Set(signals).size, 3);
-  assert.deepEqual(waits, [200, 400]); assert.equal(logs.at(-1)[0], "live_activity_trip_read_recovered");
+  assert.deepEqual(waits, [500, 1000]); assert.equal(logs.at(-1)[0], "live_activity_trip_read_recovered");
 });
 test("persistent 503 remains a failure after three attempts", async () => {
   const { load } = modules(); let calls = 0;
@@ -63,7 +64,7 @@ test("timeout cancels each pending read and eventually returns failure", async (
   const keepAlive = setTimeout(() => {}, 1000);
   try {
     const result = await load("lib/live-activity-read").readLiveActivityTrips(signal => new Promise((resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once:true })), noWait);
-    assert.ok(result.error); assert.deepEqual(durations, [3000,3000,3000]);
+    assert.ok(result.error); assert.deepEqual(durations, [6000,6000,6000]);
   } finally { clearTimeout(keepAlive); }
 });
 test("logs and final error never expose provider messages, details or tokens", async () => {
@@ -78,7 +79,7 @@ test("actual store retries trip SELECT only and retains airport/arrival/language
   const { load } = modules(); let calls = 0; const selections = [];
   const supabase = { from(table) {
     assert.equal(table,"trips");
-    const query = { select(columns) { selections.push(columns); return this; }, gte() { return this; }, lt() { return this; }, in() { return this; }, order() { return this; }, limit() { return this; },
+    const query = { select(columns) { selections.push(columns); return this; }, gte() { return this; }, lt() { return this; }, in() { return this; }, order() { return this; }, limit() { return this; }, retry(value) { assert.equal(value,false); return this; },
       abortSignal(signal) { assert.ok(signal instanceof AbortSignal); calls++;
         return Promise.resolve(calls === 1 ? { data:null,error:{message:"fetch failed"},status:0 } : { error:null,status:200,data:[{id:"trip",user_id:"user",departure_at:"2026-09-13T12:00:00Z",arrival_at:"2026-09-13T15:00:00Z",origin_iata:"IST",destination_iata:"LHR",app_language:"en"}] }); } };
     return query;
@@ -88,7 +89,46 @@ test("actual store retries trip SELECT only and retains airport/arrival/language
 });
 test("actual store preserves missing-column compatibility without retrying SQL error", async () => {
   const { load } = modules(); let calls=0; const columns=[];
-  const query = { select(value) { columns.push(value); return this; }, gte() { return this; }, lt() { return this; }, in() { return this; }, order() { return this; }, limit() { return this; }, abortSignal() { return Promise.resolve(++calls === 1 ? { data:null,error:{code:"42703"},status:400 } : ok); } };
+  const query = { select(value) { columns.push(value); return this; }, gte() { return this; }, lt() { return this; }, in() { return this; }, order() { return this; }, limit() { return this; }, retry(value) { assert.equal(value,false); return this; }, abortSignal() { return Promise.resolve(++calls === 1 ? { data:null,error:{code:"42703"},status:400 } : ok); } };
   await load("lib/live-activity-store").createSupabaseLiveActivityStore({from:()=>query}).tripsDepartingBetween(0,1000,40);
   assert.equal(calls,2); assert.ok(columns[0].includes("arrival_at")); assert.ok(!columns[1].includes("arrival_at"));
+});
+
+test("installed Supabase SDK performs exactly three network calls, no nested retries", async () => {
+  let calls = 0;
+  const client = createClient("https://test.invalid", "nonfunctional-test-key", {
+    auth: { persistSession:false,autoRefreshToken:false },
+    global: { fetch: async () => { calls++; return calls < 3
+      ? new Response("upstream unavailable",{status:520})
+      : new Response("[]",{status:200,headers:{"Content-Type":"application/json"}}); } },
+  });
+  const {load} = modules();
+  const result = await load("lib/live-activity-store").createSupabaseLiveActivityStore(client).tripsDepartingBetween(0,1000,40);
+  assert.equal(result.length,0); assert.equal(calls,3);
+});
+
+test("expired read budget makes no network call and remains a failure", async () => {
+  const {load} = modules(); let calls = 0;
+  const result = await load("lib/live-activity-read").readLiveActivityTrips(async () => { calls++; return ok; },noWait,Date.now()-1);
+  assert.equal(calls,0); assert.ok(result.error);
+});
+
+test("START and END share one budget rather than allocating a fresh 20 seconds", async () => {
+  let clock=1000; const timeouts=[];
+  class Clock extends Date { static now() { return clock; } }
+  const {load} = modules({Date:Clock,AbortSignal:{timeout(ms) { timeouts.push(ms); return AbortSignal.timeout(ms); }}});
+  const query={select(){return this;},gte(){return this;},lt(){return this;},in(){return this;},order(){return this;},limit(){return this;},retry(){return this;},abortSignal(){clock+=19800; return Promise.resolve(ok);}};
+  const store=load("lib/live-activity-store").createSupabaseLiveActivityStore({from:()=>query});
+  await store.tripsDepartingBetween(0,1000,40);
+  await store.tripsEndDue(1000,1000,40);
+  assert.deepEqual(timeouts,[6000,200]);
+});
+
+test("transport diagnostic distinguishes DNS, socket and timeout without raw details", async () => {
+  for (const [details,expected] of [["Caused by: getaddrinfo (ENOTFOUND) SECRET_CANARY","dns"],["Caused by: socket (UND_ERR_SOCKET) SECRET_CANARY","connection"],["UND_ERR_CONNECT_TIMEOUT SECRET_CANARY","upstream_timeout"]]) {
+    const {load,logs}=modules();
+    await load("lib/live-activity-read").readLiveActivityTrips(async()=>({data:null,error:{message:"fetch failed",details},status:0}),noWait);
+    assert.equal(logs[0][1].reason,expected); assert.equal(typeof logs[0][1].elapsedMs,"number");
+    assert.ok(!JSON.stringify(logs).includes("SECRET_CANARY"));
+  }
 });
