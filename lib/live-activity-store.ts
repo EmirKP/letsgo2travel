@@ -14,7 +14,7 @@ import type {
 } from "./live-activity-cron";
 
 type SupabaseLike = any;
-import { readLiveActivityTrips, tripReadFailure } from "./live-activity-read";
+import { LIVE_ACTIVITY_READ_BUDGET_MS, readLiveActivityTrips, tripReadFailure } from "./live-activity-read";
 
 type TripSqlRow = {
   id: string;
@@ -65,9 +65,9 @@ function toDeliveryRow(row: Record<string, unknown>): DeliveryRow {
   };
 }
 
-async function selectTrips(supabase: SupabaseLike, build: (query: any) => any): Promise<CronTrip[]> {
+async function selectTrips(supabase: SupabaseLike, build: (query: any) => any, deadlineMs: number): Promise<CronTrip[]> {
   const run = (select: string) => readLiveActivityTrips<TripSqlRow[]>(signal =>
-    build(supabase.from("trips").select(select)).abortSignal(signal));
+    build(supabase.from("trips").select(select)).retry(false).abortSignal(signal), undefined, deadlineMs);
   let result = tripFlightColumnsSupported ? await run(TRIP_FLIGHT_SELECT) : await run(TRIP_BASE_SELECT);
   if (result.error && tripFlightColumnsSupported && (result.error as { code?: string }).code === "42703") {
     // Uçuş kolonu migration'ı üretimde yoksa IATA'sız devam edilir.
@@ -82,6 +82,9 @@ async function selectTrips(supabase: SupabaseLike, build: (query: any) => any): 
 }
 
 export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveActivityStore {
+  // Shared across START, END, queued-trip lookup and compatibility SELECTs.
+  // Leaves time in the 60-second function for claims and APNs delivery.
+  const readDeadlineMs = Date.now() + LIVE_ACTIVITY_READ_BUDGET_MS;
   return {
     async tripsDepartingBetween(fromMs, toMs, limit) {
       return selectTrips(supabase, (query) => query
@@ -89,7 +92,7 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
         .lt("departure_at", new Date(toMs).toISOString())
         .in("status", ["upcoming", "active"])
         .order("departure_at", { ascending: true })
-        .limit(limit));
+        .limit(limit), readDeadlineMs);
     },
 
     async tripsEndDue(nowMs, horizonMs, limit) {
@@ -99,7 +102,7 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
         .lt("departure_at", new Date(nowMs).toISOString())
         .gte("departure_at", new Date(nowMs - horizonMs).toISOString())
         .order("departure_at", { ascending: true })
-        .limit(limit * 4));
+        .limit(limit * 4), readDeadlineMs);
       return candidates
         .filter((trip) => (trip.arrivalAtMs || trip.departureAtMs + 60 * 60 * 1000) + 20 * 60 * 1000 < nowMs)
         .slice(0, limit);
@@ -222,7 +225,7 @@ export function createSupabaseLiveActivityStore(supabase: SupabaseLike): LiveAct
     async tripsByIds(ids) {
       const map = new Map<string, CronTrip>();
       if (!ids.length) return map;
-      const trips = await selectTrips(supabase, (query) => query.in("id", ids));
+      const trips = await selectTrips(supabase, (query) => query.in("id", ids), readDeadlineMs);
       for (const trip of trips) map.set(trip.id, trip);
       return map;
     },
