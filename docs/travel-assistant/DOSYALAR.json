@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-09-17T11:19:33.3162498+03:00",
+  "createdAt": "2026-09-17T11:26:05.8876369+03:00",
   "branch": "feature/travel-assistant-v1_1-20260916",
   "baseCommit": "fad8ee28ac3584c4daf165b81335ea8f8c2bf3d0",
   "note": "This manifest lists all payload files except itself.",
@@ -14,7 +14,7 @@
     },
     {
       "path": "codemagic.yaml",
-      "sha256": "0e1b2bf4ea4f305d24f5f73b186f154143357c09033eb2016a70178177412ecc"
+      "sha256": "00be3c6df63655a097ee426d0556f9b8c6f3ab48b014d5cbb77684e39d50edd6"
     },
     {
       "path": "docs/travel-assistant/KURULUM.md",

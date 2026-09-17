@@ -147,5 +147,5 @@ workflows:
         # Upload for internal testing; choose the verified tester group in Apple.
         submit_to_testflight: false
         submit_to_app_store: false
-        cancel_previous_submissions: false
-        expire_build_submitted_for_review: false
+        # Cancellation and expiration are omitted: both default to false and
+        # Codemagic only accepts those options when review submission is enabled.
