@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { DateTimeField } from "./DateTimeField";
-import { CountryPicker } from "./CountryPicker";
+
 import { readJournal, writeJournal, validJournalDraft, type JournalEntry } from "../lib/travelJournal";
 import { travelRecap, readSafetyTrips, saveSafetyTrips, type SafetyTrip } from "../lib/journeyTools";
 import { CountryFlag } from "./CountryFlag";
@@ -8,18 +8,20 @@ import { Icon, type IconName } from "./Icon";
 import { Sheet } from "./Sheet";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { COUNTRY_LIST } from "../data/countries";
-import type { TravelEssentialProfile } from "../data/travelEssentials";
+import "./travel-assistant.css";
 import type { AirportOption } from "../lib/airports";
 import { isCalendarDate, localIsoDate } from "../lib/dates";
 import { createId } from "../lib/id";
 import { useI18n } from "../lib/i18n";
 import { shareContent } from "../lib/native";
+import { selectTravelCountry } from "../lib/travelSelection";
 import { getVisitedCountries } from "../lib/storage";
 import { listCockpitTrips } from "../lib/supabaseData";
 import type { AuthUser, ViewId } from "../types";
 
 const PassportWorldMap = lazy(() => import("./PassportWorldMap").then((module) => ({ default: module.PassportWorldMap })));
 const AirportField = lazy(() => import("./AirportField").then((module) => ({ default: module.AirportField })));
+const TravelAssistant = lazy(() => import("./TravelAssistant").then((module) => ({ default: module.TravelAssistant })));
 
 type ToolId = "journal" | "map" | "airport" | "safety" | "summary";
 
@@ -31,12 +33,6 @@ const tools: Array<{ id: ToolId; icon: IconName; tr: string; en: string; detailT
   { id: "summary", icon: "sparkles", tr: "Yıllık seyahat özetim", en: "Year in travel", detailTr: "Bu yılın rotalarını ve anılarını gör", detailEn: "Review this year's routes and memories" },
 ];
 
-const emergencyNumbers: Record<string, { general: string; police?: string; ambulance?: string }> = {
-  TR: { general: "112" }, XK: { general: "112", police: "192", ambulance: "194" }, AL: { general: "112", police: "129", ambulance: "127" },
-  AE: { general: "999", police: "999", ambulance: "998" }, GB: { general: "999 / 112" }, US: { general: "911" }, CA: { general: "911" },
-  JP: { general: "110 / 119", police: "110", ambulance: "119" }, TH: { general: "191", police: "191", ambulance: "1669" },
-  DE: { general: "112", police: "110", ambulance: "112" }, FR: { general: "112", police: "17", ambulance: "15" }, IT: { general: "112" }, ES: { general: "112" },
-};
 
 function tripLabel(trip: SafetyTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
@@ -67,8 +63,6 @@ export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNav
   const [separateTickets, setSeparateTickets] = useState(false);
   const [terminalChange, setTerminalChange] = useState(false);
   const [safetyTripId, setSafetyTripId] = useState("");
-  const [safetyCountry, setSafetyCountry] = useState("");
-  const [essential, setEssential] = useState<TravelEssentialProfile | null>(null);
   const visited = useMemo(() => getVisitedCountries(ownerId), [ownerId, active]);
   const visitedCodes = useMemo(() => new Set(visited.map((item) => item.alpha3)), [visited]);
 
@@ -94,20 +88,7 @@ export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNav
 
   const selectedJournalTrip = trips.find((trip) => trip.id === journalTripId);
   const safetyTrip = trips.find((trip) => trip.id === safetyTripId) || trips.find((trip) => trip.status === "active") || trips.find((trip) => trip.status !== "cancelled" && trip.endDate >= localIsoDate()) || trips[0];
-  const safetyCode = safetyCountry || safetyTrip?.destinationCode || "";
-  const safetyOptions = COUNTRY_LIST.map(item => ({code: alpha2FromAlpha3(item.alpha3) || "", name: countryName(item.alpha3,item.name)})).filter(item => item.code);
-  const selectedEmergency = emergencyNumbers[safetyCode] || null;
-  useEffect(() => {
-    let live = true;
-    if (active !== "safety" || !safetyCode) {
-      setEssential(null);
-      return () => { live = false; };
-    }
-    void import("../data/travelEssentials").then(({ essentialProfile }) => {
-      if (live) setEssential(essentialProfile(safetyCode));
-    }).catch(() => { if (live) setEssential(null); });
-    return () => { live = false; };
-  }, [active, safetyCode]);
+  const safetyCode = safetyTrip?.destinationCode || "";
   const year = new Date().getFullYear();
   const recap = travelRecap(trips, year);
   const yearTrips = recap.trips;
@@ -186,20 +167,10 @@ export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNav
 
     <Sheet open={active === "safety"} title={copy("Güvenli seyahat merkezi", "Travel safety centre")} size="large" onClose={() => setActive(null)}>
       <div className="journey-sheet-intro safety"><span><Icon name="shield" size={28} /></span><div><small>{copy("ÇEVRİMDIŞI DA YANINDA", "READY OFFLINE")}</small><h3>{copy("Acil durumda önce doğru numara", "The right number in an emergency")}</h3><p>{copy("Hayati tehlikede bulunduğun ülkenin resmî acil hattını ara.", "In immediate danger, call the official local emergency service.")}</p></div></div>
-      {trips.length > 0 && <label className="safety-trip-select">{copy("Seyahat seç", "Choose trip")}<select value={safetyTrip?.id || ""} onChange={(event) => { setSafetyTripId(event.target.value); setSafetyCountry(""); }}>{trips.map((trip) => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}</select></label>}
-      <CountryPicker value={safetyCode} options={safetyOptions} label={copy("Bulunduğun ülke", "Your current country")} placeholder={copy("Ülke seç", "Choose country")} onChange={setSafetyCountry} />
-      <div className={`emergency-card${selectedEmergency ? "" : " missing"}`}>
-        {safetyCode ? <CountryFlag code={safetyCode} label={safetyOptions.find(item => item.code === safetyCode)?.name || safetyCode} /> : <Icon name="globe" size={22} />}
-        <div><small>{safetyOptions.find(item => item.code === safetyCode)?.name || copy("Ülke seç", "Choose country")}</small>
-          <strong>{selectedEmergency ? copy("Acil numaralar", "Emergency numbers") : copy("Numarayı resmî kaynaktan doğrula", "Verify the number from an official source")}</strong>
-          {selectedEmergency && <div className="emergency-call-list">{(selectedEmergency.police && selectedEmergency.ambulance
-            ? [{label:copy("Polis", "Police"),number:selectedEmergency.police},{label:copy("Ambulans", "Ambulance"),number:selectedEmergency.ambulance}]
-            : [{label:copy("Acil yardım", "Emergency"),number:selectedEmergency.general.split(/[ /]/)[0]}]).map(service => <a key={service.label} href={`tel:${service.number}`} aria-label={`${service.label}: ${service.number}`}><span>{service.label}</span><strong>{service.number}</strong><span>{copy("Ara", "Call")}</span></a>)}</div>}
-        </div>
-      </div>
-      <div className="safety-checks"><article><Icon name="check" size={18} /><div><strong>{copy("Pasaport ve poliçe kopyası", "Passport and insurance copies")}</strong><small>{copy("Asıllarından ayrı ve şifreli sakla.", "Keep encrypted copies apart from originals.")}</small></div></article><article><Icon name="check" size={18} /><div><strong>{copy("Yakınına planını bırak", "Share plans with someone")}</strong><small>{copy("Konaklama ve dönüş tarihini güvendiğin biri bilsin.", "Let someone you trust know your stay and return date.")}</small></div></article><article><Icon name="check" size={18} /><div><strong>{copy("Çevrimdışı harita indir", "Download an offline map")}</strong><small>{copy("İnternet olmadan konaklamana dönebil.", "Get back to your accommodation without internet.")}</small></div></article></div>
-      {essential?.etiquette?.length ? <div className="safety-local-rules"><small>{copy("YEREL UYARILAR", "LOCAL GUIDANCE")}</small>{essential.etiquette.slice(0, 3).map((rule) => <p key={rule.id}><Icon name={rule.icon} size={16} /> {locale === "tr" ? rule.tr : rule.en}</p>)}</div> : null}
-      <p className="journey-legal-note">{copy("Numaralar yardımcı bilgi amaçlıdır; seyahat öncesi resmî kaynaklardan doğrula.", "Numbers are provided as guidance; verify them with official sources before travel.")}</p>
+      {trips.length > 0 && <label className="safety-trip-select">{copy("Seyahat seç", "Choose trip")}<select value={safetyTrip?.id || ""} onChange={(event) => { setSafetyTripId(event.target.value); }}>{trips.map((trip) => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}</select></label>}
+      <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}>
+        <TravelAssistant key={safetyCode} initialCountry={safetyCode} onNotice={onNotice} onPhrases={country => { selectTravelCountry(country); setActive(null); onNavigate("phrases"); }} />
+      </Suspense>
     </Sheet>
 
     <Sheet open={active === "summary"} title={copy(`${year} seyahat özetim`, `My ${year} travel recap`)} size="large" onClose={() => setActive(null)}>

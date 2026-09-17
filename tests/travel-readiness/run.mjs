@@ -18,12 +18,12 @@ function modules(overrides = {}, globals = {}) {
     let full = path.resolve(filename);
     if (!existsSync(full)) full = [".ts", ".tsx", ".json"].map(ext => full + ext).find(existsSync) || full;
     if (cache.has(full)) return cache.get(full).exports;
-    const module = { exports: {} }; cache.set(full, module);
-    if (full.endsWith(".json")) return (module.exports = JSON.parse(readFileSync(full, "utf8")));
+    const loadedModule = { exports: {} }; cache.set(full, loadedModule);
+    if (full.endsWith(".json")) return (loadedModule.exports = JSON.parse(readFileSync(full, "utf8")));
     const source = ts.transpileModule(readFileSync(full, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
     const require = name => Object.hasOwn(overrides, name) ? overrides[name] : name.startsWith(".") ? load(path.resolve(path.dirname(full), name)) : name.startsWith("@/") ? load(name.slice(2)) : nodeRequire(name);
-    vm.runInContext(`(function(require,module,exports){${source}\n})`, context, { filename: full })(require, module, module.exports);
-    return module.exports;
+    vm.runInContext(`(function(require,module,exports){${source}\n})`, context, { filename: full })(require, loadedModule, loadedModule.exports);
+    return loadedModule.exports;
   };
   return load;
 }

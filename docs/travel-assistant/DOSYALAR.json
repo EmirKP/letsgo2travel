@@ -1,0 +1,168 @@
+{
+  "createdAt": "2026-09-17T11:19:33.3162498+03:00",
+  "branch": "feature/travel-assistant-v1_1-20260916",
+  "baseCommit": "fad8ee28ac3584c4daf165b81335ea8f8c2bf3d0",
+  "note": "This manifest lists all payload files except itself.",
+  "files": [
+    {
+      "path": "app/api/travel-assistant/places/route.ts",
+      "sha256": "75283e4ad4698b2b0cf58f2706b73c231997f2df49cafbb04decb5ba065b83fd"
+    },
+    {
+      "path": "app/api/travel-assistant/rates/route.ts",
+      "sha256": "a5ebd211af7a889d89e3002e9c4aec0243c72db9f89721f19684a17f82dc2942"
+    },
+    {
+      "path": "codemagic.yaml",
+      "sha256": "0e1b2bf4ea4f305d24f5f73b186f154143357c09033eb2016a70178177412ecc"
+    },
+    {
+      "path": "docs/travel-assistant/KURULUM.md",
+      "sha256": "09bf693ce25a8c3f8a81d04f8d1793119c8b043ea1c79f67d49cdcaa0366d220"
+    },
+    {
+      "path": "docs/travel-assistant/MEVCUT-DURUM.md",
+      "sha256": "04c3dd40f58b491b3764a0b8a6ce5b472064301989cf36037e3c8e72db45dae4"
+    },
+    {
+      "path": "docs/travel-assistant/TESLIM.md",
+      "sha256": "0364dd9986de1420571e805c63ec5d4ee762df43955da776edd546b4b03bf75f"
+    },
+    {
+      "path": "lib/cockpit/destinationInfo.ts",
+      "sha256": "586a239a3b943369c4cf021ac9b985452935a9de9bfcd653eaf8b2769574a851"
+    },
+    {
+      "path": "lib/travel-assistant/emergency.ts",
+      "sha256": "86a9c36cedc72ce911afb4ec01c544efde0a2422203053ec1d2f41824f480793"
+    },
+    {
+      "path": "lib/travel-assistant/guides.ts",
+      "sha256": "cdcf4b41fcae76083e58f921fdde24c0e69e54776194f51bdf3492dacd06f851"
+    },
+    {
+      "path": "lib/travel-assistant/money.ts",
+      "sha256": "9ec1002067d136c208b32385b58dd31173c8fb0b04e27b93e7802c4b1d9601da"
+    },
+    {
+      "path": "lib/travel-assistant/places.ts",
+      "sha256": "ca5ff0d6bb0d807035f614829c4657b9ed004fef8fd4605baf01a40670efd352"
+    },
+    {
+      "path": "lib/travel-assistant/server.ts",
+      "sha256": "087140cbbd07b792cb63fd049ca30adb653d427a2c990b2747e3594153c2c026"
+    },
+    {
+      "path": "lib/travel-assistant/types.ts",
+      "sha256": "0323a842d11dcc9e2ddb57a8bd59296c2073296e515a64018bd58ebfc61e1dca"
+    },
+    {
+      "path": "mobile/package-lock.json",
+      "sha256": "9e7a0dfee76d84990bcd88798a91269f72189a0d10e966ec242b272364ef6dcf"
+    },
+    {
+      "path": "mobile/package.json",
+      "sha256": "51ead49c11d5bb63caa7fc769f57de45daa4f28bb82d16990b5923d9e8571994"
+    },
+    {
+      "path": "mobile/src/App.tsx",
+      "sha256": "a9b964ac395dff4077bb5a13b233965b176f0299a32d8cc56664b574ef8b59b0"
+    },
+    {
+      "path": "mobile/src/components/JourneyToolsHub.tsx",
+      "sha256": "f30b6d4b8b192ef90533767b5fac1d11b8e599a856a69db2e9b49faeb5e733a7"
+    },
+    {
+      "path": "mobile/src/components/travel-assistant.css",
+      "sha256": "41d9fd6886655ce5252c2b552568bdbd54adf7a9ad3ac75535719518cef885e7"
+    },
+    {
+      "path": "mobile/src/components/TravelAssistant.tsx",
+      "sha256": "a4b5716778f44a0a3fd4fd4f8e862c98b4065960693da9b75fc550a2b6042dca"
+    },
+    {
+      "path": "mobile/src/components/TravelMoney.tsx",
+      "sha256": "6a4a236a514a91eb8edaeae95f769b28d280ab8f94af186a4387e0e1f5745d9e"
+    },
+    {
+      "path": "mobile/src/components/TravelNearby.tsx",
+      "sha256": "dc2be1498e0ee4bb1139b01d9905eaeb97c4c364ac9d250e692e81f81ed681a2"
+    },
+    {
+      "path": "mobile/src/components/TravelPointMap.tsx",
+      "sha256": "1fbe39edc867e33c5c895598d66d6c6637db2a2d7f653ee15dbbda63fbe970db"
+    },
+    {
+      "path": "mobile/src/components/TravelSafety.tsx",
+      "sha256": "becfabfb3da6dd70ba62b5286c6589f4d45efb31be83285538f3b85b8fcbe7ff"
+    },
+    {
+      "path": "mobile/src/data/travelEssentials.ts",
+      "sha256": "0d557060702d34b2107359e57d1bf31f522de12f08fa9bb8c78cd09078c4632a"
+    },
+    {
+      "path": "mobile/src/lib/config.ts",
+      "sha256": "926cbab992ffd44587bd860f1506ed2345669cdb7ad1f85c0ff04bbc591ede0d"
+    },
+    {
+      "path": "mobile/src/lib/travelAssistant.ts",
+      "sha256": "f0a9c8d9d8c8164f7a67669319a1fde9175d4c1604611fbc10217ebe1a2b5e57"
+    },
+    {
+      "path": "mobile/src/lib/travelSelection.ts",
+      "sha256": "74c37542878b6ef231e1225e96c933a60900a0f7a6ffaf7a9433ab0e0af4fb2d"
+    },
+    {
+      "path": "mobile/src/screens/HomeScreen.tsx",
+      "sha256": "e7f35062d6146ca004b83e29988eeba190e090c3a2ee0f588c190d96ed4e2b6b"
+    },
+    {
+      "path": "mobile/src/screens/TravelCompanionScreen.tsx",
+      "sha256": "646c22414ace8edcdab507b1d3ae07cb1c0d11ae77213ce93d2cbe1e6da23645"
+    },
+    {
+      "path": "mobile/src/vite-env.d.ts",
+      "sha256": "e507d92462ddf5c57e2bf197563cdd86420fd7e5ff08d212b7621f429ce8d45d"
+    },
+    {
+      "path": "mobile/vite.config.ts",
+      "sha256": "6b5f96d90e8180671760484b9e80bdfa4adca9557e28e7a9ddb8247a9d87213f"
+    },
+    {
+      "path": "scripts/mobile-public-config.d.mts",
+      "sha256": "553d001c41efcc619442055b0fb0e745aaaf58e83fc7e075040cb33eeb9a8da1"
+    },
+    {
+      "path": "scripts/mobile-public-config.mjs",
+      "sha256": "9ff809f32d8938253a95fc1b7b0a6b700e82cf4fdbee7990e6290c13d385d0ec"
+    },
+    {
+      "path": "scripts/prepare-travel-assistant-staging.mjs",
+      "sha256": "304fceb1dc647bafbb3ed050842e9a105e03e86e912ae6c7ec74a075c7d7ba17"
+    },
+    {
+      "path": "scripts/test-release-readiness.mjs",
+      "sha256": "90184d4008ab9aaa8f6a46d7688a957dc0f074d533ae25d34ea88ca5cce1e5ea"
+    },
+    {
+      "path": "tests/app/run-tests.ts",
+      "sha256": "92a3f27fd1d4da755bc445192ad13cc6ccb4382d7e2ff9586e1d234daa4922ce"
+    },
+    {
+      "path": "tests/browser/unified.cjs",
+      "sha256": "8010c7104c45464594d6b0c4dcc03952c167c325ba10e7b4a99177e3495e5f58"
+    },
+    {
+      "path": "tests/mobile-public-config.test.mjs",
+      "sha256": "cc4d9124a6b06d286b02fece492a025a49513224857b664ccdfd8655b574d78f"
+    },
+    {
+      "path": "tests/travel-assistant/run.mjs",
+      "sha256": "010d27a6b3e504f6370dfb24fb36c61926d0e4360bdbe844342e1c7b6e8c3d0a"
+    },
+    {
+      "path": "tests/travel-readiness/run.mjs",
+      "sha256": "13f6cd00bf066837b9543956ded3e741bb26db7c79bae39b3e51fd12b9552010"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 export type PublicConfig = {
   apiBaseUrl: string;
+  travelAssistantApiBaseUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   supportEmail: string;
@@ -17,6 +18,7 @@ const webOrigin = typeof window !== "undefined" && /^https?:$/.test(window.locat
 
 export const config: PublicConfig = {
   apiBaseUrl: (injected?.apiBaseUrl || webOrigin).replace(/\/$/, ""),
+  travelAssistantApiBaseUrl: (injected?.travelAssistantApiBaseUrl || "").replace(/\/$/, ""),
   supabaseUrl: injected?.supabaseUrl || "",
   supabaseAnonKey: injected?.supabaseAnonKey || "",
   supportEmail: injected?.supportEmail || "hello@letsgo2travel.com.tr",

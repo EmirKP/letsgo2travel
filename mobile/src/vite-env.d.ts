@@ -2,6 +2,7 @@
 
 declare const __L2T_CONFIG__: {
   apiBaseUrl: string;
+  travelAssistantApiBaseUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   supportEmail: string;

@@ -17,6 +17,9 @@ const artifactIdentity = { ...releaseManifest, sourceCommit:commitId, builtAt:ne
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, rootDir, "");
   const publicConfig = resolveMobilePublicConfig(env, { production: command === "build" });
+  // Only the two stateless assistant endpoints can use a separate test host.
+  // Browser development keeps them same-origin through this dedicated proxy.
+  const travelProxyPrefix = "/__travel-assistant";
 
   return {
     base: "./",
@@ -40,6 +43,10 @@ export default defineConfig(({ mode, command }) => {
     define: {
       __L2T_CONFIG__: JSON.stringify({
         ...publicConfig,
+        apiBaseUrl: command === "serve" ? "" : publicConfig.apiBaseUrl,
+        travelAssistantApiBaseUrl: command === "serve"
+          ? (publicConfig.travelAssistantApiBaseUrl ? travelProxyPrefix : "")
+          : publicConfig.travelAssistantApiBaseUrl,
         appVersion: releaseManifest.appVersion,
         buildNumber: String(releaseManifest.nativeBuildNumber || releaseManifest.buildNumber),
         sourceCommit: commitId,
@@ -58,6 +65,14 @@ export default defineConfig(({ mode, command }) => {
       allowedHosts: ["terminal.local"],
       port: 5173,
       proxy: {
+        ...(publicConfig.travelAssistantApiBaseUrl ? {
+          [travelProxyPrefix]: {
+            target: publicConfig.travelAssistantApiBaseUrl,
+            changeOrigin: true,
+            secure: true,
+            rewrite: (requestPath: string) => requestPath.replace(/^\/__travel-assistant/, ""),
+          },
+        } : {}),
         "/api": {
           target: publicConfig.apiBaseUrl,
           changeOrigin: true,

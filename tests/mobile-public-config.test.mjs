@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { runInNewContext } from "node:vm";
 import { build, resolveConfig } from "../mobile/node_modules/vite/dist/node/index.js";
 import { resolveMobilePublicConfig } from "../scripts/mobile-public-config.mjs";
 
@@ -19,8 +20,9 @@ const fixture = {
 
 test("public config: only explicit public fields are returned", () => {
   const config = resolveMobilePublicConfig({ ...fixture, SUPABASE_SERVICE_ROLE_KEY: "PRIVATE_CANARY", VITE_UNEXPECTED_TOKEN: "PRIVATE_CANARY" });
-  assert.deepEqual(Object.keys(config).sort(), ["apiBaseUrl", "appleAuthEnabled", "supabaseAnonKey", "supabaseUrl", "supportEmail"].sort());
+  assert.deepEqual(Object.keys(config).sort(), ["apiBaseUrl", "travelAssistantApiBaseUrl", "appleAuthEnabled", "supabaseAnonKey", "supabaseUrl", "supportEmail"].sort());
   assert.equal(config.apiBaseUrl, "https://www.letsgo2travel.com.tr");
+  assert.equal(config.travelAssistantApiBaseUrl, "");
   assert.equal(config.supportEmail, "hello@letsgo2travel.com.tr");
   assert.equal(config.appleAuthEnabled, true);
   assert.equal(JSON.stringify(config).includes("PRIVATE_CANARY"), false);
@@ -30,6 +32,14 @@ test("public config: legacy anon JWT and publishable key are accepted", () => {
   for (const key of [jwt("anon"), publicKey]) {
     assert.equal(resolveMobilePublicConfig({ ...fixture, NEXT_PUBLIC_SUPABASE_ANON_KEY: key }).supabaseAnonKey, key);
   }
+});
+
+test("public config: assistant override preserves existing API and account configuration", () => {
+  const config = resolveMobilePublicConfig({ ...fixture, VITE_TRAVEL_ASSISTANT_API_BASE_URL: " https://assistant.example.com/ " });
+  assert.equal(config.travelAssistantApiBaseUrl, "https://assistant.example.com");
+  assert.equal(config.apiBaseUrl, "https://www.letsgo2travel.com.tr");
+  assert.equal(config.supabaseUrl, fixture.NEXT_PUBLIC_SUPABASE_URL);
+  assert.equal(config.supabaseAnonKey, publicKey);
 });
 
 test("public config: privileged, session and malformed keys are rejected without logging values", () => {
@@ -71,7 +81,7 @@ test("public config: even development refuses privileged keys", () => {
 });
 
 test("public config: release APIs and Supabase must use HTTPS", () => {
-  for (const key of ["VITE_API_BASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]) {
+  for (const key of ["VITE_API_BASE_URL", "VITE_TRAVEL_ASSISTANT_API_BASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]) {
     for (const value of ["http://localhost:54321", "http://example.com", "file:///tmp/config", "javascript:alert(1)"]) {
       assert.throws(() => resolveMobilePublicConfig({ ...fixture, [key]: value }), /HTTPS/);
     }
@@ -80,18 +90,22 @@ test("public config: release APIs and Supabase must use HTTPS", () => {
 
 test("public config: HTTP is limited to loopback development", () => {
   for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
-    const config = resolveMobilePublicConfig({ ...fixture, VITE_API_BASE_URL: `http://${host}:3000` }, { production: false });
+    const config = resolveMobilePublicConfig({ ...fixture, VITE_API_BASE_URL: `http://${host}:3000`, VITE_TRAVEL_ASSISTANT_API_BASE_URL: `http://${host}:3001` }, { production: false });
     assert.equal(config.apiBaseUrl, `http://${host}:3000`);
+    assert.equal(config.travelAssistantApiBaseUrl, `http://${host}:3001`);
   }
   assert.throws(() => resolveMobilePublicConfig({ ...fixture, VITE_API_BASE_URL: "http://localhost.evil.example" }, { production: false }), /HTTPS/);
+  assert.throws(() => resolveMobilePublicConfig({ ...fixture, VITE_TRAVEL_ASSISTANT_API_BASE_URL: "http://localhost.evil.example" }, { production: false }), /HTTPS/);
 });
 
 test("public config: URL userinfo, paths and query secrets are rejected without echo", () => {
   for (const url of ["https://user:PRIVATE_CANARY@example.com", "https://example.com?token=PRIVATE_CANARY", "https://example.com#PRIVATE_CANARY", "https://example.com/api", "PRIVATE_CANARY"]) {
-    assert.throws(() => resolveMobilePublicConfig({ ...fixture, VITE_API_BASE_URL: url }), (error) => {
-      assert.equal(error.message.includes("PRIVATE_CANARY"), false);
-      return true;
-    });
+    for (const key of ["VITE_API_BASE_URL", "VITE_TRAVEL_ASSISTANT_API_BASE_URL"]) {
+      assert.throws(() => resolveMobilePublicConfig({ ...fixture, [key]: url }), (error) => {
+        assert.equal(error.message.includes("PRIVATE_CANARY"), false);
+        return true;
+      });
+    }
   }
 });
 
@@ -105,6 +119,7 @@ const configFile = fileURLToPath(new URL("../mobile/vite.config.ts", import.meta
 const controlled = {
   NODE_ENV: "production",
   VITE_API_BASE_URL: "https://www.letsgo2travel.com.tr",
+  VITE_TRAVEL_ASSISTANT_API_BASE_URL: "",
   VITE_SUPABASE_URL: fixture.NEXT_PUBLIC_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: publicKey,
   VITE_SUPPORT_EMAIL: "hello@letsgo2travel.com.tr",
@@ -146,6 +161,60 @@ test("actual Vite config: alternate build mode cannot bypass release validation"
   await withEnv({ VITE_SUPABASE_ANON_KEY: jwt("service_role") }, async () => {
     await assert.rejects(resolveConfig({ configFile, logLevel: "silent" }, "build", "development"), /SUPABASE_ANON_KEY/);
   });
+});
+
+test("actual Vite config: assistant host uses a dedicated dev proxy without moving account APIs", async () => {
+  await withEnv({ VITE_TRAVEL_ASSISTANT_API_BASE_URL: "https://assistant.example.com" }, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    const injected = JSON.parse(serve.define.__L2T_CONFIG__);
+    assert.equal(injected.travelAssistantApiBaseUrl, "/__travel-assistant");
+    assert.equal(injected.apiBaseUrl, "");
+    assert.equal(serve.server.proxy["/__travel-assistant"].target, "https://assistant.example.com");
+    assert.equal(serve.server.proxy["/__travel-assistant"].rewrite("/__travel-assistant/api/travel-assistant/rates?base=EUR&quote=TRY"), "/api/travel-assistant/rates?base=EUR&quote=TRY");
+    assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
+    const release = await resolveConfig({ configFile, logLevel: "silent" }, "build", "production");
+    assert.equal(JSON.parse(release.define.__L2T_CONFIG__).travelAssistantApiBaseUrl, "https://assistant.example.com");
+    assert.equal(JSON.parse(release.define.__L2T_CONFIG__).apiBaseUrl, controlled.VITE_API_BASE_URL);
+  });
+  await withEnv({}, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    assert.equal(JSON.parse(serve.define.__L2T_CONFIG__).travelAssistantApiBaseUrl, "");
+    assert.equal("/__travel-assistant" in serve.server.proxy, false);
+  });
+});
+
+test("assistant requests: optional host changes only public routes and carries no authentication", async () => {
+  const assistantFile = fileURLToPath(new URL("../mobile/src/lib/travelAssistant.ts", import.meta.url)).replaceAll("\\", "/");
+  for (const override of ["", "https://assistant.example.com"]) {
+    await withEnv({ VITE_TRAVEL_ASSISTANT_API_BASE_URL: override }, async () => {
+      const result = await build({
+        configFile, logLevel: "silent",
+        plugins: [{
+          name: "assistant-routing-fixture", enforce: "pre",
+          resolveId(id, importer) {
+            if (id === "virtual:assistant-routing-fixture") return id;
+            if (id === "./api" && importer?.replaceAll("\\", "/") === assistantFile) return "virtual:assistant-request-spy";
+          },
+          load(id) {
+            if (id === "virtual:assistant-request-spy") return "export async function requestJson(path, options) { globalThis.travelCalls.push({path, options}); return {base:'EUR',quote:'TRY',rate:1}; }";
+            if (id === "virtual:assistant-routing-fixture") return `import { loadPlaces, loadQuote } from ${JSON.stringify(assistantFile)}; globalThis.travelReady = (async () => { await loadPlaces({latitude:52.523,longitude:13.405},'needs'); await loadQuote('EUR','TRY'); })();`;
+          },
+        }],
+        build: { write: false, rolldownOptions: { input: "virtual:assistant-routing-fixture", output: { format: "iife" } } },
+      });
+      const outputs = (Array.isArray(result) ? result : [result]).flatMap(item => item.output);
+      const entry = outputs.find(item => item.type === "chunk" && item.isEntry);
+      assert.ok(entry);
+      const sandbox = { travelCalls: [], URLSearchParams };
+      runInNewContext(entry.code, sandbox);
+      await sandbox.travelReady;
+      assert.equal(sandbox.travelCalls[0].path, `${override}/api/travel-assistant/places`);
+      assert.equal(sandbox.travelCalls[1].path, `${override}/api/travel-assistant/rates?base=EUR&quote=TRY`);
+      for (const call of sandbox.travelCalls) assert.equal(call.options.headers, undefined);
+      assert.equal(sandbox.travelCalls[0].options.body.latitude, 52.52);
+      assert.equal(sandbox.travelCalls[0].options.body.longitude, 13.41);
+    });
+  }
 });
 
 test("actual Vite bundle: private env canaries absent, public config still works", async () => {

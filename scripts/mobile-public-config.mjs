@@ -38,6 +38,9 @@ function isPublicSupabaseKey(key) {
  */
 export function resolveMobilePublicConfig(env, { production = true } = {}) {
   const apiBaseUrl = origin(first(env, "VITE_API_BASE_URL") || "https://www.letsgo2travel.com.tr", "VITE_API_BASE_URL", production);
+  const rawTravelAssistantUrl = first(env, "VITE_TRAVEL_ASSISTANT_API_BASE_URL");
+  const travelAssistantApiBaseUrl = rawTravelAssistantUrl
+    ? origin(rawTravelAssistantUrl, "VITE_TRAVEL_ASSISTANT_API_BASE_URL", production) : "";
   const rawSupabaseUrl = first(env, "VITE_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
   const supabaseAnonKey = first(env, "VITE_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
   if (production && (!rawSupabaseUrl || !supabaseAnonKey)) {
@@ -55,5 +58,5 @@ export function resolveMobilePublicConfig(env, { production = true } = {}) {
   if (appleAuth && appleAuth !== "true" && appleAuth !== "false") {
     fail("VITE_APPLE_AUTH_ENABLED", "true veya false olmalı.");
   }
-  return { apiBaseUrl, supabaseUrl, supabaseAnonKey, supportEmail, appleAuthEnabled: appleAuth !== "false" };
+  return { apiBaseUrl, travelAssistantApiBaseUrl, supabaseUrl, supabaseAnonKey, supportEmail, appleAuthEnabled: appleAuth !== "false" };
 }

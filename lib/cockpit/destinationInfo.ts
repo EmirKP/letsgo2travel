@@ -1,3 +1,4 @@
+import { emergencyContacts } from "../travel-assistant/emergency";
 import type {
   ChecklistItem,
   DestinationInfo,
@@ -27,7 +28,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["G"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "999", police: "999", ambulance: "998" },
+    emergency: { general: "" },
     timezone: "UTC+4",
     language: "Arapça / İngilizce",
     quickTip: "Toplu alanlarda yerel kurallara ve kıyafet standartlarına dikkat et.",
@@ -40,7 +41,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112", police: "110", ambulance: "112" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "Almanca",
     quickTip: "Pazar günleri birçok mağaza kapalı olabilir; alışverişini önceden planla.",
@@ -53,7 +54,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F", "L"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112", police: "112", ambulance: "118" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "İtalyanca",
     quickTip: "Yoğun turistik bölgelerde çanta ve telefon güvenliğine dikkat et.",
@@ -66,7 +67,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["A", "B", "C", "O"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "191", police: "191", ambulance: "1669" },
+    emergency: { general: "" },
     timezone: "UTC+7",
     language: "Tayca",
     quickTip: "Tapınak ziyaretlerinde omuz ve dizleri örten kıyafet bulundur.",
@@ -79,7 +80,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F"],
     voltage: "220 V / 50 Hz",
-    emergency: { general: "112" },
+    emergency: { general: "" },
     timezone: "UTC+4",
     language: "Gürcüce",
     quickTip: "Kimlikle giriş kurallarını seyahatten hemen önce resmî kaynaktan doğrula.",
@@ -92,7 +93,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112", police: "122", ambulance: "124" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "Boşnakça / Sırpça / Hırvatça",
     quickTip: "Küçük işletmeler için yanında bir miktar nakit bulundurmak faydalı olabilir.",
@@ -105,7 +106,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "E"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112", police: "17", ambulance: "15" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "Fransızca",
     quickTip: "Toplu taşımada biletini yolculuk sonuna kadar sakla.",
@@ -118,7 +119,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["G"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "999", police: "999", ambulance: "999" },
+    emergency: { general: "" },
     timezone: "UTC / UTC+1",
     language: "İngilizce",
     quickTip: "Priz adaptörü ve temassız ödeme destekli bir kart hazırlamayı unutma.",
@@ -131,7 +132,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["A", "B"],
     voltage: "120 V / 60 Hz",
-    emergency: { general: "911" },
+    emergency: { general: "" },
     timezone: "Birden fazla saat dilimi",
     language: "İngilizce",
     quickTip: "Elektronik cihazlarının 120 V ile uyumlu olup olmadığını kontrol et.",
@@ -144,7 +145,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "Felemenkçe",
     quickTip: "Bisiklet yollarında yürümemeye ve yol işaretlerine dikkat et.",
@@ -157,7 +158,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["C", "F"],
     voltage: "230 V / 50 Hz",
-    emergency: { general: "112" },
+    emergency: { general: "" },
     timezone: "UTC+1 / UTC+2",
     language: "İspanyolca",
     quickTip: "Yemek ve çalışma saatlerinin Türkiye’den daha geç olabileceğini hesaba kat.",
@@ -170,7 +171,7 @@ const infoByCountry: Record<string, DestinationInfo> = {
     mockRateText: "Canlı kuru işlem öncesi kontrol et",
     plugTypes: ["A", "B"],
     voltage: "100 V / 50-60 Hz",
-    emergency: { general: "110", police: "110", ambulance: "119" },
+    emergency: { general: "" },
     timezone: "UTC+9",
     language: "Japonca",
     quickTip: "Toplu taşımada sessizliğe ve sıra düzenine özen göster.",
@@ -185,17 +186,20 @@ const fallbackDestination: DestinationInfo = {
   mockRateText: "Canlı kuru işlem öncesi kontrol et",
   plugTypes: ["Kontrol et"],
   voltage: "Resmî kaynaktan doğrula",
-  emergency: { general: "112 veya yerel acil numara" },
+  emergency: { general: "" },
   timezone: "Yerel saat dilimini kontrol et",
   language: "Yerel dil",
   quickTip: "Vize, sağlık ve giriş kurallarını seyahatten önce resmî kaynaklardan doğrula.",
 };
 
 export function getDestinationInfo(countryCode: string): DestinationInfo {
-  return infoByCountry[countryCode.toUpperCase()] ?? {
-    ...fallbackDestination,
-    countryCode: countryCode.toUpperCase(),
-  };
+  const code = countryCode.toUpperCase();
+  const contacts = emergencyContacts(code);
+  const number = (category: string) => contacts.find(c => c.category === category)?.number;
+  return { ...(infoByCountry[code] ?? { ...fallbackDestination, countryCode: code }),
+    emergency: { general: number("general") || [number("police") && 'Polis ' + number("police"), number("ambulance") && 'Ambulans ' + number("ambulance")].filter(Boolean).join(' · ') || 'Doğrulanmış numara yok',
+      police: number("police"), ambulance: number("ambulance") } };
+
 }
 
 export function createDefaultChecklist(): ChecklistItem[] {

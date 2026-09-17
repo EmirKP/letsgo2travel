@@ -3,6 +3,7 @@ export function resolveMobilePublicConfig(
   options?: { production?: boolean },
 ): {
   apiBaseUrl: string;
+  travelAssistantApiBaseUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   supportEmail: string;

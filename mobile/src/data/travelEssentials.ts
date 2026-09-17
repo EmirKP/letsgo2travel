@@ -1,3 +1,5 @@
+import { GUIDE_CARDS } from '../../../lib/travel-assistant/guides';
+
 export type EssentialPhrase = {
   id: string;
   tr: string;
@@ -11,6 +13,9 @@ export type EtiquetteRule = {
   icon: "info" | "alert" | "check";
   tr: string;
   en: string;
+  kind?: 'law' | 'culture';
+  sourceUrl?: string;
+  verifiedAt?: string;
 };
 
 export type TravelEssentialProfile = {
@@ -286,7 +291,14 @@ export const TRAVEL_ESSENTIALS: TravelEssentialProfile[] = [
 ];
 
 export function essentialProfile(code: string) {
-  return TRAVEL_ESSENTIALS.find((profile) => profile.code === code) || null;
+  const profile = TRAVEL_ESSENTIALS.find((profile) => profile.code === code);
+  if (!profile) return null;
+  const replaced: Record<string,string[]> = { IT:['fountain'], ES:['beach'], TH:['monarchy'], AE:['photos','laws'] };
+  const verified: EtiquetteRule[] = GUIDE_CARDS.filter(c=>c.country===code && (c.category==='law'||c.category==='culture')).map(c=>({
+    id:`verified-${c.title.en}`, icon:c.category==='law'?'alert':'info', kind:c.category as 'law'|'culture',
+    tr:c.text.tr,en:c.text.en,sourceUrl:c.sourceUrl,verifiedAt:c.verifiedAt,
+  }));
+  return {...profile,etiquette:[...profile.etiquette.filter(r=>!(replaced[code]||[]).includes(r.id)),...verified]};
 }
 
 /**

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- This standalone .cjs runner intentionally uses Node CommonJS. */
 /* Run with PLAYWRIGHT_MODULE / CHROMIUM_PATH if Playwright is not locally installed.
    UI fixtures are synthetic and isolated. Separate live read-only probes below
    never treat missing provider data or an unsigned-in avatar as a success. */

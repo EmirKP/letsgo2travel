@@ -1,5 +1,5 @@
 workflows:
-  letsgo2travel-ios:
+  letsgo2travel-ios: &ios_app_store
     name: LetsGo2Travel iOS App Store
     instance_type: mac_mini_m2
     max_build_duration: 120
@@ -7,7 +7,7 @@ workflows:
     integrations:
       app_store_connect: LetsGo2Travel
 
-    environment:
+    environment: &ios_environment
       groups:
         - letsgo2travel_public
       node: latest
@@ -19,7 +19,7 @@ workflows:
         # (örn. tr.com.letsgo2travel.app.FlightActivityWidget) eşlenir;
         # joker desen gerekmez ve belgelenmemiştir.
         bundle_identifier: tr.com.letsgo2travel.app
-      vars:
+      vars: &ios_variables
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
 
@@ -128,3 +128,24 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
+
+  # Manual internal-test build. Reuse signing, release checks and Apple's next
+  # build number without changing the existing App Store workflow or submission.
+  letsgo2travel-ios-testflight:
+    <<: *ios_app_store
+    name: LetsGo2Travel iOS TestFlight
+    environment:
+      <<: *ios_environment
+      vars:
+        <<: *ios_variables
+        # Only the new travel-assistant endpoints use this isolated test backend.
+        # Existing API, Supabase and login settings still come from the group.
+        VITE_TRAVEL_ASSISTANT_API_BASE_URL: https://testflight.letsgo2travel.com.tr
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload for internal testing; choose the verified tester group in Apple.
+        submit_to_testflight: false
+        submit_to_app_store: false
+        cancel_previous_submissions: false
+        expire_build_submitted_for_review: false

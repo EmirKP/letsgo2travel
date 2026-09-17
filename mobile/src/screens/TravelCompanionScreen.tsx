@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { CountryPicker } from "../components/CountryPicker";
@@ -8,9 +8,13 @@ import { TRAVEL_ESSENTIALS, essentialProfile, fallbackEssentialProfile } from ".
 import { getTravelNow } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
+import { readTravelCountry } from "../lib/travelSelection";
+import { EvidenceLine } from "../components/TravelSafety";
 import type { TravelNowResult, ViewId } from "../types";
 
-type CompanionTab = "now" | "phrases" | "etiquette";
+const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
+
+type CompanionTab = "assistant" | "now" | "phrases" | "etiquette";
 
 const SPEECH_LANG: Record<string, string> = {
   XK: "sq-AL", AL: "sq-AL", BA: "bs-BA", RS: "sr-RS", DE: "de-DE", IT: "it-IT", FR: "fr-FR",
@@ -18,14 +22,14 @@ const SPEECH_LANG: Record<string, string> = {
   AE: "ar-AE", GE: "ka-GE", AZ: "az-AZ", BR: "pt-BR", GB: "en-GB",
 };
 
-export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice }: {
+export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice }: {
   initialTab?: CompanionTab;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
   const { locale, copy, countryName } = useI18n();
   const [tab, setTab] = useState<CompanionTab>(initialTab);
-  const [countryCode, setCountryCode] = useState("XK");
+  const [countryCode, setCountryCode] = useState(() => readTravelCountry() || "XK");
   const [budget, setBudget] = useState<"free" | "low" | "flexible">("low");
   const [interest, setInterest] = useState<"culture" | "food" | "outdoors" | "calm">("culture");
   const [loading, setLoading] = useState(false);
@@ -53,9 +57,10 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
   useEffect(() => setTab(initialTab), [initialTab]);
 
   const tabLabel = (value: CompanionTab) => ({
+    assistant: copy("Seyahat Asistanı", "Travel Assistant"),
     now: copy("Şimdi", "Right now"),
     phrases: copy("Konuş", "Phrases"),
-    etiquette: copy("Yerel kurallar", "Local rules"),
+    etiquette: copy("Kültür ve yerel ipuçları", "Culture and local tips"),
   })[value];
 
   const locate = async () => {
@@ -123,8 +128,10 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
     <PageHero scene="city" title={copy("Yol Arkadaşın", "Travel Companion")} subtitle={copy("Yerel ipuçları ve ihtiyacın olan cümleler.", "Local tips and the words you need.")} />
 
     <div className="companion-tabs" role="tablist" aria-label={copy("Seyahat yardımcısı araçları", "Travel companion tools")}>
-      {(["now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{tabLabel(item)}</button>)}
+      {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{tabLabel(item)}</button>)}
     </div>
+
+    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); }} /></Suspense>}
 
     {tab === "now" && <section className="companion-panel" role="tabpanel">
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
@@ -149,7 +156,7 @@ export function TravelCompanionScreen({ initialTab = "now", onNavigate, onNotice
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
       {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}><small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}<div><button onClick={() => void copyPhrase(phrase.local)}><Icon name="bookmark" size={16} />{copy("Kopyala", "Copy")}</button><button onClick={() => speak(phrase.local)}><Icon name="bell" size={16} />{copy("Dinle", "Listen")}</button></div></article>)}</div>
-        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><p>{locale === "tr" ? rule.tr : rule.en}</p></article>)}</div>}
+        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
     </section>}
   </div>;

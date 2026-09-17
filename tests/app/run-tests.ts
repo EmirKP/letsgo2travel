@@ -921,7 +921,7 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   assert.ok(flag.includes("countryFlagAsset(alpha2)") && statSync("mobile/public/flags/xk.svg").size > 200 && statSync("public/flags/xk.svg").size > 200, "Kosova web ve mobilde beyaz bayrak yerine yerel gerçek bayrağı kullanmalı");
   assert.ok(companion.includes("COUNTRY_LIST.map") && companion.includes("fallbackEssentialProfile") && companion.includes("İngilizce acil kart"), "yerel yardımcı tüm ülkeleri açıkça etiketlenen çevrimdışı yedekle sunmalı");
   assert.ok(community.includes("<CountryPicker") && verification.includes("<CountryPicker"), "ülke seçilen topluluk ve doğrulama formları da iOS native seçim taşmasını kullanmamalı");
-  assert.ok(essentials.includes("return TRAVEL_ESSENTIALS.find") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
+  assert.ok(essentials.includes("TRAVEL_ESSENTIALS.find") && essentials.includes("if (!profile) return null") && essentials.includes("English emergency fallback"), "desteklenmeyen ülke sessizce başka ülkenin paketine dönüşmemeli");
   assert.ok(map.includes("data-no-gesture") && map.includes("touchmove") && map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("href={countryFlagAsset(country.alpha2)}"), "yakınlaştırma sayfada değil haritada çalışmalı ve yerel bayraklar haritada görünmeli");
   assert.ok(statSync("mobile/public/flags/xk.svg").size > 200, "Kosova harita bayrağı paket içinde kalmalı");
   assert.ok(styles.includes("height: clamp(300px,78vw,380px)") && styles.includes(".passport-map-controls"), "harita alanı büyütülmeli ve görünür kontroller sunmalı");
@@ -1093,7 +1093,7 @@ test("Build 14: ana sayfadaki çevrimdışı ifade kısayolu doğru aracı doğr
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
   assert.ok(home.includes('onNavigate("phrases")'), "ana sayfa kısayolu genel yardımcı yerine ifade sekmesine gitmeli");
-  assert.ok(app.includes('initialTab={activeView === "phrases" ? "phrases" : "now"}'), "uygulama ifade derin bağlantısını doğru sekmeye çevirmeli");
+  assert.ok(app.includes('initialTab={activeView === "phrases" ? "phrases" : "assistant"}'), "ifade derin bağlantısı ifadeleri, genel yardımcı yeni asistanı açmalı");
   assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
 });
 
@@ -1416,8 +1416,8 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");
   assert.ok(invite.includes("Seyahate katıl") && !invite.includes("<code>{token}</code>") && !invite.includes("Kodu yapıştır"), "davet akışı kullanıcıya ham kod kopyalatmamalı");
   assert.ok(tools.includes('type ToolId = "journal" | "map" | "airport" | "safety" | "summary"'), "beş seyahat aracı tek merkezde bulunmalı");
-  assert.ok(tools.includes("readJournal") && tools.includes("PassportWorldMap") && tools.includes("emergencyNumbers"), "günlük, dünya haritası ve güvenlik içeriği gerçek veri akışına bağlı olmalı");
-  assert.ok(trips.includes('lazy(() => import("../components/JourneyToolsHub")') && tools.includes('lazy(() => import("./PassportWorldMap")') && tools.includes('lazy(() => import("./AirportField")') && tools.includes('import("../data/travelEssentials")'), "ağır seyahat araçları, harita, havalimanı ve yerel güvenlik verisi ihtiyaç anında yüklenmeli");
+  assert.ok(tools.includes("readJournal") && tools.includes("PassportWorldMap") && tools.includes("<TravelAssistant"), "günlük, dünya haritası ve ortak güvenlik asistanı gerçek veri akışına bağlı olmalı");
+  assert.ok(trips.includes('lazy(() => import("../components/JourneyToolsHub")') && tools.includes('lazy(() => import("./PassportWorldMap")') && tools.includes('lazy(() => import("./AirportField")') && tools.includes('lazy(() => import("./TravelAssistant")'), "ağır seyahat araçları, harita, havalimanı ve güvenlik asistanı ihtiyaç anında yüklenmeli");
   assert.ok(app.includes('import("./lib/journalSync")') && !tools.includes("listUserTrips"), "günlük kuyruğu ekran kapansa da uygulama katmanında çalışmalı");
   assert.ok(!codemagic.includes("sed -i") && codemagic.includes("mobile:prepare:ios"), "Codemagic doktor kontrolünden sonra sürümü gizlice değiştirmemeli");
 });
