@@ -10,7 +10,7 @@ export function loadCountryData<T>(path: string, refresh = false): Promise<T> {
   if (!refresh && saved && saved.until > Date.now()) return Promise.resolve(saved.value as T);
   const running = pending.get(path);
   if (running) return running as Promise<T>;
-  const promise = requestJson<T>(path, { timeoutMs: 25_000 }).then(value => {
+  const promise = requestJson<T>(path, { timeoutMs: 25_000, ...(refresh ? { headers: { 'Cache-Control': 'no-cache' } } : {}) }).then(value => {
     if (cache.size >= 40) cache.delete(cache.keys().next().value!);
     cache.set(path, { value, until: Date.now() + 120_000 });
     return value;

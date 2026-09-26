@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(OfflineTranslationPlugin.class);
         super.onCreate(savedInstanceState);
 
         boolean isDebuggable =

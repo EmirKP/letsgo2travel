@@ -360,7 +360,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         <button onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><span><Icon name="unlock" size={19} /><em><strong>{copy("Engellenen kullanıcılar", "Blocked users")}</strong><small>{copy("Engellediğin kişileri gör ve engeli kaldır", "View and unblock people")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
-      <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · {nativeVersion ? "iOS/Android" : "Web"} Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
+      <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
     </section>
 
     {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked."))} />}

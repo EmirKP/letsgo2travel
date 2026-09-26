@@ -7,12 +7,15 @@ export type IconName =
   | "trash" | "external" | "wifi" | "offline" | "refresh" | "plus"
   | "cloud" | "sun" | "wallet" | "users" | "bookmark" | "info" | "logout"
   | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield"
-  | "clock" | "expand";
+  | "clock" | "expand" | "camera" | "train" | "languages";
 
 // Sabit ikon ağacı modül yüklenirken yalnız bir kez oluşturulur. Önceki
 // sürümde bu 41 öğelik nesne her <Icon> renderında yeniden kuruluyordu;
 // uzun ülke listelerinde on binlerce gereksiz React düğümü üretiyordu.
 const ICON_PATHS: Record<IconName, ReactNode> = {
+    camera: <><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></>,
+    train: <><rect x="5" y="3" width="14" height="15" rx="4"/><path d="M5 10h14M12 3v7M8 18l-2 3M16 18l2 3M8 14h.01M16 14h.01"/></>,
+    languages: <><path d="M3 5h11M8 3v2M5 5c0 5 3 8 7 10M12 5c0 5-4 9-9 11M14 21l4-10 4 10M16 17h4"/></>,
     home: <><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></>,
     passport: <><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M9 11h6M12 8v6"/></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></>,

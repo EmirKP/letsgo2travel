@@ -22,8 +22,10 @@ const SPEECH_LANG: Record<string, string> = {
   AE: "ar-AE", GE: "ka-GE", AZ: "az-AZ", BR: "pt-BR", GB: "en-GB",
 };
 
-export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice }: {
+export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice, accessToken, onSignIn }: {
   initialTab?: CompanionTab;
+  accessToken: string;
+  onSignIn: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -131,7 +133,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
       {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{tabLabel(item)}</button>)}
     </div>
 
-    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); }} /></Suspense>}
+    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); }} /></Suspense>}
 
     {tab === "now" && <section className="companion-panel" role="tabpanel">
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>

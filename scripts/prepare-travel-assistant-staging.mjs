@@ -13,6 +13,12 @@ const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, enc
 const sources = [
   'app/api/travel-assistant/places/route.ts',
   'app/api/travel-assistant/rates/route.ts',
+  'app/api/travel-assistant/transit/route.ts',
+  'app/api/travel-assistant/offline-map/route.ts',
+  'lib/travel-assistant/transit.ts',
+  'lib/travel-assistant/offline-map.ts',
+  'lib/travel-assistant/overpass.ts',
+  'lib/travel-assistant/http.ts',
   'lib/travel-assistant/types.ts',
   'lib/travel-assistant/places.ts',
   'lib/travel-assistant/money.ts',
@@ -38,7 +44,7 @@ json('tsconfig.json', {
     jsx: 'react-jsx', plugins: [{ name: 'next' }], paths: { '@/*': ['./*'] } },
   include: ['next-env.d.ts', '**/*.ts', '.next/types/**/*.ts'], exclude: ['node_modules'],
 });
-json('vercel.json', { framework: 'nextjs', crons: [], functions: { 'app/api/travel-assistant/places/route.ts': { maxDuration: 30 } } });
+json('vercel.json', { framework: 'nextjs', crons: [], functions: { 'app/api/travel-assistant/places/route.ts': { maxDuration: 30 }, 'app/api/travel-assistant/offline-map/route.ts': { maxDuration: 30 } } });
 writeFileSync(join(output, '.vercelignore'), '.env*\n.git\nnode_modules\n.next\n');
 writeFileSync(join(output, 'app/route.ts'),
   `export function GET() { return Response.json(${JSON.stringify({ service: 'LetsGo2Travel travel assistant', environment: 'testflight', sourceCommit })}); }\n`);

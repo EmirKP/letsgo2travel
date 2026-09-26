@@ -50,13 +50,13 @@ export function normalizePlaces(raw: unknown, mode: MapMode, fetchedAt: string):
   const elements = (raw as { elements?: unknown[] })?.elements;
   if (!Array.isArray(elements)) throw new Error('Invalid places response');
   const seen = new Set<string>();
-  return elements.flatMap(value => {
+  return elements.slice(0, 250).flatMap(value => {
     if (!value || typeof value !== 'object') return [];
     const e = value as { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string,string> };
     const t = e.tags || {};
     const kind = category(t);
     const point = coordinates({ latitude: e.lat ?? e.center?.lat, longitude: e.lon ?? e.center?.lon });
-    if (!kind || !(mode === 'needs' ? NEEDS : TOURING).includes(kind) || !point || !['node','way','relation'].includes(e.type) || !Number.isSafeInteger(e.id)) return [];
+    if (!kind || !(mode === 'needs' ? NEEDS : TOURING).includes(kind) || !point || !['node','way','relation'].includes(e.type) || !Number.isSafeInteger(e.id) || e.id <= 0) return [];
     const id = `${e.type}/${e.id}`;
     if (seen.has(id)) return [];
     seen.add(id);
@@ -64,7 +64,7 @@ export function normalizePlaces(raw: unknown, mode: MapMode, fetchedAt: string):
     return [{ ...point, id, category: kind, name: clean(t.name || t['name:en']), description: clean(t.description, 500) || null,
       hours: clean(t.opening_hours) || null, free: fee === 'no' ? true : fee === 'yes' ? false : null,
       accessible: t.wheelchair === 'yes' ? true : t.wheelchair === 'no' ? false : null,
-      website: safeWebsite(t.website || t['contact:website']), representedCountry: /^[A-Z]{2}$/.test(t.country || '') ? t.country : null,
+      website: safeWebsite(t.website || t['contact:website']), representedCountry: typeof t.country === 'string' && /^[A-Za-z]{2}$/.test(t.country) ? t.country.toUpperCase() : null,
       sourceUrl: `https://www.openstreetmap.org/${id}`, fetchedAt }];
   });
 }

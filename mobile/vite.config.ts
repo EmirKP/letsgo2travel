@@ -17,7 +17,7 @@ const artifactIdentity = { ...releaseManifest, sourceCommit:commitId, builtAt:ne
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, rootDir, "");
   const publicConfig = resolveMobilePublicConfig(env, { production: command === "build" });
-  // Only the two stateless assistant endpoints can use a separate test host.
+  // Only the public-data assistant endpoints can use a separate test host.
   // Browser development keeps them same-origin through this dedicated proxy.
   const travelProxyPrefix = "/__travel-assistant";
 

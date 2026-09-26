@@ -71,8 +71,8 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yakınındaki hava durumuna göre anlık seyahat önerileri sunmak için yaklaşık konumun kullanılır; konumun kaydedilmez.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Profil fotoğrafını seçebilmen için fotoğraf seçici açılır. Yalnız seçtiğin görsel yüklenir.</string>
+	<string>Profil fotoğrafı seçmek veya bir gezi fotoğrafını rehberde yorumlatmak için fotoğraf seçici açılır. Yalnız seçtiğin ve göndermeyi onayladığın görsel yüklenir.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>İstersen profil fotoğrafını çekebilmen için kamera kullanılır.</string>
+	<string>Profil fotoğrafı çekmek veya seçtiğin gezi fotoğrafını rehberde yorumlatmak için kamera kullanılır.</string>
 </dict>
 </plist>

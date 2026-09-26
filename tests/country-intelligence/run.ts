@@ -263,6 +263,8 @@ test("Turkish inflected headlines appear in the correct news filters", () => {
   assert.equal(newsTopic("İngiltere'de demiryolu grevinin etkileri"), "transport");
   assert.equal(newsTopic("Gazze'de saldırısında yaralananlar var"), "security");
   assert.equal(newsTopic("Yunanistan yangınları için uyarı"), "weather");
+  assert.equal(newsTopic("Güneybatı kesimler için gök gürültülü sağanak uyarısı"), "weather");
+  assert.equal(newsTopic("Yağışların ulaşımı etkilemesi bekleniyor"), "weather");
   assert.equal(newsTopic("İsveç seçimlerine hazırlanıyor"), "elections");
 });
 test("avatars reject active formats, external URLs and oversized data",()=>{

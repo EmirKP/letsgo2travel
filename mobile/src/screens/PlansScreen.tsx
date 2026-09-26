@@ -182,7 +182,7 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
       /> : <button className={`trips-collaboration-entry${inviteCode ? " has-invite" : ""}`} type="button" onClick={onOpenAccount}><span><Icon name="users" size={24} /></span><div><small>{inviteCode ? copy("DAVETİN HAZIR", "YOUR INVITE IS READY") : copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><strong>{inviteCode ? copy("Katılmak için hesabına giriş yap", "Sign in to join the trip") : copy("Arkadaşlarınla aynı seyahate katıl", "Join the same trip with friends")}</strong><p>{inviteCode ? copy("Giriş yaptıktan sonra davet otomatik açılacak; kodu yeniden girmeyeceksin.", "Your invitation will open automatically after sign-in—no need to enter the code again.") : copy("Davet bağlantısı, oylama ve ortak masraflar için giriş yap.", "Sign in for invitations, voting and shared expenses.")}</p></div><Icon name="chevron" size={17} /></button>}
 
       <Suspense fallback={<section className="journey-tools-loading" role="status" aria-live="polite"><span className="button-loader dark" /><div><strong>{copy("Seyahat araçların hazırlanıyor", "Preparing your travel tools")}</strong><small>{copy("Yalnız gerekli bölüm yükleniyor.", "Only the required section is loading.")}</small></div></section>}>
-        <JourneyToolsHub initialTool={initialTool} user={user} ownerId={ownerId} accessToken={accessToken} onNavigate={onNavigate} onNotice={onNotice} />
+        <JourneyToolsHub onOpenAccount={onOpenAccount} initialTool={initialTool} user={user} ownerId={ownerId} accessToken={accessToken} onNavigate={onNavigate} onNotice={onNotice} />
       </Suspense>
 
       <div className="trips-overview">

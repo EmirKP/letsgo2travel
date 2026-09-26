@@ -1,11 +1,12 @@
 export type Text = { tr: string; en: string };
-export type Evidence = { sourceUrl: string; verifiedAt: string };
-export type EmergencyCategory = 'general' | 'police' | 'ambulance' | 'fire' | 'tourist-police' | 'coastguard';
+export type Evidence = { sourceUrl: string; verifiedAt: string; reviewAfter?: string; validUntil?: string };
+export type EmergencyCategory = 'general' | 'police' | 'ambulance' | 'fire' | 'tourist-police' | 'coastguard' | 'gendarmerie';
 export type EmergencyContact = Evidence & { country: string; category: EmergencyCategory; number: string; note?: Text };
 export type Embassy = Evidence & {
   id: string; representedCountry: string; hostCountry: string; city: string; name: Text;
   address: string; phone: string; emergencyPhone: string | null; hours: Text | null;
   latitude: number | null; longitude: number | null;
+  note?: Text; emergencyChannel?: 'phone' | 'whatsapp';
 };
 export type GuideCard = Evidence & {
   country: string; category: 'water' | 'tax-free' | 'hours' | 'law' | 'culture';
@@ -19,7 +20,7 @@ export type Place = Coordinates & {
   hours: string | null; free: boolean | null; accessible: boolean | null; website: string | null;
   representedCountry: string | null; sourceUrl: string; fetchedAt: string;
 };
-export type PlacesResult = { places: Place[]; center: Coordinates; fetchedAt: string; limited: boolean; radius: number };
+export type PlacesResult = { places: Place[]; center: Coordinates; fetchedAt: string; limited: boolean; radius: number; stale?: boolean };
 export type FxQuote = {
   base: string; quote: string; rate: number; date: string; previousRate: number | null;
   previousDate: string | null; changePercent: number | null; sourceUrl: string; fetchedAt: string;

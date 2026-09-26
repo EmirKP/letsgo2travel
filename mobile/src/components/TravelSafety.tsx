@@ -6,14 +6,25 @@ import { useI18n } from '../lib/i18n';
 import { openExternal, shareContent } from '../lib/native';
 import { directionsUrl, locateForTravel } from '../lib/travelAssistant';
 import { Icon } from './Icon';
+import { evidenceStatus } from '../../../lib/travel-assistant/evidence';
+import { useCurrentTime } from '../hooks/useCurrentTime';
 
 export function EvidenceLine({ item }: { item: Evidence }) {
   const { copy } = useI18n();
-  return <small className="ta-evidence"><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => { e.preventDefault(); void openExternal(item.sourceUrl); }}>{copy('Resmî kaynak', 'Official source')}</a> · {copy('Kontrol', 'Checked')}: {item.verifiedAt}</small>;
+  const now = useCurrentTime();
+  const status = evidenceStatus(item, new Date(now));
+  return <div className="ta-evidence">
+    {status !== 'checked' && <p className="ta-warning" role="status">{status === 'expired'
+      ? copy('Bu kaydın geçerlilik süresi doldu. Güncel koşulları resmî kaynaktan kontrol et.', 'This record has expired. Check current conditions with the official source.')
+      : status === 'review-due'
+        ? copy('Bu bilgi için yeniden kontrol zamanı geldi. Kullanmadan önce resmî kaynağı doğrula.', 'This information is due for review. Verify the official source before use.')
+        : copy('Bu kaydın kontrol tarihi doğrulanamıyor. Resmî kaynağa başvur.', 'The verification date cannot be confirmed. Consult the official source.')}</p>}
+    <small><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => { e.preventDefault(); void openExternal(item.sourceUrl); }}>{copy('Resmî kaynak', 'Official source')}</a> · {copy('Kontrol', 'Checked')}: {item.verifiedAt}</small>
+  </div>;
 }
 const serviceLabels: Record<EmergencyCategory, [string,string]> = {
   general:['Genel acil','Emergency'], police:['Polis','Police'], ambulance:['Ambulans','Ambulance'], fire:['İtfaiye','Fire'],
-  'tourist-police':['Turist polisi','Tourist police'], coastguard:['Sahil güvenlik','Coastguard'],
+  'tourist-police':['Turist polisi','Tourist police'], coastguard:['Sahil güvenlik','Coastguard'], gendarmerie:['Jandarma','Gendarmerie'],
 };
 export function TravelSafety({ country, onOpen, onNotice }: {
   country: string; onOpen: (tool: 'needs'|'embassies'|'phrases') => void; onNotice: (message:string) => void;
@@ -52,8 +63,10 @@ export function EmbassyCards({ country, citizenship }: {country:string; citizens
   return <section className="ta-panel"><h3>{copy('Konsolosluk ve büyükelçilik', 'Consulates and embassies')}</h3>
     <p className="ta-muted">{copy('Kayıtlı kartlar çevrimdışı açılır. Bu liste tüm temsilcilikleri kapsamaz; konsolosluk işlemi için yetki alanını ve randevuyu doğrula.', 'Saved cards open offline. This list is not exhaustive; confirm jurisdiction and appointments for consular services.')}</p>
     {!rows.length && <p className="ta-empty" role="status">{copy('Seçtiğin vatandaşlık ve ülke için doğrulanmış çevrimdışı kart henüz yok.', 'No verified offline card for this citizenship and destination yet.')}</p>}
-    {rows.map(e => <article className="ta-card" key={e.id}><h4>{e.name[locale]}</h4><p>{e.address}</p><p>{e.hours?.[locale] || copy('Çalışma saatleri doğrulanmadı; resmî sayfaya bak.', 'Hours not verified; check the official page.')}</p>
-      <div className="ta-actions"><a href={dialUrl(e.phone) || undefined}>{copy('Telefon','Phone')}: {e.phone}</a>{e.emergencyPhone && <a href={dialUrl(e.emergencyPhone) || undefined}>{copy('Acil telefon','Emergency phone')}: {e.emergencyPhone}</a>}
+    {rows.map(e => <article className="ta-card" key={e.id}><h4>{e.name[locale]}</h4>{e.note && <p className="ta-warning">{e.note[locale]}</p>}<p>{e.address}</p><p>{e.hours?.[locale] || copy('Çalışma saatleri doğrulanmadı; resmî sayfaya bak.', 'Hours not verified; check the official page.')}</p>
+      <div className="ta-actions"><a href={dialUrl(e.phone) || undefined}>{copy('Telefon','Phone')}: {e.phone}</a>{e.emergencyPhone && (e.emergencyChannel === 'whatsapp'
+        ? <button type="button" onClick={() => void openExternal(`https://wa.me/${e.emergencyPhone!.replace(/^\+/, '')}`)}>{copy('Acil WhatsApp','Emergency WhatsApp')}: {e.emergencyPhone}</button>
+        : <a href={dialUrl(e.emergencyPhone) || undefined}>{copy('Acil telefon','Emergency phone')}: {e.emergencyPhone}</a>)}
       <button type="button" onClick={() => void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.address)}`)}>{copy('Haritada göster','Show on map')}</button>
       <button type="button" onClick={() => void openExternal(directionsUrl(e.address))}>{copy('Yol tarifi','Directions')}</button></div>
       {!e.emergencyPhone && <small>{copy('Ayrı acil telefon doğrulanmadı.', 'Separate emergency phone not verified.')}</small>}<EvidenceLine item={e}/></article>)}

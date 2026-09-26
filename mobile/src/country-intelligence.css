@@ -97,3 +97,5 @@
 .ci-details { padding-top:8px; }
 .ci-content button:focus-visible,.ci-content input:focus-visible,.ci-content select:focus-visible,.ci-content summary:focus-visible,.ci-inline-advice button:focus-visible { outline:2px solid #1276ce; outline-offset:3px; }
 @media(max-width:359px) { .ci-cost-row { grid-template-columns:24px minmax(0,1fr) auto; gap:7px; }.ci-cost-row > svg {display:none}.ci-cost-place strong {font-size:12px}.ci-cost-price strong {font-size:12px}.ci-fields {gap:14px 9px}.ci-heading {flex-wrap:wrap}.ci-heading select {max-width:100%}.ci-segments button {font-size:11px}.ci-content .country-picker-trigger strong {font-size:14px} }
+
+.ci-news-search{display:flex;flex-direction:column;gap:8px;margin:16px 0;font-size:14px}.ci-news-search input{box-sizing:border-box;width:100%;min-height:48px;border:1px solid #cbd8e8;border-radius:12px;padding:12px;font:inherit;font-size:16px;background:#fff;color:#142b43}

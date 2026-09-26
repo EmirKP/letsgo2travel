@@ -112,6 +112,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
         { type: "list", items: [
           "Üyelik bilgileri, e-posta adresi, ad, kullanıcı adı ve hesap kimliği",
           "Kullanıcının seçip yüklemeyi onayladığı profil fotoğrafı",
+          "Fotoğraftan rehber için ayrıca onaylanarak gönderilen görsel; analiz kotası için hesap kimliği ve günlük kullanım sayısı",
           "Kaydedilen rota arama tercihleri, rota sonuçları, seyahat planları ve kontrol listeleri",
           "Seyahat günlüğü notları ve kullanıcının kendi bildirdiği ziyaret edilmiş ülke ve yer bilgileri",
           "Topluluk soruları, yanıtları, yararlı oyları, içerik şikâyetleri ve engelleme kayıtları",
@@ -155,7 +156,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
       heading: "4. Üçüncü Taraf Hizmetler",
       blocks: [
         { type: "p", text: "Platform; sunucu barındırma için Vercel, hesap ve veri depolama için Supabase, uygulamanın işlem e-postaları için Resend ve iOS bildirimlerinin iletimi için Apple hizmetlerinden yararlanır." },
-        { type: "p", text: "Yapay zekâ ile rota üretimi etkin olduğunda, rota formundaki seyahat tercihleri öneri oluşturulması için Google Gemini hizmetine gönderilir. Hava durumu isteğinde yaklaşık konum Open-Meteo hizmetine iletilir. Bu sağlayıcıların işlemleri ve saklama koşulları kendi hizmet koşulları ve gizlilik politikalarına da tabidir." },
+        { type: "p", text: "Yapay zekâ ile rota üretimi etkin olduğunda, rota formundaki seyahat tercihleri öneri oluşturulması için Google Gemini hizmetine gönderilir. Fotoğraftan rehber etkin olduğunda, ayrıca onayladığın görsel konum metaverileri çıkarılarak Google Gemini hizmetine iletilir. Görsel ve analiz yanıtı uygulama hesabına veya veritabanına kaydedilmez; sağlayıcının kendi işleme ve saklama koşulları geçerlidir. Günlük analiz kotası için hesap kimliği ve kullanım sayısı tutulur. İki günden eski kota kayıtları sonraki kullanımda, hesaba bağlı kota kayıtları ise hesap silindiğinde temizlenir. Çevrimdışı çeviri metni cihazda işlenir; ilk dil paketi indirmesi internet gerektirir. Açıkça indirdiğin sokak haritası bölgesi cihazında saklanır ve uygulamadan silinebilir. Toplu taşıma aramalarında seçtiğin duraklar Transport for London hizmetine iletilir. Hava durumu isteğinde yaklaşık konum Open-Meteo hizmetine iletilir. Bu sağlayıcıların işlemleri ve saklama koşulları kendi hizmet koşulları ve gizlilik politikalarına da tabidir." },
         { type: "p", text: "Harita, rezervasyon veya seyahat ortağı bağlantısını açtığınızda ilgili hizmetin sayfasına geçersiniz. Bu hizmetlerde paylaştığınız bilgilere ilgili sağlayıcının politikası uygulanır. Web sitesindeki seyahat ortağı yönlendirmeleri tıklama ve teknik işlem kayıtları oluşturabilir." },
         { type: "p", text: "Mevcut mobil uygulama reklam kimliğiyle uygulamalar arası hedefli reklam takibi yapmaz. Bildirim ve Live Activity tanımlayıcıları, bildirimi ilgili cihaz ve seyahatle eşleştirmek için kullanılır." },
       ],

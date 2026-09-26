@@ -1,7 +1,8 @@
 import { requestJson } from './api';
 import { config } from './config';
 import { coarseLocation, coordinates } from '../../../lib/travel-assistant/places';
-import type { Coordinates, FxQuote, MapMode, PlacesResult } from '../../../lib/travel-assistant/types';
+import type { Coordinates, FxQuote } from '../../../lib/travel-assistant/types';
+import { createPlacesLoader, validateQuote } from '../../../lib/travel-assistant/responses';
 
 export function locateForTravel(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {
@@ -13,21 +14,26 @@ export function locateForTravel(): Promise<Coordinates> {
     { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
   });
 }
-export function loadPlaces(center: Coordinates, mode: MapMode) {
-  return requestJson<PlacesResult>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...coarseLocation(center), mode }, timeoutMs: 20000 });
-}
+export const loadPlaces = createPlacesLoader((center, mode) =>
+  requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...center, mode }, timeoutMs: 20000 }));
 const FX_KEY = 'l2t:assistant:fx:v1';
 function readQuotes(): FxQuote[] {
   try {
     const data = JSON.parse(localStorage.getItem(FX_KEY) || '[]');
-    return Array.isArray(data) ? data.filter(q => q && Number.isFinite(q.rate) && q.rate > 0 && typeof q.base === 'string' && typeof q.quote === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(q.date)).slice(0,32) : [];
+    if (!Array.isArray(data)) return [];
+    return data.slice(0,32).flatMap(q => {
+      const value = validateQuote(q, q?.base, q?.quote);
+      return value ? [value] : [];
+    });
   } catch { return []; }
 }
 export function storedQuote(base: string, quote: string) {
   return readQuotes().find(q => q.base === base && q.quote === quote) || null;
 }
 export async function loadQuote(base: string, quote: string) {
-  const value = await requestJson<FxQuote>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/rates?${new URLSearchParams({base,quote})}`, { timeoutMs: 12000 });
+  const raw = await requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/rates?${new URLSearchParams({base,quote})}`, { timeoutMs: 12000 });
+  const value = validateQuote(raw, base, quote);
+  if (!value) throw new Error('Invalid exchange rate');
   try { localStorage.setItem(FX_KEY, JSON.stringify([value, ...readQuotes().filter(q => q.base !== base || q.quote !== quote)].slice(0,32))); } catch { /* A full device must not hide an online quote. */ }
   return value;
 }

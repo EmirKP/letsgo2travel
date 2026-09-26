@@ -1,8 +1,12 @@
-import type { Embassy, GuideCard } from './types';
+import type { GuideCard } from './types';
+import { EMBASSIES } from './embassies';
+import { EXPANDED_GUIDES } from './guide-expansion';
+export { EMBASSIES } from './embassies';
 
 // Bundled, versioned records: missing coverage is never inferred from neighbours.
 export const GUIDE_VERSION = '2026-09-16';
 export const GUIDE_CARDS: GuideCard[] = [
+  ...EXPANDED_GUIDES,
   { country:'TH', category:'law', verifiedAt:GUIDE_VERSION,
     sourceUrl:'https://www.gov.uk/foreign-travel-advice/thailand/safety-and-security',
     title:{tr:'Kraliyetle ilgili ifadeler',en:'Comments about the monarchy'},
@@ -61,22 +65,6 @@ export const GUIDE_CARDS: GuideCard[] = [
     text: { tr: 'Pasaportunu veya Japonya oturum kartını yanında taşı. Bu bir kültürel tavsiye değil, yasal yükümlülüktür.', en: 'Carry your passport or Japanese residence card. This is a legal requirement, not a cultural suggestion.' } },
 ];
 
-export const EMBASSIES: Embassy[] = [
-  { id: 'tr-berlin', representedCountry: 'TR', hostCountry: 'DE', city: 'Berlin',
-    name: { tr: 'Türkiye Berlin Büyükelçiliği', en: 'Embassy of Türkiye in Berlin' },
-    address: 'Tiergartenstr. 19–21, 10785 Berlin, Germany', phone: '+4930275850', emergencyPhone: '+491775773429',
-    hours: { tr: 'Pzt–Cum 08.45–12.45 / 13.45–17.45; randevu ve tatilleri doğrula.', en: 'Mon–Fri 08:45–12:45 / 13:45–17:45; confirm appointments and holidays.' },
-    latitude: null, longitude: null, sourceUrl: 'https://berlin-be.mfa.gov.tr/Mission/Contact', verifiedAt: GUIDE_VERSION },
-  { id: 'tr-tokyo', representedCountry: 'TR', hostCountry: 'JP', city: 'Tokyo',
-    name: { tr: 'Türkiye Tokyo Büyükelçiliği', en: 'Embassy of Türkiye in Tokyo' },
-    address: '2-33-6 Jingumae, Shibuya-ku, Tokyo 150-0001, Japan', phone: '+81364395700', emergencyPhone: null,
-    hours: { tr: 'Konsolosluk başvuruları 09.00–12.00 / 13.00–16.00; açık gün ve randevuyu doğrula.', en: 'Consular applications 09:00–12:00 / 13:00–16:00; confirm days and appointments.' },
-    latitude: null, longitude: null, sourceUrl: 'https://tokyo-be.mfa.gov.tr/Mission/Contact', verifiedAt: GUIDE_VERSION },
-  { id: 'tr-london', representedCountry: 'TR', hostCountry: 'GB', city: 'London',
-    name: { tr: 'Türkiye Londra Büyükelçiliği', en: 'Embassy of Türkiye in London' },
-    address: '43 Belgrave Square, London SW1X 8PA, United Kingdom', phone: '+442073930202', emergencyPhone: null,
-    hours: null, latitude: null, longitude: null, sourceUrl: 'https://london-emb.mfa.gov.tr/Mission/Contact', verifiedAt: GUIDE_VERSION },
-];
 export const MISSION_DIRECTORIES: Record<string, string> = {
   TR: 'https://www.mfa.gov.tr/yurtdisi-teskilati.tr.mfa',
   GB: 'https://www.gov.uk/world/embassies',
@@ -84,5 +72,5 @@ export const MISSION_DIRECTORIES: Record<string, string> = {
   DE: 'https://www.auswaertiges-amt.de/en/about-us/auslandsvertretungen',
 };
 export function embassiesFor(represented: string, host: string) {
-  return EMBASSIES.filter(e => e.representedCountry === represented && e.hostCountry === host);
+  return EMBASSIES.filter(e => e.representedCountry === represented.trim().toUpperCase() && e.hostCountry === host.trim().toUpperCase());
 }

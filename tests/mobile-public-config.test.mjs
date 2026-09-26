@@ -196,7 +196,12 @@ test("assistant requests: optional host changes only public routes and carries n
             if (id === "./api" && importer?.replaceAll("\\", "/") === assistantFile) return "virtual:assistant-request-spy";
           },
           load(id) {
-            if (id === "virtual:assistant-request-spy") return "export async function requestJson(path, options) { globalThis.travelCalls.push({path, options}); return {base:'EUR',quote:'TRY',rate:1}; }";
+            if (id === "virtual:assistant-request-spy") return `export async function requestJson(path, options) {
+              globalThis.travelCalls.push({path, options});
+              const fetchedAt = new Date().toISOString();
+              if (options?.method === 'POST') return {places:[],center:{latitude:options.body.latitude,longitude:options.body.longitude},fetchedAt,limited:false,radius:3000};
+              return {base:'EUR',quote:'TRY',rate:1,date:fetchedAt.slice(0,10),previousRate:null,previousDate:null,changePercent:null,fetchedAt,sourceUrl:'https://frankfurter.dev/'};
+            }`;
             if (id === "virtual:assistant-routing-fixture") return `import { loadPlaces, loadQuote } from ${JSON.stringify(assistantFile)}; globalThis.travelReady = (async () => { await loadPlaces({latitude:52.523,longitude:13.405},'needs'); await loadQuote('EUR','TRY'); })();`;
           },
         }],

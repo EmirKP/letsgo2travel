@@ -24,7 +24,7 @@ export function newsTopic(title: string): NewsItem["topic"] {
   const has = (terms: string) => new RegExp(`(^|[^\\p{L}])(${terms})([^\\p{L}]|$)`, "iu").test(title);
   if (has("elections?|ballots?|polling|seçim\\p{L}*|sandık\\p{L}*")) return "elections";
   if (has("airports?|airspace|flights?|rail|strikes?|uçuş\\p{L}*|havaliman\\p{L}*|havaalan\\p{L}*|hava sahası|grev\\p{L}*")) return "transport";
-  if (has("floods?|flooding|storms?|earthquakes?|wildfires?|sel|deprem\\p{L}*|fırtına\\p{L}*|yangın\\p{L}*")) return "weather";
+  if (has("floods?|flooding|storms?|earthquakes?|wildfires?|sağanak\\p{L}*|yağış\\p{L}*|sel|deprem\\p{L}*|fırtına\\p{L}*|yangın\\p{L}*")) return "weather";
   if (has("conflicts?|attacks?|wars?|protests?|savaş\\p{L}*|saldırı\\p{L}*|çatışma\\p{L}*|protesto\\p{L}*")) return "security";
   return "general";
 }

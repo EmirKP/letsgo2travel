@@ -774,7 +774,7 @@ export default function App() {
     if (activeView === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
     if (activeView === "costs") return <CostsScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (activeView === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
-    if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen initialTab={activeView === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
+    if (activeView === "companion" || activeView === "phrases") return <TravelCompanionScreen key={ownerId || "guest"} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={activeView === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (activeView === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (activeView === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("route"); }} onNotice={showNotice} />;
     if (activeView === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNotice={showNotice} />;

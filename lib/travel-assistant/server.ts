@@ -4,45 +4,12 @@ import { coarseLocation, normalizePlaces, overpassQuery } from './places';
 import { makeQuote } from './money';
 import type { Coordinates, MapMode, PlacesResult } from './types';
 
-let active = 0;
-let windowStart = 0;
-let requests = 0;
-let cooldown = 0;
+import { queryOverpass } from './overpass';
 const pending = new Map<string, Promise<PlacesResult>>();
-
 async function readProvider(center: Coordinates, mode: MapMode): Promise<PlacesResult> {
-  const now = Date.now();
-  if (now - windowStart >= 60_000) { windowStart = now; requests = 0; }
-  if (active >= 2 || requests >= 12 || cooldown > now) throw new Error('Map service busy');
-  const endpoint = new URL(process.env.TRAVEL_OVERPASS_URL || 'https://overpass-api.de/api/interpreter');
-  if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password) throw new Error('Invalid provider configuration');
-  active++; requests++;
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST', body: new URLSearchParams({ data: overpassQuery(center, mode) }),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'LetsGo2Travel/next (+https://www.letsgo2travel.com.tr)' },
-      signal: AbortSignal.timeout(16_000), redirect: 'error', cache: 'no-store',
-    });
-    if (!response.ok || !response.body) throw new Error('Map service unavailable');
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder(); let size = 0; let body = '';
-    try {
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        size += value.byteLength;
-        if (size > 4_000_000) { await reader.cancel(); throw new Error('Map response too large'); }
-        body += decoder.decode(value, { stream: true });
-      }
-      body += decoder.decode();
-    } finally { reader.releaseLock(); }
-    const raw = JSON.parse(body);
-    if (raw.remark) throw new Error('Incomplete map query');
-    const fetchedAt = new Date().toISOString();
-    return { places: normalizePlaces(raw, mode, fetchedAt), center, fetchedAt, limited: raw.elements.length >= 250, radius: 3000 };
-  } catch (error) {
-    cooldown = Date.now() + 60_000;
-    throw error;
-  } finally { active--; }
+  const raw = await queryOverpass(overpassQuery(center, mode)) as { elements: unknown[] };
+  const fetchedAt = new Date().toISOString();
+  return { places: normalizePlaces(raw, mode, fetchedAt), center, fetchedAt, limited: raw.elements.length >= 250, radius: 3000 };
 }
 
 // Persistent Next Data Cache: workers share cached cells on supported hosts.

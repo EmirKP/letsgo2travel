@@ -38,11 +38,12 @@ function tripLabel(trip: SafetyTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNavigate, onNotice }: {
+export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNavigate, onNotice, onOpenAccount }: {
   initialTool?: ToolId;
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
+  onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -169,7 +170,7 @@ export function JourneyToolsHub({ initialTool, user, ownerId, accessToken, onNav
       <div className="journey-sheet-intro safety"><span><Icon name="shield" size={28} /></span><div><small>{copy("ÇEVRİMDIŞI DA YANINDA", "READY OFFLINE")}</small><h3>{copy("Acil durumda önce doğru numara", "The right number in an emergency")}</h3><p>{copy("Hayati tehlikede bulunduğun ülkenin resmî acil hattını ara.", "In immediate danger, call the official local emergency service.")}</p></div></div>
       {trips.length > 0 && <label className="safety-trip-select">{copy("Seyahat seç", "Choose trip")}<select value={safetyTrip?.id || ""} onChange={(event) => { setSafetyTripId(event.target.value); }}>{trips.map((trip) => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}</select></label>}
       <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}>
-        <TravelAssistant key={safetyCode} initialCountry={safetyCode} onNotice={onNotice} onPhrases={country => { selectTravelCountry(country); setActive(null); onNavigate("phrases"); }} />
+        <TravelAssistant accessToken={accessToken} onSignIn={onOpenAccount} key={safetyCode} initialCountry={safetyCode} onNotice={onNotice} onPhrases={country => { selectTravelCountry(country); setActive(null); onNavigate("phrases"); }} />
       </Suspense>
     </Sheet>
 
