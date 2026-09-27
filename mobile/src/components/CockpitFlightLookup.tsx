@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { FlightMatch } from "../../../lib/flight-lookup";
-import { validTimeZone, zonedParts } from "../../../lib/zoned-time";
+import { activeFlightExpiry, parseFlightSelection, type FlightSelection } from "../lib/flightSelection";
 import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
 import { localIsoDate } from "../lib/dates";
@@ -10,28 +9,15 @@ import { Icon } from "./Icon";
 import "./cockpit-flight-lookup.css";
 
 type Props = { accessToken: string; flightNumber: string; date: string;
-  onQueryChange: (number: string, date: string) => void; onSelect: (flight: FlightMatch) => void; onManual: () => void };
+  onQueryChange: (number: string, date: string) => void; onSelect: (flight: FlightSelection) => void; onManual: () => void };
 
-function validFlightResult(value: unknown, number: string, date: string): value is FlightMatch {
-  if (!value || typeof value !== "object") return false;
-  const f = value as FlightMatch;
-  const shortText = (text: unknown, max: number) => typeof text === "string" && text.length > 0 && text.length <= max;
-  if (!shortText(f.id, 180) || f.flightNumber !== number || f.departureDate !== date || f.source !== "AeroDataBox" || typeof f.airline !== "string" || f.airline.length > 80) return false;
-  for (const airport of [f.origin, f.destination]) {
-    if (!airport || typeof airport !== "object" || !/^[A-Z]{3}$/.test(airport.iata) || !/^[A-Z]{2}$/.test(airport.countryCode)
-      || !shortText(airport.name, 180) || !shortText(airport.city, 100) || !shortText(airport.country, 100) || !validTimeZone(airport.timeZone)) return false;
-  }
-  const departure = Date.parse(f.departureAt), arrival = Date.parse(f.arrivalAt), fetched = Date.parse(f.fetchedAt);
-  if (!Number.isFinite(departure) || !Number.isFinite(arrival) || !Number.isFinite(fetched) || arrival <= departure || f.origin.iata === f.destination.iata) return false;
-  const dep = zonedParts(departure, f.origin.timeZone), arr = zonedParts(arrival, f.destination.timeZone);
-  return dep.date === f.departureDate && dep.time.slice(0, 5) === f.departureTime && arr.date === f.arrivalDate && arr.time.slice(0, 5) === f.arrivalTime;
-}
 export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryChange, onSelect, onManual }: Props) {
   const { copy, locale } = useI18n();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(0);
+  const [mode, setMode] = useState<"trial" | "commercial">("trial");
   const [busy, setBusy] = useState(false);
-  const [flights, setFlights] = useState<FlightMatch[]>([]);
+  const [flights, setFlights] = useState<FlightSelection[]>([]);
   const [message, setMessage] = useState("");
   const generation = useRef(0);
   const pending = useRef<AbortController | null>(null);
@@ -41,13 +27,15 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
     let active = true;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
-    void fetch(endpoint, { signal: controller.signal, cache: "no-store" })
-      .then(async response => response.ok && (await response.json()).available === true)
-      .then(value => { if (active) setAvailable(value); })
+    setAvailable(null);
+    if (!accessToken) { setAvailable(false); return () => { clearTimeout(timer); controller.abort(); }; }
+    void fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}`, "X-Flight-Lookup-Version": "2" }, signal: controller.signal, cache: "no-store" })
+      .then(async response => response.ok ? response.json() : null)
+      .then(value => { if (active) { setAvailable(value?.protocol === 2 && value.available === true && ["trial", "commercial"].includes(value.mode)); setMode(value?.mode === "commercial" ? "commercial" : "trial"); } })
       .catch(() => { if (active) setAvailable(false); })
       .finally(() => clearTimeout(timer));
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [endpoint, checking]);
+  }, [endpoint, checking, accessToken]);
 
   useLayoutEffect(() => {
     generation.current++;
@@ -65,7 +53,7 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
     const timer = setTimeout(() => controller.abort(), 22000);
     setBusy(true); setFlights([]); setMessage("");
     try {
-      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "X-Flight-Lookup-Version": "2" },
         body: JSON.stringify({ flightNumber, date }), signal: controller.signal, cache: "no-store" });
       const body = await response.json();
       if (id !== generation.current) return;
@@ -76,13 +64,31 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
           : copy("Uçuş bilgisi şu anda alınamıyor. Elle devam edebilirsin.", "Flight information is unavailable right now. You can continue manually."));
         return;
       }
-      if (!Array.isArray(body.flights) || body.flights.length > 12 || !body.flights.every((flight: unknown) => validFlightResult(flight, flightNumber, date))) throw new Error("invalid-response");
-      setFlights(body.flights);
-      if (!body.flights.length) setMessage(copy("Bu numara ve tarihte eksiksiz uçuş bilgisi bulunamadı. Tarihi kontrol et veya elle devam et.", "No complete flight details were found for this number and date. Check the date or continue manually."));
+      if (body.protocol !== 2 || !Array.isArray(body.flights) || body.flights.length > 12) throw new Error("invalid-response");
+      const parsed = body.flights.map((flight: unknown) => parseFlightSelection(flight, flightNumber, date));
+      if (parsed.some((flight: FlightSelection | null) => !flight || mode === "trial" && flight.maySave)) throw new Error("invalid-response");
+      setFlights(parsed as FlightSelection[]);
+      if (!parsed.length) {
+        const messages: Record<string, string> = {
+          "past-departure": copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi kontrol et.", "The scheduled departure time has passed. Check the date on your ticket."),
+          incomplete: copy("Bu uçuşun bazı rota veya saat bilgileri eksik. Biletindeki bilgilerle elle devam edebilirsin.", "Some route or time details are missing. You can enter the details from your ticket manually."),
+          "not-found": copy("Bu uçuş numarası ve tarihte kayıt bulunamadı. Numara ve kalkış tarihini kontrol et.", "No flight was found for this number and date. Check the flight number and departure date."),
+          "status-unavailable": copy("Bu uçuş için otomatik eklemeye uygun bilgi bulunamadı. Biletindeki bilgileri kontrol ederek elle devam et.", "This flight cannot be added automatically with the available information. Check your ticket and continue manually."),
+        };
+        setMessage(messages[body.reason] || messages.incomplete);
+      }
     } catch {
       if (id === generation.current) setMessage(copy("Bağlantı kurulamadı veya arama zaman aşımına uğradı. Tekrar dene ya da elle devam et.", "The connection failed or the search timed out. Retry or continue manually."));
     } finally { clearTimeout(timer); if (pending.current === controller) pending.current = null; if (id === generation.current) setBusy(false); }
   }
+
+  useEffect(() => {
+    const expire = () => setFlights(current => current.filter(flight => activeFlightExpiry(flight.expiresAt, flight.fetchedAt)));
+    const next = Math.min(...flights.map(flight => Date.parse(flight.expiresAt)));
+    const timer = Number.isFinite(next) ? setTimeout(expire, Math.max(0, Math.min(next - Date.now(), 2147483647))) : undefined;
+    document.addEventListener("visibilitychange", expire);
+    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", expire); };
+  }, [flights]);
 
   return <section className="cockpit-flight-lookup" aria-label={copy("Uçuşunu bul", "Find your flight")}>
     <header><span className="flight-lookup-icon"><Icon name="plane" size={22}/></span><div><h3>{copy("Biletinden kokpitine", "From ticket to cockpit")}</h3><p>{copy("Uçuş numaran ve kalkış gününle başla.", "Start with your flight number and departure day.")}</p></div></header>
@@ -93,13 +99,19 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
     <p className="form-hint">{copy("Biletteki uçuş numarasını kullan; PNR rezervasyon kodudur. Tarih, kalkış havalimanının yerel günüdür.", "Use the flight number on your ticket; PNR is your booking reference. The date is local to the departure airport.")}</p>
     {available === true ? <button type="button" className="primary-wide" disabled={busy || !flightNumber || !date} onClick={() => void search()}>{busy ? <span className="button-loader"/> : <Icon name="search" size={18}/>} {busy ? copy("Uçuş aranıyor…", "Finding flight…") : copy("Uçuş bilgilerini getir", "Find flight details")}</button>
       : <div className="flight-lookup-availability" role="status"><p>{available === null ? copy("Uçuş arama kontrol ediliyor…", "Checking flight search…") : copy("Otomatik uçuş bilgisi henüz kullanıma açık değil. Biletindeki bilgilerle devam edebilirsin.", "Automatic flight details are not available yet. You can continue with the details on your ticket.")}</p>{available === false && <button type="button" onClick={() => { setAvailable(null); setChecking(value => value + 1); }}>{copy("Tekrar kontrol et", "Check again")}</button>}</div>}
+    {available && mode === "trial" && <p className="form-hint">{copy("Deneme uçuşu; şu an kokpite kaydedilmez.", "Trial flight preview; it cannot be saved to Cockpit yet.")}</p>}
     {message && <p className="flight-lookup-message" role="status">{message}</p>}
-    {flights.length > 0 && <div className="flight-lookup-results"><p>{copy("Biletindeki rotayı seç. Saatler havalimanlarının yerel saatidir.", "Choose the route on your ticket. Times are local to each airport.")}</p>{flights.map(flight => <button className="flight-lookup-result" type="button" key={flight.id} onClick={() => { onSelect(flight); setFlights([]); setMessage(""); }}>
+    {flights.length > 0 && <div className="flight-lookup-results"><p>{copy("Biletindeki rotayı seç. Saatler havalimanlarının yerel saatidir.", "Choose the route on your ticket. Times are local to each airport.")}</p>{flights.map(flight => <button className="flight-lookup-result" type="button" key={flight.id} onClick={() => {
+      if (!activeFlightExpiry(flight.expiresAt, flight.fetchedAt)) { setFlights([]); setMessage(copy("Uçuş bilgisinin süresi doldu. Yeniden ara.", "Flight details have expired. Search again.")); return; }
+      if (Date.parse(flight.departureAt) <= Date.now()) { setFlights([]); setMessage(copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi kontrol et.", "The scheduled departure time has passed. Check the date on your ticket.")); return; }
+      onSelect(flight); setFlights([]); setMessage("");
+    }}>
       <span><strong>{flight.origin.iata} <span aria-hidden="true">→</span> {flight.destination.iata}</strong><b>{flight.flightNumber}</b></span>
       <span>{flight.origin.city} → {flight.destination.city}</span>
       <span>{flight.departureDate} · {flight.departureTime} → {flight.arrivalDate} · {flight.arrivalTime}</span>
       <small>{flight.airline} · {copy("Planlanan saatler", "Scheduled times")} · AeroDataBox</small>
     </button>)}</div>}
+    {flights.length > 0 && <a href="https://aerodatabox.com/" target="_blank" rel="noopener">{copy("Uçuş verisi: AeroDataBox", "Flight data: AeroDataBox")}</a>}
     <button className="flight-manual-button" type="button" onClick={() => { generation.current++; pending.current?.abort(); pending.current = null; setBusy(false); setFlights([]); setMessage(""); onManual(); }}>{copy("Bilgileri kendim gireceğim", "I'll enter the details myself")}</button>
   </section>;
 }

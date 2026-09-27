@@ -560,7 +560,15 @@ test("liveActivity: iptal/tamamlandı durumu aktif uçuşu yeniden başlatmaz", 
 
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const statusHandler = cockpit.slice(cockpit.indexOf("const changeStatus"), cockpit.indexOf("const persistChecklist"));
-  assert.ok(cockpit.includes("listCockpitTrips(session.userId, session.accessToken, true)"), "iptal edilen seyahat yeniden açılabilmeli");
+  assert.match(cockpit, /listCockpitTrips\(session\.userId,\s*session\.accessToken,\s*true,\s*true\)/, "iptal edilen seyahat yeniden açılabilmeli; süreli ayrıntılar yalnız kokpit için istenmeli");
+  const reminderProjection = cockpit.slice(cockpit.indexOf("function reminderTrips"), cockpit.indexOf("function replaceTrip"));
+  for (const field of ["departureAt", "arrivalAt", "originIata", "destinationIata"]) {
+    assert.match(reminderProjection, new RegExp(`${field}:\\s*trip\\.flightLookupManaged\\s*\\?\\s*null\\s*:`), "sağlayıcı alanları cihaz hatırlatmalarına aktarılmamalı");
+  }
+  assert.ok(!reminderProjection.includes("providerFlight"), "geçici sağlayıcı görünümü hatırlatma verisi olmamalı");
+  const managedReminder = { ...activeFlight, departureAt: null, arrivalAt: null };
+  assert.equal(activitySyncAction(managedReminder, now), "end", "sağlayıcı kaydı cihazda yeni aktivite başlatmamalı");
+  assert.deepEqual(plannedReminders([managedReminder], now), [], "sağlayıcı kaydı yerel bildirim oluşturmamalı");
   assert.ok(statusHandler.includes("syncRemindersForSession(session, next)"), "durum değişimi cihaz hatırlatmalarını hemen eşitlemeli");
 });
 

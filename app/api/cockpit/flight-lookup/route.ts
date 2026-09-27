@@ -1,41 +1,40 @@
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { boundedWait } from "@/lib/bounded-wait";
 import { boundedJson } from "@/lib/travel-assistant/http";
-import { flightLookupInput, normalizeFlightMatches } from "@/lib/flight-lookup";
+import { flightLookupInput, inspectFlightMatches } from "@/lib/flight-lookup";
+import { buildFlightProviderRequest } from "@/lib/flight-provider";
+import { flightLookupAllowed, flightLookupSettings, supportsFlightLookupV2, FLIGHT_DATA_LIFETIME_MS } from "@/lib/flight-lookup-access";
+import { issueFlightReceipt } from "@/lib/flight-selection-receipt";
 
 export const runtime = "nodejs";
 export const maxDuration = 25;
-const reply = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
-const monthlyLimit = () => Number(process.env.FLIGHT_LOOKUP_MONTHLY_LIMIT);
-const configured = () => process.env.FLIGHT_LOOKUP_ENABLED === "true" && Boolean(process.env.AERODATABOX_API_KEY?.trim())
-  && Number.isInteger(monthlyLimit()) && monthlyLimit() > 0 && monthlyLimit() <= 10000;
-let readiness: { until: number; available: boolean } | null = null;
-let pending: Promise<boolean> | null = null;
-export async function GET() {
-  if (!configured()) return reply({ available: false });
-  if (!readiness || readiness.until <= Date.now()) {
-    pending ??= (async () => {
-      try {
-        const admin = getSupabaseAdmin();
-        if (!admin) return false;
-        const signal = AbortSignal.timeout(3000);
-        const result = await boundedWait(admin.rpc("consume_flight_lookup_quota", { p_user: null, p_monthly_limit: monthlyLimit() }).abortSignal(signal), signal);
-        return !result.error && result.data === false;
-      } catch { return false; }
-    })();
-    const available = await pending;
-    readiness = { until: Date.now() + (available ? 30000 : 5000), available };
-    pending = null;
-  }
-  return reply({ available: readiness.available });
+const reply = (body: object, status = 200) => Response.json({ protocol: 2, ...body }, { status, headers: { "Cache-Control": "private, no-store" } });
+
+export async function GET(request: Request) {
+  const settings = flightLookupSettings();
+  if (!settings || !supportsFlightLookupV2(request)) return reply({ available: false });
+  try {
+    const auth = await boundedWait(requireAuthenticatedUser(request), AbortSignal.timeout(4000));
+    if (!auth.ok || !flightLookupAllowed(settings, auth.user.id)) return reply({ available: false });
+    const signal = AbortSignal.timeout(3000);
+    const quota = await boundedWait(auth.supabase.rpc("consume_flight_lookup_quota", { p_user: null, p_monthly_limit: settings.limit }).abortSignal(signal), signal);
+    if (quota.error || quota.data !== false) return reply({ available: false });
+    if (settings.mode === "commercial") {
+      const retention = await boundedWait(auth.supabase.rpc("flight_lookup_retention_ready").abortSignal(signal), signal);
+      if (retention.error || retention.data !== true) return reply({ available: false });
+    }
+    return reply({ available: true, mode: settings.mode, maySave: settings.mode === "commercial" });
+  } catch { return reply({ available: false }); }
 }
 
 export async function POST(request: Request) {
-  if (!configured()) return reply({ code: "unavailable" }, 503);
+  const settings = flightLookupSettings();
+  if (!settings) return reply({ code: "unavailable" }, 503);
+  if (!supportsFlightLookupV2(request)) return reply({ code: "update-required" }, 426);
   try {
     const auth = await boundedWait(requireAuthenticatedUser(request), AbortSignal.timeout(4000));
     if (!auth.ok) { auth.response.headers.set("Cache-Control", "private, no-store"); return auth.response; }
+    if (!flightLookupAllowed(settings, auth.user.id)) return reply({ code: "unavailable" }, 403);
     let query;
     try {
       const body = await boundedWait(boundedJson(request, 1024), AbortSignal.timeout(3000)) as Record<string, unknown>;
@@ -43,17 +42,25 @@ export async function POST(request: Request) {
     } catch { return reply({ code: "invalid" }, 400); }
     if (!query) return reply({ code: "invalid" }, 400);
     const quotaSignal = AbortSignal.timeout(3000);
-    const quota = await boundedWait(auth.supabase.rpc("consume_flight_lookup_quota", { p_user: auth.user.id, p_monthly_limit: monthlyLimit() }).abortSignal(quotaSignal), quotaSignal);
+    if (settings.mode === "commercial") {
+      const retention = await boundedWait(auth.supabase.rpc("flight_lookup_retention_ready").abortSignal(quotaSignal), quotaSignal);
+      if (retention.error || retention.data !== true) return reply({ code: "unavailable" }, 503);
+    }
+    const quota = await boundedWait(auth.supabase.rpc("consume_flight_lookup_quota", { p_user: auth.user.id, p_monthly_limit: settings.limit }).abortSignal(quotaSignal), quotaSignal);
     if (quota.error) return reply({ code: "unavailable" }, 503);
     if (quota.data !== true) return reply({ code: "limit" }, 429);
-    // The provider host and projection are fixed; tokens/PNR never leave our server.
-    const url = `https://api.aerodatabox.com/flights/number/${encodeURIComponent(query.flightNumber)}/${query.date}?dateLocalRole=Departure&withAircraftImage=false&withLocation=false&withFlightPlan=false`;
+    const { url, headers } = buildFlightProviderRequest(query, settings.provider);
     const signal = AbortSignal.timeout(8000);
-    const response = await fetch(url, { headers: { "X-Api-Key": process.env.AERODATABOX_API_KEY!.trim(), Accept: "application/json" }, signal, cache: "no-store", redirect: "error" });
-    if (response.status === 204) return reply({ flights: [] });
+    const response = await fetch(url, { headers, signal, cache: "no-store", redirect: "error" });
+    if (response.status === 204) return reply({ flights: [], reason: "not-found", maySave: settings.mode === "commercial" });
     if (response.status === 429) return reply({ code: "limit" }, 429);
     if (!response.ok) return reply({ code: "unavailable" }, 503);
     const payload = await boundedWait(boundedJson(response as unknown as Request, 300000), signal);
-    return reply({ flights: normalizeFlightMatches(payload, query) });
+    const inspected = inspectFlightMatches(payload, query);
+    const maySave = settings.mode === "commercial";
+    const flights = inspected.flights.map(flight => ({ ...flight, maySave,
+      ...(maySave ? issueFlightReceipt(auth.user.id, query, flight, process.env.FLIGHT_LOOKUP_RECEIPT_SECRET!)
+        : { receipt: null, expiresAt: new Date(Date.parse(flight.fetchedAt) + FLIGHT_DATA_LIFETIME_MS).toISOString() }) }));
+    return reply({ flights, reason: inspected.reason, maySave });
   } catch { return reply({ code: "unavailable" }, 503); }
 }

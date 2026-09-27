@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'CommonJS', moduleResolution: 'node', resolveJsonModule: true, esModuleInterop: true } });
 const zones = require('../lib/zoned-time.ts');
 const airportZones = require('../lib/airport-time-zones.ts');
-const now = Date.parse('2026-09-27T08:00:00Z');
+let now = Date.parse('2026-09-27T08:00:00Z');
 class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now; } }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -18,7 +18,7 @@ const jsxRuntime = { jsx, jsxs: jsx, Fragment: 'fragment' };
 function load(path, imports, extra = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const testModule = { exports: {} };
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: ClockDate, Intl, AbortController, setTimeout, clearTimeout, ...extra })(name => {
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: ClockDate, Intl, AbortController, setTimeout, clearTimeout, document: { addEventListener() {}, removeEventListener() {} }, ...extra })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name.endsWith('.css')) return {};
     throw Error(`Unstubbed test import: ${name}`);
@@ -67,23 +67,24 @@ const i18n = {
 };
 const airport = (iata, city, countryCode, timeZone) => ({ iata, name: `${city} Airport`, city, country: countryCode === 'TR' ? 'Türkiye' : countryCode === 'GB' ? 'United Kingdom' : 'United States', countryCode, timeZone });
 function flight() {
-  return { id: 'TK1985:IST:LHR:2026-09-28T19:00:00.000Z', flightNumber: 'TK1985', airline: 'Turkish Airlines', source: 'AeroDataBox', fetchedAt: new ClockDate().toISOString(),
+  return { id: 'TK1985:IST:LHR:2026-09-28T19:00:00.000Z', flightNumber: 'TK1985', airline: 'Turkish Airlines', source: 'AeroDataBox', fetchedAt: new ClockDate().toISOString(), expiresAt: new ClockDate(now + 5 * 86400000).toISOString(), receipt: 'TEST_RECEIPT', maySave: true,
     origin: airport('IST', 'Istanbul', 'TR', 'Europe/Istanbul'), destination: airport('LHR', 'London', 'GB', 'Europe/London'),
     departureAt: '2026-09-28T19:00:00.000Z', arrivalAt: '2026-09-28T23:30:00.000Z', departureDate: '2026-09-28', departureTime: '22:00', arrivalDate: '2026-09-29', arrivalTime: '00:30' };
 }
 const dates = load('mobile/src/lib/dates.ts', {});
 const cockpitForm = load('mobile/src/lib/cockpitForm.ts', { './dates': dates, '../../../lib/airport-time-zones': airportZones, '../../../lib/zoned-time': zones });
+const flightSelection = load('mobile/src/lib/flightSelection.ts', { '../../../lib/zoned-time': zones });
 function lookupHarness() {
   const host = hookHost(), calls = [], selections = [];
   let locale = 'en', manual = 0;
   const testModule = load('mobile/src/components/CockpitFlightLookup.tsx', {
     react: host.react, 'react/jsx-runtime': jsxRuntime,
-    '../../../lib/zoned-time': zones, '../lib/config': { config: { apiBaseUrl: 'https://test.invalid' } },
+    '../lib/flightSelection': flightSelection, '../lib/config': { config: { apiBaseUrl: 'https://test.invalid' } },
     '../lib/i18n': { useI18n: () => i18n[locale] }, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
     './DateTimeField': { DateTimeField: 'DateTimeField' }, './Icon': { Icon: 'Icon' },
   }, { fetch: (url, options = {}) => { const wait = deferred(); calls.push({ url, options, ...wait }); return wait.promise; } });
   host.start(testModule.CockpitFlightLookup, { accessToken: 'UNIT_TEST_SESSION_A', flightNumber: 'TK1985', date: '2026-09-28', onQueryChange: () => {}, onSelect: value => selections.push(value), onManual: () => manual++ });
-  return { host, calls, selections, manual: () => manual, language: next => { locale = next; }, async enable(value = true) { calls[0].resolve({ ok: true, json: async () => ({ available: value }) }); await tick(); return host.render(); } };
+  return { host, calls, selections, manual: () => manual, language: next => { locale = next; }, async enable(value = true, mode = 'commercial') { calls[0].resolve({ ok: true, json: async () => ({ available: value, protocol: 2, mode }) }); await tick(); return host.render(); } };
 }
 
 test('Flight lookup blocks duplicate clicks and offers overnight results only after explicit selection', async () => {
@@ -93,8 +94,11 @@ test('Flight lookup blocks duplicate clicks and offers overnight results only af
     search.props.onClick(); search.props.onClick();
     assert.equal(h.calls.length, 2);
     assert.equal(h.calls[1].options.headers.Authorization, 'Bearer UNIT_TEST_SESSION_A');
+    assert.equal(h.calls[0].options.headers.Authorization, 'Bearer UNIT_TEST_SESSION_A');
+    assert.equal(h.calls[0].options.headers['X-Flight-Lookup-Version'], '2');
+    assert.equal(h.calls[1].options.headers['X-Flight-Lookup-Version'], '2');
     assert.deepEqual(JSON.parse(h.calls[1].options.body), { flightNumber: 'TK1985', date: '2026-09-28' });
-    h.calls[1].resolve({ ok: true, json: async () => ({ flights: [flight()] }) }); await tick();
+    h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [flight()], reason: null }) }); await tick();
     assert.equal(h.selections.length, 0);
     assert.equal(results(h.host.render()).length, 1);
     results(h.host.render())[0].props.onClick();
@@ -110,7 +114,7 @@ test('Query, session and language changes invalidate delayed flight lookup respo
       button(await h.enable(), 'Find flight details').props.onClick();
       if (change === 'language') { h.language('tr'); h.host.render(); } else h.host.render(change);
       assert.equal(h.calls[1].options.signal.aborted, true);
-      h.calls[1].resolve({ ok: true, json: async () => ({ flights: [flight()] }) }); await tick();
+      h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [flight()], reason: null }) }); await tick();
       assert.equal(results(h.host.render()).length, 0);
       assert.equal(h.selections.length, 0);
     } finally { h.host.dispose(); }
@@ -128,26 +132,27 @@ test('Unavailable lookup and canceled searches leave the manual path usable', as
     button(await active.enable(), 'Find flight details').props.onClick();
     button(active.host.render(), "I'll enter the details myself").props.onClick();
     assert.equal(active.calls[1].options.signal.aborted, true);
-    active.calls[1].resolve({ ok: true, json: async () => ({ flights: [flight()] }) }); await tick();
+    active.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [flight()], reason: null }) }); await tick();
     assert.equal(results(active.host.render()).length, 0);
     assert.equal(active.manual(), 1);
   } finally { active.host.dispose(); }
 });
 
 test('Malformed and mismatched flight responses never render selectable routes', async () => {
-  for (const item of [null, {}, { ...flight(), origin: null }, { ...flight(), flightNumber: 'TK9999' }, { ...flight(), arrivalTime: '21:00' }, { ...flight(), fetchedAt: 'invalid' }]) {
+  for (const item of [null, {}, { ...flight(), origin: null }, { ...flight(), flightNumber: 'TK9999' }, { ...flight(), arrivalTime: '21:00' }, { ...flight(), fetchedAt: 'invalid' }, { ...flight(), receipt: null }, { ...flight(), maySave: false }, { ...flight(), expiresAt: new ClockDate(now - 1).toISOString() }, { ...flight(), expiresAt: new ClockDate(now + 8 * 86400000).toISOString() }]) {
     const h = lookupHarness();
     try {
       button(await h.enable(), 'Find flight details').props.onClick();
-      h.calls[1].resolve({ ok: true, json: async () => ({ flights: [item] }) }); await tick();
+      h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [item], reason: null }) }); await tick();
       assert.equal(results(h.host.render()).length, 0);
       assert.ok(button(h.host.render(), "I'll enter the details myself"));
     } finally { h.host.dispose(); }
   }
 });
 
-function cockpitHarness() {
-  const host = hookHost(), creates = [], notices = [];
+function cockpitHarness(initialTrips = [], missingAirportZone = "") {
+  const host = hookHost(), creates = [], updates = [], notices = [], reminders = [], loadArgs = [], timers = [];
+  let interval, visibility;
   let id = 0;
   const testModule = load('mobile/src/screens/CockpitScreen.tsx', {
     react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': {},
@@ -156,14 +161,15 @@ function cockpitHarness() {
     '../components/PageHero': { PageHero: 'PageHero' }, '../components/CockpitFlightLookup': { CockpitFlightLookup: 'CockpitFlightLookup' },
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'GBR', name: 'United Kingdom' }] },
     '../data/countryIso': { alpha2FromAlpha3: () => 'GB', alpha3FromAlpha2: () => 'GBR' },
-    '../../../lib/airport-time-zones': airportZones, '../../../lib/zoned-time': zones, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
-    '../lib/liveActivity': { syncFlightReminders: async () => {}, endAllFlightActivities: async () => {} },
+    '../lib/flightSelection': flightSelection, '../../../lib/airport-time-zones': { ...airportZones, airportTimeZone: (iata, fallback) => iata === missingAirportZone ? fallback : airportZones.airportTimeZone(iata, fallback) }, '../../../lib/zoned-time': zones, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
+    '../lib/liveActivity': { syncFlightReminders: async trips => { reminders.push(trips); }, endAllFlightActivities: async () => {} },
     '../lib/id': { createId: () => `test-item-${++id}` }, '../lib/i18n': { useI18n: () => i18n.en }, '../lib/native': { openExternal: async () => true },
-    '../lib/supabaseData': { listCockpitTrips: async () => [], areFlightFieldsSupported: () => true, getSupabaseDataErrorMessage: (_, fallback) => fallback,
+    '../lib/supabaseData': { listCockpitTrips: async (...args) => { loadArgs.push(args); return initialTrips; }, areFlightFieldsSupported: () => true, getSupabaseDataErrorMessage: (_, fallback) => fallback,
+      updateCockpitTrip: (user, tripId, payload, token) => { const wait = deferred(); updates.push({ user, tripId, payload, token, ...wait }); return wait.promise; },
       createCockpitTrip: (user, payload, token) => { const wait = deferred(); creates.push({ user, payload, token, ...wait }); return wait.promise; } },
-  }, { window: { setInterval: () => 1, clearInterval: () => {}, confirm: () => true } });
+  }, { setTimeout: (fn, delay) => { timers.push(delay); return setTimeout(fn, delay); }, window: { setInterval: fn => { interval = fn; return 1; }, clearInterval: () => {}, confirm: () => true }, document: { addEventListener: (_, fn) => { visibility = fn; }, removeEventListener() {} } });
   host.start(testModule.CockpitScreen, { user: { id: 'test-user-a' }, accessToken: 'UNIT_TEST_SESSION_A', onOpenAccount: () => {}, onNotice: value => notices.push(value) });
-  return { host, creates, notices, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
+  return { host, creates, updates, notices, reminders, loadArgs, timers, advance(milliseconds) { now += milliseconds; interval?.(); visibility?.(); return host.render(); }, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
 }
 const lookup = tree => find(tree, 'CockpitFlightLookup');
 const tripForm = tree => find(tree, 'form', props => props.id === 'cockpit-trip-form');
@@ -178,6 +184,7 @@ test('Successful overnight flight save is optional-PNR, single-submit, and clear
     const first = submit({ preventDefault() {} }); const duplicate = submit({ preventDefault() {} });
     assert.equal(h.creates.length, 1);
     assert.equal(h.creates[0].payload.flightPnr, '');
+    assert.equal(h.creates[0].payload.flightSelectionReceipt, 'TEST_RECEIPT');
     assert.equal(h.creates[0].payload.departureAt, '2026-09-28T19:00:00.000Z');
     assert.equal(h.creates[0].payload.arrivalAt, '2026-09-28T23:30:00.000Z');
     h.creates[0].resolve({ ...h.creates[0].payload, id: 'created-trip', status: 'upcoming', updatedAt: new ClockDate().toISOString() }); await Promise.all([first, duplicate]); await tick();
@@ -207,20 +214,170 @@ test('Active mode taps preserve a matched flight, while a changed lookup query c
   } finally { h.host.dispose(); }
 });
 
-test('Editing an imported DST-overlap time clears its old UTC selection and requires a fresh choice', async () => {
+test('Manual entry clears imported fields while keeping the user query, PNR and end date', async () => {
   const h = cockpitHarness();
   try {
-    const overlap = { ...flight(), origin: airport('LHR', 'London', 'GB', 'Europe/London'), destination: airport('JFK', 'New York', 'US', 'America/New_York'),
-      departureDate: '2026-10-25', departureTime: '01:30', departureAt: '2026-10-25T00:30:00.000Z', arrivalDate: '2026-10-25', arrivalTime: '05:00', arrivalAt: '2026-10-25T09:00:00.000Z' };
-    lookup(await h.open()).props.onSelect(overlap);
+    lookup(await h.open()).props.onSelect(flight());
     dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-26');
-    button(h.host.render(), 'Edit details').props.onClick();
-    dateField(h.host.render(), 'Departure · airport local time').props.onChange('01:31');
-    const ambiguity = nodes(h.host.render()).find(node => node.type === 'label' && text(node).startsWith('Clocks go back:'));
-    assert.ok(ambiguity);
-    assert.equal(find(ambiguity, 'select').props.value, '');
+    find(h.host.render(), 'input', props => props.placeholder === 'ABC123').props.onChange({ target: { value: 'USERPNR' } });
+    button(h.host.render(), "I'll enter my ticket details manually").props.onClick();
+    const manual = h.host.render();
+    assert.equal(lookup(manual).props.flightNumber, 'TK1985');
+    assert.equal(lookup(manual).props.date, '2026-09-28');
+    assert.equal(find(manual, 'input', props => props.placeholder === 'ABC123').props.value, 'USERPNR');
+    assert.equal(dateField(manual, 'When does your trip end?').props.value, '2026-10-26');
+    assert.ok(nodes(manual).filter(n => n.type === 'AirportField').every(n => n.props.value === null));
+    assert.equal(dateField(manual, 'Departure · airport local time').props.value, '');
+    assert.equal(dateField(manual, 'Arrival · airport local time').props.value, '');
+    await tripForm(manual).props.onSubmit({ preventDefault() {} });
+    assert.equal(h.creates.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Trial selection previews attribution but cannot save or escape through manual autofill', async () => {
+  const h = cockpitHarness();
+  try {
+    lookup(await h.open()).props.onSelect({ ...flight(), receipt: null, maySave: false });
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-09-30');
+    assert.equal(button(h.host.render(), 'Add to cockpit').props.disabled, true);
+    assert.match(text(h.host.render()), /Trial flight preview/);
+    const link = find(h.host.render(), 'a', props => props.href === 'https://aerodatabox.com/');
+    assert.ok(link); assert.equal(link.props.rel, 'noopener');
     await tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
     assert.equal(h.creates.length, 0);
-    assert.match(text(h.host.render()), /occurs twice/);
+    lookup(h.host.render()).props.onManual();
+    assert.ok(nodes(h.host.render()).filter(n => n.type === 'AirportField').every(n => n.props.value === null));
+    assert.equal(find(h.host.render(), 'section', props => props['aria-label'] === 'Flight summary'), undefined);
+  } finally { h.host.dispose(); }
+});
+
+test('Server empty reasons produce specific guidance and old protocol results are rejected', async () => {
+  for (const [reason, phrase] of [['past-departure', 'departure time has passed'], ['incomplete', 'details are missing'], ['not-found', 'No flight was found'], ['status-unavailable', 'cannot be added automatically']]) {
+    const h = lookupHarness();
+    try {
+      button(await h.enable(), 'Find flight details').props.onClick();
+      h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [], reason }) }); await tick();
+      assert.ok(text(h.host.render()).includes(phrase));
+    } finally { h.host.dispose(); }
+  }
+  const h = lookupHarness();
+  try {
+    button(await h.enable(), 'Find flight details').props.onClick();
+    h.calls[1].resolve({ ok: true, json: async () => ({ flights: [flight()] }) }); await tick();
+    assert.equal(results(h.host.render()).length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Managed detail expiry clears only the memory overlay and never reaches reminders', async () => {
+  const savedNow = now;
+  const providerFlight = flight();
+  const base = { id: 'managed-trip', userId: 'test-user-a', destinationCountry: '', destinationCode: '', destinationCity: null,
+    startDate: '2026-09-28', endDate: '2026-10-10', departureAt: null, arrivalAt: null, appLanguage: 'en', flightPnr: 'USERPNR',
+    originIata: null, destinationIata: null, airline: null, flightNumber: 'TK1985', checklistItems: [{ id: 'keep', label: 'Pack medication', completed: false, category: 'health', createdAt: new ClockDate().toISOString() }],
+    status: 'upcoming', createdAt: new ClockDate().toISOString(), updatedAt: new ClockDate().toISOString(), flightLookupManaged: true,
+    flightLookupExpiresAt: providerFlight.expiresAt, providerFlight };
+  const h = cockpitHarness([base]);
+  try {
+    await tick(); let view = h.host.render(); await tick();
+    assert.equal(h.loadArgs[0][3], true);
+    assert.match(text(view), /London/);
+    const payload = h.reminders.flat().find(item => item.id === 'managed-trip');
+    assert.equal(payload.departureAt, null); assert.equal(payload.arrivalAt, null);
+    assert.equal(payload.originIata, null); assert.equal(payload.destinationIata, null);
+    assert.ok(!JSON.stringify(payload).includes('London')); assert.equal(Object.hasOwn(payload, 'providerFlight'), false);
+    view = h.advance(5 * 86400000 + 1);
+    assert.ok(!text(view).includes('London'));
+    assert.match(text(view), /USERPNR/); assert.match(text(view), /Pack medication/);
+    assert.match(text(view), /Your PNR and checklist are kept/);
+  } finally { now = savedNow; h.host.dispose(); }
+});
+
+test('Receipt expiry prevents a late save and data expiry clears a selected form without losing PNR', async () => {
+  const savedNow = now, h = cockpitHarness();
+  try {
+    lookup(await h.open()).props.onSelect(flight());
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-10');
+    find(h.host.render(), 'input', props => props.placeholder === 'ABC123').props.onChange({ target: { value: 'USERPNR' } });
+    let view = h.advance(600001);
+    assert.equal(button(view, 'Add to cockpit').props.disabled, true);
+    await tripForm(view).props.onSubmit({ preventDefault() {} }); assert.equal(h.creates.length, 0);
+    view = h.advance(5 * 86400000);
+    assert.equal(find(view, 'section', props => props['aria-label'] === 'Flight summary'), undefined);
+    assert.equal(lookup(view).props.flightNumber, 'TK1985');
+    lookup(view).props.onManual(); view = h.host.render();
+    assert.equal(find(view, 'input', props => props.placeholder === 'ABC123').props.value, 'USERPNR');
+    assert.equal(dateField(view, 'When does your trip end?').props.value, '2026-10-10');
+    assert.ok(nodes(view).filter(n => n.type === 'AirportField').every(n => n.props.value === null));
+  } finally { now = savedNow; h.host.dispose(); }
+});
+
+
+test('A preview whose departure passes cannot be saved and reports the specific time issue', async () => {
+  const savedNow = now, h = cockpitHarness();
+  try {
+    const selected = flight();
+    lookup(await h.open()).props.onSelect(selected);
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-10');
+    const view = h.advance(Date.parse(selected.departureAt) - now + 1);
+    assert.equal(button(view, 'Add to cockpit').props.disabled, true);
+    await tripForm(view).props.onSubmit({ preventDefault() {} });
+    assert.equal(h.creates.length, 0);
+    assert.match(text(h.host.render()), /scheduled departure time has passed/);
+  } finally { now = savedNow; h.host.dispose(); }
+});
+
+
+test('Completing or cancelling a managed trip removes provider data even if the update response includes it', async () => {
+  for (const status of ['completed', 'cancelled']) for (const responseIncludesProvider of [false, true]) {
+    const providerFlight = flight();
+    const base = { id: 'managed-trip', userId: 'test-user-a', destinationCountry: '', destinationCode: '', destinationCity: null,
+      startDate: '2026-09-28', endDate: '2026-10-10', departureAt: null, arrivalAt: null, appLanguage: 'en', flightPnr: 'USERPNR',
+      originIata: null, destinationIata: null, airline: null, flightNumber: 'TK1985', checklistItems: [{ id: 'keep', label: 'Pack medication', completed: false, category: 'health', createdAt: new ClockDate().toISOString() }],
+      status: 'upcoming', createdAt: new ClockDate().toISOString(), updatedAt: new ClockDate().toISOString(), flightLookupManaged: true,
+      flightLookupExpiresAt: providerFlight.expiresAt };
+    const h = cockpitHarness([{ ...base, providerFlight }]);
+    try {
+      await tick(); assert.match(text(h.host.render()), /London/);
+      find(h.host.render(), 'select', props => props.value === 'upcoming').props.onChange({ target: { value: status } });
+      assert.equal(h.updates.length, 1); assert.equal(h.updates[0].payload.status, status);
+      h.updates[0].resolve({ ...base, status, ...(responseIncludesProvider ? { providerFlight } : {}) }); await tick();
+      let view = h.host.render();
+      assert.ok(!text(view).includes('London')); assert.ok(!text(view).includes('Turkish Airlines'));
+      assert.match(text(view), /USERPNR/); assert.match(text(view), /Pack medication/);
+      assert.match(text(view), /Flight details were removed because the trip is closed/);
+      assert.ok(!text(view).includes('Check your flight details again'));
+      assert.equal(h.reminders.at(-1)[0].departureAt, null);
+      find(view, 'select', props => props.value === status).props.onChange({ target: { value: 'upcoming' } });
+      h.updates[1].resolve(base); await tick(); view = h.host.render();
+      assert.ok(!text(view).includes('London'), 'Reopening must not resurrect the discarded provider snapshot');
+      assert.match(text(view), /Your PNR and checklist are kept/);
+    } finally { h.host.dispose(); }
+  }
+});
+
+
+test('Selection expiry deadlines use current time even between clock ticks', async () => {
+  const savedNow = now, h = cockpitHarness();
+  try {
+    await h.open();
+    now += 50000;
+    lookup(h.host.render()).props.onSelect(flight()); h.host.render();
+    assert.equal(h.timers.at(-1), 600000, 'Receipt deadline must not drift by the stale screen clock');
+  } finally { now = savedNow; h.host.dispose(); }
+});
+
+test('Saved provider arrivals use the verified airport timezone when the bundled lookup has no entry', async () => {
+  const providerFlight = flight();
+  const base = { id: 'managed-trip', userId: 'test-user-a', destinationCountry: '', destinationCode: '', destinationCity: null,
+    startDate: '2026-09-28', endDate: '2026-10-10', departureAt: null, arrivalAt: null, appLanguage: 'en', flightPnr: 'USERPNR',
+    originIata: null, destinationIata: null, airline: null, flightNumber: 'TK1985', checklistItems: [], status: 'upcoming',
+    createdAt: new ClockDate().toISOString(), updatedAt: new ClockDate().toISOString(), flightLookupManaged: true,
+    flightLookupExpiresAt: providerFlight.expiresAt, providerFlight };
+  const h = cockpitHarness([base], 'LHR');
+  try {
+    await tick();
+    const expected = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London', timeZoneName: 'short' }).format(new Date(providerFlight.arrivalAt));
+    const arrival = nodes(h.host.render()).find(node => node.type === 'div' && text(node).startsWith('Scheduled arrival'));
+    assert.equal(text(arrival), 'Scheduled arrival' + expected);
   } finally { h.host.dispose(); }
 });

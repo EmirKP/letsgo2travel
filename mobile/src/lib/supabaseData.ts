@@ -4,6 +4,8 @@ import { localIsoDate } from "./dates";
 import { localeFromStorage } from "./i18n";
 import { createId } from "./id";
 import type { TravelEvent } from "../types";
+import type { FlightMatch } from "../../../lib/flight-lookup";
+import { activeFlightExpiry, parseFlightMatch } from "./flightSelection";
 
 export type SupabaseDataErrorCode =
   | "not_configured"
@@ -129,9 +131,14 @@ export type CockpitTrip = {
   status: TripStatus;
   createdAt: string;
   updatedAt: string;
+  flightLookupManaged?: boolean;
+  flightLookupExpiresAt?: string | null;
+  /** Cockpit-only, short-lived display data. Never merge into the stored base. */
+  providerFlight?: FlightMatch;
 };
 
 export type CreateCockpitTripInput = {
+  flightSelectionReceipt?: string;
   destinationCountry: string;
   destinationCode: string;
   destinationCity?: string;
@@ -170,6 +177,8 @@ type UserTripRow = {
 };
 
 type TripRow = {
+  flight_lookup_managed?: unknown;
+  flight_lookup_expires_at?: unknown;
   id?: unknown;
   user_id?: unknown;
   destination_country?: unknown;
@@ -208,6 +217,8 @@ const TRIP_BASE_COLUMNS = [
 ];
 // 20260902100000_cockpit_flight_fields.sql migration'ının eklediği sütunlar.
 const TRIP_FLIGHT_COLUMNS = ["origin_iata", "destination_iata", "airline", "flight_number", "arrival_at", "app_language"];
+const TRIP_LOOKUP_COLUMNS = ["flight_lookup_managed", "flight_lookup_expires_at"];
+let lookupColumnsSupported = true;
 
 // GÜVENLİ DAĞITIM SIRASI: uygulama, migration üretime uygulanmadan da
 // çalışmalı. İlk 42703 (undefined column) yanıtında bu bayrak kapanır;
@@ -226,7 +237,18 @@ function isUndefinedColumnError(error: unknown) {
 }
 
 function tripSelect() {
-  return (flightColumnsSupported ? [...TRIP_BASE_COLUMNS, ...TRIP_FLIGHT_COLUMNS] : TRIP_BASE_COLUMNS).join(",");
+  return [...TRIP_BASE_COLUMNS, ...(flightColumnsSupported ? TRIP_FLIGHT_COLUMNS : []), ...(lookupColumnsSupported ? TRIP_LOOKUP_COLUMNS : [])].join(",");
+}
+
+async function withTripColumns<T>(request: () => Promise<T>): Promise<T> {
+  try { return await request(); }
+  catch (error) {
+    if (!isUndefinedColumnError(error)) throw error;
+    if (lookupColumnsSupported) lookupColumnsSupported = false;
+    else if (flightColumnsSupported) flightColumnsSupported = false;
+    else throw error;
+    return withTripColumns(request);
+  }
 }
 
 const USER_TRIP_SELECT = "id,user_id,title,destination,trip_data,created_at";
@@ -381,27 +403,30 @@ function normalizeTrip(row: TripRow): CockpitTrip | null {
   const destinationCode = safeString(row.destination_code, 2).toUpperCase();
   const startDate = safeString(row.start_date, 10);
   const endDate = safeString(row.end_date, 10);
-  if (!id || !userId || !destinationCountry || !destinationCode || !startDate || !endDate) return null;
+  const managed = row.flight_lookup_managed === true;
+  if (!id || !userId || (!managed && (!destinationCountry || !destinationCode)) || !startDate || !endDate) return null;
   return {
     id,
     userId,
-    destinationCountry,
-    destinationCode,
-    destinationCity: nullableString(row.destination_city, 100),
+    destinationCountry: managed ? "" : destinationCountry,
+    destinationCode: managed ? "" : destinationCode,
+    destinationCity: managed ? null : nullableString(row.destination_city, 100),
     startDate,
     endDate,
-    departureAt: nullableString(row.departure_at, 40),
-    arrivalAt: nullableString(row.arrival_at, 40),
+    departureAt: managed ? null : nullableString(row.departure_at, 40),
+    arrivalAt: managed ? null : nullableString(row.arrival_at, 40),
     appLanguage: row.app_language === "en" ? "en" : "tr",
     flightPnr: nullableString(row.flight_pnr, 20),
-    originIata: nullableString(row.origin_iata, 3)?.toUpperCase() || null,
-    destinationIata: nullableString(row.destination_iata, 3)?.toUpperCase() || null,
-    airline: nullableString(row.airline, 80),
+    originIata: managed ? null : nullableString(row.origin_iata, 3)?.toUpperCase() || null,
+    destinationIata: managed ? null : nullableString(row.destination_iata, 3)?.toUpperCase() || null,
+    airline: managed ? null : nullableString(row.airline, 80),
     flightNumber: nullableString(row.flight_number, 8)?.toUpperCase() || null,
     checklistItems: normalizeChecklist(row.checklist_items),
     status: normalizeTripStatus(row.status),
     createdAt: safeString(row.created_at, 40),
     updatedAt: safeString(row.updated_at, 40),
+    flightLookupManaged: managed,
+    flightLookupExpiresAt: managed ? nullableString(row.flight_lookup_expires_at, 40) : null,
   };
 }
 
@@ -640,7 +665,7 @@ export async function deleteUserRouteByClientKey(userId: string, clientKey: stri
   });
 }
 
-export async function listCockpitTrips(userId: string, accessToken: string, includeCancelled = false) {
+export async function listCockpitTrips(userId: string, accessToken: string, includeCancelled = false, includeFlightDetails = false) {
   assertUserId(userId);
   return safely(async () => {
     const fetchRows = async () => {
@@ -655,24 +680,46 @@ export async function listCockpitTrips(userId: string, accessToken: string, incl
         headers: dataHeaders(accessToken),
       });
     };
-    let rows: TripRow[];
-    try {
-      rows = await fetchRows();
-    } catch (error) {
-      // Migration üretimde henüz yoksa (42703) eski sütun listesine düş.
-      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
-      flightColumnsSupported = false;
-      rows = await fetchRows();
-    }
-    return rows.flatMap((row) => {
+    const rows = await withTripColumns(fetchRows);
+    const trips = rows.flatMap((row) => {
       const normalized = normalizeTrip(row);
       return normalized ? [normalized] : [];
     });
+    const ids = trips.filter(trip => trip.flightLookupManaged && Date.parse(trip.flightLookupExpiresAt || "") > Date.now()).map(trip => trip.id);
+    if (!includeFlightDetails || !ids.length) return trips;
+    try {
+      const details = await requestJson<Array<{ trip_id: string; data: unknown; fetched_at: string; expires_at: string }>>(dataUrl("rpc/read_cockpit_flight_details"), {
+        method: "POST", headers: dataHeaders(accessToken), body: { p_trip_ids: ids },
+      });
+      if (!Array.isArray(details)) return trips;
+      return trips.map(trip => {
+        if (!ids.includes(trip.id)) return trip;
+        const detail = details.find(item => item?.trip_id === trip.id);
+        const flight = detail && parseFlightMatch(detail.data, trip.flightNumber || undefined, trip.startDate);
+        return flight && detail && Date.parse(detail.fetched_at) === Date.parse(flight.fetchedAt) && activeFlightExpiry(detail.expires_at, flight.fetchedAt)
+          && Date.parse(detail.expires_at) === Date.parse(trip.flightLookupExpiresAt || "") ? { ...trip, providerFlight: flight } : trip;
+      });
+    } catch { return trips; } // A failed detail refresh must not hide PNR or checklists.
   });
 }
 
 export async function createCockpitTrip(userId: string, input: CreateCockpitTripInput, accessToken: string) {
   assertUserId(userId);
+  if (input.flightSelectionReceipt !== undefined) {
+    return safely(async () => {
+      if (typeof input.flightSelectionReceipt !== "string" || !input.flightSelectionReceipt || input.flightSelectionReceipt.length > 16000) throw new SupabaseDataError("invalid_data", 400);
+      const result = await requestJson<{ trip: TripRow; flight: unknown; expiresAt: string }>(`${config.apiBaseUrl}/api/cockpit/flight-trips`, {
+        method: "POST", headers: { Authorization: dataHeaders(accessToken).Authorization, "X-Flight-Lookup-Version": "2" },
+        body: { receipt: input.flightSelectionReceipt, endDate: input.endDate, flightPnr: nullableString(input.flightPnr, 20),
+          checklistItems: cleanChecklist(input.checklistItems) || [], appLanguage: input.appLanguage === "en" ? "en" : "tr" },
+      });
+      const trip = result?.trip && normalizeTrip(result.trip);
+      if (!trip || trip.userId !== userId || !trip.flightLookupManaged) throw new SupabaseDataError("service_unavailable", 500);
+      const flight = parseFlightMatch(result.flight, trip.flightNumber || undefined, trip.startDate);
+      return flight && activeFlightExpiry(result.expiresAt, flight.fetchedAt) && Date.parse(result.expiresAt) === Date.parse(trip.flightLookupExpiresAt || "")
+        ? { ...trip, providerFlight: flight } : trip;
+    });
+  }
   assertTripInput(input);
   return safely(async () => {
     const post = async () => {
@@ -696,14 +743,7 @@ export async function createCockpitTrip(userId: string, input: CreateCockpitTrip
         },
       });
     };
-    let rows: TripRow[];
-    try {
-      rows = await post();
-    } catch (error) {
-      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
-      flightColumnsSupported = false;
-      rows = await post();
-    }
+    const rows = await withTripColumns(post);
     const trip = rows[0] ? normalizeTrip(rows[0]) : null;
     if (!trip) throw new SupabaseDataError("service_unavailable", 500);
     return trip;
@@ -754,18 +794,11 @@ export async function updateCockpitTrip(
         body: payload,
       });
     };
-    let rows: TripRow[];
-    try {
-      rows = await patch(body);
-    } catch (error) {
-      if (!flightColumnsSupported || !isUndefinedColumnError(error)) throw error;
-      flightColumnsSupported = false;
-      const legacyBody = Object.fromEntries(
-        Object.entries(body).filter(([key]) => !TRIP_FLIGHT_COLUMNS.includes(key)),
-      );
-      if (!Object.keys(legacyBody).length) throw new SupabaseDataError("invalid_data", 400);
-      rows = await patch(legacyBody);
-    }
+    const rows = await withTripColumns(() => {
+      const payload = flightColumnsSupported ? body : Object.fromEntries(Object.entries(body).filter(([key]) => !TRIP_FLIGHT_COLUMNS.includes(key)));
+      if (!Object.keys(payload).length) throw new SupabaseDataError("invalid_data", 400);
+      return patch(payload);
+    });
     const trip = rows[0] ? normalizeTrip(rows[0]) : null;
     if (!trip) throw new SupabaseDataError(expectedUpdatedAt ? "conflict" : "not_found", expectedUpdatedAt ? 409 : 404);
     return trip;

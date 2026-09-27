@@ -10,6 +10,8 @@ export type FlightMatch = {
   departureDate: string; departureTime: string; arrivalDate: string; arrivalTime: string;
   source: "AeroDataBox"; fetchedAt: string;
 };
+export type FlightLookupReason = "past-departure" | "incomplete" | "not-found" | "status-unavailable" | null;
+export type FlightLookupInspection = { flights: FlightMatch[]; reason: FlightLookupReason };
 
 export function flightLookupInput(number: unknown, date: unknown, now = new Date()) {
   if (typeof number !== "string" || number.length > 16 || typeof date !== "string") return null;
@@ -60,22 +62,39 @@ function scheduled(value: unknown, zone: string) {
 }
 
 /** Only complete, exact-date scheduled legs. Estimates, gates and inferred status are never substituted. */
-export function normalizeFlightMatches(payload: unknown, query: { flightNumber: string; date: string }, now = new Date()): FlightMatch[] {
+export function inspectFlightMatches(payload: unknown, query: { flightNumber: string; date: string }, now = new Date()): FlightLookupInspection {
   if (!Array.isArray(payload)) throw new Error("invalid-provider-response");
   const matches = new Map<string, FlightMatch>();
+  let pastDeparture = false, incomplete = false, unavailableStatus = false;
   for (const item of payload.slice(0, 100)) {
     const f = record(item);
-    if (shortText(f.number).toUpperCase().replace(/\s/g, "") !== query.flightNumber || f.isCargo === true
-      || ["Canceled", "Cancelled", "CanceledUncertain", "EnRoute", "Departed", "Approaching", "Arrived", "Diverted"].includes(shortText(f.status))) continue;
+    if (shortText(f.number).toUpperCase().replace(/\s/g, "") !== query.flightNumber) continue;
     const dep = record(f.departure), arr = record(f.arrival);
+    // Ignore identifiable wrong-date legs before classifying missing fields.
+    // A past-departure reason still requires the fully validated local/UTC pair below.
+    const suppliedDate = /^(\d{4}-\d{2}-\d{2})(?:[ T]|$)/.exec(shortText(record(dep.scheduledTime).local))?.[1];
+    if (suppliedDate && suppliedDate !== query.date) continue;
     const origin = airport(dep.airport), destination = airport(arr.airport);
-    if (!origin || !destination || origin.iata === destination.iata) continue;
+    if (!origin || !destination || origin.iata === destination.iata) { incomplete = true; continue; }
     const departure = scheduled(dep.scheduledTime, origin.timeZone), arrival = scheduled(arr.scheduledTime, destination.timeZone);
-    if (!departure || !arrival || departure.date !== query.date || Date.parse(departure.iso) <= now.getTime() || Date.parse(arrival.iso) <= Date.parse(departure.iso)) continue;
+    if (!departure || !arrival || Date.parse(arrival.iso) <= Date.parse(departure.iso)) { incomplete = true; continue; }
+    if (departure.date !== query.date) continue;
+    const status = shortText(f.status);
+    if (f.isCargo === true || ["Canceled", "Cancelled", "CanceledUncertain", "Diverted"].includes(status)) { unavailableStatus = true; continue; }
+    if (Date.parse(departure.iso) <= now.getTime()) { pastDeparture = true; continue; }
+    if (["EnRoute", "Departed", "Approaching", "Arrived"].includes(status)) { unavailableStatus = true; continue; }
     const id = `${query.flightNumber}:${origin.iata}:${destination.iata}:${departure.iso}`;
     matches.set(id, { id, flightNumber: query.flightNumber, airline: shortText(record(f.airline).name), origin, destination,
       departureAt: departure.iso, arrivalAt: arrival.iso, departureDate: departure.date, departureTime: departure.time,
       arrivalDate: arrival.date, arrivalTime: arrival.time, source: "AeroDataBox", fetchedAt: now.toISOString() });
   }
-  return [...matches.values()].sort((a,b) => a.departureAt.localeCompare(b.departureAt)).slice(0, 12);
+  const flights = [...matches.values()].sort((a,b) => a.departureAt.localeCompare(b.departureAt)).slice(0, 12);
+  // An incomplete alternative may still be upcoming. Do not label all results
+  // as past merely because another complete leg has an earlier departure.
+  return { flights, reason: flights.length ? null : incomplete ? "incomplete" : unavailableStatus ? "status-unavailable" : pastDeparture ? "past-departure" : "not-found" };
+}
+
+/** Compatibility for callers that only need selectable matches. */
+export function normalizeFlightMatches(payload: unknown, query: { flightNumber: string; date: string }, now = new Date()): FlightMatch[] {
+  return inspectFlightMatches(payload, query, now).flights;
 }
