@@ -15,6 +15,7 @@ import type {
 
 type SupabaseLike = any;
 import { LIVE_ACTIVITY_READ_BUDGET_MS, readLiveActivityTrips, tripReadFailure } from "./live-activity-read";
+import { airportTimeZone } from "./airport-time-zones";
 
 type TripSqlRow = {
   id: string;
@@ -26,10 +27,11 @@ type TripSqlRow = {
   app_language?: string | null;
   origin_iata?: string | null;
   destination_iata?: string | null;
+  flight_number?: string | null;
 };
 
 const TRIP_BASE_SELECT = "id,user_id,destination_country,destination_city,departure_at";
-const TRIP_FLIGHT_SELECT = `${TRIP_BASE_SELECT},origin_iata,destination_iata,arrival_at,app_language`;
+const TRIP_FLIGHT_SELECT = `${TRIP_BASE_SELECT},origin_iata,destination_iata,arrival_at,app_language,flight_number`;
 let tripFlightColumnsSupported = true;
 
 function toCronTrip(row: TripSqlRow): CronTrip | null {
@@ -43,6 +45,9 @@ function toCronTrip(row: TripSqlRow): CronTrip | null {
     title: [row.destination_city, row.destination_country].filter(Boolean).join(", "),
     originIata: String(row.origin_iata || ""),
     destinationIata: String(row.destination_iata || ""),
+    originTimeZone: airportTimeZone(String(row.origin_iata || "")) || undefined,
+    destinationTimeZone: airportTimeZone(String(row.destination_iata || "")) || undefined,
+    flightNumber: String(row.flight_number || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || undefined,
     departureAtMs,
     arrivalAtMs: Number.isFinite(parsedArrivalAtMs) && parsedArrivalAtMs > departureAtMs ? parsedArrivalAtMs : undefined,
     language: row.app_language === "en" ? "en" : "tr",

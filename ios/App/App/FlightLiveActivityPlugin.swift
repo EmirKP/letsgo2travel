@@ -94,18 +94,16 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         #if canImport(ActivityKit)
         if #available(iOS 16.2, *) {
             guard let tripId = call.getString("tripId"),
-                  let departureIso = call.getString("departureAt"),
-                  let departureAt = ISO8601DateFormatter().date(from: departureIso),
-                  let arrivalIso = call.getString("arrivalAt"),
-                  let arrivalAt = ISO8601DateFormatter().date(from: arrivalIso),
-                  arrivalAt > departureAt else {
+                  !tripId.isEmpty,
+                  let departureAt = flightDate(call.getString("departureAt")) else {
                 call.reject("Eksik uçuş bilgisi")
                 return
             }
-            // Aynı seyahat için ikinci aktivite açılmaz.
-            if Activity<FlightActivityAttributes>.activities.contains(where: { $0.attributes.tripId == tripId }) {
-                call.resolve()
-                return
+            let parsedArrival = flightDate(call.getString("arrivalAt"))
+            let arrivalAt = parsedArrival.flatMap { $0 > departureAt ? $0 : nil }
+            let safeZone: (String?) -> String? = { value in
+                guard let value, TimeZone(identifier: value) != nil else { return nil }
+                return value
             }
             let attributes = FlightActivityAttributes(
                 tripId: tripId,
@@ -113,29 +111,57 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 originIata: call.getString("originIata") ?? "",
                 destinationIata: call.getString("destinationIata") ?? "",
                 deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit",
-                language: call.getString("language") ?? "tr"
+                language: call.getString("language") == "en" ? "en" : "tr",
+                originTimeZone: safeZone(call.getString("originTimeZone")),
+                destinationTimeZone: safeZone(call.getString("destinationTimeZone")),
+                flightNumber: call.getString("flightNumber").map { String($0.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.prefix(8)) }
             )
             let state = FlightActivityAttributes.ContentState(departureAt: departureAt, arrivalAt: arrivalAt)
-            let content = ActivityContent(state: state, staleDate: arrivalAt.addingTimeInterval(1200))
-            do {
-                // pushType .token: güncelleme/bitirme tokenı üretilir; cron
-                // kalkış+1 saat sonrasında aktiviteyi uzaktan bitirebilir.
-                let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
-                LiveActivityTokenObserver.shared.observe(activity)
-                call.resolve()
-            } catch {
-                // Push entitlement yoksa tokensız (yalnız uygulama içi) başlat.
+            let staleDate = arrivalAt?.addingTimeInterval(1200) ?? departureAt.addingTimeInterval(3600)
+            let content = ActivityContent(state: state, staleDate: staleDate)
+            Task {
+                // Refresh a changed schedule; changed immutable route metadata
+                // needs a replacement so the Island cannot retain the old route.
+                for existing in Activity<FlightActivityAttributes>.activities where existing.attributes.tripId == tripId {
+                    let old = existing.attributes
+                    if old.title == attributes.title && old.originIata == attributes.originIata &&
+                        old.destinationIata == attributes.destinationIata && old.language == attributes.language &&
+                        old.originTimeZone == attributes.originTimeZone && old.destinationTimeZone == attributes.destinationTimeZone &&
+                        old.flightNumber == attributes.flightNumber && old.deepLink == attributes.deepLink {
+                        await existing.update(content)
+                        call.resolve()
+                        return
+                    }
+                    await existing.end(nil, dismissalPolicy: .immediate)
+                }
                 do {
-                    _ = try Activity.request(attributes: attributes, content: content)
+                    // pushType .token: cron can end the activity after its schedule.
+                    let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
+                    LiveActivityTokenObserver.shared.observe(activity)
                     call.resolve()
                 } catch {
-                    call.reject("Live Activity başlatılamadı")
+                    // Push entitlement yoksa tokensız (yalnız uygulama içi) başlat.
+                    do {
+                        _ = try Activity.request(attributes: attributes, content: content)
+                        call.resolve()
+                    } catch {
+                        call.reject("Live Activity başlatılamadı")
+                    }
                 }
             }
             return
         }
         #endif
         call.reject("Bu cihaz Live Activity desteklemiyor")
+    }
+
+    // Supabase and JS may provide fractional ISO seconds; Foundation's default
+    // formatter accepts only the non-fractional shape.
+    private func flightDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
     }
 
     @objc func endFlightActivity(_ call: CAPPluginCall) {

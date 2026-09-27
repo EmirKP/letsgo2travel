@@ -62,10 +62,13 @@ export type LiveActivityStartPayload = {
     destinationIata: string;
     deepLink: string;
     language: string;
+    originTimeZone?: string;
+    destinationTimeZone?: string;
+    flightNumber?: string;
   };
   /** Kalkış zamanı (ms epoch). ContentState.departureAt buradan üretilir. */
   departureAtMs: number;
-  arrivalAtMs: number;
+  arrivalAtMs?: number;
   alert: { title: string; body: string };
 };
 
@@ -73,7 +76,7 @@ export type LiveActivityEndPayload = {
   event: "end";
   collapseId?: string;
   departureAtMs: number;
-  arrivalAtMs: number;
+  arrivalAtMs?: number;
 };
 
 /**
@@ -83,6 +86,37 @@ export type LiveActivityEndPayload = {
  *   çözücüsüne göre 2001-01-01 REFERANS saniyesi olarak gönderilir.
  * Token değerleri hiçbir log/yanıtta yer almaz.
  */
+export function liveActivityAps(
+  payload: LiveActivityStartPayload | LiveActivityEndPayload,
+  nowMs = Date.now(),
+): Record<string, unknown> {
+  const APPLE_REFERENCE_EPOCH_MS = 978_307_200_000; // 2001-01-01T00:00:00Z
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const departureReferenceSeconds = (payload.departureAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000;
+  const arrivalAtMs = Number.isFinite(payload.arrivalAtMs) && Number(payload.arrivalAtMs) > payload.departureAtMs
+    ? Number(payload.arrivalAtMs) : undefined;
+  const contentState = {
+    departureAt: departureReferenceSeconds,
+    ...(arrivalAtMs !== undefined ? { arrivalAt: (arrivalAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000 } : {}),
+  };
+  return payload.event === "start"
+    ? {
+      timestamp: nowSeconds,
+      event: "start",
+      "attributes-type": "FlightActivityAttributes",
+      attributes: payload.attributes,
+      "content-state": contentState,
+      "stale-date": Math.floor((arrivalAtMs !== undefined ? arrivalAtMs + 20 * 60 * 1000 : payload.departureAtMs + 60 * 60 * 1000) / 1000),
+      alert: payload.alert,
+    }
+    : {
+      timestamp: nowSeconds,
+      event: "end",
+      "content-state": contentState,
+      "dismissal-date": nowSeconds,
+    };
+}
+
 export async function sendApnsLiveActivity(
   deviceToken: string,
   payload: LiveActivityStartPayload | LiveActivityEndPayload,
@@ -90,27 +124,7 @@ export async function sendApnsLiveActivity(
   const jwt = apnsJwt();
   const bundleId = process.env.APNS_BUNDLE_ID || "tr.com.letsgo2travel.app";
   if (!jwt) return { ok: false, shouldDisableToken: false, reason: "apns_not_configured" };
-
-  const APPLE_REFERENCE_EPOCH_MS = 978_307_200_000; // 2001-01-01T00:00:00Z
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const departureReferenceSeconds = (payload.departureAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000;
-  const arrivalReferenceSeconds = (payload.arrivalAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000;
-  const aps: Record<string, unknown> = payload.event === "start"
-    ? {
-      timestamp: nowSeconds,
-      event: "start",
-      "attributes-type": "FlightActivityAttributes",
-      attributes: payload.attributes,
-      "content-state": { departureAt: departureReferenceSeconds, arrivalAt: arrivalReferenceSeconds },
-      "stale-date": Math.floor((payload.arrivalAtMs + 20 * 60 * 1000) / 1000),
-      alert: payload.alert,
-    }
-    : {
-      timestamp: nowSeconds,
-      event: "end",
-      "content-state": { departureAt: departureReferenceSeconds, arrivalAt: arrivalReferenceSeconds },
-      "dismissal-date": nowSeconds,
-    };
+  const aps = liveActivityAps(payload);
   const body = JSON.stringify({ aps });
 
   return new Promise((resolve) => {

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import sharp from "sharp";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { boundedJson } from "@/lib/travel-assistant/http";
 import { validatePhotoGuide } from "@/lib/travel-assistant/photo";
 export const runtime = "nodejs";
@@ -16,12 +17,57 @@ const configured = () =>
   Boolean(
     process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
   );
-export function GET() {
-  return reply({ available: configured() });
+// Bound the wait even when a dependency ignores cancellation. A timed-out auth
+// check must never continue on to quota consumption or the AI provider.
+function boundedWait<T>(work: PromiseLike<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const aborted = () => reject(new Error("dependency-timeout"));
+    if (signal.aborted) return aborted();
+    signal.addEventListener("abort", aborted, { once: true });
+    Promise.resolve(work).then(
+      (value) => { signal.removeEventListener("abort", aborted); resolve(value); },
+      (error) => { signal.removeEventListener("abort", aborted); reject(error); },
+    );
+  });
+}
+
+let readiness: { until: number; available: boolean } | null = null;
+let readinessInFlight: Promise<boolean> | null = null;
+export async function GET() {
+  if (!configured()) return reply({ available: false, reason: "disabled" });
+  if (!readiness || readiness.until <= Date.now()) {
+    readinessInFlight ??= (async () => {
+      try {
+        const admin = getSupabaseAdmin();
+        if (!admin) return false;
+        const signal = AbortSignal.timeout(3000);
+        // The migration explicitly returns false for null before any writes.
+        // This checks service access and RPC installation without spending a use.
+        const result = await boundedWait(
+          admin.rpc("consume_travel_photo_quota", { p_user: null }).abortSignal(signal),
+          signal,
+        );
+        return !result.error && result.data === false;
+      } catch {
+        return false;
+      }
+    })();
+    const available = await readinessInFlight;
+    readiness = { available, until: Date.now() + (available ? 30000 : 5000) };
+    readinessInFlight = null;
+  }
+  return reply(readiness.available
+    ? { available: true }
+    : { available: false, reason: "temporarily-unavailable" });
 }
 export async function POST(request: Request) {
   if (!configured()) return reply({ code: "unavailable" }, 503);
-  const auth = await requireAuthenticatedUser(request);
+  let auth;
+  try {
+    auth = await boundedWait(requireAuthenticatedUser(request), AbortSignal.timeout(4000));
+  } catch {
+    return reply({ code: "unavailable" }, 503);
+  }
   if (!auth.ok) {
     auth.response.headers.set("Cache-Control", "private, no-store");
     return auth.response;
@@ -29,7 +75,7 @@ export async function POST(request: Request) {
   let image: Buffer;
   let locale: string;
   try {
-    const data = (await boundedJson(request, 1_500_000)) as Record<
+    const data = (await boundedWait(boundedJson(request, 1_500_000), AbortSignal.timeout(4000))) as Record<
       string,
       unknown
     >;
@@ -53,15 +99,24 @@ export async function POST(request: Request) {
       .rotate()
       .resize(1280, 1280, { fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 80 })
+      .timeout({ seconds: 3 })
       .toBuffer();
     locale = data.locale as string;
   } catch {
     return reply({ code: "invalid-image" }, 400);
   }
   // Atomic database quota applies across server workers; fail closed if migration is absent.
-  const quota = await auth.supabase.rpc("consume_travel_photo_quota", {
-    p_user: auth.user.id,
-  });
+  let quota;
+  try {
+    const signal = AbortSignal.timeout(3000);
+    const query = auth.supabase.rpc("consume_travel_photo_quota", { p_user: auth.user.id });
+    quota = await boundedWait(
+      typeof query.abortSignal === "function" ? query.abortSignal(signal) : query,
+      signal,
+    );
+  } catch {
+    return reply({ code: "unavailable" }, 503);
+  }
   if (quota.error) return reply({ code: "unavailable" }, 503);
   if (quota.data !== true) return reply({ code: "daily-limit" }, 429);
   try {
@@ -91,8 +146,8 @@ export async function POST(request: Request) {
         responseMimeType: "application/json",
         temperature: 0.2,
         maxOutputTokens: 1800,
-        abortSignal: AbortSignal.timeout(30000),
-        httpOptions: { timeout: 30000 },
+        abortSignal: AbortSignal.timeout(25000),
+        httpOptions: { timeout: 25000 },
       },
     });
     const result = validatePhotoGuide(JSON.parse(response.text || "null"));

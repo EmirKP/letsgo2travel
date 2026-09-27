@@ -65,7 +65,6 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
     const arrivalAt = Date.parse(times.arrival.iso);
     if (departureAt <= now.getTime()) return message("Kalkış tarihi ve saati geçmişte olamaz.", "The departure date and time cannot be in the past.");
     if (!Number.isFinite(departureAt) || !Number.isFinite(arrivalAt) || arrivalAt <= departureAt) return message("Planlanan varış, kalkıştan sonra olmalı.", "Scheduled arrival must be after departure.");
-    if (!form.flightPnr.trim()) return message("PNR kodunu yaz (biletindeki rezervasyon kodu).", "Enter the PNR (the booking code on your ticket).");
   }
   if (form.flightPnr && !/^[A-Z0-9-]{3,20}$/.test(form.flightPnr.trim())) return message("PNR 3–20 harf, rakam veya tire içerebilir.", "PNR must contain 3–20 letters, numbers or hyphens.");
   if (form.flightNumber && !/^[A-Z0-9]{2,8}$/.test(form.flightNumber.trim())) return message("Uçuş numarası 2–8 harf/rakam olabilir (örn. TK1979).", "Flight number must contain 2–8 letters or numbers (e.g. TK1979).");

@@ -5,17 +5,25 @@ import { validatePhotoGuide } from "../../../lib/travel-assistant/photo";
 import type { PhotoGuide } from "../../../lib/travel-assistant/photo";
 
 async function prepareImage(file: File): Promise<string> {
+  if (/image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name))
+    throw new Error("heic");
   if (
     !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
     file.size > 12_000_000
   )
     throw new Error("image");
   const url = URL.createObjectURL(file);
+  let decodeTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const image = new Image();
     image.src = url;
-    await image.decode();
-    if (image.naturalWidth * image.naturalHeight > 24_000_000)
+    await Promise.race([
+      image.decode(),
+      new Promise<never>((_, reject) => {
+        decodeTimer = setTimeout(() => reject(new Error("image")), 5000);
+      }),
+    ]);
+    if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 24_000_000)
       throw new Error("image");
     const ratio = Math.min(
       1,
@@ -33,6 +41,7 @@ async function prepareImage(file: File): Promise<string> {
     if (data.length > 1_350_000) throw new Error("image");
     return data;
   } finally {
+    if (decodeTimer) clearTimeout(decodeTimer);
     URL.revokeObjectURL(url);
   }
 }
@@ -45,55 +54,92 @@ export function TravelPhotoGuide({
 }) {
   const { copy, locale } = useI18n();
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [availabilityReason, setAvailabilityReason] = useState("disabled");
+  const [checkVersion, setCheckVersion] = useState(0);
   const [photo, setPhoto] = useState("");
   const [consent, setConsent] = useState(false);
   const [result, setResult] = useState<PhotoGuide | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [clearedDuringAnalysis, setClearedDuringAnalysis] = useState(false);
   const generation = useRef(0);
+  const pending = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    const recheck = () => setCheckVersion((value) => value + 1);
+    window.addEventListener("online", recheck);
+    return () => {
+      mounted.current = false;
+      generation.current++;
+      window.removeEventListener("online", recheck);
+    };
+  }, []);
+  useEffect(() => {
+    generation.current++;
+    setPhoto("");
+    setResult(null);
+    setError("");
+    setConsent(false);
+    setClearedDuringAnalysis(false);
+  }, [locale, accessToken]);
   useEffect(() => {
     let active = true;
-    void requestJson<{ available: boolean }>("/api/travel-assistant/photo")
+    setAvailable(null);
+    void requestJson<{ available: boolean; reason?: string }>("/api/travel-assistant/photo", { timeoutMs: 7000 })
       .then((r) => {
-        if (active) setAvailable(r.available === true);
+        if (active) {
+          setAvailable(r.available === true);
+          setAvailabilityReason(r.reason === "disabled" ? "disabled" : "service");
+        }
       })
       .catch(() => {
-        if (active) setAvailable(false);
+        if (active) {
+          setAvailable(false);
+          setAvailabilityReason("network");
+        }
       });
     return () => {
       active = false;
-      generation.current++;
     };
-  }, []);
+  }, [checkVersion]);
   async function select(file?: File) {
-    if (!file) return;
+    if (!file || pending.current) return;
+    pending.current = true;
     const id = ++generation.current;
     setBusy(true);
     setError("");
     setResult(null);
     setPhoto("");
     setConsent(false);
+    setClearedDuringAnalysis(false);
     try {
       const data = await prepareImage(file);
       if (id === generation.current) setPhoto(data);
-    } catch {
+    } catch (cause) {
       if (id === generation.current)
         setError(
-          copy(
+          cause instanceof Error && cause.message === "heic" ? copy(
+            "HEIC/HEIF fotoğraflar burada açılamıyor. Fotoğrafı JPEG olarak dışa aktar veya bir ekran görüntüsü seç.",
+            "HEIC/HEIF photos cannot be opened here. Export the photo as JPEG or choose a screenshot.",
+          ) : copy(
             "12 MB altında JPEG, PNG veya WebP fotoğraf seç.",
             "Choose a JPEG, PNG or WebP photo under 12 MB.",
           ),
         );
     } finally {
-      if (id === generation.current) setBusy(false);
+      pending.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   async function analyze() {
-    if (!photo || !consent || !accessToken || busy) return;
+    if (!photo || !consent || !accessToken || pending.current || available !== true) return;
+    pending.current = true;
     const id = ++generation.current;
     setBusy(true);
     setError("");
     setResult(null);
+    setClearedDuringAnalysis(false);
     try {
       // Always the main API origin; never forward an account token to public-data staging.
       const raw = await requestJson<unknown>("/api/travel-assistant/photo", {
@@ -106,25 +152,34 @@ export function TravelPhotoGuide({
       if (!value) throw new Error("invalid");
       if (id === generation.current) setResult(value);
     } catch (e) {
-      if (id === generation.current)
+      if (id === generation.current) {
+        if (e instanceof ApiError && e.status === 503) {
+          setAvailable(false);
+          setAvailabilityReason("service");
+        }
         setError(
           e instanceof ApiError && e.status === 429
             ? copy(
-                "Bugünkü analiz sınırına ulaşıldı. Yarın yeniden deneyebilirsin.",
-                "Today’s analysis limit has been reached. Try again tomorrow.",
+                "Günlük analiz sınırına ulaşıldı. Sınır Türkiye saatiyle 03.00’te yenilenir.",
+                "The daily analysis limit has been reached. It resets at 00:00 UTC.",
               )
             : e instanceof ApiError && e.status === 401
               ? copy(
                   "Oturumun süresi doldu. Yeniden giriş yap.",
                   "Your session expired. Sign in again.",
                 )
-              : copy(
+              : e instanceof ApiError && e.status === 503 ? copy(
+                  "Fotoğraf hizmeti şu anda hazır değil. Biraz sonra hizmeti yeniden kontrol et.",
+                  "The photo service is not ready. Check the service again in a moment.",
+                ) : copy(
                   "Fotoğraf yorumlanamadı. Bağlantını kontrol edip tekrar dene.",
                   "Could not analyze the photo. Check your connection and try again.",
                 ),
         );
+      }
     } finally {
-      if (id === generation.current) setBusy(false);
+      pending.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -141,12 +196,23 @@ export function TravelPhotoGuide({
           {copy("Hizmet kontrol ediliyor…", "Checking service…")}
         </p>
       ) : available === false ? (
+        <>
         <p className="ta-warning">
-          {copy(
+          {availabilityReason === "disabled" ? copy(
             "Fotoğraf analizi bu sürümün sunucusunda henüz etkin değil.",
             "Photo analysis is not enabled on this version’s server yet.",
+          ) : availabilityReason === "network" ? copy(
+            "Hizmete ulaşılamadı. İnternet bağlantını kontrol edip yeniden dene.",
+            "Could not reach the service. Check your internet connection and try again.",
+          ) : copy(
+            "Fotoğraf hizmeti şu anda hazır değil. Biraz sonra yeniden kontrol et.",
+            "The photo service is not ready. Check again in a moment.",
           )}
         </p>
+        <button className="secondary-wide" onClick={() => setCheckVersion((value) => value + 1)}>
+          {copy("Hizmeti yeniden kontrol et", "Check service again")}
+        </button>
+        </>
       ) : !accessToken ? (
         <button className="primary-wide" onClick={onSignIn}>
           {copy("Analiz için giriş yap", "Sign in to analyze")}
@@ -211,11 +277,13 @@ export function TravelPhotoGuide({
               </button>
               <button
                 className="secondary-wide"
-                disabled={busy}
                 onClick={() => {
+                  generation.current++;
                   setPhoto("");
                   setResult(null);
                   setConsent(false);
+                  setError("");
+                  setClearedDuringAnalysis(busy);
                 }}
               >
                 {copy("Fotoğrafı temizle", "Clear photo")}
@@ -224,6 +292,11 @@ export function TravelPhotoGuide({
           )}
         </>
       )}
+      {busy && <p role="status">{copy("Fotoğraf işlemi sürüyor…", "Photo processing is in progress…")}</p>}
+      {clearedDuringAnalysis && <p className="ta-muted">{copy(
+        "Fotoğraf ve yanıt bu ekrandan temizlendi. Başlamış analiz sunucuda tamamlanabilir ve günlük haktan sayılabilir.",
+        "The photo and answer were cleared from this screen. An analysis already started may finish on the server and count toward the daily limit.",
+      )}</p>}
       {error && (
         <p role="alert" className="ta-warning">
           {error}

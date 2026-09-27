@@ -11,6 +11,7 @@ function modules(extra = {}) {
   const context = vm.createContext({ AbortSignal, setTimeout, clearTimeout, Date, Map,
     console: { warn: (...args) => logs.push(args), info: (...args) => logs.push(args) }, ...extra });
   const load = file => {
+    if (file.endsWith(".json")) return { default: JSON.parse(fs.readFileSync(file, "utf8")) };
     const full = path.resolve(file.endsWith(".ts") ? file : file + ".ts");
     if (cache.has(full)) return cache.get(full).exports;
     const loaded = { exports: {} }; cache.set(full, loaded);
@@ -86,6 +87,8 @@ test("actual store retries trip SELECT only and retains airport/arrival/language
   } };
   const trips = await load("lib/live-activity-store").createSupabaseLiveActivityStore(supabase).tripsDepartingBetween(Date.now(),Date.now()+1000,40);
   assert.equal(calls,2); assert.equal(selections[0],selections[1]); assert.equal(trips[0].originIata,"IST"); assert.equal(trips[0].language,"en"); assert.ok(trips[0].arrivalAtMs > trips[0].departureAtMs);
+  assert.equal(trips[0].originTimeZone, "Europe/Istanbul");
+  assert.equal(trips[0].destinationTimeZone, "Europe/London");
 });
 test("actual store preserves missing-column compatibility without retrying SQL error", async () => {
   const { load } = modules(); let calls=0; const columns=[];

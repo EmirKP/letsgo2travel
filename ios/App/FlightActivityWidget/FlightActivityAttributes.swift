@@ -22,4 +22,8 @@ struct FlightActivityAttributes: ActivityAttributes {
     var destinationIata: String
     var deepLink: String     // letsgo2travel://cockpit
     var language: String?    // "tr" / "en"; eski aktivitelerde nil olabilir
+    // Optional alanlar eski push-to-start içerikleriyle uyumluluğu korur.
+    var originTimeZone: String?
+    var destinationTimeZone: String?
+    var flightNumber: String?
 }

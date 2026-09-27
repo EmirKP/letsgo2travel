@@ -5,6 +5,8 @@ import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
+import { CockpitFlightLookup } from "../components/CockpitFlightLookup";
+import type { FlightMatch } from "../../../lib/flight-lookup";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, alpha3FromAlpha2 } from "../data/countryIso";
 import { airportTimeZone } from "../../../lib/airport-time-zones";
@@ -153,6 +155,9 @@ function reminderTrips(items: CockpitTrip[], language: "tr" | "en") {
     status: trip.status,
     originIata: trip.originIata,
     destinationIata: trip.destinationIata,
+    originTimeZone: airportTimeZone(trip.originIata || ""),
+    destinationTimeZone: airportTimeZone(trip.destinationIata || ""),
+    flightNumber: trip.flightNumber,
     language,
   }));
 }
@@ -185,9 +190,12 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const [busy, setBusy] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<TripForm>(EMPTY_FORM);
+  const [manualFlight, setManualFlight] = useState(false);
+  const [matchedFlight, setMatchedFlight] = useState<FlightMatch | null>(null);
   const [newChecklistLabel, setNewChecklistLabel] = useState("");
   const [newChecklistCategory, setNewChecklistCategory] = useState<ChecklistCategory>("other");
   const loadGeneration = useRef(0);
+  const pendingCreate = useRef<CockpitSessionSnapshot | null>(null);
   const reminderReset = useRef<Promise<void>>(Promise.resolve());
   const userId = user?.id || "";
   const sessionRef = useRef<CockpitSessionSnapshot>({
@@ -220,6 +228,9 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setTrips([]);
       setSelectedTripId("");
       setForm(EMPTY_FORM);
+      pendingCreate.current = null;
+      setManualFlight(false);
+      setMatchedFlight(null);
       setFormOpen(false);
       setNewChecklistLabel("");
       // Önce sıradaki/eski snapshot'ı geçersiz kılıp bildirim kuyruğunu
@@ -331,13 +342,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const createTrip = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const session = captureSession();
-    if (!session || busy || loading) return;
+    if (!session || busy || loading || pendingCreate.current?.userId === session.userId) return;
     const validation = tripFormError(form, new Date(), locale);
     if (validation) {
       setError(validation);
       return;
     }
 
+    pendingCreate.current = session;
     setBusy("create");
     setError("");
     try {
@@ -371,12 +383,15 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       syncRemindersForSession(session, next);
       setSelectedTripId(created.id);
       setForm(EMPTY_FORM);
+      setMatchedFlight(null);
+      setManualFlight(false);
       setFormOpen(false);
       onNotice(copy("Seyahatin kokpite eklendi.", "Your trip was added to the cockpit."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       setError(getSupabaseDataErrorMessage(requestError, copy("Seyahat kaydedilemedi. Bilgileri kontrol edip tekrar dene.", "The trip could not be saved. Check the details and try again.")));
     } finally {
+      if (pendingCreate.current === session) pendingCreate.current = null;
       if (isCurrentSession(session)) setBusy("");
     }
   };
@@ -515,16 +530,39 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     {formOpen && <form id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
       <p className="required-note"><span>*</span> {copy("Zorunlu alanlar", "Required fields")}</p>
       <div className="cockpit-mode-tabs" role="group" aria-label={copy("Seyahat türü", "Trip type")}>
-        <button type="button" aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => setForm({ ...form, mode: "flight" })}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
-        <button type="button" aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => setForm({ ...form, mode: "other", originAirport: null, airport: null })}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
+        <button type="button" aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => { if (form.mode === "flight") return; setForm({ ...EMPTY_FORM, mode: "flight" }); setMatchedFlight(null); setManualFlight(false); }}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
+        <button type="button" aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => { if (form.mode === "other") return; setForm({ ...EMPTY_FORM, mode: "other" }); setMatchedFlight(null); setManualFlight(false); }}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
       </div>
 
+      {form.mode === "flight" && <CockpitFlightLookup key={userId} accessToken={accessToken} flightNumber={form.flightNumber} date={form.startDate}
+        onQueryChange={(flightNumber, startDate) => {
+          setError("");
+          if (matchedFlight) { setMatchedFlight(null); setManualFlight(false); setForm({ ...EMPTY_FORM, flightNumber, startDate, endDate: form.endDate, flightPnr: form.flightPnr }); }
+          else setForm({ ...form, flightNumber, startDate, departureUtc: undefined });
+        }}
+        onManual={() => { setMatchedFlight(null); setManualFlight(true); }}
+        onSelect={flight => {
+          setMatchedFlight(flight); setManualFlight(false); setError("");
+          setForm({ ...form, originAirport: flight.origin, airport: flight.destination,
+            destinationCity: flight.destination.city, destinationCountry: flight.destination.country, destinationCode: flight.destination.countryCode, countryAlpha3: "",
+            startDate: flight.departureDate, departureTime: flight.departureTime, departureUtc: flight.departureAt,
+            arrivalDate: flight.arrivalDate, arrivalTime: flight.arrivalTime, arrivalUtc: flight.arrivalAt,
+            airline: flight.airline, flightNumber: flight.flightNumber });
+        }}/>}
+      {form.mode === "flight" && matchedFlight && <section className="cockpit-flight-summary" aria-label={copy("Uçuş özeti", "Flight summary")}>
+        <header><h3>{matchedFlight.flightNumber}</h3><span>{matchedFlight.airline}</span></header>
+        <div className="flight-route"><div><strong>{matchedFlight.origin.iata}</strong><span>{matchedFlight.origin.city}</span><b>{matchedFlight.departureTime}</b><small>{matchedFlight.departureDate} · {matchedFlight.origin.timeZone}</small></div><Icon name="plane" size={22}/><div><strong>{matchedFlight.destination.iata}</strong><span>{matchedFlight.destination.city}</span><b>{matchedFlight.arrivalTime}</b><small>{matchedFlight.arrivalDate} · {matchedFlight.destination.timeZone}</small></div></div>
+        <p>{copy("Planlanan saatler · AeroDataBox", "Scheduled times · AeroDataBox")} · {new Intl.DateTimeFormat(dateLocale, { hour: "2-digit", minute: "2-digit" }).format(new Date(matchedFlight.fetchedAt))}</p>
+        <p>{copy("Biletinle karşılaştırıp onayla. Bu kayıt otomatik canlı uçuş takibi yapmaz.", "Check against your ticket before saving. This record does not track live flight changes automatically.")}</p>
+        <button className="secondary-button" type="button" onClick={() => { setMatchedFlight(null); setManualFlight(true); }}>{copy("Bilgileri düzenle", "Edit details")}</button>
+      </section>}
+      {(form.mode === "other" || manualFlight) && <div className="cockpit-manual-fields">
       {form.mode === "flight" && (
         <AirportField
           label={copy("Kalkış havalimanı", "Departure airport")}
           required
           value={form.originAirport}
-          onChange={(airport) => setForm({ ...form, originAirport: airport })}
+          onChange={(airport) => setForm({ ...form, originAirport: airport, departureUtc: undefined })}
         />
       )}
 
@@ -535,13 +573,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           value={form.airport}
           onChange={(airport) => {
             if (!airport) {
-              setForm({ ...form, airport: null });
+              setForm({ ...form, airport: null, arrivalUtc: undefined });
               return;
             }
             // Havalimanı seçimi ülke, şehir ve ISO kodunu OTOMATİK doldurur.
             setForm({
               ...form,
               airport,
+              arrivalUtc: undefined,
               destinationCity: airport.city || form.destinationCity,
               destinationCountry: airport.country,
               destinationCode: airport.countryCode,
@@ -551,7 +590,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         />
       )}
 
-      <CountryPicker
+      {form.mode === "other" && <><CountryPicker
           label={copy("Ülke · zorunlu", "Country · required")}
           placeholder={copy("Ülke seç", "Choose country")}
           options={countryPickerOptions}
@@ -568,41 +607,31 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           }}
       />
 
-      <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder={copy("Roma", "Rome")} /></label>
+      <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<input value={form.destinationCity} maxLength={100} onChange={(event) => setForm({ ...form, destinationCity: event.target.value })} placeholder={copy("Roma", "Rome")} /></label></>}
       <div className="form-grid two stack-narrow">
-        <DateTimeField type="date" required label={copy("Başlangıç", "Start")} min={earliestStart} max={localIsoDate(730)} value={form.startDate} onChange={(requested) => {
+        {form.mode === "other" && <DateTimeField type="date" required label={copy("Başlangıç", "Start")} min={earliestStart} max={localIsoDate(730)} value={form.startDate} onChange={(requested) => {
           const next = clampLocalDate(requested, earliestStart, localIsoDate(730));
           setForm({ ...form, startDate: next, endDate: form.endDate && form.endDate < next ? next : form.endDate, arrivalDate: form.arrivalDate || next });
           if (requested && requested !== next) onNotice(copy("Geçmiş bir başlangıç tarihi seçilemez.", "A past start date cannot be selected."));
-        }} />
-        <DateTimeField type="date" required label={copy("Seyahat bitişi", "Trip end")} min={form.startDate || localIsoDate(0)} max={localIsoDate(730)} value={form.endDate} onChange={(requested) => {
-          const next = clampLocalDate(requested, form.startDate || localIsoDate(0), localIsoDate(730));
-          setForm({ ...form, endDate: next, arrivalDate: form.arrivalDate && form.arrivalDate > next ? next : form.arrivalDate });
-          if (requested && requested !== next) onNotice(copy("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date."));
-        }} />
+        }} />}
       </div>
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <label>{copy("Havayolu (isteğe bağlı)", "Airline (optional)")}<input value={form.airline} maxLength={80} onChange={(event) => setForm({ ...form, airline: event.target.value })} placeholder={copy("Türk Hava Yolları", "Turkish Airlines")} /></label>
-        <label>{copy("Uçuş no (isteğe bağlı)", "Flight no. (optional)")}<input value={form.flightNumber} maxLength={8} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightNumber: normalizeFlightNumber(event.target.value) })} placeholder="TK1979" /></label>
-      </div>}
-      {form.mode === "flight" && <div className="form-grid two stack-narrow">
-        <DateTimeField type="time" required label={copy("Kalkış · havalimanı yerel saati", "Departure · airport local time")} value={form.departureTime} onChange={departureTime => setForm({ ...form, departureTime })} />
-        <label><span>PNR <em className="required-mark">· {copy("rezervasyon kodu", "booking code")}</em></span><input required aria-required="true" value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={(event) => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder={copy("Örn. ABC123", "E.g. ABC123")} /></label>
+        <DateTimeField type="time" required label={copy("Kalkış · havalimanı yerel saati", "Departure · airport local time")} value={form.departureTime} onChange={departureTime => setForm({ ...form, departureTime, departureUtc: undefined })} />
       </div>}
       {form.mode === "flight" && <div className="form-grid two stack-narrow cockpit-arrival-fields">
         <DateTimeField type="date" required label={copy("Planlanan varış tarihi", "Scheduled arrival date")} min={earliestArrival} max={form.endDate || localIsoDate(730)} value={form.arrivalDate} onChange={(requested) => {
           const next = clampLocalDate(requested, earliestArrival, form.endDate || localIsoDate(730));
-          setForm({ ...form, arrivalDate: next });
+          setForm({ ...form, arrivalDate: next, arrivalUtc: undefined });
           if (requested && requested !== next) onNotice(copy("Varış tarihi seyahat aralığının dışında olamaz.", "Arrival must stay within the trip dates."));
         }} />
-        <DateTimeField type="time" required label={copy("Varış · havalimanı yerel saati", "Arrival · airport local time")} value={form.arrivalTime} onChange={arrivalTime => setForm({ ...form, arrivalTime })} />
+        <DateTimeField type="time" required label={copy("Varış · havalimanı yerel saati", "Arrival · airport local time")} value={form.arrivalTime} onChange={arrivalTime => setForm({ ...form, arrivalTime, arrivalUtc: undefined })} />
       </div>}
       {form.mode === "flight" && <div className="form-grid two stack-narrow">
         {(["originAirport", "airport"] as const).map((field, index) => {
           const airport = form[field];
           const zone = index === 0 ? departureZone : arrivalZone;
           const label = index === 0 ? copy("Kalkış saat dilimi", "Departure time zone") : copy("Varış saat dilimi", "Arrival time zone");
-          return airport && <label key={field}>{label}{airportTimeZone(airport.iata) ? <span>{zone}</span> : <select required value={zone} onChange={event => setForm({ ...form, [field]: { ...airport, timeZone: event.target.value } })}><option value="">{copy("Biletteki şehrin saat dilimini seç", "Choose the time zone of the ticket city")}</option>{availableZones.map(value => <option key={value} value={value}>{value}</option>)}</select>}</label>;
+          return airport && <label key={field}>{label}{airportTimeZone(airport.iata) ? <span>{zone}</span> : <select required value={zone} onChange={event => setForm({ ...form, [field]: { ...airport, timeZone: event.target.value }, [field === "originAirport" ? "departureUtc" : "arrivalUtc"]: undefined })}><option value="">{copy("Biletteki şehrin saat dilimini seç", "Choose the time zone of the ticket city")}</option>{availableZones.map(value => <option key={value} value={value}>{value}</option>)}</select>}</label>;
         })}
       </div>}
       {form.mode === "flight" && !areFlightFieldsSupported() && <p className="form-hint">{copy("Uçuş detayları (IATA/uçuş no) sunucu güncellemesi tamamlanana kadar kaydedilmeyebilir; diğer bilgiler güvenle saklanır.", "Flight details (IATA/flight number) may not save until the server update is complete; other details remain safe.")}</p>}
@@ -611,7 +640,15 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         const key = field === "departure" ? "departureUtc" : "arrivalUtc";
         return !result.ok && result.reason === "ambiguous" && <label key={field}>{copy("Saat geri alınıyor: biletteki UTC karşılığını seç", "Clocks go back: choose the UTC time on your ticket")} · {field === "departure" ? copy("Kalkış", "Departure") : copy("Varış", "Arrival")}<select required value={form[key] || ""} onChange={event => setForm({ ...form, [key]: event.target.value })}><option value="">{copy("Seç", "Choose")}</option>{result.candidates?.map(value => <option key={value} value={value}>{value.replace("T", " ").replace(":00.000Z", " UTC")}</option>)}</select></label>;
       })}
-      <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading} type="submit">
+      </div>}
+      {(form.mode === "other" || manualFlight || matchedFlight) && <>
+        <DateTimeField type="date" required label={copy("Seyahatin ne zaman bitiyor?", "When does your trip end?")} min={[form.startDate, form.arrivalDate].sort().at(-1) || localIsoDate(0)} max={localIsoDate(730)} value={form.endDate} onChange={endDate => setForm({ ...form, endDate })}/>
+        {form.mode === "flight" && <details className="cockpit-optional-details"><summary>{copy("Ek bilgiler · isteğe bağlı", "Extra details · optional")}</summary><div className="form-grid two stack-narrow">
+          <label>{copy("PNR · rezervasyon kodu", "PNR · booking reference")}<input value={form.flightPnr} maxLength={20} autoCapitalize="characters" onChange={event => setForm({ ...form, flightPnr: normalizePnr(event.target.value) })} placeholder="ABC123"/></label>
+          <label>{copy("Havayolu", "Airline")}<input value={form.airline} maxLength={80} onChange={event => setForm({ ...form, airline: event.target.value })}/></label>
+        </div></details>}
+      </>}
+      <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading || (form.mode === "flight" && !manualFlight && !matchedFlight)} type="submit">
         {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Kokpite ekle", "Add to cockpit")}
       </button>
     </form>}

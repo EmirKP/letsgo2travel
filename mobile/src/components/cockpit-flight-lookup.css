@@ -1,0 +1,31 @@
+.cockpit-flight-lookup { padding:18px; border:1px solid #ccdeee; border-radius:20px; background:linear-gradient(140deg,#f2f8fd,#fff 80%); display:grid; gap:14px; }
+.cockpit-flight-lookup header { display:flex; align-items:center; gap:12px; }
+.cockpit-flight-lookup h3 { margin:0 0 4px; font-size:18px; color:#112d48; }
+.cockpit-flight-lookup p { margin:0; font-size:13px; line-height:1.55; color:#526678; }
+.flight-lookup-icon { display:grid; place-items:center; width:44px; height:44px; flex-shrink:0; border-radius:14px; color:#f9d170; background:#102d4a; }
+.flight-lookup-availability { border-radius:12px; padding:12px; background:#e8f0f7; }
+.flight-lookup-availability button, .flight-manual-button { min-height:44px; border:0; background:transparent; color:#1b507c; font-weight:650; text-decoration:underline; text-underline-offset:3px; }
+.flight-lookup-message { padding:12px; border-radius:12px; background:#fff4d9; color:#64480f!important; }
+.flight-lookup-results { display:grid; gap:10px; }
+.flight-lookup-result { text-align:left; width:100%; background:#fff; border:1px solid #c7dae9; padding:14px; border-radius:14px; display:grid; gap:7px; color:#173750; }
+.flight-lookup-result>span:first-child { display:flex; justify-content:space-between; gap:12px; }
+.flight-lookup-result strong { font-size:20px; letter-spacing:.04em; }
+.flight-lookup-result b { font-size:12px; border-radius:20px; background:#e8f1f8; padding:5px 8px; }
+.flight-lookup-result small { color:#586c7c; }
+.cockpit-flight-summary { border:1px solid #d2e4df; padding:18px; border-radius:18px; background:#f2faf6; display:grid; gap:12px; }
+.cockpit-flight-summary header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cockpit-flight-summary h3 { margin:0; color:#193e36; }
+.cockpit-flight-summary p { margin:0; font-size:12px; color:#526e64; line-height:1.5; }
+.cockpit-flight-summary .secondary-button { min-height:44px; background:#e0f0e9; color:#164936; border:1px solid #b5d7c8; }
+.cockpit-flight-summary .flight-route { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
+.cockpit-flight-summary .flight-route>div { display:grid; gap:4px; min-width:0; }
+.cockpit-flight-summary .flight-route>div:last-child { text-align:right; }
+.cockpit-flight-summary .flight-route strong { font-size:28px; letter-spacing:.04em; color:#153f34; }
+.cockpit-flight-summary .flight-route b { font-size:22px; font-variant-numeric:tabular-nums; }
+.cockpit-flight-summary .flight-route small { font-size:11px; overflow-wrap:anywhere; }
+.cockpit-optional-details { border:1px solid #dbe3eb; border-radius:14px; padding:12px; }
+.cockpit-optional-details summary { min-height:32px; font-weight:650; cursor:pointer; color:#344e65; }
+.cockpit-optional-details[open] summary { margin-bottom:12px; }
+.cockpit-manual-fields { display:grid; gap:16px; }
+.cockpit-flight-lookup button:focus-visible, .cockpit-optional-details summary:focus-visible { outline:3px solid #598fc2; outline-offset:3px; }
+@media(max-width:360px) { .cockpit-flight-lookup,.cockpit-flight-summary { padding:13px; }.cockpit-flight-summary .flight-route strong { font-size:24px; } }

@@ -38,6 +38,9 @@ export type CronTrip = {
   departureAtMs: number;
   /** Planlanan varış; eski kayıtlarda yoksa güvenli +1 saat fallback kullanılır. */
   arrivalAtMs?: number;
+  originTimeZone?: string;
+  destinationTimeZone?: string;
+  flightNumber?: string;
   language?: "tr" | "en";
 };
 
@@ -100,12 +103,12 @@ export type LiveActivitySendPayload =
   | {
     event: "start";
     tripId: string;
-    attributes: { tripId: string; title: string; originIata: string; destinationIata: string; deepLink: string; language: string };
+    attributes: { tripId: string; title: string; originIata: string; destinationIata: string; deepLink: string; language: string; originTimeZone?: string; destinationTimeZone?: string; flightNumber?: string };
     departureAtMs: number;
-    arrivalAtMs: number;
+    arrivalAtMs?: number;
     alert: { title: string; body: string };
   }
-  | { event: "end"; tripId: string; departureAtMs: number; arrivalAtMs: number };
+  | { event: "end"; tripId: string; departureAtMs: number; arrivalAtMs?: number };
 
 export type LiveActivityTransport = (token: string, payload: LiveActivitySendPayload) => Promise<LiveActivityPushOutcome>;
 
@@ -161,14 +164,17 @@ export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
       destinationIata: trip.destinationIata || "",
       deepLink: cockpitDeepLinkFor(trip.id),
       language: english ? "en" : "tr",
+      originTimeZone: trip.originTimeZone,
+      destinationTimeZone: trip.destinationTimeZone,
+      flightNumber: trip.flightNumber,
     },
     departureAtMs: trip.departureAtMs,
-    arrivalAtMs: activityArrivalAtMs(trip),
+    arrivalAtMs: Number.isFinite(trip.arrivalAtMs) && Number(trip.arrivalAtMs) > trip.departureAtMs ? trip.arrivalAtMs : undefined,
     alert: {
       title: english ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
       body: english
-        ? `3 hours until your ${trip.title || "upcoming"} flight.`
-        : `${trip.title || "Yaklaşan uçuş"} uçuşuna 3 saat kaldı.`,
+        ? `Your ${trip.title || "upcoming"} flight is approaching. Check the saved schedule in Cockpit.`
+        : `${trip.title || "Yaklaşan uçuş"} uçuşun yaklaşıyor. Kaydettiğin saatleri Kokpit'te kontrol et.`,
     },
   };
 }
@@ -243,7 +249,7 @@ async function processDelivery(
 
   const payload: LiveActivitySendPayload = row.event === "start"
     ? buildStartPayload(trip)
-    : { event: "end", tripId: trip.id, departureAtMs: trip.departureAtMs, arrivalAtMs: activityArrivalAtMs(trip) };
+    : { event: "end", tripId: trip.id, departureAtMs: trip.departureAtMs, arrivalAtMs: trip.arrivalAtMs };
 
   let outcome: LiveActivityPushOutcome;
   try {

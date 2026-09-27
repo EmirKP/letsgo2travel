@@ -7,6 +7,9 @@ import { openExternal } from '../lib/native';
 import { Sheet } from './Sheet';
 import { validatePlaces } from '../../../lib/travel-assistant/responses';
 import { useCurrentTime } from '../hooks/useCurrentTime';
+import { MAX_SAVED_PLACES, deleteTravelPlace, readSavedPlaces, saveTravelPlace, subscribeSavedPlaces } from '../lib/savedPlaces';
+import { Icon } from './Icon';
+import './saved-places.css';
 const TravelPointMap = lazy(() => import('./TravelPointMap').then(m => ({default:m.TravelPointMap})));
 const CITY_CENTRES = [
   { name:'Berlin', latitude:52.52, longitude:13.40 },
@@ -27,10 +30,34 @@ export function TravelNearby({mode,citizenship}: {mode:MapMode;citizenship:strin
   const [myEmbassy,setMyEmbassy] = useState(false);
   const [city,setCity] = useState('');
   const [busy,setBusy] = useState(false); const [error,setError] = useState(''); const [selected,setSelected] = useState<Place|null>(null);
+  const [savedPlaces,setSavedPlaces] = useState(readSavedPlaces);
+  const [saveError,setSaveError] = useState(''); const [saveStatus,setSaveStatus] = useState('');
+  useEffect(() => subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces())), []);
+  const isSelectedSaved = !!selected && savedPlaces.items.some(item => item.place.id === selected.id);
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; },[]);
   const name = (p:Place) => p.name || CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : 1];
   const filtered = useMemo(() => result && center && (!myEmbassy || citizenship) ? filterPlaces(result.places,{category,free,accessible,alwaysOpen,representedCountry:myEmbassy ? citizenship : undefined},center) : [],[result,center,category,free,accessible,alwaysOpen,myEmbassy,citizenship]);
+  function selectPlace(place: Place) { setSelected(place); setSaveError(''); setSaveStatus(''); }
+  function toggleSaved() {
+    if (!selected) return;
+    try {
+      const saved = readSavedPlaces().items.some(item => item.place.id === selected.id);
+      setSavedPlaces(saved ? deleteTravelPlace(selected.id) : saveTravelPlace(selected));
+      setSaveError('');
+      setSaveStatus(saved
+        ? copy('Bu yer kayıtlı yerlerinden ve gezi sırandan kaldırıldı.', 'Removed from saved places and your day list.')
+        : copy('Kaydedildi. Kaydettiğim yerler bölümünde not ekleyip gezi sırana alabilirsin.', 'Saved. Add notes and arrange your day in Saved places.'));
+    } catch (e) {
+      setSaveStatus('');
+      const code = e instanceof Error ? e.message : '';
+      setSaveError(code === 'full'
+        ? copy(`En fazla ${MAX_SAVED_PLACES} yer kaydedebilirsin. Önce kayıtlı yerlerinden birini kaldır.`, `You can save up to ${MAX_SAVED_PLACES} places. Remove one of your saved places first.`)
+        : code === 'corrupt'
+          ? copy('Kayıtlı listen okunamıyor. Kaydettiğim yerler bölümünden kontrol et; mevcut verilerin silinmedi.', 'Your saved list cannot be read. Check Saved places; your existing data has not been deleted.')
+          : copy('Değişiklik kaydedilemedi. Cihaz depolamasını kontrol et; önceki kayıtların korunuyor.', 'Could not save the change. Check device storage; your previous records are preserved.'));
+    }
+  }
   async function search(chosen?: Coordinates) {
     const id = ++generation.current;
     setBusy(true); setError(''); setSelected(null); setResult(null);
@@ -62,11 +89,15 @@ export function TravelNearby({mode,citizenship}: {mode:MapMode;citizenship:strin
     {result && center && <><p aria-live="polite">{filtered.length} {copy('nokta','places')} · {copy('Aranan merkez çevresinde yaklaşık 3 km; merkeze mesafeye göre','About 3 km around the searched centre; sorted by distance from centre')}</p>
       {result.stale && <p className="ta-warning" role="status">{copy('Güncel veri alınamadı veya son sonuç bir saatten eski. Aynı bölgenin en son alınan kaydı gösteriliyor; hizmet ve saatler değişmiş olabilir. Harita görüntüsü internet gerektirebilir.', 'Fresh data is unavailable or the last result is over an hour old. Showing the last retrieved result for this area; services and hours may have changed. Map images may need internet.')}</p>}
       <button type="button" className="secondary-wide" disabled={busy} onClick={() => void search(center)}>{copy('Bu bölgeyi yenile', 'Refresh this area')}</button>
-      {filtered.length > 0 && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…')}</p>}><TravelPointMap center={center} places={filtered} onSelect={setSelected}/></Suspense>}
+      {filtered.length > 0 && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…')}</p>}><TravelPointMap center={center} places={filtered} onSelect={selectPlace}/></Suspense>}
       {!filtered.length && <p className="ta-empty">{copy('Bu filtrelerde kayıt bulunamadı. Bu, çevrende hizmet olmadığı anlamına gelmez; filtreleri kaldır veya harita uygulamasında ara.','No records match these filters. This does not mean no service exists nearby; clear filters or search in your maps app.')}</p>}
-      <div className="ta-place-list">{filtered.map(p => <button type="button" key={p.id} onClick={() => setSelected(p)}><span><strong>{name(p)}</strong><small>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : 1]}</small></span><small>≈ {distanceKm(center,p).toFixed(1)} km</small></button>)}</div>
+      <div className="ta-place-list">{filtered.map(p => <button type="button" key={p.id} onClick={() => selectPlace(p)}><span><strong>{name(p)}</strong><small>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : 1]}{savedPlaces.items.some(item => item.place.id === p.id) && ` · ${copy('Kaydedildi', 'Saved')}`}</small></span><small>≈ {distanceKm(center,p).toFixed(1)} km</small></button>)}</div>
       <p className="ta-muted">{copy('OSM topluluk verisi; doğruluk ve hizmet mevcudiyeti garanti değildir. Mesafeler kuş uçuşudur.','OSM community data; accuracy and service availability are not guaranteed. Distances are straight-line estimates.')} {copy('Alınma','Retrieved')}: {new Date(result.fetchedAt).toLocaleString(locale)}{result.limited && ` · ${copy('Sonuç sınırına ulaşıldı; tüm noktalar gösterilmiyor.','Result limit reached; not all places are shown.')}`}</p></>}
     <Sheet open={!!selected && !!result} title={selected ? name(selected) : ''} onClose={() => setSelected(null)}>{selected && result && <div className="ta-panel">
+      <button type="button" className="tsp-save-button" aria-pressed={isSelectedSaved} onClick={toggleSaved}><Icon name={isSelectedSaved ? 'check' : 'bookmark'} size={18}/>{isSelectedSaved ? copy('Kaydedildi · Kaldır', 'Saved · Remove') : copy('Bu yeri kaydet', 'Save this place')}</button>
+      <p className="ta-muted">{copy('Kaydettiğin yerin bilgileri ve notların yalnız bu cihazda tutulur; hesabına yüklenmez, giriş/çıkış yaptığında kalır. Kaydettiğim yerler bölümünden silebilirsin.', 'Saved place details and notes stay on this device only; they are not uploaded to your account and remain when you sign in or out. Delete them from Saved places.')}</p>
+      {saveError && <p className="ta-warning" role="alert">{saveError}</p>}
+      <p className="tsp-save-status" role="status" aria-live="polite">{saveStatus}</p>
       <p>{selected.description || copy('Bu nokta için kısa açıklama bulunmuyor.','No description is available for this place.')}</p>
       {center && <p>≈ {distanceKm(center,selected).toFixed(1)} km</p>}
       <p>{copy('Çalışma saati kaydı','Listed hours')}: {selected.hours || copy('Bilinmiyor','Unknown')}</p>

@@ -19,9 +19,10 @@ const TravelTranslation = lazy(() => import('./TravelTranslation').then(m => ({d
 const TravelTransit = lazy(() => import('./TravelTransit').then(m => ({default:m.TravelTransit})));
 const TravelPhotoGuide = lazy(() => import('./TravelPhotoGuide').then(m => ({default:m.TravelPhotoGuide})));
 const TravelOfflineMap = lazy(() => import('./TravelOfflineMap').then(m => ({default:m.TravelOfflineMap})));
-type Tool = 'safety'|'needs'|'explore'|'embassies'|'money'|'guide'|'translate'|'transit'|'photo'|'offline';
-const labels: Record<Tool,[string,string]> = {safety:['Acil Mod','Emergency'],needs:['İhtiyaç haritası','Essentials map'],explore:['Gezi haritası','Sightseeing map'],embassies:['Konsolosluk','Consulate'],money:['Para Merkezi','Money'],guide:['Gitmeden Önce Bil','Before you go'],translate:['Çeviri','Translate'],transit:['Ulaşım','Transport'],photo:['Fotoğraftan rehber','Photo guide'],offline:['Çevrimdışı harita','Offline map']};
-const icons: Record<Tool,IconName> = {safety:'shield',needs:'map',explore:'compass',embassies:'flag',money:'wallet',guide:'info',translate:'languages',transit:'train',photo:'camera',offline:'offline'};
+const TravelSavedPlaces = lazy(() => import('./TravelSavedPlaces').then(m => ({default:m.TravelSavedPlaces})));
+type Tool = 'safety'|'needs'|'explore'|'embassies'|'money'|'guide'|'translate'|'transit'|'photo'|'offline'|'saved';
+const labels: Record<Tool,[string,string]> = {safety:['Acil Mod','Emergency'],needs:['İhtiyaç haritası','Essentials map'],explore:['Gezi haritası','Sightseeing map'],saved:['Kayıtlı yerler','Saved places'],embassies:['Konsolosluk','Consulate'],money:['Para Merkezi','Money'],guide:['Gitmeden Önce Bil','Before you go'],translate:['Çeviri','Translate'],transit:['Ulaşım','Transport'],photo:['Fotoğraftan rehber','Photo guide'],offline:['Çevrimdışı harita','Offline map']};
+const icons: Record<Tool,IconName> = {safety:'shield',needs:'map',explore:'compass',saved:'bookmark',embassies:'flag',money:'wallet',guide:'info',translate:'languages',transit:'train',photo:'camera',offline:'offline'};
 export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToken,onSignIn}:{initialCountry?:string;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void}) {
   const { copy,locale,countryName } = useI18n(); const passport = usePassportPreference();
   const [country,setCountry] = useState(() => initialCountry || readTravelCountry()); const [citizenship,setCitizenship] = useState(passport.country);
@@ -42,6 +43,7 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
       {tool==='transit' && <TravelTransit/>}
       {tool==='photo' && <TravelPhotoGuide key={accessToken ? 'signed-in' : 'guest'} accessToken={accessToken} onSignIn={onSignIn}/>}
       {tool==='offline' && <TravelOfflineMap/>}
+      {tool==='saved' && <TravelSavedPlaces onExplore={() => setTool('explore')}/>}
       {tool==='embassies' && <><CountryPicker value={citizenship} options={options} onChange={setCitizenship} label={copy('Vatandaşlığın (pasaport tercihin başlangıç olarak alındı)','Citizenship (initially from your passport preference)')} placeholder={copy('Vatandaşlık seç','Choose citizenship')}/><EmbassyCards country={country} citizenship={citizenship}/></>}
       {tool==='guide' && <section className="ta-panel"><p className="ta-muted">{copy('Bu kartlar cihazda hazırdır. Her başlık için ülke kapsamı farklıdır. Genel saatler, belirli bir işletmenin açık olduğu anlamına gelmez.','These cards are bundled on-device. Country coverage varies by topic. General hours do not mean a particular business is open.')}</p>
         {(['water','tax-free','hours','law','culture'] as const).map(category => <section key={category} className="ta-guide-section"><h3>{{water:copy('Musluk suyu','Tap water'),'tax-free':'Tax Free',hours:copy('Genel çalışma saatleri','Typical hours'),law:copy('Yerel kanunlar','Local laws'),culture:copy('Kültürel tavsiyeler','Cultural guidance')}[category]}</h3>

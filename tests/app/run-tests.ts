@@ -411,9 +411,10 @@ test("kokpit: kalkış ve varış aynı havalimanı olamaz", () => {
   assert.ok(error.includes("aynı olamaz"));
 });
 
-test("kokpit: uçuşlu seyahatte kalkış saati ve PNR zorunlu", () => {
+test("kokpit: kalkış saati zorunlu, PNR isteğe bağlı ve verilirse doğrulanır", () => {
   assert.ok(tripFormError(makeTripForm({ departureTime: "" })).includes("saat"));
-  assert.ok(tripFormError(makeTripForm({ flightPnr: "" })).includes("PNR"));
+  assert.equal(tripFormError(makeTripForm({ flightPnr: "" })), "");
+  assert.ok(tripFormError(makeTripForm({ flightPnr: "A" })).includes("PNR"));
 });
 
 test("kokpit: planlanan varış uçuş geri sayımı için zorunlu ve kalkıştan sonradır", () => {
@@ -1013,8 +1014,8 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   assert.ok(map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sınırlandırılmış aralıkta yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
   assert.ok(!map.includes("style={{ transform:") && styles.includes("shape-rendering: geometricPrecision"), "SVG CSS ile büyütülüp bulanıklaştırılmamalı");
   assert.ok(map.includes("width={flagSize}") && map.includes("height={flagSize*0.7}") && map.includes("href={countryFlagAsset(country.alpha2)}"), "bayraklar okunur boyutta yerel SVG olarak kalmalı");
-  assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('Text(isEnglish ? "Flying" : "Uçuyoruz")'), "canlı etkinlik uygulama kapalıyken uçuş evresine geçmeli");
-  assert.ok(widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")') && widget.includes("kind: .flying"), "varış sayacı sağ tarafta sarı uçuş sayacı olarak görünmeli");
+  assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('"Scheduled departure" : "Planlanan kalkış"'), "canlı etkinlik yalnız planlanan saatleri anlatmalı");
+  assert.ok(widget.includes('"Scheduled arrival" : "Planlanan varış"') && widget.includes(".arrivalUnknown"), "varış sayacı planlanan zamanı anlatmalı; eksik varış gerçekleşmiş sayılmamalı");
 });
 
 test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağı korunur", () => {
@@ -1051,7 +1052,7 @@ test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları gü
   assert.ok(styles.includes(".admin-tabs { position: relative; top: auto") && admin.includes("alpha3FromAlpha2"), "yönetici sekmeleri içeriği örtmemeli ve ülke adları yerelleştirilmeli");
   assert.ok(events.includes("attachTravelEventToCockpitTrip") && events.includes("eventDay >= trip.startDate") && events.includes("Seyahate ekle"), "yalnız tarihi örtüşen seyahate etkinlik eklenebilmeli");
   assert.ok(mobileData.includes('kind: "event"') && mobileData.includes("eventStartsAt") && cockpit.includes("selectedTripEvents") && cockpit.includes("cockpit-event-list"), "etkinlikler mevcut senkron seyahat verisinde yapısal olarak saklanıp ayrı gösterilmeli");
-  assert.ok(widget.includes(".labelsHidden()") && widget.includes('Text(isEnglish ? "Arrives in" : "Varışa")'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip sarı varış sayacı korunmalı");
+  assert.ok(widget.includes(".labelsHidden()") && widget.includes('"Scheduled arrival" : "Planlanan varış"'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip planlanan varış sayacı korunmalı");
 });
 
 test("Build 21: forum cevap alanı ve yönetim sağlık uyarısı dar ekranda güvenlidir", () => {

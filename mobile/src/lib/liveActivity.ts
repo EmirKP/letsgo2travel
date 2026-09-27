@@ -18,6 +18,9 @@ export type FlightReminderTrip = {
   status: string;
   originIata?: string | null;
   destinationIata?: string | null;
+  originTimeZone?: string | null;
+  destinationTimeZone?: string | null;
+  flightNumber?: string | null;
   language?: "tr" | "en";
 };
 
@@ -36,7 +39,7 @@ const REMINDER_ID_BASE = 411_000; // yerel bildirim kimlik alanımız
 /**
  * Swift DepartureCountdown ile AYNI karar (ayna): kalkış gelecekteyse
  * geri sayım gösterilir; geçtiyse TERS zaman aralığı OLUŞTURULMAZ,
- * güvenli "kalkış gerçekleşti" görünümüne düşülür. Widget kalkıştan
+ * güvenli "planlanan kalkış saati geçti" görünümüne düşülür. Widget kalkıştan
  * sonra +1 saat açık kaldığı için bu dal gerçek hayatta HER uçuşta çalışır.
  */
 export function countdownMode(departureAtIso: string | null, now: Date = new Date()): "countdown" | "departed" {
@@ -44,6 +47,16 @@ export function countdownMode(departureAtIso: string | null, now: Date = new Dat
   const departure = Date.parse(departureAtIso);
   if (!Number.isFinite(departure)) return "departed";
   return departure > now.getTime() ? "countdown" : "departed";
+}
+
+/** Widget ayna kuralı: saat yalnız tarifeyi anlatır; gerçek uçuş durumu değildir. */
+export function scheduledFlightPhase(departureAtIso: string | null, arrivalAtIso?: string | null, now: Date = new Date()): "waiting" | "scheduled-flight" | "arrival-due" | "arrival-unknown" {
+  const departure = departureAtIso ? Date.parse(departureAtIso) : Number.NaN;
+  if (!Number.isFinite(departure)) return "arrival-unknown";
+  if (now.getTime() < departure) return "waiting";
+  const arrival = arrivalAtIso ? Date.parse(arrivalAtIso) : Number.NaN;
+  if (!Number.isFinite(arrival) || arrival <= departure) return "arrival-unknown";
+  return now.getTime() < arrival ? "scheduled-flight" : "arrival-due";
 }
 
 /** Uçuş için Live Activity/hatırlatma evresi (saf; birim testli). */
@@ -157,6 +170,9 @@ async function performFlightReminderSync(
               arrivalAt: trip.arrivalAt,
               originIata: trip.originIata || "",
               destinationIata: trip.destinationIata || "",
+              originTimeZone: trip.originTimeZone || "",
+              destinationTimeZone: trip.destinationTimeZone || "",
+              flightNumber: trip.flightNumber || "",
               language: trip.language || "tr",
               deepLink: cockpitDeepLink(trip.id),
             });
