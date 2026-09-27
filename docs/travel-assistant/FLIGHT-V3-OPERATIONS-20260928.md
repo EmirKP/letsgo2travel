@@ -1,6 +1,6 @@
 # Flight progress, refresh and native delivery — 28 September 2026
 
-This is prepared source and local verification, not a production activation record. No paid subscription, provider request, database migration, environment change or cron schedule was made as part of this implementation. Production previously shipped build 53 with owner-only trial lookup; that remains the last verified live operating mode.
+This document describes implementation and activation requirements, not evidence of commercial/background activation. See `UX-FLIGHT-DELIVERY-20260928.md` for the subsequent SQL, Vercel and TestFlight delivery record. No paid subscription, provider request, environment flag change, quota increase or recurring refresh schedule was made. Owner-only trial remains the live operating mode.
 
 ## Protocol and source accuracy
 
