@@ -68,6 +68,7 @@ const { AccountDeletionRequestSummary } = loadSource("mobile/src/components/Acco
   "../lib/accountDeletion": helpers,
   "../lib/i18n": { useI18n: () => ({ copy: (_tr, en) => en, dateLocale: "en-US", locale: "en" }) },
   "../lib/native": {}, "./Icon": {}, "./SupportSheet": {}, "./account-deletion.css": {},
+  "../lib/personalTravelCards": {},
 });
 const summary = (request) => renderToStaticMarkup(React.createElement(AccountDeletionRequestSummary, { request, email: "fixture@example.com" }));
 await test("pending summary shows server submission, 30-day deadline and result email", () => {
@@ -94,5 +95,39 @@ await test("a rejected request never reports that the account was deleted", () =
   assert.match(html, /Request reviewed/);
   assert.match(html, /Check your email for the outcome or contact support/);
   assert.doesNotMatch(html, /Completed|account was deleted/);
+});
+const jsx = (type, props) => ({ type, props });
+const nodes = value => value && typeof value === 'object' ? [value,...[value.props?.children].flat(Infinity).flatMap(nodes)] : [];
+const text = value => Array.isArray(value) ? value.map(text).join('') : typeof value === 'string' ? value : value?.props ? text(value.props.children) : '';
+const tick = () => new Promise(resolve => setImmediate(resolve));
+function deletionPanel({ failRequest=false, failCleanup=false }={}) {
+  const slots=[];let cursor=0,dirty=false,effects=[];const cleared=[];
+  const changed=(left,right)=>!left||!right||right.some((value,i)=>!Object.is(value,left[i]));
+  const memo=(fn,deps)=>{const index=cursor++;if(!slots[index]||changed(slots[index].deps,deps))slots[index]={deps,value:fn()};return slots[index].value;};
+  const hooks={
+    useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,next=>{const value=typeof next==='function'?next(slots[index].value):next;if(!Object.is(value,slots[index].value)){slots[index].value=value;dirty=true;}}];},
+    useRef(initial){const index=cursor++;if(!slots[index])slots[index]={current:initial};return slots[index];},useId:()=> 'fixture-confirmation',useCallback:(fn,deps)=>memo(()=>fn,deps),
+    useEffect(fn,deps){const index=cursor++,old=slots[index];if(!old||changed(old.deps,deps)){slots[index]={...old,deps};effects.push(()=>{old?.cleanup?.();slots[index].cleanup=fn();});}},
+  };
+  const i18n={copy:(_tr,en)=>en,locale:'en',dateLocale:'en-GB'};
+  const {AccountDeletionPanel}=loadSource('mobile/src/components/AccountDeletionPanel.tsx',{
+    react:hooks,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/api':api,
+    '../lib/accountDeletion':{...helpers,getAccountDeletionRequest:async()=>null,getAppleDeletionStatus:async()=>({required:false,status:'not_required'}),submitAccountDeletionRequest:async()=>{if(failRequest)throw Error('offline');return fixture;}},
+    '../lib/i18n':{useI18n:()=>i18n},'../lib/personalTravelCards':{clearPersonalTravelCards:owner=>{cleared.push(owner);return !failCleanup;}},
+    '../lib/native':{},'./Icon':{Icon:'Icon'},'./SupportSheet':{SupportSheet:'SupportSheet'},'./account-deletion.css':{},
+  });
+  const props={ownerId:'owner-a',accessToken:'test-token',email:'fixture@example.com',onBusyChange(){}};
+  const render=()=>{for(let i=0;i<15;i++){cursor=0;dirty=false;effects=[];const tree=AccountDeletionPanel(props);effects.forEach(fn=>fn());if(!dirty)return tree;}throw Error('Unstable hooks');};
+  const button=label=>nodes(render()).find(node=>node.type==='button'&&text(node.props.children).trim()===label);
+  return {render,cleared,button,dispose:()=>slots.forEach(slot=>slot?.cleanup?.()),async confirm(){render();await tick();button('Request account deletion')?.props.onClick();nodes(render()).find(node=>node.type==='input').props.onChange({target:{value:'DELETE'}});button('Submit permanent account deletion request').props.onClick();await tick();}};
+}
+await test('accepted account deletion clears the confirmed owner device cards only after explicit confirmation',async()=>{
+  const panel=deletionPanel();try{panel.render();await tick();assert.equal(panel.cleared.length,0);panel.button('Request account deletion').props.onClick();assert.match(text(panel.render()),/immediately deleted from this device/);assert.equal(panel.cleared.length,0);await panel.confirm();assert.deepEqual(panel.cleared,['owner-a']);assert.match(text(panel.render()),/deletion request was received/);}finally{panel.dispose();}
+});
+await test('failed account deletion request preserves personal device cards',async()=>{
+  const panel=deletionPanel({failRequest:true});try{await panel.confirm();assert.equal(panel.cleared.length,0);assert.match(text(panel.render()),/request could not be sent/);}finally{panel.dispose();}
+});
+await test('device cleanup failure keeps server success and offers a separate local retry',async()=>{
+  const panel=deletionPanel({failCleanup:true});try{await panel.confirm();assert.deepEqual(panel.cleared,['owner-a']);const view=text(panel.render());assert.match(view,/deletion request was received/);assert.match(view,/could not be cleared/);assert.doesNotMatch(view,/request could not be sent/);assert.ok(panel.button('Retry clearing device cards'));}finally{panel.dispose();}
 });
 console.log(`PASS ${passed} account deletion UI checks`);

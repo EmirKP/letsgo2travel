@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { FlightMatch } from "./flight-lookup";
 import { FLIGHT_DATA_LIFETIME_MS } from "./flight-lookup-access";
+import { flightSelectionDeadline } from "./flight-progress";
 
 const SAVE_WINDOW_MS = 10 * 60000;
 type Receipt = {
@@ -14,9 +15,11 @@ export function issueFlightReceipt(userId: string, query: Receipt["query"], flig
   if (secret.length < 32) throw new Error("receipt-unavailable");
   const fetched = Date.parse(flight.fetchedAt);
   if (!Number.isFinite(fetched) || fetched > now.getTime() + 30000 || fetched + SAVE_WINDOW_MS <= now.getTime()) throw new Error("stale-flight");
+  const deadline = flightSelectionDeadline(flight, now);
+  if (!Number.isFinite(deadline) || deadline <= now.getTime()) throw new Error("stale-flight");
   const expiresAt = new Date(fetched + FLIGHT_DATA_LIFETIME_MS).toISOString();
   const payload: Receipt = { version: 2, userId, nonce: randomUUID(), query, flight, expiresAt,
-    saveUntil: new Date(Math.min(fetched + SAVE_WINDOW_MS, Date.parse(flight.departureAt))).toISOString() };
+    saveUntil: new Date(deadline).toISOString() };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return { receipt: `${encoded}.${signature(encoded, secret).toString("base64url")}`, expiresAt };
 }
@@ -35,7 +38,7 @@ export function verifyFlightReceipt(value: unknown, userId: string, secret: stri
       || payload.flight.source !== "AeroDataBox" || payload.query.flightNumber !== payload.flight.flightNumber
       || payload.query.date !== payload.flight.departureDate || !Number.isFinite(fetched)
       || expires !== fetched + FLIGHT_DATA_LIFETIME_MS || !Number.isFinite(saveUntil)
-      || saveUntil > fetched + SAVE_WINDOW_MS || saveUntil > Date.parse(payload.flight.departureAt)
+      || saveUntil > fetched + SAVE_WINDOW_MS || saveUntil > flightSelectionDeadline(payload.flight, now)
       || fetched > now.getTime() + 30000 || now.getTime() >= saveUntil || now.getTime() >= expires) return null;
     return payload;
   } catch { return null; }

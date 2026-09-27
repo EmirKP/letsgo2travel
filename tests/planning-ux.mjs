@@ -42,6 +42,45 @@ const find = (tree, type, predicate = () => true) => nodes(tree).find(node => no
 const button = (tree, label) => find(tree, 'button', props => text(props.children).trim() === label);
 const common = host => ({ react: host.react, 'react/jsx-runtime': runtime, '../lib/i18n': { useI18n: () => english } });
 const search = load('mobile/src/lib/searchText.ts');
+const homeJourney = load('mobile/src/lib/homeJourney.ts');
+
+test('Home prioritises an active trip, ignores past upcoming/cancelled trips and leaves the list untouched', () => {
+  const trips = [
+    {id:'later',status:'upcoming',startDate:'2026-11-01',endDate:'2026-11-03'},
+    {id:'past',status:'upcoming',startDate:'2026-08-01',endDate:'2026-08-03'},
+    {id:'cancelled',status:'cancelled',startDate:'2026-09-28',endDate:'2026-10-03'},
+    {id:'soon',status:'upcoming',startDate:'2026-10-01',endDate:'2026-10-03'},
+    {id:'active',status:'active',startDate:'2026-09-27',endDate:'2026-09-29'},
+  ];
+  const before = JSON.stringify(trips);
+  assert.equal(homeJourney.nextHomeJourney(trips,'2026-09-28').id,'active');
+  assert.equal(homeJourney.nextHomeJourney(trips.filter(trip=>trip.id!=='active'),'2026-09-28').id,'soon');
+  assert.equal(JSON.stringify(trips),before);
+});
+test('Home next step uses personal checklist and travel dates without reading provider flight data', () => {
+  const trip={status:'upcoming',startDate:'2026-10-01',endDate:'2026-10-05',checklistItems:[{id:'event',kind:'event',label:'Concert',completed:false},{id:'passport',label:'Passport',completed:true},{id:'packing',label:'Pack',completed:false}],get providerFlight(){throw Error('Provider data must not be read');}};
+  const preparing=homeJourney.homeJourneyStep(trip,'2026-09-28');
+  assert.equal(preparing.stage,'preparing');assert.equal(preparing.total,2);assert.equal(preparing.completed,1);assert.equal(preparing.nextItem.id,'packing');
+  assert.equal(homeJourney.homeJourneyStep(trip,'2026-10-01').stage,'travelling');
+  assert.equal(homeJourney.homeJourneyStep(trip,'2026-10-06').stage,'wrap-up');
+});
+
+test('Home rejects an old account response and opens the precise current trip from its next step', async () => {
+  const host=hooks(), requests=new Map(), opened=[];
+  const {HomeScreen}=load('mobile/src/screens/HomeScreen.tsx',{
+    ...common(host),'../components/Icon':{Icon:'Icon'},'../data/routes':{routeByDestinationCode:()=>null},'../data/artwork':{},
+    '../lib/supabaseData':{listCockpitTrips:owner=>new Promise(resolve=>requests.set(owner,resolve))},'../lib/dates':{localIsoDate:()=> '2026-09-28'},'../lib/homeJourney':homeJourney,
+  });
+  try {
+    host.start(HomeScreen,{user:{id:'a'},ownerId:'a',accessToken:'FIXTURE',onOpenTrip:id=>opened.push(id),onNavigate(){},onOpenCommunity(){},onSurprise(){},onBuildRoute(){},onNotice(){}});
+    assert.match(text(host.render()),/Getting your trip ready/);
+    host.render({ownerId:'b',user:{id:'b'}});
+    const makeTrip=(id,country)=>({id,status:'upcoming',destinationCountry:country,destinationCity:null,startDate:'2026-10-01',endDate:'2026-10-04',checklistItems:[{id:'packing',label:'Pack suitcase',completed:false}]});
+    requests.get('a')([makeTrip('trip-a','Private account A')]);await tick();assert.doesNotMatch(text(host.render()),/Private account A/);
+    requests.get('b')([makeTrip('trip-b','Italy')]);await tick();const view=host.render();assert.match(text(view),/Pack suitcase/);button(view,'Continue preparing').props.onClick();assert.deepEqual(opened,['trip-b']);
+    host.render({ownerId:null,user:null,accessToken:''});assert.doesNotMatch(text(host.render()),/Italy|Pack suitcase/);
+  } finally {host.dispose();}
+});
 
 test('Country search treats accents and Turkish I variants consistently without dropping non-Latin text', () => {
   for (const [left, right] of [['Türkiye', 'turkiye'], ['Italy', 'italy'], ['İTALYA', 'italya'], ['IĞDIR', 'igdir'], ['Côte d’Ivoire', 'cote d’ivoire'], ['  São   Tomé ', 'sao tome']]) assert.equal(search.normalizeSearchText(left), search.normalizeSearchText(right));
@@ -188,8 +227,10 @@ test('A favourite outside ready-route coverage opens an explanation, never an un
       '../lib/storage': { getSavedRoutePlans: () => [], getFavoriteDestinations: () => [{ alpha3: 'CAN', name: 'Canada' }], getSavedTravelEvents: () => [] },
       '../lib/supabaseData': {}, '../lib/native': {}, '../lib/routeOutbox': { readRouteOutbox: () => ({}) }, '../lib/routeSync': {}, '../lib/eventReminders': {},
       '../components/TravelSavedPlaces': { TravelSavedPlaces: 'TravelSavedPlaces' }, '../lib/savedPlaces': { readSavedPlaces: () => ({ items: [], dayIds: [], error: null }), subscribeSavedPlaces: () => () => {} },
+      '../lib/searchText': search,
+      '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' },
     });
-    host.start(TripsScreen, { user: null, accessToken: '', onNavigate: view => navigations.push(view), onNotice() {}, onOpenAccount() {}, onOpenDestination() {} });
+    host.start(TripsScreen, { user: null, initialSection: 'countries', accessToken: '', onNavigate: view => navigations.push(view), onNotice() {}, onOpenAccount() {}, onOpenDestination() {} });
     find(host.render(), 'button', props => props.className === 'saved-country-row').props.onClick();
     const view = host.render(); const dialog = find(view, 'Sheet', props => props.open && props.title === 'Canada');
     assert.ok(dialog); assert.match(text(dialog), /No ready-made route/); assert.equal(navigations.length, 0);
@@ -214,6 +255,8 @@ test('Saved library Places filter reads the same device store as the map and off
     const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
       ...common(host), '../../../lib/event-time': {}, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' }, '../components/TripCollaborationHub': { TripCollaborationHub: 'TripCollaborationHub' },
       '../components/TravelSavedPlaces': { TravelSavedPlaces }, '../lib/savedPlaces': savedApi,
+      '../lib/searchText': search,
+      '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' },
       '../data/countryIso': { alpha2FromAlpha3: () => 'GB' }, '../data/artwork': {}, '../data/discovery': { DISCOVERY_DESTINATIONS: [] },
       '../lib/storage': { getSavedRoutePlans: () => [], getFavoriteDestinations: () => [], getSavedTravelEvents: () => [] },
       '../lib/supabaseData': {}, '../lib/native': {}, '../lib/routeOutbox': { readRouteOutbox: () => ({}) }, '../lib/routeSync': {}, '../lib/eventReminders': {},
@@ -223,7 +266,7 @@ test('Saved library Places filter reads the same device store as the map and off
     const entry = find(view, 'button', props => text(props.children).includes('Places saved from the map'));
     assert.match(text(entry), /1 place · On this device/);
     assert.equal(find(view, TravelSavedPlaces), undefined, 'All shows a short entry rather than the whole place list');
-    button(view, 'Places').props.onClick();
+    entry.props.onClick();
     const panel = find(host.render(), TravelSavedPlaces); assert.ok(panel);
     placesHost.start(TravelSavedPlaces, panel.props);
     const card = nodes(placesHost.render()).find(node => typeof node.type === 'function' && node.props?.item?.place.id === museum.id);
@@ -236,8 +279,28 @@ test('Saved library Places filter reads the same device store as the map and off
     const explore = button(empty, 'Open Travel Assistant'); assert.ok(explore);
     assert.equal(button(empty, 'Open sightseeing map'), undefined);
     explore.props.onClick(); assert.deepEqual(navigations, ['companion']);
-    button(host.render(), 'All').props.onClick();
+    button(host.render(), 'All saved').props.onClick();
     assert.match(text(find(host.render(), 'button', props => text(props.children).includes('Places saved from the map'))), /0 places/);
     assert.equal(store.size, 1); assert.ok(store.has(savedApi.SAVED_PLACES_KEY), 'The library never creates a duplicate place store');
   } finally { host.dispose(); placesHost.dispose(); }
+});
+
+test('Saved routes search finds accents, and a guest route deletion can be undone with its original identity', () => {
+  const host=hooks();let saved=[{id:'original-route',createdAt:'2026-09-28T08:00:00Z',input:{days:'3 days'},plan:{summary:'Explore Istanbul',routes:[{...route,name:'İstanbul'}]}}];
+  const original=saved[0];
+  const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
+    ...common(host),'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
+    '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
+    '../lib/storage':{getSavedRoutePlans:()=>saved,getFavoriteDestinations:()=>[],getSavedTravelEvents:()=>[],deleteRoutePlan:id=>(saved=saved.filter(item=>item.id!==id)),saveRoutePlan:item=>(saved=[item,...saved])},
+    '../lib/supabaseData':{},'../lib/native':{},'../lib/routeOutbox':{readRouteOutbox:()=>({})},'../lib/routeSync':{},'../lib/eventReminders':{},'../lib/searchText':search,
+  });
+  try {
+    host.start(TripsScreen,{initialSection:'routes',user:null,accessToken:'',onNavigate(){},onNotice(){},onOpenAccount(){},onOpenDestination(){}});
+    find(host.render(),'input',props=>props.type==='search').props.onChange({target:{value:'istanbul'}});
+    assert.match(text(host.render()),/İstanbul/);
+    find(host.render(),'button',props=>props['aria-label']==='Delete route').props.onClick();
+    nodes(host.render()).find(node=>typeof node.type==='function'&&node.type.name==='DeleteConfirmation').props.onConfirm();
+    assert.equal(saved.length,0);button(host.render(),'Undo').props.onClick();
+    assert.equal(saved.length,1);assert.equal(saved[0],original);assert.match(text(host.render()),/İstanbul/);
+  } finally {host.dispose();}
 });

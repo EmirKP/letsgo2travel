@@ -1,12 +1,12 @@
 import { addPluginListener, isIOSNative, isNativePlatform, plugin } from "./capacitor";
 
-// Yaklaşan Kokpit uçuşları için Live Activity + yerel bildirim katmanı.
+// Yaklaşan ve devam eden Kokpit uçuşları için Live Activity katmanı.
 // - Live Activity (Dynamic Island / kilit ekranı) YALNIZ native
 //   FlightLiveActivity eklentisi uygulamaya eklendiğinde çalışır
 //   (LIVE-ACTIVITY-KURULUM.md'deki Xcode adımları). Eklenti yoksa veya
-//   cihaz desteklemiyorsa NORMAL yerel bildirime düşülür — akış kırılmaz.
-// - Veri yalnız kullanıcının kaydettiği uçuş bilgisidir; boarding/gate/
-//   gecikme gibi canlı durumlar UYDURULMAZ (doğrulanmış sağlayıcı yok).
+//   cihaz desteklemiyorsa yalnız kullanıcı biletleri yerel bildirim kullanır.
+// - İzinli sağlayıcı verisi yalnız süresi sınırlı Live Activity'ye gider;
+//   kalıcı yerel bildirim metnine yazılmaz. Saat canlı durum sayılmaz.
 // - Yerel bildirim izni ASLA burada istenmez: izin verilmemişse sessizce
 //   atlanır (izin akışı kullanıcının bildirim tercihinden yönetilir).
 
@@ -22,6 +22,17 @@ export type FlightReminderTrip = {
   destinationTimeZone?: string | null;
   flightNumber?: string | null;
   language?: "tr" | "en";
+  /** Present only for a server-authorized commercial flight, never a trial. */
+  provider?: {
+    status: string;
+    updatedAt: string | null;
+    freshUntil: string | null;
+    expiresAt: string;
+    revisedDepartureAt: string | null;
+    revisedArrivalAt: string | null;
+    departureKind: "estimated" | "actual" | "unknown" | null;
+    arrivalKind: "estimated" | "actual" | "unknown" | null;
+  };
 };
 
 /** Kokpit kaydına giden derin bağlantı (bildirim + Live Activity aynı adresi kullanır). */
@@ -30,6 +41,11 @@ export function cockpitDeepLink(tripId: string) {
 }
 
 export type ActivityPhase = "before" | "active" | "ended";
+
+// Apple bounds visible ActivityKit lifetime to 8h active + 4h on the Lock Screen.
+// A 13h admission buffer keeps that lifecycle inside provider retention even offline.
+// This is a presentation-lifecycle bound, not a claim about forensic OS storage.
+export const PROVIDER_ACTIVITY_MIN_RETENTION_MS = 13 * 60 * 60 * 1000;
 
 const ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala başlat
 const ACTIVITY_FALLBACK_TAIL_MS = 60 * 60 * 1000;
@@ -81,7 +97,13 @@ export type ActivitySyncAction = "start" | "end" | "none";
  */
 export function activitySyncAction(trip: FlightReminderTrip, now: Date = new Date()): ActivitySyncAction {
   if (trip.status !== "upcoming" && trip.status !== "active") return "end";
-  const phase = activityPhase(trip.departureAt, now, trip.arrivalAt);
+  if (trip.provider && (!Number.isFinite(Date.parse(trip.provider.expiresAt))
+    || Date.parse(trip.provider.expiresAt) < now.getTime() + PROVIDER_ACTIVITY_MIN_RETENTION_MS
+    || ["Arrived", "Canceled", "Cancelled", "Diverted", "CanceledUncertain"].includes(trip.provider.status))) return "end";
+  const fresh = trip.provider && Date.parse(trip.provider.freshUntil || "") > now.getTime();
+  const knownKind = (kind: string | null | undefined) => kind === "actual" || kind === "estimated";
+  const phase = activityPhase(fresh && knownKind(trip.provider?.departureKind) && trip.provider?.revisedDepartureAt || trip.departureAt,
+    now, fresh && knownKind(trip.provider?.arrivalKind) && trip.provider?.revisedArrivalAt || trip.arrivalAt);
   if (phase === "active") return "start";
   return phase === "ended" ? "end" : "none";
 }
@@ -89,6 +111,9 @@ export function activitySyncAction(trip: FlightReminderTrip, now: Date = new Dat
 /** Hatırlatma planlanacak uçuşlar: yaklaşan + gelecekte kalkışı olanlar. */
 export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Date()) {
   return trips
+    // OS notification storage has no provider retention guard. Keep provider
+    // details in the bounded Live Activity, not scheduled notification text.
+    .filter((trip) => !trip.provider)
     .filter((trip) => trip.status === "upcoming" || trip.status === "active")
     .filter((trip) => trip.departureAt && Number.isFinite(Date.parse(trip.departureAt)))
     .filter((trip) => Date.parse(trip.departureAt!) - ACTIVITY_LEAD_MS > now.getTime())
@@ -175,6 +200,16 @@ async function performFlightReminderSync(
               flightNumber: trip.flightNumber || "",
               language: trip.language || "tr",
               deepLink: cockpitDeepLink(trip.id),
+              ...(trip.provider ? {
+                providerStatus: trip.provider.status,
+                providerUpdatedAt: trip.provider.updatedAt,
+                providerFreshUntil: trip.provider.freshUntil,
+                providerExpiresAt: trip.provider.expiresAt,
+                revisedDepartureAt: trip.provider.revisedDepartureAt,
+                revisedArrivalAt: trip.provider.revisedArrivalAt,
+                departureKind: trip.provider.departureKind,
+                arrivalKind: trip.provider.arrivalKind,
+              } : {}),
             });
           } else if (action === "end") {
             await live.endFlightActivity?.({ tripId: trip.id });

@@ -14,6 +14,17 @@ struct FlightActivityAttributes: ActivityAttributes {
         // Kullanıcının girdiği planlanan varış. Eski aktivitelerle geriye
         // uyumluluk için optional tutulur.
         var arrivalAt: Date?
+        // All optional: activities started by older builds still decode.
+        // A status is current only until providerFreshUntil; clocks alone
+        // must never turn a scheduled flight into a confirmed airborne one.
+        var providerStatus: String?
+        var providerUpdatedAt: Date?
+        var providerFreshUntil: Date?
+        var providerExpiresAt: Date?
+        var revisedDepartureAt: Date?
+        var revisedArrivalAt: Date?
+        var departureKind: String?
+        var arrivalKind: String?
     }
 
     var tripId: String

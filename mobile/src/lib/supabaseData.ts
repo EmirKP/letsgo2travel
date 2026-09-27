@@ -469,7 +469,8 @@ function assertTripInput(input: CreateCockpitTripInput) {
     || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en")
     || !validDate(input.startDate) || !validDate(input.endDate)
     || (!departureAt && input.startDate < localIsoDate(0)) || input.startDate > localIsoDate(730)
-    || (departureAt && Date.parse(departureAt) <= Date.now())
+    || (departureAt && Date.parse(departureAt) < Date.now() - 48 * 3600000)
+    || (departureAt && Date.parse(departureAt) <= Date.now() && (!arrivalAt || Date.parse(arrivalAt) <= Date.now()))
     || input.endDate < input.startDate || input.endDate > localIsoDate(730)
     || (departureAt && Number.isNaN(Date.parse(departureAt)))
     || (arrivalAt && Number.isNaN(Date.parse(arrivalAt)))
@@ -709,7 +710,7 @@ export async function createCockpitTrip(userId: string, input: CreateCockpitTrip
     return safely(async () => {
       if (typeof input.flightSelectionReceipt !== "string" || !input.flightSelectionReceipt || input.flightSelectionReceipt.length > 16000) throw new SupabaseDataError("invalid_data", 400);
       const result = await requestJson<{ trip: TripRow; flight: unknown; expiresAt: string }>(`${config.apiBaseUrl}/api/cockpit/flight-trips`, {
-        method: "POST", headers: { Authorization: dataHeaders(accessToken).Authorization, "X-Flight-Lookup-Version": "2" },
+        method: "POST", headers: { Authorization: dataHeaders(accessToken).Authorization, "X-Flight-Lookup-Version": "3" },
         body: { receipt: input.flightSelectionReceipt, endDate: input.endDate, flightPnr: nullableString(input.flightPnr, 20),
           checklistItems: cleanChecklist(input.checklistItems) || [], appLanguage: input.appLanguage === "en" ? "en" : "tr" },
       });
@@ -747,6 +748,21 @@ export async function createCockpitTrip(userId: string, input: CreateCockpitTrip
     const trip = rows[0] ? normalizeTrip(rows[0]) : null;
     if (!trip) throw new SupabaseDataError("service_unavailable", 500);
     return trip;
+  });
+}
+
+/** Refresh only the managed overlay; provider fields never enter the trip base. */
+export async function refreshCockpitFlight(userId: string, tripId: string, accessToken: string, signal?: AbortSignal) {
+  assertUserId(userId); assertTripId(tripId);
+  return safely(async () => {
+    const result = await requestJson<{ protocol: number; trip: TripRow; flight: unknown; expiresAt: string | null; refreshAfterSeconds?: number }>(`${config.apiBaseUrl}/api/cockpit/flight-trips/refresh`, {
+      method: "POST", headers: { Authorization: dataHeaders(accessToken).Authorization, "X-Flight-Lookup-Version": "3" }, body: { tripId, requestId: createId() }, signal,
+    });
+    const trip = result?.trip && normalizeTrip(result.trip);
+    if (result.protocol !== 3 || !trip || trip.id !== tripId || trip.userId !== userId || !trip.flightLookupManaged) throw new SupabaseDataError("service_unavailable", 500);
+    const flight = result.flight === null ? null : parseFlightMatch(result.flight, trip.flightNumber || undefined, trip.startDate);
+    if (result.flight !== null && (!flight || !activeFlightExpiry(result.expiresAt, flight.fetchedAt) || Date.parse(result.expiresAt) !== Date.parse(trip.flightLookupExpiresAt || ""))) throw new SupabaseDataError("service_unavailable", 500);
+    return { trip: { ...trip, providerFlight: flight || undefined }, refreshAfterSeconds: Math.min(3600, Math.max(30, Number(result.refreshAfterSeconds) || 300)) };
   });
 }
 

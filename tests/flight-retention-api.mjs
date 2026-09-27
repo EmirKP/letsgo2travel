@@ -35,7 +35,9 @@ function harness(overrides = {}) {
   const db = { rpc: (name, args) => {
     calls.rpc.push({ name, args: args && plain(args) });
     return { abortSignal: () => {
-      if (name === 'flight_lookup_retention_ready') return state.retention === 'pending' ? new Promise(resolve => { state.resolveRetention = resolve; }) : Promise.resolve({ data: state.retention === true, error: state.retention === 'error' ? { message: env.AERODATABOX_API_KEY } : null });
+      if (name === 'flight_lookup_retention_ready' || name === 'flight_lookup_refresh_ready') return state.retention === 'pending' ? new Promise(resolve => { state.resolveRetention = resolve; }) : Promise.resolve({ data: state.retention === true, error: state.retention === 'error' ? { message: env.AERODATABOX_API_KEY } : null });
+      if (name === 'create_flight_lookup_trip_v3') return Promise.resolve({ error: state.createError ? { message: env.FLIGHT_LOOKUP_RECEIPT_SECRET } : null,
+        data: { trip: { id: tripId, user_id: args.p_user, flight_lookup_managed: true, flight_lookup_expires_at: args.p_expires_at }, flight: args.p_flight, expiresAt: args.p_expires_at } });
       if (name === 'create_flight_lookup_trip') return Promise.resolve({ error: state.createError ? { message: env.FLIGHT_LOOKUP_RECEIPT_SECRET } : null,
         data: state.createError ? null : { id: tripId, user_id: args.p_user, flight_lookup_managed: true, flight_lookup_expires_at: args.p_expires_at, flight_pnr: args.p_flight_pnr, checklist_items: args.p_checklist_items } });
       if (name === 'purge_expired_trip_flight_data') return Promise.resolve({ data: state.purgeResult, error: state.purgeError ? { message: env.CRON_SECRET } : null });
@@ -104,6 +106,22 @@ test('Receipts bind the owner, reject tampering and expire at ten minutes or sch
   const selection = h.issue(owner, departingSoon); h.state.now += 2 * 60000;
   assert.equal(h.receipts.verifyFlightReceipt(selection.receipt, owner, h.env.FLIGHT_LOOKUP_RECEIPT_SECRET), null);
   assert.throws(() => h.issue(owner, { ...flight(), fetchedAt: new Date(h.state.now + 31000).toISOString() }), /stale-flight/);
+});
+
+test('V3 saves fresh airborne receipts through the v3 RPC and rechecks native entitlement', async () => {
+  const h = harness();
+  const source = new Date(fixedNow - 2 * 60000).toISOString();
+  const value = { ...flight(), departureAt: new Date(fixedNow - 30 * 60000).toISOString(), nativeDisplayAllowed: true,
+    progress: { phase: 'en-route', status: 'EnRoute', sourceUpdatedAt: source, freshUntil: new Date(fixedNow + 13 * 60000).toISOString(), freshness: 'fresh', departure: { revisedAt: null, revisedKind: null }, arrival: { revisedAt: null, revisedKind: null } } };
+  const selection = h.issue(owner, value);
+  assert.equal((await h.api.POST(h.request(h.body(selection), '2'))).status, 426);
+  assert.equal(h.calls.rpc.length, 0);
+  const response = await h.api.POST(h.request(h.body(selection), '3')); assert.equal(response.status, 200);
+  const data = await response.json(); assert.equal(data.protocol, 3); assert.equal(data.flight.progress.phase, 'en-route'); assert.equal(data.flight.nativeDisplayAllowed, false);
+  assert.deepEqual(h.calls.rpc.map(c => c.name), ['flight_lookup_refresh_ready', 'create_flight_lookup_trip_v3']);
+  assert.equal(h.calls.rpc[1].args.p_flight.nativeDisplayAllowed, false);
+  h.state.now = fixedNow + 10 * 60000;
+  assert.equal((await h.api.POST(h.request(h.body(selection), '3'))).status, 409);
 });
 
 test('Saving uses signed flight fields and the original lifetime, and retries forward the same receipt identity', async () => {

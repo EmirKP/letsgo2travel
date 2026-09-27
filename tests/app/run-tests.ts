@@ -427,7 +427,7 @@ test("kokpit: planlanan varış uçuş geri sayımı için zorunlu ve kalkışta
   );
 });
 
-test("kokpit: bugün içinde geçmiş kalkış saati ve seyahat sonrası varış reddedilir", () => {
+test("kokpit: tamamlanmış uçuş reddedilir, biletine göre devam eden uçuş kabul edilir", () => {
   const now = new Date("2026-09-04T13:44:00Z");
   assert.ok(tripFormError(makeTripForm({
     startDate: "2026-09-04",
@@ -435,7 +435,8 @@ test("kokpit: bugün içinde geçmiş kalkış saati ve seyahat sonrası varış
     departureTime: "10:00",
     arrivalDate: "2026-09-04",
     arrivalTime: "13:00",
-  }), now).includes("geçmişte"));
+  }), now).includes("geçmiş"));
+  assert.equal(tripFormError(makeTripForm({ startDate: "2026-09-04", endDate: "2026-09-08", departureTime: "10:00", arrivalDate: "2026-09-04", arrivalTime: "18:00" }), now), "");
   assert.ok(tripFormError(makeTripForm({
     startDate: "2026-09-05",
     endDate: "2026-09-08",
@@ -561,14 +562,12 @@ test("liveActivity: iptal/tamamlandı durumu aktif uçuşu yeniden başlatmaz", 
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const statusHandler = cockpit.slice(cockpit.indexOf("const changeStatus"), cockpit.indexOf("const persistChecklist"));
   assert.match(cockpit, /listCockpitTrips\(session\.userId,\s*session\.accessToken,\s*true,\s*true\)/, "iptal edilen seyahat yeniden açılabilmeli; süreli ayrıntılar yalnız kokpit için istenmeli");
-  const reminderProjection = cockpit.slice(cockpit.indexOf("function reminderTrips"), cockpit.indexOf("function replaceTrip"));
-  for (const field of ["departureAt", "arrivalAt", "originIata", "destinationIata"]) {
-    assert.match(reminderProjection, new RegExp(`${field}:\\s*trip\\.flightLookupManaged\\s*\\?\\s*null\\s*:`), "sağlayıcı alanları cihaz hatırlatmalarına aktarılmamalı");
-  }
-  assert.ok(!reminderProjection.includes("providerFlight"), "geçici sağlayıcı görünümü hatırlatma verisi olmamalı");
+  const permissionGuard = cockpit.slice(cockpit.indexOf("function nativeFlightView"), cockpit.indexOf("function reminderTrips"));
+  assert.ok(permissionGuard.includes("nativeDisplayAllowed !== true") && permissionGuard.includes("activeFlightExpiry") && permissionGuard.includes("!trip.providerFlight.progress"), "Ada için açık sağlayıcı izni, süre ve yapılandırılmış durum zorunlu olmalı");
   const managedReminder = { ...activeFlight, departureAt: null, arrivalAt: null };
   assert.equal(activitySyncAction(managedReminder, now), "end", "sağlayıcı kaydı cihazda yeni aktivite başlatmamalı");
   assert.deepEqual(plannedReminders([managedReminder], now), [], "sağlayıcı kaydı yerel bildirim oluşturmamalı");
+  assert.deepEqual(plannedReminders([{ ...activeFlight, departureAt: "2026-10-11T10:00:00Z", provider: { status: "Expected", updatedAt: null, freshUntil: null, expiresAt: "2026-10-12T10:00:00Z", revisedDepartureAt: null, revisedArrivalAt: null, departureKind: null, arrivalKind: null } }], now), [], "Ada izni sağlayıcı verisini yerel bildirimlere eklememeli");
   assert.ok(statusHandler.includes("syncRemindersForSession(session, next)"), "durum değişimi cihaz hatırlatmalarını hemen eşitlemeli");
 });
 
@@ -834,8 +833,12 @@ test("mobil havalimanı seçici: iOS klavyesi sonuç dokunuşunu blur ile yutmaz
 test("mobil hesap geçişi: hesaba duyarlı ekran ağacı yeni sahipte yeniden kurulur", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   assert.ok(app.includes('const authUiKey = ownerId ? `user-${ownerId}` : "guest"'), "ekran anahtarı doğrulanmış sahip kimliğini taşımalı");
-  assert.ok(app.includes("<Suspense key={authUiKey}"), "hesap değişiminde eski ekran örneği yeniden kullanılmamalı");
+  const ownerTree = app.slice(app.indexOf("<div key={authUiKey}>"), app.indexOf("</main>"));
+  assert.ok(ownerTree.includes("<Activity") && ownerTree.includes("{renderView(view)}") && ownerTree.includes("{renderView(activeView)}"), "korunan taslaklar ve geçici ekranlar aynı hesap anahtarlı alt ağaçta yeniden kurulmalı");
   assert.ok(app.includes("lastUiOwnerRef.current === nextOwner"), "hesap değişimi açık taslakları temizlemeli");
+  for (const reset of ['setSurpriseRoute(null)', 'setCockpitFocusTripId("")', 'setScrollPositions({})', 'setSavedSection("all")']) {
+    assert.ok(app.includes(reset), `hesap geçişi kişisel gezinme durumunu sıfırlamalı: ${reset}`);
+  }
 });
 
 test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğrular", () => {
@@ -989,8 +992,9 @@ test("Referans tasarım: mevcut özellikler sekiz ana ekranın yanında erişile
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const route = readFileSync("mobile/src/screens/RouteAssistantScreen.tsx", "utf8");
   assert.ok(app.includes('activeView === "costs"') && app.includes('activeView === "airports"'), "maliyet ve havalimanı ekranları gerçek yönlendirmeye bağlı olmalı");
-  assert.ok(home.includes("onBuildRoute={onBuildRoute}") || home.includes("onSelect={onBuildRoute}"), "ana sayfa fotoğrafı rota planına bağlanmalı");
-  assert.ok(plans.includes("<TripCollaborationHub") && plans.includes("<JourneyToolsHub") && plans.includes("saved-travel-entry"), "ortak seyahat ve yol araçları erişilebilir kalmalı");
+  assert.ok(home.includes("inspiration.map(route") && home.includes("onClick={() => onBuildRoute(route)}"), "ana sayfadaki ilham kartı seçilen rotayı planlamaya aktarmalı");
+  assert.ok(app.includes('onBuildRoute={route => openSeededRoute(route, "explore")}') && app.includes('navigate("route")'), "ilham kartının uygulama bağlantısı gerçek planlama ekranına gitmeli");
+  assert.ok(plans.includes('<TripCollaborationHub') && plans.includes('<JourneyToolsHub') && plans.includes('chooseSection("travel")'), "ortak seyahat ve yol araçları Kaydedilenler içindeki seyahat bölümüyle erişilebilir kalmalı");
   assert.ok(route.includes('"SJJ","FCO","BKK"') && route.includes("snapshotPlannerInput"), "ilham kartları var olan rotalardan ve plan tercihlerinden beslenmeli");
 });
 
@@ -1009,8 +1013,8 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
     assert.ok(source.includes("<DateTimeField"), `${name} ortak tarih alanını kullanmalı`);
   }
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
-  const cover = readFileSync("mobile/src/components/DiscoveryCover.tsx", "utf8");
-  assert.ok(home.includes("listCockpitTrips") && home.includes("home-trip-compact") && home.includes("<DiscoveryCover") && cover.includes('view: "route"') && cover.includes("onNavigate(item.view)"), "ana sayfa yaklaşan seyahati ve doğrudan planlama kısayolunu göstermeli");
+  assert.ok(home.includes("listCockpitTrips(ownerId, accessToken)") && home.includes("nextHomeJourney(items") && home.includes("homeJourneyStep(nextTrip") && home.includes('onOpenTrip(nextTrip.id)'), "ana sayfa kullanıcıya ait sıradaki seyahati, hazırlık adımını ve doğru seyahat ayrıntısını bağlamalı");
+  assert.ok(home.includes('onClick={() => onNavigate("route")}') && home.includes("Rotamı planla"), "seyahati olmayan kullanıcı doğrudan rota planlamayı açabilmeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
 });
 
@@ -1026,19 +1030,20 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   assert.ok(widget.includes('"Scheduled arrival" : "Planlanan varış"') && widget.includes(".arrivalUnknown"), "varış sayacı planlanan zamanı anlatmalı; eksik varış gerçekleşmiş sayılmamalı");
 });
 
-test("Build 20: topluluk ana sayfadan ülkeye göre açılır ve Kosova bayrağı korunur", () => {
+test("Topluluk ana sayfa ve menüden erişilir, ülke filtresi ve Kosova bayrağı korunur", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const community = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
   const communityData = readFileSync("mobile/src/lib/community.ts", "utf8");
-  const styles = readFileSync("mobile/src/App.css", "utf8");
+  const menu = readFileSync("mobile/src/components/MenuSheet.tsx", "utf8");
+  const styles = readFileSync("mobile/src/screens/daily-journey.css", "utf8");
 
-  assert.ok(home.includes("home-community") && home.includes("Gezginlere sor") && home.includes("listCommunityQuestions(1, accessToken)"), "kompakt ana sayfa gerçek topluluk akışından bir soruyu öne çıkarmalı");
-  assert.ok(home.includes("onOpenCommunity(question.countryCode)") && app.includes("communityCountryCode"), "ülke kısayolu topluluğu seçili ülkeyle açmalı");
+  assert.ok(home.includes('onClick={() => onOpenCommunity()}') && menu.includes('view: "community"') && menu.includes("onNavigate(view)"), "topluluk hem ana sayfanın gezginlere sor eylemiyle hem menüyle açılabilmeli");
+  assert.ok(app.includes('onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })}') && app.includes("initialCountryCode={communityCountryCode}"), "topluluk yönlendirmesi isteğe bağlı ülke seçimini korumalı");
   assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
   assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");
-  assert.ok(communityData.includes('requestJson<{ data?: unknown }>("/api/country-community/feed"'), "ana sayfa ve topluluk aynı güvenli veri kaynağını kullanmalı");
-  assert.ok(styles.includes("Build 20 — ana sayfa topluluğu") && styles.includes(".home-community-action"), "dar ekran uyumlu topluluk tasarımı paketlenmeli");
+  assert.ok(community.includes("listCommunityQuestions(") && communityData.includes('requestJson<{ data?: unknown }>("/api/country-community/feed"'), "topluluk ekranı gerçek ve güvenli veri kaynağını kullanmalı");
+  assert.ok(!home.includes("listCommunityQuestions") && styles.includes(".daily-community"), "ana sayfa topluluk akışını önceden yüklemeden okunabilir bir erişim eylemi sunmalı");
 });
 
 test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları güvenlidir", () => {
@@ -1097,13 +1102,14 @@ test("Build 14: dil tercihi cihazda kalır ve uçuş ekranına kadar taşınır"
   assert.ok(sql.includes("app_language") && sql.includes("arrival_at > departure_at"), "veritabanı dil ve varış bütünlüğünü korumalı");
 });
 
-test("Build 14: ana sayfadaki çevrimdışı ifade kısayolu doğru aracı doğrudan açar", () => {
+test("Çevrimdışı ifadeler ana sayfanın asistanından ve doğrudan bağlantıdan erişilir", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
-  assert.ok(home.includes('onNavigate("phrases")'), "ana sayfa kısayolu genel yardımcı yerine ifade sekmesine gitmeli");
-  assert.ok(app.includes('initialTab={activeView === "phrases" ? "phrases" : "assistant"}'), "ifade derin bağlantısı ifadeleri, genel yardımcı yeni asistanı açmalı");
+  assert.ok(home.includes('onNavigate("companion")') && companion.includes('["assistant", "now", "phrases", "etiquette"]') && companion.includes("setTab(item)"), "ana sayfadan açılan asistanın hazır ifadeler sekmesi kullanılabilir kalmalı");
+  assert.ok(app.includes('view === "companion" || view === "phrases"') && app.includes('initialTab={view === "phrases" ? "phrases" : "assistant"}'), "ifade derin bağlantısı ifadeleri, genel yardımcı asistanı açmalı");
   assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
+  assert.ok(companion.includes("profile.phrases.map") && companion.includes("essential-offline"), "hazır ifade kartları ve çevrimdışı kullanım bilgisi korunmalı");
 });
 
 test("mobil erişilebilirlik: üst modal arka planı ayırır ve klavye odağı görünürdür", () => {
@@ -1418,8 +1424,9 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
   const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
-  assert.ok(home.includes("home-secondary-links") && home.includes('onNavigate("trips")'), "ortak plan kompakt ana sayfadan tek dokunuşla bulunmalı");
-  assert.ok(trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak plan Kokpit'e gizlenmemeli, Seyahatlerim'in üstünde olmalı");
+  assert.ok(home.includes('onNavigate("trips")') && trips.includes('chooseSection("travel")') && trips.includes("Ortak planlar ve araçlar"), "ana sayfa Kaydedilenler üzerinden ortak planlar bölümüne görünür erişim sunmalı");
+  assert.ok(trips.includes('<details className="daily-featured-disclosure" open={sharedToolsOpen}') && trips.includes("setSharedToolsOpen(event.currentTarget.open)") && trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak planlar açılabilir seyahat bölümünde bulunmalı, Kokpit'e gizlenmemeli");
+  assert.ok(trips.includes('if (inviteCode || initialTool) setLibraryTab("travel")') && trips.includes("if (inviteCode) setSharedToolsOpen(true)"), "davet bağlantısı ortak planlar bölümünü kendiliğinden açmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
   assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");
   assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");

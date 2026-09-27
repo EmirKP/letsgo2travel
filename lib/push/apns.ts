@@ -51,6 +51,17 @@ export function apnsHost() {
     : "https://api.sandbox.push.apple.com";
 }
 
+export type LiveActivityProviderState = {
+  status: string;
+  updatedAtMs?: number;
+  freshUntilMs?: number;
+  expiresAtMs: number;
+  revisedDepartureAtMs?: number;
+  revisedArrivalAtMs?: number;
+  departureKind?: "actual" | "estimated" | "unknown";
+  arrivalKind?: "actual" | "estimated" | "unknown";
+};
+
 export type LiveActivityStartPayload = {
   event: "start";
   /** apns-collapse-id (≤64 bayt): aynı trip+event push'u cihazda tekilleşir. */
@@ -69,11 +80,26 @@ export type LiveActivityStartPayload = {
   /** Kalkış zamanı (ms epoch). ContentState.departureAt buradan üretilir. */
   departureAtMs: number;
   arrivalAtMs?: number;
+  provider?: LiveActivityProviderState;
   alert: { title: string; body: string };
+};
+
+/** Sent only to an existing activity's update token; cannot start a new one. */
+export type LiveActivityUpdatePayload = {
+  event: "update";
+  /** Stable generation time keeps a late older worker from replacing an end. */
+  timestampMs?: number;
+  collapseId?: string;
+  departureAtMs: number;
+  arrivalAtMs?: number;
+  provider: LiveActivityProviderState;
+  // Keep notification text generic: provider fields belong in expiring state.
+  alert?: { title: string; body: string };
 };
 
 export type LiveActivityEndPayload = {
   event: "end";
+  timestampMs?: number;
   collapseId?: string;
   departureAtMs: number;
   arrivalAtMs?: number;
@@ -87,11 +113,15 @@ export type LiveActivityEndPayload = {
  * Token değerleri hiçbir log/yanıtta yer almaz.
  */
 export function liveActivityAps(
-  payload: LiveActivityStartPayload | LiveActivityEndPayload,
+  payload: LiveActivityStartPayload | LiveActivityUpdatePayload | LiveActivityEndPayload,
   nowMs = Date.now(),
 ): Record<string, unknown> {
   const APPLE_REFERENCE_EPOCH_MS = 978_307_200_000; // 2001-01-01T00:00:00Z
   const nowSeconds = Math.floor(nowMs / 1000);
+  const orderedTimestampMs = payload.event !== "start" && Number.isFinite(payload.timestampMs)
+    && Number(payload.timestampMs) >= 0 && Number(payload.timestampMs) <= nowMs + 30_000
+    ? Number(payload.timestampMs) : nowMs;
+  const orderedTimestamp = Math.floor(orderedTimestampMs / 1000);
   const departureReferenceSeconds = (payload.departureAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000;
   const arrivalAtMs = Number.isFinite(payload.arrivalAtMs) && Number(payload.arrivalAtMs) > payload.departureAtMs
     ? Number(payload.arrivalAtMs) : undefined;
@@ -99,18 +129,40 @@ export function liveActivityAps(
     departureAt: departureReferenceSeconds,
     ...(arrivalAtMs !== undefined ? { arrivalAt: (arrivalAtMs - APPLE_REFERENCE_EPOCH_MS) / 1000 } : {}),
   };
+  const provider = payload.event !== "end" ? payload.provider : undefined;
+  const referenceTime = (value: number | undefined) => Number.isFinite(value) ? (Number(value) - APPLE_REFERENCE_EPOCH_MS) / 1000 : undefined;
+  const observedState = provider ? {
+    providerStatus: provider.status,
+    providerUpdatedAt: referenceTime(provider.updatedAtMs),
+    providerFreshUntil: referenceTime(provider.freshUntilMs),
+    providerExpiresAt: referenceTime(provider.expiresAtMs),
+    revisedDepartureAt: referenceTime(provider.revisedDepartureAtMs),
+    revisedArrivalAt: referenceTime(provider.revisedArrivalAtMs),
+    departureKind: provider.departureKind,
+    arrivalKind: provider.arrivalKind,
+  } : {};
+  const staleAtMs = provider
+    ? Math.min(provider.expiresAtMs, Number.isFinite(provider.freshUntilMs) ? Number(provider.freshUntilMs) : nowMs)
+    : arrivalAtMs !== undefined ? arrivalAtMs + 20 * 60 * 1000 : payload.departureAtMs + 60 * 60 * 1000;
+  if (payload.event === "update") return {
+    timestamp: orderedTimestamp,
+    event: "update",
+    "content-state": { ...contentState, ...observedState },
+    "stale-date": Math.floor(staleAtMs / 1000),
+    ...(payload.alert ? { alert: payload.alert } : {}),
+  };
   return payload.event === "start"
     ? {
       timestamp: nowSeconds,
       event: "start",
       "attributes-type": "FlightActivityAttributes",
       attributes: payload.attributes,
-      "content-state": contentState,
-      "stale-date": Math.floor((arrivalAtMs !== undefined ? arrivalAtMs + 20 * 60 * 1000 : payload.departureAtMs + 60 * 60 * 1000) / 1000),
+      "content-state": { ...contentState, ...observedState },
+      "stale-date": Math.floor(staleAtMs / 1000),
       alert: payload.alert,
     }
     : {
-      timestamp: nowSeconds,
+      timestamp: orderedTimestamp,
       event: "end",
       "content-state": contentState,
       "dismissal-date": nowSeconds,
@@ -119,7 +171,7 @@ export function liveActivityAps(
 
 export async function sendApnsLiveActivity(
   deviceToken: string,
-  payload: LiveActivityStartPayload | LiveActivityEndPayload,
+  payload: LiveActivityStartPayload | LiveActivityUpdatePayload | LiveActivityEndPayload,
 ): Promise<{ ok: boolean; shouldDisableToken: boolean; reason?: string }> {
   const jwt = apnsJwt();
   const bundleId = process.env.APNS_BUNDLE_ID || "tr.com.letsgo2travel.app";

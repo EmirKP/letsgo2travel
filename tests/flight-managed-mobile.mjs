@@ -25,12 +25,16 @@ class ApiError extends Error {
 // network, public configuration and locale/ID boundaries are replaced.
 function harness() {
   const calls = [];
-  const state = { baseRows: [tripRow()], details: [detailRow()], createResponse: { trip: tripRow(), flight: flight(), expiresAt }, createError: null, detailError: null };
+  const state = { baseRows: [tripRow()], details: [detailRow()], createResponse: { trip: tripRow(), flight: flight(), expiresAt }, refreshResponse: { protocol: 3, trip: tripRow(), flight: flight(), expiresAt, refreshAfterSeconds: 300 }, refreshError: null, createError: null, detailError: null };
   const cache = new Map();
   const overrides = {
     './api': { ApiError, requestJson: async (url, options = {}) => {
       calls.push({ url, options: plain(options) });
       const endpoint = new URL(url, 'https://app.example').pathname;
+      if (endpoint === '/api/cockpit/flight-trips/refresh') {
+        if (state.refreshError) throw state.refreshError;
+        return structuredClone(state.refreshResponse);
+      }
       if (endpoint === '/api/cockpit/flight-trips') {
         if (state.createError) throw state.createError;
         return structuredClone(state.createResponse);
@@ -102,7 +106,7 @@ test('Receipt creates send only the user-owned fields to the managed API, withou
   const { url, options } = h.calls[0];
   assert.equal(new URL(url, 'https://app.example').pathname, '/api/cockpit/flight-trips');
   assert.equal(options.method, 'POST'); assert.equal(options.headers.Authorization, `Bearer ${accessToken}`);
-  assert.equal(options.headers['X-Flight-Lookup-Version'], '2');
+  assert.equal(options.headers['X-Flight-Lookup-Version'], '3');
   assert.deepEqual(options.body, { receipt, endDate: '2026-10-02', flightPnr: 'USER123', checklistItems: tripRow().checklist_items, appLanguage: 'en' });
   assert.doesNotMatch(JSON.stringify(options.body), /UNTRUSTED|originIata|destinationIata|departureAt|user_id/);
   assert.equal(saved.flightLookupManaged, true); assert.equal(saved.providerFlight.flightNumber, 'TK1985');
@@ -170,5 +174,43 @@ test('Missing, expired, malformed or unavailable details preserve user data and 
     assert.equal(refreshed.length, 1); assert.equal(refreshed[0].providerFlight, undefined);
     assertBaseIsolated(refreshed[0]);
     assert.equal(refreshed[0].flightLookupManaged, true);
+  }
+});
+
+test('Managed refresh sends only trip/request identities, validates the overlay and leaves personal base fields untouched', async () => {
+  const h = harness();
+  const result = await h.api.refreshCockpitFlight(owner, managedId, accessToken);
+  assert.equal(h.calls.length, 1); const { url, options } = h.calls[0];
+  assert.equal(new URL(url).pathname, '/api/cockpit/flight-trips/refresh'); assert.equal(options.method, 'POST');
+  assert.deepEqual(options.body, { tripId: managedId, requestId: otherId });
+  assert.equal(options.headers.Authorization, `Bearer ${accessToken}`); assert.equal(options.headers['X-Flight-Lookup-Version'], '3');
+  assert.equal(result.trip.providerFlight.flightNumber, 'TK1985'); assert.equal(result.refreshAfterSeconds, 300); assertBaseIsolated(result.trip);
+});
+
+test('Terminal refresh explicitly removes provider overlay without losing user notes or reviving data on the next read', async () => {
+  const h = harness();
+  assert.ok((await h.api.listCockpitTrips(owner, accessToken, true, true))[0].providerFlight);
+  h.state.refreshResponse = { protocol: 3, trip: tripRow(), flight: null, expiresAt: null, terminal: true };
+  const result = await h.api.refreshCockpitFlight(owner, managedId, accessToken);
+  assert.equal(result.trip.providerFlight, undefined); assertBaseIsolated(result.trip);
+  h.state.details = [];
+  assert.equal((await h.api.listCockpitTrips(owner, accessToken, true, true))[0].providerFlight, undefined);
+});
+
+test('Refresh failure or forged owner/date/expiry never falls back to direct writes or accepts stale provider details', async () => {
+  for (const variant of [
+    { refreshError: new ApiError('Expired session', 401) },
+    { refreshError: new ApiError('Quota', 429, 'limit') },
+    { refreshError: new ApiError('Missing column', 400, '42703') },
+    { refreshResponse: { protocol: 2, trip: tripRow(), flight: flight(), expiresAt } },
+    { refreshResponse: { protocol: 3, trip: tripRow({ user_id: otherId }), flight: flight(), expiresAt } },
+    { refreshResponse: { protocol: 3, trip: tripRow({ id: otherId }), flight: flight(), expiresAt } },
+    { refreshResponse: { protocol: 3, trip: tripRow(), flight: { ...flight(), departureDate: '2026-09-29' }, expiresAt } },
+    { refreshResponse: { protocol: 3, trip: tripRow(), flight: flight(), expiresAt: '2026-09-27T07:00:00Z' } },
+  ]) {
+    const h = harness(); Object.assign(h.state, variant);
+    await assert.rejects(h.api.refreshCockpitFlight(owner, managedId, accessToken));
+    assert.equal(h.calls.length, 1); assert.equal(new URL(h.calls[0].url).pathname, '/api/cockpit/flight-trips/refresh');
+    assert.equal(h.calls.some(call => call.url.includes('/rest/v1/trips')), false);
   }
 });

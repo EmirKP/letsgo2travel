@@ -14,7 +14,8 @@ export function flightLookupSettings(env: NodeJS.ProcessEnv = process.env) {
   const trialUsers = (env.FLIGHT_LOOKUP_TRIAL_USER_IDS || "").split(",").map(id => id.trim().toLowerCase()).filter(Boolean);
   if (mode === "trial" && (!trialUsers.length || trialUsers.length > 20 || trialUsers.some(id => !uuid.test(id)))) return null;
   if (mode === "commercial" && (env.FLIGHT_LOOKUP_RECEIPT_SECRET?.length || 0) < 32) return null;
-  return { provider, limit, mode, trialUsers } as const;
+  const nativeDisplayAllowed = mode === "commercial" && env.FLIGHT_LOOKUP_NATIVE_DISPLAY_ALLOWED === "true";
+  return { provider, limit, mode, trialUsers, nativeDisplayAllowed } as const;
 }
 
 export function flightLookupAllowed(settings: NonNullable<ReturnType<typeof flightLookupSettings>>, userId: string) {
@@ -22,5 +23,7 @@ export function flightLookupAllowed(settings: NonNullable<ReturnType<typeof flig
 }
 
 export function supportsFlightLookupV2(request: Request) {
-  return request.headers.get("X-Flight-Lookup-Version") === String(FLIGHT_LOOKUP_PROTOCOL);
+  return ["2", "3"].includes(request.headers.get("X-Flight-Lookup-Version") || "");
 }
+
+export function flightLookupProtocol(request: Request): 2 | 3 { return request.headers.get("X-Flight-Lookup-Version") === "3" ? 3 : 2; }

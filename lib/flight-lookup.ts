@@ -1,6 +1,7 @@
 import { findAirportByIata } from "./airport-search";
 import { airportTimeZone } from "./airport-time-zones";
 import { validTimeZone, zonedParts } from "./zoned-time";
+import { currentFlightTime, flightProgress, type FlightProgress } from "./flight-progress";
 
 export type FlightAirport = { iata: string; name: string; city: string; country: string; countryCode: string; timeZone: string };
 export type FlightMatch = {
@@ -9,6 +10,8 @@ export type FlightMatch = {
   departureAt: string; arrivalAt: string;
   departureDate: string; departureTime: string; arrivalDate: string; arrivalTime: string;
   source: "AeroDataBox"; fetchedAt: string;
+  progress?: FlightProgress;
+  nativeDisplayAllowed?: boolean;
 };
 export type FlightLookupReason = "past-departure" | "incomplete" | "not-found" | "status-unavailable" | null;
 export type FlightLookupInspection = { flights: FlightMatch[]; reason: FlightLookupReason };
@@ -62,7 +65,7 @@ function scheduled(value: unknown, zone: string) {
 }
 
 /** Only complete, exact-date scheduled legs. Estimates, gates and inferred status are never substituted. */
-export function inspectFlightMatches(payload: unknown, query: { flightNumber: string; date: string }, now = new Date()): FlightLookupInspection {
+export function inspectFlightMatches(payload: unknown, query: { flightNumber: string; date: string }, now = new Date(), options: { includeInProgress?: boolean; includeTerminal?: boolean } = {}): FlightLookupInspection {
   if (!Array.isArray(payload)) throw new Error("invalid-provider-response");
   const matches = new Map<string, FlightMatch>();
   let pastDeparture = false, incomplete = false, unavailableStatus = false;
@@ -80,13 +83,28 @@ export function inspectFlightMatches(payload: unknown, query: { flightNumber: st
     if (!departure || !arrival || Date.parse(arrival.iso) <= Date.parse(departure.iso)) { incomplete = true; continue; }
     if (departure.date !== query.date) continue;
     const status = shortText(f.status);
-    if (f.isCargo === true || ["Canceled", "Cancelled", "CanceledUncertain", "Diverted"].includes(status)) { unavailableStatus = true; continue; }
-    if (Date.parse(departure.iso) <= now.getTime()) { pastDeparture = true; continue; }
-    if (["EnRoute", "Departed", "Approaching", "Arrived"].includes(status)) { unavailableStatus = true; continue; }
+    if (f.isCargo === true) { unavailableStatus = true; continue; }
+    const revised = (value: unknown, zone: string, original: string) => {
+      const parsed = scheduled(value, zone);
+      return parsed && Math.abs(Date.parse(parsed.iso) - Date.parse(original)) <= 48 * 3600000 ? parsed.iso : null;
+    };
+    const progress = flightProgress(status, f.lastUpdatedUtc, revised(dep.revisedTime, origin.timeZone, departure.iso), revised(arr.revisedTime, destination.timeZone, arrival.iso), now);
     const id = `${query.flightNumber}:${origin.iata}:${destination.iata}:${departure.iso}`;
-    matches.set(id, { id, flightNumber: query.flightNumber, airline: shortText(record(f.airline).name), origin, destination,
+    const match: FlightMatch = { id, flightNumber: query.flightNumber, airline: shortText(record(f.airline).name), origin, destination,
       departureAt: departure.iso, arrivalAt: arrival.iso, departureDate: departure.date, departureTime: departure.time,
-      arrivalDate: arrival.date, arrivalTime: arrival.time, source: "AeroDataBox", fetchedAt: now.toISOString() });
+      arrivalDate: arrival.date, arrivalTime: arrival.time, source: "AeroDataBox", fetchedAt: now.toISOString(),
+      ...(options.includeInProgress ? { progress, nativeDisplayAllowed: false } : {}) };
+    if (["Canceled", "Cancelled", "CanceledUncertain", "Diverted", "Arrived"].includes(status)) {
+      if (!options.includeTerminal || status === "Cancelled") { unavailableStatus = true; continue; }
+    } else if (options.includeInProgress && progress.phase === "en-route") {
+      // Status comes from the provider; elapsed clock time never implies takeoff.
+      if (Date.parse(departure.iso) > now.getTime() + 3600000 || Date.parse(currentFlightTime(match, "arrival")) < now.getTime() - 6 * 3600000) { unavailableStatus = true; continue; }
+    } else {
+      const futureRevised = options.includeInProgress && progress.phase === "upcoming" && progress.freshness === "fresh" && Date.parse(currentFlightTime(match, "departure")) > now.getTime();
+      if (Date.parse(departure.iso) <= now.getTime() && !futureRevised) { pastDeparture = true; continue; }
+      if (["EnRoute", "Departed", "Approaching"].includes(status)) { unavailableStatus = true; continue; }
+    }
+    matches.set(id, match);
   }
   const flights = [...matches.values()].sort((a,b) => a.departureAt.localeCompare(b.departureAt)).slice(0, 12);
   // An incomplete alternative may still be upcoming. Do not label all results

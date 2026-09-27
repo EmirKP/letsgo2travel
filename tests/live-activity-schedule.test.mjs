@@ -14,18 +14,64 @@ const arrivalAt = '2026-10-10T13:00:00.000Z';
 const trip = { id: 'trip', userId: 'user', title: 'London', originIata: 'IST', destinationIata: 'LHR', departureAtMs: Date.parse(departureAt), language: 'en' };
 
 function mobileFixture() {
-  const starts = [];
+  const starts = [], ends = [];
   const source = ts.transpileModule(readFileSync('mobile/src/lib/liveActivity.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const testModule = { exports: {} };
   const bridge = {
     isNativePlatform: () => true, isIOSNative: () => true,
     plugin: (name) => name === 'FlightLiveActivity'
-      ? { isAvailable: async () => ({ available: true }), startFlightActivity: async value => { starts.push(value); } }
+      ? { isAvailable: async () => ({ available: true }), startFlightActivity: async value => { starts.push(value); }, endFlightActivity: async value => { ends.push(value); } }
       : { checkPermissions: async () => ({ display: 'denied' }) },
   };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date })(() => bridge, testModule, testModule.exports);
-  return { ...testModule.exports, starts };
+  return { ...testModule.exports, starts, ends };
 }
+
+const provider = {
+  status: 'EnRoute', updatedAt: '2026-10-10T13:50:00Z', freshUntil: '2026-10-10T14:05:00Z',
+  expiresAt: '2026-10-12T14:00:00Z', revisedDepartureAt: '2026-10-10T12:30:00Z',
+  revisedArrivalAt: '2026-10-10T15:30:00Z', departureKind: 'actual', arrivalKind: 'estimated',
+};
+const managed = { id: 'managed', title: 'Flight', departureAt, arrivalAt, status: 'active', provider };
+
+test('An authorized airborne flight stays active until its revised arrival, even after its old schedule ended', async () => {
+  const app = mobileFixture();
+  const now = new Date('2026-10-10T14:00:00Z');
+  assert.equal(app.activitySyncAction(managed, now), 'start');
+  await app.syncFlightReminders([managed], now);
+  assert.equal(app.starts.length, 1);
+  assert.equal(app.starts[0].departureAt, departureAt, 'Original schedule remains distinguishable');
+  assert.equal(app.starts[0].revisedArrivalAt, provider.revisedArrivalAt);
+  assert.equal(app.starts[0].providerFreshUntil, provider.freshUntil);
+  assert.equal(app.plannedReminders([managed], new Date('2026-10-09T14:00:00Z')).length, 0, 'Provider text is never persisted as a scheduled local notification');
+});
+
+test('Expired or terminal provider data ends an existing Island; stale revisions cannot prolong its lifetime', async () => {
+  const app = mobileFixture();
+  const now = new Date('2026-10-10T14:00:00Z');
+  for (const change of [{ expiresAt: '2026-10-10T13:59:59Z' }, { expiresAt: 'bad' }, { status: 'Arrived' }, { status: 'Canceled' }, { status: 'Diverted' }, { freshUntil: '2026-10-10T13:59:59Z' }]) {
+    const flight = { ...managed, provider: { ...provider, ...change } };
+    assert.equal(app.activitySyncAction(flight, now), 'end');
+    await app.syncFlightReminders([flight], now);
+  }
+  assert.equal(app.starts.length, 0);
+  assert.equal(app.ends.length, 6);
+});
+
+test('Provider admission leaves a 13-hour buffer around the documented 12-hour visible OS lifecycle', async () => {
+  const now = new Date('2026-10-10T14:00:00Z');
+  for (const [remainingMinutes, expected] of [[779, 'end'], [780, 'start'], [781, 'start']]) {
+    const app = mobileFixture();
+    const flight = { ...managed, provider: { ...provider, expiresAt: new Date(now.getTime() + remainingMinutes * 60000).toISOString() } };
+    assert.equal(app.activitySyncAction(flight, now), expected);
+    await app.syncFlightReminders([flight], now);
+    assert.equal(app.starts.length, expected === 'start' ? 1 : 0);
+    assert.equal(app.ends.length, expected === 'end' ? 1 : 0);
+    if (remainingMinutes === 780) assert.equal(app.activitySyncAction(flight, new Date(now.getTime() + 1)), 'end', 'Recheck admission after a delayed call');
+  }
+  const app = mobileFixture();
+  assert.equal(app.activitySyncAction({ ...managed, provider: undefined, arrivalAt: provider.revisedArrivalAt }, now), 'start', 'User-owned ticket data does not require provider retention metadata');
+});
 
 test('Clock phase describes a schedule and never treats missing, reversed or invalid arrival as arrived', () => {
   const { scheduledFlightPhase } = mobileFixture();
@@ -77,6 +123,25 @@ test('Invalid APNs arrival is omitted for start and end, never converted to a fa
     assert.equal('arrivalAt' in aps['content-state'], false);
     assert.equal(aps['dismissal-date'], trip.departureAtMs / 1000);
   }
+});
+
+test('APNs updates keep source freshness, timestamp ordering and provider expiry separate from the schedule', () => {
+  const now = Date.parse('2026-10-10T14:00:00Z');
+  const generation = now - 120_000;
+  const observation = { status: 'EnRoute', updatedAtMs: Date.parse(provider.updatedAt), freshUntilMs: Date.parse(provider.freshUntil), expiresAtMs: Date.parse(provider.expiresAt), revisedDepartureAtMs: Date.parse(provider.revisedDepartureAt), revisedArrivalAtMs: Date.parse(provider.revisedArrivalAt), departureKind: 'actual', arrivalKind: 'estimated' };
+  const aps = liveActivityAps({ event: 'update', timestampMs: generation, departureAtMs: trip.departureAtMs, arrivalAtMs: Date.parse(arrivalAt), provider: observation }, now);
+  assert.equal(aps.event, 'update');
+  assert.equal(aps.timestamp, generation / 1000, 'A delayed worker does not get a new timestamp');
+  assert.equal(aps['stale-date'], observation.freshUntilMs / 1000);
+  assert.equal(aps['content-state'].revisedArrivalAt, (observation.revisedArrivalAtMs - 978307200000) / 1000);
+  assert.equal(aps['content-state'].departureAt, (trip.departureAtMs - 978307200000) / 1000);
+  assert.equal(aps['content-state'].providerStatus, 'EnRoute');
+  assert.equal('attributes' in aps, false, 'Update cannot restart an ended activity');
+  assert.equal('alert' in aps, false, 'Routine refresh has no distracting alert');
+  const ended = liveActivityAps({ event: 'end', timestampMs: generation + 1000, departureAtMs: 0 }, now);
+  assert.ok(ended.timestamp > aps.timestamp);
+  assert.equal(ended['dismissal-date'], now / 1000);
+  assert.equal('providerStatus' in ended['content-state'], false);
 });
 
 test('Native source preserves legacy decoding, fractional dates, safe countdowns and schedule updates', () => {

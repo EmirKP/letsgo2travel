@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { CountryFlag } from "../components/CountryFlag";
@@ -45,6 +45,18 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
   const [selectedDestinationValue, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
   const selectedDestination = selectedDestinationValue ? withEntry(selectedDestinationValue) : null;
   const featured = withEntry(dailyDiscovery());
+  const handledDestinationCode = useRef(initialDestinationCode);
+
+  useEffect(() => {
+    if (!initialDestinationCode) {
+      handledDestinationCode.current = "";
+      return;
+    }
+    if (handledDestinationCode.current === initialDestinationCode) return;
+    handledDestinationCode.current = initialDestinationCode;
+    const item = DISCOVERY_DESTINATIONS.find(destination => destination.code === initialDestinationCode || destination.alpha3 === initialDestinationCode);
+    if (item) setSelectedDestination(localizedDiscovery(item, locale));
+  }, [initialDestinationCode, locale]);
 
   useEffect(() => {
     const refreshFavorites = () => setFavorites(getFavoriteDestinations(ownerId));

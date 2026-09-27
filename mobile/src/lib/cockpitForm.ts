@@ -63,7 +63,8 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
     }
     const departureAt = Date.parse(times.departure.iso);
     const arrivalAt = Date.parse(times.arrival.iso);
-    if (departureAt <= now.getTime()) return message("Kalkış tarihi ve saati geçmişte olamaz.", "The departure date and time cannot be in the past.");
+    if (departureAt < now.getTime() - 48 * 3600000) return message("Kalkış tarihi çok geçmişte. Yaklaşan veya devam eden uçuşunun bilet bilgilerini gir.", "The departure date is too far in the past. Enter ticket details for an upcoming or ongoing flight.");
+    if (departureAt <= now.getTime() && arrivalAt <= now.getTime()) return message("Bu uçuşun varış saati de geçmiş. Yaklaşan veya devam eden seyahatin için bilet saatlerini gir.", "The arrival time has also passed. Enter ticket times for an upcoming or ongoing trip.");
     if (!Number.isFinite(departureAt) || !Number.isFinite(arrivalAt) || arrivalAt <= departureAt) return message("Planlanan varış, kalkıştan sonra olmalı.", "Scheduled arrival must be after departure.");
   }
   if (form.flightPnr && !/^[A-Z0-9-]{3,20}$/.test(form.flightPnr.trim())) return message("PNR 3–20 harf, rakam veya tire içerebilir.", "PNR must contain 3–20 letters, numbers or hyphens.");

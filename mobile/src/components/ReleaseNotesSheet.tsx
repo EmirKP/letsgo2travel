@@ -6,17 +6,17 @@ import { Sheet } from "./Sheet";
 export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { copy } = useI18n();
   const changes = [
-    ["sparkles", copy("Yeni seyahat ekranların", "Your refreshed travel screens"), copy("Fotoğraflı üst alanlar, sade kartlar ve kolay gezinme. Gezgin topluluğu ana sayfada; favorilerin Kaydedilenler'de.", "Photo headers, clear cards and easy navigation. Community stays on Home; favourites appear in Saved.")],
-    ["wallet", copy("Bütçe ve havalimanı rehberi", "Budget and airport guide"), copy("Örnek bütçeleri kendi tutarlarınla hesapla; havalimanlarının resmî rehberlerine ve aktarma yardımcısına ulaş. Canlı fiyat veya hizmet bilgisi sunulmaz.", "Calculate example budgets with your own amounts; open official airport guides and the transfer assistant. No live prices or facility data are provided.")],
-    ["globe", copy("Seyahat araçlarına ince ayar", "Travel tools, refined"), copy("Tarih ve yazı alanları, belge incelemesi, davet bağlantıları ve harita kontrolleri iyileştirildi. Mevcut seyahatlerin ve hesap altyapın korunur.", "Improved date and text fields, evidence review, invitation links and map controls. Existing trips and account infrastructure are preserved.")],
+    ["sparkles", copy("Daha kolay bir başlangıç", "An easier start"), copy("Ana sayfada sıradaki adımın, Kaydedilenler'de düzenli kategoriler. Planlama seçimlerin sekmeler arasında dolaşırken korunur.", "Your next step on Home and clear categories in Saved. Your planning choices stay with you as you switch tabs.")],
+    ["plane", copy("Biletinden seyahatine", "From ticket to trip"), copy("Bilet metnini yapıştır veya iPhone'da fotoğraf/PDF seç. Bulunan bilgileri kontrol ederek devam et; varışı henüz gerçekleşmemiş uçuşunu da ekleyebilirsin.", "Paste ticket text or choose a photo/PDF on iPhone. Review the extracted details before continuing; you can also add a flight whose arrival is still ahead.")],
+    ["globe", copy("Adresin ve notların yanında", "Keep your address and notes handy"), copy("Kendi otel, adres ve rezervasyon notlarını kişisel seyahat kartına ekle. Bu cihazda internet olmadan da aç; yanlışlıkla sildiğin kartı geri al.", "Add your hotel, address and reservation notes to a personal travel card. Open it offline on this device and undo an accidental deletion.")],
   ] as const;
 
   return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`)} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>
-      <h3>{copy("Sıradaki hikayene yeni bir görünüm.", "A fresh look for your next story.")}</h3>
-      <p>{copy(`Build ${config.buildNumber}, seyahat ekranlarını yeniler; bütçe ve havalimanı rehberlerini ekler.`, `Build ${config.buildNumber} refreshes travel screens and adds budget and airport guides.`)}</p>
+      <h3>{copy("Seyahatine daha kolay hazırlan.", "Get ready for your trip more easily.")}</h3>
+      <p>{copy("Bildiğin renkler, daha az adım ve kaldığın yerden devam eden planlar.", "Familiar colours, fewer steps and plans that pick up where you left off.")}</p>
     </div>
     <div className="release-list">
       {changes.map(([icon, title, description]) => <div key={title}>

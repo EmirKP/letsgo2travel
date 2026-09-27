@@ -76,6 +76,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const selectedHeading = useRef<HTMLHeadingElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
   const saving = useRef(false);
+  const appliedSeed = useRef<RouteSuggestion | null>(null);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
   const planIsSaved = !!plan && savedKey === planClientKey(plan, planInput);
   const saveLabel = planIsSaved ? copy("Kaydedildi", "Saved") : plan && plan.routes.length > 1 ? copy(`${plan.routes.length} öneriyi kaydet`, `Save ${plan.routes.length} suggestions`) : copy("Bu planı kaydet", "Save this plan");
@@ -89,7 +90,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   }
 
   useEffect(() => {
-    if (!surpriseRoute) return;
+    // Activity reactivates effects on tab return. Apply a chosen route only
+    // once so returning does not discard edits, save state or expanded days.
+    if (!surpriseRoute || appliedSeed.current === surpriseRoute) return;
+    appliedSeed.current = surpriseRoute;
     setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
     setPlanInput(snapshotPlannerInput({ ...form, days: surpriseRoute.idealDuration }));
     setSource(routeSeedKind);

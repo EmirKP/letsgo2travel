@@ -8,5 +8,6 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(FlightLiveActivityPlugin())
         bridge?.registerPluginInstance(OfflineTranslationPlugin())
+        bridge?.registerPluginInstance(TicketImportPlugin())
     }
 }

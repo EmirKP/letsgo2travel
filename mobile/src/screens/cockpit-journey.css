@@ -1,0 +1,45 @@
+.cockpit-journey-steps { display:flex; gap:8px; list-style:none; margin:0; padding:0; color:#64748b; font-size:12px; line-height:1.45; }
+.cockpit-journey-steps li { flex:1; padding:9px; border-bottom:3px solid #dce8f5; }
+.cockpit-journey-steps .current { color:#093459; font-weight:750; border-color:#ffda47; }
+.cockpit-journey-steps .done { color:#0875e7; border-color:#0875e7; }
+.cockpit-ticket-open { display:flex; align-items:center; justify-content:center; gap:9px; width:100%; min-height:46px; background:#fff; color:#093459; border:1px solid #adc9e7; border-radius:13px; font-weight:700; }
+.cockpit-ticket-import { display:grid; gap:16px; color:#093459; }
+.cockpit-ticket-import label { display:grid; gap:7px; font-size:13px; font-weight:650; }
+.cockpit-ticket-import input,.cockpit-ticket-import textarea { width:100%; box-sizing:border-box; padding:12px; border:1px solid #bdd2e7; border-radius:12px; background:#fff; color:#093459; font:inherit; font-weight:400; }
+.cockpit-ticket-import textarea { min-height:140px; resize:vertical; }
+.cockpit-ticket-import p { margin:0; font-size:13px; line-height:1.5; }
+.cockpit-query-summary { display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid #dce8f5; border-radius:14px; padding:13px; background:#f4f8fd; }
+.cockpit-query-summary>span { display:grid; gap:3px; }
+.cockpit-query-summary small { color:#64748b; }
+.cockpit-query-summary strong { color:#093459; font-size:18px; }
+.cockpit-query-summary button,.cockpit-confirmed-ticket button { min-height:44px; padding:8px 12px; border:1px solid #b7cfe7; border-radius:10px; color:#0875e7; background:#fff; font-weight:650; }
+.cockpit-native-screen .cockpit-flight-summary { color:#093459; background:#f3f8ff; border-color:#bdd5ed; }
+.cockpit-native-screen .cockpit-flight-summary h3,.cockpit-native-screen .cockpit-flight-summary p { color:#093459; }
+.cockpit-native-screen .cockpit-flight-summary .secondary-button { color:#093459; background:#fff; border-color:#bdd5ed; }
+.cockpit-journey-flight { display:grid; gap:12px; width:100%; }
+.cockpit-flight-state { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:7px; }
+.cockpit-flight-state>span { padding:5px 9px; border-radius:20px; background:#e4efff; color:#093459; font-size:12px; font-weight:700; }
+.cockpit-flight-state>small { color:#526780; font-size:11px; }
+.cockpit-journey-route { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.cockpit-journey-route>span { display:grid; align-content:start; gap:5px; min-width:0; }
+.cockpit-journey-route>span:last-child { text-align:right; }
+.cockpit-journey-route strong { font-size:28px; letter-spacing:.04em; color:#093459; }
+.cockpit-journey-route b { font-size:17px; font-variant-numeric:tabular-nums; color:#093459; }
+.cockpit-journey-route small,.cockpit-journey-route>span>span { color:#526780; font-size:12px; line-height:1.4; }
+.cockpit-journey-flight.compact .cockpit-journey-route strong { font-size:22px; }
+.cockpit-journey-flight.compact .cockpit-journey-route b { font-size:14px; background:transparent; padding:0; }
+.cockpit-flight-freshness { margin:0; color:#526780; font-size:12px; line-height:1.6; }
+.cockpit-flight-freshness a,.cockpit-data-note summary { color:#0875e7; }
+.cockpit-data-note { font-size:12px; line-height:1.55; }
+.cockpit-data-note summary { cursor:pointer; min-height:32px; display:flex; align-items:center; font-weight:700; }
+.cockpit-confirmed-ticket { display:grid; gap:8px; padding:14px; border:1px solid #c8dbee; border-radius:14px; background:#f4f8fd; }
+.cockpit-confirmed-ticket h3,.cockpit-confirmed-ticket p { margin:0; color:#093459; }
+.cockpit-confirmed-ticket small { color:#526780; }
+.cockpit-next-action { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid #bed3eb; border-radius:16px; padding:15px; background:#f3f8ff; }
+.cockpit-next-action>span { display:grid; gap:6px; min-width:0; }
+.cockpit-next-action small { font-size:10px; letter-spacing:.07em; color:#0875e7; font-weight:750; }
+.cockpit-next-action strong { font-size:14px; color:#093459; }
+.cockpit-next-action button { flex-shrink:0; min-height:44px; padding:10px 12px; border:0; border-radius:12px; background:#ffda47; color:#093459; font-weight:750; }
+#cockpit-checklist { scroll-margin-top:100px; }
+.cockpit-native-screen button:focus-visible,.cockpit-ticket-import button:focus-visible { outline:3px solid #0875e7; outline-offset:3px; }
+@media(max-width:380px) { .cockpit-journey-steps { font-size:10px; gap:4px; }.cockpit-journey-steps li { padding:8px 3px; }.cockpit-next-action { align-items:stretch; flex-direction:column; }.cockpit-next-action button { width:100%; }.cockpit-journey-route { gap:10px; } }

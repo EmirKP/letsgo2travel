@@ -200,7 +200,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
           {!needsProfileCompletion && <button className="secondary-wide" disabled={busy} onClick={() => setProfileEditMode(false)}>{copy("Vazgeç", "Cancel")}</button>}
         </div>}
         {!needsProfileCompletion && !profileEditMode && <button className="secondary-wide" onClick={() => setProfileEditMode(true)}><Icon name="settings" size={18} /> {copy("Profil bilgilerini düzenle", "Edit profile")}</button>}
-        <AccountDeletionPanel key={user.id} accessToken={auth.accessToken || ""} email={user.email || ""} onBusyChange={setBusy} />
+        <AccountDeletionPanel key={user.id} ownerId={user.id} accessToken={auth.accessToken || ""} email={user.email || ""} onBusyChange={setBusy} />
         <button className="danger-wide" disabled={busy} onClick={() => void submitSignOut()}>{busy ? <span className="button-loader dark" /> : <Icon name="logout" size={18} />} {copy("Çıkış yap", "Sign out")}</button>
       </div>
     </Sheet>;

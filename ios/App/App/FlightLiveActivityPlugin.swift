@@ -116,8 +116,40 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 destinationTimeZone: safeZone(call.getString("destinationTimeZone")),
                 flightNumber: call.getString("flightNumber").map { String($0.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.prefix(8)) }
             )
-            let state = FlightActivityAttributes.ContentState(departureAt: departureAt, arrivalAt: arrivalAt)
-            let staleDate = arrivalAt?.addingTimeInterval(1200) ?? departureAt.addingTimeInterval(3600)
+            let providerStatuses: Set<String> = ["Unknown", "Expected", "EnRoute", "CheckIn", "Boarding", "GateClosed", "Departed", "Delayed", "Approaching", "Arrived", "Canceled", "Diverted", "CanceledUncertain"]
+            let rawStatus = call.getString("providerStatus")
+            let providerStatus = rawStatus.flatMap { providerStatuses.contains($0) ? $0 : nil }
+            let providerExpiry = flightDate(call.getString("providerExpiresAt"))
+            // Apple caps visible activities at 8 hours active + 4 on the lock
+            // screen. Require 13 hours of retention headroom even if the phone
+            // goes offline immediately, including calls queued by an older UI.
+            if rawStatus != nil && (providerStatus == nil || providerExpiry == nil || providerExpiry! < Date().addingTimeInterval(13 * 3600)) {
+                Task {
+                    for existing in Activity<FlightActivityAttributes>.activities where existing.attributes.tripId == tripId {
+                        await existing.end(nil, dismissalPolicy: .immediate)
+                    }
+                    call.reject("Flight data needs refreshing")
+                }
+                return
+            }
+            let timeKind: (String?) -> String? = { value in
+                guard let value, ["estimated", "actual", "unknown"].contains(value) else { return nil }
+                return value
+            }
+            let freshUntil = providerStatus != nil ? flightDate(call.getString("providerFreshUntil")) : nil
+            let state = FlightActivityAttributes.ContentState(
+                departureAt: departureAt, arrivalAt: arrivalAt,
+                providerStatus: providerStatus,
+                providerUpdatedAt: providerStatus != nil ? flightDate(call.getString("providerUpdatedAt")) : nil,
+                providerFreshUntil: freshUntil,
+                providerExpiresAt: providerStatus != nil ? providerExpiry : nil,
+                revisedDepartureAt: providerStatus != nil ? flightDate(call.getString("revisedDepartureAt")) : nil,
+                revisedArrivalAt: providerStatus != nil ? flightDate(call.getString("revisedArrivalAt")) : nil,
+                departureKind: providerStatus != nil ? timeKind(call.getString("departureKind")) : nil,
+                arrivalKind: providerStatus != nil ? timeKind(call.getString("arrivalKind")) : nil
+            )
+            let scheduledStaleDate = arrivalAt?.addingTimeInterval(1200) ?? departureAt.addingTimeInterval(3600)
+            let staleDate = providerStatus != nil ? min(freshUntil ?? Date(), providerExpiry ?? Date()) : scheduledStaleDate
             let content = ActivityContent(state: state, staleDate: staleDate)
             Task {
                 // Refresh a changed schedule; changed immutable route metadata

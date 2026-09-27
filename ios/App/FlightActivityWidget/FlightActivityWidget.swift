@@ -40,6 +40,7 @@ private struct AirportColumn: View {
     let departure: Bool
     let english: Bool
     var alignment: HorizontalAlignment = .leading
+    var timeLabel: String? = nil
 
     private var zone: TimeZone? { timeZone.flatMap { TimeZone(identifier: $0) } }
 
@@ -57,7 +58,7 @@ private struct AirportColumn: View {
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-            Text(departure ? (english ? "Departure" : "Kalkış") : (english ? "Arrival" : "Varış"))
+            Text(timeLabel ?? (departure ? (english ? "Departure" : "Kalkış") : (english ? "Arrival" : "Varış")))
                 .font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.65))
             if let date {
                 Text(formatted(date, pattern: "HH:mm"))
@@ -75,11 +76,98 @@ private struct AirportColumn: View {
     }
 }
 
+/// Provider state is an observation with an expiry, never inferred from a clock.
+private struct FlightReadout {
+    let state: FlightActivityAttributes.ContentState
+    let now: Date
+    let english: Bool
+    var provider: Bool { state.providerStatus != nil }
+    var expired: Bool { provider && (state.providerExpiresAt == nil || state.providerExpiresAt! <= now) }
+    var fresh: Bool {
+        guard !expired, let updated = state.providerUpdatedAt, let until = state.providerFreshUntil else { return false }
+        return updated <= now.addingTimeInterval(60) && until > now
+    }
+    private func knownKind(_ kind: String?) -> Bool { kind == "actual" || kind == "estimated" }
+    var departure: Date { fresh && knownKind(state.departureKind) ? (state.revisedDepartureAt ?? state.departureAt) : state.departureAt }
+    var arrival: Date? { fresh && knownKind(state.arrivalKind) ? (state.revisedArrivalAt ?? state.arrivalAt) : state.arrivalAt }
+    func timingLabel(departing: Bool) -> String {
+        let revised = departing ? state.revisedDepartureAt : state.revisedArrivalAt
+        let kind = departing ? state.departureKind : state.arrivalKind
+        if fresh && revised != nil && knownKind(kind) {
+            if kind == "actual" { return english ? "Actual" : "Gerçekleşen" }
+            if kind == "estimated" { return english ? "Estimated" : "Tahmini" }
+            return english ? "Updated" : "Güncellenen"
+        }
+        return english ? "Scheduled" : "Planlanan"
+    }
+    var statusLabel: String? {
+        if expired { return english ? "Open your trip to refresh" : "Yenilemek için seyahatini aç" }
+        guard provider else { return nil }
+        guard fresh else { return english ? "Status needs updating" : "Durum güncel değil" }
+        switch state.providerStatus {
+        case "EnRoute", "Departed", "Approaching": return english ? "In the air" : "Havada"
+        case "Delayed": return english ? "Delayed" : "Gecikmeli"
+        case "Boarding": return english ? "Boarding" : "Uçağa alım başladı"
+        case "GateClosed": return english ? "Gate closed" : "Kapı kapandı"
+        case "CheckIn": return english ? "Check-in open" : "Check-in açık"
+        case "Expected": return english ? "Scheduled" : "Planlandı"
+        default: return english ? "Status not confirmed" : "Durum doğrulanmadı"
+        }
+    }
+}
+
+private struct FlightObservation: View {
+    let readout: FlightReadout
+    var body: some View {
+        VStack(spacing: 6) {
+            if let status = readout.statusLabel {
+                HStack(spacing: 5) {
+                    Circle().fill(readout.fresh ? Color.blue : Color.l2tGold).frame(width: 5, height: 5)
+                    Text(status).font(.system(size: 11, weight: .semibold))
+                    Spacer(minLength: 0)
+                    if readout.provider { Text("AeroDataBox").font(.system(size: 9)) }
+                }.foregroundStyle(.white.opacity(0.85))
+            }
+            if readout.provider && !readout.expired, let updated = readout.state.providerUpdatedAt {
+                HStack(spacing: 3) {
+                    Text(readout.english ? "Updated" : "Son bilgi")
+                    Text(updated, style: .time)
+                    Spacer(minLength: 0)
+                    Text(readout.english ? "Tap to open trip" : "Seyahate dönmek için dokun")
+                }.font(.system(size: 9)).foregroundStyle(.white.opacity(0.6))
+            } else if !readout.provider {
+                Text(readout.english ? "Your ticket schedule · not live flight status" : "Biletindeki saatler · canlı uçuş durumu değil")
+                    .font(.system(size: 9)).foregroundStyle(.white.opacity(0.6))
+            }
+        }
+    }
+}
+
+private struct ActivityAirport: View {
+    let context: ActivityViewContext<FlightActivityAttributes>
+    let departure: Bool
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+            let readout = FlightReadout(state: context.state, now: timeline.date, english: context.attributes.language == "en")
+            if !readout.expired {
+                AirportColumn(code: departure ? context.attributes.originIata : context.attributes.destinationIata,
+                              date: departure ? readout.departure : readout.arrival,
+                              timeZone: departure ? context.attributes.originTimeZone : context.attributes.destinationTimeZone,
+                              departure: departure, english: readout.english,
+                              alignment: departure ? .leading : .trailing,
+                              timeLabel: readout.timingLabel(departing: departure))
+            }
+        }
+    }
+}
+
 private struct ScheduledCountdown: View {
     let departureAt: Date
     let arrivalAt: Date?
     let english: Bool
     var compact = false
+    var departureLabel: String? = nil
+    var arrivalLabel: String? = nil
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { timeline in
@@ -96,7 +184,7 @@ private struct ScheduledCountdown: View {
                 }
             } else {
                 HStack(spacing: 8) {
-                    Label(phaseLabel(phase, english: english), systemImage: "clock")
+                    Label(phase == .waiting && departureLabel != nil ? departureLabel! + (english ? " departure" : " kalkış") : phase == .scheduledFlight && arrivalLabel != nil ? arrivalLabel! + (english ? " arrival" : " varış") : phaseLabel(phase, english: english), systemImage: "clock")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1).minimumScaleFactor(0.75)
@@ -136,16 +224,8 @@ struct FlightActivityWidget: Widget {
                 .widgetURL(URL(string: context.attributes.deepLink))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    AirportColumn(code: context.attributes.originIata, date: context.state.departureAt,
-                                  timeZone: context.attributes.originTimeZone, departure: true,
-                                  english: context.attributes.language == "en")
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    AirportColumn(code: context.attributes.destinationIata, date: context.state.arrivalAt,
-                                  timeZone: context.attributes.destinationTimeZone, departure: false,
-                                  english: context.attributes.language == "en", alignment: .trailing)
-                }
+                DynamicIslandExpandedRegion(.leading) { ActivityAirport(context: context, departure: true) }
+                DynamicIslandExpandedRegion(.trailing) { ActivityAirport(context: context, departure: false) }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 6) {
                         Image(systemName: "airplane")
@@ -157,28 +237,37 @@ struct FlightActivityWidget: Widget {
                     }.padding(.top, 12)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 7) {
-                        ScheduledCountdown(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt,
-                                           english: context.attributes.language == "en")
-                        ScheduleProgress(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt)
-                        Text(context.attributes.language == "en" ? "Scheduled times · not live flight status" : "Planlanan saatler · canlı uçuş durumu değil")
-                            .font(.system(size: 9)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
-                    }.padding(.top, 5)
+                    TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                        let readout = FlightReadout(state: context.state, now: timeline.date, english: context.attributes.language == "en")
+                        VStack(spacing: 8) {
+                            if !readout.expired {
+                                ScheduledCountdown(departureAt: readout.departure, arrivalAt: readout.arrival, english: readout.english,
+                                                   departureLabel: readout.timingLabel(departing: true), arrivalLabel: readout.timingLabel(departing: false))
+                                ScheduleProgress(departureAt: readout.departure, arrivalAt: readout.arrival)
+                            }
+                            FlightObservation(readout: readout)
+                        }.padding(.top, 6)
+                    }
                 }
             } compactLeading: {
-                HStack(spacing: 3) {
-                    Image(systemName: "airplane").font(.system(size: 10))
-                    Text(context.attributes.originIata.isEmpty ? "L2T" : context.attributes.originIata)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                HStack(spacing: 4) {
+                    Image(systemName: "airplane").font(.system(size: 11))
+                    Text(context.attributes.flightNumber?.isEmpty == false ? context.attributes.flightNumber! : "L2T")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded)).lineLimit(1)
                 }.foregroundStyle(Color.l2tGold)
             } compactTrailing: {
-                ScheduledCountdown(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt,
-                                   english: context.attributes.language == "en", compact: true)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                    let readout = FlightReadout(state: context.state, now: timeline.date, english: context.attributes.language == "en")
+                    if readout.expired || (readout.provider && !readout.fresh) {
+                        Image(systemName: "arrow.clockwise").accessibilityLabel(readout.english ? "Refresh flight status" : "Uçuş durumunu yenile")
+                    } else {
+                        ScheduledCountdown(departureAt: readout.departure, arrivalAt: readout.arrival, english: readout.english, compact: true)
+                    }
+                }.font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.l2tGold).frame(width: 54)
             } minimal: {
                 Image(systemName: "airplane").foregroundStyle(Color.l2tGold)
-                    .accessibilityLabel(context.attributes.language == "en" ? "Flight schedule" : "Uçuş takvimi")
+                    .accessibilityLabel(context.attributes.language == "en" ? "Your flight" : "Uçuşun")
             }
             .keylineTint(.l2tGold)
             .widgetURL(URL(string: context.attributes.deepLink))
@@ -195,33 +284,36 @@ private struct LockScreenView: View {
     }
 
     var body: some View {
-        VStack(spacing: 5) {
-            HStack {
-                Text("LETSGO2TRAVEL").font(.system(size: 9, weight: .bold)).tracking(1.2)
-                    .foregroundStyle(Color.l2tGold)
-                Spacer()
-                Text(flightTitle).font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8)).lineLimit(1)
-            }
-            HStack(alignment: .center) {
-                AirportColumn(code: context.attributes.originIata, date: context.state.departureAt,
-                              timeZone: context.attributes.originTimeZone, departure: true, english: english)
-                Spacer(minLength: 8)
-                HStack(spacing: 8) {
-                    Capsule().fill(Color.white.opacity(0.2)).frame(height: 1)
-                    Image(systemName: "airplane").font(.system(size: 20)).foregroundStyle(Color.l2tGold)
-                    Capsule().fill(Color.white.opacity(0.2)).frame(height: 1)
-                }.frame(maxWidth: 100).accessibilityHidden(true)
-                Spacer(minLength: 8)
-                AirportColumn(code: context.attributes.destinationIata, date: context.state.arrivalAt,
-                              timeZone: context.attributes.destinationTimeZone, departure: false,
-                              english: english, alignment: .trailing)
-            }
-            ScheduledCountdown(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt, english: english)
-            ScheduleProgress(departureAt: context.state.departureAt, arrivalAt: context.state.arrivalAt)
-            Text(english ? "Scheduled times · not live flight status" : "Planlanan saatler · canlı uçuş durumu değil")
-                .font(.system(size: 9)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+            let readout = FlightReadout(state: context.state, now: timeline.date, english: english)
+            VStack(spacing: 9) {
+                HStack {
+                    Label("LETSGO2TRAVEL", systemImage: "airplane.circle.fill")
+                        .font(.system(size: 10, weight: .bold)).tracking(0.8).foregroundStyle(Color.l2tGold)
+                    Spacer()
+                    Text(readout.expired ? "" : flightTitle).font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .background(.white.opacity(0.08), in: Capsule())
+                        .foregroundStyle(.white.opacity(0.9)).lineLimit(1)
+                }
+                if !readout.expired {
+                    HStack(alignment: .center) {
+                        ActivityAirport(context: context, departure: true)
+                        Spacer(minLength: 8)
+                        HStack(spacing: 8) {
+                            Capsule().fill(Color.white.opacity(0.2)).frame(height: 1)
+                            Image(systemName: "airplane").font(.system(size: 20)).foregroundStyle(Color.l2tGold)
+                            Capsule().fill(Color.white.opacity(0.2)).frame(height: 1)
+                        }.frame(maxWidth: 100).accessibilityHidden(true)
+                        Spacer(minLength: 8)
+                        ActivityAirport(context: context, departure: false)
+                    }
+                    ScheduledCountdown(departureAt: readout.departure, arrivalAt: readout.arrival, english: english,
+                                       departureLabel: readout.timingLabel(departing: true), arrivalLabel: readout.timingLabel(departing: false))
+                    ScheduleProgress(departureAt: readout.departure, arrivalAt: readout.arrival)
+                }
+                FlightObservation(readout: readout)
+            }.padding(.horizontal, 17).padding(.vertical, 12)
         }
-        .padding(.horizontal, 16).padding(.vertical, 8)
     }
 }

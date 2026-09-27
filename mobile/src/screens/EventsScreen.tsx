@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
-import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
@@ -16,15 +15,17 @@ import { openExternal } from "../lib/native";
 import { getSavedTravelEvents, mergeSavedTravelEvents, toggleSavedTravelEvent } from "../lib/storage";
 import { attachTravelEventToCockpitTrip, getSupabaseDataErrorMessage, listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
 import type { EventCityOption, TravelEvent, ViewId } from "../types";
+import "./daily-journey.css";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
-export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onNavigate, onNotice }: {
+export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onNavigate, onNotice }: {
   focusEventId?: string;
   onFocusHandled?: () => void;
   ownerId?: string | null;
   accessToken?: string;
   onOpenAccount: () => void;
+  onOpenSaved?: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -59,6 +60,8 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const [featuredUnavailable, setFeaturedUnavailable] = useState(false);
   const [featuredGlobal, setFeaturedGlobal] = useState(false);
+  const [featuredOpen, setFeaturedOpen] = useState(false);
+  const [appliedSearch, setAppliedSearch] = useState<{ signature: string; label: string } | null>(null);
   const [tripEvent, setTripEvent] = useState<TravelEvent | null>(null);
   const [cockpitTrips, setCockpitTrips] = useState<CockpitTrip[]>([]);
   const [tripPickerLoading, setTripPickerLoading] = useState(false);
@@ -112,6 +115,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
 
   useEffect(() => {
     let current = true;
+    if (!featuredOpen) return () => { current = false; };
     const dates = { startDate: localIsoDate(0), endDate: localIsoDate(180) };
     setFeaturedLoading(true);
     setFeaturedUnavailable(false);
@@ -143,7 +147,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
       }
     })();
     return () => { current = false; };
-  }, [countryCode]);
+  }, [countryCode, featuredOpen]);
 
   useEffect(() => {
     setSavedIds(new Set(getSavedTravelEvents(ownerId).map((event) => event.id)));
@@ -168,6 +172,8 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     setCoverageLimited(false);
     setCoverageStatus("");
     setSearched(true);
+    const requestedSignature = [countryCode, cityPlaceCode, startDate, endDate, nextCategory].join("|");
+    const requestedLabel = [selectedCity?.name || countries.find(country => country.code === countryCode)?.name || copy("Tüm dünya", "Worldwide"), `${startDate} – ${endDate}`, categoryLabel(nextCategory)].join(" · ");
     try {
       const result = await listTravelEvents({
         countryCode,
@@ -180,6 +186,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
       });
       const freshEvents = Array.isArray(result.data) ? result.data : [];
       setEvents(freshEvents);
+      setAppliedSearch({ signature: requestedSignature, label: requestedLabel });
       const merged = mergeSavedTravelEvents(freshEvents, ownerId);
       setSavedIds(new Set(merged.events.map((item) => item.id)));
       const reminderChanges = await reconcileEventReminders(freshEvents, locale, ownerId);
@@ -268,17 +275,19 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
 
   const eventDay = tripEvent ? eventLocalDate(tripEvent) : "";
   const hasCompatibleTrip = cockpitTrips.some((trip) => Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate));
+  const filtersChanged = Boolean(appliedSearch && appliedSearch.signature !== [countryCode, cityPlaceCode, startDate, endDate, category].join("|"));
 
-  return <div className="screen events-screen">
+  return <div className="screen events-screen daily-events">
     <Sheet open={Boolean(focusedEvent)} title={copy("Etkinlik ayrıntıları", "Event details")} onClose={() => setFocusedEvent(null)}>
       {focusedEvent && <div className="form-card"><h3>{focusedEvent.title}</h3><p>{focusedEvent.city} · {focusedEvent.venue}</p><p>{eventDateLabel(focusedEvent, dateLocale)} · {eventTimeLabel(focusedEvent, dateLocale)}</p><p>{focusedEvent.description}</p><button className="primary-wide" onClick={() => void openExternal(focusedEvent.ticketUrl || focusedEvent.sourceUrl)}>{copy("Kaynağı aç", "Open source")}</button></div>}
     </Sheet>
-    <PageHero scene="events" title={copy("Etkinlikler & Festivaller", "Events & Festivals")} subtitle={copy("Konserler, festivaller, kültür ve yeni anılar.", "Concerts, festivals, culture and new memories.")} />
+    <header className="daily-page-heading"><span>{copy("TAKVİMİNE BİR AN EKLE", "MAKE TIME FOR SOMETHING GOOD")}</span><h1>{copy("Oradayken ne var?", "What's on while you're there?")}</h1><p>{copy("Yerini ve tarihlerini seç; kaçırmak istemediklerini kaydet.", "Choose your place and dates. Save what you don't want to miss.")}</p></header>
+    <button type="button" className="daily-event-saved" onClick={() => onOpenSaved ? onOpenSaved() : onNavigate("trips")}><Icon name="bookmark" size={20}/><span>{copy("Kayıtlı etkinliklerim", "My saved events")}<small>{copy(`${savedIds.size} etkinlik`, `${savedIds.size} events`)}</small></span><Icon name="chevron" size={18}/></button>
 
           <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
         {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} disabled={loading} onClick={() => { setCategory(item); void search(item); }}>{categoryLabel(item)}</button>)}
       </div>
-    <details className="event-filter-disclosure"><summary><Icon name="calendar" size={17} /><span>{copy("Ülke ve tarih seç", "Choose country and dates")}</span><Icon name="chevron" size={15} /></summary>
+    <details className="event-filter-disclosure" open><summary><Icon name="calendar" size={17} /><span>{copy("Ülke ve tarih seç", "Choose country and dates")}</span><Icon name="chevron" size={15} /></summary>
     <section className="event-search-card" aria-label={copy("Etkinlik araması", "Event search")}>
       <div className="event-search-grid">
         <CountryPicker value={countryCode} options={countryOptions} includeWorldwide label={copy("Ülke", "Country")} placeholder={copy("Tüm dünya", "Worldwide")} onChange={(nextCountryCode) => {
@@ -310,9 +319,9 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     </section>
 
     </details>
-    <button type="button" className="event-now-link" onClick={() => onNavigate("companion")}><Icon name="sparkles" size={16} />{copy("Şu anda ne yapabilirim?", "What can I do right now?")}<Icon name="chevron" size={15} /></button>
+    {filtersChanged && <div className="daily-event-changed" role="status"><p>{copy("Filtreler değişti. Aşağıdaki liste son aramana ait.", "Filters changed. The list below is from your last search.")}</p><button type="button" disabled={loading} onClick={() => void search()}>{copy("Sonuçları güncelle", "Update results")}</button></div>}
 
-    <section className="featured-events" aria-labelledby="featured-events-title">
+    <details className="daily-featured-disclosure" onToggle={event => setFeaturedOpen(event.currentTarget.open)}><summary><Icon name="sparkles" size={18}/>{copy("Dünyadan konser fikirleri", "Concert inspiration worldwide")}<Icon name="chevron" size={16}/></summary><section className="featured-events" aria-labelledby="featured-events-title">
       <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Dünyaca ünlü sanatçılar", "Global headline artists")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
       {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
         : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
@@ -321,7 +330,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
           <Icon name="external" size={17} />
         </button>)}</div>
           : <div className="featured-event-empty"><Icon name={featuredUnavailable ? "offline" : "calendar"} size={22} /><p>{featuredUnavailable ? copy("Öne çıkan konser kaynağına şu anda ulaşılamıyor.", "Headline concert data is temporarily unavailable.") : copy("Önümüzdeki dönemde öne çıkan konser bulunamadı.", "No headline concerts were found for the coming months.")}</p></div>}
-    </section>
+    </section></details>
 
     {!providerConfigured && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Otomatik etkinlik sağlayıcısı henüz etkin değil. Bu sırada yönetici tarafından doğrulanmış duyurular gösterilir.", "The automatic event provider is not enabled yet. Verified editorial listings are shown in the meantime.")}</p></div>}
     {providerConfigured && coverageStatus === "provider_unavailable" && <div className="info-box event-provider-note event-provider-unavailable"><Icon name="alert" size={18} /><p>{copy("Canlı etkinlik kaynağına şu anda ulaşılamıyor. Biraz sonra yeniden dene; doğrulanmış duyurular gösterilmeye devam ediyor.", "The live event source is temporarily unavailable. Try again shortly; verified listings remain visible.")}</p><button onClick={() => void search()}>{copy("Yeniden dene", "Retry")}</button></div>}
@@ -329,6 +338,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p><button onClick={() => void search()}>{copy("Tekrar dene", "Try again")}</button></div>}
 
     <section className="section-block event-results">
+      {appliedSearch && <p className="daily-event-result-scope">{appliedSearch.label}</p>}
       <div className="section-heading"><div><span>{copy("TARİHİNE UYGUN", "MATCHING YOUR DATES")}</span><h2>{copy("Yaklaşan etkinlikler", "Upcoming events")}</h2></div>{updatedAt && <small>{copy("Güncellendi", "Updated")} {new Intl.DateTimeFormat(dateLocale, { hour: "2-digit", minute: "2-digit" }).format(new Date(updatedAt))}</small>}</div>
       {loading && !events.length ? <div className="skeleton-list"><div /><div /><div /></div> : <div className="event-list">
         {events.map((event) => {

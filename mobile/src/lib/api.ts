@@ -86,6 +86,7 @@ type RequestOptions = {
   body?: unknown;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 function absoluteUrl(path: string) {
@@ -124,6 +125,8 @@ function errorCode(data: unknown) {
 }
 
 export async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const aborted = () => new ApiError("Request cancelled", 0, "aborted");
+  if (options.signal?.aborted) throw aborted();
   const url = absoluteUrl(path);
   const method = options.method || "GET";
   const headers = {
@@ -147,6 +150,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     };
     try {
       const response = await http.request(nativeOptions) as { status: number; data: unknown };
+      if (options.signal?.aborted) throw aborted();
       let data = response.data;
       if (typeof data === "string" && data.trim()) {
         try { data = JSON.parse(data); } catch { /* Metin yanıtı olduğu gibi bırak. */ }
@@ -162,6 +166,8 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
   }
 
   const controller = new AbortController();
+  const cancel = () => controller.abort();
+  options.signal?.addEventListener("abort", cancel, { once: true });
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
@@ -183,11 +189,13 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    if (options.signal?.aborted) throw aborted();
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again."));
     }
     throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect."));
   } finally {
+    options.signal?.removeEventListener("abort", cancel);
     window.clearTimeout(timer);
   }
 }

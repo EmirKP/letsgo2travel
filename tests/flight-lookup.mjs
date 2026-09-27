@@ -11,6 +11,7 @@ const flight = require('../lib/flight-lookup.ts');
 const provider = require('../lib/flight-provider.ts');
 const access = require('../lib/flight-lookup-access.ts');
 const receipts = require('../lib/flight-selection-receipt.ts');
+const progress = require('../lib/flight-progress.ts');
 const { findAirportByIata, searchAirports } = require('../lib/airport-search.ts');
 const { airportTimeZone } = require('../lib/airport-time-zones.ts');
 const { boundedWait } = require('../lib/bounded-wait.ts');
@@ -195,6 +196,59 @@ test('Usable alternatives win over an older leg, and an incomplete alternative n
   assert.equal(flight.inspectFlightMatches([leg(), incomplete], query, current).reason, 'incomplete');
 });
 
+test('V3 uses provider phases and revised times without changing scheduled instants or v2 eligibility', () => {
+  const clock = new Date('2026-09-28T10:00:00Z');
+  const raw = leg(); raw.status = 'EnRoute'; raw.lastUpdatedUtc = '2026-09-28 09:58:00Z';
+  raw.departure.revisedTime = { utc: '2026-09-28 09:20Z', local: '2026-09-28 12:20+03:00' };
+  raw.arrival.revisedTime = { utc: '2026-09-28 13:20Z', local: '2026-09-28 14:20+01:00' };
+  const [match] = flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true }).flights;
+  assert.equal(match.departureAt, '2026-09-28T09:00:00.000Z'); assert.equal(match.arrivalAt, '2026-09-28T13:00:00.000Z');
+  assert.equal(match.progress.phase, 'en-route'); assert.equal(match.progress.freshness, 'fresh');
+  assert.deepEqual(match.progress.departure, { revisedAt: '2026-09-28T09:20:00.000Z', revisedKind: 'actual' });
+  assert.deepEqual(match.progress.arrival, { revisedAt: '2026-09-28T13:20:00.000Z', revisedKind: 'estimated' });
+  assert.equal(match.progress.freshUntil, '2026-09-28T10:13:00.000Z');
+  assert.equal(progress.flightSelectionDeadline(match, clock), clock.getTime() + 10 * 60000);
+  assert.equal(flight.inspectFlightMatches([raw], query, clock).reason, 'past-departure');
+  assert.equal(match.nativeDisplayAllowed, false);
+});
+
+test('En-route freshness is source age, not retrieval time; stale or missing source cannot receive a receipt', () => {
+  const clock = new Date('2026-09-28T10:00:00Z');
+  for (const updated of [undefined, 'invalid', '2026-09-28 09:44:59Z', '2026-09-28 10:01Z']) {
+    const raw = leg(); raw.status = 'EnRoute'; raw.lastUpdatedUtc = updated;
+    const [match] = flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true }).flights;
+    assert.ok(match); assert.equal(match.fetchedAt, clock.toISOString());
+    assert.notEqual(match.progress.freshness, 'fresh'); assert.equal(progress.flightSelectionDeadline(match, clock), 0);
+    assert.throws(() => receipts.issueFlightReceipt('owner', query, match, 'FIXTURE_SECRET_AT_LEAST_32_CHARACTERS', clock), /stale-flight/);
+  }
+});
+
+test('Delayed departure requires fresh future revised time; clock passage never invents an airborne phase', () => {
+  const clock = new Date('2026-09-28T10:00:00Z'); const raw = leg();
+  raw.status = 'Delayed'; raw.lastUpdatedUtc = '2026-09-28 09:59Z';
+  raw.departure.revisedTime = { utc: '2026-09-28 10:05Z', local: '2026-09-28 13:05+03:00' };
+  const [match] = flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true }).flights;
+  assert.equal(match.progress.phase, 'upcoming'); assert.equal(match.progress.departure.revisedKind, 'estimated');
+  assert.equal(progress.flightSelectionDeadline(match, clock), Date.parse('2026-09-28T10:05Z'));
+  delete raw.lastUpdatedUtc;
+  assert.equal(flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true }).reason, 'past-departure');
+  assert.equal(flight.inspectFlightMatches([leg()], query, clock, { includeInProgress: true }).reason, 'past-departure');
+});
+
+test('Terminal status is refresh-only and conflicting or implausible revised timestamps are never used', () => {
+  const clock = new Date('2026-09-28T14:00:00Z'); const raw = leg(); raw.status = 'Arrived'; raw.lastUpdatedUtc = '2026-09-28 13:58Z';
+  raw.arrival.revisedTime = { utc: '2026-09-28 13:55Z', local: '2026-09-28 14:55+01:00' };
+  assert.equal(flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true }).reason, 'status-unavailable');
+  const [match] = flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true, includeTerminal: true }).flights;
+  assert.equal(match.progress.phase, 'arrived'); assert.equal(match.progress.arrival.revisedKind, 'actual'); assert.equal(progress.flightSelectionDeadline(match, clock), 0);
+  raw.arrival.revisedTime.local = '2026-09-28 17:55+04:00';
+  assert.equal(flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true, includeTerminal: true }).flights[0].progress.arrival.revisedAt, null);
+  raw.arrival.revisedTime = { utc: '2026-10-02 13:55Z', local: '2026-10-02 14:55+01:00' };
+  assert.equal(flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true, includeTerminal: true }).flights[0].progress.arrival.revisedAt, null);
+  raw.arrival.revisedTime = { utc: '2026-09-28 14:30Z', local: '2026-09-28 15:30+01:00' };
+  assert.equal(flight.inspectFlightMatches([raw], query, clock, { includeInProgress: true, includeTerminal: true }).flights[0].progress.arrival.revisedKind, 'unknown');
+});
+
 const routeSource = ts.transpileModule(readFileSync(new URL('../app/api/cockpit/flight-lookup/route.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -202,10 +256,11 @@ function routeHarness(overrides = {}) {
   const userId = '10000000-0000-4000-8000-000000000001';
   const env = { FLIGHT_LOOKUP_ENABLED: 'true', FLIGHT_LOOKUP_MONTHLY_LIMIT: '100', AERODATABOX_API_KEY: 'NONFUNCTIONAL_SECRET_FIXTURE', FLIGHT_LOOKUP_MODE: 'commercial', FLIGHT_LOOKUP_RECEIPT_SECRET: 'NONFUNCTIONAL_RECEIPT_SECRET_32_CHARACTERS', ...overrides };
   const calls = { auth: 0, quota: [], provider: [], probes: [], retention: [], signals: [] };
-  const state = { auth: 'yes', userId, quota: 'yes', probe: 'yes', retention: 'yes', response: () => Response.json([leg()]), resolveAuth: null, resolveQuota: null };
+  const state = { now: now.getTime(), auth: 'yes', userId, quota: 'yes', probe: 'yes', retention: 'yes', response: () => Response.json([leg()]), resolveAuth: null, resolveQuota: null };
+  class Clock extends Date { constructor(...args) { super(...(args.length ? args : [state.now])); } static now() { return state.now; } }
   const timeout = ms => { const controller = new AbortController(); calls.signals.push({ ms, controller }); return controller.signal; };
   const supabase = { rpc: (name, args) => {
-    if (name === 'flight_lookup_retention_ready') {
+    if (name === 'flight_lookup_retention_ready' || name === 'flight_lookup_refresh_ready') {
       calls.retention.push({ name, args });
       return { abortSignal: async () => ({ data: state.retention === 'yes', error: state.retention === 'error' ? { message: 'missing retention' } : null }) };
     }
@@ -227,16 +282,17 @@ function routeHarness(overrides = {}) {
     '@/lib/bounded-wait': { boundedWait }, '@/lib/travel-assistant/http': { boundedJson },
     '@/lib/flight-provider': { ...provider, getFlightProviderConfig: () => provider.getFlightProviderConfig(env) },
     '@/lib/flight-lookup-access': { ...access, flightLookupSettings: () => access.flightLookupSettings(env) },
-    '@/lib/flight-selection-receipt': { ...receipts, issueFlightReceipt: (user, input, value, secret) => receipts.issueFlightReceipt(user, input, value, secret, now) },
+    '@/lib/flight-progress': progress,
+    '@/lib/flight-selection-receipt': { ...receipts, issueFlightReceipt: (user, input, value, secret) => receipts.issueFlightReceipt(user, input, value, secret, new Clock()) },
     '@/lib/flight-lookup': {
-      flightLookupInput: (number, date) => flight.flightLookupInput(number, date, now),
+      flightLookupInput: (number, date) => flight.flightLookupInput(number, date, new Clock()),
       normalizeFlightMatches: (payload, input) => flight.normalizeFlightMatches(payload, input, now),
-      inspectFlightMatches: (payload, input) => flight.inspectFlightMatches(payload, input, now),
+      inspectFlightMatches: (payload, input, clock, options) => flight.inspectFlightMatches(payload, input, clock ?? new Clock(), options),
     },
   };
   const output = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${routeSource}\n})`, {
-    Response, Date, AbortSignal: { timeout }, process: { env },
+    Response, Date: Clock, AbortSignal: { timeout }, process: { env },
     fetch: async (url, options) => { calls.provider.push({ url, options }); return state.response(options); },
   })(name => imports[name], output, output.exports);
   const headers = (version = '2') => ({ Authorization: 'Bearer PRIVATE_USER_TOKEN', ...(version === null ? {} : { 'X-Flight-Lookup-Version': version }) });
@@ -269,8 +325,35 @@ test('Readiness verifies each authenticated request with read-only quota and ret
   }
 });
 
-test('Old clients and trial users outside the allowlist cannot reach provider or quota work', async () => {
-  for (const version of [null, '1', '3']) {
+test('V3 readiness requires the refresh migration and native display remains explicitly gated', async () => {
+  const h = routeHarness();
+  assert.deepEqual(await (await h.api.GET(h.getRequest('3'))).json(), { protocol: 3, available: true, mode: 'commercial', maySave: true, nativeDisplayAllowed: false });
+  assert.equal(h.calls.retention[0].name, 'flight_lookup_refresh_ready');
+  h.state.retention = 'error';
+  assert.deepEqual(await (await h.api.GET(h.getRequest('3'))).json(), { protocol: 3, available: false });
+  const enabled = routeHarness({ FLIGHT_LOOKUP_NATIVE_DISPLAY_ALLOWED: 'true' });
+  assert.equal((await (await enabled.api.GET(enabled.getRequest('3'))).json()).nativeDisplayAllowed, true);
+  const trial = routeHarness({ FLIGHT_LOOKUP_MODE: 'trial', FLIGHT_LOOKUP_TRIAL_USER_IDS: h.state.userId, FLIGHT_LOOKUP_NATIVE_DISPLAY_ALLOWED: 'true' });
+  assert.equal((await (await trial.api.GET(trial.getRequest('3'))).json()).nativeDisplayAllowed, false);
+});
+
+test('V3 en-route selections are owner-signed only while source-fresh; trial and stale results stay read-only', async () => {
+  for (const scenario of ['fresh', 'stale', 'trial']) {
+    const h = routeHarness(scenario === 'trial' ? { FLIGHT_LOOKUP_MODE: 'trial', FLIGHT_LOOKUP_TRIAL_USER_IDS: '10000000-0000-4000-8000-000000000001' } : {});
+    h.state.now = Date.parse('2026-09-28T10:00Z');
+    h.state.response = () => { const raw = leg(); raw.status = 'EnRoute'; raw.lastUpdatedUtc = scenario === 'stale' ? '2026-09-28 09:00Z' : '2026-09-28 09:55Z'; return Response.json([raw]); };
+    const response = await h.api.POST(h.request(query, '3')); assert.equal(response.status, 200);
+    const body = await response.json(); assert.equal(body.protocol, 3); const [match] = body.flights;
+    assert.equal(match.progress.phase, 'en-route'); assert.equal(match.maySave, scenario === 'fresh');
+    if (scenario === 'fresh') {
+      assert.ok(receipts.verifyFlightReceipt(match.receipt, h.state.userId, h.env.FLIGHT_LOOKUP_RECEIPT_SECRET, new Date(h.state.now)));
+      assert.equal(receipts.verifyFlightReceipt(match.receipt, h.state.userId, h.env.FLIGHT_LOOKUP_RECEIPT_SECRET, new Date(h.state.now + 10 * 60000)), null);
+    } else assert.equal(match.receipt, null);
+  }
+});
+
+test('Unsupported clients and trial users outside the allowlist cannot reach provider or quota work', async () => {
+  for (const version of [null, '1', '4']) {
     const h = routeHarness();
     assert.deepEqual(await (await h.api.GET(h.getRequest(version))).json(), { protocol: 2, available: false });
     const response = await h.api.POST(h.request(query, version));

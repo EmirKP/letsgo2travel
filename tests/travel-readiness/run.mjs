@@ -82,11 +82,13 @@ await test("flight: date-line travel accepts an earlier local arrival date with 
   assert.match(form.tripFormError({ ...input, originAirport: { iata: "ZZZ" } }), /saat dilimini/);
   assert.equal(form.tripFormError({ ...input, originAirport: { iata: "ZZZ", timeZone: "Asia/Tokyo" } }), "");
 });
-await test("flight: an airport's today can be tomorrow on the phone; past UTC departures stay rejected", () => {
+await test("flight: airport-local dates allow ongoing tickets but reject completed flights", () => {
   const form = modules()("mobile/src/lib/cockpitForm.ts");
   const input = flight({ originAirport: { iata: "LAX" }, startDate: "2026-09-10", departureTime: "10:00", arrivalDate: "2026-09-11", arrivalTime: "09:00" });
   assert.equal(form.tripFormError(input, new Date("2026-09-10T16:59:00Z")), "");
-  assert.match(form.tripFormError(input, new Date("2026-09-10T17:00:00Z")), /geçmiş/);
+  assert.equal(form.tripFormError(input, new Date("2026-09-10T17:00:00Z")), "");
+  const arrival = Date.parse(form.flightTimes(input).arrival.iso);
+  assert.match(form.tripFormError(input, new Date(arrival + 1)), /geçmiş/);
 });
 
 const route = (id = "r1") => ({ id, createdAt: "2026-09-10T12:00:00Z", input: { origin: "İstanbul", days: "4 gün", vibe: ["Culture"] }, plan: { routes: [{ name: "Roma", country: "İtalya", visaNote: "Source retained", visaSourceUrl: "https://example.test/source" }] } });
