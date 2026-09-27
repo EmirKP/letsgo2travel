@@ -10,8 +10,9 @@ import {
 import type { SavedPlace, SavedPlacesState } from '../lib/savedPlaces';
 import { Icon } from './Icon';
 import './saved-places.css';
+import './travel-assistant.css';
 
-export function TravelSavedPlaces({ onExplore }: { onExplore?: () => void }) {
+export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: () => void; onExploreLabel?: string }) {
   const { copy, locale } = useI18n();
   const [state, setState] = useState(readSavedPlaces);
   const [view, setView] = useState<'saved' | 'day'>('saved');
@@ -98,7 +99,7 @@ export function TravelSavedPlaces({ onExplore }: { onExplore?: () => void }) {
           : copy('Gezi ya da İhtiyaç haritasında bir noktayı açıp Kaydet’e dokun. Sonra burada not ekleyip gezi sıranı oluşturabilirsin.', 'Open a place on the Sightseeing or Essentials map and tap Save. Then add notes and arrange your day here.')}</p>
       {view === 'day' ? <button type="button" className="secondary-wide" onClick={() => setView('saved')}>{copy('Kaydettiğim yerlere git', 'Go to saved places')}</button>
         : state.items.length ? <button type="button" className="secondary-wide" onClick={() => { setCategory(''); setQuery(''); }}>{copy('Filtreleri temizle', 'Clear filters')}</button>
-          : onExplore && <button type="button" className="primary-wide" onClick={onExplore}>{copy('Gezi haritasını aç', 'Open sightseeing map')}</button>}
+          : onExplore && <button type="button" className="primary-wide" onClick={onExplore}>{onExploreLabel || copy('Gezi haritasını aç', 'Open sightseeing map')}</button>}
     </div>}
     <ol className="tsp-list" aria-label={view === 'day' ? copy('Gezi sırası', 'Day sequence') : copy('Kaydettiğim yerler', 'Saved places')}>
       {visible.map((item, index) => <SavedPlaceCard key={item.place.id} item={item} name={label(item)}

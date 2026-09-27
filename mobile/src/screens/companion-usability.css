@@ -1,0 +1,24 @@
+.editorial-app .companion-screen .companion-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.editorial-app .companion-screen .companion-tabs > button {
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 5px;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.companion-screen .companion-tabs > button:focus-visible {
+  outline: 3px solid #e5b52e;
+  outline-offset: 3px;
+}
+
+@media (max-width: 340px) {
+  .editorial-app .companion-screen .companion-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

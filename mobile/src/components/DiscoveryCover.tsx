@@ -6,6 +6,7 @@ import { routeByDestinationCode } from "../data/routes";
 import { useI18n } from "../lib/i18n";
 import { CountryFlag } from "./CountryFlag";
 import { alpha2FromAlpha3 } from "../data/countryIso";
+import { normalizeSearchText } from "../lib/searchText";
 import type { RouteSuggestion, ViewId } from "../types";
 
 const shortcuts: { icon: IconName; tr: string; en: string; view: ViewId }[] = [
@@ -27,7 +28,8 @@ export function DiscoveryCover({ onNavigate, onSelect, children }: { onNavigate:
     }),
   ];
   const featured = ["FCO", "TYO", "SJJ", "DXB"].flatMap((code) => all.filter((item) => item.code === code));
-  const matches = query.trim() ? all.filter((item) => `${item.name} ${item.country}`.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale))) : featured;
+  const search = normalizeSearchText(query);
+  const matches = search ? all.filter((item) => normalizeSearchText(`${item.name} ${item.country} ${item.code}`).includes(search)) : featured;
   const select = (code: string) => {
     const route = routeByDestinationCode(code, locale);
     if (route) onSelect(route);
@@ -40,14 +42,15 @@ export function DiscoveryCover({ onNavigate, onSelect, children }: { onNavigate:
       <p>{copy("Dünyayı keşfet, kendini keşfet.", "Discover the world. Discover yourself.")}</p>
     </section>
     <section className="discovery-search-area" aria-label={copy("Rota keşfi", "Discover destinations")}>
-      <label className="discovery-search"><Icon name="search" size={19} /><span className="sr-only">{copy("Şehir veya ülke ara", "Search city or country")}</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Nereye gitmek istersin?", "Where would you like to go?")} /></label>
-      <nav className="discovery-shortcuts" aria-label={copy("Hızlı araçlar", "Quick tools")}>{shortcuts.map((item) => <button type="button" key={item.view} onClick={() => onNavigate(item.view)}><Icon name={item.icon} size={22} /><span>{copy(item.tr, item.en)}</span></button>)}</nav>
+      <label className="discovery-search"><Icon name="search" size={19} /><span className="sr-only">{copy("Hazır rotalarda şehir veya ülke ara", "Search cities or countries in ready-made routes")}</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Hazır rota ara: Roma, Tokyo…", "Find a ready-made route: Rome, Tokyo…")} /></label>
+      {!search && <nav className="discovery-shortcuts" aria-label={copy("Hızlı araçlar", "Quick tools")}>{shortcuts.map((item) => <button type="button" key={item.view} onClick={() => onNavigate(item.view)}><Icon name={item.icon} size={22} /><span>{copy(item.tr, item.en)}</span></button>)}</nav>}
     </section>
-    {children}
+    {!search && children}
     <section className="editorial-destinations">
-      <div className="editorial-heading"><h2>{query ? copy("Arama sonuçları", "Search results") : copy("İlham veren rotalar", "Inspiring destinations")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü gör", "See all")} <Icon name="chevron" size={14} /></button></div>
+      <div className="editorial-heading"><h2>{search ? copy("Hazır rota sonuçları", "Ready-made routes") : copy("İlham veren rotalar", "Inspiring destinations")}</h2><button type="button" onClick={() => search ? setQuery("") : onNavigate("explore")}>{search ? copy("Aramayı temizle", "Clear search") : copy("Tümünü gör", "See all")} <Icon name="chevron" size={14} /></button></div>
+      {search && <p role="status">{copy(`${matches.length} hazır rota bulundu.`, `${matches.length} ready-made routes found.`)}</p>}
       <div className="editorial-route-grid">{matches.map((item) => <button type="button" key={item.code} onClick={() => select(item.code)}><img src={destinationArtwork(item.code)} alt="" loading="lazy" width="180" height="240" /><span><strong>{item.name}</strong><small><CountryFlag code={item.alpha2} label={item.country} /> {item.country}</small></span></button>)}</div>
-      {!matches.length && <p role="status">{copy("Bu aramayla eşleşen rota bulunamadı. Başka bir şehir veya ülke dene.", "No matching destination. Try another city or country.")}</p>}
+      {!matches.length && <div className="discovery-search-empty"><p>{copy("Bu yer için hazır rotamız henüz yok. Seyahat tercihlerinle sana uygun rota önerileri bulabilirsin.", "We do not have a ready-made route for this place yet. Find suggestions based on your travel preferences.")}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("route")}><Icon name="route" size={18}/>{copy("Bana uygun rota bul", "Find a route for me")}</button></div>}
     </section>
   </>;
 }

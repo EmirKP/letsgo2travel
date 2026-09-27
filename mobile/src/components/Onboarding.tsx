@@ -23,12 +23,12 @@ const slides: Array<{ icon: IconName; eyebrow: [string, string]; title: [string,
     eyebrow: ["YOLA ÇIKARKEN YANINDA", "WITH YOU ON THE ROAD"],
     title: ["Kaydet, takip et ve kaldığın yerden devam et.", "Save, track and continue where you left off."],
     text: ["Rotaların, etkinliklerin ve kokpit kayıtlarınla seyahat boyunca yanında oluruz.", "Routes, events and Cockpit tools stay with you throughout the trip."],
-    points: [["Etkinlikleri bul", "Find events"], ["Yerel ifadeleri kullan", "Use local phrases"], ["Uçuşunu takip et", "Track your flight"]],
+    points: [["Etkinlikleri bul", "Find events"], ["Yerel ifadeleri kullan", "Use local phrases"], ["Uçuşunu düzenle", "Organise your flight"]],
   },
 ];
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
-  const { locale, copy } = useI18n();
+  const { locale, setLocale, copy } = useI18n();
   const [index, setIndex] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const slide = slides[index];
@@ -62,7 +62,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="onboarding-orbit orbit-two" />
       <header className="onboarding-header">
         <span className="onboarding-brand"><BrandMark /></span>
-        <div>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
+        <div><button type="button" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={copy("İngilizce kullan", "Use Turkish")}>{locale === "tr" ? "English" : "Türkçe"}</button>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
       </header>
 
       <section className="onboarding-content" key={index} aria-live="polite">

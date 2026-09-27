@@ -8,9 +8,10 @@ import { TRAVEL_ESSENTIALS, essentialProfile, fallbackEssentialProfile } from ".
 import { getTravelNow } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
-import { readTravelCountry } from "../lib/travelSelection";
+import { readTravelCountry, selectTravelCountry } from "../lib/travelSelection";
 import { EvidenceLine } from "../components/TravelSafety";
 import type { TravelNowResult, ViewId } from "../types";
+import "./companion-usability.css";
 
 const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
 
@@ -59,10 +60,10 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
   useEffect(() => setTab(initialTab), [initialTab]);
 
   const tabLabel = (value: CompanionTab) => ({
-    assistant: copy("Seyahat Asistanı", "Travel Assistant"),
-    now: copy("Şimdi", "Right now"),
-    phrases: copy("Konuş", "Phrases"),
-    etiquette: copy("Kültür ve yerel ipuçları", "Culture and local tips"),
+    assistant: copy("Araçlar", "Tools"),
+    now: copy("Yakınımda", "Around me"),
+    phrases: copy("Hazır ifadeler", "Useful phrases"),
+    etiquette: copy("Yerel ipuçları", "Local tips"),
   })[value];
 
   const locate = async () => {
@@ -127,15 +128,15 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
   };
 
   return <div className="screen companion-screen">
-    <PageHero scene="city" title={copy("Yol Arkadaşın", "Travel Companion")} subtitle={copy("Yerel ipuçları ve ihtiyacın olan cümleler.", "Local tips and the words you need.")} />
+    <PageHero scene="city" title={copy("Seyahat Asistanı", "Travel Assistant")} subtitle={copy("Yoldayken ihtiyacın olan yardım, tek yerde.", "Help for your journey, all in one place.")} />
 
-    <div className="companion-tabs" role="tablist" aria-label={copy("Seyahat yardımcısı araçları", "Travel companion tools")}>
-      {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{tabLabel(item)}</button>)}
+    <div className="companion-tabs" role="group" aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
+      {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" aria-pressed={tab === item} className={tab === item ? "active" : ""} onClick={() => { const selected = readTravelCountry(); if (selected) setCountryCode(selected); setTab(item); }} key={item}>{tabLabel(item)}</button>)}
     </div>
 
     {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); }} /></Suspense>}
 
-    {tab === "now" && <section className="companion-panel" role="tabpanel">
+    {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
       <div className="now-choices">
         <fieldset><legend>{copy("Bütçem", "My budget")}</legend>{(["free", "low", "flexible"] as const).map((item) => <button type="button" key={item} className={budget === item ? "active" : ""} onClick={() => setBudget(item)}>{item === "free" ? copy("Ücretsiz", "Free") : item === "low" ? copy("Ekonomik", "Low") : copy("Esnek", "Flexible")}</button>)}</fieldset>
@@ -151,8 +152,8 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
       </div>}
     </section>}
 
-    {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" role="tabpanel">
-      <CountryPicker value={countryCode} options={countryOptions} onChange={setCountryCode} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
+    {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" aria-label={tabLabel(tab)}>
+      <CountryPicker value={countryCode} options={countryOptions} onChange={code => { setCountryCode(code); selectTravelCountry(code); }} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
       {supportedProfiles.has(countryCode) && <p className="essential-language-note"><Icon name="offline" size={15} /> {tab === "phrases"
         ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`)
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}

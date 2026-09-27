@@ -8,6 +8,8 @@ import { destinationArtwork } from "../data/artwork";
 import { DISCOVERY_DESTINATIONS } from "../data/discovery";
 import { Sheet } from "../components/Sheet";
 import { TripCollaborationHub } from "../components/TripCollaborationHub";
+import { TravelSavedPlaces } from "../components/TravelSavedPlaces";
+import { readSavedPlaces, subscribeSavedPlaces } from "../lib/savedPlaces";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import {
   deleteRoutePlan,
@@ -81,7 +83,9 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
   const [routes, setRoutes] = useState<SavedRoutePlan[]>([]);
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const favoriteCount = favorites.length;
-  const [libraryTab, setLibraryTab] = useState<"all" | "routes" | "countries" | "events" | "travel">(inviteCode || initialTool ? "travel" : "all");
+  const [libraryTab, setLibraryTab] = useState<"all" | "routes" | "places" | "countries" | "events" | "travel">(inviteCode || initialTool ? "travel" : "all");
+  const [savedPlaces, setSavedPlaces] = useState(readSavedPlaces);
+  useEffect(() => subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces())), []);
   useEffect(() => { if (inviteCode || initialTool) setLibraryTab("travel"); }, [inviteCode, initialTool]);
   const [savedEvents, setSavedEvents] = useState<TravelEvent[]>([]);
   const [cloudItems, setCloudItems] = useState<UserTripData[]>([]);
@@ -89,6 +93,7 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
   const [busyCloud, setBusyCloud] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlan | null>(null);
+  const [unavailableCountry, setUnavailableCountry] = useState<{ name: string; alpha3: string } | null>(null);
 
   const refreshLocal = useCallback(() => {
     setRoutes(getSavedRoutePlans(ownerId));
@@ -167,8 +172,12 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
       <PageHero scene="coast" title={copy("Kaydedilenler", "Saved")} subtitle={copy("Favori yerlerin, rotaların ve seyahatlerin.", "Your favourite places, routes and journeys.")} />
 
       <div className="chip-scroll saved-filters" role="group" aria-label={copy("Kaydedilenleri filtrele", "Filter saved items")}>
-        {(["all","routes","countries","events","travel"] as const).map((tab,index) => <button type="button" key={tab} className={libraryTab === tab ? "active" : ""} aria-pressed={libraryTab === tab} onClick={() => setLibraryTab(tab)}>{[copy("Tümü","All"),copy("Rotalar","Routes"),copy("Ülkeler","Countries"),copy("Etkinlikler","Events"),copy("Seyahatlerim","My Trips")][index]}</button>)}
+        {(["all","routes","places","countries","events","travel"] as const).map((tab,index) => <button type="button" key={tab} className={libraryTab === tab ? "active" : ""} aria-pressed={libraryTab === tab} onClick={() => setLibraryTab(tab)}>{[copy("Tümü","All"),copy("Rotalar","Routes"),copy("Yerler","Places"),copy("Ülkeler","Countries"),copy("Etkinlikler","Events"),copy("Seyahatlerim","My Trips")][index]}</button>)}
       </div>
+      {libraryTab === "all" && <button type="button" className="saved-travel-entry" onClick={() => setLibraryTab("places")}>
+        <Icon name="bookmark" size={19}/><span>{copy("Haritadan kaydettiğin yerler", "Places saved from the map")} · {savedPlaces.error ? copy("Listeyi kontrol et", "Check your list") : copy(`${savedPlaces.items.length} yer · Bu cihazda`, `${savedPlaces.items.length} ${savedPlaces.items.length === 1 ? "place" : "places"} · On this device`)}</span><Icon name="chevron" size={17}/>
+      </button>}
+      {libraryTab === "places" && <div className="travel-assistant"><TravelSavedPlaces onExplore={() => onNavigate("companion")} onExploreLabel={copy("Seyahat Asistanını aç", "Open Travel Assistant")}/></div>}
       {libraryTab !== "travel" && <button type="button" className="saved-travel-entry" onClick={() => setLibraryTab("travel")}><Icon name="suitcase" size={19} /><span>{copy("Seyahatlerim ve ortak planlar", "My trips and shared plans")}</span><Icon name="chevron" size={17} /></button>}
       {libraryTab === "travel" && <section className="saved-travel-tools">
       {user && accessToken ? <TripCollaborationHub
@@ -198,7 +207,7 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
       {(libraryTab === "all" || libraryTab === "countries") && <section className="saved-country-section">
         {favorites.map(country => {
           const destination = DISCOVERY_DESTINATIONS.find(item => item.alpha3 === country.alpha3);
-          return <button type="button" className="saved-country-row" key={country.alpha3} onClick={() => destination ? onOpenDestination(destination.code) : onNavigate("profile")}>
+          return <button type="button" className="saved-country-row" key={country.alpha3} onClick={() => destination ? onOpenDestination(destination.code) : setUnavailableCountry(country)}>
             {destination ? <img src={destinationArtwork(destination.code)} alt="" loading="lazy" width="64" height="52" /> : <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={country.name} />}
             <span><strong>{country.name}</strong><small>{copy("Favori ülken", "Your favourite country")}</small></span><Icon name="heart" size={19} />
           </button>;
@@ -237,6 +246,15 @@ export function TripsScreen({ initialTool, onOpenDestination, onOpenEvent, user,
 
       <DeleteConfirmation pending={pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
       <PlanDetail selected={selectedPlan} onClose={() => setSelectedPlan(null)} />
+      <Sheet open={!!unavailableCountry} title={unavailableCountry?.name || copy("Favori ülken", "Your favourite country")} onClose={() => setUnavailableCountry(null)}>
+        {unavailableCountry && <div className="saved-plan-detail">
+          <CountryFlag code={alpha2FromAlpha3(unavailableCountry.alpha3)} label={unavailableCountry.name}/>
+          <h3>{copy("Bu ülke için hazır rota henüz yok", "No ready-made route for this country yet")}</h3>
+          <p>{copy("Ülke favorilerinde kayıtlı kalıyor. Rota Asistanı'nda tercihlerinle farklı destinasyon önerileri bulabilirsin.", "This country stays in your favourites. You can find ideas for other destinations with your preferences in Route Assistant.")}</p>
+          <button type="button" className="primary-wide" onClick={() => { setUnavailableCountry(null); onNavigate("route"); }}>{copy("Farklı rota fikirleri bul", "Find other route ideas")}</button>
+          <button type="button" className="secondary-wide" onClick={() => setUnavailableCountry(null)}>{copy("Favorilerime dön", "Back to favourites")}</button>
+        </div>}
+      </Sheet>
     </div>
   );
 }
