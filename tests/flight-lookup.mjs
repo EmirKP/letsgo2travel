@@ -11,6 +11,8 @@ const flight = require('../lib/flight-lookup.ts');
 const provider = require('../lib/flight-provider.ts');
 const access = require('../lib/flight-lookup-access.ts');
 const receipts = require('../lib/flight-selection-receipt.ts');
+const { findAirportByIata, searchAirports } = require('../lib/airport-search.ts');
+const { airportTimeZone } = require('../lib/airport-time-zones.ts');
 const { boundedWait } = require('../lib/bounded-wait.ts');
 const { boundedJson } = require('../lib/travel-assistant/http.ts');
 const now = new Date('2026-09-27T00:00:00.000Z');
@@ -67,6 +69,40 @@ test('Complete scheduled flights use each airport time zone and expose only the 
   assert.doesNotMatch(JSON.stringify(match), /PRIVATE_|GATE_NOT_VERIFIED/);
   const missingZone = leg(); delete missingZone.departure.airport.timeZone;
   assert.equal(flight.normalizeFlightMatches([missingZone], query, now).length, 1);
+});
+
+test('Current RMO is searchable while historical KIV keeps its original identity', () => {
+  const current = findAirportByIata('RMO'), historical = findAirportByIata('KIV');
+  assert.ok(current); assert.ok(historical);
+  assert.equal(current.iata, 'RMO'); assert.equal(historical.iata, 'KIV');
+  assert.equal(current.countryCode, 'MD'); assert.equal(historical.countryCode, 'MD');
+  assert.equal(current.city, historical.city);
+  assert.equal(searchAirports('RMO')[0]?.iata, 'RMO');
+  assert.equal(searchAirports('KIV')[0]?.iata, 'KIV');
+  for (const iata of ['RMO', 'KIV']) assert.equal(airportTimeZone(iata), 'Europe/Chisinau');
+});
+
+// Synthetic contract fixtures, not captured PC438 responses or verified schedules.
+// The reported 4 November query is covered only as a winter time-zone regression.
+test('Chisinau summer and winter scheduled legs normalize with current or historical IATA and strict clock checks', () => {
+  for (const [date, arrivalLocal] of [['2026-09-28', '14:00+03:00'], ['2026-11-04', '13:00+02:00']]) {
+    for (const iata of ['RMO', 'KIV']) {
+      const raw = { number: 'PC 438', status: 'Expected', isCargo: false, airline: { name: 'Synthetic test airline' },
+        departure: { airport: { iata: 'SAW' }, scheduledTime: { utc: `${date} 09:00Z`, local: `${date} 12:00+03:00` } },
+        arrival: { airport: { iata }, scheduledTime: { utc: `${date} 11:00Z`, local: `${date} ${arrivalLocal}` } } };
+      const input = { flightNumber: 'PC438', date };
+      const result = flight.inspectFlightMatches([raw], input, now);
+      assert.equal(result.reason, null, `${iata} ${date}`); assert.equal(result.flights.length, 1);
+      const [match] = result.flights;
+      assert.equal(match.destination.iata, iata, 'Historical codes must not be silently rewritten');
+      assert.equal(match.destination.timeZone, 'Europe/Chisinau'); assert.equal(match.destination.countryCode, 'MD');
+      assert.equal(match.arrivalAt, `${date}T11:00:00.000Z`); assert.equal(match.arrivalTime, arrivalLocal.slice(0, 5));
+      assert.equal(match.arrivalDate, date); assert.equal(match.departureTime, '12:00');
+      const conflict = structuredClone(raw);
+      conflict.arrival.scheduledTime.local = `${date} ${arrivalLocal.slice(0, 5)}+04:00`;
+      assert.equal(flight.inspectFlightMatches([conflict], input, now).reason, 'incomplete', 'A catalog correction must not loosen local/UTC validation');
+    }
+  }
 });
 
 test('Unknown, incomplete, canceled, cargo, departed and wrong-date legs cannot populate a journey', () => {

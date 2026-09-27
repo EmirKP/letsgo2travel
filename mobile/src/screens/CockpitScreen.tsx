@@ -192,6 +192,10 @@ type CockpitSessionSnapshot = {
 
 export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
+  const pastDepartureMessage = copy(
+    "Planlanan kalkış saati geçti. Bu alan yalnız gelecekteki uçuşları doldurur; canlı uçuş takibi yapmaz.",
+    "The scheduled departure time has passed. This form fills future flights only; it does not provide live flight tracking.",
+  );
   const countryOptions = useMemo(() => [...COUNTRY_LIST]
     .sort((a, b) => countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale)), [countryName, locale]);
   const countryPickerOptions = useMemo(() => countryOptions.map((country) => ({
@@ -386,12 +390,12 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     const session = captureSession();
     if (!session || busy || loading || pendingCreate.current?.userId === session.userId) return;
     if (matchedFlight && Date.parse(matchedFlight.departureAt) <= Date.now()) {
-      setError(copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi ve saati kontrol et.", "The scheduled departure time has passed. Check the date and time on your ticket."));
+      setError(pastDepartureMessage);
       return;
     }
     if (matchedFlight && !canSaveFlightSelection(matchedFlight)) {
       setError(matchedFlight.maySave ? copy("Uçuş seçiminin kayıt süresi doldu. Yeniden arayıp seç.", "This flight selection has expired. Search and select it again.")
-        : copy("Deneme uçuşu; şu an kokpite kaydedilmez. Biletindeki bilgileri elle girebilirsin.", "Trial flight preview; it cannot be saved to Cockpit yet. You can enter your ticket details manually."));
+        : copy("Uçuş arama denemesi: sonuçlar görüntülenir, kokpite kaydedilemez.", "Flight lookup trial: results can be viewed but cannot be saved to Cockpit."));
       return;
     }
     if (form.mode === "flight" && !manualFlight && !matchedFlight) return;
@@ -607,8 +611,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         <div className="flight-route"><div><strong>{matchedFlight.origin.iata}</strong><span>{matchedFlight.origin.city}</span><b>{matchedFlight.departureTime}</b><small>{matchedFlight.departureDate} · {matchedFlight.origin.timeZone}</small></div><Icon name="plane" size={22}/><div><strong>{matchedFlight.destination.iata}</strong><span>{matchedFlight.destination.city}</span><b>{matchedFlight.arrivalTime}</b><small>{matchedFlight.arrivalDate} · {matchedFlight.destination.timeZone}</small></div></div>
         <p>{copy("Planlanan saatler", "Scheduled times")} · <a href="https://aerodatabox.com/" target="_blank" rel="noopener">AeroDataBox</a> · {new Intl.DateTimeFormat(dateLocale, { hour: "2-digit", minute: "2-digit" }).format(new Date(matchedFlight.fetchedAt))}</p>
         <p>{copy("Biletinle karşılaştırıp onayla. Bu kayıt otomatik canlı uçuş takibi yapmaz.", "Check against your ticket before saving. This record does not track live flight changes automatically.")}</p>
-        <p>{matchedFlight.maySave ? copy("Uçuş ayrıntıları süreli olarak saklanır ve Ada/cihaz hatırlatmalarına aktarılmaz. PNR ve hazırlık listen kalır.", "Flight details are stored temporarily and are not sent to Live Activity or device reminders. Your PNR and checklist are kept.") : copy("Deneme uçuşu; şu an kokpite kaydedilmez.", "Trial flight preview; it cannot be saved to Cockpit yet.")}</p>
-        {Date.parse(matchedFlight.departureAt) <= clock ? <p role="status">{copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi ve saati kontrol et.", "The scheduled departure time has passed. Check the date and time on your ticket.")}</p>
+        <p>{matchedFlight.maySave ? copy("Uçuş ayrıntıları süreli olarak saklanır ve Ada/cihaz hatırlatmalarına aktarılmaz. PNR ve hazırlık listen kalır.", "Flight details are stored temporarily and are not sent to Live Activity or device reminders. Your PNR and checklist are kept.") : copy("Uçuş arama denemesi: sonuçlar görüntülenir, kokpite kaydedilemez.", "Flight lookup trial: results can be viewed but cannot be saved to Cockpit.")}</p>
+        {Date.parse(matchedFlight.departureAt) <= clock ? <p role="status">{pastDepartureMessage}</p>
           : matchedFlight.maySave && !canSaveFlightSelection(matchedFlight, clock) && <p role="status">{copy("Bu seçimin kayıt süresi doldu. Yeniden arayıp seç.", "This selection has expired. Search and select it again.")}</p>}
         <p>{copy("Elle girişe geçince alınan uçuş bilgileri temizlenir.", "Switching to manual entry clears the retrieved flight details.")}</p>
         <button className="secondary-button" type="button" onClick={() => { setForm(clearProviderForm); setMatchedFlight(null); setManualFlight(true); }}>{copy("Biletimdeki bilgileri elle gireceğim", "I'll enter my ticket details manually")}</button>

@@ -17,6 +17,7 @@
 // =====================================================================
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { airportCatalogAdditions } from "./airport-catalog-corrections.mjs";
 
 const require = createRequire(import.meta.url);
 const { airports } = require("airports-json");
@@ -62,6 +63,14 @@ for (const a of smallAirports) {
     countryCode: iso,
     priority: 3,
   });
+}
+
+// Fill reviewed omissions without replacing newer upstream or historical rows.
+for (const airport of airportCatalogAdditions) {
+  if (seen.has(airport.iata)) continue;
+  seen.add(airport.iata);
+  rows.push({ iata: airport.iata, name: airport.name, city: airport.city,
+    country: nameFor(airport.countryCode), countryCode: airport.countryCode, priority: airport.priority });
 }
 
 rows.sort((a, b) => a.iata.localeCompare(b.iata));

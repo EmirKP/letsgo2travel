@@ -22,6 +22,10 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
   const generation = useRef(0);
   const pending = useRef<AbortController | null>(null);
   const endpoint = `${config.apiBaseUrl}/api/cockpit/flight-lookup`;
+  const pastDepartureMessage = copy(
+    "Planlanan kalkış saati geçti. Bu alan yalnız gelecekteki uçuşları doldurur; canlı uçuş takibi yapmaz.",
+    "The scheduled departure time has passed. This form fills future flights only; it does not provide live flight tracking.",
+  );
 
   useEffect(() => {
     let active = true;
@@ -70,8 +74,8 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
       setFlights(parsed as FlightSelection[]);
       if (!parsed.length) {
         const messages: Record<string, string> = {
-          "past-departure": copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi kontrol et.", "The scheduled departure time has passed. Check the date on your ticket."),
-          incomplete: copy("Bu uçuşun bazı rota veya saat bilgileri eksik. Biletindeki bilgilerle elle devam edebilirsin.", "Some route or time details are missing. You can enter the details from your ticket manually."),
+          "past-departure": pastDepartureMessage,
+          incomplete: copy("Bu uçuşu otomatik doldurmak için yeterli bilgi alınamadı. Biletindeki bilgilerle elle devam edebilirsin.", "There is not enough information to fill this flight automatically. You can enter the details from your ticket manually."),
           "not-found": copy("Bu uçuş numarası ve tarihte kayıt bulunamadı. Numara ve kalkış tarihini kontrol et.", "No flight was found for this number and date. Check the flight number and departure date."),
           "status-unavailable": copy("Bu uçuş için otomatik eklemeye uygun bilgi bulunamadı. Biletindeki bilgileri kontrol ederek elle devam et.", "This flight cannot be added automatically with the available information. Check your ticket and continue manually."),
         };
@@ -99,11 +103,11 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
     <p className="form-hint">{copy("Biletteki uçuş numarasını kullan; PNR rezervasyon kodudur. Tarih, kalkış havalimanının yerel günüdür.", "Use the flight number on your ticket; PNR is your booking reference. The date is local to the departure airport.")}</p>
     {available === true ? <button type="button" className="primary-wide" disabled={busy || !flightNumber || !date} onClick={() => void search()}>{busy ? <span className="button-loader"/> : <Icon name="search" size={18}/>} {busy ? copy("Uçuş aranıyor…", "Finding flight…") : copy("Uçuş bilgilerini getir", "Find flight details")}</button>
       : <div className="flight-lookup-availability" role="status"><p>{available === null ? copy("Uçuş arama kontrol ediliyor…", "Checking flight search…") : copy("Otomatik uçuş bilgisi henüz kullanıma açık değil. Biletindeki bilgilerle devam edebilirsin.", "Automatic flight details are not available yet. You can continue with the details on your ticket.")}</p>{available === false && <button type="button" onClick={() => { setAvailable(null); setChecking(value => value + 1); }}>{copy("Tekrar kontrol et", "Check again")}</button>}</div>}
-    {available && mode === "trial" && <p className="form-hint">{copy("Deneme uçuşu; şu an kokpite kaydedilmez.", "Trial flight preview; it cannot be saved to Cockpit yet.")}</p>}
+    {available && mode === "trial" && <p className="form-hint">{copy("Uçuş arama denemesi: sonuçlar görüntülenir, kokpite kaydedilemez.", "Flight lookup trial: results can be viewed but cannot be saved to Cockpit.")}</p>}
     {message && <p className="flight-lookup-message" role="status">{message}</p>}
     {flights.length > 0 && <div className="flight-lookup-results"><p>{copy("Biletindeki rotayı seç. Saatler havalimanlarının yerel saatidir.", "Choose the route on your ticket. Times are local to each airport.")}</p>{flights.map(flight => <button className="flight-lookup-result" type="button" key={flight.id} onClick={() => {
       if (!activeFlightExpiry(flight.expiresAt, flight.fetchedAt)) { setFlights([]); setMessage(copy("Uçuş bilgisinin süresi doldu. Yeniden ara.", "Flight details have expired. Search again.")); return; }
-      if (Date.parse(flight.departureAt) <= Date.now()) { setFlights([]); setMessage(copy("Bu uçuşun planlanan kalkış saati geçti. Biletindeki tarihi kontrol et.", "The scheduled departure time has passed. Check the date on your ticket.")); return; }
+      if (Date.parse(flight.departureAt) <= Date.now()) { setFlights([]); setMessage(pastDepartureMessage); return; }
       onSelect(flight); setFlights([]); setMessage("");
     }}>
       <span><strong>{flight.origin.iata} <span aria-hidden="true">→</span> {flight.destination.iata}</strong><b>{flight.flightNumber}</b></span>

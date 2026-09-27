@@ -240,7 +240,7 @@ test('Trial selection previews attribution but cannot save or escape through man
     lookup(await h.open()).props.onSelect({ ...flight(), receipt: null, maySave: false });
     dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-09-30');
     assert.equal(button(h.host.render(), 'Add to cockpit').props.disabled, true);
-    assert.match(text(h.host.render()), /Trial flight preview/);
+    assert.match(text(h.host.render()), /Flight lookup trial/);
     const link = find(h.host.render(), 'a', props => props.href === 'https://aerodatabox.com/');
     assert.ok(link); assert.equal(link.props.rel, 'noopener');
     await tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
@@ -252,7 +252,7 @@ test('Trial selection previews attribution but cannot save or escape through man
 });
 
 test('Server empty reasons produce specific guidance and old protocol results are rejected', async () => {
-  for (const [reason, phrase] of [['past-departure', 'departure time has passed'], ['incomplete', 'details are missing'], ['not-found', 'No flight was found'], ['status-unavailable', 'cannot be added automatically']]) {
+  for (const [reason, phrase] of [['past-departure', 'departure time has passed'], ['incomplete', 'not enough information to fill this flight automatically'], ['not-found', 'No flight was found'], ['status-unavailable', 'cannot be added automatically']]) {
     const h = lookupHarness();
     try {
       button(await h.enable(), 'Find flight details').props.onClick();
@@ -323,6 +323,7 @@ test('A preview whose departure passes cannot be saved and reports the specific 
     await tripForm(view).props.onSubmit({ preventDefault() {} });
     assert.equal(h.creates.length, 0);
     assert.match(text(h.host.render()), /scheduled departure time has passed/);
+    assert.match(text(h.host.render()), /fills future flights only/);
   } finally { now = savedNow; h.host.dispose(); }
 });
 
@@ -380,4 +381,44 @@ test('Saved provider arrivals use the verified airport timezone when the bundled
     const arrival = nodes(h.host.render()).find(node => node.type === 'div' && text(node).startsWith('Scheduled arrival'));
     assert.equal(text(arrival), 'Scheduled arrival' + expected);
   } finally { h.host.dispose(); }
+});
+
+
+test('Lookup explains future-flight coverage and feature trial limits in Turkish and English without blaming the ticket date', async () => {
+  for (const locale of ['tr', 'en']) {
+    const h = lookupHarness();
+    try {
+      h.language(locale); h.host.render();
+      let view = await h.enable(true, 'trial');
+      const trialCopy = locale === 'tr' ? 'Uçuş arama denemesi:' : 'Flight lookup trial:';
+      const noSaveCopy = locale === 'tr' ? 'kokpite kaydedilemez' : 'cannot be saved to Cockpit';
+      assert.ok(text(view).includes(trialCopy)); assert.ok(text(view).includes(noSaveCopy));
+      assert.ok(!text(view).includes(locale === 'tr' ? 'Deneme uçuşu' : 'Trial flight preview'));
+      button(view, locale === 'tr' ? 'Uçuş bilgilerini getir' : 'Find flight details').props.onClick();
+      h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [], reason: 'past-departure' }) }); await tick();
+      view = h.host.render();
+      assert.ok(text(view).includes(locale === 'tr' ? 'yalnız gelecekteki uçuşları doldurur' : 'fills future flights only'));
+      assert.ok(text(view).includes(locale === 'tr' ? 'canlı uçuş takibi yapmaz' : 'does not provide live flight tracking'));
+      assert.ok(!text(view).includes(locale === 'tr' ? 'Biletindeki tarihi kontrol et.' : 'Check the date on your ticket.'));
+      assert.equal(results(view).length, 0);
+      button(view, locale === 'tr' ? 'Bilgileri kendim gireceğim' : "I'll enter the details myself").props.onClick();
+      assert.equal(h.manual(), 1);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A result that passes its scheduled departure before selection keeps the same coverage explanation and remains blocked', async () => {
+  const savedNow = now, h = lookupHarness();
+  try {
+    button(await h.enable(), 'Find flight details').props.onClick();
+    const result = flight();
+    h.calls[1].resolve({ ok: true, json: async () => ({ protocol: 2, flights: [result], reason: null }) }); await tick();
+    const choose = results(h.host.render())[0];
+    now = Date.parse(result.departureAt) + 1;
+    choose.props.onClick();
+    const view = h.host.render();
+    assert.equal(h.selections.length, 0); assert.equal(results(view).length, 0);
+    assert.match(text(view), /fills future flights only/);
+    assert.ok(button(view, "I'll enter the details myself"));
+  } finally { now = savedNow; h.host.dispose(); }
 });

@@ -3,6 +3,7 @@
 // A frozen source hash prevents unreviewed upstream changes in release builds.
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { airportTimeZoneCorrections } from "./airport-catalog-corrections.mjs";
 const bytes = readFileSync(process.argv[2]);
 if (createHash("sha256").update(bytes).digest("hex") !== "f369eaa1c2944280d9678a96d5b477cedea0417f3c12a333c39834bf1c035739") throw new Error("Review the source snapshot before updating its hash.");
 const source = JSON.parse(bytes);
@@ -15,6 +16,8 @@ for (const airport of Object.values(source)) {
   found.add(airport.tz); zones.set(airport.iata, found);
 }
 const output = Object.fromEntries(airports.flatMap(airport => {
+  const correction = airportTimeZoneCorrections[airport.iata];
+  if (correction) return [[airport.iata, correction]];
   const matches = zones.get(airport.iata);
   return matches?.size === 1 ? [[airport.iata, [...matches][0]]] : [];
 }));
