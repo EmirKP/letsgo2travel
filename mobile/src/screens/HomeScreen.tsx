@@ -25,7 +25,7 @@ function Arrow() {
 
 function PopularFlame() {
   const id = `popular-flame-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  return <svg viewBox="0 0 32 36" width="28" height="30" fill="none" aria-hidden="true" focusable="false">
+  return <svg className="rh-flame" viewBox="0 0 32 36" width="28" height="30" fill="none" aria-hidden="true" focusable="false">
     <defs>
       <radialGradient id={`${id}-outer`} cx="13" cy="28" r="26" gradientUnits="userSpaceOnUse">
         <stop stopColor="#FFD66B"/><stop offset=".46" stopColor="#FF982E"/><stop offset=".78" stopColor="#F34B22"/><stop offset="1" stopColor="#D72E1E"/>
@@ -33,10 +33,18 @@ function PopularFlame() {
       <linearGradient id={`${id}-core`} x1="17" y1="15" x2="15" y2="34" gradientUnits="userSpaceOnUse">
         <stop stopColor="#FFB72C"/><stop offset=".6" stopColor="#FFE57F"/><stop offset="1" stopColor="#FFF4C4"/>
       </linearGradient>
+      <radialGradient id={`${id}-glow`}>
+        <stop stopColor="#FFBC43" stopOpacity=".55"/><stop offset="1" stopColor="#FF982E" stopOpacity="0"/>
+      </radialGradient>
     </defs>
+    <ellipse className="rh-flame-glow" cx="16" cy="25" rx="17" ry="13" fill={`url(#${id}-glow)`}/>
+    <g className="rh-flame-body">
     <path d="M17 1.5c2.5 8.1 11.5 10.6 11.5 21.3 0 7-5.6 11.8-12.5 11.8S3.5 29.6 3.5 22.7c0-5.9 3.7-8.9 6.2-13.3-.4 4.5 1.9 6.4 3.1 6.8C11.2 10.5 18.4 7.3 17 1.5Z" fill={`url(#${id}-outer)`}/>
-    <path d="M18 13.8c.4 5.1 6.6 7.4 6.6 12.5 0 4.6-3.8 8.2-8.6 8.2s-8.5-3.6-8.5-8.2c0-3.2 1.9-5.5 4-7.9-.5 3.2.7 5 2.1 5.7-.8-4.6 4.7-6 4.4-10.3Z" fill={`url(#${id}-core)`}/>
+    <path className="rh-flame-core" d="M18 13.8c.4 5.1 6.6 7.4 6.6 12.5 0 4.6-3.8 8.2-8.6 8.2s-8.5-3.6-8.5-8.2c0-3.2 1.9-5.5 4-7.9-.5 3.2.7 5 2.1 5.7-.8-4.6 4.7-6 4.4-10.3Z" fill={`url(#${id}-core)`}/>
     <path d="M7.1 23c-.4 3.2 1.1 6.4 3.8 8.1" stroke="#FFF0BC" strokeWidth="1.3" strokeLinecap="round" opacity=".65"/>
+    </g>
+    <circle className="rh-flame-ember" cx="13" cy="10" r="1.15" fill="#F89A27"/>
+    <circle className="rh-flame-ember rh-flame-ember-late" cx="23" cy="15" r=".9" fill="#F5B631"/>
   </svg>;
 }
 

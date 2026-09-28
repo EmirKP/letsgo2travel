@@ -97,6 +97,36 @@
 .reference-home .rh-section-heading > button > svg { width: 18px; height: 18px; }
 .reference-home .rh-heading-icon { display: inline-flex; vertical-align: -.18em; color: var(--rh-blue); margin-right: 3px; }
 .reference-home .rh-heading-icon > svg { width: 1em; height: 1em; }
+.reference-home .rh-heading-icon > .rh-flame { overflow: visible; }
+.reference-home :is(.rh-flame-body, .rh-flame-core) { transform-box: fill-box; transform-origin: 50% 100%; }
+.reference-home .rh-flame-glow { transform-box: fill-box; transform-origin: center; opacity: .55; }
+.reference-home .rh-flame-ember { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .reference-home .rh-flame-body { animation: rh-flame-dance 1.65s ease-in-out infinite; }
+  .reference-home .rh-flame-core { animation: rh-flame-flicker 1.15s ease-in-out infinite alternate; }
+  .reference-home .rh-flame-glow { animation: rh-flame-warmth 2.1s ease-in-out infinite alternate; }
+  .reference-home .rh-flame-ember { animation: rh-flame-rise 2.6s ease-out infinite; }
+  .reference-home .rh-flame-ember-late { animation-delay: -1.3s; }
+}
+@keyframes rh-flame-dance {
+  0%, 100% { transform: rotate(-3deg) scale(.98, 1); }
+  28% { transform: rotate(4deg) scale(.94, 1.1); }
+  58% { transform: rotate(-2deg) scale(1.04, .96); }
+  78% { transform: rotate(2deg) scale(.97, 1.06); }
+}
+@keyframes rh-flame-flicker {
+  from { transform: skewX(-4deg) scale(.92, .91); opacity: .82; }
+  to { transform: skewX(4deg) scale(1.04, 1.08); opacity: 1; }
+}
+@keyframes rh-flame-warmth {
+  from { transform: scale(.9); opacity: .35; }
+  to { transform: scale(1.12); opacity: .75; }
+}
+@keyframes rh-flame-rise {
+  0%, 12% { transform: translate(0, 0) scale(.7); opacity: 0; }
+  28% { opacity: .85; }
+  75%, 100% { transform: translate(2px, -15px) scale(.25); opacity: 0; }
+}
 .reference-home .rh-destination-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, calc(var(--rh-unit) * 1.88), 16px); }
 .reference-home .rh-destination-card { position: relative; isolation: isolate; min-width: 0; height: clamp(150px, calc(var(--rh-unit) * 27.06), 230px); overflow: hidden; border-radius: clamp(16px, calc(var(--rh-unit) * 2.35), 20px); background: #194777; box-shadow: 0 5px 15px rgb(9 19 47 / 9%); }
 .reference-home .rh-destination-card > img { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; }
