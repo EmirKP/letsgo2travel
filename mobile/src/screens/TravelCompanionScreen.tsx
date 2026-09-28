@@ -128,7 +128,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
   };
 
   return <div className="screen companion-screen">
-    <PageHero scene="city" title={copy("Seyahat Asistanı", "Travel Assistant")} subtitle={copy("Yoldayken ihtiyacın olan yardım, tek yerde.", "Help for your journey, all in one place.")} />
+    <PageHero scene="city" title={copy("Seyahat Araçların", "Your Travel Tools")} subtitle={copy("Harita, çeviri ve yoldayken ihtiyacın olan yardım.", "Maps, translation and help along the way.")} />
 
     <div className="companion-tabs" role="group" aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
       {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" aria-pressed={tab === item} className={tab === item ? "active" : ""} onClick={() => { const selected = readTravelCountry(); if (selected) setCountryCode(selected); setTab(item); }} key={item}>{tabLabel(item)}</button>)}

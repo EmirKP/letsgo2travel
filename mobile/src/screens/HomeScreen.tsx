@@ -1,22 +1,48 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
+import { TravelFeatureIcon } from "../components/TravelFeatureIcon";
 import { useI18n } from "../lib/i18n";
-import { randomRoute, routeByDestinationCode } from "../data/routes";
-import { destinationArtwork } from "../data/artwork";
+import { homeDestinations } from "../data/homeDestinations";
 import { listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
 import { localIsoDate } from "../lib/dates";
 import { homeJourneyStep, nextHomeJourney } from "../lib/homeJourney";
-import "./daily-journey.css";
+import santorini from "../assets/home-reference/santorini-hero.webp";
+import coastal from "../assets/home-reference/coastal-banner.webp";
+import cappadocia from "../assets/home-reference/cappadocia.webp";
+import bali from "../assets/home-reference/bali.webp";
+import rome from "../assets/destination-artwork/rome.webp";
+import communityTravelers from "../assets/home-reference/community-travelers.webp";
+import "./reference-home.css";
 import type { AuthUser, RouteSuggestion, ViewId } from "../types";
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTrip, onOpenSaved, onOpenCommunity, onSurprise, onBuildRoute, onNotice }: {
+const artwork: Record<string, string> = { JTR: santorini, NAV: cappadocia, DPS: bali, FCO: rome };
+const cities = ["Paris", "Bali", "Tokyo", "New York", "Roma"] as const;
+
+function Arrow() {
+  return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15m-6-7 7 7-7 7" /></svg>;
+}
+
+function Landmark({ city }: { city: typeof cities[number] }) {
+  return <svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {city === "Paris" ? <><path d="M16 2c-1 10-3 19-9 27h6c0-5 6-5 6 0h6C19 21 17 12 16 2ZM10 24h12M12 19h8M13 13h6M14 8h4M6 29h20"/><path d="m13 19 8 5m-2-5-8 5"/></>
+      : city === "Bali" ? <><path d="M15 29c5-7 3-16 1-19M16 10c-3-8-10-8-13-3 6-1 9 0 13 3Zm0 0c2-8 9-9 13-5-6 0-8 2-13 5Zm0 0c-7-1-12 3-12 8 4-4 8-6 12-8Zm0 0c7-3 13 2 13 8-4-5-8-7-13-8ZM6 29h18"/></>
+      : city === "Tokyo" ? <><path d="M3 6q13 4 26 0M5 10h22M4 15h24M9 10v19M23 10v19M8 29h4m9 0h4M16 10v5" strokeWidth="2.5"/></>
+      : city === "New York" ? <><path d="M11 29h13v-4H11zM14 25l1-13h5l3 13M16 12l-5-6-3 1 7 10M8 7V3m-2 1h4M17 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM15 4l-1-2m3 1V1m2 3 2-2M20 14l4 2-2 6M17 15v10"/></>
+      : <><path d="m4 13 3-6 15-4 6 7v19H4ZM4 13l24-3M4 21l24-2M10 8v21M17 6v23M23 5v24"/><path d="M6 17v-2m7 2v-3m7 2v-3m6 2v-3M6 27v-3m7 3v-4m7 3v-4m6 4v-4" strokeWidth="2.5"/></>}
+  </svg>;
+}
+
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTrip, onOpenSaved, onOpenCommunity, onBuildRoute, onSearchDestination, initialSearchQuery, onToggleSaved, savedRouteIds = [], onOpenNotifications, unreadCount = 0 }: {
   user: AuthUser | null; ownerId?: string | null; accessToken?: string; refreshToken?: number;
   onNavigate: (view: ViewId) => void; onOpenCommunity: (countryCode?: string) => void;
-  onOpenTrip?: (id: string) => void;
-  onOpenSaved?: (section: "routes" | "places" | "events") => void;
+  onOpenTrip?: (id: string) => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
   onSurprise: (route: RouteSuggestion) => void; onBuildRoute: (route: RouteSuggestion) => void; onNotice: (message: string) => void;
+  onSearchDestination?: (query: string) => void; onToggleSaved?: (route: RouteSuggestion) => void;
+  initialSearchQuery?: string;
+  savedRouteIds?: string[]; onOpenNotifications?: () => void; unreadCount?: number;
 }) {
   const { locale, copy, dateLocale } = useI18n();
+  const [query, setQuery] = useState(initialSearchQuery ?? "");
   const [trip, setTrip] = useState<{ owner: string; value: CockpitTrip } | null>(null);
   const [tripRequest, setTripRequest] = useState<{ owner: string; state: "ready" | "error" } | null>(null);
   const [retry, setRetry] = useState(0);
@@ -36,30 +62,37 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const step = nextTrip ? homeJourneyStep(nextTrip, localIsoDate(0)) : null;
   const openTrip = () => nextTrip && onOpenTrip ? onOpenTrip(nextTrip.id) : onNavigate("cockpit");
   const openSaved = (section: "routes" | "places" | "events") => onOpenSaved ? onOpenSaved(section) : onNavigate("trips");
+  const search = (value: string) => onSearchDestination ? onSearchDestination(value.trim()) : onNavigate("explore");
+  const name = typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim().split(/\s+/)[0] : copy("Gezgin", "Traveller");
   const tripTitle = nextTrip && ([nextTrip.destinationCity, nextTrip.destinationCountry].filter(Boolean).join(", ") || nextTrip.flightNumber || copy("Seyahatin", "Your trip"));
   const labelDate = (value: string) => new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "short" }).format(new Date(value + "T12:00:00"));
-  const inspiration = ["FCO", "SJJ"].flatMap(code => { const value = routeByDestinationCode(code, locale); return value ? [value] : []; });
-  return <div className="screen home-screen daily-home">
-    <header className="daily-page-heading"><span>{copy("BİR SONRAKİ ADIM", "YOUR NEXT STEP")}</span><h1>{copy("Yola hazır mısın?", "Ready for your next chapter?")}</h1></header>
-    <section className={`daily-trip-card${nextTrip ? " has-trip" : ""}`} aria-labelledby="daily-trip-title" aria-busy={loading}>
-      {loading ? <div className="daily-trip-loading" role="status"><span className="button-loader"/><h2 id="daily-trip-title">{copy("Seyahatin hazırlanıyor", "Getting your trip ready")}</h2><p>{copy("Sıradaki adımı buluyoruz.", "Finding your next step.")}</p></div>
-        : nextTrip && step ? <>
-          <div className="daily-trip-eyebrow"><span><Icon name="suitcase" size={16}/>{step.stage === "wrap-up" ? copy("SEYAHAT SONRASI", "AFTER YOUR TRIP") : step.stage === "travelling" ? copy("BUGÜNKÜ SEYAHATİN", "YOUR TRIP TODAY") : copy("YAKLAŞAN SEYAHATİN", "YOUR NEXT TRIP")}</span><button type="button" onClick={openTrip} aria-label={copy("Seyahat ayrıntılarını aç", "Open trip details")}><Icon name="chevron" size={20}/></button></div>
-          <h2 id="daily-trip-title">{tripTitle}</h2>
-          <p className="daily-trip-dates"><Icon name="calendar" size={17}/>{labelDate(nextTrip.startDate)} – {labelDate(nextTrip.endDate)}</p>
-          {step.stage === "preparing" && <div className="daily-check-progress"><div><span>{copy("Hazırlık listen", "Your checklist")}</span><strong>{step.completed}/{step.total}</strong></div>{step.total > 0 && <progress max={step.total} value={step.completed} aria-label={copy("Tamamlanan hazırlıklar", "Completed preparations")}/>}<p>{step.nextItem ? step.nextItem.label : step.total ? copy("Hazırlıkların tamam. Uçuş bilgilerine göz at.", "You're ready. Review your flight details.") : copy("Belgelerini ve yanına alacaklarını bir araya getir.", "Keep your documents and packing list together.")}</p></div>}
-          {step.stage === "travelling" && <p>{copy("Kaydettiğin yerleri aç, bugünün gezi sırasını seç.", "Open your saved places and choose today's stops.")}</p>}
-          {step.stage === "wrap-up" && <p>{copy("Bu yolculuk sona erdi mi? Seyahatini tamamlandı olarak işaretle.", "Back from this journey? Mark your trip as completed.")}</p>}
-          <button type="button" className="daily-primary" onClick={() => step.stage === "travelling" ? openSaved("places") : openTrip()}>{step.stage === "travelling" ? copy("Bugünün yerlerini aç", "Open today's places") : step.stage === "wrap-up" ? copy("Seyahati tamamla", "Finish this trip") : step.nextItem || !step.total ? copy("Hazırlığa devam et", "Continue preparing") : copy("Seyahat ayrıntılarını aç", "Open trip details")}<Icon name="chevron" size={19}/></button>
-        </> : failed ? <><span className="daily-trip-eyebrow"><Icon name="offline" size={18}/>{copy("BAĞLANTI GEREKİYOR", "CONNECTION NEEDED")}</span><h2 id="daily-trip-title">{copy("Seyahatine ulaşamadık", "Your trip couldn't load")}</h2><p>{copy("Kayıtlı rotaların ve yerlerin Kaydedilenler'de seni bekliyor.", "Your saved routes and places are still in Saved.")}</p><button type="button" className="daily-primary" onClick={() => { setTripRequest(null); setRetry(value => value + 1); }}><Icon name="refresh" size={18}/>{copy("Yeniden dene", "Try again")}</button></>
-        : <><span className="daily-trip-eyebrow"><Icon name="compass" size={18}/>{copy("YENİ BİR YOLCULUK", "A NEW JOURNEY")}</span><h2 id="daily-trip-title">{copy("Önce sana uygun bir rota.", "Start with a route that fits you.")}</h2><p>{copy("Süreni ve tarzını seç. Gezmek isteyeceğin yerleri birlikte bulalım.", "Choose your time and travel style. Find places you'll want to explore.")}</p><button type="button" className="daily-primary" onClick={() => onNavigate("route")}>{copy("Rotamı planla", "Plan my route")}<Icon name="chevron" size={19}/></button><button type="button" className="daily-text-action" onClick={() => onNavigate("cockpit")}>{copy("Uçuşum belli, seyahat ekle", "Already booked? Add your trip")}</button></>}
-      {failed && nextTrip && <p className="daily-stale-note" role="status">{copy("Şu anda yenilenemedi; bu oturumda alınan son bilgiler.", "Couldn't refresh; showing the last details from this session.")}</p>}
+  const features = [
+    { kind: "route" as const, title: copy("Rota Oluştur", "Build a Route"), caption: copy("Hayalini Planla", "Plan Your Dream"), view: "route" as ViewId },
+    { kind: "globe" as const, title: copy("Ülke Keşfet", "Explore Countries"), caption: copy("Keşfet, İlham Al", "Find Inspiration"), view: "explore" as ViewId },
+    { kind: "passport" as const, title: copy("Pasaport & Vize", "Passport & Visa"), caption: copy("Sınırları Aş", "Cross Borders"), view: "passport" as ViewId },
+    { kind: "trips" as const, title: copy("Seyahatlerim", "My Trips"), caption: copy("Tüm Planların Burada", "All Your Plans Here"), view: "trips" as ViewId },
+    { kind: "tools" as const, title: copy("Tüm Araçlar", "All Tools"), caption: copy("Daha Fazlası", "And More"), view: "companion" as ViewId },
+  ];
+  return <div className="screen home-screen reference-home">
+    <section className="rh-hero" aria-labelledby="rh-title">
+      <img className="rh-hero-photo" src={santorini} alt="" fetchPriority="high" width={1448} height={1086}/>
+      <header className="rh-header">
+        <div className="rh-brand" aria-label="LetsGo2Travel · Daha Fazla Keşfet"><svg className="rh-brand-plane" viewBox="0 0 110 40" fill="currentColor" aria-hidden="true"><path d="m20 24 14 4L91 5c6-3 10-2 8 1-2 3-6 5-10 7L49 33l-15 1-15-8Zm32-4L31 8l8-1 29 7M18 28 8 18l5-1 20 9"/><path d="M4 33q10 7 26 1" fill="none" stroke="#ffda24"/></svg><strong>LetsGo<span>2</span>Travel</strong><small>{copy("Daha Fazla Keşfet", "Discover More")}</small></div>
+        <div className="rh-header-actions"><button type="button" className="rh-bell" onClick={() => onOpenNotifications?.()} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount > 0 ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={26}/>{unreadCount > 0 && <i/>}</button><button type="button" className="rh-profile" onClick={() => onNavigate("profile")} aria-label={copy("Profilini aç", "Open your profile")}><span className="rh-avatar"><img src={coastal} alt="" width={42} height={42}/></span><span>{copy("İyi günler", "Hello")}<strong>{name}!</strong></span><Icon name="chevron" size={16}/></button></div>
+      </header>
+      <div className="rh-hero-copy"><div><p className="rh-eyebrow">{copy("YENİ YERLER, YENİ HİKAYELER", "NEW PLACES, NEW STORIES")}</p><h1 id="rh-title">{copy("Sıradaki", "Where’s Your")}<br/>{copy("Hikayen", "Next")} <span>{copy("Nerede?", "Story?")}</span></h1><p className="rh-hero-subtitle">{copy("Dünya seni bekliyor. Hayal et, planla, keşfet!", "The world is waiting. Dream, plan, explore!")}</p></div><p className="rh-handwritten" aria-hidden="true">{copy("Keşfet", "Explore")}<br/><span>{copy("Planla", "Plan")}</span><br/><span>{copy("Yaşa", "Live")}</span></p></div>
+      <form className="rh-search" role="search" onSubmit={event => { event.preventDefault(); search(query); }}><Icon name="search" size={28}/><label className="sr-only" htmlFor="home-destination-search">{copy("Nereye gitmek istersin?", "Where would you like to go?")}</label><input id="home-destination-search" type="search" enterKeyHint="search" autoComplete="off" placeholder={copy("Nereye gitmek istersin?", "Where would you like to go?")} value={query} onChange={event => setQuery(event.target.value)}/><button type="submit" aria-label={copy("Destinasyon ara", "Search destinations")}><Icon name="search" size={28}/></button></form>
+      <div className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries")}>{cities.map(city => <button key={city} type="button" onClick={() => search(city)}><Landmark city={city}/><span>{city === "Roma" ? copy("Roma", "Rome") : city}</span></button>)}</div>
     </section>
-    <section className="daily-essentials" aria-label={copy("Seyahatin yanında", "Along the way")}>
-      <button type="button" onClick={() => onNavigate("trips")}><Icon name="bookmark" size={25}/><strong>{copy("Kaydedilenler", "Saved")}</strong><span>{copy("Rotalar, yerler, etkinlikler", "Routes, places, events")}</span><Icon name="chevron" size={16}/></button>
-      <button type="button" onClick={() => onNavigate("companion")}><Icon name="compass" size={25}/><strong>{copy("Seyahat Asistanı", "Travel Assistant")}</strong><span>{copy("Harita, çeviri ve günlük ihtiyaçlar", "Maps, translation and essentials")}</span><Icon name="chevron" size={16}/></button>
-    </section>
-    <section className="daily-inspiration" aria-labelledby="daily-inspiration-title"><div className="daily-section-heading"><h2 id="daily-inspiration-title">{copy("Sıradaki yolculuğa ilham", "A little inspiration")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü gör", "See all")}<Icon name="chevron" size={16}/></button></div><div className="daily-destination-grid">{inspiration.map(route => <button type="button" key={route.destinationCode} onClick={() => onBuildRoute(route)}><img src={destinationArtwork(route.destinationCode)} alt="" loading="lazy"/><span><strong>{route.name}</strong><small>{route.country}</small></span></button>)}</div><button type="button" className="daily-surprise" onClick={() => { const route = randomRoute(locale); onSurprise(route); onNotice(copy(route.name + " senin için seçildi.", route.name + " was picked for you.")); }}><Icon name="sparkles" size={18}/>{copy("Kararsızım, beni şaşırt", "Surprise me with a destination")}</button></section>
-    <button type="button" className="daily-community" onClick={() => onOpenCommunity()}><Icon name="users" size={23}/><span><strong>{copy("Bir bilene sor", "Ask someone who's been")}</strong><small>{copy("Gezginlerden deneyim ve öneri al.", "Get tips from fellow travellers.")}</small></span><Icon name="chevron" size={18}/></button>
+    <div className="rh-content">
+      <nav className="rh-features" aria-label={copy("Seyahatini planla", "Plan your journey")}>{features.map(feature => <button key={feature.kind} type="button" onClick={() => onNavigate(feature.view)}><TravelFeatureIcon kind={feature.kind} size={68}/><strong>{feature.title}</strong><small>{feature.caption}</small></button>)}</nav>
+      <section className={`rh-personal-banner${nextTrip ? " rh-has-trip" : ""}`} aria-labelledby="rh-personal-title" aria-busy={loading}><img src={coastal} alt="" width={1600} height={533} loading="lazy"/><div className="rh-personal-copy"><p className="rh-eyebrow">{copy(nextTrip ? "SIRADAKİ SEYAHATİN" : "SANA ÖZEL", nextTrip ? "YOUR NEXT TRIP" : "JUST FOR YOU")}</p><h2 id="rh-personal-title">{nextTrip ? tripTitle : <>{copy("Bir Sonraki Seyahatini", "Ready to Plan")}<br/>{copy("Planlamaya Hazır mısın?", "Your Next Adventure?")}</>}</h2>
+        {nextTrip && step ? <><p>{labelDate(nextTrip.startDate)} – {labelDate(nextTrip.endDate)}{step.stage === "preparing" && step.total > 0 ? ` · ${step.completed}/${step.total} ${copy("hazırlık tamam", "tasks ready")}` : ""}</p><button type="button" className="rh-yellow-button" onClick={() => step.stage === "travelling" ? openSaved("places") : openTrip()}>{step.stage === "travelling" ? copy("Bugünün Yerleri", "Today's Places") : step.stage === "wrap-up" ? copy("Seyahati Tamamla", "Finish Trip") : copy("Seyahatimi Aç", "Open My Trip")}<Arrow/></button></> : <><p>{copy("Kişisel öneriler, rotalar ve daha fazlası", "Personal ideas, routes and more")}<br/>{copy("seni bekliyor.", "are waiting for you.")}</p><button type="button" className="rh-yellow-button" onClick={() => onNavigate("route")}>{copy("Hemen Başla", "Get Started")}<Arrow/></button></>}
+      </div><p className="rh-banner-handwritten" aria-hidden="true">{copy("İyi yolculuklar", "Happy travels")}<br/><span>{copy("her zaman…", "always…")}</span></p></section>
+      {loading && <p className="rh-trip-feedback" role="status">{copy("Seyahatin hazırlanıyor…", "Getting your trip ready…")}</p>}
+      {failed && <div className="rh-trip-feedback" role="status"><span>{copy(nextTrip ? "Seyahat bilgileri yenilenemedi." : "Kayıtlı seyahatin şu an yüklenemedi.", "Your trip details couldn't be refreshed.")}</span><button type="button" onClick={() => { setTripRequest(null); setRetry(value => value + 1); }}>{copy("Yeniden dene", "Try again")}</button></div>}
+      <section className="rh-popular" aria-labelledby="rh-popular-title"><div className="rh-section-heading"><h2 id="rh-popular-title"><span aria-hidden="true">🔥</span> {copy("Popüler Rotalar", "Popular Routes")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü Gör", "See All")}<Arrow/></button></div><div className="rh-destination-grid">{homeDestinations(locale).map(route => <article key={route.destinationCode} className="rh-destination-card"><img src={artwork[route.destinationCode || ""] || santorini} alt="" width={280} height={350} loading="lazy" decoding="async"/><button type="button" className={`rh-favorite${savedRouteIds.includes(route.destinationCode || "") ? " is-saved" : ""}`} aria-pressed={savedRouteIds.includes(route.destinationCode || "")} aria-label={copy(`${route.cityOrRegion} rotasını kaydet`, `Save ${route.cityOrRegion} route`)} onClick={() => onToggleSaved?.(route)}><Icon name="heart" size={24}/></button><button type="button" className="rh-destination-open" onClick={() => onBuildRoute(route)} aria-label={copy(`${route.cityOrRegion} rotasını aç`, `Open ${route.cityOrRegion} route`)}><span><strong>{route.cityOrRegion}</strong><small><svg width="12" height="14" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><path d="M6 0a6 6 0 0 0-6 6c0 4 6 10 6 10s6-6 6-10a6 6 0 0 0-6-6Zm0 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>{route.country}</small></span><span className="rh-card-arrow"><Arrow/></span></button></article>)}</div></section>
+      <section className="rh-community"><div className="rh-community-avatars" aria-hidden="true">{[0, 1, 2].map(index => <span key={index}><img src={communityTravelers} alt="" loading="lazy" style={{ objectPosition: `${index * 50}% center` }}/></span>)}</div><div><h2>{copy("Gezgin Topluluğu", "Traveller Community")}</h2><p>{copy("Deneyimlerini paylaş, ilham al,", "Share experiences, find inspiration,")}<br/>{copy("yeni arkadaşlar edin.", "make new friends.")}</p></div><button type="button" onClick={() => onOpenCommunity()}>{copy("Topluluğa Katıl", "Join the Community")}<Arrow/></button></section>
+    </div>
   </div>;
 }

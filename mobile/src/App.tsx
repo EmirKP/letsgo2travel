@@ -7,6 +7,7 @@ import "./merged-functional.css";
 import "./country-intelligence.css";
 import "./unified.css";
 import "./journey.css";
+import "./reference-theme.css";
 import { NavigationPane } from "./components/NavigationPane";
 import { LazyOverlay } from "./components/LazyOverlay";
 import { CountryFlag } from "./components/CountryFlag";
@@ -37,13 +38,16 @@ import {
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
   completeOnboarding,
+  deleteRoutePlan,
   getMobilePreferences,
   getGuestDataSummary,
+  getSavedRoutePlans,
   hasCompletedOnboarding,
   hasSeenRelease,
   importGuestDataForUser,
   markGuestDataImportDecision,
   markReleaseSeen,
+  saveRoutePlan,
   shouldOfferGuestDataImport,
 } from "./lib/storage";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -73,11 +77,18 @@ const ReleaseNotesSheet = lazy(() => import("./components/ReleaseNotesSheet").th
 
 const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "home", icon: "home" },
-  { id: "explore", icon: "compass" },
-  { id: "route", icon: "plus" },
-  { id: "trips", icon: "heart" },
+  { id: "trips", icon: "calendar" },
+  { id: "community", icon: "users" },
+  { id: "companion", icon: "suitcase" },
   { id: "profile", icon: "user" },
 ];
+
+function inspirationRouteCodes(ownerId?: string | null): string[] {
+  return getSavedRoutePlans(ownerId).flatMap(saved => {
+    const code = saved.plan.routes[0]?.destinationCode?.toUpperCase();
+    return code && saved.id === `inspiration.${code}` ? [code] : [];
+  });
+}
 
 const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports", "country-news"]);
 
@@ -121,19 +132,14 @@ function viewFromUrl(value: string): ViewId | null {
 }
 
 function rootTabFor(view: ViewId): TabId {
-  if (view === "costs" || view === "airports" || view === "country-news") return "explore";
-  if (view === "passport" || view === "surprise" || view === "events" || view === "companion" || view === "phrases") return "explore";
-  if (view === "cockpit") return "trips";
-  if (view === "community" || view === "alerts" || view === "admin") return "profile";
+  if (view === "explore" || view === "surprise" || view === "events") return "home";
+  if (view === "costs" || view === "airports" || view === "country-news" || view === "passport" || view === "phrases") return "companion";
+  if (view === "route" || view === "cockpit" || view === "alerts") return "trips";
+  if (view === "admin") return "profile";
   return view as TabId;
 }
 
 function highlightedTabFor(view: ViewId): TabId | null {
-  // Özel araçları kullanıcının zihnindeki en yakın ana bölüme bağla:
-  // topluluk keşfin, alarmlar seyahatin, yönetim ise hesabın parçasıdır.
-  if (view === "community") return "explore";
-  if (view === "alerts") return "trips";
-  if (view === "admin") return "profile";
   return rootTabFor(view);
 }
 
@@ -142,6 +148,8 @@ export default function App() {
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [openTransfer, setOpenTransfer] = useState(false);
   const [exploreCode, setExploreCode] = useState("");
+  const [exploreSearch, setExploreSearch] = useState({ query: "", requestId: 0 });
+  const [homeSavedRoutes, setHomeSavedRoutes] = useState<{ owner: string | null; codes: string[] } | null>(null);
   const [newsCountryCode, setNewsCountryCode] = useState("TR");
   const [activeView, setActiveView] = useState<ViewId>(() => pendingTripInvite(window.location.href) ? "trips" : viewFromUrl(window.location.href) || "home");
   const [visitedViews, setVisitedViews] = useState<ViewId[]>(() => [viewFromUrl(window.location.href) || "home"]);
@@ -191,7 +199,7 @@ export default function App() {
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
   const activeTab = highlightedTabFor(activeView);
-  const nestedView = activeView === "passport" || activeView === "surprise" || activeView === "cockpit" || activeView === "community" || activeView === "alerts" || activeView === "events" || activeView === "companion" || activeView === "phrases" || activeView === "admin" || activeView === "costs" || activeView === "airports" || activeView === "country-news";
+  const nestedView = !tabDefinitions.some(tab => tab.id === activeView);
   const nativeUiRef = useRef({
     accountOpen,
     activeView,
@@ -208,7 +216,7 @@ export default function App() {
     activeViewRef.current = activeView;
     const titles: Record<ViewId, string> = {
       "country-news": copy("Ülke Gündemi", "Country Updates"), costs: copy("Ülke Maliyetleri", "Country Costs"), airports: copy("Havalimanı Rehberi", "Airport Guide"),
-      home: copy("Ana Sayfa", "Home"), explore: copy("Keşfet", "Explore"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Kaydedilenler", "Saved"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahat Kokpiti", "Travel Cockpit"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Seyahat Asistanı", "Travel Assistant"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
+      home: copy("Keşfet", "Explore"), explore: copy("Rotaları keşfet", "Explore destinations"), route: copy("Rota Planla", "Plan a Route"), trips: copy("Planlar", "Plans"), profile: copy("Profil", "Profile"), passport: copy("Pasaport Gücü", "Passport Power"), surprise: copy("Beni Şaşırt", "Surprise Me"), cockpit: copy("Seyahat Kokpiti", "Travel Cockpit"), community: copy("Topluluk", "Community"), alerts: copy("Fiyat Alarmlarım", "Price Alerts"), events: copy("Etkinlik Radarı", "Event Radar"), companion: copy("Araçlar", "Tools"), phrases: copy("Hazır İfadeler", "Offline Phrases"), admin: copy("Yönetim Merkezi", "Admin Centre"),
     };
     document.title = `${titles[activeView]} · LetsGo2Travel`;
   }, [activeView, copy, locale]);
@@ -233,6 +241,42 @@ export default function App() {
       noticeTimer.current = null;
     }, 4200);
   }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      try { setHomeSavedRoutes({ owner: ownerId, codes: inspirationRouteCodes(ownerId) }); }
+      catch { setHomeSavedRoutes(null); }
+    };
+    refresh();
+    window.addEventListener("l2t:storage-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("l2t:storage-change", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [ownerId]);
+
+  const toggleHomeRoute = (route: RouteSuggestion) => {
+    const code = route.destinationCode?.toUpperCase();
+    if (!code || !/^[A-Z0-9]{2,8}$/.test(code)) return;
+    const id = `inspiration.${code}`;
+    try {
+      const saved = getSavedRoutePlans(ownerId).some(item => item.id === id);
+      if (saved) deleteRoutePlan(id, ownerId);
+      else saveRoutePlan({
+        id, createdAt: new Date().toISOString(),
+        input: { origin: "", days: route.idealDuration, month: "", budget: route.estimatedBudget, accommodation: "", who: "", tempo: "", vibe: [], visa: route.visaStatus },
+        plan: { summary: route.why, routes: [route] },
+      }, ownerId);
+      setHomeSavedRoutes({ owner: ownerId, codes: inspirationRouteCodes(ownerId) });
+      showNotice(saved ? copy("Rota kayıtlarından çıkarıldı.", "Route removed from your saved items.") : copy("Rota cihazına kaydedildi. Planlar bölümünden açabilirsin.", "Route saved on this device. Open it from Plans."));
+    } catch {
+      // The account outbox may have persisted before the device list failed.
+      // Reflect durable state without claiming that an unsuccessful write worked.
+      try { setHomeSavedRoutes({ owner: ownerId, codes: inspirationRouteCodes(ownerId) }); } catch { /* Keep existing UI on unreadable storage. */ }
+      showNotice(copy("Kayıt güncellenemedi. Cihaz depolamasını kontrol edip tekrar dene.", "Saved items couldn't update. Check device storage and try again."));
+    }
+  };
 
   useEffect(() => () => {
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
@@ -321,6 +365,12 @@ export default function App() {
     setScrollPositions(positions => ({ ...positions, route: 0 }));
   }, [navigate]);
 
+  const searchDestinations = useCallback((query: string) => {
+    navigate("explore");
+    setExploreSearch(previous => ({ query: query.trim().slice(0, 120), requestId: previous.requestId + 1 }));
+    setScrollPositions(positions => ({ ...positions, explore: 0 }));
+  }, [navigate]);
+
   const goBack = useCallback(() => {
     if (historyDepth.current > 0) {
       window.history.back();
@@ -339,6 +389,7 @@ export default function App() {
     // authUiKey ile yeniden kurulur; geç tamamlanan A hesabı istekleri B
     // hesabının ekran durumuna yazamaz.
     setSurpriseRoute(null);
+    setExploreSearch({ query: "", requestId: 0 });
     setRouteSeedKind("surprise");
     setRouteResetToken((value) => value + 1);
     setCockpitFocusTripId("");
@@ -629,10 +680,17 @@ export default function App() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     const statusBar = plugin("StatusBar");
-    void statusBar?.setStyle?.({ style: "DARK" }).catch(() => undefined);
-    void statusBar?.setBackgroundColor?.({ color: "#093459" }).catch(() => undefined);
     void statusBar?.setOverlaysWebView?.({ overlay: true }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    const statusBar = plugin("StatusBar");
+    // Capacitor DARK means light text; LIGHT means dark text.
+    const home = activeView === "home";
+    void statusBar?.setStyle?.({ style: home ? "DARK" : "LIGHT" }).catch(() => undefined);
+    void statusBar?.setBackgroundColor?.({ color: home ? "#093459" : "#ffffff" }).catch(() => undefined);
+  }, [activeView]);
 
   useEffect(() => {
     let active = true;
@@ -807,8 +865,8 @@ export default function App() {
   };
 
   const renderView = (view: ViewId) => {
-    if (view === "home") return <HomeScreen onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
-    if (view === "explore") return <ExploreScreen initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "home") return <HomeScreen initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenNotifications={() => setNotificationsOpen(true)} unreadCount={notificationsEnabled ? unreadCount : 0} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "events") return <EventsScreen key={ownerId || "guest"} focusEventId={focusEventId} onFocusHandled={() => setFocusEventId("")} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onOpenSaved={() => { navigate("trips"); setSavedSection("events"); }} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
     if (view === "costs") return <CostsScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
@@ -827,12 +885,12 @@ export default function App() {
 
   const tabs = tabDefinitions.map((tab) => ({
     ...tab,
-    label: tab.id === "home" ? copy("Ana Sayfa", "Home") : tab.id === "explore" ? copy("Keşfet", "Explore") : tab.id === "route" ? copy("Planla", "Plan") : tab.id === "trips" ? copy("Kaydedilenler", "Saved") : copy("Profil", "Profile"),
+    label: tab.id === "home" ? copy("Keşfet", "Explore") : tab.id === "trips" ? copy("Planlar", "Plans") : tab.id === "community" ? copy("Topluluk", "Community") : tab.id === "companion" ? copy("Araçlar", "Tools") : copy("Profil", "Profile"),
   }));
 
   return <div className={`app-shell editorial-app view-${activeView} ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
-    <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
+    {activeView !== "home" && <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
@@ -846,7 +904,7 @@ export default function App() {
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>
       </div>
-    </header>
+    </header>}
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> {copy("Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.", "You're offline. Saved plans and offline travel tools remain available.")}</div>}
     {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? copy("Yenileniyor", "Refreshing") : copy("Yenilemek için bırak", "Release to refresh")}</div>}
@@ -870,7 +928,7 @@ export default function App() {
     </main>
 
     <nav className="bottom-nav" aria-label={copy("Ana menü", "Main navigation")} inert={interactionBlocked || keyboardOpen} aria-hidden={interactionBlocked || keyboardOpen || undefined}>
-      {tabs.map((tab) => <button key={tab.id} className={`${activeTab === tab.id ? "active" : ""} ${tab.id === "route" ? "center-tab" : ""}`} onClick={() => openNavigationView(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={tab.id === "route" ? 23 : 21} /></span><small>{tab.label}</small></button>)}
+      {tabs.map((tab) => <button key={tab.id} className={activeTab === tab.id ? "active" : ""} onClick={() => openNavigationView(tab.id)} aria-current={activeTab === tab.id ? "page" : undefined}><span><Icon name={tab.icon} size={21} /></span><small>{tab.label}</small></button>)}
     </nav>
 
     {notice && createPortal(<div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label={copy("Bildirimi kapat", "Dismiss notification")}><Icon name="close" size={15} /></button></div>, document.body)}

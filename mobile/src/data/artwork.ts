@@ -7,14 +7,20 @@ import sarajevoArtwork from "../assets/destination-artwork/sarajevo.webp";
 import tbilisiArtwork from "../assets/destination-artwork/tbilisi.webp";
 import tiranaArtwork from "../assets/destination-artwork/tirana.webp";
 import tokyoArtwork from "../assets/destination-artwork/tokyo.webp";
+import baliArtwork from "../assets/home-reference/bali.webp";
+import cappadociaArtwork from "../assets/home-reference/cappadocia.webp";
+import santoriniArtwork from "../assets/home-reference/santorini-hero.webp";
 import fallbackArtwork from "../assets/launch-travel-poster.webp";
 
 const DESTINATION_ARTWORK: Record<string, string> = {
   BEG: belgradeArtwork,
   BKK: bangkokArtwork,
+  DPS: baliArtwork,
   DXB: dubaiArtwork,
   FCO: romeArtwork,
   GYD: bakuArtwork,
+  JTR: santoriniArtwork,
+  NAV: cappadociaArtwork,
   SJJ: sarajevoArtwork,
   TBS: tbilisiArtwork,
   TIA: tiranaArtwork,

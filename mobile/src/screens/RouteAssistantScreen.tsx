@@ -263,7 +263,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
             const panelId = `route-result-panel-${index}`;
             return <article className={`route-result ${open ? "open" : ""}`} key={`${route.name}-${index}`}>
               <button id={triggerId} className="route-result-head" aria-expanded={open} aria-controls={panelId} onClick={() => setExpanded(open ? "" : route.name)}>
-                <span className={`route-score ${scoreColor(route.scores.overall)}`}>{route.scores.overall}</span>
+                {route.scores.overall > 0 ? <span className={`route-score ${scoreColor(route.scores.overall)}`}>{route.scores.overall}</span> : <span className="route-score"><Icon name="route" size={22} /></span>}
                 <span><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong><em>{route.estimatedBudget} · {route.idealDuration}</em></span>
                 <Icon name="chevron" size={19} />
               </button>

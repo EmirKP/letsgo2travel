@@ -9,6 +9,8 @@ import { COUNTRY_LIST } from "../data/countries";
 import { profileIdToAlpha3, profileIdsForAlpha3 } from "../data/countryCodes";
 import { destinationArtwork } from "../data/artwork";
 import { randomRoute, routeByDestinationCode } from "../data/routes";
+import { homeSearchDestinations } from "../data/homeDestinations";
+import { normalizeSearchText } from "../lib/searchText";
 import {
   addRecentDestination,
   getFavoriteDestinations,
@@ -25,8 +27,10 @@ import passportIndex from "../data/passport-index.json";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
-export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
+export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "", searchRequestId = 0, ownerId, accessToken, onNavigate, onSurprise, onBuildRoute, onNotice }: {
   initialDestinationCode?: string;
+  initialSearchQuery?: string;
+  searchRequestId?: number;
   ownerId?: string | null;
   accessToken: string;
   onNavigate: (view: ViewId) => void;
@@ -39,6 +43,8 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
   const entryFor = (destination: DiscoveryDestination) => preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale);
   const withEntry = (destination: DiscoveryDestination) => ({ ...localizedDiscovery(destination, locale), entry: entryFor(destination).label });
   const [category, setCategory] = useState<(typeof categories)[number]>("Tümü");
+  const [query, setQuery] = useState(initialSearchQuery);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
@@ -46,6 +52,17 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
   const selectedDestination = selectedDestinationValue ? withEntry(selectedDestinationValue) : null;
   const featured = withEntry(dailyDiscovery());
   const handledDestinationCode = useRef(initialDestinationCode);
+  const handledSearch = useRef({ query: initialSearchQuery, requestId: searchRequestId });
+
+  useEffect(() => {
+    // Activity reconnects effects on return; only a new Home request replaces
+    // a query the user has edited while exploring.
+    if (handledSearch.current.query === initialSearchQuery && handledSearch.current.requestId === searchRequestId) return;
+    handledSearch.current = { query: initialSearchQuery, requestId: searchRequestId };
+    setQuery(initialSearchQuery);
+    setCategory("Tümü");
+    if (searchRequestId) setSelectedDestination(null);
+  }, [initialSearchQuery, searchRequestId]);
 
   useEffect(() => {
     if (!initialDestinationCode) {
@@ -103,11 +120,35 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
     return () => { active = false; };
   }, [accessToken, copy, onNotice, ownerId]);
 
+  const search = normalizeSearchText(query);
   const destinations = useMemo(() => DISCOVERY_DESTINATIONS.filter((destination) => {
+    if (search) {
+      const en = localizedDiscovery(destination, "en");
+      return normalizeSearchText(`${destination.name} ${destination.country} ${en.name} ${en.country} ${destination.code}`).includes(search);
+    }
     if (category === "Tümü") return true;
     if (category === "Vizesiz") return preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale).visaFree;
     return destination.tag.toLocaleLowerCase("tr-TR").includes(category.toLocaleLowerCase("tr-TR"));
-  }).map((destination) => ({ ...localizedDiscovery(destination, locale), entry: preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale).label })), [category, locale, preference.country, preference.type]);
+  }).map((destination) => ({ ...localizedDiscovery(destination, locale), entry: preferredEntry(preference, alpha2FromAlpha3(destination.alpha3), locale).label })), [category, locale, preference.country, preference.type, search]);
+  const searchRoutes = useMemo(() => {
+    if (!search) return [];
+    const home = homeSearchDestinations(locale);
+    const homeTr = homeSearchDestinations("tr");
+    const homeEn = homeSearchDestinations("en");
+    const all = [...home, ...["FCO", "DXB", "BKK"].flatMap(code => {
+      const route = routeByDestinationCode(code, locale);
+      return route ? [route] : [];
+    })];
+    const codes = new Set(DISCOVERY_DESTINATIONS.map(item => item.code));
+    return all.filter(route => {
+      const code = route.destinationCode;
+      if (!code || codes.has(code)) return false;
+      codes.add(code);
+      const tr = homeTr.find(item => item.destinationCode === code) || routeByDestinationCode(code, "tr");
+      const en = homeEn.find(item => item.destinationCode === code) || routeByDestinationCode(code, "en");
+      return normalizeSearchText(`${route.name} ${route.country} ${route.cityOrRegion} ${tr?.name || ""} ${tr?.country || ""} ${en?.name || ""} ${en?.country || ""} ${code}`).includes(search);
+    });
+  }, [locale, search]);
 
   const surprise = () => {
     const route = randomRoute(locale);
@@ -171,16 +212,18 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
   };
 
   return <div className="screen explore-screen">
-    <PageHero scene="coast" title={copy("Keşfet", "Explore")} subtitle={copy("Dünyanın bir yerinde, yeni hikâyen seni bekliyor.", "Your next story is waiting somewhere in the world.")} />
+    <PageHero scene="coast" title={copy("Rotaları keşfet", "Explore destinations")} subtitle={copy("Dünyanın bir yerinde, yeni hikâyen seni bekliyor.", "Your next story is waiting somewhere in the world.")} />
 
-    <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools")}>
+    <label className="discovery-search"><Icon name="search" size={19}/><span className="sr-only">{copy("Hazır rotalarda şehir veya ülke ara", "Search cities or countries in ready-made routes")}</span><input ref={searchInput} type="search" aria-controls="explore-search-results" value={query} maxLength={120} placeholder={copy("Şehir veya ülke ara…", "Search a city or country…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" className="icon-button compact" style={{ minWidth: 44, minHeight: 44 }} onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={18}/></button>}</label>
+
+    {!search && <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools")}>
       <button onClick={() => onNavigate("passport")}><span><Icon name="passport" size={22} /></span><strong>{copy("Pasaport Gücü", "Passport Power")}</strong><small>{copy("Giriş durumları", "Entry rules")}</small></button>
       <button onClick={surprise}><span><Icon name="sparkles" size={22} /></span><strong>{copy("Beni Şaşırt", "Surprise Me")}</strong><small>{copy("Akıllı rota", "Smart route")}</small></button>
       <button onClick={() => onNavigate("events")}><span><Icon name="calendar" size={22} /></span><strong>{copy("Etkinlik Radarı", "Event Radar")}</strong><small>{copy("Konser ve festival", "Concerts & festivals")}</small></button>
       <button onClick={() => onNavigate("companion")}><span><Icon name="globe" size={22} /></span><strong>{copy("Yol Yardımcısı", "Travel Companion")}</strong><small>{copy("Şimdi, dil, kurallar", "Now, phrases, rules")}</small></button>
-    </section>
+    </section>}
 
-    <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
+    {!search && <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
       <div className="daily-discovery-copy">
         <span>{copy("GÜNÜN KEŞFİ", "TODAY'S DISCOVERY")} · {featured.entry}</span>
         <h2><CountryFlag code={alpha2FromAlpha3(featured.alpha3)} label={featured.country} /> {featured.name}</h2>
@@ -188,14 +231,15 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
         <button onClick={() => openDetails(featured)}>{copy("Ayrıntıları gör", "View details")} <Icon name="chevron" size={17} /></button>
       </div>
       <span className="daily-globe"><Icon name="globe" size={70} /></span>
-    </section>
+    </section>}
 
-    <section className="section-block">
-      <div className="section-heading"><div><span>{copy("İLHAM PANOSU", "INSPIRATION")}</span><h2>{copy("Sana göre rotalar", "Routes for you")}</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
+    <section className="section-block" id="explore-search-results">
+      <div className="section-heading"><div><span>{copy("İLHAM PANOSU", "INSPIRATION")}</span><h2>{search ? copy("Arama sonuçları", "Search results") : copy("Sana göre rotalar", "Routes for you")}</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
+      {search && <p role="status">{copy(`“${query.trim()}” için ${destinations.length + searchRoutes.length} hazır rota bulundu.`, `${destinations.length + searchRoutes.length} ready-made routes found for “${query.trim()}”.`)}</p>}
       <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{copy("Pasaporta göre", "For passport")}: {new Intl.DisplayNames([locale], { type: "region" }).of(preference.country)} · {copy(({ordinary:"Umuma mahsus", special:"Hususi", service:"Hizmet", diplomatic:"Diplomatik"} as Record<string,string>)[preference.type], preference.type)} · {copy("Değiştir", "Change")}</button>
-      <div className="chip-scroll explore-filter" role="group" aria-label={copy("Rotaları kategoriye göre filtrele", "Filter routes by category")}>
+      {!search && <div className="chip-scroll explore-filter" role="group" aria-label={copy("Rotaları kategoriye göre filtrele", "Filter routes by category")}>
         {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{copy(item, ({ "Tümü": "All", "Vizesiz": "Visa-free", "Şehir": "City", "Deniz": "Coast", "Uzak rota": "Long-haul" } as const)[item])}</button>)}
-      </div>
+      </div>}
       <div className="discovery-grid">
         {destinations.map((destination) => {
           const favorite = favorites.some((item) => item.alpha3 === destination.alpha3);
@@ -210,7 +254,12 @@ export function ExploreScreen({ initialDestinationCode, ownerId, accessToken, on
             <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openDetails(destination)} aria-label={copy(`${destination.name} ayrıntılarını aç`, `Open ${destination.name} details`)}>{copy("İncele", "View")} <Icon name="chevron" size={15} /></button></div>
           </article>;
         })}
+        {searchRoutes.map(route => <article className="discovery-card" key={route.destinationCode}>
+          <div className="discovery-visual" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.88)),url(${destinationArtwork(route.destinationCode)})` }}><h3>{route.name}</h3><p>{route.country}</p></div>
+          <div className="discovery-body"><span>{route.idealDuration}</span><button type="button" onClick={() => onBuildRoute(route)} aria-label={copy(`${route.name} rotasını planla`, `Plan ${route.name}`)}>{copy("Planla", "Plan")}<Icon name="chevron" size={15}/></button></div>
+        </article>)}
       </div>
+      {search && !destinations.length && !searchRoutes.length && <div className="discovery-search-empty"><p>{copy("Bu arama için hazır rotamız henüz yok. Farklı bir şehir veya ülke deneyebilir ya da tercihlerine göre rota oluşturabilirsin.", "We don't have a ready-made route for this search yet. Try another city or country, or create a route around your preferences.")}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("route")}><Icon name="route" size={18}/>{copy("Tercihlerimle rota oluştur", "Create a route for me")}</button></div>}
     </section>
 
     <Sheet open={Boolean(selectedDestination)} title={copy("Rota ayrıntıları", "Route details")} onClose={() => setSelectedDestination(null)} size="large">

@@ -986,13 +986,15 @@ test("Referans tasarım: tüm ISO ülke bayrakları ağsız SVG olarak paketleni
   assert.ok(assets.includes('"./" : "/"') && assets.includes('normalized === "xkk"'), "bayrak yolu mobil göreli / web mutlak tabanı ve Kosova aliasını korumalı");
 });
 
-test("Referans tasarım: mevcut özellikler sekiz ana ekranın yanında erişilebilir kalır", () => {
+test("Referans tasarım: mevcut özellikler kök sekmelerin yanında erişilebilir kalır", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const plans = readFileSync("mobile/src/screens/PlansScreen.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const route = readFileSync("mobile/src/screens/RouteAssistantScreen.tsx", "utf8");
-  assert.ok(app.includes('activeView === "costs"') && app.includes('activeView === "airports"'), "maliyet ve havalimanı ekranları gerçek yönlendirmeye bağlı olmalı");
-  assert.ok(home.includes("inspiration.map(route") && home.includes("onClick={() => onBuildRoute(route)}"), "ana sayfadaki ilham kartı seçilen rotayı planlamaya aktarmalı");
+  assert.match(app, /if \(view === "costs"\) return <CostsScreen\b/, "maliyet hedefi gerçek ekranına bağlı olmalı");
+  assert.match(app, /if \(view === "airports"\) return <AirportGuideScreen\b/, "havalimanı hedefi gerçek ekranına bağlı olmalı");
+  // Real card callback identity and all four destinations are exercised in planning-ux.mjs.
+  assert.ok(home.includes("homeDestinations(locale).map(route") && home.includes("onClick={() => onBuildRoute(route)}"), "ana sayfadaki gerçek destinasyon kartı seçilen rotayı planlamaya aktarmalı");
   assert.ok(app.includes('onBuildRoute={route => openSeededRoute(route, "explore")}') && app.includes('navigate("route")'), "ilham kartının uygulama bağlantısı gerçek planlama ekranına gitmeli");
   assert.ok(plans.includes('<TripCollaborationHub') && plans.includes('<JourneyToolsHub') && plans.includes('chooseSection("travel")'), "ortak seyahat ve yol araçları Kaydedilenler içindeki seyahat bölümüyle erişilebilir kalmalı");
   assert.ok(route.includes('"SJJ","FCO","BKK"') && route.includes("snapshotPlannerInput"), "ilham kartları var olan rotalardan ve plan tercihlerinden beslenmeli");
@@ -1014,7 +1016,8 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
   }
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
   assert.ok(home.includes("listCockpitTrips(ownerId, accessToken)") && home.includes("nextHomeJourney(items") && home.includes("homeJourneyStep(nextTrip") && home.includes('onOpenTrip(nextTrip.id)'), "ana sayfa kullanıcıya ait sıradaki seyahati, hazırlık adımını ve doğru seyahat ayrıntısını bağlamalı");
-  assert.ok(home.includes('onClick={() => onNavigate("route")}') && home.includes("Rotamı planla"), "seyahati olmayan kullanıcı doğrudan rota planlamayı açabilmeli");
+  // Both translations and the guest CTA callback are executed in planning-ux.mjs.
+  assert.ok(home.includes('onClick={() => onNavigate("route")}') && home.includes('copy("Hemen Başla", "Get Started")'), "seyahati olmayan kullanıcı doğrudan rota planlamayı açabilmeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
 });
 
@@ -1106,7 +1109,8 @@ test("Çevrimdışı ifadeler ana sayfanın asistanından ve doğrudan bağlant�
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
-  assert.ok(home.includes('onNavigate("companion")') && companion.includes('["assistant", "now", "phrases", "etiquette"]') && companion.includes("setTab(item)"), "ana sayfadan açılan asistanın hazır ifadeler sekmesi kullanılabilir kalmalı");
+  // The translated tools shortcut is also clicked in planning-ux.mjs; keep the screen/tab wiring check here.
+  assert.ok(/kind: "tools"[^\n]*view: "companion"/.test(home) && home.includes('onNavigate(feature.view)') && companion.includes('["assistant", "now", "phrases", "etiquette"]') && companion.includes("setTab(item)"), "ana sayfadan açılan asistanın hazır ifadeler sekmesi kullanılabilir kalmalı");
   assert.ok(app.includes('view === "companion" || view === "phrases"') && app.includes('initialTab={view === "phrases" ? "phrases" : "assistant"}'), "ifade derin bağlantısı ifadeleri, genel yardımcı asistanı açmalı");
   assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
   assert.ok(companion.includes("profile.phrases.map") && companion.includes("essential-offline"), "hazır ifade kartları ve çevrimdışı kullanım bilgisi korunmalı");

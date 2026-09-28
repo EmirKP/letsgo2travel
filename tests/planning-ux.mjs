@@ -43,6 +43,24 @@ const button = (tree, label) => find(tree, 'button', props => text(props.childre
 const common = host => ({ react: host.react, 'react/jsx-runtime': runtime, '../lib/i18n': { useI18n: () => english } });
 const search = load('mobile/src/lib/searchText.ts');
 const homeJourney = load('mobile/src/lib/homeJourney.ts');
+const routeCatalog = load('mobile/src/data/routes.ts');
+const homeData = load('mobile/src/data/homeDestinations.ts', { './routes': routeCatalog });
+const homeAssets = Object.fromEntries([
+  '../assets/home-reference/santorini-hero.webp', '../assets/home-reference/coastal-banner.webp',
+  '../assets/home-reference/cappadocia.webp', '../assets/home-reference/bali.webp',
+  '../assets/home-reference/community-travelers.webp', '../assets/destination-artwork/rome.webp',
+].map(path => [path, { default: path }]));
+function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error('Guest Home must not request account trips'); } } = {}) {
+  return load('mobile/src/screens/HomeScreen.tsx', {
+    ...common(host), ...homeAssets,
+    '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en) => locale === 'tr' ? tr : en }) },
+    '../components/Icon': { Icon: 'Icon' }, '../components/TravelFeatureIcon': { TravelFeatureIcon: 'TravelFeatureIcon' },
+    '../data/homeDestinations': homeData, '../lib/supabaseData': { listCockpitTrips },
+    '../lib/dates': { localIsoDate: () => '2026-09-28' }, '../lib/homeJourney': homeJourney,
+  }).HomeScreen;
+}
+const guestHomeProps = { user: null, ownerId: null, accessToken: '', onNavigate() {}, onOpenCommunity() {}, onSurprise() {}, onBuildRoute() {}, onNotice() {} };
+const personalBanner = view => find(view, 'section', props => props['aria-labelledby'] === 'rh-personal-title');
 
 test('Home prioritises an active trip, ignores past upcoming/cancelled trips and leaves the list untouched', () => {
   const trips = [
@@ -66,20 +84,86 @@ test('Home next step uses personal checklist and travel dates without reading pr
 });
 
 test('Home rejects an old account response and opens the precise current trip from its next step', async () => {
-  const host=hooks(), requests=new Map(), opened=[];
-  const {HomeScreen}=load('mobile/src/screens/HomeScreen.tsx',{
-    ...common(host),'../components/Icon':{Icon:'Icon'},'../data/routes':{routeByDestinationCode:()=>null},'../data/artwork':{},
-    '../lib/supabaseData':{listCockpitTrips:owner=>new Promise(resolve=>requests.set(owner,resolve))},'../lib/dates':{localIsoDate:()=> '2026-09-28'},'../lib/homeJourney':homeJourney,
-  });
+  const host=hooks(), requests=new Map(), opened=[], reads=[];
+  const HomeScreen=loadHome(host,{listCockpitTrips:(...args)=>{reads.push(args);return new Promise(resolve=>requests.set(args[0],resolve));}});
   try {
     host.start(HomeScreen,{user:{id:'a'},ownerId:'a',accessToken:'FIXTURE',onOpenTrip:id=>opened.push(id),onNavigate(){},onOpenCommunity(){},onSurprise(){},onBuildRoute(){},onNotice(){}});
     assert.match(text(host.render()),/Getting your trip ready/);
     host.render({ownerId:'b',user:{id:'b'}});
-    const makeTrip=(id,country)=>({id,status:'upcoming',destinationCountry:country,destinationCity:null,startDate:'2026-10-01',endDate:'2026-10-04',checklistItems:[{id:'packing',label:'Pack suitcase',completed:false}]});
+    const makeTrip=(id,country)=>({id,status:'upcoming',destinationCountry:country,destinationCity:null,startDate:'2026-10-01',endDate:'2026-10-04',checklistItems:[{id:'packing',label:'Pack suitcase',completed:false}],get providerFlight(){throw Error('Home must not read retained provider details');}});
     requests.get('a')([makeTrip('trip-a','Private account A')]);await tick();assert.doesNotMatch(text(host.render()),/Private account A/);
-    requests.get('b')([makeTrip('trip-b','Italy')]);await tick();const view=host.render();assert.match(text(view),/Pack suitcase/);button(view,'Continue preparing').props.onClick();assert.deepEqual(opened,['trip-b']);
-    host.render({ownerId:null,user:null,accessToken:''});assert.doesNotMatch(text(host.render()),/Italy|Pack suitcase/);
+    requests.get('b')([makeTrip('trip-b','Italy')]);await tick();const view=host.render();
+    assert.match(text(personalBanner(view)),/Italy/);assert.match(text(personalBanner(view)),/0\/1 tasks ready/);
+    button(personalBanner(view),'Open My Trip').props.onClick();assert.deepEqual(opened,['trip-b']);
+    assert.deepEqual(reads,[['a','FIXTURE'],['b','FIXTURE']], 'Home must use personal trip reads without opting into provider detail enrichment');
+    host.render({ownerId:null,user:null,accessToken:''});
+    assert.doesNotMatch(text(personalBanner(host.render())),/Italy|Pack suitcase|tasks ready/);
+    assert.ok(button(personalBanner(host.render()),'Get Started'));
   } finally {host.dispose();}
+});
+
+test('Home guest CTA and five translated shortcuts open their real destinations without account data', () => {
+  for (const locale of ['en', 'tr']) {
+    const host=hooks(), opened=[], communities=[];
+    try {
+      const HomeScreen=loadHome(host,{locale});
+      const view=host.start(HomeScreen,{...guestHomeProps,onNavigate:value=>opened.push(value),onOpenCommunity:()=>communities.push('community')});
+      button(personalBanner(view),locale==='en'?'Get Started':'Hemen Başla').props.onClick();
+      const nav=find(view,'nav',props=>props['aria-label']===(locale==='en'?'Plan your journey':'Seyahatini planla'));
+      const labels=locale==='en'?['Build a Route','Explore Countries','Passport & Visa','My Trips','All Tools']:['Rota Oluştur','Ülke Keşfet','Pasaport & Vize','Seyahatlerim','Tüm Araçlar'];
+      for (const label of labels) {
+        const shortcut=find(nav,'button',props=>text(find({props},'strong'))===label);
+        assert.ok(shortcut,`Missing translated shortcut: ${label}`);shortcut.props.onClick();
+      }
+      assert.deepEqual(opened,['route','route','explore','passport','trips','companion']);
+      button(view,locale==='en'?'Join the Community':'Topluluğa Katıl').props.onClick();
+      assert.deepEqual(communities,['community']);
+    } finally {host.dispose();}
+  }
+});
+
+test('Home restores the submitted search and forwards trimmed typed queries and visible city shortcuts', () => {
+  const host=hooks(), queries=[];
+  try {
+    host.start(loadHome(host),{...guestHomeProps,initialSearchQuery:'Bali',onSearchDestination:value=>queries.push(value)});
+    let view=host.render();const field=find(view,'input',props=>props.type==='search');
+    assert.equal(field.props.value,'Bali');
+    assert.ok(find(view,'label',props=>props.htmlFor===field.props.id),'Search input has a visible or screen-reader label');
+    field.props.onChange({target:{value:'  Roma  '}});view=host.render();
+    let prevented=0;find(view,'form',props=>props.role==='search').props.onSubmit({preventDefault(){prevented++;}});
+    button(view,'Rome').props.onClick();button(view,'Bali').props.onClick();
+    assert.equal(prevented,1);assert.deepEqual(queries,['Roma','Roma','Bali']);
+  } finally {host.dispose();}
+});
+
+test('Home opens and saves each real destination independently with matching artwork and accurate saved state', () => {
+  for (const locale of ['en','tr']) {
+    const host=hooks(), opened=[], saved=[];
+    try {
+      let view=host.start(loadHome(host,{locale}),{...guestHomeProps,savedRouteIds:['NAV'],onBuildRoute:value=>opened.push(value),onToggleSaved:value=>saved.push(value)});
+      const expected=homeData.homeDestinations(locale);
+      assert.deepEqual(Array.from(expected,item=>item.destinationCode),['JTR','NAV','DPS','FCO']);
+      const images=['santorini-hero.webp','cappadocia.webp','bali.webp','rome.webp'];
+      for (const [index,route] of expected.entries()) {
+        const openLabel=locale==='en'?`Open ${route.cityOrRegion} route`:`${route.cityOrRegion} rotasını aç`;
+        const saveLabel=locale==='en'?`Save ${route.cityOrRegion} route`:`${route.cityOrRegion} rotasını kaydet`;
+        const card=find(view,'article',props=>Boolean(find({props},'button',item=>item['aria-label']===openLabel)));
+        assert.ok(card,`Missing route card: ${route.destinationCode}`);
+        assert.ok(find(card,'img').props.src.endsWith(images[index]),'The route photo must match its destination');
+        const favorite=find(card,'button',props=>props['aria-label']===saveLabel);
+        assert.equal(favorite.props['aria-pressed'],route.destinationCode==='NAV');
+        favorite.props.onClick();assert.equal(opened.length,index,'Saving must not open the planner');
+        find(card,'button',props=>props['aria-label']===openLabel).props.onClick();
+        assert.equal(opened[index],saved[index],'Open and save must receive the same card data');
+        assert.deepEqual(opened[index],route);assert.ok(route.dailyPlan.length>0);
+        assert.equal(route.verifiedEntryStatus,'unknown');
+      }
+      assert.equal(saved.length,4);assert.equal(opened.length,4);
+      view=host.render({savedRouteIds:['JTR']});
+      const pressed=nodes(view).filter(node=>node.type==='button'&&node.props['aria-pressed']===true);
+      assert.equal(pressed.length,1);assert.match(pressed[0].props['aria-label'],/Santorini/);
+    } finally {host.dispose();}
+  }
 });
 
 test('Country search treats accents and Turkish I variants consistently without dropping non-Latin text', () => {
