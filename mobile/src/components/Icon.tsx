@@ -7,12 +7,19 @@ export type IconName =
   | "trash" | "external" | "wifi" | "offline" | "refresh" | "plus"
   | "cloud" | "sun" | "wallet" | "users" | "bookmark" | "info" | "logout"
   | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield"
-  | "clock" | "expand" | "camera" | "train" | "languages";
+  | "clock" | "expand" | "camera" | "train" | "languages"
+  | "trophy" | "flame" | "book" | "smile" | "leaf" | "grid";
 
 // Sabit ikon ağacı modül yüklenirken yalnız bir kez oluşturulur. Önceki
 // sürümde bu 41 öğelik nesne her <Icon> renderında yeniden kuruluyordu;
 // uzun ülke listelerinde on binlerce gereksiz React düğümü üretiyordu.
 const ICON_PATHS: Record<IconName, ReactNode> = {
+    trophy: <><path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21h8M9 18h6v3"/></>,
+    flame: <path d="M12 3c1 4-3 5-3 9-2-1-2-3-2-3-2 2-3 4-3 6a8 8 0 0 0 16 0c0-5-4-9-8-12ZM12 21c-3 0-4-2-4-4s2-3 3-5c0 3 5 3 5 5s-1 4-4 4Z"/>,
+    book: <><path d="M5 3h13a1 1 0 0 1 1 1v17H6a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2ZM3 17a3 3 0 0 1 3-3h13M7 3v11M10 7h5M10 10h3"/></>,
+    smile: <><circle cx="12" cy="12" r="9"/><path d="M8 9h.01M16 9h.01M8 14a4 4 0 0 0 8 0"/></>,
+    leaf: <><path d="M20 3c0 9-1 15-8 15a6 6 0 0 1-6-6c0-7 8-5 14-9ZM4 21l11-11"/></>,
+    grid: <><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></>,
     camera: <><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></>,
     train: <><rect x="5" y="3" width="14" height="15" rx="4"/><path d="M5 10h14M12 3v7M8 18l-2 3M16 18l2 3M8 14h.01M16 14h.01"/></>,
     languages: <><path d="M3 5h11M8 3v2M5 5c0 5 3 8 7 10M12 5c0 5-4 9-9 11M14 21l4-10 4 10M16 17h4"/></>,
@@ -64,7 +71,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
 
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       {ICON_PATHS[name]}
     </svg>
   );

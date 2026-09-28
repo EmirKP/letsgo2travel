@@ -109,7 +109,7 @@ function questionScopeLabel(countryCode: string, countryLabels: ReadonlyMap<stri
   const normalizedCode = countryCode.toUpperCase();
   const label = countryLabels.get(normalizedCode) || countryCode;
   return normalizedCode === "ZZ"
-    ? <><span className="community-world-flag" aria-hidden="true">🌍</span><b>{general}</b></>
+    ? <><span className="community-world-flag" aria-hidden="true"><Icon name="globe" size={18}/></span><b>{general}</b></>
     : <><CountryFlag code={countryCode} label={label} className="community-scope-flag" /><b>{label}</b></>;
 }
 
@@ -488,7 +488,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       </div>
       <section className="cs-league-banner" aria-labelledby="cs-league-title">
         <img src={leagueCover} alt="" width={1200} height={300} loading="lazy"/>
-        <span className="cs-trophy" aria-hidden="true">🏆</span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Seyahat et, keşfet, ligde yerini al!", "Travel, explore, take your place!")}</p></div>
+        <span className="cs-trophy" aria-hidden="true"><Icon name="trophy" size={36}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Seyahat et, keşfet, ligde yerini al!", "Travel, explore, take your place!")}</p></div>
         <button type="button" aria-haspopup="dialog" onClick={() => setLeagueOpen(true)}>{copy("Ligi Keşfet", "Explore League")}<Icon name="chevron" size={20}/></button>
       </section>
 

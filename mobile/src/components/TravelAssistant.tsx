@@ -105,7 +105,8 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
           {cards.filter(c=>c.category===category).map(c => {
             const status = evidenceStatus(c, new Date(now));
             const usable = status !== 'expired' && status !== 'unverified';
-            return <article className="ta-card" key={c.title.en}><h4>{usable && c.status==='drinkable'?'✓ ':usable && c.status==='regional'?'⚠ ':usable && c.status==='avoid'?'✕ ':''}{c.title[locale]}</h4><EvidenceLine item={c}/>{usable && <p>{c.text[locale]}</p>}{c.validUntil && <p>{copy('Kapsadığı son tarih:','Applies through:')} {c.validUntil}</p>}</article>;
+            const statusIcon: IconName | null = !usable ? null : c.status === 'drinkable' ? 'check' : c.status === 'regional' ? 'alert' : c.status === 'avoid' ? 'close' : null;
+            return <article className="ta-card" key={c.title.en}><h4 className="ta-inline-status">{statusIcon && <Icon name={statusIcon} size={18}/>}<span>{c.title[locale]}</span></h4><EvidenceLine item={c}/>{usable && <p>{c.text[locale]}</p>}{c.validUntil && <p>{copy('Kapsadığı son tarih:','Applies through:')} {c.validUntil}</p>}</article>;
           })}
         </section>)}
         <button className="secondary-wide" type="button" onClick={()=>onPhrases(country)}>{copy('Hazır ifadeler ve kültürel tavsiyeler','Phrases and cultural guidance')}</button>

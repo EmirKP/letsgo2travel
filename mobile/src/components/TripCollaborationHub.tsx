@@ -15,6 +15,7 @@ import {
 import { DateTimeField } from "./DateTimeField";
 import { createId } from "../lib/id";
 import { Icon } from "./Icon";
+import { CountryFlag } from "./CountryFlag";
 import { Sheet } from "./Sheet";
 
 type CollaborationTab = "team" | "vote" | "budget";
@@ -262,7 +263,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       {loading ? <div className="trip-collaboration-loading" role="status"><span className="button-loader dark" /> {copy("Ortak seyahatler yükleniyor", "Loading shared trips")}</div>
         : trips.length ? <div className="trip-collaboration-list">
           {trips.map((trip) => <button type="button" key={trip.id} onClick={() => openTrip(trip.id)}>
-            <span className="trip-collaboration-flag">{trip.destinationCode ? String.fromCodePoint(...trip.destinationCode.toUpperCase().split("").map((letter) => 127397 + letter.charCodeAt(0))) : "✈️"}</span>
+            <span className="trip-collaboration-flag" role={trip.destinationCode ? undefined : "img"} aria-label={trip.destinationCode ? undefined : copy("Seyahat", "Trip")}>{trip.destinationCode ? <CountryFlag code={trip.destinationCode} label={trip.destinationCountry || trip.destinationCode} /> : <Icon name="plane" size={23} />}</span>
             <span><strong>{trip.title}</strong><small>{dateText(trip.startDate, locale)} · {trip.memberCount} {copy("kişi", "people")}</small></span>
             <em>{copy(ROLE_LABELS[trip.role].tr, ROLE_LABELS[trip.role].en)}</em>
             <Icon name="chevron" size={18} />

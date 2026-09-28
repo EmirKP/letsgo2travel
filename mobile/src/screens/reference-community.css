@@ -41,7 +41,7 @@
 .editorial-app.view-community .community-social .cs-league-banner { position: relative; isolation: isolate; display: flex; align-items: center; gap: 14px; min-height: 113px; padding: 20px; border-radius: 15px; overflow: hidden; color: #fff; background: #093459; }
 .cs-league-banner > img { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .cs-league-banner::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgb(1 27 71 / 85%), rgb(1 27 71 / 42%) 57%, rgb(1 27 71 / 4%)); }
-.cs-trophy { font-size: 38px; line-height: 1; }
+.cs-trophy { display: grid; place-items: center; flex: none; width: 46px; height: 46px; color: #ffda24; }
 .editorial-app.view-community .community-social .cs-league-banner h2 { margin: 0 0 3px; color: #fff; font-size: 26px; letter-spacing: -.7px; line-height: 1.15; }
 .editorial-app.view-community .community-social .cs-league-banner p { margin: 0; color: #fff; font-size: 15px; line-height: 1.35; }
 .cs-league-banner > button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; margin-left: auto; flex-shrink: 0; padding: 11px 19px; border: 0; border-radius: 28px; background: #fff; color: #0066ff; font-size: 14px; font-weight: 750; }
@@ -142,7 +142,8 @@
   .cs-regions { gap: 7px; grid-template-columns: repeat(8, 69px); padding-bottom: 16px; }
   .cs-regions strong { font-size: 10px; }
   .editorial-app.view-community .community-social .cs-league-banner { min-height: 109px; padding: 17px 13px; gap: 9px; }
-  .cs-trophy { font-size: 27px; }
+  .cs-trophy { width: 29px; height: 36px; }
+  .cs-trophy > svg { width: 28px; height: 28px; }
   .editorial-app.view-community .community-social .cs-league-banner h2 { font-size: 21px; }
   .editorial-app.view-community .community-social .cs-league-banner p { max-width: 175px; font-size: 11px; }
   .cs-league-banner > button { padding: 9px 11px; font-size: 11px; gap: 0; }

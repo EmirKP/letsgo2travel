@@ -121,7 +121,7 @@ export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Da
     .map((trip, index) => ({
       id: REMINDER_ID_BASE + index,
       tripId: trip.id,
-      title: trip.language === "en" ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
+      title: trip.language === "en" ? "Your flight is coming up" : "Uçuşun yaklaşıyor",
       body: trip.language === "en"
         ? `3 hours until your ${trip.title} flight. Your checklist is ready in Cockpit.`
         : `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`,

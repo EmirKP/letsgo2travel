@@ -58,7 +58,7 @@ export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en", o
     // Durable before native scheduling. A crash or quota error cannot leave an
     // untracked notification, and failed schedule calls remain cancellable.
     writeReminders([...registered, record]);
-    await notifications.schedule({ notifications: [{ id, title: locale === "tr" ? "Etkinliğin yaklaşıyor 🎟️" : "Your event is coming up 🎟️", body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
+    await notifications.schedule({ notifications: [{ id, title: locale === "tr" ? "Etkinliğin yaklaşıyor" : "Your event is coming up", body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
     writeReminders(readReminders().map(item => item.id === id ? { ...item, pendingCancel: false } : item));
     return { ok: true as const, at };
   });

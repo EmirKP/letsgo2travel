@@ -3,6 +3,7 @@ import { requestJson } from "../lib/api";
 import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { Icon } from "./Icon";
 import {
   validateTransit,
   validStopId,
@@ -244,7 +245,7 @@ function StopPicker({
           ? copy("Aranıyor…", "Searching…")
           : copy("Durak ara", "Search stations")}
       </button>
-      {value && <p role="status">✓ {value.name}</p>}
+      {value && <p role="status" className="ta-inline-status"><Icon name="check" size={18}/><span>{copy("Seçili durak:", "Selected station:")} {value.name}</span></p>}
       {message && <p role="status">{message}</p>}
       <div className="ta-place-list">
         {stops.map((s) => (
