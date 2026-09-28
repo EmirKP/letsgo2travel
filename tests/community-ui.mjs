@@ -33,6 +33,9 @@ const button = (tree, label) => find(tree, 'button', props => props['aria-label'
 const byClass = (tree, name) => nodes(tree).find(node => node.props?.className?.split(' ').includes(name));
 const postTitles = tree => nodes(tree).filter(node => node.props?.className === 'community-question-open').map(node => text(find(node, 'h3')));
 const activeTab = tree => find(tree, 'button', props => props.role === 'tab' && props['aria-selected']).props.id;
+class TestApiError extends Error {
+  constructor(message, status = 0) { super(message); this.status = status; }
+}
 
 // Real hook/event/effect closures are executed. The keyed inner component is
 // mounted afresh on an account change, just as React does in the application.
@@ -81,8 +84,9 @@ function harness(initial = {}) {
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
+    '../data/artwork': { destinationArtwork: code => `artwork-${code || 'fallback'}.webp` },
     '../lib/communityPreferences': preferences, '../lib/community': community,
-    '../lib/api': { ApiError: class ApiError extends Error {}, requestJson }, '../lib/native': { openExternal: async () => true },
+    '../lib/api': { ApiError: TestApiError, requestJson }, '../lib/native': { openExternal: async () => true },
     '../lib/i18n': { useI18n: () => ({ ...i18n[locale], setLocale: next => { languageChanges.push(next); locale = next; } }) },
   }, { window, document });
   let props = { user: null, accessToken: '', initialCountryCode: '', unreadCount: 0, onOpenAccount: () => accountOpened++, onNotice: value => notices.push(value), onNavigate: value => navigation.push(value), onOpenNotifications: () => notificationsOpened++, onOpenMenu: () => menuOpened++, onSearchDestination: value => searches.push(value), ...initial };
@@ -320,5 +324,121 @@ test('Changing language while a question opens preserves the independent authent
     const view = await h.settle();
     assert.equal(text(find(byClass(view, 'community-question-detail'), 'h3')), 'Tokyo train advice');
     assert.ok(find(view, 'textarea', props => props.id === 'community-answer-body'), 'The answer form remains usable after the locale switch');
+  } finally { h.dispose(); }
+});
+
+const reply = (id, body) => ({ id, body, username: `reader_${id}`, authorId: `reader-${id}`, createdAt: '2026-09-28T12:00:00Z' });
+const visibleComments = tree => nodes(tree).filter(node => node.props?.className?.split(' ').includes('cs-inline-answer'));
+
+test('Inline comments load on demand, show only real server replies and respect locked previews', async () => {
+  const h = harness();
+  try {
+    let view = await h.feed();
+    assert.equal(h.requests.length, 1, 'Reading the feed does not fetch every question');
+    assert.equal(visibleComments(view).length, 0);
+    view = h.click('3 comments');
+    assert.equal(button(view, '3 comments').props['aria-expanded'], true);
+    assert.equal(find(view, 'Sheet'), undefined, 'Comments open beneath the post');
+    const request = h.requests.at(-1);
+    assert.equal(request.path, '/api/country-community/questions/tr-old');
+    assert.equal(request.options.headers?.Authorization, undefined);
+    request.resolve({ data: { ...rows[0], answers: [reply('one', 'The ferry accepts contactless payment.'), reply('two', 'Check the evening timetable.')], totalAnswerCount: 3, hiddenAnswerCount: 1, hasFullAccess: false } });
+    view = await h.settle();
+    assert.equal(visibleComments(view).length, 2);
+    assert.match(text(byClass(view, 'cs-comment-preview')), /The ferry accepts contactless payment\./);
+    assert.match(text(byClass(view, 'cs-comment-preview')), /Check the evening timetable\./);
+    assert.match(text(byClass(view, 'cs-inline-comments')), /1 comments are locked/);
+    assert.equal(find(view, 'Sheet'), undefined);
+    view = h.click('3 comments');
+    assert.equal(button(view, '3 comments').props['aria-expanded'], false);
+    assert.equal(visibleComments(view).length, 0);
+    h.click('3 comments');
+    h.requests.at(-1).resolve({ data: { ...rows[0], answers: [reply('one', 'First actual reply.'), reply('two', 'Second actual reply.'), reply('three', 'Third belongs in the full conversation.')], totalAnswerCount: 3, hiddenAnswerCount: 0, hasFullAccess: true } });
+    view = await h.settle();
+    assert.equal(visibleComments(view).length, 2, 'Even unlocked discussions keep the feed preview brief');
+    assert.doesNotMatch(text(byClass(view, 'cs-comment-preview')), /Third belongs/);
+  } finally { h.dispose(); }
+});
+
+test('Closing or switching inline comments prevents late responses from opening or replacing another post', async () => {
+  const h = harness();
+  try {
+    await h.feed(); h.click('3 comments'); const closed = h.requests.at(-1);
+    h.click('3 comments');
+    closed.resolve({ data: { ...rows[0], answers: [reply('closed', 'A closed post must remain closed.')] } });
+    let view = await h.settle();
+    assert.equal(visibleComments(view).length, 0);
+    assert.equal(button(view, '3 comments').props['aria-expanded'], false);
+    h.click('3 comments'); const older = h.requests.at(-1);
+    h.click('2 comments'); const newer = h.requests.at(-1);
+    newer.resolve({ data: { ...rows[2], answers: [reply('tokyo', 'The airport train is convenient.')] } });
+    view = await h.settle();
+    older.resolve({ data: { ...rows[0], answers: [reply('ferry', 'This is the previous selection.')] } });
+    view = await h.settle();
+    assert.equal(visibleComments(view).length, 1);
+    assert.match(text(byClass(view, 'cs-comment-preview')), /airport train/);
+    assert.doesNotMatch(text(byClass(view, 'cs-comment-preview')), /previous selection/);
+    assert.equal(button(view, '2 comments').props['aria-expanded'], true);
+    assert.equal(button(view, '3 comments').props['aria-expanded'], false);
+  } finally { h.dispose(); }
+});
+
+test('Inline previews carry the current bearer and discard data after account or token changes', async () => {
+  const h = harness({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' });
+  try {
+    await h.feed(); h.click('3 comments'); const firstAccount = h.requests.at(-1);
+    assert.equal(firstAccount.options.headers.Authorization, 'Bearer TOKEN_A');
+    h.render({ user: { id: 'account-b' }, accessToken: 'TOKEN_B' }); await h.feed();
+    firstAccount.resolve({ data: { ...rows[0], answers: [reply('private-a', 'Visible only under account A.')] } });
+    let view = await h.settle();
+    assert.equal(visibleComments(view).length, 0);
+    h.click('3 comments'); const oldToken = h.requests.at(-1);
+    assert.equal(oldToken.options.headers.Authorization, 'Bearer TOKEN_B');
+    h.render({ accessToken: 'TOKEN_B_REFRESHED' }); await h.feed();
+    oldToken.resolve({ data: { ...rows[0], answers: [reply('stale-token', 'A stale authenticated response.')] } });
+    view = await h.settle();
+    assert.equal(visibleComments(view).length, 0);
+    assert.equal(button(view, '3 comments').props['aria-expanded'], false);
+    h.click('3 comments');
+    assert.equal(h.requests.at(-1).options.headers.Authorization, 'Bearer TOKEN_B_REFRESHED');
+  } finally { h.dispose(); }
+});
+
+test('A failed inline preview retries explicitly and a 401 offers sign-in without anonymous fallback', async () => {
+  const h = harness({ user: { id: 'account-a' }, accessToken: 'EXPIRED_TOKEN' });
+  try {
+    await h.feed(); h.click('3 comments'); const failed = h.requests.at(-1);
+    failed.reject(new TestApiError('Service unavailable', 503));
+    let view = await h.settle();
+    assert.equal(visibleComments(view).length, 0);
+    assert.equal(h.requests.length, 2, 'A failed read must not silently fetch a different view');
+    assert.ok(button(byClass(view, 'cs-inline-comments'), 'Try again'));
+    h.click('Try again'); const retry = h.requests.at(-1);
+    assert.equal(retry.path, failed.path);
+    assert.equal(retry.options.headers.Authorization, 'Bearer EXPIRED_TOKEN');
+    retry.reject(new TestApiError('Sign in required', 401));
+    view = await h.settle();
+    assert.match(text(byClass(view, 'cs-inline-comments')), /Sign in/);
+    assert.equal(h.requests.length, 3, '401 never triggers an anonymous retry');
+    const signIn = find(byClass(view, 'cs-inline-comments'), 'button', props => /Sign in/i.test(text(props.children)));
+    assert.ok(signIn); signIn.props.onClick(); view = h.render();
+    assert.equal(h.accountOpened, 1);
+    assert.equal(h.requests.length, 3);
+    assert.equal(visibleComments(view).length, 0);
+  } finally { h.dispose(); }
+});
+
+test('Blocking a participant clears inline replies and invalidates their pending response', async () => {
+  const h = harness({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' });
+  try {
+    await h.feed(); h.click('3 comments'); const pending = h.requests.at(-1);
+    const safety = find(h.render(), 'CommunitySafetySheet');
+    safety.props.onBlocked('reader-blocked');
+    let view = h.render();
+    pending.resolve({ data: { ...rows[0], answers: [reply('blocked', 'Reply from a newly blocked participant.')] } });
+    await h.settle(); view = await h.feed();
+    assert.equal(visibleComments(view).length, 0);
+    assert.equal(button(view, '3 comments').props['aria-expanded'], false);
+    assert.doesNotMatch(text(view), /Reply from a newly blocked/);
   } finally { h.dispose(); }
 });
