@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { CountryFlag } from "../components/CountryFlag";
-import { BrandMark } from "../components/BrandMark";
 import { CountryPicker } from "../components/CountryPicker";
 import { Icon, type IconName } from "../components/Icon";
 import { Sheet } from "../components/Sheet";
@@ -58,10 +57,7 @@ type CommunityScreenProps = {
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
-  onOpenNotifications: () => void;
-  onOpenMenu: () => void;
   onSearchDestination: (query: string) => void;
-  unreadCount: number;
 };
 
 export type CommunityLeader = {
@@ -138,8 +134,8 @@ export function CommunityScreen(props: CommunityScreenProps) {
   return <CommunityScreenForAccount key={props.user?.id || "guest"} {...props} />;
 }
 
-function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onOpenNotifications, onOpenMenu, onSearchDestination, unreadCount }: CommunityScreenProps) {
-  const { copy, countryName, dateLocale, locale, setLocale } = useI18n();
+function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onSearchDestination }: CommunityScreenProps) {
+  const { copy, countryName, dateLocale, locale } = useI18n();
   const questionCountries = useMemo(() => [...COUNTRY_LIST]
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
     .filter((country) => /^[A-Z]{2}$/.test(country.alpha2))
@@ -494,16 +490,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   return <div className="screen community-native-screen reference-community community-social">
     <section className="cs-hero" aria-labelledby="community-welcome-title">
       <img className="cs-hero-image" src={communityCover} alt="" width={1600} height={800} fetchPriority="high"/>
-      <header className="cs-header">
-        <div className="cs-brand"><BrandMark/><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p></div>
-        <div className="cs-header-actions">
-          <button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) setSearch(""); if (tab === "groups" || tab === "events") setTab("feed"); }}><Icon name="search" size={23}/></button>
-          <button type="button" aria-label={copy(`Bildirimler${unreadCount ? `, ${unreadCount} okunmamış` : ""}`, `Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`)} onClick={onOpenNotifications}><Icon name="bell" size={23}/>{unreadCount > 0 && <i>{unreadCount > 99 ? "99+" : unreadCount}</i>}</button>
-          <button type="button" className="cs-profile" aria-label={copy("Profilini aç", "Open your profile")} onClick={() => onNavigate("profile")}>{user ? initials(userName(user)) : <Icon name="user" size={23}/>}</button>
-          <button type="button" className="cs-menu" aria-label={copy("Menüyü aç", "Open menu")} onClick={onOpenMenu}><Icon name="menu" size={21}/></button>
-          <button type="button" className="cs-language" aria-label={copy("Uygulama dilini İngilizce yap", "Switch app language to Turkish")} onClick={() => setLocale(locale === "tr" ? "en" : "tr")}>{locale.toUpperCase()}</button>
-        </div>
-      </header>
+      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) setSearch(""); if (tab === "groups" || tab === "events") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
       <div className="cs-hero-copy"><h1 id="community-welcome-title">{copy("Topluluk", "Community")}</h1><p>{copy("Aynı tutkuyu paylaşan gezginlerle tanış, ilham al, deneyimlerini paylaş.", "Meet travellers who share your passion, find inspiration and share experiences.")}</p></div>
       <p className="cs-handwritten" aria-hidden="true">{copy("Daha Fazla", "More")}<br/>{copy("Hikâye", "Stories")}<br/><span>{copy("Daha Fazla Sen", "More You")}</span></p>
       <div className="cs-stats" aria-label={copy("Son yüklenen topluluk akışı", "Latest loaded community feed")}>

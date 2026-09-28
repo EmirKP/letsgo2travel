@@ -8,6 +8,7 @@ import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { listEventCities, listTravelEvents } from "../lib/api";
+import { loadFeaturedEvents } from "../lib/featuredEvents";
 import { clampLocalDate, isValidDateRange, localIsoDate } from "../lib/dates";
 import { cancelEventReminder, reconcileEventReminders, scheduleEventReminder } from "../lib/eventReminders";
 import { useI18n } from "../lib/i18n";
@@ -59,6 +60,9 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   const [featuredEvents, setFeaturedEvents] = useState<TravelEvent[]>([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const [featuredUnavailable, setFeaturedUnavailable] = useState(false);
+  const [featuredNotConfigured, setFeaturedNotConfigured] = useState(false);
+  const [featuredPartial, setFeaturedPartial] = useState(false);
+  const [featuredRetry, setFeaturedRetry] = useState(0);
   const [featuredGlobal, setFeaturedGlobal] = useState(false);
   const [featuredOpen, setFeaturedOpen] = useState(false);
   const [appliedSearch, setAppliedSearch] = useState<{ signature: string; label: string } | null>(null);
@@ -119,23 +123,18 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     const dates = { startDate: localIsoDate(0), endDate: localIsoDate(180) };
     setFeaturedLoading(true);
     setFeaturedUnavailable(false);
+    setFeaturedNotConfigured(false);
+    setFeaturedPartial(false);
     setFeaturedGlobal(false);
     void (async () => {
       try {
-        const selected = await listTravelEvents({ countryCode, ...dates, featured: true, limit: 6 });
-        let next = Array.isArray(selected.data) ? selected.data : [];
-        let usesGlobal = false;
-        let unavailable = selected.meta?.coverageStatus === "provider_unavailable" || selected.meta?.coverageStatus === "limited" || selected.meta?.coverageStatus === "not_configured";
-        if (countryCode && !next.length && selected.meta?.coverageStatus === "no_results") {
-          const worldwide = await listTravelEvents({ ...dates, featured: true, limit: 6 });
-          next = Array.isArray(worldwide.data) ? worldwide.data : [];
-          usesGlobal = true;
-          unavailable = worldwide.meta?.coverageStatus === "provider_unavailable" || worldwide.meta?.coverageStatus === "limited" || worldwide.meta?.coverageStatus === "not_configured";
-        }
+        const result = await loadFeaturedEvents(countryCode, dates);
         if (current) {
-          setFeaturedEvents(next);
-          setFeaturedGlobal(usesGlobal);
-          setFeaturedUnavailable(unavailable && !next.length);
+          setFeaturedEvents(result.events);
+          setFeaturedGlobal(result.global);
+          setFeaturedUnavailable(result.unavailable && !result.events.length);
+          setFeaturedNotConfigured(result.notConfigured);
+          setFeaturedPartial(result.partial);
         }
       } catch {
         if (current) {
@@ -147,7 +146,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
       }
     })();
     return () => { current = false; };
-  }, [countryCode, featuredOpen]);
+  }, [countryCode, featuredOpen, featuredRetry]);
 
   useEffect(() => {
     setSavedIds(new Set(getSavedTravelEvents(ownerId).map((event) => event.id)));
@@ -322,14 +321,15 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     {filtersChanged && <div className="daily-event-changed" role="status"><p>{copy("Filtreler değişti. Aşağıdaki liste son aramana ait.", "Filters changed. The list below is from your last search.")}</p><button type="button" disabled={loading} onClick={() => void search()}>{copy("Sonuçları güncelle", "Update results")}</button></div>}
 
     <details className="daily-featured-disclosure" onToggle={event => setFeaturedOpen(event.currentTarget.open)}><summary><Icon name="sparkles" size={18}/>{copy("Dünyadan konser fikirleri", "Concert inspiration worldwide")}<Icon name="chevron" size={16}/></summary><section className="featured-events" aria-labelledby="featured-events-title">
-      <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Dünyaca ünlü sanatçılar", "Global headline artists")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
+      <div className="featured-events-heading"><div><span>{copy("DÜNYA SAHNESİ", "WORLD STAGE")}</span><h2 id="featured-events-title">{copy("Öne çıkan konserler", "Concert highlights")}</h2></div><small>{featuredGlobal ? copy("Dünyadan seçildi", "Selected worldwide") : countryCode ? copy("Seçili ülkede", "In selected country") : copy("Tüm dünyada", "Worldwide")}</small></div>
       {featuredLoading ? <div className="featured-skeleton"><div /><div /></div>
         : featuredEvents.length ? <div className="featured-event-list">{featuredEvents.map((event) => <button type="button" key={`featured-${event.id}`} onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}>
           <span className="featured-event-mark">{event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" width="58" height="62" onError={e => { e.currentTarget.hidden = true; }} /> : <Icon name="calendar" size={23} />}</span>
           <span className="featured-event-copy"><small>{[event.city, event.venue].filter(Boolean).join(" · ") || event.countryCode}</small><strong>{event.title}</strong><em>{eventDateLabel(event, dateLocale)}{event.impactRank ? ` · ${copy("Yüksek ilgi", "High impact")}` : ""}</em></span>
           <Icon name="external" size={17} />
         </button>)}</div>
-          : <div className="featured-event-empty"><Icon name={featuredUnavailable ? "offline" : "calendar"} size={22} /><p>{featuredUnavailable ? copy("Öne çıkan konser kaynağına şu anda ulaşılamıyor.", "Headline concert data is temporarily unavailable.") : copy("Önümüzdeki dönemde öne çıkan konser bulunamadı.", "No headline concerts were found for the coming months.")}</p></div>}
+          : <div className="featured-event-empty" role="status"><Icon name={featuredUnavailable ? "offline" : "calendar"} size={22} /><p>{featuredNotConfigured ? copy("Konser önerileri henüz kullanıma açık değil.", "Concert highlights are not available yet.") : featuredUnavailable ? copy("Konser kaynaklarına şu anda ulaşılamıyor. Yeniden deneyebilirsin.", "Concert sources are temporarily unavailable. You can try again.") : copy("Önümüzdeki dönemde öne çıkan konser bulunamadı.", "No concert highlights were found for the coming months.")}</p>{featuredUnavailable && <button type="button" onClick={() => setFeaturedRetry(value => value + 1)}><Icon name="refresh" size={16}/>{copy("Yeniden dene", "Try again")}</button>}</div>}
+      {!featuredLoading && featuredEvents.length > 0 && featuredPartial && <p className="featured-coverage-note">{copy("Ulaşılabilen konser kaynaklarından öneriler gösteriliyor; tüm konserleri kapsamayabilir.", "Suggestions use the concert sources currently available and may not include every concert.")}</p>}
     </section></details>
 
     {!providerConfigured && <div className="info-box event-provider-note"><Icon name="info" size={18} /><p>{copy("Otomatik etkinlik sağlayıcısı henüz etkin değil. Bu sırada yönetici tarafından doğrulanmış duyurular gösterilir.", "The automatic event provider is not enabled yet. Verified editorial listings are shown in the meantime.")}</p></div>}

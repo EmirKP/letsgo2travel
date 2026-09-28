@@ -1,6 +1,5 @@
 import { useEffect, useId, useState } from "react";
 import { Icon } from "../components/Icon";
-import { BrandMark } from "../components/BrandMark";
 import { TravelFeatureIcon } from "../components/TravelFeatureIcon";
 import { useI18n } from "../lib/i18n";
 import { homeDestinations } from "../data/homeDestinations";
@@ -58,14 +57,14 @@ function Landmark({ city }: { city: typeof cities[number] }) {
   </svg>;
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTrip, onOpenSaved, onOpenCommunity, onBuildRoute, onSearchDestination, initialSearchQuery, onToggleSaved, savedRouteIds = [], onOpenNotifications, unreadCount = 0 }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTrip, onOpenSaved, onOpenCommunity, onBuildRoute, onSearchDestination, initialSearchQuery, onToggleSaved, savedRouteIds = [] }: {
   user: AuthUser | null; ownerId?: string | null; accessToken?: string; refreshToken?: number;
   onNavigate: (view: ViewId) => void; onOpenCommunity: (countryCode?: string) => void;
   onOpenTrip?: (id: string) => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
   onSurprise: (route: RouteSuggestion) => void; onBuildRoute: (route: RouteSuggestion) => void; onNotice: (message: string) => void;
   onSearchDestination?: (query: string) => void; onToggleSaved?: (route: RouteSuggestion) => void;
   initialSearchQuery?: string;
-  savedRouteIds?: string[]; onOpenNotifications?: () => void; unreadCount?: number;
+  savedRouteIds?: string[];
 }) {
   const { locale, copy, dateLocale } = useI18n();
   const [query, setQuery] = useState(initialSearchQuery ?? "");
@@ -89,7 +88,6 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const openTrip = () => nextTrip && onOpenTrip ? onOpenTrip(nextTrip.id) : onNavigate("cockpit");
   const openSaved = (section: "routes" | "places" | "events") => onOpenSaved ? onOpenSaved(section) : onNavigate("trips");
   const search = (value: string) => onSearchDestination ? onSearchDestination(value.trim()) : onNavigate("explore");
-  const name = typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim().split(/\s+/)[0] : copy("Gezgin", "Traveller");
   const tripTitle = nextTrip && ([nextTrip.destinationCity, nextTrip.destinationCountry].filter(Boolean).join(", ") || nextTrip.flightNumber || copy("Seyahatin", "Your trip"));
   const labelDate = (value: string) => new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "short" }).format(new Date(value + "T12:00:00"));
   const features = [
@@ -102,10 +100,6 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   return <div className="screen home-screen reference-home">
     <section className="rh-hero" aria-labelledby="rh-title">
       <img className="rh-hero-photo" src={santorini} alt="" fetchPriority="high" width={1448} height={1086}/>
-      <header className="rh-header">
-        <div className="rh-brand"><BrandMark /></div>
-        <div className="rh-header-actions"><button type="button" className="rh-bell" onClick={() => onOpenNotifications?.()} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount > 0 ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={26}/>{unreadCount > 0 && <i/>}</button><button type="button" className="rh-profile" onClick={() => onNavigate("profile")} aria-label={copy("Profilini aç", "Open your profile")}><span className="rh-avatar"><img src={coastal} alt="" width={42} height={42}/></span><span>{copy("İyi günler", "Hello")}<strong>{name}!</strong></span><Icon name="chevron" size={16}/></button></div>
-      </header>
       <div className="rh-hero-copy"><div><p className="rh-eyebrow">{copy("YENİ YERLER, YENİ HİKAYELER", "NEW PLACES, NEW STORIES")}</p><h1 id="rh-title">{copy("Sıradaki", "Where’s Your")}<br/>{copy("Hikayen", "Next")} <span>{copy("Nerede?", "Story?")}</span></h1><p className="rh-hero-subtitle">{copy("Dünya seni bekliyor. Hayal et, planla, keşfet!", "The world is waiting. Dream, plan, explore!")}</p></div><p className="rh-handwritten" aria-hidden="true">{copy("Keşfet", "Explore")}<br/><span>{copy("Planla", "Plan")}</span><br/><span>{copy("Yaşa", "Live")}</span></p></div>
       <form className="rh-search" role="search" onSubmit={event => { event.preventDefault(); search(query); }}><Icon name="search" size={28}/><label className="sr-only" htmlFor="home-destination-search">{copy("Nereye gitmek istersin?", "Where would you like to go?")}</label><input id="home-destination-search" type="search" enterKeyHint="search" autoComplete="off" placeholder={copy("Nereye gitmek istersin?", "Where would you like to go?")} value={query} onChange={event => setQuery(event.target.value)}/><button type="submit" aria-label={copy("Destinasyon ara", "Search destinations")}><Icon name="search" size={28}/></button></form>
       <div className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries")}>{cities.map(city => <button key={city} type="button" onClick={() => search(city)}><Landmark city={city}/><span>{city === "Roma" ? copy("Roma", "Rome") : city}</span></button>)}</div>

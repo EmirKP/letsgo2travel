@@ -89,7 +89,9 @@ export async function GET(request: Request) {
         updatedAt: new Date().toISOString(),
       },
     }, {
-      headers: { "Cache-Control": "public, max-age=120, s-maxage=900, stale-while-revalidate=1800" },
+      headers: { "Cache-Control": result.coverageStatus === "provider_unavailable" || result.coverageStatus === "not_configured"
+        ? "no-store"
+        : "public, max-age=120, s-maxage=900, stale-while-revalidate=1800" },
     });
   } catch {
     return NextResponse.json({ error: "Etkinlikler şu anda alınamadı." }, { status: 503 });

@@ -9,9 +9,9 @@ import "./unified.css";
 import "./journey.css";
 import "./reference-theme.css";
 import "./screens/secondary-polish.css";
+import "./shared-shell.css";
 import { NavigationPane } from "./components/NavigationPane";
 import { LazyOverlay } from "./components/LazyOverlay";
-import { CountryFlag } from "./components/CountryFlag";
 import { AnimatedSplash } from "./components/AnimatedSplash";
 import { Icon, type IconName } from "./components/Icon";
 import { MenuSheet } from "./components/MenuSheet";
@@ -145,7 +145,7 @@ function highlightedTabFor(view: ViewId): TabId | null {
 }
 
 export default function App() {
-  const { locale, setLocale, copy } = useI18n();
+  const { locale, copy } = useI18n();
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [openTransfer, setOpenTransfer] = useState(false);
   const [exploreCode, setExploreCode] = useState("");
@@ -200,6 +200,7 @@ export default function App() {
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
   const activeTab = highlightedTabFor(activeView);
+  const visibleUnreadCount = notificationsEnabled ? unreadCount : 0;
   const nestedView = !tabDefinitions.some(tab => tab.id === activeView);
   const nativeUiRef = useRef({
     accountOpen,
@@ -687,11 +688,10 @@ export default function App() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     const statusBar = plugin("StatusBar");
-    // Capacitor DARK means light text; LIGHT means dark text.
-    const photoHeader = activeView === "home" || activeView === "community";
-    void statusBar?.setStyle?.({ style: photoHeader ? "DARK" : "LIGHT" }).catch(() => undefined);
-    void statusBar?.setBackgroundColor?.({ color: photoHeader ? "#093459" : "#ffffff" }).catch(() => undefined);
-  }, [activeView]);
+    // All screens share the same blue safe area and white status text.
+    void statusBar?.setStyle?.({ style: "DARK" }).catch(() => undefined);
+    void statusBar?.setBackgroundColor?.({ color: "#0877b8" }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -866,7 +866,7 @@ export default function App() {
   };
 
   const renderView = (view: ViewId) => {
-    if (view === "home") return <HomeScreen initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenNotifications={() => setNotificationsOpen(true)} unreadCount={notificationsEnabled ? unreadCount : 0} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "home") return <HomeScreen initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "events") return <EventsScreen key={ownerId || "guest"} focusEventId={focusEventId} onFocusHandled={() => setFocusEventId("")} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onOpenSaved={() => { navigate("trips"); setSavedSection("events"); }} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
@@ -878,7 +878,7 @@ export default function App() {
     if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "trips") return <TripsScreen initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onOpenNotifications={() => setNotificationsOpen(true)} onOpenMenu={() => setMenuOpen(true)} unreadCount={notificationsEnabled ? unreadCount : 0} onNotice={showNotice} />;
+    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onNotice={showNotice} />;
     if (view === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
@@ -889,9 +889,9 @@ export default function App() {
     label: tab.id === "home" ? copy("Keşfet", "Explore") : tab.id === "trips" ? copy("Planlar", "Plans") : tab.id === "community" ? copy("Topluluk", "Community") : tab.id === "companion" ? copy("Araçlar", "Tools") : copy("Profil", "Profile"),
   }));
 
-  return <div className={`app-shell editorial-app view-${activeView} ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
+  return <div className={`app-shell editorial-app shared-shell view-${activeView} ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
-    {activeView !== "home" && activeView !== "community" && <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
+    <header className="topbar shared-topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
@@ -901,11 +901,10 @@ export default function App() {
             buradaki kısayol ve işlevi belirsiz durum noktası kaldırıldı
             (çevrimdışı durumu zaten banner ile gösterilir). Bildirim
             rozeti YALNIZ gerçekten okunmamış içerik varken görünür. */}
-        <button className="language-toggle" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={locale === "tr" ? "Uygulama dilini İngilizce yap" : "Switch app language to Turkish"}><CountryFlag code={locale === "tr" ? "TR" : "GB"} label={locale === "tr" ? "Türkçe" : "English"} /><strong>{locale.toUpperCase()}</strong></button>
-        <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{notificationsEnabled && unreadCount > 0 && <span className="notification-badge">{Math.min(unreadCount, 9)}</span>}</button>
+        <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${visibleUnreadCount ? `, ${visibleUnreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{visibleUnreadCount > 0 && <span className="notification-badge" aria-hidden="true">{visibleUnreadCount > 9 ? "9+" : visibleUnreadCount}</span>}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>
       </div>
-    </header>}
+    </header>
 
     {!online && <div className="offline-banner"><Icon name="offline" size={16} /> {copy("Çevrimdışısın. Kayıtlı planların ve yerel keşif araçların çalışmaya devam eder.", "You're offline. Saved plans and offline travel tools remain available.")}</div>}
     {(pullDistance > 0 || refreshing) && <div className={`pull-indicator ${refreshing ? "refreshing" : ""}`} style={{ transform: `translate(-50%, ${Math.max(0, pullDistance - 38)}px)` }}><Icon name="refresh" size={18} />{refreshing ? copy("Yenileniyor", "Refreshing") : copy("Yenilemek için bırak", "Release to refresh")}</div>}

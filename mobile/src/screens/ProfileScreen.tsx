@@ -320,11 +320,11 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={onNotice}/>
         <div><small>{user ? approvedCount > 0 ? copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER") : copy("HESAP AÇIK", "SIGNED IN") : copy("MİSAFİR MODU", "GUEST MODE")}</small><h1>{name}</h1><p>{user?.email || copy("Kayıtlarını bu cihazda güvenle saklıyorsun.", "Your saved items are kept safely on this device.")}</p></div>
       </div>
-      <button onClick={onOpenAccount}><Icon name={user ? "settings" : "user"} size={18} /> {user ? copy("Hesabı yönet", "Manage account") : copy("Giriş yap", "Sign in")}</button>
+      <button className="profile-account-action" onClick={onOpenAccount} aria-label={user ? copy("Hesabı yönet", "Manage account") : copy("Giriş yap", "Sign in")}><Icon name={user ? "settings" : "user"} size={18} /><span>{user ? copy("Hesap", "Account") : copy("Giriş yap", "Sign in")}</span></button>
     </section>
 
     <section className="explorer-card">
-      <div className="explorer-card-head"><span><Icon name="globe" size={23} /></span><div><small>{copy("DİJİTAL KAŞİF KARTI", "DIGITAL EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
+      <div className="explorer-card-head"><span><Icon name="globe" size={20} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
       <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
       <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{visited.length >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - visited.length)} ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - visited.length)} countries to World Traveller`)}</small></div>
     </section>

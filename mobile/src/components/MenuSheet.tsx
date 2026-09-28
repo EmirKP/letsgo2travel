@@ -17,7 +17,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
   onNavigate: (view: ViewId) => void;
   onOpenAccount: () => void;
 }) {
-  const { locale, copy } = useI18n();
+  const { locale, setLocale, copy } = useI18n();
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
   const [supportOpen, setSupportOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -58,6 +58,12 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
       <div className="menu-brand"><BrandMark /></div>
       <p>{copy("Seyahat keşfi, planlama ve yol araçları tek uygulamada.", "Discovery, planning and on-trip tools in one app.")}</p>
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? copy("İnternet bağlantısı var", "Online") : copy("Çevrimdışı mod", "Offline mode")}</div>
+    </div>
+
+    <div className="menu-language" role="group" aria-label={copy("Uygulama dili", "App language")}>
+      <span>{copy("Dil", "Language")}</span>
+      <button type="button" lang="tr" aria-pressed={locale === "tr"} onClick={() => setLocale("tr")}>Türkçe</button>
+      <button type="button" lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>English</button>
     </div>
 
     <label className="sr-only" htmlFor={searchId}>{copy("Araç ara", "Search tools")}</label>

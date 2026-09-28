@@ -888,7 +888,7 @@ test("Build 16: etkinlik radarı Kosova, tarih, öne çıkan sanatçı ve mobil 
   assert.ok(publicRoute.includes("listEventCities") && publicRoute.includes("placeCode"), "şehir kodu sunucuda ülkeyle doğrulanmalı");
   assert.ok(screen.includes("listEventCities") && screen.includes("cityPlaceCode"), "şehir serbest metin yerine ülkeye bağlı seçenek olmalı");
   assert.ok(screen.includes('min={localIsoDate(0)}') && screen.includes('max={localIsoDate(366)}'), "mobil etkinlik takvimi geçmişi ve aşırı uzak tarihleri seçtirmemeli");
-  assert.ok(screen.includes("Dünyaca ünlü sanatçılar") && screen.includes("featured: true"), "öne çıkan sanatçılar alanı canlı veriden yüklenmeli");
+  assert.ok(screen.includes("Öne çıkan konserler") && screen.includes("loadFeaturedEvents"), "öne çıkan konserler alanı canlı veriden yüklenmeli");
   assert.ok(screen.includes("citiesError") && screen.includes("citiesReloadKey"), "şehir API hatası sessizce tüm şehirler gibi gösterilmemeli");
   assert.ok(styles.includes('.cockpit-arrival-fields { width: 100%; padding: 0;') && styles.includes('input[type="date"]::-webkit-date-and-time-value'), "iOS tarih alanı taşması ve gereksiz varış arka planı düzeltilmeli");
   assert.ok(envExample.includes("PREDICTHQ_ACCESS_TOKEN="), "fallback anahtar adı güvenli env örneğinde bulunmalı");

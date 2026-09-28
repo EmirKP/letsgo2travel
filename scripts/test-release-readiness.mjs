@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 
 const checks = [
   ["--test", "tests/travel-assistant/run.mjs"],
+  ["--test", "tests/travel-assistant/money-ui.mjs"],
   ["--test", "tests/travel-assistant/expansion.mjs"],
   ["--test", "tests/travel-assistant/photo-readiness.mjs"],
   ["--test", "tests/travel-assistant/saved-places.mjs"],
@@ -12,6 +13,7 @@ const checks = [
   ["--test", "tests/community-preferences.mjs"],
   ["--test", "tests/community-ui.mjs"],
   ["--test", "tests/planning-ux.mjs"],
+  ["--test", "tests/events-featured.mjs"],
   ["--test", "tests/flight-lookup.mjs"],
   ["--test", "tests/flight-lookup-db.mjs"],
   ["--test", "tests/flight-retention-db.mjs"],

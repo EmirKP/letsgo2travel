@@ -54,7 +54,7 @@ const config: CapacitorConfig = {
     StatusBar: {
       // Capacitor DARK means light text on a dark background.
       style: "DARK",
-      backgroundColor: "#093459",
+      backgroundColor: "#0877b8",
       // Video ve üst menü güvenli alanın arkasına kesintisiz uzanır;
       // her iki yüzey safe-area dolgusu kullandığı için içerik çentiğe girmez.
       overlaysWebView: true,

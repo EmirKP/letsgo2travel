@@ -1,1 +1,9 @@
 .country-picker-result-count{font-size:13px;color:#52677e;margin:0 0 10px}.country-picker-empty .secondary-button{margin-top:8px;min-height:44px}
+
+/* The composite search has one visible input focus ring. The clear button
+   keeps its own keyboard ring instead of a second ring around the container. */
+.country-picker-sheet .country-picker-search:focus-within { outline: none; box-shadow: none; }
+.country-picker-sheet .country-picker-search:has(> input:focus) { border-color: #0066ff; outline: 3px solid #0066ff; outline-offset: 3px; }
+body:has(.editorial-app) .sheet .country-picker-sheet .country-picker-search > input:focus-visible { outline: none; box-shadow: none; }
+.country-picker-sheet .country-picker-search > input { scroll-margin-block: 12px; }
+body:has(.editorial-app) .sheet .country-picker-sheet .country-picker-search > input { background: transparent; border-radius: 0; }

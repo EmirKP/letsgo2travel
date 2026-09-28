@@ -147,7 +147,7 @@ function categoryFromTicketmaster(event: TicketmasterEvent): TravelEventCategory
 
 function statusFromTicketmaster(value: unknown): TravelEventStatus {
   const status = text(value, 30).toLocaleLowerCase("en");
-  if (status === "cancelled") return "cancelled";
+  if (status === "canceled" || status === "cancelled") return "cancelled";
   if (status === "postponed" || status === "rescheduled") return "postponed";
   return "scheduled";
 }
@@ -173,7 +173,7 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
     startDateTime: `${search.startDate}T00:00:00Z`,
     endDateTime: `${search.endDate}T23:59:59Z`,
     size: String(Math.min(search.limit, 50)),
-    sort: "date,asc",
+    sort: search.featured ? "relevance,desc" : "date,asc",
   });
   if (search.countryCode) params.set("countryCode", search.countryCode);
   if (search.city) params.set("city", search.city);
@@ -219,12 +219,14 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
       imageUrl: ticketmasterImage(event),
       ticketUrl: sourceUrl,
       sourceUrl,
-      featured: false,
+      featured: Boolean(search.featured),
       // Discovery güvenilir bir değişiklik zamanı vermediğinden hatırlatıcı
       // uzlaştırması için etkinlik zamanı kararlı bir sürüm değeri olur.
       updatedAt: startsAt,
     } satisfies TravelEvent;
-    return search.category && mapped.category !== search.category ? [] : [mapped];
+    if (search.category && mapped.category !== search.category) return [];
+    if (search.featured && (mapped.category !== "concert" || mapped.status !== "scheduled")) return [];
+    return [mapped];
   });
 }
 
@@ -298,7 +300,7 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
   if (search.featured) {
     params.set("category", "concerts");
     params.set("rank.gte", "55");
-    // PredictHQ'da `rank` en yüksek etki puanını önce getirir.
+    // PredictHQ rank sorts highest first; unlike dates, -rank reverses to lowest first.
     params.set("sort", "rank,start");
   }
 
@@ -420,11 +422,22 @@ async function automaticProviderEvents(search: EventSearch): Promise<AutomaticPr
         partial = true;
       }
     }
+    // A failed or empty impact feed must not disable the independently working
+    // concert catalogue. Discovery supplies its own relevance order, not PHQ rank.
+    if (!events.length && ticketmasterConfigured && ticketmasterEligible) {
+      providers.ticketmaster.attempted = true;
+      try {
+        events = await ticketmasterEvents({ ...search, category: "concert" });
+        providers.ticketmaster.succeeded = true;
+      } catch {
+        partial = true;
+      }
+    }
     return {
       events,
       providers,
-      fallbackUsed: false,
-      coverageLimited: !predicthqConfigured || !providers.predicthq.succeeded,
+      fallbackUsed: providers.ticketmaster.attempted,
+      coverageLimited: !providers.predicthq.succeeded && !providers.ticketmaster.succeeded,
       partial,
     };
   }
@@ -498,7 +511,7 @@ export async function searchTravelEvents(search: EventSearch) {
   const events = [...curated, ...automatic.events]
     .filter((event, index, all) => all.findIndex((candidate) => sameEvent(candidate, event)) === index)
     .sort((a, b) => search.featured
-      ? (b.impactRank || 0) - (a.impactRank || 0) || a.startsAt.localeCompare(b.startsAt)
+      ? (b.impactRank || 0) - (a.impactRank || 0)
       : a.startsAt.localeCompare(b.startsAt))
     .slice(0, search.limit);
   const providerStates = Object.values(automatic.providers);

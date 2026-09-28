@@ -13,8 +13,21 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join('');
   return value?.props ? text(value.props.children) : typeof value === 'string' ? value : '';
 }
+function sharedHeader(view) {
+  const headers = nodes(view).filter(node => node.type === 'header' && node.props.className?.split(' ').includes('shared-topbar'));
+  assert.equal(headers.length, 1, 'Every screen uses exactly one shared application header');
+  return headers[0];
+}
+function headerButton(view, icon) {
+  const button = nodes(sharedHeader(view)).find(node => node.type === 'button' && nodes(node).some(child => child.type === 'Icon' && child.props.name === icon));
+  assert.ok(button, `The shared header exposes the ${icon} action`);
+  return button;
+}
+function notificationBadge(view) {
+  return nodes(headerButton(view, 'bell')).find(node => node.props?.className === 'notification-badge');
+}
 
-function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false } = {}) {
+function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true } = {}) {
   // Run the real App event handlers. Native services and effects are excluded;
   // React state/ref slots and JSX keys let this catch an accidental remount.
   const slots = []; let cursor = 0;
@@ -40,7 +53,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const auth = { user: null, accessToken: '' };
   const savedByOwner = new Map();
   const storage = {
-    getMobilePreferences: () => ({ inAppNotifications: true }), getGuestDataSummary: () => ({ total: 0 }), hasCompletedOnboarding: () => true, hasSeenRelease: () => releaseSeen, markReleaseSeen: id => calls.releaseSeen.push(id),
+    getMobilePreferences: () => ({ inAppNotifications }), getGuestDataSummary: () => ({ total: 0 }), hasCompletedOnboarding: () => true, hasSeenRelease: () => releaseSeen, markReleaseSeen: id => calls.releaseSeen.push(id),
     getSavedRoutePlans: owner => savedByOwner.get(owner || 'guest') || [],
     saveRoutePlan: (item, owner) => savedByOwner.set(owner || 'guest', [item, ...storage.getSavedRoutePlans(owner).filter(saved => saved.id !== item.id)]),
     deleteRoutePlan: (id, owner) => savedByOwner.set(owner || 'guest', storage.getSavedRoutePlans(owner).filter(saved => saved.id !== id)),
@@ -136,7 +149,7 @@ test('Saved events shortcut opens the events category and regular Saved tab retu
   assert.equal(screen(view, 'PlansScreen').props.initialSection, 'all');
 });
 
-test('Reference navigation has five translated roots and Home/Community own their photo headers', () => {
+test('Reference navigation has five translated roots and one shared header across root and detail screens', () => {
   for (const [locale, labels] of [['tr', ['Keşfet', 'Planlar', 'Topluluk', 'Araçlar', 'Profil']], ['en', ['Explore', 'Plans', 'Community', 'Tools', 'Profile']]]) {
     const { render, bottomButton } = appHarness({ initialView: 'home', locale });
     let view = render();
@@ -144,61 +157,83 @@ test('Reference navigation has five translated roots and Home/Community own thei
     const buttons = nodes(nav).filter(node => node.type === 'button');
     assert.deepEqual(buttons.map(button => text(button)), labels);
     assert.deepEqual(buttons.map(button => nodes(button).find(node => node.type === 'Icon').props.name), ['home', 'calendar', 'users', 'suitcase', 'user']);
-    assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), false, 'Home owns its hero header');
+    assert.equal(headerButton(view, 'bell').props['aria-label'], locale === 'tr' ? 'Bildirimler' : 'Notifications');
+    assert.equal(headerButton(view, 'menu').props['aria-label'], locale === 'tr' ? 'Daha fazla' : 'More');
+    assert.equal(nodes(sharedHeader(view)).some(node => node.props?.className === 'topbar-back'), false, 'Home is a root screen');
     for (const label of labels.slice(1)) {
       bottomButton(view, label).props.onClick(); view = render();
       assert.equal(bottomButton(view, label).props['aria-current'], 'page');
-      assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), label !== labels[2], `${label} renders exactly its intended header`);
-      assert.equal(nodes(view).some(node => node.props?.className === 'topbar-back'), false, 'Root sections are not nested screens');
+      assert.ok(headerButton(view, 'bell'));
+      assert.ok(headerButton(view, 'menu'));
+      assert.equal(nodes(sharedHeader(view)).some(node => node.props?.className === 'topbar-back'), false, 'Root sections are not nested screens');
+    }
+    for (const detail of ['explore', 'route', 'passport', 'surprise', 'cockpit', 'alerts', 'events', 'phrases', 'admin', 'costs', 'airports', 'country-news']) {
+      nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate(detail); view = render();
+      assert.ok(headerButton(view, 'back'), `${detail} retains its back action in the shared header`);
+      assert.ok(headerButton(view, 'bell'));
+      assert.ok(headerButton(view, 'menu'));
+      const home = nodes(sharedHeader(view)).find(node => node.props?.className === 'brand-button');
+      assert.equal(home.props['aria-label'], locale === 'tr' ? 'LetsGo2Travel ana sayfa' : 'LetsGo2Travel home');
+      home.props.onClick(); view = render();
+      assert.equal(bottomButton(view, labels[0]).props['aria-current'], 'page', 'The shared brand always returns home');
     }
   }
 });
 
-test('Native status-bar text follows Home/Community photo headers and white section headers without repeating overlay setup', () => {
+test('Native status-bar text and blue background remain stable across navigation without repeating setup', () => {
   const { render, bottomButton, calls } = appHarness({ initialView: 'home', nativeStatus: true });
   let view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
-  assert.equal(calls.statusBackground.at(-1).color, '#093459');
+  assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
   for (const label of ['Planlar', 'Topluluk', 'Araçlar', 'Profil']) {
     bottomButton(view, label).props.onClick(); view = render();
-    const photoHeader = label === 'Topluluk';
-    assert.equal(calls.statusStyle.at(-1).style, photoHeader ? 'DARK' : 'LIGHT', `${label} gets readable native status-bar text`);
-    assert.equal(calls.statusBackground.at(-1).color, photoHeader ? '#093459' : '#ffffff');
+    assert.equal(calls.statusStyle.at(-1).style, 'DARK', `${label} retains readable white native status-bar text`);
+    assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
   }
+  nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate('events'); view = render();
+  assert.equal(calls.statusStyle.at(-1).style, 'DARK', 'Detail screens use the same native status text');
+  assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
   render();
-  assert.equal(calls.statusStyle.length, 6, 'Unchanged route renders do not reapply native style');
+  assert.equal(calls.statusStyle.length, 1, 'Navigation and unchanged renders do not reapply native style');
+  assert.equal(calls.statusBackground.length, 1, 'Navigation does not reapply the stable native background');
   assert.equal(calls.statusOverlay.length, 1);
   assert.equal(calls.statusOverlay[0].overlay, true);
 });
 
-test('Community photo header connects real notifications, menu, account, events and destination search on a cold start', () => {
+test('Community cold start connects the shared header to real notifications and menu while preserving account, events and search actions', () => {
   const { render, screen, bottomButton, calls } = appHarness({ initialView: 'community', nativeStatus: true });
   let view = render();
   const component = name => nodes(view).find(node => node.type === name);
-  assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), false);
+  assert.ok(sharedHeader(view));
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
-  assert.equal(calls.statusBackground.at(-1).color, '#093459');
-  assert.equal(screen(view, 'CommunityScreen').props.unreadCount, 0);
+  assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
+  assert.equal(headerButton(view, 'bell').props['aria-label'], 'Bildirimler');
+  assert.equal(notificationBadge(view), undefined, 'No unread badge appears without unread content');
 
   component('NotificationCenter').props.onUnreadChange(4); view = render();
-  assert.equal(screen(view, 'CommunityScreen').props.unreadCount, 4, 'The hero uses the actual unread count');
-  screen(view, 'CommunityScreen').props.onOpenNotifications(); view = render();
+  assert.equal(headerButton(view, 'bell').props['aria-label'], 'Bildirimler, 4 okunmamış', 'The header uses the actual unread count');
+  assert.equal(notificationBadge(view).props.children, 4);
+  headerButton(view, 'bell').props.onClick(); view = render();
   assert.equal(component('NotificationCenter').props.open, true);
   component('NotificationCenter').props.onClose(); view = render();
   assert.equal(component('NotificationCenter').props.open, false);
 
-  screen(view, 'CommunityScreen').props.onOpenMenu(); view = render();
-  assert.equal(component('MenuSheet').props.open, true, 'The full-screen header retains the existing menu');
+  headerButton(view, 'menu').props.onClick(); view = render();
+  assert.equal(component('MenuSheet').props.open, true, 'The shared header opens the existing menu');
   component('MenuSheet').props.onClose(); view = render();
   assert.equal(component('MenuSheet').props.open, false);
 
   screen(view, 'CommunityScreen').props.onNavigate('events'); view = render();
   assert.ok(screen(view, 'EventsScreen'), 'Events opens the existing real events screen');
   assert.equal(calls.history.at(-1)[2], '#events');
-  assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), true);
-  assert.equal(calls.statusStyle.at(-1).style, 'LIGHT');
+  assert.ok(sharedHeader(view));
+  assert.equal(notificationBadge(view).props.children, 4, 'Unread state follows navigation into a detail screen');
+  assert.equal(calls.statusStyle.at(-1).style, 'DARK');
+  component('NotificationCenter').props.onUnreadChange(0); view = render();
+  assert.equal(notificationBadge(view), undefined, 'Reading all notifications removes the badge');
+  assert.equal(headerButton(view, 'bell').props['aria-label'], 'Bildirimler');
   bottomButton(view, 'Topluluk').props.onClick(); view = render();
   screen(view, 'CommunityScreen').props.onSearchDestination('  Bali  '); view = render();
   const firstSearch = screen(view, 'ExploreScreen').props;
@@ -224,10 +259,12 @@ test('Legacy planner and discovery deep links retain root highlighting and cold-
 test('Home search forwards its query and repeated searches, while notifications use the real unread count', () => {
   const { render, screen, bottomButton } = appHarness({ initialView: 'home' });
   let view = render();
-  assert.equal(screen(view, 'HomeScreen').props.unreadCount, 0);
+  assert.equal(headerButton(view, 'bell').props['aria-label'], 'Bildirimler');
+  assert.equal(notificationBadge(view), undefined);
   nodes(view).find(node => node.type === 'NotificationCenter').props.onUnreadChange(3); view = render();
-  assert.equal(screen(view, 'HomeScreen').props.unreadCount, 3);
-  screen(view, 'HomeScreen').props.onOpenNotifications(); view = render();
+  assert.equal(headerButton(view, 'bell').props['aria-label'], 'Bildirimler, 3 okunmamış');
+  assert.equal(notificationBadge(view).props.children, 3);
+  headerButton(view, 'bell').props.onClick(); view = render();
   assert.equal(nodes(view).find(node => node.type === 'NotificationCenter').props.open, true);
   screen(view, 'HomeScreen').props.onSearchDestination('  Roma  '); view = render();
   const first = screen(view, 'ExploreScreen').props;
@@ -236,6 +273,32 @@ test('Home search forwards its query and repeated searches, while notifications 
   assert.equal(screen(view, 'HomeScreen').props.initialSearchQuery, 'Roma', 'The remounted Home restores the submitted query');
   screen(view, 'HomeScreen').props.onSearchDestination('Roma'); view = render();
   assert.ok(screen(view, 'ExploreScreen').props.searchRequestId > first.searchRequestId);
+});
+
+test('Disabled in-app notifications hide and omit unread counts while the shared bell still opens the notification center', () => {
+  for (const [locale, label, nextTab] of [['tr', 'Bildirimler', 'Topluluk'], ['en', 'Notifications', 'Community']]) {
+    const { render, bottomButton } = appHarness({ initialView: 'home', locale, inAppNotifications: false });
+    let view = render();
+    nodes(view).find(node => node.type === 'NotificationCenter').props.onUnreadChange(23); view = render();
+    assert.equal(notificationBadge(view), undefined, 'A background unread update cannot override the saved notification preference');
+    assert.equal(headerButton(view, 'bell').props['aria-label'], label, 'Assistive technology also receives no disabled unread count');
+    bottomButton(view, nextTab).props.onClick(); view = render();
+    assert.equal(notificationBadge(view), undefined, 'The preference survives navigation');
+    assert.equal(headerButton(view, 'bell').props['aria-label'], label);
+    headerButton(view, 'bell').props.onClick(); view = render();
+    assert.equal(nodes(view).find(node => node.type === 'NotificationCenter').props.open, true, 'The notification center remains available on demand');
+  }
+});
+
+test('Large unread counts have a compact decorative badge and an exact translated accessible label', () => {
+  for (const [locale, label] of [['tr', 'Bildirimler, 23 okunmamış'], ['en', 'Notifications, 23 unread']]) {
+    const { render } = appHarness({ initialView: 'home', locale });
+    let view = render();
+    nodes(view).find(node => node.type === 'NotificationCenter').props.onUnreadChange(23); view = render();
+    assert.equal(notificationBadge(view).props.children, '9+');
+    assert.equal(notificationBadge(view).props['aria-hidden'], 'true', 'The visual badge must not duplicate the accessible announcement');
+    assert.equal(headerButton(view, 'bell').props['aria-label'], label, 'The compact badge does not truncate the actual accessible count');
+  }
 });
 
 test('Home saved-card actions are owner scoped, preserve custom plans, and report storage failure without a false saved state', () => {

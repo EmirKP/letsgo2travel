@@ -7,6 +7,7 @@ import { ALPHA3_TO_GEO_ID } from "../data/countryCodes";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import type { VisaStatus } from "../types";
 import { useI18n } from "../lib/i18n";
+import "./passport-map-colors.css";
 
 type WorldPath = { id: string; name: string; d: string; x: number | null; y: number | null; area: number };
 
@@ -17,12 +18,12 @@ export type MapStatus = VisaStatus | "unknown";
 const MIN_SCALE = 1;
 const MAX_SCALE = MAP_MAX_SCALE;
 const STATUS_FILL: Record<MapStatus, string> = {
-  id_card: "#397FD1",
-  free: "#28A47B",
-  evisa: "#745FC5",
-  on_arrival: "#DCA936",
-  required: "#D76472",
-  unknown: "#D6DCE5",
+  id_card: "var(--passport-map-id-card, #397FD1)",
+  free: "var(--passport-map-free, #28A47B)",
+  evisa: "var(--passport-map-evisa, #745FC5)",
+  on_arrival: "var(--passport-map-on-arrival, #DCA936)",
+  required: "var(--passport-map-required, #D76472)",
+  unknown: "var(--passport-map-unknown, #D6DCE5)",
 };
 const PINNED_FLAGS = new Set(["USA", "CAN", "BRA", "ARG", "GBR", "FRA", "DEU", "TUR", "RUS", "CHN", "IND", "JPN", "AUS", "ZAF", "EGY", "SAU", "ARE", "IDN", "XKK"]);
 
@@ -65,6 +66,7 @@ const WorldCountries = memo(function WorldCountries({ isHighlighted, selectedAlp
     return <path
       aria-hidden="true"
       key={`${country.id}-${country.name}`}
+      className={`passport-map-country${highlighted ? " is-highlighted" : ""}`}
       d={country.d}
       fill={STATUS_FILL[status]}
       fillOpacity={highlighted ? (status === "unknown" ? 0.68 : 0.94) : 0.12}
@@ -259,7 +261,7 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
       >
         <title>{copy("Seçili pasaporta göre giriş haritası", "Entry map for the selected passport")}</title>
         <desc>{copy("Renkler giriş koşullarını gösterir. Haritayı iki parmakla yakınlaştırabilir, sürükleyebilir ve ülkeye dokunabilirsin.", "Colours show entry requirements. Pinch to zoom, drag the map and tap a country.")}</desc>
-        <rect width="800" height="400" fill="#F4F8FD" />
+        <rect width="800" height="400" fill="var(--passport-map-ocean, #F4F8FD)" />
         <g transform={groupTransform}>
           <WorldCountries isHighlighted={isHighlighted} selectedAlpha3={selectedAlpha3} statusFor={statusFor} />
         </g>

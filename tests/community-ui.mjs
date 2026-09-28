@@ -70,8 +70,8 @@ const rows = [
 ];
 function harness(initial = {}) {
   let host, ownerKey, tree, locale = initial.locale || 'en', failStorage = false, focused = '';
-  const requests = [], photoPreparations = [], frames = [], notices = [], navigation = [], searches = [], languageChanges = [], values = new Map();
-  let accountOpened = 0, menuOpened = 0, notificationsOpened = 0;
+  const requests = [], photoPreparations = [], frames = [], notices = [], navigation = [], searches = [], values = new Map();
+  let accountOpened = 0;
   const window = { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => { if (failStorage) throw Error('Storage full'); values.set(key, value); } }, requestAnimationFrame: fn => frames.push(fn) };
   const document = { getElementById: id => nodes(tree).some(node => node.props?.id === id) ? { focus: () => { focused = id; } } : null };
   const requestJson = (path, options = {}) => { const wait = deferred(); requests.push({ path, options, ...wait }); return wait.promise; };
@@ -81,7 +81,7 @@ function harness(initial = {}) {
   const react = Object.fromEntries(['useState', 'useRef', 'useEffect', 'useMemo', 'useCallback'].map(name => [name, (...args) => host.react[name](...args)]));
   const source = load('mobile/src/screens/CommunityScreen.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
-    '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/BrandMark': { BrandMark: 'BrandMark' },
+    '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../components/CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
@@ -89,11 +89,11 @@ function harness(initial = {}) {
     '../lib/communityPreferences': preferences, '../lib/community': community,
     '../lib/communityPhoto': { prepareCommunityPhoto },
     '../lib/api': { ApiError, requestJson }, '../lib/native': { openExternal: async () => true },
-    '../lib/i18n': { useI18n: () => ({ ...i18n[locale], setLocale: next => { languageChanges.push(next); locale = next; } }) },
+    '../lib/i18n': { useI18n: () => i18n[locale] },
   }, { window, document });
-  let props = { user: null, accessToken: '', initialCountryCode: '', unreadCount: 0, onOpenAccount: () => accountOpened++, onNotice: value => notices.push(value), onNavigate: value => navigation.push(value), onOpenNotifications: () => notificationsOpened++, onOpenMenu: () => menuOpened++, onSearchDestination: value => searches.push(value), ...initial };
+  let props = { user: null, accessToken: '', initialCountryCode: '', onOpenAccount: () => accountOpened++, onNotice: value => notices.push(value), onNavigate: value => navigation.push(value), onSearchDestination: value => searches.push(value), ...initial };
   const h = {
-    requests, photoPreparations, notices, navigation, searches, languageChanges, preferences,
+    requests, photoPreparations, notices, navigation, searches, preferences,
     render(next = {}) {
       props = { ...props, ...next };
       const child = source.CommunityScreen(props);
@@ -112,7 +112,7 @@ function harness(initial = {}) {
     async settle() { await tick(); return h.render(); },
     language(next) { locale = next; return h.render(); },
     failStorage(value) { failStorage = value; },
-    get focused() { return focused; }, get accountOpened() { return accountOpened; }, get menuOpened() { return menuOpened; }, get notificationsOpened() { return notificationsOpened; },
+    get focused() { return focused; }, get accountOpened() { return accountOpened; },
     dispose() { host.dispose(); },
   };
   h.render(); return h;
@@ -261,35 +261,38 @@ test('Question details carry bearer, ignore late selections and retain filtered 
   } finally { h.dispose(); }
 });
 
-test('Editorial inspiration and header actions use actual callbacks without being user posts', async () => {
-  const h = harness({ unreadCount: 3 });
+test('Editorial inspiration, community search and events use their actual actions without becoming user posts', async () => {
+  const h = harness();
   try {
     let view = await h.feed([]);
     assert.deepEqual(postTitles(view), []);
     assert.match(text(byClass(view, 'cs-inspiration')), /Travel ideas from LetsGo2Travel/);
     const first = nodes(view).find(node => node.props?.className === 'cs-inspiration-open'); first.props.onClick();
     assert.deepEqual(h.searches, ['Kapadokya']);
-    h.click('Notifications, 3 unread'); h.click('Open menu'); h.click('Open your profile');
-    assert.equal(h.notificationsOpened, 1); assert.equal(h.menuOpened, 1); assert.deepEqual(h.navigation, ['profile']);
+    view = h.click('Search community');
+    assert.equal(h.focused, 'community-search-input');
+    assert.equal(button(view, 'Search community').props['aria-expanded'], true);
+    assert.deepEqual(postTitles(view), [], 'Editorial content is not inserted into an empty user feed');
+    h.click('Close search');
     view = h.tab('events'); assert.equal(byClass(view, 'cs-inspiration'), undefined); h.click('Discover events');
-    assert.deepEqual(h.navigation, ['profile', 'events']);
+    assert.deepEqual(h.navigation, ['events']);
   } finally { h.dispose(); }
 });
 
-test('The community header language button changes the application locale in both directions', async () => {
-  const h = harness();
+test('Community reflects application locale changes in both directions while keeping its selected country', async () => {
+  const h = harness({ initialCountryCode: 'JP' });
   try {
-    await h.feed([]);
-    let view = h.click('Switch app language to Turkish');
-    assert.deepEqual(h.languageChanges, ['tr']);
+    await h.feed();
+    h.language('tr');
+    let view = await h.feed();
     assert.equal(text(find(view, 'h1')), 'Topluluk');
-    assert.equal(text(button(view, 'Uygulama dilini İngilizce yap')), 'TR');
-    await h.feed([]);
-    view = h.click('Uygulama dilini İngilizce yap');
-    assert.deepEqual(h.languageChanges, ['tr', 'en']);
+    assert.ok(button(view, 'Toplulukta ara'));
+    assert.deepEqual(postTitles(view), ['Tokyo train advice']);
+    h.language('en');
+    view = await h.feed();
     assert.equal(text(find(view, 'h1')), 'Community');
-    assert.equal(text(button(view, 'Switch app language to Turkish')), 'EN');
-    assert.equal(h.menuOpened, 0, 'Changing language is a direct action, independent of opening the menu');
+    assert.ok(button(view, 'Search community'));
+    assert.deepEqual(postTitles(view), ['Tokyo train advice']);
   } finally { h.dispose(); }
 });
 
