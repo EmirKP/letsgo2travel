@@ -687,9 +687,9 @@ export default function App() {
     if (!isNativePlatform()) return;
     const statusBar = plugin("StatusBar");
     // Capacitor DARK means light text; LIGHT means dark text.
-    const home = activeView === "home";
-    void statusBar?.setStyle?.({ style: home ? "DARK" : "LIGHT" }).catch(() => undefined);
-    void statusBar?.setBackgroundColor?.({ color: home ? "#093459" : "#ffffff" }).catch(() => undefined);
+    const photoHeader = activeView === "home" || activeView === "community";
+    void statusBar?.setStyle?.({ style: photoHeader ? "DARK" : "LIGHT" }).catch(() => undefined);
+    void statusBar?.setBackgroundColor?.({ color: photoHeader ? "#093459" : "#ffffff" }).catch(() => undefined);
   }, [activeView]);
 
   useEffect(() => {
@@ -877,7 +877,7 @@ export default function App() {
     if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "trips") return <TripsScreen initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onOpenNotifications={() => setNotificationsOpen(true)} onOpenMenu={() => setMenuOpen(true)} unreadCount={notificationsEnabled ? unreadCount : 0} onNotice={showNotice} />;
     if (view === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
@@ -890,7 +890,7 @@ export default function App() {
 
   return <div className={`app-shell editorial-app view-${activeView} ${keyboardOpen ? "keyboard-open" : ""}`} onTouchStart={startPull} onTouchMove={movePull} onTouchEnd={endPull} onTouchCancel={cancelPull}>
     {launching && <AnimatedSplash onFinish={finishLaunching} />}
-    {activeView !== "home" && <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
+    {activeView !== "home" && activeView !== "community" && <header className="topbar" inert={interactionBlocked} aria-hidden={interactionBlocked || undefined}>
       <div className="topbar-brand-group">
         {nestedView && <button className="topbar-back" onClick={goBack} aria-label={copy("Önceki ekrana dön", "Go back")}><Icon name="back" size={21} /></button>}
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>

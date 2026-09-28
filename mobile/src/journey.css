@@ -1,9 +1,11 @@
 /* Shared movement and touch targets. Screen layouts live beside their screens. */
 .editorial-app .topbar { background: #093459; box-shadow: 0 1px 0 #ffffff16; }
-.navigation-pane { min-width: 0; animation: journey-enter 200ms cubic-bezier(.2,.7,.2,1) both; }
+.navigation-pane { min-width: 0; animation: journey-enter 200ms cubic-bezier(.2,.7,.2,1) backwards; }
 .navigation-pane[data-direction="back"] { animation-name: journey-return; }
-@keyframes journey-enter { from { opacity: .35; transform: translate3d(12px, 4px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-@keyframes journey-return { from { opacity: .35; transform: translate3d(-10px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+/* Release the transformed containing block after entry so fixed controls stay
+   attached to the viewport instead of the full page height. */
+@keyframes journey-enter { from { opacity: .35; transform: translate3d(12px, 4px, 0); } to { opacity: 1; transform: none; } }
+@keyframes journey-return { from { opacity: .35; transform: translate3d(-10px, 0, 0); } to { opacity: 1; transform: none; } }
 .editorial-app .bottom-nav button { min-height: 52px; touch-action: manipulation; }
 .editorial-app .bottom-nav button > span { transition: background-color 160ms ease, color 160ms ease, transform 160ms ease; }
 .editorial-app .bottom-nav button:active > span { transform: scale(.94); }

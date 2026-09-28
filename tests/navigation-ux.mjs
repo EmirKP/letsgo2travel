@@ -136,7 +136,7 @@ test('Saved events shortcut opens the events category and regular Saved tab retu
   assert.equal(screen(view, 'PlansScreen').props.initialSection, 'all');
 });
 
-test('Reference navigation has five translated roots with the correct icons and home-only hero header', () => {
+test('Reference navigation has five translated roots and Home/Community own their photo headers', () => {
   for (const [locale, labels] of [['tr', ['Keşfet', 'Planlar', 'Topluluk', 'Araçlar', 'Profil']], ['en', ['Explore', 'Plans', 'Community', 'Tools', 'Profile']]]) {
     const { render, bottomButton } = appHarness({ initialView: 'home', locale });
     let view = render();
@@ -148,21 +148,22 @@ test('Reference navigation has five translated roots with the correct icons and 
     for (const label of labels.slice(1)) {
       bottomButton(view, label).props.onClick(); view = render();
       assert.equal(bottomButton(view, label).props['aria-current'], 'page');
-      assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), true);
+      assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), label !== labels[2], `${label} renders exactly its intended header`);
       assert.equal(nodes(view).some(node => node.props?.className === 'topbar-back'), false, 'Root sections are not nested screens');
     }
   }
 });
 
-test('Native status-bar text follows dark Home and light section headers without repeating overlay setup', () => {
+test('Native status-bar text follows Home/Community photo headers and white section headers without repeating overlay setup', () => {
   const { render, bottomButton, calls } = appHarness({ initialView: 'home', nativeStatus: true });
   let view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
   assert.equal(calls.statusBackground.at(-1).color, '#093459');
   for (const label of ['Planlar', 'Topluluk', 'Araçlar', 'Profil']) {
     bottomButton(view, label).props.onClick(); view = render();
-    assert.equal(calls.statusStyle.at(-1).style, 'LIGHT', `${label} needs dark text on its white header`);
-    assert.equal(calls.statusBackground.at(-1).color, '#ffffff');
+    const photoHeader = label === 'Topluluk';
+    assert.equal(calls.statusStyle.at(-1).style, photoHeader ? 'DARK' : 'LIGHT', `${label} gets readable native status-bar text`);
+    assert.equal(calls.statusBackground.at(-1).color, photoHeader ? '#093459' : '#ffffff');
   }
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
@@ -170,6 +171,44 @@ test('Native status-bar text follows dark Home and light section headers without
   assert.equal(calls.statusStyle.length, 6, 'Unchanged route renders do not reapply native style');
   assert.equal(calls.statusOverlay.length, 1);
   assert.equal(calls.statusOverlay[0].overlay, true);
+});
+
+test('Community photo header connects real notifications, menu, account, events and destination search on a cold start', () => {
+  const { render, screen, bottomButton, calls } = appHarness({ initialView: 'community', nativeStatus: true });
+  let view = render();
+  const component = name => nodes(view).find(node => node.type === name);
+  assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), false);
+  assert.equal(calls.statusStyle.at(-1).style, 'DARK');
+  assert.equal(calls.statusBackground.at(-1).color, '#093459');
+  assert.equal(screen(view, 'CommunityScreen').props.unreadCount, 0);
+
+  component('NotificationCenter').props.onUnreadChange(4); view = render();
+  assert.equal(screen(view, 'CommunityScreen').props.unreadCount, 4, 'The hero uses the actual unread count');
+  screen(view, 'CommunityScreen').props.onOpenNotifications(); view = render();
+  assert.equal(component('NotificationCenter').props.open, true);
+  component('NotificationCenter').props.onClose(); view = render();
+  assert.equal(component('NotificationCenter').props.open, false);
+
+  screen(view, 'CommunityScreen').props.onOpenMenu(); view = render();
+  assert.equal(component('MenuSheet').props.open, true, 'The full-screen header retains the existing menu');
+  component('MenuSheet').props.onClose(); view = render();
+  assert.equal(component('MenuSheet').props.open, false);
+
+  screen(view, 'CommunityScreen').props.onNavigate('events'); view = render();
+  assert.ok(screen(view, 'EventsScreen'), 'Events opens the existing real events screen');
+  assert.equal(calls.history.at(-1)[2], '#events');
+  assert.equal(nodes(view).some(node => node.type === 'header' && node.props.className === 'topbar'), true);
+  assert.equal(calls.statusStyle.at(-1).style, 'LIGHT');
+  bottomButton(view, 'Topluluk').props.onClick(); view = render();
+  screen(view, 'CommunityScreen').props.onSearchDestination('  Bali  '); view = render();
+  const firstSearch = screen(view, 'ExploreScreen').props;
+  assert.equal(firstSearch.initialSearchQuery, 'Bali', 'Editorial inspiration uses the real destination search');
+  bottomButton(view, 'Topluluk').props.onClick(); view = render();
+  screen(view, 'CommunityScreen').props.onSearchDestination('Bali'); view = render();
+  assert.ok(screen(view, 'ExploreScreen').props.searchRequestId > firstSearch.searchRequestId, 'A repeated inspiration selection still opens a fresh search');
+  bottomButton(view, 'Topluluk').props.onClick(); view = render();
+  screen(view, 'CommunityScreen').props.onOpenAccount(); view = render();
+  assert.equal(screen(view, 'AccountSheet').props.open, true, 'Guest actions keep the existing sign-in flow');
 });
 
 test('Legacy planner and discovery deep links retain root highlighting and cold-start back destinations', () => {

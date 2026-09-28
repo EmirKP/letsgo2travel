@@ -4,9 +4,17 @@ import { getAccountDeletionRequest, getAppleDeletionStatus, hasPendingDeletion, 
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
 import { clearPersonalTravelCards } from "../lib/personalTravelCards";
+import { clearCommunityFollows } from "../lib/communityPreferences";
 import { Icon } from "./Icon";
 import { SupportSheet } from "./SupportSheet";
 import "./account-deletion.css";
+
+function clearAccountDeviceData(ownerId: string): boolean {
+  // Try both independent collections even when one storage operation fails.
+  const cardsCleared = clearPersonalTravelCards(ownerId);
+  const followsCleared = clearCommunityFollows(ownerId);
+  return cardsCleared && followsCleared;
+}
 
 export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange }: {
   accessToken: string;
@@ -84,7 +92,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
     try {
       const result = await submitAccountDeletionRequest(token, locale, confirmation);
       const accepted = ["pending", "reviewing", "processed", "resolved"].includes(result.status);
-      const localCleared = !deletingOwner || !accepted || clearPersonalTravelCards(deletingOwner);
+      const localCleared = !deletingOwner || !accepted || clearAccountDeviceData(deletingOwner);
       if (!current()) return;
       requestSequence.current += 1;
       setRequest(result);
@@ -146,7 +154,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
     <h3 id={`${confirmationId}-heading`}>{copy("Hesap silme", "Account deletion")}</h3>
     {loading && <p role="status">{copy("Talep durumu yükleniyor…", "Loading request status…")}</p>}
     {notice && <p className="account-delete-notice" role="status">{notice}</p>}
-    {localCleanupFailed && <div className="account-delete-notice" role="status"><p>{copy("Hesap silme talebin alındı; ancak bu cihazdaki kişisel seyahat kartları temizlenemedi. Diğer hesapların ve misafir kayıtları değişmedi.", "Your account deletion request was received, but personal travel cards on this device could not be cleared. Other accounts and guest records were unchanged.")}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && clearPersonalTravelCards(ownerId)) { setLocalCleanupFailed(false); setNotice(copy("Bu hesabın cihazdaki kişisel kartları temizlendi.", "This account's personal cards were cleared from this device.")); } }}>{copy("Cihazdaki kartları temizlemeyi dene", "Retry clearing device cards")}</button></div>}
+    {localCleanupFailed && <div className="account-delete-notice" role="status"><p>{copy("Hesap silme talebin alındı; ancak bu cihazdaki kişisel seyahat kartları ve ülke grubu takipleri tamamen temizlenemedi. Diğer hesapların ve misafir kayıtları değişmedi.", "Your account deletion request was received, but personal travel cards and country-group follows on this device could not be cleared completely. Other accounts and guest records were unchanged.")}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && clearAccountDeviceData(ownerId)) { setLocalCleanupFailed(false); setNotice(copy("Bu hesabın cihazdaki kişisel kartları ve ülke grubu takipleri temizlendi.", "This account's personal cards and country-group follows were cleared from this device.")); } }}>{copy("Cihaz verilerini temizlemeyi dene", "Retry clearing device data")}</button></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {request && <AccountDeletionRequestSummary request={request} email={email} />}
     {(expanded || pending) && <>
@@ -165,7 +173,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
     </>}
     {expanded && !pending && <div className="account-delete-confirm">
       <p>{copy("Silme tamamlandığında hesabın, profilin ve özel seyahat kayıtların kalıcı olarak kaldırılır. Diğer kullanıcıların cevapları korunur; topluluk içeriklerin anonimleştirilir. Bu işlem geri alınamaz.", "Once deletion is complete, your account, profile and private travel records are permanently removed. Other users’ replies are retained and your community content is anonymised. This cannot be undone.")}</p>
-      {ownerId && <p>{copy("Talebin kabul edildiğinde bu hesaba ait kişisel seyahat kartları bu cihazdan da hemen silinir. Diğer hesaplar ve misafir kartları korunur.", "Once your request is accepted, this account's personal travel cards are also immediately deleted from this device. Other accounts and guest cards are kept.")}</p>}
+      {ownerId && <p>{copy("Talebin kabul edildiğinde bu hesaba ait kişisel seyahat kartları ve ülke grubu takipleri bu cihazdan da hemen silinir. Diğer hesapların ve misafir kayıtları korunur.", "Once your request is accepted, this account's personal travel cards and country-group follows are also immediately deleted from this device. Other accounts and guest records are kept.")}</p>}
       <label htmlFor={confirmationId}>{copy("Onaylamak için SİL yaz", "Type DELETE to confirm")}</label>
       <input id={confirmationId} value={confirmation} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={deleteWord} onChange={(event) => setConfirmation(event.target.value)} disabled={busy} />
       <button className="danger-wide" disabled={busy || loading || !loaded || !deletionConfirmationMatches(confirmation, locale)} onClick={() => void submit()}><Icon name="trash" size={18} /> {busy ? copy("Gönderiliyor…", "Submitting…") : copy("Kalıcı hesap silme talebini gönder", "Submit permanent account deletion request")}</button>
