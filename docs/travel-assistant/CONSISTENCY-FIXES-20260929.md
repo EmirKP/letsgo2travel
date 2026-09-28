@@ -1,6 +1,6 @@
 # Screenshot consistency fixes — 29 September 2026
 
-Implemented after the user finished sending screenshots and explicitly said to begin. Based on the already delivered 1.4.0 (55); these changes have not been published or uploaded to TestFlight.
+Implemented after the user finished sending screenshots and explicitly said to begin. Based on the previously delivered 1.4.0 (55). After the user's explicit request to send the update, this batch was published to production and delivered as TestFlight 1.4.0 (56).
 
 ## Changes
 
@@ -25,6 +25,15 @@ Implemented after the user finished sending screenshots and explicitly said to b
 
 ## Publication and remaining device validation
 
-No Vercel deployment, Codemagic build, TestFlight upload or App Review submission was performed for this batch. Existing TestFlight 55 still contains the preceding design. The event backend fallback requires a server deployment; its failure/recovery behaviour is covered by mocked-provider regression tests, but the revised backend was not run with live provider keys locally. Real-device safe-area/status-bar appearance and iOS keyboard behaviour still require the next native test package.
+- Release source: `f0fafa65cebb9d1c41c597631e711054fd64e3ab` on `feature/travel-companion-polish-20260927`, including implementation commit `a300269`. GitHub's branch and the Codemagic build listing both confirmed this source.
+- Full `npm run test:release` passed with exit 0: 320 Node test cases, app 139/139, alerts 39/39 and all remaining country, integrity, travel-readiness, account, community, support and privacy checks. The first run identified one stale assertion for the old language-toggle position; it now verifies the accessible shared-menu language controls while preserving persistence and cockpit language checks.
+- Clean release archive: all 2,582 committed files matched their Git blob hashes. Local environment files and unrelated handoff documents were excluded. No database migration or flight-provider configuration was changed.
+- Vercel deployment `dpl_HBxmcn2dJn9sKKTtcpLNUzRjwi1L` reached READY, was checked before promotion and then promoted to production. Inspection of `www.letsgo2travel.com.tr` resolved to this deployment.
+- Protected and public health checks passed (all configured checks true, database OK). Public featured-concert query returned 6 genuine scheduled Ticketmaster concerts with `fallbackUsed: true`, `coverageStatus: live`. PredictHQ remained unavailable; the new alternative provider recovered the list. Community feed returned HTTP 200. No error-level runtime logs were returned for this deployment in the inspected 30-minute window.
+- Codemagic build `6abadce4083ff0a9a53a37de`, workflow `letsgo2travel-ios-testflight`, completed all stages successfully, including release checks, native compilation, signing and publishing. Build listing confirmed source `f0fafa6` and IPA build 56.
+- Apple processed **1.4.0 (56)**, uploaded 29 September 2026 at 00:37 Istanbul. Apple build ID: `841e46af-a333-4b45-ac05-d0b41ad08749`. Confirmed **LetsGo2Travel İç Test**, **Internal**, **3 testers** assigned. Turkish What to Test notes saved successfully.
+- No App Review submission was made. Internal test availability does not establish installation or physical-device behavior; iPhone safe-area/status-bar appearance and keyboard interaction still need real-device testing with build 56.
+
+Operational evidence is saved in the task's `outputs/ux-20260928` directory: `consistency-release-tests.log`, `consistency-vercel-deploy.log`, `consistency-public-checks.json`, `consistency-vercel-runtime.log` and `testflight-56-verification.txt`.
 
 Provider contract references: [PredictHQ event sorting](https://docs.predicthq.com/api/events/search-events), [Ticketmaster Discovery sorting and status](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/).
