@@ -1097,10 +1097,14 @@ test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cac
 test("Build 14: dil tercihi cihazda kalır ve uçuş ekranına kadar taşınır", () => {
   const i18n = readFileSync("mobile/src/lib/i18n.tsx", "utf8");
   const app = readFileSync("mobile/src/App.tsx", "utf8");
+  const menu = readFileSync("mobile/src/components/MenuSheet.tsx", "utf8");
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const sql = readFileSync("supabase/migrations/20260903200000_cockpit_arrival_time.sql", "utf8");
   assert.ok(i18n.includes('LOCALE_KEY = "l2t-language-v1"') && i18n.includes("navigator.language"), "dil cihaz dilinden başlamalı ve saklanmalı");
-  assert.ok(app.includes('className="language-toggle"') && app.includes("Switch app language to Turkish") && app.includes("Uygulama dilini İngilizce yap"), "TR/EN seçici erişilebilir olmalı");
+  assert.ok(app.includes('onClick={() => setMenuOpen(true)}') && app.includes('<MenuSheet open={menuOpen}'), "ortak üst menü dil seçicisine ulaşmalı");
+  assert.ok(menu.includes('role="group" aria-label={copy("Uygulama dili", "App language")}')
+    && menu.includes('lang="tr" aria-pressed={locale === "tr"} onClick={() => setLocale("tr")}')
+    && menu.includes('lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}'), "TR/EN seçimi menüde adlandırılmış, iki dilde ve etkin durumu belirtilmiş olmalı");
   assert.ok(cockpit.includes("appLanguage: locale") && cockpit.includes("arrivalAt"), "dil ve varış uçuş kaydına gitmeli");
   assert.ok(sql.includes("app_language") && sql.includes("arrival_at > departure_at"), "veritabanı dil ve varış bütünlüğünü korumalı");
 });
