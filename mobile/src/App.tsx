@@ -8,6 +8,7 @@ import "./country-intelligence.css";
 import "./unified.css";
 import "./journey.css";
 import "./reference-theme.css";
+import "./screens/secondary-polish.css";
 import { NavigationPane } from "./components/NavigationPane";
 import { LazyOverlay } from "./components/LazyOverlay";
 import { CountryFlag } from "./components/CountryFlag";

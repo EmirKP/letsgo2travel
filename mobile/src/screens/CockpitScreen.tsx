@@ -39,6 +39,7 @@ import {
 } from "../lib/supabaseData";
 import type { AuthUser } from "../types";
 import "./cockpit-journey.css";
+import "./travel-flow-polish.css";
 
 type CockpitScreenProps = {
   user: AuthUser | null;

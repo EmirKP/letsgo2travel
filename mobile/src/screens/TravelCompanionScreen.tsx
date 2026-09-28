@@ -167,8 +167,8 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
       <div className="now-choices">
-        <fieldset><legend>{copy("Bütçem", "My budget")}</legend>{(["free", "low", "flexible"] as const).map((item) => <button type="button" key={item} className={budget === item ? "active" : ""} onClick={() => setBudget(item)}>{item === "free" ? copy("Ücretsiz", "Free") : item === "low" ? copy("Ekonomik", "Low") : copy("Esnek", "Flexible")}</button>)}</fieldset>
-        <fieldset><legend>{copy("Bugünkü modum", "My mood today")}</legend>{(["culture", "food", "outdoors", "calm"] as const).map((item) => <button type="button" key={item} className={interest === item ? "active" : ""} onClick={() => setInterest(item)}>{item === "culture" ? copy("Kültür", "Culture") : item === "food" ? copy("Lezzet", "Food") : item === "outdoors" ? copy("Açık hava", "Outdoors") : copy("Sakin", "Calm")}</button>)}</fieldset>
+        <fieldset><legend>{copy("Bütçem", "My budget")}</legend>{(["free", "low", "flexible"] as const).map((item) => <button type="button" key={item} className={budget === item ? "active" : ""} aria-pressed={budget === item} onClick={() => setBudget(item)}>{item === "free" ? copy("Ücretsiz", "Free") : item === "low" ? copy("Ekonomik", "Low") : copy("Esnek", "Flexible")}</button>)}</fieldset>
+        <fieldset><legend>{copy("Bugünkü modum", "My mood today")}</legend>{(["culture", "food", "outdoors", "calm"] as const).map((item) => <button type="button" key={item} className={interest === item ? "active" : ""} aria-pressed={interest === item} onClick={() => setInterest(item)}>{item === "culture" ? copy("Kültür", "Culture") : item === "food" ? copy("Lezzet", "Food") : item === "outdoors" ? copy("Açık hava", "Outdoors") : copy("Sakin", "Calm")}</button>)}</fieldset>
       </div>
       <button className="now-locate-button" onClick={() => void locate()} disabled={loading}>{loading ? <span className="button-loader" /> : <Icon name="map" size={19} />}{loading ? copy("Şu anın hesaplanıyor…", "Reading the moment…") : copy("Konumuma göre öner", "Suggest from my location")}</button>
       {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p></div>}
@@ -186,13 +186,25 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
         ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`)
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
       {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
-      {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}><small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}<div><button onClick={() => void copyPhrase(phrase.local)}><Icon name="bookmark" size={16} />{copy("Kopyala", "Copy")}</button><button onClick={() => speak(phrase.local)}><Icon name="bell" size={16} />{copy("Dinle", "Listen")}</button></div></article>)}</div>
+      {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}>
+        <small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}
+        <div className="phrase-actions">
+          <button type="button" onClick={() => void copyPhrase(phrase.local)} aria-label={`${copy("Kopyala", "Copy")}: ${phrase.local}`}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3" /></svg>
+            {copy("Kopyala", "Copy")}
+          </button>
+          <button type="button" onClick={() => speak(phrase.local)} aria-label={`${copy("Dinle", "Listen")}: ${phrase.local}`}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m11 4-6 5H2v6h3l6 5V4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14" /></svg>
+            {copy("Dinle", "Listen")}
+          </button>
+        </div>
+      </article>)}</div>
         : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
     </section>}
 
     <section className="companion-sections" aria-labelledby="companion-sections-title">
-      <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" ? copy("Yolculuğuna eşlik etsin", "More help for your journey") : copy("Diğer yardımcılar", "More travel help")}</h2><span aria-hidden="true"><Icon name="sparkles" size={20} /></span></div>
+      <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" ? copy("Yolculuk için kısa yollar", "Travel shortcuts") : copy("Diğer yardımcılar", "More travel help")}</h2></div>
       <nav aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
         {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).filter(item => item !== "assistant" && item !== tab).map((item) => <button type="button" className={`companion-section-card companion-section-${item}`} onClick={() => openSection(item)} key={item}>
           <span className="companion-section-art" aria-hidden="true"><Icon name={tabIcon(item)} size={26} /></span>

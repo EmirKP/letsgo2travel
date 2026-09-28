@@ -21,6 +21,7 @@ import { getVisaEntryRule } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { usePassportPreference } from "../hooks/usePassportPreference";
 import type { VerifiedVisaRule } from "../types";
+import "./profile-passport-polish.css";
 
 const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
 const INITIAL_ROW_COUNT = 40;
@@ -100,27 +101,31 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
   };
 
   return (
-    <div className="screen passport-screen">
+    <div className="screen passport-screen passport-polished">
       <PageHero scene="passport" title={copy("Pasaport Gücü", "Passport Power")} subtitle={copy("Pasaportunla nerelere gidebilirsin?", "Where can your passport take you?")} />
 
+      <section className="passport-overview-card" aria-labelledby="passport-choice-heading">
+      <div className="passport-section-heading"><span className="passport-section-icon"><Icon name="passport" size={22}/></span><div><h2 id="passport-choice-heading">{copy("Pasaportun", "Your passport")}</h2><p>{copy("Ülkelerin giriş koşullarını buna göre gösterelim.", "See entry guidance for your passport.")}</p></div></div>
       <div className="passport-selection">
         <CountryPicker value={passport} options={passportOptions} label={copy("Pasaport ülkesi", "Passport country")} placeholder={copy("Ülke seç", "Choose country")} onChange={code => { closeCountry(); setPreference(code, passportType); setFilter("all"); }}/>
         <label>{copy("Pasaport türü", "Passport type")}<select value={passportType} onChange={event => { closeCountry(); setPreference(passport, event.target.value); setFilter("all"); }}><option value="ordinary">{copy("Umuma mahsus", "Ordinary")}</option><option value="special">{copy("Hususi", "Special")}</option><option value="service">{copy("Hizmet", "Service")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic")}</option></select></label>
       </div>
-      <details className="passport-coverage"><summary>{copy("Veri kapsamı ve tarihi", "Coverage and data date")} · {passportIndex.asOf}</summary><p>{passportType === "ordinary" ? copy("199 pasaport için tarihli keşif verisi; güncel resmî giriş izni değildir. ETA ve giriş kısıtlamaları bilinmiyor renginde gösterilir, ülke detayında açıklanır. Türkiye için kimlik kartıyla geçişte üç MFA kaydı ayrıca işlendi; ek koşullar ülke detayındadır.", "Dated discovery data for 199 passports, not current official entry clearance. ETA and entry restrictions use the unknown colour and are explained in details. Three Turkish ID-card entries from the MFA are separately included; see conditions in details.") : copy("Türkiye'nin özel pasaport türlerinde 13 destinasyon için tarihli MFA ön bilgisi var; diğerleri bilinmiyor. Kalış süresi ve seyahat amacı için resmî kaynağı kontrol et.", "For special Turkish passport types, dated MFA guidance covers 13 destinations; other entries are unknown. Check official duration and purpose conditions.")}</p><button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Veri kaynağı", "Dataset source")}</button></details>
-
-      <div className="chip-scroll passport-filters" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
-        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
-      </div>
-
-      {passport === "TR" && <p className="passport-coverage">{copy("MFA ek kayıt kontrolü", "MFA supplement checked")}: {MFA_CHECKED} · {copy("Güncel giriş garantisi değildir.", "Not a guarantee of current entry.")}</p>}
       <div className="passport-stats">
         <div><Icon name="passport" size={19}/><strong>{counts.free}</strong><span>{copy("Vizesiz*", "Visa-free*")}</span></div>
         <div><Icon name="globe" size={19}/><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
         <div><Icon name="lock" size={19}/><strong>{counts.id_card}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
       </div>
+      <p className="passport-data-note">{copy("*Tarihli ön bilgi; güncel giriş garantisi değildir.", "*Dated guidance, not a guarantee of current entry.")}</p>
+      <details className="passport-coverage"><summary><span>{copy("Veri kapsamı ve tarihi", "Coverage and data date")} · {passportIndex.asOf}</span><Icon name="chevron" size={16}/></summary><p>{passportType === "ordinary" ? copy("199 pasaport için tarihli keşif verisi; güncel resmî giriş izni değildir. ETA ve giriş kısıtlamaları bilinmiyor renginde gösterilir, ülke detayında açıklanır. Türkiye için kimlik kartıyla geçişte üç MFA kaydı ayrıca işlendi; ek koşullar ülke detayındadır.", "Dated discovery data for 199 passports, not current official entry clearance. ETA and entry restrictions use the unknown colour and are explained in details. Three Turkish ID-card entries from the MFA are separately included; see conditions in details.") : copy("Türkiye'nin özel pasaport türlerinde 13 destinasyon için tarihli MFA ön bilgisi var; diğerleri bilinmiyor. Kalış süresi ve seyahat amacı için resmî kaynağı kontrol et.", "For special Turkish passport types, dated MFA guidance covers 13 destinations; other entries are unknown. Check official duration and purpose conditions.")}</p>{passport === "TR" && <p>{copy("MFA ek kayıt kontrolü", "MFA supplement checked")}: {MFA_CHECKED}</p>}<button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Veri kaynağı", "Dataset source")}</button></details>
+      </section>
 
-      <button type="button" className="ci-link-row" onClick={() => onOpenCountryNews("TR")}><Icon name="alert" size={19}/><span><strong>{copy("Seyahat uyarıları ve ülke gündemi", "Travel advice and country updates")}</strong><small>{copy("Vize durumu, seyahat güvenliğiyle aynı şey değildir.", "Visa status does not indicate travel safety.")}</small></span><Icon name="chevron" size={17}/></button>
+      <section className="passport-discovery" aria-labelledby="passport-discovery-heading">
+      <div className="passport-section-heading"><div><h2 id="passport-discovery-heading">{copy("Nereye gitmek istersin?", "Where would you like to go?")}</h2></div></div>
+      <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
+      <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
+      <div className="chip-scroll passport-filters" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
+      </div>
       <p id="passport-map-help" className="passport-map-help">{passportName} · {copy("*Tarihli ön bilgi · Bayraklar yakınlaştırınca görünür.", "*Dated guidance · Zoom to reveal flags.")}</p>
 
       {/* Etkileşimli dünya haritası: arama/filtre ile senkron; ülkeye
@@ -148,8 +153,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
         <span role="listitem" className="legend-chip legend-unknown">{copy("Bilinmiyor", "Unknown")}</span>
       </div>
 
-      <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
-      <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
+      <button type="button" className="ci-link-row passport-advice-link" onClick={() => onOpenCountryNews("TR")}><Icon name="alert" size={19}/><span><strong>{copy("Seyahat uyarıları ve ülke gündemi", "Travel advice and country updates")}</strong><small>{copy("Vize durumu, seyahat güvenliğiyle aynı şey değildir.", "Visa status does not indicate travel safety.")}</small></span><Icon name="chevron" size={17}/></button>
 
       {!query && filter === "all" && <section className="passport-picks" aria-label={copy("Ülke kısayolları", "Country shortcuts")}>
         <div className="editorial-heading"><h2>{copy("Ülkeleri keşfet", "Explore countries")}</h2></div>
@@ -178,6 +182,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
         {!rows.length && <div className="empty-state compact"><Icon name="search" /><strong>{copy("Sonuç bulunamadı", "No results")}</strong><span>{copy("Arama kelimesini veya filtreyi değiştir.", "Change the search or filter.")}</span></div>}
         {visibleRows.length < rows.length && <button className="country-load-more" onClick={() => setVisibleCount((current) => Math.min(rows.length, current + INITIAL_ROW_COUNT))}>{copy("Daha fazla ülke göster", "Show more countries")} <span>{visibleRows.length}/{rows.length}</span></button>}
       </div>
+      </section>
 
       <Sheet open={Boolean(selected)} title={selected ? countryName(selected.alpha3, selected.name) : copy("Ülke", "Country")} onClose={closeCountry}>
         {selected && <div className="country-detail">

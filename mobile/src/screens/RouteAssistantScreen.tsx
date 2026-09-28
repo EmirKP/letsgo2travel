@@ -16,6 +16,7 @@ import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
 import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId, WeatherSummary } from "../types";
 import "./route-planning-clarity.css";
+import "./travel-flow-polish.css";
 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const VIBES = ["Şehir", "Kültür", "Yeme-içme", "Deniz", "Doğa", "Gece hayatı", "Alışveriş", "Macera"];

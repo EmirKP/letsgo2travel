@@ -27,6 +27,7 @@ import type { AuthUser, FavoriteDestination, MobilePreferences, TravelVerificati
 import { useI18n } from "../lib/i18n";
 import profileCover from "../assets/reference/coastal-traveler.webp";
 import "./reference-community-profile.css";
+import "./profile-passport-polish.css";
 
 function displayName(user: AuthUser | null) {
   if (!user) return "Misafir Kaşif";
@@ -312,7 +313,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
   };
 
-  return <div className="screen profile-screen reference-profile">
+  return <div className="screen profile-screen reference-profile profile-polished">
     <div className="profile-cover" aria-hidden="true"><img src={profileCover} alt="" width={1200} height={800}/><span><small>{copy("SENİN YOLCULUĞUN", "YOUR JOURNEY")}</small>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
     <section className="profile-hero">
       <div className="profile-identity">
@@ -330,12 +331,18 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
 
     <section className="profile-section">
       <div className="section-heading"><div><span>{copy("SEYAHAT PROFİLİN", "YOUR TRAVEL PROFILE")}</span><h2>{copy("Kaşif alanın", "Explorer space")}</h2></div></div>
-      <div className="profile-action-list">
-        {isAdmin && <button className="admin-entry" onClick={() => onNavigate("admin")}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Admin Paneli", "Admin Console")}</strong><small>{copy("Site ve uygulamanın canlı yönetim merkezi", "Live management for web and app")}</small></div><Icon name="chevron" size={17} /></button>}
+      {isAdmin && <div className="profile-action-list profile-admin-list"><button className="admin-entry" onClick={() => onNavigate("admin")}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Admin Paneli", "Admin Console")}</strong><small>{copy("Site ve uygulamanın canlı yönetim merkezi", "Live management for web and app")}</small></div><Icon name="chevron" size={17} /></button></div>}
+      <div className="profile-action-list profile-travel-shortcuts">
         <button onClick={() => setVisitedOpen(true)}><span><Icon name="flag" size={21} /></span><div><strong>{copy("Ziyaret ettiğim ülkeler", "Countries I've visited")}</strong><small>{visited.length ? visited.map((item) => countryName(item.alpha3, item.name)).slice(0, 3).join(" · ") : copy("Haritana ilk ülkeyi ekle", "Add your first country")}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("cockpit")}><span><Icon name="suitcase" size={21} /></span><div><strong>{copy("Seyahatlerim", "My Trips")}</strong><small>{copy("Uçuşların, tarihler ve hazırlık listelerin", "Your flights, dates and checklists")}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("trips")}><span><Icon name="heart" size={21} /></span><div><strong>{copy("Kaydedilenler", "Saved")}</strong><small>{copy("Kaydettiğin rotalar, ülkeler ve etkinlikler", "Your saved routes, countries and events")}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("alerts")}><span><Icon name="bell" size={21} /></span><div><strong>{copy("Fiyat Alarmlarım", "Price Alerts")}</strong><small>{copy("Takip ettiğin rotalar ve hedef fiyatlar", "Tracked routes and target prices")}</small></div><Icon name="chevron" size={17} /></button>
+      </div>
+    </section>
+
+    <section className="profile-section" aria-labelledby="profile-community-heading">
+      <div className="section-heading"><div><h2 id="profile-community-heading">{copy("Toplulukta sen", "You in the community")}</h2></div></div>
+      <div className="profile-action-list">
         <button onClick={() => onNavigate("community")}><span><Icon name="users" size={21} /></span><div><strong>{copy("Kaşifler Ligi", "Explorer League")}</strong><small>{copy("Gezgin sıralaması ve topluluk", "Traveller ranking and community")}</small></div><Icon name="chevron" size={16} /></button>
         <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
       </div>

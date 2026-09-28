@@ -29,6 +29,7 @@ import { cancelEventReminder } from "../lib/eventReminders";
 import { normalizeSearchText } from "../lib/searchText";
 import "./daily-journey.css";
 import "./plans-library.css";
+import "./travel-flow-polish.css";
 
 const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then((module) => ({ default: module.JourneyToolsHub })));
 
