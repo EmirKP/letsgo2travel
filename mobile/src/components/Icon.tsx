@@ -8,12 +8,13 @@ export type IconName =
   | "cloud" | "sun" | "wallet" | "users" | "bookmark" | "info" | "logout"
   | "compass" | "suitcase" | "settings" | "share" | "sparkles" | "flag" | "shield"
   | "clock" | "expand" | "camera" | "train" | "languages"
-  | "trophy" | "flame" | "book" | "smile" | "leaf" | "grid";
+  | "trophy" | "flame" | "book" | "smile" | "leaf" | "grid" | "message";
 
 // Sabit ikon ağacı modül yüklenirken yalnız bir kez oluşturulur. Önceki
 // sürümde bu 41 öğelik nesne her <Icon> renderında yeniden kuruluyordu;
 // uzun ülke listelerinde on binlerce gereksiz React düğümü üretiyordu.
 const ICON_PATHS: Record<IconName, ReactNode> = {
+    message: <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/>,
     trophy: <><path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21h8M9 18h6v3"/></>,
     flame: <path d="M12 3c1 4-3 5-3 9-2-1-2-3-2-3-2 2-3 4-3 6a8 8 0 0 0 16 0c0-5-4-9-8-12ZM12 21c-3 0-4-2-4-4s2-3 3-5c0 3 5 3 5 5s-1 4-4 4Z"/>,
     book: <><path d="M5 3h13a1 1 0 0 1 1 1v17H6a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2ZM3 17a3 3 0 0 1 3-3h13M7 3v11M10 7h5M10 10h3"/></>,
