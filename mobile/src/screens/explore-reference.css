@@ -1,0 +1,41 @@
+/* Destination discovery shares the photographic, blue-and-yellow home style. */
+.editorial-app:not(.view-home) .explore-screen .page-hero {
+  min-height: 230px; display: flex; align-items: flex-end; padding: 32px 24px;
+  background-image: linear-gradient(0deg, rgb(7 34 70 / 78%), rgb(7 34 70 / 6%) 100%), url('../assets/home-reference/santorini-hero.webp');
+  background-position: center 55%;
+}
+.editorial-app .explore-screen .discovery-search {
+  display: flex; align-items: center; gap: 12px; min-height: 58px; margin: 20px 0;
+  padding: 8px 16px; border: 1px solid #dce7f7; border-radius: 22px;
+  color: #0066ff; background: #f4f8ff; box-shadow: 0 5px 18px rgb(21 56 96 / 4%);
+}
+.editorial-app .explore-screen .discovery-search input { min-width: 0; width: 100%; min-height: 42px; border: 0; background: transparent; font-size: 16px; color: #091832; }
+.editorial-app .explore-screen .explore-actions { gap: 9px; margin: 18px 0 24px; }
+.editorial-app .explore-screen .explore-actions > button { min-width: 0; min-height: 116px; padding: 13px 5px; border: 1px solid #e4edf9; border-radius: 20px; background: #fff; box-shadow: 0 7px 20px rgb(21 56 96 / 5%); }
+.editorial-app .explore-screen .explore-actions > button > span { width: 44px; height: 44px; border-radius: 16px; color: #0066ff; background: #edf4ff; }
+.editorial-app .explore-screen .explore-actions strong { font-size: 12px; line-height: 1.35; color: #091832; }
+.editorial-app .explore-screen .explore-actions small { font-size: 10px; line-height: 1.4; color: #53647c; }
+.editorial-app .explore-screen .daily-discovery { border-radius: 24px; padding: 26px; margin-block: 22px; min-height: 245px; box-shadow: 0 8px 24px rgb(21 56 96 / 8%); }
+.editorial-app .explore-screen .daily-discovery-copy > span { color: #fff; font-size: 10px; line-height: 1.5; letter-spacing: .8px; }
+.editorial-app .explore-screen .daily-discovery-copy h2 { font-size: 29px; letter-spacing: -.7px; line-height: 1.15; }
+.editorial-app .explore-screen .daily-discovery-copy p { font-size: 14px; }
+.editorial-app .explore-screen .daily-discovery-copy > button { min-height: 46px; border-radius: 99px; padding: 10px 18px; background: #ffda24; color: #091832; border: 0; font-size: 14px; font-weight: 750; }
+.editorial-app .explore-screen .discovery-grid { gap: 14px; }
+.editorial-app .explore-screen .discovery-card { border-radius: 22px; border: 1px solid #e1eaf6; box-shadow: 0 6px 18px rgb(21 56 96 / 6%); }
+.editorial-app .explore-screen .discovery-visual { min-height: 188px; padding: 15px; }
+.editorial-app .explore-screen .discovery-visual h3 { font-size: 20px; line-height: 1.2; }
+.editorial-app .explore-screen .discovery-visual p { font-size: 12px; }
+.editorial-app .explore-screen .discovery-visual > small { font-size: 10px; line-height: 1.4; }
+.editorial-app .explore-screen .discovery-visual .favorite { min-width: 44px; min-height: 44px; top: 7px; right: 7px; background: rgb(9 24 50 / 20%); }
+.editorial-app .explore-screen .discovery-visual .favorite.active { background: #fff; color: #da334e; }
+.editorial-app .explore-screen .discovery-body { padding: 10px 13px; gap: 8px; align-items: center; }
+.editorial-app .explore-screen .discovery-body > span { font-size: 11px; color: #53647c; line-height: 1.4; }
+.editorial-app .explore-screen .discovery-body > button { min-height: 44px; color: #0056d8; font-size: 13px; font-weight: 750; }
+.editorial-app .explore-screen .discovery-search-empty { padding: 24px; border: 1px dashed #c9dcf7; border-radius: 22px; background: #f5f9ff; color: #53647c; }
+@media (max-width: 370px) {
+  .editorial-app .explore-screen .explore-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .editorial-app .explore-screen .discovery-grid { gap: 10px; }
+  .editorial-app .explore-screen .discovery-visual { padding: 12px; }
+  .editorial-app .explore-screen .discovery-visual h3 { font-size: 18px; }
+  .editorial-app .explore-screen .discovery-body { flex-wrap: wrap; gap: 0; }
+}

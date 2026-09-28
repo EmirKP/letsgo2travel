@@ -1,24 +1,116 @@
-.editorial-app .companion-screen .companion-tabs {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
+/* Scope the reference treatment to the directory: map tiles, camera previews,
+   consent controls and provider data retain their functional styles. */
+.editorial-app .companion-screen { --companion-blue: #0066ff; --companion-ink: #091832; --companion-soft: #f1f6ff; }
+.companion-screen:focus { outline: none; }
+.editorial-app:not(.view-home) .screen.companion-screen > .page-hero { min-height: 180px; padding: 25px 22px; background-image: linear-gradient(90deg, rgb(9 24 50 / 80%), rgb(9 24 50 / 10%)), url('../assets/editorial/venice.webp'); background-position: center; border-radius: 26px; }
+.editorial-app:not(.view-home) .screen.companion-screen > .page-hero .page-hero-copy { max-width: 77%; }
+.editorial-app:not(.view-home) .screen.companion-screen > .page-hero h1 { max-width: 300px; font-size: clamp(28px, 6.6vw, 35px); line-height: 1.08; }
+.editorial-app:not(.view-home) .screen.companion-screen > .page-hero p { max-width: 270px; margin-top: 10px; font-size: 13px; line-height: 1.45; }
+.editorial-app:not(.view-home) .screen.companion-screen > .page-hero .page-hero-note { top: 20px; right: 15px; max-width: 26%; color: #ffda24; font-size: 23px; text-align: right; line-height: 1; }
+.companion-screen :is(.companion-section-header button, .companion-section-card, .ta-tool-card, .ta-more-tools, .ta-emergency-shortcut, .ta-tool-header button):focus-visible { outline: 3px solid #0066ff; outline-offset: 4px; }
+
+/* One directory on arrival; each companion section has an explicit way back. */
+.companion-screen .companion-section-header { position: relative; min-width: 0; padding: 0 60px 4px 0; }
+.companion-screen .companion-section-header > button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; margin: -5px 0 9px -7px; padding: 6px 9px; border: 0; border-radius: 14px; background: #edf4ff; color: #0055d6; font: inherit; font-size: 14px; font-weight: 650; }
+.companion-screen .companion-section-symbol { position: absolute; right: 0; bottom: 14px; display: grid; place-items: center; width: 51px; height: 57px; border-radius: 18px; color: #0066ff; background: #edf4ff; transform: rotate(5deg); }
+.editorial-app .companion-screen .companion-section-header h1 { margin: 0; font-size: 29px; line-height: 1.16; letter-spacing: -.8px; color: var(--companion-ink); scroll-margin-top: 160px; }
+.companion-screen .companion-section-header h1:focus { outline: none; }
+.editorial-app .companion-screen .companion-section-header p { margin: 9px 0 0; font-size: 14px; line-height: 1.5; color: #52647e; }
+.editorial-app .companion-screen .companion-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.editorial-app .companion-screen .companion-section-heading h2 { margin: 0; color: var(--companion-ink); font-size: 20px; line-height: 1.3; letter-spacing: -.45px; }
+.companion-screen .companion-section-heading > span { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 11px; color: #665000; background: #fff3b5; }
+.companion-screen .companion-sections > nav { display: grid; gap: 10px; }
+.companion-screen .companion-section-card { display: flex; align-items: center; gap: 13px; width: 100%; min-width: 0; min-height: 92px; padding: 12px; border: 1px solid #e1eafa; border-radius: 23px; background: #fff; color: var(--companion-ink); box-shadow: 0 5px 18px rgb(21 56 96 / 5%); text-align: left; font: inherit; }
+.companion-screen .companion-section-art { display: grid; place-items: center; flex: none; width: 62px; height: 66px; border-radius: 17px; color: #0055d6; background: #edf4ff; }
+.companion-screen .companion-section-now .companion-section-art { color: #fff; background: linear-gradient(rgb(9 24 50 / 20%), rgb(9 24 50 / 20%)), url('../assets/home-reference/coastal-banner.webp') 72% center / cover; }
+.companion-screen .companion-section-phrases .companion-section-art { color: #665000; background: #fff1a7; }
+.companion-screen .companion-section-etiquette .companion-section-art { color: #fff; background: linear-gradient(rgb(9 24 50 / 22%), rgb(9 24 50 / 22%)), url('../assets/editorial/mostar.webp') center / cover; }
+.companion-screen .companion-section-card-copy { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.companion-screen .companion-section-card strong { font-size: 16px; line-height: 1.25; letter-spacing: -.2px; }
+.companion-screen .companion-section-card small { color: #52647e; font-size: 12px; line-height: 1.45; }
+.companion-screen .companion-section-card > svg { flex: none; color: #0066ff; }
+
+/* The four main tools remain in the existing directory; search and tool
+   selection still use the same state and lazy component boundaries. */
+.companion-screen .travel-assistant { --ta-blue: #0066ff; padding: 0; }
+.editorial-app .companion-screen .ta-directory-title { margin: 0 0 6px; color: var(--companion-ink); font-size: 23px; line-height: 1.25; letter-spacing: -.6px; scroll-margin-top: 110px; }
+.editorial-app .companion-screen .ta-intro { margin: 0; font-size: 13px; line-height: 1.5; color: #52647e; }
+.companion-screen .ta-emergency-shortcut { min-height: 54px; margin: 16px 0 12px; padding: 10px 13px; gap: 10px; border-color: #f0d4d0; border-radius: 17px; background: #fff8f6; color: #87352d; }
+.companion-screen .ta-emergency-shortcut strong { font-size: 14px; }
+.companion-screen .ta-emergency-shortcut small { font-size: 11px; }
+.companion-screen .ta-tool-search { min-height: 54px; margin: 0 0 15px; border-color: #dbe6f6; border-radius: 99px; padding-inline: 17px 6px; background: #f5f8ff; color: #0066ff; }
+.companion-screen .ta-tool-search input { min-height: 52px; background: transparent; font-size: 16px; }
+.companion-screen .ta-tool-search:focus-within { outline-color: #0066ff; }
+.companion-screen .ta-tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.companion-screen .travel-assistant .ta-tool-card { gap: 15px; min-height: 156px; padding: 17px 15px; border-color: #e2ebf8; border-radius: 23px; color: var(--companion-ink); background: linear-gradient(145deg, #fff, #f2f6ff); box-shadow: 0 6px 19px rgb(21 56 96 / 6%); }
+.companion-screen .ta-tool-card > .ta-tool-icon { width: 42px; height: 42px; border-radius: 14px; background: #e4efff; color: #0066ff; }
+.companion-screen .ta-tool-card > svg { top: 30px; right: 14px; color: #0066ff; }
+.companion-screen .ta-tool-card strong { font-size: 16px; line-height: 1.3; letter-spacing: -.25px; }
+.companion-screen .ta-tool-card small { color: #52647e; font-size: 12px; line-height: 1.45; }
+.companion-screen .ta-tool-card > span:last-of-type { gap: 5px; }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:first-child { background: linear-gradient(180deg, rgb(9 24 50 / 14%), rgb(9 24 50 / 85%)), url('../assets/destination-artwork/rome.webp') center / cover; }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:last-child { background: linear-gradient(180deg, rgb(9 24 50 / 16%), rgb(9 24 50 / 87%)), url('../assets/home-reference/bali.webp') center / cover; }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:is(:first-child, :last-child) { color: #fff; border-color: transparent; }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:is(:first-child, :last-child) small { color: #fff; }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:is(:first-child, :last-child) > .ta-tool-icon { color: #fff; background: rgb(255 255 255 / 19%); backdrop-filter: blur(8px); }
+.companion-screen .travel-assistant > nav > .ta-tool-grid:first-child > .ta-tool-card:is(:first-child, :last-child) > svg { color: #fff; }
+.companion-screen .ta-more-tools { min-height: 60px; margin: 14px 0 0; border-color: #dce7f8; border-radius: 18px; color: #0055d6; background: #f1f6ff; font-size: 14px; }
+.companion-screen .ta-more-tools small { color: #52647e; font-size: 12px; }
+.companion-screen #ta-other-tools:not([hidden]) { margin-top: 14px; }
+.companion-screen #ta-other-tools .ta-tool-card { min-height: 146px; box-shadow: none; }
+.companion-screen .ta-tool-header { gap: 13px; }
+.companion-screen .ta-tool-header button { border: 0; border-radius: 99px; background: #edf4ff; color: #0055d6; }
+.editorial-app .companion-screen .ta-tool-header h2 { color: var(--companion-ink); font-size: 27px; line-height: 1.2; }
+@supports selector(:has(*)) {
+  .companion-screen:has(.ta-tool-header) > :is(.page-hero, .companion-sections) { display: none; }
 }
 
-.editorial-app .companion-screen .companion-tabs > button {
-  min-width: 0;
-  min-height: 48px;
-  padding: 8px 5px;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
+/* Secondary sections preserve their offline and permission explanations. */
+.editorial-app:not(.view-home) .screen.companion-screen .companion-panel { margin: 0; padding: 18px; border-radius: 24px; box-shadow: 0 6px 22px rgb(21 56 96 / 5%); }
+.editorial-app .companion-screen .now-intro small { color: #0055d6; font-size: 10px; }
+.editorial-app .companion-screen .now-intro h2 { font-size: 23px; line-height: 1.2; }
+.editorial-app .companion-screen .now-intro p { color: #52647e; font-size: 13px; line-height: 1.6; }
+.companion-screen .now-choices { gap: 14px; margin-top: 20px; }
+.companion-screen .now-choices legend { margin-bottom: 9px; font-size: 13px; color: var(--companion-ink); }
+.companion-screen .now-choices fieldset > button { min-height: 44px; padding-inline: 12px; border-radius: 99px; color: #52647e; background: #f5f8ff; font-size: 12px; }
+.companion-screen .now-choices fieldset > button.active { color: #fff; background: #0066ff; border-color: #0066ff; }
+.companion-screen .now-locate-button { min-height: 52px; border-radius: 99px; color: #091832; background: #ffda24; font-size: 14px; }
+.companion-screen .now-weather { background: linear-gradient(130deg, #0066ff, #0847b2); border-radius: 20px; padding: 17px; }
+.companion-screen .now-recommendations button { min-height: 92px; padding: 14px; background: #f5f8ff; border-color: #e2ebf8; border-radius: 19px; }
+.companion-screen .now-recommendations em { color: #0055d6; background: #e5efff; }
+.companion-screen .now-recommendations strong { font-size: 14px; }
+.companion-screen .now-recommendations small { color: #52647e; font-size: 12px; line-height: 1.45; }
+.companion-screen .now-recommendations i { color: #0055d6; font-size: 11px; }
+.editorial-app .companion-screen .phrase-list > article { gap: 8px; padding: 17px; border-radius: 20px; border-color: #e0eafa; background: #f7faff; }
+.editorial-app .companion-screen .phrase-list strong { color: var(--companion-ink); font-size: 23px; line-height: 1.35; overflow-wrap: anywhere; }
+.editorial-app .companion-screen .phrase-list small { color: #52647e; font-size: 13px; }
+.editorial-app .companion-screen .phrase-list em { color: #0055d6; font-size: 13px; }
+.companion-screen .phrase-list button { min-height: 44px; padding-inline: 13px; border-radius: 99px; color: #0055d6; border-color: #d8e5f7; font-size: 12px; }
+.companion-screen :is(.essential-offline, .now-privacy) { margin-top: 14px; font-size: 11px; color: #52647e; line-height: 1.6; }
 
-.companion-screen .companion-tabs > button:focus-visible {
-  outline: 3px solid #e5b52e;
-  outline-offset: 3px;
+@media (min-width: 700px) {
+  .editorial-app:not(.view-home) .screen.companion-screen > .page-hero { min-height: 210px; padding: 29px; }
+  .editorial-app:not(.view-home) .screen.companion-screen > .page-hero .page-hero-copy { max-width: 70%; }
+  .companion-screen .travel-assistant > nav > .ta-tool-grid:first-child { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .companion-screen .travel-assistant .ta-tool-card { min-height: 172px; }
+  .companion-screen .companion-sections > nav { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+  .companion-screen .companion-section-card { position: relative; flex-direction: column; align-items: flex-start; padding: 17px; }
+  .companion-screen .companion-section-card > svg { position: absolute; top: 42px; right: 16px; }
+  .companion-screen .companion-section-art { width: 62px; height: 62px; }
+  .companion-screen .companion-section-card-copy { flex: none; }
 }
-
-@media (max-width: 340px) {
-  .editorial-app .companion-screen .companion-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+@media (max-width: 360px) {
+  .editorial-app:not(.view-home) .screen.companion-screen > .page-hero { padding-inline: 18px; }
+  .editorial-app:not(.view-home) .screen.companion-screen > .page-hero .page-hero-copy { max-width: 85%; }
+  .editorial-app:not(.view-home) .screen.companion-screen > .page-hero .page-hero-note { display: none; }
+  .companion-screen .ta-tool-grid { gap: 9px; }
+  .companion-screen .travel-assistant .ta-tool-card { flex-direction: column; align-items: flex-start; padding: 13px 10px; min-height: 159px; gap: 13px; }
+  .companion-screen .ta-tool-card strong { font-size: 14px; }
+  .companion-screen .ta-tool-card small { font-size: 11px; }
+  .companion-screen .companion-section-card { gap: 10px; }
+  .companion-screen .companion-section-art { width: 51px; height: 59px; }
+  .editorial-app:not(.view-home) .screen.companion-screen .companion-panel { padding: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .companion-screen :is(.companion-section-card, .ta-tool-card) { transition: none; }
 }

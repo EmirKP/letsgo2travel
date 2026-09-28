@@ -58,6 +58,25 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     || fallbackEssentialProfile(countryCode, selectedCountry?.name || countryCode, flagEmoji(countryCode)), [countryCode, selectedCountry?.name]);
 
   useEffect(() => setTab(initialTab), [initialTab]);
+  const focusSection = (item: CompanionTab) => {
+    // Only a deliberate section click moves focus. Reactivating a retained
+    // screen, changing country or changing language must keep its scroll.
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      const screen = document.querySelector<HTMLElement>(".companion-screen");
+      if (screen?.dataset.section !== item) return;
+      const heading = screen.querySelector<HTMLElement>(item === "assistant" ? ".ta-directory-title" : "#companion-section-title") || screen;
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "start", behavior: "auto" });
+    });
+  };
+
+  const openSection = (item: CompanionTab) => {
+    const selected = readTravelCountry();
+    if (selected) setCountryCode(selected);
+    setTab(item);
+    focusSection(item);
+  };
 
   const tabLabel = (value: CompanionTab) => ({
     assistant: copy("Araçlar", "Tools"),
@@ -65,6 +84,13 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     phrases: copy("Hazır ifadeler", "Useful phrases"),
     etiquette: copy("Yerel ipuçları", "Local tips"),
   })[value];
+  const tabDescription = (value: CompanionTab) => ({
+    assistant: copy("Harita, çeviri ve yolculukta gerekenler.", "Maps, translation and travel essentials."),
+    now: copy("Havaya ve sana uyan bir sonraki molayı bul.", "Find your next stop to suit you and the weather."),
+    phrases: copy("Konuş, kopyala veya dinlet. İfadeler internetsiz de yanında.", "Read, copy or play a phrase. The cards work offline too."),
+    etiquette: copy("Yerel alışkanlıkları ve dikkat etmen gerekenleri öğren.", "Get to know local customs and useful guidance."),
+  })[value];
+  const tabIcon = (value: CompanionTab) => ({ assistant: "suitcase", now: "sun", phrases: "languages", etiquette: "globe" } as const)[value];
 
   const locate = async () => {
     if (loading) return;
@@ -127,14 +153,16 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     window.speechSynthesis.speak(utterance);
   };
 
-  return <div className="screen companion-screen">
-    <PageHero scene="city" title={copy("Seyahat Araçların", "Your Travel Tools")} subtitle={copy("Harita, çeviri ve yoldayken ihtiyacın olan yardım.", "Maps, translation and help along the way.")} />
+  return <div className="screen companion-screen" data-section={tab} tabIndex={-1}>
+    {tab === "assistant"
+      ? <PageHero scene="city" title={copy("Yolculukta elinin altında", "A little help along the way")} subtitle={tabDescription("assistant")} note={copy("Keşfet, rahat et.", "Explore with ease.")} />
+      : <header className="companion-section-header">
+        <button type="button" onClick={() => openSection("assistant")}><Icon name="back" size={18} />{tabLabel("assistant")}</button>
+        <span className="companion-section-symbol" aria-hidden="true"><Icon name={tabIcon(tab)} size={28} /></span>
+        <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
+      </header>}
 
-    <div className="companion-tabs" role="group" aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
-      {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).map((item) => <button type="button" aria-pressed={tab === item} className={tab === item ? "active" : ""} onClick={() => { const selected = readTravelCountry(); if (selected) setCountryCode(selected); setTab(item); }} key={item}>{tabLabel(item)}</button>)}
-    </div>
-
-    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); }} /></Suspense>}
+    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); focusSection("phrases"); }} /></Suspense>}
 
     {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
@@ -162,5 +190,16 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
         : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
     </section>}
+
+    <section className="companion-sections" aria-labelledby="companion-sections-title">
+      <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" ? copy("Yolculuğuna eşlik etsin", "More help for your journey") : copy("Diğer yardımcılar", "More travel help")}</h2><span aria-hidden="true"><Icon name="sparkles" size={20} /></span></div>
+      <nav aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
+        {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).filter(item => item !== "assistant" && item !== tab).map((item) => <button type="button" className={`companion-section-card companion-section-${item}`} onClick={() => openSection(item)} key={item}>
+          <span className="companion-section-art" aria-hidden="true"><Icon name={tabIcon(item)} size={26} /></span>
+          <span className="companion-section-card-copy"><strong>{tabLabel(item)}</strong><small>{tabDescription(item)}</small></span>
+          <Icon name="chevron" size={18} />
+        </button>)}
+      </nav>
+    </section>
   </div>;
 }

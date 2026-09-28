@@ -25,6 +25,8 @@ import {
 } from "../lib/storage";
 import type { AuthUser, FavoriteDestination, MobilePreferences, TravelVerification, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
+import profileCover from "../assets/reference/coastal-traveler.webp";
+import "./reference-community-profile.css";
 
 function displayName(user: AuthUser | null) {
   if (!user) return "Misafir Kaşif";
@@ -310,8 +312,8 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
   };
 
-  return <div className="screen profile-screen">
-    <div className="profile-cover scene-journey" aria-hidden="true"><span>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
+  return <div className="screen profile-screen reference-profile">
+    <div className="profile-cover" aria-hidden="true"><img src={profileCover} alt="" width={1200} height={800}/><span><small>{copy("SENİN YOLCULUĞUN", "YOUR JOURNEY")}</small>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
     <section className="profile-hero">
       <div className="profile-identity">
         <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={onNotice}/>
@@ -339,8 +341,10 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       </div>
     </section>
 
-    <section className="profile-section">
-      <div className="section-heading"><div><span>{copy("BİLDİRİMLER", "NOTIFICATIONS")}</span><h2>{copy("Bildirim tercihlerin", "Notification preferences")}</h2></div></div>
+    <section className="profile-section profile-settings" aria-labelledby="profile-settings-heading">
+      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS")}</span><h2 id="profile-settings-heading">{copy("Tercihler ve gizlilik", "Preferences & privacy")}</h2></div></div>
+      <details className="profile-preference-group">
+        <summary><span className="profile-preference-icon"><Icon name="bell" size={21}/></span><span><strong>{copy("Bildirimler", "Notifications")}</strong><small>{copy("Uygulama içi ve telefon bildirimleri", "In-app and phone notifications")}</small></span><Icon name="chevron" size={18}/></summary>
       <div className="settings-card">
         <label><span><Icon name="bell" size={19} /><em><strong>{copy("Uygulama içi bildirimler", "In-app notifications")}</strong><small>{copy("Rota ve vize güncellemeleri", "Route and visa updates")}</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
         <button disabled={pushBusy || pushState === "unsupported"} onClick={() => void togglePushSetting()}><span><Icon name="bell" size={19} /><em><strong>{copy("Telefon bildirimleri", "Phone notifications")}</strong><small>{pushStateText}</small></em></span>{pushBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
@@ -348,19 +352,24 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
           <button disabled={testBusy} onClick={() => void sendTestPush()}><span><Icon name="sparkles" size={19} /><em><strong>{copy("Test bildirimi gönder", "Send test notification")}</strong><small>{copy("Bildirimlerin bu cihazda çalıştığını doğrula", "Check that notifications work on this device")}</small></em></span>{testBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
         )}
       </div>
-    </section>
-
-    <section className="profile-section">
-      <div className="section-heading"><div><span>{copy("UYGULAMA VE GİZLİLİK", "APP & PRIVACY")}</span><h2>{copy("Ayarlar", "Settings")}</h2></div></div>
+      </details>
+      <details className="profile-preference-group">
+        <summary><span className="profile-preference-icon"><Icon name="lock" size={21}/></span><span><strong>{copy("Gizlilik ve topluluk", "Privacy & community")}</strong><small>{copy("Görünürlük, engellenenler ve veri hakların", "Visibility, blocked users and your data rights")}</small></span><Icon name="chevron" size={18}/></summary>
       <div className="settings-card">
-        <label><span><Icon name="sparkles" size={19} /><em><strong>{copy("Dokunma titreşimi", "Touch feedback")}</strong><small>{copy("Desteklenen cihazlarda hafif geri bildirim", "Gentle feedback on supported devices")}</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
         {user && <label><span><Icon name="users" size={19} /><em><strong>{copy("Kaşifler Ligi'nde görün", "Appear in Explorer League")}</strong><small>{copy("Yalnız güvenli profil özeti paylaşılır", "Only a safe profile summary is shared")}</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
-        <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
-        <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulama turu", "App tour")}</strong><small>{copy("Temel özellikleri yeniden, adım adım gör", "Review the main features step by step")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><span><Icon name="unlock" size={19} /><em><strong>{copy("Engellenen kullanıcılar", "Blocked users")}</strong><small>{copy("Engellediğin kişileri gör ve engeli kaldır", "View and unblock people")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
+      </details>
+      <details className="profile-preference-group">
+        <summary><span className="profile-preference-icon"><Icon name="settings" size={21}/></span><span><strong>{copy("Uygulama", "App")}</strong><small>{copy("Dokunma hissi, yenilikler ve kısa tur", "Touch feedback, updates and a quick tour")}</small></span><Icon name="chevron" size={18}/></summary>
+        <div className="settings-card">
+          <label><span><Icon name="sparkles" size={19} /><em><strong>{copy("Dokunma titreşimi", "Touch feedback")}</strong><small>{copy("Desteklenen cihazlarda hafif geri bildirim", "Gentle feedback on supported devices")}</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
+          <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
+          <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulama turu", "App tour")}</strong><small>{copy("Temel özellikleri yeniden, adım adım gör", "Review the main features step by step")}</small></em></span><Icon name="chevron" size={17} /></button>
+        </div>
       <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
+      </details>
     </section>
 
     {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked."))} />}

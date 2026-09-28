@@ -24,6 +24,7 @@ import type { RouteSuggestion, ViewId } from "../types";
 import { usePassportPreference } from "../hooks/usePassportPreference";
 import { preferredEntry } from "../lib/passportPreference";
 import passportIndex from "../data/passport-index.json";
+import "./explore-reference.css";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 

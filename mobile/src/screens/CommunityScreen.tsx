@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
 import { Icon } from "../components/Icon";
-import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { SupportSheet } from "../components/SupportSheet";
@@ -19,6 +18,8 @@ import {
 import { openExternal } from "../lib/native";
 import type { AuthUser } from "../types";
 import { useI18n } from "../lib/i18n";
+import communityCover from "../assets/home-reference/coastal-banner.webp";
+import "./reference-community-profile.css";
 
 // Soru formunda ülke SEÇİLİR (kod yazılmaz); ada göre sıralı, bayraklı.
 type CommunityAnswer = {
@@ -88,10 +89,12 @@ function formatQuestionDate(value: string, locale = "tr-TR") {
   }
 }
 
-function questionScopeLabel(countryCode: string, general = "Genel") {
-  return countryCode === "ZZ"
+function questionScopeLabel(countryCode: string, countryLabels: ReadonlyMap<string, string>, general = "Genel") {
+  const normalizedCode = countryCode.toUpperCase();
+  const label = countryLabels.get(normalizedCode) || countryCode;
+  return normalizedCode === "ZZ"
     ? <><span className="community-world-flag" aria-hidden="true">🌍</span><b>{general}</b></>
-    : <><CountryFlag code={countryCode} label={countryCode} className="community-scope-flag" /><b>{countryCode}</b></>;
+    : <><CountryFlag code={countryCode} label={label} className="community-scope-flag" /><b>{label}</b></>;
 }
 
 function userName(user: AuthUser | null) {
@@ -128,6 +131,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     flagCode: country.alpha2,
     name: country.name,
   })), [questionCountries]);
+  const questionCountryLabels = useMemo(() => new Map(questionCountries.map(country => [country.alpha2, country.name])), [questionCountries]);
   const [tab, setTab] = useState<"feed" | "league">("feed");
   const [leaders, setLeaders] = useState<CommunityLeader[]>([]);
   const [loading, setLoading] = useState(false);
@@ -389,13 +393,11 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     }
   };
 
-  return <div className="screen community-native-screen">
-    <PageHero scene="journey" title={copy("Gezgin Topluluğu", "Traveller Community")} subtitle={copy("Sor, deneyimini paylaş, birlikte keşfet.", "Ask, share your experience, discover together.")} />
-    <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
-      <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="unlock" size={17} /><span>{copy("Engellenenler", "Blocked users")}<small>{copy("Engeli kaldır", "Unblock")}</small></span></button>
-      <button type="button" onClick={() => setSupportOpen(true)}>{copy("Destek", "Support")}</button>
-      <button type="button" onClick={() => void openExternal("/topluluk-kurallari").then((opened) => { if (!opened && active.current) onNotice(copy("Topluluk kuralları açılamadı. Tekrar dene.", "Community rules could not be opened. Please retry.")); })}>{copy("Topluluk kuralları", "Community rules")}</button>
-    </div>
+  return <div className="screen community-native-screen reference-community">
+    <section className="community-welcome" aria-labelledby="community-welcome-title">
+      <img src={communityCover} alt="" width={1600} height={533}/>
+      <div><span className="community-welcome-eyebrow"><Icon name="users" size={16}/>{copy("BİRLİKTE KEŞFET", "DISCOVER TOGETHER")}</span><h1 id="community-welcome-title">{copy("Gezgin Topluluğu", "Traveller Community")}</h1><p>{copy("Sor, deneyimini paylaş, birlikte keşfet.", "Ask, share your experience, discover together.")}</p></div>
+    </section>
 
     <div className="segmented community-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
       <button id="community-tab-feed" type="button" role="tab" aria-selected={tab === "feed"} aria-controls="community-panel-feed" tabIndex={tab === "feed" ? 0 : -1} className={tab === "feed" ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab("feed")}><Icon name="compass" size={16} /> {copy("Sorular", "Questions")}</button>
@@ -403,7 +405,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </div>
 
     <section id="community-panel-league" className="community-tab-panel" role="tabpanel" aria-labelledby="community-tab-league" tabIndex={tab === "league" ? 0 : -1} hidden={tab !== "league"}><section className="community-native-summary">
-      <div><span><Icon name="globe" size={20} /></span><strong>{leaders.length}</strong><small>{copy("Sıralamadaki gezgin", "Ranked travellers")}</small></div>
+      <div><span><Icon name="globe" size={20} /></span><strong>{loaded ? leaders.length : "—"}</strong><small>{copy("Sıralamadaki gezgin", "Ranked travellers")}</small></div>
       <button className="secondary-button" disabled={loading} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} {copy("Yenile", "Refresh")}
       </button>
@@ -445,8 +447,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>{copy("Sıralama yalnızca katılmayı seçen kullanıcıları ve güvenli profil özetlerini gösterir.", "The ranking shows only people who opted in and a safe profile summary.")}</p></div></section>
 
     <section id="community-panel-feed" className="community-feed" role="tabpanel" aria-labelledby="community-tab-feed" tabIndex={tab === "feed" ? 0 : -1} hidden={tab !== "feed"}>
-      <div className="community-feed-toolbar"><div><small>{copy("ÜLKE TOPLULUKLARI", "COUNTRY COMMUNITIES")}</small><h2>{copy("Gezginlerin soruları", "Traveller questions")}</h2></div><button onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? copy("Kapat", "Close") : copy("Soru sor", "Ask")}</button></div>
-      {questionOpen && <div className="form-card community-question-form">
+      <div className="community-feed-toolbar"><div><small>{copy("ÜLKE TOPLULUKLARI", "COUNTRY COMMUNITIES")}</small><h2>{copy("Gezginlerin soruları", "Traveller questions")}</h2></div><button type="button" aria-expanded={questionOpen} aria-controls={questionOpen ? "community-question-compose" : undefined} onClick={() => user ? setQuestionOpen((open) => !open) : onOpenAccount()}><Icon name={questionOpen ? "close" : "plus"} size={17} /> {questionOpen ? copy("Kapat", "Close") : copy("Soru sor", "Ask")}</button></div>
+      {questionOpen && <div id="community-question-compose" className="form-card community-question-form">
         <CountryPicker value={countryCode} options={questionCountryOptions} onChange={(value) => { if (!posting) setCountryCode(value); }} label={copy("Ülke", "Country")} placeholder={copy("Hangi ülkeyle ilgili?", "Which country is this about?")} />
         <label>{copy("Başlık", "Title")}<input disabled={posting} value={questionTitle} maxLength={160} onChange={(event) => setQuestionTitle(event.target.value)} placeholder={copy("Gezginlere ne sormak istiyorsun?", "What would you like to ask travellers?")} /></label>
         <label>{copy("Açıklama", "Description")}<textarea disabled={posting} value={questionBody} maxLength={4000} onChange={(event) => setQuestionBody(event.target.value)} placeholder={copy("Sorunu anlaşılır biçimde anlat…", "Explain your question clearly…")} /></label>
@@ -454,12 +456,12 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       </div>}
       {!feedLoading && (questions.length > 0 || Boolean(countryFilter)) && <div className="community-country-filters" role="group" aria-label={copy("Ülke topluluğunu filtrele", "Filter country community")}>
         <button type="button" className={!countryFilter ? "active" : ""} aria-pressed={!countryFilter} onClick={() => setCountryFilter("")}><Icon name="globe" size={15} /> {copy("Tümü", "All")}</button>
-        {feedCountries.map((code) => <button type="button" key={code} className={countryFilter === code ? "active" : ""} aria-pressed={countryFilter === code} onClick={() => setCountryFilter(code)}>{questionScopeLabel(code, copy("Genel", "General"))}</button>)}
+        {feedCountries.map((code) => <button type="button" key={code} className={countryFilter === code ? "active" : ""} aria-pressed={countryFilter === code} onClick={() => setCountryFilter(code)}>{questionScopeLabel(code, questionCountryLabels, copy("Genel", "General"))}</button>)}
       </div>}
       {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20} /><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
       {feedLoading ? <div className="skeleton-list community-native-loading"><div /><div /><div /></div>
         : filteredQuestions.length ? <div className="community-question-list">{filteredQuestions.map((question) => <article key={question.id}>
-          <header><span>{questionScopeLabel(question.countryCode, copy("Genel", "General"))}</span><div>{authorButton(question, "question")}<small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
+          <header><span>{questionScopeLabel(question.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(question, "question")}<small>{formatQuestionDate(question.createdAt, dateLocale)}</small></div><em>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</em></header>
           <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}>
             <h3>{question.title}</h3><p>{question.body}</p>
           </button>
@@ -467,11 +469,17 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         : !feedError && <div className="empty-state"><span><Icon name="users" size={28} /></span><strong>{countryFilter ? copy("Bu ülke topluluğunda henüz soru yok", "No questions in this country community yet") : copy("Henüz görünür soru yok", "No visible questions yet")}</strong><p>{copy("İlk soruyu sorarak ülke topluluğunu başlatabilirsin.", "Ask the first question to start this country community.")}</p>{countryFilter && <button className="secondary-button" type="button" onClick={() => setCountryFilter("")}>{copy("Tüm soruları gör", "See all questions")}</button>}</div>}
     </section>
 
+    <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
+      <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="unlock" size={17} /><span>{copy("Engellenenler", "Blocked users")}<small>{copy("Engeli kaldır", "Unblock")}</small></span></button>
+      <button type="button" onClick={() => setSupportOpen(true)}><Icon name="mail" size={17}/>{copy("Destek", "Support")}</button>
+      <button type="button" onClick={() => void openExternal("/topluluk-kurallari").then((opened) => { if (!opened && active.current) onNotice(copy("Topluluk kuralları açılamadı. Tekrar dene.", "Community rules could not be opened. Please retry.")); })}><Icon name="shield" size={17}/>{copy("Topluluk kuralları", "Community rules")}</button>
+    </div>
+
     <Sheet open={Boolean(detailId)} title={copy("Soru detayı", "Question details")} onClose={closeDetail} size="large">
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
-        <header><span>{questionScopeLabel(detail.countryCode, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
+        <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
         <p>{detail.body}</p>
         <div className="community-answers">
