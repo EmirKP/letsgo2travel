@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { ownedAvatarPath } from "./profile-photo";
+import { removeCommunityAccountPhotos } from "./community/photos";
 
 export class AccountCleanupError extends Error {
   constructor(message: string, public status = 500) { super(message); }
@@ -10,6 +11,8 @@ function isMissingOptionalTable(error: { code?: string } | null) {
 export async function cleanAccountData(supabase: SupabaseClient, user: User) {
   const targetUserId = user.id;
   const targetEmail = String(user.email || "").trim().toLowerCase();
+  try { await removeCommunityAccountPhotos(supabase, targetUserId); }
+  catch { throw new AccountCleanupError("Topluluk fotoğrafları silinemedi; hesap silinmedi.", 500); }
   const avatarPath = user.user_metadata?.l2t_avatar_path;
   if (ownedAvatarPath(avatarPath, targetUserId)) {
     const { error } = await supabase.storage.from("profile-avatars").remove([avatarPath]);

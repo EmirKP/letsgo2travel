@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { serializeQuestionSummary } from "@/lib/community/serializers";
 import { countryCodeFromForumSlug } from "@/lib/community/forum-sync";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { communityPhotoTopics } from "@/lib/community/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
       }
     }
 
+    const photoTopics = await communityPhotoTopics(supabase, questions || []);
     const data = (questions || []).map((item) => serializeQuestionSummary(
       {
         id: item.id,
@@ -65,6 +67,7 @@ export async function GET(request: Request) {
         body: item.content,
         category: item.category,
         created_at: item.created_at,
+        hasPhoto: photoTopics.has(item.id),
       },
       item.author_name,
       answerCounts.get(item.id) || 0,

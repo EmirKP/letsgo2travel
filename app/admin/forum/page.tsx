@@ -10,11 +10,43 @@ import {
 
 type TabType = "topics" | "replies" | "reports";
 
+type AdminForumItem = {
+  id: string;
+  status: string;
+  created_at: string;
+  title?: string;
+  content?: string;
+  author_name?: string;
+  category?: string;
+  country_slug?: string;
+  reason?: string;
+  note?: string;
+  target_type?: string;
+  photoUrl?: string | null;
+  topic?: { title?: string } | null;
+  targetContent?: { title?: string; content: string; author_name?: string } | null;
+};
+
+function TopicPhotoPreview({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <figure style={{ margin: "0 0 24px" }}>
+      <figcaption style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", marginBottom: "8px" }}>Gönderiye eklenen fotoğraf</figcaption>
+      {failed ? (
+        <p role="alert" style={{ color: "#991B1B", fontSize: "0.9rem" }}>Fotoğraf yüklenemedi. Ayrıntıyı yeniden açıp tekrar deneyin.</p>
+      ) : (
+        // The protected endpoint needs the moderator's cookie; bypass image optimization.
+        <img src={src} alt="Kullanıcının bu gönderiye eklediği fotoğraf" decoding="async" onError={() => setFailed(true)} style={{ display: "block", width: "100%", height: "auto", maxHeight: "400px", objectFit: "contain", borderRadius: "12px", background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
+      )}
+    </figure>
+  );
+}
+
 export default function AdminForumPage() {
   const [activeTab, setActiveTab] = useState<TabType>("topics");
   
   // Data states
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<AdminForumItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [stats, setStats] = useState<any>({});
   
@@ -34,7 +66,7 @@ export default function AdminForumPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   // Modals & Panels
-  const [detailItem, setDetailItem] = useState<any>(null);
+  const [detailItem, setDetailItem] = useState<AdminForumItem | null>(null);
   const [actionModal, setActionModal] = useState<{ isOpen: boolean, action: string, type: TabType, id: string | null, isBulk: boolean }>({
     isOpen: false, action: "", type: "topics", id: null, isBulk: false
   });
@@ -494,6 +526,9 @@ export default function AdminForumPage() {
                   <div style={{ background: "#F8FAFC", padding: "20px", borderRadius: "12px", marginBottom: "24px", color: "var(--l2t-navy)", whiteSpace: "pre-wrap", lineHeight: "1.6", border: "1px solid #E2E8F0" }}>
                     {detailItem.content}
                   </div>
+                  {detailItem.photoUrl === `/api/admin/forum/topics/${encodeURIComponent(detailItem.id)}/photo` && (
+                    <TopicPhotoPreview key={detailItem.photoUrl} src={detailItem.photoUrl} />
+                  )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
                     <div>
                       <div style={{ fontSize: "0.85rem", color: "var(--l2t-soft)", marginBottom: "4px" }}>Yazar</div>

@@ -8,6 +8,7 @@ import {
 } from "@/lib/community/forum-sync";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { communityPhotoTopics } from "@/lib/community/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Cevaplar yüklenemedi." }, { status: 500 });
     }
 
+    const photoTopics = await communityPhotoTopics(supabase, [question]);
     const serialized = serializeQuestionDetail(
       {
         id: question.id,
@@ -104,6 +106,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         body: question.content,
         category: question.category,
         created_at: question.created_at,
+        hasPhoto: photoTopics.has(question.id),
       },
       question.author_name,
       (answers || []).map((answer) => serializeAnswer({

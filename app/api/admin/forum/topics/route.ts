@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { communityPhotoTopics, communityPhotoUrl, removeCommunityTopicPhotos } from "@/lib/community/photos";
+import { COMMUNITY_PRIVATE_HEADERS } from "@/lib/community/safety";
 
 const ALLOWED_STATUSES = new Set(["pending", "published", "rejected", "hidden", "closed"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -39,7 +41,8 @@ export async function GET(request: Request) {
     const { data, count, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ data, count, page, limit });
+    const photoTopics = await communityPhotoTopics(supabase, data || []);
+    return NextResponse.json({ data: (data || []).map((topic) => ({ ...topic, photoUrl: communityPhotoUrl(topic.id, photoTopics.has(topic.id), true) })), count, page, limit }, { headers: COMMUNITY_PRIVATE_HEADERS });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -84,6 +87,7 @@ export async function DELETE(request: Request) {
     const targetIds = (Array.isArray(ids) ? ids : id ? [id] : []).filter((value): value is string => typeof value === "string");
     if (targetIds.length === 0 || targetIds.length > 100 || targetIds.some((value) => !UUID_PATTERN.test(value))) return NextResponse.json({ error: "invalid ids" }, { status: 400 });
 
+    await removeCommunityTopicPhotos(supabase, targetIds);
     const { error } = await supabase.from("forum_topics").delete().in("id", targetIds);
     if (error) throw error;
 

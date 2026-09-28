@@ -5,6 +5,9 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const jsx = (type, props, key) => ({ type, props, key });
+class ApiError extends Error {
+  constructor(message, status = 0) { super(message); this.status = status; }
+}
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 function load(path, imports, globals = {}) {
@@ -67,11 +70,12 @@ const rows = [
 ];
 function harness(initial = {}) {
   let host, ownerKey, tree, locale = initial.locale || 'en', failStorage = false, focused = '';
-  const requests = [], frames = [], notices = [], navigation = [], searches = [], languageChanges = [], values = new Map();
+  const requests = [], photoPreparations = [], frames = [], notices = [], navigation = [], searches = [], languageChanges = [], values = new Map();
   let accountOpened = 0, menuOpened = 0, notificationsOpened = 0;
   const window = { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => { if (failStorage) throw Error('Storage full'); values.set(key, value); } }, requestAnimationFrame: fn => frames.push(fn) };
   const document = { getElementById: id => nodes(tree).some(node => node.props?.id === id) ? { focus: () => { focused = id; } } : null };
   const requestJson = (path, options = {}) => { const wait = deferred(); requests.push({ path, options, ...wait }); return wait.promise; };
+  const prepareCommunityPhoto = file => { const wait = deferred(); photoPreparations.push({ file, ...wait }); return wait.promise; };
   const preferences = load('mobile/src/lib/communityPreferences.ts', { '../data/countries': countries }, { window });
   const community = load('mobile/src/lib/community.ts', { './api': { requestJson } });
   const react = Object.fromEntries(['useState', 'useRef', 'useEffect', 'useMemo', 'useCallback'].map(name => [name, (...args) => host.react[name](...args)]));
@@ -79,15 +83,17 @@ function harness(initial = {}) {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/BrandMark': { BrandMark: 'BrandMark' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/Sheet': { Sheet: 'Sheet' },
+    '../components/CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
     '../lib/communityPreferences': preferences, '../lib/community': community,
-    '../lib/api': { ApiError: class ApiError extends Error {}, requestJson }, '../lib/native': { openExternal: async () => true },
+    '../lib/communityPhoto': { prepareCommunityPhoto },
+    '../lib/api': { ApiError, requestJson }, '../lib/native': { openExternal: async () => true },
     '../lib/i18n': { useI18n: () => ({ ...i18n[locale], setLocale: next => { languageChanges.push(next); locale = next; } }) },
   }, { window, document });
   let props = { user: null, accessToken: '', initialCountryCode: '', unreadCount: 0, onOpenAccount: () => accountOpened++, onNotice: value => notices.push(value), onNavigate: value => navigation.push(value), onOpenNotifications: () => notificationsOpened++, onOpenMenu: () => menuOpened++, onSearchDestination: value => searches.push(value), ...initial };
   const h = {
-    requests, notices, navigation, searches, languageChanges, preferences,
+    requests, photoPreparations, notices, navigation, searches, languageChanges, preferences,
     render(next = {}) {
       props = { ...props, ...next };
       const child = source.CommunityScreen(props);
@@ -101,6 +107,7 @@ function harness(initial = {}) {
     click(label) { const control = button(tree, label); assert.ok(control, `Visible button: ${label}`); assert.ok(!control.props.disabled, `${label} is enabled`); control.props.onClick(); return h.render(); },
     tab(id) { const control = find(tree, 'button', props => props.id === `community-tab-${id}`); assert.ok(control); control.props.onClick(); return h.render(); },
     change(type, predicate, value) { const control = find(tree, type, predicate); assert.ok(control, `Input: ${type}`); control.props.onChange({ target: { value } }); return h.render(); },
+    selectPhoto(file) { const control = find(tree, 'input', props => props.type === 'file' && props['aria-label'] === 'Post photo'); assert.ok(control, 'Photo picker is visible'); assert.ok(!control.props.disabled, 'Photo picker is enabled'); const target = { files: file ? [file] : [], value: file?.name || '' }; control.props.onChange({ target }); assert.equal(target.value, '', 'Picker resets so the same file can be selected again'); return h.render(); },
     async feed(data = rows) { const request = requests.findLast(item => item.path === '/api/country-community/feed' && !item.done); assert.ok(request, 'Pending feed request'); request.done = true; request.resolve({ data }); await tick(); return h.render(); },
     async settle() { await tick(); return h.render(); },
     language(next) { locale = next; return h.render(); },
@@ -194,7 +201,9 @@ test('Guest composition opens sign-in; signed-in groups prefill the genuine ques
     group.props.onClick(); view = h.render();
     assert.equal(activeTab(view), 'community-tab-questions'); assert.deepEqual(postTitles(view), ['Rome museum tickets']);
     view = h.click('Share a Post'); assert.equal(find(view, 'CountryPicker').props.value, 'IT');
-    const form = find(view, 'Sheet');
+    const form = find(view, 'Sheet', props => props.title === 'Share your experience');
+    assert.ok(find(form, 'input', props => props.placeholder === 'What would you like to share?'));
+    assert.ok(find(form, 'textarea', props => props.placeholder === 'Write your experience or question here…'));
     find(form, 'input').props.onChange({ target: { value: 'Museum booking question' } }); h.render();
     find(find(h.render(), 'Sheet'), 'textarea').props.onChange({ target: { value: 'Which tickets should I book before travelling?' } }); h.render();
     h.click('Post to community');
@@ -202,6 +211,7 @@ test('Guest composition opens sign-in; signed-in groups prefill the genuine ques
     assert.equal(request.path, '/api/country-community/questions'); assert.equal(request.options.method, 'POST');
     assert.equal(request.options.headers.Authorization, 'Bearer TOKEN_A'); assert.equal(request.options.body.countryCode, 'IT');
     assert.equal(request.options.body.title, 'Museum booking question');
+    assert.equal(Object.hasOwn(request.options.body, 'photo'), false, 'Text-only posts omit the optional media payload entirely');
     request.reject(Error('Temporary failure')); view = await h.settle();
     assert.equal(find(find(view, 'Sheet'), 'input').props.value, 'Museum booking question', 'A failed submit preserves the draft');
   } finally { h.dispose(); }
@@ -320,5 +330,181 @@ test('Changing language while a question opens preserves the independent authent
     const view = await h.settle();
     assert.equal(text(find(byClass(view, 'community-question-detail'), 'h3')), 'Tokyo train advice');
     assert.ok(find(view, 'textarea', props => props.id === 'community-answer-body'), 'The answer form remains usable after the locale switch');
+  } finally { h.dispose(); }
+});
+
+const account = { user: { id: 'account-a' }, accessToken: 'TOKEN_A' };
+const photoPreview = tree => find(tree, 'img', props => props.alt === 'Photo to attach to your post');
+function composeDraft(h) {
+  let view = h.click('Share a Post');
+  find(view, 'CountryPicker').props.onChange('IT'); h.render();
+  h.change('input', props => props.placeholder === 'What would you like to share?', 'Rome walking experience');
+  view = h.change('textarea', props => props.placeholder === 'Write your experience or question here…', 'A quiet morning walk through the old streets of Rome.');
+  return view;
+}
+
+test('Feed renders photos only for the post’s genuine protected endpoint and leaves text-only cards without media', async () => {
+  const h = harness(account);
+  const photoId = '12345678-1234-4234-8234-123456789abc';
+  const remoteId = '22345678-1234-4234-8234-123456789abc';
+  const mismatchId = '32345678-1234-4234-8234-123456789abc';
+  const dataId = '42345678-1234-4234-8234-123456789abc';
+  const photoUrl = `/api/country-community/questions/${photoId}/photo`;
+  try {
+    const view = await h.feed([
+      question(photoId, 'IT', 'My Rome photo', { photoUrl }),
+      question(remoteId, 'IT', 'Remote photo is ignored', { photoUrl: 'https://untrusted.example/photo.jpg' }),
+      question(mismatchId, 'IT', 'Another post photo is ignored', { photoUrl }),
+      question(dataId, 'IT', 'Inline photo is ignored', { photoUrl: 'data:image/jpeg;base64,arbitrary' }),
+      question('plain', 'IT', 'A plain question'),
+    ]);
+    const feed = byClass(view, 'cs-posts');
+    const media = nodes(feed).filter(node => node.type === 'CommunityPostPhoto');
+    assert.equal(media.length, 1);
+    assert.equal(media[0].props.photoUrl, photoUrl);
+    assert.equal(media[0].props.accessToken, 'TOKEN_A');
+    assert.match(media[0].props.alt, /My Rome photo/);
+    for (const title of ['Remote photo is ignored', 'Another post photo is ignored', 'Inline photo is ignored', 'A plain question']) {
+      const card = nodes(feed).find(node => node.type === 'article' && postTitles(node).includes(title));
+      assert.ok(card);
+      assert.equal(find(card, 'CommunityPostPhoto'), undefined);
+      assert.equal(find(card, 'img'), undefined, 'No editorial country fallback or broken-image placeholder');
+    }
+  } finally { h.dispose(); }
+});
+
+test('Prepared photos use the dedicated endpoint, survive a missing-server 404 and clear only after review submission', async () => {
+  const h = harness(account);
+  const file = { name: 'rome.jpg', type: 'image/jpeg', size: 12000 };
+  const prepared = 'data:image/jpeg;base64,cHJlcGFyZWQ=';
+  try {
+    await h.feed([]); composeDraft(h);
+    let view = h.selectPhoto(file);
+    assert.equal(h.photoPreparations[0].file, file);
+    assert.equal(button(view, 'Post to community').props.disabled, true, 'A half-prepared photo cannot be submitted');
+    assert.equal(find(view, 'input', props => props.type === 'file').props.disabled, true);
+    assert.equal(h.requests.length, 1, 'Selecting a local file never uploads it before submission');
+    h.photoPreparations[0].resolve(prepared); view = await h.settle();
+    assert.equal(photoPreview(view).props.src, prepared);
+    assert.equal(button(view, 'Post to community').props.disabled, false);
+    assert.match(text(find(view, 'Sheet')), /Posts with photos appear after review/);
+    const submit = button(view, 'Post to community');
+    submit.props.onClick(); submit.props.onClick(); view = h.render();
+    assert.equal(h.requests.filter(request => request.path === '/api/country-community/photo-posts').length, 1, 'Rapid double taps produce one upload');
+    const request = h.requests.at(-1);
+    assert.equal(request.path, '/api/country-community/photo-posts');
+    assert.equal(request.options.method, 'POST');
+    assert.equal(request.options.headers.Authorization, 'Bearer TOKEN_A');
+    assert.equal(request.options.body.photo, prepared);
+    assert.equal(request.options.body.title, 'Rome walking experience');
+    assert.equal(find(view, 'Sheet').props.dismissible, false, 'A pending submission cannot be dismissed');
+    assert.equal(button(view, 'Remove photo').props.disabled, true);
+    request.reject(new ApiError('Photo endpoint not found', 404)); view = await h.settle();
+    assert.equal(photoPreview(view).props.src, prepared);
+    assert.equal(find(view, 'input', props => props.maxLength === 160).props.value, 'Rome walking experience');
+    assert.ok(find(view, 'Sheet', props => props.title === 'Share your experience'), 'Unavailable photo support leaves the draft open');
+    assert.equal(h.requests.filter(request => request.path === '/api/country-community/questions').length, 0, 'A photo failure must never fall back to publishing only its text');
+    assert.equal(h.notices.at(-1), 'Photo posting is not available yet. Your draft is still here.');
+    h.click('Post to community');
+    assert.equal(h.requests.at(-1).path, '/api/country-community/photo-posts');
+    assert.equal(h.requests.at(-1).options.body.photo, prepared, 'Retry retains the selected photo');
+    h.requests.at(-1).resolve({ moderation: { action: 'pending' } }); view = await h.settle();
+    assert.equal(find(view, 'Sheet', props => props.title === 'Share your experience'), undefined);
+    assert.equal(h.notices.at(-1), 'Your post was sent for review.');
+    assert.equal(h.requests.filter(request => request.path === '/api/country-community/feed').length, 1, 'Pending photos do not appear in the public feed');
+    view = h.click('Share a Post');
+    assert.equal(photoPreview(view), undefined);
+    assert.equal(find(view, 'input', props => props.maxLength === 160).props.value, '');
+  } finally { h.dispose(); }
+});
+
+test('Removing a photo cancels a pending replacement and restores a text-only submission', async () => {
+  const h = harness(account);
+  try {
+    await h.feed([]); composeDraft(h);
+    h.selectPhoto({ name: 'first.jpg' }); h.photoPreparations[0].resolve('data:image/jpeg;base64,Zmlyc3Q='); await h.settle();
+    h.selectPhoto({ name: 'replacement.jpg' });
+    let view = h.click('Remove photo');
+    assert.equal(photoPreview(view), undefined);
+    assert.equal(button(view, 'Post to community').props.disabled, false);
+    h.photoPreparations[1].resolve('data:image/jpeg;base64,bGF0ZQ=='); view = await h.settle();
+    assert.equal(photoPreview(view), undefined, 'Late preparation cannot resurrect a removed photo');
+    h.click('Post to community');
+    assert.equal(h.requests.at(-1).path, '/api/country-community/questions', 'Removing media explicitly returns to the text-only endpoint');
+    assert.equal(Object.hasOwn(h.requests.at(-1).options.body, 'photo'), false);
+  } finally { h.dispose(); }
+});
+
+test('Closing the composer invalidates unfinished photo preparation and cancelling the native picker is a no-op', async () => {
+  const h = harness(account);
+  try {
+    await h.feed([]); composeDraft(h);
+    h.selectPhoto(undefined); assert.equal(h.photoPreparations.length, 0);
+    let view = h.selectPhoto({ name: 'late.jpg' });
+    find(view, 'Sheet', props => props.title === 'Share your experience').props.onClose(); h.render();
+    h.photoPreparations[0].resolve('data:image/jpeg;base64,bGF0ZQ=='); view = await h.settle();
+    assert.equal(find(view, 'Sheet', props => props.title === 'Share your experience'), undefined, 'Late photo result cannot reopen the composer');
+    view = h.click('Share a Post');
+    assert.equal(photoPreview(view), undefined);
+    assert.equal(button(view, 'Post to community').props.disabled, false);
+    assert.equal(find(view, 'input', props => props.maxLength === 160).props.value, 'Rome walking experience', 'Closing preserves the text draft');
+  } finally { h.dispose(); }
+});
+
+test('Failed photo preparation shows an error, preserves text, and permits a clean retry', async () => {
+  const h = harness(account);
+  try {
+    await h.feed([]); composeDraft(h);
+    h.selectPhoto({ name: 'unreadable.jpg' }); h.photoPreparations[0].reject(Error('decode'));
+    let view = await h.settle();
+    assert.equal(photoPreview(view), undefined);
+    assert.match(text(byClass(view, 'cs-photo-error')), /could not be opened/);
+    assert.equal(byClass(view, 'cs-photo-error').props.role, 'alert');
+    assert.equal(button(view, 'Post to community').props.disabled, false);
+    assert.equal(find(view, 'input', props => props.maxLength === 160).props.value, 'Rome walking experience');
+    view = h.selectPhoto({ name: 'valid.jpg' }); assert.equal(byClass(view, 'cs-photo-error'), undefined);
+    h.photoPreparations[1].resolve('data:image/jpeg;base64,cmV0cnk='); view = await h.settle();
+    assert.equal(photoPreview(view).props.src, 'data:image/jpeg;base64,cmV0cnk=');
+  } finally { h.dispose(); }
+});
+
+test('Account changes isolate late photo preparation and late submission results from the new account', async () => {
+  const h = harness(account);
+  try {
+    await h.feed([]); composeDraft(h); h.selectPhoto({ name: 'account-a.jpg' });
+    h.render({ user: { id: 'account-b' }, accessToken: 'TOKEN_B' }); await h.feed([]);
+    h.photoPreparations[0].resolve('data:image/jpeg;base64,YWNjb3VudEE='); await h.settle();
+    let view = composeDraft(h); assert.equal(photoPreview(view), undefined);
+    h.selectPhoto({ name: 'account-b.jpg' }); h.photoPreparations[1].resolve('data:image/jpeg;base64,YWNjb3VudEI='); await h.settle();
+    h.click('Post to community'); const pending = h.requests.at(-1);
+    assert.equal(pending.path, '/api/country-community/photo-posts');
+    assert.equal(pending.options.headers.Authorization, 'Bearer TOKEN_B');
+    assert.equal(pending.options.body.photo, 'data:image/jpeg;base64,YWNjb3VudEI=');
+    h.render(account); await h.feed([]); view = composeDraft(h);
+    const noticeCount = h.notices.length;
+    pending.resolve({ moderation: { action: 'pending' } }); view = await h.settle();
+    assert.ok(find(view, 'Sheet', props => props.title === 'Share your experience'), 'An old account submit cannot close the new composer');
+    assert.equal(find(view, 'input', props => props.maxLength === 160).props.value, 'Rome walking experience');
+    assert.equal(photoPreview(view), undefined);
+    assert.equal(h.notices.length, noticeCount, 'An old account response cannot announce another account’s result');
+  } finally { h.dispose(); }
+});
+
+test('The slim reply row opens genuine detail and own posts have no inert author menu', async () => {
+  const h = harness(account);
+  try {
+    let view = await h.feed([question('mine', 'IT', 'My own question', { authorId: 'account-a', username: 'me', answerCount: 4 }), rows[2]]);
+    const ownCard = nodes(byClass(view, 'cs-posts')).find(node => node.type === 'article' && postTitles(node).includes('My own question'));
+    assert.equal(text(byClass(ownCard, 'cs-post-author')), 'me');
+    assert.equal(byClass(ownCard, 'cs-post-options'), undefined);
+    h.click('4 replies: My own question'); const detailRequest = h.requests.at(-1);
+    assert.equal(detailRequest.path, '/api/country-community/questions/mine');
+    assert.equal(detailRequest.options.headers.Authorization, 'Bearer TOKEN_A');
+    detailRequest.resolve({ data: { ...question('mine', 'IT', 'My own question', { authorId: 'account-a' }), answers: [{ id: 'reply', body: 'A real response from the API.', username: 'another', authorId: 'other', createdAt: '2026-09-28T10:10:00Z' }], totalAnswerCount: 1, hiddenAnswerCount: 0 } });
+    view = await h.settle(); assert.match(text(byClass(view, 'community-question-detail')), /A real response from the API/);
+    find(view, 'Sheet', props => props.title === 'Question details').props.onClose(); h.render();
+    view = h.click('User options for @akira');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetId, 'jp');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetType, 'question');
   } finally { h.dispose(); }
 });

@@ -6,6 +6,8 @@
 
 type Unknown = Record<string, unknown>;
 const publicAuthorId = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+const publicPhotoUrl = (row: Unknown) => row.hasPhoto === true && publicAuthorId(row.id)
+  ? `/api/country-community/questions/${row.id}/photo` : null;
 
 function text(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.slice(0, maxLength) : "";
@@ -29,6 +31,7 @@ export type PublicQuestionSummary = {
   createdAt: string;
   username: string;
   answerCount: number;
+  photoUrl: string | null;
 };
 
 export type PublicQuestionDetail = Omit<PublicQuestionSummary, "answerCount"> & {
@@ -60,6 +63,7 @@ export function serializeQuestionSummary(
     createdAt: text(row.created_at, 40),
     username: username || "anonim_gezgin",
     answerCount: Number.isFinite(answerCount) ? Math.max(0, Math.floor(answerCount)) : 0,
+    photoUrl: publicPhotoUrl(row),
   };
 }
 
@@ -78,6 +82,7 @@ export function serializeQuestionDetail(
     category: summary.category,
     createdAt: summary.createdAt,
     username: summary.username,
+    photoUrl: summary.photoUrl,
     answers,
   };
 }

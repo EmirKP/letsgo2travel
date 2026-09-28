@@ -63,33 +63,42 @@
 .cs-inspiration-copy .country-flag { width: 23px; height: 17px; object-fit: contain; }
 .editorial-app.view-community .community-social .cs-editorial-note { margin: 9px 0 0; color: #687892; font-size: 11px; }
 .editorial-app.view-community .community-social .cs-feed { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
-.cs-feed-heading { align-items: center; margin-block: 29px 17px; }
+.cs-feed-heading { align-items: center; margin-block: 27px 12px; }
 .cs-feed-heading > div { min-width: 0; }
 .editorial-app.view-community .community-social .cs-feed-heading p { margin: 6px 0 0; color: #64748b; font-size: 12px; line-height: 1.45; }
 .cs-sort { position: relative; flex: none; display: flex; align-items: center; }
 .cs-sort > svg { position: absolute; left: 11px; color: #5b7ca8; pointer-events: none; transform: rotate(90deg); }
-.cs-sort select { width: auto; max-width: 157px; min-height: 44px; padding: 8px 25px 8px 32px; border: 1px solid #e0e9f5; border-radius: 15px; color: #394768; background-color: #f8fbff; font-size: 12px; }
-.cs-posts { display: grid; gap: 18px; }
-.cs-posts article { min-width: 0; padding: 20px 20px 0; border: 1px solid #e1ebf8; border-radius: 23px; background: linear-gradient(145deg, #f5f9ff, #fff 32%); box-shadow: 0 6px 23px rgb(23 65 118 / 6%); }
-.cs-posts article > header { display: flex; align-items: center; gap: 11px; }
-.cs-author-avatar { display: grid; place-items: center; flex-shrink: 0; width: 47px; height: 47px; border: 3px solid #fff; border-radius: 50%; background: linear-gradient(140deg, #deefff, #e5eaff); box-shadow: 0 0 0 1px #d7e7fb, 0 3px 8px rgb(37 90 159 / 8%); color: #0056c9; font-size: 16px; font-weight: 750; }
+.cs-sort select { width: auto; max-width: 150px; min-height: 44px; padding: 8px 25px 8px 12px; border: 1px solid #e5ebf5; border-radius: 22px; color: #54627d; background-color: #fff; font-size: 12px; }
+.cs-posts { display: grid; gap: 12px; }
+.cs-posts article { min-width: 0; padding: 12px 12px 0; border: 1px solid #edf0f6; border-radius: 15px; background: #fff; box-shadow: 0 3px 12px rgb(30 68 111 / 5%); }
+.cs-posts article > header { display: flex; align-items: center; gap: 9px; min-height: 40px; }
+.cs-author-avatar { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 1px solid #e0ebfa; border-radius: 50%; background: #eaf3ff; color: #005dd8; font-size: 12px; font-weight: 700; }
 .cs-posts header > div { flex: 1; min-width: 0; }
-.cs-posts header :is(.community-author-button, .community-author-self) { color: #091832; font-size: 15px; overflow-wrap: anywhere; }
-.editorial-app.view-community .community-social .cs-posts header p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 5px 0 0; color: #64748b; font-size: 11px; line-height: 1.4; }
+.cs-post-author { display: block; color: #091832; font-size: 14px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.cs-post-options { flex: none; display: grid; place-items: center; width: 44px; min-height: 44px; margin: -4px -8px -4px 0; padding: 0; border: 0; border-radius: 50%; color: #63718c; background: transparent; }
+.editorial-app.view-community .community-social .cs-posts header p { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; margin: 2px 0 0; color: #7b86a0; font-size: 11px; line-height: 1.4; }
 .cs-posts header p b { font-weight: 500; }
 .cs-posts header .community-scope-flag { width: 16px; height: 12px; }
-.cs-post-country { display: inline-flex; align-items: center; gap: 5px; color: #466486; }
-.cs-posts header time { padding-left: 9px; border-left: 1px solid #dce5ef; }
-.cs-post-topic { margin-top: 19px; }
-.cs-post-category { display: inline-flex; align-items: center; gap: 5px; color: #356698; background: #eaf3ff; padding: 5px 9px; border-radius: 7px; font-size: 10px; font-weight: 650; line-height: 1.3; }
-.editorial-app.view-community .community-social .cs-posts .community-question-open { display: block; width: 100%; min-height: 44px; text-align: left; padding: 10px 0 20px; background: none; border: 0; border-radius: 8px; }
-.editorial-app.view-community .community-social .cs-posts h3 { margin: 0 0 10px; color: #102341; font-size: 20px; line-height: 1.35; font-weight: 750; letter-spacing: -.35px; overflow-wrap: anywhere; }
-.editorial-app.view-community .community-social .cs-posts .community-question-open p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 0; color: #58708b; font-size: 14px; line-height: 1.65; }
-.cs-posts footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 -20px; padding: 12px 20px; border-top: 1px solid #edf2fa; border-radius: 0 0 23px 23px; background: #f8fbff; }
-.cs-posts footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 4px 0; border: 0; background: none; color: #536c89; font-size: 12px; }
-.cs-posts .cs-post-answers > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #eaf2ff; color: #3377d0; }
-.cs-posts footer .cs-post-join { padding: 10px 14px; border-radius: 13px; background: #0066ff; color: #fff; font-size: 12px; font-weight: 650; box-shadow: 0 3px 7px rgb(0 102 255 / 14%); }
-.cs-compose { position: fixed; z-index: 24; right: max(19px, calc((100vw - 850px) / 2 + 25px)); bottom: calc(96px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 51px; padding: 15px 21px; border: 1px solid #ffdd3d; border-radius: 30px; background: #ffda24; color: #091832; font-size: 13px; font-weight: 750; box-shadow: 0 5px 18px rgb(74 70 15 / 15%); }
+.cs-post-country { display: inline-flex; align-items: center; gap: 5px; }
+.cs-posts header time::before { content: "·"; margin-right: 6px; }
+.editorial-app.view-community .community-social .cs-posts .community-question-open { display: block; width: 100%; min-height: 44px; margin: 0; text-align: left; padding: 10px 0 11px; background: none; border: 0; border-radius: 6px; }
+.editorial-app.view-community .community-social .cs-posts h3 { margin: 0 0 4px; color: #0c1939; font-size: 16px; line-height: 1.35; font-weight: 730; letter-spacing: -.25px; overflow-wrap: anywhere; }
+.editorial-app.view-community .community-social .cs-posts .community-question-open p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 0; color: #72809a; font-size: 13px; line-height: 1.5; }
+.cs-posts footer { margin: 0; padding: 0; border-top: 1px solid #edf0f6; background: transparent; }
+.cs-posts footer .cs-post-answers { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 44px; padding: 4px 0; border: 0; border-radius: 5px; background: none; color: #667595; font-size: 12px; text-align: left; }
+.cs-post-answers > svg:last-child { margin-left: auto; }
+.cs-compose { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin: 12px 0 0; padding: 12px 18px; border: 0; border-radius: 25px; background: #ffda24; color: #091832; font-size: 13px; font-weight: 750; }
+.cs-post-photo { min-height: 1px; margin: 9px 0 0; border-radius: 10px; overflow: hidden; }
+.cs-post-photo img { display: block; width: 100%; height: auto; max-height: 460px; object-fit: contain; border-radius: 10px; }
+.cs-post-photo button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 0; border: 0; background: none; color: #667595; font-size: 12px; }
+.cs-photo-field { display: grid; gap: 8px; }
+.cs-add-photo { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 10px 12px; border: 1px dashed #cbdcf1; border-radius: 12px; color: #005dd8; background: #f7faff; font-size: 13px; font-weight: 650; }
+.cs-add-photo small { margin-left: auto; color: #71819a; font-size: 11px; font-weight: 400; }
+.cs-photo-preview { position: relative; }
+.cs-photo-preview img { display: block; width: 100%; max-height: 280px; border-radius: 12px; object-fit: contain; background: #f6f8fc; }
+.cs-photo-preview button { position: absolute; right: 7px; top: 7px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #e1e8f2; border-radius: 50%; color: #091832; background: #fff; box-shadow: 0 2px 5px #0001; }
+.cs-photo-error, .cs-photo-note { margin: 0; font-size: 12px; line-height: 1.5; color: #64748b; }
+.cs-photo-error { color: #ac3344; }
 .cs-search-panel[hidden] { display: none; }
 .cs-search-panel { margin-top: 19px; }
 .cs-search-panel > label { display: block; margin-bottom: 7px; color: #394768; font-size: 12px; font-weight: 650; }
@@ -164,19 +173,14 @@
   .cs-section-heading > button { font-size: 11px; }
   .cs-inspiration-grid { grid-template-columns: repeat(3, 215px); gap: 11px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding: 0 2px 9px; }
   .cs-inspiration-grid article { scroll-snap-align: start; }
-  .cs-feed-heading { align-items: flex-start; gap: 10px; }
-  .editorial-app.view-community .community-social .cs-feed-heading h2 { font-size: 19px; line-height: 1.25; }
-  .cs-sort select { max-width: 137px; font-size: 11px; }
-  .cs-posts article { padding: 17px 16px 0; border-radius: 20px; }
-  .cs-author-avatar { width: 43px; height: 43px; font-size: 15px; }
-  .cs-posts header :is(.community-author-button, .community-author-self) { font-size: 14px; }
-  .editorial-app.view-community .community-social .cs-posts h3 { font-size: 18px; }
-  .editorial-app.view-community .community-social .cs-posts .community-question-open p { font-size: 13px; }
-  .cs-posts footer { margin-inline: -16px; padding: 11px 16px; border-radius: 0 0 20px 20px; }
+  .cs-feed-heading { align-items: center; gap: 10px; }
+  .editorial-app.view-community .community-social .cs-feed-heading h2 { font-size: 18px; line-height: 1.25; }
+  .cs-sort select { max-width: 119px; font-size: 11px; }
+  .cs-post-photo img { max-height: 380px; }
   .cs-group-grid { grid-template-columns: 1fr; }
   .cs-group-open strong { font-size: 14px; }
   .cs-group-open small { font-size: 11px; }
-  .cs-compose { min-height: 50px; padding: 13px 17px; font-size: 12px; }
+  .cs-compose { min-height: 48px; padding: 12px 17px; font-size: 13px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .cs-tabs button, .cs-regions button, .cs-follow, .cs-compose { transition: background-color .18s ease, color .18s ease, box-shadow .18s ease; }
@@ -184,6 +188,6 @@
 }
 @media (hover: hover) {
   .cs-posts .community-question-open:hover h3 { color: #0059df; }
-  .cs-posts footer .cs-post-join:hover { background: #0059df; }
+  .cs-posts footer .cs-post-answers:hover, .cs-post-options:hover { color: #0059df; background: #f6f9ff; }
   .editorial-app.view-community .community-social .community-safety-toolbar button:hover { color: #0059df; background: #f2f7ff; }
 }
