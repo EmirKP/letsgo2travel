@@ -7,7 +7,6 @@ import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
-import { destinationArtwork } from "../data/artwork";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { communityRegions, matchesCommunityRegion, type CommunityRegionId } from "../data/communityDiscovery";
 import { readCommunityFollows, writeCommunityFollows } from "../lib/communityPreferences";
@@ -28,16 +27,10 @@ import cappadocia from "../assets/home-reference/cappadocia.webp";
 import bali from "../assets/home-reference/bali.webp";
 import tokyo from "../assets/destination-artwork/tokyo.webp";
 import eventsCover from "../assets/editorial/events.webp";
-import germanyCover from "../assets/community-reference/germany-cover.webp";
 import "./reference-community-profile.css";
 import "./reference-community.css";
 
 type CommunityTab = "feed" | "following" | "groups" | "questions" | "events";
-
-const postCountryCovers: Record<string, string> = {
-  DE: germanyCover,
-  ...Object.fromEntries(Object.entries({ AZ: "GYD", TH: "BKK", RS: "BEG", AE: "DXB", IT: "FCO", BA: "SJJ", GE: "TBS", AL: "TIA", JP: "TYO", ID: "DPS", TR: "NAV", GR: "JTR" }).map(([country, destination]) => [country, destinationArtwork(destination)])),
-};
 
 // Soru formunda ülke SEÇİLİR (kod yazılmaz); ada göre sıralı, bayraklı.
 type CommunityAnswer = {
@@ -187,12 +180,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
   const [blocksOpen, setBlocksOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [replyPreviewId, setReplyPreviewId] = useState("");
-  const [replyPreview, setReplyPreview] = useState<CommunityQuestionDetail | null>(null);
-  const [replyPreviewLoading, setReplyPreviewLoading] = useState(false);
-  const [replyPreviewError, setReplyPreviewError] = useState("");
-  const [replyPreviewNeedsAccount, setReplyPreviewNeedsAccount] = useState(false);
-  const replyPreviewGeneration = useRef(0);
   const active = useRef(true);
   const detailGeneration = useRef(0);
   const requestGeneration = useRef(0);
@@ -288,44 +275,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     }
   }, [copy]);
 
-  const closeReplyPreview = useCallback(() => {
-    replyPreviewGeneration.current += 1;
-    setReplyPreviewId("");
-    setReplyPreview(null);
-    setReplyPreviewLoading(false);
-    setReplyPreviewError("");
-    setReplyPreviewNeedsAccount(false);
-  }, []);
-
-  const loadReplyPreview = useCallback(async (questionId: string) => {
-    const generation = ++replyPreviewGeneration.current;
-    setReplyPreviewId(questionId);
-    setReplyPreview(null);
-    setReplyPreviewLoading(true);
-    setReplyPreviewError("");
-    setReplyPreviewNeedsAccount(false);
-    try {
-      const response = await requestJson<{ data?: CommunityQuestionDetail }>(`/api/country-community/questions/${encodeURIComponent(questionId)}`, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-        timeoutMs: 15_000,
-      });
-      if (generation !== replyPreviewGeneration.current) return;
-      if (!response.data || !Array.isArray(response.data.answers)) throw new Error("Missing comments");
-      setReplyPreview({ ...response.data, answers: response.data.answers.slice(0, 2) });
-    } catch (requestError) {
-      if (generation !== replyPreviewGeneration.current) return;
-      const needsAccount = requestError instanceof ApiError && requestError.status === 401;
-      setReplyPreviewNeedsAccount(needsAccount);
-      setReplyPreviewError(needsAccount
-        ? copy("Yorumları görmek için giriş yap.", "Sign in to see the comments.")
-        : copy("Yorumlar yüklenemedi. Tekrar deneyebilirsin.", "Comments could not be loaded. You can try again."));
-    } finally {
-      if (generation === replyPreviewGeneration.current) setReplyPreviewLoading(false);
-    }
-  }, [accessToken, copy]);
-
   const loadFeed = useCallback(async () => {
-    closeReplyPreview();
     const generation = ++feedGeneration.current;
     setFeedLoading(true);
     setFeedError("");
@@ -341,7 +291,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     } finally {
       if (generation === feedGeneration.current) setFeedLoading(false);
     }
-  }, [accessToken, copy, closeReplyPreview]);
+  }, [accessToken, copy]);
 
   useEffect(() => {
     active.current = true;
@@ -350,7 +300,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       requestGeneration.current += 1;
       feedGeneration.current += 1;
       detailGeneration.current += 1;
-      replyPreviewGeneration.current += 1;
     };
   }, []);
 
@@ -508,8 +457,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     }
   };
 
-  const composeButton = <button type="button" className="cs-compose" aria-label={copy("Gönderi Paylaş", "Share a Post")} onClick={startQuestion} aria-haspopup="dialog"><span className="cs-compose-prompt"><Icon name="message" size={22}/>{copy("Gezginlerle paylaş…", "Share with travellers…")}</span><span className="cs-compose-action"><Icon name="plus" size={18}/>{copy("Paylaş", "Post")}</span></button>;
-
   return <div className="screen community-native-screen reference-community community-social">
     <section className="cs-hero" aria-labelledby="community-welcome-title">
       <img className="cs-hero-image" src={communityCover} alt="" width={1600} height={800} fetchPriority="high"/>
@@ -533,7 +480,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </section>
 
     <div className="cs-surface">
-      {(tab === "groups" || tab === "events") && composeButton}
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
@@ -566,31 +512,17 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {tab === "events" && <section id="community-panel-events" role="tabpanel" aria-labelledby="community-tab-events" className="cs-events" tabIndex={0}><img src={eventsCover} alt="" width={900} height={500} loading="lazy"/><div><span>{copy("YENİ ANILAR BİRİKTİR", "MAKE NEW MEMORIES")}</span><h2>{copy("Seyahatine bir etkinlik ekle", "Add an event to your journey")}</h2><p>{copy("Gideceğin yerdeki konserleri, festivalleri ve etkinlikleri tarihine göre keşfet.", "Find concerts, festivals and events for your destination and dates.")}</p><button type="button" onClick={() => onNavigate("events")}>{copy("Etkinlikleri keşfet", "Discover events")}<Icon name="chevron" size={20}/></button></div></section>}
 
       {(tab === "feed" || tab === "following" || tab === "questions") && <section id={`community-panel-${tab}`} className="community-feed cs-feed" role="tabpanel" aria-labelledby={`community-tab-${tab}`} tabIndex={0}>
-        {composeButton}
-        <div className="cs-section-heading cs-feed-heading"><div><h2>{tab === "following" ? copy("Takip Ettiklerim", "Following") : tab === "questions" ? copy("Soru & Cevap", "Questions & Answers") : copy("Topluluktan En Yeniler", "Latest from the Community")}</h2></div><label className="cs-sort"><Icon name="swap" size={15}/><span className="sr-only">{copy("Akışı sırala", "Sort the feed")}</span><select value={sort} onChange={event => setSort(event.target.value)}><option value="newest">{copy("En Yeni", "Newest")}</option><option value="answered">{copy("En Çok Cevap", "Most Answered")}</option><option value="unanswered">{copy("Cevap Bekleyen", "Unanswered")}</option></select></label></div>
+        <div className="cs-section-heading cs-feed-heading"><div><h2>{tab === "following" ? copy("Takip Ettiklerim", "Following") : tab === "questions" ? copy("Soru & Cevap", "Questions & Answers") : copy("Topluluktan En Yeniler", "Latest from the Community")}</h2><p>{copy("Sor, paylaş, birlikte keşfet.", "Ask, share, explore together.")}</p></div><label className="cs-sort"><Icon name="swap" size={15}/><span className="sr-only">{copy("Akışı sırala", "Sort the feed")}</span><select value={sort} onChange={event => setSort(event.target.value)}><option value="newest">{copy("En Yeni", "Newest")}</option><option value="answered">{copy("En Çok Cevap", "Most Answered")}</option><option value="unanswered">{copy("Cevap Bekleyen", "Unanswered")}</option></select></label></div>
         {tab === "following" && <div className="cs-following-info"><p>{copy("Takip ettiğin ülke gruplarının son paylaşımları. Tercihlerin bu cihazda saklanır.", "Latest posts from your followed country groups. Preferences are saved on this device.")}</p><button type="button" onClick={() => setTab("groups")}>{copy("Grupları seç", "Choose groups")}<Icon name="plus" size={16}/></button></div>}
         {countryFilter && <div className="cs-active-country">{questionScopeLabel(countryFilter, questionCountryLabels, copy("Genel", "General"))}<button type="button" aria-label={copy("Ülke filtresini kaldır", "Clear country filter")} onClick={() => setCountryFilter("")}><Icon name="close" size={16}/></button>{countryFilter !== "ZZ" && <button type="button" className="cs-follow-country" aria-pressed={followedCountries.includes(countryFilter)} onClick={() => toggleFollow(countryFilter)}><Icon name={followedCountries.includes(countryFilter) ? "check" : "plus"} size={16}/>{followedCountries.includes(countryFilter) ? copy("Takip ediliyor", "Following") : copy("Grubu takip et", "Follow group")}</button>}</div>}
         {!feedLoading && feedCountries.length > 1 && <div className="community-country-filters" role="group" aria-label={copy("Ülke topluluğunu filtrele", "Filter country community")}><button type="button" className={!countryFilter ? "active" : ""} aria-pressed={!countryFilter} onClick={() => setCountryFilter("")}>{copy("Tümü", "All")}</button>{feedCountries.filter(code => matchesCommunityRegion(code, region)).map(code => <button type="button" key={code} className={countryFilter === code ? "active" : ""} aria-pressed={countryFilter === code} onClick={() => setCountryFilter(code)}>{questionScopeLabel(code, questionCountryLabels, copy("Genel", "General"))}</button>)}</div>}
         {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20}/><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
         {feedLoading ? <div className="skeleton-list community-native-loading" role="status" aria-label={copy("Paylaşımlar yükleniyor", "Loading posts")}><div/><div/><div/></div>
           : filteredQuestions.length ? <div className="cs-posts">{filteredQuestions.map(question => <article key={question.id}>
-            <header><span className="cs-author-avatar" aria-hidden="true"><span>{initials(question.username)}</span></span><div><strong className="cs-post-author">{question.username}</strong><p><span className="cs-post-country">{questionScopeLabel(question.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><span aria-hidden="true">·</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div>{question.authorId !== user?.id && <button type="button" className="cs-post-menu" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>}</header>
-            <figure className="cs-post-photo"><img src={postCountryCovers[question.countryCode] || destinationArtwork()} alt={copy(`${questionCountryLabels.get(question.countryCode) || "Seyahat"} için temsili kapak görseli`, `Illustrative travel cover for ${questionCountryLabels.get(question.countryCode) || "travellers"}`)} width={1000} height={750} loading="lazy" decoding="async"/><figcaption><Icon name="camera" size={12}/>{postCountryCovers[question.countryCode] ? copy("Temsili ülke görseli", "Country illustration") : copy("Temsili seyahat görseli", "Travel illustration")}</figcaption></figure>
-            <footer><button type="button" className="cs-post-answers" aria-expanded={replyPreviewId === question.id} aria-controls={`community-replies-${question.id}`} onClick={() => replyPreviewId === question.id ? closeReplyPreview() : void loadReplyPreview(question.id)}><Icon name="message" size={24}/>{copy(`${question.answerCount} yorum`, `${question.answerCount} comments`)}</button><button type="button" className="cs-post-join" aria-haspopup="dialog" onClick={() => user && accessToken ? void openDetail(question.id) : onOpenAccount()}><Icon name="plus" size={18}/>{copy("Yorum yaz", "Add a comment")}</button></footer>
-            <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p><span className="cs-post-more">{copy("Devamını oku", "Read more")}</span></button>
-            <div className="cs-inline-comments" id={`community-replies-${question.id}`} hidden={replyPreviewId !== question.id}>
-              {replyPreviewId === question.id && <div className="cs-comment-preview">
-                <div className="cs-comment-heading"><strong>{copy("Yorumlar", "Comments")}</strong><button type="button" aria-label={copy("Yorumları kapat", "Close comments")} onClick={closeReplyPreview}><Icon name="close" size={17}/></button></div>
-                {replyPreviewLoading && <p role="status">{copy("Yorumlar yükleniyor…", "Loading comments…")}</p>}
-                {replyPreviewError && <div className="cs-comment-error" role="alert"><p>{replyPreviewError}</p><button type="button" onClick={() => replyPreviewNeedsAccount ? onOpenAccount() : void loadReplyPreview(question.id)}>{replyPreviewNeedsAccount ? copy("Giriş yap", "Sign in") : copy("Tekrar dene", "Try again")}</button></div>}
-                {replyPreview && !replyPreviewLoading && <>
-                  {replyPreview.answers.map(answer => <div key={answer.id} className="cs-inline-answer"><span className="cs-comment-avatar" aria-hidden="true">{initials(answer.username)}</span><div>{authorButton(answer, "answer")}<p>{answer.body}</p><time dateTime={answer.createdAt}>{formatQuestionDate(answer.createdAt, dateLocale)}</time></div></div>)}
-                  {!replyPreview.answers.length && !count(replyPreview.hiddenAnswerCount) && <p>{copy("Henüz yorum yok. İlk deneyimi sen paylaş.", "No comments yet. Be the first to share your experience.")}</p>}
-                  {count(replyPreview.hiddenAnswerCount) > 0 && <p className="cs-comment-locked"><Icon name="lock" size={15}/>{copy(`${count(replyPreview.hiddenAnswerCount)} yorum kilitli`, `${count(replyPreview.hiddenAnswerCount)} comments are locked`)}</p>}
-                  <button type="button" className="cs-all-comments" onClick={() => void openDetail(question.id)}>{copy("Sohbeti aç", "Open conversation")}<Icon name="chevron" size={15}/></button>
-                </>}
-              </div>}
-            </div>
+            <header><span className="cs-author-avatar" aria-hidden="true">{initials(question.username)}</span><div>{authorButton(question, "question")}<p><span className="cs-post-country">{questionScopeLabel(question.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div></header>
+            <div className="cs-post-topic"><span className="cs-post-category"><Icon name="message" size={14}/>{copy("Gezgin sorusu", "Traveller question")}</span></div>
+            <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
+            <footer><button type="button" className="cs-post-answers" onClick={() => void openDetail(question.id)}><span aria-hidden="true"><Icon name="message" size={19}/></span>{copy(`${question.answerCount} cevap`, `${question.answerCount} answers`)}</button><button type="button" className="cs-post-join" onClick={() => void openDetail(question.id)}>{copy("Sohbete katıl", "Join the conversation")}<Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
           : !feedError && <div className="empty-state cs-empty"><span><Icon name={tab === "following" ? "heart" : "users"} size={30}/></span><strong>{tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong><p>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p><button type="button" className="secondary-button" onClick={() => { if (tab === "following" && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button></div>}
       </section>}
@@ -600,6 +532,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         <button type="button" onClick={() => void openExternal("/topluluk-kurallari").then(opened => { if (!opened && active.current) onNotice(copy("Topluluk kuralları açılamadı. Tekrar dene.", "Community rules could not be opened. Please retry.")); })}><Icon name="shield" size={17}/>{copy("Topluluk kuralları", "Community rules")}</button>
       </div>
     </div>
+    <button type="button" className="cs-compose" onClick={startQuestion} aria-haspopup="dialog"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/></svg>{copy("Gönderi Paylaş", "Share a Post")}</button>
     <Sheet open={leagueOpen} title={copy("Kaşifler Ligi", "Explorers League")} onClose={() => setLeagueOpen(false)} size="large"><div className="cs-league-sheet">
       <section className="community-native-summary">
       <div><span><Icon name="globe" size={20} /></span><strong>{loaded ? leaders.length : "—"}</strong><small>{copy("Sıralamadaki gezgin", "Ranked travellers")}</small></div>
