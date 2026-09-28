@@ -3,6 +3,7 @@ import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
 import { normalizeSearchText } from "../lib/searchText";
 import { Icon, type IconName } from "./Icon";
+import { BrandMark } from "./BrandMark";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
 import { SupportSheet } from "./SupportSheet";
@@ -54,7 +55,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
 
   return <Sheet open={open} title={copy("Daha Fazla", "More")} onClose={onClose} size="large">
     <div className="menu-profile-card">
-      <div className="menu-brand">LetsGo<span>2</span>Travel</div>
+      <div className="menu-brand"><BrandMark /></div>
       <p>{copy("Seyahat keşfi, planlama ve yol araçları tek uygulamada.", "Discovery, planning and on-trip tools in one app.")}</p>
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? copy("İnternet bağlantısı var", "Online") : copy("Çevrimdışı mod", "Offline mode")}</div>
     </div>

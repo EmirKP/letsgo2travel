@@ -4,14 +4,14 @@ Implemented from the user's `ChatGPT Görseli 28 Eyl 2026 17_34_03.png` referenc
 
 ## Delivered
 
-- Santorini photo hero, airplane wordmark, real notification action and profile shortcut, destination search, five city chips, five illustrated action cards, coastal personal/trip banner, four destination cards and community entry.
+- Santorini photo hero, the user's original traveller logo, real notification action and profile shortcut, destination search, five city chips, five illustrated action cards, coastal personal/trip banner, four destination cards and community entry.
 - Five translated root tabs: Keşfet / Planlar / Topluluk / Araçlar / Profil. Existing route, exploration, cockpit and tool deep links remain supported. Planner drafts and scroll positions survive navigation.
 - Home search results for Paris, Bali, Tokyo, New York and Rome. Other typed searches use the actual catalog and show an explicit empty state when no prepared route matches.
 - Card hearts persist owner-scoped route records and reflect the actual saved state. An unrelated edited plan is not removed by a card toggle. New destinations have correct bundled artwork in search and saved screens.
 - Shared white/blue/yellow theme across secondary screens, forms, cards, sheets, navigation and wordmark. Native status bar uses light content over Home and dark content over white secondary headers.
 - The personal banner still opens the precise current trip; late responses from a previous account cannot appear after an account change. Flight provider retention and free-trial restrictions are unchanged.
 
-The reference defines composition, palette and visual language. Photos are recreated from the reference, vectors are recreated in code, and responsive text/touch-target sizing differs where necessary. This is not a claim of pixel-identical source artwork. Decorative community portraits are illustrations, not actual member profiles. Red hearts and unread badges represent real state rather than the mockup's example state.
+The reference defines composition, palette and visual language. Photos are recreated from the reference, feature icons are recreated in code, and responsive text/touch-target sizing differs where necessary. The user's follow-up specifies the original `Codex Görseli 10 Eyl 2026 09_45_27.png` logo: the existing `mobile/src/assets/brand/letsgo2travel-20260910.png` is byte-identical (SHA256 `B996F39609ACB0A896D37E5F25C88DA3521545ED1FAA8D4A2FAF09EAB7218962`) and is used unchanged through BrandMark. This is not a claim of pixel-identical source artwork for the recreated photographs. Decorative community portraits are illustrations, not actual member profiles. Red hearts and unread badges represent real state rather than the mockup's example state.
 
 ## Assets and generation
 

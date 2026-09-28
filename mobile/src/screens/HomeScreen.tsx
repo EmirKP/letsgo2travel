@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { TravelFeatureIcon } from "../components/TravelFeatureIcon";
 import { useI18n } from "../lib/i18n";
 import { homeDestinations } from "../data/homeDestinations";
@@ -77,7 +78,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     <section className="rh-hero" aria-labelledby="rh-title">
       <img className="rh-hero-photo" src={santorini} alt="" fetchPriority="high" width={1448} height={1086}/>
       <header className="rh-header">
-        <div className="rh-brand" aria-label="LetsGo2Travel · Daha Fazla Keşfet"><svg className="rh-brand-plane" viewBox="0 0 110 40" fill="currentColor" aria-hidden="true"><path d="m20 24 14 4L91 5c6-3 10-2 8 1-2 3-6 5-10 7L49 33l-15 1-15-8Zm32-4L31 8l8-1 29 7M18 28 8 18l5-1 20 9"/><path d="M4 33q10 7 26 1" fill="none" stroke="#ffda24"/></svg><strong>LetsGo<span>2</span>Travel</strong><small>{copy("Daha Fazla Keşfet", "Discover More")}</small></div>
+        <div className="rh-brand"><BrandMark /></div>
         <div className="rh-header-actions"><button type="button" className="rh-bell" onClick={() => onOpenNotifications?.()} aria-label={`${copy("Bildirimler", "Notifications")}${unreadCount > 0 ? `, ${unreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={26}/>{unreadCount > 0 && <i/>}</button><button type="button" className="rh-profile" onClick={() => onNavigate("profile")} aria-label={copy("Profilini aç", "Open your profile")}><span className="rh-avatar"><img src={coastal} alt="" width={42} height={42}/></span><span>{copy("İyi günler", "Hello")}<strong>{name}!</strong></span><Icon name="chevron" size={16}/></button></div>
       </header>
       <div className="rh-hero-copy"><div><p className="rh-eyebrow">{copy("YENİ YERLER, YENİ HİKAYELER", "NEW PLACES, NEW STORIES")}</p><h1 id="rh-title">{copy("Sıradaki", "Where’s Your")}<br/>{copy("Hikayen", "Next")} <span>{copy("Nerede?", "Story?")}</span></h1><p className="rh-hero-subtitle">{copy("Dünya seni bekliyor. Hayal et, planla, keşfet!", "The world is waiting. Dream, plan, explore!")}</p></div><p className="rh-handwritten" aria-hidden="true">{copy("Keşfet", "Explore")}<br/><span>{copy("Planla", "Plan")}</span><br/><span>{copy("Yaşa", "Live")}</span></p></div>

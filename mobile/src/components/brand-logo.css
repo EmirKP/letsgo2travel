@@ -13,3 +13,5 @@
 .editorial-app .topbar-actions { flex: none; }
 .reference-onboarding .onboarding-brand { width: min(65%, 220px); min-width: 0; }
 .animated-splash-copy > .brand-logo { width: min(100%, 360px); }
+.menu-brand { width: min(100%, 280px); }
+.fatal-logo { width: min(100%, 360px); }

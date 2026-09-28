@@ -55,6 +55,7 @@ function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error(
     ...common(host), ...homeAssets,
     '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en) => locale === 'tr' ? tr : en }) },
     '../components/Icon': { Icon: 'Icon' }, '../components/TravelFeatureIcon': { TravelFeatureIcon: 'TravelFeatureIcon' },
+    '../components/BrandMark': { BrandMark: 'BrandMark' },
     '../data/homeDestinations': homeData, '../lib/supabaseData': { listCockpitTrips },
     '../lib/dates': { localIsoDate: () => '2026-09-28' }, '../lib/homeJourney': homeJourney,
   }).HomeScreen;
