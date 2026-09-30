@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
@@ -92,7 +93,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
   const overview = overviewState.accessToken === accessToken ? overviewState.value : null;
 
   const formatDate = (value: string) => {
-    try { return new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
+    try { return formatAppDate(new Date(value), dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); }
     catch { return value; }
   };
   const capture = () => ({ token: accessToken, epoch: epochRef.current });

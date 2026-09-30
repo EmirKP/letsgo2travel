@@ -14,11 +14,15 @@ function load(path, imports = {}, environment = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/localeFormatting') return localeFormatting;
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, testModule, testModule.exports);
   return testModule.exports;
 }
+const localeFormatting = load('mobile/src/lib/localeFormatting.ts', {
+  './locales/sq-regions': load('mobile/src/lib/locales/sq-regions.ts'),
+});
 function hooks() {
   const slots = []; let cursor = 0, dirty = false, effects = [], component, props;
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));

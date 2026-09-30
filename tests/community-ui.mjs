@@ -15,11 +15,15 @@ function load(path, imports, globals = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, Intl, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/localeFormatting') return localeFormatting;
     if (/\.(webp|jpg|css)$/.test(name)) return name;
     throw Error(`Unstubbed import: ${name}`);
   }, testModule, testModule.exports);
   return testModule.exports;
 }
+const localeFormatting = load('mobile/src/lib/localeFormatting.ts', {
+  './locales/sq-regions': load('mobile/src/lib/locales/sq-regions.ts', {}),
+});
 const countries = load('mobile/src/data/countries.ts', { './iso3166.json': JSON.parse(readFileSync('mobile/src/data/iso3166.json', 'utf8')) });
 const countryIso = load('mobile/src/data/countryIso.ts', { './countries': countries });
 const discovery = load('mobile/src/data/communityDiscovery.ts', { './countries': countries });

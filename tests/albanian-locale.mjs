@@ -265,6 +265,78 @@ test('Money currency labels, historical dates and input errors stay Albanian on 
   }
 });
 
+test('Community, saved plans, Cockpit, alerts and notification dates accept full sq-AL tags on limited Intl runtimes', () => {
+  const app = fixture({ intl: withoutAlbanianIntl() });
+  const { formatAppDate } = app.load('mobile/src/lib/localeFormatting.ts');
+  const cases = [
+    ['mobile/src/screens/CommunityScreen.tsx', 'formatQuestionDate', '30 sht 2026'],
+    ['mobile/src/screens/PlansScreen.tsx', 'date', '30 sht 2026'],
+    ['mobile/src/screens/CockpitScreen.tsx', 'formatDate', '30 sht 2026', '2026-09-30'],
+    ['mobile/src/screens/PriceAlertsScreen.tsx', 'formatDate', '30 sht 2026', '2026-09-30'],
+    ['mobile/src/screens/PriceAlertsScreen.tsx', 'formatDateTime', '30 sht'],
+    ['mobile/src/components/NotificationCenter.tsx', 'formatDate', '30 sht'],
+  ];
+  for (const [file, name, expected, value = '2026-09-30T12:00:00Z'] of cases) {
+    const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+    const declaration = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    assert.ok(declaration, `${file} has its visible date formatter`);
+    // Run the view's real function, isolated only from unrelated screen effects.
+    const code = ts.transpileModule(`${declaration.getText(source)}\nmodule.exports = ${name};`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+    const module = { exports: {} };
+    vm.runInNewContext(code, { module, Date, formatAppDate, Intl: withoutAlbanianIntl() });
+    const formatted = module.exports(value, 'sq-AL');
+    assert.ok(formatted.includes(expected), `${file}: ${formatted}`);
+    assert.doesNotMatch(formatted, /Eyl|Sept/);
+    assert.equal(module.exports('not-a-date', 'sq-AL'), 'not-a-date', 'Existing invalid source-date behavior is retained');
+  }
+  const options = { day: '2-digit', month: 'short', year: 'numeric' };
+  const sample = new Date('2026-09-30T12:00:00Z');
+  for (const locale of ['tr', 'tr-TR', 'en', 'en-US', 'en-GB']) {
+    assert.equal(formatAppDate(sample, locale, options), new Intl.DateTimeFormat(locale, options).format(sample), `Exact ${locale} preferences remain unchanged`);
+  }
+  const timestampOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
+  assert.equal(formatAppDate(sample, 'en-GB', timestampOptions), sample.toLocaleString('en-GB'), 'Stored/download timestamps keep their time component');
+});
+
+test('Event labels keep venue calendar days, exact timezones and date-only uncertainty with Albanian formatting', () => {
+  const app = fixture({ intl: withoutAlbanianIntl() });
+  const { formatAppDate } = app.load('mobile/src/lib/localeFormatting.ts');
+  const { eventDateLabel, eventTimeLabel, eventLocalDate } = app.load('lib/event-time.ts');
+  const event = { startsAt: '2026-10-01T00:30:00Z', localDate: '2026-09-30', timeZone: 'America/New_York', timePrecision: 'exact' };
+  assert.equal(eventLocalDate(event), '2026-09-30');
+  assert.equal(eventDateLabel(event, 'sq-AL', undefined, formatAppDate), '30 sht 2026');
+  assert.match(eventTimeLabel(event, 'sq-AL', formatAppDate), /^20:30/);
+  assert.equal(eventTimeLabel({ ...event, timePrecision: 'date' }, 'sq-AL', formatAppDate), 'Ora nuk është njoftuar');
+  assert.equal(eventDateLabel({ startsAt: 'invalid' }, 'sq-AL', undefined, formatAppDate), 'Data nuk është njoftuar');
+  assert.equal(event.startsAt, '2026-10-01T00:30:00Z');
+});
+
+test('Mobile visible dates use the fallback formatter while machine timezone and ISO formatting stay isolated', () => {
+  const bypasses = [];
+  for (const directory of ['mobile/src/screens', 'mobile/src/components']) {
+    for (const entry of readdirSync(directory)) {
+      if (!entry.endsWith('.tsx')) continue;
+      const file = path.join(directory, entry), source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+      const visit = node => {
+        if (ts.isCallExpression(node)) {
+          if (ts.isPropertyAccessExpression(node.expression)) {
+            const member = node.expression.name.text, receiver = node.expression.expression;
+            if (['toLocaleDateString', 'toLocaleTimeString'].includes(member) || member === 'toLocaleString' && ts.isNewExpression(receiver) && receiver.expression.getText(source) === 'Date') bypasses.push(`${file}: ${member}`);
+            if (member === 'format' && ts.isNewExpression(receiver) && receiver.expression.getText(source) === 'Intl.DateTimeFormat') bypasses.push(`${file}: Intl.DateTimeFormat.format`);
+          }
+          if (ts.isIdentifier(node.expression) && ['eventDateLabel', 'eventTimeLabel'].includes(node.expression.text)) {
+            if (node.arguments.at(-1)?.getText(source) !== 'formatAppDate') bypasses.push(`${file}: ${node.expression.text}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+  }
+  assert.deepEqual(bypasses, []);
+  assert.match(readFileSync('mobile/src/lib/dates.ts', 'utf8'), /new Intl\.DateTimeFormat\("en-CA"/);
+});
+
 test('Every static copy() interface message without an explicit third translation is covered by the Albanian catalog', t => {
   const app = fixture(); const { SQ_MESSAGES } = app.load('mobile/src/lib/locales/sq.ts');
   const keys = new Set(), missing = []; let explicit = 0;

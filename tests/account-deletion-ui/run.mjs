@@ -8,9 +8,12 @@ const require = createRequire(import.meta.url);
 function loadSource(path, imports) {
   const compiled = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const sourceModule = { exports: {} };
-  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? require(name), URL }, { filename: path });
+  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? (name === '../lib/localeFormatting' ? localeFormatting : require(name)), URL }, { filename: path });
   return sourceModule.exports;
 }
+const localeFormatting = loadSource('mobile/src/lib/localeFormatting.ts', {
+  './locales/sq-regions': loadSource('mobile/src/lib/locales/sq-regions.ts', {}),
+});
 const fixture = { id: "request-fixture", status: "pending", createdAt: "2026-09-10T12:00:00.000Z", targetCompletionAt: "2026-10-10T12:00:00.000Z", completedAt: null, notificationStatus: null };
 const calls = [];
 let response = { request: fixture };

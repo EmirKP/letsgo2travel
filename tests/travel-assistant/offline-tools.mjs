@@ -9,6 +9,15 @@ const languages = [['tr', 'Türkçe'], ['en', 'English'], ['de', 'Deutsch'], ['a
 function transpile(path) {
   return ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 }
+function loadFormatting(file) {
+  const output = { exports: {} };
+  vm.runInNewContext(`(function(require,module,exports){${transpile(file)}\n})`, { Intl })(name => {
+    if (name === './locales/sq-regions') return loadFormatting('mobile/src/lib/locales/sq-regions.ts');
+    throw Error(`Unexpected formatting dependency ${name}`);
+  }, output, output.exports);
+  return output.exports;
+}
+const localeFormatting = loadFormatting('mobile/src/lib/localeFormatting.ts');
 function storageModule() {
   let stored = null, writes = 0, quota = false;
   const result = { exports: {} };
@@ -138,6 +147,7 @@ test('Offline point search and category filtering update map points and clear hi
     react,
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../lib/i18n': { useI18n: () => ({ copy: (tr, en) => en, locale: 'en', dateLocale: 'en-GB' }) },
+    '../lib/localeFormatting': localeFormatting,
     '../../../lib/travel-assistant/places': { CATEGORY_LABELS: { pharmacy: ['Eczane', 'Pharmacy'], museum: ['Müze', 'Museum'] } },
   };
   vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelOfflineMap.tsx')}\nexports.explorerForTest = OfflinePackExplorer;})`, { requestAnimationFrame: fn => fn() })(name => imports[name] || {}, testModule, testModule.exports);

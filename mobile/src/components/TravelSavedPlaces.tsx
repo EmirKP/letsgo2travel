@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useId, useState } from 'react';
 import { CATEGORY_LABELS, NEEDS, TOURING } from '../../../lib/travel-assistant/places';
 import { useI18n } from '../lib/i18n';
@@ -148,8 +149,8 @@ function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote
     <details className="tsp-details"><summary>{copy('Kaynak ve kayıt bilgileri', 'Source and saved information')}</summary>
       {p.description && <p>{p.description}</p>}
       <p>{copy('Kayıttaki çalışma saatleri', 'Hours in saved record')}: {p.hours || copy('Bilinmiyor', 'Unknown')}</p>
-      <p>{copy('Veri alındı', 'Data retrieved')}: <time dateTime={p.fetchedAt}>{new Date(p.fetchedAt).toLocaleString(locale)}</time></p>
-      <p>{copy('Kaydettin', 'Saved')}: <time dateTime={item.savedAt}>{new Date(item.savedAt).toLocaleString(locale)}</time></p>
+      <p>{copy('Veri alındı', 'Data retrieved')}: <time dateTime={p.fetchedAt}>{formatAppDate(new Date(p.fetchedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</time></p>
+      <p>{copy('Kaydettin', 'Saved')}: <time dateTime={item.savedAt}>{formatAppDate(new Date(item.savedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</time></p>
       <p>{p.latitude.toFixed(5)}, {p.longitude.toFixed(5)}</p>
       <div className="ta-actions"><button type="button" onClick={() => onVisit(p.sourceUrl)}>{copy('OpenStreetMap kaynağı', 'OpenStreetMap source')}</button>{p.website && <button type="button" onClick={() => onVisit(p.website!)}>{copy('Kayıttaki web sitesi', 'Listed website')}</button>}</div>
       <p className="ta-muted">© OpenStreetMap contributors · ODbL</p>

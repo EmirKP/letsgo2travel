@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useState } from "react";
 import type { ReturnTypeUseAuth } from "../types-auth";
 import { isIOSNative } from "../lib/capacitor";
@@ -191,7 +192,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
         <small>{copy("OTURUM AÇIK", "SIGNED IN")}</small>
         <h3>{displayName}</h3>
         <p>{user.email}</p>
-        <div className="detail-list"><div><span>{copy("E-posta doğrulaması", "Email verification")}</span><strong>{user.email_confirmed_at ? copy("Tamamlandı", "Complete") : copy("Bekliyor", "Pending")}</strong></div><div><span>{copy("Üyelik tarihi", "Joined")}</span><strong>{new Intl.DateTimeFormat(dateLocale).format(new Date(user.created_at))}</strong></div></div>
+        <div className="detail-list"><div><span>{copy("E-posta doğrulaması", "Email verification")}</span><strong>{user.email_confirmed_at ? copy("Tamamlandı", "Complete") : copy("Bekliyor", "Pending")}</strong></div><div><span>{copy("Üyelik tarihi", "Joined")}</span><strong>{formatAppDate(new Date(user.created_at), dateLocale, {})}</strong></div></div>
         {(needsProfileCompletion || profileEditMode) && <div className="account-profile-edit">
           <div className="info-box"><Icon name="info" size={19} /><p>{copy("Apple isim bilgisini yalnız ilk yetkilendirmede paylaşabilir. Adını ve kullanıcı adını burada tamamlayarak iki platformda aynı profili kullan.", "Apple may share your name only on first authorisation. Complete your name and username here to use the same profile on both platforms.")}</p></div>
           <label>{copy("Ad soyad", "Full name")}<input value={profileFullName} maxLength={100} autoComplete="name" onChange={(event) => setProfileFullName(event.target.value)} placeholder={copy("Adın ve soyadın", "Your full name")} /></label>

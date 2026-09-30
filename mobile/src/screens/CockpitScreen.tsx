@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AirportField } from "../components/AirportField";
@@ -153,8 +154,7 @@ function checklistLabel(label: string, locale: "tr" | "en" | "sq") {
 
 function formatDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
-      .format(new Date(`${value}T12:00:00`));
+    return formatAppDate(new Date(`${value}T12:00:00`), locale, { day: "2-digit", month: "short", year: "numeric" });
   } catch {
     return value;
   }
@@ -851,7 +851,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
             <div><span>PNR</span><strong>{selectedTrip.flightPnr || copy("Eklenmedi", "Not added")}</strong></div>
             {(selectedDisplay?.originIata || selectedDisplay?.destinationIata) && <div><span>{copy("Rota", "Route")}</span><strong>{selectedDisplay.originIata || "—"} → {selectedDisplay.destinationIata || "—"}</strong></div>}
             {(selectedDisplay?.airline || selectedDisplay?.flightNumber) && <div><span>{copy("Uçuş", "Flight")}</span><strong>{[selectedDisplay.airline, selectedDisplay.flightNumber].filter(Boolean).join(" · ")}</strong></div>}
-            {selectedDisplay?.arrivalAt && <div><span>{copy("Planlanan varış", "Scheduled arrival")}</span><strong>{new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: airportTimeZone(selectedDisplay.destinationIata || "", selectedDisplay.providerFlight?.destination.timeZone) || "UTC", timeZoneName: "short" }).format(new Date(selectedDisplay.arrivalAt))}</strong></div>}
+            {selectedDisplay?.arrivalAt && <div><span>{copy("Planlanan varış", "Scheduled arrival")}</span><strong>{formatAppDate(new Date(selectedDisplay.arrivalAt), dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: airportTimeZone(selectedDisplay.destinationIata || "", selectedDisplay.providerFlight?.destination.timeZone) || "UTC", timeZoneName: "short" })}</strong></div>}
           </div>
           {selectedTrip.providerFlight && selectedDisplay?.arrivalAt && <CockpitFlightDetails flight={selectedTrip.providerFlight} now={clock}/>}
           {autoTrip && <p className="form-hint">{copy("Bu ekran açık ve internete bağlıyken uçuş bilgisi aralıklarla güncellenir.", "Flight details update periodically while this screen is open and online.")}</p>}
@@ -878,8 +878,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           {selectedTripEvents.length > 0 && <section className="cockpit-events-section">
             <div className="section-heading"><div><span>{copy("SEYAHAT TAKVİMİ", "TRIP CALENDAR")}</span><h2>{copy("Eklediğin etkinlikler", "Events in this trip")}</h2></div><small>{selectedTripEvents.length}</small></div>
             <div className="cockpit-event-list">{selectedTripEvents.map((item) => <article key={item.id}>
-              <span className="cockpit-event-date"><strong>{eventDateLabel({ startsAt: item.eventStartsAt || item.createdAt, localDate: item.eventLocalDate, timeZone: item.eventTimeZone }, dateLocale, { day: "2-digit" })}</strong><small>{eventDateLabel({ startsAt: item.eventStartsAt || item.createdAt, localDate: item.eventLocalDate, timeZone: item.eventTimeZone }, dateLocale, { month: "short" })}</small></span>
-              <button type="button" className="cockpit-event-open" disabled={!item.eventSourceUrl} onClick={() => item.eventSourceUrl && void openExternal(item.eventSourceUrl)}><small>{[item.eventCity, item.eventVenue].filter(Boolean).join(" · ") || copy("Etkinlik", "Event")}</small><strong>{item.label}</strong><em>{eventTimeLabel({ startsAt: item.eventStartsAt || item.createdAt, timeZone: item.eventTimeZone, timePrecision: item.eventTimePrecision }, dateLocale)}</em></button>
+              <span className="cockpit-event-date"><strong>{eventDateLabel({ startsAt: item.eventStartsAt || item.createdAt, localDate: item.eventLocalDate, timeZone: item.eventTimeZone }, dateLocale, { day: "2-digit" }, formatAppDate)}</strong><small>{eventDateLabel({ startsAt: item.eventStartsAt || item.createdAt, localDate: item.eventLocalDate, timeZone: item.eventTimeZone }, dateLocale, { month: "short" }, formatAppDate)}</small></span>
+              <button type="button" className="cockpit-event-open" disabled={!item.eventSourceUrl} onClick={() => item.eventSourceUrl && void openExternal(item.eventSourceUrl)}><small>{[item.eventCity, item.eventVenue].filter(Boolean).join(" · ") || copy("Etkinlik", "Event")}</small><strong>{item.label}</strong><em>{eventTimeLabel({ startsAt: item.eventStartsAt || item.createdAt, timeZone: item.eventTimeZone, timePrecision: item.eventTimePrecision }, dateLocale, formatAppDate)}</em></button>
               <button type="button" className="cockpit-event-remove" disabled={Boolean(busy) || loading} aria-label={copy("Etkinliği seyahatten çıkar", "Remove event from trip")} onClick={() => removeTripEvent(selectedTrip, item.id)}><Icon name="trash" size={17} /></button>
             </article>)}</div>
           </section>}

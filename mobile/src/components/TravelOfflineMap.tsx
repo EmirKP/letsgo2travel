@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { CATEGORY_LABELS } from "../../../lib/travel-assistant/places";
@@ -57,7 +58,7 @@ export function TravelOfflineMap() {
       if (!center) throw new Error("area");
       const raw = await requestJson<unknown>(
         `${config.travelAssistantApiBaseUrl}/api/travel-assistant/offline-map`,
-        { method: "POST", body: center, timeoutMs: 28000, signal: controller.signal },
+        { method: "POST", body: center, timeoutMs: 32000, signal: controller.signal },
       );
       if (controller.signal.aborted) return;
       const value = validateOfflinePack(raw);
@@ -151,7 +152,7 @@ export function TravelOfflineMap() {
             <strong>{packName(pack)}</strong>
             <span>{copy(`${pack.roads.length} sokak · ${pack.places.length} nokta`, `${pack.roads.length} streets · ${pack.places.length} points`)} · {Math.max(1, Math.ceil(new Blob([JSON.stringify(pack)]).size / 1024))} KB</span>
             <span>{copy("İndirme alanı: merkezden yaklaşık 1,5 km", "Download area: about 1.5 km from center")}</span>
-            <small>{copy("Veri alındı:", "Data retrieved:")} {new Date(pack.downloadedAt).toLocaleString(dateLocale)}</small>
+            <small>{copy("Veri alındı:", "Data retrieved:")} {formatAppDate(new Date(pack.downloadedAt), dateLocale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</small>
           </div>
           {now - Date.parse(pack.downloadedAt) > 7 * 86400000 && (
             <p className="ta-warning">
@@ -239,7 +240,7 @@ function OfflinePackExplorer({ pack }: { pack: OfflineMapPack }) {
       <p>{categoryLabel(selected.category)} · {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)}</p>
       {typeof selected.description === "string" && selected.description && <p>{selected.description}</p>}
       {typeof selected.hours === "string" && selected.hours && <p>{copy("Kayıtlı çalışma saatleri:", "Saved opening hours:")} {selected.hours}</p>}
-      <small>{copy("Kaynak: OpenStreetMap · Veri alındı:", "Source: OpenStreetMap · Data retrieved:")} {new Date(pack.downloadedAt).toLocaleString(dateLocale)}</small>
+      <small>{copy("Kaynak: OpenStreetMap · Veri alındı:", "Source: OpenStreetMap · Data retrieved:")} {formatAppDate(new Date(pack.downloadedAt), dateLocale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</small>
       <p className="ta-muted">{copy("Bu bilgi indirdiğin pakettendir. Açılış saatleri ve hizmet durumu değişmiş olabilir.", "This information comes from your downloaded pack. Hours and service availability may have changed.")}</p>
       <div className="ta-actions"><button type="button" onClick={() => void openExternal(selected.sourceUrl).then((opened) => { if (!opened) setNotice(copy("Kaynak açılamadı. İnternet bağlantını kontrol et.", "Could not open the source. Check your connection.")); })}>{copy("Kaynağı aç (internet gerekir)", "Open source (internet required)")}</button></div>
       {notice && <p role="status">{notice}</p>}

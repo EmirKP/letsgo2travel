@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AirportField } from "../components/AirportField";
 import { DateTimeField } from "../components/DateTimeField";
@@ -38,8 +39,7 @@ const EMPTY_FORM: AlertForm = {
 
 function formatDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" })
-      .format(new Date(`${value}T12:00:00`));
+    return formatAppDate(new Date(`${value}T12:00:00`), locale, { day: "2-digit", month: "short", year: "numeric" });
   } catch {
     return value;
   }
@@ -47,8 +47,7 @@ function formatDate(value: string, locale = "tr-TR") {
 
 function formatDateTime(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-      .format(new Date(value));
+    return formatAppDate(new Date(value), locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch {
     return value;
   }

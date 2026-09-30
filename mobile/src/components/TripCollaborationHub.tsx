@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { isCalendarDate, localIsoDate } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
@@ -49,7 +50,7 @@ function moneyText(value: number, currency: string, locale: string) {
 
 function dateText(value: string, locale: string) {
   try {
-    return new Intl.DateTimeFormat(locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+    return formatAppDate(new Date(`${value}T12:00:00`), locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { day: "2-digit", month: "short", year: "numeric" });
   } catch {
     return value;
   }

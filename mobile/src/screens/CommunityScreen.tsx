@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
@@ -97,7 +98,7 @@ function normalizeLeader(value: unknown): CommunityLeader | null {
 
 function formatQuestionDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
+    return formatAppDate(new Date(value), locale, { day: "numeric", month: "short", year: "numeric" });
   } catch {
     return value;
   }
@@ -602,7 +603,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         })}
       </div>}
 
-    <div className="cs-league-explainer"><strong>{copy("Sıralama nasıl hesaplanır?", "How is the ranking calculated?", "Si llogaritet renditja?")}</strong><p>{copy("Profilinde ziyaret edildi olarak işaretlediğin her farklı ülke 10 puan. Tekrarlanan ülkeler bir kez sayılır. Bu sıralama, belgeli gezgin doğrulamasından ayrıdır.", "Each different country marked visited in your profile is worth 10 points. Duplicates count once. This ranking is separate from verified traveller status.", "Çdo shtet i ndryshëm i shënuar si i vizituar vlen 10 pikë. Përsëritjet numërohen vetëm një herë. Renditja është e veçantë nga verifikimi i udhëtarit.")}</p>{user && <button type="button" className="secondary-wide" onClick={() => { setLeagueOpen(false); onNavigate("profile"); }}>{copy("Ziyaret ettiğim ülkeleri düzenle", "Edit my visited countries", "Ndrysho shtetet e vizituara")}</button>}{leagueUpdatedAt && <small>{copy("Son başarılı güncelleme", "Last successful update", "Përditësimi i fundit i suksesshëm")}: {new Date(leagueUpdatedAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</small>}</div>
+    <div className="cs-league-explainer"><strong>{copy("Sıralama nasıl hesaplanır?", "How is the ranking calculated?", "Si llogaritet renditja?")}</strong><p>{copy("Profilinde ziyaret edildi olarak işaretlediğin her farklı ülke 10 puan. Tekrarlanan ülkeler bir kez sayılır. Bu sıralama, belgeli gezgin doğrulamasından ayrıdır.", "Each different country marked visited in your profile is worth 10 points. Duplicates count once. This ranking is separate from verified traveller status.", "Çdo shtet i ndryshëm i shënuar si i vizituar vlen 10 pikë. Përsëritjet numërohen vetëm një herë. Renditja është e veçantë nga verifikimi i udhëtarit.")}</p>{user && <button type="button" className="secondary-wide" onClick={() => { setLeagueOpen(false); onNavigate("profile"); }}>{copy("Ziyaret ettiğim ülkeleri düzenle", "Edit my visited countries", "Ndrysho shtetet e vizituara")}</button>}{leagueUpdatedAt && <small>{copy("Son başarılı güncelleme", "Last successful update", "Përditësimi i fundit i suksesshëm")}: {formatAppDate(new Date(leagueUpdatedAt), dateLocale, { hour: "2-digit", minute: "2-digit" })}</small>}</div>
     <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>{copy("Sıralama yalnızca katılmayı seçen kullanıcıları ve güvenli profil özetlerini gösterir.", "The ranking shows only people who opted in and a safe profile summary.")}</p></div>
     </div></Sheet>
     <Sheet open={questionOpen} title={copy("Deneyimini paylaş", "Share your experience")} dismissible={!posting} onClose={() => { if (!postPending.current) { photoSelection.current++; setPhotoPreparing(false); setQuestionOpen(false); } }}>

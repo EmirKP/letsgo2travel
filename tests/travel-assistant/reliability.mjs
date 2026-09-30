@@ -17,6 +17,55 @@ function moduleFrom(path,imports={},globals={}) {
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name],module,module.exports);
   return module.exports;
 }
+
+test('Map outages fail over once within one time budget and avoid the failed host for the next request',async()=>{
+  const calls=[],timeouts=[]; let now=100000;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{}}, Date:class extends Date {static now(){return now;}},
+    AbortSignal:{timeout:milliseconds=>{timeouts.push(milliseconds);return undefined;}},
+    fetch:async(url,options)=>{
+      calls.push({host:url.hostname,query:options.body.get('data')});
+      if(url.hostname==='overpass.private.coffee'){now+=3000;throw new Error('network timeout');}
+      return Response.json({elements:[{type:'node',id:123}]});
+    },
+  });
+  const first=await provider.queryOverpass('bounded query');
+  assert.equal(first.elements[0].id,123);
+  assert.deepEqual(timeouts,[3000,23000]);
+  assert.deepEqual(calls.map(call=>call.host),['overpass.private.coffee','maps.mail.ru']);
+  assert.ok(calls.every(call=>call.query==='bounded query'));
+  await provider.queryOverpass('another bounded query');
+  assert.equal(calls.length,3); assert.equal(calls[2].host,'maps.mail.ru');
+});
+test('Map provider denials and rate limits pause requests without hopping to another host',async()=>{
+  for(const status of [400,403,406,429]){
+    let calls=0;
+    const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{calls++;return new Response('',{status});}});
+    await assert.rejects(()=>provider.queryOverpass('query'),/declined/);
+    await assert.rejects(()=>provider.queryOverpass('query'),/busy/);
+    assert.equal(calls,1);
+  }
+});
+test('Map server errors use the second service but custom providers remain exclusive',async()=>{
+  const calls=[]; let cancelled=0;
+  const fallback=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async url=>{calls.push(url.hostname);return calls.length===1?new Response(new ReadableStream({cancel(){cancelled++;}}),{status:503}):Response.json({elements:[]});}});
+  assert.equal((await fallback.queryOverpass('query')).elements.length,0);assert.equal(calls.length,2);assert.equal(cancelled,1);
+  const customCalls=[];
+  const custom=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{TRAVEL_OVERPASS_URL:'https://maps.example.test/interpreter'}},fetch:async url=>{customCalls.push(url.hostname);throw new Error('unreachable');}});
+  await assert.rejects(()=>custom.queryOverpass('private configured query'),/unreachable/);
+  assert.deepEqual(customCalls,['maps.example.test']);
+});
+test('Two failed map providers stop, and partial or malformed data never becomes an empty success',async()=>{
+  let calls=0;
+  const failed=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{calls++;throw new Error('network unavailable');}});
+  await assert.rejects(()=>failed.queryOverpass('query'));await assert.rejects(()=>failed.queryOverpass('query'));
+  assert.equal(calls,2);
+  for(const body of [null,{elements:[],remark:'timeout'},{}]){
+    let reads=0;
+    const partial=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{reads++;return Response.json(body);}});
+    await assert.rejects(()=>partial.queryOverpass('query'),/Incomplete/);assert.equal(reads,1);
+  }
+});
 test('Building outlines become offline hospital points and unsafe cached fields are rejected',()=>{
   const pack=normalizeOfflineMap(raw,center);
   assert.equal(pack.places.length,1); assert.equal(pack.places[0].category,'hospital'); assert.ok(validateOfflinePack(pack));

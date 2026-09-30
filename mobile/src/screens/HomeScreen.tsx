@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useId, useState } from "react";
 import { Icon } from "../components/Icon";
 import { TravelFeatureIcon } from "../components/TravelFeatureIcon";
@@ -89,7 +90,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const openSaved = (section: "routes" | "places" | "events") => onOpenSaved ? onOpenSaved(section) : onNavigate("trips");
   const search = (value: string) => onSearchDestination ? onSearchDestination(value.trim()) : onNavigate("explore");
   const tripTitle = nextTrip && ([nextTrip.destinationCity, nextTrip.destinationCountry].filter(Boolean).join(", ") || nextTrip.flightNumber || copy("Seyahatin", "Your trip"));
-  const labelDate = (value: string) => new Intl.DateTimeFormat(dateLocale, { day: "numeric", month: "short" }).format(new Date(value + "T12:00:00"));
+  const labelDate = (value: string) => formatAppDate(new Date(value + "T12:00:00"), dateLocale, { day: "numeric", month: "short" });
   const features = [
     { kind: "route" as const, title: copy("Rota Oluştur", "Build a Route"), caption: copy("Hayalini Planla", "Plan Your Dream"), view: "route" as ViewId },
     { kind: "globe" as const, title: copy("Ülke Keşfet", "Explore Countries"), caption: copy("Keşfet, İlham Al", "Find Inspiration"), view: "explore" as ViewId },

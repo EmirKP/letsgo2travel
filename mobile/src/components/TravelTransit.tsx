@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useRef, useState } from "react";
 import { requestJson } from "../lib/api";
 import { config } from "../lib/config";
@@ -55,7 +56,7 @@ function WorldwideTransit() {
   </div>;
 }
 function LondonTransit() {
-  const { copy } = useI18n();
+  const { copy, locale } = useI18n();
   const now = useCurrentTime();
   const [from, setFrom] = useState<TransitStop | null>(null);
   const [to, setTo] = useState<TransitStop | null>(null);
@@ -141,7 +142,7 @@ function LondonTransit() {
         <>
           <p>
             {copy("Son sorgu:", "Last checked:")}{" "}
-            {new Date(result.fetchedAt).toLocaleTimeString()}
+            {formatAppDate(new Date(result.fetchedAt), locale, { hour: "numeric", minute: "numeric", second: "numeric" })}
           </p>
           {stale ? (
             <p role="status" className="ta-warning">

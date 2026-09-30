@@ -12,7 +12,7 @@ const cached = unstable_cache(
   async (lat: number, lon: number) => {
     const c = { latitude: lat, longitude: lon };
     return normalizeOfflineMap(
-      await queryOverpass(offlineMapQuery(c), 23000),
+      await queryOverpass(offlineMapQuery(c), 26000),
       c,
     );
   },

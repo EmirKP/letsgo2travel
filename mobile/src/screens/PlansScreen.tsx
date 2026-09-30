@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
@@ -67,7 +68,7 @@ function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq"): Selecte
 
 function date(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+    return formatAppDate(new Date(value), locale, { day: "2-digit", month: "short", year: "numeric" });
   } catch {
     return value;
   }
@@ -285,8 +286,8 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
         <div className="section-heading"><div><span>{copy("PLANINDAKİ ETKİNLİKLER", "EVENTS IN YOUR PLAN")}</span><h2>{copy("Kaçırmak istemediklerin", "Events you don't want to miss")}</h2></div><button type="button" onClick={() => onNavigate("events")}>{copy("Etkinlik bul", "Find events")}</button></div>
         {savedEvents.length > 0 ? <div className="saved-event-list">{visibleEvents.map((event) => <article key={event.id} className={event.status === "cancelled" ? "cancelled" : ""}>
           <button type="button" className="saved-event-open" onClick={() => onOpenEvent ? onOpenEvent(event.id) : onNavigate("events")}>
-            <span><strong>{eventDateLabel(event, dateLocale, { day: "2-digit" })}</strong><small>{eventDateLabel(event, dateLocale, { month: "short" })}</small></span>
-            <div><small>{event.city}{event.venue ? ` · ${event.venue}` : ""}</small><strong>{event.title}</strong><em>{event.status === "cancelled" ? copy("İptal edildi", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : eventTimeLabel(event, dateLocale)}</em></div>
+            <span><strong>{eventDateLabel(event, dateLocale, { day: "2-digit" }, formatAppDate)}</strong><small>{eventDateLabel(event, dateLocale, { month: "short" }, formatAppDate)}</small></span>
+            <div><small>{event.city}{event.venue ? ` · ${event.venue}` : ""}</small><strong>{event.title}</strong><em>{event.status === "cancelled" ? copy("İptal edildi", "Cancelled") : event.status === "postponed" ? copy("Ertelendi", "Postponed") : eventTimeLabel(event, dateLocale, formatAppDate)}</em></div>
           </button>
           <button type="button" className="saved-event-remove" aria-label={copy("Etkinliği planımdan çıkar", "Remove event from my plan")} onClick={() => setPendingDelete({ kind: "event", item: event })}><Icon name="trash" size={17} /></button>
         </article>)}</div> : <button className="saved-events-empty" type="button" onClick={() => onNavigate("events")}><span><Icon name="calendar" size={22} /></span><div><strong>{copy("Henüz etkinlik kaydetmedin", "No saved events yet")}</strong><small>{copy("Tarihine uygun konser, festival ve maçları bul.", "Find concerts, festivals and sport for your dates.")}</small></div><Icon name="chevron" size={16} /></button>}

@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { Icon } from "./Icon";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
@@ -26,7 +27,7 @@ export function CountryRiskBadge({ advisory: input }: { advisory?: Advisory }) {
 
 function TurkishAdvisoryCard({ data }: { data?: TurkishTravelNotices }) {
   const { copy, locale } = useI18n();
-  const date = (value: string) => new Date(value).toLocaleDateString(locale, { timeZone: "UTC" });
+  const date = (value: string) => formatAppDate(new Date(value), locale, { timeZone: "UTC" });
   const notices = data?.notices ?? [];
   return <section className="ci-advisory ci-advisory-turkey" aria-label={copy("Türkiye Dışişleri seyahat duyuruları", "Turkish MFA travel notices")}>
     <span className="ci-eyebrow">{copy("Türk vatandaşları için", "For Turkish citizens")}</span>
@@ -55,10 +56,10 @@ function OtherAdvisoryCard({ advisory: input }: { advisory: Advisory }) {
   const { copy, locale } = useI18n();
   const advisory = prominentAdvisory(input);
   const reports = advisoryReports(input);
-  const date = (value: string) => new Date(value).toLocaleDateString(locale, { timeZone: "UTC" });
+  const date = (value: string) => formatAppDate(new Date(value), locale, { timeZone: "UTC" });
   return <section className={`ci-advisory ci-advisory-${advisory.precaution ? "regional" : advisory.level}`}>
     <span className="ci-eyebrow">{copy("Diğer ülkelerin resmî uyarıları", "Other countries’ official advice")}</span>
-    {advisory.freshness === "last-known" && <p className="ci-fallback-note"><strong>{copy("Canlı doğrulama alınamadı", "Live verification unavailable")}</strong><br/>{copy("Son doğrulanan kayıt gösteriliyor", "Showing the last verified record")}: {new Date(advisory.source.checkedAt).toLocaleDateString(locale)}. {copy("Güncel durum için kaynağı aç.", "Open the source for the current situation.")}</p>}
+    {advisory.freshness === "last-known" && <p className="ci-fallback-note"><strong>{copy("Canlı doğrulama alınamadı", "Live verification unavailable")}</strong><br/>{copy("Son doğrulanan kayıt gösteriliyor", "Showing the last verified record")}: {formatAppDate(new Date(advisory.source.checkedAt), locale, {})}. {copy("Güncel durum için kaynağı aç.", "Open the source for the current situation.")}</p>}
     <div className="ci-card-title"><Icon name={advisory.level === "no-specific-warning" && !advisory.precaution ? "info" : "alert"} size={21}/><h2>{copy(...reportTitle(advisory))}</h2></div>
     {advisory.topics.length > 0 && <div className="ci-tags">{advisory.topics.map(topic => <span key={topic}>{topic === "conflict" ? copy("Çatışma ve gerilim", "Conflict and tensions") : topic === "diplomatic" ? copy("Konsolosluk ve diplomasi", "Consular and diplomatic advice") : copy("Güvenlik", "Security")}</span>)}</div>}
     <p>{advisory.level === "unavailable" ? copy("Kaynak şu an yanıt vermiyor. Uyarı görünmemesi, risk olmadığı anlamına gelmez.", "The source is unavailable. Missing advice does not mean there is no risk.") : advisory.level === "regional" ? copy("Kısıtlamalar ülkenin tamamı için aynı değil. Gideceğin bölgeyi ve geçiş güzergâhını kaynakta kontrol et.", "Restrictions differ by region. Check your destination and transit route in the source.") : copy("Güncel resmî tavsiyenin özetidir. Ayrıntılar ve istisnalar kaynak sayfasındadır.", "A summary of the current official advice. See the source for details and exceptions.")}</p>

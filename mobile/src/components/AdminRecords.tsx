@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useState } from "react";
 import { requestJson } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -68,7 +69,7 @@ export function AdminRecords({ accessToken, initialCollection = "users" }: { acc
     pending_activation: copy("Etkinleştirme bekliyor", "Awaiting activation", "Në pritje të aktivizimit"), match_found: copy("Eşleşme bulundu", "Match found", "U gjet përputhje"), verification_required: copy("Doğrulama gerekiyor", "Verification needed", "Nevojitet verifikim"), triggered: copy("Bildirim gönderildi", "Alert triggered", "Njoftimi u dërgua"),
   };
   const format = (key: string, value: string) => {
-    if (key.endsWith("_at") || key.endsWith("_date")) { const date = new Date(value); if (Number.isFinite(date.getTime())) return date.toLocaleString(dateLocale); }
+    if (key.endsWith("_at") || key.endsWith("_date")) { const date = new Date(value); if (Number.isFinite(date.getTime())) return formatAppDate(date, dateLocale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }); }
     if (["status", "verification_status", "role"].includes(key)) return statusLabels[value] || value;
     if (value === "true") return copy("Evet", "Yes", "Po"); if (value === "false") return copy("Hayır", "No", "Jo");
     return value;

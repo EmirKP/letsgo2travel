@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getVisaAppointmentNotifications, listAlerts, markVisaAppointmentNotificationRead } from "../lib/api";
 import {
@@ -14,7 +15,7 @@ import { useI18n } from "../lib/i18n";
 
 function formatDate(value: string, locale = "tr-TR") {
   try {
-    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+    return formatAppDate(new Date(value), locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch {
     return value;
   }

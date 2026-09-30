@@ -31,9 +31,9 @@ export function appRegionName(code: string, locale: AppLocale, fallback = code):
   try { return new Intl.DisplayNames(locale, { type: 'region' }).of(code) || fallback; } catch { return fallback; }
 }
 
-export function formatAppDate(date: Date, locale: AppLocale, options: Intl.DateTimeFormatOptions): string {
-  const identifier = locale === 'sq' ? 'sq-AL' : locale === 'tr' ? 'tr-TR' : 'en-GB';
-  if (locale !== 'sq') return new Intl.DateTimeFormat(identifier, options).format(date);
+export function formatAppDate(date: Date, locale = 'tr-TR', options: Intl.DateTimeFormatOptions = {}): string {
+  const identifier = locale === 'sq' ? 'sq-AL' : locale;
+  if (!/^sq(?:-|$)/i.test(identifier)) return new Intl.DateTimeFormat(identifier, options).format(date);
   try {
     const formatter = new Intl.DateTimeFormat(identifier, options);
     if (Intl.DateTimeFormat.supportedLocalesOf(['sq-AL']).length && formatter.resolvedOptions().locale.toLowerCase().startsWith('sq')) {

@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "../lib/api";
 import { getAccountDeletionRequest, getAppleDeletionStatus, hasPendingDeletion, deletionConfirmationMatches, startAppleDeletionAuthorization, submitAccountDeletionRequest, type AccountDeletionRequest, type AppleDeletionStatus } from "../lib/accountDeletion";
@@ -191,7 +192,7 @@ export function AccountDeletionRequestSummary({ request, email }: { request: Acc
   const pending = hasPendingDeletion(request);
   function formatDate(value: string | null) {
     const parsed = value ? new Date(value) : null;
-    return parsed && Number.isFinite(parsed.getTime()) ? new Intl.DateTimeFormat(dateLocale, { dateStyle: "medium" }).format(parsed) : copy("Henüz belirlenmedi", "Not available yet");
+    return parsed && Number.isFinite(parsed.getTime()) ? formatAppDate(parsed, dateLocale, { dateStyle: "medium" }) : copy("Henüz belirlenmedi", "Not available yet");
   }
 
   const statuses = {

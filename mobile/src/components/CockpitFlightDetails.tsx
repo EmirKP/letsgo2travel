@@ -1,3 +1,4 @@
+import { formatAppDate } from "../lib/localeFormatting";
 import type { FlightMatch } from "../../../lib/flight-lookup";
 import { useI18n } from "../lib/i18n";
 
@@ -8,7 +9,7 @@ export function CockpitFlightDetails({ flight, now, compact = false }: { flight:
   const phase = progress?.phase;
   const state = phase === "en-route" ? copy("Havada bildirildi", "Reported airborne") : phase === "arrived" ? copy("Varış bildirildi", "Reported arrived")
     : progress?.status === "Delayed" ? copy("Gecikme bildirildi", "Reported delayed") : phase === "upcoming" ? copy("Kalkış öncesi", "Before departure") : copy("Plan bilgisi", "Schedule details");
-  const format = (value: string, zone: string, date = false) => new Intl.DateTimeFormat(dateLocale, { ...(date ? { day: "2-digit", month: "short" } : {}), hour: "2-digit", minute: "2-digit", timeZone: zone }).format(new Date(value));
+  const format = (value: string, zone: string, date = false) => formatAppDate(new Date(value), dateLocale, { ...(date ? { day: "2-digit", month: "short" } : {}), hour: "2-digit", minute: "2-digit", timeZone: zone });
   const Container = compact ? "span" : "div";
   return <Container className={`cockpit-journey-flight ${compact ? "compact" : ""}`}>
     <span className="cockpit-flight-state"><span>{state}{progress && !fresh ? copy(" · son bilinen", " · last known") : ""}</span><small>{fresh ? copy("Yakın zamanda güncellendi", "Recently updated") : copy("Güncelliği doğrulanmadı", "Freshness unconfirmed")}</small></span>

@@ -17,7 +17,7 @@ export function locateForTravel(): Promise<Coordinates> {
   });
 }
 export const loadPlaces = createPlacesLoader((center, mode) =>
-  requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...center, mode }, timeoutMs: 20000 }));
+  requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...center, mode }, timeoutMs: 32000 }));
 const FX_KEY = 'l2t:assistant:fx:v1';
 function readQuotes(): FxQuote[] {
   try {
