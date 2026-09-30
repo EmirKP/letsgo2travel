@@ -13,9 +13,9 @@ const center = {latitude:41.01,longitude:28.98};
 const raw = {elements:[{type:'way',id:1,tags:{highway:'residential',name:'Street'},geometry:[{lat:41.01,lon:28.98},{lat:41.011,lon:28.981}]},{type:'way',id:2,tags:{amenity:'hospital',name:'Hospital'},geometry:[{lat:41.01,lon:28.98},{lat:41.011,lon:28.981}]}]};
 function moduleFrom(path,imports={},globals={}) {
   const source = ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
-  const module={exports:{}};
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name],module,module.exports);
-  return module.exports;
+  const loaded={exports:{}};
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name],loaded,loaded.exports);
+  return loaded.exports;
 }
 
 test('Map outages fail over once within one time budget and avoid the failed host for the next request',async()=>{
@@ -121,12 +121,12 @@ test('A failed TfL interchange expansion does not hide healthy station results',
 });
 test('HEIC can use native browser decoding, 48MP inputs are resized, and JPEG stays within the server byte budget',async()=>{
   const qualities=[];let revoked=0;
-  const module=moduleFrom('mobile/src/lib/travelPhoto.ts',{}, {
+  const photoModule=moduleFrom('mobile/src/lib/travelPhoto.ts',{}, {
     URL:{createObjectURL:()=> 'blob:fixture',revokeObjectURL:()=>revoked++},
     Image:class{naturalWidth=8000;naturalHeight=6000;decode(){return Promise.resolve();}},setTimeout,clearTimeout,
     document:{createElement:()=>({width:0,height:0,getContext:()=>({fillRect(){},drawImage(){}}),toDataURL:(_,quality)=>{qualities.push(quality);return 'data:image/jpeg;base64,'+'a'.repeat(quality===0.8?1_400_000:1_200_000);}})},
   });
-  const photo=await module.prepareImage({name:'photo.heic',type:'image/heic',size:8_000_000});
+  const photo=await photoModule.prepareImage({name:'photo.heic',type:'image/heic',size:8_000_000});
   assert.ok(photo.length<1_320_000);assert.deepEqual(qualities,[0.8,0.7]);assert.equal(revoked,1);
 });
 test('Albanian weather suggestions remain Albanian and invalid coordinates never reach the provider',async()=>{

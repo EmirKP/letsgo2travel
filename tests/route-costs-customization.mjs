@@ -13,12 +13,12 @@ function modules(overrides = {}, globals = {}) {
   const load = filename => {
     let full = path.resolve(filename); if (!existsSync(full)) full += '.ts';
     if (cache.has(full)) return cache.get(full).exports;
-    const module = { exports: {} }; cache.set(full, module);
-    if (full.endsWith('.json')) { module.exports = JSON.parse(readFileSync(full, 'utf8')); return module.exports; }
+    const loaded = { exports: {} }; cache.set(full, loaded);
+    if (full.endsWith('.json')) { loaded.exports = JSON.parse(readFileSync(full, 'utf8')); return loaded.exports; }
     const source = ts.transpileModule(readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
     const resolve = name => Object.hasOwn(overrides, name) ? overrides[name] : name.startsWith('@/') ? load(name.slice(2)) : name.startsWith('.') ? load(path.resolve(path.dirname(full), name)) : require(name);
-    vm.runInContext(`(function(require,module,exports){${source}\n})`, context, { filename: full })(resolve, module, module.exports);
-    return module.exports;
+    vm.runInContext(`(function(require,module,exports){${source}\n})`, context, { filename: full })(resolve, loaded, loaded.exports);
+    return loaded.exports;
   }; return load;
 }
 const load = modules();

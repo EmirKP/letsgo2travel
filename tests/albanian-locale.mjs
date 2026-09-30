@@ -36,8 +36,8 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
     if (full.endsWith('.css')) return {};
     if (/\.(png|webp|svg)$/.test(full)) return full;
     if (cache.has(full)) return cache.get(full).exports;
-    const module = { exports: {} }; cache.set(full, module);
-    if (full.endsWith('.json')) return (module.exports = JSON.parse(readFileSync(full, 'utf8')));
+    const loaded = { exports: {} }; cache.set(full, loaded);
+    if (full.endsWith('.json')) return (loaded.exports = JSON.parse(readFileSync(full, 'utf8')));
     if (!compiled.has(full)) compiled.set(full, ts.transpileModule(readFileSync(full, 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
     }).outputText);
@@ -50,8 +50,8 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
       if (name.startsWith('.')) return load(path.resolve(path.dirname(full), name));
       throw Error(`Unexpected dependency ${name}`);
     };
-    vm.runInContext(`(function(require,module,exports){${compiled.get(full)}\n})`, context, { filename: full })(resolve, module, module.exports);
-    return module.exports;
+    vm.runInContext(`(function(require,module,exports){${compiled.get(full)}\n})`, context, { filename: full })(resolve, loaded, loaded.exports);
+    return loaded.exports;
   };
   const same = (a, b) => a && b && a.length === b.length && a.every((item, i) => Object.is(item, b[i]));
   function mount(component, initial = {}) {
@@ -282,12 +282,12 @@ test('Community, saved plans, Cockpit, alerts and notification dates accept full
     assert.ok(declaration, `${file} has its visible date formatter`);
     // Run the view's real function, isolated only from unrelated screen effects.
     const code = ts.transpileModule(`${declaration.getText(source)}\nmodule.exports = ${name};`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-    const module = { exports: {} };
-    vm.runInNewContext(code, { module, Date, formatAppDate, Intl: withoutAlbanianIntl() });
-    const formatted = module.exports(value, 'sq-AL');
+    const loaded = { exports: {} };
+    vm.runInNewContext(code, { module: loaded, Date, formatAppDate, Intl: withoutAlbanianIntl() });
+    const formatted = loaded.exports(value, 'sq-AL');
     assert.ok(formatted.includes(expected), `${file}: ${formatted}`);
     assert.doesNotMatch(formatted, /Eyl|Sept/);
-    assert.equal(module.exports('not-a-date', 'sq-AL'), 'not-a-date', 'Existing invalid source-date behavior is retained');
+    assert.equal(loaded.exports('not-a-date', 'sq-AL'), 'not-a-date', 'Existing invalid source-date behavior is retained');
   }
   const options = { day: '2-digit', month: 'short', year: 'numeric' };
   const sample = new Date('2026-09-30T12:00:00Z');
