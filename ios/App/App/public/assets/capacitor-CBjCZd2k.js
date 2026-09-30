@@ -1,0 +1,1 @@
+function e(){return!!window.Capacitor?.isNativePlatform?.()}function t(){return window.Capacitor?.getPlatform?.()||`web`}function n(){return e()&&t()===`ios`}function r(e){return window.Capacitor?.Plugins?.[e]}async function i(e,t,n){let i=r(e),a=i?.addListener;if(!a)return null;try{return await a.call(i,t,n)}catch{return null}}export{r as a,t as i,n,e as r,i as t};

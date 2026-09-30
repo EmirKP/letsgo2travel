@@ -1,0 +1,1 @@
+var e=``;function t(){return e}function n(t){/^[A-Z]{2}$/.test(t)&&(e=t)}export{n,t};

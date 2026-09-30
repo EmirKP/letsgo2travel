@@ -1,0 +1,1 @@
+var e=``+new URL(`tokyo-E6s6TY2n.webp`,import.meta.url).href,t=``+new URL(`dubai-Cg08fR9D.webp`,import.meta.url).href;export{e as n,t};
