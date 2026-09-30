@@ -2,6 +2,8 @@ import { isCalendarDate, validPickerValue } from "../lib/dates";
 import { useId, useState } from "react";
 import { Icon } from "./Icon";
 import { useI18n } from "../lib/i18n";
+import type { AppLocale } from '../lib/locale';
+import { formatAppDate } from '../lib/localeFormatting';
 
 type DateTimeFieldProps = {
   type: "date" | "time" | "datetime-local";
@@ -22,16 +24,16 @@ function localDate(value: string) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function visibleValue(value: string, type: DateTimeFieldProps["type"], locale: "tr" | "en") {
+function visibleValue(value: string, type: DateTimeFieldProps["type"], locale: AppLocale) {
   if (!value) return "";
   if (type === "time") return value.slice(0, 5);
   const date = localDate(value);
   if (!date) return value;
-  const formattedDate = new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-GB", {
+  const formattedDate = formatAppDate(date, locale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(date);
+  });
   return type === "datetime-local" && value.includes("T")
     ? `${formattedDate} · ${value.split("T")[1].slice(0, 5)}`
     : formattedDate;

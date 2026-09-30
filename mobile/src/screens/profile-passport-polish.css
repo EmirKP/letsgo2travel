@@ -135,6 +135,27 @@
 .editorial-app .screen.passport-polished .passport-stats svg { color: #0066ff; }
 .editorial-app .screen.passport-polished .passport-stats strong { color: #091832; font-size: 27px; line-height: 1.1; }
 .editorial-app .screen.passport-polished .passport-stats span { color: #53647c; font-size: 11px; line-height: 1.35; text-align: center; }
+.editorial-app .screen.passport-polished .passport-identity { display: flex; align-items: center; gap: 22px; margin-bottom: 24px; }
+.editorial-app .screen.passport-polished .passport-identity > div:last-child { min-width: 0; }
+.editorial-app .screen.passport-polished .passport-identity h2 { margin: 7px 0; color: #102e54; font-size: clamp(24px, 5vw, 32px); line-height: 1.1; letter-spacing: -.8px; }
+.editorial-app .screen.passport-polished .passport-identity p { margin: 0; color: #647690; font-size: 12px; line-height: 1.5; }
+.editorial-app .screen.passport-polished .passport-eyebrow { color: #0066ff; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
+.editorial-app .screen.passport-polished .passport-book { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 82px; height: 112px; flex-shrink: 0; border: 1px solid #0d6cef; border-radius: 5px 14px 14px 5px; background: linear-gradient(145deg, #2689ff, #005cec); box-shadow: inset 5px 0 0 #ffffff20, inset 8px 0 0 #0054b225, 5px 7px 0 -2px #dceaff, 8px 14px 19px #0868d91c; color: #ffe43c; transform: rotate(-8deg); }
+.editorial-app .screen.passport-polished .passport-book > span { font-size: 8px; color: #fff; font-weight: 800; }
+.editorial-app .screen.passport-polished .passport-book > span > span { color: #ffe43c; }
+.editorial-app .screen.passport-polished .passport-book i { width: 25px; height: 2px; border-radius: 2px; background: #ffffff50; }
+.editorial-app .screen.passport-polished .passport-overview-card { padding: 22px; background: linear-gradient(135deg, #f0f7ff, #fff 48%); border-color: #dce8fa; }
+.editorial-app .screen.passport-polished .passport-selection { padding: 16px; margin: 0 0 18px; border: 1px solid #e1eaf7; border-radius: 18px; background: #ffffffbc; }
+.editorial-app .screen.passport-polished .passport-selection :is(select, .country-picker-trigger) { background-color: #f7faff; height: 54px; min-height: 54px; }
+.editorial-app .screen.passport-polished .passport-stats > div { display: grid; grid-template-columns: minmax(0,1fr); justify-items: center; align-content: center; gap: 6px; min-height: 122px; padding: 13px 6px; background: #fff; box-shadow: 0 5px 15px #0066ff06; }
+.editorial-app .screen.passport-polished .passport-stats .passport-stat-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 10px; color: #0066ff; background: #edf5ff; }
+.editorial-app .screen.passport-polished .passport-stats strong { font-size: 30px; color: #1256a8; }
+.editorial-app .screen.passport-polished .passport-coverage summary { min-height: 48px; }
+@media (max-width: 380px) {
+  .editorial-app .screen.passport-polished .passport-identity { gap: 17px; }
+  .editorial-app .screen.passport-polished .passport-book { width: 66px; height: 94px; }
+  .editorial-app .screen.passport-polished .passport-selection { padding: 11px; }
+}
 .editorial-app .screen.passport-polished .passport-data-note { margin: 12px 0 5px; color: #53647c; font-size: 11px; line-height: 1.5; }
 .editorial-app .screen.passport-polished details.passport-coverage { border-top: 1px solid #e8eef7; margin-top: 12px; font-size: 12px; line-height: 1.6; }
 .editorial-app .screen.passport-polished .passport-coverage > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 9px 0 0; list-style: none; cursor: pointer; color: #52647f; }

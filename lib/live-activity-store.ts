@@ -50,7 +50,7 @@ function toCronTrip(row: TripSqlRow): CronTrip | null {
     flightNumber: String(row.flight_number || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || undefined,
     departureAtMs,
     arrivalAtMs: Number.isFinite(parsedArrivalAtMs) && parsedArrivalAtMs > departureAtMs ? parsedArrivalAtMs : undefined,
-    language: row.app_language === "en" ? "en" : "tr",
+    language: row.app_language === "sq" ? "sq" : row.app_language === "en" ? "en" : "tr",
   };
 }
 

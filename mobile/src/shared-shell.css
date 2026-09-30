@@ -1,15 +1,15 @@
-/* One header geometry and safe-area colour across every root and detail page. */
+/* A single frosted surface includes the native safe area; no separate colour band. */
 .app-shell.editorial-app.shared-shell { --header-sky: #0877b8; }
 .app-shell.editorial-app.shared-shell[class]::before {
-  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
-  background: var(--header-sky); pointer-events: none; z-index: 50;
+  content: none;
 }
 .app-shell.editorial-app .topbar.shared-topbar {
   position: sticky; inset: 0 0 auto; z-index: 40; display: flex;
   width: 100%; max-width: 850px; min-height: calc(76px + env(safe-area-inset-top)); height: auto;
   margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left));
-  color: #fff; background: linear-gradient(110deg, var(--header-sky), #258bc5);
-  border: 0; box-shadow: 0 3px 14px rgb(8 79 128 / 8%); backdrop-filter: none;
+  color: #fff; background: rgb(8 119 184 / 89%);
+  border: 0; border-bottom: 1px solid rgb(255 255 255 / 20%); box-shadow: 0 4px 20px rgb(8 79 128 / 7%);
+  -webkit-backdrop-filter: saturate(150%) blur(22px); backdrop-filter: saturate(150%) blur(22px);
 }
 .app-shell.editorial-app .shared-topbar .topbar-brand-group { flex: 1; min-width: 0; gap: 7px; margin-right: 10px; overflow: visible; }
 .app-shell.editorial-app .shared-topbar .brand-button {
@@ -23,7 +23,8 @@
   width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0;
   color: #fff; background: rgb(255 255 255 / 14%); border: 1px solid rgb(255 255 255 / 23%); border-radius: 50%;
 }
-.app-shell.editorial-app .shared-topbar .language-toggle { gap: 3px; }
+.app-shell.editorial-app .shared-topbar .language-toggle { flex-direction: column; gap: 3px; border-radius: 14px; width: 48px; min-width: 48px; background: rgb(255 255 255 / 12%); }
+.app-shell.editorial-app .shared-topbar .language-code { font-size: 8px; font-weight: 750; line-height: 1; letter-spacing: .6px; }
 .app-shell.editorial-app .shared-topbar .language-toggle strong { color: #fff; font-size: 10px; }
 .app-shell.editorial-app .shared-topbar .icon-button svg { width: 21px; height: 21px; }
 .app-shell.editorial-app .shared-topbar button:focus-visible { outline: 3px solid #ffda24; outline-offset: 3px; }
@@ -69,3 +70,11 @@
   .app-shell.editorial-app .shared-topbar .topbar-actions { gap: 3px; }
   .app-shell.editorial-app .shared-topbar .topbar-brand-group { gap: 4px; margin-right: 6px; }
 }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell.editorial-app .topbar.shared-topbar { background: #0877b8; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell.editorial-app .topbar.shared-topbar { background: #0877b8; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+.animated-splash-copy .animated-splash-brand { display: flex; align-items: baseline; justify-content: center; width: 100%; white-space: nowrap; font-family: 'Inter', system-ui, sans-serif; font-size: clamp(32px, 9vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.3; }
+.animated-splash-copy .animated-splash-brand strong { margin: 0; font-size: 1.18em; font-weight: 900; }

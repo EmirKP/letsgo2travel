@@ -1,5 +1,6 @@
 import { PASSPORTS, passportStatus } from "../../../lib/country-intelligence/passports";
 import type { VisaStatus } from "../types";
+import { translateCopy, type AppLocale } from './locale';
 
 const COUNTRY_KEY = "l2t:passport-country";
 const TYPE_KEY = "l2t:passport-type";
@@ -22,7 +23,7 @@ const LABELS: Record<VisaStatus, [string, string]> = {
   free: ["Vizesiz", "Visa-free"], id_card: ["Kimlikle", "ID card"], required: ["Vize gerekli", "Visa required"],
   evisa: ["e-Vize", "e-Visa"], on_arrival: ["Kapıda vize", "Visa on arrival"], unknown: ["Bilinmiyor", "Unknown"],
 };
-export function preferredEntry(preference: { country: string; type: string }, destination: string, locale: "tr" | "en") {
+export function preferredEntry(preference: { country: string; type: string }, destination: string, locale: AppLocale) {
   const status = passportStatus(preference.country, preference.type, destination);
-  return { status, label: LABELS[status][locale === "en" ? 1 : 0], visaFree: status === "free" || status === "id_card" };
+  return { status, label: translateCopy(locale, ...LABELS[status]), visaFree: status === "free" || status === "id_card" };
 }

@@ -26,6 +26,16 @@ await test("deletion requires an exact Turkish or English destructive confirmati
   await assert.rejects(() => helpers.submitAccountDeletionRequest("test-token", "tr", ""));
   assert.equal(calls.length, 0);
 });
+await test("Albanian deletion requires FSHI and does not accept another locale's confirmation", async () => {
+  assert.equal(helpers.deletionConfirmationMatches(" fshi ", "sq"), true);
+  for (const word of ["", "po", "DELETE", "SİL", "fshi tani"]) assert.equal(helpers.deletionConfirmationMatches(word, "sq"), false);
+  await assert.rejects(() => helpers.submitAccountDeletionRequest("test-token", "sq", "DELETE"));
+  assert.equal(calls.length, 0);
+  response = { success: true, request: fixture };
+  assert.equal((await helpers.submitAccountDeletionRequest("test-token", "sq", "FSHI")).id, fixture.id);
+  assert.equal(calls[0].options.body.confirmed, true);
+  assert.equal(calls[0].options.body.locale, "en", "Server notifications keep their supported language contract");
+});
 await test("deletion submits verified bearer, explicit confirmation and locale without account identity overrides", async () => {
   response = { success: true, request: fixture };
   const result = await helpers.submitAccountDeletionRequest("test-token", "tr", "SİL");

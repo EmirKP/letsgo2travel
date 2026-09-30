@@ -1,12 +1,13 @@
 export type SupportDraft = { email: string; subject: string; body: string };
 export type MailDraftResult = "handoff" | "unavailable";
 
-export function createSupportDraft(email: string, appVersion: string, buildNumber: string, locale: "tr" | "en"): SupportDraft {
+export function createSupportDraft(email: string, appVersion: string, buildNumber: string, locale: "tr" | "en" | "sq"): SupportDraft {
   return {
     email,
-    subject: locale === "tr" ? "LetsGo2Travel destek talebi" : "LetsGo2Travel support request",
+    subject: locale === "sq" ? "Kërkesë për ndihmë nga LetsGo2Travel" : locale === "tr" ? "LetsGo2Travel destek talebi" : "LetsGo2Travel support request",
     body: locale === "tr"
       ? `Yaşadığım sorun:\n\n\nUygulama: ${appVersion}\nBuild: ${buildNumber}`
+      : locale === "sq" ? `Problemi që po has:\n\n\nAplikacioni: ${appVersion}\nVersioni i ndërtimit: ${buildNumber}`
       : `The problem I am experiencing:\n\n\nApp: ${appVersion}\nBuild: ${buildNumber}`,
   };
 }

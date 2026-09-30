@@ -94,6 +94,23 @@ test('Native reminder bridge preserves both airport zones, flight number and fra
   assert.equal(app.starts[0].deepLink, 'letsgo2travel://cockpit?tripId=trip');
 });
 
+test('Albanian reminders, native bridge and APNs retain the selected language and schedule', async () => {
+  const app = mobileFixture();
+  const flight = { id: 'trip', title: 'Tiranë', departureAt, arrivalAt, status: 'upcoming', language: 'sq' };
+  const reminders = app.plannedReminders([flight], new Date('2026-10-09T14:00:00Z'));
+  assert.equal(reminders[0].title, 'Fluturimi yt po afron');
+  assert.ok(reminders[0].body.includes('Tiranë'));
+  assert.equal(reminders[0].at.getTime(), Date.parse(departureAt) - 3 * 60 * 60 * 1000);
+  await app.syncFlightReminders([flight], new Date('2026-10-10T09:30:00Z'));
+  assert.equal(app.starts[0].language, 'sq');
+  assert.equal(app.starts[0].arrivalAt, arrivalAt);
+  const payload = buildStartPayload({ ...trip, language: 'sq', arrivalAtMs: Date.parse(arrivalAt) });
+  assert.equal(payload.alert.title, 'Fluturimi yt po afron ✈️');
+  const aps = liveActivityAps(payload, trip.departureAtMs - 60000);
+  assert.equal(aps.attributes.language, 'sq');
+  assert.equal(aps['stale-date'], (Date.parse(arrivalAt) + 1200000) / 1000);
+});
+
 test('Old trips retain bounded activity lifetime without an invented arrival time in APNs', () => {
   const payload = buildStartPayload(trip);
   assert.equal(payload.arrivalAtMs, undefined);
@@ -154,6 +171,12 @@ test('Native source preserves legacy decoding, fractional dates, safe countdowns
   assert.ok(widget.includes('guard let arrivalAt, arrivalAt > departureAt else { return .arrivalUnknown }'));
   assert.ok(widget.includes('target > timeline.date'));
   assert.ok(widget.includes('TimeZone(identifier: $0)'));
-  assert.ok(widget.includes('"Device time" : "Cihaz saati"'));
+  assert.ok(widget.includes('language.text("Cihaz saati", "Device time", "Ora e pajisjes")'));
+  assert.ok(widget.includes('init(_ value: String?) { self = FlightLanguage(rawValue: value ?? "tr") ?? .tr }'), 'Old activities without a language still render in Turkish');
+  assert.ok(widget.includes('Locale(identifier: text("tr_TR", "en_GB", "sq_AL"))'));
+  assert.ok(widget.includes('formatter.locale = language.locale'));
+  assert.ok(widget.includes('environment(\\.locale, readout.language.locale)'));
+  assert.ok(bridge.includes('["tr", "en", "sq"].contains(call.getString("language") ?? "")'));
+  for (const label of ['Nisja sipas orarit', 'Mbërritja sipas orarit', 'Statusi duhet përditësuar', 'Hap udhëtimin për ta rifreskuar', 'Fluturimi yt']) assert.ok(widget.includes(label), label);
   assert.ok(!widget.includes('"Flying"') && !widget.includes('"Arrived"') && !widget.includes('checkmark.circle.fill'));
 });

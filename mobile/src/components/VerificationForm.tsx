@@ -25,8 +25,8 @@ type VerificationFormProps = {
 };
 
 export function VerificationForm({ accessToken, onSubmitted, onNotice }: VerificationFormProps) {
-  const { copy, locale } = useI18n();
-  const regionNames = useMemo(() => new Intl.DisplayNames(locale === "tr" ? "tr-TR" : "en-GB", { type: "region" }), [locale]);
+  const { copy, locale, dateLocale } = useI18n();
+  const regionNames = useMemo(() => new Intl.DisplayNames(dateLocale, { type: "region" }), [dateLocale]);
   const [countries, setCountries] = useState<VerificationCountry[]>([]);
   const [countriesError, setCountriesError] = useState(false);
   const [countryCode, setCountryCode] = useState("");
@@ -39,7 +39,7 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
   const countryOptions = useMemo(() => countries.map((country) => ({
     code: country.code,
     flagCode: country.code,
-    name: country.code === "XK" ? (locale === "tr" ? "Kosova" : "Kosovo") : regionNames.of(country.code) || country.name,
+    name: country.code === "XK" ? (locale === "en" ? "Kosovo" : "Kosova") : regionNames.of(country.code) || country.name,
   })), [countries, locale, regionNames]);
 
   useEffect(() => {

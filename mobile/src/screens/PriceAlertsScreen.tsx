@@ -9,6 +9,7 @@ import { clampLocalDate, isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
 import type { AuthUser, FlightAlert } from "../types";
 import { useI18n } from "../lib/i18n";
+import { translateCopy, type AppLocale } from '../lib/locale';
 
 type PriceAlertsScreenProps = {
   user: AuthUser | null;
@@ -53,8 +54,8 @@ function formatDateTime(value: string, locale = "tr-TR") {
   }
 }
 
-function formError(form: AlertForm, locale: "tr" | "en" = "tr") {
-  const message = (tr: string, en: string) => locale === "en" ? en : tr;
+function formError(form: AlertForm, locale: AppLocale = "tr") {
+  const message = (tr: string, en: string) => translateCopy(locale, tr, en);
   if (!form.origin) return message("Kalkış havalimanını listeden seç.", "Choose the departure airport from the list.");
   if (!form.destination) return message("Varış havalimanını listeden seç.", "Choose the arrival airport from the list.");
   if (form.origin.iata === form.destination.iata) return message("Kalkış ve varış aynı olamaz.", "Departure and arrival cannot be the same.");
@@ -69,15 +70,15 @@ function formError(form: AlertForm, locale: "tr" | "en" = "tr") {
   return "";
 }
 
-function errorText(error: unknown, fallback: string, locale: "tr" | "en") {
+function errorText(error: unknown, fallback: string, locale: AppLocale) {
   if (locale === "tr" && error instanceof ApiError && error.message) return error.message;
   return fallback;
 }
 
-function responseNotice(result: AlertMutationResponse, fallback: string, locale: "tr" | "en", preferServerMessage = false) {
-  if (locale === "en") {
+function responseNotice(result: AlertMutationResponse, fallback: string, locale: AppLocale, preferServerMessage = false) {
+  if (locale !== "tr") {
     const hasWarning = Boolean(result.warning?.trim()) || Boolean(result.warnings?.some((item) => item?.trim()));
-    return hasWarning ? `${fallback} One or more delivery channels may need attention.` : fallback;
+    return hasWarning ? `${fallback} ${locale === "sq" ? "Një ose më shumë kanale njoftimesh duhen kontrolluar." : "One or more delivery channels may need attention."}` : fallback;
   }
   const warnings = [result.warning, ...(Array.isArray(result.warnings) ? result.warnings : [])]
     .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
@@ -279,7 +280,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
 
   const removeAlert = async (alert: FlightAlert) => {
     if (!accessToken || busy) return;
-    if (!window.confirm(copy(`${alert.origin_code} → ${alert.destination_code} alarmını silmek istiyor musun?`, `Delete the ${alert.origin_code} → ${alert.destination_code} alert?`))) return;
+    if (!window.confirm(copy(`${alert.origin_code} → ${alert.destination_code} alarmını silmek istiyor musun?`, `Delete the ${alert.origin_code} → ${alert.destination_code} alert?`, `Dëshiron ta fshish njoftimin ${alert.origin_code} → ${alert.destination_code}?`))) return;
     setBusy(alert.id);
     setActionError("");
     try {
@@ -367,7 +368,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
               <button type="button" disabled={busy === alert.id} onClick={() => void removeAlert(alert)} aria-label={copy("Alarmı sil", "Delete alert")}><Icon name="trash" size={18} /></button>
             </div>
             <div className="alert-metrics">
-              <div><span>{copy("Hedef", "Target")}</span><strong>{alert.target_price ? `${priceFormat.format(alert.target_price)} TL` : copy(`%${alert.threshold_percent || 5} düşüş`, `${alert.threshold_percent || 5}% drop`)}</strong></div>
+              <div><span>{copy("Hedef", "Target")}</span><strong>{alert.target_price ? `${priceFormat.format(alert.target_price)} TL` : copy(`%${alert.threshold_percent || 5} düşüş`, `${alert.threshold_percent || 5}% drop`, `${alert.threshold_percent || 5}% ulje`)}</strong></div>
               <div><span>{copy("Son kontrol", "Last checked")}</span><strong>{alert.last_checked_price
                 ? `${priceFormat.format(alert.last_checked_price)} TL${alert.last_checked_at ? ` · ${formatDateTime(alert.last_checked_at, dateLocale)}` : ""}`
                 : copy("Henüz fiyat verisi yok", "No price data yet")}</strong></div>

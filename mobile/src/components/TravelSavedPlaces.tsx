@@ -22,7 +22,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: (
   const [status, setStatus] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
   useEffect(() => subscribeSavedPlaces(() => setState(readSavedPlaces())), []);
-  const label = (item: SavedPlace) => item.place.name || CATEGORY_LABELS[item.place.category][locale === 'tr' ? 0 : 1];
+  const label = (item: SavedPlace) => item.place.name || CATEGORY_LABELS[item.place.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1];
   const fold = (value: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
   const term = fold(query.trim());
   const dayItems = state.dayIds.flatMap(id => {
@@ -81,7 +81,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: (
     </div>}
     {view === 'saved' && state.items.length > 0 && <div className="tsp-filters">
       <label>{copy('Yer veya not ara', 'Search places or notes')}<input type="search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={copy('Müze, kahve molası…', 'Museum, coffee break…')}/></label>
-      <label>{copy('Kategori', 'Category')}<select value={category} onChange={event => setCategory(event.target.value)}><option value="">{copy('Tüm kategoriler', 'All categories')}</option>{[...NEEDS, ...TOURING].map(key => <option key={key} value={key}>{CATEGORY_LABELS[key][locale === 'tr' ? 0 : 1]}</option>)}</select></label>
+      <label>{copy('Kategori', 'Category')}<select value={category} onChange={event => setCategory(event.target.value)}><option value="">{copy('Tüm kategoriler', 'All categories')}</option>{[...NEEDS, ...TOURING].map(key => <option key={key} value={key}>{CATEGORY_LABELS[key][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}</option>)}</select></label>
     </div>}
     {view === 'day' && <p className="ta-muted">{copy(
       `Kaydettiğin yerlerden ${MAX_DAY_STOPS} durağa kadar seç, oklarla ziyaret sırasını ayarla. Bu kişisel bir sıralamadır; yol süresi hesaplamaz veya rotayı eniyilemez. Sıralaman sen değiştirene kadar kalır.`,
@@ -128,7 +128,7 @@ function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote
   return <li className="tsp-card">
     <div className="tsp-card-heading">
       {dayIndex !== null && <span className="tsp-stop-number" aria-label={copy(`${dayIndex + 1}. durak`, `Stop ${dayIndex + 1}`)}>{dayIndex + 1}</span>}
-      <div><h4>{name}</h4><p>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : 1]}{dayIndex === null && inDay && <span className="tsp-day-tag">{copy('Gezi sırasında', 'In day list')}</span>}</p></div>
+      <div><h4>{name}</h4><p>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}{dayIndex === null && inDay && <span className="tsp-day-tag">{copy('Gezi sırasında', 'In day list')}</span>}</p></div>
     </div>
     {item.note && !editing && <p className="tsp-note">{item.note}</p>}
     {editing ? <form className="tsp-note-editor" onSubmit={event => { event.preventDefault(); if (onNote(draft)) setEditing(false); }}>

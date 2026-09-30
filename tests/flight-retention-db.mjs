@@ -26,6 +26,7 @@ async function fixture() {
   await db.exec(sql('20260902100000_cockpit_flight_fields.sql'));
   await db.exec(sql('20260903200000_cockpit_arrival_time.sql'));
   await db.exec(sql('20260927110000_flight_lookup_retention.sql'));
+  await db.exec(sql('20260930130000_albanian_trip_language.sql'));
   for (const user of users) await db.query('insert into auth.users(id) values($1)', [user]);
   return db;
 }
@@ -69,6 +70,33 @@ async function expiredFixture(db) {
     [trip.id, value.user, value.receipt, value.fetched, value.expires, JSON.stringify(value.data)]);
   return { trip, value };
 }
+
+test('Albanian migration preserves all existing RPC guards and accepts only supported trip languages', async () => {
+  const source = sql('20260927110000_flight_lookup_retention.sql');
+  const migration = sql('20260930130000_albanian_trip_language.sql');
+  const rpc = text => text.replace(/\r\n/g, '\n').match(/create or replace function public\.create_flight_lookup_trip\([\s\S]+?grant execute on function public\.create_flight_lookup_trip\([^;]+to service_role;/)[0];
+  assert.equal(rpc(migration).replace("('tr', 'en', 'sq')", "('tr', 'en')"), rpc(source), 'The language allowlist is the only RPC change');
+  const db = await fixture();
+  try {
+    await actor(db);
+    for (const language of ['tr', 'en', 'sq']) {
+      const value = input({ language });
+      const trip = await create(db, value);
+      assert.equal(trip.app_language, language);
+      assert.equal(Date.parse(trip.flight_lookup_expires_at), Date.parse(value.expires));
+      assert.equal(trip.destination_city, null, 'Provider contents remain in the private sidecar');
+      await actor(db, 'authenticated', users[0]);
+      await db.query("update public.trips set app_language='sq' where id=$1", [trip.id]);
+      assert.equal((await db.query('select app_language from public.trips where id=$1', [trip.id])).rows[0].app_language, 'sq');
+      for (const invalid of ['de', 'SQ', '', null]) {
+        await assert.rejects(() => db.query('update public.trips set app_language=$2 where id=$1', [trip.id, invalid]), /check constraint|not-null constraint/);
+      }
+      await actor(db);
+    }
+    for (const language of ['de', 'SQ', '', null]) await assert.rejects(() => create(db, input({ language })), /invalid_input/);
+    assert.equal(await count(db, 'trips'), 3);
+  } finally { await db.close(); }
+});
 
 test('Provider contents and heartbeat are private; privileged RPCs cannot be invoked by clients', async () => {
   const db = await fixture();

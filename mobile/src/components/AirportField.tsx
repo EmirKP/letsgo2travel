@@ -114,7 +114,7 @@ export function AirportField({ label, value, onChange, placeholder, required = f
       <label htmlFor={!value ? inputId : undefined}>
         <span>{label}{required && <em className="required-mark"> · {copy("zorunlu", "required")}</em>}</span>
         {value ? (
-          <button type="button" className="airport-field-selected" onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={copy(`${airportTitle(value)} seçimini değiştir`, `Change ${airportTitle(value)} selection`)}>
+          <button type="button" className="airport-field-selected" onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={copy(`${airportTitle(value)} seçimini değiştir`, `Change ${airportTitle(value)} selection`, `Ndrysho zgjedhjen ${airportTitle(value)}`)}>
             <span>
               <strong>{airportTitle(value)} <em>{value.iata}</em></strong>
               <small>{value.name} · {value.country}</small>
@@ -144,7 +144,7 @@ export function AirportField({ label, value, onChange, placeholder, required = f
         )}
       </label>
       {open && !value && (
-        <div className="airport-field-options" id={listId} role="listbox" aria-label={copy(`${label} sonuçları`, `${label} results`)}>
+        <div className="airport-field-options" id={listId} role="listbox" aria-label={copy(`${label} sonuçları`, `${label} results`, `Rezultatet për ${label}`)}>
           {loading && !options.length && <p className="airport-field-note">{copy("Aranıyor…", "Searching…")}</p>}
           {failed && !loading && <p className="airport-field-note">{copy("Arama şu an yapılamadı. Bağlantını kontrol edip tekrar yaz.", "Search is unavailable. Check your connection and try again.")}</p>}
           {!loading && !failed && !options.length && query.trim().length >= 2 && (

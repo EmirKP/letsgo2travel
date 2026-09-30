@@ -299,8 +299,19 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
   },
 };
 
-function presentRoute(route: RouteSuggestion, locale: "tr" | "en" = "tr"): RouteSuggestion {
-  const translated = locale === "en" && route.destinationCode ? ROUTE_EN[route.destinationCode] : undefined;
+const ROUTE_SQ: Record<string, Partial<RouteSuggestion>> = {
+  GYD: { name: "Baku", country: "Azerbajxhan", cityOrRegion: "Baku", why: "Një pushim i shkurtër mes qytetit të vjetër dhe bregdetit, me shumë mundësi për shëtitje.", visaStatus: "Hyrje me letërnjoftim turk", estimatedBudget: "Ekonomik–mesatar", idealDuration: "3–4 ditë", bestFor: "Udhëtimi i parë jashtë vendit dhe eksplorimi urban", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Mbaj masat e zakonshme të kujdesit në qytet.", dailyPlan: ["Dita 1: Qyteti i vjetër, Kulla e Vajzës dhe shëtitorja buzë detit.", "Dita 2: Qendra Heydar Aliyev, Ateshgah dhe Yanar Dag.", "Dita 3: Rruga Nizami, ushqimi lokal dhe kohë e lirë."], warnings: ["Verifiko kushtet aktuale të hyrjes me letërnjoftim turk në burime zyrtare para udhëtimit."] },
+  TBS: { name: "Tbilisi", country: "Gjeorgji", cityOrRegion: "Tbilisi", why: "Kultura e pasur e ushqimit dhe kostot lokale ofrojnë një pushim të shkurtër të ekuilibruar.", visaStatus: "Hyrje me letërnjoftim turk", estimatedBudget: "Ekonomik", idealDuration: "3–5 ditë", bestFor: "Ushqim, kulturë dhe udhëtim ekonomik", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Trego kujdesin e zakonshëm në qytet dhe më shumë vëmendje në rrugët e qeta natën.", dailyPlan: ["Dita 1: Tbilisi i vjetër, Ura e Paqes dhe Narikala.", "Dita 2: Rustaveli, muzetë dhe kuzhina gjeorgjiane.", "Dita 3: Ekskursion ditor në Mtskheta ose Kazbegi."], warnings: ["Moti në mal ndryshon shpejt; merr veshje me shtresa."] },
+  SJJ: { name: "Sarajevë", country: "Bosnjë dhe Hercegovinë", cityOrRegion: "Sarajevë", why: "Një ndërthurje e historisë, natyrës dhe kuzhinës ballkanike për një udhëtim të përballueshëm.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Ekonomik–mesatar", idealDuration: "4–5 ditë", bestFor: "Histori, natyrë dhe kuzhinë ballkanike", difficulty: "I lehtë", transportEase: "Mesatar", safetyNote: "Qendra eksplorohet lehtë; në zonat rurale qëndro në shtigjet e shënuara.", dailyPlan: ["Dita 1: Baščaršija, Sebilj dhe Ura Latine.", "Dita 2: Tuneli i Shpresës dhe pikat panoramike të qytetit.", "Dita 3: Ekskursion në Mostar dhe Blagaj.", "Dita 4: Tregu lokal dhe një përfundim i qetë."], warnings: ["Kontrollo paraprakisht oraret e transportit për udhëtimin në Mostar."] },
+  BEG: { name: "Beograd", country: "Serbi", cityOrRegion: "Beograd", why: "Jeta e gjallë urbane dhe transporti i thjeshtë e bëjnë një mundësi të mirë për grupe miqsh.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Mesatar", idealDuration: "3–4 ditë", bestFor: "Jetë nate, pushime urbane dhe miq", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Kujdesu për sendet personale në vendet e mbushura me njerëz.", dailyPlan: ["Dita 1: Kalemegdan dhe Knez Mihailova.", "Dita 2: Shën Sava, Zemun dhe brigjet e lumit.", "Dita 3: Muzeu Nikola Tesla dhe restorantet lokale."], warnings: ["Përdor taksi të licencuara ose aplikacione të besueshme natën."] },
+  TIA: { name: "Tiranë dhe Ksamil", country: "Shqipëri", cityOrRegion: "Tiranë", why: "Një ndërthurje e qytetit dhe bregdetit për ata që duan pushime verore me eksplorim.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Ekonomik–mesatar", idealDuration: "5–7 ditë", bestFor: "Bregdet, natyrë dhe pushime verore", difficulty: "Mesatar", transportEase: "Mesatar", safetyNote: "Organizo paraprakisht transfertat bregdetare dhe përdor transport të licencuar.", dailyPlan: ["Dita 1: Qendra e Tiranës dhe Bunk'Art.", "Dita 2: Berat ose Gjirokastër.", "Ditët 3–5: Sarandë dhe plazhet e Ksamilit."], warnings: ["Akomodimet bregdetare mbushen shpejt në verë; planifiko rezervimin herët."] },
+  FCO: { name: "Romë", country: "Itali", cityOrRegion: "Romë", why: "Një qytet plot art, histori dhe ushqim për një program të pasur udhëtimi.", visaStatus: "Kërkohet vizë Shengen për pasaportën turke", estimatedBudget: "Mesatar–premium", idealDuration: "4–5 ditë", bestFor: "Histori, art dhe ushqim", difficulty: "Mesatar", transportEase: "I lehtë", safetyNote: "Kujdes nga vjedhjet e xhepave në zonat turistike të ngarkuara.", dailyPlan: ["Dita 1: Koloseu, Forumi Romak dhe Monti.", "Dita 2: Vatikani, Castel Sant'Angelo dhe Prati.", "Dita 3: Trevi, Panteoni, Navona dhe Trastevere.", "Dita 4: Villa Borghese dhe eksplorim i lirë."], warnings: ["Planifiko herët aplikimin për Shengen dhe rezervimet në sezonin e ngarkuar."] },
+  DXB: { name: "Dubai", country: "Emiratet e Bashkuara Arabe", cityOrRegion: "Dubai", why: "Përvoja moderne urbane, blerje dhe transport i organizuar për ata që vlerësojnë komoditetin.", visaStatus: "Kontrollo rregullat aktuale të vizës/e-vizës", estimatedBudget: "Premium", idealDuration: "4–6 ditë", bestFor: "Komoditet, blerje dhe përvoja urbane", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Respekto ligjet lokale dhe rregullat e sjelljes në publik.", dailyPlan: ["Dita 1: Downtown, Dubai Mall dhe zona e Burj Khalifa.", "Dita 2: Marina, JBR dhe Palm Jumeirah.", "Dita 3: Dubai i vjetër, Deira dhe safari në shkretëtirë.", "Dita 4: Muze, plazh ose ekskursion në Abu Dhabi."], warnings: ["Temperaturat gjatë ditës mund të jenë shumë të larta në verë."] },
+  BKK: { name: "Bangkok", country: "Tajlandë", cityOrRegion: "Bangkok", why: "Një udhëtim i larmishëm me ushqim rruge, kulturë dhe mundësi për të bashkuar qytetin me ishujt.", visaStatus: "Kontrollo rregullat aktuale të përjashtimit nga viza", estimatedBudget: "Mesatar", idealDuration: "7–10 ditë", bestFor: "Udhëtime të largëta, ushqim dhe kulturë", difficulty: "Mesatar", transportEase: "Mesatar", safetyNote: "Përdor aplikacione ose agjenci zyrtare për taksi dhe ekskursione.", dailyPlan: ["Ditët 1–2: Tempujt e Bangkokut, lumi dhe tregjet e natës.", "Dita 3: Ekskursion ditor në Ayutthaya.", "Ditët 4–7: Shto Phuket, Krabi ose Koh Samui."], warnings: ["Kontrollo sezonin e shirave dhe rregullat e bagazheve për fluturimet e brendshme."] },
+};
+
+function presentRoute(route: RouteSuggestion, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
+  const translated = locale !== "tr" && route.destinationCode ? (locale === "sq" ? ROUTE_SQ : ROUTE_EN)[route.destinationCode] : undefined;
   const value = translated ? { ...route, ...translated } : route;
   return {
     ...value,
@@ -341,21 +352,21 @@ function scoreRoute(route: CatalogRoute, input: PlannerInput) {
   return score;
 }
 
-export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" = "tr"): RoutePlan {
+export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr"): RoutePlan {
   const routes = [...ROUTE_CATALOG]
     .sort((a, b) => scoreRoute(b, input) - scoreRoute(a, input))
     .slice(0, 3)
     .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => presentRoute(route, locale));
 
   return {
-    summary: locale === "en"
+    summary: locale === "sq" ? "Kemi marrë parasysh buxhetin, kushtet e hyrjes dhe stilin tënd të udhëtimit. Kontrollo rregullat zyrtare më të fundit të hyrjes përpara se të vendosësh." : locale === "en"
       ? "We considered your budget, entry preference and travel style together. Check the latest official entry rules before deciding."
       : "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.",
     routes,
   };
 }
 
-export function randomRoute(locale: "tr" | "en" = "tr"): RouteSuggestion {
+export function randomRoute(locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
   const route = ROUTE_CATALOG[Math.floor(Math.random() * ROUTE_CATALOG.length)];
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
   return presentRoute(suggestion, locale);
@@ -365,7 +376,7 @@ export function randomRouteFor(preferences: {
   budget: "economy" | "balanced" | "premium";
   entry: "easy" | "all";
   pace: "easy" | "balanced" | "adventure";
-}, locale: "tr" | "en" = "tr"): RouteSuggestion {
+}, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
   const budgetMap = { economy: 1, balanced: 2, premium: 3 } as const;
   const candidates = ROUTE_CATALOG.filter((route) => {
     if (preferences.entry === "easy" && route.visaEase !== "easy") return false;
@@ -380,7 +391,7 @@ export function randomRouteFor(preferences: {
   return presentRoute(suggestion, locale);
 }
 
-export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" = "tr"): RouteSuggestion | null {
+export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion | null {
   const route = ROUTE_CATALOG.find((item) => item.destinationCode === destinationCode.trim().toUpperCase());
   if (!route) return null;
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;

@@ -8,6 +8,16 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'CommonJS', moduleResolution: 'node' } });
 const money = require('../../lib/travel-assistant/money.ts');
+function loadFormatting(file) {
+  const output = { exports: {} };
+  const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Intl })(name => {
+    if (name === './locales/sq-regions') return loadFormatting('mobile/src/lib/locales/sq-regions.ts');
+    throw Error(`Unexpected formatting dependency ${name}`);
+  }, output, output.exports);
+  return output.exports;
+}
+const localeFormatting = loadFormatting('mobile/src/lib/localeFormatting.ts');
 const jsx = (type, props, key) => ({ type, props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const now = Date.parse('2026-09-29T12:00:00Z');
@@ -49,7 +59,9 @@ function mount({ response = quote(), saved = null, loader, locale = 'en' } = {})
       loadQuote: (base, target) => { calls.push([base, target]); return loader ? loader(base, target) : Promise.resolve(response); },
     },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en }) },
+    '../lib/localeFormatting': localeFormatting,
     '../lib/native': { openExternal: url => opened.push(url) }, './Icon': { Icon: 'Icon' }, './travel-money.css': {},
+    '../assets/money-exchange.png': { default: '/money-exchange.png' },
   };
   const output = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {

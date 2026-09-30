@@ -58,6 +58,7 @@ function hookHost() {
 const i18n = {
   en: { locale: 'en', dateLocale: 'en-GB', copy: (_, en) => en, countryName: (_, fallback) => fallback },
   tr: { locale: 'tr', dateLocale: 'tr-TR', copy: tr => tr, countryName: (_, fallback) => fallback },
+  sq: { locale: 'sq', dateLocale: 'sq-AL', copy: (_, en, sq) => sq ?? en, countryName: (_, fallback) => fallback },
 };
 const question = (id, countryCode, title, overrides = {}) => ({ id, countryCode, title, body: `Advice about ${title}`, category: 'general', createdAt: '2026-09-28T10:00:00Z', username: `traveller_${id}`, authorId: `author-${id}`, answerCount: 0, ...overrides });
 const rows = [
@@ -230,6 +231,10 @@ test('League is lazy, reuses loaded results and never infers a verification badg
     assert.equal(h.requests.filter(item => item.path === '/api/kasifler-ligi').length, 1);
     h.click('Refresh'); assert.equal(h.requests.filter(item => item.path === '/api/kasifler-ligi').length, 2);
     view = h.render(); assert.equal(button(view, 'Refresh').props.disabled, true);
+    h.requests.at(-1).reject(Error('Temporary issue')); view = await h.settle();
+    assert.equal(nodes(view).filter(node => node.props?.className?.startsWith('community-leader-card')).length, 2, 'Failed refresh preserves last successful ranking');
+    assert.ok(text(view).includes('Last successful update'));
+    assert.equal(button(view, 'Refresh').props.disabled, false);
   } finally { h.dispose(); }
 });
 
@@ -510,4 +515,41 @@ test('The slim reply row opens genuine detail and own posts have no inert author
     assert.equal(find(view, 'CommunitySafetySheet').props.target.targetId, 'jp');
     assert.equal(find(view, 'CommunitySafetySheet').props.target.targetType, 'question');
   } finally { h.dispose(); }
+});
+
+test('A country starter with no auth account remains visible, reportable and replyable in Albanian', async () => {
+  const h = harness({ ...account, locale: 'sq' });
+  try {
+    const starter = question('starter', 'TR', 'Istanbul to Bodrum ideas', { authorId: null, username: 'yol_notlari' });
+    let view = await h.feed([starter]);
+    assert.equal(byClass(view, 'cs-post-author').type, 'strong', 'Fictional author has no profile button');
+    assert.equal(text(byClass(view, 'cs-post-author')), 'yol_notlari');
+    view = h.click('Veprimet për përdoruesin @yol_notlari');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.authorId, null);
+    find(view, 'CommunitySafetySheet').props.onClose(); h.render();
+    h.click('0 përgjigje: Istanbul to Bodrum ideas');
+    assert.equal(h.requests.at(-1).path, '/api/country-community/questions/starter');
+    h.requests.at(-1).resolve({ data: { ...starter, answers: [], totalAnswerCount: 0, hiddenAnswerCount: 0 } });
+    view = await h.settle();
+    assert.equal(find(byClass(view, 'community-question-detail'), 'button', props => props['aria-label'] === 'Veprimet për përdoruesin @yol_notlari'), undefined);
+    h.change('textarea', props => props.id === 'community-answer-body', 'A ferry and bus combination could work.');
+    h.click('Send answer');
+    assert.equal(h.requests.at(-1).path, '/api/country-community/answers');
+    assert.equal(h.requests.at(-1).options.headers.Authorization, 'Bearer TOKEN_A');
+    assert.deepEqual(JSON.parse(JSON.stringify(h.requests.at(-1).options.body)), { countryCode: 'TR', questionId: 'starter', body: 'A ferry and bus combination could work.' });
+    h.requests.at(-1).resolve({ moderation: { action: 'pending' } }); await h.settle();
+    assert.equal(h.notices.at(-1), 'Your answer was sent for review.');
+  } finally { h.dispose(); }
+});
+
+test('Web forum visibility accepts a null starter author and still hides a blocked real author', () => {
+  const visibility = { ready: true, hidden: new Set(['blocked']), error: false };
+  const source = load('components/ForumVisibility.tsx', {
+    react: { createContext: () => ({}), useContext: () => visibility },
+    'react/jsx-runtime': { jsx, jsxs: jsx }, '@/lib/supabase-client': { supabase: {} },
+  });
+  assert.equal(source.ForumUserContent({ authorId: null, children: 'Starter topic' }), 'Starter topic');
+  assert.equal(source.ForumUserContent({ authorId: 'blocked', children: 'Blocked topic' }), null);
+  visibility.ready = false;
+  assert.equal(source.ForumUserContent({ authorId: null, children: 'Starter topic' }), null, 'No content flashes before session safety checks');
 });

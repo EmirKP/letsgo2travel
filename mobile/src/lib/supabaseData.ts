@@ -39,6 +39,17 @@ const ERROR_MESSAGES_EN: Record<SupabaseDataErrorCode, string> = {
   service_unavailable: "The data service is currently unavailable. Try again shortly.",
 };
 
+const ERROR_MESSAGES_SQ: Record<SupabaseDataErrorCode, string> = {
+  "not_configured": "Lidhja e të dhënave nuk është konfiguruar ende.",
+  "not_authenticated": "Hyr në llogarinë tënde për këtë veprim.",
+  "forbidden": "Nuk ke leje për të parë këtë regjistrim.",
+  "not_found": "Regjistrimi i kërkuar nuk u gjet ose nuk është më i disponueshëm.",
+  "conflict": "Ky regjistrim ka ndryshuar diku tjetër. Rifresko dhe provo sërish.",
+  "invalid_data": "Të dhënat e dërguara nuk janë të vlefshme.",
+  "network": "Nuk u lidhëm me serverin. Kontrollo lidhjen dhe provo sërish.",
+  "service_unavailable": "Shërbimi i të dhënave nuk është i disponueshëm për momentin. Provo pas pak."
+};
+
 export class SupabaseDataError extends Error {
   readonly code: SupabaseDataErrorCode;
   readonly status: number;
@@ -51,9 +62,11 @@ export class SupabaseDataError extends Error {
   }
 }
 
-export function getSupabaseDataErrorMessage(error: unknown, fallback = ERROR_MESSAGES.service_unavailable) {
-  if (!(error instanceof SupabaseDataError)) return fallback;
-  return localeFromStorage() === "en" ? ERROR_MESSAGES_EN[error.code] : error.message;
+export function getSupabaseDataErrorMessage(error: unknown, fallback?: string) {
+  const locale = localeFromStorage();
+  const messages = locale === "sq" ? ERROR_MESSAGES_SQ : locale === "en" ? ERROR_MESSAGES_EN : ERROR_MESSAGES;
+  if (!(error instanceof SupabaseDataError)) return fallback ?? messages.service_unavailable;
+  return messages[error.code];
 }
 
 export type UserProfileData = {
@@ -121,7 +134,7 @@ export type CockpitTrip = {
   endDate: string;
   departureAt: string | null;
   arrivalAt: string | null;
-  appLanguage: "tr" | "en";
+  appLanguage: "tr" | "en" | "sq";
   flightPnr: string | null;
   originIata: string | null;
   destinationIata: string | null;
@@ -146,7 +159,7 @@ export type CreateCockpitTripInput = {
   endDate: string;
   departureAt?: string | null;
   arrivalAt?: string | null;
-  appLanguage?: "tr" | "en";
+  appLanguage?: "tr" | "en" | "sq";
   flightPnr?: string;
   originIata?: string;
   destinationIata?: string;
@@ -415,7 +428,7 @@ function normalizeTrip(row: TripRow): CockpitTrip | null {
     endDate,
     departureAt: managed ? null : nullableString(row.departure_at, 40),
     arrivalAt: managed ? null : nullableString(row.arrival_at, 40),
-    appLanguage: row.app_language === "en" ? "en" : "tr",
+    appLanguage: row.app_language === "sq" ? "sq" : row.app_language === "en" ? "en" : "tr",
     flightPnr: nullableString(row.flight_pnr, 20),
     originIata: managed ? null : nullableString(row.origin_iata, 3)?.toUpperCase() || null,
     destinationIata: managed ? null : nullableString(row.destination_iata, 3)?.toUpperCase() || null,
@@ -466,7 +479,7 @@ function assertTripInput(input: CreateCockpitTripInput) {
   const destinationIata = safeString(input.destinationIata, 3).toUpperCase();
   const flightNumber = safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (country.length < 2 || !/^[A-Z]{2}$/.test(code)
-    || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en")
+    || (input.appLanguage !== undefined && input.appLanguage !== "tr" && input.appLanguage !== "en" && input.appLanguage !== "sq")
     || !validDate(input.startDate) || !validDate(input.endDate)
     || (!departureAt && input.startDate < localIsoDate(0)) || input.startDate > localIsoDate(730)
     || (departureAt && Date.parse(departureAt) < Date.now() - 48 * 3600000)
@@ -490,7 +503,7 @@ function flightFieldValues(input: Pick<CreateCockpitTripInput, "originIata" | "d
     airline: nullableString(input.airline, 80),
     flight_number: nullableString(safeString(input.flightNumber, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""), 8),
     arrival_at: nullableString(input.arrivalAt, 40),
-    app_language: input.appLanguage === "en" ? "en" : "tr",
+    app_language: input.appLanguage === "sq" ? "sq" : input.appLanguage === "en" ? "en" : "tr",
   };
 }
 
@@ -712,7 +725,7 @@ export async function createCockpitTrip(userId: string, input: CreateCockpitTrip
       const result = await requestJson<{ trip: TripRow; flight: unknown; expiresAt: string }>(`${config.apiBaseUrl}/api/cockpit/flight-trips`, {
         method: "POST", headers: { Authorization: dataHeaders(accessToken).Authorization, "X-Flight-Lookup-Version": "3" },
         body: { receipt: input.flightSelectionReceipt, endDate: input.endDate, flightPnr: nullableString(input.flightPnr, 20),
-          checklistItems: cleanChecklist(input.checklistItems) || [], appLanguage: input.appLanguage === "en" ? "en" : "tr" },
+          checklistItems: cleanChecklist(input.checklistItems) || [], appLanguage: input.appLanguage === "sq" ? "sq" : input.appLanguage === "en" ? "en" : "tr" },
       });
       const trip = result?.trip && normalizeTrip(result.trip);
       if (!trip || trip.userId !== userId || !trip.flightLookupManaged) throw new SupabaseDataError("service_unavailable", 500);

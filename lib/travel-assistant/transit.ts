@@ -184,3 +184,9 @@ export function validateTransit(raw: unknown): TransitResult | null {
   }
   return r as unknown as TransitResult;
 }
+
+export function transitDirectionsUrl(origin: string, destination: string) {
+  const from = origin.trim().slice(0, 200), to = destination.trim().slice(0, 200);
+  if (!from || !to || from.toLocaleLowerCase() === to.toLocaleLowerCase()) return null;
+  return `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', origin: from, destination: to, travelmode: 'transit' })}`;
+}

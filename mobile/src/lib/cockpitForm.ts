@@ -3,6 +3,7 @@ import type { AirportOption } from "./airports";
 import { isPastLocalDate, localIsoDate } from "./dates";
 import { airportTimeZone } from "../../../lib/airport-time-zones";
 import { wallTimeToUtc } from "../../../lib/zoned-time";
+import { translateCopy, type AppLocale } from './locale';
 
 export type TripFormState = {
   mode: "flight" | "other";
@@ -36,8 +37,8 @@ export function normalizeFlightNumber(value: string) {
   return value.toLocaleUpperCase("en-US").replace(/[^A-Z0-9]/g, "").slice(0, 8);
 }
 
-export function tripFormError(form: TripFormState, now: Date = new Date(), locale: "tr" | "en" = "tr") {
-  const message = (tr: string, en: string) => locale === "en" ? en : tr;
+export function tripFormError(form: TripFormState, now: Date = new Date(), locale: AppLocale = "tr") {
+  const message = (tr: string, en: string) => translateCopy(locale, tr, en);
   if (form.mode === "flight") {
     if (!form.originAirport) return message("Kalkış havalimanını listeden seç.", "Choose the departure airport from the list.");
     if (!form.airport) return message("Varış havalimanını listeden seç (uçuşsuz seyahat için 'Uçuşsuz' sekmesini kullan).", "Choose the arrival airport from the list (use 'No flight' for other trips).");

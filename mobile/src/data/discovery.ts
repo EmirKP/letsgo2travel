@@ -146,9 +146,18 @@ const DISCOVERY_EN: Record<string, Partial<DiscoveryDestination>> = {
   },
 };
 
-export function localizedDiscovery(destination: DiscoveryDestination, locale: "tr" | "en" = "tr"): DiscoveryDestination {
-  if (locale !== "en") return destination;
-  const translated = DISCOVERY_EN[destination.code];
+const DISCOVERY_SQ: Record<string, Partial<DiscoveryDestination>> = {
+  TBS: { name: 'Tbilisi', country: 'Gjeorgjia', tag: 'Ushqim · Kulturë', entry: 'Hyrje me letërnjoftim turk', description: 'Qytet i vjetër, kuzhinë e pasur dhe kosto të përballueshme për një pushim të shkurtër.', bestMonths: 'Prill–Qershor · Shtator–Tetor', budget: 'Ekonomik–mesatar', highlights: ['Rrugët e Tbilisit të vjetër', 'Banjat e squfurit', 'Kuzhina gjeorgjiane'], localTip: 'Fillo nga Sololaki dhe zbrit në këmbë drejt qytetit të vjetër për një njohje të bukur me qytetin.' },
+  GYD: { name: 'Baku', country: 'Azerbajxhani', tag: 'Qytet · Udhëtimi i parë', entry: 'Hyrje me letërnjoftim turk', description: 'Fluturim i shkurtër, qendër që përshkohet në këmbë dhe përvojë qytetare moderne.', bestMonths: 'Prill–Qershor · Shtator', budget: 'Mesatar', highlights: ['Qyteti i vjetër', 'Kullat e Flakës', 'Bregu i Kaspikut'], localTip: 'Bashko vizitën në qytetin e vjetër me bulevardin buzë detit; dritat e mbrëmjes zbulojnë një tjetër anë të Bakut.' },
+  SJJ: { name: 'Sarajeva', country: 'Bosnjë-Hercegovina', tag: 'Histori · Natyrë', entry: 'Pa vizë', description: 'Një itinerar ballkanik me kosto të përballueshme, nga Baščaršija deri në Mostar.', bestMonths: 'Maj–Qershor · Shtator', budget: 'Ekonomik', highlights: ['Baščaršija', 'Ura Latine', 'Ekskursion ditor në Mostar'], localTip: 'Eksploro qendrën në këmbë dhe nisu herët me autobus për të shijuar sa më shumë ditën në Mostar.' },
+  BEG: { name: 'Beogradi', country: 'Serbia', tag: 'Qytet · Jetë nate', entry: 'Pa vizë', description: 'Brigje lumenjsh, rrugë të gjalla dhe transport qytetar i thjeshtë.', bestMonths: 'Prill–Qershor · Shtator–Tetor', budget: 'Ekonomik–mesatar', highlights: ['Kalemegdan', 'Zemun', 'Brigjet e Savës dhe Danubit'], localTip: 'Shëtit qendrën dhe Kalemegdanin në këmbë; për Zemunin lër veçmas një gjysmë dite me transport publik.' },
+  TIA: { name: 'Tirana', country: 'Shqipëria', tag: 'Bregdet · Ekonomik', entry: 'Pa vizë', description: 'Një itinerar fleksibël që bashkon Tiranën me plazhet rreth Ksamilit.', bestMonths: 'Maj–Qershor · Shtator', budget: 'Ekonomik', highlights: ['Sheshi Skënderbej', 'Blloku', 'Riviera shqiptare'], localTip: 'Nëse bregdeti është përparësia jote, qëndro një natë në Tiranë dhe lër më shumë kohë për Rivierën.' },
+  TYO: { name: 'Tokio', country: 'Japonia', tag: 'Kulturë · Udhëtim i largët', entry: 'Pa vizë', description: 'Një udhëtim i madh që bashkon traditën, teknologjinë dhe kuzhinën.', bestMonths: 'Mars–Maj · Tetor–Nëntor', budget: 'I lartë', highlights: ['Asakusa', 'Shibuya', 'Tregjet e lagjeve'], localTip: 'Vizito lagjet pranë njëra-tjetrës në të njëjtën ditë; kështu kursen kohë dhe kosto transporti në Tokio.' },
+};
+
+export function localizedDiscovery(destination: DiscoveryDestination, locale: "tr" | "en" | "sq" = "tr"): DiscoveryDestination {
+  if (locale === "tr") return destination;
+  const translated = (locale === 'sq' ? DISCOVERY_SQ : DISCOVERY_EN)[destination.code];
   return translated ? { ...destination, ...translated } : destination;
 }
 

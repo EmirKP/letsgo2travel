@@ -1029,8 +1029,8 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   assert.ok(map.includes("MAX_SCALE = MAP_MAX_SCALE") && map.includes("setFullscreen") && map.includes("groupTransform"), "harita sınırlandırılmış aralıkta yakınlaşmalı, tam ekran açılmalı ve vektör geometriyi dönüştürmeli");
   assert.ok(!map.includes("style={{ transform:") && styles.includes("shape-rendering: geometricPrecision"), "SVG CSS ile büyütülüp bulanıklaştırılmamalı");
   assert.ok(map.includes("width={flagSize}") && map.includes("height={flagSize*0.7}") && map.includes("href={countryFlagAsset(country.alpha2)}"), "bayraklar okunur boyutta yerel SVG olarak kalmalı");
-  assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('"Scheduled departure" : "Planlanan kalkış"'), "canlı etkinlik yalnız planlanan saatleri anlatmalı");
-  assert.ok(widget.includes('"Scheduled arrival" : "Planlanan varış"') && widget.includes(".arrivalUnknown"), "varış sayacı planlanan zamanı anlatmalı; eksik varış gerçekleşmiş sayılmamalı");
+  assert.ok(widget.includes("TimelineView(.periodic") && widget.includes('language.text("Planlanan kalkış", "Scheduled departure", "Nisja sipas orarit")'), "canlı etkinlik yalnız planlanan saatleri anlatmalı");
+  assert.ok(widget.includes('language.text("Planlanan varış", "Scheduled arrival", "Mbërritja sipas orarit")') && widget.includes(".arrivalUnknown"), "varış sayacı planlanan zamanı anlatmalı; eksik varış gerçekleşmiş sayılmamalı");
 });
 
 test("Topluluk ana sayfa ve menüden erişilir, ülke filtresi ve Kosova bayrağı korunur", () => {
@@ -1061,14 +1061,14 @@ test("Build 20: doğrulama belgesi ve etkinliği seyahate ekleme akışları gü
   const widget = readFileSync("ios/App/FlightActivityWidget/FlightActivityWidget.swift", "utf8");
   const styles = readFileSync("mobile/src/App.css", "utf8");
 
-  assert.ok(overviewRoute.includes("evidence_path,evidence_type") && overviewRoute.includes("hasEvidence"), "yönetici özeti eksik belge durumunu açıkça taşımalı");
+  assert.ok(overviewRoute.includes("readAdminVerifications") && overviewRoute.includes("hasEvidence") && overviewRoute.includes("item.evidence_path"), "yönetici özeti eksik belge durumunu açıkça taşımalı");
   assert.ok(evidenceRoute.includes('code: "EVIDENCE_MISSING"') && approveRoute.includes(".createSignedUrl(verification.evidence_path, 30)"), "olmayan depolama belgesi açma ve onay sırasında sunucuda engellenmeli");
   assert.ok(rejectRoute.includes("reviewVerification") && approveRoute.includes("alreadyMissing"), "depoda zaten silinmiş belge gerekçeli red işlemini kilitlememeli");
   assert.ok(admin.includes("missingEvidenceIds") && admin.includes("Belgesiz başvuru onaylanamaz") && admin.includes("admin-missing-evidence"), "mobil yönetici eksik belgeyi işaretleyip onayı kapatmalı");
   assert.ok(styles.includes(".admin-tabs { position: relative; top: auto") && admin.includes("alpha3FromAlpha2"), "yönetici sekmeleri içeriği örtmemeli ve ülke adları yerelleştirilmeli");
   assert.ok(events.includes("attachTravelEventToCockpitTrip") && events.includes("eventDay >= trip.startDate") && events.includes("Seyahate ekle"), "yalnız tarihi örtüşen seyahate etkinlik eklenebilmeli");
   assert.ok(mobileData.includes('kind: "event"') && mobileData.includes("eventStartsAt") && cockpit.includes("selectedTripEvents") && cockpit.includes("cockpit-event-list"), "etkinlikler mevcut senkron seyahat verisinde yapısal olarak saklanıp ayrı gösterilmeli");
-  assert.ok(widget.includes(".labelsHidden()") && widget.includes('"Scheduled arrival" : "Planlanan varış"'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip planlanan varış sayacı korunmalı");
+  assert.ok(widget.includes(".labelsHidden()") && widget.includes('language.text("Planlanan varış", "Scheduled arrival", "Mbërritja sipas orarit")'), "Canlı Etkinlikte tekrarlanan sayaç gizlenip planlanan varış sayacı korunmalı");
 });
 
 test("Build 21: forum cevap alanı ve yönetim sağlık uyarısı dar ekranda güvenlidir", () => {
@@ -1097,14 +1097,13 @@ test("Build 14: anlık öneri yaklaşık konumu POST gövdesinde ve kalıcı cac
 test("Build 14: dil tercihi cihazda kalır ve uçuş ekranına kadar taşınır", () => {
   const i18n = readFileSync("mobile/src/lib/i18n.tsx", "utf8");
   const app = readFileSync("mobile/src/App.tsx", "utf8");
-  const menu = readFileSync("mobile/src/components/MenuSheet.tsx", "utf8");
+  const languagePicker = readFileSync("mobile/src/components/LanguagePicker.tsx", "utf8");
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const sql = readFileSync("supabase/migrations/20260903200000_cockpit_arrival_time.sql", "utf8");
   assert.ok(i18n.includes('LOCALE_KEY = "l2t-language-v1"') && i18n.includes("navigator.language"), "dil cihaz dilinden başlamalı ve saklanmalı");
-  assert.ok(app.includes('onClick={() => setMenuOpen(true)}') && app.includes('<MenuSheet open={menuOpen}'), "ortak üst menü dil seçicisine ulaşmalı");
-  assert.ok(menu.includes('role="group" aria-label={copy("Uygulama dili", "App language")}')
-    && menu.includes('lang="tr" aria-pressed={locale === "tr"} onClick={() => setLocale("tr")}')
-    && menu.includes('lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}'), "TR/EN seçimi menüde adlandırılmış, iki dilde ve etkin durumu belirtilmiş olmalı");
+  assert.ok(app.includes('<LanguagePicker />') && app.indexOf('<LanguagePicker />') < app.indexOf('onClick={() => setNotificationsOpen(true)}'), "dil seçimi ortak üst alanda bildirimlerden önce olmalı");
+  assert.ok(languagePicker.includes("id: 'tr'") && languagePicker.includes("id: 'en'") && languagePicker.includes("id: 'sq'")
+    && languagePicker.includes('lang={language.id} aria-pressed={locale === language.id}') && languagePicker.includes('setLocale(language.id)'), "TR/EN/SQ seçimi adlandırılmış ve etkin durumu belirtilmiş olmalı");
   assert.ok(cockpit.includes("appLanguage: locale") && cockpit.includes("arrivalAt"), "dil ve varış uçuş kaydına gitmeli");
   assert.ok(sql.includes("app_language") && sql.includes("arrival_at > departure_at"), "veritabanı dil ve varış bütünlüğünü korumalı");
 });

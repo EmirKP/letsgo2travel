@@ -23,6 +23,9 @@ const SPEECH_LANG: Record<string, string> = {
   AE: "ar-AE", GE: "ka-GE", AZ: "az-AZ", BR: "pt-BR", GB: "en-GB",
 };
 
+const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
+const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
+
 export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice, accessToken, onSignIn }: {
   initialTab?: CompanionTab;
   accessToken: string;
@@ -48,7 +51,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
       flagCode: code,
       name: countryName(country.alpha3, country.name),
       meta: supported
-        ? (locale === "tr" ? supported.languageTr : supported.languageEn)
+        ? copy(supported.languageTr, supported.languageEn, LANGUAGE_NAMES_SQ[supported.languageEn])
         : copy("İngilizce acil kart", "English emergency fallback"),
       supported: Boolean(supported),
     };
@@ -183,11 +186,12 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" aria-label={tabLabel(tab)}>
       <CountryPicker value={countryCode} options={countryOptions} onChange={code => { setCountryCode(code); selectTravelCountry(code); }} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
       {supportedProfiles.has(countryCode) && <p className="essential-language-note"><Icon name="offline" size={15} /> {tab === "phrases"
-        ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`)
+        ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`, `Fraza gati pa internet: ${LANGUAGE_NAMES_SQ[profile.languageEn] || profile.languageEn}`)
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
       {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
+      {locale === "sq" && tab === "etiquette" && <p className="essential-language-note" lang="sq">Këshillat lokale më poshtë janë në anglisht; përkthimi në shqip nuk është ende i disponueshëm.</p>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}>
-        <small>{locale === "tr" ? phrase.tr : phrase.en}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}
+        <small>{copy(phrase.tr, phrase.en, PHRASE_MEANINGS_SQ[phrase.id])}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}
         <div className="phrase-actions">
           <button type="button" onClick={() => void copyPhrase(phrase.local)} aria-label={`${copy("Kopyala", "Copy")}: ${phrase.local}`}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3" /></svg>
@@ -199,7 +203,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
           </button>
         </div>
       </article>)}</div>
-        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
+        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p lang={locale === "tr" ? "tr" : "en"}>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
     </section>}
 

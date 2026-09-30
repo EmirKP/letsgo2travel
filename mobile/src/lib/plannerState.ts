@@ -1,4 +1,5 @@
 export type PlannerInputSnapshot = {
+  destination?: { code: string; name: string; country: string; countryCode: string };
   origin: string;
   days: string;
   month: string;
@@ -16,5 +17,5 @@ export type PlannerInputSnapshot = {
  * gerçekten üreten girdiyi taşır.
  */
 export function snapshotPlannerInput<T extends PlannerInputSnapshot>(input: T): T {
-  return { ...input, vibe: [...input.vibe] };
+  return { ...input, ...(input.destination ? { destination: { ...input.destination } } : {}), vibe: [...input.vibe] };
 }

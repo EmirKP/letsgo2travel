@@ -195,10 +195,11 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
+const destinationPlans = load('lib/route-planner.ts');
 function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
-    ...common(host), '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
+    ...common(host), '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
     '../lib/api': { generateRoutePlan: async input => { generated.push(input); return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
@@ -300,6 +301,31 @@ test('Choosing a ready route records its displayed duration without rewriting al
     button(h.host.render(), 'Find other route ideas').props.onClick();
     const duration = nodes(h.host.render()).find(node => node.type === 'label' && text(node).startsWith('Duration'));
     assert.equal(find(duration, 'select').props.value, '4–6 gün', 'Choosing a sample must not overwrite the independent search form');
+  } finally { h.host.dispose(); }
+});
+
+test('Fixed-target mode requires a destination, preserves it on a mismatched response, and saves itinerary edits', async () => {
+  const h = plannerHarness({ seeded: false });
+  try {
+    const view = () => h.host.render();
+    find(view(), 'button', props => text(props.children).startsWith('I know where to go')).props.onClick();
+    find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
+    assert.equal(button(view(), 'Create Route').props.disabled, true);
+    find(view(), 'AirportField', props => props.label === 'To?').props.onChange({ iata: 'BJV', city: 'Bodrum', name: 'Milas Bodrum Airport', country: 'Türkiye', countryCode: 'TR' });
+    assert.equal(button(view(), 'Create Route').props.disabled, false);
+    const create = button(view(), 'Create Route'); create.props.onClick(); create.props.onClick(); await tick();
+    assert.equal(h.generated.length, 1, 'Rapid double taps must not spend a second AI request');
+    assert.equal(h.generated[0].destination.name, 'Bodrum'); assert.equal(h.generated[0].dayCount, 3);
+    assert.match(text(view()), /Starter outline/); assert.doesNotMatch(text(find(view(), 'section', p => p.className === 'plan-results')), /Rome|Paris/);
+    button(view(), 'Save this plan').props.onClick(); await tick(); const first = h.saves[0];
+    button(view(), 'Edit').props.onClick();
+    const newStop = find(view(), 'label', p => text(p.children).startsWith('New stop'));
+    find(newStop, 'textarea').props.onChange({ target: { value: 'Evening marina walk' } });
+    button(view(), 'Add stop').props.onClick(); button(view(), 'Apply changes').props.onClick();
+    button(view(), 'Save this plan').props.onClick(); await tick();
+    assert.equal(h.saves.length, 2); assert.notEqual(h.saves[1].id, first.id, 'Edited content must not be suppressed as already saved');
+    assert.equal(first.plan.routes[0].dailyPlan.length, 3); assert.equal(h.saves[1].plan.routes[0].dailyPlan.at(-1), 'Evening marina walk');
+    assert.equal(h.saves[1].input.destination.name, 'Bodrum');
   } finally { h.host.dispose(); }
 });
 

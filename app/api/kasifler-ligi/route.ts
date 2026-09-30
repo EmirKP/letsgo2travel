@@ -1,68 +1,23 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { explorerCountryAliases } from "@/lib/leaderboard/countries";
 
 export const dynamic = "force-dynamic";
-
+const headers = { "Cache-Control": "no-store, max-age=0" };
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json({ error: "Supabase admin configuration missing" }, { status: 500 });
+    if (!supabase) return NextResponse.json({ error: "Lig bağlantısı kurulamadı." }, { status: 503, headers });
+    const { data, error } = await supabase.rpc("get_explorer_league", { p_country_aliases: explorerCountryAliases, p_limit: 100 });
+    if (error || !Array.isArray(data)) {
+      console.error("explorer_league_unavailable", { code: error?.code || "invalid_data" });
+      return NextResponse.json({ error: "Sıralama yüklenemedi. Lütfen tekrar dene." }, { status: 503, headers });
     }
-
-    // Yalnızca opt_in_leaderboard = true olan ve username'i olan kullanıcıları çek
-    const { data: leaders, error } = await supabase
-      .from('profiles')
-      .select('id, username, visited_countries')
-      .eq('opt_in_leaderboard', true)
-      .not('username', 'is', null)
-      // Eski şema puanı satır üzerinde tutmuyor; yine de sunucu ve ağ
-      // yükünün kullanıcı sayısıyla sınırsız büyümesine izin verme.
-      .limit(500);
-
-    if (error) {
-      if (error.code === '42703') {
-        return NextResponse.json({ data: [] });
-      }
-      return NextResponse.json({ error: "Veriler alınamadı" }, { status: 500 });
-    }
-
-    // Blocked listesini al (service_role olduğu için okuyabilir)
-    const { data: blockedUsers } = await supabase
-      .from('leaderboard_blocks')
-      .select('user_id')
-      .limit(5000);
-    const blockedIds = new Set((blockedUsers || []).map(b => b.user_id));
-
-    // Güvenli response oluştur (id, visited_countries detayları hariç)
-    const formattedLeaders = (leaders || [])
-      .filter(l => !blockedIds.has(l.id))
-      .map(l => {
-      const visitedCount = l.visited_countries?.length || 0;
-      const points = visitedCount * 10;
-      
-      let level = "Yeni Kaşif";
-      if (visitedCount >= 25) level = "Dünya Gezgini";
-      else if (visitedCount >= 10) level = "Balkan Kaşifi";
-      else if (visitedCount >= 5) level = "Rota Meraklısı";
-
-      return {
-        username: l.username,
-        visitedCount,
-        points,
-        level
-      };
-    });
-
-    // En çok gezen en üstte
-    formattedLeaders.sort((a, b) => b.visitedCount - a.visitedCount);
-
-    return NextResponse.json({ data: formattedLeaders.slice(0, 100) }, {
-      headers: {
-        'Cache-Control': 'no-store, max-age=0'
-      }
-    });
+    return NextResponse.json({ data: data.map(row => ({
+      username: String(row.username).slice(0, 40), visitedCount: Number(row.visited_count),
+      points: Number(row.points), level: String(row.level).slice(0, 80),
+    })), generatedAt: new Date().toISOString(), limit: 100, pointsPerCountry: 10, basis: "self_reported_visits" }, { headers });
   } catch {
-    return NextResponse.json({ error: "Sunucu hatası", data: [] }, { status: 500 });
+    return NextResponse.json({ error: "Lig şu anda yüklenemedi." }, { status: 503, headers });
   }
 }

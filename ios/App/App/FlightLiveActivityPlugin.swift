@@ -111,7 +111,7 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 originIata: call.getString("originIata") ?? "",
                 destinationIata: call.getString("destinationIata") ?? "",
                 deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit",
-                language: call.getString("language") == "en" ? "en" : "tr",
+                language: ["tr", "en", "sq"].contains(call.getString("language") ?? "") ? call.getString("language")! : "tr",
                 originTimeZone: safeZone(call.getString("originTimeZone")),
                 destinationTimeZone: safeZone(call.getString("destinationTimeZone")),
                 flightNumber: call.getString("flightNumber").map { String($0.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.prefix(8)) }

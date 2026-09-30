@@ -39,7 +39,7 @@ function TurkishAdvisoryCard({ data }: { data?: TurkishTravelNotices }) {
     </div>)}</div>}
     {notices.length > 0 && <small>{copy("Bu tarihten sonra yeni duyurular yayımlanmış olabilir; güncel durum için kaynağı aç.", "Further notices may have been published since this date; open the source for the current situation.")}</small>}
     {data?.state === "ok" && !notices.length && <p>{copy("Bakanlığın son duyuru listesinde bu ülkeye ait kayıt bulunamadı. Önceki duyuruları ve dış temsilcilik açıklamalarını da kontrol et.", "No matching notice was found in the Ministry’s latest list. Also check earlier notices and mission announcements.")}</p>}
-    {data?.verifiedAt && <small>{copy(data.state === "ok" ? "Liste kontrolü" : "Bağlantıların son kontrolü", data.state === "ok" ? "List checked" : "Links last checked")}: {date(data.verifiedAt)}</small>}
+    {data?.verifiedAt && <small>{copy(data.state === "ok" ? "Liste kontrolü" : "Bağlantıların son kontrolü", data.state === "ok" ? "List checked" : "Links last checked", data.state === "ok" ? "Lista u kontrollua" : "Kontrolli i fundit i lidhjeve")}: {date(data.verifiedAt)}</small>}
     <div className="ci-official-links">
       <button type="button" className="ci-text-button" onClick={() => void openExternal(TURKISH_TRAVEL_SOURCES.notices)}>{copy("Yurt dışı seyahat duyuruları", "Overseas travel notices")}<Icon name="external" size={14}/></button>
       <button type="button" className="ci-text-button" onClick={() => void openExternal(TURKISH_TRAVEL_SOURCES.missions)}>{copy("Büyükelçilik ve konsolosluklar", "Embassies and consulates")}<Icon name="external" size={14}/></button>

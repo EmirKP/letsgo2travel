@@ -39,7 +39,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
   const operation = useRef(false);
   const confirmationId = useId();
   const pending = hasPendingDeletion(request);
-  const deleteWord = locale === "tr" ? "SİL" : "DELETE";
+  const deleteWord = locale === "tr" ? "SİL" : locale === "sq" ? "FSHI" : "DELETE";
 
   useEffect(() => {
     active.current = true;

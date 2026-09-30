@@ -11,7 +11,7 @@ export function ReleaseNotesSheet({ open, onClose }: { open: boolean; onClose: (
     ["globe", copy("Adresin ve notların yanında", "Keep your address and notes handy"), copy("Kendi otel, adres ve rezervasyon notlarını kişisel seyahat kartına ekle. Bu cihazda internet olmadan da aç; yanlışlıkla sildiğin kartı geri al.", "Add your hotel, address and reservation notes to a personal travel card. Open it offline on this device and undo an accidental deletion.")],
   ] as const;
 
-  return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`)} onClose={onClose} size="large">
+  return <Sheet open={open} title={copy(`Sürüm ${config.appVersion}`, `Version ${config.appVersion}`, `Versioni ${config.appVersion}`)} onClose={onClose} size="large">
     <div className="release-hero">
       <span><Icon name="sparkles" size={30} /></span>
       <small>BUILD {config.buildNumber}</small>

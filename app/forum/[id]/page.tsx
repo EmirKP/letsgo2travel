@@ -28,7 +28,7 @@ interface ForumTopicRow {
   slug: string;
   title: string;
   content: string;
-  author_id: string;
+  author_id: string | null;
   author_name: string | null;
   country_slug: string | null;
   category: string;

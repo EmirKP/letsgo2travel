@@ -2,11 +2,21 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-type Locale = "tr" | "en";
+type Locale = "tr" | "en" | "sq";
 type Interest = "culture" | "food" | "outdoors" | "calm";
 type Budget = "free" | "low" | "flexible";
 
 function weatherDescription(code: number, locale: Locale) {
+  if (locale === 'sq') {
+    if (code === 0) return 'Kthjellët';
+    if (code <= 3) return 'Pjesërisht me re';
+    if (code === 45 || code === 48) return 'Mjegull';
+    if (code >= 51 && code <= 67) return 'Shi';
+    if (code >= 71 && code <= 77) return 'Borë';
+    if (code >= 80 && code <= 82) return 'Rrebeshe';
+    if (code >= 95) return 'Stuhi';
+    return 'I ndryshueshëm';
+  }
   if (code === 0) return locale === "tr" ? "Açık" : "Clear";
   if (code <= 3) return locale === "tr" ? "Parçalı bulutlu" : "Partly cloudy";
   if (code === 45 || code === 48) return locale === "tr" ? "Sisli" : "Foggy";
@@ -34,9 +44,19 @@ function recommendations(options: {
   const freeOnly = budget === "free";
   const tr = locale === "tr";
 
+  const sqText: Record<string, [string, string]> = {
+    museum: ['Vizito një muze pranë teje', rainy ? 'Shfrytëzo kohën me shi brenda.' : 'Moti është i freskët; një ndalesë kulturore brenda mund të jetë më e rehatshme.'],
+    walk: ['Bëj një shëtitje të shkurtër', 'Moti duket i përshtatshëm për të kaluar kohë jashtë.'],
+    food: [freeOnly ? 'Eksploro tregun lokal' : 'Gjej një shije lokale', freeOnly ? 'Një shëtitje në treg të njeh me qytetin pa detyrim për blerje.' : 'Krahaso vendet me ushqim lokal pranë teje.'],
+    culture: ['Gjej një ndalesë kulturore', 'Shiko galeri, ndërtesa historike ose ekspozita pranë teje.'],
+    nature: [rainy ? 'Gjej një kopsht të mbuluar' : 'Gjej një park ose pikë panoramike', rainy ? 'Zgjidh një vend të mbuluar kur bie shi.' : 'Shfrytëzo dritën e ditës dhe motin e përshtatshëm.'],
+    calm: ['Gjej një vend të qetë për pushim', 'Zgjidh një kafene, bibliotekë ose shëtitore të qetë pranë teje.'],
+    night: ['Zgjidh një itinerar të ndriçuar në qendër', 'Kontrollo transportin e kthimit dhe oraret aktuale për daljen në mbrëmje.'],
+    event: ['Kontrollo aktivitetet e sotme', 'Një koncert, festival ose program kulturor mund ta bëjë ditën më të veçantë.'],
+  };
   const items = [] as Array<{ id: string; title: string; reason: string; duration: string; mapQuery: string; indoor: boolean }>;
   const add = (id: string, titleTr: string, titleEn: string, reasonTr: string, reasonEn: string, duration: string, mapQuery: string, indoor: boolean) => {
-    items.push({ id, title: tr ? titleTr : titleEn, reason: tr ? reasonTr : reasonEn, duration, mapQuery, indoor });
+    items.push({ id, title: locale === "sq" ? sqText[id][0] : tr ? titleTr : titleEn, reason: locale === "sq" ? sqText[id][1] : tr ? reasonTr : reasonEn, duration: locale === "sq" ? duration.replace("Varies", "Ndryshon").replace(" h", " orë") : duration, mapQuery, indoor });
   };
 
   if (rainy || cold) {
@@ -65,11 +85,11 @@ function recommendations(options: {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  const latitude = Number(body?.latitude);
-  const longitude = Number(body?.longitude);
-  const locale: Locale = body?.locale === "en" ? "en" : "tr";
+  const latitude = typeof body?.latitude === "number" ? body.latitude : NaN;
+  const longitude = typeof body?.longitude === "number" ? body.longitude : NaN;
+  const locale: Locale = body?.locale === "sq" ? "sq" : body?.locale === "en" ? "en" : "tr";
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-    return NextResponse.json({ error: locale === "tr" ? "Geçerli konum gerekli." : "A valid location is required." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ error: locale === "sq" ? "Kërkohet një vendndodhje e vlefshme." : locale === "tr" ? "Geçerli konum gerekli." : "A valid location is required." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
   }
   const rawInterest = body?.interest as Interest;
   const rawBudget = body?.budget as Budget;
@@ -113,9 +133,9 @@ export async function POST(request: Request) {
         timeZone: String(payload.timezone || ""),
       },
       recommendations: recommendations({ locale, interest, budget, weatherCode, temperature, precipitation, localTime }),
-      privacy: locale === "tr" ? "Konum yalnız bu anlık öneri için kullanıldı ve saklanmadı." : "Your location was used only for this live suggestion and was not stored.",
+      privacy: locale === "sq" ? "Vendndodhja u përdor vetëm për këtë sugjerim dhe nuk u ruajt." : locale === "tr" ? "Konum yalnız bu anlık öneri için kullanıldı ve saklanmadı." : "Your location was used only for this live suggestion and was not stored.",
     } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
-    return NextResponse.json({ error: locale === "tr" ? "Anlık hava ve öneriler alınamadı." : "Live weather and suggestions are unavailable." }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ error: locale === "sq" ? "Moti dhe sugjerimet nuk janë të disponueshme për momentin." : locale === "tr" ? "Anlık hava ve öneriler alınamadı." : "Live weather and suggestions are unavailable." }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
   }
 }

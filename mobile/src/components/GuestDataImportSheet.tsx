@@ -56,7 +56,7 @@ export function GuestDataImportSheet({
           <button className="secondary-wide" type="button" disabled={busy} onClick={onKeepSeparate} aria-label={copy("Misafir kayıtlarını bu hesaptan ayrı tut", "Keep guest items separate from this account")}>
             {copy("Ayrı tut", "Keep separate")}
           </button>
-          <button className="primary-wide" type="button" disabled={busy} onClick={onImport} data-autofocus aria-label={copy(`${summary.total} misafir kaydını hesabıma ekle`, `Add ${summary.total} guest items to my account`)}>
+          <button className="primary-wide" type="button" disabled={busy} onClick={onImport} data-autofocus aria-label={copy(`${summary.total} misafir kaydını hesabıma ekle`, `Add ${summary.total} guest items to my account`, `Shto ${summary.total} regjistrime si vizitor në llogarinë time`)}>
             {busy ? <span className="button-loader" aria-hidden="true" /> : <Icon name="check" size={18} />}
             {busy ? copy("Ekleniyor…", "Adding…") : copy("Hesabıma ekle", "Add to my account")}
           </button>

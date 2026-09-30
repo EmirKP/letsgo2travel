@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         10000,
       );
       const matches = normalizeStops(raw).slice(0, 4);
-      const groups = await Promise.all(
+      const groups = await Promise.allSettled(
         matches.map(async (stop) =>
           stop.id.startsWith("HUB")
             ? tubeStopsInHub(
@@ -55,9 +55,12 @@ export async function GET(request: Request) {
             : [stop],
         ),
       );
+      const resolved = groups.flatMap(group => group.status === 'fulfilled' ? group.value : []);
+      if (matches.length && !resolved.length && groups.some(group => group.status === 'rejected'))
+        throw new Error('Station lookup unavailable');
       return reply({
         stops: Array.from(
-          new Map(groups.flat().map((stop) => [stop.id, stop])).values(),
+          new Map(resolved.map((stop) => [stop.id, stop])).values(),
         ).slice(0, 16),
       });
     }

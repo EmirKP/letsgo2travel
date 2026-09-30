@@ -42,6 +42,8 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../../../lib/travel-assistant/guides': { GUIDE_CARDS: [] },
+    '../../../lib/country-intelligence/advisory-destinations.json': {default: JSON.parse(readFileSync('lib/country-intelligence/advisory-destinations.json', 'utf8'))},
+    '../lib/native': { openExternal: async () => true },
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'TUR', name: 'Türkiye' }, { alpha3: 'GBR', name: 'United Kingdom' }] },
     '../data/countryIso': { alpha2FromAlpha3: code => ({ TUR: 'TR', GBR: 'GB' })[code] },
     '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR' }) },

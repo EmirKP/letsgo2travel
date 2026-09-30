@@ -1,12 +1,12 @@
 import type { Coordinates, MapMode, Place, PointCategory } from './types';
 
-export const CATEGORY_LABELS: Record<PointCategory, [string, string]> = {
-  hospital: ['Hastane', 'Hospital'], pharmacy: ['Eczane', 'Pharmacy'], police: ['Polis', 'Police'],
-  atm: ['ATM', 'ATM'], exchange: ['Döviz bürosu', 'Currency exchange'], toilets: ['Tuvalet', 'Toilets'],
-  wifi: ['Wi-Fi', 'Wi-Fi'], embassy: ['Temsilcilik', 'Diplomatic mission'], museum: ['Müze', 'Museum'],
-  statue: ['Heykel', 'Statue'], monument: ['Anıt', 'Monument'], historic: ['Tarihi yapı', 'Historic site'],
-  stadium: ['Stadyum', 'Stadium'], palace: ['Saray', 'Palace'], square: ['Meydan', 'Square'],
-  viewpoint: ['Seyir noktası', 'Viewpoint'], attraction: ['Turistik nokta', 'Attraction'],
+export const CATEGORY_LABELS: Record<PointCategory, [string, string, string]> = {
+  hospital: ['Hastane', 'Hospital', 'Spital'], pharmacy: ['Eczane', 'Pharmacy', 'Farmaci'], police: ['Polis', 'Police', 'Polici'],
+  atm: ['ATM', 'ATM', 'Bankomat'], exchange: ['Döviz bürosu', 'Currency exchange', 'Këmbim valutor'], toilets: ['Tuvalet', 'Toilets', 'Tualete'],
+  wifi: ['Wi-Fi', 'Wi-Fi', 'Wi-Fi'], embassy: ['Temsilcilik', 'Diplomatic mission', 'Përfaqësi diplomatike'], museum: ['Müze', 'Museum', 'Muze'],
+  statue: ['Heykel', 'Statue', 'Statujë'], monument: ['Anıt', 'Monument', 'Monument'], historic: ['Tarihi yapı', 'Historic site', 'Vend historik'],
+  stadium: ['Stadyum', 'Stadium', 'Stadium'], palace: ['Saray', 'Palace', 'Pallat'], square: ['Meydan', 'Square', 'Shesh'],
+  viewpoint: ['Seyir noktası', 'Viewpoint', 'Pikë panoramike'], attraction: ['Turistik nokta', 'Attraction', 'Atraksion turistik'],
 };
 export const NEEDS: PointCategory[] = ['hospital', 'pharmacy', 'police', 'atm', 'exchange', 'toilets', 'wifi', 'embassy'];
 export const TOURING: PointCategory[] = ['museum', 'statue', 'monument', 'historic', 'stadium', 'palace', 'square', 'viewpoint', 'attraction'];

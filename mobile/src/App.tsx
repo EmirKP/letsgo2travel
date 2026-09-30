@@ -53,6 +53,7 @@ import {
 } from "./lib/storage";
 import { HomeScreen } from "./screens/HomeScreen";
 import { BrandMark } from "./components/BrandMark";
+import { LanguagePicker } from './components/LanguagePicker';
 import type { RouteSuggestion, TabId, ViewId } from "./types";
 
 // Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
@@ -897,10 +898,7 @@ export default function App() {
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
       </div>
       <div className="topbar-actions">
-        {/* Header sade: geri/logo + bildirim + menü. Profil BottomNav'da;
-            buradaki kısayol ve işlevi belirsiz durum noktası kaldırıldı
-            (çevrimdışı durumu zaten banner ile gösterilir). Bildirim
-            rozeti YALNIZ gerçekten okunmamış içerik varken görünür. */}
+        <LanguagePicker />
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${visibleUnreadCount ? `, ${visibleUnreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{visibleUnreadCount > 0 && <span className="notification-badge" aria-hidden="true">{visibleUnreadCount > 9 ? "9+" : visibleUnreadCount}</span>}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>
       </div>
@@ -964,13 +962,13 @@ export default function App() {
           setRefreshTick((value) => value + 1);
           if (!auth.accessToken) {
             showNotice(result.added.total
-              ? copy(`${result.added.total} misafir kaydı hesabına eklendi.`, `${result.added.total} guest items were added to your account.`)
+              ? copy(`${result.added.total} misafir kaydı hesabına eklendi.`, `${result.added.total} guest items were added to your account.`, `${result.added.total} regjistrime si vizitor u shtuan në llogarinë tënde.`)
               : copy("Kayıtların zaten hesabında bulunuyor.", "Your items are already in your account."));
             return;
           }
 
           showNotice(result.added.total
-            ? copy(`${result.added.total} kayıt eklendi; web hesabınla eşitleniyor…`, `${result.added.total} items added; syncing with your web account…`)
+            ? copy(`${result.added.total} kayıt eklendi; web hesabınla eşitleniyor…`, `${result.added.total} items added; syncing with your web account…`, `${result.added.total} regjistrime u shtuan; po sinkronizohen me llogarinë tënde në web…`)
             : copy("Kayıtların web hesabınla kontrol ediliyor…", "Checking your items against your web account…"));
           const guestSync = await import("./lib/guestDataSync");
           const sync = await guestSync.flushPendingGuestDataSync(ownerId, auth.accessToken);
@@ -980,7 +978,7 @@ export default function App() {
           }
           if (sync.status === "synced" || sync.status === "unchanged") {
             showNotice(result.added.total
-              ? copy(`${result.added.total} misafir kaydı uygulama ve web hesabınla eşitlendi.`, `${result.added.total} guest items synced with your app and web account.`)
+              ? copy(`${result.added.total} misafir kaydı uygulama ve web hesabınla eşitlendi.`, `${result.added.total} guest items synced with your app and web account.`, `${result.added.total} regjistrime si vizitor u sinkronizuan me aplikacionin dhe llogarinë tënde në web.`)
               : copy("Kayıtların uygulama ve web hesabınla eşitlendi.", "Your items are synced across the app and web."));
           } else if (sync.status === "partial") {
             showNotice(copy("Kayıtların cihazda güvende; bazıları web hesabıyla daha sonra eşitlenecek.", "Your items are safe on this device; some will sync with the web later."));

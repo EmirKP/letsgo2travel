@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { countExplorerCountries } from "@/lib/leaderboard/countries";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -40,9 +41,7 @@ export async function GET(request: Request) {
     .map((profile) => ({
       id: profile.id,
       username: profile.username,
-      visitedCount: Array.isArray(profile.visited_countries)
-        ? profile.visited_countries.length
-        : 0,
+      visitedCount: countExplorerCountries(profile.visited_countries),
       hidden: blockedIds.has(profile.id),
     }))
     .sort((first, second) => second.visitedCount - first.visitedCount);

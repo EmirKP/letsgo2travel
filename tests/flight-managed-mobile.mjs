@@ -113,6 +113,16 @@ test('Receipt creates send only the user-owned fields to the managed API, withou
   assertBaseIsolated(saved);
 });
 
+test('Albanian trip creation and saved rows preserve sq across the mobile API boundary', async () => {
+  const h = harness();
+  h.state.createResponse.trip.app_language = 'sq';
+  const saved = await h.api.createCockpitTrip(owner, receiptInput({ appLanguage: 'sq' }), accessToken);
+  assert.equal(h.calls[0].options.body.appLanguage, 'sq');
+  assert.equal(saved.appLanguage, 'sq');
+  h.state.baseRows[0].app_language = 'sq';
+  assert.equal((await h.api.listCockpitTrips(owner, accessToken, true))[0].appLanguage, 'sq');
+});
+
 test('Managed create failures never fall back to a direct Supabase insert, including missing-column errors', async () => {
   for (const [status, code] of [[401, ''], [410, 'receipt-expired'], [503, 'unavailable'], [400, '42703']]) {
     const h = harness(); h.state.createError = new ApiError('Fixture failure', status, code);

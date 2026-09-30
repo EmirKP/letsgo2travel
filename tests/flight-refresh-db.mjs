@@ -17,7 +17,7 @@ async function fixture() {
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     grant usage on schema public,auth to anon,authenticated,service_role;
     grant execute on function auth.uid() to anon,authenticated,service_role;`);
-  for (const name of ['20260722000100_smart_travel_cockpit.sql','20260902100000_cockpit_flight_fields.sql','20260903200000_cockpit_arrival_time.sql','20260927110000_flight_lookup_retention.sql','20260928120000_flight_lookup_refresh.sql']) await db.exec(sql(name).replace('create extension if not exists pgcrypto;', ''));
+  for (const name of ['20260722000100_smart_travel_cockpit.sql','20260902100000_cockpit_flight_fields.sql','20260903200000_cockpit_arrival_time.sql','20260927110000_flight_lookup_retention.sql','20260928120000_flight_lookup_refresh.sql','20260930130000_albanian_trip_language.sql']) await db.exec(sql(name).replace('create extension if not exists pgcrypto;', ''));
   for (const id of [owner,other]) await db.query('insert into auth.users values($1)',[id]);
   await role(db);
   const date = new Date().toISOString().slice(0,10), fetchedAt = new Date(Date.now()-6*60000).toISOString();
@@ -32,6 +32,17 @@ async function fixture() {
     [user,id,requestId,value && JSON.stringify(value),value?.fetchedAt ?? null,value?new Date(Date.parse(value.fetchedAt)+5*86400000).toISOString():null,outcome]).then(r=>r.rows[0].result);
   return {db,id,flight,input,create,saved,reserve,finish,updated};
 }
+
+test('V3 managed creation accepts Albanian through its existing base RPC and preserves receipt expiry',async()=>{
+  const h=await fixture(); try {
+    const input=[...h.input]; input[1]=randomUUID(); input[7]='sq';
+    const saved=await h.create(input);
+    assert.equal(saved.trip.app_language,'sq');
+    assert.equal(Date.parse(saved.expiresAt),Date.parse(input[10]));
+    assert.equal(saved.trip.destination_city,null);
+    assert.equal((await h.create(input)).trip.id,saved.trip.id,'The same receipt remains idempotent');
+  } finally {await h.db.close();}
+});
 
 test('Refresh reservation is private, owner-bound, single-flight and replay-safe before provider work',async()=>{
   const h=await fixture(); try {

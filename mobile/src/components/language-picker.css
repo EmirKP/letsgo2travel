@@ -1,0 +1,14 @@
+.language-flag { display: inline-block; position: relative; width: 30px; height: 21px; flex: none; overflow: hidden; border-radius: 5px; background: #f1f5ff; box-shadow: 0 0 0 1px rgb(255 255 255 / 35%); }
+.language-flag img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.language-flag-sq .language-flag-al { clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.onboarding-language-options { display: inline-flex; align-items: center; gap: 4px; }
+.onboarding .onboarding-language-options button { display: grid; place-items: center; min-width: 42px; min-height: 44px; padding: 5px; border-radius: 10px; }
+.onboarding .onboarding-language-options button[aria-pressed="true"] { outline: 2px solid #ffdf20; outline-offset: -2px; }
+.language-options { display: grid; gap: 10px; padding-bottom: 12px; }
+.language-options > button { display: flex; align-items: center; gap: 15px; width: 100%; min-height: 76px; padding: 14px 18px; border: 1px solid #e0e8f5; border-radius: 20px; background: #fff; color: #142b49; text-align: left; }
+.language-options > button[aria-pressed="true"] { background: #eef6ff; border-color: #0066ff; color: #005bd5; }
+.language-options .language-flag { width: 44px; height: 31px; border-radius: 7px; }
+.language-options > button > span:not(.language-flag) { display: grid; flex: 1; gap: 4px; }
+.language-options strong { font-size: 17px; }
+.language-options small { color: #6b7c91; font-size: 12px; }
+.language-options button:focus-visible { outline: 3px solid #0066ff; outline-offset: 3px; }

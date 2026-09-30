@@ -29,10 +29,10 @@ type TripCollaborationHubProps = {
   onNotice: (message: string) => void;
 };
 
-const ROLE_LABELS: Record<TripMemberRole, { tr: string; en: string }> = {
-  owner: { tr: "Sahip", en: "Owner" },
-  editor: { tr: "Düzenleyici", en: "Editor" },
-  viewer: { tr: "İzleyici", en: "Viewer" },
+const ROLE_LABELS: Record<TripMemberRole, { tr: string; en: string; sq: string }> = {
+  owner: { tr: "Sahip", en: "Owner", sq: "Pronar" },
+  editor: { tr: "Düzenleyici", en: "Editor", sq: "Redaktues" },
+  viewer: { tr: "İzleyici", en: "Viewer", sq: "Shikues" },
 };
 
 function errorText(error: unknown, fallback: string) {
@@ -41,7 +41,7 @@ function errorText(error: unknown, fallback: string) {
 
 function moneyText(value: number, currency: string, locale: string) {
   try {
-    return new Intl.NumberFormat(locale === "en" ? "en-US" : "tr-TR", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+    return new Intl.NumberFormat(locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
   } catch {
     return `${value.toFixed(2)} ${currency}`;
   }
@@ -49,7 +49,7 @@ function moneyText(value: number, currency: string, locale: string) {
 
 function dateText(value: string, locale: string) {
   try {
-    return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "tr-TR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+    return new Intl.DateTimeFormat(locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
   } catch {
     return value;
   }
@@ -199,7 +199,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       setShareCode(result.data.inviteUrl);
       const shared = await shareContent({
         title: copy("LetsGo2Travel ortak seyahat daveti", "LetsGo2Travel shared trip invitation"),
-        text: copy(`“${workspace.trip.title}” seyahatimize katıl.`, `Join our “${workspace.trip.title}” trip.`),
+        text: copy(`“${workspace.trip.title}” seyahatimize katıl.`, `Join our “${workspace.trip.title}” trip.`, `Bashkohu me udhëtimin tonë “${workspace.trip.title}”.`),
         url: result.data.inviteUrl,
       });
       onNotice(shared ? copy("Davet paylaşım ekranı açıldı.", "The share sheet is open.") : copy("Davet bağlantısı hazır; aşağıdan kopyalayabilirsin.", "Invitation link ready; you can copy it below."));
@@ -265,7 +265,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
           {trips.map((trip) => <button type="button" key={trip.id} onClick={() => openTrip(trip.id)}>
             <span className="trip-collaboration-flag" role={trip.destinationCode ? undefined : "img"} aria-label={trip.destinationCode ? undefined : copy("Seyahat", "Trip")}>{trip.destinationCode ? <CountryFlag code={trip.destinationCode} label={trip.destinationCountry || trip.destinationCode} /> : <Icon name="plane" size={23} />}</span>
             <span><strong>{trip.title}</strong><small>{dateText(trip.startDate, locale)} · {trip.memberCount} {copy("kişi", "people")}</small></span>
-            <em>{copy(ROLE_LABELS[trip.role].tr, ROLE_LABELS[trip.role].en)}</em>
+            <em>{copy(ROLE_LABELS[trip.role].tr, ROLE_LABELS[trip.role].en, ROLE_LABELS[trip.role].sq)}</em>
             <Icon name="chevron" size={18} />
           </button>)}
         </div>
@@ -294,13 +294,13 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
           <p className="trip-workspace-note">{copy("Düzenleyiciler öneri, bütçe ve masraf ekler. İzleyiciler planı görür ve oy kullanır.", "Editors add suggestions, budgets and expenses. Viewers can see the plan and vote.")}</p>
           <div className="trip-member-list">{workspace.members.map((member) => <article key={member.userId}>
             <span>{member.name.slice(0, 1).toUpperCase()}</span>
-            <div><strong>{member.name}{member.userId === userId ? copy(" · Sen", " · You") : ""}</strong><small>{copy(ROLE_LABELS[member.role].tr, ROLE_LABELS[member.role].en)}</small></div>
+            <div><strong>{member.name}{member.userId === userId ? copy(" · Sen", " · You") : ""}</strong><small>{copy(ROLE_LABELS[member.role].tr, ROLE_LABELS[member.role].en, ROLE_LABELS[member.role].sq)}</small></div>
             {workspace.myRole === "owner" && member.role !== "owner" ? <>
-              <select aria-label={copy(`${member.name} yetkisi`, `${member.name} role`)} value={member.role} disabled={Boolean(busy)} onChange={(event) => void mutate(`role-${member.userId}`, { action: "set_role", tripId: workspace.trip.id, userId: member.userId, role: event.target.value })}>
+              <select aria-label={copy(`${member.name} yetkisi`, `${member.name} role`, `Roli i ${member.name}`)} value={member.role} disabled={Boolean(busy)} onChange={(event) => void mutate(`role-${member.userId}`, { action: "set_role", tripId: workspace.trip.id, userId: member.userId, role: event.target.value })}>
                 <option value="editor">{copy("Düzenleyici", "Editor")}</option><option value="viewer">{copy("İzleyici", "Viewer")}</option>
               </select>
-              <button type="button" className="trip-member-remove" disabled={Boolean(busy)} aria-label={copy("Katılımcıyı çıkar", "Remove participant")} onClick={() => window.confirm(copy(`${member.name} ortak seyahatten çıkarılsın mı?`, `Remove ${member.name} from the shared trip?`)) && void mutate(`remove-${member.userId}`, { action: "remove_member", tripId: workspace.trip.id, userId: member.userId })}><Icon name="close" size={16} /></button>
-            </> : <em>{copy(ROLE_LABELS[member.role].tr, ROLE_LABELS[member.role].en)}</em>}
+              <button type="button" className="trip-member-remove" disabled={Boolean(busy)} aria-label={copy("Katılımcıyı çıkar", "Remove participant")} onClick={() => window.confirm(copy(`${member.name} ortak seyahatten çıkarılsın mı?`, `Remove ${member.name} from the shared trip?`, `Të hiqet ${member.name} nga udhëtimi i përbashkët?`)) && void mutate(`remove-${member.userId}`, { action: "remove_member", tripId: workspace.trip.id, userId: member.userId })}><Icon name="close" size={16} /></button>
+            </> : <em>{copy(ROLE_LABELS[member.role].tr, ROLE_LABELS[member.role].en, ROLE_LABELS[member.role].sq)}</em>}
           </article>)}</div>
           {workspace.myRole !== "owner" && <button type="button" className="danger-wide" disabled={Boolean(busy)} onClick={() => window.confirm(copy("Bu ortak seyahatten ayrılmak istiyor musun?", "Do you want to leave this shared trip?")) && void mutate("leave", { action: "leave_trip", tripId: workspace.trip.id }, copy("Ortak seyahatten ayrıldın.", "You left the shared trip."), true)}>{copy("Ortak seyahatten ayrıl", "Leave shared trip")}</button>}
         </section>}
@@ -322,7 +322,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
         {tab === "budget" && <section className="trip-workspace-section">
           <div className="trip-budget-summary">
-            <span><Icon name="wallet" size={22} /></span><div><small>{copy("TOPLAM HARCAMA", "TOTAL SPEND")}</small><strong>{moneyText(totalSpent, workspace.budget.currency, locale)}</strong><p>{workspace.budget.targetAmount ? copy(`${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} bütçenin %${progress}'i`, `${progress}% of ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} budget`) : copy("Henüz hedef bütçe belirlenmedi", "No target budget yet")}</p></div>
+            <span><Icon name="wallet" size={22} /></span><div><small>{copy("TOPLAM HARCAMA", "TOTAL SPEND")}</small><strong>{moneyText(totalSpent, workspace.budget.currency, locale)}</strong><p>{workspace.budget.targetAmount ? copy(`${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} bütçenin %${progress}'i`, `${progress}% of ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} budget`, `${progress}% e buxhetit prej ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)}`) : copy("Henüz hedef bütçe belirlenmedi", "No target budget yet")}</p></div>
             <em>{progress}%</em>
           </div>
           {workspace.expenses.some(expense => expense.currency !== workspace.budget.currency) && <p className="trip-collaboration-error" role="alert">{copy("Eski kayıtların para birimleri farklı. Toplam yalnız bütçenin para birimini içerir; bakiyeler ayrı gösterilir.", "Older entries use different currencies. The total includes only the budget currency; balances are shown separately.")}</p>}

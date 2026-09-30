@@ -7,12 +7,12 @@ import { blockCommunityAuthor, listCommunityBlocks, reportCommunityContent, unbl
 import "./community-safety.css";
 
 const REASONS = [
-  ["spam", "Spam veya dolandırıcılık", "Spam or scam"],
-  ["harassment", "Hakaret veya taciz", "Abuse or harassment"],
-  ["hate", "Nefret söylemi", "Hate speech"],
-  ["dangerous", "Tehlikeli veya yasa dışı yönlendirme", "Dangerous or illegal advice"],
-  ["personal_data", "Kişisel bilgi paylaşımı", "Personal information"],
-  ["other", "Diğer", "Other"],
+  ["spam", "Spam veya dolandırıcılık", "Spam or scam", "Spam ose mashtrim"],
+  ["harassment", "Hakaret veya taciz", "Abuse or harassment", "Fyerje ose ngacmim"],
+  ["hate", "Nefret söylemi", "Hate speech", "Gjuhë urrejtjeje"],
+  ["dangerous", "Tehlikeli veya yasa dışı yönlendirme", "Dangerous or illegal advice", "Këshilla të rrezikshme ose të paligjshme"],
+  ["personal_data", "Kişisel bilgi paylaşımı", "Personal information", "Të dhëna personale"],
+  ["other", "Diğer", "Other", "Tjetër"],
 ] as const;
 
 export function CommunitySafetySheet({ target, accessToken, userId, onClose, onBlocked, onManageBlocks }: {
@@ -73,9 +73,9 @@ function SafetyForm({ target, accessToken, userId, onClose, onBlocked, onManageB
       {mode === "report" && <form onSubmit={(event) => { event.preventDefault(); void submit("report"); }}>
         <fieldset disabled={busy}>
           <legend>{copy("Şikâyet nedeni", "Report reason")}</legend>
-          {REASONS.map(([value, tr, en]) => <label className="community-safety-option" key={value}>
+          {REASONS.map(([value, tr, en, sq]) => <label className="community-safety-option" key={value}>
             <input type="radio" name="community-report-reason" value={value} checked={reason === value} onChange={() => setReason(value)} />
-            <span>{copy(tr, en)}</span>
+            <span>{copy(tr, en, sq)}</span>
           </label>)}
           <label className="community-safety-note">{copy("Açıklama (Diğer için gerekli)", "Details (required for Other)")}
             <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} rows={3} required={reason === "other"} minLength={reason === "other" ? 5 : undefined} />

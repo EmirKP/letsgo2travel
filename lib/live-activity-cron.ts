@@ -41,7 +41,7 @@ export type CronTrip = {
   originTimeZone?: string;
   destinationTimeZone?: string;
   flightNumber?: string;
-  language?: "tr" | "en";
+  language?: "tr" | "en" | "sq";
 };
 
 export type CronToken = {
@@ -159,11 +159,11 @@ export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
     tripId: trip.id,
     attributes: {
       tripId: trip.id,
-      title: trip.title || (english ? "Upcoming flight" : "Yaklaşan uçuş"),
+      title: trip.title || (trip.language === "sq" ? "Fluturimi i ardhshëm" : english ? "Upcoming flight" : "Yaklaşan uçuş"),
       originIata: trip.originIata || "",
       destinationIata: trip.destinationIata || "",
       deepLink: cockpitDeepLinkFor(trip.id),
-      language: english ? "en" : "tr",
+      language: trip.language === "sq" ? "sq" : english ? "en" : "tr",
       originTimeZone: trip.originTimeZone,
       destinationTimeZone: trip.destinationTimeZone,
       flightNumber: trip.flightNumber,
@@ -171,8 +171,8 @@ export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
     departureAtMs: trip.departureAtMs,
     arrivalAtMs: Number.isFinite(trip.arrivalAtMs) && Number(trip.arrivalAtMs) > trip.departureAtMs ? trip.arrivalAtMs : undefined,
     alert: {
-      title: english ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
-      body: english
+      title: trip.language === "sq" ? "Fluturimi yt po afron ✈️" : english ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
+      body: trip.language === "sq" ? `Fluturimi yt ${trip.title || "i ardhshëm"} po afron. Kontrollo orarin e ruajtur te udhëtimet.` : english
         ? `Your ${trip.title || "upcoming"} flight is approaching. Check the saved schedule in Cockpit.`
         : `${trip.title || "Yaklaşan uçuş"} uçuşun yaklaşıyor. Kaydettiğin saatleri Kokpit'te kontrol et.`,
     },

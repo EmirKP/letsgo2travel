@@ -3,8 +3,10 @@ import { CURRENCIES, parseAmount } from '../../../lib/travel-assistant/money';
 import type { FxQuote } from '../../../lib/travel-assistant/types';
 import { storedQuote, loadQuote } from '../lib/travelAssistant';
 import { useI18n } from '../lib/i18n';
+import { appCurrencyName, formatAppDate } from '../lib/localeFormatting';
 import { openExternal } from '../lib/native';
 import { Icon } from './Icon';
+import moneyIllustration from '../assets/money-exchange.png';
 import './travel-money.css';
 
 const QUICK_PAIRS = ['EUR', 'USD', 'GBP'];
@@ -37,8 +39,8 @@ export function TravelMoney() {
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 4 });
   const smallestRate = current ? Math.min(current.rate, current.previousRate ?? current.rate) : 1;
   const rateFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: smallestRate < 0.01 ? 8 : smallestRate < 1 ? 6 : 4 });
-  const currencyNames = new Intl.DisplayNames([locale], { type: 'currency' });
-  const dateText = (date: string) => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+  const currencyName = (code: string) => appCurrencyName(code, locale);
+  const dateText = (date: string) => formatAppDate(new Date(`${date}T12:00:00Z`), locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const change = current?.changePercent;
   const hasComparison = change != null && current?.previousRate != null && current.previousDate != null;
   const direction = change != null && change > 0 ? 'up' : change != null && change < 0 ? 'down' : 'flat';
@@ -48,10 +50,10 @@ export function TravelMoney() {
   const conversion = current && !old && number !== null ? number * current.rate : null;
 
   return <section className="ta-panel ta-money" aria-label={copy('Döviz çevirici', 'Currency converter')}>
-    <p className="tm-intro">{copy('Kuru karşılaştır, seyahat harcamanı kolayca hesapla.', 'Compare rates and work out your travel spending.')}</p>
+    <div className="tm-welcome"><div><span className="tm-eyebrow">{copy('SEYAHAT CÜZDANIN', 'YOUR TRAVEL WALLET', 'PORTOFOLI YT I UDHËTIMIT')}</span><h2>{copy('Paran dünyayı gezsin.', 'Make your money travel.', 'Paratë e tua, kudo në botë.')}</h2><p className="tm-intro">{copy('Kuru karşılaştır, seyahat harcamanı kolayca hesapla.', 'Compare rates and work out your travel spending.')}</p></div><img src={moneyIllustration} alt="" width="136" height="122" decoding="async"/></div>
     <div className="tm-quick-pairs" role="group" aria-label={copy('Sık kullanılan kurlar', 'Popular currency pairs')}>
       {QUICK_PAIRS.map(currency => <button type="button" key={currency} aria-pressed={base === currency && quote === 'TRY'} onClick={() => { setBase(currency); setQuote('TRY'); }}>
-        <span aria-hidden="true">{SYMBOLS[currency]}</span>{currency}<small>/ TRY</small>
+        <span aria-hidden="true" className={`tm-currency-coin tm-currency-${currency.toLowerCase()}`}>{SYMBOLS[currency]}</span><span className="tm-quick-pair-label">{currency}<small>/ TRY</small></span>
       </button>)}
     </div>
     <section className="tm-board" aria-label={copy('Seçili kur', 'Selected exchange rate')}>
@@ -59,10 +61,10 @@ export function TravelMoney() {
         <span className="tm-reference-label"><Icon name="clock" size={14}/>{old && current ? copy('KAYITLI REFERANS', 'SAVED REFERENCE') : copy('GÜNLÜK REFERANS', 'DAILY REFERENCE')}</span>
         <button type="button" className="tm-refresh" disabled={status === 'loading'} onClick={() => setRetry(count => count + 1)} aria-label={copy('Kuru yenile', 'Refresh rate')}><Icon name="refresh" size={18}/></button>
       </div>
-      <div className="tm-pair"><strong>{base}<span>/</span>{quote}</strong><span>{currencyNames.of(base)} → {currencyNames.of(quote)}</span></div>
+      <div className="tm-pair"><strong>{base}<span>/</span>{quote}</strong><span>{currencyName(base)} → {currencyName(quote)}</span></div>
       <div className="tm-rate-line">
         <div className="tm-rate"><span className="tm-rate-base">1 {base} =</span><strong>{current ? rateFormat.format(current.rate) : '—'}</strong><span>{quote}</span></div>
-        {hasComparison && <span className={`tm-movement is-${direction}`} aria-label={`${movementLabel}: ${changeText}`}><MovementArrow direction={direction}/><strong>{changeText}</strong></span>}
+        {hasComparison && <span className={`tm-movement is-${direction}`} aria-label={`${movementLabel}: ${changeText}`}><MovementArrow direction={direction}/><span><strong>{changeText}</strong><small>{movementLabel}</small></span></span>}
       </div>
       <div className="tm-rate-context" aria-live="polite">
         {current && <span><Icon name="calendar" size={14}/>{copy('Kur tarihi', 'Rate date')}: {dateText(current.date)}</span>}
@@ -70,12 +72,12 @@ export function TravelMoney() {
         {status === 'saved' && <span className="tm-saved-status"><Icon name="offline" size={14}/>{copy('Çevrimdışı · son kayıt', 'Offline · saved rate')}</span>}
         {status === 'missing' && <span>{copy('Kur şu an alınamıyor. Yenileyerek tekrar dene.', 'The rate is unavailable. Refresh to try again.')}</span>}
       </div>
-      {hasComparison && current && <div className="tm-comparison">
+      {hasComparison && current && <details className="tm-history"><summary>{copy('Kur değişiminin detayı', 'Rate change details', 'Hollësitë e ndryshimit të kursit')}<Icon name="chevron" size={15}/></summary><div className="tm-comparison">
         <div><span>{copy('Önceki referans', 'Previous reference')}</span><strong>{rateFormat.format(current.previousRate!)} <small>{quote}</small></strong><time dateTime={current.previousDate!}>{dateText(current.previousDate!)}</time></div>
         <span className={`tm-comparison-arrow is-${direction}`} aria-hidden="true"><MovementArrow direction={direction}/></span>
         <div><span>{copy('Son referans', 'Latest reference')}</span><strong>{rateFormat.format(current.rate)} <small>{quote}</small></strong><time dateTime={current.date}>{dateText(current.date)}</time></div>
         <p>{copy('Değişim, önceki yayımlanan kura göredir.', 'Change is compared with the previous published rate.')}</p>
-      </div>}
+      </div></details>}
       {current && !hasComparison && <p className="tm-no-comparison">{base === quote ? copy('Aynı para birimi; kur farkı yok.', 'Same currency; no exchange difference.') : copy('Önceki referans bulunmadığı için değişim gösterilmiyor.', 'Change is unavailable without a previous reference rate.')}</p>}
     </section>
     <section className="tm-converter" aria-labelledby="tm-converter-title">
@@ -83,9 +85,9 @@ export function TravelMoney() {
       <label className="tm-amount-label" htmlFor="tm-amount">{copy('Çevirmek istediğin tutar', 'Amount to convert')}</label>
       <div className="tm-amount-field"><input id="tm-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={number === null} aria-describedby={number === null ? 'tm-amount-error' : undefined}/><span>{base}</span></div>
       <div className="tm-currency-fields">
-        <label>{copy('Kaynak para', 'From')}<select value={base} onChange={event => setBase(event.target.value)}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select><small>{currencyNames.of(base)}</small></label>
+        <label>{copy('Kaynak para', 'From')}<select value={base} onChange={event => setBase(event.target.value)}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select><small>{currencyName(base)}</small></label>
         <button type="button" className="tm-swap" onClick={() => { setBase(quote); setQuote(base); }} aria-label={copy('Para birimlerini değiştir', 'Swap currencies')}><Icon name="swap" size={20}/></button>
-        <label>{copy('Hedef para', 'To')}<select value={quote} onChange={event => setQuote(event.target.value)}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select><small>{currencyNames.of(quote)}</small></label>
+        <label>{copy('Hedef para', 'To')}<select value={quote} onChange={event => setQuote(event.target.value)}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select><small>{currencyName(quote)}</small></label>
       </div>
       {number === null && <p id="tm-amount-error" className="tm-form-message" role="alert">{copy('Sıfır veya pozitif bir tutar gir; binlik ayırıcı kullanma.', 'Enter zero or a positive amount without thousands separators.')}</p>}
       <div className="tm-conversion" aria-live="polite">

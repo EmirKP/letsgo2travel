@@ -8,6 +8,7 @@ import {
   GENERAL_FORUM_COUNTRY_CODE,
 } from "@/lib/community/forum-sync";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
+import { isOpenStarterDiscussion } from "@/lib/community/starter-topic";
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
 
     const { data: question, error: questionError } = await supabase
       .from("forum_topics")
-      .select("id,author_id,country_slug,status")
+      .select("id,author_id,country_slug,status,seed_key,category,is_paywalled")
       .eq("id", questionId)
       .maybeSingle();
     const questionCountryCode = question ? countryCodeFromForumSlug(question.country_slug) : "";
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 
     // Ülke deneyimi isteyen konularda Belgeli Gezgin kuralı korunur. Genel web
     // konularına ise webde olduğu gibi giriş yapan herkes cevap verebilir.
-    if (questionCountryCode !== GENERAL_FORUM_COUNTRY_CODE) {
+    if (questionCountryCode !== GENERAL_FORUM_COUNTRY_CODE && !isOpenStarterDiscussion(question)) {
       const perms = await getCountryPermission(supabase, user.id, questionCountryCode);
       if (!perms.canAnswer) {
         return NextResponse.json({ error: "Bu ülke için cevap yazma yetkiniz yok (Doğrulama gerekli)." }, { status: 403 });

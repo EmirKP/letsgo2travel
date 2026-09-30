@@ -98,9 +98,9 @@ const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   other: "Diğer",
 };
 
-function defaultChecklist(locale: "tr" | "en" = "tr"): ChecklistItem[] {
+function defaultChecklist(locale: "tr" | "en" | "sq" = "tr"): ChecklistItem[] {
   const createdAt = new Date().toISOString();
-  const labels = locale === "en" ? [
+  const labels = locale === "sq" ? CHECKLIST_SQ : locale === "en" ? [
     "Check passport / ID validity",
     "Download flight and accommodation documents",
     "Pack a plug adapter",
@@ -135,8 +135,20 @@ const DEFAULT_CHECKLIST_LABELS = new Map<string, { tr: string; en: string }>([
   ["Set up an eSIM or data plan", { tr: "eSIM veya internet paketini ayarla", en: "Set up an eSIM or data plan" }],
 ]);
 
-function checklistLabel(label: string, locale: "tr" | "en") {
-  return DEFAULT_CHECKLIST_LABELS.get(label)?.[locale] || label;
+const CHECKLIST_SQ = ['Kontrollo vlefshmërinë e pasaportës / letërnjoftimit', 'Shkarko dokumentet e fluturimit dhe akomodimit', 'Përgatit një përshtatës prize', 'Përgatit ilaçet dhe recetat', 'Aktivizo eSIM-in ose paketën e internetit'];
+CHECKLIST_SQ.forEach((label, index) => {
+  const entry = [...DEFAULT_CHECKLIST_LABELS.values()][index * 2];
+  if (entry) DEFAULT_CHECKLIST_LABELS.set(label, entry);
+});
+
+function checklistLabel(label: string, locale: "tr" | "en" | "sq") {
+  const entry = DEFAULT_CHECKLIST_LABELS.get(label);
+  if (!entry) return label;
+  if (locale === 'sq') {
+    const index = [...DEFAULT_CHECKLIST_LABELS.keys()].slice(0, 10).findIndex(key => key === entry.tr);
+    return CHECKLIST_SQ[Math.floor(index / 2)] || label;
+  }
+  return entry[locale];
 }
 
 function formatDate(value: string, locale = "tr-TR") {
@@ -172,12 +184,12 @@ function nativeFlightView(trip: CockpitTrip) {
   return { flight, expiresAt };
 }
 
-function reminderTrips(items: CockpitTrip[], language: "tr" | "en") {
+function reminderTrips(items: CockpitTrip[], language: "tr" | "en" | "sq") {
   return items.map(trip => {
     const native = nativeFlightView(trip), flight = native?.flight;
     const p = flight?.progress;
     const manual = !trip.flightLookupManaged;
-    return { id: trip.id, title: flight ? [flight.destination.city, flight.destination.country].join(", ") : manual ? tripTitle(trip) : trip.flightNumber || (language === "tr" ? "Seyahat" : "Trip"),
+    return { id: trip.id, title: flight ? [flight.destination.city, flight.destination.country].join(", ") : manual ? tripTitle(trip) : trip.flightNumber || (language === "sq" ? "Udhëtim" : language === "tr" ? "Seyahat" : "Trip"),
       departureAt: flight?.departureAt || (manual ? trip.departureAt : null), arrivalAt: flight?.arrivalAt || (manual ? trip.arrivalAt : null), status: trip.status,
       originIata: flight?.origin.iata || (manual ? trip.originIata : null), destinationIata: flight?.destination.iata || (manual ? trip.destinationIata : null),
       originTimeZone: flight?.origin.timeZone || (manual ? airportTimeZone(trip.originIata || "") : undefined),
@@ -523,7 +535,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       // ve varsa Live Activity'yi sonlandır; ekranın yeniden açılmasını bekleme.
       syncRemindersForSession(session, next);
       const statusLabel = status === "upcoming" ? copy("Yaklaşan", "Upcoming") : status === "active" ? copy("Devam ediyor", "In progress") : status === "completed" ? copy("Tamamlandı", "Completed") : copy("İptal edildi", "Cancelled");
-      onNotice(copy(`Seyahat durumu “${statusLabel}” olarak güncellendi.`, `Trip status updated to “${statusLabel}”.`));
+      onNotice(copy(`Seyahat durumu “${statusLabel}” olarak güncellendi.`, `Trip status updated to “${statusLabel}”.`, `Statusi i udhëtimit u përditësua në “${statusLabel}”.`));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       const message = getSupabaseDataErrorMessage(requestError, copy("Seyahat durumu güncellenemedi.", "Trip status could not be updated."));
@@ -623,7 +635,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const removeTripEvent = (trip: CockpitTrip, itemId: string) => {
     if (busy || loading) return;
     const item = trip.checklistItems.find((candidate) => candidate.id === itemId && candidate.kind === "event");
-    if (!item || !window.confirm(copy(`“${item.label}” etkinliğini bu seyahatten çıkar?`, `Remove “${item.label}” from this trip?`))) return;
+    if (!item || !window.confirm(copy(`“${item.label}” etkinliğini bu seyahatten çıkar?`, `Remove “${item.label}” from this trip?`, `Të hiqet aktiviteti “${item.label}” nga ky udhëtim?`))) return;
     void persistChecklist(
       trip,
       trip.checklistItems.filter((candidate) => candidate.id !== itemId),
@@ -634,7 +646,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const removeTrip = async (trip: CockpitTrip) => {
     const session = captureSession();
     if (!session || busy || loading) return;
-    if (!window.confirm(copy(`${tripTitle(trip)} seyahatini kalıcı olarak silmek istiyor musun?`, `Permanently delete the ${tripTitle(trip)} trip?`))) return;
+    if (!window.confirm(copy(`${tripTitle(trip)} seyahatini kalıcı olarak silmek istiyor musun?`, `Permanently delete the ${tripTitle(trip)} trip?`, `Dëshiron ta fshish përgjithmonë udhëtimin ${tripTitle(trip)}?`))) return;
     setBusy(`delete-${trip.id}`);
     setError("");
     try {

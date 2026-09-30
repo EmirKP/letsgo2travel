@@ -49,19 +49,19 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
       setSpinning(false);
       timer.current = null;
       void hapticSuccess();
-      onNotice(copy(`${next.name} tercihlerin için seçildi.`, `${next.name} was picked for your preferences.`));
+      onNotice(copy(`${next.name} tercihlerin için seçildi.`, `${next.name} was picked for your preferences.`, `${next.name} u zgjodh sipas preferencave të tua.`));
     }, 560);
   };
 
-  const choice = <T extends Budget | Entry | Pace>(value: T, current: T, set: Dispatch<SetStateAction<T>>, tr: string, en: string) => <button type="button" className={value === current ? "active" : ""} aria-pressed={value === current} onClick={() => set(value)}>{copy(tr, en)}</button>;
+  const choice = <T extends Budget | Entry | Pace>(value: T, current: T, set: Dispatch<SetStateAction<T>>, tr: string, en: string, sq: string) => <button type="button" className={value === current ? "active" : ""} aria-pressed={value === current} onClick={() => set(value)}>{copy(tr, en, sq)}</button>;
 
   return <div className="screen surprise-screen surprise-v14">
     <PageHero scene="journey" title={copy("Beni Şaşırt", "Surprise Me")} subtitle={copy("Tercihlerini seç. Sıradaki rotanı birlikte bulalım.", "Choose your preferences. Find your next journey.")} />
 
     <section className="surprise-preferences" aria-label={copy("Sürpriz rota tercihleri", "Surprise route preferences")}>
-      <fieldset><legend><b>1</b><span><strong>{copy("Bütçe", "Budget")}</strong><small>{copy("Bu gezi ne kadar rahat olsun?", "How flexible should the spend be?")}</small></span></legend><div>{choice("economy", budget, setBudget, "Ekonomik", "Economy")}{choice("balanced", budget, setBudget, "Dengeli", "Balanced")}{choice("premium", budget, setBudget, "Rahat", "Premium")}</div></fieldset>
-      <fieldset><legend><b>2</b><span><strong>{copy("Giriş kolaylığı", "Entry preference")}</strong><small>{copy("Vize kolaylığı önceliğin mi?", "Is easy entry a priority?")}</small></span></legend><div>{choice("easy", entry, setEntry, "Kolay giriş", "Easy entry")}{choice("all", entry, setEntry, "Fark etmez", "Any")}</div></fieldset>
-      <fieldset><legend><b>3</b><span><strong>{copy("Tempo", "Pace")}</strong><small>{copy("Nasıl bir deneyim istiyorsun?", "What kind of experience do you want?")}</small></span></legend><div>{choice("easy", pace, setPace, "Sakin", "Easy")}{choice("balanced", pace, setPace, "Dengeli", "Balanced")}{choice("adventure", pace, setPace, "Macera", "Adventure")}</div></fieldset>
+      <fieldset><legend><b>1</b><span><strong>{copy("Bütçe", "Budget")}</strong><small>{copy("Bu gezi ne kadar rahat olsun?", "How flexible should the spend be?")}</small></span></legend><div>{choice("economy", budget, setBudget, "Ekonomik", "Economy", "Ekonomik")}{choice("balanced", budget, setBudget, "Dengeli", "Balanced", "I ekuilibruar")}{choice("premium", budget, setBudget, "Rahat", "Premium", "Premium")}</div></fieldset>
+      <fieldset><legend><b>2</b><span><strong>{copy("Giriş kolaylığı", "Entry preference")}</strong><small>{copy("Vize kolaylığı önceliğin mi?", "Is easy entry a priority?")}</small></span></legend><div>{choice("easy", entry, setEntry, "Kolay giriş", "Easy entry", "Hyrje e lehtë")}{choice("all", entry, setEntry, "Fark etmez", "Any", "Pa preferencë")}</div></fieldset>
+      <fieldset><legend><b>3</b><span><strong>{copy("Tempo", "Pace")}</strong><small>{copy("Nasıl bir deneyim istiyorsun?", "What kind of experience do you want?")}</small></span></legend><div>{choice("easy", pace, setPace, "Sakin", "Easy", "I qetë")}{choice("balanced", pace, setPace, "Dengeli", "Balanced", "I ekuilibruar")}{choice("adventure", pace, setPace, "Macera", "Adventure", "Aventurë")}</div></fieldset>
       <button className={`surprise-main-action ${spinning ? "loading" : ""}`} type="button" onClick={surpriseMe} disabled={spinning}>{spinning ? <span className="button-loader" /> : <Icon name="sparkles" size={20} />}<span><strong>{spinning ? copy("Rotan seçiliyor…", "Picking your route…") : copy("Beni şaşırt", "Surprise me")}</strong><small>{copy("Tercihlerime uygun bir rota bul", "Find a route that fits my choices")}</small></span></button>
     </section>
 

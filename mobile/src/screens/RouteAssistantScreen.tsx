@@ -14,6 +14,7 @@ import { readRouteOutbox } from "../lib/routeOutbox";
 import { saveRoutePlan } from "../lib/storage";
 import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
+import { editPlanStops, fixedDestinationStarter, routeMatchesDestination } from "../../../lib/route-planner";
 import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId, WeatherSummary } from "../types";
 import "./route-planning-clarity.css";
 import "./travel-flow-polish.css";
@@ -40,7 +41,7 @@ function scoreColor(score: number) {
 }
 
 function planClientKey(plan: RoutePlan, input: PlannerInput) {
-  const source = JSON.stringify({ input, routes: plan.routes.map((route) => [route.name, route.country, route.destinationCode]) });
+  const source = JSON.stringify({ input, routes: plan.routes.map((route) => [route.name, route.country, route.destinationCode, route.dailyPlan]) });
   let hash = 2166136261;
   for (let index = 0; index < source.length; index += 1) {
     hash ^= source.charCodeAt(index);
@@ -61,6 +62,11 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [form, setForm] = useState<PlannerInput>(INITIAL);
   const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
+  const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(null);
+  const [editingRoute, setEditingRoute] = useState<number | null>(null);
+  const [editStops, setEditStops] = useState<string[]>([]);
+  const [newStop, setNewStop] = useState("");
+  const [editError, setEditError] = useState("");
   const [loading, setLoading] = useState(false);
   const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
   const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
@@ -78,6 +84,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const resultsHeading = useRef<HTMLHeadingElement>(null);
   const plannerModes = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
+  const generating = useRef(false);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
   const planIsSaved = !!plan && savedKey === planClientKey(plan, planInput);
@@ -112,7 +119,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     setAlternativesOpen(false);
   }, [copy, routeSeedKind, surpriseRoute]);
 
-  const ready = useMemo(() => Boolean(form.origin && form.days && form.month && form.budget && form.vibe.length), [form]);
+  const ready = useMemo(() => Boolean(form.origin && form.days && form.month && form.budget && form.vibe.length && (form.mode !== "fixed" || (form.destination && form.dayCount && destinationAirport?.iata !== originAirport?.iata))), [form, destinationAirport, originAirport]);
   const whoLabel = copy(form.who, ({ "Tek başıma": "Solo", "Partnerimle": "With my partner", "Arkadaşlarımla": "With friends", "Ailemle": "With family", "İlk yurt dışı deneyimim": "My first trip" } as Record<string, string>)[form.who] || form.who);
   const budgetLabel = copy(form.budget, ({ "Ekonomik": "Economy", "Orta": "Balanced", "Yüksek / premium": "Premium" } as Record<string, string>)[form.budget] || form.budget);
 
@@ -125,19 +132,23 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   };
 
   const generate = async () => {
-    if (!ready) return onNotice(copy("Rota oluşturmak için temel seçimleri tamamla.", "Complete the required choices to build a route."));
-    const requestInput = snapshotPlannerInput(form);
+    if (generating.current || !ready) return;
+    generating.current = true;
+    const requestInput = snapshotPlannerInput(form.mode === "fixed" ? { ...form, days: `${form.dayCount} gün` } : { ...form, destination: undefined, dayCount: undefined });
+    const starter = () => requestInput.mode === "fixed" && requestInput.destination ? fixedDestinationStarter(requestInput, locale) : createFallbackPlan(requestInput, locale);
     setLoading(true);
+    setEditingRoute(null);
     try {
       const response = await generateRoutePlan(requestInput, locale);
-      if (response.data?.routes?.length) {
+      const matchesTarget = requestInput.mode !== "fixed" || (requestInput.destination && response.data?.routes.length === 1 && routeMatchesDestination(response.data.routes[0], requestInput.destination));
+      if (response.data?.routes?.length && matchesTarget) {
         setPlan(response.data);
         setPlanInput(requestInput);
         setSource(response.isFallback ? "local" : "ai");
         setExpanded(response.data.routes[0]?.name || "");
         setSavedKey("");
       } else {
-        const fallback = createFallbackPlan(requestInput, locale);
+        const fallback = starter();
         setPlan(fallback);
         setPlanInput(requestInput);
         setSource("local");
@@ -147,7 +158,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       }
       await hapticSuccess();
     } catch {
-      const fallback = createFallbackPlan(requestInput, locale);
+      const fallback = starter();
       setPlan(fallback);
       setPlanInput(requestInput);
       setSource("local");
@@ -156,7 +167,20 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       onNotice(copy("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.", "We are using offline suggestions for now; try again when you are online."));
     } finally {
       setLoading(false);
+      generating.current = false;
     }
+  };
+
+  const applyStopEdits = () => {
+    if (editingRoute === null || !plan || editStops.some(stop => !stop.trim())) {
+      setEditError(copy("Boş durağı doldur veya kaldır.", "Fill in or remove the empty stop.", "Plotëso ose hiqe ndalesën bosh."));
+      return;
+    }
+    const routeIndex = editingRoute;
+    setPlan(current => current ? { ...current, routes: current.routes.map((route, index) => index === routeIndex ? { ...route, dailyPlan: editStops.map(stop => stop.trim()) } : route) } : current);
+    setSavedKey("");
+    setEditingRoute(null);
+    onNotice(copy("Plan güncellendi. Saklamak için planı kaydet.", "Plan updated. Save it to keep your changes.", "Plani u përditësua. Ruaje për të mbajtur ndryshimet."));
   };
 
   const save = async () => {
@@ -230,10 +254,19 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       </div>
       {plannerTab !== "ready" && <section className="form-card planner-form reference-planner">
         {plannerTab === "plan" ? <>
-          <div className="planner-form-intro"><span><Icon name="route" size={23}/></span><div><h2>{copy("Yolculuğun nereden başlasın?", "Where does your journey begin?")}</h2><p>{copy("Şehrini seç, ne kadar zamanın olduğunu söyle.", "Choose your city and how long you'd like to go.")}</p></div></div>
+          <div className="planner-form-intro"><span><Icon name="route" size={23}/></span><div><h2>{copy("Rotanı sen seç, birlikte planlayalım", "Your destination, your plan", "Destinacioni yt, plani yt")}</h2><p>{copy("Hedefin belli olabilir; istersen yeni yerler de önerebiliriz.", "Choose your destination or discover somewhere new.", "Zgjidh destinacionin tënd ose zbulo një vend të ri.")}</p></div></div>
+          <div className="planner-target-modes" role="group" aria-label={copy("Rota seçimi", "Destination choice", "Zgjedhja e destinacionit")}>
+            <button type="button" disabled={loading} aria-pressed={form.mode === "fixed"} onClick={() => setForm(current => ({ ...current, mode: "fixed", dayCount: current.dayCount || 3 }))}><Icon name="map" size={19}/><span>{copy("Gideceğim yer belli", "I know where to go", "E di ku do të shkoj")}<small>{copy("Sen seç, AI planlasın", "You choose, AI plans", "Ti zgjedh, AI planifikon")}</small></span></button>
+            <button type="button" disabled={loading} aria-pressed={form.mode !== "fixed"} onClick={() => setForm(current => ({ ...current, mode: "discover" }))}><Icon name="compass" size={19}/><span>{copy("Bana yer öner", "Suggest a destination", "Më sugjero një destinacion")}<small>{copy("Yeni rotalar keşfet", "Discover new routes", "Zbulo rrugë të reja")}</small></span></button>
+          </div>
           <AirportField label={copy("Nereden?", "From?")} placeholder={copy("Şehir veya havalimanı", "City or airport")} value={originAirport} required onChange={(airport) => { setOriginAirport(airport); setForm(current => ({ ...current, origin: airport ? airport.city || airport.name : "" })); }} />
+          {form.mode === "fixed" && <>
+            <AirportField label={copy("Nereye?", "To?", "Ku?")} placeholder={copy("Örn. Bodrum, Roma, Tiran", "E.g. Bodrum, Rome, Tirana", "P.sh. Bodrum, Romë, Tiranë")} value={destinationAirport} required onChange={airport => { setDestinationAirport(airport); setForm(current => ({ ...current, destination: airport ? { code: airport.iata, name: airport.city || airport.name, country: airport.country, countryCode: airport.countryCode } : undefined })); }}/>
+            <p className="planner-target-note">{copy("Şehir araması için yakın havalimanını seçebilirsin; plan yalnız uçakla seyahat etmeyi gerektirmez. Hedefin değişmez.", "Select a nearby airport to identify the city; the plan does not require flying. Your destination stays fixed.", "Zgjidh një aeroport pranë për të përcaktuar qytetin; plani nuk kërkon fluturim. Destinacioni mbetet i njëjtë.")}</p>
+            {destinationAirport && destinationAirport.iata === originAirport?.iata && <p className="planner-interest-notice" role="status">{copy("Başlangıçtan farklı bir hedef seç.", "Choose a destination different from your departure.", "Zgjidh një destinacion të ndryshëm nga nisja.")}</p>}
+          </>}
           <div className="form-grid two">
-            <label>{copy("Süre", "Duration")}<select value={form.days} onChange={event => setForm({ ...form, days: event.target.value })}>{["2–3 gün","4–6 gün","7–10 gün","10+ gün"].map((value,index) => <option key={value} value={value}>{copy(value,["2–3 days","4–6 days","7–10 days","10+ days"][index])}</option>)}</select></label>
+            {form.mode === "fixed" ? <label>{copy("Kaç gün?", "How many days?", "Sa ditë?")}<select value={form.dayCount || 3} onChange={event => setForm(current => ({ ...current, dayCount: Number(event.target.value) }))}>{Array.from({ length: 14 }, (_, index) => index + 1).map(day => <option key={day} value={day}>{copy(`${day} gün`, `${day} days`, `${day} ditë`)}</option>)}</select></label> : <label>{copy("Süre", "Duration")}<select value={form.days} onChange={event => setForm({ ...form, days: event.target.value })}>{["2–3 gün","4–6 gün","7–10 gün","10+ gün"].map((value,index) => <option key={value} value={value}>{copy(value,["2–3 days","4–6 days","7–10 days","10+ days"][index])}</option>)}</select></label>}
             <label>{copy("Dönem", "Month")}<select value={form.month} onChange={event => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month,index) => <option key={month} value={month}>{copy(month,["January","February","March","April","May","June","July","August","September","October","November","December"][index])}</option>)}</select></label>
           </div>
           <details className="planner-optional-preferences"><summary><span><Icon name="settings" size={18}/><strong>{copy("Seyahat tercihlerin", "Travel preferences")}</strong></span><small>{whoLabel} · {budgetLabel}</small><Icon name="chevron" size={17}/></summary>
@@ -272,6 +305,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         </div>
         {planIsSaved && !selectedRoute && <div className="planner-save-confirmation"><p role="status">{saveMessage}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("trips")}>{copy("Kaydedilenlere git", "Go to Saved")}<Icon name="chevron" size={17}/></button></div>}
         <p className="plan-summary">{plan.summary}</p>
+        {source === "local" && <p className="planner-target-note" role="status">{copy("Hazır başlangıç taslağı · AI tarafından yeni oluşturulmadı. Ayrıntıları düzenleyebilir veya yeniden deneyebilirsin.", "Starter outline · Not newly generated by AI. Edit the details or try again.", "Plan fillestar · Nuk është krijuar rishtazi nga AI. Redakto hollësitë ose provo sërish.")}</p>}
         <div className="route-result-list">
           {plan.routes.map((route, index) => {
             const open = expanded === route.name;
@@ -294,7 +328,12 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
                 </div>
                 {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? ` · Son kontrol: ${route.visaVerifiedAt}` : ""}</p></div>}
                 {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> {copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
-                <div className="daily-plan"><h3>{copy("Örnek plan", "Sample plan")}</h3>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
+                <div className="daily-plan"><div className="planner-itinerary-heading"><h3>{copy("Günlük planın", "Your daily plan", "Plani yt ditor")}</h3><button type="button" className="planner-edit-link" disabled={saveBusy} onClick={() => { setEditingRoute(index); setEditStops([...route.dailyPlan]); setNewStop(""); setEditError(""); }}>{copy("Düzenle", "Edit", "Redakto")}</button></div>{editingRoute === index ? <div className="planner-stop-editor">
+                  <p>{copy("Durakları düzenle, ekle veya sırala. Gün numaralarını metinde de güncelleyebilirsin.", "Edit, add or reorder stops. You can also update day numbers in the text.", "Redakto, shto ose rendit ndalesat. Mund të ndryshosh edhe numrat e ditëve në tekst.")}</p>
+                  {editStops.map((stop, stopIndex) => <div className="planner-stop-row" key={stopIndex}><label>{copy(`Durak ${stopIndex + 1}`, `Stop ${stopIndex + 1}`, `Ndalesa ${stopIndex + 1}`)}<textarea maxLength={600} rows={3} value={stop} onChange={event => setEditStops(current => editPlanStops(current, { type: "edit", index: stopIndex, text: event.target.value }))}/></label><div className="planner-stop-actions"><button type="button" disabled={stopIndex === 0} aria-label={copy(`${stopIndex + 1}. durağı yukarı taşı`, `Move stop ${stopIndex + 1} up`, `Lëvize ndalesën ${stopIndex + 1} lart`)} onClick={() => setEditStops(current => editPlanStops(current, { type: "move", index: stopIndex, delta: -1 }))}>↑</button><button type="button" disabled={stopIndex === editStops.length - 1} aria-label={copy(`${stopIndex + 1}. durağı aşağı taşı`, `Move stop ${stopIndex + 1} down`, `Lëvize ndalesën ${stopIndex + 1} poshtë`)} onClick={() => setEditStops(current => editPlanStops(current, { type: "move", index: stopIndex, delta: 1 }))}>↓</button><button type="button" disabled={editStops.length <= 1} onClick={() => setEditStops(current => editPlanStops(current, { type: "remove", index: stopIndex }))}>{copy("Kaldır", "Remove", "Hiq")}</button></div></div>)}
+                  <label>{copy("Yeni durak", "New stop", "Ndalesë e re")}<textarea rows={2} maxLength={600} value={newStop} onChange={event => setNewStop(event.target.value)} placeholder={copy("Örn. Akşam sahil yürüyüşü", "E.g. An evening coastal walk", "P.sh. Shëtitje në bregdet në mbrëmje")}/></label><button type="button" className="secondary-wide" disabled={!newStop.trim() || editStops.length >= 30} onClick={() => { setEditStops(current => editPlanStops(current, { type: "add", text: newStop })); setNewStop(""); }}><Icon name="plus" size={17}/>{copy("Durak ekle", "Add stop", "Shto ndalesë")}</button>
+                  {editError && <p role="alert">{editError}</p>}<div className="planner-editor-footer"><button type="button" className="secondary-wide" onClick={() => setEditingRoute(null)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="primary-wide" onClick={applyStopEdits}>{copy("Değişiklikleri uygula", "Apply changes", "Zbato ndryshimet")}</button></div>
+                </div> : route.dailyPlan.map((day, stopIndex) => <div key={stopIndex}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
                 {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>{copy("Bugün", "Today")} {currentWeather.min}° / {currentWeather.max}° · {copy("Rüzgâr", "Wind")} {currentWeather.windSpeed} km/h</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} {copy("Güncel havayı göster", "Show current weather")}</button>}
               </>}</div>

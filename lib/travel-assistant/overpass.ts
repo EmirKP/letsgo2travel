@@ -16,7 +16,7 @@ export async function queryOverpass(
     throw new Error("Map service busy");
   const endpoint = new URL(
     process.env.TRAVEL_OVERPASS_URL ||
-      "https://overpass-api.de/api/interpreter",
+      "https://overpass.private.coffee/api/interpreter",
   );
   if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password)
     throw new Error("Invalid provider");
@@ -34,6 +34,10 @@ export async function queryOverpass(
       redirect: "error",
       cache: "no-store",
     });
+    if (response.status === 429) {
+      cooldown = Date.now() + 60000;
+      throw new Error("Map service busy");
+    }
     if (!response.ok || !response.body) throw new Error("Map unavailable");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -59,7 +63,9 @@ export async function queryOverpass(
       throw new Error("Incomplete map");
     return raw;
   } catch (e) {
-    cooldown = Date.now() + 60000;
+    // A single timed-out area must not disable every map tool for a minute.
+    // Keep an upstream rate-limit cooldown; other transient failures back off briefly.
+    cooldown = Math.max(cooldown, Date.now() + 5000);
     throw e;
   } finally {
     active--;

@@ -46,7 +46,7 @@ type SelectedPlan = {
   plan: RoutePlan;
 };
 
-function cloudRoutePlan(item: UserTripData, locale: "tr" | "en"): SelectedPlan | null {
+function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq"): SelectedPlan | null {
   const candidate = item.tripData?.plan;
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
   const record = candidate as Record<string, unknown>;
@@ -55,11 +55,11 @@ function cloudRoutePlan(item: UserTripData, locale: "tr" | "en"): SelectedPlan |
   if (routes.length === 0) return null;
   const input = item.tripData?.input;
   return {
-    title: item.title || item.destination || (locale === "tr" ? "Kayıtlı rota" : "Saved route"),
+    title: item.title || item.destination || (locale === "tr" ? "Kayıtlı rota" : locale === "sq" ? "Rrugë e ruajtur" : "Saved route"),
     createdAt: item.createdAt,
     input: input && typeof input === "object" && !Array.isArray(input) ? input as PlannerInput : undefined,
     plan: {
-      summary: typeof record.summary === "string" ? record.summary : (locale === "tr" ? "Kayıtlı rota önerin." : "Your saved route suggestion."),
+      summary: typeof record.summary === "string" ? record.summary : (locale === "tr" ? "Kayıtlı rota önerin." : locale === "sq" ? "Sugjerimi yt i ruajtur i rrugës." : "Your saved route suggestion."),
       routes: routes as RoutePlan["routes"],
     },
   };

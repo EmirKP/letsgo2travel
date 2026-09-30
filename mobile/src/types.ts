@@ -10,6 +10,9 @@ export type Country = {
 };
 
 export type PlannerInput = {
+  mode?: "discover" | "fixed";
+  destination?: { code: string; name: string; country: string; countryCode: string };
+  dayCount?: number;
   origin: string;
   days: string;
   month: string;

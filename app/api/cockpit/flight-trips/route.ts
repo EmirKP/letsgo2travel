@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const pnr = typeof body.flightPnr === "string" ? body.flightPnr.trim().toUpperCase() : "";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(end) || !Number.isFinite(stamp) || new Date(stamp).toISOString().slice(0, 10) !== end
       || end < selection.query.date || end < selection.flight.arrivalDate || stamp > Date.now() + 730 * 86400000
-      || (pnr && !/^[A-Z0-9-]{3,20}$/.test(pnr)) || (body.appLanguage !== "tr" && body.appLanguage !== "en")
+      || (pnr && !/^[A-Z0-9-]{3,20}$/.test(pnr)) || (body.appLanguage !== "tr" && body.appLanguage !== "en" && body.appLanguage !== "sq")
       || !Array.isArray(body.checklistItems) || body.checklistItems.length > 50) return reply({ code: "invalid" }, 400);
     const signal = AbortSignal.timeout(5000);
     const readiness = await boundedWait(auth.supabase.rpc(protocol === 3 ? "flight_lookup_refresh_ready" : "flight_lookup_retention_ready").abortSignal(signal), signal);

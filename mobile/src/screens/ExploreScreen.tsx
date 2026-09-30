@@ -154,7 +154,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
   const surprise = () => {
     const route = randomRoute(locale);
     onSurprise(route);
-    onNotice(copy(`${route.name} senin için seçildi.`, `${route.name} was picked for you.`));
+    onNotice(copy(`${route.name} senin için seçildi.`, `${route.name} was picked for you.`, `${route.name} u zgjodh për ty.`));
   };
 
   const toggleFavorite = async (destination: DiscoveryDestination) => {
@@ -164,7 +164,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     setFavorites(next);
     const saved = next.some((item) => item.alpha3 === destination.alpha3);
     if (!ownerId || !accessToken) {
-      onNotice(saved ? copy(`${destination.country} favorilerine eklendi.`, `${destination.country} added to favourites.`) : copy(`${destination.country} favorilerden çıkarıldı.`, `${destination.country} removed from favourites.`));
+      onNotice(saved ? copy(`${destination.country} favorilerine eklendi.`, `${destination.country} added to favourites.`, `${destination.country} u shtua te të preferuarat.`) : copy(`${destination.country} favorilerden çıkarıldı.`, `${destination.country} removed from favourites.`, `${destination.country} u hoq nga të preferuarat.`));
       return;
     }
     setFavoriteBusy(destination.alpha3);
@@ -174,7 +174,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
       }, accessToken);
       if (!updated) throw new Error("profile missing");
       setRemoteWishlist(updated.wishlistCountries);
-      onNotice(saved ? copy(`${destination.country} web hesabınla eşitlendi.`, `${destination.country} synced with your web account.`) : copy(`${destination.country} favorilerden çıkarıldı.`, `${destination.country} removed from favourites.`));
+      onNotice(saved ? copy(`${destination.country} web hesabınla eşitlendi.`, `${destination.country} synced with your web account.`, `${destination.country} u sinkronizua me llogarinë tënde në web.`) : copy(`${destination.country} favorilerden çıkarıldı.`, `${destination.country} removed from favourites.`, `${destination.country} u hoq nga të preferuarat.`));
     } catch (error) {
       setFavoriteDestinations(previous, ownerId);
       setFavorites(previous);
@@ -205,11 +205,11 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
       transportEase: copy("Planlamaya göre değişir", "Depends on your plan"),
       safetyNote: copy("Güncel yerel koşulları ve resmî seyahat duyurularını yola çıkmadan önce kontrol et.", "Check current local conditions and official travel notices before departure."),
       scores: { budget: 8, visaEase: destination.entry === "Vizesiz" || destination.entry === "Kimlikle" ? 10 : 7, firstTime: 8, transport: 7, overall: 84 },
-      dailyPlan: destination.highlights.map((highlight, index) => copy(`${index + 1}. Gün: ${highlight}.`, `Day ${index + 1}: ${highlight}.`)),
+      dailyPlan: destination.highlights.map((highlight, index) => copy(`${index + 1}. Gün: ${highlight}.`, `Day ${index + 1}: ${highlight}.`, `Dita ${index + 1}: ${highlight}.`)),
       warnings: [copy("Giriş koşullarını ve rezervasyonlarını seyahatten önce resmî kaynaklardan doğrula.", "Verify entry requirements and bookings with official sources before travel.")],
     };
     setSelectedDestination(null);
-    onBuildRoute({ ...route, visaStatus: entryFor(destination).label, visaNote: copy(`Seçili pasaport: ${preference.country} (${preference.type}). Keşif verisi: ${passportIndex.asOf}; güncel koşulları resmî kaynaktan doğrula.`, `Selected passport: ${preference.country} (${preference.type}). Discovery data: ${passportIndex.asOf}; verify current official entry rules.`), visaVerifiedAt: null, visaSourceUrl: undefined, verifiedEntryStatus: undefined });
+    onBuildRoute({ ...route, visaStatus: entryFor(destination).label, visaNote: copy(`Seçili pasaport: ${preference.country} (${preference.type}). Keşif verisi: ${passportIndex.asOf}; güncel koşulları resmî kaynaktan doğrula.`, `Selected passport: ${preference.country} (${preference.type}). Discovery data: ${passportIndex.asOf}; verify current official entry rules.`, `Pasaporta e zgjedhur: ${preference.country} (${preference.type}). Të dhënat e zbulimit: ${passportIndex.asOf}; verifiko kushtet aktuale të hyrjes në burimet zyrtare.`), visaVerifiedAt: null, visaSourceUrl: undefined, verifiedEntryStatus: undefined });
   };
 
   return <div className="screen explore-screen">
@@ -236,10 +236,10 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
 
     <section className="section-block" id="explore-search-results">
       <div className="section-heading"><div><span>{copy("İLHAM PANOSU", "INSPIRATION")}</span><h2>{search ? copy("Arama sonuçları", "Search results") : copy("Sana göre rotalar", "Routes for you")}</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
-      {search && <p role="status">{copy(`“${query.trim()}” için ${destinations.length + searchRoutes.length} hazır rota bulundu.`, `${destinations.length + searchRoutes.length} ready-made routes found for “${query.trim()}”.`)}</p>}
-      <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{copy("Pasaporta göre", "For passport")}: {new Intl.DisplayNames([locale], { type: "region" }).of(preference.country)} · {copy(({ordinary:"Umuma mahsus", special:"Hususi", service:"Hizmet", diplomatic:"Diplomatik"} as Record<string,string>)[preference.type], preference.type)} · {copy("Değiştir", "Change")}</button>
+      {search && <p role="status">{copy(`“${query.trim()}” için ${destinations.length + searchRoutes.length} hazır rota bulundu.`, `${destinations.length + searchRoutes.length} ready-made routes found for “${query.trim()}”.`, `U gjetën ${destinations.length + searchRoutes.length} itinerare të gatshme për “${query.trim()}”.`)}</p>}
+      <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{copy("Pasaporta göre", "For passport")}: {new Intl.DisplayNames([locale], { type: "region" }).of(preference.country)} · {copy(({ordinary:"Umuma mahsus", special:"Hususi", service:"Hizmet", diplomatic:"Diplomatik"} as Record<string,string>)[preference.type], preference.type, ({ordinary:"E zakonshme", special:"E posaçme", service:"E shërbimit", diplomatic:"Diplomatike"} as Record<string,string>)[preference.type])} · {copy("Değiştir", "Change")}</button>
       {!search && <div className="chip-scroll explore-filter" role="group" aria-label={copy("Rotaları kategoriye göre filtrele", "Filter routes by category")}>
-        {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{copy(item, ({ "Tümü": "All", "Vizesiz": "Visa-free", "Şehir": "City", "Deniz": "Coast", "Uzak rota": "Long-haul" } as const)[item])}</button>)}
+        {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{copy(item, ({ "Tümü": "All", "Vizesiz": "Visa-free", "Şehir": "City", "Deniz": "Coast", "Uzak rota": "Long-haul" } as const)[item], ({ "Tümü": "Të gjitha", "Vizesiz": "Pa vizë", "Şehir": "Qytet", "Deniz": "Bregdet", "Uzak rota": "Destinacione të largëta" } as const)[item])}</button>)}
       </div>}
       <div className="discovery-grid">
         {destinations.map((destination) => {
@@ -252,12 +252,12 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
               <h3>{destination.name}</h3>
               <p>{destination.country}</p>
             </div>
-            <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openDetails(destination)} aria-label={copy(`${destination.name} ayrıntılarını aç`, `Open ${destination.name} details`)}>{copy("İncele", "View")} <Icon name="chevron" size={15} /></button></div>
+            <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openDetails(destination)} aria-label={copy(`${destination.name} ayrıntılarını aç`, `Open ${destination.name} details`, `Hap hollësitë për ${destination.name}`)}>{copy("İncele", "View")} <Icon name="chevron" size={15} /></button></div>
           </article>;
         })}
         {searchRoutes.map(route => <article className="discovery-card" key={route.destinationCode}>
           <div className="discovery-visual" style={{ backgroundImage: `linear-gradient(180deg,rgba(7,27,51,.08),rgba(7,27,51,.88)),url(${destinationArtwork(route.destinationCode)})` }}><h3>{route.name}</h3><p>{route.country}</p></div>
-          <div className="discovery-body"><span>{route.idealDuration}</span><button type="button" onClick={() => onBuildRoute(route)} aria-label={copy(`${route.name} rotasını planla`, `Plan ${route.name}`)}>{copy("Planla", "Plan")}<Icon name="chevron" size={15}/></button></div>
+          <div className="discovery-body"><span>{route.idealDuration}</span><button type="button" onClick={() => onBuildRoute(route)} aria-label={copy(`${route.name} rotasını planla`, `Plan ${route.name}`, `Planifiko ${route.name}`)}>{copy("Planla", "Plan")}<Icon name="chevron" size={15}/></button></div>
         </article>)}
       </div>
       {search && !destinations.length && !searchRoutes.length && <div className="discovery-search-empty"><p>{copy("Bu arama için hazır rotamız henüz yok. Farklı bir şehir veya ülke deneyebilir ya da tercihlerine göre rota oluşturabilirsin.", "We don't have a ready-made route for this search yet. Try another city or country, or create a route around your preferences.")}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("route")}><Icon name="route" size={18}/>{copy("Tercihlerimle rota oluştur", "Create a route for me")}</button></div>}

@@ -307,7 +307,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const shareCard = async () => {
     const shared = await shareContent({
       title: copy("LetsGo2Travel Kaşif Kartım", "My LetsGo2Travel Explorer Card"),
-      text: copy(`${name} · ${level}\n${visited.length} ülke ziyaret ettim, ${favorites.length} rotayı favoriledim.`, `${name} · ${localizedLevel}\nI visited ${visited.length} countries and saved ${favorites.length} routes.`),
+      text: copy(`${name} · ${level}\n${visited.length} ülke ziyaret ettim, ${favorites.length} rotayı favoriledim.`, `${name} · ${localizedLevel}\nI visited ${visited.length} countries and saved ${favorites.length} routes.`, `${name} · ${localizedLevel}\nKam vizituar ${visited.length} shtete dhe kam ruajtur ${favorites.length} itinerare.`),
       url: "https://www.letsgo2travel.com.tr",
     });
     onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
@@ -326,7 +326,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     <section className="explorer-card">
       <div className="explorer-card-head"><span><Icon name="globe" size={20} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
       <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
-      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{visited.length >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - visited.length)} ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - visited.length)} countries to World Traveller`)}</small></div>
+      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{visited.length >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - visited.length)} ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - visited.length)} countries to World Traveller`, `Edhe ${Math.max(0, 25 - visited.length)} shtete për Eksplorues të Botës`)}</small></div>
     </section>
 
     <section className="profile-section">
@@ -344,7 +344,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       <div className="section-heading"><div><h2 id="profile-community-heading">{copy("Toplulukta sen", "You in the community")}</h2></div></div>
       <div className="profile-action-list">
         <button onClick={() => onNavigate("community")}><span><Icon name="users" size={21} /></span><div><strong>{copy("Kaşifler Ligi", "Explorer League")}</strong><small>{copy("Gezgin sıralaması ve topluluk", "Traveller ranking and community")}</small></div><Icon name="chevron" size={16} /></button>
-        <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
+        <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`, `${approvedCount} të miratuara · ${verifications.filter((item) => item.status === "pending").length} në pritje`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
       </div>
     </section>
 
@@ -372,7 +372,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         <summary><span className="profile-preference-icon"><Icon name="settings" size={21}/></span><span><strong>{copy("Uygulama", "App")}</strong><small>{copy("Dokunma hissi, yenilikler ve kısa tur", "Touch feedback, updates and a quick tour")}</small></span><Icon name="chevron" size={18}/></summary>
         <div className="settings-card">
           <label><span><Icon name="sparkles" size={19} /><em><strong>{copy("Dokunma titreşimi", "Touch feedback")}</strong><small>{copy("Desteklenen cihazlarda hafif geri bildirim", "Gentle feedback on supported devices")}</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
-          <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
+          <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`, `Shiko çfarë përfshin versioni ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
           <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulama turu", "App tour")}</strong><small>{copy("Temel özellikleri yeniden, adım adım gör", "Review the main features step by step")}</small></em></span><Icon name="chevron" size={17} /></button>
         </div>
       <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
@@ -392,11 +392,11 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
           return <button type="button" className={selected ? "selected" : ""} key={country.alpha3} aria-pressed={selected} disabled={Boolean(profileBusy)} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{countryName(country.alpha3, country.name)}</strong><small>{profileBusy === `country-${country.alpha3}` ? copy("Kaydediliyor", "Saving") : country.alpha3}</small></button>;
         })}
       </div>
-      {visibleCountryCount < countries.length && <button className="country-load-more" type="button" onClick={() => setVisibleCountryCount((count) => count + 60)}>{copy("Daha fazla ülke göster", "Show more countries")} <span>{copy(`${countries.length - visibleCountryCount} kaldı`, `${countries.length - visibleCountryCount} left`)}</span></button>}
+      {visibleCountryCount < countries.length && <button className="country-load-more" type="button" onClick={() => setVisibleCountryCount((count) => count + 60)}>{copy("Daha fazla ülke göster", "Show more countries")} <span>{copy(`${countries.length - visibleCountryCount} kaldı`, `${countries.length - visibleCountryCount} left`, `Edhe ${countries.length - visibleCountryCount}`)}</span></button>}
     </Sheet>}
 
     <Sheet open={verificationOpen} title={copy("Belgeli Gezgin", "Verified Traveller")} onClose={() => setVerificationOpen(false)} size="large">
-      <div className="verification-summary"><span><Icon name="shield" size={28} /></span><div><small>{copy("SEYAHAT DOĞRULAMALARI", "TRAVEL VERIFICATIONS")}</small><strong>{copy(`${approvedCount} onaylı kayıt`, `${approvedCount} approved`)}</strong><p>{copy("Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.", "Applications stay in sync on web and mobile, and documents can be submitted in the app.")}</p></div></div>
+      <div className="verification-summary"><span><Icon name="shield" size={28} /></span><div><small>{copy("SEYAHAT DOĞRULAMALARI", "TRAVEL VERIFICATIONS")}</small><strong>{copy(`${approvedCount} onaylı kayıt`, `${approvedCount} approved`, `${approvedCount} të miratuara`)}</strong><p>{copy("Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.", "Applications stay in sync on web and mobile, and documents can be submitted in the app.")}</p></div></div>
 
       {user && accessToken && <VerificationForm
         accessToken={accessToken}

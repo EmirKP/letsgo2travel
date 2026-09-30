@@ -9,7 +9,7 @@ import oceaniaImage from "../assets/community-reference/region-oceania.webp";
 
 export type CommunityRegionId = "all" | "turkey" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania";
 type CountryRegionId = Exclude<CommunityRegionId, "all">;
-type Locale = "tr" | "en";
+type Locale = "tr" | "en" | "sq";
 
 export type CommunityRegion = {
   id: CommunityRegionId;
@@ -31,14 +31,16 @@ const REGION_LABELS: ReadonlyArray<readonly [CommunityRegionId, string, string]>
   ["oceania", "Okyanusya", "Oceania"],
 ];
 
-const REGION_IMAGES: Partial<Record<CommunityRegionId, { image: string; location?: readonly [string, string] }>> = {
-  turkey: { image: cappadociaImage, location: ["Kapadokya, Türkiye", "Cappadocia, Turkey"] },
-  europe: { image: parisImage, location: ["Paris, Fransa", "Paris, France"] },
-  asia: { image: tokyoImage, location: ["Tokyo, Japonya", "Tokyo, Japan"] },
-  "middle-east": { image: dubaiImage, location: ["Dubai, Birleşik Arap Emirlikleri", "Dubai, United Arab Emirates"] },
-  americas: { image: americasImage, location: ["Özgürlük Heykeli, New York", "Statue of Liberty, New York"] },
-  africa: { image: africaImage, location: ["Baobab Yolu, Madagaskar", "Avenue of the Baobabs, Madagascar"] },
-  oceania: { image: oceaniaImage, location: ["Sidney Opera Binası, Avustralya", "Sydney Opera House, Australia"] },
+const SQ_LABELS: Record<CommunityRegionId, string> = { all: "Të gjitha", turkey: "Turqia", europe: "Evropa", asia: "Azia", americas: "Amerika", "middle-east": "Lindja e Mesme", africa: "Afrika", oceania: "Oqeania" };
+
+const REGION_IMAGES: Partial<Record<CommunityRegionId, { image: string; location?: readonly [string, string, string] }>> = {
+  turkey: { image: cappadociaImage, location: ["Kapadokya, Türkiye", "Cappadocia, Turkey", "Kapadokia, Turqi"] },
+  europe: { image: parisImage, location: ["Paris, Fransa", "Paris, France", "Paris, Francë"] },
+  asia: { image: tokyoImage, location: ["Tokyo, Japonya", "Tokyo, Japan", "Tokio, Japoni"] },
+  "middle-east": { image: dubaiImage, location: ["Dubai, Birleşik Arap Emirlikleri", "Dubai, United Arab Emirates", "Dubai, Emiratet e Bashkuara Arabe"] },
+  americas: { image: americasImage, location: ["Özgürlük Heykeli, New York", "Statue of Liberty, New York", "Statuja e Lirisë, Nju-Jork"] },
+  africa: { image: africaImage, location: ["Baobab Yolu, Madagaskar", "Avenue of the Baobabs, Madagascar", "Rruga e Baobabëve, Madagaskar"] },
+  oceania: { image: oceaniaImage, location: ["Sidney Opera Binası, Avustralya", "Sydney Opera House, Australia", "Opera e Sidneit, Australi"] },
 };
 
 export function communityRegions(locale: Locale = "tr"): CommunityRegion[] {
@@ -46,9 +48,9 @@ export function communityRegions(locale: Locale = "tr"): CommunityRegion[] {
     const artwork = REGION_IMAGES[id];
     return {
       id,
-      label: locale === "en" ? en : tr,
+      label: locale === "sq" ? SQ_LABELS[id] : locale === "en" ? en : tr,
       ...(artwork ? { image: artwork.image } : {}),
-      ...(artwork?.location ? { imageLocation: artwork.location[locale === "en" ? 1 : 0] } : {}),
+      ...(artwork?.location ? { imageLocation: artwork.location[locale === "sq" ? 2 : locale === "en" ? 1 : 0] } : {}),
     };
   });
 }

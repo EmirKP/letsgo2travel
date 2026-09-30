@@ -56,7 +56,7 @@ export function CountryPicker({ value, options, onChange, label, placeholder, se
           <input data-autofocus type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} aria-label={searchPlaceholder || copy("Ülke ara", "Search countries")} placeholder={searchPlaceholder || copy("Ülke ara", "Search countries")} />
           {query && <button type="button" onClick={() => setQuery("")} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17} /></button>}
         </label>
-        <p className="country-picker-result-count" role="status">{copy(`${filtered.length} ülke`, `${filtered.length} countries`)}</p>
+        <p className="country-picker-result-count" role="status">{copy(`${filtered.length} ülke`, `${filtered.length} countries`, `${filtered.length} shtete`)}</p>
         <div className="country-picker-options" role="listbox" aria-label={label}>
           {includeWorldwide && !normalizedQuery && <button type="button" role="option" aria-selected={!value} className={!value ? "selected" : ""} onClick={() => choose("")}><span className="country-picker-world"><Icon name="globe" size={20} /></span><span><strong>{copy("Tüm dünya", "Worldwide")}</strong><small>{copy("Ülke filtresi olmadan ara", "Search without a country filter")}</small></span>{!value && <Icon name="check" size={19} />}</button>}
           {filtered.map((option) => <button type="button" role="option" aria-selected={value === option.code} className={value === option.code ? "selected" : ""} key={option.code} onClick={() => choose(option.code)}>

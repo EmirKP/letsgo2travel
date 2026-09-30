@@ -156,6 +156,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [followedCountries, setFollowedCountries] = useState(() => readCommunityFollows(user?.id || null));
   const searchInput = useRef<HTMLInputElement>(null);
   const [leaders, setLeaders] = useState<CommunityLeader[]>([]);
+  const [leagueUpdatedAt, setLeagueUpdatedAt] = useState("");
+  const leagueLoadedAt = useRef(0);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -257,18 +259,21 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const load = useCallback(async () => {
     const generation = ++requestGeneration.current;
     setLoading(true);
+    leagueLoadedAt.current = Date.now();
     setError("");
     try {
-      const response = await requestJson<{ data?: unknown }>("/api/kasifler-ligi", { timeoutMs: 15_000 });
+      const response = await requestJson<{ data?: unknown; generatedAt?: string }>("/api/kasifler-ligi", { timeoutMs: 15_000 });
       if (generation !== requestGeneration.current) return;
-      const rows = Array.isArray(response.data) ? response.data.slice(0, 100) : [];
+      if (!Array.isArray(response.data)) throw new Error("invalid_league_response");
+      const rows = response.data.slice(0, 100);
+      leagueLoadedAt.current = Date.now();
+      setLeagueUpdatedAt(response.generatedAt || new Date().toISOString());
       setLeaders(rows.flatMap((item) => {
         const leader = normalizeLeader(item);
         return leader ? [leader] : [];
       }));
     } catch {
       if (generation === requestGeneration.current) {
-        setLeaders([]);
         setError(copy("Gezgin sıralaması şu anda yüklenemedi. Bağlantını kontrol edip tekrar dene.", "The traveller ranking could not be loaded. Check your connection and try again."));
       }
     } finally {
@@ -317,7 +322,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   useEffect(() => {
     // Lig verisi, kullanıcı yalnız akışa bakarken gereksiz bir ağ ve veri
     // tabanı isteği oluşturmasın. İlk kez Lig sekmesi açıldığında yüklenir.
-    if (leagueOpen && !loaded && !loading) void load();
+    if (leagueOpen && (!loaded || (leagueLoadedAt.current > 0 && Date.now() - leagueLoadedAt.current > 60_000)) && !loading) void load();
   }, [load, loaded, loading, leagueOpen]);
 
   const openDetail = useCallback(async (questionId: string) => {
@@ -359,11 +364,11 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     setSafetyTarget(target);
   };
 
-  const authorButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => item.authorId === user?.id
+  const authorButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => !item.authorId || item.authorId === user?.id
     ? <strong className="community-author-self">@{item.username}</strong>
     : <button type="button" className="community-author-button" aria-haspopup="dialog"
       onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
-      aria-label={copy(`@${item.username} için kullanıcı seçenekleri`, `User options for @${item.username}`)}
+      aria-label={copy(`@${item.username} için kullanıcı seçenekleri`, `User options for @${item.username}`, `Veprimet për përdoruesin @${item.username}`)}
     ><strong>@{item.username}</strong><Icon name="chevron" size={12} /></button>;
 
   const onBlocked = (blockedId: string) => {
@@ -526,7 +531,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {tab === "groups" && <section id="community-panel-groups" role="tabpanel" aria-labelledby="community-tab-groups" className="cs-groups" tabIndex={0}>
         <div className="cs-section-heading"><h2>{copy("Ülke Grupları", "Country Groups")}</h2><span>{groups.length}</span></div><p className="cs-section-intro">{copy("Bir ülke seç, gezginlerin sorularına katıl. Takip ettiğin gruplar bu cihazda saklanır.", "Choose a country and join the conversation. Followed groups are saved on this device.")}</p>
         <label className="cs-group-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Ülke ara", "Search countries")}</span><input type="search" value={groupSearch} onChange={event => setGroupSearch(event.target.value)} placeholder={copy("Ülke ara", "Search countries")}/></label>
-        <div className="cs-group-grid">{groups.map(country => <article key={country.alpha2}><button type="button" className="cs-group-open" onClick={() => { setCountryFilter(country.alpha2); setRegion("all"); setSearch(""); setTab("questions"); }}><CountryFlag code={country.alpha2} label={country.name}/><span><strong>{country.name}</strong><small>{copy("Sohbete katıl", "Join the conversation")}</small></span></button><button type="button" className="cs-follow" aria-label={copy(`${country.name} grubunu ${followedCountries.includes(country.alpha2) ? "takipten çıkar" : "takip et"}`, `${followedCountries.includes(country.alpha2) ? "Unfollow" : "Follow"} ${country.name} group`)} aria-pressed={followedCountries.includes(country.alpha2)} onClick={() => toggleFollow(country.alpha2)}><Icon name={followedCountries.includes(country.alpha2) ? "check" : "plus"} size={20}/></button></article>)}</div>
+        <div className="cs-group-grid">{groups.map(country => <article key={country.alpha2}><button type="button" className="cs-group-open" onClick={() => { setCountryFilter(country.alpha2); setRegion("all"); setSearch(""); setTab("questions"); }}><CountryFlag code={country.alpha2} label={country.name}/><span><strong>{country.name}</strong><small>{copy("Sohbete katıl", "Join the conversation")}</small></span></button><button type="button" className="cs-follow" aria-label={copy(`${country.name} grubunu ${followedCountries.includes(country.alpha2) ? "takipten çıkar" : "takip et"}`, `${followedCountries.includes(country.alpha2) ? "Unfollow" : "Follow"} ${country.name} group`, `${followedCountries.includes(country.alpha2) ? "Mos e ndiq më" : "Ndiq"} grupin ${country.name}`)} aria-pressed={followedCountries.includes(country.alpha2)} onClick={() => toggleFollow(country.alpha2)}><Icon name={followedCountries.includes(country.alpha2) ? "check" : "plus"} size={20}/></button></article>)}</div>
         {!groups.length && <div className="empty-state"><Icon name="search" size={28}/><strong>{copy("Bu aramada ülke bulunamadı", "No countries found")}</strong><button type="button" className="secondary-button" onClick={() => { setGroupSearch(""); setRegion("all"); }}>{copy("Tüm ülkeleri göster", "Show all countries")}</button></div>}
       </section>}
 
@@ -541,11 +546,11 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         {feedLoading ? <div className="skeleton-list community-native-loading" role="status" aria-label={copy("Paylaşımlar yükleniyor", "Loading posts")}><div/><div/><div/></div>
           : filteredQuestions.length ? <div className="cs-posts">{filteredQuestions.map(question => <article key={question.id}>
             <header><span className="cs-author-avatar" aria-hidden="true">{initials(question.username)}</span><div><strong className="cs-post-author">{question.username}</strong><p><span className="cs-post-country">{question.countryCode === "ZZ" ? copy("Gezgin topluluğu", "Traveller community") : questionCountryLabels.get(question.countryCode) || question.countryCode}</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div>
-              {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
+              {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`, `Veprimet për përdoruesin @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
             </header>
-            {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`)}/>}
-            <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
-            <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`)}</span><Icon name="chevron" size={17}/></button></footer>
+            {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`, `Fotografi e ndarë nga ${question.username}: ${question.title}`)}/>}
+            <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
+            <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`, `${question.answerCount} përgjigje: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`, `${question.answerCount} përgjigje`)}</span><Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
           : !feedError && <div className="empty-state cs-empty"><span><Icon name={tab === "following" ? "heart" : "users"} size={30}/></span><strong>{tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong><p>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p><button type="button" className="secondary-button" onClick={() => { if (tab === "following" && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button></div>}
       </section>}
@@ -558,7 +563,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </div>
     <Sheet open={leagueOpen} title={copy("Kaşifler Ligi", "Explorers League")} onClose={() => setLeagueOpen(false)} size="large"><div className="cs-league-sheet">
       <section className="community-native-summary">
-      <div><span><Icon name="globe" size={20} /></span><strong>{loaded ? leaders.length : "—"}</strong><small>{copy("Sıralamadaki gezgin", "Ranked travellers")}</small></div>
+      <div><span><Icon name="globe" size={20} /></span><strong>{leagueUpdatedAt ? leaders.length : "—"}</strong><small>{copy("Listelenen gezgin", "Listed travellers", "Udhëtarë të listuar")}</small></div>
       <button className="secondary-button" disabled={loading} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} {copy("Yenile", "Refresh")}
       </button>
@@ -597,6 +602,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         })}
       </div>}
 
+    <div className="cs-league-explainer"><strong>{copy("Sıralama nasıl hesaplanır?", "How is the ranking calculated?", "Si llogaritet renditja?")}</strong><p>{copy("Profilinde ziyaret edildi olarak işaretlediğin her farklı ülke 10 puan. Tekrarlanan ülkeler bir kez sayılır. Bu sıralama, belgeli gezgin doğrulamasından ayrıdır.", "Each different country marked visited in your profile is worth 10 points. Duplicates count once. This ranking is separate from verified traveller status.", "Çdo shtet i ndryshëm i shënuar si i vizituar vlen 10 pikë. Përsëritjet numërohen vetëm një herë. Renditja është e veçantë nga verifikimi i udhëtarit.")}</p>{user && <button type="button" className="secondary-wide" onClick={() => { setLeagueOpen(false); onNavigate("profile"); }}>{copy("Ziyaret ettiğim ülkeleri düzenle", "Edit my visited countries", "Ndrysho shtetet e vizituara")}</button>}{leagueUpdatedAt && <small>{copy("Son başarılı güncelleme", "Last successful update", "Përditësimi i fundit i suksesshëm")}: {new Date(leagueUpdatedAt).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</small>}</div>
     <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>{copy("Sıralama yalnızca katılmayı seçen kullanıcıları ve güvenli profil özetlerini gösterir.", "The ranking shows only people who opted in and a safe profile summary.")}</p></div>
     </div></Sheet>
     <Sheet open={questionOpen} title={copy("Deneyimini paylaş", "Share your experience")} dismissible={!posting} onClose={() => { if (!postPending.current) { photoSelection.current++; setPhotoPreparing(false); setQuestionOpen(false); } }}>
@@ -622,15 +628,15 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
         <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
-        {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`)}/>}
+        {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
         <p>{detail.body}</p>
         <div className="community-answers">
-          <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
+          <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`, `${totalAnswerCount} përgjigje`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`, `${shownAnswerCount} të shfaqura · ${hiddenAnswerCount} të kyçura`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`, `${shownAnswerCount} të shfaqura`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
             <header>{authorButton(answer, "answer")}<small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
             <p>{answer.body}</p>
           </article>)}
-          {hiddenAnswerCount > 0 && <div className="empty-inline community-unlock-box"><Icon name="lock" size={18} /><div><strong>{copy(`${hiddenAnswerCount} cevap kilitli`, `${hiddenAnswerCount} answers locked`)}</strong><span>{copy("Ücretsiz hesabınla ülke kilidini açıp tüm deneyimleri okuyabilirsin.", "Use your free account to unlock this country and read every experience.")}</span><button type="button" className="secondary-wide" disabled={unlocking} onClick={() => user ? void unlockReplies() : onOpenAccount()}>{unlocking ? <span className="button-loader dark" /> : <Icon name={user ? "unlock" : "user"} size={17} />} {user ? (unlocking ? copy("Açılıyor", "Unlocking") : copy("Tüm cevapların kilidini aç", "Unlock all answers")) : copy("Giriş yap ve kilidi aç", "Sign in and unlock")}</button></div></div>}
+          {hiddenAnswerCount > 0 && <div className="empty-inline community-unlock-box"><Icon name="lock" size={18} /><div><strong>{copy(`${hiddenAnswerCount} cevap kilitli`, `${hiddenAnswerCount} answers locked`, `${hiddenAnswerCount} përgjigje të kyçura`)}</strong><span>{copy("Ücretsiz hesabınla ülke kilidini açıp tüm deneyimleri okuyabilirsin.", "Use your free account to unlock this country and read every experience.")}</span><button type="button" className="secondary-wide" disabled={unlocking} onClick={() => user ? void unlockReplies() : onOpenAccount()}>{unlocking ? <span className="button-loader dark" /> : <Icon name={user ? "unlock" : "user"} size={17} />} {user ? (unlocking ? copy("Açılıyor", "Unlocking") : copy("Tüm cevapların kilidini aç", "Unlock all answers")) : copy("Giriş yap ve kilidi aç", "Sign in and unlock")}</button></div></div>}
           {!shownAnswerCount && !hiddenAnswerCount && <div className="empty-inline"><Icon name="info" size={18} /><div><strong>{copy("İlk cevabı sen yaz", "Write the first answer")}</strong><span>{copy("Deneyimini paylaşarak gezginlere yardım et.", "Share your experience to help travellers.")}</span></div></div>}
         </div>
         {user ? <div className="community-answer-form">

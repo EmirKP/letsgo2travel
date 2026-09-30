@@ -33,7 +33,7 @@ async function cancel(reminder: StoredReminder) {
   writeReminders(readReminders().filter(item => item.id !== reminder.id));
   return true;
 }
-export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en", ownerId?: string | null) {
+export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en" | "sq", ownerId?: string | null) {
   return serial(async () => {
     if (!hasEventTime(event)) return { ok: false, reason: "time" as const };
     if (event.status !== "scheduled") return { ok: false, reason: "status" as const };
@@ -58,7 +58,7 @@ export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en", o
     // Durable before native scheduling. A crash or quota error cannot leave an
     // untracked notification, and failed schedule calls remain cancellable.
     writeReminders([...registered, record]);
-    await notifications.schedule({ notifications: [{ id, title: locale === "tr" ? "Etkinliğin yaklaşıyor" : "Your event is coming up", body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
+    await notifications.schedule({ notifications: [{ id, title: locale === "sq" ? "Ngjarja jote po afron" : locale === "tr" ? "Etkinliğin yaklaşıyor" : "Your event is coming up", body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
     writeReminders(readReminders().map(item => item.id === id ? { ...item, pendingCancel: false } : item));
     return { ok: true as const, at };
   });
@@ -69,7 +69,7 @@ export function cancelEventReminder(eventId: string, ownerId?: string | null) {
     return reminder ? cancel(reminder) : true;
   });
 }
-export async function reconcileEventReminders(events: TravelEvent[], locale: "tr" | "en", ownerId?: string | null) {
+export async function reconcileEventReminders(events: TravelEvent[], locale: "tr" | "en" | "sq", ownerId?: string | null) {
   const registered = readReminders().filter(item => sameOwner(item, ownerId || "guest"));
   let changes = 0;
   for (const reminder of registered) {

@@ -21,7 +21,7 @@ export type FlightReminderTrip = {
   originTimeZone?: string | null;
   destinationTimeZone?: string | null;
   flightNumber?: string | null;
-  language?: "tr" | "en";
+  language?: "tr" | "en" | "sq";
   /** Present only for a server-authorized commercial flight, never a trial. */
   provider?: {
     status: string;
@@ -121,8 +121,8 @@ export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Da
     .map((trip, index) => ({
       id: REMINDER_ID_BASE + index,
       tripId: trip.id,
-      title: trip.language === "en" ? "Your flight is coming up" : "Uçuşun yaklaşıyor",
-      body: trip.language === "en"
+      title: trip.language === "sq" ? "Fluturimi yt po afron" : trip.language === "en" ? "Your flight is coming up" : "Uçuşun yaklaşıyor",
+      body: trip.language === "sq" ? `Kanë mbetur 3 orë deri në fluturimin tënd për ${trip.title}. Lista e përgatitjeve është gati te udhëtimi yt.` : trip.language === "en"
         ? `3 hours until your ${trip.title} flight. Your checklist is ready in Cockpit.`
         : `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`,
       at: new Date(Date.parse(trip.departureAt!) - ACTIVITY_LEAD_MS),

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 // Mobil saf yardımcılar (type:module paketinde) CJS test koşucusuna
@@ -7,6 +7,8 @@ import path from "node:path";
 // bayt-bayt kopyalanır ve testler bu kopyayı çalıştırır.
 const mirrorDir = path.join(process.cwd(), "tests", "app", "_mobile");
 mkdirSync(mirrorDir, { recursive: true });
+writeFileSync(path.join(mirrorDir, "locale.ts"), readFileSync("mobile/src/lib/locale.ts", "utf8"));
+cpSync("mobile/src/lib/locales", path.join(mirrorDir, "locales"), { recursive: true });
 writeFileSync(path.join(mirrorDir, "dates.ts"), readFileSync("mobile/src/lib/dates.ts", "utf8"));
 writeFileSync(
   path.join(mirrorDir, "cockpitForm.ts"),

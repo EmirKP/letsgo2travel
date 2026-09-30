@@ -1,10 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requestJson } from "../lib/api";
 import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
 import { useCurrentTime } from "../hooks/useCurrentTime";
+import { openExternal } from "../lib/native";
+import { locateForTravel } from "../lib/travelAssistant";
+import "./travel-tools-reliability.css";
 import { Icon } from "./Icon";
 import {
+  transitDirectionsUrl,
   validateTransit,
   validStopId,
 } from "../../../lib/travel-assistant/transit";
@@ -17,6 +21,41 @@ const endpoint = () =>
   `${config.travelAssistantApiBaseUrl}/api/travel-assistant/transit?city=london&`;
 export function TravelTransit() {
   const { copy } = useI18n();
+  const [mode, setMode] = useState<'world' | 'london'>('world');
+  return <section className="ta-panel ta-form"><nav className="ta-transport-modes" aria-label={copy('Ulaşım kapsamı', 'Transport coverage', 'Mbulimi i transportit')}>
+    <button type="button" aria-pressed={mode === 'world'} onClick={() => setMode('world')}>{copy('Tüm şehirler', 'All cities', 'Të gjitha qytetet')}</button>
+    <button type="button" aria-pressed={mode === 'london'} onClick={() => setMode('london')}>{copy('Londra · TfL', 'London · TfL', 'Londër · TfL')}</button>
+  </nav>{mode === 'world' ? <WorldwideTransit/> : <LondonTransit/>}</section>;
+}
+function WorldwideTransit() {
+  const { copy } = useI18n();
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const generation = useRef(0);
+  useEffect(() => () => {generation.current++;}, []);
+  const url = transitDirectionsUrl(origin, destination);
+  async function locate() {
+    if (busy) return;
+    const id = ++generation.current; setBusy(true); setError('');
+    try { const c = await locateForTravel(); if (id === generation.current) setOrigin(`${c.latitude},${c.longitude}`); }
+    catch { if (id === generation.current) setError(copy('Konum alınamadı. Başlangıç adresini yazarak devam edebilirsin.', 'Location unavailable. Enter a departure address to continue.', 'Vendndodhja nuk u gjet. Shkruaj adresën e nisjes për të vazhduar.')); }
+    finally { if (id === generation.current) setBusy(false); }
+  }
+  return <div className="ta-transit-world"><h3>{copy('Nereden nereye?', 'Where are you going?', 'Nga dhe për ku?')}</h3>
+    <p>{copy('Şehir, adres veya durak yaz. Toplu taşıma seçenekleri, aktarmalar ve güncel saatler Google Haritalar’da açılır.', 'Enter a city, address or station. Transit options, connections and current times open in Google Maps.', 'Shkruaj qytetin, adresën ose stacionin. Transporti, ndërrimet dhe oraret hapen në Google Maps.')}</p>
+    <label>{copy('Başlangıç', 'From', 'Nisja')}<input value={origin} maxLength={200} placeholder={copy('Örn. Kadıköy, İstanbul', 'e.g. Kadıköy, Istanbul', 'P.sh. Sheshi Skënderbej, Tiranë')} onChange={e => {generation.current++;setBusy(false);setOrigin(e.target.value);setError('');}}/></label>
+    <button type="button" className="secondary-wide" disabled={busy} onClick={() => void locate()}>{busy ? copy('Konum alınıyor…','Getting location…','Po merret vendndodhja…') : copy('Başlangıç için konumumu kullan', 'Use my location as departure', 'Përdor vendndodhjen si nisje')}</button>
+    <label>{copy('Varış', 'To', 'Mbërritja')}<input value={destination} maxLength={200} placeholder={copy('Örn. Galata Kulesi, İstanbul', 'e.g. Galata Tower, Istanbul', 'P.sh. Aeroporti i Tiranës')} onChange={e => {setDestination(e.target.value);setError('');}}/></label>
+    <button type="button" className="secondary-wide" disabled={!origin || !destination || busy} onClick={() => {setOrigin(destination);setDestination(origin);setError('');}}><Icon name="swap" size={18}/>{copy('Başlangıç ve varışı değiştir', 'Swap departure and arrival', 'Ndërro nisjen dhe mbërritjen')}</button>
+    <button type="button" className="primary-wide" disabled={!url || busy} onClick={() => url && void openExternal(url).then(ok => {if (!ok) setError(copy('Haritalar açılamadı. Yeniden dene.', 'Maps could not open. Try again.', 'Hartat nuk u hapën. Provo përsëri.'));})}><Icon name="external" size={18}/>{copy('Toplu taşıma rotalarını aç', 'Open transit routes', 'Hap rrugët e transportit publik')}</button>
+    <p className="ta-muted">{copy('Başlangıç ve varış yalnız butona bastığında harita sağlayıcısına iletilir. Toplu taşıma kapsamı şehre göre değişir.', 'Departure and arrival are shared with the maps provider only when you tap the button. Transit coverage varies by city.', 'Nisja dhe mbërritja ndahen me ofruesin e hartës vetëm kur prek butonin. Mbulimi ndryshon sipas qytetit.')}</p>
+    {error && <p role="alert" className="ta-warning">{error}</p>}
+  </div>;
+}
+function LondonTransit() {
+  const { copy } = useI18n();
   const now = useCurrentTime();
   const [from, setFrom] = useState<TransitStop | null>(null);
   const [to, setTo] = useState<TransitStop | null>(null);
@@ -24,6 +63,7 @@ export function TravelTransit() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const generation = useRef(0);
+  useEffect(() => () => { generation.current++; }, []);
   const change = (kind: "from" | "to", stop: TransitStop | null) => {
     generation.current++;
     (kind === "from" ? setFrom : setTo)(stop);
@@ -184,6 +224,7 @@ function StopPicker({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const generation = useRef(0);
+  useEffect(() => () => { generation.current++; }, []);
   async function search() {
     const id = ++generation.current;
     setBusy(true);
@@ -225,6 +266,7 @@ function StopPicker({
         <input
           value={q}
           maxLength={60}
+          onKeyDown={e => {if (e.key === "Enter" && q.trim().length >= 2 && !busy) {e.preventDefault();void search();}}}
           placeholder="Waterloo, Victoria…"
           onChange={(e) => {
             generation.current++;

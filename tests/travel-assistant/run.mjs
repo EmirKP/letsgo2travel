@@ -148,6 +148,7 @@ test('A slower previous search cannot overwrite the newest map fallback',async()
   const load=createPlacesLoader(center=>fail?Promise.reject(Error('offline')):new Promise(resolve=>pending.push(()=>resolve(resultAt(fixedNow,center)))),()=>fixedNow);
   const paris={latitude:48.86,longitude:2.35};
   const old=load(berlin,'needs'),latest=load(paris,'needs');
+  await Promise.resolve();
   pending[1]();await latest;pending[0]();await old;
   fail=true;assert.equal((await load(paris,'needs')).stale,true);
   await assert.rejects(()=>load(berlin,'needs'));

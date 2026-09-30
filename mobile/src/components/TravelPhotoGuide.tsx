@@ -1,50 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { prepareImage } from "../lib/travelPhoto";
 import { ApiError, requestJson } from "../lib/api";
+import { Icon } from "./Icon";
+import "./travel-tools-reliability.css";
 import { useI18n } from "../lib/i18n";
 import { validatePhotoGuide } from "../../../lib/travel-assistant/photo";
 import type { PhotoGuide } from "../../../lib/travel-assistant/photo";
 
-async function prepareImage(file: File): Promise<string> {
-  if (/image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name))
-    throw new Error("heic");
-  if (
-    !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-    file.size > 12_000_000
-  )
-    throw new Error("image");
-  const url = URL.createObjectURL(file);
-  let decodeTimer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const image = new Image();
-    image.src = url;
-    await Promise.race([
-      image.decode(),
-      new Promise<never>((_, reject) => {
-        decodeTimer = setTimeout(() => reject(new Error("image")), 5000);
-      }),
-    ]);
-    if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth * image.naturalHeight > 24_000_000)
-      throw new Error("image");
-    const ratio = Math.min(
-      1,
-      1280 / Math.max(image.naturalWidth, image.naturalHeight),
-    );
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("image");
-    context.fillStyle = "#fff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const data = canvas.toDataURL("image/jpeg", 0.8);
-    if (data.length > 1_350_000) throw new Error("image");
-    return data;
-  } finally {
-    if (decodeTimer) clearTimeout(decodeTimer);
-    URL.revokeObjectURL(url);
-  }
-}
 export function TravelPhotoGuide({
   accessToken,
   onSignIn,
@@ -60,6 +22,7 @@ export function TravelPhotoGuide({
   const [consent, setConsent] = useState(false);
   const [result, setResult] = useState<PhotoGuide | null>(null);
   const [error, setError] = useState("");
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [clearedDuringAnalysis, setClearedDuringAnalysis] = useState(false);
   const generation = useRef(0);
@@ -81,6 +44,7 @@ export function TravelPhotoGuide({
     setResult(null);
     setError("");
     setConsent(false);
+    setNeedsSignIn(false);
     setClearedDuringAnalysis(false);
   }, [locale, accessToken]);
   useEffect(() => {
@@ -153,6 +117,7 @@ export function TravelPhotoGuide({
       if (id === generation.current) setResult(value);
     } catch (e) {
       if (id === generation.current) {
+        setNeedsSignIn(e instanceof ApiError && e.status === 401);
         if (e instanceof ApiError && e.status === 503) {
           setAvailable(false);
           setAvailabilityReason("service");
@@ -219,18 +184,22 @@ export function TravelPhotoGuide({
         </button>
       ) : (
         <>
-          <label>
-            {copy("Fotoğraf çek veya seç", "Take or choose a photo")}
+          <div className="ta-photo-choice"><label>
+            <Icon name="camera" size={26}/>{copy("Fotoğraf çek", "Take a photo", "Bëj një foto")}
+            <input type="file" accept="image/*" capture="environment" disabled={busy} onChange={e => {void select(e.target.files?.[0]); e.target.value="";}}/>
+          </label><label>
+            <Icon name="grid" size={26}/>{copy("Galeriden seç", "Choose from gallery", "Zgjidh nga galeria")}
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
               disabled={busy}
               onChange={(e) => {
                 void select(e.target.files?.[0]);
                 e.target.value = "";
               }}
             />
-          </label>
+          </label></div>
+          <p className="ta-muted">{copy("Bir yapı veya eseri net çerçevele. Fotoğraf cihazında küçültülür; yalnız onay verdiğinde gönderilir.", "Frame a building or artwork clearly. The photo is resized on your device and sent only after consent.", "Fotografo qartë një ndërtesë ose vepër arti. Fotoja zvogëlohet në pajisje dhe dërgohet vetëm pas miratimit.")}</p>
           {photo && (
             <>
               <img
@@ -302,6 +271,7 @@ export function TravelPhotoGuide({
           {error}
         </p>
       )}
+      {needsSignIn && <button type="button" className="primary-wide" onClick={onSignIn}>{copy("Yeniden giriş yap", "Sign in again", "Hyr përsëri")}</button>}
       {result && (
         <article className="ta-card" aria-live="polite">
           <small>

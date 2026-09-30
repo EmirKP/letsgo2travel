@@ -22,9 +22,9 @@ export function EvidenceLine({ item }: { item: Evidence }) {
     <small><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={e => { e.preventDefault(); void openExternal(item.sourceUrl); }}>{copy('Resmî kaynak', 'Official source')}</a> · {copy('Kontrol', 'Checked')}: {item.verifiedAt}</small>
   </div>;
 }
-const serviceLabels: Record<EmergencyCategory, [string,string]> = {
-  general:['Genel acil','Emergency'], police:['Polis','Police'], ambulance:['Ambulans','Ambulance'], fire:['İtfaiye','Fire'],
-  'tourist-police':['Turist polisi','Tourist police'], coastguard:['Sahil güvenlik','Coastguard'], gendarmerie:['Jandarma','Gendarmerie'],
+const serviceLabels: Record<EmergencyCategory, [string,string,string]> = {
+  general:['Genel acil','Emergency','Urgjenca'], police:['Polis','Police','Policia'], ambulance:['Ambulans','Ambulance','Ambulanca'], fire:['İtfaiye','Fire','Zjarrfikësit'],
+  'tourist-police':['Turist polisi','Tourist police','Policia turistike'], coastguard:['Sahil güvenlik','Coastguard','Roja bregdetare'], gendarmerie:['Jandarma','Gendarmerie','Xhandarmëria'],
 };
 export function TravelSafety({ country, onOpen, onNotice }: {
   country: string; onOpen: (tool: 'needs'|'embassies'|'phrases') => void; onNotice: (message:string) => void;
@@ -46,9 +46,10 @@ export function TravelSafety({ country, onOpen, onNotice }: {
   return <section className="ta-panel">
     <div className="ta-emergency-heading"><Icon name="shield" size={28}/><div><h3>{copy('Acil Mod', 'Emergency mode')}</h3><p>{copy('Resmî acil servis değiliz. Hayati tehlikede yerel acil hattı ara.', 'We are not an emergency service. Call local emergency services in immediate danger.')}</p></div></div>
     {!contacts.length && <p role="status" className="ta-empty">{copy('Bu ülke için doğrulanmış numara henüz yok. Genel bir numara varsaymıyoruz; yerel resmî kaynağa başvur.', 'Verified numbers are not yet available for this country. No universal number is assumed; consult local official guidance.')}</p>}
+    {locale === "sq" && contacts.some(contact => contact.note) && <p className="ta-muted" lang="sq">Shënimet nga burimi zyrtar janë në anglisht.</p>}
     <div className="ta-call-grid">{contacts.map(c => <article key={c.category}>
-      <a href={dialUrl(c.number) || undefined} aria-label={`${serviceLabels[c.category][locale === 'tr' ? 0 : 1]} ${c.number}`}><span>{serviceLabels[c.category][locale === 'tr' ? 0 : 1]}</span><strong>{c.number}</strong><small>{copy('Ara', 'Call')}</small></a>
-      {c.note && <small>{c.note[locale]}</small>}
+      <a href={dialUrl(c.number) || undefined} aria-label={`${serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]} ${c.number}`}><span>{serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]}</span><strong>{c.number}</strong><small>{copy('Ara', 'Call')}</small></a>
+      {c.note && <small>{c.note[locale === 'tr' ? 'tr' : 'en']}</small>}
     </article>)}</div>
     {contacts[0] && <EvidenceLine item={contacts[0]}/>}
     <p className="ta-muted">{copy('Numaralar internetsiz görüntülenir; arama için telefon hizmeti gerekir.', 'Numbers can be viewed offline; calls require telephone service.')}</p>
@@ -63,7 +64,8 @@ export function EmbassyCards({ country, citizenship }: {country:string; citizens
   return <section className="ta-panel"><h3>{copy('Konsolosluk ve büyükelçilik', 'Consulates and embassies')}</h3>
     <p className="ta-muted">{copy('Kayıtlı kartlar çevrimdışı açılır. Bu liste tüm temsilcilikleri kapsamaz; konsolosluk işlemi için yetki alanını ve randevuyu doğrula.', 'Saved cards open offline. This list is not exhaustive; confirm jurisdiction and appointments for consular services.')}</p>
     {!rows.length && <p className="ta-empty" role="status">{copy('Seçtiğin vatandaşlık ve ülke için doğrulanmış çevrimdışı kart henüz yok.', 'No verified offline card for this citizenship and destination yet.')}</p>}
-    {rows.map(e => <article className="ta-card" key={e.id}><h4>{e.name[locale]}</h4>{e.note && <p className="ta-warning">{e.note[locale]}</p>}<p>{e.address}</p><p>{e.hours?.[locale] || copy('Çalışma saatleri doğrulanmadı; resmî sayfaya bak.', 'Hours not verified; check the official page.')}</p>
+    {locale === "sq" && rows.length > 0 && <p className="ta-muted" lang="sq">Emrat dhe shënimet e përfaqësive nga burimi zyrtar janë në anglisht.</p>}
+    {rows.map(e => <article className="ta-card" key={e.id}><h4>{e.name[locale === 'tr' ? 'tr' : 'en']}</h4>{e.note && <p className="ta-warning">{e.note[locale === 'tr' ? 'tr' : 'en']}</p>}<p>{e.address}</p><p>{e.hours?.[locale === 'tr' ? 'tr' : 'en'] || copy('Çalışma saatleri doğrulanmadı; resmî sayfaya bak.', 'Hours not verified; check the official page.')}</p>
       <div className="ta-actions"><a href={dialUrl(e.phone) || undefined}>{copy('Telefon','Phone')}: {e.phone}</a>{e.emergencyPhone && (e.emergencyChannel === 'whatsapp'
         ? <button type="button" onClick={() => void openExternal(`https://wa.me/${e.emergencyPhone!.replace(/^\+/, '')}`)}>{copy('Acil WhatsApp','Emergency WhatsApp')}: {e.emergencyPhone}</button>
         : <a href={dialUrl(e.emergencyPhone) || undefined}>{copy('Acil telefon','Emergency phone')}: {e.emergencyPhone}</a>)}

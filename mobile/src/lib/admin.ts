@@ -5,14 +5,16 @@ export type MobileAdminOverview = {
   generatedAt: string;
   unavailableCount: number;
   unavailableModules: string[];
+  moduleHealth?: Partial<Record<"users" | "verifications" | "topics" | "replies" | "reports" | "visa" | "alerts", "ready" | "unavailable">>;
+  verificationReviewReady?: boolean;
   stats: {
-    profiles: number;
-    pendingVerifications: number;
-    pendingTopics: number;
-    pendingReplies: number;
-    openReports: number;
-    activeVisaTracks: number;
-    activePriceAlerts: number;
+    profiles: number | null;
+    pendingVerifications: number | null;
+    pendingTopics: number | null;
+    pendingReplies: number | null;
+    openReports: number | null;
+    activeVisaTracks: number | null;
+    activePriceAlerts: number | null;
   };
   pendingVerifications: Array<{
     id: string;

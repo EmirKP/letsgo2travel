@@ -17,7 +17,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
   onNavigate: (view: ViewId) => void;
   onOpenAccount: () => void;
 }) {
-  const { locale, setLocale, copy } = useI18n();
+  const { locale, copy } = useI18n();
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
   const [supportOpen, setSupportOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -60,15 +60,9 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? copy("İnternet bağlantısı var", "Online") : copy("Çevrimdışı mod", "Offline mode")}</div>
     </div>
 
-    <div className="menu-language" role="group" aria-label={copy("Uygulama dili", "App language")}>
-      <span>{copy("Dil", "Language")}</span>
-      <button type="button" lang="tr" aria-pressed={locale === "tr"} onClick={() => setLocale("tr")}>Türkçe</button>
-      <button type="button" lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>English</button>
-    </div>
-
     <label className="sr-only" htmlFor={searchId}>{copy("Araç ara", "Search tools")}</label>
     <div className="search-input" style={{ marginTop: 16 }}><Icon name="search" size={18}/><input ref={searchInput} id={searchId} type="search" maxLength={80} value={query} onChange={event => setQuery(event.target.value)} placeholder={copy("Harita, çeviri, uçuş…", "Maps, translation, flights…")}/>{query && <button type="button" className="icon-button compact" onClick={() => {setQuery("");searchInput.current?.focus();}} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</div>
-    {term && <p className="visited-helper" role="status">{visibleLinks.length ? copy(`${visibleLinks.length} araç bulundu.`, `${visibleLinks.length} tools found.`) : copy("Eşleşen araç bulunamadı. Başka bir kelime dene; destek seçenekleri aşağıda.", "No matching tools. Try another word; support options are below.")}</p>}
+    {term && <p className="visited-helper" role="status">{visibleLinks.length ? copy(`${visibleLinks.length} araç bulundu.`, `${visibleLinks.length} tools found.`, `U gjetën ${visibleLinks.length} mjete.`) : copy("Eşleşen araç bulunamadı. Başka bir kelime dene; destek seçenekleri aşağıda.", "No matching tools. Try another word; support options are below.")}</p>}
     {groups.map(group => {
       const links = visibleLinks.filter(link => link.group === group.id);
       return links.length ? <section key={group.id} aria-label={group.label}>

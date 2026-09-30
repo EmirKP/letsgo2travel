@@ -2,6 +2,8 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { findAirportByIata } from "@/lib/airport-search";
+import { fixedDestinationStarter, routeMatchesDestination, validPlanDays, type PlanDestination, type PlanLocale } from "@/lib/route-planner";
 import {
   resolveVerifiedVisaRule,
   verifiedDestinationCatalog,
@@ -11,7 +13,7 @@ import {
 export const maxDuration = 45;
 
 const AI_REQUEST_TIMEOUT_MS = 18_000;
-const PLAN_CACHE_VERSION = "verified-visa-v3-i18n-2026-09-03";
+const PLAN_CACHE_VERSION = "fixed-destination-v4-2026-09-30";
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 type PlannerInput = ReturnType<typeof normalizeInput>;
@@ -20,6 +22,7 @@ type AiRouteData = {
   name: string;
   country: string;
   cityOrRegion: string;
+  destinationCode?: string;
   why: string;
   visaStatus: string;
   visaNote: string;
@@ -185,7 +188,14 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
 
 function normalizeInput(body: unknown) {
   const record = body && typeof body === "object" ? body as Record<string, unknown> : {};
+  const requested = record.destination && typeof record.destination === "object" ? record.destination as Record<string, unknown> : {};
+  const airport = record.mode === "fixed" && typeof requested.code === "string" ? findAirportByIata(requested.code.trim().toUpperCase()) : null;
+  const locale: PlanLocale = record.locale === "en" ? "en" : record.locale === "sq" ? "sq" : "tr";
+  const destination: PlanDestination | undefined = airport ? { code: airport.iata, name: airport.city || airport.name, country: new Intl.DisplayNames([locale], { type: "region" }).of(airport.countryCode) || airport.country, countryCode: airport.countryCode } : undefined;
   return {
+    mode: record.mode === "fixed" ? "fixed" as const : "discover" as const,
+    destination,
+    dayCount: validPlanDays(record.dayCount),
     origin: String(record.origin || "Belirtilmedi").slice(0, 80),
     days: String(record.days || "Belirtilmedi").slice(0, 40),
     month: String(record.month || "Belirtilmedi").slice(0, 40),
@@ -197,7 +207,7 @@ function normalizeInput(body: unknown) {
       ? record.vibe.map((value) => String(value).slice(0, 40)).slice(0, 8)
       : [],
     visa: String(record.visa || "Belirtilmedi").slice(0, 60),
-    locale: record.locale === "en" ? "en" as const : "tr" as const,
+    locale,
   };
 }
 
@@ -268,7 +278,8 @@ function score(value: unknown, fallback: number, max = 10) {
   return Math.max(0, Math.min(max, Math.round(numeric)));
 }
 
-function normalizeRoute(value: unknown, locale: "tr" | "en" = "tr"): AiRouteData | null {
+function normalizeRoute(value: unknown, locale: PlanLocale = "tr"): AiRouteData | null {
+  const copy = (tr: string, en: string, sq: string) => locale === "tr" ? tr : locale === "sq" ? sq : en;
   const route = asRecord(value);
   const name = cleanText(route.name, "", 80);
   const country = cleanText(route.country, "", 80);
@@ -276,19 +287,17 @@ function normalizeRoute(value: unknown, locale: "tr" | "en" = "tr"): AiRouteData
 
   const verifiedRule = resolveVerifiedVisaRule({
     name,
-    country,
+    country: typeof route.destinationCode === "string" ? findAirportByIata(route.destinationCode)?.country || country : country,
     cityOrRegion: route.cityOrRegion,
   });
   const scores = asRecord(route.scores);
   const cta = asRecord(route.cta);
   const warnings = cleanStringArray(route.warnings, [], 5);
   if (!warnings.some((warning) => /giriş|entry|visa/i.test(warning))) {
-    warnings.push(locale === "en"
-      ? "Reconfirm the entry rule with the official Turkish Ministry of Foreign Affairs source before booking."
-      : "Giriş kuralını bilet almadan önce T.C. Dışişleri Bakanlığı kaynağından yeniden doğrula.");
+    warnings.push(copy("Giriş kuralını bilet almadan önce T.C. Dışişleri Bakanlığı kaynağından yeniden doğrula.", "Reconfirm the entry rule with the official Turkish Ministry of Foreign Affairs source before booking.", "Verifiko kushtet e hyrjes në burimin zyrtar të Ministrisë së Jashtme të Turqisë përpara rezervimit."));
   }
 
-  const verifiedLabel = locale === "en" ? ({
+  const verifiedLabel = locale === "sq" ? ({ identity_card: "Hyrje me letërnjoftim turk", visa_free: "Pa vizë", e_visa: "Kërkohet e-vizë", visa_on_arrival: "Vizë në mbërritje", visa_required: "Kërkohet vizë", unknown: "Verifiko me burim zyrtar" } as const)[verifiedRule.status] : locale === "en" ? ({
     identity_card: "Entry with Turkish ID card",
     visa_free: "Visa-free",
     e_visa: "e-Visa required",
@@ -296,27 +305,28 @@ function normalizeRoute(value: unknown, locale: "tr" | "en" = "tr"): AiRouteData
     visa_required: verifiedRule.label.toLocaleLowerCase("tr-TR").includes("schengen") ? "Schengen visa required" : "Visa required",
     unknown: "Verify with an official source",
   } as const)[verifiedRule.status] : verifiedRule.label;
-  const verifiedNote = locale === "en"
+  const verifiedNote = locale === "sq" ? "Klasifikimi është për pasaportën e zakonshme turke. Kushtet varen nga pasaporta, qëllimi dhe kohëzgjatja. Verifiko rregullin aktual me burimin zyrtar përpara rezervimit." : locale === "en"
     ? "Entry conditions can depend on passport validity, travel purpose and length of stay. Verify the current rule with the linked official source before booking."
     : verifiedRule.note;
 
   return {
     name,
-    country: verifiedRule.status === "unknown" || locale === "en" ? country : verifiedRule.country,
+    country: verifiedRule.status === "unknown" || locale !== "tr" ? country : verifiedRule.country,
     cityOrRegion: cleanText(route.cityOrRegion, name, 100),
-    why: cleanText(route.why, locale === "en" ? "A route that matches your choices." : "Seçimlerinle uyumlu bir rota seçeneği.", 600),
+    destinationCode: typeof route.destinationCode === "string" && /^[A-Z]{3}$/.test(route.destinationCode) ? route.destinationCode : undefined,
+    why: cleanText(route.why, copy("Seçimlerinle uyumlu bir rota seçeneği.", "A route that matches your choices.", "Një rrugë që përputhet me zgjedhjet e tua."), 600),
     visaStatus: verifiedLabel,
     visaNote: verifiedNote,
     visaSourceUrl: verifiedRule.sourceUrl,
     visaVerifiedAt: verifiedRule.verifiedAt,
     verifiedEntryStatus: verifiedRule.status,
-    estimatedBudget: cleanText(route.estimatedBudget, locale === "en" ? "Estimate separately for your dates" : "Seçilen tarihler için ayrıca hesaplanmalı", 120),
-    idealDuration: cleanText(route.idealDuration, locale === "en" ? "3 days" : "3 gün", 80),
-    bestFor: cleanText(route.bestFor, locale === "en" ? "City discovery" : "Şehir keşfi", 180),
-    difficulty: cleanText(route.difficulty, locale === "en" ? "Easy" : "Kolay", 40),
+    estimatedBudget: cleanText(route.estimatedBudget, copy("Seçilen tarihler için ayrıca hesaplanmalı", "Estimate separately for your dates", "Llogarite veçmas për datat e tua"), 120),
+    idealDuration: cleanText(route.idealDuration, copy("3 gün", "3 days", "3 ditë"), 80),
+    bestFor: cleanText(route.bestFor, copy("Şehir keşfi", "City discovery", "Eksplorim urban"), 180),
+    difficulty: cleanText(route.difficulty, copy("Kolay", "Easy", "I lehtë"), 40),
     firstTimeFriendly: route.firstTimeFriendly !== false,
-    transportEase: cleanText(route.transportEase, locale === "en" ? "Moderate" : "Orta", 80),
-    safetyNote: cleanText(route.safetyNote, locale === "en" ? "Check current official travel advice." : "Güncel resmî seyahat uyarılarını kontrol et.", 500),
+    transportEase: cleanText(route.transportEase, copy("Orta", "Moderate", "Mesatar"), 80),
+    safetyNote: cleanText(route.safetyNote, copy("Güncel resmî seyahat uyarılarını kontrol et.", "Check current official travel advice.", "Kontrollo këshillat zyrtare aktuale të udhëtimit."), 500),
     scores: {
       budget: score(scores.budget, 8),
       visaEase: score(scores.visaEase, verifiedRule.status === "visa_required" ? 4 : 9),
@@ -324,11 +334,11 @@ function normalizeRoute(value: unknown, locale: "tr" | "en" = "tr"): AiRouteData
       transport: score(scores.transport, 8),
       overall: score(scores.overall, 85, 100),
     },
-    dailyPlan: cleanStringArray(route.dailyPlan, [locale === "en" ? "Explore the city centre and main transport points." : "Şehir merkezini ve ana ulaşım noktalarını keşfet."], 10),
+    dailyPlan: cleanStringArray(route.dailyPlan, [copy("Şehir merkezini ve ana ulaşım noktalarını keşfet.", "Explore the city centre and main transport points.", "Eksploro qendrën e qytetit dhe pikat kryesore të transportit.")], 30),
     warnings,
     cta: {
-      guideText: cleanText(cta.guideText, locale === "en" ? "View guide" : "Rehberi gör", 100),
-      forumText: cleanText(cta.forumText, locale === "en" ? "Ask the community" : "Forumda sor", 100),
+      guideText: cleanText(cta.guideText, copy("Rehberi gör", "View guide", "Shih udhëzuesin"), 100),
+      forumText: cleanText(cta.forumText, copy("Forumda sor", "Ask the community", "Pyet komunitetin"), 100),
     },
   };
 }
@@ -364,6 +374,20 @@ function fallbackKeys(input: PlannerInput) {
 }
 
 function buildFallbackPlan(input: PlannerInput): AiPlanData {
+  if (input.mode === "fixed" && input.destination) {
+    const starter = fixedDestinationStarter({ ...input, dayCount: input.dayCount || 3 }, input.locale);
+    return { summary: starter.summary, routes: starter.routes.map(route => normalizeRoute(route, input.locale)!) };
+  }
+  if (input.locale === "sq") {
+    const codes: Record<string, string> = { baku: "GYD", tiflis: "TBS", kisinev: "RMO", tiran: "TIA", saraybosna: "SJJ", uskup: "SKP", belgrad: "BEG", roma: "FCO", budapeste: "BUD" };
+    return { summary: "Tre plane fillestare të redaktueshme. Nuk janë krijuar rishtazi nga AI; kontrollo kushtet aktuale të hyrjes para udhëtimit.", routes: fallbackKeys(input).map(key => {
+      const airport = findAirportByIata(codes[key]);
+      const profile = fallbackProfiles[key];
+      const destination = { code: codes[key], name: airport?.city || profile.name, country: airport ? new Intl.DisplayNames(["sq"], { type: "region" }).of(airport.countryCode) || profile.country : profile.country, countryCode: airport?.countryCode || "" };
+      const starter = fixedDestinationStarter({ ...input, destination, dayCount: Math.min(14, Math.max(1, parseInt(input.days, 10) || 3)) }, "sq");
+      return normalizeRoute(starter.routes[0], "sq")!;
+    }) };
+  }
   return {
     summary: input.locale === "en"
       ? "We prepared three practical starter routes using verified entry-rule classifications."
@@ -375,6 +399,14 @@ function buildFallbackPlan(input: PlannerInput): AiPlanData {
 function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   const plan = asRecord(value);
   const rawRoutes = Array.isArray(plan.routes) ? plan.routes : [];
+  if (input.mode === "fixed" && input.destination) {
+    // Reject unrelated model output; never rename an unrelated itinerary to the user's city.
+    const raw = rawRoutes.find(route => routeMatchesDestination(asRecord(route), input.destination!));
+    const normalized = raw ? normalizeRoute({ ...asRecord(raw), name: input.destination.name, country: input.destination.country, cityOrRegion: input.destination.name, destinationCode: input.destination.code }, input.locale) : null;
+    if (!normalized || !Array.isArray(asRecord(raw).dailyPlan) || normalized.dailyPlan.length !== input.dayCount) return buildFallbackPlan(input);
+    normalized.idealDuration = input.locale === "sq" ? `${input.dayCount} ditë` : input.locale === "en" ? `${input.dayCount} days` : `${input.dayCount} gün`;
+    return { summary: cleanText(plan.summary, `${input.origin} → ${input.destination.name}`, 500), routes: [normalized] };
+  }
   const normalizedRoutes = rawRoutes
     .map((route) => normalizeRoute(route, input.locale))
     .filter((route): route is AiRouteData => Boolean(route));
@@ -395,7 +427,7 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   return {
     summary: cleanText(
       plan.summary,
-      input.locale === "en" ? "We prepared route options using verified entry-rule classifications." : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan rota seçenekleri hazırladık.",
+      input.locale === "sq" ? "Përgatitëm itinerare duke përdorur klasifikimet e verifikuara të kushteve të hyrjes." : input.locale === "en" ? "We prepared route options using verified entry-rule classifications." : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan rota seçenekleri hazırladık.",
       500,
     ),
     routes,
@@ -414,6 +446,7 @@ function fallbackResponse(input: PlannerInput) {
 }
 
 export async function POST(req: Request) {
+  let input: PlannerInput | null = null;
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown-ip";
     const now = Date.now();
@@ -431,11 +464,15 @@ export async function POST(req: Request) {
       rateLimitMap.set(ip, { count: 1, resetTime: now + 60_000 });
     }
 
-    const input = normalizeInput(await req.json().catch(() => ({})));
+    input = normalizeInput(await req.json().catch(() => ({})));
+    if (input.mode === "fixed" && (!input.destination || !input.dayCount || input.origin === "Belirtilmedi")) {
+      return NextResponse.json({ error: input.locale === "tr" ? "Çıkış şehri, geçerli bir hedef ve 1–14 gün seç." : input.locale === "sq" ? "Zgjidh qytetin e nisjes, një destinacion të vlefshëm dhe 1–14 ditë." : "Choose a departure city, a valid destination and 1–14 days." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
+    }
     const hash = requestHash(input);
     const cached = await getCachedPlan(hash);
     if (cached) {
       const finalizedCache = finalizePlan(cached, input);
+      if (input.mode === "fixed" && finalizedCache.routes[0]?.scores.overall === 0) return fallbackResponse(input);
       return NextResponse.json(
         { success: true, data: finalizedCache, isFallback: false, cached: true },
         { headers: { "Cache-Control": "private, no-store, max-age=0" } },
@@ -454,16 +491,15 @@ export async function POST(req: Request) {
     const destinationCatalog = verifiedDestinationCatalog(input.visa);
 
     const prompt = `
-      Sen profesyonel bir seyahat rota danışmanısın. Kullanıcının seçimlerine göre tam 3 farklı rota oluştur.
-      ${input.locale === "en" ? "Açıklamalar, plan, uyarılar ve tüm kullanıcıya gösterilen metinler tamamen İngilizce olmalı. Şehir ve ülke adlarını İngilizce yaz." : "Tüm kullanıcıya gösterilen metinleri Türkçe yaz."}
-      Yalnızca şu doğrulanabilir rota havuzundan seçim yap: ${destinationCatalog}.
+      Sen profesyonel bir seyahat rota danışmanısın. ${input.mode === "fixed" ? `Kullanıcının seçtiği tek hedef için tam 1 rota hazırla: ${JSON.stringify(input.destination)}. name ve cityOrRegion değerlerini aynen ${JSON.stringify(input.destination?.name)} yaz. Alternatif destinasyon önermek veya başka bir şehre geçmek yasak. Bu hedef için tam ${input.dayCount} günlük plan hazırla, dailyPlan dizisinde her gün için tek öğe olsun. Gidiş/dönüş günlerini de bu süreye dahil et.` : `Kullanıcının seçimlerine göre tam 3 farklı rota oluştur. Yalnızca şu doğrulanabilir rota havuzundan seçim yap: ${destinationCatalog}.`}
+      ${input.locale === "en" ? "Açıklamalar, plan, uyarılar ve tüm kullanıcıya gösterilen metinler tamamen İngilizce olmalı." : input.locale === "sq" ? "Tüm açıklamalar, planlar, uyarılar ve kullanıcıya görünen metinler doğal Arnavutça (Shqip) olmalı." : "Tüm kullanıcıya gösterilen metinleri Türkçe yaz."}
       Vize veya kimlikle giriş bilgisini tahmin etme. visaStatus alanına yalnızca "Sistem doğrulayacak" yaz;
       sunucu bu alanı T.C. Dışişleri Bakanlığı verisiyle değiştirecek.
       Canlı fiyat, garanti giriş, kesin güvenlik veya kesin uygunluk iddiasında bulunma.
 
       Kullanıcı seçimleri:
       - Çıkış noktası: ${input.origin}
-      - Süre: ${input.days}
+      - Süre: ${input.mode === "fixed" ? `${input.dayCount} gün` : input.days}
       - Dönem: ${input.month}
       - Bütçe: ${input.budget}
       - Konaklama: ${input.accommodation}
@@ -532,7 +568,8 @@ export async function POST(req: Request) {
     }
 
     const finalizedPlan = finalizePlan(parsed, input);
-    if (finalizedPlan.routes.length !== 3) return fallbackResponse(input);
+    if (finalizedPlan.routes.length !== (input.mode === "fixed" ? 1 : 3)) return fallbackResponse(input);
+    if (input.mode === "fixed" && finalizedPlan.routes[0]?.scores.overall === 0) return fallbackResponse(input);
 
     await saveCachedPlan(hash, input, finalizedPlan);
     return NextResponse.json(
@@ -541,6 +578,7 @@ export async function POST(req: Request) {
     );
   } catch (error: unknown) {
     console.error("AI Route Error:", error instanceof Error ? error.message : "unknown error");
-    return fallbackResponse(normalizeInput({}));
+    if (input?.mode === "fixed" && !input.destination) return NextResponse.json({ error: "Invalid destination" }, { status: 400 });
+    return fallbackResponse(input || normalizeInput({}));
   }
 }

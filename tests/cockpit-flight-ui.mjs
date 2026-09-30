@@ -20,6 +20,7 @@ function load(path, imports, extra = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: ClockDate, Intl, AbortController, setTimeout, clearTimeout, document: { addEventListener() {}, removeEventListener() {} }, ...extra })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === './locale' || name === '../lib/locale') return { translateCopy: (locale, tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' && sq ? sq : en, DATE_LOCALES: { tr: 'tr-TR', en: 'en-GB', sq: 'sq-AL' } };
     if (name.endsWith('.css')) return {};
     throw Error(`Unstubbed test import: ${name}`);
   }, testModule, testModule.exports);

@@ -61,6 +61,33 @@
 .editorial-app .screen .tm-source-note p { margin: 0; font-size: 11px; line-height: 1.7; }
 .editorial-app .screen .tm-source-note button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: #0066ff; font: inherit; font-size: 11px; font-weight: 650; }
 @keyframes tm-refresh-turn { to { transform: rotate(360deg); } }
+.editorial-app .screen .tm-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 110px; align-items: center; gap: 2px; padding: 4px 0 2px; }
+.editorial-app .screen .tm-welcome > div { min-width: 0; }
+.editorial-app .screen .tm-welcome > img { width: 130px; max-width: 100%; height: auto; justify-self: end; filter: drop-shadow(0 9px 9px #0066ff13); }
+.editorial-app .screen .tm-eyebrow { color: #0066ff; font-size: 9px; font-weight: 800; letter-spacing: 1.4px; }
+.editorial-app .screen .tm-welcome h2 { margin: 7px 0; color: #102e54; font-size: clamp(23px, 5vw, 31px); line-height: 1.12; letter-spacing: -.8px; }
+.editorial-app .screen .ta-money .tm-welcome .tm-intro { font-size: 12px; line-height: 1.55; }
+.editorial-app .screen .tm-quick-pairs button { min-height: 65px; justify-content: flex-start; gap: 8px; padding: 10px; }
+.editorial-app .screen .tm-quick-pairs .tm-currency-coin { display: grid; place-items: center; width: 31px; height: 34px; flex-shrink: 0; border: 1px solid #d1e3ff; border-radius: 11px; background: linear-gradient(145deg, #fff, #dfefff); box-shadow: inset 0 -3px 2px #005bce0d, 0 3px 5px #0066ff0a; color: #0669ed; font-size: 22px; font-weight: 800; }
+.editorial-app .screen .tm-quick-pairs .tm-quick-pair-label { display: grid; gap: 4px; color: inherit; font-size: 13px; text-align: left; }
+.editorial-app .screen .tm-board { padding: 17px; border-color: #cbdffc; background: linear-gradient(125deg, #edf6ff, #fff 75%); }
+.editorial-app .screen .tm-board-top { margin-bottom: 0; }
+.editorial-app .screen .tm-rate-line { margin: 16px 0 12px; }
+.editorial-app .screen .tm-movement > span { display: grid; gap: 3px; }
+.editorial-app .screen .tm-movement small { font-size: 9px; font-weight: 550; }
+.editorial-app .screen .tm-history { margin-top: 14px; border-top: 1px solid #dce7f5; }
+.editorial-app .screen .tm-history > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: #46709c; font-size: 11px; font-weight: 650; cursor: pointer; list-style: none; }
+.editorial-app .screen .tm-history > summary::-webkit-details-marker { display: none; }
+.editorial-app .screen .tm-history[open] > summary svg { transform: rotate(90deg); }
+.editorial-app .screen .tm-history .tm-comparison { margin: 0; padding: 4px 0 3px; border-top: 0; }
+.editorial-app .screen .tm-converter .tm-section-heading { margin-bottom: 15px; }
+@media (min-width: 650px) {
+  .editorial-app .screen .ta-money { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .editorial-app .screen .tm-welcome, .editorial-app .screen .tm-quick-pairs, .editorial-app .screen .tm-source-note { grid-column: 1 / -1; }
+  .editorial-app .screen .tm-welcome { grid-template-columns: minmax(0, 1fr) 136px; }
+  .editorial-app .screen .tm-quick-pairs button { justify-content: center; }
+  .editorial-app .screen .tm-board { position: sticky; top: 110px; }
+}
 @media (max-width: 360px) {
   .editorial-app .screen .tm-board, .editorial-app .screen .tm-converter { padding: 15px; }
   .editorial-app .screen .tm-quick-pairs button { gap: 4px; font-size: 12px; }

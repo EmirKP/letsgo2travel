@@ -16,9 +16,10 @@ const cached = unstable_cache(
       c,
     );
   },
-  ["travel-offline-streets-v1"],
+  ["travel-offline-streets-v2"],
   { revalidate: 3600 },
 );
+const downloads = new Map<string, Promise<ReturnType<typeof normalizeOfflineMap>>>();
 export async function POST(request: Request) {
   let center;
   try {
@@ -29,7 +30,14 @@ export async function POST(request: Request) {
   if (!center) return Response.json({ code: "invalid" }, { status: 400 });
   const c = coarseLocation(center);
   try {
-    return Response.json(await cached(c.latitude, c.longitude), {
+    const key = `${c.latitude}:${c.longitude}`;
+    let download = downloads.get(key);
+    if (!download) {
+      if (downloads.size >= 8) throw new Error('busy');
+      download = cached(c.latitude, c.longitude).finally(() => downloads.delete(key));
+      downloads.set(key, download);
+    }
+    return Response.json(await download, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch {

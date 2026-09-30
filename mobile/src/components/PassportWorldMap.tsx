@@ -290,6 +290,6 @@ export function PassportWorldMap({ statusFor, isHighlighted, selectedAlpha3, onS
       <button type="button" onClick={() => { commitTransform({ scale: 1, x: 0, y: 0 }); setFullscreen((value) => !value); }} aria-pressed={fullscreen} aria-label={fullscreen ? copy("Tam ekrandan çık", "Exit full screen") : copy("Haritayı tam ekran aç", "Open map full screen")}><span className="sr-only">{fullscreen ? copy("Tam ekrandan çık", "Exit full screen") : copy("Tam ekran", "Full screen")}</span><Icon name={fullscreen ? "close" : "expand"} size={19} /></button>
       <button type="button" className="passport-map-reset" disabled={transform.scale <= MIN_SCALE} onClick={() => commitTransform({ scale: 1, x: 0, y: 0 })}>{copy("Sıfırla", "Reset")}</button>
     </div>
-    <output className="sr-only" aria-live="polite">{copy(`Harita yüzde ${Math.round(transform.scale * 100)} yakınlıkta`, `Map zoom ${Math.round(transform.scale * 100)} percent`)}</output>
+    <output className="sr-only" aria-live="polite">{copy(`Harita yüzde ${Math.round(transform.scale * 100)} yakınlıkta`, `Map zoom ${Math.round(transform.scale * 100)} percent`, `Zmadhimi i hartës ${Math.round(transform.scale * 100)} për qind`)}</output>
   </div>;
 }

@@ -59,7 +59,7 @@ export async function getTravelNow(params: {
   longitude: number;
   budget: "free" | "low" | "flexible";
   interest: "culture" | "food" | "outdoors" | "calm";
-  locale: "tr" | "en";
+  locale: "tr" | "en" | "sq";
 }) {
   return requestJson<{ data: TravelNowResult }>("/api/travel-now", {
     method: "POST",
@@ -94,8 +94,9 @@ function absoluteUrl(path: string) {
   return `${config.apiBaseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function apiCopy(tr: string, en: string) {
-  return localeFromStorage() === "en" ? en : tr;
+function apiCopy(tr: string, en: string, sq: string) {
+  const locale = localeFromStorage();
+  return locale === "sq" ? sq : locale === "en" ? en : tr;
 }
 
 function errorMessage(data: unknown, fallback: string) {
@@ -125,20 +126,20 @@ function errorCode(data: unknown) {
 }
 
 export async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const aborted = () => new ApiError("Request cancelled", 0, "aborted");
+  const aborted = () => new ApiError(apiCopy("İstek iptal edildi", "Request cancelled", "Kërkesa u anulua"), 0, "aborted");
   if (options.signal?.aborted) throw aborted();
   const url = absoluteUrl(path);
   const method = options.method || "GET";
   const headers = {
     Accept: "application/json",
-    "Accept-Language": localeFromStorage() === "en" ? "en" : "tr",
+    "Accept-Language": localeFromStorage(),
     ...options.headers,
   };
   const timeoutMs = options.timeoutMs ?? 18_000;
 
   if (isNativePlatform()) {
     const http = plugin("CapacitorHttp");
-    if (!http?.request) throw new ApiError(apiCopy("Yerel HTTP köprüsü bulunamadı.", "The native HTTP bridge is unavailable."));
+    if (!http?.request) throw new ApiError(apiCopy("Yerel HTTP köprüsü bulunamadı.", "The native HTTP bridge is unavailable.", "Lidhja me shërbimin e rrjetit të pajisjes nuk është e disponueshme."));
     const nativeOptions = {
       url,
       method,
@@ -156,12 +157,12 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
         try { data = JSON.parse(data); } catch { /* Metin yanıtı olduğu gibi bırak. */ }
       }
       if (response.status < 200 || response.status >= 300) {
-        throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`)), response.status, errorCode(data), data);
+        throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`, `Gabim i serverit (${response.status})`)), response.status, errorCode(data), data);
       }
       return data as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(error instanceof Error ? error.message : apiCopy("Sunucuya bağlanılamadı.", "Could not connect to the server."));
+      throw new ApiError(error instanceof Error ? error.message : apiCopy("Sunucuya bağlanılamadı.", "Could not connect to the server.", "Nuk u arrit lidhja me serverin."));
     }
   }
 
@@ -185,15 +186,15 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
         data = text;
       }
     }
-    if (!response.ok) throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`)), response.status, errorCode(data), data);
+    if (!response.ok) throw new ApiError(errorMessage(data, apiCopy(`Sunucu hatası (${response.status})`, `Server error (${response.status})`, `Gabim i serverit (${response.status})`)), response.status, errorCode(data), data);
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (options.signal?.aborted) throw aborted();
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again."));
+      throw new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again.", "Kërkesa zgjati tepër. Kontrollo lidhjen dhe provo sërish."));
     }
-    throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect."));
+    throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect.", "Nuk u arrit lidhja."));
   } finally {
     options.signal?.removeEventListener("abort", cancel);
     window.clearTimeout(timer);
@@ -332,12 +333,12 @@ function cleanScore(value: unknown, fallback: number) {
 
 function cleanStringList(value: unknown, fallback: string[] = []) {
   if (!Array.isArray(value)) return fallback;
-  const items = value.map((item) => cleanText(item)).filter(Boolean).slice(0, 14);
+  const items = value.map((item) => cleanText(item)).filter(Boolean).slice(0, 30);
   return items.length ? items : fallback;
 }
 
-function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" = "tr"): RoutePlan | null {
-  const fallback = (tr: string, en: string) => locale === "en" ? en : tr;
+function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" | "sq" = "tr"): RoutePlan | null {
+  const fallback = (tr: string, en: string, sq: string) => locale === "sq" ? sq : locale === "en" ? en : tr;
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   if (!Array.isArray(record.routes)) return null;
@@ -354,21 +355,21 @@ function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" = "tr"): RoutePla
       country,
       cityOrRegion: cleanText(route.cityOrRegion, name),
       destinationCode: /^[A-Z0-9]{3}$/.test(cleanText(route.destinationCode).toUpperCase()) ? cleanText(route.destinationCode).toUpperCase() : undefined,
-      why: cleanText(route.why, fallback(`${name}, seçtiğin seyahat tercihlerine uygun bir rota.`, `${name} fits the travel preferences you selected.`)),
-      visaStatus: cleanText(route.visaStatus, fallback("Seyahat öncesi doğrula", "Verify before travel")),
+      why: cleanText(route.why, fallback(`${name}, seçtiğin seyahat tercihlerine uygun bir rota.`, `${name} fits the travel preferences you selected.`, `${name} përputhet me preferencat që ke zgjedhur për udhëtimin.`)),
+      visaStatus: cleanText(route.visaStatus, fallback("Seyahat öncesi doğrula", "Verify before travel", "Verifiko para udhëtimit")),
       visaNote: cleanText(route.visaNote),
       visaSourceUrl: /^https:\/\//i.test(cleanText(route.visaSourceUrl)) ? cleanText(route.visaSourceUrl) : undefined,
       visaVerifiedAt: cleanText(route.visaVerifiedAt) || null,
       verifiedEntryStatus: ["identity_card", "visa_free", "e_visa", "visa_on_arrival", "visa_required", "unknown"].includes(cleanText(route.verifiedEntryStatus))
         ? cleanText(route.verifiedEntryStatus) as import("../types").RouteSuggestion["verifiedEntryStatus"]
         : "unknown",
-      estimatedBudget: cleanText(route.estimatedBudget, fallback("Tarihlere göre değişir", "Varies by dates")),
-      idealDuration: cleanText(route.idealDuration, fallback("3–5 gün", "3–5 days")),
-      bestFor: cleanText(route.bestFor, fallback("Genel keşif", "General discovery")),
-      difficulty: cleanText(route.difficulty, fallback("Orta", "Moderate")),
+      estimatedBudget: cleanText(route.estimatedBudget, fallback("Tarihlere göre değişir", "Varies by dates", "Ndryshon sipas datave")),
+      idealDuration: cleanText(route.idealDuration, fallback("3–5 gün", "3–5 days", "3–5 ditë")),
+      bestFor: cleanText(route.bestFor, fallback("Genel keşif", "General discovery", "Eksplorim i përgjithshëm")),
+      difficulty: cleanText(route.difficulty, fallback("Orta", "Moderate", "Mesatare")),
       firstTimeFriendly: typeof route.firstTimeFriendly === "boolean" ? route.firstTimeFriendly : true,
-      transportEase: cleanText(route.transportEase, fallback("Orta", "Moderate")),
-      safetyNote: cleanText(route.safetyNote, fallback("Güncel yerel uyarıları seyahat öncesinde kontrol et.", "Check current local guidance before travel.")),
+      transportEase: cleanText(route.transportEase, fallback("Orta", "Moderate", "Mesatare")),
+      safetyNote: cleanText(route.safetyNote, fallback("Güncel yerel uyarıları seyahat öncesinde kontrol et.", "Check current local guidance before travel.", "Kontrollo udhëzimet aktuale vendore para udhëtimit.")),
       scores: {
         budget: cleanScore(rawScores.budget, 75),
         visaEase: cleanScore(rawScores.visaEase, 70),
@@ -376,7 +377,7 @@ function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" = "tr"): RoutePla
         transport: cleanScore(rawScores.transport, 75),
         overall: cleanScore(rawScores.overall, 80 - index * 3),
       },
-      dailyPlan: cleanStringList(route.dailyPlan, [fallback("1. Gün: Şehir merkezini ve ana noktaları keşfet.", "Day 1: Explore the centre and main sights.")]),
+      dailyPlan: cleanStringList(route.dailyPlan, [fallback("1. Gün: Şehir merkezini ve ana noktaları keşfet.", "Day 1: Explore the centre and main sights.", "Dita 1: Eksploro qendrën dhe pikat kryesore.")]),
       warnings: cleanStringList(route.warnings),
       cta: route.cta && typeof route.cta === "object" ? {
         guideText: cleanText((route.cta as Record<string, unknown>).guideText),
@@ -387,12 +388,12 @@ function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" = "tr"): RoutePla
 
   if (!routes.length) return null;
   return {
-    summary: cleanText(record.summary, fallback("Seçimlerine uygun rota seçenekleri hazırlandı.", "Route options matching your choices are ready.")),
+    summary: cleanText(record.summary, fallback("Seçimlerine uygun rota seçenekleri hazırlandı.", "Route options matching your choices are ready.", "Itineraret që përputhen me zgjedhjet e tua janë gati.")),
     routes,
   };
 }
 
-export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" = "tr") {
+export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr") {
   const response = await requestJson<{ success: boolean; data: unknown; isFallback?: boolean }>("/api/ai-plan", {
     method: "POST",
     body: { ...input, locale },
@@ -471,11 +472,18 @@ const WEATHER_CODES_EN: Record<number, string> = {
   95: "Thunderstorms", 96: "Chance of hail", 99: "Severe hail risk",
 };
 
-export async function getWeather(place: string, locale: "tr" | "en" = "tr"): Promise<WeatherSummary> {
+const WEATHER_CODES_SQ: Record<number, string> = {
+  0: "Kthjellët", 1: "Kryesisht kthjellët", 2: "Pjesërisht me re", 3: "Me re", 45: "Mjegull", 48: "Mjegull me brymë",
+  51: "Vesë e lehtë", 53: "Vesë", 55: "Vesë e dendur", 61: "Shi i lehtë", 63: "Shi", 65: "Shi i dendur",
+  71: "Borë e lehtë", 73: "Borë", 75: "Borë e dendur", 80: "Reshje shiu", 81: "Reshje të dendura", 82: "Reshje shumë të forta",
+  95: "Stuhi me bubullima", 96: "Mundësi breshëri", 99: "Rrezik breshëri të fortë",
+};
+
+export async function getWeather(place: string, locale: "tr" | "en" | "sq" = "tr"): Promise<WeatherSummary> {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=${locale}&format=json`;
   const geo = await requestJson<{ results?: Array<{ name: string; country?: string; latitude: number; longitude: number }> }>(geocodingUrl, { timeoutMs: 12_000 });
   const result = geo.results?.[0];
-  if (!result) throw new ApiError(locale === "en" ? "Weather is unavailable for this location." : "Bu konum için hava durumu bulunamadı.");
+  if (!result) throw new ApiError(locale === "sq" ? "Moti për këtë vendndodhje nuk është i disponueshëm." : locale === "en" ? "Weather is unavailable for this location." : "Bu konum için hava durumu bulunamadı.");
 
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${result.latitude}&longitude=${result.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
   const weather = await requestJson<{
@@ -483,13 +491,13 @@ export async function getWeather(place: string, locale: "tr" | "en" = "tr"): Pro
     daily?: { temperature_2m_max: number[]; temperature_2m_min: number[] };
   }>(weatherUrl, { timeoutMs: 12_000 });
 
-  if (!weather.current) throw new ApiError(locale === "en" ? "Weather data is unavailable." : "Hava durumu verisi alınamadı.");
+  if (!weather.current) throw new ApiError(locale === "sq" ? "Të dhënat e motit nuk janë të disponueshme." : locale === "en" ? "Weather data is unavailable." : "Hava durumu verisi alınamadı.");
   return {
     place: [result.name, result.country].filter(Boolean).join(", "),
     temperature: Math.round(weather.current.temperature_2m),
     windSpeed: Math.round(weather.current.wind_speed_10m),
     weatherCode: weather.current.weather_code,
-    description: (locale === "en" ? WEATHER_CODES_EN : WEATHER_CODES)[weather.current.weather_code] || (locale === "en" ? "Variable weather" : "Değişken hava"),
+    description: (locale === "sq" ? WEATHER_CODES_SQ : locale === "en" ? WEATHER_CODES_EN : WEATHER_CODES)[weather.current.weather_code] || (locale === "sq" ? "Mot i ndryshueshëm" : locale === "en" ? "Variable weather" : "Değişken hava"),
     min: Math.round(weather.daily?.temperature_2m_min?.[0] ?? weather.current.temperature_2m),
     max: Math.round(weather.daily?.temperature_2m_max?.[0] ?? weather.current.temperature_2m),
   };

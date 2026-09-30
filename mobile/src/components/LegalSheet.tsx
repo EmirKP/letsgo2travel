@@ -58,7 +58,7 @@ export function LegalSheet({ open, slug, onClose }: {
     return () => { active = false; };
   }, [attempt, copy, open, slug]);
 
-  return <Sheet open={open} title={copy(TITLES[slug], slug === "kullanim-sartlari" ? "Terms of Use" : "Privacy Policy")} onClose={onClose} size="large">
+  return <Sheet open={open} title={copy(TITLES[slug], slug === "kullanim-sartlari" ? "Terms of Use" : "Privacy Policy", slug === "kullanim-sartlari" ? "Kushtet e përdorimit" : "Politika e privatësisë")} onClose={onClose} size="large">
     {loading && <div className="skeleton-list" aria-label={copy("Metin yükleniyor", "Loading document")}><div /><div /><div /></div>}
     {!loading && error && <div className="empty-state compact">
       <Icon name="alert" />

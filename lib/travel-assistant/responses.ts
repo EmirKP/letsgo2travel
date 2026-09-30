@@ -75,12 +75,16 @@ export function validateQuote(raw: unknown, base: string, quote: string, now = D
 export function createPlacesLoader(request: (center: Coordinates, mode: MapMode) => Promise<unknown>, clock = Date.now) {
   let last: { mode: MapMode; result: PlacesResult } | null = null;
   let generation = 0;
+  const pending = new Map<string, Promise<PlacesResult>>();
   return async (center: Coordinates, mode: MapMode): Promise<PlacesResult> => {
     const valid = coordinates(center);
     if (!valid || !['needs', 'explore'].includes(mode)) throw new Error('Invalid map request');
     const c = coarseLocation(valid);
+    const key = `${c.latitude}:${c.longitude}:${mode}`;
+    const existing = pending.get(key);
+    if (existing) return existing;
     const id = ++generation;
-    try {
+    const operation = Promise.resolve().then(async () => { try {
       const result = validatePlaces(await request(c, mode), c, mode, clock());
       if (!result) throw new Error('Invalid map response');
       if (id === generation) last = { mode, result };
@@ -89,6 +93,8 @@ export function createPlacesLoader(request: (center: Coordinates, mode: MapMode)
       const fallback = last?.mode === mode ? validatePlaces(last.result, c, mode, clock()) : null;
       if (fallback) return { ...fallback, stale: true };
       throw error;
-    }
+    } finally { pending.delete(key); } });
+    pending.set(key, operation);
+    return operation;
   };
 }

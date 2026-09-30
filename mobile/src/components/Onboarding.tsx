@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
 import { useI18n } from "../lib/i18n";
 import { BrandMark } from "./BrandMark";
+import { LanguageFlag } from './LanguagePicker';
+import { APP_LOCALES } from '../lib/locale';
+
+const SLIDES_SQ = [
+  { eyebrow: 'ÇFARË BËN KY APLIKACION?', title: 'Së pari, gjejmë së bashku ku do të shkosh.', text: 'Shiko ku mund të udhëtosh me pasaportë turke, zbulo destinacione dhe vendos më lehtë.', points: ['Gjej një shtet', 'Shiko kushtet e hyrjes', 'Vendos'] },
+  { eyebrow: 'PASTAJ PLANIFIKOJMË', title: 'Përgatisim një itinerar sipas buxhetit dhe stilit tënd.', text: 'Zgjidh nga nisesh dhe çfarë udhëtimi dëshiron; shiko mundësitë që të përshtaten, ditë pas dite.', points: ['Sipas buxhetit tënd', 'Plan për çdo ditë', 'Moti'] },
+  { eyebrow: 'ME TY GJATË UDHËTIMIT', title: 'Ruaj, ndiq dhe vazhdo aty ku mbete.', text: 'Itineraret, ngjarjet dhe mjetet e udhëtimit i ke me vete gjatë gjithë rrugës.', points: ['Gjej ngjarje', 'Përdor shprehje vendase', 'Organizo fluturimin'] },
+];
 
 const slides: Array<{ icon: IconName; eyebrow: [string, string]; title: [string, string]; text: [string, string]; points: Array<[string, string]> }> = [
   {
@@ -62,16 +70,18 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="onboarding-orbit orbit-two" />
       <header className="onboarding-header">
         <span className="onboarding-brand"><BrandMark /></span>
-        <div><button type="button" onClick={() => setLocale(locale === "tr" ? "en" : "tr")} aria-label={copy("İngilizce kullan", "Use Turkish")}>{locale === "tr" ? "English" : "Türkçe"}</button>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
+        <div><span className="onboarding-language-options" role="group" aria-label={copy('Uygulama dili', 'App language')}>
+          {APP_LOCALES.map(language => <button key={language} type="button" aria-pressed={locale === language} aria-label={{tr:'Türkçe',en:'English',sq:'Shqip'}[language]} onClick={() => setLocale(language)}><LanguageFlag locale={language}/></button>)}
+        </span>{index > 0 && <button onClick={() => setIndex((value) => value - 1)}>{copy("Geri", "Back")}</button>}{!last && <button onClick={onComplete}>{copy("Tanıtımı geç", "Skip intro")}</button>}</div>
       </header>
 
       <section className="onboarding-content" key={index} aria-live="polite">
         <span className="onboarding-icon"><Icon name={slide.icon} size={42} /></span>
-        <small>{slide.eyebrow[locale === "tr" ? 0 : 1]}</small>
-        <h1 id="onboarding-title">{slide.title[locale === "tr" ? 0 : 1]}</h1>
-        <p>{slide.text[locale === "tr" ? 0 : 1]}</p>
+        <small>{copy(...slide.eyebrow, SLIDES_SQ[index].eyebrow)}</small>
+        <h1 id="onboarding-title">{copy(...slide.title, SLIDES_SQ[index].title)}</h1>
+        <p>{copy(...slide.text, SLIDES_SQ[index].text)}</p>
         <div className="onboarding-points">
-          {slide.points.map((point) => <span key={point[0]}><Icon name="check" size={14} />{point[locale === "tr" ? 0 : 1]}</span>)}
+          {slide.points.map((point, pointIndex) => <span key={point[0]}><Icon name="check" size={14} />{copy(...point, SLIDES_SQ[index].points[pointIndex])}</span>)}
         </div>
       </section>
 

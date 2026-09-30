@@ -105,15 +105,15 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       <PageHero scene="passport" title={copy("Pasaport Gücü", "Passport Power")} subtitle={copy("Pasaportunla nerelere gidebilirsin?", "Where can your passport take you?")} />
 
       <section className="passport-overview-card" aria-labelledby="passport-choice-heading">
-      <div className="passport-section-heading"><span className="passport-section-icon"><Icon name="passport" size={22}/></span><div><h2 id="passport-choice-heading">{copy("Pasaportun", "Your passport")}</h2><p>{copy("Ülkelerin giriş koşullarını buna göre gösterelim.", "See entry guidance for your passport.")}</p></div></div>
+      <div className="passport-identity"><div className="passport-book" aria-hidden="true"><span>LetsGo<span>2</span>Travel</span><Icon name="globe" size={36}/><i/><Icon name="passport" size={16}/></div><div><span className="passport-eyebrow">{copy("DÜNYAYA AÇILAN KAPIN", "YOUR GATEWAY TO THE WORLD", "PORTA JOTE DREJT BOTËS")}</span><h2 id="passport-choice-heading">{copy("Pasaportun", "Your passport")}</h2><p>{copy("Ülkelerin giriş koşullarını buna göre gösterelim.", "See entry guidance for your passport.")}</p></div></div>
       <div className="passport-selection">
         <CountryPicker value={passport} options={passportOptions} label={copy("Pasaport ülkesi", "Passport country")} placeholder={copy("Ülke seç", "Choose country")} onChange={code => { closeCountry(); setPreference(code, passportType); setFilter("all"); }}/>
         <label>{copy("Pasaport türü", "Passport type")}<select value={passportType} onChange={event => { closeCountry(); setPreference(passport, event.target.value); setFilter("all"); }}><option value="ordinary">{copy("Umuma mahsus", "Ordinary")}</option><option value="special">{copy("Hususi", "Special")}</option><option value="service">{copy("Hizmet", "Service")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic")}</option></select></label>
       </div>
       <div className="passport-stats">
-        <div><Icon name="passport" size={19}/><strong>{counts.free}</strong><span>{copy("Vizesiz*", "Visa-free*")}</span></div>
-        <div><Icon name="globe" size={19}/><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
-        <div><Icon name="lock" size={19}/><strong>{counts.id_card}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="passport" size={19}/></span><strong>{counts.free}</strong><span>{copy("Vizesiz*", "Visa-free*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="globe" size={19}/></span><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="check" size={19}/></span><strong>{counts.id_card}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
       </div>
       <p className="passport-data-note">{copy("*Tarihli ön bilgi; güncel giriş garantisi değildir.", "*Dated guidance, not a guarantee of current entry.")}</p>
       <details className="passport-coverage"><summary><span>{copy("Veri kapsamı ve tarihi", "Coverage and data date")} · {passportIndex.asOf}</span><Icon name="chevron" size={16}/></summary><p>{passportType === "ordinary" ? copy("199 pasaport için tarihli keşif verisi; güncel resmî giriş izni değildir. ETA ve giriş kısıtlamaları bilinmiyor renginde gösterilir, ülke detayında açıklanır. Türkiye için kimlik kartıyla geçişte üç MFA kaydı ayrıca işlendi; ek koşullar ülke detayındadır.", "Dated discovery data for 199 passports, not current official entry clearance. ETA and entry restrictions use the unknown colour and are explained in details. Three Turkish ID-card entries from the MFA are separately included; see conditions in details.") : copy("Türkiye'nin özel pasaport türlerinde 13 destinasyon için tarihli MFA ön bilgisi var; diğerleri bilinmiyor. Kalış süresi ve seyahat amacı için resmî kaynağı kontrol et.", "For special Turkish passport types, dated MFA guidance covers 13 destinations; other entries are unknown. Check official duration and purpose conditions.")}</p>{passport === "TR" && <p>{copy("MFA ek kayıt kontrolü", "MFA supplement checked")}: {MFA_CHECKED}</p>}<button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Veri kaynağı", "Dataset source")}</button></details>
@@ -124,7 +124,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
       <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
       <div className="chip-scroll passport-filters" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
-        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id])}</button>)}
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id], ({ all: "Të gjitha", id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[item.id])}</button>)}
       </div>
       <p id="passport-map-help" className="passport-map-help">{passportName} · {copy("*Tarihli ön bilgi · Bayraklar yakınlaştırınca görünür.", "*Dated guidance · Zoom to reveal flags.")}</p>
 
@@ -148,7 +148,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       </Suspense>
       <div className="passport-map-legend" role="list" aria-label={copy("Harita renk açıklaması", "Map colour legend")}>
         {(["id_card", "free", "evisa", "on_arrival", "required"] as const).map((status) => (
-          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{copy(STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required" } as const)[status])}</span>
+          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{copy(STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë" } as const)[status])}</span>
         ))}
         <span role="listitem" className="legend-chip legend-unknown">{copy("Bilinmiyor", "Unknown")}</span>
       </div>
@@ -161,7 +161,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
           const country = COUNTRY_BY_ALPHA3.get(code);
           if (!country) return null;
           const entry = statusOf(code);
-          return <button type="button" key={code} onClick={() => void openCountry(country)}><CountryFlag code={alpha2FromAlpha3(code)} label={countryName(code, country.name)} /><strong>{countryName(code, country.name)}</strong><small className={`entry-${entry}`}>{copy(STATUS_LABEL[entry], ({ id_card:"ID card", free:"Visa-free", evisa:"e-Visa", on_arrival:"On arrival", required:"Visa required", unknown:"Unknown" } as const)[entry])}</small></button>;
+          return <button type="button" key={code} onClick={() => void openCountry(country)}><CountryFlag code={alpha2FromAlpha3(code)} label={countryName(code, country.name)} /><strong>{countryName(code, country.name)}</strong><small className={`entry-${entry}`}>{copy(STATUS_LABEL[entry], ({ id_card:"ID card", free:"Visa-free", evisa:"e-Visa", on_arrival:"On arrival", required:"Visa required", unknown:"Unknown" } as const)[entry], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[entry])}</small></button>;
         })}</div>
       </section>}
 
@@ -174,7 +174,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
               <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={countryName(country.alpha3, country.name)} />
               <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small><CountryRiskBadge advisory={risks.find(row => row.code === alpha2FromAlpha3(country.alpha3))}/></span>
-              <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus])}</em>
+              <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[rowStatus])}</em>
               <Icon name="chevron" size={17} />
             </button>
           );
@@ -186,7 +186,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
 
       <Sheet open={Boolean(selected)} title={selected ? countryName(selected.alpha3, selected.name) : copy("Ülke", "Country")} onClose={closeCountry}>
         {selected && <div className="country-detail">
-          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName}</small><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status])}</strong></div></div>
+          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName}</small><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[status])}</strong></div></div>
           {passportType === "ordinary" && <p className="passport-coverage">{copy("Veri seti tarihi", "Dataset date")}: {passportIndex.asOf}. {PASSPORTS[passport]?.[DESTINATION_INDEX.get(alpha2FromAlpha3(selected.alpha3)) ?? -1] === "t" ? copy("Elektronik seyahat izni (ETA) kaydı var; vizeyle aynı değildir. Seyahatten önce resmî başvuru koşulunu kontrol et.", "An electronic travel authorisation (ETA) is listed; it is not a visa. Check official requirements before travel.") : PASSPORTS[passport]?.[DESTINATION_INDEX.get(alpha2FromAlpha3(selected.alpha3)) ?? -1] === "n" ? copy("Bu tarihli kaynakta giriş kısıtlaması var. Güncel durumu konsolosluktan doğrulamadan seyahat planlama.", "This dated source lists an entry restriction. Verify the current situation with the consulate before planning travel.") : ""}</p>}
           {passport === "TR" && status === "id_card" && <p className="info-box">{alpha2FromAlpha3(selected.alpha3) === "GE" ? copy("Gürcistan: yeni tip kimlik kartı; umuma mahsus/kimlikle girişte sağlık ve kaza sigortası koşulu vardır. Kapsamı, teminatı ve belge dilini MFA kaynağından doğrula.", "Georgia: new-style ID; health/accident insurance conditions apply to ordinary-passport/ID entry. Verify cover, amount and document language with the MFA.") : copy("Azerbaycan ve Ukrayna için kimlikle geçişte Türkiye’den seyahat koşulu vardır. Yeni tip kimlik ve güncel sınır/ulaşım durumunu ayrıca doğrula.", "ID entry to Azerbaijan and Ukraine includes travel-from-Turkey conditions. Verify new-style ID and current border/transport conditions.")}</p>}
           {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{(locale === "tr" ? verifiedRule?.note : "") || (status === "unknown"
@@ -195,7 +195,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
           <CountryAdvisory code={alpha2FromAlpha3(selected.alpha3)} onOpenNews={code => { closeCountry(); onOpenCountryNews(code); }}/>
           <div className="detail-list">
             <div><span>{copy("Ülke kodu", "Country code")}</span><strong>{selected.alpha3}</strong></div>
-            <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status])}</strong></div>
+            <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[status])}</strong></div>
             <div><span>{copy("Son veri kontrolü", "Last checked")}</span><strong>{verifiedRule?.verifiedAt || copy("Resmî kaynaktan doğrula", "Verify officially")}</strong></div>
           </div>
           <button className="primary-wide" onClick={() => void openExternal(verifiedRule?.sourceUrl || (passport === "TR" ? MFA_SOURCE : "https://www.iatatravelcentre.com/"))}><Icon name="external" size={18} /> {copy("Güncel giriş koşullarını doğrula", "Verify current entry requirements")}</button>

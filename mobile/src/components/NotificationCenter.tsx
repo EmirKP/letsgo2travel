@@ -79,7 +79,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [{
       id: `release-${releaseId}`,
-      title: copy(`Mobil deneyim · Build ${config.buildNumber}`, `Mobile experience · Build ${config.buildNumber}`),
+      title: copy(`Mobil deneyim · Build ${config.buildNumber}`, `Mobile experience · Build ${config.buildNumber}`, `Përvoja në celular · Versioni ${config.buildNumber}`),
       message: copy("Etkinlik Radarını, anlık seyahat yardımını ve yenilenen araçları keşfet.", "Explore Events Radar, in-the-moment travel help and redesigned tools."),
       createdAt: "2026-09-03T16:00:00.000Z",
       kind: "release",
@@ -90,7 +90,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
     if (latestRoute) items.push({
       id: `route-${latestRoute.id}`,
       title: copy("Rotan seni bekliyor", "Your route is waiting"),
-      message: copy(`${latestRoute.plan.routes.map((route) => route.name).join(" · ")} planına kaldığın yerden devam et.`, `Continue your ${latestRoute.plan.routes.map((route) => route.name).join(" · ")} plan.`),
+      message: copy(`${latestRoute.plan.routes.map((route) => route.name).join(" · ")} planına kaldığın yerden devam et.`, `Continue your ${latestRoute.plan.routes.map((route) => route.name).join(" · ")} plan.`, `Vazhdo planin tënd ${latestRoute.plan.routes.map((route) => route.name).join(" · ")}.`),
       createdAt: latestRoute.createdAt,
       kind: "route",
       view: "trips",
@@ -98,9 +98,9 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
     for (const alert of triggeredAlerts) items.push({
       id: `price-${alert.id}-${alert.last_notified_at || alert.last_checked_price || "triggered"}`,
-      title: copy(`${alert.origin_code} → ${alert.destination_code} fiyat alarmı`, `${alert.origin_code} → ${alert.destination_code} price alert`),
+      title: copy(`${alert.origin_code} → ${alert.destination_code} fiyat alarmı`, `${alert.origin_code} → ${alert.destination_code} price alert`, `Njoftim çmimi ${alert.origin_code} → ${alert.destination_code}`),
       message: alert.last_checked_price
-        ? copy(`${alert.departure_date} gidişi için son kontrol fiyatı ${new Intl.NumberFormat("tr-TR").format(alert.last_checked_price)} TL.`, `Last checked price for ${alert.departure_date}: TRY ${new Intl.NumberFormat("en-GB").format(alert.last_checked_price)}.`)
+        ? copy(`${alert.departure_date} gidişi için son kontrol fiyatı ${new Intl.NumberFormat("tr-TR").format(alert.last_checked_price)} TL.`, `Last checked price for ${alert.departure_date}: TRY ${new Intl.NumberFormat("en-GB").format(alert.last_checked_price)}.`, `Çmimi i fundit i kontrolluar për ${alert.departure_date}: ${new Intl.NumberFormat("sq-AL").format(alert.last_checked_price)} TRY.`)
         : copy("Alarmın tetiklendi. Ayrıntılar için fiyat alarmlarını aç.", "Your alert was triggered. Open Price Alerts for details."),
       createdAt: alert.last_notified_at || alert.last_checked_at || alert.created_at,
       kind: "price",
@@ -149,7 +149,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
 
   return <Sheet open={open} title={copy("Bildirimler", "Notifications")} onClose={onClose} size="large">
     <div className="notification-toolbar">
-      <span>{unread ? copy(`${unread} okunmamış bildirim`, `${unread} unread notifications`) : copy("Tüm bildirimleri gördün", "You're all caught up")}</span>
+      <span>{unread ? copy(`${unread} okunmamış bildirim`, `${unread} unread notifications`, `${unread} njoftime të palexuara`) : copy("Tüm bildirimleri gördün", "You're all caught up")}</span>
       {unread > 0 && <button onClick={markAllRead}>{copy("Tümünü okundu yap", "Mark all as read")}</button>}
     </div>
 

@@ -88,6 +88,19 @@ test('Managed save requires commercial mode, v2 clients and authentication befor
   assert.equal(response.status, 401); assert.equal(response.headers.get('cache-control'), 'private, no-store'); assert.equal(h.calls.rpc.length, 0);
 });
 
+test('Albanian passes through both managed flight protocols without changing signed retention metadata', async () => {
+  for (const version of ['2', '3']) {
+    const h = harness(); const selection = h.issue();
+    const response = await h.api.POST(h.request({ ...h.body(selection), appLanguage: 'sq' }, version));
+    assert.equal(response.status, 200);
+    const write = h.calls.rpc.find(call => call.name === (version === '3' ? 'create_flight_lookup_trip_v3' : 'create_flight_lookup_trip'));
+    assert.equal(write.args.p_app_language, 'sq');
+    assert.equal(write.args.p_expires_at, selection.expiresAt);
+    assert.equal(write.args.p_user, owner);
+    assert.equal(h.calls.network, 0);
+  }
+});
+
 test('Receipts bind the owner, reject tampering and expire at ten minutes or scheduled departure', async () => {
   for (const scenario of ['owner', 'tamper', 'expired', 'missing']) {
     const h = harness(); const selection = h.issue(); const input = h.body(selection);

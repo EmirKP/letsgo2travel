@@ -7,10 +7,12 @@ import { createPlacesLoader, validateQuote } from '../../../lib/travel-assistant
 export function locateForTravel(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) { reject(new Error('unavailable')); return; }
+    const timer = setTimeout(() => reject(new Error('unavailable')), 14000);
     navigator.geolocation.getCurrentPosition(p => {
+      clearTimeout(timer);
       const c = coordinates({ latitude: p.coords.latitude, longitude: p.coords.longitude });
       if (c) resolve(coarseLocation(c)); else reject(new Error('unavailable'));
-    }, error => reject(new Error(error.code === 1 ? 'denied' : 'unavailable')),
+    }, error => { clearTimeout(timer); reject(new Error(error.code === 1 ? 'denied' : 'unavailable')); },
     { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
   });
 }

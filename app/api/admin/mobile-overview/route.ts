@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
+import { readAdminVerifications } from "@/lib/admin-verifications";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +43,7 @@ export async function GET(request: Request) {
     alertsResult,
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
-    supabase
-      .from("travel_verifications")
-      .select("id,country_code,country_name,created_at,status,evidence_path,evidence_type", { count: "exact" })
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(6),
+    readAdminVerifications(supabase, { pendingOnly: true, limit: 6 }),
     supabase
       .from("forum_topics")
       .select("id,title,author_name,created_at,status", { count: "exact" })
@@ -80,13 +76,13 @@ export async function GET(request: Request) {
   // Önceki sürüm, panelde kullanılmayan isteğe bağlı tabloları da sorguladığı
   // için bütün görünür veriler çalışırken yanıltıcı hata gösterebiliyordu.
   const modules = [
-    { label: "Kullanıcılar", result: profilesResult },
-    { label: "Doğrulamalar", result: verificationsResult },
-    { label: "Forum konuları", result: topicsResult },
-    { label: "Forum cevapları", result: repliesResult },
-    { label: "Raporlar", result: reportsResult },
-    { label: "Vize takipleri", result: visaTracksResult },
-    { label: "Fiyat alarmları", result: alertsResult },
+    { key: "users", label: "Kullanıcılar", result: profilesResult },
+    { key: "verifications", label: "Doğrulamalar", result: verificationsResult },
+    { key: "topics", label: "Forum konuları", result: topicsResult },
+    { key: "replies", label: "Forum cevapları", result: repliesResult },
+    { key: "reports", label: "Raporlar", result: reportsResult },
+    { key: "visa", label: "Vize takipleri", result: visaTracksResult },
+    { key: "alerts", label: "Fiyat alarmları", result: alertsResult },
   ];
   const unavailableModules = modules.flatMap(({ label, result }) => result.error ? [label] : []);
   const unavailableCount = unavailableModules.length;
@@ -111,14 +107,16 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString(),
       unavailableCount,
       unavailableModules,
+      moduleHealth: Object.fromEntries(modules.map(({ key, result }) => [key, result.error ? "unavailable" : "ready"])),
+      verificationReviewReady: !verificationsResult.legacy && !verificationsResult.error,
       stats: {
-        profiles: profilesResult.count || 0,
-        pendingVerifications: verificationsResult.count || 0,
-        pendingTopics: topicsResult.count || 0,
-        pendingReplies: repliesResult.count || 0,
-        openReports: reportsResult.count || 0,
-        activeVisaTracks: visaTracksResult.count || 0,
-        activePriceAlerts: alertsResult.count || 0,
+        profiles: profilesResult.error ? null : profilesResult.count ?? 0,
+        pendingVerifications: verificationsResult.error ? null : verificationsResult.count ?? 0,
+        pendingTopics: topicsResult.error ? null : topicsResult.count ?? 0,
+        pendingReplies: repliesResult.error ? null : repliesResult.count ?? 0,
+        openReports: reportsResult.error ? null : reportsResult.count ?? 0,
+        activeVisaTracks: visaTracksResult.error ? null : visaTracksResult.count ?? 0,
+        activePriceAlerts: alertsResult.error ? null : alertsResult.count ?? 0,
       },
       pendingVerifications: (verificationsResult.data || []).map((item) => ({
         id: item.id,
