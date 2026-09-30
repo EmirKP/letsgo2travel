@@ -5,15 +5,16 @@ import { CountryFlag } from "../components/CountryFlag";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { Sheet } from "../components/Sheet";
 import { DISCOVERY_DESTINATIONS, dailyDiscovery, localizedDiscovery, type DiscoveryDestination } from "../data/discovery";
-import { COUNTRY_LIST } from "../data/countries";
-import { profileIdToAlpha3, profileIdsForAlpha3 } from "../data/countryCodes";
+import { profileIdsForAlpha3 } from "../data/countryCodes";
 import { destinationArtwork } from "../data/artwork";
 import { randomRoute, routeByDestinationCode } from "../data/routes";
 import { homeSearchDestinations } from "../data/homeDestinations";
+import { reconcileProfileCountries } from "../lib/profileCountries";
 import { normalizeSearchText } from "../lib/searchText";
 import {
   addRecentDestination,
   getFavoriteDestinations,
+  getPendingGuestDataSync,
   setFavoriteDestinations,
   toggleFavoriteDestination,
 } from "../lib/storage";
@@ -47,6 +48,9 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
   const [query, setQuery] = useState(initialSearchQuery);
   const searchInput = useRef<HTMLInputElement>(null);
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
+  const [favoritesReady, setFavoritesReady] = useState(!ownerId);
+  const [favoritesRetry, setFavoritesRetry] = useState(0);
+  const [favoritesError, setFavoritesError] = useState(false);
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
   const [selectedDestinationValue, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
@@ -97,29 +101,23 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     let active = true;
     setFavorites(getFavoriteDestinations(ownerId));
     setRemoteWishlist([]);
+    setFavoritesReady(!ownerId);
+    setFavoritesError(false);
     if (!ownerId || !accessToken) return () => { active = false; };
     void getUserProfile(ownerId, accessToken).then((profile) => {
-      if (!active || !profile) return;
-      const remote = profile.wishlistCountries.flatMap((id) => {
-        const alpha3 = profileIdToAlpha3(id);
-        const country = COUNTRY_LIST.find((item) => item.alpha3 === alpha3);
-        return country ? [{ ...country, createdAt: new Date(0).toISOString() }] : [];
-      });
-      const merged = [...remote, ...getFavoriteDestinations(ownerId)].filter((item, index, all) => all.findIndex((other) => other.alpha3 === item.alpha3) === index);
+      if (!active) return;
+      if (!profile) throw new Error("profile missing");
+      const merged = reconcileProfileCountries(profile.wishlistCountries, getFavoriteDestinations(ownerId), Boolean(getPendingGuestDataSync(ownerId)?.profile));
       setFavoriteDestinations(merged, ownerId);
       setFavorites(merged);
       setRemoteWishlist(profile.wishlistCountries);
-      const nextIds = profileIdsForAlpha3(profile.wishlistCountries, merged.map((item) => item.alpha3));
-      if (JSON.stringify(nextIds) !== JSON.stringify(profile.wishlistCountries)) {
-        void updateUserProfile(ownerId, { wishlistCountries: nextIds }, accessToken).then((updated) => {
-          if (active && updated) setRemoteWishlist(updated.wishlistCountries);
-        }).catch(() => undefined);
-      }
+      setFavoritesReady(true);
     }).catch((error) => {
+      if (active) setFavoritesError(true);
       if (active) onNotice(getSupabaseDataErrorMessage(error, copy("Favoriler web hesabından alınamadı.", "Favourites could not be loaded from your web account.")));
     });
     return () => { active = false; };
-  }, [accessToken, copy, onNotice, ownerId]);
+  }, [accessToken, copy, onNotice, ownerId, favoritesRetry]);
 
   const search = normalizeSearchText(query);
   const destinations = useMemo(() => DISCOVERY_DESTINATIONS.filter((destination) => {
@@ -159,6 +157,11 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
 
   const toggleFavorite = async (destination: DiscoveryDestination) => {
     if (favoriteBusy) return;
+    if (ownerId && !favoritesReady) {
+      if (favoritesError) setFavoritesRetry(value => value + 1);
+      onNotice(copy("Favorilerin yükleniyor. Biraz sonra tekrar dene.", "Your favourites are loading. Please try again shortly.", "Të preferuarat po ngarkohen. Provo sërish pas pak."));
+      return;
+    }
     const previous = getFavoriteDestinations(ownerId);
     const next = toggleFavoriteDestination({ alpha3: destination.alpha3, name: destination.country }, ownerId);
     setFavorites(next);

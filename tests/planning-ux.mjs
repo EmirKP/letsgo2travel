@@ -15,6 +15,8 @@ function load(path, imports = {}, environment = {}) {
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name === '../lib/localeFormatting') return localeFormatting;
+    if (name === '../lib/routeCockpitIntent') return load('mobile/src/lib/routeCockpitIntent.ts');
+    if (name === '../lib/savedRouteIdentity') return load('mobile/src/lib/savedRouteIdentity.ts', {'./id': load('mobile/src/lib/id.ts')});
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, testModule, testModule.exports);
@@ -202,6 +204,7 @@ const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
 function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
+  const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
     ...common(host), '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
@@ -209,11 +212,11 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
     '../lib/routeSync': { syncRoutePlan: async () => { if (syncFails) throw Error('offline'); } },
     '../lib/routeOutbox': { readRouteOutbox: () => syncFails && saves.length ? { [saves[0].id]: { kind: 'save', pending: true } } : {} },
-    '../lib/storage': { saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); } },
+    '../lib/storage': { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
-  });
+  }, {window: fixtureWindow});
   host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '' });
-  return { host, saves, navigations, notices, generated };
+  return { host, saves, navigations, notices, generated, fixtureWindow };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
 
@@ -418,4 +421,61 @@ test('Saved routes search finds accents, and a guest route deletion can be undon
     assert.equal(saved.length,0);button(host.render(),'Undo').props.onClick();
     assert.equal(saved.length,1);assert.equal(saved[0],original);assert.match(text(host.render()),/İstanbul/);
   } finally {host.dispose();}
+});
+
+
+test('Deleting a saved route on another screen clears retained planner state and permits an independent resave', async () => {
+  const h = plannerHarness();
+  try {
+    button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
+    const firstId = h.saves[0].id;
+    assert.ok(button(selected(h.host.render()), 'Saved'));
+    h.saves.splice(0); h.fixtureWindow.dispatchEvent(new Event('l2t:storage-change'));
+    assert.ok(button(selected(h.host.render()), 'Save this plan'));
+    button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
+    assert.equal(h.saves.length, 1); assert.notEqual(h.saves[0].id, firstId);
+    assert.equal(h.saves[0].plan.routes[0].name, 'Rome');
+  } finally { h.host.dispose(); }
+});
+
+test('Saved plan detail transfers the chosen route to Cockpit for its signed-in owner and asks a guest to sign in', async () => {
+  for (const account of [false, true]) {
+    const host=hooks(), intents=[], login=[];
+    const saved=[{id:'route-source-123',createdAt:'2026-10-01T08:00:00Z',input:{days:'3 days',vibe:['Culture']},plan:{summary:'Two options',routes:[route,{...route,name:'Bodrum'}]}}];
+    const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
+      ...common(host),'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
+      '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
+      '../lib/storage':{getSavedRoutePlans:()=>saved,getFavoriteDestinations:()=>[],getSavedTravelEvents:()=>[]},
+      '../lib/supabaseData':{listUserTrips:async()=>[]},'../lib/native':{},'../lib/routeOutbox':{readRouteOutbox:()=>({})},'../lib/routeSync':{},'../lib/eventReminders':{},'../lib/searchText':search,
+    });
+    try {
+      host.start(TripsScreen,{initialSection:'routes',user:account?{id:'owner-a'}:null,ownerId:account?'owner-a':null,accessToken:account?'UNIT_ONLY':'',onNavigate(){},onNotice(){},onOpenAccount:()=>login.push(true),onOpenDestination(){},onPrepareCockpit:intent=>intents.push(intent)});
+      await tick();button(host.render(),'Open plan').props.onClick();
+      const detail=nodes(host.render()).find(node=>typeof node.type==='function'&&node.type.name==='PlanDetail');
+      const articles=nodes(detail.type(detail.props)).filter(node=>node.type==='article');
+      button(articles[1],'Add this route to Cockpit').props.onClick();
+      if (account) { assert.equal(intents.length,1);assert.equal(intents[0].route.name,'Bodrum');assert.equal(intents[0].routeIndex,1);assert.equal(intents[0].ownerId,'owner-a');assert.equal(intents[0].sourceRouteId,saved[0].id);assert.equal(login.length,0); }
+      else {assert.equal(intents.length,0);assert.equal(login.length,1);}
+    } finally {host.dispose();}
+  }
+});
+
+test('City budget detail sends its selected city, travellers and duration as a dated estimate, retaining GBP without a usable foreign rate',()=>{
+  const host=hooks(),intents=[];
+  const benchmarks=load('lib/country-intelligence/city-benchmarks.ts');
+  const budget=load('lib/country-intelligence/trip-budget.ts');
+  const intentModule=load('mobile/src/lib/budgetCockpitIntent.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/trip-budget':budget});
+  const {CityPriceCatalog}=load('mobile/src/components/CityPriceCatalog.tsx',{
+    ...common(host),'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/currencies':{COST_CURRENCIES:{}},'../../../lib/country-intelligence/cost-model':{},
+    '../lib/countryIntelligence':{useAdvisories:()=>[],useCountryData:()=>({data:null,loading:false,error:null})},'../lib/native':{},'./Sheet':{Sheet:'Sheet'},'./CountryFlag':{CountryFlag:'Flag'},'./CountryAdvisory':{CountryRiskBadge:'Risk',CountryAdvisory:'Advisory'},'./CostCalculators':{LocationCalculator:'Location'},'./Icon':{Icon:'Icon'},
+    '../../../lib/country-intelligence/trip-budget':budget,'../lib/budgetPreferences':{readBudgetPreferences:()=>({currency:'GBP',days:'3',people:'3'}),saveBudgetPreferences(){}},'../lib/travelAssistant':{},'../lib/budgetCockpitIntent':intentModule,
+  },{window:{setInterval:()=>1,clearInterval(){}}});
+  try {
+    host.start(CityPriceCatalog,{ownerId:'owner-a',onOpenCountryNews(){},onPrepareCockpitBudget:intent=>intents.push(intent)});
+    const city=nodes(host.render()).find(node=>node.type==='button'&&node.props.className==='budget-city-row');
+    const name=text(find(city,'strong'));city.props.onClick();
+    const view=host.render();assert.match(text(view),/Estimate for 3 days · 3 travellers/);
+    button(view,'Add this estimate to Cockpit').props.onClick();
+    assert.equal(intents.length,1);const intent=intents[0];assert.equal(intent.city,name);assert.equal(intent.ownerId,'owner-a');assert.equal(intent.estimate.days,3);assert.equal(intent.estimate.people,3);assert.equal(intent.displayCurrency,'GBP');assert.equal(intent.displayTotal,intent.estimate.total);assert.equal(intent.sourceMonth,'2026-05');
+  }finally{host.dispose();}
 });

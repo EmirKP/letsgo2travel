@@ -6,6 +6,7 @@ import {
 } from "@/lib/travel-assistant/offline-map";
 import { queryOverpass } from "@/lib/travel-assistant/overpass";
 import { boundedJson } from "@/lib/travel-assistant/http";
+import { createMapResultCache } from "@/lib/travel-assistant/result-cache";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 const cached = unstable_cache(
@@ -20,6 +21,7 @@ const cached = unstable_cache(
   { revalidate: 3600 },
 );
 const downloads = new Map<string, Promise<ReturnType<typeof normalizeOfflineMap>>>();
+const lastPacks = createMapResultCache<ReturnType<typeof normalizeOfflineMap>>(pack => pack.downloadedAt);
 export async function POST(request: Request) {
   let center;
   try {
@@ -31,10 +33,21 @@ export async function POST(request: Request) {
   const c = coarseLocation(center);
   try {
     const key = `${c.latitude}:${c.longitude}`;
+    const fresh = lastPacks.read(key, true);
+    if (fresh) return Response.json(fresh, { headers: { "Cache-Control": "private, no-store" } });
     let download = downloads.get(key);
     if (!download) {
       if (downloads.size >= 8) throw new Error('busy');
-      download = cached(c.latitude, c.longitude).finally(() => downloads.delete(key));
+      download = cached(c.latitude, c.longitude)
+        .then(pack => {
+          lastPacks.remember(key, pack);
+          return lastPacks.read(key, true) ? pack : { ...pack, stale: true };
+        })
+        .catch(error => {
+          const previous = lastPacks.read(key);
+          if (previous) return { ...previous, stale: true };
+          throw error;
+        }).finally(() => downloads.delete(key));
       downloads.set(key, download);
     }
     return Response.json(await download, {

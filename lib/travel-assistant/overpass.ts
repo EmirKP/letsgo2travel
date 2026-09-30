@@ -3,6 +3,7 @@ let active = 0;
 let started = 0;
 let requests = 0;
 let cooldown = 0;
+let preferredProvider = '';
 const unavailableUntil = new Map<string, number>();
 // Both instances permit any-project use. Do not fall back to the restricted
 // FOSSGIS service. Policy checked 2026-09-30:
@@ -12,7 +13,7 @@ const PUBLIC_PROVIDERS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 class ProviderError extends Error {
-  constructor(message: string, readonly retryable = false, readonly pause = false) { super(message); }
+  constructor(message: string, readonly retryable = false, readonly pauseMs = 0, readonly code = 'invalid-response') { super(message); }
 }
 export async function queryOverpass(
   query: string,
@@ -31,7 +32,8 @@ export async function queryOverpass(
     const endpoint = new URL(value);
     if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password) throw new Error("Invalid provider");
     return endpoint;
-  }).filter(endpoint => (unavailableUntil.get(endpoint.href) || 0) <= now);
+  }).filter(endpoint => (unavailableUntil.get(endpoint.href) || 0) <= now)
+    .sort((a, b) => Number(b.href === preferredProvider) - Number(a.href === preferredProvider));
   if (!providers.length) throw new Error("Map service busy");
   const deadline = now + Math.max(1, Math.min(timeout, 26000));
   active++;
@@ -42,11 +44,21 @@ export async function queryOverpass(
       const endpoint = providers[index];
       // Reserve time for the second provider; requests are never raced.
       const attemptTimeout = index < providers.length - 1 ? Math.min(3000, remaining) : remaining;
+      const attemptStarted = Date.now();
       requests++;
       try {
-        return await readProvider(endpoint, query, attemptTimeout);
+        const value = await readProvider(endpoint, query, attemptTimeout);
+        preferredProvider = endpoint.href;
+        return value;
       } catch (error) {
-        if (error instanceof ProviderError && error.pause) cooldown = Date.now() + 60000;
+        // Never log the query, coordinates, full configured URL or credentials.
+        // These bounded diagnostics distinguish an outage from a bad response.
+        console.warn('travel_map_provider_failure', {
+          provider: configured ? 'configured' : endpoint.hostname,
+          code: error instanceof ProviderError ? error.code : error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'network',
+          durationMs: Math.max(0, Date.now() - attemptStarted),
+        });
+        if (error instanceof ProviderError && error.pauseMs) cooldown = Date.now() + error.pauseMs;
         if (error instanceof ProviderError && !error.retryable) throw error;
         unavailableUntil.set(endpoint.href, Date.now() + 60000);
         if (index === providers.length - 1) throw error;
@@ -78,8 +90,8 @@ async function readProvider(endpoint: URL, query: string, timeout: number) {
       // failures must not turn a denial into a retryable network error.
       await response.body?.cancel().catch(() => {});
       if (response.status >= 400 && response.status < 500)
-        throw new ProviderError("Map request declined", false, true);
-      throw new ProviderError("Map unavailable", response.status >= 500);
+        throw new ProviderError("Map request declined", false, retryDelay(response.headers.get('retry-after')), `http-${response.status}`);
+      throw new ProviderError("Map unavailable", response.status >= 500, 0, `http-${response.status}`);
     }
     if (!response.body) throw new ProviderError("Empty map response");
     const reader = response.body.getReader();
@@ -106,4 +118,10 @@ async function readProvider(endpoint: URL, query: string, timeout: number) {
     if (!raw || typeof raw !== "object" || raw.remark || !Array.isArray(raw.elements))
       throw new ProviderError("Incomplete map");
     return raw;
+}
+
+function retryDelay(header: string | null) {
+  if (!header) return 60000;
+  const ms = /^\d+$/.test(header) ? Number(header) * 1000 : Date.parse(header) - Date.now();
+  return Number.isFinite(ms) ? Math.max(60000, ms) : 60000;
 }

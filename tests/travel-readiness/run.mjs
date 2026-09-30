@@ -161,6 +161,26 @@ await test("route: remote deletion is reflected, but a save made during the fetc
   const syncing = f.sync.syncSavedRoutes("A", "token"); await settle(); f.store.saveRoutePlan(route("new"), "A"); held.resolve([]); await syncing;
   assert.equal(f.remote.has("new"), true); assert.equal(f.store.getSavedRoutePlans("A")[0].id, "new");
 });
+await test("route: an explicit resave survives old tombstones on both devices; delayed original uploads stay deleted", async () => {
+  const a = routeFixture();
+  const b = routeFixture(browser(), a.api);
+  const first = route();
+  a.store.saveRoutePlan(first, "A"); await a.sync.syncSavedRoutes("A", "token");
+  await b.sync.syncSavedRoutes("A", "token");
+  a.store.deleteRoutePlan(first.id, "A"); await a.sync.syncSavedRoutes("A", "token");
+  await b.sync.syncSavedRoutes("A", "token");
+  assert.equal(b.store.getSavedRoutePlans("A").length, 0);
+  const next = b.store.saveRoutePlan({...first, createdAt:"2026-09-11T12:00:00Z"}, "A")[0];
+  assert.notEqual(next.id, first.id);
+  await b.sync.syncSavedRoutes("A", "token");
+  await a.sync.syncSavedRoutes("A", "token");
+  await b.sync.syncSavedRoutes("A", "token");
+  assert.equal(a.remote.size, 1); assert.equal(a.store.getSavedRoutePlans("A")[0].id, next.id);
+  assert.equal(b.store.getSavedRoutePlans("A")[0].id, next.id);
+  await a.api.upsertUserTrip("A", {clientKey:first.id,tripData:{plan:first.plan,input:first.input,saved_at:first.createdAt}}, "token");
+  await a.sync.syncSavedRoutes("A", "token");
+  assert.equal(a.remote.has(first.id), false); assert.equal(a.remote.has(next.id), true);
+});
 await test("route: storage failure and corruption never silently discard pending operations", () => {
   const f = routeFixture(); f.store.saveRoutePlan(route(), "A");
   const before = f.localStorage.getItem("l2t.mobile.route-outbox.v1.A"); f.localStorage.setItem = () => { throw new Error("quota"); };
@@ -168,6 +188,19 @@ await test("route: storage failure and corruption never silently discard pending
   const broken = routeFixture(); broken.localStorage.setItem("l2t.mobile.route-outbox.v1.A", "{broken");
   assert.throws(() => broken.store.saveRoutePlan(route(), "A"));
   assert.equal(broken.localStorage.getItem("l2t.mobile.route-outbox.v1.A"), "{broken");
+});
+await test("home routes: heart toggle uses new save generations and can remove a resave, including legacy inspiration ids", async () => {
+  const a = routeFixture(), home = a.load("mobile/src/lib/inspirationRoutes.ts");
+  const suggestion = {...route().plan.routes[0],destinationCode:"FCO",idealDuration:"3 days",dailyPlan:["Walk"],estimatedBudget:"Estimate",visaStatus:"Check"};
+  a.store.saveRoutePlan({...route("inspiration.FCO"),plan:{routes:[suggestion]}},"A");
+  assert.deepEqual(plain(home.inspirationRouteCodes("A")),["FCO"]);
+  assert.equal(home.toggleInspirationRoute(suggestion,"A"),false);await a.sync.syncSavedRoutes("A","token");
+  assert.equal(home.toggleInspirationRoute(suggestion,"A"),true);await a.sync.syncSavedRoutes("A","token");
+  const id = a.store.getSavedRoutePlans("A")[0].id; assert.match(id,/^inspiration\.FCO:/);assert.notEqual(id,"inspiration.FCO");
+  assert.deepEqual(plain(home.inspirationRouteCodes("A")),["FCO"]);
+  assert.equal(home.toggleInspirationRoute(suggestion,"A"),false);await a.sync.syncSavedRoutes("A","token");
+  assert.equal(a.store.getSavedRoutePlans("A").length,0);assert.equal(a.remote.size,0);
+  assert.equal(home.toggleInspirationRoute(suggestion,"A"),true);assert.notEqual(a.store.getSavedRoutePlans("A")[0].id,id);
 });
 await test("route: more than 100 offline routes remain available after reload and deletion", () => {
   const f = routeFixture(); for (let i = 0; i < 105; i++) f.store.saveRoutePlan(route(`r${i}`), "A");

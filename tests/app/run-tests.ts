@@ -1045,7 +1045,7 @@ test("Topluluk ana sayfa ve menüden erişilir, ülke filtresi ve Kosova bayrağ
   assert.ok(app.includes('onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })}') && app.includes("initialCountryCode={communityCountryCode}"), "topluluk yönlendirmesi isteğe bağlı ülke seçimini korumalı");
   assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
   assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");
-  assert.ok(community.includes("listCommunityQuestions(") && communityData.includes('requestJson<{ data?: unknown }>("/api/country-community/feed"'), "topluluk ekranı gerçek ve güvenli veri kaynağını kullanmalı");
+  assert.ok(community.includes("listCommunityPage(") && communityData.includes('nextOffset?: number | null') && communityData.includes('/api/country-community/feed${'), "topluluk ekranı sayfalı gerçek ve güvenli veri kaynağını kullanmalı");
   assert.ok(!home.includes("listCommunityQuestions") && styles.includes(".daily-community"), "ana sayfa topluluk akışını önceden yüklemeden okunabilir bir erişim eylemi sunmalı");
 });
 

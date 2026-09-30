@@ -40,14 +40,17 @@ export async function GET(request: Request) {
     const enhancedReports = await Promise.all(
       (reports || []).map(async (report) => {
         let targetContent = null;
+        let targetError = false;
         if (report.target_type === "topic") {
-          const { data } = await supabase.from("forum_topics").select("title, content, author_name").eq("id", report.target_id).single();
+          const { data, error } = await supabase.from("forum_topics").select("title, content, author_name").eq("id", report.target_id).maybeSingle();
           targetContent = data;
+          targetError = Boolean(error);
         } else if (report.target_type === "reply") {
-          const { data } = await supabase.from("forum_replies").select("content, author_name").eq("id", report.target_id).single();
+          const { data, error } = await supabase.from("forum_replies").select("content, author_name").eq("id", report.target_id).maybeSingle();
           targetContent = data;
+          targetError = Boolean(error);
         }
-        return { ...report, targetContent };
+        return { ...report, targetContent, targetError };
       })
     );
 

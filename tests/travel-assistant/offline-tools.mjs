@@ -23,7 +23,7 @@ function storageModule() {
   const result = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/lib/savedTranslations.ts')}\n})`, {
     Blob, Date, crypto: { randomUUID },
-    localStorage: { getItem: () => stored, setItem: (_, value) => { if (quota) throw Error('quota'); writes++; stored = value; } },
+    localStorage: { getItem: () => stored, setItem: (_, value) => { if (quota) throw Error('quota'); writes++; stored = value; }, removeItem: () => { if (quota) throw Error('quota'); writes++; stored = null; } },
   })(() => ({ TRANSLATION_LANGUAGES: languages }), result, result.exports);
   return { api: result.exports, raw: () => stored, writes: () => writes, inject: value => { stored = value; }, quota: value => { quota = value; } };
 }
@@ -79,6 +79,26 @@ test('Storage byte budget includes multibyte translation content', () => {
   assert.equal(s.api.readSavedTranslations().length, count);
 });
 
+test('Unreadable translation data blocks mutations, retains readable cards, and requires explicit reset', () => {
+  const s = storageModule();
+  const valid = { ...card, id: randomUUID(), savedAt: new Date().toISOString() };
+  for (const raw of ['{broken', JSON.stringify([valid, { ...valid, id: 'invalid' }]), 'a'.repeat(500001)]) {
+    s.inject(raw);
+    assert.equal(s.api.readSavedTranslationState().error, 'corrupt');
+    assert.throws(() => s.api.saveTranslation(card), /corrupt/);
+    assert.throws(() => s.api.deleteSavedTranslation(valid.id), /corrupt/);
+    assert.equal(s.raw(), raw);
+  }
+  s.inject(JSON.stringify([valid, { ...valid, id: 'invalid' }]));
+  assert.equal(s.api.readSavedTranslationState().items[0].text, card.text);
+  s.quota(true);
+  assert.throws(() => s.api.resetSavedTranslations(), /quota/);
+  assert.ok(s.raw().includes(valid.id));
+  s.quota(false); s.api.resetSavedTranslations();
+  assert.equal(s.raw(), null);
+  assert.equal(s.api.saveTranslation(card).length, 1);
+});
+
 function editorHarness() {
   const hooks = [], effects = [];
   let index = 0, first = true, resolve;
@@ -97,7 +117,7 @@ function editorHarness() {
     '../lib/offlineTranslation': { TRANSLATION_LANGUAGES: languages, translationStatus: async () => 'installed', translateOffline: () => new Promise(done => { resolve = done; }) },
   };
   vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelTranslation.tsx')}\nexports.editorForTest = TranslationEditor;})`, {})(name => imports[name] || {}, testModule, testModule.exports);
-  const props = { source: 'tr', target: 'en', onSave: value => saved.push(value), onShow: () => {} };
+  const props = { source: 'tr', target: 'en', text: '', onTextChange: text => { props.text = text; }, onSave: value => saved.push(value), onShow: () => {} };
   return {
     render() { index = 0; const view = testModule.exports.editorForTest(props); if (first) { first = false; effects.splice(0).forEach(effect => effect()); } return view; },
     resolve: text => resolve(text), saved,
@@ -131,6 +151,46 @@ test('A late translation completion cannot reappear after its draft revision cha
   h.resolve('Old translation'); await new Promise(setImmediate);
   assert.equal(control(h.render(), 'button', 'Save on device'), undefined);
   assert.equal(control(h.render(), 'textarea').props.value, 'New draft');
+});
+
+test('Changing either translation language, swapping, or switching app locale retains the draft', () => {
+  const hooks = []; let index = 0, locale = 'en';
+  const jsx = (type, props, key) => ({ type, props, key });
+  const react = {
+    useState(initial) { const i = index++; if (!(i in hooks)) hooks[i] = typeof initial === 'function' ? initial() : initial; return [hooks[i], value => { hooks[i] = typeof value === 'function' ? value(hooks[i]) : value; }]; },
+    useRef(initial) { const i = index++; if (!(i in hooks)) hooks[i] = { current: initial }; return hooks[i]; },
+  };
+  const output = { exports: {} };
+  const imports = {
+    react, 'react/jsx-runtime': { jsx, jsxs: jsx },
+    '../lib/i18n': { useI18n: () => ({ copy: (tr, en) => en, locale }) },
+    '../lib/capacitor': { isIOSNative: () => false },
+    '../lib/offlineTranslation': { TRANSLATION_LANGUAGES: languages, translationLanguageOptions: () => languages },
+    '../lib/savedTranslations': { readSavedTranslationState: () => ({ items: [], error: null }) },
+  };
+  vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelTranslation.tsx')}\n})`, {})(name => imports[name] || {}, output, output.exports);
+  const render = () => { index = 0; return output.exports.TravelTranslation({ onPhrases() {} }); };
+  const editor = view => nodes(view).find(node => typeof node.type === 'function' && node.type.name === 'TranslationEditor');
+  editor(render()).props.onTextChange('Please help me find my hotel.');
+  const oldKey = editor(render()).key;
+  const selectors = () => nodes(render()).filter(node => node.type === 'select');
+  selectors()[1].props.onChange({ target: { value: 'de' } });
+  assert.notEqual(editor(render()).key, oldKey);
+  assert.equal(editor(render()).props.text, 'Please help me find my hotel.');
+  selectors()[0].props.onChange({ target: { value: 'ar' } });
+  assert.equal(editor(render()).props.text, 'Please help me find my hotel.');
+  control(render(), 'button', 'Swap languages').props.onClick();
+  assert.equal(editor(render()).props.source, 'de'); assert.equal(editor(render()).props.target, 'ar');
+  locale = 'sq';
+  assert.equal(editor(render()).props.text, 'Please help me find my hotel.');
+});
+
+test('Albanian model selection is offered only on the wired-up ML Kit platform', () => {
+  for (const platform of ['android', 'ios', 'web']) {
+    const output = { exports: {} };
+    vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/lib/offlineTranslation.ts')}\n})`, {})(() => ({ nativePlatform: () => platform }), output, output.exports);
+    assert.equal(output.exports.translationLanguageOptions().some(([code]) => code === 'sq'), platform === 'android');
+  }
 });
 
 test('Offline point search and category filtering update map points and clear hidden selections', () => {

@@ -1,6 +1,6 @@
 // Kokpit formu saf yardımcıları (birim testlenebilir; ekran dosyasından ayrı).
 import type { AirportOption } from "./airports";
-import { isPastLocalDate, localIsoDate } from "./dates";
+import { isCalendarDate, isPastLocalDate, localIsoDate } from "./dates";
 import { airportTimeZone } from "../../../lib/airport-time-zones";
 import { wallTimeToUtc } from "../../../lib/zoned-time";
 import { translateCopy, type AppLocale } from './locale';
@@ -37,7 +37,7 @@ export function normalizeFlightNumber(value: string) {
   return value.toLocaleUpperCase("en-US").replace(/[^A-Z0-9]/g, "").slice(0, 8);
 }
 
-export function tripFormError(form: TripFormState, now: Date = new Date(), locale: AppLocale = "tr") {
+export function tripFormError(form: TripFormState, now: Date = new Date(), locale: AppLocale = "tr", options: { allowPast?: boolean } = {}) {
   const message = (tr: string, en: string) => translateCopy(locale, tr, en);
   if (form.mode === "flight") {
     if (!form.originAirport) return message("Kalkış havalimanını listeden seç.", "Choose the departure airport from the list.");
@@ -47,8 +47,8 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
   if (form.destinationCountry.trim().length < 2 || !/^[A-Za-z]{2}$/.test(form.destinationCode.trim())) {
     return message("Gideceğin ülkeyi listeden seç.", "Choose your destination country from the list.");
   }
-  if (!form.startDate || !form.endDate) return message("Başlangıç ve bitiş tarihlerini seç.", "Choose start and end dates.");
-  if (form.mode !== "flight" && isPastLocalDate(form.startDate, now)) return message("Başlangıç tarihi geçmiş bir gün olamaz.", "The start date cannot be in the past.");
+  if (!isCalendarDate(form.startDate) || !isCalendarDate(form.endDate)) return message("Başlangıç ve bitiş tarihlerini seç.", "Choose start and end dates.");
+  if (!options.allowPast && form.mode !== "flight" && isPastLocalDate(form.startDate, now)) return message("Başlangıç tarihi geçmiş bir gün olamaz.", "The start date cannot be in the past.");
   if (form.startDate > localIsoDate(730, now) || form.endDate > localIsoDate(730, now)) return message("Seyahat tarihleri bugünden itibaren iki yıl içinde olmalı.", "Travel dates must be within two years from today.");
   if (form.endDate < form.startDate) return message("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date.");
   if (form.mode === "flight") {
@@ -56,16 +56,16 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
     if (!form.arrivalDate || !/^\d{2}:\d{2}$/.test(form.arrivalTime)) return message("Planlanan varış tarihini ve saatini seç (uçuşta kalan süre için gerekli).", "Choose the scheduled arrival date and time (needed for the in-flight countdown).");
     if (form.arrivalDate > form.endDate) return message("Planlanan varış tarihi seyahat bitişinden sonra olamaz.", "Scheduled arrival cannot be after the trip end date.");
     const times = flightTimes(form);
-    if (!times.departure.ok || !times.arrival.ok) {
-      const reason = !times.departure.ok ? times.departure.reason : !times.arrival.ok ? times.arrival.reason : "invalid";
+    if (times.departure.ok === false || times.arrival.ok === false) {
+      const reason = times.departure.ok === false ? times.departure.reason : times.arrival.ok === false ? times.arrival.reason : "invalid";
       if (reason === "timezone") return message("Havalimanının saat dilimini seç.", "Select the airport time zone.");
       if (reason === "ambiguous") return message("Bu yerel saat, yaz saati değişiminde iki kez yaşanıyor. Alttaki seçeneklerden biletindeki UTC karşılığını seç.", "This local time occurs twice during the clock change. Select its UTC equivalent from your ticket below.");
       return message("Bu tarih ve saat geçersiz veya saat değişimi nedeniyle mevcut değil. Biletteki yerel saati kontrol et.", "This date/time is invalid or does not exist during the clock change. Check the local time on your ticket.");
     }
     const departureAt = Date.parse(times.departure.iso);
     const arrivalAt = Date.parse(times.arrival.iso);
-    if (departureAt < now.getTime() - 48 * 3600000) return message("Kalkış tarihi çok geçmişte. Yaklaşan veya devam eden uçuşunun bilet bilgilerini gir.", "The departure date is too far in the past. Enter ticket details for an upcoming or ongoing flight.");
-    if (departureAt <= now.getTime() && arrivalAt <= now.getTime()) return message("Bu uçuşun varış saati de geçmiş. Yaklaşan veya devam eden seyahatin için bilet saatlerini gir.", "The arrival time has also passed. Enter ticket times for an upcoming or ongoing trip.");
+    if (!options.allowPast && departureAt < now.getTime() - 48 * 3600000) return message("Kalkış tarihi çok geçmişte. Yaklaşan veya devam eden uçuşunun bilet bilgilerini gir.", "The departure date is too far in the past. Enter ticket details for an upcoming or ongoing flight.");
+    if (!options.allowPast && departureAt <= now.getTime() && arrivalAt <= now.getTime()) return message("Bu uçuşun varış saati de geçmiş. Yaklaşan veya devam eden seyahatin için bilet saatlerini gir.", "The arrival time has also passed. Enter ticket times for an upcoming or ongoing trip.");
     if (!Number.isFinite(departureAt) || !Number.isFinite(arrivalAt) || arrivalAt <= departureAt) return message("Planlanan varış, kalkıştan sonra olmalı.", "Scheduled arrival must be after departure.");
   }
   if (form.flightPnr && !/^[A-Z0-9-]{3,20}$/.test(form.flightPnr.trim())) return message("PNR 3–20 harf, rakam veya tire içerebilir.", "PNR must contain 3–20 letters, numbers or hyphens.");
@@ -75,7 +75,7 @@ export function tripFormError(form: TripFormState, now: Date = new Date(), local
 }
 
 export function flightTimes(form: TripFormState) {
-  const resolve = (result: ReturnType<typeof wallTimeToUtc>, chosen?: string) => !result.ok && result.reason === "ambiguous" && chosen && result.candidates?.includes(chosen) ? { ok: true as const, iso: chosen } : result;
+  const resolve = (result: ReturnType<typeof wallTimeToUtc>, chosen?: string) => result.ok === false && result.reason === "ambiguous" && chosen && result.candidates?.includes(chosen) ? { ok: true as const, iso: chosen } : result;
   return {
     departure: resolve(wallTimeToUtc(form.startDate, form.departureTime, airportTimeZone(form.originAirport?.iata || "", form.originAirport?.timeZone)), form.departureUtc),
     arrival: resolve(wallTimeToUtc(form.arrivalDate, form.arrivalTime, airportTimeZone(form.airport?.iata || "", form.airport?.timeZone)), form.arrivalUtc),

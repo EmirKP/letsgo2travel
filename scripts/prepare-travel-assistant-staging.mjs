@@ -18,6 +18,7 @@ const sources = [
   'lib/travel-assistant/transit.ts',
   'lib/travel-assistant/offline-map.ts',
   'lib/travel-assistant/overpass.ts',
+  'lib/travel-assistant/result-cache.ts',
   'lib/travel-assistant/http.ts',
   'lib/travel-assistant/types.ts',
   'lib/travel-assistant/places.ts',

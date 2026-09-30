@@ -58,6 +58,9 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
     saveRoutePlan: (item, owner) => savedByOwner.set(owner || 'guest', [item, ...storage.getSavedRoutePlans(owner).filter(saved => saved.id !== item.id)]),
     deleteRoutePlan: (id, owner) => savedByOwner.set(owner || 'guest', storage.getSavedRoutePlans(owner).filter(saved => saved.id !== id)),
   };
+  const inspirationModule = { exports: {} };
+  const inspirationCode = ts.transpileModule(readFileSync(new URL('../mobile/src/lib/inspirationRoutes.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${inspirationCode}\n})`, { Date })(name => name === './storage' ? storage : { createId: () => 'fixture-generation' }, inspirationModule, inspirationModule.exports);
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'react-dom': { createPortal: value => value },
@@ -74,6 +77,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
     },
     './lib/tripCollaboration': { pendingTripInvite: () => '' },
     './lib/storage': storage,
+    './lib/inspirationRoutes': inspirationModule.exports,
   };
   const code = ts.transpileModule(readFileSync(new URL('../mobile/src/App.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -377,7 +381,7 @@ test('Lazy overlay failure and loading offer the same close action without expos
   assert.equal(new wrapper.type(wrapper.props).state.failed, false, 'A newly opened overlay has a fresh local boundary');
 });
 
-function exploreHarness(initialQuery, locale = 'tr') {
+function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const load = (path, imports = {}, environment = {}) => {
     const code = ts.transpileModule(readFileSync(new URL(`../mobile/src/${path}`, import.meta.url), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -390,6 +394,9 @@ function exploreHarness(initialQuery, locale = 'tr') {
     }, output, output.exports);
     return output.exports;
   };
+  const countries = load('data/countries.ts', { './iso3166.json': { default: JSON.parse(readFileSync(new URL('../mobile/src/data/iso3166.json', import.meta.url), 'utf8')) } });
+  const countryCodes = load('data/countryCodes.ts', { './countries': countries });
+  const profileCountries = load('lib/profileCountries.ts', { '../data/countries': countries, '../data/countryCodes': countryCodes });
   const routes = load('data/routes.ts');
   const home = load('data/homeDestinations.ts', { './routes': routes });
   const artworkSource = readFileSync(new URL('../mobile/src/data/artwork.ts', import.meta.url), 'utf8');
@@ -411,22 +418,24 @@ function exploreHarness(initialQuery, locale = 'tr') {
     useEffect(fn, deps) { const i = cursor++; if (!slots[i] || changed(slots[i].deps, deps)) effects.push(fn); slots[i] = { deps, effect: fn }; },
   };
   const i18n = { locale, copy: (tr, en) => locale === 'tr' ? tr : en };
+  let favorites = profileFixture.local || [];
+  const profileWrites = [];
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/discovery': discovery,
-    '../data/countries': { COUNTRY_LIST: [] }, '../data/countryCodes': {},
+    '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,
     '../data/artwork': artwork, '../data/routes': routes,
     '../data/homeDestinations': home, '../lib/searchText': search,
-    '../lib/storage': { getFavoriteDestinations: () => [], addRecentDestination() {} }, '../lib/supabaseData': {},
+    '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: async () => profileFixture.remote, updateUserProfile: (...args) => profileWrites.push(args), getSupabaseDataErrorMessage: (_, fallback) => fallback },
     '../lib/i18n': { useI18n: () => i18n }, '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR', type: 'ordinary' }) },
     '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify current entry rules', visaFree: true }) }, '../data/passport-index.json': {},
   };
   const listeners = { addEventListener() {}, removeEventListener() {} };
   const { ExploreScreen } = load('screens/ExploreScreen.tsx', imports, { window: listeners, document: listeners });
   const calls = { planned: [], navigated: [] };
-  let props = { initialSearchQuery: initialQuery, searchRequestId: 1, accessToken: '', onNotice() {}, onNavigate: view => calls.navigated.push(view), onBuildRoute: route => calls.planned.push(route) };
+  let props = { initialSearchQuery: initialQuery, searchRequestId: 1, ownerId: profileFixture.ownerId || null, accessToken: profileFixture.ownerId ? 'token-a' : '', onNotice() {}, onNavigate: view => calls.navigated.push(view), onBuildRoute: route => calls.planned.push(route) };
   const render = next => {
     props = { ...props, ...next };
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -437,7 +446,7 @@ function exploreHarness(initialQuery, locale = 'tr') {
     }
     throw Error('Unstable Explore fixture');
   };
-  return { render, calls, reactivate: () => { slots.forEach(slot => slot?.effect?.()); return render(); } };
+  return { render, calls, profileWrites, get favorites() { return favorites; }, reactivate: () => { slots.forEach(slot => slot?.effect?.()); return render(); } };
 }
 
 test('Home destination searches use real catalog data, translated aliases and deduplicated route drafts', () => {
@@ -492,4 +501,13 @@ test('Clearing destination search returns keyboard focus to the labelled input',
   clear.props.onClick(); view = render();
   assert.equal(focused, 1);
   assert.equal(nodes(view).find(node => node.type === 'input').props.value, '');
+});
+
+test('Explore respects remote favourite deletion while retaining explicitly pending guest imports', async()=>{
+ for(const pending of [false,true]){
+  const h=exploreHarness('','en',{ownerId:'a',remote:{wishlistCountries:[]},local:[{alpha3:'TUR',name:'Turkey',createdAt:'2026-09-01'}],pending});
+  h.render();await new Promise(resolve=>setImmediate(resolve));h.render();
+  assert.equal(h.profileWrites.length,0,'A read does not silently PATCH cached favourites');
+  assert.equal(h.favorites.length,pending?1:0);
+ }
 });

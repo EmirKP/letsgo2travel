@@ -11,7 +11,8 @@ import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
 import { syncRoutePlan } from "../lib/routeSync";
 import { readRouteOutbox } from "../lib/routeOutbox";
-import { saveRoutePlan } from "../lib/storage";
+import { getSavedRoutePlans, saveRoutePlan } from "../lib/storage";
+import { matchingSavedRoute, newSavedRoute } from "../lib/savedRouteIdentity";
 import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
 import { editPlanStops, fixedDestinationStarter, routeMatchesDestination } from "../../../lib/route-planner";
@@ -40,16 +41,6 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-function planClientKey(plan: RoutePlan, input: PlannerInput) {
-  const source = JSON.stringify({ input, routes: plan.routes.map((route) => [route.name, route.country, route.destinationCode, route.dailyPlan]) });
-  let hash = 2166136261;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `route-${(hash >>> 0).toString(36)}-${plan.routes.length}`;
-}
-
 export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken }: {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
@@ -76,7 +67,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [weather, setWeather] = useState<Record<string, WeatherSummary>>({});
   const [weatherLoading, setWeatherLoading] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
-  const [savedKey, setSavedKey] = useState("");
+  const [savedRoutes, setSavedRoutes] = useState(() => getSavedRoutePlans(ownerId));
   const [saveLocation, setSaveLocation] = useState<"device" | "account" | "pending">("device");
   const [alternativesOpen, setAlternativesOpen] = useState(false);
   const [interestNotice, setInterestNotice] = useState("");
@@ -87,11 +78,28 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const generating = useRef(false);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
-  const planIsSaved = !!plan && savedKey === planClientKey(plan, planInput);
+  const savedRoute = plan ? matchingSavedRoute(savedRoutes, plan, planInput) : undefined;
+  const planIsSaved = !!savedRoute;
   const saveLabel = planIsSaved ? copy("Kaydedildi", "Saved") : plan && plan.routes.length > 1 ? copy(`${plan.routes.length} öneriyi kaydet`, `Save ${plan.routes.length} suggestions`) : copy("Bu planı kaydet", "Save this plan");
   const saveMessage = saveLocation === "account" ? copy("Hesabına kaydedildi. Kaydedilenler → Rotalar bölümünde bulabilirsin.", "Saved to your account. Find it under Saved → Routes.")
     : saveLocation === "pending" ? copy("Bu cihazda kayıtlı; hesabına eşitleme bekliyor. Kaydedilenler → Rotalar bölümünde bulabilirsin.", "Saved on this device; waiting to sync to your account. Find it under Saved → Routes.")
       : copy("Bu cihazda kayıtlı. Kaydedilenler → Rotalar bölümünden tekrar açabilirsin.", "Saved on this device. Open it again under Saved → Routes.");
+
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const routes = getSavedRoutePlans(ownerId);
+        setSavedRoutes(routes);
+        const saved = plan ? matchingSavedRoute(routes, plan, planInput) : undefined;
+        const operation = saved && ownerId ? readRouteOutbox(ownerId)[saved.id] : undefined;
+        setSaveLocation(ownerId && saved ? operation?.kind === "save" && !operation.pending ? "account" : "pending" : "device");
+      } catch { /* Keep the last readable snapshot; a save still reports errors. */ }
+    };
+    refresh();
+    window.addEventListener("l2t:storage-change", refresh);
+    window.addEventListener("storage", refresh);
+    return () => { window.removeEventListener("l2t:storage-change", refresh); window.removeEventListener("storage", refresh); };
+  }, [ownerId, plan, planInput]);
 
   function focusResults() {
     resultsHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -146,14 +154,12 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         setPlanInput(requestInput);
         setSource(response.isFallback ? "local" : "ai");
         setExpanded(response.data.routes[0]?.name || "");
-        setSavedKey("");
       } else {
         const fallback = starter();
         setPlan(fallback);
         setPlanInput(requestInput);
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
-        setSavedKey("");
         onNotice(copy("Önerilerin hazır.", "Your suggestions are ready."));
       }
       await hapticSuccess();
@@ -163,7 +169,6 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       setPlanInput(requestInput);
       setSource("local");
       setExpanded(fallback.routes[0]?.name || "");
-      setSavedKey("");
       onNotice(copy("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.", "We are using offline suggestions for now; try again when you are online."));
     } finally {
       setLoading(false);
@@ -178,7 +183,6 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     }
     const routeIndex = editingRoute;
     setPlan(current => current ? { ...current, routes: current.routes.map((route, index) => index === routeIndex ? { ...route, dailyPlan: editStops.map(stop => stop.trim()) } : route) } : current);
-    setSavedKey("");
     setEditingRoute(null);
     onNotice(copy("Plan güncellendi. Saklamak için planı kaydet.", "Plan updated. Save it to keep your changes.", "Plani u përditësua. Ruaje për të mbajtur ndryshimet."));
   };
@@ -186,23 +190,28 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const save = async () => {
     if (!plan || saveBusy || saving.current) return;
     const input = snapshotPlannerInput(planInput);
-    const clientKey = planClientKey(plan, input);
-    if (savedKey === clientKey) return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
+
     saving.current = true;
     setSaveBusy(true);
     let localSaved = false;
-    const createdAt = new Date().toISOString();
+    let clientKey = "";
     try {
-      const saved = { id: clientKey, createdAt, input, plan };
-      saveRoutePlan(saved, ownerId);
+      // Re-read on click too, including deletions made while this tab was hidden.
+      const current = getSavedRoutePlans(ownerId);
+      if (matchingSavedRoute(current, plan, input)) {
+        setSavedRoutes(current);
+        return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
+      }
+      const next = saveRoutePlan(newSavedRoute(plan, input), ownerId);
+      const saved = next[0];
+      clientKey = saved.id;
+      setSavedRoutes(next);
       localSaved = true;
       setSaveLocation("device");
-      setSavedKey(clientKey);
       if (ownerId && accessToken) {
         await syncRoutePlan(ownerId, accessToken, saved);
         setSaveLocation("account");
       }
-      setSavedKey(clientKey);
       await hapticSuccess();
       onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."));
     } catch (error) {
@@ -293,7 +302,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         <div className="planner-photo-grid">{(plannerTab === "ready" ? ["SJJ","FCO","BKK","TBS","DXB","BEG"] : ["SJJ","FCO","BKK"]).map(code => {
           const route = routeByDestinationCode(code, locale);
           if (!route) return null;
-          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setSavedKey(""); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
+          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
         })}</div>
       </section>
       </div>

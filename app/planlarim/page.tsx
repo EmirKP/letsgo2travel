@@ -32,52 +32,58 @@ export default function SavedPlansPage() {
   const [syncError, setSyncError] = useState("");
 
   useEffect(() => {
-    let active = true;
-    void supabase.auth.getSession().then(async ({ data }) => {
-      const userId = data.session?.user.id;
+    let active = true, generation = 0;
+    const load = async (userId: string | null) => {
+      const request = ++generation;
+      setSyncedTrips([]); setSyncError(""); setSyncLoading(true);
       if (!userId) {
         if (active) setSyncLoading(false);
         return;
       }
-      const { data: rows, error } = await supabase
-        .from("user_trips")
-        .select("id,title,destination,trip_data,created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      if (!active) return;
-      if (error) {
-        setSyncError("Hesabındaki planlar şu an yüklenemedi.");
-        setSyncLoading(false);
-        return;
+      try {
+        const { data: rows, error } = await supabase
+          .from("user_trips")
+          .select("id,title,destination,trip_data,created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+        if (!active || request !== generation) return;
+        if (error) {
+          setSyncError("Hesabındaki planlar şu an yüklenemedi.");
+          setSyncLoading(false);
+          return;
       }
-      setSyncedTrips((rows || []).flatMap((row) => {
-        const tripData = row.trip_data && typeof row.trip_data === "object" && !Array.isArray(row.trip_data)
-          ? row.trip_data as Record<string, unknown>
-          : {};
-        const mobileKind = typeof tripData.mobile_kind === "string" ? tripData.mobile_kind : "";
-        // Uçuş arama kaydı ürün kapsamından kaldırıldı; eski "flight_search"
-        // kayıtları arayüzde gösterilmez. (Production veri temizliği ayrı onay ister.)
-        if (mobileKind === "flight_search") return [];
-        const title = typeof row.title === "string" ? row.title.slice(0, 160) : "Seyahat planı";
-        const subtitle = typeof row.destination === "string" ? row.destination.slice(0, 220) : "Hesabınla eşitlenen kayıt";
-        return [{
-          id: `remote-${row.id}`,
-          remoteId: row.id,
-          type: "ai_plan" as const,
-          title,
-          subtitle,
-          url: "/rota-asistani",
-          savedAt: Date.parse(row.created_at || "") || Date.now(),
-        }];
-      }));
-      setSyncLoading(false);
-    }).catch(() => {
-      if (active) {
-        setSyncError("Hesap bağlantısı kurulamadı.");
+        setSyncedTrips((rows || []).flatMap((row) => {
+          const tripData = row.trip_data && typeof row.trip_data === "object" && !Array.isArray(row.trip_data)
+            ? row.trip_data as Record<string, unknown>
+            : {};
+          const mobileKind = typeof tripData.mobile_kind === "string" ? tripData.mobile_kind : "";
+          // Uçuş arama kaydı ürün kapsamından kaldırıldı; eski "flight_search"
+          // kayıtları arayüzde gösterilmez. (Production veri temizliği ayrı onay ister.)
+          if (mobileKind === "flight_search") return [];
+          const title = typeof row.title === "string" ? row.title.slice(0, 160) : "Seyahat planı";
+          const subtitle = typeof row.destination === "string" ? row.destination.slice(0, 220) : "Hesabınla eşitlenen kayıt";
+          return [{
+            id: `remote-${row.id}`,
+            remoteId: row.id,
+            type: "ai_plan" as const,
+            title,
+            subtitle,
+            url: `/planlarim/kayit?id=${encodeURIComponent(String(row.id))}`,
+            savedAt: Date.parse(row.created_at || "") || Date.now(),
+          }];
+        }));
         setSyncLoading(false);
+      } catch {
+        if (active && request === generation) {
+          setSyncError("Hesap bağlantısı kurulamadı.");
+          setSyncLoading(false);
       }
-    });
-    return () => { active = false; };
+      }
+    };
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (active) void load(session?.user.id || null); });
+    const initialGeneration = generation;
+    void supabase.auth.getSession().then(({ data }) => { if (active && generation === initialGeneration) void load(data.session?.user.id || null); }).catch(() => { if (active && generation === initialGeneration) { setSyncError("Hesap bağlantısı kurulamadı."); setSyncLoading(false); } });
+    return () => { active = false; generation++; listener.subscription.unsubscribe(); };
   }, []);
 
   const allTrips = useMemo(() => {

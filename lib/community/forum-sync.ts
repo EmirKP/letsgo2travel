@@ -46,6 +46,15 @@ export function forumCountrySlugFromCode(value: string) {
   return country ? forumSlugPart(country.name) : null;
 }
 
+/** Include legacy slugs and direct ISO codes when filtering before pagination. */
+export function forumCountrySlugsForCodes(codes: string[]) {
+  const wanted = new Set(codes);
+  return [...new Set([
+    ...codes.flatMap(code => [code, code.toLowerCase(), forumCountrySlugFromCode(code)]),
+    ...Object.entries(COUNTRY_SLUG_ALIASES).filter(([, code]) => wanted.has(code)).map(([slug]) => slug),
+  ].filter((slug): slug is string => Boolean(slug)))];
+}
+
 export function forumCategoryFromCommunityCategory(value: string) {
   const category = String(value || "").trim().toLocaleLowerCase("tr-TR");
   const categories: Record<string, string> = {

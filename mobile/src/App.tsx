@@ -1,3 +1,4 @@
+import { inspirationRouteCodes, toggleInspirationRoute } from "./lib/inspirationRoutes";
 import { Activity, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./App.css";
@@ -20,6 +21,7 @@ import { Onboarding } from "./components/Onboarding";
 import { useAuth } from "./hooks/useAuth";
 import { getMobileAdminAccess, getMobileAdminOverview, type MobileAdminOverview } from "./lib/admin";
 import { ApiError } from "./lib/api";
+import { validJourneyIntent, type CockpitJourneyIntent } from "./lib/cockpitJourney";
 import { addPluginListener, isNativePlatform, plugin } from "./lib/capacitor";
 import { releaseId } from "./lib/config";
 import { impact } from "./lib/native";
@@ -39,16 +41,13 @@ import {
 import { closeTopSheet, hasOpenSheet } from "./lib/sheetStack";
 import {
   completeOnboarding,
-  deleteRoutePlan,
   getMobilePreferences,
   getGuestDataSummary,
-  getSavedRoutePlans,
   hasCompletedOnboarding,
   hasSeenRelease,
   importGuestDataForUser,
   markGuestDataImportDecision,
   markReleaseSeen,
-  saveRoutePlan,
   shouldOfferGuestDataImport,
 } from "./lib/storage";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -84,13 +83,6 @@ const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "companion", icon: "suitcase" },
   { id: "profile", icon: "user" },
 ];
-
-function inspirationRouteCodes(ownerId?: string | null): string[] {
-  return getSavedRoutePlans(ownerId).flatMap(saved => {
-    const code = saved.plan.routes[0]?.destinationCode?.toUpperCase();
-    return code && saved.id === `inspiration.${code}` ? [code] : [];
-  });
-}
 
 const validViews = new Set<ViewId>(["home", "explore", "route", "trips", "profile", "passport", "surprise", "cockpit", "community", "alerts", "events", "companion", "phrases", "admin", "costs", "airports", "country-news"]);
 
@@ -200,6 +192,7 @@ export default function App() {
   const lastUiOwnerRef = useRef(ownerId || "guest");
   const adminTokenRef = useRef("");
   const authUiKey = ownerId ? `user-${ownerId}` : "guest";
+  const [cockpitJourneyIntent, setCockpitJourneyIntent] = useState<CockpitJourneyIntent | null>(null);
   const activeTab = highlightedTabFor(activeView);
   const visibleUnreadCount = notificationsEnabled ? unreadCount : 0;
   const nestedView = !tabDefinitions.some(tab => tab.id === activeView);
@@ -262,15 +255,8 @@ export default function App() {
   const toggleHomeRoute = (route: RouteSuggestion) => {
     const code = route.destinationCode?.toUpperCase();
     if (!code || !/^[A-Z0-9]{2,8}$/.test(code)) return;
-    const id = `inspiration.${code}`;
     try {
-      const saved = getSavedRoutePlans(ownerId).some(item => item.id === id);
-      if (saved) deleteRoutePlan(id, ownerId);
-      else saveRoutePlan({
-        id, createdAt: new Date().toISOString(),
-        input: { origin: "", days: route.idealDuration, month: "", budget: route.estimatedBudget, accommodation: "", who: "", tempo: "", vibe: [], visa: route.visaStatus },
-        plan: { summary: route.why, routes: [route] },
-      }, ownerId);
+      const saved = !toggleInspirationRoute(route, ownerId);
       setHomeSavedRoutes({ owner: ownerId, codes: inspirationRouteCodes(ownerId) });
       showNotice(saved ? copy("Rota kayıtlarından çıkarıldı.", "Route removed from your saved items.") : copy("Rota cihazına kaydedildi. Planlar bölümünden açabilirsin.", "Route saved on this device. Open it from Plans."));
     } catch {
@@ -396,6 +382,7 @@ export default function App() {
     setRouteSeedKind("surprise");
     setRouteResetToken((value) => value + 1);
     setCockpitFocusTripId("");
+    setCockpitJourneyIntent(null);
     setVisitedViews([activeViewRef.current]);
     setScrollPositions({});
     setSavedSection("all");
@@ -866,19 +853,24 @@ export default function App() {
     setPullDistance(0);
   };
 
+  const prepareCockpitJourney = (intent: CockpitJourneyIntent) => {
+    if (!ownerId || !auth.accessToken) { setAccountOpen(true); return; }
+    if (!validJourneyIntent(intent, ownerId)) return;
+    setCockpitJourneyIntent(intent); navigate("cockpit");
+  };
   const renderView = (view: ViewId) => {
     if (view === "home") return <HomeScreen initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "events") return <EventsScreen key={ownerId || "guest"} focusEventId={focusEventId} onFocusHandled={() => setFocusEventId("")} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onOpenSaved={() => { navigate("trips"); setSavedSection("events"); }} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
-    if (view === "costs") return <CostsScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
+    if (view === "costs") return <CostsScreen ownerId={ownerId} onPrepareCockpitBudget={prepareCockpitJourney} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
     if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={ownerId || "guest"} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={route => openSeededRoute(route, "surprise")} onNotice={showNotice} />;
     if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
-    if (view === "trips") return <TripsScreen initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
-    if (view === "cockpit") return <CockpitScreen user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
+    if (view === "trips") return <TripsScreen onPrepareCockpit={prepareCockpitJourney} initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "cockpit") return <CockpitScreen journeyIntent={cockpitJourneyIntent?.ownerId === ownerId ? cockpitJourneyIntent : null} onJourneyHandled={() => setCockpitJourneyIntent(null)} user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onNotice={showNotice} />;
     if (view === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;

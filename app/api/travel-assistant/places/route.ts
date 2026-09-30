@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { coordinates } from '@/lib/travel-assistant/places';
 import { getPlaces } from '@/lib/travel-assistant/server';
 export const runtime = 'nodejs';
+export const maxDuration = 30;
 export async function POST(request: NextRequest) {
   if (Number(request.headers.get('content-length')) > 1024) return NextResponse.json({ error: 'Request too large' }, { status: 413 });
   let body;

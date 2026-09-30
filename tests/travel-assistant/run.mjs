@@ -132,7 +132,7 @@ test('Offline map fallback is bounded to one result, its original time, mode and
   const load=createPlacesLoader(async center=>{if(fail)throw Error('offline');return resultAt(now,center);},()=>now);
   assert.equal((await load(berlin,'needs')).stale,false);
   fail=true;now+=60000;
-  const fallback=await load({latitude:52.5201,longitude:13.4001},'needs');
+  const fallback=await load({latitude:52.5201,longitude:13.4001},'needs',{refresh:true});
   assert.equal(fallback.stale,true);assert.equal(fallback.fetchedAt,new Date(fixedNow).toISOString());
   await assert.rejects(()=>load(berlin,'explore'));
   await assert.rejects(()=>load({latitude:48.86,longitude:2.35},'needs'));
@@ -150,7 +150,7 @@ test('A slower previous search cannot overwrite the newest map fallback',async()
   const old=load(berlin,'needs'),latest=load(paris,'needs');
   await Promise.resolve();
   pending[1]();await latest;pending[0]();await old;
-  fail=true;assert.equal((await load(paris,'needs')).stale,true);
+  fail=true;assert.equal((await load(paris,'needs',{refresh:true})).stale,true);
   await assert.rejects(()=>load(berlin,'needs'));
 });
 test('Online and cached FX reject wrong pairs, invalid calendar dates and forged movement',()=>{

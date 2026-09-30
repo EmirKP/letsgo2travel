@@ -51,18 +51,27 @@ export function normalizeCommunityQuestion(value: unknown): CommunityQuestion | 
   };
 }
 
-export async function listCommunityQuestions(limit = 40, accessToken = "") {
-  const response = await requestJson<{ data?: unknown }>("/api/country-community/feed", {
+export type CommunityFeedOptions = { countries?: string[]; searchCountries?: string[]; search?: string; offset?: number };
+export async function listCommunityPage(accessToken = "", options: CommunityFeedOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.countries?.length) params.set("countries", options.countries.join(","));
+  if (options.searchCountries?.length) params.set("searchCountries", options.searchCountries.join(","));
+  if (options.search?.trim()) params.set("search", options.search.trim());
+  if (options.offset) params.set("offset", String(options.offset));
+  const response = await requestJson<{ data?: unknown; nextOffset?: number | null }>(`/api/country-community/feed${params.size ? `?${params}` : ""}`, {
     timeoutMs: 15_000,
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
   });
-  const rows = Array.isArray(response.data) ? response.data : [];
-  return rows
-    .flatMap((item) => {
-      const question = normalizeCommunityQuestion(item);
-      return question ? [question] : [];
-    })
-    .slice(0, Math.max(1, Math.min(40, limit)));
+  if (!Array.isArray(response.data)) throw new Error("invalid_community_feed");
+  const data = response.data.flatMap(item => {
+    const question = normalizeCommunityQuestion(item);
+    return question ? [question] : [];
+  });
+  return { data, nextOffset: typeof response.nextOffset === "number" && response.nextOffset > (options.offset || 0) ? response.nextOffset : null };
+}
+export async function listCommunityQuestions(limit = 40, accessToken = "") {
+  const response = await listCommunityPage(accessToken);
+  return response.data.slice(0, Math.max(1, Math.min(40, limit)));
 }
 
 export type CommunitySafetyTarget = {

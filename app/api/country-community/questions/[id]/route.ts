@@ -80,6 +80,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     const isPaywalled = paywallData;
     const hasFullAccess = !isPaywalled || await hasFullReplyAccess(viewer.userId, supabase, questionId);
+    // A locked preview always starts at zero; offset must never reveal hidden replies.
+    const requestedOffset = Math.max(0, Math.min(100_000, Number.parseInt(new URL(request.url).searchParams.get("offset") || "0", 10) || 0));
+    const offset = hasFullAccess ? requestedOffset : 0;
+    const pageSize = forumReplyLimit(isPaywalled, hasFullAccess);
     let answerQuery = supabase
       .from("forum_replies")
       .select("id,user_id,author_name,content,created_at", { count: "exact" })
@@ -87,7 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .eq("status", "published")
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
-      .limit(forumReplyLimit(isPaywalled, hasFullAccess));
+      .range(offset, offset + pageSize - 1);
     const authorFilter = blockedAuthorFilter("user_id", viewer.hiddenUserIds);
     if (authorFilter) answerQuery = answerQuery.or(authorFilter);
     const { data: answers, error: answersError, count } = await answerQuery;
@@ -125,6 +129,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         ? Math.max(totalAnswerCount - serialized.answers.length, 0)
         : 0,
       hasFullAccess,
+      nextOffset: hasFullAccess && offset + serialized.answers.length < totalAnswerCount ? offset + serialized.answers.length : null,
     };
 
     return NextResponse.json({ data }, { headers: COMMUNITY_PRIVATE_HEADERS });

@@ -136,6 +136,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     ...options.headers,
   };
   const timeoutMs = options.timeoutMs ?? 18_000;
+  const timedOut = () => new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again.", "Kërkesa zgjati tepër. Kontrollo lidhjen dhe provo sërish."), 0, "timeout");
 
   if (isNativePlatform()) {
     const http = plugin("CapacitorHttp");
@@ -150,7 +151,29 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
       responseType: "json",
     };
     try {
-      const response = await http.request(nativeOptions) as { status: number; data: unknown };
+      // CapacitorHttp exposes no request-cancellation handle. Settle the UI's
+      // promise on abort/deadline and ignore late completion; the native socket
+      // may continue until its own timeout. Handle late rejections as well.
+      const response = await new Promise<{ status: number; data: unknown }>((resolve, reject) => {
+        let settled = false;
+        const finish = (ok: boolean, value: unknown) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          options.signal?.removeEventListener("abort", cancel);
+          if (ok) resolve(value as { status: number; data: unknown }); else reject(value);
+        };
+        const cancel = () => finish(false, aborted());
+        const timer = window.setTimeout(() => finish(false, timedOut()), timeoutMs);
+        options.signal?.addEventListener("abort", cancel, { once: true });
+        if (options.signal?.aborted) { cancel(); return; }
+        try {
+          Promise.resolve(http.request(nativeOptions)).then(
+            value => finish(true, value),
+            error => finish(false, error),
+          );
+        } catch (error) { finish(false, error); }
+      });
       if (options.signal?.aborted) throw aborted();
       let data = response.data;
       if (typeof data === "string" && data.trim()) {
@@ -192,7 +215,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     if (error instanceof ApiError) throw error;
     if (options.signal?.aborted) throw aborted();
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again.", "Kërkesa zgjati tepër. Kontrollo lidhjen dhe provo sërish."));
+      throw timedOut();
     }
     throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect.", "Nuk u arrit lidhja."));
   } finally {

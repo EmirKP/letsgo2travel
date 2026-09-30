@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { BudgetCockpitIntent } from "../lib/budgetCockpitIntent";
 import { CityPriceCatalog } from "../components/CityPriceCatalog";
 import { PageHero } from "../components/PageHero";
 import { CountryFlag } from "../components/CountryFlag";
@@ -16,7 +17,7 @@ import { estimateCost, type Area } from "../../../lib/country-intelligence/cost-
 const FALLBACK: CostData[] = PRICE_BASELINES.filter(item => item.quality === "traveller-average").map(baseline => ({ baseline, fx: null, inflation: null }));
 const AREAS = { average: ["Şehir ortalaması", "City average"], centre: ["Merkez", "Centre"], outside: ["Merkez dışı", "Outside"] } as const;
 
-export function CostsScreen({ onOpenCountryNews }: { onOpenCountryNews: (code: string) => void }) {
+export function CostsScreen({ onOpenCountryNews, ownerId, onPrepareCockpitBudget }: { onOpenCountryNews: (code: string) => void; ownerId?: string | null; onPrepareCockpitBudget?: (intent: BudgetCockpitIntent) => void }) {
   const { copy, locale } = useI18n();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"low" | "high" | "name">("low");
@@ -42,7 +43,7 @@ export function CostsScreen({ onOpenCountryNews }: { onOpenCountryNews: (code: s
   const total = budgetTotal(amounts, days, people);
   return <div className="screen costs-screen ci-screen">
     <PageHero scene="coast" title={copy("Ülke Maliyetleri", "Travel Costs")} subtitle={copy("Yerel fiyatı, kuru ve konumu birlikte değerlendir.", "Compare local prices, exchange rates and location.")}/>
-    <CityPriceCatalog onOpenCountryNews={onOpenCountryNews}/>
+    <CityPriceCatalog onOpenCountryNews={onOpenCountryNews} ownerId={ownerId} onPrepareCockpitBudget={onPrepareCockpitBudget}/>
     <details className="ci-content ci-method"><summary>{copy("Eski gezgin ortalamaları · 5 şehir", "Older traveller averages · 5 cities")}</summary>
       <label className="guide-search"><Icon name="search" size={18}/><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={copy("Ülke veya şehir ara…", "Search country or city…")} aria-label={copy("Maliyetlerde ara", "Search costs")}/></label>
       <p className="ci-muted">{area === "average" ? copy("Kaynaklı şehir tahminleri · Kişi başı günlük bütçe, uçuş hariç. Rezervasyon fiyatı değildir.", "Sourced city estimates · Daily budget per traveller, flights excluded. Not booking quotes.") : copy("Konum seçimi bir planlama senaryosudur. Mahalle fiyatı ölçümü değildir; gerçek teklifler için şehir detayındaki karşılaştırmayı kullan.", "Location is a planning scenario, not measured neighbourhood pricing. Use the quote comparison in city details for actual offers.")}</p>

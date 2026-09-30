@@ -76,6 +76,12 @@ function flight() {
 }
 const dates = load('mobile/src/lib/dates.ts', {});
 const cockpitForm = load('mobile/src/lib/cockpitForm.ts', { './dates': dates, '../../../lib/airport-time-zones': airportZones, '../../../lib/zoned-time': zones });
+const countryData = load('mobile/src/data/countries.ts', { './iso3166.json': { default: JSON.parse(readFileSync('mobile/src/data/iso3166.json', 'utf8')) } });
+const countryIso = load('mobile/src/data/countryIso.ts', { './countries': countryData });
+const journeyCountries = load('mobile/src/lib/journeyCountry.ts', {
+  '../data/airportPicks': load('mobile/src/data/airportPicks.ts', {}), '../data/countries': countryData,
+  '../data/countryIso': countryIso, './locales/sq-regions': load('mobile/src/lib/locales/sq-regions.ts', {}),
+});
 const progress = load('lib/flight-progress.ts', {});
 const flightSelection = load('mobile/src/lib/flightSelection.ts', { '../../../lib/zoned-time': zones, '../../../lib/flight-progress': progress });
 function lookupHarness() {
@@ -155,35 +161,148 @@ test('Malformed and mismatched flight responses never render selectable routes',
 });
 
 function cockpitHarness(initialTrips = [], missingAirportZone = "") {
-  const host = hookHost(), creates = [], updates = [], notices = [], reminders = [], loadArgs = [], timers = [], refreshes = [];
+  const host = hookHost(), creates = [], updates = [], deletes = [], notices = [], reminders = [], loadArgs = [], timers = [], refreshes = [];
   let interval;
   let id = 0, timerId = 0;
   const jobs = new Map(), events = new Map();
   const on = (name, fn) => { if (!events.has(name)) events.set(name, new Set()); events.get(name).add(fn); };
   const off = (name, fn) => events.get(name)?.delete(fn);
   const fire = name => [...(events.get(name) || [])].forEach(fn => fn());
-  const document = { visibilityState: 'visible', addEventListener: on, removeEventListener: off };
+  const document = { visibilityState: 'visible', addEventListener: on, removeEventListener: off, getElementById: () => null };
   const navigator = { onLine: true };
   const testModule = load('mobile/src/screens/CockpitScreen.tsx', {
     react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': {},
     '../components/AirportField': { AirportField: 'AirportField' }, '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../components/DateTimeField': { DateTimeField: 'DateTimeField' }, '../components/Icon': { Icon: 'Icon' },
+    '../components/CockpitTripEditor': { CockpitTripEditor: 'CockpitTripEditor' }, '../components/Sheet': { Sheet: 'Sheet' }, '../lib/journeyCountry': journeyCountries,
+    '../components/CockpitJourneySection': { CockpitJourneySection: 'CockpitJourneySection' }, '../lib/cockpitJourney': { validJourneyIntent: (intent, owner) => intent?.ownerId === owner },
     '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' }, '../components/CockpitTicketImport': { CockpitTicketImport: 'CockpitTicketImport' }, '../components/CockpitFlightDetails': { CockpitFlightDetails: 'CockpitFlightDetails' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CockpitFlightLookup': { CockpitFlightLookup: 'CockpitFlightLookup' },
-    '../data/countries': { COUNTRY_LIST: [{ alpha3: 'GBR', name: 'United Kingdom' }] },
-    '../data/countryIso': { alpha2FromAlpha3: () => 'GB', alpha3FromAlpha2: () => 'GBR' },
+    '../data/countries': countryData,
+    '../data/countryIso': countryIso,
     '../lib/airports': { searchAirports: async query => [flight().origin, flight().destination].filter(a => a.iata === query) }, '../../../lib/flight-progress': progress, '../lib/flightSelection': flightSelection, '../../../lib/airport-time-zones': { ...airportZones, airportTimeZone: (iata, fallback) => iata === missingAirportZone ? fallback : airportZones.airportTimeZone(iata, fallback) }, '../../../lib/zoned-time': zones, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
     '../lib/liveActivity': { PROVIDER_ACTIVITY_MIN_RETENTION_MS: 13 * 3600000, syncFlightReminders: async trips => { reminders.push(trips); }, endAllFlightActivities: async () => {} },
     '../lib/id': { createId: () => `test-item-${++id}` }, '../lib/i18n': { useI18n: () => i18n.en }, '../lib/native': { openExternal: async () => true },
     '../lib/supabaseData': { refreshCockpitFlight: (user, tripId, token, signal) => { const wait = deferred(); refreshes.push({ user, tripId, token, signal, ...wait }); return wait.promise; }, listCockpitTrips: async (...args) => { loadArgs.push(args); return initialTrips; }, areFlightFieldsSupported: () => true, getSupabaseDataErrorMessage: (_, fallback) => fallback,
-      updateCockpitTrip: (user, tripId, payload, token) => { const wait = deferred(); updates.push({ user, tripId, payload, token, ...wait }); return wait.promise; },
+      deleteCockpitTrip: (user, tripId, token, version) => { const wait = deferred(); deletes.push({ user, tripId, token, version, ...wait }); return wait.promise; },
+      updateCockpitTrip: (user, tripId, payload, token, version) => { const wait = deferred(); updates.push({ user, tripId, payload, token, version, ...wait }); return wait.promise; },
+      updateCockpitChecklist: (user, trip, checklistItems, token) => { const wait = deferred(); updates.push({ user, tripId: trip.id, payload: { checklistItems }, token, version: trip.updatedAt, ...wait }); return wait.promise; },
       createCockpitTrip: (user, payload, token) => { const wait = deferred(); creates.push({ user, payload, token, ...wait }); return wait.promise; } },
-  }, { navigator, setTimeout: (fn, delay) => { timers.push(delay); jobs.set(++timerId, { fn, delay }); return timerId; }, clearTimeout: key => jobs.delete(key), window: { addEventListener: on, removeEventListener: off, setInterval: fn => { interval = fn; return 1; }, clearInterval: () => {}, confirm: () => true }, document });
+  }, { navigator, setTimeout: (fn, delay) => { timers.push(delay); jobs.set(++timerId, { fn, delay }); return timerId; }, clearTimeout: key => jobs.delete(key), window: { addEventListener: on, removeEventListener: off, setInterval: fn => { interval = fn; return 1; }, clearInterval: () => {}, requestAnimationFrame: fn => fn(), confirm: () => { throw new Error('Native popup unavailable'); } }, document });
   host.start(testModule.CockpitScreen, { user: { id: 'test-user-a' }, accessToken: 'UNIT_TEST_SESSION_A', onOpenAccount: () => {}, onNotice: value => notices.push(value) });
-  return { host, creates, updates, notices, reminders, loadArgs, timers, refreshes, jobs, runTimer(delay) { const job = [...jobs].find(([, job]) => job.delay === delay); assert.ok(job, `No timer for ${delay}`); jobs.delete(job[0]); job[1].fn(); }, visibility(value) { document.visibilityState = value; fire('visibilitychange'); }, online(value) { navigator.onLine = value; fire(value ? 'online' : 'offline'); }, advance(milliseconds) { now += milliseconds; interval?.(); fire('visibilitychange'); return host.render(); }, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
+  return { host, creates, updates, deletes, notices, reminders, loadArgs, timers, refreshes, jobs, runTimer(delay) { const job = [...jobs].find(([, job]) => job.delay === delay); assert.ok(job, `No timer for ${delay}`); jobs.delete(job[0]); job[1].fn(); }, visibility(value) { document.visibilityState = value; fire('visibilitychange'); }, online(value) { navigator.onLine = value; fire(value ? 'online' : 'offline'); }, advance(milliseconds) { now += milliseconds; interval?.(); fire('visibilitychange'); return host.render(); }, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
 }
 const lookup = tree => find(tree, 'CockpitFlightLookup');
 const tripForm = tree => find(tree, 'form', props => props.id === 'cockpit-trip-form');
 const dateField = (tree, label) => find(tree, 'DateTimeField', props => props.label === label);
+
+test('Route country import treats IATA separately and accepts only matching destination metadata or exact country names', () => {
+  const route = (destinationCode, country = 'Unknown', input = null) => ({ kind: 'saved-route', ownerId: 'test-user-a', route: { name: 'A beautiful coast', cityOrRegion: 'Bodrum', destinationCode, country }, input });
+  const fixed = { mode: 'fixed', destination: { code: 'BJV', name: 'Bodrum', country: 'Türkiye', countryCode: 'TR' } };
+  assert.equal(journeyCountries.journeyCountry(route('BJV', 'Unknown', fixed)).alpha3, 'TUR');
+  assert.equal(journeyCountries.journeyCountry(route('', 'Unknown', fixed)).alpha3, 'TUR');
+  assert.equal(journeyCountries.journeyCountry(route('FCO', 'Unknown', fixed)).alpha3, 'ITA');
+  assert.equal(journeyCountries.journeyCountry(route('CAN')), null, 'IATA CAN must not silently become Canada');
+  assert.equal(journeyCountries.journeyCountry(route('BJV')), null, 'Unknown country requires selection rather than guessing from an unbundled IATA code');
+  for (const name of ['Türkiye', 'Turkey', 'Turqi']) assert.equal(journeyCountries.journeyCountry(route('BJV', name)).alpha3, 'TUR');
+  assert.equal(journeyCountries.journeyCountry(route('ZZZ', 'Shqipëri')).alpha3, 'ALB');
+  assert.equal(journeyCountries.journeyCountry(route('ZZZ', 'North Turkey coast')), null);
+  assert.equal(journeyCountries.journeyCountry({ kind: 'city-budget', countryCode: 'BA' }).alpha3, 'BIH');
+});
+
+test('A fixed Bodrum route prefills Turkey and dates; an unresolved country stays user-selectable', async () => {
+  const h = cockpitHarness();
+  const intent = { kind: 'saved-route', ownerId: 'test-user-a', route: { name: 'A beautiful coast', cityOrRegion: 'Bodrum', destinationCode: 'BJV', country: 'Unknown' }, input: { mode: 'fixed', destination: { code: 'BJV', name: 'Bodrum', countryCode: 'TR' } }, dates: { startDate: '2026-10-08', endDate: '2026-10-11' } };
+  try {
+    await tick();
+    find(h.host.render(), 'CockpitJourneySection').props.onCreateTrip(intent);
+    let view = h.host.render();
+    assert.equal(find(view, 'CountryPicker').props.value, 'TUR');
+    assert.equal(dateField(view, 'Start').props.value, '2026-10-08');
+    find(view, 'CockpitJourneySection').props.onCreateTrip({ ...intent, input: null });
+    view = h.host.render(); assert.equal(find(view, 'CountryPicker').props.value, '');
+    find(view, 'CountryPicker').props.onChange('ITA');
+    assert.equal(find(h.host.render(), 'CountryPicker').props.value, 'ITA');
+  } finally { h.host.dispose(); }
+});
+
+test('Trip deletion uses explicit in-app confirmation and submits only once without a native popup', async () => {
+  const base = managedTrip(), h = cockpitHarness([base]);
+  const open = () => find(h.host.render(), 'button', props => props['aria-label'] === 'Delete trip').props.onClick();
+  const sheet = () => find(h.host.render(), 'Sheet', props => props.title === 'Delete trip');
+  try {
+    await tick(); open();
+    assert.equal(sheet().props.open, true); assert.equal(h.deletes.length, 0);
+    button(sheet(), 'Cancel').props.onClick(); assert.equal(sheet().props.open, false); assert.equal(h.deletes.length, 0);
+    open();const confirm = button(sheet(), 'Yes, delete trip'); confirm.props.onClick();confirm.props.onClick();
+    assert.equal(h.deletes.length, 1);assert.equal(h.deletes[0].tripId, base.id);assert.equal(h.deletes[0].version, base.updatedAt);
+    assert.equal(sheet().props.dismissible, false);assert.equal(button(sheet(), 'Deleting…').props.disabled, true);
+    h.deletes[0].resolve();await tick();
+    assert.equal(sheet().props.open, false);assert.ok(h.notices.some(value => /removed from your cockpit/.test(value)));
+    assert.ok(h.reminders.at(-1).some(trip => trip.id === base.id && trip.status === 'cancelled'));
+  } finally { h.host.dispose(); }
+});
+
+test('Trip deletion confirmation is invalidated by session changes and failed deletes preserve the trip', async () => {
+  for (const beforeSubmit of [true, false]) {
+    const h = cockpitHarness([managedTrip()]);
+    try {
+      await tick();find(h.host.render(), 'button', props => props['aria-label'] === 'Delete trip').props.onClick();
+      const confirm = button(find(h.host.render(), 'Sheet'), 'Yes, delete trip');
+      if (!beforeSubmit) confirm.props.onClick();
+      h.host.render({ accessToken: 'UNIT_TEST_SESSION_B' });
+      assert.equal(find(h.host.render(), 'Sheet').props.open, false);
+      if (beforeSubmit) { confirm.props.onClick(); assert.equal(h.deletes.length, 0); }
+      else { h.deletes[0].resolve();await tick();assert.equal(h.notices.length, 0); }
+    } finally { h.host.dispose(); }
+  }
+  const h = cockpitHarness([managedTrip()]);
+  try {
+    await tick();find(h.host.render(), 'button', props => props['aria-label'] === 'Delete trip').props.onClick();
+    button(find(h.host.render(), 'Sheet'), 'Yes, delete trip').props.onClick();h.deletes[0].reject(new Error('network failed'));await tick();await tick();
+    const view = h.host.render();assert.equal(find(view, 'Sheet').props.open, false);assert.match(text(view), /trip could not be deleted/);
+    assert.ok(find(view, 'button', props => props['aria-label'] === 'Delete trip'));assert.equal(h.notices.length, 0);
+  } finally { h.host.dispose(); }
+});
+
+test('Failed checklist save retains the draft; successful save does not clear newer typing', async () => {
+  const base = managedTrip(), h = cockpitHarness([base]);
+  try {
+    await tick();
+    const editor = () => find(h.host.render(), 'input', props => props['aria-label'] === 'New checklist item');
+    editor().props.onChange({ target: { value: 'Pack medication' } });
+    find(h.host.render(), 'form', props => props.className === 'cockpit-checklist-form').props.onSubmit({ preventDefault() {} });
+    assert.equal(h.updates.length, 1); assert.equal(editor().props.value, 'Pack medication');
+    h.updates[0].reject(new Error('503')); await tick(); await tick();
+    assert.equal(editor().props.value, 'Pack medication');
+    find(h.host.render(), 'form', props => props.className === 'cockpit-checklist-form').props.onSubmit({ preventDefault() {} });
+    editor().props.onChange({ target: { value: 'Next item while saving' } });
+    h.updates[1].resolve({ ...base, checklistItems: h.updates[1].payload.checklistItems }); await tick();
+    assert.equal(editor().props.value, 'Next item while saving');
+  } finally { h.host.dispose(); }
+});
+
+test('Trip edits update the same identity with a version guard and keep personal attachments', async () => {
+  const base = managedTrip(), h = cockpitHarness([base]);
+  try {
+    await tick(); button(h.host.render(), 'Edit trip').props.onClick();
+    const editor = find(h.host.render(), 'CockpitTripEditor');
+    const saving = editor.props.onSave(base, { flightPnr: 'NEW123', endDate: '2026-10-11' });
+    assert.equal(h.updates[0].tripId, base.id); assert.equal(h.updates[0].version, base.updatedAt);
+    assert.equal(h.creates.length, 0); assert.equal(h.updates[0].payload.checklistItems, undefined);
+    h.updates[0].reject(new Error('Conflict')); assert.equal(await saving, false);
+    assert.equal(find(h.host.render(), 'CockpitTripEditor').props.trip.id, base.id);
+    assert.match(find(h.host.render(), 'CockpitTripEditor').props.error, /draft is kept/);
+  } finally { h.host.dispose(); }
+});
+
+test('Albanian ticket labels and accents extract explicit dates without guessing ambiguous itineraries', () => {
+  const parser = load('mobile/src/lib/ticketText.ts', { './dates': dates });
+  const text = 'Fluturimi: TK2500\nIST -> BJV\nNisja: 05 tetor 2026 10:00\nMbërritja: 05 tetor 2026 11:20\nKodi i rezervimit: SQTEST';
+  const result = parser.parseTicketText(text);
+  assert.equal(result.fields.departureDate, '2026-10-05'); assert.equal(result.fields.arrivalTime, '11:20');
+  assert.equal(result.fields.flightNumber, 'TK2500'); assert.equal(result.fields.flightPnr, 'SQTEST');
+  assert.equal(parser.parseTicketText(text + '\nNisja: 06 tetor 2026 10:00').fields.departureDate, '');
+});
 
 test('Successful overnight flight save is optional-PNR, single-submit, and clears the previous match on reopen', async () => {
   const h = cockpitHarness();

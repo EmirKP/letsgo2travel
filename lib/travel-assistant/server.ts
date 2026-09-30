@@ -5,7 +5,9 @@ import { makeQuote } from './money';
 import type { Coordinates, MapMode, PlacesResult } from './types';
 
 import { queryOverpass } from './overpass';
+import { createMapResultCache } from './result-cache';
 const pending = new Map<string, Promise<PlacesResult>>();
+const lastPlaces = createMapResultCache<PlacesResult>(value => value.fetchedAt);
 async function readProvider(center: Coordinates, mode: MapMode): Promise<PlacesResult> {
   const raw = await queryOverpass(overpassQuery(center, mode)) as { elements: unknown[] };
   const fetchedAt = new Date().toISOString();
@@ -20,9 +22,20 @@ const cachedPlaces = unstable_cache(async (lat: number, lon: number, mode: MapMo
 export async function getPlaces(center: Coordinates, mode: MapMode) {
   const c = coarseLocation(center);
   const key = `${c.latitude}:${c.longitude}:${mode}`;
+  const fresh = lastPlaces.read(key, true); if (fresh) return fresh;
   const hit = pending.get(key); if (hit) return hit;
   if (pending.size >= 16) throw new Error('Map service busy');
-  const operation = cachedPlaces(c.latitude, c.longitude, mode);
+  const operation = cachedPlaces(c.latitude, c.longitude, mode)
+    .then(value => {
+      lastPlaces.remember(key, value);
+      // Next may serve an older snapshot while revalidating in the background.
+      return lastPlaces.read(key, true) ? value : { ...value, stale: true };
+    })
+    .catch(error => {
+      const previous = lastPlaces.read(key);
+      if (previous) return { ...previous, stale: true };
+      throw error;
+    });
   pending.set(key, operation);
   try { return await operation; } finally { pending.delete(key); }
 }

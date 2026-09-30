@@ -5,7 +5,9 @@ import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet } from "../components/CommunitySafetySheet";
 import { LegalSheet } from "../components/LegalSheet";
 import { COUNTRY_LIST } from "../data/countries";
-import { alpha3ToGeoId, geoIdToAlpha3 } from "../data/countryCodes";
+import { profileIdsForAlpha3 } from "../data/countryCodes";
+import { alpha3FromAlpha2 } from "../data/countryIso";
+import { reconcileProfileCountries } from "../lib/profileCountries";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { VerificationForm } from "../components/VerificationForm";
@@ -18,6 +20,7 @@ import {
   getMobilePreferences,
   getSavedRoutePlans,
   getVisitedCountries,
+  getPendingGuestDataSync,
   saveMobilePreferences,
   setFavoriteDestinations,
   setVisitedCountries,
@@ -41,33 +44,8 @@ function explorerLevel(count: number) {
   return "Yeni Kaşif";
 }
 
-const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
-
-function alpha3FromProfileId(id: string) {
-  const normalized = id.trim().toUpperCase();
-  if (COUNTRY_BY_ALPHA3.has(normalized)) return normalized;
-  return geoIdToAlpha3(normalized);
-}
-
-function destinationsFromProfileIds(ids: string[]): FavoriteDestination[] {
-  return ids.flatMap((id) => {
-    const alpha3 = alpha3FromProfileId(id);
-    const country = alpha3 ? COUNTRY_BY_ALPHA3.get(alpha3) : null;
-    return country ? [{ ...country, createdAt: new Date(0).toISOString() }] : [];
-  });
-}
-
-function mergeDestinations(...lists: FavoriteDestination[][]) {
-  return lists.flat().filter((item, index, all) => all.findIndex((other) => other.alpha3 === item.alpha3) === index);
-}
-
 function profileIdsForDestinations(original: string[], destinations: FavoriteDestination[]) {
-  const preserved = original.filter((id) => !alpha3FromProfileId(id));
-  const mapped = destinations.flatMap((item) => {
-    const geoId = alpha3ToGeoId(item.alpha3);
-    return geoId ? [geoId] : [];
-  });
-  return Array.from(new Set([...preserved, ...mapped]));
+  return profileIdsForAlpha3(original, destinations.map(country => country.alpha3));
 }
 
 export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice }: {
@@ -91,8 +69,12 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const [preferences, setPreferences] = useState<MobilePreferences>(() => getMobilePreferences());
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(false);
+  const [profileReload, setProfileReload] = useState(0);
   const [profileBusy, setProfileBusy] = useState("");
   const [verifications, setVerifications] = useState<TravelVerification[]>([]);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationError, setVerificationError] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [pushState, setPushState] = useState<PushPermissionSummary>("unsupported");
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -143,15 +125,19 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       setProfile(null);
       setVerifications([]);
       setProfileLoading(false);
+      setProfileError(false); setVerificationLoading(false); setVerificationError(false);
       return;
     }
 
     setProfileLoading(true);
+    setProfileError(false); setVerificationLoading(true); setVerificationError(false);
     void Promise.allSettled([getUserProfile(user.id, accessToken), getTravelVerifications(accessToken)])
-      .then(async ([profileResult, verificationResult]) => {
+      .then(([profileResult, verificationResult]) => {
         if (!active) return;
         if (verificationResult.status === "fulfilled") setVerifications(verificationResult.value);
+        else setVerificationError(true);
         if (profileResult.status !== "fulfilled" || !profileResult.value) {
+          setProfileError(true);
           onNotice(profileResult.status === "rejected"
             ? getSupabaseDataErrorMessage(profileResult.reason, copy("Profil eşitlenemedi.", "Your profile could not be synced."))
             : copy("Profil kaydı bulunamadı.", "Your profile record could not be found."));
@@ -159,28 +145,16 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         }
 
         const remote = profileResult.value;
-        const mergedVisited = mergeDestinations(destinationsFromProfileIds(remote.visitedCountries), getVisitedCountries(ownerId));
-        const mergedWishlist = mergeDestinations(destinationsFromProfileIds(remote.wishlistCountries), getFavoriteDestinations(ownerId));
+        const pendingImport = Boolean(ownerId && getPendingGuestDataSync(ownerId)?.profile);
+        const mergedVisited = reconcileProfileCountries(remote.visitedCountries, getVisitedCountries(ownerId), pendingImport);
+        const mergedWishlist = reconcileProfileCountries(remote.wishlistCountries, getFavoriteDestinations(ownerId), pendingImport);
         setVisitedCountries(mergedVisited, ownerId);
         setFavoriteDestinations(mergedWishlist, ownerId);
-        const nextVisitedIds = profileIdsForDestinations(remote.visitedCountries, mergedVisited);
-        const nextWishlistIds = profileIdsForDestinations(remote.wishlistCountries, mergedWishlist);
-        const needsMerge = JSON.stringify(nextVisitedIds) !== JSON.stringify(remote.visitedCountries)
-          || JSON.stringify(nextWishlistIds) !== JSON.stringify(remote.wishlistCountries);
-        if (needsMerge) {
-          try {
-            const synced = await updateUserProfile(user.id, { visitedCountries: nextVisitedIds, wishlistCountries: nextWishlistIds }, accessToken);
-            if (active) setProfile(synced);
-          } catch {
-            if (active) setProfile(remote);
-          }
-        } else {
-          setProfile(remote);
-        }
+        setProfile(remote);
       })
-      .finally(() => { if (active) setProfileLoading(false); });
+      .finally(() => { if (active) { setProfileLoading(false); setVerificationLoading(false); } });
     return () => { active = false; };
-  }, [accessToken, copy, onNotice, ownerId, user]);
+  }, [accessToken, copy, onNotice, ownerId, user, profileReload]);
 
   const visited = useMemo(() => getVisitedCountries(ownerId), [ownerId, tick]);
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, tick]);
@@ -266,7 +240,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   };
 
   const toggleCountry = async (country: Omit<FavoriteDestination, "createdAt">) => {
-    if (profileBusy) return;
+    if (profileBusy || (user && (profileLoading || profileError || !profile))) return;
     const previous = getVisitedCountries(ownerId);
     const next = toggleVisitedCountry(country, ownerId);
     setTick((value) => value + 1);
@@ -277,6 +251,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       const updated = await updateUserProfile(user.id, {
         visitedCountries: profileIdsForDestinations(profile.visitedCountries, next),
       }, accessToken);
+      if (!updated) throw new Error("profile missing");
       setProfile(updated);
       onNotice(copy("Ziyaret haritan web hesabınla eşitlendi.", "Your visited map is synced with your web account."));
     } catch (error) {
@@ -289,12 +264,14 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   };
 
   const toggleLeaderboard = async (enabled: boolean) => {
-    if (!user || !accessToken || !profile || profileBusy) return;
+    if (!user || !accessToken || !profile || profileBusy || profileLoading || profileError) return;
     setProfileBusy("leaderboard");
     const previous = profile;
     setProfile({ ...profile, optInLeaderboard: enabled });
     try {
-      setProfile(await updateUserProfile(user.id, { optInLeaderboard: enabled }, accessToken));
+      const updated = await updateUserProfile(user.id, { optInLeaderboard: enabled }, accessToken);
+      if (!updated) throw new Error("profile missing");
+      setProfile(updated);
       onNotice(enabled ? copy("Kaşifler Ligi'ne katıldın.", "You joined the Explorer League.") : copy("Profilin ligden gizlendi.", "Your profile is hidden from the league."));
     } catch (error) {
       setProfile(previous);
@@ -330,6 +307,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     </section>
 
     <section className="profile-section">
+      {profileError && <div className="info-box error" role="alert"><p>{copy("Profil bilgilerin yüklenemedi. Cihazdaki kayıtların korunuyor.", "Your profile could not load. Your saved device data is kept.", "Profili nuk u ngarkua. Të dhënat në pajisje ruhen.")}</p><button type="button" onClick={() => setProfileReload(value => value + 1)}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div>}
       <div className="section-heading"><div><span>{copy("SEYAHAT PROFİLİN", "YOUR TRAVEL PROFILE")}</span><h2>{copy("Kaşif alanın", "Explorer space")}</h2></div></div>
       {isAdmin && <div className="profile-action-list profile-admin-list"><button className="admin-entry" onClick={() => onNavigate("admin")}><span><Icon name="shield" size={21} /></span><div><strong>{copy("Admin Paneli", "Admin Console")}</strong><small>{copy("Site ve uygulamanın canlı yönetim merkezi", "Live management for web and app")}</small></div><Icon name="chevron" size={17} /></button></div>}
       <div className="profile-action-list profile-travel-shortcuts">
@@ -363,7 +341,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon"><Icon name="lock" size={21}/></span><span><strong>{copy("Gizlilik ve topluluk", "Privacy & community")}</strong><small>{copy("Görünürlük, engellenenler ve veri hakların", "Visibility, blocked users and your data rights")}</small></span><Icon name="chevron" size={18}/></summary>
       <div className="settings-card">
-        {user && <label><span><Icon name="users" size={19} /><em><strong>{copy("Kaşifler Ligi'nde görün", "Appear in Explorer League")}</strong><small>{copy("Yalnız güvenli profil özeti paylaşılır", "Only a safe profile summary is shared")}</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
+        {user && <label><span><Icon name="users" size={19} /><em><strong>{copy("Kaşifler Ligi'nde görün", "Appear in Explorer League")}</strong><small>{copy("Yalnız güvenli profil özeti paylaşılır", "Only a safe profile summary is shared")}</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || profileError || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><span><Icon name="unlock" size={19} /><em><strong>{copy("Engellenen kullanıcılar", "Blocked users")}</strong><small>{copy("Engellediğin kişileri gör ve engeli kaldır", "View and unblock people")}</small></em></span><Icon name="chevron" size={17} /></button>
         <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
       </div>
@@ -389,7 +367,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       <div className="visited-country-list">
         {visibleCountries.map((country) => {
           const selected = visitedCodes.has(country.alpha3);
-          return <button type="button" className={selected ? "selected" : ""} key={country.alpha3} aria-pressed={selected} disabled={Boolean(profileBusy)} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{countryName(country.alpha3, country.name)}</strong><small>{profileBusy === `country-${country.alpha3}` ? copy("Kaydediliyor", "Saving") : country.alpha3}</small></button>;
+          return <button type="button" className={selected ? "selected" : ""} key={country.alpha3} aria-pressed={selected} disabled={Boolean(profileBusy) || Boolean(user && (profileLoading || profileError || !profile))} onClick={() => void toggleCountry(country)}><span><Icon name={selected ? "check" : "plus"} size={17} /></span><strong>{countryName(country.alpha3, country.name)}</strong><small>{profileBusy === `country-${country.alpha3}` ? copy("Kaydediliyor", "Saving") : country.alpha3}</small></button>;
         })}
       </div>
       {visibleCountryCount < countries.length && <button className="country-load-more" type="button" onClick={() => setVisibleCountryCount((count) => count + 60)}>{copy("Daha fazla ülke göster", "Show more countries")} <span>{copy(`${countries.length - visibleCountryCount} kaldı`, `${countries.length - visibleCountryCount} left`, `Edhe ${countries.length - visibleCountryCount}`)}</span></button>}
@@ -402,20 +380,22 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         accessToken={accessToken}
         onNotice={onNotice}
         onSubmitted={() => {
-          void getTravelVerifications(accessToken).then((rows) => setVerifications(rows)).catch(() => undefined);
+          setProfileReload(value => value + 1);
         }}
       />}
 
       <div className="verification-list">
+        {verificationLoading && <p role="status">{copy("Doğrulamalar yükleniyor…", "Loading verifications…", "Duke ngarkuar verifikimet…")}</p>}
+        {verificationError && <div className="info-box error" role="alert"><p>{copy("Doğrulamalar yüklenemedi. Başvuruların silinmedi; tekrar deneyebilirsin.", "Verifications could not load. Your submissions were not removed; try again.", "Verifikimet nuk u ngarkuan. Aplikimet nuk janë fshirë; provo sërish.")}</p><button type="button" onClick={() => setProfileReload(value => value + 1)}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div>}
         {verifications.map((item) => <article key={item.id}>
           <span className={`verification-status status-${item.status || "pending"}`}><Icon name={item.status === "approved" ? "check" : item.status === "rejected" ? "close" : "info"} size={17} /></span>
           <div>
-            <strong>{item.country_name || item.country_code || copy("Seyahat belgesi", "Travel document")}</strong>
+            <strong>{countryName(alpha3FromAlpha2(item.country_code || ""), item.country_name || item.country_code || copy("Seyahat belgesi", "Travel document"))}</strong>
             <small>{item.status === "approved" ? copy("Onaylandı", "Approved") : item.status === "rejected" ? copy("Reddedildi", "Rejected") : item.status === "expired" ? copy("Süresi doldu", "Expired") : copy("İnceleniyor", "Under review")}</small>
             {item.status === "rejected" && item.admin_note && <p className="verification-reject-note">{copy("Ret nedeni", "Reason")}: {item.admin_note}</p>}
           </div>
         </article>)}
-        {!verifications.length && <div className="empty-state compact"><span><Icon name="shield" size={26} /></span><strong>{copy("Henüz doğrulama yok", "No verifications yet")}</strong><p>{copy("İlk başvurunu yukarıdaki formla uygulama içinden gönderebilirsin.", "Submit your first application with the form above.")}</p></div>}
+        {!verificationLoading && !verificationError && !verifications.length && <div className="empty-state compact"><span><Icon name="shield" size={26} /></span><strong>{copy("Henüz doğrulama yok", "No verifications yet")}</strong><p>{copy("İlk başvurunu yukarıdaki formla uygulama içinden gönderebilirsin.", "Submit your first application with the form above.")}</p></div>}
       </div>
     </Sheet>
   </div>;

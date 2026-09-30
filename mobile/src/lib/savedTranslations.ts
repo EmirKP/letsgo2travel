@@ -21,32 +21,49 @@ function validCard(value: unknown): value is TranslationCard {
     typeof p.translation === "string" && !!p.translation.trim() && p.translation.length <= 12000;
 }
 
-export function readSavedTranslations(): SavedTranslation[] {
+export type SavedTranslationState = { items: SavedTranslation[]; error: "corrupt" | "unavailable" | null };
+export function readSavedTranslationState(): SavedTranslationState {
+  let raw: string | null;
+  try { raw = localStorage.getItem(KEY); }
+  catch { return { items: [], error: "unavailable" }; }
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw || raw.length > MAX_BYTES) return [];
+    if (!raw) return { items: [], error: null };
+    if (new Blob([raw]).size > MAX_BYTES) return { items: [], error: "corrupt" };
     const values: unknown = JSON.parse(raw);
-    if (!Array.isArray(values)) return [];
+    if (!Array.isArray(values)) return { items: [], error: "corrupt" };
+    let corrupt = values.length > MAX_SAVED_TRANSLATIONS;
     const seen = new Set<string>();
     const result: SavedTranslation[] = [];
     for (const value of values.slice(0, MAX_SAVED_TRANSLATIONS)) {
-      if (!validCard(value)) continue;
+      if (!validCard(value)) { corrupt = true; continue; }
       const p = value as SavedTranslation;
       if (typeof p.id !== "string" || !/^[a-z\d-]{10,80}$/i.test(p.id) || seen.has(p.id) ||
-        typeof p.savedAt !== "string" || !Number.isFinite(Date.parse(p.savedAt)) || Date.parse(p.savedAt) > Date.now() + 60000) continue;
+        typeof p.savedAt !== "string" || !Number.isFinite(Date.parse(p.savedAt)) || Date.parse(p.savedAt) > Date.now() + 60000) { corrupt = true; continue; }
       seen.add(p.id);
       result.push({ id: p.id, savedAt: p.savedAt, source: p.source, target: p.target, text: p.text, translation: p.translation });
     }
-    return result;
+    return { items: result, error: corrupt ? "corrupt" : null };
   } catch {
-    return [];
+    return { items: [], error: "corrupt" };
   }
+}
+export function readSavedTranslations(): SavedTranslation[] {
+  return readSavedTranslationState().items;
+}
+function writableTranslations() {
+  const state = readSavedTranslationState();
+  if (state.error) throw new Error(state.error);
+  return state.items;
+}
+/** Invoke only after the user confirms removal of all translation cards. */
+export function resetSavedTranslations() {
+  localStorage.removeItem(KEY);
 }
 
 export function saveTranslation(card: TranslationCard): SavedTranslation[] {
   if (!validCard(card)) throw new Error("invalid");
   const clean = { source: card.source, target: card.target, text: card.text.trim(), translation: card.translation.trim() };
-  const existing = readSavedTranslations();
+  const existing = writableTranslations();
   const duplicate = existing.find((p) => p.source === clean.source && p.target === clean.target && p.text === clean.text && p.translation === clean.translation);
   const remaining = existing.filter((p) => p.id !== duplicate?.id);
   if (remaining.length >= MAX_SAVED_TRANSLATIONS) throw new Error("full");
@@ -59,7 +76,7 @@ export function saveTranslation(card: TranslationCard): SavedTranslation[] {
 }
 
 export function deleteSavedTranslation(id: string): SavedTranslation[] {
-  const next = readSavedTranslations().filter((card) => card.id !== id);
+  const next = writableTranslations().filter((card) => card.id !== id);
   localStorage.setItem(KEY, JSON.stringify(next));
   return next;
 }

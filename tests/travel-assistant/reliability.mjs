@@ -137,3 +137,88 @@ test('Albanian weather suggestions remain Albanian and invalid coordinates never
   const response=await route.POST(request({...center,locale:'sq',interest:'calm',budget:'free'}));
   const {data}=await response.json(); assert.equal(data.weather.description,'Kthjellët');assert.match(data.recommendations[0].title,/shëtitje/);assert.match(data.privacy,/Vendndodhja/);
 });
+
+test('Map cooldown honors Retry-After and diagnostics never expose configured URLs or queries',async()=>{
+  let now=100000, calls=0; const logs=[];
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{TRAVEL_OVERPASS_URL:'https://maps.example.test/interpreter?key=private-token'}},
+    Date:class extends Date {static now(){return now;}}, console:{warn:(...args)=>logs.push(args)},
+    fetch:async()=>{calls++;return new Response('',{status:429,headers:{'retry-after':'120'}});},
+  });
+  await assert.rejects(provider.queryOverpass('exact location 41.12345,28.12345'),/declined/);
+  now+=61000;
+  await assert.rejects(provider.queryOverpass('another query'),/busy/); assert.equal(calls,1);
+  now+=60000;
+  await assert.rejects(provider.queryOverpass('retry query'),/declined/); assert.equal(calls,2);
+  assert.equal(logs[0][0],'travel_map_provider_failure'); assert.equal(logs[0][1].provider,'configured');
+  assert.equal(logs[0][1].code,'http-429'); assert.equal(logs[0][1].durationMs,0);
+  assert.doesNotMatch(JSON.stringify(logs),/private-token|maps\.example|41\.12345|28\.12345|query/);
+});
+
+test('The last healthy provider stays preferred after the failed provider cooldown expires',async()=>{
+  let now=100000; const calls=[];
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{}}, Date:class extends Date {static now(){return now;}},
+    fetch:async url=>{calls.push(url.hostname); if(url.hostname==='overpass.private.coffee')throw new Error('down');return Response.json({elements:[]});},
+  });
+  await provider.queryOverpass('first'); now+=61000; await provider.queryOverpass('second');
+  assert.deepEqual(calls,['overpass.private.coffee','maps.mail.ru','maps.mail.ru']);
+});
+
+test('Map fallback cache is bounded, preserves source time, and expires instead of reviving old data',()=>{
+  const {createMapResultCache}=require('../../lib/travel-assistant/result-cache.ts');
+  let now=Date.now(); const original=new Date(now).toISOString();
+  const cache=createMapResultCache(value=>value.fetchedAt,()=>now);
+  for(let i=0;i<17;i++)cache.remember(`cell-${i}`,{fetchedAt:original,id:i});
+  assert.equal(cache.read('cell-0'),null); assert.equal(cache.read('cell-1',true).id,1);
+  assert.equal(cache.read('other-mode'),null);
+  now+=3600001;
+  assert.equal(cache.read('cell-1',true),null); assert.equal(cache.read('cell-1').fetchedAt,original);
+  now+=5*3600000;
+  assert.equal(cache.read('cell-1'),null);
+  assert.throws(()=>cache.remember('expired',{fetchedAt:original}),/Expired/);
+  assert.throws(()=>cache.remember('invalid',{fetchedAt:'bad'}),/Expired/);
+  assert.throws(()=>cache.remember('future',{fetchedAt:new Date(now+60001).toISOString()}),/Expired/);
+});
+
+test('Client fresh map reuse avoids requests; explicit refresh retains a failed snapshot with its warning',async()=>{
+  let calls=0, now=Date.now(), down=false;
+  const loader=createPlacesLoader(async c=>{calls++;if(down)throw new Error('outage');return {center:c,places:[],fetchedAt:new Date(now).toISOString(),radius:3000,limited:false};},()=>now);
+  const first=await loader(center,'needs'); now+=1000; down=true;
+  assert.equal((await loader(center,'needs')).fetchedAt,first.fetchedAt); assert.equal(calls,1);
+  const stale=await loader(center,'needs',{refresh:true}); assert.equal(stale.stale,true); assert.equal(stale.fetchedAt,first.fetchedAt);
+  assert.equal((await loader(center,'needs')).stale,true); assert.equal(calls,2);
+  await assert.rejects(loader(center,'explore'),/outage/);
+  now+=6*3600000;await assert.rejects(loader(center,'needs'),/outage/);
+});
+
+test('Actual places and offline endpoints preserve only the same cached area during outages, and mark shared stale cache',async()=>{
+  const places=require('../../lib/travel-assistant/places.ts');
+  const offline=require('../../lib/travel-assistant/offline-map.ts');
+  const http=require('../../lib/travel-assistant/http.ts');
+  for(const kind of ['places','offline']){
+    let now=Date.now(), down=false, calls=0, shared=null;
+    class Clock extends Date {constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+    const cache=moduleFrom('lib/travel-assistant/result-cache.ts',{}, {Date:Clock});
+    const next={unstable_cache:fn=>(...args)=>shared?Promise.resolve(shared):fn(...args)};
+    const overpass={queryOverpass:async()=>{calls++;if(down)throw new Error('actual upstream unavailable');return raw;}};
+    let request;
+    if(kind==='places'){
+      const server=moduleFrom('lib/travel-assistant/server.ts',{'next/cache':next,'../country-intelligence/fetch':{},'./places':places,'./money':{},'./overpass':overpass,'./result-cache':cache},{Date:Clock});
+      request=async(c=center,mode='needs')=>server.getPlaces(c,mode);
+    }else{
+      const route=moduleFrom('app/api/travel-assistant/offline-map/route.ts',{'next/cache':next,'@/lib/travel-assistant/places':places,'@/lib/travel-assistant/offline-map':{...offline,normalizeOfflineMap:(data,c)=>offline.normalizeOfflineMap(data,c,new Date(now))},'@/lib/travel-assistant/overpass':overpass,'@/lib/travel-assistant/http':http,'@/lib/travel-assistant/result-cache':cache},{Date:Clock});
+      request=async(c=center)=>{const response=await route.POST(new Request('https://local/offline',{method:'POST',body:JSON.stringify(c)}));if(!response.ok)throw new Error(`status ${response.status}`);return response.json();};
+    }
+    const first=await request();const timestamp=kind==='places'?'fetchedAt':'downloadedAt';
+    now+=1000;down=true;
+    assert.equal((await request())[timestamp],first[timestamp]);assert.equal(calls,1);
+    now+=3600000;
+    const stale=await request(); assert.equal(stale.stale,true);assert.equal(stale[timestamp],first[timestamp]);assert.equal(calls,2);
+    await assert.rejects(request({latitude:48.85,longitude:2.35}));
+    if(kind==='places')await assert.rejects(request(center,'explore'));
+    // Next's cache can return an old successful value while provider revalidation fails.
+    shared=first; const sharedStale=await request();assert.equal(sharedStale.stale,true);assert.equal(sharedStale[timestamp],first[timestamp]);
+    now+=5*3600000;await assert.rejects(request());
+  }
+});

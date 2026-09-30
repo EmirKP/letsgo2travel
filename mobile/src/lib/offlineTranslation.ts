@@ -1,9 +1,10 @@
-import { plugin } from "./capacitor";
+import { nativePlatform, plugin } from "./capacitor";
 
 // Availability is checked on the device; this list does not promise model support.
 export const TRANSLATION_LANGUAGES = [
   ["tr", "Türkçe"],
   ["en", "English"],
+  ["sq", "Shqip"],
   ["de", "Deutsch"],
   ["fr", "Français"],
   ["es", "Español"],
@@ -23,6 +24,12 @@ export const TRANSLATION_LANGUAGES = [
   ["id", "Bahasa Indonesia"],
   ["el", "Ελληνικά"],
 ] as const;
+// ML Kit explicitly supports sq; Apple's available language pairs vary by OS.
+// Do not offer an Albanian model download on platforms where none is wired up.
+// https://developers.google.com/ml-kit/language/translation/translation-language-support
+export function translationLanguageOptions() {
+  return TRANSLATION_LANGUAGES.filter(([code]) => code !== "sq" || nativePlatform() === "android");
+}
 export type TranslationStatus = "installed" | "supported" | "unsupported";
 export async function translationStatus(
   source: string,

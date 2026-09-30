@@ -6,10 +6,15 @@ import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
+import { Sheet } from "../components/Sheet";
 import { CockpitFlightLookup } from "../components/CockpitFlightLookup";
 import { CockpitFlightDetails } from "../components/CockpitFlightDetails";
 import { PersonalTravelCards } from "../components/PersonalTravelCards";
 import { CockpitTicketImport } from "../components/CockpitTicketImport";
+import { CockpitTripEditor } from "../components/CockpitTripEditor";
+import { CockpitJourneySection } from "../components/CockpitJourneySection";
+import { validJourneyIntent, type CockpitJourneyIntent } from "../lib/cockpitJourney";
+import { journeyCountry } from "../lib/journeyCountry";
 import { activeFlightExpiry, canSaveFlightSelection, parseFlightMatch, type FlightSelection } from "../lib/flightSelection";
 import { flightSelectionDeadline } from "../../../lib/flight-progress";
 import type { TicketFields } from "../lib/ticketText";
@@ -37,6 +42,7 @@ import {
   type ChecklistItem,
   type CockpitTrip,
   type TripStatus,
+  type UpdateCockpitTripInput,
 } from "../lib/supabaseData";
 import type { AuthUser } from "../types";
 import "./cockpit-journey.css";
@@ -50,6 +56,8 @@ type CockpitScreenProps = {
   onFocusHandled?: () => void;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
+  journeyIntent?: CockpitJourneyIntent | null;
+  onJourneyHandled?: () => void;
 };
 
 type TripForm = {
@@ -218,7 +226,7 @@ type CockpitSessionSnapshot = {
   userId: string;
 };
 
-export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice }: CockpitScreenProps) {
+export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice, journeyIntent, onJourneyHandled }: CockpitScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const pastDepartureMessage = copy(
     "Planlanan kalkış saati geçti ve devam eden uçuş bilgisi doğrulanamadı. Biletindeki bilgilerle elle devam edebilirsin.",
@@ -236,6 +244,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ trip: CockpitTrip; session: CockpitSessionSnapshot } | null>(null);
+  const pendingDelete = useRef<CockpitSessionSnapshot | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<TripForm>(EMPTY_FORM);
   const [manualFlight, setManualFlight] = useState(false);
@@ -248,6 +258,9 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const autoRefresh = useRef<(trip: CockpitTrip, signal: AbortSignal) => void>(() => {});
   const [newChecklistLabel, setNewChecklistLabel] = useState("");
   const [newChecklistCategory, setNewChecklistCategory] = useState<ChecklistCategory>("other");
+  const [editingTrip, setEditingTrip] = useState<CockpitTrip | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editConflict, setEditConflict] = useState(false);
   const loadGeneration = useRef(0);
   const pendingCreate = useRef<CockpitSessionSnapshot | null>(null);
   const reminderReset = useRef<Promise<void>>(Promise.resolve());
@@ -273,6 +286,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     };
     loadGeneration.current += 1;
     setBusy("");
+    setDeleteTarget(null); pendingDelete.current = null;
     setError("");
     setLoading(false);
 
@@ -289,6 +303,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setRefreshAfter({}); pendingRefresh.current = null; setAutoRefreshStopped(false);
       setFormOpen(false);
       setNewChecklistLabel("");
+      setEditingTrip(null); setEditError(""); setEditConflict(false);
       // Önce sıradaki/eski snapshot'ı geçersiz kılıp bildirim kuyruğunu
       // boşalt, SONRA eski hesabın Live Activity'lerini kapat. Yeni hesabın
       // eşitlemesi bu zinciri bekleyeceği için geç kalan bir "end all" onun
@@ -481,7 +496,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       let arrivalAt: string | null = null;
       if (form.mode === "flight" && !matchedFlight) {
         const times = flightTimes(form);
-        if (!times.departure.ok || !times.arrival.ok) throw new Error("invalid flight time");
+        if (times.departure.ok === false || times.arrival.ok === false) throw new Error("invalid flight time");
         departureAt = times.departure.iso;
         arrivalAt = times.arrival.iso;
       }
@@ -597,6 +612,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       if (!isCurrentSession(session)) return;
       setTrips((current) => replaceTrip(current, updated));
       if (notice) onNotice(notice);
+      return true;
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       const message = getSupabaseDataErrorMessage(requestError, copy("Kontrol listesi kaydedilemedi.", "The checklist could not be saved."));
@@ -628,8 +644,10 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       category: newChecklistCategory,
       createdAt: new Date().toISOString(),
     }];
-    setNewChecklistLabel("");
-    void persistChecklist(selectedTrip, next, copy("Kontrol listesine yeni madde eklendi.", "A new checklist item was added."));
+    const submittedDraft = newChecklistLabel;
+    void persistChecklist(selectedTrip, next, copy("Kontrol listesine yeni madde eklendi.", "A new checklist item was added.")).then(saved => {
+      if (saved) setNewChecklistLabel(current => current === submittedDraft ? "" : current);
+    });
   };
 
   const removeTripEvent = (trip: CockpitTrip, itemId: string) => {
@@ -643,10 +661,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     );
   };
 
-  const removeTrip = async (trip: CockpitTrip) => {
-    const session = captureSession();
-    if (!session || busy || loading) return;
-    if (!window.confirm(copy(`${tripTitle(trip)} seyahatini kalıcı olarak silmek istiyor musun?`, `Permanently delete the ${tripTitle(trip)} trip?`, `Dëshiron ta fshish përgjithmonë udhëtimin ${tripTitle(trip)}?`))) return;
+  const removeTrip = async () => {
+    if (!deleteTarget || busy || loading || pendingDelete.current || !isCurrentSession(deleteTarget.session)) return;
+    const { trip, session } = deleteTarget;
+    if (trip.userId !== session.userId) return;
+    pendingDelete.current = session;
     setBusy(`delete-${trip.id}`);
     setError("");
     try {
@@ -658,15 +677,57 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       // cihazdaki olası Live Activity de kapatılır.
       syncRemindersForSession(session, [...next, { ...trip, status: "cancelled" }]);
       setSelectedTripId("");
+      setDeleteTarget(null);
       onNotice(copy("Seyahat kokpitten silindi.", "The trip was removed from your cockpit."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       const message = getSupabaseDataErrorMessage(requestError, copy("Seyahat silinemedi.", "The trip could not be deleted."));
       await load();
-      if (isCurrentSession(session)) setError(message);
+      if (isCurrentSession(session)) { setDeleteTarget(null); setError(message); }
     } finally {
+      if (pendingDelete.current === session) pendingDelete.current = null;
       if (isCurrentSession(session)) setBusy("");
     }
+  };
+
+  const saveTripEdits = async (trip: CockpitTrip, update: UpdateCockpitTripInput) => {
+    const session = captureSession();
+    if (!session || busy || loading || editConflict || trip.userId !== session.userId) return false;
+    setBusy(`edit-${trip.id}`); setEditError("");
+    try {
+      const updated = await updateCockpitTrip(session.userId, trip.id, update, session.accessToken, trip.updatedAt);
+      if (!isCurrentSession(session)) return false;
+      const next = replaceTrip(trips, updated);
+      setTrips(next); syncRemindersForSession(session, next);
+      onNotice(copy("Seyahat güncellendi.", "Trip updated.", "Udhëtimi u përditësua."));
+      return true;
+    } catch (requestError) {
+      if (!isCurrentSession(session)) return false;
+      if ((requestError as { status?: number })?.status === 409) setEditConflict(true);
+      setEditError(getSupabaseDataErrorMessage(requestError, copy("Değişiklikler kaydedilemedi. Yazdıkların korunuyor.", "Changes could not be saved. Your draft is kept.", "Ndryshimet nuk u ruajtën. Shkrimi yt është ruajtur.")));
+      return false;
+    } finally { if (isCurrentSession(session)) setBusy(""); }
+  };
+
+  const reloadTripForEdit = async (trip: CockpitTrip): Promise<CockpitTrip | null> => {
+    const session = captureSession();
+    if (!session || busy || loading || trip.userId !== session.userId) return null;
+    setBusy(`edit-reload-${trip.id}`); setEditError("");
+    try {
+      const current = await listCockpitTrips(session.userId, session.accessToken, true, true);
+      if (!isCurrentSession(session)) return null;
+      const latest = current.find(item => item.id === trip.id);
+      if (!latest) {
+        setEditError(copy("Bu seyahat artık bulunamıyor. Taslağın burada duruyor; silinen kaydın üzerine yazılmayacak.", "This trip no longer exists. Your draft is kept here; the deleted record will not be recreated.", "Ky udhëtim nuk ekziston më. Shkrimi yt ruhet këtu; regjistrimi i fshirë nuk do të rikrijohet."));
+        return null;
+      }
+      setTrips(current); syncRemindersForSession(session, current);
+      setEditingTrip(latest); setEditConflict(false);
+      return latest;
+    } catch (requestError) {
+      if (isCurrentSession(session)) setEditError(getSupabaseDataErrorMessage(requestError, copy("Güncel kayıt yüklenemedi. Yazdıkların korunuyor.", "The latest record could not be loaded. Your edits are kept.", "Regjistrimi i fundit nuk u ngarkua. Ndryshimet e tua ruhen.")));
+      return null;
+    } finally { if (isCurrentSession(session)) setBusy(""); }
   };
 
   if (!user || !accessToken) {
@@ -681,6 +742,16 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     </div>;
   }
 
+  const prepareJourneyTrip = (intent: CockpitJourneyIntent) => {
+    if (!validJourneyIntent(intent, userId) || busy || loading) return;
+    const country = journeyCountry(intent);
+    setForm({ ...EMPTY_FORM, mode: "other", countryAlpha3: country?.alpha3 || "", destinationCode: country ? alpha2FromAlpha3(country.alpha3) : "",
+      destinationCountry: country ? countryName(country.alpha3, country.name) : "", destinationCity: (intent.kind === "saved-route" ? intent.route.cityOrRegion : intent.city) || "",
+      startDate: intent.kind === "saved-route" ? intent.dates?.startDate || "" : "", endDate: intent.kind === "saved-route" ? intent.dates?.endDate || "" : "" });
+    setMatchedFlight(null); setManualFlight(false); setFormOpen(true); setError("");
+    window.requestAnimationFrame(() => document.getElementById("cockpit-trip-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   return <div className="screen cockpit-native-screen">
     <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
 
@@ -692,6 +763,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />}
       </button>
     </div>
+
+    <CockpitJourneySection ownerId={userId} accessToken={accessToken} trips={trips} selectedTrip={selectedTrip} intent={journeyIntent} onSelectTrip={setSelectedTripId} onCreateTrip={prepareJourneyTrip} onHandled={() => onJourneyHandled?.()} onRefreshTrips={load}/>
 
     {formOpen && <form id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
       <ol className="cockpit-journey-steps" aria-label={copy("Seyahat ekleme adımları", "Add a trip steps")}><li className={!matchedFlight && !manualFlight ? "current" : "done"}>1 · {copy("Uçuşunu bul", "Find your flight")}</li><li className={matchedFlight || manualFlight || form.mode === "other" ? "current" : ""}>2 · {copy("Doğrula ve tamamla", "Review and complete")}</li><li>3 · {copy("Yolculuğun hazır", "Your trip is ready")}</li></ol>
@@ -810,7 +883,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       {form.mode === "flight" && (["departure", "arrival"] as const).map(field => {
         const result = ambiguousTimes[field];
         const key = field === "departure" ? "departureUtc" : "arrivalUtc";
-        return !result.ok && result.reason === "ambiguous" && <label key={field}>{copy("Saat geri alınıyor: biletteki UTC karşılığını seç", "Clocks go back: choose the UTC time on your ticket")} · {field === "departure" ? copy("Kalkış", "Departure") : copy("Varış", "Arrival")}<select required value={form[key] || ""} onChange={event => setForm({ ...form, [key]: event.target.value })}><option value="">{copy("Seç", "Choose")}</option>{result.candidates?.map(value => <option key={value} value={value}>{value.replace("T", " ").replace(":00.000Z", " UTC")}</option>)}</select></label>;
+        return result.ok === false && result.reason === "ambiguous" && <label key={field}>{copy("Saat geri alınıyor: biletteki UTC karşılığını seç", "Clocks go back: choose the UTC time on your ticket")} · {field === "departure" ? copy("Kalkış", "Departure") : copy("Varış", "Arrival")}<select required value={form[key] || ""} onChange={event => setForm({ ...form, [key]: event.target.value })}><option value="">{copy("Seç", "Choose")}</option>{result.candidates?.map(value => <option key={value} value={value}>{value.replace("T", " ").replace(":00.000Z", " UTC")}</option>)}</select></label>;
       })}
       </div>}
       {(form.mode === "other" || manualFlight || matchedFlight?.maySave) && <>
@@ -843,7 +916,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           <header className="cockpit-native-card-head">
             <span className="saved-icon"><Icon name="plane" size={21} /></span>
             <div><small>{selectedTrip.status === "upcoming" ? copy("Yaklaşan", "Upcoming") : selectedTrip.status === "active" ? copy("Devam ediyor", "In progress") : selectedTrip.status === "completed" ? copy("Tamamlandı", "Completed") : copy("İptal edildi", "Cancelled")}</small><h2>{tripTitle(selectedDisplay!)}</h2><p>{formatDate(selectedTrip.startDate, dateLocale)} – {formatDate(selectedTrip.endDate, dateLocale)}</p></div>
-            <button disabled={Boolean(busy) || loading} onClick={() => void removeTrip(selectedTrip)} aria-label={copy("Seyahati sil", "Delete trip")}><Icon name="trash" size={18} /></button>
+            <button disabled={Boolean(busy) || loading} onClick={() => { const session = captureSession(); if (session && selectedTrip.userId === session.userId && !busy && !loading) setDeleteTarget({ trip: selectedTrip, session }); }} aria-label={copy("Seyahati sil", "Delete trip")}><Icon name="trash" size={18} /></button>
           </header>
 
           <div className="cockpit-native-details">
@@ -874,6 +947,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           </label>
 
           <PersonalTravelCards ownerId={user?.id} tripId={selectedTrip.id}/>
+          <button type="button" className="secondary-wide" disabled={Boolean(busy) || loading} onClick={() => { setEditError(""); setEditConflict(false); setEditingTrip(selectedTrip); }}><Icon name="settings" size={18}/>{copy("Seyahati düzenle", "Edit trip", "Ndrysho udhëtimin")}</button>
 
           {selectedTripEvents.length > 0 && <section className="cockpit-events-section">
             <div className="section-heading"><div><span>{copy("SEYAHAT TAKVİMİ", "TRIP CALENDAR")}</span><h2>{copy("Eklediğin etkinlikler", "Events in this trip")}</h2></div><small>{selectedTripEvents.length}</small></div>
@@ -903,5 +977,13 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           </section>
         </article>}
       </>}
+      <Sheet open={!!deleteTarget} title={copy("Seyahati sil", "Delete trip", "Fshi udhëtimin")} dismissible={!busy} onClose={() => { if (!busy) setDeleteTarget(null); }}>
+        {deleteTarget && <><p>{copy(`${tripTitle(deleteTarget.trip)} seyahatini kalıcı olarak silmek istiyor musun?`, `Permanently delete the ${tripTitle(deleteTarget.trip)} trip?`, `Dëshiron ta fshish përgjithmonë udhëtimin ${tripTitle(deleteTarget.trip)}?`)}</p>
+          <p>{copy("Seyahate bağlı rota, bütçe ve hazırlık listesi de kaldırılır. Bu işlem geri alınamaz.", "The trip's attached route, budget and checklist are also removed. This cannot be undone.", "Hiqen edhe itinerari, buxheti dhe lista e përgatitjeve të udhëtimit. Ky veprim nuk zhbëhet.")}</p>
+          <button type="button" className="secondary-wide" disabled={!!busy} onClick={() => setDeleteTarget(null)}>{copy("Vazgeç", "Cancel", "Anulo")}</button>
+          <button type="button" className="primary-wide" disabled={!!busy || loading} onClick={() => void removeTrip()}>{busy === `delete-${deleteTarget.trip.id}` ? copy("Siliniyor…", "Deleting…", "Po fshihet…") : copy("Evet, seyahati sil", "Yes, delete trip", "Po, fshi udhëtimin")}</button>
+        </>}
+      </Sheet>
+      {editingTrip && <CockpitTripEditor key={editingTrip.id} trip={editingTrip} busy={Boolean(busy)} error={editError} conflict={editConflict} onReload={reloadTripForEdit} onSave={saveTripEdits} onClose={() => setEditingTrip(null)}/>}
   </div>;
 }

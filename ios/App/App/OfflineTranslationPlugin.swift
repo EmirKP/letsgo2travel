@@ -61,7 +61,7 @@ public class OfflineTranslationPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
                 var finished = false
-                let controller = UIHostingController(rootView: OfflineTranslationView(source: from, target: to, text: text, download: download, turkish: call.getString("locale") == "tr") { result in
+                let controller = UIHostingController(rootView: OfflineTranslationView(source: from, target: to, text: text, download: download, locale: call.getString("locale") ?? "en") { result in
                     guard !finished else { return }
                     finished = true
                     presenter.dismiss(animated: true) {
@@ -89,15 +89,15 @@ private struct OfflineTranslationView: View {
     let target: Locale.Language
     let text: String
     let download: Bool
-    let turkish: Bool
+    let locale: String
     let completion: (Result<String, Error>) -> Void
     @State private var configuration: TranslationSession.Configuration?
     @State private var completed = false
     var body: some View {
         VStack(spacing: 24) {
             ProgressView()
-            Text(turkish ? (download ? "Dil paketi hazırlanıyor…" : "Cihazda çevriliyor…") : (download ? "Preparing language pack…" : "Translating on device…"))
-            Button(turkish ? "İptal" : "Cancel") { finish(.failure(CancellationError())) }
+            Text(locale == "tr" ? (download ? "Dil paketi hazırlanıyor…" : "Cihazda çevriliyor…") : locale == "sq" ? (download ? "Po përgatitet paketa e gjuhës…" : "Po përkthehet në pajisje…") : (download ? "Preparing language pack…" : "Translating on device…"))
+            Button(locale == "tr" ? "İptal" : locale == "sq" ? "Anulo" : "Cancel") { finish(.failure(CancellationError())) }
         }
         .padding()
         .onAppear { configuration = .init(source: source, target: target) }

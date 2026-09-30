@@ -48,9 +48,9 @@ export async function openExternal(url: string): Promise<boolean> {
   }
 
   try {
-    const opened = window.open(resolvedUrl, "_blank", "noopener,noreferrer");
-    if (opened) return true;
-    window.location.assign(resolvedUrl);
+    // noopener deliberately returns null even when the new tab opens. It is
+    // not evidence of a blocked popup, and must never replace the app tab.
+    window.open(resolvedUrl, "_blank", "noopener,noreferrer");
     return true;
   } catch {
     return false;

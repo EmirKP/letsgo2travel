@@ -682,38 +682,56 @@ export async function deleteUserRouteByClientKey(userId: string, clientKey: stri
 export async function listCockpitTrips(userId: string, accessToken: string, includeCancelled = false, includeFlightDetails = false) {
   assertUserId(userId);
   return safely(async () => {
-    const fetchRows = async () => {
+    // Read every page in a deterministic order. A history of 100 completed
+    // trips must never hide a newly saved journey on the next load.
+    const rows: TripRow[] = [];
+    const seen = new Set<string>();
+    for (let offset = 0; ; offset += 100) {
+      const fetchRows = async () => {
       const params = new URLSearchParams({
         select: tripSelect(),
         user_id: `eq.${userId}`,
-        order: "start_date.asc",
+        order: "start_date.asc,id.asc",
         limit: "100",
+        offset: String(offset),
       });
       if (!includeCancelled) params.set("status", "neq.cancelled");
       return requestJson<TripRow[]>(dataUrl("trips", params), {
         headers: dataHeaders(accessToken),
       });
-    };
-    const rows = await withTripColumns(fetchRows);
+      };
+      const page = await withTripColumns(fetchRows);
+      if (!Array.isArray(page)) throw new SupabaseDataError("service_unavailable", 500);
+      const fresh = page.filter(row => typeof row.id === "string" && !seen.has(row.id));
+      for (const row of fresh) seen.add(row.id as string);
+      rows.push(...fresh);
+      if (page.length < 100) break;
+      // A broken proxy ignoring offset must fail visibly instead of looping
+      // forever or presenting a silently truncated account history.
+      if (!fresh.length) throw new SupabaseDataError("service_unavailable", 500);
+    }
     const trips = rows.flatMap((row) => {
       const normalized = normalizeTrip(row);
       return normalized ? [normalized] : [];
     });
     const ids = trips.filter(trip => trip.flightLookupManaged && Date.parse(trip.flightLookupExpiresAt || "") > Date.now()).map(trip => trip.id);
     if (!includeFlightDetails || !ids.length) return trips;
-    try {
-      const details = await requestJson<Array<{ trip_id: string; data: unknown; fetched_at: string; expires_at: string }>>(dataUrl("rpc/read_cockpit_flight_details"), {
-        method: "POST", headers: dataHeaders(accessToken), body: { p_trip_ids: ids },
-      });
-      if (!Array.isArray(details)) return trips;
-      return trips.map(trip => {
-        if (!ids.includes(trip.id)) return trip;
-        const detail = details.find(item => item?.trip_id === trip.id);
+    const details = new Map<string, { trip_id: string; data: unknown; fetched_at: string; expires_at: string }>();
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      try {
+        const batchIds = ids.slice(offset, offset + 100);
+        const batch = await requestJson<Array<{ trip_id: string; data: unknown; fetched_at: string; expires_at: string }>>(dataUrl("rpc/read_cockpit_flight_details"), {
+          method: "POST", headers: dataHeaders(accessToken), body: { p_trip_ids: batchIds },
+        });
+        if (Array.isArray(batch)) for (const row of batch) if (batchIds.includes(row?.trip_id)) details.set(row.trip_id, row);
+      } catch { /* A failed overlay batch must not hide personal trip data. */ }
+    }
+    return trips.map(trip => {
+        const detail = details.get(trip.id);
         const flight = detail && parseFlightMatch(detail.data, trip.flightNumber || undefined, trip.startDate);
         return flight && detail && Date.parse(detail.fetched_at) === Date.parse(flight.fetchedAt) && activeFlightExpiry(detail.expires_at, flight.fetchedAt)
           && Date.parse(detail.expires_at) === Date.parse(trip.flightLookupExpiresAt || "") ? { ...trip, providerFlight: flight } : trip;
       });
-    } catch { return trips; } // A failed detail refresh must not hide PNR or checklists.
   });
 }
 

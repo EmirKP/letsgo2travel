@@ -5,6 +5,15 @@
     linear-gradient(180deg, #edf4f6 0, var(--color-page) 48%, #f8fbfb 100%);
 }
 
+.detailPanel { margin-bottom: 20px; padding: clamp(18px, 4vw, 30px); border: 1px solid var(--color-border); border-radius: 24px; background: #fff; overflow-wrap: anywhere; line-height: 1.7; }
+.detailPanel h2, .detailPanel h3 { color: var(--color-primary); margin-top: 0; }
+.detailPanel small { color: var(--color-text-muted); }
+.detailFacts { display: flex; flex-wrap: wrap; gap: 18px 40px; }
+.detailFacts dt { color: var(--color-text-muted); }
+.detailFacts dd { margin: 0; font-weight: 700; }
+.detailDays { padding-left: 24px; }
+.detailDays li { padding: 10px 0; }
+
 .hero {
   padding: 58px 0 30px;
 }

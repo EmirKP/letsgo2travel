@@ -27,6 +27,7 @@ import { openExternal } from "../lib/native";
 import { queueRouteDelete, readRouteOutbox } from "../lib/routeOutbox";
 import { syncSavedRoutes } from "../lib/routeSync";
 import { cancelEventReminder } from "../lib/eventReminders";
+import { createRouteCockpitIntent, type RouteCockpitIntent } from "../lib/routeCockpitIntent";
 import { normalizeSearchText } from "../lib/searchText";
 import "./daily-journey.css";
 import "./plans-library.css";
@@ -41,6 +42,7 @@ type PendingDelete =
 type LibrarySection = "all" | "routes" | "places" | "countries" | "events" | "travel";
 
 type SelectedPlan = {
+  id: string;
   title: string;
   createdAt: string;
   input?: PlannerInput;
@@ -56,8 +58,9 @@ function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq"): Selecte
   if (routes.length === 0) return null;
   const input = item.tripData?.input;
   return {
+    id: item.clientKey || `remote-${item.id}`,
     title: item.title || item.destination || (locale === "tr" ? "Kayıtlı rota" : locale === "sq" ? "Rrugë e ruajtur" : "Saved route"),
-    createdAt: item.createdAt,
+    createdAt: typeof item.tripData.saved_at === "string" ? item.tripData.saved_at : item.createdAt,
     input: input && typeof input === "object" && !Array.isArray(input) ? input as PlannerInput : undefined,
     plan: {
       summary: typeof record.summary === "string" ? record.summary : (locale === "tr" ? "Kayıtlı rota önerin." : locale === "sq" ? "Sugjerimi yt i ruajtur i rrugës." : "Your saved route suggestion."),
@@ -74,7 +77,8 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ initialTool, initialSection, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice }: {
+export function TripsScreen({ initialTool, initialSection, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
+  onPrepareCockpit?: (intent: RouteCockpitIntent) => void;
   initialTool?: "airport";
   initialSection?: LibrarySection;
   onOpenDestination: (code: string) => void;
@@ -297,10 +301,10 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
         {(routes.length > 0 || cloudRoutes.length > 0) && <div className="plans-list-action"><span>{copy("Bir sonraki yolculuk için", "For your next journey")}</span><button type="button" onClick={() => onNavigate("route")}><Icon name="plus" size={18}/>{copy("Yeni rota", "New route")}</button></div>}
         {pendingRoutes > 0 && <div className="info-box" role="status"><p>{copy(`${pendingRoutes} kayıt işlemi eşitleme bekliyor.`, `${pendingRoutes} changes waiting to sync.`)}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && accessToken) void syncSavedRoutes(ownerId, accessToken).catch(() => onNotice(copy("Bağlantı kurulamadı; kayıtlar cihazda korundu.", "Could not connect; on-device records were kept."))); }}>{copy("Tekrar dene", "Retry")}</button></div>}
         {visibleRoutes.map((saved) => <article className="saved-card" key={saved.id}>
-          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
+          <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
           <small role="status">{!ownerId ? copy("Bu cihazda", "On this device") : routeQueue[saved.id]?.pending || !routeQueue[saved.id] ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesaba kaydedildi", "Saved to account")}</small>
           <p>{saved.plan.summary}</p>
-          <button className="saved-card-detail-action" onClick={() => setSelectedPlan({ title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>
+          <button className="saved-card-detail-action" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>
         </article>)}
         {visibleCloudRoutes.map((saved) => {
           const cloudPlan = cloudRoutePlan(saved, locale);
@@ -314,7 +318,14 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
       </div>}
 
       <DeleteConfirmation pending={pendingDelete} account={Boolean(ownerId)} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
-      <PlanDetail selected={selectedPlan} onClose={() => setSelectedPlan(null)} />
+      <PlanDetail selected={selectedPlan} onClose={() => setSelectedPlan(null)} onPrepareCockpit={onPrepareCockpit ? (index) => {
+        if (!ownerId || !user || user.id !== ownerId || !accessToken) { onOpenAccount(); return; }
+        if (!selectedPlan) return;
+        const intent = createRouteCockpitIntent(selectedPlan, index, ownerId);
+        if (!intent) { onNotice(copy("Bu rotanın ayrıntıları aktarmak için yeterli değil.", "This route does not contain enough detail to transfer.", "Kjo rrugë nuk ka hollësi të mjaftueshme për t’u transferuar.")); return; }
+        setSelectedPlan(null);
+        onPrepareCockpit(intent);
+      } : undefined} />
       <Sheet open={!!unavailableCountry} title={unavailableCountry?.name || copy("Favori ülken", "Your favourite country")} onClose={() => setUnavailableCountry(null)}>
         {unavailableCountry && <div className="saved-plan-detail">
           <CountryFlag code={alpha2FromAlpha3(unavailableCountry.alpha3)} label={unavailableCountry.name}/>
@@ -344,7 +355,7 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
   </Sheet>;
 }
 
-function PlanDetail({ selected, onClose }: { selected: SelectedPlan | null; onClose: () => void }) {
+function PlanDetail({ selected, onClose, onPrepareCockpit }: { selected: SelectedPlan | null; onClose: () => void; onPrepareCockpit?: (index: number) => void }) {
   const { copy, dateLocale } = useI18n();
   return <Sheet open={Boolean(selected)} title={copy("Rota planın", "Your route plan")} onClose={onClose} size="large">
     {selected && <div className="saved-plan-detail">
@@ -352,6 +363,7 @@ function PlanDetail({ selected, onClose }: { selected: SelectedPlan | null; onCl
       {selected.plan.routes.map((route, index) => <article key={`${route.name}-${index}`}>
         <div className="saved-plan-route-head"><span>{index + 1}</span><div><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong></div></div>
         <p>{route.why}</p>
+        {onPrepareCockpit && <button type="button" className="primary-wide" onClick={() => onPrepareCockpit(index)}><Icon name="calendar" size={18}/>{copy("Bu rotayı Kokpit’e ekle", "Add this route to Cockpit", "Shto këtë rrugë në Kabinë")}</button>}
         {route.visaNote && <p>{route.visaNote}</p>}
         {route.visaVerifiedAt && <small>{copy("Kaynak kontrol tarihi", "Source checked")}: {route.visaVerifiedAt}</small>}
         {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}>{copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}

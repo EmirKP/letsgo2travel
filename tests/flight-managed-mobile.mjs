@@ -43,7 +43,10 @@ function harness() {
         if (state.detailError) throw state.detailError;
         return structuredClone(state.details);
       }
-      if (endpoint === '/rest/v1/trips' && (!options.method || options.method === 'GET')) return structuredClone(state.baseRows);
+      if (endpoint === '/rest/v1/trips' && (!options.method || options.method === 'GET')) {
+        const offset = Number(new URL(url).searchParams.get('offset') || 0);
+        return structuredClone(state.baseRows.slice(offset, offset + 100));
+      }
       throw new Error(`Unexpected data request: ${options.method || 'GET'} ${endpoint}`);
     } },
     './config': { config: { apiBaseUrl: 'https://app.example', supabaseUrl: 'https://unit-test.supabase.co', supabaseAnonKey: 'PUBLIC_FIXTURE_KEY' }, isSupabaseConfigured: true },
@@ -83,6 +86,18 @@ function tripRow(extra = {}) {
     flight_lookup_managed: true, flight_lookup_expires_at: expiresAt, ...extra,
   };
 }
+
+test('Cockpit pagination keeps a new trip beyond 100 old records and batches licensed details', async () => {
+  const h = harness();
+  h.state.baseRows = Array.from({ length: 101 }, (_, index) => tripRow({ id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, start_date: index < 100 ? '2026-01-01' : '2026-10-01' }));
+  const trips = await h.api.listCockpitTrips(owner, accessToken, true, true);
+  assert.equal(trips.length, 101); assert.equal(trips[100].startDate, '2026-10-01');
+  const reads = h.calls.filter(call => new URL(call.url).pathname === '/rest/v1/trips');
+  assert.deepEqual(reads.map(call => new URL(call.url).searchParams.get('offset')), ['0', '100']);
+  assert.ok(reads.every(call => new URL(call.url).searchParams.get('order') === 'start_date.asc,id.asc'));
+  const batches = h.calls.filter(call => new URL(call.url).pathname.endsWith('/read_cockpit_flight_details'));
+  assert.deepEqual(batches.map(call => call.options.body.p_trip_ids.length), [100, 1]);
+});
 function detailRow(extra = {}) {
   return { trip_id: managedId, data: flight(), fetched_at: new Date(now).toISOString(), expires_at: expiresAt, ...extra };
 }

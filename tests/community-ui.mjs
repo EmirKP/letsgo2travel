@@ -13,7 +13,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((yes, 
 function load(path, imports, globals = {}) {
   const code = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const testModule = { exports: {} };
-  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, Intl, ...globals })(name => {
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, Intl, URLSearchParams, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name === '../lib/localeFormatting') return localeFormatting;
     if (/\.(webp|jpg|css)$/.test(name)) return name;
@@ -113,7 +113,7 @@ function harness(initial = {}) {
     tab(id) { const control = find(tree, 'button', props => props.id === `community-tab-${id}`); assert.ok(control); control.props.onClick(); return h.render(); },
     change(type, predicate, value) { const control = find(tree, type, predicate); assert.ok(control, `Input: ${type}`); control.props.onChange({ target: { value } }); return h.render(); },
     selectPhoto(file) { const control = find(tree, 'input', props => props.type === 'file' && props['aria-label'] === 'Post photo'); assert.ok(control, 'Photo picker is visible'); assert.ok(!control.props.disabled, 'Photo picker is enabled'); const target = { files: file ? [file] : [], value: file?.name || '' }; control.props.onChange({ target }); assert.equal(target.value, '', 'Picker resets so the same file can be selected again'); return h.render(); },
-    async feed(data = rows) { const request = requests.findLast(item => item.path === '/api/country-community/feed' && !item.done); assert.ok(request, 'Pending feed request'); request.done = true; request.resolve({ data }); await tick(); return h.render(); },
+    async feed(data = rows, nextOffset = null) { const request = requests.findLast(item => item.path.startsWith('/api/country-community/feed') && !item.done); assert.ok(request, 'Pending feed request'); request.done = true; request.resolve({ data, nextOffset }); await tick(); return h.render(); },
     async settle() { await tick(); return h.render(); },
     language(next) { locale = next; return h.render(); },
     failStorage(value) { failStorage = value; },
@@ -137,7 +137,7 @@ test('Five community tabs support arrow wrap, Home/End and one keyboard focus ta
       const panel = find(view, 'section', props => props.role === 'tabpanel');
       assert.equal(panel.props.id, `community-panel-${id}`); assert.equal(panel.props['aria-labelledby'], `community-tab-${id}`);
     }
-    assert.equal(h.requests.length, 1, 'Tab browsing does not load ranking or request a provider');
+    assert.ok(h.requests.every(request => request.path.startsWith('/api/country-community/feed')), 'Tab browsing only requests community data');
   } finally { h.dispose(); }
 });
 
@@ -179,7 +179,7 @@ test('Country-group follows use the real device store, survive remounts and neve
     assert.deepEqual(postTitles(h.tab('following')), ['Cappadocia walking routes', 'Istanbul ferry tips']);
     h.render({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' }); await h.feed();
     assert.deepEqual(postTitles(h.tab('following')), []);
-    follow('JP', true); assert.deepEqual(postTitles(h.tab('following')), ['Tokyo train advice']);
+    follow('JP', true); h.tab('following'); assert.deepEqual(postTitles(await h.feed()), ['Tokyo train advice']);
     h.render({ user: { id: 'account-b' }, accessToken: 'TOKEN_B' }); await h.feed();
     assert.deepEqual(postTitles(h.tab('following')), []);
     h.render({ user: null, accessToken: '' }); await h.feed();
@@ -556,4 +556,35 @@ test('Web forum visibility accepts a null starter author and still hides a block
   assert.equal(source.ForumUserContent({ authorId: 'blocked', children: 'Blocked topic' }), null);
   visibility.ready = false;
   assert.equal(source.ForumUserContent({ authorId: null, children: 'Starter topic' }), null, 'No content flashes before session safety checks');
+});
+
+test('Country filters request server pages and older posts can be reached without losing the current page on failure', async()=>{
+ const h=harness({initialCountryCode:'TR'});
+ try{
+  assert.equal(new URL(h.requests[0].path,'https://test').searchParams.get('countries'),'TR');
+  await h.feed([question('older-tr','TR','Older Turkey discussion')],40);
+  h.click('Load more posts');const more=h.requests.at(-1);
+  assert.equal(new URL(more.path,'https://test').searchParams.get('offset'),'40');
+  more.reject(Error('503'));let view=await h.settle();assert.deepEqual(postTitles(view),['Older Turkey discussion']);
+  h.click('Load more posts');view=await h.feed([question('last-tr','TR','Last Turkey discussion')]);
+  assert.equal(postTitles(view).length,2);assert.ok(!button(view,'Load more posts'));
+  h.click('Search community');h.change('input',props=>props.id==='community-search-input','ferry');
+  assert.equal(new URL(h.requests.at(-1).path,'https://test').searchParams.get('search'),'ferry');
+  view=await h.feed([question('body-hit','TR','Search in long post',{body:'x'.repeat(850)+' ferry'})]);
+  assert.deepEqual(postTitles(view),['Search in long post'],'Server search matches after the mobile summary truncation');
+ }finally{h.dispose();}
+});
+
+test('More than 100 replies remain accessible and a failed later page preserves both replies and draft',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ try{
+  await h.feed();h.click('Open question: Tokyo train advice');
+  const answers=Array.from({length:100},(_,i)=>({id:`reply-${i}`,body:`Reply ${i}`,username:'traveller',authorId:null,createdAt:'2026-10-01'}));
+  h.requests.at(-1).resolve({data:{...rows[2],answers,totalAnswerCount:101,shownAnswerCount:100,hasFullAccess:true,nextOffset:100}});
+  await h.settle();h.change('textarea',props=>props.id==='community-answer-body','Keep my draft');
+  h.click('Load more replies');let request=h.requests.at(-1);assert.match(request.path,/offset=100$/);assert.equal(request.options.headers.Authorization,'Bearer TOKEN_A');
+  request.reject(Error('503'));let view=await h.settle();assert.equal(nodes(view).filter(n=>n.props?.className==='community-answer').length,100);assert.equal(find(view,'textarea').props.value,'Keep my draft');
+  h.click('Load more replies');h.requests.at(-1).resolve({data:{...rows[2],answers:[{...answers[0],id:'latest',body:'Newest reply'}],totalAnswerCount:101,nextOffset:null}});
+  view=await h.settle();assert.equal(nodes(view).filter(n=>n.props?.className==='community-answer').length,101);assert.equal(find(view,'textarea').props.value,'Keep my draft');assert.ok(!button(view,'Load more replies'));
+ }finally{h.dispose();}
 });

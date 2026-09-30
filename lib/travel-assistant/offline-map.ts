@@ -17,6 +17,7 @@ export type OfflineMapPack = {
   roads: OfflineRoad[];
   places: Place[];
   limited: boolean;
+  stale?: boolean;
 };
 export function offlineMapQuery(center: Coordinates) {
   const valid = coordinates(center);
@@ -114,7 +115,8 @@ export function validateOfflinePack(value: unknown): OfflineMapPack | null {
     p.roads.length > 700 ||
     !Array.isArray(p.places) ||
     p.places.length > 100 ||
-    typeof p.limited !== "boolean"
+    typeof p.limited !== "boolean" ||
+    (p.stale !== undefined && typeof p.stale !== "boolean")
   )
     return null;
   let count = 0;

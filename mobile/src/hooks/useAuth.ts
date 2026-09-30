@@ -290,6 +290,9 @@ export function useAuth() {
   const [authError, setAuthError] = useState("");
   const [recoveryPending, setRecoveryPendingState] = useState(() => storageGet(RECOVERY_PENDING_KEY) === "true");
   const sessionGeneration = useRef(0);
+  const accountGeneration = useRef(0);
+  const userGeneration = useRef(0);
+  const sessionOwner = useRef(session?.user.id || null);
   const refreshInFlight = useRef<RefreshInFlight | null>(null);
   const consumedAuthUrls = useRef(new Set<string>());
   const authCallbackInProgress = useRef(false);
@@ -302,6 +305,9 @@ export function useAuth() {
   }, []);
 
   const setSession = useCallback((next: AuthSession | null) => {
+    const nextOwner = next?.user.id || null;
+    if (!next || sessionOwner.current !== nextOwner) accountGeneration.current += 1;
+    sessionOwner.current = nextOwner;
     sessionGeneration.current += 1;
     saveSession(next);
     setSessionState(next);
@@ -317,6 +323,7 @@ export function useAuth() {
   const refreshSession = useCallback(async (current: AuthSession) => {
     if (!isSupabaseConfigured || !current.refresh_token) return current;
     const generation = sessionGeneration.current;
+    const userVersion = userGeneration.current;
     const existingRefresh = refreshInFlight.current;
     if (
       existingRefresh
@@ -336,7 +343,7 @@ export function useAuth() {
       const next = normalizeSession(result);
       const latest = readSession();
       if (sessionGeneration.current === generation && isSameSession(latest, current)) {
-        setSession(next);
+        setSession(userGeneration.current !== userVersion && latest ? { ...next, user: latest.user } : next);
       }
       return next;
     })();
@@ -662,6 +669,7 @@ export function useAuth() {
     if (!session?.access_token || !recoveryPending) throw new Error(authCopy("Şifre yenileme oturumu bulunamadı.", "No password reset session was found.", "Nuk u gjet sesion për rivendosjen e fjalëkalimit."));
     if (password.length < 8 || password.length > 128) throw new Error(authCopy("Şifre 8–128 karakter arasında olmalı.", "Password must be between 8 and 128 characters.", "Fjalëkalimi duhet të ketë nga 8 deri në 128 karaktere."));
     setAuthError("");
+    const accountEpoch = accountGeneration.current;
     try {
       const result = await requestJson<AuthUser | { user?: AuthUser }>(authUrl("/user"), {
         method: "PUT",
@@ -669,9 +677,15 @@ export function useAuth() {
         body: { password },
       });
       const user = "user" in result && result.user ? result.user : result as AuthUser;
-      setSession({ ...session, user: user?.id ? user : session.user });
+      const latest = readSession();
+      if (accountGeneration.current !== accountEpoch || latest?.user.id !== session.user.id) return;
+      const updated = { ...latest, user: user?.id === latest.user.id ? user : latest.user };
+      userGeneration.current += 1;
+      saveSession(updated);
+      setSessionState(updated);
       setRecoveryPending(false);
     } catch (error) {
+      if (accountGeneration.current !== accountEpoch) return;
       fail(error, authCopy("Şifre güncellenemedi. Bağlantıyı yeniden istemeyi dene.", "The password could not be updated. Try requesting a new link.", "Fjalëkalimi nuk u përditësua. Provo të kërkosh një lidhje të re."));
     }
   };
@@ -683,6 +697,7 @@ export function useAuth() {
     if (fullName.length < 2 || fullName.length > 100) throw new Error(authCopy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters.", "Emri i plotë duhet të ketë nga 2 deri në 100 karaktere."));
     if (!/^[a-z0-9_]{3,20}$/.test(username)) throw new Error(authCopy("Kullanıcı adı 3–20 karakter olmalı; yalnızca küçük harf, rakam ve alt çizgi içermeli.", "Username must be 3–20 characters and contain only lowercase letters, numbers and underscores.", "Emri i përdoruesit duhet të ketë 3–20 karaktere, vetëm shkronja të vogla, numra dhe nënviza."));
     setAuthError("");
+    const accountEpoch = accountGeneration.current;
     try {
       const result = await requestJson<AuthUser | { user?: AuthUser }>(authUrl("/user"), {
         method: "PUT",
@@ -691,8 +706,17 @@ export function useAuth() {
       });
       const user = "user" in result && result.user ? result.user : result as AuthUser;
       if (!user?.id) throw new Error(authCopy("Profil bilgisi güncellenemedi.", "Profile details could not be updated.", "Të dhënat e profilit nuk u përditësuan."));
-      setSession({ ...session, user });
+      // A token refresh may finish while the metadata request is in flight.
+      // Preserve its rotated tokens; never revive a logged-out/replaced account.
+      const latest = readSession();
+      if (accountGeneration.current !== accountEpoch || latest?.user.id !== session.user.id || user.id !== latest.user.id) return;
+      // Metadata updates do not invalidate an in-flight token rotation.
+      const updated = { ...latest, user };
+      userGeneration.current += 1;
+      saveSession(updated);
+      setSessionState(updated);
     } catch (error) {
+      if (accountGeneration.current !== accountEpoch) return;
       fail(error, authCopy("Profil bilgileri güncellenemedi.", "Profile details could not be updated.", "Të dhënat e profilit nuk u përditësuan."));
     }
   };

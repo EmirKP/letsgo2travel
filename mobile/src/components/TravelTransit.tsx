@@ -234,7 +234,8 @@ function StopPicker({
     try {
       const result = await requestJson<{ stops: TransitStop[] }>(
         `${endpoint()}${new URLSearchParams({ q })}`,
-        { timeoutMs: 14000 },
+        // A station search may need a 10s search plus an 8s interchange lookup.
+        { timeoutMs: 21000 },
       );
       if (
         !Array.isArray(result.stops) ||

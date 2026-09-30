@@ -4,9 +4,9 @@ import { Icon, type IconName } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { DateTimeField } from "../components/DateTimeField";
 import { Sheet } from "../components/Sheet";
+import { AdminReports } from "../components/AdminReports";
 import { AdminRecords, type AdminCollection } from "../components/AdminRecords";
 import {
-  closeForumReport,
   createAdminTravelEvent,
   getMobileAdminOverview,
   getVerificationEvidence,
@@ -297,7 +297,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     {tab === "records" && <AdminRecords key={`${accessToken}:${recordsKey}`} accessToken={accessToken} initialCollection={recordCollection} />}
     {tab === "content" && <ContentQueues overview={overview} busyId={busyId} formatDate={formatDate} updateForum={updateForum} copy={copy} />}
     {tab === "events" && <><div hidden={!eventsError} className="info-box error" role="alert"><p>{copy("Etkinlik listesi yüklenemedi. Son alınan kayıtlar varsa korunuyor.", "The event list could not load. Previously loaded records are kept.", "Lista e ngjarjeve nuk u ngarkua. Regjistrimet e mëparshme ruhen.")}</p><button type="button" disabled={loading} onClick={() => void loadEvents()}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div><EventManager events={events} loading={loading || eventsError} busyId={busyId} formOpen={eventFormOpen} editingId={editingEventId} form={eventForm} setForm={setEventForm} toggleForm={toggleEventForm} submit={submitEvent} editEvent={editEvent} patchEvent={patchEvent} formatDate={formatDate} copy={copy} /></>}
-    {tab === "reports" && <ReportQueue overview={overview} busyId={busyId} formatDate={formatDate} run={run} copy={copy} />}
+    {tab === "reports" && <AdminReports key={accessToken} accessToken={accessToken} onChanged={() => void refresh()} />}
     <p className="admin-sync-note"><Icon name="wifi" size={15} /> {copy("Son senkron", "Last sync")}: {formatDate(overview.generatedAt)} · {overview.role}</p>
     <Sheet open={Boolean(evidencePreview)} title={copy("Başvuru belgesi", "Application evidence")} onClose={() => setEvidencePreview(null)} size="large">
       {evidencePreview && <div className="admin-evidence-preview">
@@ -363,9 +363,4 @@ function EventManager({ events, loading, busyId, formOpen, editingId, form, setF
     </form>}
     <div className="admin-queue admin-event-list">{events.map((item) => <article key={item.id} className={item.status === "cancelled" ? "cancelled" : ""}><div><span className="admin-event-state">{item.published ? copy("YAYINDA", "LIVE") : copy("TASLAK", "DRAFT")} · {item.status === "scheduled" ? copy("planlandı", "scheduled") : item.status === "postponed" ? copy("ertelendi", "postponed") : item.status === "cancelled" ? copy("iptal", "cancelled") : copy("tamamlandı", "completed")}</span><strong>{item.title}</strong><p>{item.city}{item.venue ? ` · ${item.venue}` : ""}</p><small>{formatDate(item.startsAt)}</small></div><div className="admin-actions"><button disabled={busyId === item.id} onClick={() => editEvent(item)}><Icon name="settings" size={14} /> {copy("Düzenle", "Edit")}</button><button disabled={busyId === item.id} onClick={() => void patchEvent(item, { published: !item.published })}>{item.published ? copy("Gizle", "Hide") : copy("Yayınla", "Publish")}</button><button className={item.status === "cancelled" ? "approve" : "reject"} disabled={busyId === item.id} onClick={() => void patchEvent(item, { status: item.status === "cancelled" ? "scheduled" : "cancelled" })}>{item.status === "cancelled" ? copy("Geri aç", "Restore") : copy("İptal", "Cancel")}</button></div></article>)}{!loading && !events.length && <p className="admin-empty">{copy("Henüz elle eklenmiş etkinlik yok.", "No curated events yet.")}</p>}</div>
   </section>;
-}
-
-function ReportQueue({ overview, busyId, formatDate, run, copy }: { overview: MobileAdminOverview; busyId: string; formatDate: (value: string) => string; run: (id: string, action: (token: string) => Promise<unknown>, success: string) => Promise<void>; copy: Copy }) {
-  if (overview.moduleHealth?.reports === "unavailable" || overview.unavailableModules.includes("Raporlar")) return <p className="info-box error" role="alert">{copy("Raporlar yüklenemedi; yenilemeyi dene.", "Reports could not load; try refreshing.", "Raportet nuk u ngarkuan; provo rifreskimin.")}</p>;
-  return <section className="admin-section"><div className="section-heading"><div><span>{copy("RAPORLAR", "REPORTS")}</span><h2>{copy("Açık bildirimler", "Open reports")}</h2></div></div><div className="admin-queue">{overview.openReports.map((item) => <article key={item.id}><div><strong>{item.targetType === "reply" ? copy("Cevap raporu", "Reply report") : copy("Konu raporu", "Topic report")}</strong><p>{item.reason}</p><small>{formatDate(item.createdAt)}</small></div><div className="admin-actions"><button className="approve" disabled={busyId === item.id} onClick={() => void run(item.id, (token) => closeForumReport(item.id, "resolved", token), copy("Rapor çözüldü.", "Report resolved."))}><Icon name="check" size={15} /> {copy("Çözüldü", "Resolve")}</button><button disabled={busyId === item.id} onClick={() => void run(item.id, (token) => closeForumReport(item.id, "dismissed", token), copy("Rapor geçersiz kapatıldı.", "Report dismissed."))}>{copy("Geçersiz", "Dismiss")}</button></div></article>)}{!overview.openReports.length && <p className="admin-empty">{copy("Açık rapor yok.", "No open reports.")}</p>}</div></section>;
 }

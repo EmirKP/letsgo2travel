@@ -76,10 +76,12 @@ export function createPlacesLoader(request: (center: Coordinates, mode: MapMode)
   let last: { mode: MapMode; result: PlacesResult } | null = null;
   let generation = 0;
   const pending = new Map<string, Promise<PlacesResult>>();
-  return async (center: Coordinates, mode: MapMode): Promise<PlacesResult> => {
+  return async (center: Coordinates, mode: MapMode, options: { refresh?: boolean } = {}): Promise<PlacesResult> => {
     const valid = coordinates(center);
     if (!valid || !['needs', 'explore'].includes(mode)) throw new Error('Invalid map request');
     const c = coarseLocation(valid);
+    const saved = last?.mode === mode ? validatePlaces(last.result, c, mode, clock()) : null;
+    if (!options.refresh && saved && clock() - Date.parse(saved.fetchedAt) < PLACES_REFRESH_MS) return saved;
     const key = `${c.latitude}:${c.longitude}:${mode}`;
     const existing = pending.get(key);
     if (existing) return existing;
@@ -91,7 +93,11 @@ export function createPlacesLoader(request: (center: Coordinates, mode: MapMode)
       return result;
     } catch (error) {
       const fallback = last?.mode === mode ? validatePlaces(last.result, c, mode, clock()) : null;
-      if (fallback) return { ...fallback, stale: true };
+      if (fallback) {
+        const stale = { ...fallback, stale: true };
+        if (id === generation) last = { mode, result: stale };
+        return stale;
+      }
       throw error;
     } finally { pending.delete(key); } });
     pending.set(key, operation);

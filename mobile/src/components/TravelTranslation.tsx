@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../lib/i18n";
-import { TRANSLATION_LANGUAGES, prepareTranslation, translationStatus, translateOffline } from "../lib/offlineTranslation";
+import { TRANSLATION_LANGUAGES, translationLanguageOptions, prepareTranslation, translationStatus, translateOffline } from "../lib/offlineTranslation";
 import type { TranslationStatus } from "../lib/offlineTranslation";
 import { isIOSNative } from "../lib/capacitor";
 import { copySupportText } from "../lib/native";
-import { deleteSavedTranslation, MAX_SAVED_TRANSLATIONS, readSavedTranslations, saveTranslation } from "../lib/savedTranslations";
+import { deleteSavedTranslation, MAX_SAVED_TRANSLATIONS, readSavedTranslationState, resetSavedTranslations, saveTranslation } from "../lib/savedTranslations";
 import type { TranslationCard } from "../lib/savedTranslations";
 import { Sheet } from "./Sheet";
 import "./travel-translation.css";
@@ -15,18 +15,23 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
   const { copy, locale } = useI18n();
   const [source, setSource] = useState("tr");
   const [target, setTarget] = useState("en");
-  const [saved, setSaved] = useState(readSavedTranslations);
+  const [stored, setStored] = useState(readSavedTranslationState);
+  const saved = stored.items;
+  const [text, setText] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
   const [reuse, setReuse] = useState<{ card: TranslationCard; revision: number } | null>(null);
   const [shown, setShown] = useState<TranslationCard | null>(null);
   const [notice, setNotice] = useState("");
   const [pendingDelete, setPendingDelete] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
+  const languages = translationLanguageOptions();
 
   function save(card: TranslationCard) {
     try {
-      setSaved(saveTranslation(card));
+      setStored({ items: saveTranslation(card), error: null });
       setNotice(copy("Çeviri bu cihaza kaydedildi.", "Translation saved on this device."));
     } catch (error) {
+      setStored(readSavedTranslationState());
       setNotice(error instanceof Error && error.message === "full"
         ? copy("Kayıt sınırına ulaştın. Yeni çeviri eklemek için bir kaydı sil.", "Your saved cards are full. Delete one before adding another.")
         : copy("Çeviri kaydedilemedi. Cihaz depolamasını kontrol et; önceki kayıtların korunuyor.", "Could not save. Check device storage; your previous cards are preserved."));
@@ -34,16 +39,18 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
   }
   function remove(id: string) {
     try {
-      setSaved(deleteSavedTranslation(id));
+      setStored({ items: deleteSavedTranslation(id), error: null });
       setPendingDelete("");
       setNotice(copy("Kaydedilen çeviri silindi.", "Saved translation deleted."));
     } catch {
+      setStored(readSavedTranslationState());
       setNotice(copy("Kayıt silinemedi. Tekrar dene.", "Could not delete the card. Try again."));
     }
   }
   function reuseCard(card: TranslationCard) {
     setSource(card.source);
     setTarget(card.target);
+    setText(card.text);
     setReuse((previous) => ({ card, revision: (previous?.revision || 0) + 1 }));
     editorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
@@ -59,7 +66,7 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
               (kind === "source" ? setSource : setTarget)(event.target.value);
               setReuse(null);
             }}>
-              {TRANSLATION_LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              {languages.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
             </select>
           </label>
         ))}
@@ -68,13 +75,19 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
         {copy("Dilleri değiştir", "Swap languages")}
       </button>
       <div ref={editorRef} className="ta-form ta-translation-editor">
-        <TranslationEditor key={`${source}:${target}:${locale}:${reuse?.revision || 0}`} source={source} target={target} initial={reuse?.card} onSave={save} onShow={setShown} />
+        <TranslationEditor key={`${source}:${target}:${locale}:${reuse?.revision || 0}`} source={source} target={target} text={text} onTextChange={setText} initial={reuse?.card} onSave={save} onShow={setShown} />
       </div>
       {notice && <p className="ta-translation-notice" role="status">{notice}</p>}
       {isIOSNative() && <p className="ta-muted">{copy("iOS 18 veya üzeri gerekir. Dil desteği cihazın sistemine bağlıdır. Paketleri Ayarlar → Uygulamalar → Çeviri bölümünden yönetebilirsin.", "Requires iOS 18 or later. Language support depends on your system. Manage packs in Settings → Apps → Translate.")}</p>}
       <button type="button" className="secondary-wide" onClick={onPhrases}>{copy("Hazır seyahat ifadelerini aç", "Open travel phrase cards")}</button>
       <section className="ta-translation-saved" aria-label={copy("Kaydedilen çeviriler", "Saved translations")}>
         <h3>{copy("Kaydedilen çeviriler", "Saved translations")} <small>{saved.length}/{MAX_SAVED_TRANSLATIONS}</small></h3>
+        {stored.error && <div className="ta-warning" role="alert"><p>{stored.error === "corrupt"
+          ? copy("Bazı çeviri kayıtları okunamıyor. Okunabilen kartlar aşağıda; mevcut kayıtların üzerine yazılmadı. Yeni kayıt için veriyi kontrol et veya onaylayarak sıfırla.", "Some translation cards cannot be read. Readable cards are below; existing data has not been overwritten. Check the data or confirm a reset before saving new cards.", "Disa përkthime të ruajtura nuk lexohen. Kartat e lexueshme janë më poshtë; të dhënat nuk u mbishkruan. Kontrolloji ose konfirmo rivendosjen përpara se të ruash karta të reja.")
+          : copy("Cihaz depolamasına erişilemiyor. Tekrar deneyebilirsin; kayıtların değiştirilmedi.", "Device storage is unavailable. Try again; your saved data has not been changed.", "Ruajtja në pajisje nuk është e disponueshme. Provo sërish; të dhënat nuk u ndryshuan.")}</p>
+          <button type="button" className="secondary-wide" onClick={() => setStored(readSavedTranslationState())}>{copy("Kayıtları yeniden oku", "Reload saved cards", "Ringarko kartat e ruajtura")}</button>
+          {stored.error === "corrupt" && <button type="button" className="secondary-wide" onClick={() => setResetOpen(true)}>{copy("Çeviri kayıtlarını sıfırla", "Reset translation cards", "Rivendos përkthimet e ruajtura")}</button>}
+        </div>}
         <p className="ta-muted">{copy("Yalnız Kaydet dediğin çeviriler bu cihazda kalır. Hesabına aktarılmaz; uygulama verilerini temizlemek kayıtları siler.", "Only translations you choose to save stay on this device. They do not sync to your account; clearing app data removes them.")}</p>
         {!saved.length && <p className="ta-empty">{copy("Tekrar kullanacağın bir çeviriyi kaydet. Yolculukta internetsiz açıp büyük yazıyla gösterebilirsin.", "Save a translation you will use again. Open it offline and show it in large text while travelling.")}</p>}
         {saved.map((card) => (
@@ -100,17 +113,21 @@ export function TravelTranslation({ onPhrases }: { onPhrases: () => void }) {
       <Sheet open={!!shown} title={copy("Çeviriyi göster", "Show translation")} onClose={() => setShown(null)} size="large">
         {shown && <LargeTranslation key={`${shown.source}:${shown.target}:${shown.text}:${shown.translation}`} card={shown} />}
       </Sheet>
+      <Sheet open={resetOpen} title={copy("Çeviri kayıtlarını sıfırla", "Reset translation cards", "Rivendos përkthimet e ruajtura")} onClose={() => setResetOpen(false)}>
+        <p>{copy("Okunabilenler dahil bu cihazdaki tüm kayıtlı çeviriler silinecek. Yazdığın taslak ve indirilmiş dil paketleri korunur.", "All saved translations on this device, including readable cards, will be deleted. Your draft and downloaded language packs are kept.", "Të gjitha përkthimet e ruajtura në këtë pajisje, përfshirë kartat e lexueshme, do të fshihen. Drafti dhe paketat e gjuhëve ruhen.")}</p>
+        <button type="button" className="secondary-wide" onClick={() => setResetOpen(false)}>{copy("Vazgeç", "Cancel", "Anulo")}</button>
+        <button type="button" className="primary-wide" onClick={() => { try { resetSavedTranslations(); setStored(readSavedTranslationState()); setResetOpen(false); setPendingDelete(""); setNotice(copy("Çeviri kayıtları sıfırlandı.", "Translation cards reset.", "Përkthimet e ruajtura u rivendosën.")); } catch { setNotice(copy("Kayıtlar sıfırlanamadı. Cihaz depolamasını kontrol et.", "Cards could not be reset. Check device storage.", "Kartat nuk u rivendosën. Kontrollo ruajtjen e pajisjes.")); } }}>{copy("Evet, kayıtlı çevirileri sil", "Yes, delete saved translations", "Po, fshi përkthimet e ruajtura")}</button>
+      </Sheet>
     </section>
   );
 }
 
-function TranslationEditor({ source, target, initial, onSave, onShow }: {
-  source: string; target: string; initial?: TranslationCard;
+function TranslationEditor({ source, target, text, onTextChange, initial, onSave, onShow }: {
+  source: string; target: string; text: string; onTextChange: (text: string) => void; initial?: TranslationCard;
   onSave: (card: TranslationCard) => void; onShow: (card: TranslationCard) => void;
 }) {
   const { copy, locale } = useI18n();
   const [status, setStatus] = useState<TranslationStatus | "checking">("checking");
-  const [text, setText] = useState(initial?.text || "");
   const [result, setResult] = useState<TranslationCard | null>(initial || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -151,7 +168,7 @@ function TranslationEditor({ source, target, initial, onSave, onShow }: {
     <p role="status">{status === "checking" ? copy("Dil desteği kontrol ediliyor…", "Checking language support…") : status === "installed" ? copy("Dil paketleri hazır. İnternetsiz çevirebilirsin.", "Language packs ready. You can translate offline.") : status === "supported" ? copy("Bu dil çifti için paket indirmek gerekiyor. Wi-Fi kullan; indirme birkaç dakika sürebilir.", "This language pair needs a download. Use Wi-Fi; this can take several minutes.") : copy("Bu cihazda bu dil çifti için çevrimdışı çeviri kullanılamıyor. Hazır ifadeleri veya kayıtlı çevirilerini kullanabilir ya da başka bir dil çifti seçebilirsin.", "Offline translation is unavailable for this language pair on this device. Use phrase cards or saved translations, or choose another pair.")}</p>
     {status === "supported" && <button className="primary-wide" disabled={busy} onClick={() => void run(true)}>{busy ? copy("Paket hazırlanıyor…", "Preparing pack…") : copy("Dil paketlerini indir", "Download language packs")}</button>}
     <label>{copy("Çevrilecek metin", "Text to translate")}
-      <textarea rows={4} maxLength={2000} value={text} disabled={busy} lang={source} dir="auto" onChange={(event) => { revision.current++; setText(event.target.value); setResult(null); setError(""); }} />
+      <textarea rows={4} maxLength={2000} value={text} disabled={busy} lang={source} dir="auto" onChange={(event) => { revision.current++; onTextChange(event.target.value); setResult(null); setError(""); }} />
     </label>
     <small>{text.length}/2000</small>
     <button className="primary-wide" disabled={busy || status !== "installed" || !text.trim() || source === target} onClick={() => void run(false)}>{busy ? copy("İşleniyor…", "Working…") : copy("Cihazda çevir", "Translate on device")}</button>

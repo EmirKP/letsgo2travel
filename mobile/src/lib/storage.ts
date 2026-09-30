@@ -1,5 +1,5 @@
 import { createId } from "./id";
-import { queueRouteSave, queueRouteDelete, routesWithOutbox } from "./routeOutbox";
+import { queueRouteSave, queueRouteDelete, readRouteOutbox, routesWithOutbox } from "./routeOutbox";
 import { nextSessionGenerationValue } from "./liveActivityGeneration";
 import type {
   FavoriteDestination,
@@ -162,6 +162,12 @@ export function getSavedRoutePlans(ownerId?: string | null) {
 }
 
 export function saveRoutePlan(plan: SavedRoutePlan, ownerId?: string | null) {
+  // Explicitly saving a deleted generation is a new save. Preserve the old
+  // tombstone so delayed uploads and guest-import retries stay suppressed.
+  if (ownerId && readRouteOutbox(ownerId)[plan.id]?.kind === "delete") {
+    const inspiration = /^inspiration\.([A-Z0-9]{2,8})(?::|$)/.exec(plan.id);
+    plan = { ...plan, id: inspiration ? `inspiration.${inspiration[1]}:${createId()}` : `route-${createId()}` };
+  }
   const next = [plan, ...getSavedRoutePlans(ownerId).filter((item) => item.id !== plan.id)];
   if (ownerId) queueRouteSave(ownerId, plan);
   // Throw on failure so callers cannot announce a save that was never durable.

@@ -162,6 +162,7 @@ export function TravelOfflineMap() {
               )}
             </p>
           )}
+          {pack.stale && <p role="status" className="ta-warning">{copy("Harita kaynağına ulaşılamadı. Bu bölgenin son alınan paketi kaydedildi; yukarıdaki veri tarihi korunuyor. İnternet varken yeniden deneyebilirsin.", "The map source could not be reached. The last retrieved pack for this area was saved with its original date shown above. Try again when connected.", "Burimi i hartës nuk u arrit. U ruajt paketa e fundit e kësaj zone me datën origjinale më sipër. Provo sërish kur të kesh lidhje.")}</p>}
           {pack.limited && (
             <p className="ta-warning">
               {copy(
