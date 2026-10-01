@@ -61,9 +61,9 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
       <div><h3>{copy('Kaydet, sırala, keşfet', 'Save, arrange, explore')}</h3><p>{copy('Beğendiğin yerler ve sana özel gezi sıran, internet olmasa da yanında.', 'Your favourite places and personal day list stay with you, even offline.')}</p></div>
     </header>
     <p className="ta-muted">{ownerId ? copy(
-      'Kaydettiğin yerler, notlar ve gezi sıran bu hesabınla diğer cihazlarına eşitlenir. İnternet yokken değişikliklerin bu cihazda bekler. Arama ve konum geçmişi kaydedilmez.',
-      'Your saved places, notes and day list sync with this account on your other devices. Offline changes wait on this device. Search and location history are not saved.',
-      'Vendet, shënimet dhe rendi i vizitave sinkronizohen me këtë llogari në pajisjet e tua. Ndryshimet pa internet presin në këtë pajisje. Historiku i kërkimit dhe vendndodhjes nuk ruhet.',
+      'Kaydettiğin yerler, notlar ve gezi sıran bu hesabınla diğer cihazlarına eşitlenir. Sildiğin kayıtlar eşitleme sonrası diğer cihazlarından da kaldırılır. İnternet yokken değişikliklerin bu cihazda bekler. Arama ve konum geçmişi kaydedilmez.',
+      'Your saved places, notes and day list sync with this account on your other devices. Deleted records are also removed from other devices after syncing. Offline changes wait on this device. Search and location history are not saved.',
+      'Vendet, shënimet dhe rendi i vizitave sinkronizohen me këtë llogari në pajisjet e tua. Regjistrimet e fshira hiqen edhe nga pajisjet e tjera pas sinkronizimit. Ndryshimet pa internet presin në këtë pajisje. Historiku i kërkimit dhe vendndodhjes nuk ruhet.',
     ) : copy(
       `Yalnız Kaydet dediğin yerler ve notların bu cihazda saklanır; arama ve konum geçmişi kaydedilmez. Hesabına yüklenmez ve giriş/çıkış yaptığında kalır. Aynı cihazı kullanan kişiler görebilir. Uygulama verilerini temizlemek kayıtları siler. En fazla ${MAX_SAVED_PLACES} yer.`,
       `Only places you tap Save on and your notes are stored on this device; search and location history are not saved. They are not uploaded to your account and remain when you sign in or out. Other people using this device can see them. Clearing app data deletes them. Up to ${MAX_SAVED_PLACES} places.`,
@@ -80,7 +80,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
       {state.error === 'corrupt' && <div className="ta-actions">
         <button type="button" onClick={() => {
           if (!confirmReset) { setConfirmReset(true); return; }
-          if (change(() => resetSavedPlaces(ownerId), copy('Kayıtlı yer listesi sıfırlandı.', 'Saved list reset.'))) setConfirmReset(false);
+          if (change(() => resetSavedPlaces(ownerId), ownerId ? copy('Yerel kopya temizlendi. Hesabındaki kayıtlar bağlantı kurulduğunda yeniden yüklenecek.', 'The local copy was cleared. Your account records will reload when connected.', 'Kopja lokale u pastrua. Regjistrimet e llogarisë do të ringarkohen kur të ketë lidhje.') : copy('Kayıtlı yer listesi sıfırlandı.', 'Saved list reset.', 'Lista e vendeve të ruajtura u rivendos.'))) setConfirmReset(false);
         }}>{ownerId ? (confirmReset ? copy('Yerel değişiklikleri kaldır ve yükle', 'Discard local changes and reload', 'Hiq ndryshimet lokale dhe ringarko') : copy('Hesaptan yeniden yükle', 'Reload from account', 'Ringarko nga llogaria')) : confirmReset ? copy('Yerleri ve notları silerek sıfırla', 'Delete places and notes to reset') : copy('Listeyi sıfırla', 'Reset list')}</button>
         {confirmReset && <button type="button" onClick={() => setConfirmReset(false)}>{copy('Vazgeç', 'Cancel')}</button>}
       </div>}
@@ -112,7 +112,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
         dayIndex={view === 'day' ? index : null} dayTotal={state.dayIds.length} inDay={state.dayIds.includes(item.place.id)}
         onVisit={url => void visit(url)}
         onNote={note => change(() => updateTravelPlaceNote(item.place.id, note, ownerId), copy('Not kaydedildi.', 'Note saved.'))}
-        onDelete={() => change(() => deleteTravelPlace(item.place.id, ownerId), copy(`${label(item)} kayıtlı yerlerden kaldırıldı.`, `${label(item)} removed from saved places.`))}
+        onDelete={() => change(() => deleteTravelPlace(item.place.id, ownerId), ownerId ? copy(`${label(item)} cihazdaki kayıtlarından kaldırıldı. Silme işlemi hesabınla eşitlenecek.`, `${label(item)} was removed on this device. The removal is queued for account sync.`, `${label(item)} u hoq nga kjo pajisje. Heqja pret sinkronizimin me llogarinë.`) : copy(`${label(item)} kayıtlı yerlerden kaldırıldı.`, `${label(item)} removed from saved places.`, `${label(item)} u hoq nga vendet e ruajtura.`))}
         onDay={() => change(() => setTravelDayStop(item.place.id, !state.dayIds.includes(item.place.id), ownerId), state.dayIds.includes(item.place.id) ? copy('Gezi sırasından çıkarıldı.', 'Removed from day list.') : copy('Gezi sırasına eklendi.', 'Added to day list.'))}
         onMove={direction => change(() => moveTravelDayStop(item.place.id, direction, ownerId), copy(`${label(item)} ${index + direction + 1}. sıraya taşındı.`, `${label(item)} moved to position ${index + direction + 1}.`))}
       />)}

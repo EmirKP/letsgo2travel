@@ -195,7 +195,7 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
         setSavedEvents(removeSavedTravelEvent(pending.item.id, ownerId));
         setUndo({ pending, owner: ownerId || null });
         void cancelEventReminder(pending.item.id, ownerId).then(ok => { if (!ok) onNotice(copy("Hatırlatıcı iptali bekliyor; yeniden denenecek.", "Reminder cancellation is pending and will retry.")); }).catch(() => onNotice(copy("Hatırlatıcı iptal edilemedi.", "Reminder could not be cancelled.")));
-        onNotice(copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
+        onNotice(ownerId ? copy("Etkinlik bu cihazdaki kayıtlarından çıkarıldı. Silme işlemi hesabınla eşitlenecek.", "The event was removed on this device. The removal is queued for account sync.", "Aktiviteti u hoq nga kjo pajisje. Heqja pret sinkronizimin me llogarinë.") : copy("Etkinlik planından çıkarıldı.", "Event removed from your plan.", "Aktiviteti u hoq nga plani yt."));
       } catch { onNotice(copy("Etkinlik silinemedi. Cihaz depolamasını kontrol et.", "Event could not be removed. Check device storage.")); }
     }
   };
@@ -355,7 +355,15 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
   return <Sheet open={Boolean(pending)} title={copy("Kaydı sil", "Delete item")} onClose={onCancel}>
     <div className="delete-confirmation">
       <span><Icon name="trash" size={24} /></span>
-      <p>{pending?.kind === "event" ? copy("Etkinlik bu cihazdaki kayıtlarından çıkarılacak ve varsa hatırlatıcısı iptal edilecek. Seyahate eklediğin ayrı liste öğesi değişmez.", "The event will be removed from this device and its reminder cancelled. An item already added to a trip checklist stays there.") : account ? copy("Bu rota cihazından ve LetsGo2Travel hesabından silinecek. Bu işlem geri alınamaz.", "This route will be deleted from your device and LetsGo2Travel account. This cannot be undone.") : copy("Bu rota cihazından kaldırılacak. Sonrasında Geri al düğmesini kullanabilirsin.", "This route will be removed from your device. You can use Undo afterwards.")}</p>
+      <p>{pending?.kind === "event" ? account ? copy(
+        "Etkinlik kayıtlarından çıkarılacak; silme işlemi eşitlendiğinde hesabında ve diğer cihazlarında da geçerli olacak. Bu cihazdaki hatırlatıcısı iptal edilecek. Seyahate eklediğin ayrı liste öğesi değişmez.",
+        "The event will be removed from your saved events. Once synced, the removal applies to your account and other devices too. Its reminder on this device will be cancelled. An item already added to a trip checklist stays there.",
+        "Aktiviteti do të hiqet nga aktivitetet e ruajtura. Pas sinkronizimit, heqja zbatohet edhe në llogarinë dhe pajisjet e tjera. Kujtesa në këtë pajisje do të anulohet. Një artikull i shtuar më parë në listën e udhëtimit mbetet aty.",
+      ) : copy(
+        "Etkinlik bu cihazdaki kayıtlarından çıkarılacak ve varsa hatırlatıcısı iptal edilecek. Seyahate eklediğin ayrı liste öğesi değişmez.",
+        "The event will be removed from this device and its reminder cancelled. An item already added to a trip checklist stays there.",
+        "Aktiviteti do të hiqet nga kjo pajisje dhe kujtesa e tij do të anulohet. Një artikull i shtuar më parë në listën e udhëtimit mbetet aty.",
+      ) : account ? copy("Bu rota cihazından ve LetsGo2Travel hesabından silinecek. Bu işlem geri alınamaz.", "This route will be deleted from your device and LetsGo2Travel account. This cannot be undone.") : copy("Bu rota cihazından kaldırılacak. Sonrasında Geri al düğmesini kullanabilirsin.", "This route will be removed from your device. You can use Undo afterwards.")}</p>
       <div><button className="secondary-wide" data-autofocus onClick={onCancel}>{copy("Vazgeç", "Cancel")}</button><button className="danger-wide" onClick={onConfirm}>{copy("Sil", "Delete")}</button></div>
     </div>
   </Sheet>;

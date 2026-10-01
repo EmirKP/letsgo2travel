@@ -41,7 +41,7 @@ export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizensh
       setSavedPlaces(saved ? deleteTravelPlace(selected.id, ownerId) : saveTravelPlace(selected, ownerId));
       setSaveError('');
       setSaveStatus(saved
-        ? copy('Bu yer kayıtlı yerlerinden ve gezi sırandan kaldırıldı.', 'Removed from saved places and your day list.')
+        ? ownerId ? copy('Bu yer cihazdaki kayıtlarından ve gezi sırandan kaldırıldı. Silme işlemi hesabınla eşitlenecek.', 'Removed from saved places and your day list on this device. The removal is queued for account sync.', 'Vendi u hoq nga vendet e ruajtura dhe rendi i vizitave në këtë pajisje. Heqja pret sinkronizimin me llogarinë.') : copy('Bu yer kayıtlı yerlerinden ve gezi sırandan kaldırıldı.', 'Removed from saved places and your day list.', 'Vendi u hoq nga vendet e ruajtura dhe rendi i vizitave.')
         : copy('Kaydedildi. Kaydettiğim yerler bölümünde not ekleyip gezi sırana alabilirsin.', 'Saved. Add notes and arrange your day in Saved places.'));
     } catch (e) {
       setSaveStatus('');
@@ -93,7 +93,15 @@ export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizensh
       <p className="ta-muted">{copy('OSM topluluk verisi; doğruluk ve hizmet mevcudiyeti garanti değildir. Mesafeler kuş uçuşudur.','OSM community data; accuracy and service availability are not guaranteed. Distances are straight-line estimates.')} {copy('Alınma','Retrieved')}: {formatAppDate(new Date(result.fetchedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}{result.limited && ` · ${copy('Sonuç sınırına ulaşıldı; tüm noktalar gösterilmiyor.','Result limit reached; not all places are shown.')}`}</p></>}
     <Sheet open={!!selected && !!result} title={selected ? name(selected) : ''} onClose={() => setSelected(null)}>{selected && result && <div className="ta-panel">
       <button type="button" className="tsp-save-button" aria-pressed={isSelectedSaved} onClick={toggleSaved}><Icon name={isSelectedSaved ? 'check' : 'bookmark'} size={18}/>{isSelectedSaved ? copy('Kaydedildi · Kaldır', 'Saved · Remove') : copy('Bu yeri kaydet', 'Save this place')}</button>
-      <p className="ta-muted">{copy('Kaydettiğin yerin bilgileri ve notların yalnız bu cihazda tutulur; hesabına yüklenmez, giriş/çıkış yaptığında kalır. Kaydettiğim yerler bölümünden silebilirsin.', 'Saved place details and notes stay on this device only; they are not uploaded to your account and remain when you sign in or out. Delete them from Saved places.')}</p>
+      <p className="ta-muted">{ownerId ? copy(
+        'Kaydettiğin yerler ve notların hesabınla eşitlenir. Bir yeri kaldırdığında bu değişiklik eşitleme sonrası diğer cihazlarına da yansır. İnternet yokken değişiklikler bu cihazda bekler.',
+        'Your saved places and notes sync with your account. Removing a place also removes it on your other devices after syncing. Offline changes wait on this device.',
+        'Vendet dhe shënimet e ruajtura sinkronizohen me llogarinë tënde. Heqja e një vendi zbatohet edhe në pajisjet e tjera pas sinkronizimit. Ndryshimet pa internet presin në këtë pajisje.',
+      ) : copy(
+        'Kaydettiğin yerin bilgileri ve notların yalnız bu cihazda tutulur; hesabına yüklenmez, giriş/çıkış yaptığında kalır. Kaydettiğim yerler bölümünden silebilirsin.',
+        'Saved place details and notes stay on this device only; they are not uploaded to your account and remain when you sign in or out. Delete them from Saved places.',
+        'Të dhënat dhe shënimet e vendeve të ruajtura mbeten vetëm në këtë pajisje; nuk ngarkohen në llogari dhe ruhen kur hyn ose del. Mund t’i fshish te Vendet e ruajtura.',
+      )}</p>
       {saveError && <p className="ta-warning" role="alert">{saveError}</p>}
       <p className="tsp-save-status" role="status" aria-live="polite">{saveStatus}</p>
       <p>{selected.description || copy('Bu nokta için kısa açıklama bulunmuyor.','No description is available for this place.')}</p>
