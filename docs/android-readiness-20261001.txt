@@ -4,10 +4,10 @@ LetsGo2Travel — Android hazırlığı ve ortak hesap kontrolü
 TESLİM
 Android 1.4.0 / versionCode 27, debug imzalı test APK'sı hazır.
 Paket kimliği: tr.com.letsgo2travel.app
-Kaynak: ff398fdd1d4a9c6b4e065f77c83557cd8e398432
+APK kaynağı: a8fa34f90f3b4c72f6dc268629aabe7dc28b5652
 APK: C:/Users/emirk/Documents/Codex/2026-09-26/i/outputs/android-20261001/LetsGo2Travel-Android-Test-1.4.0.apk
-Boyut: 121449300 bayt (evrensel test APK'sı).
-SHA256: 974250BDA4D971F0ADAB42549D3D63818150EF23621B3A671EB7AED3EBA47F18
+Boyut: 121449496 bayt (evrensel test APK'sı).
+SHA256: D32279C47AB51DB18992135DD0C3D33183726CC076A74FB9340E82A9FF9F98C5
 Mağaza yayını yapılmadı; Play hesabı, yükleme imzası ve Firebase Android istemcisi henüz yok.
 
 ORTAK ÇALIŞMA
@@ -24,6 +24,7 @@ Seçilen fotoğraf/PDF için cihaz üzerinde OCR: 20 MB, 6 sayfa ve 24000 karakt
 Giriş/Kokpit uygulama bağlantıları; Android 7–8 tema uyumluluğu; marka açılış rengi ve adaptive ikon arka planı.
 Firebase olmayan test paketinde bildirim açma/kapatma uygulamayı çökertmiyor. Uzaktan push etkinmiş gibi gösterilmiyor.
 Android'e özel mobil paket hazırlığı iOS'un üretilmiş dosyalarını değiştirmiyor.
+Android klavyesi açılınca alt menünün içerik üzerine gelmesi düzeltildi. Yerel IME görünürlüğü izleniyor; iOS/web mevcut davranışını koruyor.
 Codemagic'e manuel test APK ve imzalı APK/AAB hazırlama iş akışları eklendi. İmzalı akış Play'e kendiliğinden yayınlamaz; gerekli hesap/anahtarlar tanımlanmadan kullanılamaz.
 
 WEB VE VERİTABANI
@@ -34,6 +35,7 @@ supabase/migrations/20261001100000_account_collections.sql canlı projeye tek i�
 Sahiplik politikaları doğrulandı: anonim okuma yok, doğrudan authenticated güncelleme yok; sahip kontrollü CAS fonksiyonu kullanılıyor.
 Gerçek mobil önizleme hesabında etkinlik kaydı revision 1 / 1 öğe olarak buluta ulaştı. UI üzerinden kaldırıldı; revision 2 / 0 öğe doğrulandı. Test etkinliği bırakılmadı.
 Web yayını: dpl_9SSs4Tup95Hpb6kPqxFAScS24eE9
+Web kaynağı: ff398fdd1d4a9c6b4e065f77c83557cd8e398432 (sonraki değişiklik yalnız Android klavye köprüsü ve mobil bağlantısıdır).
 Adres: https://www.letsgo2travel.com.tr
 Kokpit sayfası ve /api/health HTTP 200; sağlık sonucu ok=true.
 
@@ -43,6 +45,7 @@ Web production build ve mobil temiz derleme geçti.
 Android Gradle assembleDebug/lintDebug geçti; native lint sıfır hata (17 mevcut kaynak uyarısı).
 Android 16/API 36 emülatöründe 7/7 native test: gerçek fotoğraf/PDF OCR, sınırlar/temizlik, bağlantılar ve Firebase eksikliğinde push güvenliği.
 Son APK emülatöre kuruldu, soğuk açılış/onboarding/ana ekran kontrol edildi. Kaynak kimliği APK içinden doğrulandı.
+Klavye açma/kapatma ve açık klavyeyle yatay/dikey ekran dönüşü emülatörde doğrulandı. İlgili 32 gezinme/profil regresyonu da geçti.
 64 bit yerel kütüphanelerin ELF ve APK ZIP 16 KB hizalaması geçti.
 Çok cihazlı çevrimdışı birleştirme/silme/hesap değiştirme senaryoları kontrollü testlerle doğrulandı; iki fiziksel telefonda uçtan uca test yapılmadı.
 Kanıt klasörü: C:/Users/emirk/Documents/Codex/2026-09-26/i/outputs/android-20261001/
