@@ -1,0 +1,53 @@
+LetsGo2Travel — Android hazırlığı ve ortak hesap kontrolü
+1 Ekim 2026
+
+TESLİM
+Android 1.4.0 / versionCode 27, debug imzalı test APK'sı hazır.
+Paket kimliği: tr.com.letsgo2travel.app
+Kaynak: ff398fdd1d4a9c6b4e065f77c83557cd8e398432
+APK: C:/Users/emirk/Documents/Codex/2026-09-26/i/outputs/android-20261001/LetsGo2Travel-Android-Test-1.4.0.apk
+Boyut: 121449300 bayt (evrensel test APK'sı).
+SHA256: 974250BDA4D971F0ADAB42549D3D63818150EF23621B3A671EB7AED3EBA47F18
+Mağaza yayını yapılmadı; Play hesabı, yükleme imzası ve Firebase Android istemcisi henüz yok.
+
+ORTAK ÇALIŞMA
+Android ve iOS aynı mobil arayüz kaynaklarını, aynı Supabase hesabını ve ana API'yi kullanıyor.
+Profil, ziyaretler/favoriler, rotalar/günlük, seyahatler/Kokpit/kontrol listeleri/PNR, topluluk ve uyarılar ortak hesap altyapısında.
+Kayıtlı yerler, yer notları, gezi sırası ve kaydedilen etkinlikler hesap bazlı çevrimdışı kuyrukla eşitleniyor.
+Çakışan kayıtlar güncel sürüm üzerinden birleştiriliyor; eski not değişikliği başka cihazda silinen yeri geri oluşturmuyor.
+Uygulamaya dönüşte ortak veriler yeniden okunuyor. Aynı anda gelen Android yaşam döngüsü olayları birleştiriliyor.
+Eski hesapsız cihaz yerleri misafir alanında korunuyor; herhangi bir hesaba otomatik yüklenmiyor. Önceden sahipliği belirli etkinlikler yalnız aynı hesaba taşınıyor.
+Bildirim izinleri, yerel hatırlatıcı kayıtları, indirilen harita/çeviri modelleri, kaydedilmiş çeviriler ve cihaz tercihleri yerel kalıyor.
+
+ANDROID DÜZELTMELERİ
+Seçilen fotoğraf/PDF için cihaz üzerinde OCR: 20 MB, 6 sayfa ve 24000 karakter sınırı; geçici dosya temizliği.
+Giriş/Kokpit uygulama bağlantıları; Android 7–8 tema uyumluluğu; marka açılış rengi ve adaptive ikon arka planı.
+Firebase olmayan test paketinde bildirim açma/kapatma uygulamayı çökertmiyor. Uzaktan push etkinmiş gibi gösterilmiyor.
+Android'e özel mobil paket hazırlığı iOS'un üretilmiş dosyalarını değiştirmiyor.
+Codemagic'e manuel test APK ve imzalı APK/AAB hazırlama iş akışları eklendi. İmzalı akış Play'e kendiliğinden yayınlamaz; gerekli hesap/anahtarlar tanımlanmadan kullanılamaz.
+
+WEB VE VERİTABANI
+Mobilde seyahate eklenen rota/bütçe kopyaları web Kokpitinde kaynak ve kur bilgileriyle görüntüleniyor.
+Webde kişisel tarih, PNR, durum ve kontrol listesi aynı kaydı güncelliyor. Çakışmada taslak korunup tekrar onay isteniyor.
+Ayrıntılı uçuş saati/havalimanı düzenleme ve yeni rota/bütçe ekleme mobilde kalıyor; webde bu kopyalar görüntüleniyor.
+supabase/migrations/20261001100000_account_collections.sql canlı projeye tek işlemle uygulandı.
+Sahiplik politikaları doğrulandı: anonim okuma yok, doğrudan authenticated güncelleme yok; sahip kontrollü CAS fonksiyonu kullanılıyor.
+Gerçek mobil önizleme hesabında etkinlik kaydı revision 1 / 1 öğe olarak buluta ulaştı. UI üzerinden kaldırıldı; revision 2 / 0 öğe doğrulandı. Test etkinliği bırakılmadı.
+Web yayını: dpl_9SSs4Tup95Hpb6kPqxFAScS24eE9
+Adres: https://www.letsgo2travel.com.tr
+Kokpit sayfası ve /api/health HTTP 200; sağlık sonucu ok=true.
+
+DOĞRULAMA
+Tam yayın gereksinimi testleri ve root lint geçti.
+Web production build ve mobil temiz derleme geçti.
+Android Gradle assembleDebug/lintDebug geçti; native lint sıfır hata (17 mevcut kaynak uyarısı).
+Android 16/API 36 emülatöründe 7/7 native test: gerçek fotoğraf/PDF OCR, sınırlar/temizlik, bağlantılar ve Firebase eksikliğinde push güvenliği.
+Son APK emülatöre kuruldu, soğuk açılış/onboarding/ana ekran kontrol edildi. Kaynak kimliği APK içinden doğrulandı.
+64 bit yerel kütüphanelerin ELF ve APK ZIP 16 KB hizalaması geçti.
+Çok cihazlı çevrimdışı birleştirme/silme/hesap değiştirme senaryoları kontrollü testlerle doğrulandı; iki fiziksel telefonda uçtan uca test yapılmadı.
+Kanıt klasörü: C:/Users/emirk/Documents/Codex/2026-09-26/i/outputs/android-20261001/
+
+KALANLAR
+Google Play geliştirici hesabı ve uygulama kaydı; upload key; sunucuyla aynı projeye bağlı Firebase Android yapılandırması; mağaza formları ve gerçek cihaz testleri.
+Push, GPS/izinler ve gerçek cihaz performansı mağaza öncesinde ayrıca doğrulanmalı. Android'de Dynamic Island bulunmaz; yerel uçuş hatırlatmaları ayrı OS arayüzü kullanır.
+İncelemedeki iOS 1.4.0(59) değiştirilmedi. Yeni yer/etkinlik eşitlemesi sonraki iOS paketine dahil edilmeden mevcut 59 sürümünde çalışmaz.
