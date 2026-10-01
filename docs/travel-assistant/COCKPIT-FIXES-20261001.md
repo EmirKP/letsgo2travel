@@ -1,6 +1,6 @@
 # Cockpit and data-integrity fixes — 1 October 2026
 
-Implementation and verification record for the follow-up app audit. The database migration below was applied successfully through Supabase SQL. **A new production deployment and TestFlight build are not confirmed by this document.** Release identifiers must be added after publication succeeds.
+Implementation, verification and publication record for the follow-up app audit. The database migration was applied successfully, both web services were promoted, and **TestFlight 1.4.0 (59)** was uploaded and assigned to the internal test group.
 
 ## Changes
 
@@ -9,7 +9,7 @@ Implementation and verification record for the follow-up app audit. The database
 - Saved-route identity and synchronization distinguish a new explicit save from a stale pending deletion. Home favourites and saved plans use the same identity rules. Web saved-plan details have a working owned-record destination; mobile route and budget actions hand off to Cockpit.
 - Account mutations no longer overwrite rotated tokens or revive a logged-out/replaced session. Profile and Explore remote reads are authoritative, so another device's deletion is not restored from stale local cache; genuine pending guest imports remain queued. Kosovo aliases deduplicate consistently. Verification load failures have an error/retry state and localized country labels.
 - Community country/search filters run before pagination; more posts and replies beyond the first 100 can be loaded. Locked previews remain restricted. Admin reports expose the actual reported content, distinguish unavailable context from missing content, and retain existing authorization for hide-and-resolve actions.
-- Travel-tool failure handling and caching were tightened; unsupported offline translation is reported honestly. This does not establish that an unavailable external map or flight provider is operational.
+- Native request cancellation and deadlines now settle without accepting late bridge results. Translation drafts survive language changes, corrupt saved cards cannot be overwritten, and external web links no longer also navigate the app. Map results reuse fresh snapshots for one hour and explicitly marked stale snapshots for at most six hours, preserving the original timestamp. Unsupported offline translation is reported honestly.
 
 ## Database operation
 
@@ -28,10 +28,17 @@ For an application rollback, retain this additive table and users' snapshots; dr
 - Authenticated browser checks confirmed creating a QA trip, adding a checklist item, editing city/end date/PNR while keeping the checklist, and attaching a four-day Rome route plus a five-day, three-person EUR Belgrade budget to the same trip. Different destination/duration snapshots are retained as the user's explicit choices, not presented as a recalculated combined itinerary.
 - Full page reload restored both attached snapshots, the edited trip and its checklist. Removing the source route left the Cockpit copy intact. The temporary saved route and QA trip were then deleted through the UI; an empty Cockpit was verified. These browser and automated checks do not establish physical iPhone behavior, native background delivery or uninterrupted third-party availability.
 
-## Remaining limits and publication
+## Publication
 
-- The external map-provider issue remains unresolved; the related unavailable/degraded states must not be described as a repaired live map service.
+- Release source: `871b5f04d78d074633b2d396a9d414404b3d5815` for both deployments and the native build.
+- Main application: `dpl_HQc2wQ8nhjzCVRV9mk2VmCR5FNWW` promoted to `www.letsgo2travel.com.tr`. Live country/search community feeds returned HTTP 200; anonymous admin users/reports requests returned the expected 401; photo readiness returned 200.
+- Public travel API: `dpl_3Fb4kezdWPf41EFersvJcKuuV6n4` promoted to `testflight.letsgo2travel.com.tr`; its public root source was verified. Candidate checks returned rates HTTP 200 with client validation passing and Waterloo lookup HTTP 200. A places request returned 503 in 4.64 seconds, confirming the continuing map-provider outage.
+- Codemagic build `6abd8d16083ff0a9a53add51` used the release commit and successfully exported the signed IPA. Apple confirmed upload complete for **1.4.0 (59)**, build `40608500-1d8b-4633-be55-f31830ef7366`.
+- Build 59 is assigned to **LetsGo2Travel İç Test**, internal group `1f956c5b-779d-41e6-8e9a-73f80b5a20f3`, with **3 testers**. What to Test notes were saved and verified in the UI. No App Store review submission was made; internal assignment does not establish installation or physical-device behavior.
+
+## Remaining limits
+
+- Both configured default Overpass providers failed direct checks (timeout / HTTP 504). Cached results reduce disruption, but a cold area still requires upstream recovery or a reliable configured HTTPS `TRAVEL_OVERPASS_URL`. The live map service remains degraded.
 - Flight lookup remains subject to the existing free-trial/provider restrictions. This batch does not activate commercial flight-data rights, increase quota or prove continuous native flight tracking.
 - Albanian app UI and ticket-text parsing are supported, but **Albanian offline translation is unavailable on iOS** in the current integration. It must not be offered as an installable iOS language pack.
-- Production deployment/source: **pending release-owner confirmation**.
-- Codemagic / TestFlight version and build: **pending successful publication and Apple processing**. No new build availability or physical-device test is claimed here.
+- Native translation-model download, HTTP cancellation and background flight behavior still require physical-device verification.
