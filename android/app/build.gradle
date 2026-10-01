@@ -63,6 +63,11 @@ repositories {
 
 dependencies {
     implementation 'com.google.mlkit:translate:17.0.3'
+    // Bundled Latin OCR works on first use without uploading a ticket or downloading a model.
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'androidx.exifinterface:exifinterface:1.4.2'
+    // Also present through Capacitor push at runtime; needed for the startup readiness check.
+    implementation 'com.google.firebase:firebase-common:22.0.1'
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"

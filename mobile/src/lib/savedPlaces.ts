@@ -1,5 +1,6 @@
 import { coordinates, NEEDS, TOURING, safeWebsite } from '../../../lib/travel-assistant/places';
 import type { Place } from '../../../lib/travel-assistant/types';
+import { COLLECTION_CHANGE, collectionKey, queueCollectionChange, readCollection, resetCollectionCache, type CollectionDocument, type CollectionOperation } from './accountCollections';
 
 export const SAVED_PLACES_KEY = 'l2t:assistant:saved-places:v1';
 export const MAX_SAVED_PLACES = 60;
@@ -15,6 +16,7 @@ export type SavedPlacesState = {
   items: SavedPlace[];
   dayIds: string[];
   error: 'corrupt' | 'unavailable' | null;
+  pending?: number;
 };
 
 function validDate(value: unknown): value is string {
@@ -54,8 +56,10 @@ function validatePlace(raw: unknown): Place | null {
 function validateDocument(raw: unknown): SavedPlacesDocument | null {
   if (!raw || typeof raw !== 'object') return null;
   const data = raw as SavedPlacesDocument;
-  if (data.version !== 1 || !Array.isArray(data.items) || data.items.length > MAX_SAVED_PLACES
-    || !Array.isArray(data.dayIds) || data.dayIds.length > MAX_DAY_STOPS) return null;
+  // Concurrent offline saves may exceed one device's creation limit. Preserve
+  // every existing bookmark rather than truncating the other device's work.
+  if (data.version !== 1 || !Array.isArray(data.items) || data.items.length > 1000
+    || !Array.isArray(data.dayIds) || data.dayIds.length > 1000) return null;
   const ids = new Set<string>();
   const items: SavedPlace[] = [];
   for (const item of data.items) {
@@ -69,7 +73,19 @@ function validateDocument(raw: unknown): SavedPlacesDocument | null {
   return { version: 1, items, dayIds: [...data.dayIds] };
 }
 
-export function readSavedPlaces(): SavedPlacesState {
+export function validateAccountPlaces(document: CollectionDocument) {
+  return Boolean(validateDocument({ version: 1, items: Object.values(document.items), dayIds: document.dayIds }))
+    && Object.entries(document.items).every(([id, item]) => (item as SavedPlace).place.id === id);
+}
+
+export function readSavedPlaces(ownerId?: string | null): SavedPlacesState {
+  if (ownerId) {
+    try {
+      const value = readCollection(ownerId, 'saved_places');
+      if (!validateAccountPlaces(value.document)) return { items: [], dayIds: [], error: 'corrupt' };
+      return { items: (Object.values(value.document.items) as SavedPlace[]).sort((a,b) => b.savedAt.localeCompare(a.savedAt)), dayIds: value.document.dayIds, error: null, pending: value.pending.length };
+    } catch { return { items: [], dayIds: [], error: 'corrupt' }; }
+  }
   let raw: string | null;
   try { raw = localStorage.getItem(SAVED_PLACES_KEY); }
   catch { return { items: [], dayIds: [], error: 'unavailable' }; }
@@ -81,10 +97,14 @@ export function readSavedPlaces(): SavedPlacesState {
   } catch { return { items: [], dayIds: [], error: 'corrupt' }; }
 }
 
-function currentDocument(): SavedPlacesDocument {
-  const state = readSavedPlaces();
+function currentDocument(ownerId?: string | null): SavedPlacesDocument {
+  const state = readSavedPlaces(ownerId);
   if (state.error) throw new Error(state.error);
   return { version: 1, items: state.items, dayIds: state.dayIds };
+}
+function accountEdit(ownerId: string, edit: Omit<CollectionOperation, 'id'>) {
+  queueCollectionChange(ownerId, 'saved_places', [edit]);
+  return readSavedPlaces(ownerId);
 }
 function notify() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(CHANGE_EVENT));
@@ -101,68 +121,79 @@ function persist(document: SavedPlacesDocument): SavedPlacesState {
   return { items: checked.items, dayIds: checked.dayIds, error: null };
 }
 
-export function saveTravelPlace(place: Place): SavedPlacesState {
+export function saveTravelPlace(place: Place, ownerId?: string | null): SavedPlacesState {
   const checked = validatePlace(place);
   if (!checked) throw new Error('invalid');
-  const doc = currentDocument();
+  const doc = currentDocument(ownerId);
   // Repeated saves preserve notes, ordering, and the originally chosen snapshot.
   if (doc.items.some(item => item.place.id === checked.id)) return { items: doc.items, dayIds: doc.dayIds, error: null };
   if (doc.items.length >= MAX_SAVED_PLACES) throw new Error('full');
-  doc.items.unshift({ place: checked, savedAt: new Date().toISOString(), note: '' });
+  const item = { place: checked, savedAt: new Date().toISOString(), note: '' };
+  if (ownerId) return accountEdit(ownerId, { action: 'add', key: checked.id, value: item });
+  doc.items.unshift(item);
   return persist(doc);
 }
 
-export function deleteTravelPlace(id: string): SavedPlacesState {
-  const doc = currentDocument();
+export function deleteTravelPlace(id: string, ownerId?: string | null): SavedPlacesState {
+  const doc = currentDocument(ownerId);
+  if (ownerId) return accountEdit(ownerId, { action: 'remove', key: id });
   doc.items = doc.items.filter(item => item.place.id !== id);
   doc.dayIds = doc.dayIds.filter(value => value !== id);
   return persist(doc);
 }
 
-export function updateTravelPlaceNote(id: string, note: string): SavedPlacesState {
+export function updateTravelPlaceNote(id: string, note: string, ownerId?: string | null): SavedPlacesState {
   if (!text(note, MAX_PLACE_NOTE)) throw new Error('invalid');
-  const doc = currentDocument();
+  const doc = currentDocument(ownerId);
   const item = doc.items.find(item => item.place.id === id);
   if (!item) throw new Error('missing');
+  if (ownerId) return accountEdit(ownerId, { action: 'patch', key: id, value: { note: note.trim() } });
   item.note = note.trim();
   return persist(doc);
 }
 
-export function setTravelDayStop(id: string, include: boolean): SavedPlacesState {
-  const doc = currentDocument();
+export function setTravelDayStop(id: string, include: boolean, ownerId?: string | null): SavedPlacesState {
+  const doc = currentDocument(ownerId);
   if (!doc.items.some(item => item.place.id === id)) throw new Error('missing');
   if (include && !doc.dayIds.includes(id)) {
     if (doc.dayIds.length >= MAX_DAY_STOPS) throw new Error('day-full');
     doc.dayIds.push(id);
   } else if (!include) doc.dayIds = doc.dayIds.filter(value => value !== id);
+  if (ownerId) return accountEdit(ownerId, { action: include ? 'day-add' : 'day-remove', key: id });
   return persist(doc);
 }
 
-export function moveTravelDayStop(id: string, direction: -1 | 1): SavedPlacesState {
-  const doc = currentDocument();
+export function moveTravelDayStop(id: string, direction: -1 | 1, ownerId?: string | null): SavedPlacesState {
+  const doc = currentDocument(ownerId);
   const index = doc.dayIds.indexOf(id);
   if (index < 0 || ![-1, 1].includes(direction)) throw new Error('missing');
   const next = index + direction;
   if (next >= 0 && next < doc.dayIds.length) [doc.dayIds[index], doc.dayIds[next]] = [doc.dayIds[next], doc.dayIds[index]];
+  if (ownerId) return accountEdit(ownerId, { action: 'day-before', key: id, value: doc.dayIds[doc.dayIds.indexOf(id) + 1] || null });
   return persist(doc);
 }
 
 // Only the explicit recovery action calls this; a parse or read failure never does.
-export function resetSavedPlaces(): SavedPlacesState {
+export function resetSavedPlaces(ownerId?: string | null): SavedPlacesState {
+  if (ownerId) { resetCollectionCache(ownerId, 'saved_places'); return readSavedPlaces(ownerId); }
   try { localStorage.removeItem(SAVED_PLACES_KEY); }
   catch { throw new Error('unavailable'); }
   notify();
   return { items: [], dayIds: [], error: null };
 }
 
-export function subscribeSavedPlaces(listener: () => void): () => void {
+export function subscribeSavedPlaces(listener: () => void, ownerId?: string | null): () => void {
+  const key = ownerId ? collectionKey(ownerId, 'saved_places') : SAVED_PLACES_KEY;
   const onStorage = (event: StorageEvent) => {
-    if (event.key === SAVED_PLACES_KEY || event.key === null) listener();
+    if (event.key === key || event.key === null) listener();
   };
-  window.addEventListener(CHANGE_EVENT, listener);
+  const onCollection = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.ownerId === ownerId && detail.kind === 'saved_places') listener(); };
+  if (ownerId) window.addEventListener(COLLECTION_CHANGE, onCollection);
+  else window.addEventListener(CHANGE_EVENT, listener);
   window.addEventListener('storage', onStorage);
   return () => {
     window.removeEventListener(CHANGE_EVENT, listener);
+    window.removeEventListener(COLLECTION_CHANGE, onCollection);
     window.removeEventListener('storage', onStorage);
   };
 }

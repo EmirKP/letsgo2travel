@@ -35,7 +35,7 @@ const iso=load('mobile/src/data/countryIso.ts',{'./countries':countries});
 const profileCountries=load('mobile/src/lib/profileCountries.ts',{'../data/countries':countries,'../data/countryCodes':codes});
 const i18n={copy:(_,en)=>en,countryName:(_,name)=>name,locale:'en'};
 function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false}={}){
- const h=host(), storage=new Map(),reads=[],writes=[],notices=[];
+ const h=host(), storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set();
  const get=(owner,key)=>storage.get(`${owner}:${key}`)||[];
  const set=(owner,key,value)=>storage.set(`${owner}:${key}`,value);
  set('a','visited',local);
@@ -47,14 +47,21 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   '../lib/api':{getTravelVerifications:async()=>{if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},
   '../lib/push':{getPushPermissionState:async()=> 'unsupported',isPushEnabledForDevice:()=>false},
   '../lib/i18n':{useI18n:()=>i18n},
+  '../lib/accountResume':{onAccountResume:fn=>{resumes.add(fn);return ()=>resumes.delete(fn);}},
   '../lib/supabaseData':{getUserProfile:(id)=>{const d=deferred();reads.push({id,...d});if(remote&&id==='a')d.resolve(remote);return d.promise;},updateUserProfile:(id,change,token)=>{const d=deferred();writes.push({id,change,token,...d});return d.promise;},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
   '../lib/storage':{getPendingGuestDataSync:()=>pendingImport?{profile:true}:null,getMobilePreferences:()=>({}),getVisitedCountries:owner=>get(owner,'visited'),getFavoriteDestinations:owner=>get(owner,'favorites'),getSavedRoutePlans:()=>[],saveMobilePreferences(){},setVisitedCountries:(value,owner)=>set(owner,'visited',value),setFavoriteDestinations:(value,owner)=>set(owner,'favorites',value),toggleVisitedCountry:(country,owner)=>{const prev=get(owner,'visited');const next=prev.some(c=>c.alpha3===country.alpha3)?prev.filter(c=>c.alpha3!==country.alpha3):[...prev,{...country,createdAt:new Date().toISOString()}];set(owner,'visited',next);return next;}},
  },{window:{addEventListener(){},removeEventListener(){}},document:{addEventListener(){},removeEventListener(){},visibilityState:'visible'}});
  let tree;const render=(next={})=>{props={...props,...next};tree=h.render(()=>source.ProfileScreen(props));return tree;};render();
- return {h,source,reads,writes,notices,storage,render,get tree(){return tree;},get};
+ return {h,source,reads,writes,notices,storage,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
 }
 const base={id:'a',username:'user_a',visitedCountries:[],wishlistCountries:[],optInLeaderboard:false};
 const tr=countries.COUNTRY_LIST.find(c=>c.alpha3==='TUR');
+
+test('Returning to the app fetches current account countries instead of retaining another device\'s deleted visit',async()=>{
+ const h=profileHarness();h.reads[0].resolve({...base,visitedCountries:['TUR']});await tick();h.render();
+ assert.equal(h.get('a','visited').length,1);h.resume();h.render();assert.equal(h.reads.length,2);
+ h.reads[1].resolve(base);await tick();h.render();assert.equal(h.get('a','visited').length,0);assert.equal(h.writes.length,0);h.h.dispose();
+});
 
 test('Successful remote profile reads remove stale local visits without writing them back', async()=>{
  const h=profileHarness({remote:base,local:[{...tr,createdAt:'2026-09-01T00:00:00Z'}]});

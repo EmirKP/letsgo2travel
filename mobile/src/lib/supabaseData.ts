@@ -595,15 +595,24 @@ export async function listUserTrips(userId: string, accessToken: string, mobileK
     const params = new URLSearchParams({
       select: USER_TRIP_SELECT,
       user_id: `eq.${userId}`,
-      order: "created_at.desc",
+      order: "created_at.desc,id.desc",
       limit: "100",
     });
     if (mobileKind) params.set("trip_data->>mobile_kind", `eq.${safeString(mobileKind, 60)}`);
     const rows: UserTripRow[] = [];
+    const seen = new Set<string>();
     for (let offset = 0; ; offset += 100) {
       params.set("offset",String(offset));
       const page = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), { headers:dataHeaders(accessToken) });
-      rows.push(...page);
+      let added = 0;
+      for (const row of page) {
+        const key = String(row.id);
+        if (!seen.has(key)) { seen.add(key); rows.push(row); added++; }
+      }
+      // A misconfigured proxy that ignores offset must not keep an account
+      // synchronizer fetching the same page forever or mark a partial list as
+      // authoritative (which would remove saved items on the other device).
+      if (mobileKind && page.length === 100 && added === 0) throw new SupabaseDataError("service_unavailable", 503);
       if (!mobileKind || page.length < 100) break;
     }
     return rows.flatMap((row) => {

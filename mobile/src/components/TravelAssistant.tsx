@@ -54,7 +54,7 @@ const keywords: Record<Tool,string> = {
   photo:'kamera fotoğraf fotograf camera picture',
   offline:'internetsiz çevrimdışı cevrimdisi indir download offline',
 };
-export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToken,onSignIn}:{initialCountry?:string;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void}) {
+export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToken,onSignIn,ownerId}:{initialCountry?:string;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null}) {
   const { copy,locale,countryName } = useI18n(); const passport = usePassportPreference();
   const [country,setCountry] = useState(() => initialCountry || readTravelCountry()); const [citizenship,setCitizenship] = useState(passport.country);
   const [tool,setTool] = useState<Tool|null>(null);
@@ -99,13 +99,13 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
     {(tool === 'safety' || tool === 'embassies' || tool === 'guide') && <div className="ta-country-context"><CountryPicker value={country} options={options} onChange={code => {setCountry(code);setGuideNotice('');selectTravelCountry(code);}} label={copy('Hangi ülke için?','For which country?')} placeholder={copy('Ülke seç','Choose a country')}/>{!country && <p className="ta-muted">{copy('Doğru yerel bilgileri gösterebilmemiz için ülkeyi seç.','Choose a country to see the relevant local information.')}</p>}</div>}
     <Suspense fallback={<p role="status">{copy('Araç açılıyor…','Opening tool…')}</p>}>
       {tool==='safety' && country && <TravelSafety country={country} onNotice={onNotice} onOpen={t => t==='phrases' ? onPhrases(country) : chooseTool(t)}/>}
-      {(tool==='needs'||tool==='explore') && <TravelNearby key={tool} mode={tool} citizenship={citizenship}/>}
+      {(tool==='needs'||tool==='explore') && <TravelNearby key={`${ownerId || 'guest'}:${tool}`} ownerId={ownerId} mode={tool} citizenship={citizenship}/>}
       {tool==='money' && <TravelMoney/>}
       {tool==='translate' && <TravelTranslation onPhrases={()=>onPhrases(country)}/>}
       {tool==='transit' && <TravelTransit/>}
       {tool==='photo' && <TravelPhotoGuide key={accessToken ? 'signed-in' : 'guest'} accessToken={accessToken} onSignIn={onSignIn}/>}
       {tool==='offline' && <TravelOfflineMap/>}
-      {tool==='saved' && <TravelSavedPlaces onExplore={() => chooseTool('explore')}/>}
+      {tool==='saved' && <TravelSavedPlaces key={ownerId || 'guest'} ownerId={ownerId} onExplore={() => chooseTool('explore')}/>}
       {tool==='embassies' && country && <><CountryPicker value={citizenship} options={options} onChange={setCitizenship} label={copy('Vatandaşlığın','Your citizenship')} placeholder={copy('Vatandaşlık seç','Choose citizenship')}/><EmbassyCards country={country} citizenship={citizenship}/></>}
       {tool==='guide' && country && <section className="ta-panel"><div className="ta-guide-quicklinks">
         {officialGuide && <button type="button" onClick={() => void openExternal(`https://www.gov.uk/foreign-travel-advice/${officialGuide}`).then(ok => {if (!ok) setGuideNotice(copy('Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', 'The official page could not open. Check your connection.', 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.'));})}><Icon name="shield" size={22}/>{copy('Bu ülke için resmî seyahat rehberi', 'Official travel advice for this country', 'Këshilla zyrtare udhëtimi për këtë shtet')}<Icon name="external" size={16}/></button>}

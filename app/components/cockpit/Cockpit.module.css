@@ -1216,3 +1216,16 @@
     transform: none;
   }
 }
+.journeySection { display: grid; gap: 16px; }
+.journeyCard { padding: 24px; overflow-wrap: anywhere; }
+.journeyCard h2 { margin: 8px 0 16px; }
+.journeyCard p, .journeyCard small { line-height: 1.6; }
+.journeyCard ol { display: grid; gap: 12px; padding-left: 22px; }
+.journeyCard li p { margin: 4px 0; }
+.journeyCard dl div { display: flex; justify-content: space-between; gap: 16px; margin: 12px 0; }
+.journeyCard dd { margin: 0; font-weight: 700; }
+.budgetTotal { color: #0068ff; font-size: 28px; }
+.reloadJourney { justify-self: start; padding: 10px 14px; border: 1px solid #dce7f6; border-radius: 12px; color: #115fc1; background: #f3f7ff; }
+.tripSettings { padding: 24px; }
+.tripSettings summary { cursor: pointer; font-weight: 700; }
+.tripSettings form { margin-top: 20px; }

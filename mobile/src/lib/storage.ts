@@ -1,4 +1,5 @@
 import { createId } from "./id";
+import { collectionKey, queueCollectionChange, readCollection, type CollectionDocument } from "./accountCollections";
 import { queueRouteSave, queueRouteDelete, readRouteOutbox, routesWithOutbox } from "./routeOutbox";
 import { nextSessionGenerationValue } from "./liveActivityGeneration";
 import type {
@@ -480,15 +481,43 @@ export function markNotificationsRead(ids: string[], ownerId?: string | null) {
 }
 
 export function getSavedTravelEvents(ownerId?: string | null) {
+  if (ownerId) {
+    const key = collectionKey(ownerId, "saved_events");
+    if (window.localStorage.getItem(key) === null) {
+      // This older store is explicitly scoped to the same account. Do not use
+      // readScoped here: guest/unscoped history never becomes account data.
+      const raw = window.localStorage.getItem(scopedKey(SAVED_EVENTS_KEY, ownerId));
+      if (raw !== null) {
+        const legacy = JSON.parse(raw);
+        if (!Array.isArray(legacy) || !validateAccountEvents({ items: Object.fromEntries(legacy.map((event: TravelEvent) => [event?.id, event])), dayIds: [] })) throw new Error("corrupt");
+        queueCollectionChange(ownerId, "saved_events", legacy.map((event: TravelEvent) => ({ action: "add", key: event.id, value: event })));
+      }
+    }
+    const collection = readCollection(ownerId, "saved_events");
+    if (!validateAccountEvents(collection.document)) throw new Error("corrupt");
+    return (Object.values(collection.document.items) as TravelEvent[]).sort((a,b) => a.startsAt.localeCompare(b.startsAt));
+  }
   return readScoped<TravelEvent>(SAVED_EVENTS_KEY, ownerId)
     .filter((event) => event && typeof event.id === "string" && Number.isFinite(Date.parse(event.startsAt)))
     .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+}
+
+export function validateAccountEvents(document: CollectionDocument) {
+  return document.dayIds.length === 0 && Object.entries(document.items).every(([id, value]) => {
+    const event = value as TravelEvent;
+    return event && event.id === id && typeof event.title === "string" && typeof event.startsAt === "string" && Number.isFinite(Date.parse(event.startsAt));
+  });
 }
 
 export function toggleSavedTravelEvent(event: TravelEvent, ownerId?: string | null) {
   const current = getSavedTravelEvents(ownerId);
   const exists = current.some((item) => item.id === event.id);
   const next = exists ? current.filter((item) => item.id !== event.id) : [event, ...current];
+  if (ownerId) {
+    if (!validateAccountEvents({ items: { [event.id]: event }, dayIds: [] })) throw new Error("invalid");
+    queueCollectionChange(ownerId, "saved_events", [{ action: exists ? "remove" : "add", key: event.id, value: event }]);
+    return { saved: !exists, events: next };
+  }
   window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next));
   emitChange();
   return { saved: !exists, events: next };
@@ -496,6 +525,7 @@ export function toggleSavedTravelEvent(event: TravelEvent, ownerId?: string | nu
 
 export function removeSavedTravelEvent(id: string, ownerId?: string | null) {
   const next = getSavedTravelEvents(ownerId).filter((event) => event.id !== id);
+  if (ownerId) { queueCollectionChange(ownerId, "saved_events", [{ action: "remove", key: id }]); return next; }
   window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next));
   emitChange();
   return next;
@@ -513,7 +543,10 @@ export function mergeSavedTravelEvents(events: TravelEvent[], ownerId?: string |
     changed = true;
     return update;
   });
-  if (changed) { window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next)); emitChange(); }
+  if (changed) {
+    if (ownerId) queueCollectionChange(ownerId, "saved_events", next.filter(event => incoming.has(event.id)).map(event => ({ action: "replace", key: event.id, value: event })));
+    else { window.localStorage.setItem(scopedKey(SAVED_EVENTS_KEY, ownerId), JSON.stringify(next)); emitChange(); }
+  }
   return { events: next, changed };
 }
 

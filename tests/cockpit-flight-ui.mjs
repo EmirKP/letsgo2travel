@@ -20,6 +20,7 @@ function load(path, imports, extra = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: ClockDate, Intl, AbortController, setTimeout, clearTimeout, document: { addEventListener() {}, removeEventListener() {} }, ...extra })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
     if (name === '../lib/localeFormatting') return load('mobile/src/lib/localeFormatting.ts', {}, extra);
     if (name === './locales/sq-regions') return load('mobile/src/lib/locales/sq-regions.ts', {}, extra);
     if (name === './locale' || name === '../lib/locale') return { translateCopy: (locale, tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' && sq ? sq : en, DATE_LOCALES: { tr: 'tr-TR', en: 'en-GB', sq: 'sq-AL' } };
@@ -693,11 +694,11 @@ test('Ticket parser suggests explicit local dates and times; conflicting flights
   assert.equal(tickets.parseTicketText('Kalkış: 04.11.2026\nKalkış: 05.11.2026').fields.departureDate, '');
 });
 
-function ticketHarness(native = false) {
+function ticketHarness(platform = 'web') {
   const host = hookHost(), reads = [], confirms = [];
   const bridge = { pickAndRead: options => { const wait = deferred(); reads.push({ options, ...wait }); return wait.promise; } };
   const component = load('mobile/src/components/CockpitTicketImport.tsx', {
-    react: host.react, 'react/jsx-runtime': jsxRuntime, '../lib/capacitor': { isIOSNative: () => native, plugin: () => bridge },
+    react: host.react, 'react/jsx-runtime': jsxRuntime, '../lib/capacitor': { isNativePlatform: () => platform !== 'web', plugin: () => bridge },
     '../lib/i18n': { useI18n: () => i18n.en }, '../lib/ticketText': tickets, '../lib/cockpitForm': cockpitForm,
     './DateTimeField': { DateTimeField: 'DateTimeField' }, './Sheet': { Sheet: 'Sheet' }, './Icon': { Icon: 'Icon' },
   });
@@ -721,8 +722,8 @@ test('Ticket text stays temporary and requires editable explicit confirmation, w
   } finally { h.host.dispose(); }
 });
 
-test('Native ticket picker uses the selected source and ignores cancellation or a result after closing', async () => {
-  const h = ticketHarness(true);
+for (const platform of ['ios', 'android']) test(`${platform} ticket picker uses the selected source and ignores cancellation or a result after closing`, async () => {
+  const h = ticketHarness(platform);
   try {
     button(h.host.render(), 'Choose photo').props.onClick(); assert.equal(h.reads[0].options.source, 'photos');
     h.reads[0].resolve({ cancelled: true, text: '' }); await tick();

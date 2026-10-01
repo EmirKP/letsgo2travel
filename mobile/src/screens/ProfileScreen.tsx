@@ -8,6 +8,7 @@ import { COUNTRY_LIST } from "../data/countries";
 import { profileIdsForAlpha3 } from "../data/countryCodes";
 import { alpha3FromAlpha2 } from "../data/countryIso";
 import { reconcileProfileCountries } from "../lib/profileCountries";
+import { onAccountResume } from "../lib/accountResume";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
 import { VerificationForm } from "../components/VerificationForm";
@@ -155,6 +156,10 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       .finally(() => { if (active) { setProfileLoading(false); setVerificationLoading(false); } });
     return () => { active = false; };
   }, [accessToken, copy, onNotice, ownerId, user, profileReload]);
+
+  useEffect(() => onAccountResume(() => {
+    if (user && accessToken && !profileBusy) setProfileReload(value => value + 1);
+  }), [user, accessToken, profileBusy]);
 
   const visited = useMemo(() => getVisitedCountries(ownerId), [ownerId, tick]);
   const favorites = useMemo(() => getFavoriteDestinations(ownerId), [ownerId, tick]);

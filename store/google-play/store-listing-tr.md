@@ -24,7 +24,7 @@ LetsGo2Travel bilet satmaz, uçuş fiyatı aramaz/karşılaştırmaz ve randevu 
 ## Kategori ve iletişim
 
 - Kategori: Seyahat ve Yerel
-- Destek e-postası: info@letsgo2travel.com.tr
+- Destek e-postası: hello@letsgo2travel.com.tr
 - Web sitesi: https://www.letsgo2travel.com.tr
 - Gizlilik politikası: https://www.letsgo2travel.com.tr/gizlilik-politikasi
 - Hesap silme: https://www.letsgo2travel.com.tr/veri-silme-ve-hak-talebi?request=account_deletion&source=google-play

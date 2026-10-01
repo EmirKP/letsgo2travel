@@ -3,57 +3,22 @@
 import { wallTimeToUtc, zonedParts, validTimeZone } from "@/lib/zoned-time";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Cockpit from "@/app/components/cockpit/Cockpit";
 import type {
   ChecklistItem,
   CreateTripInput,
   Trip,
-  TripStatus,
+  TripPersonalUpdate,
 } from "@/app/components/cockpit/types";
+import { WEB_TRIP_FIELDS, readWebTrips, webTrip, patchWebTrip, personalTripPatch, deleteWebTrip } from "@/lib/cockpit/web-data";
 import { createDefaultChecklist } from "@/lib/cockpit/destinationInfo";
 import { supabase } from "@/lib/supabase-client";
 
 import styles from "./CockpitPage.module.css";
 
 type PageState = "loading" | "ready" | "signed-out" | "error";
-
-interface TripRow {
-  id: string;
-  user_id: string;
-  destination_country: string;
-  destination_code: string;
-  destination_city: string | null;
-  start_date: string;
-  end_date: string;
-  departure_at: string | null;
-  flight_pnr: string | null;
-  checklist_items: ChecklistItem[] | null;
-  status: TripStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-function mapTrip(row: TripRow): Trip {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    destinationCountry: row.destination_country,
-    destinationCode: row.destination_code,
-    destinationCity: row.destination_city,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    departureAt: row.departure_at,
-    flightPnr: row.flight_pnr,
-    checklistItems: Array.isArray(row.checklist_items)
-      ? row.checklist_items
-      : [],
-    status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 function sortTrips(trips: Trip[]) {
   return [...trips].sort((a, b) =>
@@ -72,64 +37,25 @@ export default function CockpitPageClient() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const account = useRef<string | null>(null), generation = useRef(0);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
 
   const airaloUrl =
     process.env.NEXT_PUBLIC_AIRALO_AFFILIATE_URL || "/partnerler";
   const transferUrl =
     process.env.NEXT_PUBLIC_TRANSFER_AFFILIATE_URL || "/partnerler";
 
-  const loadTrips = useCallback(async () => {
-    setState("loading");
+  const loadTrips = useCallback(async (owner: string | null = account.current) => {
+    const current = ++generation.current;
+    if (!owner) { setTrips([]); setState("signed-out"); return; }
     setErrorMessage("");
-
     try {
-      const {
-        data: { session },
-        error: authError,
-      } = await supabase.auth.getSession();
-
-      if (authError) {
-        throw new Error(`Oturum kontrol edilemedi: ${authError.message}`);
-      }
-
-      if (!session) {
-        setTrips([]);
-        setState("signed-out");
-        return;
-      }
-
-      const user = session.user;
-
-      const { data, error } = await supabase
-        .from("trips")
-        .select(
-          [
-            "id",
-            "user_id",
-            "destination_country",
-            "destination_code",
-            "destination_city",
-            "start_date",
-            "end_date",
-            "departure_at",
-            "flight_pnr",
-            "checklist_items",
-            "status",
-            "created_at",
-            "updated_at",
-          ].join(","),
-        )
-        .eq("user_id", user.id)
-        .neq("status", "cancelled")
-        .order("start_date", { ascending: true });
-
-      if (error) {
-        throw new Error(`Seyahatler yüklenemedi: ${error.message}`);
-      }
-
-      setTrips(sortTrips(((data ?? []) as unknown as TripRow[]).map(mapTrip)));
+      const rows = await readWebTrips(supabase, owner);
+      if (current !== generation.current || account.current !== owner) return;
+      setTrips(sortTrips(rows));
       setState("ready");
     } catch (error) {
+      if (current !== generation.current || account.current !== owner) return;
       console.error("Seyahat Kokpiti yüklenemedi", error);
       setTrips([]);
       setErrorMessage(
@@ -142,22 +68,24 @@ export default function CockpitPageClient() {
   }, []);
 
   useEffect(() => {
-    void loadTrips();
-
+    const initial = generation.current;
+    const changeAccount = (owner: string | null) => {
+      generation.current++; account.current = owner; setOwnerId(owner); setTrips([]); setIsSaving(false);
+      setState(owner ? "loading" : "signed-out");
+      if (owner) void loadTrips(owner);
+    };
+    void supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (initial !== generation.current) return;
+      if (error) { setErrorMessage("Oturum kontrol edilemedi."); setState("error"); return; }
+      changeAccount(session?.user.id || null);
+    }).catch(() => { if (initial === generation.current) { setErrorMessage("Oturum kontrol edilemedi."); setState("error"); } });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
-        setTrips([]);
-        setState("signed-out");
-      }
-
-      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        window.setTimeout(() => void loadTrips(), 0);
-      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if ((session?.user.id || null) !== account.current) changeAccount(session?.user.id || null);
     });
-
-    return () => subscription.unsubscribe();
+    const invalidate = () => { generation.current++; account.current = null; };
+    return () => { invalidate(); subscription.unsubscribe(); };
   }, [loadTrips]);
 
   const activeTripId = useMemo(() => {
@@ -168,6 +96,8 @@ export default function CockpitPageClient() {
   }, [trips]);
 
   const handleCreateTrip = useCallback(async (input: CreateTripInput) => {
+    const owner = account.current, version = generation.current;
+    if (!owner) throw new Error("Seyahat eklemek için giriş yapmalısın.");
     setIsSaving(true);
 
     try {
@@ -187,7 +117,7 @@ export default function CockpitPageClient() {
         error: authError,
       } = await supabase.auth.getSession();
 
-      if (authError || !session) {
+      if (authError || !session || session.user.id !== owner || version !== generation.current) {
         throw new Error("Seyahat eklemek için hesabına giriş yapmalısın.");
       }
 
@@ -218,85 +148,59 @@ export default function CockpitPageClient() {
           checklist_items: createDefaultChecklist(),
           status: "upcoming",
         })
-        .select(
-          [
-            "id",
-            "user_id",
-            "destination_country",
-            "destination_code",
-            "destination_city",
-            "start_date",
-            "end_date",
-            "departure_at",
-            "flight_pnr",
-            "checklist_items",
-            "status",
-            "created_at",
-            "updated_at",
-          ].join(","),
-        )
+        .select(WEB_TRIP_FIELDS)
         .single();
 
       if (error) {
         throw new Error(`Seyahat kaydedilemedi: ${error.message}`);
       }
 
-      const createdTrip = mapTrip(data as unknown as TripRow);
+      if (version !== generation.current || account.current !== owner) return;
+      const createdTrip = webTrip(data as unknown as Record<string, unknown>, owner);
       setTrips((current) => sortTrips([...current, createdTrip]));
     } finally {
-      setIsSaving(false);
+      if (version === generation.current) setIsSaving(false);
     }
   }, []);
 
   const handleUpdateChecklist = useCallback(
     async (tripId: string, checklistItems: ChecklistItem[]) => {
+      const trip = trips.find(item => item.id === tripId), owner = account.current, version = generation.current;
+      if (!owner || !trip || trip.userId !== owner) throw new Error("Kontrol listesini kaydetmek için giriş yapmalısın.");
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Kontrol listesini kaydetmek için giriş yapmalısın.");
-
-      const previousTrips = trips;
-      const nextUpdatedAt = new Date().toISOString();
-
-      setTrips((current) =>
-        current.map((trip) =>
-          trip.id === tripId
-            ? { ...trip, checklistItems, updatedAt: nextUpdatedAt }
-            : trip,
-        ),
-      );
-
-      const { error } = await supabase
-        .from("trips")
-        .update({
-          checklist_items: checklistItems,
-          updated_at: nextUpdatedAt,
-        })
-        .eq("id", tripId)
-        .eq("user_id", session.user.id);
-
-      if (error) {
-        setTrips(previousTrips);
-        throw new Error(`Kontrol listesi kaydedilemedi: ${error.message}`);
-      }
+      if (!session || session.user.id !== owner || version !== generation.current) throw new Error("Oturum değişti. Tekrar giriş yap.");
+      const saved = await patchWebTrip(supabase, trip, { checklist_items: checklistItems });
+      if (version === generation.current && account.current === owner) setTrips(current => current.map(item => item.id === saved.id ? saved : item));
     },
     [trips],
   );
 
-  const handleDeleteTrip = useCallback(async (tripId: string) => {
+  const handleSaveTrip = useCallback(async (trip: Trip, input: TripPersonalUpdate) => {
+    const owner = account.current, version = generation.current;
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Seyahati silmek için giriş yapmalısın.");
-
-    const { error } = await supabase
-      .from("trips")
-      .delete()
-      .eq("id", tripId)
-      .eq("user_id", session.user.id);
-
-    if (error) {
-      throw new Error(`Seyahat silinemedi: ${error.message}`);
-    }
-
-    setTrips((current) => current.filter((trip) => trip.id !== tripId));
+    if (!owner || trip.userId !== owner || session?.user.id !== owner || version !== generation.current) throw new Error("Oturum değişti. Tekrar giriş yap.");
+    const saved = await patchWebTrip(supabase, trip, personalTripPatch(trip, input));
+    if (version === generation.current && account.current === owner) setTrips(current => sortTrips(current.map(item => item.id === saved.id ? saved : item)));
   }, []);
+
+  const handleReloadTrip = useCallback(async (tripId: string) => {
+    const owner = account.current, version = generation.current;
+    if (!owner) throw new Error("Tekrar giriş yapmalısın.");
+    const rows = await readWebTrips(supabase, owner);
+    if (version !== generation.current || account.current !== owner) throw new Error("Oturum değişti.");
+    setTrips(sortTrips(rows));
+    const trip = rows.find(row => row.id === tripId);
+    if (!trip) throw new Error("Seyahat başka bir cihazda silinmiş. Değişiklikler kaydedilmedi.");
+    return trip;
+  }, []);
+
+  const handleDeleteTrip = useCallback(async (tripId: string) => {
+    const owner = account.current, version = generation.current, trip = trips.find(item => item.id === tripId);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!owner || !trip || session?.user.id !== owner || version !== generation.current) throw new Error("Seyahati silmek için giriş yapmalısın.");
+    await deleteWebTrip(supabase, trip);
+    if (version === generation.current && account.current === owner) setTrips((current) => current.filter((trip) => trip.id !== tripId));
+  }, [trips]);
 
   if (state === "loading") {
     return (
@@ -347,7 +251,7 @@ export default function CockpitPageClient() {
           </span>
           <h1>Seyahat Kokpiti yüklenemedi</h1>
           <p>{errorMessage}</p>
-          <button type="button" onClick={loadTrips} className={styles.retryButton}>
+          <button type="button" onClick={() => void loadTrips()} className={styles.retryButton}>
             Tekrar dene
           </button>
         </div>
@@ -357,6 +261,7 @@ export default function CockpitPageClient() {
 
   return (
     <Cockpit
+      key={ownerId}
       trips={trips}
       activeTripId={activeTripId}
       airaloUrl={airaloUrl}
@@ -365,6 +270,8 @@ export default function CockpitPageClient() {
       onCreateTrip={handleCreateTrip}
       onUpdateChecklist={handleUpdateChecklist}
       onDeleteTrip={handleDeleteTrip}
+      onSaveTrip={handleSaveTrip}
+      onReloadTrip={handleReloadTrip}
     />
   );
 }

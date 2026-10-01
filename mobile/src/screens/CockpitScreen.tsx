@@ -1,6 +1,7 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { onAccountResume } from "../lib/accountResume";
 import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
@@ -389,6 +390,12 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     void load();
     return () => { loadGeneration.current += 1; };
   }, [load]);
+
+  useEffect(() => onAccountResume(() => {
+    // Keep an open editor's snapshot intact; its save uses the existing
+    // conflict check instead of silently replacing the user's draft.
+    if (userId && accessToken && !busy && !loading && !editingTrip && !deleteTarget) void load();
+  }), [userId, accessToken, busy, loading, editingTrip, deleteTarget, load]);
 
   useEffect(() => {
     if (!focusTripId) return;

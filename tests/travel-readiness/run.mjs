@@ -234,8 +234,8 @@ await test("events: refreshing old saved entries preserves the newly confirmed t
   const io = browser(), store = modules({}, io)("mobile/src/lib/storage.ts");
   store.toggleSavedTravelEvent(event({ localDate: undefined, timeZone: undefined, timePrecision: undefined }), "A");
   store.mergeSavedTravelEvents([event()], "A"); assert.equal(store.getSavedTravelEvents("A")[0].timePrecision, "exact");
-  const before = io.localStorage.getItem("l2t.mobile.saved-events.v1.user-A"); io.localStorage.setItem = () => { throw new Error("quota"); };
-  assert.throws(() => store.removeSavedTravelEvent("event1", "A"), /quota/); assert.equal(io.localStorage.getItem("l2t.mobile.saved-events.v1.user-A"), before);
+  const before = io.localStorage.getItem("l2t.account-collection.v1:A:saved_events"); io.localStorage.setItem = () => { throw new Error("quota"); };
+  assert.throws(() => store.removeSavedTravelEvent("event1", "A"), /quota/); assert.equal(io.localStorage.getItem("l2t.account-collection.v1:A:saved_events"), before);
 });
 await test("events: Ticketmaster unknown time stays date-only and an unknown date is omitted", async () => {
   const base = { id: "1", name: "Concert", url: "https://ticketmaster.com/event/1", dates: { timezone: "America/New_York", start: { localDate: "2026-09-11", dateTime: "2026-09-12T02:00:00Z" } } };
@@ -284,6 +284,14 @@ await test("reminder: switching accounts cancels the previous owner's notificati
   assert.notEqual(f.registry()[0].id, f.registry()[1].id);
   const stop = f.reminders.startEventReminderMaintenance("B"); await settle(); stop();
   assert.deepEqual(f.registry().map(item => item.ownerId), ["B"]);
+});
+await test("reminder: removing a bookmark on another device cancels its existing local reminder without requesting permission", async () => {
+  const f = reminderFixture(); await f.reminders.scheduleEventReminder(event(), "tr", "A");
+  const stop = f.reminders.startEventReminderMaintenance("A"); await settle(); assert.equal(f.registry().length, 1);
+  const permissions = f.permissions();
+  f.localStorage.setItem("l2t.account-collection.v1:A:saved_events", JSON.stringify({ version: 1, document: { items: {}, dayIds: [] }, pending: [], revision: 2 }));
+  f.window.dispatchEvent(new CustomEvent("l2t:account-collection-change", { detail: { ownerId: "A", kind: "saved_events", fromSync: true } }));
+  await settle(); stop(); assert.equal(f.registry().length, 0); assert.equal(f.permissions(), permissions);
 });
 await test("reminder: unknown time and cancellation updates remove the existing native reminder", async () => {
   for (const update of [{ timePrecision: "date" }, { status: "cancelled" }]) {

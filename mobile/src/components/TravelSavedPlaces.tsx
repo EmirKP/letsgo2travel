@@ -13,16 +13,16 @@ import { Icon } from './Icon';
 import './saved-places.css';
 import './travel-assistant.css';
 
-export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: () => void; onExploreLabel?: string }) {
+export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onExplore?: () => void; onExploreLabel?: string; ownerId?: string|null }) {
   const { copy, locale } = useI18n();
-  const [state, setState] = useState(readSavedPlaces);
+  const [state, setState] = useState(() => readSavedPlaces(ownerId));
   const [view, setView] = useState<'saved' | 'day'>('saved');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
-  useEffect(() => subscribeSavedPlaces(() => setState(readSavedPlaces())), []);
+  useEffect(() => { setState(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setState(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
   const label = (item: SavedPlace) => item.place.name || CATEGORY_LABELS[item.place.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1];
   const fold = (value: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
   const term = fold(query.trim());
@@ -48,7 +48,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: (
         : code === 'missing'
           ? copy('Bu yer artık listede bulunmuyor. Listeyi yeniden aç.', 'This place is no longer in the list. Reopen the list.')
           : copy('Değişiklik kaydedilemedi. Cihaz depolamasını kontrol et; önceki listen korunuyor.', 'Could not save the change. Check device storage; your previous list is preserved.'));
-      setState(readSavedPlaces());
+      setState(readSavedPlaces(ownerId));
       return false;
     }
   }
@@ -60,23 +60,28 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: (
       <span className="tsp-heading-icon" aria-hidden="true"><Icon name="bookmark" size={26}/></span>
       <div><h3>{copy('Kaydet, sırala, keşfet', 'Save, arrange, explore')}</h3><p>{copy('Beğendiğin yerler ve sana özel gezi sıran, internet olmasa da yanında.', 'Your favourite places and personal day list stay with you, even offline.')}</p></div>
     </header>
-    <p className="ta-muted">{copy(
+    <p className="ta-muted">{ownerId ? copy(
+      'Kaydettiğin yerler, notlar ve gezi sıran bu hesabınla diğer cihazlarına eşitlenir. İnternet yokken değişikliklerin bu cihazda bekler. Arama ve konum geçmişi kaydedilmez.',
+      'Your saved places, notes and day list sync with this account on your other devices. Offline changes wait on this device. Search and location history are not saved.',
+      'Vendet, shënimet dhe rendi i vizitave sinkronizohen me këtë llogari në pajisjet e tua. Ndryshimet pa internet presin në këtë pajisje. Historiku i kërkimit dhe vendndodhjes nuk ruhet.',
+    ) : copy(
       `Yalnız Kaydet dediğin yerler ve notların bu cihazda saklanır; arama ve konum geçmişi kaydedilmez. Hesabına yüklenmez ve giriş/çıkış yaptığında kalır. Aynı cihazı kullanan kişiler görebilir. Uygulama verilerini temizlemek kayıtları siler. En fazla ${MAX_SAVED_PLACES} yer.`,
       `Only places you tap Save on and your notes are stored on this device; search and location history are not saved. They are not uploaded to your account and remain when you sign in or out. Other people using this device can see them. Clearing app data deletes them. Up to ${MAX_SAVED_PLACES} places.`,
     )}</p>
+    {ownerId && <p className="ta-muted" role="status">{state.pending ? copy('Eşitleme bekliyor · Bu cihazdaki kopyan güvende.', 'Waiting to sync · Your copy on this device is safe.', 'Në pritje të sinkronizimit · Kopja në këtë pajisje është e sigurt.') : copy('Hesabındaki kayıtlı yerler', 'Saved places in your account', 'Vendet e ruajtura në llogarinë tënde')}</p>}
     <div className="tsp-views" role="group" aria-label={copy('Liste görünümü', 'List view')}>
       <button type="button" aria-pressed={view === 'saved'} onClick={() => setView('saved')}><Icon name="bookmark" size={17}/>{copy('Kaydettiğim yerler', 'Saved places')}<span>{state.items.length}</span></button>
       <button type="button" aria-pressed={view === 'day'} onClick={() => setView('day')}><Icon name="route" size={17}/>{copy('Gezi sıram', 'Day list')}<span>{state.dayIds.length}</span></button>
     </div>
     {state.error && <div className="ta-warning" role="alert">
       <p>{state.error === 'corrupt'
-        ? copy('Kayıtlı yer listesi okunamıyor. Verilerin kendiliğinden silinmedi. Listeyi sıfırlamak bu cihazdaki kayıtlı yerleri, gezi sırasını ve notlarını siler.', 'The saved list could not be read. Your data has not been deleted automatically. Resetting removes the saved places, day list and notes on this device.')
+        ? ownerId ? copy('Cihazdaki kopya okunamıyor. Yeniden yüklemek eşitlenmemiş yerel değişiklikleri kaldırır; hesabındaki kayıtlar yeniden alınır.', 'The device copy could not be read. Reloading discards unsynced local changes and fetches the records in your account.', 'Kopja në pajisje nuk lexohet. Ringarkimi heq ndryshimet lokale të pasinkronizuara dhe merr regjistrimet nga llogaria.') : copy('Kayıtlı yer listesi okunamıyor. Verilerin kendiliğinden silinmedi. Listeyi sıfırlamak bu cihazdaki kayıtlı yerleri, gezi sırasını ve notlarını siler.', 'The saved list could not be read. Your data has not been deleted automatically. Resetting removes the saved places, day list and notes on this device.')
         : copy('Cihaz depolamasına erişilemiyor. Kayıtlarını görüntülemek için uygulamayı yeniden açmayı deneyebilirsin.', 'Device storage is unavailable. Try reopening the app to view your saved places.')}</p>
       {state.error === 'corrupt' && <div className="ta-actions">
         <button type="button" onClick={() => {
           if (!confirmReset) { setConfirmReset(true); return; }
-          if (change(resetSavedPlaces, copy('Kayıtlı yer listesi sıfırlandı.', 'Saved list reset.'))) setConfirmReset(false);
-        }}>{confirmReset ? copy('Yerleri ve notları silerek sıfırla', 'Delete places and notes to reset') : copy('Listeyi sıfırla', 'Reset list')}</button>
+          if (change(() => resetSavedPlaces(ownerId), copy('Kayıtlı yer listesi sıfırlandı.', 'Saved list reset.'))) setConfirmReset(false);
+        }}>{ownerId ? (confirmReset ? copy('Yerel değişiklikleri kaldır ve yükle', 'Discard local changes and reload', 'Hiq ndryshimet lokale dhe ringarko') : copy('Hesaptan yeniden yükle', 'Reload from account', 'Ringarko nga llogaria')) : confirmReset ? copy('Yerleri ve notları silerek sıfırla', 'Delete places and notes to reset') : copy('Listeyi sıfırla', 'Reset list')}</button>
         {confirmReset && <button type="button" onClick={() => setConfirmReset(false)}>{copy('Vazgeç', 'Cancel')}</button>}
       </div>}
     </div>}
@@ -106,10 +111,10 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel }: { onExplore?: (
       {visible.map((item, index) => <SavedPlaceCard key={item.place.id} item={item} name={label(item)}
         dayIndex={view === 'day' ? index : null} dayTotal={state.dayIds.length} inDay={state.dayIds.includes(item.place.id)}
         onVisit={url => void visit(url)}
-        onNote={note => change(() => updateTravelPlaceNote(item.place.id, note), copy('Not kaydedildi.', 'Note saved.'))}
-        onDelete={() => change(() => deleteTravelPlace(item.place.id), copy(`${label(item)} kayıtlı yerlerden kaldırıldı.`, `${label(item)} removed from saved places.`))}
-        onDay={() => change(() => setTravelDayStop(item.place.id, !state.dayIds.includes(item.place.id)), state.dayIds.includes(item.place.id) ? copy('Gezi sırasından çıkarıldı.', 'Removed from day list.') : copy('Gezi sırasına eklendi.', 'Added to day list.'))}
-        onMove={direction => change(() => moveTravelDayStop(item.place.id, direction), copy(`${label(item)} ${index + direction + 1}. sıraya taşındı.`, `${label(item)} moved to position ${index + direction + 1}.`))}
+        onNote={note => change(() => updateTravelPlaceNote(item.place.id, note, ownerId), copy('Not kaydedildi.', 'Note saved.'))}
+        onDelete={() => change(() => deleteTravelPlace(item.place.id, ownerId), copy(`${label(item)} kayıtlı yerlerden kaldırıldı.`, `${label(item)} removed from saved places.`))}
+        onDay={() => change(() => setTravelDayStop(item.place.id, !state.dayIds.includes(item.place.id), ownerId), state.dayIds.includes(item.place.id) ? copy('Gezi sırasından çıkarıldı.', 'Removed from day list.') : copy('Gezi sırasına eklendi.', 'Added to day list.'))}
+        onMove={direction => change(() => moveTravelDayStop(item.place.id, direction, ownerId), copy(`${label(item)} ${index + direction + 1}. sıraya taşındı.`, `${label(item)} moved to position ${index + direction + 1}.`))}
       />)}
     </ol>
     {state.items.length > 0 && <p className="ta-muted">{copy('Kayıtlı bilgiler son alındığı hâliyle gösterilir; çalışma saatleri ve erişim değişebilir. Gitmeden önce kaynağı kontrol et. Yol tarifi ve dış bağlantılar internet veya başka bir harita uygulaması gerektirebilir.', 'Saved information is a snapshot; hours and access may change. Check the source before visiting. Directions and external links may need internet or another maps app.')}</p>}

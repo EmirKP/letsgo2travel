@@ -1,4 +1,5 @@
 import type { SavedRoutePlan } from "../types";
+import { onAccountResume } from "./accountResume";
 import { getSavedRoutePlans } from "./storage";
 import { acknowledgeRoute, queueRouteSave, readRouteOutbox, writeRouteOutbox } from "./routeOutbox";
 import { deleteUserRouteByClientKey, deleteUserTrip, listUserTrips, upsertUserTrip, type UserTripData } from "./supabaseData";
@@ -118,10 +119,8 @@ export function startRouteSync(owner: string, token: string) {
     const detail = (event as CustomEvent).detail;
     if (detail?.ownerId === owner && !detail.fromSync) void run();
   };
-  const foreground = () => { if (document.visibilityState === "visible") void run(); };
   window.addEventListener("l2t:route-change", changed);
-  window.addEventListener("online", foreground);
-  document.addEventListener("visibilitychange", foreground);
+  const stopResume = onAccountResume(() => { void run(); });
   void run();
-  return () => { stopped = true; clearTimeout(timer); window.removeEventListener("l2t:route-change", changed); window.removeEventListener("online", foreground); document.removeEventListener("visibilitychange", foreground); };
+  return () => { stopped = true; clearTimeout(timer); stopResume(); window.removeEventListener("l2t:route-change", changed); };
 }

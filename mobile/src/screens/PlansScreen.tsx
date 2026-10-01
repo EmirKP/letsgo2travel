@@ -12,6 +12,7 @@ import { TravelSavedPlaces } from "../components/TravelSavedPlaces";
 import { PersonalTravelCards } from "../components/PersonalTravelCards";
 import { readSavedPlaces, subscribeSavedPlaces } from "../lib/savedPlaces";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
+import { onAccountResume } from "../lib/accountResume";
 import {
   deleteRoutePlan,
   getFavoriteDestinations,
@@ -102,10 +103,10 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
     if (initialSection && initialSection !== lastInitialSection.current) { setLibraryTab(initialSection); setQuery(""); }
     lastInitialSection.current = initialSection;
   }, [initialSection]);
-  const [savedPlaces, setSavedPlaces] = useState(readSavedPlaces);
+  const [savedPlaces, setSavedPlaces] = useState(() => readSavedPlaces(ownerId));
   const [sharedToolsOpen, setSharedToolsOpen] = useState(Boolean(inviteCode));
   const [otherToolsOpen, setOtherToolsOpen] = useState(Boolean(initialTool));
-  useEffect(() => subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces())), []);
+  useEffect(() => { setSavedPlaces(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
   useEffect(() => { if (inviteCode || initialTool) setLibraryTab("travel"); if (inviteCode) setSharedToolsOpen(true); if (initialTool) setOtherToolsOpen(true); }, [inviteCode, initialTool]);
   const [savedEvents, setSavedEvents] = useState<TravelEvent[]>([]);
   const [cloudItems, setCloudItems] = useState<UserTripData[]>([]);
@@ -145,6 +146,10 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
       .finally(() => { if (active) setCloudLoading(false); });
     return () => { active = false; };
   }, [accessToken, copy, user, cloudRetry]);
+
+  useEffect(() => onAccountResume(() => {
+    if (user && accessToken && !busyCloud) setCloudRetry(value => value + 1);
+  }), [user, accessToken, busyCloud]);
 
   const removeSavedRoute = async (saved: { id: string }, remoteId?: number | string) => {
     try {
@@ -241,7 +246,7 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
             return <button type="button" className="plans-category" data-section={item.id} key={item.id} onClick={() => chooseSection(item.id)}>
               <span className="plans-category-picture" aria-hidden="true"><span className="plans-category-icon"><Icon name={item.icon} size={23}/></span></span>
               <span className="plans-category-copy"><span className="plans-category-title"><strong>{item.title}</strong><span className="plans-category-count" aria-label={pendingCount ? copy("Kayıtlar yükleniyor", "Loading saved items") : unavailableCount ? copy("Liste okunamadı", "The list couldn't be read") : copy(`${item.count} kayıt`, `${item.count} saved`)}>{pendingCount ? "…" : unavailableCount ? "!" : item.count}</span></span><small>{item.note}</small>
-                {item.id === "places" && <em>{savedPlaces.error ? copy("Listeyi kontrol et", "Check your list") : copy(`${item.count} yer · Bu cihazda`, `${item.count} ${item.count === 1 ? "place" : "places"} · On this device`)}</em>}
+                {item.id === "places" && <em>{savedPlaces.error ? copy("Listeyi kontrol et", "Check your list") : ownerId ? (savedPlaces.pending ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesabındaki yerler", "Places in your account", "Vendet në llogarinë tënde")) : copy(`${item.count} yer · Bu cihazda`, `${item.count} ${item.count === 1 ? "place" : "places"} · On this device`)}</em>}
                 {item.id !== "places" && !pendingCount && !item.count && !(item.id === "routes" && cloudError) && <em>{copy("Henüz kayıt yok", "Nothing saved yet")}</em>}
               </span>
             </button>;
@@ -254,7 +259,7 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
       {cloudError && (libraryTab === "all" || libraryTab === "routes") && <div className="daily-load-error" role="status"><p>{cloudError}</p><button type="button" onClick={() => setCloudRetry(value => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
       {selectedCategory && libraryTab !== "places" && selectedCategory.count > 0 && <label className="daily-library-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Kayıtlarında ara", "Search saved items")}</span><input type="search" value={query} placeholder={copy("Kayıtlarında ara…", "Search your saved items…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" onClick={() => setQuery("")} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</label>}
       {selectedCategory && libraryTab !== "places" && searchText && visibleCount === 0 && <div className="daily-search-empty" role="status"><p>{copy("Bu aramayla eşleşen kaydın yok.", "No saved items match this search.")}</p><button type="button" onClick={() => setQuery("")}>{copy("Aramayı temizle", "Clear search")}</button></div>}
-      {libraryTab === "places" && <div className="travel-assistant"><TravelSavedPlaces onExplore={() => onNavigate("companion")} onExploreLabel={copy("Seyahat Asistanını aç", "Open Travel Assistant")}/></div>}
+      {libraryTab === "places" && <div className="travel-assistant"><TravelSavedPlaces key={ownerId || "guest"} ownerId={ownerId} onExplore={() => onNavigate("companion")} onExploreLabel={copy("Seyahat Asistanını aç", "Open Travel Assistant")}/></div>}
       {libraryTab === "travel" && <section className="saved-travel-tools">
       <PersonalTravelCards ownerId={ownerId}/>
       <details className="daily-featured-disclosure" open={sharedToolsOpen} onToggle={event => setSharedToolsOpen(event.currentTarget.open)}><summary><Icon name="users" size={18}/>{copy("Ortak seyahat planları", "Shared trip plans")}<Icon name="chevron" size={16}/></summary>
@@ -287,6 +292,7 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
         {libraryTab === "countries" && !favorites.length && <Empty icon="heart" title={copy("Yeni bir yerle başla","Start with a new place")} text={copy("Keşfet'teki kalbe dokun; favori ülkelerin burada olsun.","Tap a heart in Explore to keep your favourite countries here.")} action={copy("Ülkeleri keşfet","Explore countries")} onAction={() => onNavigate("explore")} />}
       </section>}
       {libraryTab === "events" && <section className="saved-events-section">
+        {ownerId && <p className="plans-storage-note">{copy("Etkinliklerin bu hesabınla diğer cihazlarına eşitlenir. Çevrimdışı değişikliklerin bağlantı gelince gönderilir; hatırlatıcı izinleri bu cihaza aittir.", "Events sync with this account on your other devices. Offline changes are sent when connected; reminder permissions belong to this device.", "Aktivitetet sinkronizohen me këtë llogari në pajisjet e tjera. Ndryshimet pa internet dërgohen kur lidhet; lejet e kujtesave i përkasin kësaj pajisjeje.")}</p>}
         <div className="section-heading"><div><span>{copy("PLANINDAKİ ETKİNLİKLER", "EVENTS IN YOUR PLAN")}</span><h2>{copy("Kaçırmak istemediklerin", "Events you don't want to miss")}</h2></div><button type="button" onClick={() => onNavigate("events")}>{copy("Etkinlik bul", "Find events")}</button></div>
         {savedEvents.length > 0 ? <div className="saved-event-list">{visibleEvents.map((event) => <article key={event.id} className={event.status === "cancelled" ? "cancelled" : ""}>
           <button type="button" className="saved-event-open" onClick={() => onOpenEvent ? onOpenEvent(event.id) : onNavigate("events")}>

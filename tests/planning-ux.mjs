@@ -14,6 +14,8 @@ function load(path, imports = {}, environment = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
+    if (name === './accountCollections') return load('mobile/src/lib/accountCollections.ts', {'./id': load('mobile/src/lib/id.ts')}, environment);
     if (name === '../lib/localeFormatting') return localeFormatting;
     if (name === '../lib/routeCockpitIntent') return load('mobile/src/lib/routeCockpitIntent.ts');
     if (name === '../lib/savedRouteIdentity') return load('mobile/src/lib/savedRouteIdentity.ts', {'./id': load('mobile/src/lib/id.ts')});
@@ -359,9 +361,11 @@ test('A favourite outside ready-route coverage opens an explanation, never an un
 
 test('Saved library Places filter reads the same device store as the map and offers accurate assistant navigation', () => {
   const store = new Map(), events = new EventTarget(), host = hooks(), placesHost = hooks(), navigations = [];
+  const localStorage = { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
+  events.localStorage = localStorage;
   const placeData = load('lib/travel-assistant/places.ts');
   const savedApi = load('mobile/src/lib/savedPlaces.ts', { '../../../lib/travel-assistant/places': placeData }, {
-    window: events, localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) },
+    window: events, localStorage,
   });
   const museum = { id: 'node/42', name: 'Saved Museum', category: 'museum', latitude: 52.52, longitude: 13.4, description: null, hours: null, free: null, accessible: null, website: null, representedCountry: null, sourceUrl: 'https://www.openstreetmap.org/node/42', fetchedAt: '2026-09-27T09:00:00.000Z' };
   savedApi.saveTravelPlace(museum);
@@ -398,7 +402,8 @@ test('Saved library Places filter reads the same device store as the map and off
     assert.equal(button(empty, 'Open sightseeing map'), undefined);
     explore.props.onClick(); assert.deepEqual(navigations, ['companion']);
     button(host.render(), 'All saved').props.onClick();
-    assert.match(text(find(host.render(), 'button', props => text(props.children).includes('Places saved from the map'))), /0 places/);
+    assert.match(text(find(host.render(), 'button', props => text(props.children).includes('Places saved from the map'))), /Places in your account/);
+    assert.equal(savedApi.readSavedPlaces('a-different-account').items.length, 0);
     assert.equal(store.size, 1); assert.ok(store.has(savedApi.SAVED_PLACES_KEY), 'The library never creates a duplicate place store');
   } finally { host.dispose(); placesHost.dispose(); }
 });

@@ -51,6 +51,14 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   const [category, setCategory] = useState<(typeof CATEGORY_IDS)[number]>("all");
   const [events, setEvents] = useState<TravelEvent[]>([]);
   const [savedIds, setSavedIds] = useState(() => new Set(getSavedTravelEvents(ownerId).map((event) => event.id)));
+  useEffect(() => {
+    const update = () => {
+      try { setSavedIds(new Set(getSavedTravelEvents(ownerId).map(event => event.id))); }
+      catch { /* Keep the last usable list; never turn unreadable storage into an empty write. */ }
+    };
+    window.addEventListener("l2t:storage-change", update);
+    return () => window.removeEventListener("l2t:storage-change", update);
+  }, [ownerId]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
@@ -214,7 +222,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     const result = toggleSavedTravelEvent(event, ownerId);
     setSavedIds(new Set(result.events.map((item) => item.id)));
     if (!result.saved) void cancelEventReminder(event.id, ownerId).then(ok => { if (!ok) onNotice(copy("Hatırlatıcı iptali bekliyor; yeniden denenecek.", "Reminder cancellation is pending and will retry.")); }).catch(() => onNotice(copy("Hatırlatıcı iptal edilemedi.", "Reminder could not be cancelled.")));
-    onNotice(result.saved ? copy("Etkinlik planına eklendi.", "Event added to your plan.") : copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
+    onNotice(ownerId ? copy("Etkinlik seçimin cihazda kaydedildi; hesabınla eşitlenecek.", "Your event selection is saved on this device and queued for account sync.", "Zgjedhja e aktivitetit u ruajt në këtë pajisje dhe pret sinkronizimin me llogarinë.") : result.saved ? copy("Etkinlik planına eklendi.", "Event added to your plan.") : copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
     } catch { onNotice(copy("Etkinlik kaydı değiştirilemedi. Cihaz depolamasını kontrol et.", "Could not update saved events. Check device storage.")); }
   };
 

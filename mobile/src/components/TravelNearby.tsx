@@ -15,7 +15,7 @@ import { TravelAreaPicker } from './TravelAreaPicker';
 const TravelPointMap = lazy(() => import('./TravelPointMap').then(m => ({default:m.TravelPointMap})));
 
 
-export function TravelNearby({mode,citizenship}: {mode:MapMode;citizenship:string}) {
+export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizenship:string;ownerId?:string|null}) {
   const { copy, locale } = useI18n();
   const [center,setCenter] = useState<Coordinates|null>(null);
   const [savedResult,setResult] = useState<PlacesResult|null>(null);
@@ -25,9 +25,9 @@ export function TravelNearby({mode,citizenship}: {mode:MapMode;citizenship:strin
   const [myEmbassy,setMyEmbassy] = useState(false);
   const [area,setArea] = useState<Coordinates|null>(null);
   const [busy,setBusy] = useState(false); const [error,setError] = useState(''); const [selected,setSelected] = useState<Place|null>(null);
-  const [savedPlaces,setSavedPlaces] = useState(readSavedPlaces);
+  const [savedPlaces,setSavedPlaces] = useState(() => readSavedPlaces(ownerId));
   const [saveError,setSaveError] = useState(''); const [saveStatus,setSaveStatus] = useState('');
-  useEffect(() => subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces())), []);
+  useEffect(() => { setSavedPlaces(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
   const isSelectedSaved = !!selected && savedPlaces.items.some(item => item.place.id === selected.id);
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; },[]);
@@ -37,8 +37,8 @@ export function TravelNearby({mode,citizenship}: {mode:MapMode;citizenship:strin
   function toggleSaved() {
     if (!selected) return;
     try {
-      const saved = readSavedPlaces().items.some(item => item.place.id === selected.id);
-      setSavedPlaces(saved ? deleteTravelPlace(selected.id) : saveTravelPlace(selected));
+      const saved = readSavedPlaces(ownerId).items.some(item => item.place.id === selected.id);
+      setSavedPlaces(saved ? deleteTravelPlace(selected.id, ownerId) : saveTravelPlace(selected, ownerId));
       setSaveError('');
       setSaveStatus(saved
         ? copy('Bu yer kayıtlı yerlerinden ve gezi sırandan kaldırıldı.', 'Removed from saved places and your day list.')

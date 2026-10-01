@@ -426,6 +426,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/discovery': discovery,
     '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,
+    '../lib/accountResume': { onAccountResume: () => () => {} },
     '../data/artwork': artwork, '../data/routes': routes,
     '../data/homeDestinations': home, '../lib/searchText': search,
     '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: async () => profileFixture.remote, updateUserProfile: (...args) => profileWrites.push(args), getSupabaseDataErrorMessage: (_, fallback) => fallback },

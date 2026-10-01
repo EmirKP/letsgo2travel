@@ -26,9 +26,10 @@ const SPEECH_LANG: Record<string, string> = {
 const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
 const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
 
-export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice, accessToken, onSignIn }: {
+export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
   initialTab?: CompanionTab;
   accessToken: string;
+  ownerId?: string | null;
   onSignIn: () => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
@@ -165,7 +166,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
         <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
       </header>}
 
-    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); focusSection("phrases"); }} /></Suspense>}
+    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); focusSection("phrases"); }} /></Suspense>}
 
     {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>

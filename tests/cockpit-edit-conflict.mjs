@@ -20,6 +20,7 @@ function load(file,imports){
   const noop=()=>{};
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,Intl,AbortController,window:{setInterval:()=>1,clearInterval:noop,addEventListener:noop,removeEventListener:noop},document:{addEventListener:noop,removeEventListener:noop},navigator:{onLine:true},setTimeout:()=>1,clearTimeout:noop})(name=>{
     if(name in imports)return imports[name];if(name.endsWith('.css'))return {};
+    if(name==='../lib/accountResume')return load('mobile/src/lib/accountResume.ts',{'./capacitor':{isNativePlatform:()=>false,addPluginListener:async()=>null}});
     if(name.startsWith('../components/')||name.startsWith('./')){const tag=name.split('/').at(-1);return {[tag]:tag};}
     throw Error(`Missing fixture ${name}`);
   },loaded,loaded.exports);return loaded.exports;

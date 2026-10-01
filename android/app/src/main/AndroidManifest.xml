@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Yalnız kullanıcı "Konumuma göre öner" dediğinde yaklaşık konum okunur; saklanmaz. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Android 13+ bildirim izni; calisma zamaninda kullanici onayiyla istenir -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -35,6 +41,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tr.com.letsgo2travel.app" android:host="open" />
             </intent-filter>
+
+            <!-- Same Cockpit link used by the shared app and flight reminders. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="letsgo2travel" android:host="cockpit" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -46,11 +60,4 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Yalnız kullanıcı "Konumuma göre öner" dediğinde yaklaşık konum okunur; saklanmaz. -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Android 13+ bildirim izni; calisma zamaninda kullanici onayiyla istenir -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

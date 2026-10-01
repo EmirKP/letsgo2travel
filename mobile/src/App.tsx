@@ -616,6 +616,16 @@ export default function App() {
 
   useEffect(() => {
     if (!ownerId || !auth.accessToken || !online) return;
+    let stopped = false;
+    let stop: (() => void) | undefined;
+    void import("./lib/accountCollectionSync").then(module => {
+      if (!stopped) stop = module.startAccountCollectionSync(ownerId, auth.accessToken);
+    });
+    return () => { stopped = true; stop?.(); };
+  }, [ownerId, auth.accessToken, online]);
+
+  useEffect(() => {
+    if (!ownerId || !auth.accessToken || !online) return;
     let active = true;
     let appStateListener: { remove: () => Promise<void> } | null = null;
     // Önceki açılışta ağ kesildiyse misafir kayıtlarının web eşitlemesini
@@ -865,7 +875,7 @@ export default function App() {
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
     if (view === "costs") return <CostsScreen ownerId={ownerId} onPrepareCockpitBudget={prepareCockpitJourney} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
-    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={ownerId || "guest"} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={ownerId || "guest"} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={route => openSeededRoute(route, "surprise")} onNotice={showNotice} />;
     if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;

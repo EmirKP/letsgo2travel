@@ -10,6 +10,7 @@ import { destinationArtwork } from "../data/artwork";
 import { randomRoute, routeByDestinationCode } from "../data/routes";
 import { homeSearchDestinations } from "../data/homeDestinations";
 import { reconcileProfileCountries } from "../lib/profileCountries";
+import { onAccountResume } from "../lib/accountResume";
 import { normalizeSearchText } from "../lib/searchText";
 import {
   addRecentDestination,
@@ -118,6 +119,10 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     });
     return () => { active = false; };
   }, [accessToken, copy, onNotice, ownerId, favoritesRetry]);
+
+  useEffect(() => onAccountResume(() => {
+    if (ownerId && accessToken && !favoriteBusy) setFavoritesRetry(value => value + 1);
+  }), [ownerId, accessToken, favoriteBusy]);
 
   const search = normalizeSearchText(query);
   const destinations = useMemo(() => DISCOVERY_DESTINATIONS.filter((destination) => {

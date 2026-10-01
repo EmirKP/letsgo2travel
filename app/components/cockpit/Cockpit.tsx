@@ -38,11 +38,14 @@ import {
 } from "@/lib/cockpit/destinationInfo";
 
 import styles from "./Cockpit.module.css";
+import CockpitJourney from "./CockpitJourney";
+import CockpitTripSettings from "./CockpitTripSettings";
 import type {
   ChecklistCategory,
   ChecklistItem,
   CreateTripInput,
   Trip,
+  TripPersonalUpdate,
 } from "./types";
 
 interface CockpitProps {
@@ -57,6 +60,8 @@ interface CockpitProps {
     checklistItems: ChecklistItem[],
   ) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
+  onSaveTrip: (trip: Trip, input: TripPersonalUpdate) => Promise<void>;
+  onReloadTrip: (id: string) => Promise<Trip>;
 }
 
 interface CountdownValue {
@@ -173,6 +178,8 @@ export default function Cockpit({
   onCreateTrip,
   onUpdateChecklist,
   onDeleteTrip,
+  onSaveTrip,
+  onReloadTrip,
 }: CockpitProps) {
   const [selectedTripId, setSelectedTripId] = useState(
     activeTripId ?? trips[0]?.id ?? null,
@@ -227,9 +234,11 @@ export default function Cockpit({
 
     try {
       await onUpdateChecklist(selectedTrip.id, nextItems);
+      return true;
     } catch (error) {
       console.error(error);
-      setFeedback("Kontrol listesi kaydedilemedi. Tekrar dene.");
+      setFeedback(error instanceof Error ? error.message : "Kontrol listesi kaydedilemedi. Tekrar dene.");
+      return false;
     } finally {
       setChecklistSaving(false);
     }
@@ -274,8 +283,7 @@ export default function Cockpit({
       },
     ];
 
-    setNewItemLabel("");
-    void persistChecklist(nextItems);
+    void persistChecklist(nextItems).then(saved => { if (saved) setNewItemLabel(current => current.trim() === label ? "" : current); });
   };
 
   const handleDeleteTrip = async () => {
@@ -286,7 +294,8 @@ export default function Cockpit({
     );
     if (!approved) return;
 
-    await onDeleteTrip(selectedTrip.id);
+    try { await onDeleteTrip(selectedTrip.id); }
+    catch (error) { setFeedback(error instanceof Error ? error.message : "Seyahat silinemedi."); }
   };
 
   const destinationInfo = selectedTrip
@@ -453,6 +462,8 @@ export default function Cockpit({
 
             <section className={styles.workspaceGrid}>
               <div className={styles.mainColumn}>
+                <CockpitJourney key={`${selectedTrip.userId}:${selectedTrip.id}`} trip={selectedTrip}/>
+                <CockpitTripSettings key={`edit:${selectedTrip.userId}:${selectedTrip.id}`} trip={selectedTrip} onSave={onSaveTrip} onReload={onReloadTrip}/>
                 <a
                   className={styles.esimCard}
                   href={normalizeUrl(airaloUrl)}
@@ -575,9 +586,7 @@ export default function Cockpit({
                     </p>
                   )}
                   {feedback && (
-                    <p className={styles.errorNotice} role="alert">
-                      <AlertCircle size={15} /> {feedback}
-                    </p>
+                    <div className={styles.errorNotice} role="alert"><p><AlertCircle size={15} /> {feedback}</p><button type="button" disabled={checklistSaving} onClick={() => { void onReloadTrip(selectedTrip.id).then(() => setFeedback("Güncel seyahat yüklendi. Kaydedilmemiş maddeni yeniden ekleyebilirsin.")).catch(error => setFeedback(error instanceof Error ? error.message : "Yenilenemedi.")); }}>Güncel seyahati yükle</button></div>
                   )}
                 </article>
               </div>

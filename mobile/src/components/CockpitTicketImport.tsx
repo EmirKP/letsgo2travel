@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isIOSNative, plugin } from "../lib/capacitor";
+import { isNativePlatform, plugin } from "../lib/capacitor";
 import { useI18n } from "../lib/i18n";
 import { EMPTY_TICKET, parseTicketText, type TicketFields } from "../lib/ticketText";
 import { normalizeFlightNumber, normalizePnr } from "../lib/cockpitForm";
@@ -14,7 +14,7 @@ export function CockpitTicketImport({ onConfirm, disabled = false }: Props) {
   const [text, setText] = useState(""), [notice, setNotice] = useState("");
   const [fields, setFields] = useState<TicketFields>({ ...EMPTY_TICKET });
   const generation = useRef(0), pending = useRef(false);
-  const reader = isIOSNative() ? plugin("TicketImport")?.pickAndRead : undefined;
+  const reader = isNativePlatform() ? plugin("TicketImport")?.pickAndRead : undefined;
   useEffect(() => () => { generation.current++; }, []);
   const close = () => { generation.current++; pending.current = false; setOpen(false); setText(""); setFields({ ...EMPTY_TICKET }); setReview(false); setNotice(""); setBusy(false); };
   const inspect = (value: string, truncated = false) => {
@@ -50,7 +50,7 @@ export function CockpitTicketImport({ onConfirm, disabled = false }: Props) {
       <div className="cockpit-ticket-import">
         {notice && <p role="status">{notice}</p>}
         {!review ? <>
-          <p>{copy("Biletin cihazında okunur; dosya veya metin yüklenmez ve saklanmaz.", "Your ticket is read on your device. The file and text are not uploaded or stored.")}</p>
+          <p>{copy("Biletin cihazında okunur. Dosya ve metin sunucuya gönderilmez; belge kalıcı olarak saklanmaz.", "Your ticket is read on your device. The file and text are not sent to a server; the document is not kept permanently.", "Bileta lexohet në pajisjen tënde. Skedari dhe teksti nuk dërgohen në server; dokumenti nuk ruhet përgjithmonë.")}</p>
           {reader && <div className="form-grid two stack-narrow"><button className="primary-wide" type="button" disabled={busy} onClick={() => void readTicket("photos")}>{copy("Fotoğraf seç", "Choose photo")}</button><button className="secondary-wide" type="button" disabled={busy} onClick={() => void readTicket("files")}>{copy("PDF veya dosya seç", "Choose PDF or file")}</button></div>}{busy && <p role="status">{copy("Okunuyor…", "Reading…")}</p>}
           <label>{copy("Bilet / e-posta metni", "Ticket / email text")}<textarea value={text} maxLength={24000} rows={8} disabled={busy} onChange={event => setText(event.target.value)} placeholder={copy("Biletinden kopyaladığın metni yapıştır", "Paste text copied from your ticket")}/></label>
           <button className="secondary-wide" type="button" disabled={busy || !text.trim()} onClick={() => inspect(text)}>{copy("Bilgileri incele", "Review details")}</button>

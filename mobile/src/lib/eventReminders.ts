@@ -1,6 +1,7 @@
 import { addPluginListener, isNativePlatform, plugin } from "./capacitor";
 import { hasEventTime } from "../../../lib/event-time";
 import type { TravelEvent } from "../types";
+import { COLLECTION_CHANGE, readCollection } from "./accountCollections";
 
 type LocalNotificationsSurface = {
   checkPermissions?: () => Promise<{ display?: string }>;
@@ -87,6 +88,7 @@ export function startEventReminderMaintenance(ownerId?: string | null) {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running = false;
+  let again = false;
   const owner = ownerId || "guest";
   const run = async () => {
     if (stopped || running || !isNativePlatform()) return;
@@ -95,22 +97,31 @@ export function startEventReminderMaintenance(ownerId?: string | null) {
     try {
       await serial(async () => {
         if (stopped) return;
+        let savedIds: Set<string> | null = null;
+        if (ownerId) {
+          // Only an authoritative cloud read may remove a reminder for an
+          // absent bookmark. An unreadable/offline cache cannot mean deleted.
+          try { const saved = readCollection(ownerId, "saved_events"); if (saved.revision !== null) savedIds = new Set(Object.keys(saved.document.items)); }
+          catch { /* Keep current reminders until the account list can be read. */ }
+        }
         for (const item of readReminders()) {
           if (stopped) return;
           // Legacy reminders may have used an invented noon or a different account.
-          if (item.pendingCancel || !sameOwner(item, owner) || item.timePrecision !== "exact") {
+          if (item.pendingCancel || !sameOwner(item, owner) || item.timePrecision !== "exact" || (savedIds && !savedIds.has(item.eventId))) {
             if (!await cancel(item)) pending = true;
           }
         }
       });
     } catch { pending = true; }
-    finally { running = false; if (!stopped && pending) timer = setTimeout(() => void run(), 30_000); }
+    finally { running = false; if (!stopped && (pending || again)) { const delay = again ? 0 : 30_000; again = false; timer = setTimeout(() => void run(), delay); } }
   };
   const foreground = () => { if (document.visibilityState === "visible") void run(); };
   const changed = () => { if (!stopped && !running) { clearTimeout(timer); timer = setTimeout(() => void run(), 30_000); } };
+  const collectionChanged = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.ownerId === ownerId && detail.kind === "saved_events" && detail.fromSync) { if (running) again = true; else void run(); } };
   window.addEventListener("l2t:event-reminders-change", changed);
+  window.addEventListener(COLLECTION_CHANGE, collectionChanged);
   void run(); window.addEventListener("online", foreground); document.addEventListener("visibilitychange", foreground);
-  return () => { stopped = true; clearTimeout(timer); window.removeEventListener("l2t:event-reminders-change", changed); window.removeEventListener("online", foreground); document.removeEventListener("visibilitychange", foreground); };
+  return () => { stopped = true; clearTimeout(timer); window.removeEventListener(COLLECTION_CHANGE, collectionChanged); window.removeEventListener("l2t:event-reminders-change", changed); window.removeEventListener("online", foreground); document.removeEventListener("visibilitychange", foreground); };
 }
 export function initEventReminderTapListener(onOpen: (eventId: string, ownerId: string) => void) {
   let active = true;

@@ -29,7 +29,13 @@ export interface Trip {
   status: TripStatus;
   createdAt: string;
   updatedAt: string;
+  arrivalAt?: string | null;
+  originIata?: string | null;
+  destinationIata?: string | null;
+  flightLookupManaged?: boolean;
 }
+
+export type TripPersonalUpdate = Pick<Trip, "startDate" | "endDate" | "flightPnr" | "status">;
 
 export interface CreateTripInput {
   destinationCountry: string;

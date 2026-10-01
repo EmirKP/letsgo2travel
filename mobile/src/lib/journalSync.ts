@@ -1,5 +1,6 @@
 import { readJournal, writeJournal, journalPayload, reconcileJournal, type JournalEntry } from "./travelJournal";
 import { deleteUserTrip, listUserTrips, upsertUserTrip } from "./supabaseData";
+import { onAccountResume } from "./accountResume";
 
 // Owned by App, so changing screens does not stop the queue. Account changes
 // stop callbacks from an earlier session from writing into the current store.
@@ -69,9 +70,8 @@ export function startJournalSync(ownerId: string, accessToken: string) {
     const detail = (event as CustomEvent).detail;
     if (detail?.ownerId === ownerId && !detail.fromSync) void flush();
   };
-  const foreground = () => { if (document.visibilityState === "visible") { refreshRemote = true; void flush(); } };
   window.addEventListener("l2t:journal-change",changed);
-  document.addEventListener("visibilitychange",foreground);
+  const stopResume = onAccountResume(() => { refreshRemote = true; void flush(); });
   void flush();
-  return () => { stopped = true; clearTimeout(timer); window.removeEventListener("l2t:journal-change",changed); document.removeEventListener("visibilitychange",foreground); };
+  return () => { stopped = true; clearTimeout(timer); stopResume(); window.removeEventListener("l2t:journal-change",changed); };
 }

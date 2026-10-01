@@ -1,10 +1,64 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
 import { build, resolveConfig } from "../mobile/node_modules/vite/dist/node/index.js";
 import { resolveMobilePublicConfig } from "../scripts/mobile-public-config.mjs";
+import { resolveMobileSourceIdentity } from "../scripts/mobile-source-identity.mjs";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+function sourceFixture(t, repository = false) {
+  const directory = mkdtempSync(path.join(tmpdir(), "l2t-source-identity-"));
+  t.after(() => {
+    const resolved = path.resolve(directory), parent = path.resolve(tmpdir());
+    assert.equal(path.dirname(resolved), parent);
+    assert.ok(path.basename(resolved).startsWith("l2t-source-identity-"));
+    rmSync(resolved, { recursive: true, force: true });
+  });
+  let head;
+  if (repository) {
+    const git = args => execFileSync("git", args, { cwd: directory, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], windowsHide: true }).trim();
+    git(["init"]);
+    git(["-c", "user.name=Source Identity Test", "-c", "user.email=source-identity@example.invalid", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "local test fixture"]);
+    head = git(["rev-parse", "HEAD"]);
+  }
+  return { directory, head };
+}
+
+test("source identity: clean archive accepts explicit full SHA and otherwise stays unknown", t => {
+  const { directory } = sourceFixture(t), sha = "ABCDEF123456" + "A".repeat(28);
+  assert.equal(resolveMobileSourceIdentity(directory, {}), "unknown");
+  assert.equal(resolveMobileSourceIdentity(directory, { L2T_SOURCE_COMMIT: sha }), "abcdef123456");
+  assert.equal(resolveMobileSourceIdentity(directory, { CM_COMMIT: sha }), "abcdef123456");
+  assert.equal(resolveMobileSourceIdentity(directory, { L2T_SOURCE_COMMIT: sha, CM_COMMIT: sha.toLowerCase() }), "abcdef123456");
+});
+
+test("source identity: rejects malformed or conflicting supplied values without echoing them", t => {
+  const { directory } = sourceFixture(t);
+  for (const name of ["L2T_SOURCE_COMMIT", "CM_COMMIT"]) for (const value of ["abc123", "g".repeat(40), "private-canary", "a".repeat(41)]) {
+    assert.throws(() => resolveMobileSourceIdentity(directory, { [name]: value }), error => error.message.includes(name) && !error.message.includes(value));
+  }
+  assert.throws(() => resolveMobileSourceIdentity(directory, { L2T_SOURCE_COMMIT: "a".repeat(40), CM_COMMIT: "b".repeat(40) }), /uyuşmuyor/);
+});
+
+test("source identity: actual checkout HEAD must match supplied commit", t => {
+  const { directory, head } = sourceFixture(t, true);
+  assert.equal(resolveMobileSourceIdentity(directory, {}), head.slice(0, 12));
+  assert.equal(resolveMobileSourceIdentity(directory, { L2T_SOURCE_COMMIT: head.toUpperCase() }), head.slice(0, 12));
+  assert.equal(resolveMobileSourceIdentity(directory, { CM_COMMIT: head }), head.slice(0, 12));
+  assert.throws(() => resolveMobileSourceIdentity(directory, { L2T_SOURCE_COMMIT: "a".repeat(40) }), /HEAD/);
+  assert.throws(() => resolveMobileSourceIdentity(directory, { CM_COMMIT: "b".repeat(40) }), /HEAD/);
+});
+
+test("source identity: archive under another checkout never inherits the ancestor HEAD", t => {
+  const { directory } = sourceFixture(t, true), archive = path.join(directory, "archive");
+  mkdirSync(archive);
+  assert.equal(resolveMobileSourceIdentity(archive, {}), "unknown");
+  assert.equal(resolveMobileSourceIdentity(archive, { L2T_SOURCE_COMMIT: "c".repeat(40) }), "c".repeat(12));
+});
 
 // Deliberately nonfunctional fixtures. No real project credential is used.
 const jwt = (role, alg = "HS256") => [
@@ -154,6 +208,7 @@ test("actual Vite config: undeclared VITE variables are not exposed, builtins re
     assert.equal("VITE_SUPABASE_ANON_KEY" in config.env, false);
     assert.equal(config.env.PROD, true);
     assert.equal(JSON.parse(config.define.__L2T_CONFIG__).supabaseAnonKey, publicKey);
+    assert.equal(JSON.parse(config.define.__L2T_CONFIG__).sourceCommit, resolveMobileSourceIdentity(root));
   });
 });
 
@@ -242,6 +297,9 @@ test("actual Vite bundle: private env canaries absent, public config still works
     assert.ok(source.includes("https://www.letsgo2travel.com.tr"));
     assert.equal(source.includes(controlled.VITE_UNEXPECTED_TOKEN), false);
     assert.equal(source.includes(controlled.SUPABASE_SERVICE_ROLE_KEY), false);
+    const release = outputs.find(item => item.type === "asset" && item.fileName === "release.json");
+    assert.ok(release, "Vite emits a provenance manifest");
+    assert.equal(JSON.parse(String(release.source)).sourceCommit, resolveMobileSourceIdentity(root));
   });
 });
 

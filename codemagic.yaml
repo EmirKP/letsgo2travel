@@ -149,3 +149,95 @@ workflows:
         submit_to_app_store: false
         # Cancellation and expiration are omitted: both default to false and
         # Codemagic only accepts those options when review submission is enabled.
+
+  # Manual APK checks use the same UI source, account project and public API
+  # settings as iOS. A Play account / upload key is not needed for this test APK.
+  letsgo2travel-android-check:
+    name: LetsGo2Travel Android Test APK
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    environment:
+      groups:
+        - letsgo2travel_public
+      node: latest
+      java: 21
+      vars:
+        VITE_TRAVEL_ASSISTANT_API_BASE_URL: https://testflight.letsgo2travel.com.tr
+    cache:
+      cache_paths:
+        - $HOME/.npm
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+    scripts:
+      - name: Install and validate shared mobile configuration
+        script: |
+          set -euo pipefail
+          npm ci
+          npm --prefix mobile ci
+          node scripts/check-mobile-public-config.mjs
+      - name: Check cross-platform data and UI contracts
+        script: |
+          set -euo pipefail
+          npm audit --audit-level=high
+          npm --prefix mobile audit --audit-level=high
+          npm run test:release
+          npm --prefix mobile run lint
+      - name: Build the shared mobile UI for Android
+        script: npm run mobile:prepare:android
+      - name: Test and package Android
+        script: |
+          set -euo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+      - android/app/build/reports/**/*
+      - mobile-dist/release.json
+
+  # Artifact-only release: no Play upload/review is triggered. Configure the
+  # upload-key reference and secret group after creating the Play/Firebase apps.
+  letsgo2travel-android-release:
+    name: LetsGo2Travel Android Signed Bundle
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    environment:
+      groups:
+        - letsgo2travel_public
+        - letsgo2travel_android_release
+      android_signing:
+        - letsgo2travel_android_upload
+      node: latest
+      java: 21
+      vars:
+        VITE_TRAVEL_ASSISTANT_API_BASE_URL: https://testflight.letsgo2travel.com.tr
+    scripts:
+      - name: Install and check release source
+        script: |
+          set -euo pipefail
+          npm ci
+          npm --prefix mobile ci
+          node scripts/check-mobile-public-config.mjs
+          npm audit --audit-level=high
+          npm --prefix mobile audit --audit-level=high
+          npm run test:release
+          npm --prefix mobile run lint
+      - name: Validate Firebase identity and stamp the Android release
+        script: node scripts/prepare-android-release.mjs
+      - name: Build the shared mobile UI for Android
+        script: npm run mobile:prepare:android
+      - name: Build signed Android artifacts
+        script: |
+          set -euo pipefail
+          export L2T_UPLOAD_STORE_FILE="$CM_KEYSTORE_PATH"
+          export L2T_UPLOAD_STORE_PASSWORD="$CM_KEYSTORE_PASSWORD"
+          export L2T_UPLOAD_KEY_ALIAS="$CM_KEY_ALIAS"
+          export L2T_UPLOAD_KEY_PASSWORD="$CM_KEY_PASSWORD"
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:bundleRelease :app:assembleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/reports/**/*
+      - mobile-dist/release.json
