@@ -26,6 +26,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(OfflineTranslationPlugin.class);
         registerPlugin(TicketImportPlugin.class);
+        registerPlugin(KeyboardStatePlugin.class);
         super.onCreate(savedInstanceState);
 
         boolean isDebuggable =

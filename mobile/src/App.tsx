@@ -716,18 +716,44 @@ export default function App() {
 
   useEffect(() => {
     const viewport = window.visualViewport;
-    if (!viewport) return;
+    // Android resizes both the WebView and its visual viewport for the IME,
+    // so their height difference remains zero. Its native observer is the
+    // authority there; keep the existing viewport behavior on iOS and web.
+    const keyboard = isNativePlatform() ? plugin("KeyboardState") : undefined;
+    const usesNativeKeyboard = typeof keyboard?.getState === "function";
+    let active = true;
+    let nativeRevision = 0;
+    let keyboardListener: { remove: () => Promise<void> } | null = null;
     const update = () => {
-      setKeyboardOpen(window.innerHeight - viewport.height > 150);
+      if (!active || !viewport) return;
+      if (!usesNativeKeyboard) setKeyboardOpen(window.innerHeight - viewport.height > 150);
       document.documentElement.style.setProperty("--visual-height", `${viewport.height}px`);
       document.documentElement.style.setProperty("--visual-top", `${viewport.offsetTop}px`);
     };
+    if (usesNativeKeyboard) {
+      void addPluginListener("KeyboardState", "keyboardStateChanged", state => {
+        if (!active || typeof state.visible !== "boolean") return;
+        nativeRevision++;
+        setKeyboardOpen(state.visible);
+      }).then(handle => {
+        if (!active) { void handle?.remove().catch(() => undefined); return; }
+        keyboardListener = handle;
+        const requestedAt = nativeRevision;
+        void keyboard!.getState().then(value => {
+          const state = value as { visible?: boolean };
+          // A newer IME event wins over a delayed initial snapshot.
+          if (active && requestedAt === nativeRevision && typeof state.visible === "boolean") setKeyboardOpen(state.visible);
+        }).catch(() => undefined);
+      });
+    }
     update();
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
     return () => {
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
+      active = false;
+      void keyboardListener?.remove().catch(() => undefined);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
     };
   }, []);
 
