@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
+import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
 import { CountryFlag } from "../components/CountryFlag";
 import { alpha2FromAlpha3 } from "../data/countryIso";
@@ -27,6 +28,7 @@ import { usePassportPreference } from "../hooks/usePassportPreference";
 import { preferredEntry } from "../lib/passportPreference";
 import passportIndex from "../data/passport-index.json";
 import "./explore-reference.css";
+import "../components/feature-entry-artwork.css";
 
 const categories = ["Tümü", "Vizesiz", "Şehir", "Deniz", "Uzak rota"] as const;
 
@@ -226,10 +228,10 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     <label className="discovery-search"><Icon name="search" size={19}/><span className="sr-only">{copy("Hazır rotalarda şehir veya ülke ara", "Search cities or countries in ready-made routes")}</span><input ref={searchInput} type="search" aria-controls="explore-search-results" value={query} maxLength={120} placeholder={copy("Şehir veya ülke ara…", "Search a city or country…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" className="icon-button compact" style={{ minWidth: 44, minHeight: 44 }} onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={18}/></button>}</label>
 
     {!search && <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools")}>
-      <button onClick={() => onNavigate("passport")}><span><Icon name="passport" size={22} /></span><strong>{copy("Pasaport Gücü", "Passport Power")}</strong><small>{copy("Giriş durumları", "Entry rules")}</small></button>
-      <button onClick={surprise}><span><Icon name="sparkles" size={22} /></span><strong>{copy("Beni Şaşırt", "Surprise Me")}</strong><small>{copy("Akıllı rota", "Smart route")}</small></button>
-      <button onClick={() => onNavigate("events")}><span><Icon name="calendar" size={22} /></span><strong>{copy("Etkinlik Radarı", "Event Radar")}</strong><small>{copy("Konser ve festival", "Concerts & festivals")}</small></button>
-      <button onClick={() => onNavigate("companion")}><span><Icon name="globe" size={22} /></span><strong>{copy("Yol Yardımcısı", "Travel Companion")}</strong><small>{copy("Şimdi, dil, kurallar", "Now, phrases, rules")}</small></button>
+      <button onClick={() => onNavigate("passport")}><span className="explore-feature-artwork"><TravelToolArtwork kind="passport" size={64} /></span><strong>{copy("Pasaport Gücü", "Passport Power")}</strong><small>{copy("Giriş durumları", "Entry rules")}</small></button>
+      <button onClick={surprise}><span className="explore-feature-artwork"><TravelToolArtwork kind="explore" size={64} /></span><strong>{copy("Beni Şaşırt", "Surprise Me")}</strong><small>{copy("Akıllı rota", "Smart route")}</small></button>
+      <button onClick={() => onNavigate("events")}><span className="explore-feature-artwork"><TravelToolArtwork kind="events" size={64} /></span><strong>{copy("Etkinlik Radarı", "Event Radar")}</strong><small>{copy("Konser ve festival", "Concerts & festivals")}</small></button>
+      <button onClick={() => onNavigate("companion")}><span className="explore-feature-artwork"><TravelToolArtwork kind="tools" size={64} /></span><strong>{copy("Yol Yardımcısı", "Travel Companion")}</strong><small>{copy("Şimdi, dil, kurallar", "Now, phrases, rules")}</small></button>
     </section>}
 
     {!search && <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>

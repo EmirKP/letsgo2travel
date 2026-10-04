@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
+import { TravelToolArtwork } from "./TravelToolArtwork";
 import { useI18n } from "../lib/i18n";
 import { MAX_PERSONAL_CARDS, PERSONAL_TRAVEL_CARDS_EVENT, readPersonalTravelCards, removePersonalTravelCard, restorePersonalTravelCard, savePersonalTravelCard, type PersonalCardDraft, type PersonalTravelCard } from "../lib/personalTravelCards";
 import "./personal-travel-cards.css";
@@ -51,7 +52,7 @@ function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tri
     setStored(result); setRemoved(null); setMessage(copy("Kart geri geldi.", "Card restored.")); setError("");
   };
   return <section className="personal-travel-cards" aria-labelledby={`${formId}-title`}>
-    <header><span><Icon name="offline" size={24}/></span><div><small>{copy("İNTERNET GEREKTİRMEZ", "NO INTERNET NEEDED")}</small><h2 id={`${formId}-title`}>{copy("Kişisel seyahat kartın", "Your personal travel card")}</h2></div></header>
+    <header><span className="ptc-artwork"><TravelToolArtwork kind="offline" size={64}/></span><div><small>{copy("İNTERNET GEREKTİRMEZ", "NO INTERNET NEEDED")}</small><h2 id={`${formId}-title`}>{copy("Kişisel seyahat kartın", "Your personal travel card")}</h2></div></header>
     <p className="ptc-intro">{copy("Otelini, adresini ve rezervasyon notunu kendin ekle. İhtiyacın olduğunda tek yerde bul.", "Add your hotel, address and reservation note. Keep them together for when you need them.")}</p>
     <p className="ptc-storage"><Icon name="lock" size={15}/>{ownerId ? copy("Yalnız bu cihazda, bu hesabın bölümünde saklanır. Başka cihazlara eşitlenmez.", "Stored only on this device, under this account. It does not sync to other devices.") : copy("Bu cihazın misafir bölümünde saklanır. Cihazı kullanan diğer misafirler görebilir.", "Saved in this device's guest area. Other guests using this device can see it.")}</p>
     {stored.error && <p className="ptc-error" role="alert">{copy("Mevcut kartlar okunamadı. Kayıtların üzerine yazılmadı; cihaz depolamasını kontrol et.", "Existing cards could not be read. Nothing was overwritten; check device storage.")}</p>}

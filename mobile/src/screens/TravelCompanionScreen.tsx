@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
 import { CountryPicker } from "../components/CountryPicker";
 import { COUNTRY_LIST } from "../data/countries";
@@ -12,6 +13,7 @@ import { readTravelCountry, selectTravelCountry } from "../lib/travelSelection";
 import { EvidenceLine } from "../components/TravelSafety";
 import type { TravelNowResult, ViewId } from "../types";
 import "./companion-usability.css";
+import "../components/feature-entry-artwork.css";
 
 const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
 
@@ -94,7 +96,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
     phrases: copy("Konuş, kopyala veya dinlet. İfadeler internetsiz de yanında.", "Read, copy or play a phrase. The cards work offline too."),
     etiquette: copy("Yerel alışkanlıkları ve dikkat etmen gerekenleri öğren.", "Get to know local customs and useful guidance."),
   })[value];
-  const tabIcon = (value: CompanionTab) => ({ assistant: "suitcase", now: "sun", phrases: "languages", etiquette: "globe" } as const)[value];
+  const tabArtwork = (value: CompanionTab) => ({ assistant: "explore", now: "explore", phrases: "translate", etiquette: "guide" } as const)[value];
 
   const locate = async () => {
     if (loading) return;
@@ -162,7 +164,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
       ? <PageHero scene="city" title={copy("Yolculukta elinin altında", "A little help along the way")} subtitle={tabDescription("assistant")} note={copy("Keşfet, rahat et.", "Explore with ease.")} />
       : <header className="companion-section-header">
         <button type="button" onClick={() => openSection("assistant")}><Icon name="back" size={18} />{tabLabel("assistant")}</button>
-        <span className="companion-section-symbol" aria-hidden="true"><Icon name={tabIcon(tab)} size={28} /></span>
+        <span className="companion-section-symbol" aria-hidden="true"><TravelToolArtwork kind={tabArtwork(tab)} size={56} /></span>
         <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
       </header>}
 
@@ -212,7 +214,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
       <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" ? copy("Yolculuk için kısa yollar", "Travel shortcuts") : copy("Diğer yardımcılar", "More travel help")}</h2></div>
       <nav aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
         {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).filter(item => item !== "assistant" && item !== tab).map((item) => <button type="button" className={`companion-section-card companion-section-${item}`} onClick={() => openSection(item)} key={item}>
-          <span className="companion-section-art" aria-hidden="true"><Icon name={tabIcon(item)} size={26} /></span>
+          <span className="companion-section-art" aria-hidden="true"><TravelToolArtwork kind={tabArtwork(item)} size={56} /></span>
           <span className="companion-section-card-copy"><strong>{tabLabel(item)}</strong><small>{tabDescription(item)}</small></span>
           <Icon name="chevron" size={18} />
         </button>)}

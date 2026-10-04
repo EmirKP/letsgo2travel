@@ -1,15 +1,22 @@
 import { useId } from "react";
 import { TravelFeatureIcon } from "./TravelFeatureIcon";
 
-export type TravelToolArtworkKind = "explore" | "translate" | "money" | "saved" | "needs" | "transit" | "offline" | "guide" | "embassies" | "photo" | "safety";
+export type TravelToolArtworkKind = "explore" | "translate" | "money" | "saved" | "needs" | "transit" | "offline" | "guide" | "embassies" | "photo" | "safety" | "trips" | "globe" | "passport" | "tools" | "alerts" | "community" | "league" | "events" | "privacy" | "settings" | "support" | "flight";
 
 /** Companion illustrations to the Home shortcuts, decorative inside labelled buttons. */
-export function TravelToolArtwork({ kind }: { kind: TravelToolArtworkKind }) {
+export function TravelToolArtwork({ kind, size = 80, className = "" }: {
+  kind: TravelToolArtworkKind;
+  size?: number;
+  className?: string;
+}) {
   const id = `tool-art-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const paint = (name: string) => `url(#${id}-${name})`;
-  if (kind === "explore") return <TravelFeatureIcon kind="route" size={80} />;
+  const artworkClassName = `travel-tool-artwork ${className}`.trim();
+  if (kind === "explore" || kind === "trips" || kind === "globe" || kind === "passport" || kind === "tools") {
+    return <TravelFeatureIcon kind={kind === "explore" ? "route" : kind} size={size} className={artworkClassName} />;
+  }
 
-  return <svg className="travel-tool-artwork" width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true" focusable="false">
+  return <svg className={artworkClassName} width={size} height={size} viewBox="0 0 80 80" fill="none" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={`${id}-blue`} x1="19" y1="15" x2="62" y2="65" gradientUnits="userSpaceOnUse"><stop stopColor="#70CAFF"/><stop offset=".48" stopColor="#288DFF"/><stop offset="1" stopColor="#0754CB"/></linearGradient>
       <linearGradient id={`${id}-deep`} x1="20" y1="17" x2="58" y2="65" gradientUnits="userSpaceOnUse"><stop stopColor="#347ED8"/><stop offset="1" stopColor="#194A9A"/></linearGradient>
@@ -65,6 +72,91 @@ export function TravelToolArtwork({ kind }: { kind: TravelToolArtworkKind }) {
 
     {kind === "safety" && <>
       <path d="m40 9 25 10v20c0 16-25 29-25 29S15 55 15 39V19L40 9Z" fill="#247F78" transform="translate(1 3)"/><path d="m40 7 25 10v20c0 16-25 29-25 29S15 53 15 37V17L40 7Z" fill={paint("mint")}/><path d="m40 13 19 8v16c0 10-14 21-19 24-5-3-19-14-19-24V21l19-8Z" stroke="#DCF7E8" strokeWidth="2"/><path d="M36 25h8v9h9v8h-9v9h-8v-9h-9v-8h9v-9Z" fill="#F9FFFC"/>
+    </>}
+
+    {kind === "alerts" && <>
+      <path d="M35 15v-4a4 4 0 0 1 8 0v4" stroke="#C48A36" strokeWidth="3.5"/>
+      <circle cx="39" cy="60" r="7" fill="#B97927"/><circle cx="38" cy="58" r="7" fill={paint("gold")}/>
+      <path d="M17 57c-3 0-4-3-2-5l5-7V32a19 19 0 0 1 38 0v13l5 7c2 2 1 5-2 5H17Z" fill="#C0802D" transform="translate(1 3)"/>
+      <path d="M17 55c-3 0-4-3-2-5l5-7V30a19 19 0 0 1 38 0v13l5 7c2 2 1 5-2 5H17Z" fill={paint("gold")}/>
+      <path d="M26 31c0-7 4-12 10-13M23 49h14" stroke="#FFF2BD" strokeWidth="3" strokeLinecap="round"/>
+      <g transform="rotate(12 59 52)"><path d="M48 39h18l7 8-7 17H48V39Z" fill="#195199" transform="translate(1 2)"/><path d="M47 37h18l7 8-7 17H47V37Z" fill={paint("blue")}/><circle cx="64" cy="45" r="2" fill="#D6F3FF"/><path d="m52 49 4 4 7-4m-7 4v-8" stroke="#F5FBFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></g>
+      <path d="m10 24-3 7m55-10 4 6" stroke="#71BBE5" strokeWidth="3" strokeLinecap="round"/>
+    </>}
+
+    {kind === "community" && <>
+      <circle cx="18" cy="28" r="10" fill="#D49A43"/><circle cx="17" cy="26" r="10" fill={paint("gold")}/>
+      <path d="M3 53c0-11 5-17 14-17s14 6 14 17v6H3v-6Z" fill="#D69C42" transform="translate(1 2)"/><path d="M3 51c0-10 5-16 14-16s14 6 14 16v6H3v-6Z" fill={paint("gold")}/>
+      <circle cx="63" cy="28" r="10" fill="#348C7F"/><circle cx="62" cy="26" r="10" fill={paint("mint")}/>
+      <path d="M48 53c0-11 5-17 14-17s14 6 14 17v6H48v-6Z" fill="#328E83" transform="translate(1 2)"/><path d="M48 51c0-10 5-16 14-16s14 6 14 16v6H48v-6Z" fill={paint("mint")}/>
+      <path d="M19 62c0-15 7-24 21-24s21 9 21 24v4H19v-4Z" fill="#195499" transform="translate(1 3)"/><path d="M19 60c0-15 7-24 21-24s21 9 21 24v4H19v-4Z" fill={paint("blue")}/>
+      <circle cx="41" cy="24" r="14" fill="#1C62AD"/><circle cx="40" cy="22" r="14" fill={paint("blue")}/>
+      <path d="M32 17a8 8 0 0 1 7-4M26 54c1-5 3-8 7-10" stroke="#C5EDFF" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M32 38c1 5 15 5 16 0" stroke="#E3F6FF" strokeWidth="2" strokeLinecap="round" opacity=".6"/>
+    </>}
+
+    {kind === "league" && <>
+      <path d="M22 19H10v10c0 11 8 16 18 16m30-26h12v10c0 11-8 16-18 16" stroke="#CE9137" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M22 17H10v10c0 11 8 16 18 16m30-26h12v10c0 11-8 16-18 16" stroke="#FFD980" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M35 43h10v18H35V43Z" fill="#D49434"/><path d="M34 43h9v16h-9V43Z" fill={paint("gold")}/>
+      <path d="M21 11h38v17c0 16-9 23-19 23s-19-7-19-23V11Z" fill="#C18230" transform="translate(1 3)"/>
+      <path d="M21 9h38v17c0 16-9 23-19 23s-19-7-19-23V9Z" fill={paint("gold")}/>
+      <path d="M27 15v11c0 6 1 10 4 13" stroke="#FFF0BC" strokeWidth="3" strokeLinecap="round"/>
+      <path d="m40 18 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="#FFF5CC"/>
+      <path d="M25 58h30l4 9H21l4-9Z" fill="#174C98" transform="translate(1 3)"/><path d="M25 56h30l4 9H21l4-9Z" fill={paint("blue")}/><rect x="33" y="59" width="14" height="4" rx="1" fill="#FFE49A"/>
+    </>}
+
+    {kind === "events" && <>
+      <g transform="rotate(-6 39 39)">
+        <rect x="12" y="17" width="54" height="49" rx="8" fill="#255F9E" transform="translate(2 3)"/><rect x="11" y="15" width="54" height="49" rx="8" fill={paint("paper")}/>
+        <path d="M19 15h38a8 8 0 0 1 8 8v9H11v-9a8 8 0 0 1 8-8Z" fill={paint("blue")}/>
+        <path d="M24 10v12m28-12v12" stroke="#18528F" strokeWidth="5" strokeLinecap="round"/><path d="M23 9v11m28-11v11" stroke="#FFE1A0" strokeWidth="4" strokeLinecap="round"/>
+        <path d="M20 39h5m10 0h5m10 0h5M20 49h5m10 0h5M20 58h5" stroke="#74AED7" strokeWidth="4" strokeLinecap="round"/>
+      </g>
+      <circle cx="57" cy="57" r="15" fill="#D49334" transform="translate(1 2)"/><circle cx="56" cy="55" r="15" fill={paint("gold")}/><path d="m49 55 5 5 9-11" stroke="#FFF9E5" strokeWidth="3.3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M47 50a10 10 0 0 1 7-5" stroke="#FFF0BB" strokeWidth="2" strokeLinecap="round"/>
+    </>}
+
+    {kind === "privacy" && <>
+      <path d="m40 9 25 10v20c0 16-25 29-25 29S15 55 15 39V19L40 9Z" fill="#164A92" transform="translate(1 3)"/><path d="m40 7 25 10v20c0 16-25 29-25 29S15 53 15 37V17L40 7Z" fill={paint("blue")}/>
+      <path d="m40 13 19 8v16c0 10-14 21-19 24-5-3-19-14-19-24V21l19-8Z" stroke="#C5EBFF" strokeWidth="2" opacity=".7"/>
+      <path d="M32 34v-7a8 8 0 0 1 16 0v7" stroke="#ECF9FF" strokeWidth="4"/>
+      <rect x="27" y="33" width="26" height="22" rx="5" fill="#BB842F" transform="translate(1 2)"/><rect x="27" y="31" width="26" height="22" rx="5" fill={paint("gold")}/>
+      <circle cx="40" cy="40" r="3" fill="#9E6929"/><path d="M40 41v5" stroke="#9E6929" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M31 36h4" stroke="#FFF1BE" strokeWidth="2" strokeLinecap="round"/>
+    </>}
+
+    {kind === "settings" && <>
+      <path d="m34 9 12 1 2 9 6 3 8-4 8 9-5 8 1 7 8 5-4 12-10-1-5 5-1 9-12 2-4-9-6-2-9 4-8-9 5-8-1-7-8-5 4-12 10 1 5-5 4-13Z" fill="#194D93" transform="translate(0 2) scale(.96)"/>
+      <path d="m34 7 12 1 2 9 6 3 8-4 8 9-5 8 1 7 8 5-4 12-10-1-5 5-1 9-12 2-4-9-6-2-9 4-8-9 5-8-1-7-8-5 4-12 10 1 5-5 4-13Z" fill={paint("blue")} transform="scale(.96)"/>
+      <circle cx="40" cy="39" r="18" fill="#174E96"/><circle cx="39" cy="37" r="18" fill="#BDDEF1"/><circle cx="39" cy="37" r="14" fill="#EAF7FD"/>
+      <path d="M28 38a11 11 0 0 1 10-12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round"/>
+      <circle cx="39" cy="37" r="8" fill="#CD943D"/><circle cx="38" cy="35" r="8" fill={paint("gold")}/><path d="m34 35 3 3 5-6" stroke="#FFFCED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="m28 22 4-5m17 2 4 3" stroke="#AFE5FF" strokeWidth="2.5" strokeLinecap="round"/>
+    </>}
+
+    {kind === "support" && <>
+      <path d="M15 42V32a25 25 0 0 1 50 0v10" stroke="#194E96" strokeWidth="7" strokeLinecap="round"/><path d="M14 40V30a25 25 0 0 1 50 0v10" stroke="#50AFF1" strokeWidth="6" strokeLinecap="round"/>
+      <path d="M20 27a20 20 0 0 1 34-11" stroke="#AFE7FF" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M26 25h27a7 7 0 0 1 7 7v17a7 7 0 0 1-7 7H39l-12 8v-8h-1a7 7 0 0 1-7-7V32a7 7 0 0 1 7-7Z" fill="#358C80" transform="translate(1 2)"/><path d="M26 23h27a7 7 0 0 1 7 7v17a7 7 0 0 1-7 7H39l-12 8v-8h-1a7 7 0 0 1-7-7V30a7 7 0 0 1 7-7Z" fill={paint("mint")}/>
+      <circle cx="29" cy="39" r="2.5" fill="#F5FFFA"/><circle cx="39" cy="39" r="2.5" fill="#F5FFFA"/><circle cx="49" cy="39" r="2.5" fill="#F5FFFA"/>
+      <rect x="8" y="33" width="12" height="22" rx="6" fill="#174E99" transform="translate(1 2)"/><rect x="7" y="31" width="12" height="22" rx="6" fill={paint("blue")}/>
+      <rect x="60" y="33" width="12" height="22" rx="6" fill="#174E99" transform="translate(1 2)"/><rect x="59" y="31" width="12" height="22" rx="6" fill={paint("blue")}/>
+      <path d="M65 52v5a9 9 0 0 1-9 9h-9" stroke="#256BAC" strokeWidth="3" strokeLinecap="round"/><rect x="38" y="61" width="14" height="7" rx="3.5" fill={paint("gold")}/>
+      <path d="M11 36v9m52-9v9" stroke="#A6E0FF" strokeWidth="2" strokeLinecap="round"/>
+    </>}
+
+    {kind === "flight" && <>
+      <circle cx="38" cy="37" r="27" fill="#DAF3EB"/><path d="M13 56c-4 9 4 14 14 8s16-17 30-17" stroke="#6DBBAC" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 5"/>
+      <g transform="rotate(25 40 38)">
+        <path d="M40 7c-3 0-5 5-5 10v13L12 44v7l23-8v14l-9 8v4l14-4 14 4v-4l-9-8V43l23 8v-7L45 30V17c0-5-2-10-5-10Z" fill="#2B719B" transform="translate(1 3)"/>
+        <path d="M40 5c-3 0-5 5-5 10v13L12 42v7l23-8v14l-9 8v4l14-4 14 4v-4l-9-8V41l23 8v-7L45 28V15c0-5-2-10-5-10Z" fill={paint("blue")}/>
+        <path d="M40 5c-3 0-5 5-5 10v40l5 8 5-8V15c0-5-2-10-5-10Z" fill={paint("paper")}/>
+        <path d="M37 16c2-2 4-2 6 0v5h-6v-5Z" fill="#418FBF"/><path d="M38 28v17" stroke="#B4DEEE" strokeWidth="2" strokeLinecap="round"/>
+        <path d="m15 42 18-11m14 0 18 11" stroke="#A6E4FF" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="m29 63 6-5 5 5-11 3v-3Zm22 0-6-5-5 5 11 3v-3Z" fill={paint("gold")}/>
+      </g>
+      <path d="m67 12 1.5 4.5L73 18l-4.5 1.5L67 24l-1.5-4.5L61 18l4.5-1.5L67 12Z" fill="#FFD575"/>
     </>}
   </svg>;
 }

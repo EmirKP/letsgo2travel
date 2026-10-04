@@ -90,3 +90,22 @@ Yerel mobil önizleme: http://127.0.0.1:5173
 Yerel web önizleme: http://127.0.0.1:3000
 Yalnız geliştirmede API istekleri yerel web sunucusuna yönlendirildi.
 Üretim ortam değişkenleri, mağaza kaydı ve incelemedeki paket değiştirilmedi.
+
+Ek çalışma: özellik görsellerinin uygulama geneline yayılması
+- Kullanıcının işaretlediği Profil > Seyahatlerim ve Fiyat Alarmlarım
+  kartları dahil profil kartları ortak renkli, hacimli çizimlere geçirildi.
+- Planlar, Daha Fazla menüsü, keşif kısayolları, rota başlığı, kokpit,
+  topluluk, yolculuk araçları, kişisel kart ve ortak plan başlıkları da
+  aynı görsel setini kullanıyor. Küçük gezinme ve işlem simgeleri korundu.
+- SVG çizimleri uygulamayla birlikte geliyor; yeni görsel sunucusu ya da
+  ağ isteği eklenmedi. Kart ölçüleri ve CSS yükleme sırası düzeltildi.
+- Profil, Planlar, menü, Topluluk, Araçlar, yolculuk araçları ve Kokpit
+  yerel önizlemede görsel olarak kontrol edildi. Profildeki alarm ve
+  seyahat bağlantıları doğru ekranları açtı.
+- İlgili mevcut test grupları geçti: profil/topluluk/planlama/araçlar
+  grubunda 96; kokpit/çakışma/gezinme/planlama grubunda 83 test
+  (planlama testleri iki grupta da yer alır). Mobil lint ve üretim
+  derlemesi geçti. Yeni özellik davranışı veya veri yazımı eklenmedi.
+- Yerel API ortamında fiyat alarmı servisi 503, topluluk akışı yükleme
+  hatası verdi; görsel kontrol bunların canlı servis doğrulaması değildir.
+  Bu ek çalışma henüz mağaza paketine ya da canlı web'e yayımlanmadı.

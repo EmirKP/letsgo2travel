@@ -16,8 +16,10 @@ import {
 import { DateTimeField } from "./DateTimeField";
 import { createId } from "../lib/id";
 import { Icon } from "./Icon";
+import { TravelToolArtwork } from "./TravelToolArtwork";
 import { CountryFlag } from "./CountryFlag";
 import { Sheet } from "./Sheet";
+import "./trip-collaboration-artwork.css";
 
 type CollaborationTab = "team" | "vote" | "budget";
 
@@ -251,7 +253,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   return <>
     <section className="trip-collaboration-hub">
       <div className="trip-collaboration-heading">
-        <span><Icon name="users" size={23} /></span>
+        <span className="trip-collaboration-artwork"><TravelToolArtwork kind="community" size={64} /></span>
         <div><small>{copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><h2>{copy("Ortak seyahat", "Shared trip")}</h2><p>{copy("Arkadaşlarını davet et; rotayı oylayın ve masrafları birlikte takip edin.", "Invite friends, vote on the route and track expenses together.")}</p></div>
       </div>
 
@@ -277,7 +279,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       {error && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{error}</span></div>}
       {!workspace && error ? <button className="secondary-wide" type="button" onClick={() => void loadWorkspace(selectedTripId)}>{copy("Yeniden dene", "Retry")}</button> : !workspace || busy === "workspace" ? <div className="trip-workspace-loading"><span className="button-loader dark" /><p>{copy("Çalışma alanı hazırlanıyor…", "Preparing workspace…")}</p></div> : <div className="trip-workspace">
         <header className="trip-workspace-hero">
-          <span><Icon name="users" size={25} /></span>
+          <span className="trip-collaboration-artwork"><TravelToolArtwork kind="community" size={56} /></span>
           <div><small>{copy("ORTAK SEYAHAT", "SHARED TRIP")}</small><h3>{workspace.trip.title}</h3><p>{dateText(workspace.trip.startDate, locale)} – {dateText(workspace.trip.endDate, locale)} · {workspace.members.length} {copy("kişi", "people")}</p></div>
           {workspace.myRole === "owner" && <button type="button" onClick={() => void createInvite()} disabled={Boolean(busy)} aria-label={copy("Arkadaş davet et", "Invite a friend")}><Icon name="share" size={19} /></button>}
         </header>
@@ -323,7 +325,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
         {tab === "budget" && <section className="trip-workspace-section">
           <div className="trip-budget-summary">
-            <span><Icon name="wallet" size={22} /></span><div><small>{copy("TOPLAM HARCAMA", "TOTAL SPEND")}</small><strong>{moneyText(totalSpent, workspace.budget.currency, locale)}</strong><p>{workspace.budget.targetAmount ? copy(`${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} bütçenin %${progress}'i`, `${progress}% of ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} budget`, `${progress}% e buxhetit prej ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)}`) : copy("Henüz hedef bütçe belirlenmedi", "No target budget yet")}</p></div>
+            <span className="trip-collaboration-artwork"><TravelToolArtwork kind="money" size={56} /></span><div><small>{copy("TOPLAM HARCAMA", "TOTAL SPEND")}</small><strong>{moneyText(totalSpent, workspace.budget.currency, locale)}</strong><p>{workspace.budget.targetAmount ? copy(`${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} bütçenin %${progress}'i`, `${progress}% of ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)} budget`, `${progress}% e buxhetit prej ${moneyText(workspace.budget.targetAmount, workspace.budget.currency, locale)}`) : copy("Henüz hedef bütçe belirlenmedi", "No target budget yet")}</p></div>
             <em>{progress}%</em>
           </div>
           {workspace.expenses.some(expense => expense.currency !== workspace.budget.currency) && <p className="trip-collaboration-error" role="alert">{copy("Eski kayıtların para birimleri farklı. Toplam yalnız bütçenin para birimini içerir; bakiyeler ayrı gösterilir.", "Older entries use different currencies. The total includes only the budget currency; balances are shown separately.")}</p>}

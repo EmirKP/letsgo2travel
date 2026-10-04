@@ -6,6 +6,7 @@ import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
 import { Sheet } from "../components/Sheet";
 import { CockpitFlightLookup } from "../components/CockpitFlightLookup";
@@ -48,6 +49,7 @@ import {
 import type { AuthUser } from "../types";
 import "./cockpit-journey.css";
 import "./travel-flow-polish.css";
+import "../components/feature-entry-artwork.css";
 
 type CockpitScreenProps = {
   user: AuthUser | null;
@@ -741,7 +743,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     return <div className="screen cockpit-native-screen">
       <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
       <div className="login-required cockpit-auth-state">
-        <span><Icon name="lock" size={28} /></span>
+        <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span>
         <h2>{copy("Kokpitini açmak için giriş yap", "Sign in to open your cockpit")}</h2>
         <p>{copy("Seyahat tarihlerin ve hazırlık listen yalnızca hesabına bağlı olarak saklanır.", "Your trip dates and checklist are stored securely with your account.")}</p>
         <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> {copy("Giriş yap / hesap aç", "Sign in / create account")}</button>
@@ -910,7 +912,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label={copy("Seyahatler yükleniyor", "Loading trips")}><div /><div /><div /></div>
       : error && !trips.length ? null
       : !trips.length ? <div className="empty-state cockpit-native-empty">
-        <span><Icon name="suitcase" size={30} /></span><strong>{copy("Henüz kokpit seyahatin yok", "No cockpit trips yet")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
+        <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span><strong>{copy("Henüz kokpit seyahatin yok", "No cockpit trips yet")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
       </div>
       : <>
         <div className="chip-scroll cockpit-trip-selector" role="group" aria-label={copy("Seyahat seçimi", "Choose trip")}>
@@ -921,7 +923,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
 
         {selectedTrip && <article className="cockpit-native-card">
           <header className="cockpit-native-card-head">
-            <span className="saved-icon"><Icon name="plane" size={21} /></span>
+            <span className="saved-icon cockpit-feature-artwork"><TravelToolArtwork kind={selectedTrip.originIata || selectedTrip.flightNumber || selectedTrip.flightLookupManaged ? "flight" : "trips"} size={56} /></span>
             <div><small>{selectedTrip.status === "upcoming" ? copy("Yaklaşan", "Upcoming") : selectedTrip.status === "active" ? copy("Devam ediyor", "In progress") : selectedTrip.status === "completed" ? copy("Tamamlandı", "Completed") : copy("İptal edildi", "Cancelled")}</small><h2>{tripTitle(selectedDisplay!)}</h2><p>{formatDate(selectedTrip.startDate, dateLocale)} – {formatDate(selectedTrip.endDate, dateLocale)}</p></div>
             <button disabled={Boolean(busy) || loading} onClick={() => { const session = captureSession(); if (session && selectedTrip.userId === session.userId && !busy && !loading) setDeleteTarget({ trip: selectedTrip, session }); }} aria-label={copy("Seyahati sil", "Delete trip")}><Icon name="trash" size={18} /></button>
           </header>

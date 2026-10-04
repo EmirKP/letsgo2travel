@@ -2,12 +2,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
 import { normalizeSearchText } from "../lib/searchText";
-import { Icon, type IconName } from "./Icon";
+import { Icon } from "./Icon";
+import { TravelToolArtwork, type TravelToolArtworkKind } from "./TravelToolArtwork";
 import { BrandMark } from "./BrandMark";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
 import { SupportSheet } from "./SupportSheet";
 import type { ViewId } from "../types";
+import "./menu-artwork.css";
 
 // Yasal metinler artık UYGULAMA İÇİNDE okunur (tarayıcıya yönlendirme yok).
 export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: {
@@ -29,23 +31,23 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
     { id: "plan", label: copy("Yolculuğunu planla", "Plan your trip") },
     { id: "travel", label: copy("Yoldayken", "On your trip") },
   ] as const;
-  const nativeLinks: Array<{ group: typeof groups[number]["id"]; label: string; text: string; keywords: string; icon: IconName; view: ViewId }> = [
+  const nativeLinks: Array<{ group: typeof groups[number]["id"]; label: string; text: string; keywords: string; icon: TravelToolArtworkKind; view: ViewId }> = [
     { group: "discover", label: copy("Ülke Gündemi", "Country Updates"), text: copy("Seyahat uyarıları, haberler ve önemli günler", "Travel advice, news and important dates"), keywords: "haber news hava weather", icon: "globe", view: "country-news" },
-    { group: "plan", label: copy("Ülke Maliyetleri", "Country Costs"), text: copy("Şehir bazında tahmini bütçeler", "Estimated budgets by city"), keywords: "para money bütçe budget", icon: "wallet", view: "costs" },
-    { group: "travel", label: copy("Havalimanı Rehberi", "Airport Guide"), text: copy("Havalimanı arama ve yolculuk hazırlığı", "Airport search and travel preparation"), keywords: "uçak uçuş flight aktarma transfer", icon: "plane", view: "airports" },
-    { group: "discover", label: copy("Etkinlik Radarı", "Event Radar"), text: copy("Konser, festival, spor ve kültür", "Concerts, festivals, sport and culture"), keywords: "maç konser concert festival", icon: "calendar", view: "events" },
-    { group: "travel", label: copy("Seyahat Asistanı", "Travel Assistant"), text: copy("Acil yardım, harita, çeviri ve yol araçları", "Emergency help, maps, translation and travel tools"), keywords: "çeviri çevir translate translation harita map çevrimdışı offline ulaşım transport para money kur currency konsolosluk consulate kayıtlı yer saved place", icon: "compass", view: "companion" },
+    { group: "plan", label: copy("Ülke Maliyetleri", "Country Costs"), text: copy("Şehir bazında tahmini bütçeler", "Estimated budgets by city"), keywords: "para money bütçe budget", icon: "money", view: "costs" },
+    { group: "travel", label: copy("Havalimanı Rehberi", "Airport Guide"), text: copy("Havalimanı arama ve yolculuk hazırlığı", "Airport search and travel preparation"), keywords: "uçak uçuş flight aktarma transfer", icon: "flight", view: "airports" },
+    { group: "discover", label: copy("Etkinlik Radarı", "Event Radar"), text: copy("Konser, festival, spor ve kültür", "Concerts, festivals, sport and culture"), keywords: "maç konser concert festival", icon: "events", view: "events" },
+    { group: "travel", label: copy("Seyahat Asistanı", "Travel Assistant"), text: copy("Acil yardım, harita, çeviri ve yol araçları", "Emergency help, maps, translation and travel tools"), keywords: "çeviri çevir translate translation harita map çevrimdışı offline ulaşım transport para money kur currency konsolosluk consulate kayıtlı yer saved place", icon: "tools", view: "companion" },
     { group: "plan", label: copy("Pasaport Gücü", "Passport Power"), text: copy("Türkiye pasaportu için giriş koşulları", "Entry rules for a Turkish passport"), keywords: "vize visa pasaport passport", icon: "passport", view: "passport" },
-    { group: "plan", label: copy("Rota Planla", "Plan a Route"), text: copy("Bütçene ve tercihlerine göre gezi oluştur", "Create a trip for your budget and interests"), keywords: "rota route plan", icon: "route", view: "route" },
-    { group: "travel", label: copy("Seyahat Kokpiti", "Travel Cockpit"), text: copy("Uçuşlarını, tarihlerini ve hazırlık listeni yönet", "Manage flights, dates and your checklist"), keywords: "uçak uçuş flight bilet ticket pnr seyahatlerim my trips", icon: "suitcase", view: "cockpit" },
-    { group: "plan", label: copy("Fiyat Alarmı", "Price Alerts"), text: copy("Hedef fiyata düşünce haber al", "Know when the fare reaches your target"), keywords: "ucuz cheap bilet ticket uçuş flight", icon: "bell", view: "alerts" },
-    { group: "discover", label: copy("Topluluk", "Community"), text: copy("Gezginlere sor, deneyimlerini paylaş", "Ask travellers and share experiences"), keywords: "kaşif gezgin league traveller arkadaş friends soru question", icon: "users", view: "community" },
+    { group: "plan", label: copy("Rota Planla", "Plan a Route"), text: copy("Bütçene ve tercihlerine göre gezi oluştur", "Create a trip for your budget and interests"), keywords: "rota route plan", icon: "explore", view: "route" },
+    { group: "travel", label: copy("Seyahat Kokpiti", "Travel Cockpit"), text: copy("Uçuşlarını, tarihlerini ve hazırlık listeni yönet", "Manage flights, dates and your checklist"), keywords: "uçak uçuş flight bilet ticket pnr seyahatlerim my trips", icon: "trips", view: "cockpit" },
+    { group: "plan", label: copy("Fiyat Alarmı", "Price Alerts"), text: copy("Hedef fiyata düşünce haber al", "Know when the fare reaches your target"), keywords: "ucuz cheap bilet ticket uçuş flight", icon: "alerts", view: "alerts" },
+    { group: "discover", label: copy("Topluluk", "Community"), text: copy("Gezginlere sor, deneyimlerini paylaş", "Ask travellers and share experiences"), keywords: "kaşif gezgin league traveller arkadaş friends soru question", icon: "community", view: "community" },
   ];
   const term = normalizeSearchText(query);
   const visibleLinks = nativeLinks.filter(link => !term || normalizeSearchText(`${link.label} ${link.text} ${link.keywords}`).includes(term));
-  const legalSheets: Array<{ label: string; text: string; icon: IconName; slug: LegalSlug }> = [
-    { label: copy("Gizlilik Politikası", "Privacy Policy"), text: copy("Veri kullanım bilgileri", "How data is used"), icon: "lock", slug: "gizlilik-politikasi" },
-    { label: copy("Kullanım Şartları", "Terms of Use"), text: copy("Hizmet koşulları", "Service terms"), icon: "info", slug: "kullanim-sartlari" },
+  const legalSheets: Array<{ label: string; text: string; icon: TravelToolArtworkKind; slug: LegalSlug }> = [
+    { label: copy("Gizlilik Politikası", "Privacy Policy"), text: copy("Veri kullanım bilgileri", "How data is used"), icon: "privacy", slug: "gizlilik-politikasi" },
+    { label: copy("Kullanım Şartları", "Terms of Use"), text: copy("Hizmet koşulları", "Service terms"), icon: "guide", slug: "kullanim-sartlari" },
   ];
 
   const openNative = (view: ViewId) => {
@@ -67,15 +69,15 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
       const links = visibleLinks.filter(link => link.group === group.id);
       return links.length ? <section key={group.id} aria-label={group.label}>
         <h3 className="menu-section-label">{group.label}</h3>
-        <div className="menu-link-list">{links.map(link => <button type="button" key={link.view} onClick={() => openNative(link.view)}><span><Icon name={link.icon} size={20}/></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16}/></button>)}</div>
+        <div className="menu-link-list feature-menu-links">{links.map(link => <button type="button" key={link.view} onClick={() => openNative(link.view)}><span><TravelToolArtwork kind={link.icon} size={56}/></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16}/></button>)}</div>
       </section> : null;
     })}
 
     <p className="menu-section-label">{copy("DESTEK VE HUKUKİ", "SUPPORT & LEGAL")}</p>
-    <div className="menu-link-list compact-links">
-      {legalSheets.map((link) => <button key={link.slug} onClick={() => setLegalSlug(link.slug)}><span><Icon name={link.icon} size={20} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16} /></button>)}
-      <button onClick={() => { onClose(); onOpenAccount(); }}><span><Icon name="trash" size={20} /></span><div><strong>{copy("Hesap ve veri silme", "Account & data deletion")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section")}</small></div><Icon name="chevron" size={16} /></button>
-      <button onClick={() => setSupportOpen(true)}><span><Icon name="mail" size={20} /></span><div><strong>{copy("Destek", "Support")}</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
+    <div className="menu-link-list compact-links feature-menu-links">
+      {legalSheets.map((link) => <button key={link.slug} onClick={() => setLegalSlug(link.slug)}><span><TravelToolArtwork kind={link.icon} size={56} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16} /></button>)}
+      <button onClick={() => { onClose(); onOpenAccount(); }}><span><TravelToolArtwork kind="privacy" size={56} /></span><div><strong>{copy("Hesap ve veri silme", "Account & data deletion")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section")}</small></div><Icon name="chevron" size={16} /></button>
+      <button onClick={() => setSupportOpen(true)}><span><TravelToolArtwork kind="support" size={56} /></span><div><strong>{copy("Destek", "Support")}</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>
 
     <p className="version-note">LetsGo2Travel {config.appVersion} · Build {config.buildNumber} · {locale.toUpperCase()}</p>

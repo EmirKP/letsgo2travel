@@ -1,0 +1,22 @@
+.menu-link-list.feature-menu-links > button {
+  grid-template-columns: 56px minmax(0, 1fr) 18px;
+}
+.menu-link-list.feature-menu-links > button > span:first-child {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.menu-link-list.feature-menu-links > button > span:first-child > svg {
+  width: 56px;
+  height: 56px;
+}
+.menu-link-list.feature-menu-links > button > div {
+  min-width: 0;
+}

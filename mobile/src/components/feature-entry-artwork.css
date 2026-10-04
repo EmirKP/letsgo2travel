@@ -1,0 +1,102 @@
+/* Feature illustrations share the Home palette; controls keep their compact icons. */
+.screen.companion-screen .companion-section-header .companion-section-symbol,
+.screen.companion-screen .companion-section-card .companion-section-art {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.companion-screen .companion-section-header { padding-right: 70px; }
+.companion-screen .ta-emergency-shortcut { padding-block: 9px; }
+.travel-assistant .ta-guide-quicklinks .travel-tool-artwork { flex-shrink: 0; }
+
+.journey-tools .journey-tool-grid > button {
+  grid-template-columns: minmax(0, 1fr) 18px;
+  grid-template-rows: 72px auto 1fr;
+  align-content: start;
+  gap: 8px;
+  min-height: 180px;
+  padding: 15px;
+}
+
+.journey-tools .journey-tool-grid > button > .journey-feature-art {
+  grid-column: 1;
+  grid-row: 1;
+  width: 72px;
+  height: 72px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.journey-tools .journey-tool-grid > button > strong,
+.journey-tools .journey-tool-grid > button > small { grid-column: 1 / -1; }
+.journey-tools .journey-tool-grid > button > strong { font-size: 14px; }
+.journey-tools .journey-tool-grid > button > small { font-size: 12px; }
+.journey-tools .journey-tool-grid > button > svg { grid-column: 2; grid-row: 1; }
+
+.journey-tools .journey-tool-grid > button:last-child {
+  grid-template-columns: 56px minmax(0, 1fr) 18px;
+  grid-template-rows: auto auto;
+  min-height: 90px;
+  gap: 5px 12px;
+}
+
+.journey-tools .journey-tool-grid > button:last-child > .journey-feature-art {
+  grid-row: 1 / 3;
+  width: 56px;
+  height: 56px;
+}
+
+.journey-tools .journey-tool-grid > button:last-child > .journey-feature-art > svg { width: 56px; height: 56px; }
+.journey-tools .journey-tool-grid > button:last-child > strong,
+.journey-tools .journey-tool-grid > button:last-child > small { grid-column: 2; }
+.journey-tools .journey-tool-grid > button:last-child > svg { grid-column: 3; grid-row: 1 / 3; }
+.journey-sheet-intro.journey-artwork-intro { grid-template-columns: 64px minmax(0, 1fr); }
+.journey-sheet-intro.journey-artwork-intro > span { width: 64px; height: 64px; background: transparent; }
+
+.community-social .cs-trophy { width: 56px; height: 56px; }
+.community-social .cs-trophy > svg { width: 56px; height: 56px; }
+.community-social .cs-league-banner > div { min-width: 0; }
+.community-social .cs-regions .cs-region-world > svg { width: 64px; height: 64px; max-width: 100%; }
+.community-social .cs-empty > span,
+.cs-league-sheet .community-native-empty > span { width: 72px; height: 72px; background: transparent; border-radius: 0; }
+.cs-league-sheet .community-native-summary > div { grid-template-columns: 56px auto 1fr; }
+.cs-league-sheet .community-native-summary > div > span { width: 56px; height: 56px; background: transparent; }
+
+.editorial-app .explore-screen .explore-actions > button > .explore-feature-artwork {
+  width: 64px;
+  height: 64px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.flight-lookup-icon.cockpit-feature-artwork,
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .flight-lookup-icon.cockpit-feature-artwork {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.editorial-app .screen.cockpit-native-screen .cockpit-native-card-head { grid-template-columns: 56px minmax(0, 1fr) 44px; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .saved-icon.cockpit-feature-artwork { width: 56px; height: 56px; border-radius: 0; background: transparent; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state > .cockpit-feature-artwork,
+.cockpit-native-screen .cockpit-native-empty > .cockpit-feature-artwork { width: 72px; height: 72px; border-radius: 0; background: transparent; }
+
+@media (max-width: 370px) {
+  .journey-tools .journey-tool-grid > button {
+    grid-template-columns: 56px minmax(0, 1fr) 18px;
+    grid-template-rows: auto auto;
+    min-height: 90px;
+    gap: 5px 10px;
+  }
+  .journey-tools .journey-tool-grid > button > .journey-feature-art { grid-row: 1 / 3; width: 56px; height: 56px; }
+  .journey-tools .journey-tool-grid > button > .journey-feature-art > svg { width: 56px; height: 56px; }
+  .journey-tools .journey-tool-grid > button > strong,
+  .journey-tools .journey-tool-grid > button > small { grid-column: 2; }
+  .journey-tools .journey-tool-grid > button > svg { grid-column: 3; grid-row: 1 / 3; }
+  .editorial-app.view-community .community-social .cs-league-banner { flex-wrap: wrap; }
+  .community-social .cs-league-banner > div { flex: 1; min-width: 0; }
+  .community-social .cs-league-banner > button { margin-left: 65px; }
+}

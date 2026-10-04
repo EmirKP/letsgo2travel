@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { AirportField } from "../components/AirportField";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
+import { TravelToolArtwork } from "../components/TravelToolArtwork";
+import "./price-alert-artwork.css";
 import { PageHero } from "../components/PageHero";
 import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert, type AlertMutationResponse } from "../lib/api";
 import type { AirportOption } from "../lib/airports";
@@ -297,7 +299,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     return <div className="screen alerts-screen">
       <PageHero scene="city" title={copy("Fiyat Alarmlarım", "Price Alerts")} subtitle={copy("Takip ettiğin rotalar, tek bir yerde.", "Your tracked routes, all in one place.")} />
       <div className="login-required">
-        <span><Icon name="lock" size={28} /></span>
+        <span className="alert-state-artwork"><TravelToolArtwork kind="privacy" size={80} /></span>
         <h2>{copy("Alarmların için giriş yap", "Sign in for price alerts")}</h2>
         <p>{copy("Fiyat alarmların hesabına bağlı saklanır ve web ile mobilde birlikte çalışır.", "Your alerts are linked to your account and stay in sync on web and mobile.")}</p>
         <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> {copy("Giriş yap / hesap aç", "Sign in / create account")}</button>
@@ -359,7 +361,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
           const paused = alert.is_active === false;
           return <article className={`saved-card alert-card ${paused ? "paused" : ""}`} key={alert.id}>
             <div className="saved-card-head">
-              <span className="saved-icon"><Icon name="bell" /></span>
+              <span className="saved-icon alert-card-artwork"><TravelToolArtwork kind="alerts" size={56} /></span>
               <div>
                 <small>{alert.is_active === false ? copy("DURAKLATILDI", "PAUSED") : alert.status === "triggered" ? copy("HEDEF YAKALANDI", "TARGET REACHED") : copy("TAKİPTE", "TRACKING")} · {formatDate(alert.departure_date, dateLocale)} {copy("gidiş", "departure")}</small>
                 <strong>{alert.origin_label || alert.origin_code} ({alert.origin_code}) → {alert.destination_label || alert.destination_code} ({alert.destination_code})</strong>
@@ -386,7 +388,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
             </button>
           </article>;
         }) : !loadError && !actionError ? <div className="empty-state compact">
-          <span><Icon name="bell" size={26} /></span>
+          <span className="alert-state-artwork"><TravelToolArtwork kind="alerts" size={80} /></span>
           <strong>{copy("Henüz fiyat alarmın yok", "No price alerts yet")}</strong>
           <p>{copy("Bir rota ve gidiş tarihi seç; fiyat hedefe inince e-posta veya telefon bildirimiyle haber verelim.", "Choose a route and departure date; we'll notify you when the fare reaches your target.")}</p>
           <button type="button" className="primary-wide" onClick={() => setFormOpen(true)}><Icon name="plus" size={17} /> {copy("İlk alarmını kur", "Create your first alert")}</button>

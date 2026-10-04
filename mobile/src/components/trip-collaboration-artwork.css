@@ -1,0 +1,44 @@
+.trip-collaboration-hub .trip-collaboration-heading {
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+}
+
+.trip-collaboration-heading > .trip-collaboration-artwork {
+  width: 64px;
+  height: 64px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.trip-workspace .trip-workspace-hero {
+  grid-template-columns: 56px minmax(0, 1fr) 43px;
+}
+
+.trip-workspace .trip-budget-summary {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+}
+
+.trip-workspace-hero > .trip-collaboration-artwork,
+.trip-budget-summary > .trip-collaboration-artwork {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.trip-collaboration-artwork > .travel-tool-artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 359px) {
+  .trip-collaboration-hub .trip-collaboration-heading {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .trip-collaboration-heading > .trip-collaboration-artwork {
+    width: 56px;
+    height: 56px;
+  }
+}

@@ -96,3 +96,47 @@
   .plans-library .plans-trip-icon { width: 43px; height: 47px; }
   .plans-library .plans-trip-entry strong { font-size: 14px; }
 }
+
+/* Feature illustrations share the Home artwork, without the old icon tiles. */
+.plans-library .plans-heading-icon,
+.plans-library .plans-trip-icon,
+.plans-library .plans-tool-icon,
+.plans-library .plans-selected-icon,
+.plans-library .plans-collaboration-artwork,
+.plans-library .plans-empty-event-artwork,
+.plans-library .plans-saved-artwork {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.plans-library .plans-category-icon {
+  width: 72px;
+  height: 72px;
+  bottom: -23px;
+  left: 11px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.plans-library .plans-category-copy { padding-top: 35px; }
+.plans-library .trips-collaboration-entry,
+.editorial-app:not(.view-home) .screen.plans-library .saved-events-empty {
+  grid-template-columns: 56px minmax(0, 1fr) 18px;
+}
+.editorial-app:not(.view-home) .screen.plans-library .empty-state > .plans-empty-artwork {
+  width: 80px;
+  height: 80px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}

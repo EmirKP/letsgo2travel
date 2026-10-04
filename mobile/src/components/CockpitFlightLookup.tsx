@@ -6,8 +6,10 @@ import { localIsoDate } from "../lib/dates";
 import { normalizeFlightNumber } from "../lib/cockpitForm";
 import { DateTimeField } from "./DateTimeField";
 import { Icon } from "./Icon";
+import { TravelToolArtwork } from "./TravelToolArtwork";
 import { CockpitFlightDetails } from "./CockpitFlightDetails";
 import "./cockpit-flight-lookup.css";
+import "./feature-entry-artwork.css";
 
 type Props = { accessToken: string; flightNumber: string; date: string;
   onQueryChange: (number: string, date: string) => void; onSelect: (flight: FlightSelection, mode: "trial" | "commercial") => void; onManual: () => void;
@@ -101,7 +103,7 @@ export function CockpitFlightLookup({ accessToken, flightNumber, date, onQueryCh
   if (compact) return <div className="cockpit-query-summary"><span><small>{copy("Uçuş", "Flight")}</small><strong>{flightNumber || copy("Bilet bilgileri", "Ticket details")}</strong><small>{date}</small></span><button type="button" onClick={onExpand}>{copy("Uçuşu değiştir", "Change flight")}</button></div>;
 
   return <section className="cockpit-flight-lookup" aria-label={copy("Uçuşunu bul", "Find your flight")}>
-    <header><span className="flight-lookup-icon"><Icon name="plane" size={22}/></span><div><h3>{copy("Uçuşunu bul", "Find your flight")}</h3><p>{copy("Yaklaşan veya devam eden uçuşunla başla.", "Start with an upcoming or ongoing flight.")}</p></div></header>
+    <header><span className="flight-lookup-icon cockpit-feature-artwork"><TravelToolArtwork kind="flight" size={56}/></span><div><h3>{copy("Uçuşunu bul", "Find your flight")}</h3><p>{copy("Yaklaşan veya devam eden uçuşunla başla.", "Start with an upcoming or ongoing flight.")}</p></div></header>
     <div className="form-grid two stack-narrow">
       <label>{copy("Uçuş numarası", "Flight number")}<input value={flightNumber} maxLength={8} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="TK1979" onChange={event => onQueryChange(normalizeFlightNumber(event.target.value), date)}/></label>
       <DateTimeField type="date" required label={copy("Kalkış tarihi", "Departure date")} value={date} min={localIsoDate(-1)} max={localIsoDate(730)} onChange={value => onQueryChange(flightNumber, value)}/>

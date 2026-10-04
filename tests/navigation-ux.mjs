@@ -422,7 +422,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const profileWrites = [];
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
+    '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/discovery': discovery,
     '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,

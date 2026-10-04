@@ -87,7 +87,7 @@ function harness(initial = {}) {
   const source = load('mobile/src/screens/CommunityScreen.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
-    '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/Sheet': { Sheet: 'Sheet' },
+    '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../components/CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,

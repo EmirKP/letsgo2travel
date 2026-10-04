@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { CountryFlag } from "../components/CountryFlag";
 import { CountryPicker } from "../components/CountryPicker";
 import { Icon, type IconName } from "../components/Icon";
+import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { CommunityPostPhoto } from "../components/CommunityPostPhoto";
@@ -31,6 +32,7 @@ import tokyo from "../assets/destination-artwork/tokyo.webp";
 import eventsCover from "../assets/editorial/events.webp";
 import "./reference-community-profile.css";
 import "./reference-community.css";
+import "../components/feature-entry-artwork.css";
 
 type CommunityTab = "feed" | "following" | "groups" | "questions" | "events";
 
@@ -551,11 +553,11 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
       <div className="cs-regions" role="group" aria-label={copy("Bölgeye göre keşfet", "Discover by region")}>
-        {regions.map(item => <button key={item.id} type="button" className={region === item.id ? "active" : ""} aria-pressed={region === item.id} onClick={() => { setRegion(item.id); setCountryFilter(""); if (tab === "events") setTab("feed"); }}><span>{item.id !== "all" && item.image ? <img src={item.image} alt="" width={80} height={80} loading="lazy"/> : <Icon name="globe" size={37}/>}</span><strong>{item.label}</strong></button>)}
+        {regions.map(item => <button key={item.id} type="button" className={region === item.id ? "active" : ""} aria-pressed={region === item.id} onClick={() => { setRegion(item.id); setCountryFilter(""); if (tab === "events") setTab("feed"); }}><span className={item.id === "all" ? "cs-region-world" : undefined}>{item.id !== "all" && item.image ? <img src={item.image} alt="" width={80} height={80} loading="lazy"/> : <TravelToolArtwork kind="globe" size={64}/>}</span><strong>{item.label}</strong></button>)}
       </div>
       <section className="cs-league-banner" aria-labelledby="cs-league-title">
         <img src={leagueCover} alt="" width={1200} height={300} loading="lazy"/>
-        <span className="cs-trophy" aria-hidden="true"><Icon name="trophy" size={36}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Seyahat et, keşfet, ligde yerini al!", "Travel, explore, take your place!")}</p></div>
+        <span className="cs-trophy" aria-hidden="true"><TravelToolArtwork kind="league" size={56}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Seyahat et, keşfet, ligde yerini al!", "Travel, explore, take your place!")}</p></div>
         <button type="button" aria-haspopup="dialog" onClick={() => setLeagueOpen(true)}>{copy("Ligi Keşfet", "Explore League")}<Icon name="chevron" size={20}/></button>
       </section>
 
@@ -593,7 +595,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
             <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
             <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`, `${question.answerCount} përgjigje: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`, `${question.answerCount} përgjigje`)}</span><Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
-          : !feedError && !feedLoading && feedNextOffset === null && <div className="empty-state cs-empty"><span><Icon name={tab === "following" ? "heart" : "users"} size={30}/></span><strong>{tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong><p>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p><button type="button" className="secondary-button" onClick={() => { if (tab === "following" && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button></div>}
+          : !feedError && !feedLoading && feedNextOffset === null && <div className="empty-state cs-empty"><span><TravelToolArtwork kind={tab === "following" ? "globe" : "community"} size={72}/></span><strong>{tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong><p>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p><button type="button" className="secondary-button" onClick={() => { if (tab === "following" && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button></div>}
         {feedNextOffset !== null && <button type="button" className="secondary-wide" disabled={feedLoading} onClick={() => void loadFeed(feedNextOffset)}>{copy("Daha fazla paylaşım yükle", "Load more posts", "Ngarko më shumë postime")}</button>}
         {sort !== "newest" && feedNextOffset !== null && <p className="field-hint">{copy("Sıralama yüklenen paylaşımlara uygulanır. Diğer sonuçlar için daha fazla yükle.", "Sorting applies to loaded posts. Load more to see other results.", "Renditja zbatohet për postimet e ngarkuara. Ngarko më shumë për rezultatet e tjera.")}</p>}
       </section>}
@@ -606,7 +608,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </div>
     <Sheet open={leagueOpen} title={copy("Kaşifler Ligi", "Explorers League")} onClose={() => setLeagueOpen(false)} size="large"><div className="cs-league-sheet">
       <section className="community-native-summary">
-      <div><span><Icon name="globe" size={20} /></span><strong>{leagueUpdatedAt ? leaders.length : "—"}</strong><small>{copy("Listelenen gezgin", "Listed travellers", "Udhëtarë të listuar")}</small></div>
+      <div><span><TravelToolArtwork kind="community" size={56} /></span><strong>{leagueUpdatedAt ? leaders.length : "—"}</strong><small>{copy("Listelenen gezgin", "Listed travellers", "Udhëtarë të listuar")}</small></div>
       <button className="secondary-button" disabled={loading} onClick={() => void load()}>
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} {copy("Yenile", "Refresh")}
       </button>
@@ -624,7 +626,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
     {loading && !loaded ? <div className="skeleton-list community-native-loading" aria-label={copy("Gezgin sıralaması yükleniyor", "Loading traveller ranking")}><div /><div /><div /></div>
       : !error && !leaders.length ? <div className="empty-state community-native-empty">
-        <span><Icon name="users" size={30} /></span><strong>{copy("Sıralama henüz boş", "The ranking is empty")}</strong><p>{copy("Görünür olmayı seçen ilk gezginler burada listelenecek.", "Travellers who opt in will appear here.")}</p>
+        <span><TravelToolArtwork kind="league" size={72} /></span><strong>{copy("Sıralama henüz boş", "The ranking is empty")}</strong><p>{copy("Görünür olmayı seçen ilk gezginler burada listelenecek.", "Travellers who opt in will appear here.")}</p>
       </div>
       : leaders.length > 0 && <div className="community-leader-list" aria-live="polite">
         {leaders.map((leader, index) => {

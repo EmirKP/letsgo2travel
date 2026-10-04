@@ -92,7 +92,7 @@ function lookupHarness() {
     react: host.react, 'react/jsx-runtime': jsxRuntime,
     '../lib/flightSelection': flightSelection, '../lib/config': { config: { apiBaseUrl: 'https://test.invalid' } },
     '../lib/i18n': { useI18n: () => i18n[locale] }, '../lib/dates': dates, '../lib/cockpitForm': cockpitForm,
-    './CockpitFlightDetails': { CockpitFlightDetails: 'CockpitFlightDetails' }, './DateTimeField': { DateTimeField: 'DateTimeField' }, './Icon': { Icon: 'Icon' },
+    './CockpitFlightDetails': { CockpitFlightDetails: 'CockpitFlightDetails' }, './DateTimeField': { DateTimeField: 'DateTimeField' }, './Icon': { Icon: 'Icon' }, './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
   }, { fetch: (url, options = {}) => { const wait = deferred(); calls.push({ url, options, ...wait }); return wait.promise; } });
   host.start(testModule.CockpitFlightLookup, { accessToken: 'UNIT_TEST_SESSION_A', flightNumber: 'TK1985', date: '2026-09-28', onQueryChange: () => {}, onSelect: value => selections.push(value), onManual: () => manual++ });
   return { host, calls, selections, manual: () => manual, language: next => { locale = next; }, async enable(value = true, mode = 'commercial') { calls[0].resolve({ ok: true, json: async () => ({ available: value, protocol: 3, mode }) }); await tick(); return host.render(); } };
@@ -174,7 +174,7 @@ function cockpitHarness(initialTrips = [], missingAirportZone = "") {
   const testModule = load('mobile/src/screens/CockpitScreen.tsx', {
     react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': {},
     '../components/AirportField': { AirportField: 'AirportField' }, '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
-    '../components/DateTimeField': { DateTimeField: 'DateTimeField' }, '../components/Icon': { Icon: 'Icon' },
+    '../components/DateTimeField': { DateTimeField: 'DateTimeField' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     '../components/CockpitTripEditor': { CockpitTripEditor: 'CockpitTripEditor' }, '../components/Sheet': { Sheet: 'Sheet' }, '../lib/journeyCountry': journeyCountries,
     '../components/CockpitJourneySection': { CockpitJourneySection: 'CockpitJourneySection' }, '../lib/cockpitJourney': { validJourneyIntent: (intent, owner) => intent?.ownerId === owner },
     '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' }, '../components/CockpitTicketImport': { CockpitTicketImport: 'CockpitTicketImport' }, '../components/CockpitFlightDetails': { CockpitFlightDetails: 'CockpitFlightDetails' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CockpitFlightLookup': { CockpitFlightLookup: 'CockpitFlightLookup' },

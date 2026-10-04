@@ -1,0 +1,19 @@
+.screen.alerts-screen .saved-card-head { grid-template-columns: 56px minmax(0, 1fr) 44px; }
+.editorial-app:not(.view-home) .screen.alerts-screen .alert-card-artwork {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.editorial-app:not(.view-home) .screen.alerts-screen .alert-state-artwork {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}

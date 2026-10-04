@@ -210,6 +210,7 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
+    '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
     '../lib/api': { generateRoutePlan: async input => { generated.push(input); return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
@@ -347,6 +348,7 @@ test('A favourite outside ready-route coverage opens an explanation, never an un
   const host = hooks(), navigations = [];
   try {
     const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
+      '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
       ...common(host), '../../../lib/event-time': {}, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' }, '../components/TripCollaborationHub': { TripCollaborationHub: 'TripCollaborationHub' },
       '../data/countryIso': { alpha2FromAlpha3: () => 'CA' }, '../data/artwork': { destinationArtwork: () => '' }, '../data/discovery': { DISCOVERY_DESTINATIONS: [] },
       '../lib/storage': { getSavedRoutePlans: () => [], getFavoriteDestinations: () => [{ alpha3: 'CAN', name: 'Canada' }], getSavedTravelEvents: () => [] },
@@ -380,6 +382,7 @@ test('Saved library Places filter reads the same device store as the map and off
       ...common(placesHost), '../../../lib/travel-assistant/places': placeData, '../lib/native': {}, '../lib/travelAssistant': {}, '../lib/savedPlaces': savedApi, './Icon': { Icon: 'Icon' },
     });
     const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
+      '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
       ...common(host), '../../../lib/event-time': {}, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' }, '../components/TripCollaborationHub': { TripCollaborationHub: 'TripCollaborationHub' },
       '../components/TravelSavedPlaces': { TravelSavedPlaces }, '../lib/savedPlaces': savedApi,
       '../lib/searchText': search,
@@ -417,6 +420,7 @@ test('Saved routes search finds accents, and a guest route deletion can be undon
   const host=hooks();let saved=[{id:'original-route',createdAt:'2026-09-28T08:00:00Z',input:{days:'3 days'},plan:{summary:'Explore Istanbul',routes:[{...route,name:'İstanbul'}]}}];
   const original=saved[0];
   const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
+      '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     ...common(host),'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
     '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
     '../lib/storage':{getSavedRoutePlans:()=>saved,getFavoriteDestinations:()=>[],getSavedTravelEvents:()=>[],deleteRoutePlan:id=>(saved=saved.filter(item=>item.id!==id)),saveRoutePlan:item=>(saved=[item,...saved])},
@@ -453,6 +457,7 @@ test('Saved plan detail transfers the chosen route to Cockpit for its signed-in 
     const host=hooks(), intents=[], login=[];
     const saved=[{id:'route-source-123',createdAt:'2026-10-01T08:00:00Z',input:{days:'3 days',vibe:['Culture'],tier:'plus',budget:'Plus',currency:'EUR',activityBudgetPerPersonDay:5,party:{adults:2,children:1,childAges:[4]}},plan:{summary:'Two options',routes:[route,{...route,name:'Bodrum'}]}}];
     const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
+      '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
       ...common(host),'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
       '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
       '../lib/storage':{getSavedRoutePlans:()=>saved,getFavoriteDestinations:()=>[],getSavedTravelEvents:()=>[]},

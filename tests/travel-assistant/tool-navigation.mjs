@@ -177,7 +177,7 @@ test('Explicit country selections follow the user between phrases, assistant and
   const profile = code => ({ code, languageTr: 'Test', languageEn: 'Test', phrases: [], etiquette: [] });
   const api = load('mobile/src/screens/TravelCompanionScreen.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
-    '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
+    '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'TUR', name: 'Türkiye' }, { alpha3: 'GBR', name: 'United Kingdom' }] },
     '../data/countryIso': { alpha2FromAlpha3: code => ({ TUR: 'TR', GBR: 'GB' })[code], flagEmoji: code => code },
