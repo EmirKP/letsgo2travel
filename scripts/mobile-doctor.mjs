@@ -252,6 +252,8 @@ if (checkIos) {
   expect(widgetInfo, /com\.apple\.widgetkit-extension/, "WidgetKit uzantı noktası beyanı", "Widget Info.plist NSExtensionPointIdentifier=widgetkit-extension içermiyor.");
   expect(storyboard, /customClass="MainViewController"/, "Storyboard köprüsü MainViewController", "Main.storyboard hâlâ CAPBridgeViewController kullanıyor; özel eklenti kaydı çalışmaz.");
   expect(mainViewController, /registerPluginInstance\(FlightLiveActivityPlugin\(\)\)/, "FlightLiveActivity eklenti kaydı", "MainViewController FlightLiveActivityPlugin kaydını yapmıyor.");
+  expect(project, /WebAuthenticationPlugin\.swift in Sources/, "iOS sistem giriş köprüsü App hedefinde", "WebAuthenticationPlugin.swift App hedefine derlenmiyor.");
+  expect(mainViewController, /registerPluginInstance\(WebAuthenticationPlugin\(\)\)/, "iOS sistem giriş eklenti kaydı", "MainViewController WebAuthenticationPlugin kaydını yapmıyor.");
   // v7: token event'leri dinleyicisiz KAYBOLMAMALI — retained event +
   // pull/replay (getBufferedTokens) statik olarak doğrulanır.
   const liveActivityPlugin = await text("ios/App/App/FlightLiveActivityPlugin.swift", { label: "FlightLiveActivity eklentisi" });

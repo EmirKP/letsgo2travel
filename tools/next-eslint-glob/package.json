@@ -1,0 +1,10 @@
+{
+  "name": "fast-glob",
+  "version": "3.3.1-l2t.1",
+  "private": true,
+  "description": "Directory glob adapter for the pinned Next ESLint plugin",
+  "main": "index.cjs",
+  "dependencies": {
+    "tinyglobby": "0.2.16"
+  }
+}

@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const checks = [
+  ["--test", "tests/eslint-root-dirs.mjs"],
   ["--test", "tests/travel-assistant/run.mjs"],
   ["--test", "tests/travel-assistant/money-ui.mjs"],
   ["--test", "tests/travel-assistant/expansion.mjs"],

@@ -2,6 +2,7 @@
   "name": "letsgo2travel",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["tools/next-eslint-glob"],
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "next build",
@@ -84,5 +85,10 @@
   "allowScripts": {
     "sharp@0.35.4": true,
     "unrs-resolver@1.11.1": true
+  },
+  "overrides": {
+    "@next/eslint-plugin-next@16.3.6": {
+      "fast-glob": "3.3.1-l2t.1"
+    }
   }
 }
