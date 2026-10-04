@@ -7,3 +7,7 @@ Change: iOS OAuth now uses ASWebAuthenticationSession with the app window as pre
 Verification: 19 auth/profile tests and 5 native OAuth bridge tests passed; 8 support regressions passed; mobile TypeScript and lint passed. These tests simulate native responses; Swift compilation and real iPad sign-in must be checked on the new binary.
 
 Device acceptance: Install the new TestFlight build, test Apple login through to signed-in profile, cancel then retry, verify logout/login, verify Google login if offered, test clean install and upgrade. Never submit to App Review as fixed before real-device success.
+
+Build status: Full local npm run test:release passed. Commit c154d87 pushed to feature/travel-companion-polish-20260927. Codemagic build 6ac298837394575b200b0c7a failed at Audit release dependencies BEFORE Swift compilation. No new IPA/TestFlight build and no App Review resubmission.
+
+Blocker: GHSA-vfj7-8cjw-p6xm / CVE-2026-93687 in braces <=3.0.3, brought in only through eslint-config-next -> @next/eslint-plugin-next -> fast-glob -> micromatch. Advisory lists no patched version. npm latest braces is 3.0.3; newest @next/eslint-plugin-next 16.3.8 still depends on fast-glob 3.3.1. Root production-only audit and mobile full audit both report zero vulnerabilities. No audit bypass, downgrade or dependency replacement applied. Full dependency audit must be resolved before existing release workflow can proceed. Native Swift compilation and iPad acceptance remain unverified.
