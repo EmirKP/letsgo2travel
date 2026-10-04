@@ -9,5 +9,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(FlightLiveActivityPlugin())
         bridge?.registerPluginInstance(OfflineTranslationPlugin())
         bridge?.registerPluginInstance(TicketImportPlugin())
+        bridge?.registerPluginInstance(WebAuthenticationPlugin())
     }
 }

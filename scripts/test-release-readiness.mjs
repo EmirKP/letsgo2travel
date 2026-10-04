@@ -12,6 +12,7 @@ const checks = [
   ["--test", "tests/travel-assistant/network-reliability.mjs"],
   ["--test", "tests/navigation-ux.mjs"],
   ["--test", "tests/auth-profile-regressions.mjs"],
+  ["--test", "tests/native-oauth.mjs"],
   ["--test", "tests/community-discovery.mjs"],
   ["--test", "tests/community-preferences.mjs"],
   ["--test", "tests/community-ui.mjs"],

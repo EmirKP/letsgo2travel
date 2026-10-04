@@ -1,4 +1,4 @@
-import { isNativePlatform, plugin } from "./capacitor";
+import { isIOSNative, isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import { getMobilePreferences } from "./storage";
 import { handoffMailDraft, type MailDraftResult, type SupportDraft } from "./support";
@@ -55,6 +55,25 @@ export async function openExternal(url: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function openOAuthSession(url: string): Promise<string | null> {
+  if (!isIOSNative()) {
+    if (!await openExternal(url)) throw new Error("Sign-in window could not be opened");
+    return null;
+  }
+  const auth = plugin("WebAuthentication");
+  // Fail visibly on an outdated native shell; never return to the broken popover.
+  if (!auth?.authenticate) throw new Error("System authentication is unavailable");
+  const result = await auth.authenticate({ url });
+  const callback = result && typeof result === "object" && "callbackUrl" in result
+    ? String(result.callbackUrl) : "";
+  const parsed = new URL(callback);
+  if (parsed.protocol !== "tr.com.letsgo2travel.app:" || parsed.hostname !== "auth"
+    || parsed.pathname !== "/callback" || parsed.username || parsed.password || parsed.port) {
+    throw new Error("Invalid authentication callback");
+  }
+  return callback;
 }
 
 export async function closeBrowser() {

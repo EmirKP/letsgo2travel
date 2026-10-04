@@ -12,7 +12,7 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{reso
 function load(path,imports,globals={},append=''){
  const code=ts.transpileModule(readFileSync(`${repo}/${path}`,'utf8')+append,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  const m={exports:{}};
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date,Intl,console,URL,URLSearchParams,TextEncoder,crypto:globalThis.crypto,...globals})(name=>{if(Object.hasOwn(imports,name))return imports[name];if(/\.(webp|css)$/.test(name))return name;throw Error(`Missing ${name}`);},m,m.exports);
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Error,Date,Intl,console,URL,URLSearchParams,TextEncoder,crypto:globalThis.crypto,...globals})(name=>{if(Object.hasOwn(imports,name))return imports[name];if(/\.(webp|css)$/.test(name))return name;throw Error(`Missing ${name}`);},m,m.exports);
  return m.exports;
 }
 function host(){
@@ -87,7 +87,7 @@ test('Failed remote profile read retains cache, disables edits and can be retrie
  assert.equal(h.get('a','visited').length,1);assert.ok(text(h.tree).includes('Your profile could not load'));assert.equal(h.writes.length,0);
  const retry=nodes(h.tree).find(n=>n.type==='button'&&text(n)==='Retry');retry.props.onClick();h.render();h.reads[1].resolve(base);await tick();h.render();assert.equal(h.get('a','visited').length,0);h.h.dispose();
 });
-function authHarness(){
+function authHarness({native=false, openOAuthSession=async()=>null}={}){
  const h=host(),requests=[],values=new Map(),intervals=[];
  const session={access_token:'token-a',refresh_token:'refresh-a',expires_at:Math.floor(Date.now()/1000)+150,user:{id:'a',email:'a@example.invalid'}};
  values.set('l2t.mobile.auth-session.v1',JSON.stringify(session));
@@ -95,8 +95,8 @@ function authHarness(){
  const w={localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},location:{href:'http://test.invalid/',origin:'http://test.invalid'},setInterval:fn=>{intervals.push(fn);return intervals.length;},clearInterval(){},setTimeout:()=>1,clearTimeout(){}};
  const no=async()=>{};
  const {useAuth}=load('mobile/src/hooks/useAuth.ts',{
-  react:h.react,'../lib/config':{config:{supabaseUrl:'http://auth.invalid',supabaseAnonKey:'public'},isSupabaseConfigured:true},'../lib/api':{ApiError:class extends Error{},requestJson:(path,options)=>{if(path.includes('/logout'))return Promise.resolve({});const d=deferred();requests.push({path,options,...d});return d.promise;}},'../lib/capacitor':{addPluginListener:async()=>null,isNativePlatform:()=>false,plugin:()=>null},'../lib/native':{closeBrowser:no,openExternal:no},'../lib/liveActivity':{endAllFlightActivities:no},'../lib/liveActivityPush':{disableLiveActivityTokensForLogout:no},'../lib/push':{detachPushForLogout:no},'../lib/i18n':{localeFromStorage:()=> 'en'},
- },{window:w});
+  react:h.react,'../lib/config':{config:{supabaseUrl:'http://auth.invalid',supabaseAnonKey:'public',appleAuthEnabled:true},isSupabaseConfigured:true},'../lib/api':{ApiError:class extends Error{},requestJson:(path,options)=>{if(path.includes('/logout'))return Promise.resolve({});const d=deferred();requests.push({path,options,...d});return d.promise;}},'../lib/capacitor':{addPluginListener:async()=>null,isNativePlatform:()=>native,plugin:()=>null},'../lib/native':{closeBrowser:no,openOAuthSession},'../lib/liveActivity':{endAllFlightActivities:no},'../lib/liveActivityPush':{disableLiveActivityTokensForLogout:no},'../lib/push':{detachPushForLogout:no},'../lib/i18n':{localeFromStorage:()=> 'en'},
+ },{window:w,btoa:value=>Buffer.from(value,'binary').toString('base64')});
  return {h,requests,values,intervals,session,render:()=>h.render(useAuth)};
 }
 for(const operation of ['updateProfile','updatePassword']){
@@ -156,4 +156,41 @@ test('Verification country labels follow the selected UI language instead of sto
  try{await tick();h.render();nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
   const list=nodes(h.tree).find(n=>n.props?.className==='verification-list');assert.ok(text(list).includes('Turkey'));assert.ok(!text(list).includes('Türkiye'));
  }finally{h.h.dispose();i18n.countryName=original;}
+});
+
+
+test('Native OAuth completes PKCE using the system session callback',async()=>{
+ let opened;
+ const x=authHarness({native:true,openOAuthSession:async url=>{opened=new URL(url);return 'tr.com.letsgo2travel.app://auth/callback?code=synthetic-code';}});
+ const auth=x.render();const pending=auth.signInWithApple();
+ for(let i=0;i<30&&!x.requests.length;i++)await new Promise(r=>setTimeout(r,5));
+ assert.equal(opened.searchParams.get('provider'),'apple');
+ assert.equal(opened.searchParams.get('code_challenge_method'),'s256');
+ assert.equal(x.requests.length,1);
+ assert.equal(x.requests[0].options.body.auth_code,'synthetic-code');
+ assert.ok(x.requests[0].options.body.code_verifier.length>=43);
+ x.requests[0].resolve({...x.session,access_token:'new-apple-token'});await pending;
+ assert.equal(x.render().session.access_token,'new-apple-token');
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);x.h.dispose();
+});
+
+test('Cancelling native OAuth clears busy state and permits another attempt',async()=>{
+ let attempts=0;const x=authHarness({native:true,openOAuthSession:async()=>{attempts++;throw Error('Sign-in cancelled');}});
+ let auth=x.render();await assert.rejects(auth.signInWithApple(),/cancelled/);
+ auth=x.render();assert.equal(auth.loading,false);assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);
+ await assert.rejects(auth.signInWithApple(),/cancelled/);assert.equal(attempts,2);x.h.dispose();
+});
+
+test('Rapid duplicate OAuth taps cannot create two authentication sessions',async()=>{
+ const waiting=deferred();let calls=0;const x=authHarness({native:true,openOAuthSession:()=>{calls++;return waiting.promise;}});
+ const auth=x.render();const first=auth.signInWithApple();
+ await assert.rejects(auth.signInWithApple(),/already in progress/);
+ for(let i=0;i<30&&!calls;i++)await new Promise(r=>setTimeout(r,5));
+ assert.equal(calls,1);waiting.reject(Error('Sign-in cancelled'));await assert.rejects(first,/cancelled/);x.h.dispose();
+});
+
+test('Provider error callback cannot create a signed-in session',async()=>{
+ const x=authHarness({native:true,openOAuthSession:async()=> 'tr.com.letsgo2travel.app://auth/callback?error=access_denied'});
+ await x.render().signInWithApple();assert.equal(x.requests.length,0);
+ assert.match(x.render().authError,/cancelled/);assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);x.h.dispose();
 });

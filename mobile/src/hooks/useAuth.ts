@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { config, isSupabaseConfigured } from "../lib/config";
 import { ApiError, requestJson } from "../lib/api";
 import { addPluginListener, isNativePlatform, plugin } from "../lib/capacitor";
-import { closeBrowser, openExternal } from "../lib/native";
+import { closeBrowser, openOAuthSession } from "../lib/native";
 import { endAllFlightActivities } from "../lib/liveActivity";
 import { disableLiveActivityTokensForLogout } from "../lib/liveActivityPush";
 import { detachPushForLogout } from "../lib/push";
@@ -297,6 +297,7 @@ export function useAuth() {
   const consumedAuthUrls = useRef(new Set<string>());
   const authCallbackInProgress = useRef(false);
   const signOutInFlight = useRef<Promise<void> | null>(null);
+  const oauthStartInFlight = useRef(false);
 
   const setRecoveryPending = useCallback((next: boolean) => {
     setRecoveryPendingState(next);
@@ -631,7 +632,8 @@ export function useAuth() {
   const signInWithProvider = async (provider: Provider) => {
     if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing.", "Mungojnë cilësimet e shërbimit të llogarive."));
     if (provider === "apple" && !config.appleAuthEnabled) throw new Error(authCopy("Apple ile giriş henüz etkin değil.", "Sign in with Apple is not enabled yet.", "Hyrja me Apple nuk është aktivizuar ende."));
-    if (readOAuthTransaction()) throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first.", "Një kërkesë hyrjeje është në proces. Përfundo ose mbyll fillimisht dritaren e hapur të hyrjes."));
+    if (oauthStartInFlight.current || readOAuthTransaction()) throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first.", "Një kërkesë hyrjeje është në proces. Përfundo ose mbyll fillimisht dritaren e hapur të hyrjes."));
+    oauthStartInFlight.current = true;
     setAuthError("");
     setLoading(true);
     try {
@@ -647,8 +649,8 @@ export function useAuth() {
       });
       const url = `${authUrl("/authorize")}?${params.toString()}`;
       if (isNativePlatform()) {
-        const opened = await openExternal(url);
-        if (!opened) throw new Error(authCopy("Giriş penceresi açılamadı. Yeniden deneyin.", "The sign-in window could not be opened. Please retry.", "Dritarja e hyrjes nuk u hap. Provo sërish."));
+        const callbackUrl = await openOAuthSession(url);
+        if (callbackUrl) await consumeAuthUrl(callbackUrl);
       }
       else window.location.assign(url);
     } catch (error) {
@@ -659,6 +661,8 @@ export function useAuth() {
         `Sign in with ${provider === "apple" ? "Apple" : "Google"} could not be started.`,
         `Hyrja me ${provider === "apple" ? "Apple" : "Google"} nuk u nis.`,
       ));
+    } finally {
+      oauthStartInFlight.current = false;
     }
   };
 

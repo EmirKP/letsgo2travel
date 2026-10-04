@@ -25,6 +25,7 @@
 		FA00000000000000000000B6 /* FlightActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A1 /* FlightActivityWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FA00000000000000000000B8 /* OfflineTranslationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A8 /* OfflineTranslationPlugin.swift */; };
 		FA00000000000000000000B9 /* TicketImportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000A9 /* TicketImportPlugin.swift */; };
+		FA00000000000000000000BA /* WebAuthenticationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA00000000000000000000AA /* WebAuthenticationPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		FA00000000000000000000A7 /* LiveActivityTokenObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityTokenObserver.swift; sourceTree = "<group>"; };
 		FA00000000000000000000A8 /* OfflineTranslationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineTranslationPlugin.swift; sourceTree = "<group>"; };
 		FA00000000000000000000A9 /* TicketImportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TicketImportPlugin.swift; sourceTree = "<group>"; };
+		FA00000000000000000000AA /* WebAuthenticationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthenticationPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 				FA00000000000000000000A7 /* LiveActivityTokenObserver.swift */,
 				FA00000000000000000000A8 /* OfflineTranslationPlugin.swift */,
 		FA00000000000000000000A9 /* TicketImportPlugin.swift */,
+		FA00000000000000000000AA /* WebAuthenticationPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -270,6 +273,7 @@
 				FA00000000000000000000B7 /* LiveActivityTokenObserver.swift in Sources */,
 				FA00000000000000000000B8 /* OfflineTranslationPlugin.swift in Sources */,
 		FA00000000000000000000B9 /* TicketImportPlugin.swift in Sources */,
+		FA00000000000000000000BA /* WebAuthenticationPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

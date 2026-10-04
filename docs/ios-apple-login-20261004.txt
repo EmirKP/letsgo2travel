@@ -1,0 +1,9 @@
+iOS Apple sign-in correction — 4 October 2026
+
+Evidence: Apple rejected 1.4.0 (59) for a blank sign-in prompt on iPad Air M3 / iPadOS 27.0.1. User reproduced a blank Safari popover on iPad. Live Supabase authorization returned a redirect to Apple's working login page on desktop. Desktop success does not verify iPad login.
+
+Change: iOS OAuth now uses ASWebAuthenticationSession with the app window as presentation context. The native bridge returns the callback to the existing PKCE exchange. It validates the authorization host and callback route, retains the system session until completion, handles cancellation/start failures, and does not log credentials. Missing bridge fails visibly rather than silently reopening the Safari popover. Android retains the prior Browser/app-link flow. Duplicate rapid taps are prevented.
+
+Verification: 19 auth/profile tests and 5 native OAuth bridge tests passed; 8 support regressions passed; mobile TypeScript and lint passed. These tests simulate native responses; Swift compilation and real iPad sign-in must be checked on the new binary.
+
+Device acceptance: Install the new TestFlight build, test Apple login through to signed-in profile, cancel then retry, verify logout/login, verify Google login if offered, test clean install and upgrade. Never submit to App Review as fixed before real-device success.
