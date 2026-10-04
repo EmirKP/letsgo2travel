@@ -87,11 +87,13 @@ test('Failed remote profile read retains cache, disables edits and can be retrie
  assert.equal(h.get('a','visited').length,1);assert.ok(text(h.tree).includes('Your profile could not load'));assert.equal(h.writes.length,0);
  const retry=nodes(h.tree).find(n=>n.type==='button'&&text(n)==='Retry');retry.props.onClick();h.render();h.reads[1].resolve(base);await tick();h.render();assert.equal(h.get('a','visited').length,0);h.h.dispose();
 });
-function authHarness({native=false, openOAuthSession=async()=>null}={}){
+function authHarness({native=false, seedSession=true, openOAuthSession=async()=>null}={}){
  const h=host(),requests=[],values=new Map(),intervals=[];
  const session={access_token:'token-a',refresh_token:'refresh-a',expires_at:Math.floor(Date.now()/1000)+150,user:{id:'a',email:'a@example.invalid'}};
- values.set('l2t.mobile.auth-session.v1',JSON.stringify(session));
- values.set('l2t.mobile.password-recovery.v1','true');
+ if(seedSession){
+  values.set('l2t.mobile.auth-session.v1',JSON.stringify(session));
+  values.set('l2t.mobile.password-recovery.v1','true');
+ }
  const w={localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},location:{href:'http://test.invalid/',origin:'http://test.invalid'},setInterval:fn=>{intervals.push(fn);return intervals.length;},clearInterval(){},setTimeout:()=>1,clearTimeout(){}};
  const no=async()=>{};
  const {useAuth}=load('mobile/src/hooks/useAuth.ts',{
@@ -159,26 +161,62 @@ test('Verification country labels follow the selected UI language instead of sto
 });
 
 
-test('Native OAuth completes PKCE using the system session callback',async()=>{
+// These exercise the real hook with mocked native/backend responses. Empty local
+// storage does not reproduce Apple's first-account consent or an actual iPad UI.
+async function waitForAuthRequests(x,count){
+ for(let i=0;i<100&&x.requests.length<count;i++)await new Promise(r=>setTimeout(r,5));
+ assert.equal(x.requests.length,count,'Expected token exchange must start');
+}
+function assertOAuthSuccess(x,expected){
+ const auth=x.render(),saved=JSON.parse(x.values.get('l2t.mobile.auth-session.v1'));
+ assert.equal(auth.session.access_token,expected.access_token);
+ assert.equal(auth.session.refresh_token,expected.refresh_token);
+ assert.equal(auth.user.id,expected.user.id);
+ assert.equal(saved.access_token,expected.access_token);
+ assert.equal(saved.refresh_token,expected.refresh_token);
+ assert.equal(saved.user.id,expected.user.id);
+ assert.equal(auth.loading,false);assert.equal(auth.authError,'');
+ assert.equal(auth.recoveryPending,false);
+ assert.equal(x.values.has('l2t.mobile.password-recovery.v1'),false);
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);
+}
+for(const seedSession of [false,true])test(`Native OAuth persists PKCE session with ${seedSession?'an existing session':'empty local storage'}`,async()=>{
  let opened;
- const x=authHarness({native:true,openOAuthSession:async url=>{opened=new URL(url);return 'tr.com.letsgo2travel.app://auth/callback?code=synthetic-code';}});
- const auth=x.render();const pending=auth.signInWithApple();
- for(let i=0;i<30&&!x.requests.length;i++)await new Promise(r=>setTimeout(r,5));
+ const x=authHarness({native:true,seedSession,openOAuthSession:async url=>{opened=new URL(url);return 'tr.com.letsgo2travel.app://auth/callback?code=synthetic-code';}});
+ try{
+ x.render();await tick();const auth=x.render();
+ assert.equal(auth.session?.user.id??null,seedSession?'a':null);
+ assert.equal(x.values.has('l2t.mobile.auth-session.v1'),seedSession);
+ const pending=auth.signInWithApple();await waitForAuthRequests(x,1);
  assert.equal(opened.searchParams.get('provider'),'apple');
  assert.equal(opened.searchParams.get('code_challenge_method'),'s256');
- assert.equal(x.requests.length,1);
+ assert.equal(opened.searchParams.get('redirect_to'),'tr.com.letsgo2travel.app://auth/callback');
+ assert.match(x.requests[0].path,/\/token\?grant_type=pkce$/);
  assert.equal(x.requests[0].options.body.auth_code,'synthetic-code');
  assert.ok(x.requests[0].options.body.code_verifier.length>=43);
- x.requests[0].resolve({...x.session,access_token:'new-apple-token'});await pending;
- assert.equal(x.render().session.access_token,'new-apple-token');
- assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);x.h.dispose();
+ assert.equal(x.render().loading,true);
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),true);
+ const response={...x.session,access_token:'new-apple-token',refresh_token:'new-apple-refresh',user:{id:'apple-user',email:'apple@example.invalid'}};
+ x.requests[0].resolve(response);await pending;assertOAuthSuccess(x,response);
+ }finally{x.h.dispose();}
 });
 
-test('Cancelling native OAuth clears busy state and permits another attempt',async()=>{
- let attempts=0;const x=authHarness({native:true,openOAuthSession:async()=>{attempts++;throw Error('Sign-in cancelled');}});
- let auth=x.render();await assert.rejects(auth.signInWithApple(),/cancelled/);
- auth=x.render();assert.equal(auth.loading,false);assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);
- await assert.rejects(auth.signInWithApple(),/cancelled/);assert.equal(attempts,2);x.h.dispose();
+for(const seedSession of [false,true])test(`Cancelled native OAuth can retry successfully with ${seedSession?'an existing session':'empty local storage'}`,async()=>{
+ let attempts=0;const x=authHarness({native:true,seedSession,openOAuthSession:async()=>{
+  attempts++;if(attempts===1)throw Error('Sign-in cancelled');
+  return 'tr.com.letsgo2travel.app://auth/callback?code=retry-after-cancel';
+ }});
+ try{
+ x.render();await tick();let auth=x.render();await assert.rejects(auth.signInWithApple(),/cancelled/);
+ auth=x.render();assert.equal(auth.loading,false);assert.match(auth.authError,/cancelled/);
+ assert.equal(auth.session?.user.id??null,seedSession?'a':null);
+ assert.equal(x.values.has('l2t.mobile.auth-session.v1'),seedSession);
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);assert.equal(x.requests.length,0);
+ const pending=auth.signInWithApple();await waitForAuthRequests(x,1);
+ assert.equal(attempts,2);assert.equal(x.render().authError,'');
+ const response={...x.session,access_token:'retry-token',refresh_token:'retry-refresh'};
+ x.requests[0].resolve(response);await pending;assertOAuthSuccess(x,response);
+ }finally{x.h.dispose();}
 });
 
 test('Rapid duplicate OAuth taps cannot create two authentication sessions',async()=>{
@@ -190,7 +228,33 @@ test('Rapid duplicate OAuth taps cannot create two authentication sessions',asyn
 });
 
 test('Provider error callback cannot create a signed-in session',async()=>{
- const x=authHarness({native:true,openOAuthSession:async()=> 'tr.com.letsgo2travel.app://auth/callback?error=access_denied'});
- await x.render().signInWithApple();assert.equal(x.requests.length,0);
- assert.match(x.render().authError,/cancelled/);assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);x.h.dispose();
+ const x=authHarness({native:true,seedSession:false,openOAuthSession:async()=> 'tr.com.letsgo2travel.app://auth/callback?error=access_denied'});
+ try{
+ x.render();await tick();await x.render().signInWithApple();const auth=x.render();
+ assert.equal(x.requests.length,0);assert.equal(auth.session,null);assert.equal(auth.user,null);
+ assert.equal(auth.loading,false);assert.match(auth.authError,/cancelled/);
+ assert.equal(x.values.has('l2t.mobile.auth-session.v1'),false);
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);
+ }finally{x.h.dispose();}
+});
+
+for(const failure of ['request rejection','incomplete session'])test(`Fresh native OAuth ${failure} leaves no session and permits a new PKCE attempt`,async()=>{
+ let attempts=0;const x=authHarness({native:true,seedSession:false,openOAuthSession:async()=>
+  `tr.com.letsgo2travel.app://auth/callback?code=attempt-${++attempts}`});
+ try{
+ x.render();await tick();const first=x.render().signInWithApple();await waitForAuthRequests(x,1);
+ const firstVerifier=x.requests[0].options.body.code_verifier;
+ if(failure==='request rejection')x.requests[0].reject(Error('Failed to fetch'));
+ else x.requests[0].resolve({access_token:'incomplete-token'});
+ await first;let auth=x.render();
+ assert.equal(auth.session,null);assert.equal(auth.user,null);assert.equal(auth.loading,false);
+ assert.ok(auth.authError.length>0);assert.equal(x.values.has('l2t.mobile.auth-session.v1'),false);
+ assert.equal(x.values.has('l2t.mobile.oauth-transaction.v2'),false);
+ const retry=auth.signInWithApple();await waitForAuthRequests(x,2);
+ assert.equal(attempts,2);assert.equal(x.requests[1].options.body.auth_code,'attempt-2');
+ assert.notEqual(x.requests[1].options.body.code_verifier,firstVerifier,'Retry creates a new PKCE transaction');
+ assert.equal(x.render().authError,'');assert.equal(x.render().loading,true);
+ const response={...x.session,access_token:'fresh-retry-token',refresh_token:'fresh-retry-refresh',user:{id:'new-apple-user',email:'new-apple@example.invalid'}};
+ x.requests[1].resolve(response);await retry;assertOAuthSuccess(x,response);
+ }finally{x.h.dispose();}
 });
