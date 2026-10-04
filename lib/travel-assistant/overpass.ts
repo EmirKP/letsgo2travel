@@ -6,7 +6,7 @@ let cooldown = 0;
 let preferredProvider = '';
 const unavailableUntil = new Map<string, number>();
 // Both instances permit any-project use. Do not fall back to the restricted
-// FOSSGIS service. Policy checked 2026-09-30:
+// FOSSGIS service. Policy checked 2026-10-04:
 // https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances
 const PUBLIC_PROVIDERS = [
   "https://overpass.private.coffee/api/interpreter",
@@ -42,8 +42,13 @@ export async function queryOverpass(
       const remaining = deadline - Date.now();
       if (remaining <= 0 || requests >= 12) throw new Error("Map service busy");
       const endpoint = providers[index];
-      // Reserve time for the second provider; requests are never raced.
-      const attemptTimeout = index < providers.length - 1 ? Math.min(3000, remaining) : remaining;
+      // Give the bounded query its declared execution time plus transport time.
+      // A 3s probe cancelled healthy 12s queries before they could finish. Keep
+      // at least 5s (or half a shorter total budget) for sequential failover.
+      const querySeconds = Math.min(20, Math.max(1, Number(query.match(/\[timeout:(\d+)\]/)?.[1] || 12)));
+      const attemptTimeout = index < providers.length - 1
+        ? Math.max(1, Math.floor(Math.min(querySeconds * 1000 + 1000, Math.max(remaining / 2, remaining - 5000))))
+        : remaining;
       const attemptStarted = Date.now();
       requests++;
       try {
@@ -104,7 +109,7 @@ async function readProvider(endpoint: URL, query: string, timeout: number) {
         if (done) break;
         size += value.byteLength;
         if (size > 4000000) {
-          await reader.cancel();
+          await reader.cancel().catch(() => {});
           throw new ProviderError("Map too large");
         }
         body += decoder.decode(value, { stream: true });
@@ -115,8 +120,21 @@ async function readProvider(endpoint: URL, query: string, timeout: number) {
     }
     let raw;
     try { raw = JSON.parse(body); } catch { throw new ProviderError("Invalid map response"); }
-    if (!raw || typeof raw !== "object" || raw.remark || !Array.isArray(raw.elements))
+    if (!raw || typeof raw !== "object" || !Array.isArray(raw.elements))
       throw new ProviderError("Incomplete map");
+    if (raw.remark) {
+      const remark = typeof raw.remark === 'string' ? raw.remark : '';
+      // Overpass can return HTTP 200 with a runtime error and partial elements.
+      // Never accept those elements as complete. Retry only known transient
+      // execution errors, and never hop hosts to work around a denial/quota.
+      if (/rate[ -]?limit|too many requests|quota|access denied|forbidden|not authori[sz]ed/i.test(remark)) {
+        throw new ProviderError("Map request declined", false, 60000, 'runtime-declined');
+      }
+      if (/runtime error:/i.test(remark) && /query timed out|server is probably too busy|server is overloaded/i.test(remark)) {
+        throw new ProviderError("Map runtime unavailable", true, 0, 'runtime-unavailable');
+      }
+      throw new ProviderError("Incomplete map");
+    }
     return raw;
 }
 

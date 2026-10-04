@@ -9,7 +9,7 @@ export type Country = {
   alpha3: string;
 };
 
-export type PlannerInput = {
+export type PlannerInput = import("../../lib/planner-preferences").PlannerPreferences & {
   mode?: "discover" | "fixed";
   destination?: { code: string; name: string; country: string; countryCode: string };
   dayCount?: number;

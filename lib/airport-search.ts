@@ -49,11 +49,19 @@ type PreparedAirport = {
 
 // Küratörlü Türkçe adlar → dataset'teki gerçek havalimanına alias.
 const aliasByIata = new Map<string, string[]>();
+// ROM is a city code, not an airport in OurAirports. Its city alias belongs to
+// the actual Rome airports; exact RMA searches must still select Roma, Australia.
+const METRO_AIRPORT_ALIASES: Record<string, { airports: string[]; names: string[] }> = {
+  ROM: { airports: ["FCO", "CIA"], names: ["Rome", "Roma"] },
+};
 for (const location of GLOBAL_LOCATIONS) {
   if (location.type !== "city" || !/^[A-Z]{3}$/.test(location.code)) continue;
-  const list = aliasByIata.get(location.code) || [];
-  list.push(normalizeSearchText(location.name));
-  aliasByIata.set(location.code, list);
+  const metro = METRO_AIRPORT_ALIASES[location.code];
+  for (const code of metro?.airports || [location.code]) {
+    const list = aliasByIata.get(code) || [];
+    list.push(...[location.name, ...(metro?.names || [])].map(normalizeSearchText));
+    aliasByIata.set(code, list);
+  }
 }
 
 const PREPARED: PreparedAirport[] = (dataset as AirportEntry[]).map((entry) => ({

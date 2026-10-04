@@ -30,7 +30,7 @@ const searchText = load('mobile/src/lib/searchText.ts', {});
 
 // Run the real component and event closures. Only child tools and React's host
 // are replaced. Refs attach during a simulated commit, before animation frames.
-function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection } = {}) {
+function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [] } = {}) {
   const slots = [], frames = [], selectedCountries = [], phrases = [];
   let cursor = 0, locale = initialLocale, view, focused, oldRefs = [], signIns = 0;
   const react = {
@@ -41,7 +41,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
   };
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
-    '../../../lib/travel-assistant/guides': { GUIDE_CARDS: [] },
+    '../../../lib/travel-assistant/guides': { GUIDE_CARDS: guides },
     '../../../lib/country-intelligence/advisory-destinations.json': {default: JSON.parse(readFileSync('lib/country-intelligence/advisory-destinations.json', 'utf8'))},
     '../lib/native': { openExternal: async () => true },
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'TUR', name: 'Türkiye' }, { alpha3: 'GBR', name: 'United Kingdom' }] },
@@ -55,6 +55,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     '../../../lib/travel-assistant/evidence': { evidenceStatus: () => 'current' },
     '../hooks/useCurrentTime': { useCurrentTime: () => Date.parse('2026-09-27T08:00:00Z') },
     './Icon': { Icon: 'Icon' },
+    './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
   };
   const api = load('mobile/src/components/TravelAssistant.tsx', imports, { window: { requestAnimationFrame: fn => frames.push(fn) } });
   let props = { initialCountry, onPhrases: country => phrases.push(country), onNotice: () => {}, accessToken: '', onSignIn: () => signIns++ };
@@ -205,4 +206,21 @@ test('Explicit country selections follow the user between phrases, assistant and
   button(view, 'Tools').props.onClick(); view = render();
   const reopened = harness({ selection });
   assert.equal(find(reopened.choose('Emergency help'), 'TravelSafety').props.country, 'GB', 'Local tips also update the remounted assistant');
+});
+
+
+test('Guide cards use available Albanian text and mark English fallback only for untranslated cards', () => {
+  const cards = [
+    { country: 'TR', category: 'water', title: { tr: 'Başlık', en: 'English title', sq: 'Titull shqip' }, text: { tr: 'Metin', en: 'English body', sq: 'Tekst shqip' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
+    { country: 'GB', category: 'law', title: { tr: 'Kural', en: 'English fallback' }, text: { tr: 'Metin', en: 'Untranslated body' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
+  ];
+  const h = harness({ initialCountry: 'TR', locale: 'sq', guides: cards });
+  h.expand(); let view = h.choose('Before you go');
+  assert.match(text(view), /Titull shqip.*Tekst shqip/);
+  assert.doesNotMatch(text(view), /English title|English body|Disa karta ende/);
+  assert.equal(find(view, 'article').props.lang, 'sq');
+  find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
+  assert.match(text(view), /Disa karta ende/); assert.match(text(view), /English fallback.*Untranslated body/);
+  assert.equal(find(view, 'article').props.lang, 'en');
+  view = h.language('tr'); assert.match(text(view), /Kural.*Metin/); assert.equal(find(view, 'article').props.lang, 'tr');
 });

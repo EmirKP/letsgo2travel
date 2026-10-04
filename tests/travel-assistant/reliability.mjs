@@ -25,17 +25,75 @@ test('Map outages fail over once within one time budget and avoid the failed hos
     AbortSignal:{timeout:milliseconds=>{timeouts.push(milliseconds);return undefined;}},
     fetch:async(url,options)=>{
       calls.push({host:url.hostname,query:options.body.get('data')});
-      if(url.hostname==='overpass.private.coffee'){now+=3000;throw new Error('network timeout');}
+      if(url.hostname==='overpass.private.coffee'){now+=13000;throw new Error('network timeout');}
       return Response.json({elements:[{type:'node',id:123}]});
     },
   });
   const first=await provider.queryOverpass('bounded query');
   assert.equal(first.elements[0].id,123);
-  assert.deepEqual(timeouts,[3000,23000]);
+  assert.deepEqual(timeouts,[13000,13000]);
   assert.deepEqual(calls.map(call=>call.host),['overpass.private.coffee','maps.mail.ru']);
   assert.ok(calls.every(call=>call.query==='bounded query'));
   await provider.queryOverpass('another bounded query');
   assert.equal(calls.length,3); assert.equal(calls[2].host,'maps.mail.ru');
+});
+
+test('A healthy first map provider can finish after the former 3s deadline without an unnecessary second query',async()=>{
+  let now=100000,calls=0;const timeouts=[];
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{}},Date:class extends Date {static now(){return now;}},
+    AbortSignal:{timeout:ms=>{timeouts.push(ms);return undefined;}},
+    fetch:async()=>{calls++;now+=4500;return Response.json({elements:[{type:'node',id:5}]});},
+  });
+  assert.equal((await provider.queryOverpass('[out:json][timeout:12];bounded query')).elements[0].id,5);
+  assert.equal(calls,1);assert.deepEqual(timeouts,[13000]);
+});
+
+test('Offline query budget and short caller deadlines preserve one bounded sequential failover budget',async()=>{
+  for(const [query,budget,expected] of [['[out:json][timeout:18];bounded offline query',26000,[19000,7000]],['[timeout:12];bounded query',5000,[2500,2500]]]){
+    let now=100000;const timeouts=[];
+    const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+      process:{env:{}},Date:class extends Date {static now(){return now;}},
+      AbortSignal:{timeout:ms=>{timeouts.push(ms);return undefined;}},
+      fetch:async()=>{if(timeouts.length===1){now+=timeouts[0];throw new Error('network timeout');}return Response.json({elements:[]});},
+    });
+    await provider.queryOverpass(query,budget);assert.deepEqual(timeouts,expected);
+    assert.equal(timeouts.reduce((a,b)=>a+b,0),budget);
+  }
+});
+
+test('HTTP 200 runtime overloads fail over once and never expose their partial elements as success',async()=>{
+  for(const remark of ['runtime error: Query timed out in "query" at line 1 after 12 seconds.','runtime error: open64: Dispatcher_Client::request_read: The server is probably too busy to handle your request.']){
+    let calls=0;
+    const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>++calls===1?Response.json({elements:[{id:999}],remark}):Response.json({elements:[{id:123}]})});
+    assert.equal((await provider.queryOverpass('bounded query')).elements[0].id,123);assert.equal(calls,2);
+  }
+});
+
+test('HTTP 200 rate/quota denials cannot masquerade as retryable runtime overloads',async()=>{
+  let calls=0;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{calls++;return Response.json({elements:[],remark:'runtime error: The server is probably too busy. Rate limit exceeded.'});}});
+  await assert.rejects(provider.queryOverpass('query'),/declined/);
+  await assert.rejects(provider.queryOverpass('query'),/busy/);assert.equal(calls,1);
+});
+
+test('Configured provider runtime overload stays on the configured host',async()=>{
+  const calls=[];
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{TRAVEL_OVERPASS_URL:'https://maps.example.test/interpreter'}},fetch:async url=>{calls.push(url.hostname);return Response.json({elements:[],remark:'runtime error: Query timed out in query after 12 seconds.'});}});
+  await assert.rejects(provider.queryOverpass('query'),/runtime unavailable/);assert.deepEqual(calls,['maps.example.test']);
+});
+
+test('Oversized map bodies remain rejected even when response cancellation fails',async()=>{
+  let calls=0,cancelled=0;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{calls++;return new Response(new ReadableStream({start(controller){controller.enqueue(new Uint8Array(4000001));},cancel(){cancelled++;return Promise.reject(new Error('cancel failure'));}}));}});
+  await assert.rejects(provider.queryOverpass('query'),/too large/);assert.equal(calls,1);assert.equal(cancelled,1);
+});
+
+test('Longer provider budgets do not expand the shared worker request limit',async()=>{
+  let calls=0;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},Date:class extends Date {static now(){return 100000;}},fetch:async()=>{calls++;return Response.json({elements:[]});}});
+  for(let i=0;i<12;i++)await provider.queryOverpass('bounded query');
+  await assert.rejects(provider.queryOverpass('query'),/busy/);assert.equal(calls,12);
 });
 test('Map provider denials and rate limits pause requests without hopping to another host',async()=>{
   for(const status of [400,403,406,429]){

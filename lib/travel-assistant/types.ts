@@ -10,7 +10,7 @@ export type Embassy = Evidence & {
 };
 export type GuideCard = Evidence & {
   country: string; category: 'water' | 'tax-free' | 'hours' | 'law' | 'culture';
-  title: Text; text: Text; status?: 'drinkable' | 'regional' | 'avoid'; validUntil?: string;
+  title: Text & { sq?: string }; text: Text & { sq?: string }; status?: 'drinkable' | 'regional' | 'avoid'; validUntil?: string;
 };
 export type PointCategory = 'hospital' | 'pharmacy' | 'police' | 'atm' | 'exchange' | 'toilets' | 'wifi' | 'embassy' | 'museum' | 'statue' | 'monument' | 'historic' | 'stadium' | 'palace' | 'square' | 'viewpoint' | 'attraction';
 export type MapMode = 'needs' | 'explore';

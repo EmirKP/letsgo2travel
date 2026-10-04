@@ -1,4 +1,5 @@
 import { publicJson } from "@/lib/country-intelligence/fetch";
+import { readEnturJourney, searchEnturStops } from "@/lib/travel-assistant/entur-server";
 import {
   normalizeStops,
   normalizeTransit,
@@ -19,12 +20,13 @@ export async function GET(request: Request) {
   const query = params.get("q");
   const from = params.get("from");
   const to = params.get("to");
-  if (params.get("city") !== "london")
+  const city = params.get("city");
+  if (city !== "london" && city !== "norway")
     return reply({ code: "unsupported-city" }, 400);
   if (
     query !== null
       ? query.trim().length < 2 || query.length > 60
-      : !validStopId(from) || !validStopId(to) || from === to
+      : !validStopId(from, city) || !validStopId(to, city) || from === to
   )
     return reply({ code: "invalid" }, 400);
   if (Date.now() - started >= 60000) {
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
   active++;
   requests++;
   try {
+    if (city === "norway") return reply(query !== null ? { stops: await searchEnturStops(query) } : await readEnturJourney(from!, to!));
     if (query !== null) {
       const raw = await publicJson<unknown>(
         `https://api.tfl.gov.uk/StopPoint/Search?${new URLSearchParams({ query: query.trim(), modes: "tube", maxResults: "16" })}`,

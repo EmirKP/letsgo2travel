@@ -190,7 +190,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
         ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`, `Fraza gati pa internet: ${LANGUAGE_NAMES_SQ[profile.languageEn] || profile.languageEn}`)
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
       {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
-      {locale === "sq" && tab === "etiquette" && <p className="essential-language-note" lang="sq">Këshillat lokale më poshtë janë në anglisht; përkthimi në shqip nuk është ende i disponueshëm.</p>}
+      {locale === "sq" && tab === "etiquette" && profile.etiquette.some(rule => !rule.sq) && <p className="essential-language-note" lang="sq">Disa këshilla lokale ende shfaqen në anglisht; përkthimi i tyre në shqip nuk është ende i disponueshëm.</p>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}>
         <small>{copy(phrase.tr, phrase.en, PHRASE_MEANINGS_SQ[phrase.id])}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}
         <div className="phrase-actions">
@@ -204,7 +204,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", onNavigate, on
           </button>
         </div>
       </article>)}</div>
-        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p lang={locale === "tr" ? "tr" : "en"}>{locale === "tr" ? rule.tr : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
+        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p lang={locale === "tr" ? "tr" : locale === "sq" && rule.sq ? "sq" : "en"}>{locale === "tr" ? rule.tr : locale === "sq" && rule.sq ? rule.sq : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
     </section>}
 

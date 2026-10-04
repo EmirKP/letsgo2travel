@@ -13,9 +13,10 @@ type AirportFieldProps = {
   onChange: (option: AirportOption | null) => void;
   placeholder?: string;
   required?: boolean;
+  error?: string;
 };
 
-export function AirportField({ label, value, onChange, placeholder, required = false }: AirportFieldProps) {
+export function AirportField({ label, value, onChange, placeholder, required = false, error }: AirportFieldProps) {
   const { copy } = useI18n();
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<AirportOption[]>([]);
@@ -110,11 +111,11 @@ export function AirportField({ label, value, onChange, placeholder, required = f
   };
 
   return (
-    <div className="airport-field" ref={wrapperRef}>
+    <div className={`airport-field${error ? " planner-invalid" : ""}`} ref={wrapperRef}>
       <label htmlFor={!value ? inputId : undefined}>
         <span>{label}{required && <em className="required-mark"> · {copy("zorunlu", "required")}</em>}</span>
         {value ? (
-          <button type="button" className="airport-field-selected" onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={copy(`${airportTitle(value)} seçimini değiştir`, `Change ${airportTitle(value)} selection`, `Ndrysho zgjedhjen ${airportTitle(value)}`)}>
+          <button type="button" className="airport-field-selected" aria-invalid={!!error} aria-describedby={error ? `${inputId}-error` : undefined} onClick={() => { onChange(null); setQuery(""); window.requestAnimationFrame(() => inputRef.current?.focus()); }} aria-label={copy(`${airportTitle(value)} seçimini değiştir`, `Change ${airportTitle(value)} selection`, `Ndrysho zgjedhjen ${airportTitle(value)}`)}>
             <span>
               <strong>{airportTitle(value)} <em>{value.iata}</em></strong>
               <small>{value.name} · {value.country}</small>
@@ -132,6 +133,8 @@ export function AirportField({ label, value, onChange, placeholder, required = f
             aria-controls={listId}
             aria-activedescendant={open && activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined}
             aria-required={required}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${inputId}-error` : undefined}
             required={required}
             inputMode="search"
             autoComplete="off"
@@ -143,6 +146,7 @@ export function AirportField({ label, value, onChange, placeholder, required = f
           />
         )}
       </label>
+      {error && <p id={`${inputId}-error`} className="planner-field-error" role="alert">{error}</p>}
       {open && !value && (
         <div className="airport-field-options" id={listId} role="listbox" aria-label={copy(`${label} sonuçları`, `${label} results`, `Rezultatet për ${label}`)}>
           {loading && !options.length && <p className="airport-field-note">{copy("Aranıyor…", "Searching…")}</p>}

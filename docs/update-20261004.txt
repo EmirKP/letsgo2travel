@@ -1,0 +1,92 @@
+LetsGo2Travel — 4 Ekim 2026 güncelleme kaydı
+
+Yayın durumu
+Bu çalışma sonraki sürümün kaynak kodudur. Apple incelemesindeki 1.4.0 (62)
+değiştirilmedi; yeni iOS/Android paketi yüklenmedi ve web'e dağıtım yapılmadı.
+Build 62'nin incelemeye gönderilmesi için docs/ios-apple-login-20261004.txt.
+
+Uygulanan değişiklikler
+1. Araç kartları: ana sayfadaki görsel dilini izleyen renkli, gölgeli SVG
+   çizimleri. Gezi, çeviri, para, kayıtlı yerler, ihtiyaç, ulaşım, çevrimdışı
+   harita, rehber, konsolosluk ve fotoğraf kartları aynı görsel ailede.
+2. Rota formu: eksik başlangıç/hedef/çocuk yaşı alanında açıklama,
+   ilk eksik alana kaydırma ve odak. Girilmiş tercihler korunur.
+3. Ekonomik / Orta / Plus; yetişkin/çocuk sayısı ve yaşları; iki rota modunda
+   1–14 gün. Tercihler AI talebine, yedek plana ve kayıtlı planlara taşınır.
+4. Rota maliyeti: kaynak şehir fiyatları, gün/gece/oda/kişi hesabı,
+   TRY/EUR/USD/GBP, isteğe bağlı aktivite payı, kişi başı ve günlük tutar.
+   Uygun aylık fiyat endeksi ve geçmiş/şimdiki kur eşleşirse enflasyon
+   uygulanır. Kaynak/kur yoksa tutar uydurulmaz. Bütçe seviyelerinin
+   katsayıları planlama varsayımıdır; ölçülmüş sınıf fiyatları değildir.
+   Kapsam konaklama + günlük bir akşam yemeği + şehir içi ulaşımdır;
+   uçuş, diğer öğünler ve bilinmeyen aktiviteler açıkça hariç tutulur.
+5. Aynı adlı farklı şehir/ülkelere yanlış maliyet uygulanması engellendi.
+   Roma/Rome araması FCO/CIA'yı öne alır; RMA Avustralya olarak korunur.
+6. Bozuk AI gün içerikleri ve çelişen süre etiketleri yeni yanıtta ve
+   önbellekte doğrulanır. Sonradan form değiştirmek üretilmiş planın
+   hesaplamasını sessizce değiştirmez.
+7. Kayıtlı plan yeniden açıldığında aile, seviye ve maliyet analizi görünür.
+8. Web kokpiti: hesaptaki son 100 kayıtlı plandan rota ekleme, gün/kişi/kur
+   seçilen bütçe ekleme, manuel uçuşun havaalanı ve yerel saat düzenlemesi.
+   Sahiplik ve kayıt sürümü doğrulanır; çakışmada taslak korunur.
+   Sağlayıcının yönettiği uçuş verileri ve kontrol listesi korunur.
+   Eski web uçuşlarının kişisel alanları eksik havaalanı yüzünden kilitlenmez.
+9. Ulaşım: Londra'ya ek Norveç Entur durak ve güzergâh araması. Kapsam,
+   Norveç yerel saati, açık veri kaynağı ve NLOD 2.0 atfı görünür.
+   Diğer şehirlerde mevcut harita sağlayıcısına yönlendirme sürer.
+10. Ülke rehberine Türkçe, İngilizce ve Arnavutça 12 kaynaklı su, saat ve
+    yerel alışkanlık/kural kartı.
+    Kaynak kontrolü 4 Ekim 2026; canlı işletme saati veya yerel su alarmı
+    iddiası yoktur.
+11. Uygulama giriş sırasında zorla kapatılıp açıldığında eski OAuth işlemi
+    yeniden denemeyi 12 dakika kilitlemez; geç gelen güvenli dönüşler ve
+    aynı anda giriş başlatma korumaları korunur.
+12. Eksik profil satırını yalnızca kendi hesabı için oluşturup tamamlayan
+    kurtarma akışı; rol/yetki yükseltmesi engellenir. Veritabanı önkoşulu
+    aşağıda listelenmiştir. iOS CFBundleName LetsGo2Travel olarak ayarlandı.
+13. Harita sorgularında dış servis süresine uygun bekleme, sınırlı toplam
+    süre, aşırı yük/eksik yanıt ayrımı ve kontrollü yeniden deneme.
+
+Doğrulama
+- Tam yayın testi dizisi geçti: npm run test:release.
+- Kök lint, web üretim derlemesi ve mobil üretim arayüzü derlemesi geçti.
+- Rota/maliyet için 50 hedefli test; web kokpiti son düzeltmeleri 16 test.
+- Gerçek tarayıcı: eksik başlangıç, hedef ve çocuk yaşı odaklaması;
+  2 yetişkin + 6 yaş çocuk, Plus, 5 gün Roma planı; EUR/GBP değişimi;
+  kişi başı günlük 20 GBP aktivite için 300 GBP toplam aktivite payı.
+  Kayıt hesabına eşitlendi; yeniden açınca aile/seviye/kur/tutar korundu.
+  Bu çalışmada oluşturulan tek Roma test rotası silindi; eşitleme kuyruğu
+  boş ve kayıt listesi tekrar boş görüldü.
+- Gerçek tarayıcı -> yerel API -> Entur: Oslo S / Oslo lufthavn durakları
+  bulundu, üç güncel tren alternatifi ve yerel kalkış/varış saatleri görüldü.
+- Araç kartları, araçlara geçiş ve İsviçre rehberi kaynakları Türkçe ve
+  Arnavutça önizlemede kontrol edildi. Native Apple oturum ekranı bu turda
+  cihazda test edilmedi.
+- Son web kokpiti/Entur düzeltmelerinden sonra ilgili 24 test tekrar geçti;
+  web ve mobil üretim derlemeleri son kaynaklarla tekrar başarılı oldu.
+
+Tamamlanması gerekenler / gerçek sınırlar
+- Web kokpitinin gerçek hesaba ekle–yeniden aç–düzenle testi: 3000 portundaki
+  web önizlemesine kullanıcı girişi istendi. Otomatik testler canlı hesap
+  testi yerine geçmez; yeni web düzenleme/ekleme işlemleri canlıda denenmedi.
+- Profil kurtarma migration dosyası hazır ve PostgreSQL/RLS testinden geçti:
+  supabase/migrations/20261004230000_profile_completion_recovery.sql.
+  Canlı profil şeması, varsayılanlar ve rol koruma tetikleyicisi kontrol
+  edilip migration uygulanmalı. Bu çalışmada canlı DB şeması değiştirilmedi.
+- İhtiyaç/çevrimdışı harita: iki mevcut Overpass sağlayıcısı bu ortamda
+  önceki ve yeni bekleme düzeninde de toplam 26 saniyede zaman aşımına
+  uğradı. Erişilebilir bir servis veya TRAVEL_OVERPASS_URL gereksinimi
+  çözülmeden özellik tamamen çalışıyor sayılmamalı.
+- Otomatik uçuş verisinin ticari kullanım hakkı hâlâ bilinmiyor. AeroDataBox
+  deneme kısıtı kaldırılmadı; ticari hak doğrulanmalı.
+- Android: Play kimlik itirazı, imzalama/mağaza ve Firebase bildirim
+  yapılandırmaları bekliyor. Kullanıcının Play hesabı açılmış ve ödenmişti.
+- Yeni kaynaklar için sonraki web dağıtımı ve iOS/Android paketleri,
+  ardından cihazda giriş/iptal/yeniden deneme ve eşitleme testi gerekiyor.
+  Apple'ın build 59'da gördüğü hatanın çözüldüğü iddia edilmiyor.
+
+Geliştirme ortamı
+Yerel mobil önizleme: http://127.0.0.1:5173
+Yerel web önizleme: http://127.0.0.1:3000
+Yalnız geliştirmede API istekleri yerel web sunucusuna yönlendirildi.
+Üretim ortam değişkenleri, mağaza kaydı ve incelemedeki paket değiştirilmedi.

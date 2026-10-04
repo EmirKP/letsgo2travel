@@ -325,7 +325,7 @@ function presentRoute(route: RouteSuggestion, locale: "tr" | "en" | "sq" = "tr")
 function budgetTier(value: string): 1 | 2 | 3 {
   const normalized = value.toLocaleLowerCase("tr-TR");
   if (normalized.includes("ekonomik") || normalized.includes("düşük")) return 1;
-  if (normalized.includes("yüksek") || normalized.includes("premium")) return 3;
+  if (normalized.includes("yüksek") || normalized.includes("premium") || normalized.includes("plus")) return 3;
   return 2;
 }
 

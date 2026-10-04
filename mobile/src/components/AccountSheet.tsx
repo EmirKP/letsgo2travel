@@ -4,7 +4,7 @@ import type { ReturnTypeUseAuth } from "../types-auth";
 import { isIOSNative } from "../lib/capacitor";
 import { config } from "../lib/config";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
-import { getSupabaseDataErrorMessage, updateUserProfile } from "../lib/supabaseData";
+import { completeUserProfile, getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { useI18n } from "../lib/i18n";
@@ -161,7 +161,7 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
       if (!/^[a-z0-9_]{3,20}$/.test(profileUsername)) return onNotice(copy("Kullanıcı adı 3–20 karakter olmalı; yalnız küçük harf, rakam ve alt çizgi içermeli.", "Username must be 3–20 characters and use only lowercase letters, numbers or underscores."));
       setBusy(true);
       try {
-        await updateUserProfile(user.id, { username: profileUsername }, auth.accessToken);
+        await completeUserProfile(user.id, profileUsername, auth.accessToken);
         await auth.updateProfile(profileFullName, profileUsername);
         setProfileEditMode(false);
         onNotice(copy("Profil bilgilerin web ve mobil hesabında güncellendi.", "Your profile was updated on web and mobile."));

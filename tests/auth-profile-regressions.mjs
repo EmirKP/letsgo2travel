@@ -87,19 +87,19 @@ test('Failed remote profile read retains cache, disables edits and can be retrie
  assert.equal(h.get('a','visited').length,1);assert.ok(text(h.tree).includes('Your profile could not load'));assert.equal(h.writes.length,0);
  const retry=nodes(h.tree).find(n=>n.type==='button'&&text(n)==='Retry');retry.props.onClick();h.render();h.reads[1].resolve(base);await tick();h.render();assert.equal(h.get('a','visited').length,0);h.h.dispose();
 });
-function authHarness({native=false, seedSession=true, openOAuthSession=async()=>null}={}){
- const h=host(),requests=[],values=new Map(),intervals=[];
+function authHarness({native=false, seedSession=true, openOAuthSession=async()=>null, values=new Map(), getLaunchUrl, href='http://test.invalid/'}={}){
+ const h=host(),requests=[],intervals=[],listeners=new Map(),timers=[],assignments=[];
  const session={access_token:'token-a',refresh_token:'refresh-a',expires_at:Math.floor(Date.now()/1000)+150,user:{id:'a',email:'a@example.invalid'}};
  if(seedSession){
   values.set('l2t.mobile.auth-session.v1',JSON.stringify(session));
   values.set('l2t.mobile.password-recovery.v1','true');
  }
- const w={localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},location:{href:'http://test.invalid/',origin:'http://test.invalid'},setInterval:fn=>{intervals.push(fn);return intervals.length;},clearInterval(){},setTimeout:()=>1,clearTimeout(){}};
+ const w={localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},location:{href,origin:'http://test.invalid',assign:url=>assignments.push(url)},setInterval:fn=>{intervals.push(fn);return intervals.length;},clearInterval(){},setTimeout:fn=>{timers.push(fn);return timers.length;},clearTimeout(){}};
  const no=async()=>{};
  const {useAuth}=load('mobile/src/hooks/useAuth.ts',{
-  react:h.react,'../lib/config':{config:{supabaseUrl:'http://auth.invalid',supabaseAnonKey:'public',appleAuthEnabled:true},isSupabaseConfigured:true},'../lib/api':{ApiError:class extends Error{},requestJson:(path,options)=>{if(path.includes('/logout'))return Promise.resolve({});const d=deferred();requests.push({path,options,...d});return d.promise;}},'../lib/capacitor':{addPluginListener:async()=>null,isNativePlatform:()=>native,plugin:()=>null},'../lib/native':{closeBrowser:no,openOAuthSession},'../lib/liveActivity':{endAllFlightActivities:no},'../lib/liveActivityPush':{disableLiveActivityTokensForLogout:no},'../lib/push':{detachPushForLogout:no},'../lib/i18n':{localeFromStorage:()=> 'en'},
+  react:h.react,'../lib/config':{config:{supabaseUrl:'http://auth.invalid',supabaseAnonKey:'public',appleAuthEnabled:true},isSupabaseConfigured:true},'../lib/api':{ApiError:class extends Error{},requestJson:(path,options)=>{if(path.includes('/logout'))return Promise.resolve({});const d=deferred();requests.push({path,options,...d});return d.promise;}},'../lib/capacitor':{addPluginListener:async(name,event,fn)=>{listeners.set(`${name}:${event}`,fn);return {remove:async()=>listeners.delete(`${name}:${event}`)};},isNativePlatform:()=>native,plugin:name=>name==='App'&&getLaunchUrl?{getLaunchUrl}:null},'../lib/native':{closeBrowser:no,openOAuthSession},'../lib/liveActivity':{endAllFlightActivities:no},'../lib/liveActivityPush':{disableLiveActivityTokensForLogout:no},'../lib/push':{detachPushForLogout:no},'../lib/i18n':{localeFromStorage:()=> 'en'},
  },{window:w,btoa:value=>Buffer.from(value,'binary').toString('base64')});
- return {h,requests,values,intervals,session,render:()=>h.render(useAuth)};
+ return {h,requests,values,intervals,session,listeners,timers,assignments,render:()=>h.render(useAuth)};
 }
 for(const operation of ['updateProfile','updatePassword']){
  test(`Delayed ${operation} preserves rotated tokens`,async()=>{
@@ -257,4 +257,178 @@ for(const failure of ['request rejection','incomplete session'])test(`Fresh nati
  const response={...x.session,access_token:'fresh-retry-token',refresh_token:'fresh-retry-refresh',user:{id:'new-apple-user',email:'new-apple@example.invalid'}};
  x.requests[1].resolve(response);await retry;assertOAuthSuccess(x,response);
  }finally{x.h.dispose();}
+});
+
+const oauthKey='l2t.mobile.oauth-transaction.v2';
+function interruptedOAuth(){
+ const transaction={provider:'apple',verifier:'a'.repeat(128),createdAt:Date.now()};
+ return {transaction,values:new Map([[oauthKey,JSON.stringify(transaction)]])};
+}
+
+test('Explicit retry after process restart replaces an orphaned transaction without waiting for its TTL',async()=>{
+ const {transaction,values}=interruptedOAuth();
+ const x=authHarness({native:true,seedSession:false,values,getLaunchUrl:async()=>({}),openOAuthSession:async()=> 'tr.com.letsgo2travel.app://auth/callback?code=restarted'});
+ try{
+  x.render();await tick();const auth=x.render();
+  assert.equal(JSON.parse(values.get(oauthKey)).verifier,transaction.verifier,'Startup preserves a possible delayed app-link callback');
+  const pending=auth.signInWithApple();await waitForAuthRequests(x,1);
+  assert.notEqual(x.requests[0].options.body.code_verifier,transaction.verifier);
+  x.requests[0].resolve(x.session);await pending;assertOAuthSuccess(x,x.session);
+ }finally{x.h.dispose();}
+});
+
+test('Native cold-start callback retains its saved PKCE verifier and blocks a competing new login',async()=>{
+ const {transaction,values}=interruptedOAuth(),launch=deferred();
+ let opened=0;const x=authHarness({native:true,seedSession:false,values,getLaunchUrl:()=>launch.promise,openOAuthSession:async()=>{opened++;return null;}});
+ try{
+  const auth=x.render();await tick();assert.equal(x.render().loading,true);
+  await assert.rejects(auth.signInWithApple(),/already in progress/);
+  assert.equal(JSON.parse(values.get(oauthKey)).verifier,transaction.verifier);
+  launch.resolve({url:'tr.com.letsgo2travel.app://auth/callback?code=from-launch'});await waitForAuthRequests(x,1);
+  await assert.rejects(x.render().signInWithGoogle(),/already in progress/);
+  assert.equal(x.requests[0].options.body.code_verifier,transaction.verifier);
+  x.requests[0].resolve(x.session);await tick();assertOAuthSuccess(x,x.session);assert.equal(opened,0);
+ }finally{x.h.dispose();}
+});
+
+test('A delayed app-link callback after launch still exchanges the restored verifier once',async()=>{
+ const {transaction,values}=interruptedOAuth();const x=authHarness({native:true,seedSession:false,values,getLaunchUrl:async()=>({})});
+ try{
+  x.render();await tick();x.render();
+  const event={url:'tr.com.letsgo2travel.app://auth/callback?code=delayed-link'};
+  x.listeners.get('App:appUrlOpen')(event);await waitForAuthRequests(x,1);
+  x.listeners.get('App:appUrlOpen')(event);assert.equal(x.requests.length,1);
+  assert.equal(x.requests[0].options.body.code_verifier,transaction.verifier);
+  x.requests[0].resolve(x.session);await tick();assertOAuthSuccess(x,x.session);
+ }finally{x.h.dispose();}
+});
+
+test('Web redirect exchanges its persisted verifier before allowing another login',async()=>{
+ const {transaction,values}=interruptedOAuth();const x=authHarness({seedSession:false,values,href:'http://test.invalid/auth/callback?code=web-return'});
+ try{
+  x.render();await waitForAuthRequests(x,1);
+  await assert.rejects(x.render().signInWithApple(),/already in progress/);
+  assert.equal(x.requests[0].options.body.code_verifier,transaction.verifier);
+  x.requests[0].resolve(x.session);await tick();assertOAuthSuccess(x,x.session);
+ }finally{x.h.dispose();}
+});
+
+test('A current-process Android browser login remains guarded after Browser.open resolves',async()=>{
+ const x=authHarness({native:true,seedSession:false});
+ try{
+  x.render();await tick();await x.render().signInWithGoogle();
+  const first=JSON.parse(x.values.get(oauthKey)).verifier;
+  await assert.rejects(x.render().signInWithApple(),/already in progress/);
+  assert.equal(JSON.parse(x.values.get(oauthKey)).verifier,first);
+  x.listeners.get('Browser:browserFinished')({});x.timers.at(-1)();
+  assert.equal(x.values.has(oauthKey),false);
+  await x.render().signInWithGoogle();assert.notEqual(JSON.parse(x.values.get(oauthKey)).verifier,first);
+ }finally{x.h.dispose();}
+});
+
+test('Returning to the web app without a callback allows an explicit fresh redirect',async()=>{
+ const {transaction,values}=interruptedOAuth();const x=authHarness({seedSession:false,values});
+ try{
+  x.render();await tick();await x.render().signInWithGoogle();
+  assert.equal(x.assignments.length,1);assert.notEqual(JSON.parse(values.get(oauthKey)).verifier,transaction.verifier);
+  await assert.rejects(x.render().signInWithGoogle(),/already in progress/);
+ }finally{x.h.dispose();}
+});
+
+test('Unavailable native launch URL does not strand an orphaned login',async()=>{
+ const {values}=interruptedOAuth();const x=authHarness({native:true,seedSession:false,values,getLaunchUrl:async()=>{throw Error('Unavailable');}});
+ try{x.render();await tick();assert.equal(x.render().loading,false);await x.render().signInWithApple();}
+ finally{x.h.dispose();}
+});
+
+class ProfileApiError extends Error{
+ constructor(status,code=''){super(`HTTP ${status}`);this.status=status;this.code=code;}
+}
+const profileOwner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const completeProfileRow={id:profileOwner,username:'traveller',visited_countries:['TUR'],wishlist_countries:['ALB'],opt_in_leaderboard:true};
+function completionHarness(responses){
+ const requests=[];
+ const data=load('mobile/src/lib/supabaseData.ts',{
+  './api':{ApiError:ProfileApiError,requestJson:async(url,options)=>{requests.push({url,options});assert.ok(responses.length,'Unexpected profile request');const result=responses.shift();if(result instanceof Error)throw result;return result;}},
+  './config':{config:{supabaseUrl:'https://auth.invalid',supabaseAnonKey:'public-key'},isSupabaseConfigured:true},
+  './dates':{},'./i18n':{localeFromStorage:()=> 'en'},'./id':{},'./flightSelection':{},
+ });
+ return {requests,data,complete:()=>data.completeUserProfile(profileOwner,'traveller','owner-token')};
+}
+
+test('Existing profile completion only updates the username through the authenticated own-row PATCH',async()=>{
+ const x=completionHarness([[completeProfileRow]]);const profile=await x.complete();
+ assert.equal(profile.username,'traveller');assert.equal(x.requests.length,1);
+ assert.equal(x.requests[0].options.method,'PATCH');assert.equal(new URL(x.requests[0].url).searchParams.get('id'),`eq.${profileOwner}`);
+ assert.deepEqual(JSON.parse(JSON.stringify(x.requests[0].options.body)),{username:'traveller'});
+ assert.equal(x.requests[0].options.headers.Authorization,'Bearer owner-token');
+});
+
+test('Missing profile completion verifies ownership and inserts only id and validated username under existing RLS',async()=>{
+ const x=completionHarness([[],{id:profileOwner},[],null,[completeProfileRow]]);const result=await x.complete();
+ assert.equal(x.requests.length,5);assert.match(x.requests[1].url,/\/auth\/v1\/user$/);
+ assert.equal(x.requests[3].options.method,'POST');assert.equal(new URL(x.requests[3].url).searchParams.get('on_conflict'),'id');
+ assert.deepEqual(JSON.parse(JSON.stringify(x.requests[3].options.body)),{id:profileOwner,username:'traveller'});
+ assert.equal(x.requests[3].options.headers.Prefer,'resolution=ignore-duplicates,return=minimal');
+ assert.ok(x.requests.every(r=>r.options.headers.Authorization==='Bearer owner-token'));
+ assert.equal(result.visitedCountries[0],'TUR');assert.equal(result.optInLeaderboard,true);
+ assert.equal(x.requests.at(-1).options.method,'PATCH','Read/update after ignored concurrent creation, never merge-overwrite defaults');
+});
+
+test('Missing profile recovery refuses a mismatched authenticated owner before inserting',async()=>{
+ const x=completionHarness([[],{id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'}]);
+ await assert.rejects(x.complete(),error=>error.code==='forbidden');assert.equal(x.requests.length,2);
+ assert.ok(x.requests.every(r=>r.options.method!=='POST'));
+});
+
+for(const status of [401,403,503])test(`Profile update HTTP ${status} never triggers a recovery insert`,async()=>{
+ const x=completionHarness([new ProfileApiError(status)]);await assert.rejects(x.complete());assert.equal(x.requests.length,1);
+});
+
+test('A delayed signup-created profile is updated without attempting another insert',async()=>{
+ const x=completionHarness([[],{id:profileOwner},[completeProfileRow],[completeProfileRow]]);
+ await x.complete();assert.equal(x.requests.length,4);assert.ok(x.requests.every(r=>r.options.method!=='POST'));
+});
+
+test('Recovery respects insert policy denial and reports incomplete profile rather than signed-out state',async()=>{
+ const x=completionHarness([[],{id:profileOwner},[],new ProfileApiError(403)]);
+ await assert.rejects(x.complete(),error=>{
+  assert.equal(error.code,'profile_unavailable');assert.match(x.data.getSupabaseDataErrorMessage(error),/You are signed in/);return true;
+ });assert.equal(x.requests.length,4);
+});
+
+test('A live schema requiring additional server fields reports a setup problem instead of blaming valid profile input',async()=>{
+ const x=completionHarness([[],{id:profileOwner},[],new ProfileApiError(400,'23502')]);
+ await assert.rejects(x.complete(),error=>error.code==='profile_unavailable');assert.equal(x.requests.length,4);
+});
+
+test('Username conflicts are surfaced without retrying with defaults or overwriting another profile',async()=>{
+ const x=completionHarness([[],{id:profileOwner},[],new ProfileApiError(409,'23505')]);
+ await assert.rejects(x.complete(),error=>error.code==='conflict');assert.equal(x.requests.length,4);
+});
+
+test('A failed profile lookup never becomes an insert attempt',async()=>{
+ const x=completionHarness([[],{id:profileOwner},new ProfileApiError(503)]);
+ await assert.rejects(x.complete(),error=>error.code==='service_unavailable');assert.equal(x.requests.length,3);
+});
+
+for(const recoverySucceeds of [false,true])test(`Account sheet ${recoverySucceeds?'updates auth metadata only after':'does not claim completion when'} profile recovery ${recoverySucceeds?'succeeds':'fails'}`,async()=>{
+ const h=host(),pending=deferred(),notices=[],metadata=[];let calls=0;
+ const auth={user:{id:profileOwner,email:'owner@example.invalid',created_at:'2026-10-04',user_metadata:{full_name:'Traveller'}},accessToken:'owner-token',updateProfile:async(...args)=>metadata.push(args)};
+ const {AccountSheet}=load('mobile/src/components/AccountSheet.tsx',{
+  react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/localeFormatting':{formatAppDate:()=> '4 October'},'../lib/capacitor':{isIOSNative:()=>true},'../lib/config':{config:{appleAuthEnabled:true}},
+  './LegalSheet':{LegalSheet:'Legal'},'./Icon':{Icon:'Icon'},'./Sheet':{Sheet:'Sheet'},'./AccountDeletionPanel':{AccountDeletionPanel:'Deletion'},'../lib/i18n':{useI18n:()=>i18n},
+  '../lib/supabaseData':{completeUserProfile:(id,username,token)=>{assert.equal(id,profileOwner);assert.equal(username,'traveller');assert.equal(token,'owner-token');calls++;return pending.promise;},getSupabaseDataErrorMessage:e=>e.message},
+ });
+ const render=()=>h.render(()=>AccountSheet({open:true,onClose(){},auth,onNotice:message=>notices.push(message)}));
+ try{
+  let view=render();nodes(view).find(n=>n.type==='input'&&n.props.placeholder==='example_traveller').props.onChange({target:{value:'traveller'}});view=render();
+  nodes(view).find(n=>n.type==='button'&&text(n)===' Complete profile').props.onClick();render();
+  assert.equal(calls,1);assert.equal(metadata.length,0);assert.equal(notices.length,0);
+  if(recoverySucceeds)pending.resolve(completeProfileRow);else pending.reject(Error('Profile could not be prepared'));
+  await tick();view=render();
+  assert.equal(metadata.length,recoverySucceeds?1:0);
+  assert.equal(notices.at(-1),recoverySucceeds?'Your profile was updated on web and mobile.':'Profile could not be prepared');
+  assert.equal(nodes(view).find(n=>n.type==='button'&&text(n)===' Complete profile').props.disabled,false,'Retry remains available after the response');
+ }finally{h.dispose();}
 });

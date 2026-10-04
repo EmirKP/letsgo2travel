@@ -272,7 +272,7 @@ function localizedAuthError(error: unknown, fallback?: string) {
   if (lower.includes("new password should be different")) return authCopy("Yeni şifre önceki şifreden farklı olmalı.", "Your new password must be different from the previous one.", "Fjalëkalimi i ri duhet të jetë ndryshe nga i mëparshmi.");
   if (lower.includes("provider is not enabled") || lower.includes("unsupported provider")) return authCopy("Bu giriş yöntemi henüz etkinleştirilmemiş.", "This sign-in method is not enabled yet.", "Kjo mënyrë hyrjeje nuk është aktivizuar ende.");
   if (lower.includes("access_denied") || lower.includes("cancel") || lower.includes("user denied")) return authCopy("Giriş işlemi iptal edildi.", "Sign-in was cancelled.", "Hyrja u anulua.");
-  if (lower.includes("database error saving new user")) return authCopy("Hesap profili oluşturulamadı. Kullanıcı adını değiştirip tekrar dene.", "Your account profile could not be created. Try another username.", "Profili i llogarisë nuk u krijua. Provo një emër tjetër përdoruesi.");
+  if (lower.includes("database error saving new user")) return authCopy("Hesabın sunucuda oluşturulamadı. Tekrar dene; sorun sürerse destek ile iletişime geç.", "Your account could not be created on the server. Retry, or contact support if this continues.", "Llogaria nuk u krijua në server. Provo sërish ose kontakto mbështetjen nëse problemi vazhdon.");
   if (lower.includes("rate limit") || lower.includes("email rate")) return authCopy("Çok fazla e-posta istendi. Birkaç dakika sonra tekrar dene.", "Too many emails were requested. Please try again in a few minutes.", "Janë kërkuar shumë emaile. Provo sërish pas pak minutash.");
   if (lower.includes("code verifier") || lower.includes("pkce")) return authCopy("Güvenli giriş süresi doldu. Girişi yeniden başlat.", "The secure sign-in session expired. Start signing in again.", "Sesioni i hyrjes së sigurt ka skaduar. Nise hyrjen sërish.");
   if (lower.includes("failed to fetch") || lower.includes("network request failed")) return authCopy("Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.", "Could not connect. Check your internet connection and try again.", "Lidhja nuk u realizua. Kontrollo internetin dhe provo sërish.");
@@ -298,6 +298,8 @@ export function useAuth() {
   const authCallbackInProgress = useRef(false);
   const signOutInFlight = useRef<Promise<void> | null>(null);
   const oauthStartInFlight = useRef(false);
+  const oauthAttemptVerifier = useRef<string | null>(null);
+  const oauthLaunchPending = useRef<Promise<void> | null>(null);
 
   const setRecoveryPending = useCallback((next: boolean) => {
     setRecoveryPendingState(next);
@@ -457,6 +459,7 @@ export function useAuth() {
     let appStateListener: { remove: () => Promise<void> } | null = null;
     let browserListener: { remove: () => Promise<void> } | null = null;
     let browserFinishedTimer: number | null = null;
+    let launchCallback: Promise<void> = Promise.resolve();
 
     const refreshIfNeeded = async (thresholdSeconds: number) => {
       const current = readSession();
@@ -482,14 +485,14 @@ export function useAuth() {
         setLoading(false);
         return;
       }
+      await launchCallback;
       await refreshIfNeeded(90);
-      if (active) setLoading(false);
+      if (active && !authCallbackInProgress.current) setLoading(false);
     };
-    void initialize();
 
     if (!isNativePlatform() && isExpectedAuthCallbackUrl(window.location.href)) {
       const params = callbackParams(window.location.href);
-      if (params.code || params.accessToken || params.error) void consumeAuthUrl(window.location.href);
+      if (params.code || params.accessToken || params.error) launchCallback = consumeAuthUrl(window.location.href);
     }
 
     if (isNativePlatform()) {
@@ -521,12 +524,20 @@ export function useAuth() {
       }).then((listener) => { browserListener = listener; });
       const app = plugin("App");
       if (app?.getLaunchUrl) {
-        void app.getLaunchUrl().then((value) => {
+        const launch: Promise<void> = app.getLaunchUrl().then(async (value) => {
           const url = value && typeof value === "object" && "url" in value ? String((value as { url?: string }).url || "") : "";
-          if (url && isExpectedAuthCallbackUrl(url)) void consumeAuthUrl(url);
+          if (active && url && isExpectedAuthCallbackUrl(url)) await consumeAuthUrl(url);
+        }).catch(() => {
+          // Keep the saved verifier for a later appUrlOpen callback. A manual
+          // retry can replace it once the launch check has settled.
+        }).finally(() => {
+          if (oauthLaunchPending.current === launch) oauthLaunchPending.current = null;
         });
+        launchCallback = launch;
+        oauthLaunchPending.current = launch;
       }
     }
+    void initialize();
 
     const interval = window.setInterval(() => {
       void refreshIfNeeded(180);
@@ -632,14 +643,22 @@ export function useAuth() {
   const signInWithProvider = async (provider: Provider) => {
     if (!isSupabaseConfigured) throw new Error(authCopy("Supabase ayarları eksik.", "Account service settings are missing.", "Mungojnë cilësimet e shërbimit të llogarive."));
     if (provider === "apple" && !config.appleAuthEnabled) throw new Error(authCopy("Apple ile giriş henüz etkin değil.", "Sign in with Apple is not enabled yet.", "Hyrja me Apple nuk është aktivizuar ende."));
-    if (oauthStartInFlight.current || readOAuthTransaction()) throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first.", "Një kërkesë hyrjeje është në proces. Përfundo ose mbyll fillimisht dritaren e hapur të hyrjes."));
+    const pendingTransaction = readOAuthTransaction();
+    if (oauthStartInFlight.current || oauthLaunchPending.current || authCallbackInProgress.current
+      || (pendingTransaction && pendingTransaction.verifier === oauthAttemptVerifier.current)) {
+      throw new Error(authCopy("Devam eden bir giriş işlemi var. Önce açık giriş penceresini tamamla veya kapat.", "A sign-in request is already in progress. Complete or close the open sign-in window first.", "Një kërkesë hyrjeje është në proces. Përfundo ose mbyll fillimisht dritaren e hapur të hyrjes."));
+    }
     oauthStartInFlight.current = true;
     setAuthError("");
     setLoading(true);
     try {
       const verifier = randomVerifier();
       const challenge = await challengeFor(verifier);
+      // Storage survives process termination; the native session does not.
+      // Preserve restored transactions for callbacks until the user explicitly
+      // starts over. Keep current-process Android/browser attempts protected.
       saveOAuthTransaction({ provider, verifier, createdAt: Date.now() });
+      oauthAttemptVerifier.current = verifier;
       const redirectTo = isNativePlatform() ? NATIVE_REDIRECT : `${window.location.origin}/auth/callback`;
       const params = new URLSearchParams({
         provider,

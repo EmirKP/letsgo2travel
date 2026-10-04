@@ -1,3 +1,5 @@
+import type { TripFormState } from "../../../mobile/src/lib/cockpitForm";
+
 export type TripStatus = "upcoming" | "active" | "completed" | "cancelled";
 
 export type ChecklistCategory =
@@ -33,9 +35,11 @@ export interface Trip {
   originIata?: string | null;
   destinationIata?: string | null;
   flightLookupManaged?: boolean;
+  airline?: string | null;
+  flightNumber?: string | null;
 }
 
-export type TripPersonalUpdate = Pick<Trip, "startDate" | "endDate" | "flightPnr" | "status">;
+export type TripPersonalUpdate = Pick<Trip, "startDate" | "endDate" | "flightPnr" | "status"> & { details?: TripFormState };
 
 export interface CreateTripInput {
   destinationCountry: string;

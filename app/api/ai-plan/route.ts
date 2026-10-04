@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { findAirportByIata } from "@/lib/airport-search";
 import { fixedDestinationStarter, routeMatchesDestination, validPlanDays, type PlanDestination, type PlanLocale } from "@/lib/route-planner";
+import { normalizePlannerPreferences, plannerPreferenceInstructions, starterPreferenceNote, validTravelParty } from "@/lib/planner-preferences";
 import {
   resolveVerifiedVisaRule,
   verifiedDestinationCatalog,
@@ -13,7 +14,7 @@ import {
 export const maxDuration = 45;
 
 const AI_REQUEST_TIMEOUT_MS = 18_000;
-const PLAN_CACHE_VERSION = "fixed-destination-v4-2026-09-30";
+const PLAN_CACHE_VERSION = "family-tier-v5-2026-10-04";
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 type PlannerInput = ReturnType<typeof normalizeInput>;
@@ -199,7 +200,6 @@ function normalizeInput(body: unknown) {
     origin: String(record.origin || "Belirtilmedi").slice(0, 80),
     days: String(record.days || "Belirtilmedi").slice(0, 40),
     month: String(record.month || "Belirtilmedi").slice(0, 40),
-    budget: String(record.budget || "Belirtilmedi").slice(0, 60),
     accommodation: String(record.accommodation || "Belirtilmedi").slice(0, 60),
     who: String(record.who || "Belirtilmedi").slice(0, 60),
     tempo: String(record.tempo || "Belirtilmedi").slice(0, 60),
@@ -208,6 +208,7 @@ function normalizeInput(body: unknown) {
       : [],
     visa: String(record.visa || "Belirtilmedi").slice(0, 60),
     locale,
+    ...normalizePlannerPreferences(record),
   };
 }
 
@@ -346,10 +347,9 @@ function normalizeRoute(value: unknown, locale: PlanLocale = "tr"): AiRouteData 
 function fallbackRoute(profile: FallbackProfile, input: PlannerInput): AiRouteData {
   return normalizeRoute({
     ...profile,
+    dailyPlan: Array.from({ length: input.dayCount || profile.dailyPlan.length }, (_, index) => `${profile.dailyPlan[index] || (input.locale === "sq" ? `Dita ${index + 1}: Një shëtitje e qetë pranë në ${profile.name}.` : input.locale === "en" ? `Day ${index + 1}: A relaxed nearby walk in ${profile.name}.` : `${index + 1}. Gün: ${profile.name} çevresinde yakın duraklar ve serbest zaman.`)} ${starterPreferenceNote(input, input.locale)}`),
     cityOrRegion: profile.name,
-    estimatedBudget: input.budget !== "Belirtilmedi"
-      ? `Hedef bütçe: ${input.budget}`
-      : "Seçilen tarihler için ayrıca hesaplanmalı",
+    estimatedBudget: input.locale === "sq" ? `Niveli: ${input.budget}` : input.locale === "en" ? `Planning level: ${input.budget}` : `Planlama seviyesi: ${input.budget}`,
     idealDuration: input.days !== "Belirtilmedi" ? input.days : "3 gün",
     difficulty: "Kolay",
     firstTimeFriendly: true,
@@ -378,14 +378,14 @@ function buildFallbackPlan(input: PlannerInput): AiPlanData {
     const starter = fixedDestinationStarter({ ...input, dayCount: input.dayCount || 3 }, input.locale);
     return { summary: starter.summary, routes: starter.routes.map(route => normalizeRoute(route, input.locale)!) };
   }
-  if (input.locale === "sq") {
+  if (input.locale === "sq" || input.dayCount || input.party.children > 0) {
     const codes: Record<string, string> = { baku: "GYD", tiflis: "TBS", kisinev: "RMO", tiran: "TIA", saraybosna: "SJJ", uskup: "SKP", belgrad: "BEG", roma: "FCO", budapeste: "BUD" };
-    return { summary: "Tre plane fillestare të redaktueshme. Nuk janë krijuar rishtazi nga AI; kontrollo kushtet aktuale të hyrjes para udhëtimit.", routes: fallbackKeys(input).map(key => {
+    return { summary: input.locale === "sq" ? "Tre plane fillestare të redaktueshme. Nuk janë krijuar rishtazi nga AI; kontrollo kushtet aktuale të hyrjes para udhëtimit." : input.locale === "en" ? "Three editable starter outlines for your travel level and group. Check current entry conditions before travelling." : "Seyahat seviyene ve grubuna göre üç düzenlenebilir başlangıç taslağı. Seyahatten önce güncel giriş koşullarını doğrula.", routes: fallbackKeys(input).map(key => {
       const airport = findAirportByIata(codes[key]);
       const profile = fallbackProfiles[key];
-      const destination = { code: codes[key], name: airport?.city || profile.name, country: airport ? new Intl.DisplayNames(["sq"], { type: "region" }).of(airport.countryCode) || profile.country : profile.country, countryCode: airport?.countryCode || "" };
-      const starter = fixedDestinationStarter({ ...input, destination, dayCount: Math.min(14, Math.max(1, parseInt(input.days, 10) || 3)) }, "sq");
-      return normalizeRoute(starter.routes[0], "sq")!;
+      const destination = { code: codes[key], name: airport?.city || profile.name, country: airport ? new Intl.DisplayNames([input.locale], { type: "region" }).of(airport.countryCode) || profile.country : profile.country, countryCode: airport?.countryCode || "" };
+      const starter = fixedDestinationStarter({ ...input, destination, dayCount: input.dayCount || Math.min(14, Math.max(1, parseInt(input.days, 10) || 3)) }, input.locale);
+      return normalizeRoute(starter.routes[0], input.locale)!;
     }) };
   }
   return {
@@ -409,7 +409,8 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   }
   const normalizedRoutes = rawRoutes
     .map((route) => normalizeRoute(route, input.locale))
-    .filter((route): route is AiRouteData => Boolean(route));
+    .filter((route): route is AiRouteData => Boolean(route))
+    .map(route => input.dayCount ? { ...route, idealDuration: input.locale === "sq" ? `${input.dayCount} ditë` : input.locale === "en" ? `${input.dayCount} days` : `${input.dayCount} gün` } : route);
   const preferenceIsRestricted = input.visa.toLocaleLowerCase("tr-TR").includes("kimlikle")
     || input.visa.toLocaleLowerCase("tr-TR").includes("sadece vizesiz");
   const acceptedRoutes = preferenceIsRestricted
@@ -445,6 +446,16 @@ function fallbackResponse(input: PlannerInput) {
   );
 }
 
+function expectedDailyPlans(value: unknown, input: PlannerInput) {
+  if (!input.dayCount) return true;
+  const routes = asRecord(value).routes;
+  return Array.isArray(routes) && routes.length === (input.mode === "fixed" ? 1 : 3)
+    && routes.every(route => {
+      const days = asRecord(route).dailyPlan;
+      return Array.isArray(days) && days.length === input.dayCount && days.every(day => typeof day === "string" && day.trim().length > 0);
+    });
+}
+
 export async function POST(req: Request) {
   let input: PlannerInput | null = null;
   try {
@@ -464,13 +475,18 @@ export async function POST(req: Request) {
       rateLimitMap.set(ip, { count: 1, resetTime: now + 60_000 });
     }
 
-    input = normalizeInput(await req.json().catch(() => ({})));
+    const rawInput = asRecord(await req.json().catch(() => ({})));
+    input = normalizeInput(rawInput);
+    if ((rawInput.party !== undefined && !validTravelParty(rawInput.party)) || (rawInput.dayCount !== undefined && !validPlanDays(rawInput.dayCount))) {
+      return NextResponse.json({ error: input.locale === "tr" ? "Gün, yetişkin, çocuk sayısı ve çocuk yaşlarını kontrol et." : input.locale === "sq" ? "Kontrollo ditët, numrin e të rriturve e fëmijëve dhe moshat." : "Check duration, adult and child counts, and child ages." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
+    }
     if (input.mode === "fixed" && (!input.destination || !input.dayCount || input.origin === "Belirtilmedi")) {
       return NextResponse.json({ error: input.locale === "tr" ? "Çıkış şehri, geçerli bir hedef ve 1–14 gün seç." : input.locale === "sq" ? "Zgjidh qytetin e nisjes, një destinacion të vlefshëm dhe 1–14 ditë." : "Choose a departure city, a valid destination and 1–14 days." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
     }
     const hash = requestHash(input);
     const cached = await getCachedPlan(hash);
     if (cached) {
+      if (!expectedDailyPlans(cached, input)) return fallbackResponse(input);
       const finalizedCache = finalizePlan(cached, input);
       if (input.mode === "fixed" && finalizedCache.routes[0]?.scores.overall === 0) return fallbackResponse(input);
       return NextResponse.json(
@@ -507,6 +523,9 @@ export async function POST(req: Request) {
       - Tempo: ${input.tempo}
       - Seyahat tipi: ${input.vibe.length > 0 ? input.vibe.join(", ") : "Belirtilmedi"}
       - Giriş tercihi: ${input.visa}
+      - Tercihlere uyarlama: ${plannerPreferenceInstructions(input)}
+      ${input.dayCount ? `Her rota için tam ${input.dayCount} günlük plan oluştur; dailyPlan dizisinde her gün için bir öğe olmalı.` : ""}
+      - Maliyet gösterim para birimi: ${input.currency}. Fiyat uydurma; estimatedBudget alanında yalnızca bütçe seviyesini ve tahmin olduğunu belirt.
 
       JSON formatı:
       {
@@ -567,6 +586,7 @@ export async function POST(req: Request) {
       return fallbackResponse(input);
     }
 
+    if (!expectedDailyPlans(parsed, input)) return fallbackResponse(input);
     const finalizedPlan = finalizePlan(parsed, input);
     if (finalizedPlan.routes.length !== (input.mode === "fixed" ? 1 : 3)) return fallbackResponse(input);
     if (input.mode === "fixed" && finalizedPlan.routes[0]?.scores.overall === 0) return fallbackResponse(input);

@@ -1229,3 +1229,19 @@
 .tripSettings { padding: 24px; }
 .tripSettings summary { cursor: pointer; font-weight: 700; }
 .tripSettings form { margin-top: 20px; }
+.attachmentTabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.attachmentTabs button { padding: 10px 16px; border: 1px solid #dce7f6; border-radius: 12px; background: #f3f7ff; color: #154a83; }
+.attachmentTabs button[aria-pressed="true"] { background: #0068ff; color: white; border-color: #0068ff; }
+.attachmentTabs button:disabled, .airportField button:disabled { opacity: .55; cursor: not-allowed; }
+.attachmentPreview { padding: 18px; background: #f4f8fd; border-radius: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.attachmentPreview h3 { margin: 0 0 12px; }
+.attachmentPreview ol { display: grid; gap: 10px; padding-left: 22px; }
+.airportField { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.airportField label { font-size: 14px; font-weight: 600; }
+.airportField small { display: block; line-height: 1.5; color: #547083; }
+.airportSelection { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #dce7f6; border-radius: 12px; }
+.airportSelection > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.airportSelection button { background: #edf5ff; color: #115fc1; border: 1px solid #dce7f6; border-radius: 8px; padding: 8px; }
+.airportResults { list-style: none; padding: 0; margin: 0; max-height: 240px; overflow-y: auto; border: 1px solid #dce7f6; border-radius: 12px; }
+.airportResults button { display: block; text-align: left; width: 100%; padding: 12px; background: #fff; color: #14334c; border: 0; border-bottom: 1px solid #edf2f8; }
+.airportResults button:hover, .airportResults button:focus-visible { background: #edf5ff; }

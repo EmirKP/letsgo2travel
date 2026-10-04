@@ -12,7 +12,8 @@ import type {
   Trip,
   TripPersonalUpdate,
 } from "@/app/components/cockpit/types";
-import { WEB_TRIP_FIELDS, readWebTrips, webTrip, patchWebTrip, personalTripPatch, deleteWebTrip } from "@/lib/cockpit/web-data";
+import { WEB_TRIP_FIELDS, readWebTrips, webTrip, patchWebTrip, deleteWebTrip } from "@/lib/cockpit/web-data";
+import { detailedTripPatch } from "@/app/components/cockpit/web-edit";
 import { createDefaultChecklist } from "@/lib/cockpit/destinationInfo";
 import { supabase } from "@/lib/supabase-client";
 
@@ -179,7 +180,7 @@ export default function CockpitPageClient() {
     const owner = account.current, version = generation.current;
     const { data: { session } } = await supabase.auth.getSession();
     if (!owner || trip.userId !== owner || session?.user.id !== owner || version !== generation.current) throw new Error("Oturum değişti. Tekrar giriş yap.");
-    const saved = await patchWebTrip(supabase, trip, personalTripPatch(trip, input));
+    const saved = await patchWebTrip(supabase, trip, detailedTripPatch(trip, input));
     if (version === generation.current && account.current === owner) setTrips(current => sortTrips(current.map(item => item.id === saved.id ? saved : item)));
   }, []);
 

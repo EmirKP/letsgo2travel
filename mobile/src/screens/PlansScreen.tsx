@@ -10,6 +10,7 @@ import { Sheet } from "../components/Sheet";
 import { TripCollaborationHub } from "../components/TripCollaborationHub";
 import { TravelSavedPlaces } from "../components/TravelSavedPlaces";
 import { PersonalTravelCards } from "../components/PersonalTravelCards";
+import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
 import { readSavedPlaces, subscribeSavedPlaces } from "../lib/savedPlaces";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import { onAccountResume } from "../lib/accountResume";
@@ -22,7 +23,7 @@ import {
   saveRoutePlan,
   toggleSavedTravelEvent,
 } from "../lib/storage";
-import type { AuthUser, PlannerInput, RoutePlan, SavedRoutePlan, TravelEvent, ViewId } from "../types";
+import type { AuthUser, PlannerInput, RoutePlan, RouteSuggestion, SavedRoutePlan, TravelEvent, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
 import { queueRouteDelete, readRouteOutbox } from "../lib/routeOutbox";
@@ -33,6 +34,7 @@ import { normalizeSearchText } from "../lib/searchText";
 import "./daily-journey.css";
 import "./plans-library.css";
 import "./travel-flow-polish.css";
+import "./planner-family-budget.css";
 
 const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then((module) => ({ default: module.JourneyToolsHub })));
 
@@ -371,9 +373,11 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
 
 function PlanDetail({ selected, onClose, onPrepareCockpit }: { selected: SelectedPlan | null; onClose: () => void; onPrepareCockpit?: (index: number) => void }) {
   const { copy, dateLocale } = useI18n();
+  const tierLabel = selected?.input?.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : selected?.input?.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar");
   return <Sheet open={Boolean(selected)} title={copy("Rota planın", "Your route plan")} onClose={onClose} size="large">
     {selected && <div className="saved-plan-detail">
       <header><small>{date(selected.createdAt, dateLocale)}{selected.input?.days ? ` · ${selected.input.days}` : ""}</small><h3>{selected.title}</h3><p>{selected.plan.summary}</p></header>
+      {selected.input?.party && <p className="saved-planner-preferences">{copy(`${selected.input.party.adults} yetişkin, ${selected.input.party.children} çocuk`, `${selected.input.party.adults} adults, ${selected.input.party.children} children`, `${selected.input.party.adults} të rritur, ${selected.input.party.children} fëmijë`)}{selected.input.party.children > 0 ? ` · ${copy("Çocuk yaşları", "Child ages", "Moshat e fëmijëve")}: ${selected.input.party.childAges.join(", ")}` : ""} · {selected.input.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : selected.input.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar")}</p>}
       {selected.plan.routes.map((route, index) => <article key={`${route.name}-${index}`}>
         <div className="saved-plan-route-head"><span>{index + 1}</span><div><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong></div></div>
         <p>{route.why}</p>
@@ -381,13 +385,20 @@ function PlanDetail({ selected, onClose, onPrepareCockpit }: { selected: Selecte
         {route.visaNote && <p>{route.visaNote}</p>}
         {route.visaVerifiedAt && <small>{copy("Kaynak kontrol tarihi", "Source checked")}: {route.visaVerifiedAt}</small>}
         {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}>{copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
-        <div className="saved-plan-facts"><span><small>{copy("Bütçe", "Budget")}</small><strong>{route.estimatedBudget}</strong></span><span><small>{copy("Süre", "Duration")}</small><strong>{route.idealDuration}</strong></span></div>
+        <div className="saved-plan-facts"><span><small>{copy("Bütçe", "Budget")}</small><strong>{selected.input?.tier ? tierLabel : route.estimatedBudget}</strong></span><span><small>{copy("Süre", "Duration")}</small><strong>{route.idealDuration}</strong></span></div>
+        {selected.input && <SavedBudgetDetails route={route} input={selected.input}/>}
         {Array.isArray(route.dailyPlan) && route.dailyPlan.length > 0 && <div className="saved-plan-days"><strong>{copy("Örnek gezi planı", "Sample itinerary")}</strong>{route.dailyPlan.map((day) => <div key={day}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>}
         {Array.isArray(route.warnings) && route.warnings.length > 0 && <div className="saved-plan-warnings">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={15} /><span>{warning}</span></div>)}</div>}
       </article>)}
       <button className="primary-wide" onClick={onClose}><Icon name="check" size={18} /> {copy("Planı gördüm", "Done")}</button>
     </div>}
   </Sheet>;
+}
+
+function SavedBudgetDetails({ route, input }: { route: RouteSuggestion; input: PlannerInput }) {
+  const { copy } = useI18n();
+  const [open, setOpen] = useState(false);
+  return <details className="planner-cost-methodology" onToggle={event => setOpen(event.currentTarget.open)}><summary>{copy("Kaydedilen tercihlerle maliyet analizi", "Cost analysis with saved preferences", "Analiza e kostos me preferencat e ruajtura")}</summary>{open && <RouteBudgetAnalysis route={route} input={input}/>}</details>;
 }
 
 function Empty({ icon, title, text, action, onAction }: { icon: IconName; title: string; text: string; action: string; onAction: () => void }) {

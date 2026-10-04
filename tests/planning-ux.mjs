@@ -19,6 +19,8 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../lib/localeFormatting') return localeFormatting;
     if (name === '../lib/routeCockpitIntent') return load('mobile/src/lib/routeCockpitIntent.ts');
     if (name === '../lib/savedRouteIdentity') return load('mobile/src/lib/savedRouteIdentity.ts', {'./id': load('mobile/src/lib/id.ts')});
+    if (name === '../../../lib/planner-preferences' || name === './planner-preferences') return load('lib/planner-preferences.ts');
+    if (name === '../components/RouteBudgetAnalysis') return { RouteBudgetAnalysis: 'RouteBudgetAnalysis' };
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, testModule, testModule.exports);
@@ -204,11 +206,11 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false } = {}) {
+function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en' } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
-    ...common(host), '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
+    ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
     '../lib/api': { generateRoutePlan: async input => { generated.push(input); return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
@@ -308,8 +310,8 @@ test('Choosing a ready route records its displayed duration without rewriting al
     button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
     assert.equal(h.saves[0].input.days, route.idealDuration);
     button(h.host.render(), 'Find other route ideas').props.onClick();
-    const duration = nodes(h.host.render()).find(node => node.type === 'label' && text(node).startsWith('Duration'));
-    assert.equal(find(duration, 'select').props.value, '4–6 gün', 'Choosing a sample must not overwrite the independent search form');
+    const duration = nodes(h.host.render()).find(node => node.type === 'label' && text(node).startsWith('How many days?'));
+    assert.equal(find(duration, 'select').props.value, 5, 'Choosing a sample must not overwrite the independent search form');
   } finally { h.host.dispose(); }
 });
 
@@ -319,12 +321,15 @@ test('Fixed-target mode requires a destination, preserves it on a mismatched res
     const view = () => h.host.render();
     find(view(), 'button', props => text(props.children).startsWith('I know where to go')).props.onClick();
     find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
-    assert.equal(button(view(), 'Create Route').props.disabled, true);
+    assert.equal(button(view(), 'Create Route').props.disabled, false);
+    button(view(), 'Create Route').props.onClick();
+    assert.equal(h.generated.length, 0);
+    assert.equal(find(view(), 'AirportField', p => p.label === 'To?').props.error, 'Choose your destination city.');
     find(view(), 'AirportField', props => props.label === 'To?').props.onChange({ iata: 'BJV', city: 'Bodrum', name: 'Milas Bodrum Airport', country: 'Türkiye', countryCode: 'TR' });
     assert.equal(button(view(), 'Create Route').props.disabled, false);
     const create = button(view(), 'Create Route'); create.props.onClick(); create.props.onClick(); await tick();
     assert.equal(h.generated.length, 1, 'Rapid double taps must not spend a second AI request');
-    assert.equal(h.generated[0].destination.name, 'Bodrum'); assert.equal(h.generated[0].dayCount, 3);
+    assert.equal(h.generated[0].destination.name, 'Bodrum'); assert.equal(h.generated[0].dayCount, 5);
     assert.match(text(view()), /Starter outline/); assert.doesNotMatch(text(find(view(), 'section', p => p.className === 'plan-results')), /Rome|Paris/);
     button(view(), 'Save this plan').props.onClick(); await tick(); const first = h.saves[0];
     button(view(), 'Edit').props.onClick();
@@ -333,7 +338,7 @@ test('Fixed-target mode requires a destination, preserves it on a mismatched res
     button(view(), 'Add stop').props.onClick(); button(view(), 'Apply changes').props.onClick();
     button(view(), 'Save this plan').props.onClick(); await tick();
     assert.equal(h.saves.length, 2); assert.notEqual(h.saves[1].id, first.id, 'Edited content must not be suppressed as already saved');
-    assert.equal(first.plan.routes[0].dailyPlan.length, 3); assert.equal(h.saves[1].plan.routes[0].dailyPlan.at(-1), 'Evening marina walk');
+    assert.equal(first.plan.routes[0].dailyPlan.length, 5); assert.equal(h.saves[1].plan.routes[0].dailyPlan.at(-1), 'Evening marina walk');
     assert.equal(h.saves[1].input.destination.name, 'Bodrum');
   } finally { h.host.dispose(); }
 });
@@ -446,7 +451,7 @@ test('Deleting a saved route on another screen clears retained planner state and
 test('Saved plan detail transfers the chosen route to Cockpit for its signed-in owner and asks a guest to sign in', async () => {
   for (const account of [false, true]) {
     const host=hooks(), intents=[], login=[];
-    const saved=[{id:'route-source-123',createdAt:'2026-10-01T08:00:00Z',input:{days:'3 days',vibe:['Culture']},plan:{summary:'Two options',routes:[route,{...route,name:'Bodrum'}]}}];
+    const saved=[{id:'route-source-123',createdAt:'2026-10-01T08:00:00Z',input:{days:'3 days',vibe:['Culture'],tier:'plus',budget:'Plus',currency:'EUR',activityBudgetPerPersonDay:5,party:{adults:2,children:1,childAges:[4]}},plan:{summary:'Two options',routes:[route,{...route,name:'Bodrum'}]}}];
     const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
       ...common(host),'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
       '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
@@ -457,7 +462,13 @@ test('Saved plan detail transfers the chosen route to Cockpit for its signed-in 
       host.start(TripsScreen,{initialSection:'routes',user:account?{id:'owner-a'}:null,ownerId:account?'owner-a':null,accessToken:account?'UNIT_ONLY':'',onNavigate(){},onNotice(){},onOpenAccount:()=>login.push(true),onOpenDestination(){},onPrepareCockpit:intent=>intents.push(intent)});
       await tick();button(host.render(),'Open plan').props.onClick();
       const detail=nodes(host.render()).find(node=>typeof node.type==='function'&&node.type.name==='PlanDetail');
-      const articles=nodes(detail.type(detail.props)).filter(node=>node.type==='article');
+      const detailView = detail.type(detail.props);
+      assert.match(text(detailView), /2 adults, 1 children.*Child ages: 4.*Plus/);
+      const budgetDetails = nodes(detailView).filter(node => typeof node.type === 'function' && node.type.name === 'SavedBudgetDetails');
+      assert.equal(budgetDetails.length, 2);
+      assert.equal(budgetDetails[0].props.input, saved[0].input, 'Reopened cost analysis uses the saved preferences, not planner defaults');
+      assert.equal(budgetDetails[0].props.input.currency, 'EUR'); assert.equal(budgetDetails[0].props.input.activityBudgetPerPersonDay, 5);
+      const articles=nodes(detailView).filter(node=>node.type==='article');
       button(articles[1],'Add this route to Cockpit').props.onClick();
       if (account) { assert.equal(intents.length,1);assert.equal(intents[0].route.name,'Bodrum');assert.equal(intents[0].routeIndex,1);assert.equal(intents[0].ownerId,'owner-a');assert.equal(intents[0].sourceRouteId,saved[0].id);assert.equal(login.length,0); }
       else {assert.equal(intents.length,0);assert.equal(login.length,1);}
@@ -483,4 +494,99 @@ test('City budget detail sends its selected city, travellers and duration as a d
     button(view,'Add this estimate to Cockpit').props.onClick();
     assert.equal(intents.length,1);const intent=intents[0];assert.equal(intent.city,name);assert.equal(intent.ownerId,'owner-a');assert.equal(intent.estimate.days,3);assert.equal(intent.estimate.people,3);assert.equal(intent.displayCurrency,'GBP');assert.equal(intent.displayTotal,intent.estimate.total);assert.equal(intent.sourceMonth,'2026-05');
   }finally{host.dispose();}
+});
+
+
+test('Missing fields are actionable, switch back from preferences, scroll/focus the first error and retain choices in every locale', () => {
+  for (const locale of ['tr', 'en', 'sq']) {
+    const h = plannerHarness({ seeded: false, locale });
+    try {
+      const view = () => h.host.render();
+      const preferences = locale === 'tr' ? 'Tercihlerim' : 'Preferences';
+      button(view(), preferences).props.onClick();
+      const fields = find(view(), 'section', p => p.className === 'form-card planner-form reference-planner');
+      const scrolls = [], focuses = [], selectors = [];
+      fields.props.ref.current = { querySelector: selector => { selectors.push(selector); return { scrollIntoView: value => scrolls.push(value), querySelector: () => ({ focus: value => focuses.push(value) }) }; } };
+      const createLabel = locale === 'tr' ? 'Rota Oluştur' : 'Create Route';
+      assert.equal(button(view(), createLabel).props.disabled, false);
+      button(view(), createLabel).props.onClick();
+      const current = view();
+      assert.equal(h.generated.length, 0);
+      assert.equal(selectors.at(-1), '[data-planner-field="origin"]');
+      assert.equal(scrolls.at(-1).block, 'center');
+      assert.equal(focuses.at(-1).preventScroll, true);
+      const origin = find(current, 'AirportField');
+      assert.equal(origin.props.error, locale === 'tr' ? 'Çıkış şehrini seçmelisin.' : locale === 'sq' ? 'Zgjidh qytetin e nisjes.' : 'Choose your departure city.');
+      assert.equal(find(current, 'label', p => p['data-planner-field'] === 'duration').props.children[1].props.value, 5);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('Family ages block generation until completed, and Plus, party, currency and duration persist with the generated route', async () => {
+  const h = plannerHarness({ seeded: false });
+  try {
+    const view = () => h.host.render();
+    find(view(), 'AirportField').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport' });
+    find(view(), 'button', p => text(p.children).startsWith('Plus')).props.onClick();
+    find(find(view(), 'label', p => text(p.children).startsWith('With whom?')), 'select').props.onChange({ target: { value: 'Ailemle' } });
+    find(find(view(), 'label', p => text(p.children).startsWith('Cost currency')), 'select').props.onChange({ target: { value: 'EUR' } });
+    const focusTargets = [];
+    find(view(), 'section', p => p.className === 'form-card planner-form reference-planner').props.ref.current = { querySelector: () => ({ scrollIntoView() {}, querySelector: selector => ({ focus: () => focusTargets.push(selector) }) }) };
+    button(view(), 'Create Route').props.onClick();
+    assert.equal(h.generated.length, 0);
+    assert.deepEqual(focusTargets, ['[aria-invalid="true"]'], 'Invalid child age must take priority over the earlier companion-type select');
+    assert.match(text(view()), /enter every child's age/);
+    const age = find(find(view(), 'label', p => text(p.children).startsWith('Child 1 age')), 'select');
+    assert.equal(age.props['aria-invalid'], true);
+    age.props.onChange({ target: { value: '4' } });
+    button(view(), 'Create Route').props.onClick(); await tick();
+    assert.equal(h.generated.length, 1);
+    assert.equal(h.generated[0].tier, 'plus'); assert.equal(h.generated[0].budget, 'Plus'); assert.equal(h.generated[0].currency, 'EUR');
+    assert.deepEqual(JSON.parse(JSON.stringify(h.generated[0].party)), { adults: 2, children: 1, childAges: [4] });
+    find(find(view(), 'label', p => text(p.children).startsWith('Child 1 age')), 'select').props.onChange({ target: { value: '8' } });
+    button(view(), 'Save 2 suggestions').props.onClick(); await tick();
+    assert.equal(h.saves[0].input.party.childAges[0], 4, 'Later form edits cannot silently change the saved generated preferences');
+    assert.equal(h.saves[0].input.dayCount, 5);
+    assert.ok(find(view(), 'RouteBudgetAnalysis', p => p.input.party.childAges[0] === 4));
+  } finally { h.host.dispose(); }
+});
+
+
+test('Route cost result changes currency safely, ignores an obsolete rate reply, distinguishes missing activity prices and collapses methodology', async () => {
+  const host = hooks(), waiting = [];
+  const benchmarks = load('lib/country-intelligence/city-benchmarks.ts');
+  const math = load('lib/country-intelligence/trip-budget.ts');
+  const preferences = load('lib/planner-preferences.ts');
+  const routeBudget = load('lib/country-intelligence/route-budget.ts', { './city-benchmarks': benchmarks, './cost-model': load('lib/country-intelligence/cost-model.ts'), './trip-budget': math, '../planner-preferences': preferences });
+  let input = { origin: 'Istanbul', days: '3 days', dayCount: 3, month: 'Ekim', budget: 'Orta', who: 'Ailemle', vibe: ['City'], tier: 'balanced', party: { adults: 2, children: 1, childAges: [4] }, currency: 'EUR' };
+  const { RouteBudgetAnalysis } = load('mobile/src/components/RouteBudgetAnalysis.tsx', {
+    ...common(host), '../../../lib/country-intelligence/city-benchmarks': benchmarks, '../../../lib/country-intelligence/route-budget': routeBudget,
+    '../../../lib/planner-preferences': preferences, '../lib/countryIntelligence': { useCountryData: () => ({ data: null, loading: false, error: false, retry() {} }) },
+    '../lib/travelAssistant': { storedQuote: () => null, loadQuote: (base, quote) => new Promise(resolve => waiting.push({ base, quote, resolve })) },
+    '../lib/native': { openExternal() {} }, './Icon': { Icon: 'Icon' },
+  }, { window: { setInterval: () => 1, clearInterval() {} } });
+  const change = patch => { input = { ...input, ...patch }; host.render({ input }); };
+  try {
+    host.start(RouteBudgetAnalysis, { route, input, onCurrency: currency => change({ currency, activityBudgetPerPersonDay: undefined }), onActivityBudget: value => change({ activityBudgetPerPersonDay: value }) });
+    assert.equal(waiting[0].quote, 'EUR');
+    find(host.render(), 'select').props.onChange({ target: { value: 'USD' } });
+    assert.equal(waiting[1].quote, 'USD');
+    waiting[0].resolve({ base: 'GBP', quote: 'EUR', rate: 100, date: new Date().toISOString().slice(0, 10) }); await tick();
+    assert.equal(text(find(host.render(), 'div', p => p.className === 'planner-cost-total')).includes('—'), true, 'A late EUR quote cannot be reused for the current USD selection');
+    waiting[1].resolve({ base: 'GBP', quote: 'USD', rate: 2, date: new Date().toISOString().slice(0, 10) }); await tick();
+    assert.match(text(host.render()), /Estimated subtotal/);
+    assert.match(text(host.render()), /Activity prices are unknown/);
+    assert.match(text(find(host.render(), 'div', p => p.className === 'planner-cost-total')), /\$/);
+    assert.equal(find(host.render(), 'details').props.open, undefined);
+    find(host.render(), 'input').props.onChange({ target: { value: '0' } });
+    assert.match(text(host.render()), /Estimated total for this scope/);
+    assert.doesNotMatch(text(host.render()), /Activity prices are unknown/);
+    host.render({ route: { ...route, name: 'Bodrum', cityOrRegion: 'Bodrum', destinationCode: 'BJV' } });
+    assert.match(text(host.render()), /No sourced price baseline/);
+    assert.equal(find(host.render(), 'div', p => p.className === 'planner-cost-total'), undefined);
+    assert.equal(waiting.length, 2, 'An unsupported city must not fetch or borrow unrelated city prices');
+    host.render({ route, onCurrency: undefined, onActivityBudget: undefined });
+    assert.equal(find(host.render(), 'input'), undefined, 'Saved read-only analysis cannot silently change the stored allowance');
+    assert.equal(find(host.render(), 'select'), undefined);
+  } finally { host.dispose(); }
 });

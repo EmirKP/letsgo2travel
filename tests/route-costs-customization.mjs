@@ -186,3 +186,130 @@ test('Albanian HTTP requests and incomplete AI replies keep Albanian copy across
     assert.equal(calls.length, 2, 'Cancelled requests do not reach either transport');
   }
 });
+
+
+const routeCosts = load('lib/country-intelligence/route-budget.ts');
+const partyPreferences = load('lib/planner-preferences.ts');
+const budgetNow = Date.parse('2026-10-04T12:00:00Z');
+const costRow = { id: 'test', code: 'IT', city: { tr: 'Roma', en: 'Rome' }, hotel: 200, meal: 60, travel: 10, basket: 999 };
+const familyInput = { ...input, tier: 'plus', currency: 'EUR', party: { adults: 2, children: 1, childAges: [4] } };
+const euroQuote = { base: 'GBP', quote: 'EUR', rate: 1.2, date: '2026-10-02' };
+
+test('Family route cost uses room rounding, explicit tier assumptions and user activity allowance without invented prices', () => {
+  const estimate = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, null, euroQuote, null, budgetNow);
+  assert.equal(estimate.rooms, 2); assert.equal(estimate.people, 3);
+  assert.equal(estimate.hotel, 400 * 1.5 * 1.2);
+  assert.equal(estimate.meals, 270 * 1.35 * 1.2);
+  assert.equal(estimate.travel, 60 * 1.3 * 1.2);
+  assert.equal(estimate.activities, null); assert.equal(estimate.partial, true);
+  const full = routeCosts.routeBudgetEstimate(costRow, { ...familyInput, activityBudgetPerPersonDay: 5 }, 3, null, euroQuote, null, budgetNow);
+  assert.equal(full.activities, 45); assert.equal(full.total, estimate.total + 45); assert.equal(full.partial, false);
+  assert.equal(full.perPersonDay, full.total / 9);
+  const free = routeCosts.routeBudgetEstimate(costRow, { ...familyInput, activityBudgetPerPersonDay: 0 }, 3, null, euroQuote, null, budgetNow);
+  assert.equal(free.partial, false); assert.equal(free.activities, 0);
+  assert.equal(costRow.basket, 999);
+});
+
+test('Monthly CPI requires a matching historical local-currency bridge; annual inflation and stale FX cannot inflate a total', () => {
+  const adjustment = { currency: 'EUR', referenceFx: { base: 'GBP', quote: 'EUR', rate: 1.1, date: '2026-05-05' }, inflation: { provider: 'Eurostat', referenceMonth: '2026-05', referenceIndex: 100, index: 105, period: '2026-08' } };
+  const actual = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, adjustment, euroQuote, null, budgetNow);
+  assert.equal(actual.inflationApplied, true); assert.ok(Math.abs(actual.hotel - 400 * 1.5 * 1.1 * 1.05) < 0.000001);
+  for (const inflation of [{ ...adjustment.inflation, provider: 'World Bank', annualPercent: 50 }, { ...adjustment.inflation, referenceMonth: '2020-01' }, { ...adjustment.inflation, referenceIndex: -100 }, { ...adjustment.inflation, period: '2027-01' }]) {
+    const result = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, { ...adjustment, inflation }, euroQuote, null, budgetNow);
+    assert.equal(result.inflationApplied, false); assert.equal(result.hotel, 720);
+  }
+  const expired = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, null, { ...euroQuote, date: '2026-09-01' }, null, budgetNow);
+  assert.equal(expired.total, null); assert.equal(expired.hotel, null);
+  const wrongPair = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, null, { ...euroQuote, quote: 'USD' }, null, budgetNow);
+  assert.equal(wrongPair.total, null);
+  const gbp = routeCosts.routeBudgetEstimate(costRow, { ...familyInput, currency: 'GBP' }, 3, null, null, null, budgetNow);
+  assert.equal(gbp.hotel, 600);
+});
+
+test('Destination cost lookup never substitutes a country average or unrelated city', () => {
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Bodrum', cityOrRegion: 'Bodrum', destinationCode: 'BJV' }), null);
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Roma', destinationCode: 'FCO' }).city.en, 'Rome');
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Tiranë', destinationCode: 'TIA' }).code, 'AL');
+});
+
+test('Preferences snapshot isolates ages, normalizes legacy premium and leaves old route payloads compatible', () => {
+  const original = { ...input, accommodation: 'Otel', budget: 'Yüksek / premium', party: { adults: 2, children: 1, childAges: [4] }, currency: 'EUR' };
+  const snapshot = load('mobile/src/lib/plannerState.ts').snapshotPlannerInput(original);
+  original.party.childAges[0] = 9; original.party.adults = 1;
+  assert.equal(snapshot.party.childAges[0], 4); assert.equal(snapshot.party.adults, 2); assert.equal(snapshot.tier, 'plus'); assert.equal(snapshot.budget, 'Plus');
+  assert.equal(partyPreferences.normalizePlannerPreferences({ budget: 'Orta', who: 'Tek başıma' }).party.adults, 1);
+  for (const party of [{ adults: 0, children: 1, childAges: [4] }, { adults: 20, children: 1, childAges: [4] }, { adults: 2, children: 1, childAges: [-1] }, { adults: 2, children: 2, childAges: [4] }]) assert.equal(partyPreferences.validTravelParty(party), false);
+});
+
+test('API validates family counts and ages, includes normalized tier and ages in the AI prompt, and enforces discovery duration', async () => {
+  const city = load('lib/airport-search.ts').findAirportByIata('BJV').city;
+  const endpoint = api({ enabled: true, generated: { routes: [{ name: city, country: 'Türkiye', dailyPlan: ['1','2','3','4'], scores: { overall: 85 } }] } });
+  assert.equal((await endpoint.POST(request({ ...familyInput, party: { adults: 2, children: 1, childAges: [] } }))).status, 400);
+  const response = await (await endpoint.POST(request(familyInput))).json();
+  assert.equal(response.isFallback, false); assert.match(endpoint.prompts[0], /Plus: prioritise comfortable stays/); assert.match(endpoint.prompts[0], /2 adults, 1 children; child ages: 4/); assert.match(endpoint.prompts[0], /reduce pace for young children/);
+  const discovery = await (await endpoint.POST(request({ ...familyInput, mode: 'discover', destination: undefined, dayCount: 7, locale: 'sq' }))).json();
+  assert.equal(discovery.isFallback, true); assert.equal(discovery.data.routes.length, 3);
+  for (const route of discovery.data.routes) { assert.equal(route.dailyPlan.length, 7); assert.match(route.dailyPlan[0], /pushime/); }
+});
+
+
+test('Malformed, impossible and future FX dates never become current converted costs', () => {
+  for (const date of ['2026-10-40', 'not-a-date', '2026-10-05', '2026-10-02T12:00:00Z', '2026-09-31']) {
+    const result = routeCosts.routeBudgetEstimate(costRow, familyInput, 3, null, { ...euroQuote, date }, null, budgetNow);
+    assert.equal(result.total, null, date);
+  }
+});
+
+
+test('Fresh and cached discovery reject malformed day content and keep duration consistent with the budget snapshot', async () => {
+  const body = { ...familyInput, mode: 'discover', destination: undefined, dayCount: 4, locale: 'en' };
+  const makePlan = days => ({ routes: ['Rome', 'Paris', 'London'].map(name => ({ name, country: 'Italy', dailyPlan: days, idealDuration: '10 days' })) });
+  for (const cached of [false, true]) {
+    const malformed = makePlan(['day one', ' ', null, 4]);
+    const endpoint = api(cached ? { cached: malformed } : { enabled: true, generated: malformed });
+    const result = await (await endpoint.POST(request(body))).json();
+    assert.equal(result.isFallback, true); assert.equal(result.data.routes.length, 3);
+    assert.ok(result.data.routes.every(route => route.dailyPlan.length === 4 && route.idealDuration === '4 days'));
+    const valid = makePlan(['day one', 'day two', 'day three', 'day four']);
+    const accepted = api(cached ? { cached: valid } : { enabled: true, generated: valid });
+    const actual = await (await accepted.POST(request(body))).json();
+    assert.equal(actual.isFallback, false); assert.ok(actual.data.routes.every(route => route.idealDuration === '4 days'));
+  }
+});
+
+
+test('Cost lookup rejects contradictory titles, explicit unsupported cities and airport identities', () => {
+  for (const route of [
+    { name: 'Rome', cityOrRegion: 'Bodrum', destinationCode: 'BJV' },
+    { name: 'Rome', cityOrRegion: 'Bodrum', destinationCode: 'FCO' },
+    { name: 'Rome', cityOrRegion: 'Paris', destinationCode: 'CDG' },
+    { name: 'Rome', cityOrRegion: 'Rome', destinationCode: 'BJV' },
+    { name: 'Paris', cityOrRegion: 'Paris', destinationCode: 'FCO' },
+  ]) assert.equal(routeCosts.routeCityBenchmark(route), null);
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Romë', cityOrRegion: 'Romë', destinationCode: 'FCO' }).city.en, 'Rome');
+});
+
+test('Rome and Roma city searches rank real Italian airports first while explicit RMA remains Australia', () => {
+  const airports = load('lib/airport-search.ts');
+  for (const query of ['Rome', 'Roma']) {
+    const results = airports.searchAirports(query);
+    assert.equal(results[0].iata, 'FCO'); assert.equal(results[1].iata, 'CIA');
+    assert.ok(results.slice(0, 2).every(row => row.countryCode === 'IT'));
+    assert.ok(!results.some(row => row.iata === 'ROM'), 'Do not introduce a fictional metro airport record');
+  }
+  assert.equal(airports.searchAirports('RMA')[0].countryCode, 'AU');
+});
+
+
+test('City prices retain country identity and support only verified airport municipality aliases', () => {
+  const airports = load('lib/airport-search.ts');
+  const australian = airports.findAirportByIata('RMA');
+  assert.equal(routeCosts.routeCityBenchmark({ name: australian.city, cityOrRegion: australian.city, destinationCode: 'RMA', country: australian.country }), null);
+  for (const code of ['IST', 'SAW']) {
+    const airport = airports.findAirportByIata(code);
+    const row = routeCosts.routeCityBenchmark({ name: airport.city, cityOrRegion: airport.city, destinationCode: code, country: airport.country });
+    assert.equal(row, null, 'The measured catalog has no Istanbul baseline; never substitute a European city');
+  }
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Roma', cityOrRegion: 'Roma', destinationCode: 'FCO', country: 'Italy' }).code, 'IT');
+  assert.equal(routeCosts.routeCityBenchmark({ name: 'Tiranë', destinationCode: 'TIA', country: 'Shqipëri' }).code, 'AL');
+});

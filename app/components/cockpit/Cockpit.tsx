@@ -462,7 +462,7 @@ export default function Cockpit({
 
             <section className={styles.workspaceGrid}>
               <div className={styles.mainColumn}>
-                <CockpitJourney key={`${selectedTrip.userId}:${selectedTrip.id}`} trip={selectedTrip}/>
+                <CockpitJourney key={`${selectedTrip.userId}:${selectedTrip.id}`} trip={selectedTrip} onReloadTrip={onReloadTrip}/>
                 <CockpitTripSettings key={`edit:${selectedTrip.userId}:${selectedTrip.id}`} trip={selectedTrip} onSave={onSaveTrip} onReload={onReloadTrip}/>
                 <a
                   className={styles.esimCard}

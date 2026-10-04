@@ -1,12 +1,14 @@
 import type { GuideCard } from './types';
 import { EMBASSIES } from './embassies';
 import { EXPANDED_GUIDES } from './guide-expansion';
+import { PRACTICAL_GUIDES } from './guide-practical';
 export { EMBASSIES } from './embassies';
 
 // Bundled, versioned records: missing coverage is never inferred from neighbours.
 export const GUIDE_VERSION = '2026-09-16';
 export const GUIDE_CARDS: GuideCard[] = [
   ...EXPANDED_GUIDES,
+  ...PRACTICAL_GUIDES,
   { country:'TH', category:'law', verifiedAt:GUIDE_VERSION,
     sourceUrl:'https://www.gov.uk/foreign-travel-advice/thailand/safety-and-security',
     title:{tr:'Kraliyetle ilgili ifadeler',en:'Comments about the monarchy'},

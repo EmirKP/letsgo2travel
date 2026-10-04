@@ -18,15 +18,17 @@ import type {
   TransitStop,
 } from "../../../lib/travel-assistant/transit";
 
-const endpoint = () =>
-  `${config.travelAssistantApiBaseUrl}/api/travel-assistant/transit?city=london&`;
+type TransitRegion = 'london' | 'norway';
+const endpoint = (city: TransitRegion = 'london') =>
+  `${config.travelAssistantApiBaseUrl}/api/travel-assistant/transit?city=${city}&`;
 export function TravelTransit() {
   const { copy } = useI18n();
-  const [mode, setMode] = useState<'world' | 'london'>('world');
+  const [mode, setMode] = useState<'world' | TransitRegion>('world');
   return <section className="ta-panel ta-form"><nav className="ta-transport-modes" aria-label={copy('Ulaşım kapsamı', 'Transport coverage', 'Mbulimi i transportit')}>
     <button type="button" aria-pressed={mode === 'world'} onClick={() => setMode('world')}>{copy('Tüm şehirler', 'All cities', 'Të gjitha qytetet')}</button>
     <button type="button" aria-pressed={mode === 'london'} onClick={() => setMode('london')}>{copy('Londra · TfL', 'London · TfL', 'Londër · TfL')}</button>
-  </nav>{mode === 'world' ? <WorldwideTransit/> : <LondonTransit/>}</section>;
+    <button type="button" aria-pressed={mode === 'norway'} onClick={() => setMode('norway')}>{copy('Norveç · Entur', 'Norway · Entur', 'Norvegji · Entur')}</button>
+  </nav>{mode === 'world' ? <WorldwideTransit/> : <RegionalTransit key={mode} city={mode}/>}</section>;
 }
 function WorldwideTransit() {
   const { copy } = useI18n();
@@ -55,8 +57,9 @@ function WorldwideTransit() {
     {error && <p role="alert" className="ta-warning">{error}</p>}
   </div>;
 }
-function LondonTransit() {
+function RegionalTransit({ city }: { city: TransitRegion }) {
   const { copy, locale } = useI18n();
+  const norway = city === 'norway';
   const now = useCurrentTime();
   const [from, setFrom] = useState<TransitStop | null>(null);
   const [to, setTo] = useState<TransitStop | null>(null);
@@ -80,16 +83,16 @@ function LondonTransit() {
     setResult(null);
     try {
       const raw = await requestJson<unknown>(
-        `${endpoint()}${new URLSearchParams({ from: from.id, to: to.id })}`,
+        `${endpoint(city)}${new URLSearchParams({ from: from.id, to: to.id })}`,
         { timeoutMs: 16000 },
       );
       const value = validateTransit(raw);
-      if (!value) throw new Error("invalid");
+      if (!value || value.source !== (norway ? 'Entur' : 'TfL')) throw new Error("invalid");
       if (id === generation.current) setResult(value);
     } catch {
       if (id === generation.current)
         setError(
-          copy(
+          norway ? copy('Rota alınamadı. Yeniden dene veya Entur planlayıcısını aç.', 'Could not retrieve a route. Retry or open the Entur planner.', 'Rruga nuk u gjet. Provo përsëri ose hap planifikuesin Entur.') : copy(
             "Rota alınamadı. İnternet bağlantını kontrol et veya TfL planlayıcısını aç.",
             "Could not retrieve a route. Check your connection or open the TfL planner.",
           ),
@@ -103,17 +106,19 @@ function LondonTransit() {
     <section className="ta-panel ta-form">
       <h2>{copy("Toplu taşıma", "Public transport")}</h2>
       <p>
-        {copy(
+        {norway ? copy('Uygulama içi kapsam: Norveç genelindeki duraklar arasında toplu taşıma ve yürüyüş bağlantıları. Kaynak: Entur. İnternet gerekir.', 'In-app coverage: public transport and walking connections between stops across Norway. Source: Entur. Internet required.', 'Mbulimi brenda aplikacionit: transport publik dhe ecje mes stacioneve në Norvegji. Burimi: Entur. Kërkohet internet.') : copy(
           "Uygulama içi rota kapsamı: Londra, metro durakları arasında metro, otobüs ve yürüyüş bağlantıları. Kaynak: Transport for London. İnternet gerekir.",
           "In-app coverage: London, tube, bus and walking connections between Underground stations. Source: Transport for London. Internet required.",
         )}
       </p>
       <StopPicker
+        city={city}
         label={copy("Başlangıç durağı", "Departure station")}
         value={from}
         onChange={(s) => change("from", s)}
       />
       <StopPicker
+        city={city}
         label={copy("Varış durağı", "Arrival station")}
         value={to}
         onChange={(s) => change("to", s)}
@@ -128,7 +133,7 @@ function LondonTransit() {
           : copy("Şimdi hareket için rota bul", "Find routes departing now")}
       </button>
       <p className="ta-muted">
-        {copy(
+        {norway ? copy('Saatler Norveç yerel saatidir. Süreler tahminidir; sefer garantisi değildir. Hat adları ve sağlayıcı duyuruları Norveççe olabilir.', 'Times are local to Norway. Durations are estimates, not guaranteed departures. Line names and provider notices may be in Norwegian.', 'Orët janë lokale të Norvegjisë. Kohëzgjatjet janë vlerësime, jo garanci. Emrat dhe njoftimet mund të jenë në norvegjisht.') : copy(
           "Saatler Londra yerel saatidir. Süreler tahminidir; canlı araç konumu veya garanti edilmiş kalkış saati değildir. Sağlayıcının açıklamaları İngilizcedir.",
           "Times are local to London. Durations are estimates, not live vehicle locations or guaranteed departures. Provider instructions are in English.",
         )}
@@ -156,12 +161,12 @@ function LondonTransit() {
               <article className="ta-card" key={i}>
                 <h3>
                   {j.minutes} {copy("dakika", "minutes")} ·{" "}
-                  {j.departure.slice(11, 16)}–{j.arrival.slice(11, 16)}
+                  {j.departure.slice(11, 16)}–{j.arrival.slice(11, 16)}{j.departure.slice(0, 10) !== j.arrival.slice(0, 10) && ` (${j.arrival.slice(0, 10)})`}
                 </h3>
                 <ol className="ta-transit-legs">
                   {j.legs.map((l, n) => (
                     <li key={n}>
-                      <strong lang="en">{l.summary}</strong>
+                      <strong lang={norway ? undefined : "en"}>{l.summary}</strong>
                       <p>
                         {l.from} → {l.to}
                         <br />
@@ -169,7 +174,7 @@ function LondonTransit() {
                         {l.minutes} {copy("dk", "min")}
                       </p>
                       {l.disruptions.map((d, k) => (
-                        <p key={k} className="ta-warning" lang="en">
+                        <p key={k} className="ta-warning" lang={norway ? undefined : "en"}>
                           {d}
                         </p>
                       ))}
@@ -190,11 +195,11 @@ function LondonTransit() {
       )}
       <div className="ta-actions">
         <a
-          href="https://tfl.gov.uk/plan-a-journey/"
+          href={norway ? "https://entur.no/" : "https://tfl.gov.uk/plan-a-journey/"}
           target="_blank"
           rel="noreferrer"
         >
-          {copy("Resmî TfL planlayıcısı", "Official TfL planner")}
+          {norway ? copy('Resmî Entur planlayıcısı', 'Official Entur planner', 'Planifikuesi zyrtar Entur') : copy("Resmî TfL planlayıcısı", "Official TfL planner")}
         </a>
         <a
           href="https://www.google.com/maps/dir/?api=1&travelmode=transit"
@@ -207,14 +212,17 @@ function LondonTransit() {
           )}
         </a>
       </div>
+      {norway && <p className="ta-muted">{copy('Entur AS açık verileri kullanılmış ve gösterim için düzenlenmiştir.', 'Contains open data from Entur AS, adapted for display.', 'Përmban të dhëna të hapura nga Entur AS, të përshtatura për shfaqje.')} <a href="https://data.norge.no/nlod/en/2.0" target="_blank" rel="noreferrer">NLOD 2.0</a></p>}
     </section>
   );
 }
 function StopPicker({
+  city = 'london',
   label,
   value,
   onChange,
 }: {
+  city?: TransitRegion;
   label: string;
   value: TransitStop | null;
   onChange: (s: TransitStop | null) => void;
@@ -233,14 +241,14 @@ function StopPicker({
     setStops([]);
     try {
       const result = await requestJson<{ stops: TransitStop[] }>(
-        `${endpoint()}${new URLSearchParams({ q })}`,
+        `${endpoint(city)}${new URLSearchParams({ q })}`,
         // A station search may need a 10s search plus an 8s interchange lookup.
         { timeoutMs: 21000 },
       );
       if (
         !Array.isArray(result.stops) ||
         result.stops.some(
-          (s) => !validStopId(s.id) || typeof s.name !== "string",
+          (s) => !validStopId(s.id, city) || typeof s.name !== "string" || s.name.length > 160,
         )
       )
         throw new Error("invalid");
@@ -269,7 +277,7 @@ function StopPicker({
           value={q}
           maxLength={60}
           onKeyDown={e => {if (e.key === "Enter" && q.trim().length >= 2 && !busy) {e.preventDefault();void search();}}}
-          placeholder="Waterloo, Victoria…"
+          placeholder={city === 'norway' ? 'Oslo S, Bergen, Trondheim…' : 'Waterloo, Victoria…'}
           onChange={(e) => {
             generation.current++;
             setQ(e.target.value);

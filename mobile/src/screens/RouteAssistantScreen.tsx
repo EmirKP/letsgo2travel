@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
+import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
+import { normalizePlannerPreferences, validTravelParty, type TravelTier } from "../../../lib/planner-preferences";
 import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
 import { createFallbackPlan, routeByDestinationCode } from "../data/routes";
@@ -19,15 +21,20 @@ import { editPlanStops, fixedDestinationStarter, routeMatchesDestination } from 
 import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId, WeatherSummary } from "../types";
 import "./route-planning-clarity.css";
 import "./travel-flow-polish.css";
+import "./planner-family-budget.css";
 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const VIBES = ["Şehir", "Kültür", "Yeme-içme", "Deniz", "Doğa", "Gece hayatı", "Alışveriş", "Macera"];
 
 const INITIAL: PlannerInput = {
   origin: "",
-  days: "4–6 gün",
+  days: "5 gün",
+  dayCount: 5,
   month: MONTHS[new Date().getMonth()],
   budget: "Orta",
+  tier: "balanced",
+  party: { adults: 1, children: 0, childAges: [] },
+  currency: "TRY",
   accommodation: "Otel",
   who: "Tek başıma",
   tempo: "Dengeli",
@@ -61,7 +68,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [loading, setLoading] = useState(false);
   const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
   const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
-  const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(surpriseRoute ? { ...INITIAL, days: surpriseRoute.idealDuration } : INITIAL));
+  const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(surpriseRoute ? { ...INITIAL, dayCount: undefined, days: surpriseRoute.idealDuration } : INITIAL));
   const [source, setSource] = useState<"ai" | "local" | "surprise" | "explore">(surpriseRoute ? routeSeedKind : "local");
   const [expanded, setExpanded] = useState<string>(surpriseRoute?.name || "");
   const [weather, setWeather] = useState<Record<string, WeatherSummary>>({});
@@ -71,6 +78,8 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [saveLocation, setSaveLocation] = useState<"device" | "account" | "pending">("device");
   const [alternativesOpen, setAlternativesOpen] = useState(false);
   const [interestNotice, setInterestNotice] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const formFields = useRef<HTMLElement>(null);
   const selectedHeading = useRef<HTMLHeadingElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
   const plannerModes = useRef<HTMLDivElement>(null);
@@ -78,6 +87,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const generating = useRef(false);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
+  const planTierLabel = planInput.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : planInput.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar");
   const savedRoute = plan ? matchingSavedRoute(savedRoutes, plan, planInput) : undefined;
   const planIsSaved = !!savedRoute;
   const saveLabel = planIsSaved ? copy("Kaydedildi", "Saved") : plan && plan.routes.length > 1 ? copy(`${plan.routes.length} öneriyi kaydet`, `Save ${plan.routes.length} suggestions`) : copy("Bu planı kaydet", "Save this plan");
@@ -121,15 +131,35 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     if (!surpriseRoute || appliedSeed.current === surpriseRoute) return;
     appliedSeed.current = surpriseRoute;
     setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
-    setPlanInput(snapshotPlannerInput({ ...form, days: surpriseRoute.idealDuration }));
+    setPlanInput(snapshotPlannerInput({ ...form, dayCount: undefined, days: surpriseRoute.idealDuration }));
     setSource(routeSeedKind);
     setExpanded(surpriseRoute.name);
     setAlternativesOpen(false);
   }, [copy, routeSeedKind, surpriseRoute]);
 
-  const ready = useMemo(() => Boolean(form.origin && form.days && form.month && form.budget && form.vibe.length && (form.mode !== "fixed" || (form.destination && form.dayCount && destinationAirport?.iata !== originAirport?.iata))), [form, destinationAirport, originAirport]);
-  const whoLabel = copy(form.who, ({ "Tek başıma": "Solo", "Partnerimle": "With my partner", "Arkadaşlarımla": "With friends", "Ailemle": "With family", "İlk yurt dışı deneyimim": "My first trip" } as Record<string, string>)[form.who] || form.who);
-  const budgetLabel = copy(form.budget, ({ "Ekonomik": "Economy", "Orta": "Balanced", "Yüksek / premium": "Premium" } as Record<string, string>)[form.budget] || form.budget);
+  const validation = useMemo(() => {
+    const errors: Record<string, string> = {};
+    if (!form.origin.trim()) errors.origin = copy("Çıkış şehrini seçmelisin.", "Choose your departure city.", "Zgjidh qytetin e nisjes.");
+    if (form.mode === "fixed" && !form.destination) errors.destination = copy("Gideceğin şehri seçmelisin.", "Choose your destination city.", "Zgjidh qytetin e destinacionit.");
+    else if (form.mode === "fixed" && destinationAirport?.iata === originAirport?.iata) errors.destination = copy("Başlangıçtan farklı bir hedef seç.", "Choose a destination different from your departure.", "Zgjidh një destinacion të ndryshëm nga nisja.");
+    if (!Number.isInteger(form.dayCount) || form.dayCount! < 1 || form.dayCount! > 14) errors.duration = copy("1–14 gün arasında süre seç.", "Choose a duration of 1–14 days.", "Zgjidh një kohëzgjatje prej 1–14 ditësh.");
+    if (!form.month) errors.month = copy("Seyahat dönemini seçmelisin.", "Choose your travel month.", "Zgjidh muajin e udhëtimit.");
+    if (!validTravelParty(form.party)) errors.party = copy("En az 1 yetişkin, toplam en fazla 20 kişi seç; her çocuğun yaşını belirt.", "Choose at least 1 adult and at most 20 travellers; enter every child's age.", "Zgjidh të paktën 1 të rritur dhe jo më shumë se 20 persona; trego moshën e çdo fëmije.");
+    if (!form.vibe.length) errors.interests = copy("En az bir ilgi alanı seç.", "Choose at least one interest.", "Zgjidh të paktën një interes.");
+    return errors;
+  }, [form, destinationAirport, originAirport, copy]);
+  const errors = submitted ? validation : {};
+  const party = form.party || INITIAL.party!;
+
+  const setTier = (tier: TravelTier) => setForm(current => ({ ...current, tier, budget: normalizePlannerPreferences({ tier }).budget }));
+  const setPartyCount = (field: "adults" | "children", value: string) => setForm(current => {
+    const previous = current.party || INITIAL.party!;
+    const count = value === "" ? NaN : Number(value);
+    const children = field === "children" ? count : previous.children;
+    const adults = field === "adults" ? count : previous.adults;
+    const who = children > 0 ? "Ailemle" : adults > 1 && (current.who === "Tek başıma" || current.who === "İlk yurt dışı deneyimim") ? "Arkadaşlarımla" : current.who;
+    return { ...current, who, party: { ...previous, [field]: count, childAges: field === "children" && Number.isInteger(count) && count >= 0 && count <= 19 ? Array.from({ length: count }, (_, index) => previous.childAges[index] ?? -1) : previous.childAges } };
+  });
 
   const toggleVibe = (vibe: string) => {
     const exists = form.vibe.includes(vibe);
@@ -140,10 +170,29 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   };
 
   const generate = async () => {
-    if (generating.current || !ready) return;
+    if (generating.current) return;
+    setSubmitted(true);
+    const firstMissing = Object.keys(validation)[0];
+    if (firstMissing) {
+      setPlannerTab(firstMissing === "interests" ? "preferences" : "plan");
+      requestAnimationFrame(() => {
+        const field = formFields.current?.querySelector<HTMLElement>(`[data-planner-field="${firstMissing}"]`);
+        field?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        const target = field?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? field?.querySelector<HTMLElement>('input, select, button');
+        target?.focus({ preventScroll: true });
+      });
+      return;
+    }
     generating.current = true;
-    const requestInput = snapshotPlannerInput(form.mode === "fixed" ? { ...form, days: `${form.dayCount} gün` } : { ...form, destination: undefined, dayCount: undefined });
-    const starter = () => requestInput.mode === "fixed" && requestInput.destination ? fixedDestinationStarter(requestInput, locale) : createFallbackPlan(requestInput, locale);
+    const requestInput = snapshotPlannerInput({ ...form, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
+    const starter = () => {
+      if (requestInput.mode === "fixed" && requestInput.destination) return fixedDestinationStarter(requestInput, locale);
+      const fallback = createFallbackPlan(requestInput, locale);
+      return { ...fallback, routes: fallback.routes.map(route => {
+        const tailored = fixedDestinationStarter({ ...requestInput, destination: { code: route.destinationCode || "", name: route.name, country: route.country, countryCode: "" } }, locale).routes[0];
+        return { ...route, dailyPlan: tailored.dailyPlan, idealDuration: tailored.idealDuration, estimatedBudget: tailored.estimatedBudget, scores: tailored.scores };
+      }) };
+    };
     setLoading(true);
     setEditingRoute(null);
     try {
@@ -261,29 +310,33 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       <div ref={plannerModes} className="editorial-segments planner-modes" role="group" aria-label={copy("Planlama bölümleri", "Planning sections")}>
         {(["plan", "ready", "preferences"] as const).map((tab, index) => <button type="button" key={tab} aria-pressed={plannerTab === tab} onClick={() => selectPlannerTab(tab)}>{[copy("Rota Planı", "Route Plan"), copy("Hazır Rotalar", "Ready Routes"), copy("Tercihlerim", "Preferences")][index]}</button>)}
       </div>
-      {plannerTab !== "ready" && <section className="form-card planner-form reference-planner">
+      {plannerTab !== "ready" && <section ref={formFields} className="form-card planner-form reference-planner">
         {plannerTab === "plan" ? <>
           <div className="planner-form-intro"><span><Icon name="route" size={23}/></span><div><h2>{copy("Rotanı sen seç, birlikte planlayalım", "Your destination, your plan", "Destinacioni yt, plani yt")}</h2><p>{copy("Hedefin belli olabilir; istersen yeni yerler de önerebiliriz.", "Choose your destination or discover somewhere new.", "Zgjidh destinacionin tënd ose zbulo një vend të ri.")}</p></div></div>
           <div className="planner-target-modes" role="group" aria-label={copy("Rota seçimi", "Destination choice", "Zgjedhja e destinacionit")}>
             <button type="button" disabled={loading} aria-pressed={form.mode === "fixed"} onClick={() => setForm(current => ({ ...current, mode: "fixed", dayCount: current.dayCount || 3 }))}><Icon name="map" size={19}/><span>{copy("Gideceğim yer belli", "I know where to go", "E di ku do të shkoj")}<small>{copy("Sen seç, AI planlasın", "You choose, AI plans", "Ti zgjedh, AI planifikon")}</small></span></button>
             <button type="button" disabled={loading} aria-pressed={form.mode !== "fixed"} onClick={() => setForm(current => ({ ...current, mode: "discover" }))}><Icon name="compass" size={19}/><span>{copy("Bana yer öner", "Suggest a destination", "Më sugjero një destinacion")}<small>{copy("Yeni rotalar keşfet", "Discover new routes", "Zbulo rrugë të reja")}</small></span></button>
           </div>
-          <AirportField label={copy("Nereden?", "From?")} placeholder={copy("Şehir veya havalimanı", "City or airport")} value={originAirport} required onChange={(airport) => { setOriginAirport(airport); setForm(current => ({ ...current, origin: airport ? airport.city || airport.name : "" })); }} />
+          <div data-planner-field="origin"><AirportField label={copy("Nereden?", "From?", "Nga?")} placeholder={copy("Şehir veya havalimanı", "City or airport", "Qyteti ose aeroporti")} value={originAirport} required error={errors.origin} onChange={(airport) => { setOriginAirport(airport); setForm(current => ({ ...current, origin: airport ? airport.city || airport.name : "" })); }} /></div>
           {form.mode === "fixed" && <>
-            <AirportField label={copy("Nereye?", "To?", "Ku?")} placeholder={copy("Örn. Bodrum, Roma, Tiran", "E.g. Bodrum, Rome, Tirana", "P.sh. Bodrum, Romë, Tiranë")} value={destinationAirport} required onChange={airport => { setDestinationAirport(airport); setForm(current => ({ ...current, destination: airport ? { code: airport.iata, name: airport.city || airport.name, country: airport.country, countryCode: airport.countryCode } : undefined })); }}/>
+            <div data-planner-field="destination"><AirportField label={copy("Nereye?", "To?", "Ku?")} placeholder={copy("Örn. Bodrum, Roma, Tiran", "E.g. Bodrum, Rome, Tirana", "P.sh. Bodrum, Romë, Tiranë")} value={destinationAirport} required error={errors.destination} onChange={airport => { setDestinationAirport(airport); setForm(current => ({ ...current, destination: airport ? { code: airport.iata, name: airport.city || airport.name, country: airport.country, countryCode: airport.countryCode } : undefined })); }}/></div>
             <p className="planner-target-note">{copy("Şehir araması için yakın havalimanını seçebilirsin; plan yalnız uçakla seyahat etmeyi gerektirmez. Hedefin değişmez.", "Select a nearby airport to identify the city; the plan does not require flying. Your destination stays fixed.", "Zgjidh një aeroport pranë për të përcaktuar qytetin; plani nuk kërkon fluturim. Destinacioni mbetet i njëjtë.")}</p>
             {destinationAirport && destinationAirport.iata === originAirport?.iata && <p className="planner-interest-notice" role="status">{copy("Başlangıçtan farklı bir hedef seç.", "Choose a destination different from your departure.", "Zgjidh një destinacion të ndryshëm nga nisja.")}</p>}
           </>}
           <div className="form-grid two">
-            {form.mode === "fixed" ? <label>{copy("Kaç gün?", "How many days?", "Sa ditë?")}<select value={form.dayCount || 3} onChange={event => setForm(current => ({ ...current, dayCount: Number(event.target.value) }))}>{Array.from({ length: 14 }, (_, index) => index + 1).map(day => <option key={day} value={day}>{copy(`${day} gün`, `${day} days`, `${day} ditë`)}</option>)}</select></label> : <label>{copy("Süre", "Duration")}<select value={form.days} onChange={event => setForm({ ...form, days: event.target.value })}>{["2–3 gün","4–6 gün","7–10 gün","10+ gün"].map((value,index) => <option key={value} value={value}>{copy(value,["2–3 days","4–6 days","7–10 days","10+ days"][index])}</option>)}</select></label>}
-            <label>{copy("Dönem", "Month")}<select value={form.month} onChange={event => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month,index) => <option key={month} value={month}>{copy(month,["January","February","March","April","May","June","July","August","September","October","November","December"][index])}</option>)}</select></label>
+            <label data-planner-field="duration">{copy("Kaç gün?", "How many days?", "Sa ditë?")}<select aria-invalid={!!errors.duration} aria-describedby={errors.duration ? "planner-duration-error" : undefined} value={form.dayCount || ""} onChange={event => setForm(current => ({ ...current, dayCount: Number(event.target.value), days: `${event.target.value} gün` }))}>{Array.from({ length: 14 }, (_, index) => index + 1).map(day => <option key={day} value={day}>{copy(`${day} gün`, `${day} days`, `${day} ditë`)}</option>)}</select>{errors.duration && <span id="planner-duration-error" className="planner-field-error" role="alert">{errors.duration}</span>}</label>
+            <label data-planner-field="month">{copy("Dönem", "Month", "Muaji")}<select aria-invalid={!!errors.month} aria-describedby={errors.month ? "planner-month-error" : undefined} value={form.month} onChange={event => setForm({ ...form, month: event.target.value })}>{MONTHS.map((month,index) => <option key={month} value={month}>{copy(month,["January","February","March","April","May","June","July","August","September","October","November","December"][index],["Janar","Shkurt","Mars","Prill","Maj","Qershor","Korrik","Gusht","Shtator","Tetor","Nëntor","Dhjetor"][index])}</option>)}</select>{errors.month && <span id="planner-month-error" className="planner-field-error" role="alert">{errors.month}</span>}</label>
           </div>
-          <details className="planner-optional-preferences"><summary><span><Icon name="settings" size={18}/><strong>{copy("Seyahat tercihlerin", "Travel preferences")}</strong></span><small>{whoLabel} · {budgetLabel}</small><Icon name="chevron" size={17}/></summary>
-          <p className="planner-defaults">{copy("Başlangıçta tek kişi, orta bütçe ve dengeli tempo seçili. Dilediğin gibi değiştirebilirsin.", "We start with solo travel, a balanced budget and an easy-to-moderate pace. You can change these here.")}</p>
-          <label className="planner-inline-field"><Icon name="users" size={18} /><span>{copy("Kiminle?", "With whom?")}</span><select value={form.who} onChange={event => setForm({ ...form, who: event.target.value })}>{["Tek başıma","Partnerimle","Arkadaşlarımla","Ailemle","İlk yurt dışı deneyimim"].map((value,index) => <option key={value} value={value}>{copy(value,["Solo","With my partner","With friends","With family","My first trip"][index])}</option>)}</select></label>
-          <label className="planner-inline-field"><Icon name="wallet" size={18} /><span>{copy("Bütçe", "Budget")}</span><select value={form.budget} onChange={event => setForm({ ...form, budget: event.target.value })}><option value="Ekonomik">{copy("Ekonomik","Economy")}</option><option value="Orta">{copy("Orta","Balanced")}</option><option value="Yüksek / premium">Premium</option></select></label>
+          <fieldset className="planner-tier-options"><legend>{copy("Seyahat seviyen", "Your travel level", "Niveli i udhëtimit")}</legend><div>{(["economy", "balanced", "plus"] as const).map((tier, index) => <button type="button" key={tier} aria-pressed={form.tier === tier} onClick={() => setTier(tier)}><Icon name={index === 0 ? "wallet" : index === 1 ? "compass" : "sparkles"} size={20}/><strong>{[copy("Ekonomik", "Economy", "Ekonomik"), copy("Orta", "Balanced", "Mesatar"), "Plus"][index]}</strong><small>{[copy("Uygun ve pratik", "Simple and affordable", "Praktik dhe ekonomik"), copy("Konfor ve denge", "Comfort and balance", "Rehati dhe ekuilibër"), copy("Daha fazla konfor", "Extra comfort", "Më shumë rehati")][index]}</small></button>)}</div></fieldset>
+          <div className={`planner-party-controls${errors.party ? " planner-invalid" : ""}`} data-planner-field="party">
+          <label className="planner-inline-field"><Icon name="users" size={18}/><span>{copy("Kiminle?", "With whom?", "Me kë?")}</span><select value={form.who} onChange={event => { const who = event.target.value; setForm(current => ({ ...current, who, party: who === "Tek başıma" || who === "İlk yurt dışı deneyimim" ? { adults: 1, children: 0, childAges: [] } : who === "Ailemle" ? { adults: 2, children: 1, childAges: [-1] } : { adults: 2, children: 0, childAges: [] } })); }}>{["Tek başıma","Partnerimle","Arkadaşlarımla","Ailemle","İlk yurt dışı deneyimim"].map((value,index) => <option key={value} value={value}>{copy(value,["Solo","With my partner","With friends","With family","My first trip"][index],["Vetëm","Me partnerin","Me miqtë","Me familjen","Udhëtimi im i parë"][index])}</option>)}</select></label>
+          <div className="form-grid two"><label>{copy("Yetişkin", "Adults", "Të rritur")}<input type="number" inputMode="numeric" min="1" max="20" step="1" value={Number.isFinite(party.adults) ? party.adults : ""} aria-invalid={!!errors.party && (!Number.isInteger(party.adults) || party.adults < 1 || party.adults + party.children > 20)} aria-describedby={errors.party ? "planner-party-error" : undefined} onChange={event => setPartyCount("adults", event.target.value)}/></label><label>{copy("Çocuk · 0–17 yaş", "Children · ages 0–17", "Fëmijë · 0–17 vjeç")}<input type="number" inputMode="numeric" min="0" max="19" step="1" value={Number.isFinite(party.children) ? party.children : ""} aria-invalid={!!errors.party && (!Number.isInteger(party.children) || party.children < 0 || party.adults + party.children > 20)} aria-describedby={errors.party ? "planner-party-error" : undefined} onChange={event => setPartyCount("children", event.target.value)}/></label></div>
+          {party.childAges.length > 0 && <div className="planner-child-ages">{party.childAges.map((age, index) => <label key={index}>{copy(`${index + 1}. çocuğun yaşı`, `Child ${index + 1} age`, `Mosha e fëmijës ${index + 1}`)}<select value={age} aria-invalid={!!errors.party && age < 0} aria-describedby={errors.party ? "planner-party-error" : undefined} onChange={event => { const value = Number(event.target.value); setForm(current => ({ ...current, party: { ...current.party!, childAges: current.party!.childAges.map((old, at) => at === index ? value : old) } })); }}><option value={-1}>{copy("Yaş seç", "Choose age", "Zgjidh moshën")}</option>{Array.from({ length: 18 }, (_, value) => <option key={value} value={value}>{value === 0 ? copy("1 yaşından küçük", "Under 1", "Nën 1 vjeç") : value}</option>)}</select></label>)}</div>}
+          {errors.party && <p id="planner-party-error" className="planner-field-error" role="alert">{errors.party}</p>}
+          {party.children > 0 && <p className="planner-hint">{copy("Plan çocukların yaşlarına göre kısa duraklar ve dinlenme molaları içerecek.", "The plan will include short stops and rest breaks suited to the children's ages.", "Plani do të përfshijë ndalesa të shkurtra dhe pushime sipas moshave të fëmijëve.")}</p>}
+          </div>
+          <label>{copy("Maliyet para birimi", "Cost currency", "Monedha e kostos")}<select value={form.currency} onChange={event => setForm(current => ({ ...current, currency: event.target.value as PlannerInput["currency"], activityBudgetPerPersonDay: undefined }))}>{["TRY", "EUR", "USD", "GBP"].map(currency => <option key={currency}>{currency}</option>)}</select></label>
           <button type="button" className="planner-preferences-link" onClick={() => selectPlannerTab("preferences")}><Icon name="settings" size={17} /><span>{copy("Seyahat tarzı ve diğer tercihler", "Travel style and more preferences")}</span><Icon name="chevron" size={15} /></button>
-          </details>
         </> : <>
           <h2>{copy("Sana göre bir yolculuk", "A journey that feels like you")}</h2>
           <div className="form-grid two">
@@ -291,10 +344,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
             <label>{copy("Tempo", "Pace")}<select value={form.tempo} onChange={event => setForm({ ...form, tempo: event.target.value })}>{["Rahat","Dengeli","Yoğun"].map((value,index) => <option key={value} value={value}>{copy(value,["Easy","Balanced","Busy"][index])}</option>)}</select></label>
           </div>
           <label>{copy("Giriş tercihi", "Entry preference")}<select value={form.visa} onChange={event => setForm({ ...form, visa: event.target.value })}>{["Vizesiz veya kolay giriş","Vize olabilir","Fark etmez"].map((value,index) => <option key={value} value={value}>{copy(value,["Visa-free / easy","Visa is okay","Any"][index])}</option>)}</select></label>
-          <fieldset className="vibe-fieldset"><legend>{copy("İlgi alanların · 1–4 seçim", "Your interests · choose 1–4")}</legend><p className="planner-interest-count" role="status">{copy(`${form.vibe.length}/4 seçildi`, `${form.vibe.length}/4 selected`)}</p><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} disabled={form.vibe.length >= 4 && !form.vibe.includes(vibe)} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div><p className="planner-hint">{copy("Bir ilgi alanını değiştirmek için önce seçimini kaldır.", "Remove a selected interest before choosing another.")}</p>{interestNotice && <p className="planner-interest-notice" role="status">{interestNotice}</p>}</fieldset>
+          <fieldset className="vibe-fieldset" data-planner-field="interests" aria-invalid={!!errors.interests}><legend>{copy("İlgi alanların · 1–4 seçim", "Your interests · choose 1–4")}</legend>{errors.interests && <p className="planner-field-error" role="alert">{errors.interests}</p>}<p className="planner-interest-count" role="status">{copy(`${form.vibe.length}/4 seçildi`, `${form.vibe.length}/4 selected`)}</p><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} disabled={form.vibe.length >= 4 && !form.vibe.includes(vibe)} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div><p className="planner-hint">{copy("Bir ilgi alanını değiştirmek için önce seçimini kaldır.", "Remove a selected interest before choosing another.")}</p>{interestNotice && <p className="planner-interest-notice" role="status">{interestNotice}</p>}</fieldset>
           <button type="button" className="secondary-wide" onClick={() => selectPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
         </>}
-        <button type="button" className="primary-wide" disabled={!ready || loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
+        <button type="button" className="primary-wide" disabled={loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
         {!form.origin && <p className="planner-hint">{copy("Başlamak için çıkış şehrini seç.", "Choose your departure city to begin.")}</p>}
       </section>}
       <section className="planner-inspiration">
@@ -302,7 +355,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         <div className="planner-photo-grid">{(plannerTab === "ready" ? ["SJJ","FCO","BKK","TBS","DXB","BEG"] : ["SJJ","FCO","BKK"]).map(code => {
           const route = routeByDestinationCode(code, locale);
           if (!route) return null;
-          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
+          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, dayCount: undefined, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
         })}</div>
       </section>
       </div>
@@ -324,17 +377,18 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
             return <article className={`route-result ${open ? "open" : ""}`} key={`${route.name}-${index}`}>
               <button id={triggerId} className="route-result-head" aria-expanded={open} aria-controls={panelId} onClick={() => setExpanded(open ? "" : route.name)}>
                 {route.scores.overall > 0 ? <span className={`route-score ${scoreColor(route.scores.overall)}`}>{route.scores.overall}</span> : <span className="route-score"><Icon name="route" size={22} /></span>}
-                <span><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong><em>{route.estimatedBudget} · {route.idealDuration}</em></span>
+                <span><small>{route.country} · {route.visaStatus}</small><strong>{route.name}</strong><em>{planTierLabel} · {route.idealDuration}</em></span>
                 <Icon name="chevron" size={19} />
               </button>
               <div id={panelId} className="route-result-body" role="region" aria-labelledby={triggerId} hidden={!open}>{open && <>
                 <p>{route.why}</p>
                 <div className="route-meta-grid">
-                  <div><Icon name="wallet" size={17} /><span>{copy("Bütçe", "Budget")}<strong>{route.estimatedBudget}</strong></span></div>
+                  <div><Icon name="wallet" size={17} /><span>{copy("Seyahat seviyesi", "Travel level", "Niveli i udhëtimit")}<strong>{planTierLabel}</strong></span></div>
                   <div><Icon name="users" size={17} /><span>{copy("Uygunluk", "Best for")}<strong>{route.bestFor}</strong></span></div>
                   <div><Icon name="map" size={17} /><span>{copy("Ulaşım", "Transport")}<strong>{route.transportEase}</strong></span></div>
                   <div><Icon name="passport" size={17} /><span>{copy("Giriş", "Entry")}<strong>{route.visaStatus}</strong></span></div>
                 </div>
+                <RouteBudgetAnalysis route={route} input={planInput} onCurrency={currency => setPlanInput(current => ({ ...current, currency, activityBudgetPerPersonDay: undefined }))} onActivityBudget={value => setPlanInput(current => ({ ...current, activityBudgetPerPersonDay: value }))}/>
                 {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? ` · Son kontrol: ${route.visaVerifiedAt}` : ""}</p></div>}
                 {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> {copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
                 <div className="daily-plan"><div className="planner-itinerary-heading"><h3>{copy("Günlük planın", "Your daily plan", "Plani yt ditor")}</h3><button type="button" className="planner-edit-link" disabled={saveBusy} onClick={() => { setEditingRoute(index); setEditStops([...route.dailyPlan]); setNewStop(""); setEditError(""); }}>{copy("Düzenle", "Edit", "Redakto")}</button></div>{editingRoute === index ? <div className="planner-stop-editor">

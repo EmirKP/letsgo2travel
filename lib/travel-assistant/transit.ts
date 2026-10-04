@@ -18,8 +18,8 @@ export type TransitJourney = {
 export type TransitResult = {
   fetchedAt: string;
   journeys: TransitJourney[];
-  source: "TfL";
-  timeZone: "Europe/London";
+  source: "TfL" | "Entur";
+  timeZone: "Europe/London" | "Europe/Oslo";
 };
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v)
@@ -32,8 +32,8 @@ const clean = (v: unknown, max = 300) =>
         .trim()
         .slice(0, max)
     : "";
-export const validStopId = (v: unknown): v is string =>
-  typeof v === "string" && /^(?:940[A-Z0-9]{5,16}|HUB[A-Z0-9]{2,12})$/.test(v);
+export const validStopId = (v: unknown, city = "london"): v is string =>
+  typeof v === "string" && (city === "norway" ? /^NSR:StopPlace:[1-9]\d{0,11}$/.test(v) : city === "london" && /^(?:940[A-Z0-9]{5,16}|HUB[A-Z0-9]{2,12})$/.test(v));
 const localTime = (v: unknown): v is string =>
   typeof v === "string" &&
   /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(v) &&
@@ -142,8 +142,7 @@ export function normalizeTransit(
 export function validateTransit(raw: unknown): TransitResult | null {
   const r = record(raw);
   if (
-    r.source !== "TfL" ||
-    r.timeZone !== "Europe/London" ||
+    !(r.source === "TfL" && r.timeZone === "Europe/London" || r.source === "Entur" && r.timeZone === "Europe/Oslo") ||
     typeof r.fetchedAt !== "string" ||
     !Number.isFinite(Date.parse(r.fetchedAt)) ||
     !Array.isArray(r.journeys) ||

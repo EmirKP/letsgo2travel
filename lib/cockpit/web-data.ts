@@ -5,8 +5,9 @@ import { validateBudgetCockpitIntent, type BudgetCockpitIntent } from "../../mob
 import { airportTimeZone } from "../airport-time-zones";
 import { zonedParts } from "../zoned-time";
 
-export const WEB_TRIP_FIELDS = "id,user_id,destination_country,destination_code,destination_city,start_date,end_date,departure_at,arrival_at,origin_iata,destination_iata,flight_lookup_managed,flight_pnr,checklist_items,status,created_at,updated_at";
-export type WebJourney = { route: RouteCockpitIntent | null; budget: BudgetCockpitIntent | null };
+export const WEB_TRIP_FIELDS = "id,user_id,destination_country,destination_code,destination_city,start_date,end_date,departure_at,arrival_at,origin_iata,destination_iata,airline,flight_number,flight_lookup_managed,flight_pnr,checklist_items,status,created_at,updated_at";
+export const WEB_JOURNEY_FIELDS = "trip_id,owner_id,route_snapshot,budget_snapshot,updated_at";
+export type WebJourney = { route: RouteCockpitIntent | null; budget: BudgetCockpitIntent | null; updatedAt: string };
 type TripRow = Record<string, unknown>;
 const statuses: TripStatus[] = ["upcoming", "active", "completed", "cancelled"];
 const string = (value: unknown) => typeof value === "string" ? value : "";
@@ -20,6 +21,7 @@ export function webTrip(row: TripRow, owner: string): Trip {
     startDate: string(row.start_date), endDate: string(row.end_date), departureAt: nullable(row.departure_at),
     arrivalAt: nullable(row.arrival_at), originIata: nullable(row.origin_iata), destinationIata: nullable(row.destination_iata),
     flightLookupManaged: row.flight_lookup_managed === true, flightPnr: nullable(row.flight_pnr),
+    airline: nullable(row.airline), flightNumber: nullable(row.flight_number),
     // Preserve event metadata and all other checklist fields when toggling one item.
     checklistItems: Array.isArray(row.checklist_items) ? row.checklist_items.filter(item => item && typeof item.id === "string" && typeof item.label === "string") as ChecklistItem[] : [],
     status: statuses.includes(row.status as TripStatus) ? row.status as TripStatus : "upcoming",
@@ -32,13 +34,17 @@ export async function readWebTrips(client: SupabaseClient, owner: string) {
   return (data || []).map(row => webTrip(row as unknown as TripRow, owner));
 }
 export async function readWebJourney(client: SupabaseClient, trip: Pick<Trip, "id" | "userId">): Promise<WebJourney | null> {
-  const { data, error } = await client.from("trip_journey_details").select("trip_id,owner_id,route_snapshot,budget_snapshot").eq("trip_id", trip.id).eq("owner_id", trip.userId).maybeSingle();
+  const { data, error } = await client.from("trip_journey_details").select(WEB_JOURNEY_FIELDS).eq("trip_id", trip.id).eq("owner_id", trip.userId).maybeSingle();
   if (error) throw new Error("Kayıtlı rota ve bütçe yüklenemedi. Yeniden dene.");
   if (!data) return null;
+  return parseWebJourney(data, trip);
+}
+export function parseWebJourney(data: Record<string, unknown>, trip: Pick<Trip, "id" | "userId">): WebJourney {
   if (data.trip_id !== trip.id || data.owner_id !== trip.userId
+    || !Number.isFinite(Date.parse(string(data.updated_at)))
     || data.route_snapshot !== null && (!validateRouteCockpitIntent(data.route_snapshot) || data.route_snapshot.ownerId !== trip.userId)
     || data.budget_snapshot !== null && (!validateBudgetCockpitIntent(data.budget_snapshot) || data.budget_snapshot.ownerId !== trip.userId)) throw new Error("Kayıtlı rota veya bütçe doğrulanamadı.");
-  return { route: data.route_snapshot, budget: data.budget_snapshot };
+  return { route: data.route_snapshot as RouteCockpitIntent | null, budget: data.budget_snapshot as BudgetCockpitIntent | null, updatedAt: string(data.updated_at) };
 }
 export class WebTripConflict extends Error {
   constructor() { super("Seyahat başka bir cihazda değişti veya silindi. Güncel kaydı yükleyip değişikliklerini yeniden gözden geçir."); }
@@ -59,7 +65,11 @@ export function personalTripPatch(trip: Trip, input: TripPersonalUpdate) {
   if (pnr && !/^[A-Z0-9-]{3,20}$/.test(pnr)) throw new Error("PNR 3–20 harf, rakam veya tire içerebilir.");
   return { start_date: input.startDate, end_date: input.endDate, flight_pnr: pnr || null, status: input.status };
 }
-export async function patchWebTrip(client: SupabaseClient, trip: Trip, update: { checklist_items: ChecklistItem[] } | ReturnType<typeof personalTripPatch>) {
+export type WebTripDetailsPatch = ReturnType<typeof personalTripPatch> & Partial<{
+  destination_country: string; destination_code: string; destination_city: string | null;
+  origin_iata: string; destination_iata: string; departure_at: string | null; arrival_at: string | null; airline: string | null; flight_number: string | null;
+}>;
+export async function patchWebTrip(client: SupabaseClient, trip: Trip, update: { checklist_items: ChecklistItem[] } | WebTripDetailsPatch) {
   const { data, error } = await client.from("trips").update(update).eq("id", trip.id).eq("user_id", trip.userId).eq("updated_at", trip.updatedAt).select(WEB_TRIP_FIELDS).maybeSingle();
   if (error) throw new Error("Seyahat kaydedilemedi. Değişikliklerin duruyor; yeniden deneyebilirsin.");
   if (!data) throw new WebTripConflict();

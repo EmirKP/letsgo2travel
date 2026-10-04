@@ -14,8 +14,10 @@ import advisoryDestinations from '../../../lib/country-intelligence/advisory-des
 import { openExternal } from '../lib/native';
 import './travel-tools-reliability.css';
 import { Icon } from './Icon';
+import { TravelToolArtwork } from './TravelToolArtwork';
 import type { IconName } from './Icon';
 import './travel-assistant.css';
+import './travel-tool-artwork.css';
 const TravelNearby = lazy(() => import('./TravelNearby').then(m => ({default:m.TravelNearby})));
 const TravelMoney = lazy(() => import('./TravelMoney').then(m => ({default:m.TravelMoney})));
 const TravelTranslation = lazy(() => import('./TravelTranslation').then(m => ({default:m.TravelTranslation})));
@@ -25,7 +27,6 @@ const TravelOfflineMap = lazy(() => import('./TravelOfflineMap').then(m => ({def
 const TravelSavedPlaces = lazy(() => import('./TravelSavedPlaces').then(m => ({default:m.TravelSavedPlaces})));
 type Tool = 'safety'|'needs'|'explore'|'embassies'|'money'|'guide'|'translate'|'transit'|'photo'|'offline'|'saved';
 const labels: Record<Tool,[string,string,string]> = {safety:['Acil Mod','Emergency','Urgjenca'],needs:['İhtiyaç haritası','Essentials map','Harta e nevojave'],explore:['Gezi haritası','Sightseeing map','Harta e vizitave'],saved:['Kayıtlı yerler','Saved places','Vendet e ruajtura'],embassies:['Konsolosluk','Consulate','Konsullata'],money:['Para Merkezi','Money','Qendra e parave'],guide:['Gitmeden Önce Bil','Before you go','Para se të nisesh'],translate:['Çeviri','Translate','Përkthimi'],transit:['Ulaşım','Transport','Transporti'],photo:['Fotoğraftan rehber','Photo guide','Udhëzues nga fotoja'],offline:['Çevrimdışı harita','Offline map','Harta pa internet']};
-const icons: Record<Tool,IconName> = {safety:'shield',needs:'map',explore:'compass',saved:'bookmark',embassies:'flag',money:'wallet',guide:'info',translate:'languages',transit:'train',photo:'camera',offline:'offline'};
 const descriptions: Record<Tool,[string,string,string]> = {
   safety:['Acil numaralar ve yardım','Emergency numbers and help','Numrat e urgjencës dhe ndihma'],
   needs:['Hastane, eczane, ATM ve diğer ihtiyaçlar','Hospitals, pharmacies, ATMs and essentials','Spitale, farmaci, bankomate dhe nevoja të tjera'],
@@ -67,7 +68,6 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
   const cards = GUIDE_CARDS.filter(c => c.country === country);
   const labelFor = (t: Tool) => copy(...labels[t]);
   const descriptionFor = (t: Tool) => copy(...descriptions[t]);
-  const guideLanguage = locale === 'tr' ? 'tr' : 'en';
   const officialGuide = (advisoryDestinations as Record<string, {fcdo?: string}>)[country]?.fcdo;
   const [guideNotice, setGuideNotice] = useState('');
   const search = normalizeSearchText(query);
@@ -77,7 +77,7 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
     window.requestAnimationFrame(() => heading.current?.focus());
   };
   const toolButton = (t: Tool) => <button type="button" key={t} onClick={() => chooseTool(t)} className="ta-tool-card">
-    <span className="ta-tool-icon"><Icon name={icons[t]} size={22}/></span><span><strong>{labelFor(t)}</strong><small>{descriptionFor(t)}</small></span><Icon name="chevron" size={16}/>
+    <span className="ta-tool-icon"><TravelToolArtwork kind={t}/></span><span><strong>{labelFor(t)}</strong><small>{descriptionFor(t)}</small></span><Icon name="chevron" size={16}/>
   </button>;
   return <div className="travel-assistant">
     {tool ? <div className="ta-tool-header">
@@ -111,13 +111,14 @@ export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToke
         {officialGuide && <button type="button" onClick={() => void openExternal(`https://www.gov.uk/foreign-travel-advice/${officialGuide}`).then(ok => {if (!ok) setGuideNotice(copy('Resmî sayfa açılamadı. İnternet bağlantını kontrol et.', 'The official page could not open. Check your connection.', 'Faqja zyrtare nuk u hap. Kontrollo lidhjen.'));})}><Icon name="shield" size={22}/>{copy('Bu ülke için resmî seyahat rehberi', 'Official travel advice for this country', 'Këshilla zyrtare udhëtimi për këtë shtet')}<Icon name="external" size={16}/></button>}
         <button type="button" onClick={() => chooseTool('safety')}><Icon name="shield" size={22}/>{copy('Acil numaralar ve yardım', 'Emergency numbers and help', 'Numrat e urgjencës dhe ndihma')}</button>
         <button type="button" onClick={() => onPhrases(country)}><Icon name="languages" size={22}/>{copy('Hazır ifadeleri aç', 'Open useful phrases', 'Hap shprehjet e dobishme')}</button>
-      </div>{guideNotice && <p className="ta-warning" role="alert">{guideNotice}</p>}{locale === 'sq' && cards.length > 0 && <p className="ta-muted" lang="sq">Kartat burimore më poshtë janë në anglisht. Lidhja zyrtare hap udhëzimin e plotë dhe aktual.</p>}{cards.length ? <p className="ta-muted">{copy('Bu ülke için mevcut bilgi kartları aşağıda. Her konu henüz eklenmiş olmayabilir. Genel saatler, belirli bir işletmenin açık olduğu anlamına gelmez.','Available cards for this country are shown below. Some topics may not be covered yet. General hours do not mean a particular business is open.')}</p> : <p className="ta-empty" role="status">{copy('Bu ülke için doğrulanmış rehber kartları henüz hazır değil. Aşağıdan hazır seyahat ifadelerini açabilir veya başka bir ülke seçebilirsin.','Verified guide cards for this country are not ready yet. Open useful travel phrases below or choose another country.')}</p>}
+      </div>{guideNotice && <p className="ta-warning" role="alert">{guideNotice}</p>}{locale === 'sq' && cards.some(card => !card.title.sq || !card.text.sq) && <p className="ta-muted" lang="sq">Disa karta ende shfaqen në anglisht. Lidhja zyrtare hap udhëzimin e plotë dhe aktual.</p>}{cards.length ? <p className="ta-muted">{copy('Bu ülke için mevcut bilgi kartları aşağıda. Her konu henüz eklenmiş olmayabilir. Genel saatler, belirli bir işletmenin açık olduğu anlamına gelmez.','Available cards for this country are shown below. Some topics may not be covered yet. General hours do not mean a particular business is open.')}</p> : <p className="ta-empty" role="status">{copy('Bu ülke için doğrulanmış rehber kartları henüz hazır değil. Aşağıdan hazır seyahat ifadelerini açabilir veya başka bir ülke seçebilirsin.','Verified guide cards for this country are not ready yet. Open useful travel phrases below or choose another country.')}</p>}
         {(['water','tax-free','hours','law','culture'] as const).filter(category => cards.some(c => c.category === category)).map(category => <section key={category} className="ta-guide-section"><h3>{{water:copy('Musluk suyu','Tap water'),'tax-free':'Tax Free',hours:copy('Genel çalışma saatleri','Typical hours'),law:copy('Yerel kanunlar','Local laws'),culture:copy('Kültürel tavsiyeler','Cultural guidance')}[category]}</h3>
           {cards.filter(c=>c.category===category).map(c => {
+            const guideLanguage = locale === 'tr' ? 'tr' : locale === 'sq' && c.title.sq && c.text.sq ? 'sq' : 'en';
             const status = evidenceStatus(c, new Date(now));
             const usable = status !== 'expired' && status !== 'unverified';
             const statusIcon: IconName | null = !usable ? null : c.status === 'drinkable' ? 'check' : c.status === 'regional' ? 'alert' : c.status === 'avoid' ? 'close' : null;
-            return <article className="ta-card" key={`${c.category}:${c.title.en}`}><h4 className="ta-inline-status">{statusIcon && <Icon name={statusIcon} size={18}/>}<span>{c.title[guideLanguage]}</span></h4><EvidenceLine item={c}/>{usable && <p>{c.text[guideLanguage]}</p>}{c.validUntil && <p>{copy('Kapsadığı son tarih:','Applies through:')} {c.validUntil}</p>}</article>;
+            return <article className="ta-card" lang={guideLanguage} key={`${c.category}:${c.title.en}`}><h4 className="ta-inline-status">{statusIcon && <Icon name={statusIcon} size={18}/>}<span>{c.title[guideLanguage]}</span></h4><EvidenceLine item={c}/>{usable && <p>{c.text[guideLanguage]}</p>}{c.validUntil && <p>{copy('Kapsadığı son tarih:','Applies through:')} {c.validUntil}</p>}</article>;
           })}
         </section>)}
         <button className="secondary-wide" type="button" onClick={()=>onPhrases(country)}>{copy('Hazır ifadeler ve kültürel tavsiyeler','Phrases and cultural guidance')}</button>

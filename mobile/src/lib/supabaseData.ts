@@ -14,6 +14,7 @@ export type SupabaseDataErrorCode =
   | "not_found"
   | "conflict"
   | "invalid_data"
+  | "profile_unavailable"
   | "network"
   | "service_unavailable";
 
@@ -24,6 +25,7 @@ const ERROR_MESSAGES: Record<SupabaseDataErrorCode, string> = {
   not_found: "İstenen kayıt bulunamadı veya artık kullanılamıyor.",
   conflict: "Kayıt başka bir yerde değişti. Yenileyip tekrar dene.",
   invalid_data: "Gönderilen bilgiler geçerli değil.",
+  profile_unavailable: "Hesabına giriş yapıldı ancak profilin hazırlanamadı. Tekrar dene; sorun sürerse destek ile iletişime geç.",
   network: "Sunucuya bağlanılamadı. Bağlantını kontrol edip tekrar dene.",
   service_unavailable: "Veri servisi şu anda kullanılamıyor. Biraz sonra tekrar dene.",
 };
@@ -35,6 +37,7 @@ const ERROR_MESSAGES_EN: Record<SupabaseDataErrorCode, string> = {
   not_found: "The requested item was not found or is no longer available.",
   conflict: "This item changed elsewhere. Refresh and try again.",
   invalid_data: "The submitted information is not valid.",
+  profile_unavailable: "You are signed in, but your profile could not be prepared. Retry, or contact support if this continues.",
   network: "Could not connect to the server. Check your connection and try again.",
   service_unavailable: "The data service is currently unavailable. Try again shortly.",
 };
@@ -46,6 +49,7 @@ const ERROR_MESSAGES_SQ: Record<SupabaseDataErrorCode, string> = {
   "not_found": "Regjistrimi i kërkuar nuk u gjet ose nuk është më i disponueshëm.",
   "conflict": "Ky regjistrim ka ndryshuar diku tjetër. Rifresko dhe provo sërish.",
   "invalid_data": "Të dhënat e dërguara nuk janë të vlefshme.",
+  "profile_unavailable": "Ke hyrë, por profili nuk u përgatit. Provo sërish ose kontakto mbështetjen nëse problemi vazhdon.",
   "network": "Nuk u lidhëm me serverin. Kontrollo lidhjen dhe provo sërish.",
   "service_unavailable": "Shërbimi i të dhënave nuk është i disponueshëm për momentin. Provo pas pak."
 };
@@ -552,6 +556,54 @@ export async function updateUserProfile(userId: string, update: UserProfileUpdat
     const profile = rows[0] ? normalizeProfile(rows[0]) : null;
     if (!profile) throw new SupabaseDataError("not_found", 404);
     return profile;
+  });
+}
+
+/** Recover only an explicitly completed profile, without touching roles or preferences. */
+export async function completeUserProfile(userId: string, username: string, accessToken: string) {
+  try {
+    return await updateUserProfile(userId, { username }, accessToken);
+  } catch (error) {
+    if (!(error instanceof SupabaseDataError) || error.code !== "not_found") throw error;
+  }
+
+  return safely(async () => {
+    // A zero-row PATCH can also mean denied visibility. Verify ownership with
+    // the auth service, then retain the same user's bearer and all server RLS.
+    const user = await requestJson<{ id?: string }>(`${config.supabaseUrl.replace(/\/$/, "")}/auth/v1/user`, {
+      headers: dataHeaders(accessToken),
+    });
+    if (user.id !== userId) throw new SupabaseDataError("forbidden", 403);
+
+    // A failing/missing REST endpoint is not evidence of a missing profile.
+    // Also avoid inserting if a delayed signup trigger has created it meanwhile.
+    if (!await getUserProfile(userId, accessToken)) {
+      try {
+        await requestJson<ProfileRow[]>(dataUrl("profiles", new URLSearchParams({ on_conflict: "id" })), {
+          method: "POST",
+          headers: dataHeaders(accessToken, "resolution=ignore-duplicates,return=minimal"),
+          body: { id: userId, username: safeString(username, 20).toLowerCase() },
+        });
+      } catch (error) {
+        const normalized = normalizeError(error);
+        if (normalized.code === "forbidden"
+          || (error instanceof ApiError && ["23502", "42703", "42P01", "PGRST204"].includes(error.code))) {
+          throw new SupabaseDataError("profile_unavailable", normalized.status);
+        }
+        throw normalized;
+      }
+    }
+
+    // On a concurrent creation only id conflicts are ignored. Update the chosen
+    // username through the usual own-row policy; never overwrite other fields.
+    try {
+      return await updateUserProfile(userId, { username }, accessToken);
+    } catch (error) {
+      if (error instanceof SupabaseDataError && (error.code === "not_found" || error.code === "forbidden")) {
+        throw new SupabaseDataError("profile_unavailable", error.status);
+      }
+      throw error;
+    }
   });
 }
 

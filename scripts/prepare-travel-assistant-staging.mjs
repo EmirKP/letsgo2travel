@@ -16,6 +16,8 @@ const sources = [
   'app/api/travel-assistant/transit/route.ts',
   'app/api/travel-assistant/offline-map/route.ts',
   'lib/travel-assistant/transit.ts',
+  'lib/travel-assistant/entur.ts',
+  'lib/travel-assistant/entur-server.ts',
   'lib/travel-assistant/offline-map.ts',
   'lib/travel-assistant/overpass.ts',
   'lib/travel-assistant/result-cache.ts',

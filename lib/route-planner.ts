@@ -1,7 +1,8 @@
 /** Shared, provider-independent rules for a traveller's fixed destination. */
+import { starterPreferenceNote, type PlannerPreferences } from "./planner-preferences";
 export type PlanDestination = { code: string; name: string; country: string; countryCode: string };
 export type PlanLocale = "tr" | "en" | "sq";
-export type FixedPlanInput = { destination?: PlanDestination; origin: string; dayCount?: number; budget: string; vibe: string[]; who: string; tempo: string };
+export type FixedPlanInput = PlannerPreferences & { destination?: PlanDestination; origin: string; dayCount?: number; budget: string; vibe: string[]; who: string; tempo: string };
 
 export function validPlanDays(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 14 ? value : null;
@@ -34,7 +35,7 @@ export function fixedDestinationStarter(input: FixedPlanInput, locale: PlanLocal
         : index === days - 1
           ? copy("Son keşifler ve dönüş hazırlığı. Bagaj, çıkış saati ve dönüş ulaşımı için yeterli pay bırak.", "Finish exploring and prepare to return. Allow enough time for luggage, checkout and return transport.", "Përfundo vizitat dhe përgatitu për kthim. Lër kohë për bagazhet, largimin nga hoteli dhe transportin.")
           : middle;
-    return `${prefix}: ${destination.name} — ${activity}`;
+    return `${prefix}: ${destination.name} — ${activity} ${starterPreferenceNote(input, locale)}`;
   });
   const caution = copy("Bu düzenlenebilir bir başlangıç taslağıdır; canlı fiyat, rezervasyon veya doğrulanmış mekân programı içermez. Ayrıntılı plan için bağlantıyla tekrar dene.", "This is an editable starter outline, without live prices, bookings or a verified venue schedule. Retry online for a detailed plan.", "Ky është një plan fillestar i redaktueshëm, pa çmime të drejtpërdrejta, rezervime ose orare të verifikuara. Provo sërish në internet për një plan të detajuar.");
   return {
