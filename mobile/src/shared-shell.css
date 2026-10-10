@@ -33,9 +33,10 @@
 .menu-language > button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 14px; background: var(--theme-soft, #f3f7ff); color: var(--theme-ink, #153860); font-size: 14px; }
 .menu-language > button[aria-pressed="true"] { color: #fff; background: #0066ff; border-color: #0066ff; }
 
-/* The shared header takes the space previously owned by the photo headers. */
-.shared-shell .screen.reference-home .rh-hero { height: calc(max(400px, calc(var(--rh-unit) * 76.47)) - 76px); }
-.shared-shell .screen.reference-home .rh-hero-copy { top: max(36px, calc(var(--rh-unit) * 34.82 - 76px)); }
+/* The header is already in flow. Let hero content determine its height so
+   wider screens do not reserve a second header-sized area of empty sky. */
+.shared-shell .screen.reference-home .rh-hero { display: grid; align-content: start; gap: clamp(16px, calc(var(--rh-unit) * 2.5), 22px); height: auto; min-height: 0; padding: clamp(24px, calc(var(--rh-unit) * 4), 34px) var(--rh-edge) 20px; }
+.shared-shell .screen.reference-home :is(.rh-hero-copy, .rh-search, .rh-city-chips) { position: relative; inset: auto; width: 100%; }
 .app-shell.editorial-app.shared-shell.view-home .screen :is([id], button, a, input, select, textarea) { scroll-margin-top: calc(92px + env(safe-area-inset-top)); }
 .shared-shell.view-community .screen.community-social .cs-hero { min-height: 324px; padding: 18px 27px 48px; }
 .shared-shell.view-community .community-social .cs-hero-tools { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -43,23 +44,6 @@
 .cs-hero-tools > button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid rgb(255 255 255 / 35%); border-radius: 50%; background: rgb(var(--theme-surface-rgb, 255 255 255) / 0.9); color: var(--theme-ink, #091832); }
 .shared-shell.view-community .community-social .cs-hero-copy { margin-top: 18px; }
 .shared-shell.view-community .community-social .cs-handwritten { top: 132px; }
-/* Retain the home composition's extra breathing room at tablet/landscape widths. */
-@container (min-width: 451px) and (max-width: 699px) {
-  .shared-shell .screen.reference-home .rh-hero { height: calc(var(--rh-unit) * 76.47 + 40px - 76px); }
-  .shared-shell .screen.reference-home .rh-hero-copy { top: max(36px, calc(var(--rh-unit) * 32 - 76px)); }
-}
-@container (max-width: 450px) {
-  .shared-shell .screen.reference-home .rh-hero-copy { top: max(36px, calc(var(--rh-unit) * 32 - 76px)); }
-}
-@supports not (container-type: inline-size) {
-  @media (min-width: 451px) and (max-width: 699px) {
-    .shared-shell .screen.reference-home .rh-hero { height: calc(var(--rh-unit) * 76.47 + 40px - 76px); }
-    .shared-shell .screen.reference-home .rh-hero-copy { top: max(36px, calc(var(--rh-unit) * 32 - 76px)); }
-  }
-  @media (max-width: 450px) {
-    .shared-shell .screen.reference-home .rh-hero-copy { top: max(36px, calc(var(--rh-unit) * 32 - 76px)); }
-  }
-}
 @media (max-width: 540px) {
   .app-shell.editorial-app .topbar.shared-topbar { padding-inline: max(12px, env(safe-area-inset-left)); }
   .app-shell.editorial-app .shared-topbar .topbar-actions { gap: 4px; }
