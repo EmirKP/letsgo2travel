@@ -299,6 +299,7 @@ export default async function CountryForumPage({ params }: PageProps) {
                 <span>{dateLabel(featuredTopic.created_at)}</span>
               </div>
               <h2>{featuredTopic.title}</h2>
+              {featuredTopic.author_id === null && /^starter-20260930-\d{2}$/.test(featuredTopic.seed_key || "") && <p>LetsGo2Travel başlangıç sohbeti · Kurgusal katılımcılar; herkes yanıtlayabilir.</p>}
               <p>{featuredTopic.content}</p>
             </article>
 

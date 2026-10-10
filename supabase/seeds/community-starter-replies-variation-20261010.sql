@@ -1,0 +1,138 @@
+-- Live follow-up: 105 additional replies; the existing30 remain intact.
+-- Editorial starter discussions with recurring fictional personas, disclosed once
+-- in discussion detail. No auth accounts, votes, points or fabricated dates.
+-- Requires 20261010130000_community_starter_replies.sql and the original topics.
+-- Reruns preserve genuine replies, original bodies/dates and moderation decisions.
+-- Target counts by topic: 7, 3, 12, 5, 16, 8, 4, 11, 6, 15, 2, 9, 14, 10, 13.
+begin;
+-- Remove only the old editorial display suffix from eligible published starters.
+update public.forum_topics
+  set author_name = regexp_replace(author_name, ' · Örnek profil$', '')
+  where seed_key ~ '^starter-20260930-(0[1-9]|1[0-5])$' and author_id is null
+    and status = 'published' and is_paywalled = false and category = 'Ülke Bazlı Sorunlar'
+    and author_name like '% · Örnek profil';
+update public.forum_replies r
+  set author_name = regexp_replace(r.author_name, ' · Örnek profil$', '')
+  where r.seed_key ~ '^starter-reply-20261010-(0[1-9]|1[0-5])-0[12]$'
+    and r.user_id is null and r.status = 'published'
+    and r.author_name like '% · Örnek profil'
+    and exists (select 1 from public.forum_topics t where t.id = r.topic_id
+      and t.seed_key = 'starter-20260930-' || split_part(r.seed_key, '-', 4)
+      and t.author_id is null and t.status = 'published' and t.is_paywalled = false
+      and t.category = 'Ülke Bazlı Sorunlar');
+
+insert into public.forum_replies (id, seed_key, topic_id, user_id, author_name, content, status)
+select ('f09a2026-1010-4000-8000-' || lpad(v.topic_number::text, 10, '0') || lpad(v.reply_number::text, 2, '0'))::uuid,
+  'starter-reply-20261010-' || lpad(v.topic_number::text, 2, '0') || '-' || lpad(v.reply_number::text, 2, '0'),
+  t.id, null, v.persona, v.body, 'published'
+from (values
+  (1, 3, 'tuna.sehirritmi', '@baran.adimadim, vapur fikri güzel de iki yakayı görünce insan ikisini de gezmeye kalkar :) Bence geçişten sonra tek hedef Moda olsun; araya bir de müze sıkıştırmayalım.'),
+  (1, 4, 'dila.yolnotu', 'Güne nereden başlayacağız? Otel Kadıköy''deyse tarihi yarımadaya gidip tekrar dönmek başka, zaten Sultanahmet''te uyanmak başka bir plan çıkarır.'),
+  (1, 5, 'nil.rotanotlari', 'Ben tarihi yarımada seçeneğini biraz açayım: Sultanahmet çevresi, Gülhane''de mola, sonra kıyıya doğru yürüyüş. Her yapının içine girmeye çalışmadan da dolu bir gün olur. En çok görmek istediğin tek yapıyı baştan seçersen geri kalanı daha rahat akar.'),
+  (1, 6, 'bora.fotodefter', 'Gün batımı için kesin nokta seçmeden önce hava durumuna bakardım. Kapalı havada sırf fotoğraf uğruna rotayı ters çevirmeye değmez bence.'),
+  (1, 7, 'baran.adimadim', 'Tamam, o zaman vapur + Kadıköy tarafındayım. Sahilde oturmak da programın parçası sayılsın ama; bütün gün adım sayacını çalıştırmayalım.'),
+  (2, 3, 'ayca.kiyinotlari', 'İki günlük araç planını koyların sırası belli olduktan sonra yapardım. Hatta ilk sorum şu: Her gün başka koy gerçekten şart mı? İki ana plaj seçilirse dolmuş seçeneğini değerlendirmek çok daha kolaylaşır. Akşam yemeği için de merkeze dönmek istiyorsan dönüş ulaşımı kararın yarısı zaten.'),
+  (3, 3, 'bora.fotodefter', 'Eren''in sorusuna ben fotoğraf derdim ama tripodla her noktada yarım saat duracağımız bir tur da istemem. Tek bir vadide yavaş yürümek daha cazip geliyor.'),
+  (3, 4, 'ada.patikalar', 'O zaman yürüyüşü kilometre hedefiyle değil, dönüş noktasıyla planlayalım. Göreme çevresindeki seçeneklerden kısa bir hat seçip başlama ve bitiş ulaşımını netleştirmek yeterli. Bir vadiden diğerine rastgele uzatmayı iki günlük planda düşünmezdim.'),
+  (3, 5, 'sena.hafifcanta', 'Yanına yedek ayakkabı mı alırsın, tek rahat çift mi? Hafif çanta konusundaki tartışma burada da karşıma çıktı.'),
+  (3, 6, 'alp.minikmola', '@sena.hafifcanta, rota ağırlıklı olarak yürüyüşse tek rahat çift seçerdim. Ama hangi patikaya gidileceği belli olmadan ayakkabı kararını da kesinleştirmem.'),
+  (3, 7, 'lale.muzemolasi', 'Çömlek atölyesi fikri listeye girdi. İzlemek mi istersin, kendin denemek mi? İkisi için ayıracağımız vakit aynı olmayabilir; günün kalanını buna göre boş bırakmak iyi olur.'),
+  (3, 8, 'eren.yolgunlugu', 'Ben deneme kısmını seçerdim. Ortaya yamuk bir şey çıkması da hatıra olur :)'),
+  (3, 9, 'derin.sehirsokak', 'Bir günü de tamamen taş sokaklara ve küçük yerleşimlere ayırmak isteyen var mı? Uçhisar ile Ortahisar''ı aynı güne yazmıştım ama ikisinden birini seçip uzun oturmak daha iyi olabilir diye düşünüyorum.'),
+  (3, 10, 'eda.yokusasagi', '@derin.sehirsokak, ben önce konaklama yerini öğrenmek isterdim. İki yer arasında gidip gelmek yerine kaldığın tarafa yakın olanı seçmek bu sakin program fikrine daha çok uyuyor.'),
+  (3, 11, 'nazli.kapipasaj', 'Hava yürüyüşe uygun olmazsa ikinci planımız ne? Atölyeyi o güne taşıyıp açık hava kısmını esnek bırakabiliriz. Ama rezervasyon yapılacaksa değişiklik koşulunu önceden sormak gerekir.'),
+  (3, 12, 'ada.patikalar', 'İki gün için şu kadarını yeterli buluyorum: bir kısa vadi yürüyüşü, bir yerleşim gezisi, bir de gerçekten ilgini çeken etkinlik. Kalan boşlukları doldurmak zorunda değiliz. Balon olmayınca sabahı mutlaka gün doğumunda başlatmak da şart değil.'),
+  (4, 3, 'selma.uzakyakin', 'Ben kalın kitabı sorgulardım. Üç günlük gezide gerçekten okunacak mı, yoksa çantada gezmeye mi gelecek? Küçük bir kitap seçmek bile fark yaratır.'),
+  (4, 4, 'tuna.sehirritmi', 'Her güne ayrı üst planlamak yerine aynı altla giyilebilecek parçaları yan yana koymak işe yarayabilir. Bir de çantayı kapatmadan içindekilerin fotoğrafını çekme fikrini seviyorum. Dönüşte hangilerine dokunulmadığı daha net görünür; sonraki gezi için kişisel bir liste çıkar.'),
+  (4, 5, 'sena.hafifcanta', 'Bir şey daha: boş alanı doldurmayalım :) Çanta kapanıyor diye son anda ikinci hırkayı eklemek bütün hesabı bozuyor.'),
+  (5, 3, 'onur.sokakizi', 'Karşılaştırmaya Monti ve Prati ile başlasak nasıl olur? İsim listesi büyüdükçe otel araması içinden çıkılmaz hale geliyor. İki bölge ve iki farklı bütçe üzerinden gitmek daha anlaşılır.'),
+  (5, 4, 'derin.sehirsokak', 'Olur, ama önce Vatikan mı antik Roma tarafı mı daha ağırlıklı onu seçelim. Haritayı her gün en çok zaman geçireceğin yerlerden okumak lazım. Sırf mahallenin adı çok geçiyor diye oraya kilitlenmezdim.'),
+  (5, 5, 'beliz.parkdefteri', 'Benim için akşam kısa yürüyüşten sonra kolayca odaya dönmek daha önemli. Çok geç saatlere kadar dışarıda kalmayacak biri için değerlendirme değişir mi sizce?'),
+  (5, 6, 'tolga.rotaciz', '@beliz.parkdefteri, değişir bence. Akşam programı sakinse kahvaltı ve sabah ilk durağa ulaşım daha belirleyici olabilir. Her günün başlangıcını haritada bir kez denemek iyi bir eleme yöntemi.'),
+  (5, 7, 'lale.muzemolasi', 'Müze biletini önce alanlardan olsam konaklamayı o sabaha göre de tartardım. Erken saatte yetişme telaşı yaşamak istemem.'),
+  (5, 8, 'dila.yolnotu', 'Peki Trastevere''yi neden eledik? Henüz elemediysek onu da iki gece akşam yemeği planına göre karşılaştırmak isterim. Yalnız üç bölgeden sonra yeni isim eklemeyelim, yoksa yine başa döneceğiz.'),
+  (5, 9, 'onur.sokakizi', 'Elemedik, sadece ilk turu küçük tutmaya çalıştım. Trastevere de aday olsun; sonra günlük rotalara göre birini çıkarırız.'),
+  (5, 10, 'sena.hafifcanta', 'Küçük çantayla gidilecekse konaklamaya giriş saatinden önce gezmek daha kolay olabilir. Büyük valiz varsa bagaj bırakma seçeneğini mutlaka sorardım. Mahalle kadar ilk günün rahatlığı da fark yaratıyor.'),
+  (5, 11, 'cem.kahvemolasi', 'Kahvaltıyı otelde mi dışarıda mı düşünüyorsun? Ben sabahı yakınlarda bir yerde yavaş geçirmek isterdim. O yüzden sokak çevresini yalnızca metro işaretlerine bakarak değerlendirmem.'),
+  (5, 12, 'derin.sehirsokak', 'Şu an üç ölçüt çıktı: ilk durağa yol, akşam dönüşü, toplam fiyat. Otelleri aynı tarihler ve aynı iptal koşuluyla karşılaştırırsak tablo daha anlamlı olur. Farklı şartlardaki fiyatlara bakınca ucuz görünen seçenek yanıltabiliyor.'),
+  (5, 13, 'eda.yokusasagi', 'Yürüyüş mesafesinin yanında merdiven ve yokuşu da kontrol edelim mi? Haritada kısa görünen yol, valizle aynı hissettirmeyebilir.'),
+  (5, 14, 'alp.minikmola', 'Eda''nın dediğine binanın girişini de eklerdim. Oda üst kattaysa asansör bilgisi küçük ayrıntı olmaktan çıkıyor.'),
+  (5, 15, 'tolga.rotaciz', 'Bir mahalleye karar verince bütün aramayı kapatmak gerekmiyor. Aynı bölgeden iki, alternatif bölgeden bir yer bırakıp son karşılaştırmayı yapabiliriz. Karar verilecek şeyi üç somut seçeneğe düşürmek bana daha kolay geliyor.'),
+  (5, 16, 'beliz.parkdefteri', 'Bu konuşmadan bana kalan soru şu: Odayı şehre yakın diye mi seçiyorum, kendi planıma yakın diye mi? İkincisini düşününce merkez takıntısı biraz azalıyor.'),
+  (6, 3, 'tuna.sehirritmi', 'Beş günün içinde geliş ve dönüş de var mı? Beş tam günle, ilk akşam otele varılan bir program bence aynı soru değil.'),
+  (6, 4, 'ipek.pusulan', 'Çok doğru. Benim bir bölge + isteğe bağlı durak fikrim tam gezi günleri içindi. Varış gününü ayrı tutup sadece konaklama çevresinde dolaşmak daha gerçekçi olabilir.'),
+  (6, 5, 'lale.muzemolasi', 'Asakusa ile Ueno''yu aynı güne aday yazardım; sonra ilgimi çeken yerleri seçip süreyi kontrol ederdim. Müze eklenirse o günün listesi zaten daralır. Sadece mahalle adlarını yan yana yazınca gün olduğundan boş görünüyor.'),
+  (6, 6, 'cem.kahvemolasi', 'Bir günün sadece iki sokak, bir yemek ve bir dükkânla geçmesine itirazım olmaz :) Şehrin tamamını bitirme hedefi koymazsak beş gün de anlamlı.'),
+  (6, 7, 'bora.fotodefter', 'Akşam fotoğrafı istiyorsan o bölgenin sabahını başka bir yere harcamamak da seçenek. Öğleden sonra başlayıp akşama uzayan bir gün planlayabiliriz. Her günü aynı saatte başlatmaya gerek yok.'),
+  (6, 8, 'eren.yolgunlugu', 'Günübirlik kaçamağı şimdilik yedekte tutardım. Tokyo''da görmek istediğin yerleri beş güne dağıtınca hâlâ rahat bir boş gün çıkıyorsa o zaman ekleyelim. Sırf yakın diye başka yere gitmek zorunda değiliz.'),
+  (7, 3, 'derin.sehirsokak', 'Tarihi sokaklar ağır basıyorsa Berat''ı araştırmaya daha yakınım. Ama İşkodra seçeneğinin yanına otomatik olarak bir doğa gezisi eklemeyelim; o da ayrıca zaman ve ulaşım planı ister. Burada toplam kaç gece olduğu kararı bayağı değiştirir.'),
+  (7, 4, 'omer.ufuknotu', 'Bir şehirde iki sabah uyanma fikri benim için hâlâ en iyi ölçüt. Tiran dışında sadece bir gecem varsa transferleri görmeden ikisinden birine kesin bağlanmam.'),
+  (8, 3, 'cem.kahvemolasi', 'Kahve molasının yerini baştan seçmek mi, yürürken karar vermek mi? Bu rotada bir molayı tamamen spontane bırakmak isterim.'),
+  (8, 4, 'zeynep.sakinadim', 'Ben de spontane taraftayım. Sadece kaleye çıkılacaksa öncesinde oturup biraz dinlenmeyi plana koyardım. Yerin adı şimdiden belli olmak zorunda değil.'),
+  (8, 5, 'bora.fotodefter', 'Taşköprü çevresini sabah ve akşam iki kez görme fikrini buraya yazayım. Yeni durak eklemek yerine aynı manzaranın ışığını karşılaştırmak daha eğlenceli olabilir.'),
+  (8, 6, 'eda.yokusasagi', 'Kaleyi günün sonuna bırakırsak enerjimiz kalır mı? Ben yokuşu önce bitirip günün geri kalanını aşağıda ağırdan alma seçeneğini de düşünürdüm.'),
+  (8, 7, 'bora.fotodefter', '@eda.yokusasagi, fotoğraf hedefi yoksa bence gayet mantıklı. Gün batımı diye tek saate kilitlenmemize gerek yok zaten.'),
+  (8, 8, 'nazli.kapipasaj', 'Sokak yürüyüşüne bir iç mekân durağı da eklemek isterdim. Müze ya da sergi ilgini çekiyorsa önce açık olduğu günü kontrol edip kalan rotayı çevresinde kurabiliriz. Ama sırf boşluğu doldurmak için müze yazmaya da gerek yok.'),
+  (8, 9, 'alp.minikmola', 'Bu kadar molayla adım sayısı düşük kalır diye endişe etmeyelim. Başlık zaten yavaş bir gün :)'),
+  (8, 10, 'esin.kesisenrota', 'Günübirlik mi gidiyorsun, gece de orada mısın? Dönüş saati sabitse öğleden sonraki uzun kahveyi ona göre yerleştiririz. Kalınacaksa akşamüstünü baştan boş bırakmak hoş olabilir.'),
+  (8, 11, 'zeynep.sakinadim', 'Bence iki ayrı kısa taslak yeter: yokuşlu gün ve yokuşsuz gün. Sabah hangisine enerji varsa onu seçersin. Nehir çevresi, sokaklar ve yemek molası iki planda da kalsın.'),
+  (9, 3, 'selma.uzakyakin', 'Üç gün dediğimiz iki geceyse ben biraz frene basardım. Otele giriş çıkış, çanta bırakma ve yola hazırlanma da o günlerin içinde. Kâğıt üzerinde şehir başına bir buçuk gün gibi bölmek pek gerçekçi gelmiyor.'),
+  (9, 4, 'murat.yolpaylas', 'Mostar''da geceleme fikrini savunmamın nedeni de buydu. İki şehri mutlaka birleştireceksek gidip dönmek yerine tek yönlü akış mümkün mü diye bakardım.'),
+  (9, 5, 'dila.yolnotu', 'Uçuş Saraybosna''dan mı dönüyor? Son geceyi nereye koyacağımıza karar vermeden bu bilgi lazım.'),
+  (9, 6, 'esin.kesisenrota', 'Ben iki taslağı yan yana çıkarırdım: Saraybosna''da üç gün ve bir gecesi Mostar''da olan plan. İkinci taslakta özellikle hangi duraklardan vazgeçildiğini yazalım. Tercih ancak o zaman somutlaşıyor; sadece iki şehir görmek kulağa hep cazip geliyor.'),
+  (10, 3, 'ozan.notdefteri', 'Önce hangi müze seni gerçekten heyecanlandırıyor onu bulalım. Sırf Berlin''e gidildi diye listeye eklenenleri silince üç günlük program bayağı rahatlayabilir.'),
+  (10, 4, 'lale.muzemolasi', 'Ben tek bir büyük müzeyi ayrıntılı gezme taraftayım. Yanına ikinci biletli yer koyunca ilkinden çıkmak için sürekli saate bakma ihtimali artıyor.'),
+  (10, 5, 'onur.sokakizi', 'Mahalleyi de kalan vakitte aradan çıkarılacak şey gibi görmeyelim. Sokakta amaçsız dolaşmak için yarım gün ayırmak da gayet plan sayılır.'),
+  (10, 6, 'cem.kahvemolasi', 'Kreuzberg için yemek + yürüyüş diye ayrı bir öğleden sonra açsak? Beş kafe adı yazmadan tabii, tek mideyle geziyoruz.'),
+  (10, 7, 'beliz.parkdefteri', 'Ben de park molası eklemek isterim. Hava güzelse müzeden çıkar çıkmaz başka kapalı yere girmek yerine bir süre dışarıda oturmak daha iyi gelir.'),
+  (10, 8, 'tuna.sehirritmi', 'Üç günün biri hafta sonu mu? Günleri dağıtırken seçilen müzenin açık olduğu günü ve varsa giriş saatini önce kontrol etmek gerekir. Genel bir rota çizip sonradan kapalı güne denk geldiğini fark etmek can sıkar.'),
+  (10, 9, 'lale.muzemolasi', 'Tuna haklı. Benim müze günü dediğim herhangi bir gün değil; seçilecek yere göre takvimde yeri değişebilir.'),
+  (10, 10, 'bora.fotodefter', 'Fotoğraf için yürüyüş yaparken süre hesabı da değişiyor. Haritanın kırk dakika dediği yola bir sürü küçük durak eklenebilir. Müze çıkışına uzun bir fotoğraf rotası yazacaksak akşam yemeği saatini çok sıkı tutmazdım.'),
+  (10, 11, 'nazli.kapipasaj', 'Yağmur seçeneği olarak aynı gün iki müze yapmak yerine küçük bir sergi veya kitapçı düşünebiliriz. İkinci büyük müzeyi de hakkıyla gezmek isteyince yine yarışa dönüyor.'),
+  (10, 12, 'alp.minikmola', 'Ben bir öğleden sonrayı şimdiden boş bırakırdım. İlk iki günde sevdiğin bir yere dönme hakkın olsun.'),
+  (10, 13, 'onur.sokakizi', 'Alp''in dediği tekrar dönme kısmı önemli. Aynı mahallede ikinci kez dolaşmak yerine sürekli yeni isim ekleme baskısı oluyor. Üç günde her bölgeyi görmek gibi bir hedef koymayalım.'),
+  (10, 14, 'derin.sehirsokak', 'Konaklama yeri belli olunca bu taslağı çok daha kolay daraltırız. Bir akşamı otelin çevresine ayırıp diğer günleri iki ana bölgeye bölebiliriz. Dönüş yolunu da geziye katmış oluruz.'),
+  (10, 15, 'ozan.notdefteri', 'Bana göre denge bir müze günü, bir mahalle günü, bir de esnek gün. Esnek günü önceden on durakla doldurmazsak plan tamamdır.'),
+  (12, 3, 'sena.hafifcanta', 'Otel değişimini gezi günü gibi saymamak iyi olabilir. Çantayı toplamak, çıkış yapmak, yeni yerde yerleşmek derken sadece yolda geçen zamanı hesaplamak eksik kalıyor.'),
+  (12, 4, 'selma.uzakyakin', 'Evet, iki konaklama derken bir kez yer değiştirmeyi kastediyorum. Üçüncü bölgeyi eklemek istersem önce oradaki etkinliğin gerçekten vazgeçilmez olup olmadığını sorardım.'),
+  (12, 5, 'ayca.kiyinotlari', 'Sahil tarafında asıl hedef denize girmek mi, kıyıda oturmak mı? Bölgeyi seçmeden bu ayrım yapılsa iyi olur. Fotoğrafta güzel duran her yer aynı tür gün vadetmiyor.'),
+  (12, 6, 'arda.yumusakrota', 'Bence ilk sorumuz bu olmalıydı. Ubud''da üç gün, sahilde dört gün diye bölmek kolay ama kişinin yapmak istediği şeyleri bilmeden sayıların pek anlamı yok.'),
+  (12, 7, 'dila.yolnotu', 'Son geceyi seçerken dönüş uçuşunun saatini de görelim. O güne ayrıca uzun bir gezi eklemeye hiç hevesli değilim.'),
+  (12, 8, 'cem.kahvemolasi', 'Ben iki bölgede de en az bir sabahı plansız bırakmak isterdim. Konaklama değişimi yapıp her günü yine uzak yerlere giderek geçirirsek iki yerde kalmanın rahatlığını kullanmamış oluruz. Bir günün tamamı yakın çevrede geçebilir.'),
+  (12, 9, 'selma.uzakyakin', 'Şöyle deneyelim: etkinlikleri iki renge ayırıp haritaya koy. Bir renk açık ara baskınsa tek konaklama hâlâ güçlü aday. Dengeliyse iki bölgeye bölmek daha anlamlı görünür.'),
+  (13, 3, 'lale.muzemolasi', 'Ben South Kensington tarafındaki müzelerden sadece birini seçerek başlardım. Aynı güne hepsini yazmak yerine hangisinin koleksiyonu ilgini çekiyor ona bakalım. Çıkışta park molası fikri de bu plana yakışır.'),
+  (13, 4, 'beliz.parkdefteri', 'Bir müze + Kensington Gardens yürüyüşünü aday olarak yazıyorum. Yağmur varsa park kısmını kısaltırız; baştan ikinci büyük müzeyle doldurmaya gerek yok.'),
+  (13, 5, 'tuna.sehirritmi', 'Ana koleksiyonla geçici sergiyi ayrı kontrol etmek de önemli. Kurumun genel giriş bilgisi, görmek istediğin her şey için aynı koşul var demek olmayabilir.'),
+  (13, 6, 'bora.fotodefter', 'Müzesiz bir gün için nehir boyunca fotoğraf yürüyüşü de isterim. Her güzel durakta para harcamak gerekmiyor ama kahve için yine bütçe ayırırım :)'),
+  (13, 7, 'onur.sokakizi', '@bora.fotodefter, o güne South Bank''i başlangıç adayı yapabiliriz. Önce hangi noktada bitirmek istediğimizi seçelim; kıyı boyunca yürürken fark etmeden planı uzatmak kolay.'),
+  (13, 8, 'eda.yokusasagi', 'Toplam yürüyüşe müzenin içinde geçen kısmı da ekleyelim. Haritadaki rota kısa görünse bile müze çıkışında uzun bir park turu herkese cazip gelmeyebilir.'),
+  (13, 9, 'alp.minikmola', 'Eda''nın dediği yüzden park turunu parkta oturma molası olarak değiştirme hakkımız olsun.'),
+  (13, 10, 'nazli.kapipasaj', 'British Museum ayrı bir günün ana durağı olabilir mi? Sonrasını da yakın çevrede kısa bir yürüyüşle bırakırdım. Ücretsiz olduğu için az vakit ayırıp çıkmak gerekiyormuş gibi düşünmeyelim.'),
+  (13, 11, 'lale.muzemolasi', 'Olabilir. Hatta ilgi alanına göre birkaç bölüm seçmek daha iyi; tüm koleksiyonu tek seferde bitirme hedefi koymazdım. Güncel ziyaret ve rezervasyon koşuluna bakınca günü de netleştiririz.'),
+  (13, 12, 'sena.hafifcanta', 'Müze gününde büyük çantayı taşımamak için konaklamada bırakma seçeneğini sorardım. Gideceğin yerin çanta kurallarını önceden kontrol etmek de kapıda sürpriz yaşatmaz.'),
+  (13, 13, 'cem.kahvemolasi', 'Mola bütçesini baştan ayırma fikrine katılıyorum. Bütün gün ücretsiz yer gezip oturacak bir yer ararken istemeden fazla harcamak mümkün. Yanına küçük bir atıştırmalık alma seçeneği de düşünülebilir.'),
+  (13, 14, 'beliz.parkdefteri', 'Şu an üç ayrı gün çıktı gibi: South Kensington, müze ağırlıklı merkez günü, nehir yürüyüşü. Bunları tek güne toplamıyorsak gayet sakin bir liste oldu.'),
+  (14, 3, 'bora.fotodefter', 'Abanotubani çevresinden başlayıp önce ayrıntı fotoğrafları çekmek isterdim. Manzara noktasını da o günün ışığına ve havaya göre seçerdim; bütün rotayı tek fotoğrafa bağlamayalım.'),
+  (14, 4, 'eda.yokusasagi', 'Ben yokuşu sabaha alırım ama Bora''nın planında da önce kısa bir çevre turu yapılabilir. Asıl mesele öğlene kadar dolaşıp sonra en uzun tırmanışı programa eklememek.'),
+  (14, 5, 'cem.kahvemolasi', 'Nehir çevresindeki molayı yemek molasıyla birleştirsek? Hem iki ayrı kez duracak yer aramayız hem rotada uzun bir boşluk açılır.'),
+  (14, 6, 'emre.kucukdurak', 'Olur. Sonrasına da mutlaka görülmesi gereken yeni bir tepe eklemeyelim yeter :) Bir manzara noktası bu gün için yeterli.'),
+  (14, 7, 'derin.sehirsokak', 'Eski şehrin sokakları için haritada kesintisiz bir çizgi şart mı? Ben birkaç sabit nokta seçip aralarını biraz serbest bırakmak isterdim. Sadece yokuşlu sapmaları görünce geri dönmekten çekinmeyelim.'),
+  (14, 8, 'tuna.sehirritmi', 'Dönüşü konaklamaya göre kuralım bence. Akşam tekrar başlangıç noktasına gitmek gerekmiyorsa rotayı halka yapmaya uğraşmayız.'),
+  (14, 9, 'nazli.kapipasaj', 'Yağmur seçeneği de hazır olsun: manzara çıkışı iptal olursa aynı bölgede bir iç mekân ve uzun mola. O gün mutlaka aynı kilometreyi tamamlamak zorunda değiliz. Hangi yerlerin açık olduğunu da tarihler belli olunca kontrol ederiz.'),
+  (14, 10, 'eda.yokusasagi', 'Bu rota için en işe yarar iki bilgi başlangıç semti ve yokuş isteği. İkisi belli olursa kısa ve uzun seçenekleri gerçekten çizebiliriz; şimdilik listeye daha fazla durak eklemezdim.'),
+  (15, 3, 'omer.ufuknotu', 'Önce kuzeyden güneye tüm sahili görme hedefini bıraksak iş kolaylaşır. Bir üs, iki plaj ve bir yürüyüş bana birkaç gün için yeterli geliyor.'),
+  (15, 4, 'ayca.kiyinotlari', 'Himarë çevresini araştırma listesine ekleyebiliriz. Ama konaklamayı seçerken yalnızca kasaba adına bakmayalım; plaja yürüyüş ve akşam dönüş yolunu tek tek incelemek lazım.'),
+  (15, 5, 'dila.yolnotu', 'Arabasız gideceksek çanta meselesi de var. Haritada kısa görünen son kısmı valizle yürüyecek miyiz, bunu rezervasyondan önce sorardım.'),
+  (15, 6, 'kerem.sahiladimi', '@dila.yolnotu, o yüzden sahile biraz uzak ama manzaralı konaklamaları hemen seçmem. Her gün aynı yolu iki kere yapma fikri hoşuma gitmiyorsa o manzaranın bir bedeli var.'),
+  (15, 7, 'bora.fotodefter', 'Küçük koy ararken fotoğraflarda insan görünmemesini sakinlik garantisi saymayalım. Mevsim ve saat bilgisi yoksa fotoğraf sadece manzarayı anlatıyor.'),
+  (15, 8, 'ada.patikalar', 'Yürüyüş için de plajlar arasında gelişigüzel bir patika varmış gibi plan yapmazdım. Belirli bir güzergâh seçip erişim ve dönüşü kontrol etmek gerek. Bir yerde yol devam etmiyorsa sırf haritada yakın görünüyor diye uzatmaya çalışmayalım.'),
+  (15, 9, 'alp.minikmola', 'Bütün gün aynı plajda kitap okumak seçenekler arasında kalsın. Sakin rota konuşup sonra her sabah yola çıkma görevi yazmayalım kendimize.'),
+  (15, 10, 'selma.uzakyakin', 'Bali konusundaki konaklama tartışmasına benziyor: daha çok yer görmekle daha az çanta toplamak arasında seçim var. Burada birkaç gün tek yerde kalmak isteyen biri için önce o yerin yakın çevresi yeterli mi diye bakardım.'),
+  (15, 11, 'ayca.kiyinotlari', 'Yakın çevre yeterliyse uzak koyu ana plan değil, isteğe bağlı gün yapabiliriz. Ulaşım uygun çıkmazsa tatilin ortasında program bozulmuş hissi olmaz.'),
+  (15, 12, 'cem.kahvemolasi', 'Akşam ne istediğin de üs seçiminde etkili: yürüyerek yemek yiyip dönmek mi, konaklamada kalmak mı? Gündüzün sakinliğini seçerken akşam ihtiyacını unutmayalım.'),
+  (15, 13, 'kerem.sahiladimi', 'Ben bu taslağı üç soruyla daraltırım: kaç gece, hangi tarihler, akşam yürüyerek dışarı çıkma isteği var mı? Sonra iki aday bölgeyi karşılaştırmak yeter. Daha şimdiden sahilin tamamını listeye almaya gerek yok.')
+) as v(topic_number, reply_number, persona, body)
+join public.forum_topics t on t.seed_key = 'starter-20260930-' || lpad(v.topic_number::text, 2, '0')
+  and t.author_id is null and t.status = 'published' and t.is_paywalled = false and t.category = 'Ülke Bazlı Sorunlar'
+on conflict (seed_key) where seed_key is not null do nothing;
+commit;

@@ -7,10 +7,12 @@ Additionally, posting a real reply refreshed the detail but left the feed card
 count stale until a later refresh. Both are addressed in this change.
 
 Content and behaviour
-- 30 varied editorial example comments, two per existing starter discussion.
-- Fictional display names have the visible suffix “Örnek profil”, including in
-  older clients and the website. No auth accounts, votes, points or backdated
-  activity are created. Mobile also labels example topics/comments explicitly.
+- 135 varied editorial comments across 15 existing starter discussions. Counts
+  by topic number: 7, 3, 12, 5, 16, 8, 4, 11, 6, 15, 2, 9, 14, 10, 13.
+- 30 recurring fictional personas use plain display names. Repeated profile,
+  card and comment labels are removed. The discussion detail carries one short
+  disclosure in Turkish, English or Albanian; web detail/featured excerpts also
+  disclose once. No auth accounts, votes, points or backdated activity are made.
 - Examples are ordinary durable forum_replies records. The existing canonical
   count function counts actual published, visible replies; no UI count is faked.
 - Signed-in users reply through the existing authenticated/moderated endpoint.
@@ -27,6 +29,10 @@ Release sequence
 2. Review and run supabase/seeds/community-starter-replies-20261010.sql.
    Existing topic seed is its prerequisite. Missing, hidden or paywalled
    starter discussions do not receive new comments.
+   For the live database that already has the first 30 replies, instead run
+   supabase/seeds/community-starter-replies-variation-20261010.sql. It adds the
+   105 missing replies and removes the old suffix only from published starter
+   records. It leaves genuine and moderated records unchanged.
 3. Deploy backend/client changes that read forum_replies.seed_key.
    The schema step must precede the API deployment.
 4. Read a starter detail and verify its count; post a clearly labelled test
@@ -37,15 +43,23 @@ Seed safety
 Unique seed keys make re-runs idempotent. Re-runs preserve real replies and
 moderation states. Client roles cannot assign seed identities or write
 authorless replies. Trusted account deletion can still anonymize genuine rows.
+The first 30 reply bodies and all existing dates remain unchanged. Every topic
+has a distinct target count from 2 through 16, in a shuffled assignment. Actual
+moderation, blocking and genuine user replies can change the visible counts.
 
 Validation
-Production database rollout completed on 10 October 2026 in project
+The initial production database rollout completed on 10 October 2026 in project
 mwlucroyjvtoxillvzga. SQL verification returned 30 example replies across
 15 distinct starter topics. No real user reply or synthetic account was created.
+The variation follow-up was applied on 10 October 2026. Production feed and
+detail reads confirmed 135 replies across the 15 starter topics, with distinct
+counts from 2 through 16 and no old profile suffix. The existing genuine topic
+still has its three replies. No production test reply was submitted.
 
 tests/community-starter-replies.mjs executes migration and seed in PGlite,
-then checks 30 persisted comments, count aggregation, moderation/block filters,
-idempotence, no synthetic users, client forgery denial and account anonymization.
-tests/community-ui.mjs covers visible example disclosure, reply focus/mention,
+then checks 135 persisted comments, all 15 distinct counts, initial-to-live
+upgrade, preserved bodies/dates, moderation/block filters, idempotence, no
+synthetic users, client forgery denial and account anonymization.
+tests/community-ui.mjs covers one compact localized disclosure, reply focus/mention,
 guest sign-in, duplicate-tap guard, authenticated submission and feed refresh.
 Existing community pagination/admin/starter-permission suites are retained.

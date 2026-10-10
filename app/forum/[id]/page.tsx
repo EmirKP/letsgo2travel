@@ -234,7 +234,7 @@ export default async function ForumTopicPage({
 
           <h1>{topic.title}</h1>
           <p className={styles.heroDescription}>
-            {isStarter ? "Birlikte fikir üretmek için hazırlanmış örnek sohbet. Kendi hesabınla katılabilirsin." : "Gezgin deneyimleri, güncel giriş süreçleri ve topluluk cevapları tek başlıkta."}
+            {isStarter ? "Birlikte rota fikirlerini konuş, kendi önerilerini paylaş." : "Gezgin deneyimleri, güncel giriş süreçleri ve topluluk cevapları tek başlıkta."}
           </p>
         </div>
       </section>
@@ -243,7 +243,7 @@ export default async function ForumTopicPage({
         <aside className={styles.notice}>
           <AlertCircle size={21} aria-hidden="true" />
           <p>
-            {isStarter ? "Bu sohbet ve “Örnek profil” etiketli yorumlar, LetsGo2Travel tarafından kurgusal isimlerle hazırlanmış başlangıç içerikleridir. Gerçek kullanıcıların kendi hesaplarıyla verdiği yanıtlar ayrıca bu sohbete eklenir." : "Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi kurumların güncel duyurularını doğrula."}
+            {isStarter ? "LetsGo2Travel başlangıç sohbeti · Kurgusal katılımcılar; herkes yanıtlayabilir." : "Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi kurumların güncel duyurularını doğrula."}
           </p>
         </aside>
 

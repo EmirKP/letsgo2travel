@@ -29,9 +29,7 @@ export function HeaderThemeToggle() {
             <path d="M14.5 19a6 6 0 0 1 5-5" fill="none" stroke="#fff2b5" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
           <svg className="theme-toggle-moon" viewBox="0 0 40 40" focusable="false">
-            <path d="M28.9 25.8A13.3 13.3 0 0 1 14.2 11.1 13.5 13.5 0 1 0 28.9 25.8Z" fill="#d9ecff" />
-            <circle cx="11.5" cy="24" r="2.1" fill="#aac7e8" />
-            <circle cx="17.5" cy="30.5" r="1.3" fill="#aac7e8" />
+            <path d="M15.5 6.75A14 14 0 1 0 30.5 29.25A14 14 0 0 1 15.5 6.75Z" fill="#e2efff" />
           </svg>
         </span>
       </span>
@@ -48,6 +46,7 @@ export function AppearancePicker() {
       <input type="checkbox" checked={preference === "system"}
         onChange={event => setPreference(event.target.checked ? "system" : resolved)} />
       <span>{copy("Cihazın temasını kullan", "Use device appearance", "Përdor pamjen e pajisjes")}</span>
+      <span className="appearance-system-track" aria-hidden="true" />
     </label>
   </fieldset>;
 }

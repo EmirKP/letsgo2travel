@@ -8,10 +8,12 @@ export function TextSizePicker() {
   const id = useId();
   return <fieldset className="text-size-picker">
     <legend>{copy('Yazı boyutu', 'Text size', 'Madhësia e tekstit')}</legend>
-    <div>{(['normal', 'large'] as const).map(option => <label key={option}>
+    <div className="text-size-segments">{(['normal', 'large'] as const).map(option => <label key={option} className="text-size-option">
       <input type="radio" name={id} value={option} checked={size === option} onChange={() => setTextSize(option)} />
-      <span>{option === 'normal' ? copy('Normal', 'Normal', 'Normal') : copy('Büyük', 'Large', 'I madh')}</span>
+      <span className="text-size-option-content">
+        <span className={`text-size-preview text-size-preview-${option}`} aria-hidden="true">A</span>
+        <span>{option === 'normal' ? copy('Normal', 'Normal', 'Normal') : copy('Büyük', 'Large', 'I madh')}</span>
+      </span>
     </label>)}</div>
-    <p>{copy('Yazılar büyür; kartlar ve düğmeler metne uyum sağlar.', 'Text grows; cards and buttons adapt to fit.', 'Teksti zmadhohet; kartat dhe butonat përshtaten.')}</p>
   </fieldset>;
 }
