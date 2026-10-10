@@ -6,6 +6,7 @@ import {
   type CommunityProfile, type CommunityProfileItem, type CommunityProfilePage, type CommunityProfileSection,
 } from "../lib/communityProfiles";
 import { useI18n } from "../lib/i18n";
+import { formatAppDate } from "../lib/localeFormatting";
 import { CommunityAvatar } from "./CommunityAvatar";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
@@ -179,7 +180,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const empty = section === "posts" ? copy("Henüz bir paylaşım yok.", "No posts yet.", "Nuk ka ende postime.") : section === "answers" ? copy("Henüz bir cevap yok.", "No answers yet.", "Nuk ka ende përgjigje.") : section === "followers" ? copy("Henüz takipçi yok.", "No followers yet.", "Nuk ka ende ndjekës.") : copy("Henüz kimseyi takip etmiyor.", "Not following anyone yet.", "Nuk ndjek ende askënd.");
   const date = (value: string) => {
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
+    return Number.isNaN(parsed.getTime()) ? "" : formatAppDate(parsed, dateLocale, { day: "numeric", month: "short", year: "numeric" });
   };
   const switchSection = (next: CommunityProfileSection) => { if (next !== section) setSection(next); };
   const tabs = ["posts", "answers"] as const;

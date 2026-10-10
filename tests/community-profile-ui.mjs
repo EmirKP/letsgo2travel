@@ -38,16 +38,20 @@ function hookHost() {
 }
 const sample = (key = 'starter:selin.kaplan', overrides = {}) => ({ key, userId: key.startsWith('user:') ? key.slice(5) : null, username: key.slice(key.indexOf(':') + 1), avatarUrl: null, bio: '', isOwn: false, isFollowing: false, followerCount: 0, followingCount: 0, postCount: 1, answerCount: 2, isStarter: key.startsWith('starter:'), ...overrides });
 const post = id => ({ id, title: `Topic ${id}`, body: `Advice ${id}`, countryCode: 'TR', createdAt: '2026-10-01T10:00:00Z' });
-function harness(initial = {}) {
+function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
   let activeHost, navHost, contentHost, navKey, contentKey, tree, navigation;
   const requests = [], calls = { account: 0, follow: 0, profile: 0, questions: [], focused: [] };
   const requestJson = (path, options = {}) => { const waiting = deferred(); requests.push({ path, options, ...waiting }); return waiting.promise; };
   const profiles = load('mobile/src/lib/communityProfiles.ts', { './api': { requestJson } });
+  const localeFormatting = load('mobile/src/lib/localeFormatting.ts', {
+    './locales/sq-regions': load('mobile/src/lib/locales/sq-regions.ts', {}),
+  }, { Intl: intl });
   const react = Object.fromEntries(['useState', 'useRef', 'useEffect', 'useId'].map(name => [name, (...args) => activeHost.react[name](...args)]));
   const source = load('mobile/src/components/CommunityProfileSheet.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../lib/api': { ApiError }, '../lib/communityProfiles': profiles,
-    '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale: 'en-GB' }) },
+    '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale }) },
+    '../lib/localeFormatting': localeFormatting,
     './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
   }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });
   let props = { profileKey: 'starter:selin.kaplan', userId: 'me', accessToken: 'token', onClose() {}, onOpenAccount: () => calls.account++, onEditProfile() {}, onFollowChanged: () => calls.follow++, onProfileChanged: () => calls.profile++, onOpenQuestion: id => calls.questions.push(id), ...initial };
@@ -75,6 +79,19 @@ function harness(initial = {}) {
   };
   h.render(); return h;
 }
+
+test('profile dates retain the selected language, including Albanian on limited WebViews', async () => {
+  function LimitedDateTimeFormat(locale, options) {
+    return new Intl.DateTimeFormat(/^sq(?:-|$)/i.test(locale) ? 'tr-TR' : locale, options);
+  }
+  LimitedDateTimeFormat.supportedLocalesOf = locales => Intl.DateTimeFormat.supportedLocalesOf(locales.filter(locale => !/^sq(?:-|$)/i.test(locale)));
+  for (const [dateLocale, expected] of [['tr-TR', '1 Eki 2026'], ['en-GB', '1 Oct 2026'], ['sq-AL', '1 tet 2026']]) {
+    const h = harness({}, { dateLocale, intl: { DateTimeFormat: LimitedDateTimeFormat } });
+    await h.resolve(0, { profile: sample(), items: [post('date')], nextOffset: null });
+    assert.ok(text(h.tree).includes(expected), `${dateLocale}: ${text(h.tree)}`);
+    h.dispose();
+  }
+});
 
 test('guest follow opens login without a mutation and avatar/content do not invent counts', async () => {
   const h = harness({ userId: null, accessToken: '' });
