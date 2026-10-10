@@ -42,5 +42,17 @@ Bu kayıt canlı sunucu sürümlerinin güncel olduğunu ileri sürmez.
 - Profil, Planlar ve Araçlar görsellerinin iPhone/iPad yerleşimi.
 
 Tamamlanma kaydı
-Derleme düzeltmesi, son paket numarası, Apple işleme ve iç test grubuna
-ekleme sonucu bu dosyada tamamlandığında kaydedilecek.
+- Kaynak: ae8e520defe187f1fd4ab3972787758527883511.
+- Yeni Codemagic derlemesi: 6ac9f9e8546ce6236ced2dcf (#17).
+- Sürüm: 1.4.1 (64). Apple'da önceki paket 62; CI sayacı 64 olarak doğrulandı.
+- Bulutta güvenlik denetimi (kök/mobil 0 açık) ve tam yayın test dizisi geçti.
+- Codemagic 7 dakika 12 saniyede başarıyla tamamlandı. İmzalı IPA,
+  10 Ekim 2026 11:56 İstanbul saatinde Apple'a hatasız yüklendi.
+- Apple yükleme kaydında 1.4.1 (64), Processing olarak göründü.
+- Apple işleme tamamlandı. 1.4.1 (64), mevcut LetsGo2Travel İç Test grubuna
+  otomatik bağlandı; Internal grup ve 3 test kullanıcısı ayrıntıda doğrulandı.
+- Türkçe What to Test açıklaması, yukarıdaki test kapsamı ve doğrulanmamış
+  sunucu/veritabanı hazırlıkları açıkça belirtilerek kaydedildi.
+- App Store Connect paket bağlantısı:
+  https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/c6a1f847-8a21-4415-94f9-587a9ff185bb
+- iPhone/iPad'de yeni paketin gerçek cihaz testleri ayrıca yapılmalı.
