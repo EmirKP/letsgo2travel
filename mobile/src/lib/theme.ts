@@ -10,7 +10,24 @@ let snapshot = serverSnapshot;
 let media: MediaQueryList | undefined;
 let initializers = 0;
 let detach: (() => void) | undefined;
+let transitionTimer: number | undefined;
 const listeners = new Set<() => void>();
+
+function stopColorTransition() {
+  if (transitionTimer !== undefined) window.clearTimeout(transitionTimer);
+  transitionTimer = undefined;
+  if (typeof document !== "undefined") delete document.documentElement.dataset.themeTransition;
+}
+
+function startColorTransition() {
+  stopColorTransition();
+  try { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; }
+  catch { /* CSS also respects reduced motion when matchMedia is unavailable. */ }
+  document.documentElement.dataset.themeTransition = "";
+  // Leave a small buffer after the 360ms colour/icon animation, then restore
+  // each component's normal hover and interaction transitions.
+  transitionTimer = window.setTimeout(stopColorTransition, 420);
+}
 
 function preference(value: unknown): ThemePreference {
   return value === "light" || value === "dark" ? value : "system";
@@ -26,9 +43,10 @@ function systemTheme(): ResolvedTheme {
   catch { return "light"; }
 }
 
-function apply(nextPreference: ThemePreference) {
+function apply(nextPreference: ThemePreference, animate = true) {
   const resolved = nextPreference === "system" ? systemTheme() : nextPreference;
   if (typeof document !== "undefined") {
+    if (animate && snapshot.resolved !== resolved) startColorTransition();
     document.documentElement.dataset.theme = resolved;
     document.documentElement.style.colorScheme = resolved;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[resolved]);
@@ -59,7 +77,7 @@ export function initializeTheme() {
   initializers++;
   if (initializers === 1) {
     try { media = window.matchMedia(SYSTEM_QUERY); } catch { media = undefined; }
-    apply(storedPreference());
+    apply(storedPreference(), false);
     const onSystemChange = () => { if (snapshot.preference === "system") apply("system"); };
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
@@ -71,6 +89,7 @@ export function initializeTheme() {
     if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
     const observedMedia = media;
     detach = () => {
+      stopColorTransition();
       if (observedMedia?.removeEventListener) observedMedia.removeEventListener("change", onSystemChange);
       else observedMedia?.removeListener(onSystemChange);
       if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
