@@ -14,7 +14,7 @@
   background: var(--passport-map-ocean);
 }
 .editorial-app .screen.passport-screen .passport-map {
-  border-color: #c9dbe9;
+  border-color: var(--theme-border, #c9dbe9);
   box-shadow: 0 5px 15px rgb(0 76 131 / 10%);
 }
 .passport-screen .passport-map::before { display: none; }
@@ -27,9 +27,9 @@
 .passport-screen .legend-required::before { background: var(--passport-map-required); }
 .passport-screen .legend-unknown::before { background: var(--passport-map-unknown); }
 .editorial-app .screen.passport-screen .passport-map-controls button {
-  border-color: rgb(255 255 255 / 65%);
-  color: #004c83;
-  background: #fff;
+  border-color: var(--theme-border, rgb(255 255 255 / 65%));
+  color: var(--theme-link, #004c83);
+  background: var(--theme-surface, #fff);
   box-shadow: 0 2px 8px rgb(0 28 53 / 15%);
 }
 .editorial-app .screen.passport-screen .passport-map-controls button:disabled {

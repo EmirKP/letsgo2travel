@@ -8,6 +8,7 @@ import { BrandMark } from "./BrandMark";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
 import { SupportSheet } from "./SupportSheet";
+import { AppearancePicker } from "./AppearancePicker";
 import type { ViewId } from "../types";
 import "./menu-artwork.css";
 
@@ -61,6 +62,8 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
       <p>{copy("Seyahat keşfi, planlama ve yol araçları tek uygulamada.", "Discovery, planning and on-trip tools in one app.")}</p>
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? copy("İnternet bağlantısı var", "Online") : copy("Çevrimdışı mod", "Offline mode")}</div>
     </div>
+
+    <AppearancePicker />
 
     <label className="sr-only" htmlFor={searchId}>{copy("Araç ara", "Search tools")}</label>
     <div className="search-input" style={{ marginTop: 16 }}><Icon name="search" size={18}/><input ref={searchInput} id={searchId} type="search" maxLength={80} value={query} onChange={event => setQuery(event.target.value)} placeholder={copy("Harita, çeviri, uçuş…", "Maps, translation, flights…")}/>{query && <button type="button" className="icon-button compact" onClick={() => {setQuery("");searchInput.current?.focus();}} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</div>

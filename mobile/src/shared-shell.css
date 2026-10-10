@@ -30,8 +30,8 @@
 .app-shell.editorial-app .shared-topbar button:focus-visible { outline: 3px solid #ffda24; outline-offset: 3px; }
 .app-shell.editorial-app.shared-shell .offline-banner { position: relative; top: auto; margin-top: 0; }
 .menu-language { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
-.menu-language > span { flex: 1; color: #53647c; font-size: 14px; }
-.menu-language > button { min-height: 44px; padding: 8px 14px; border: 1px solid #e0e9f5; border-radius: 14px; background: #f3f7ff; color: #153860; font-size: 14px; }
+.menu-language > span { flex: 1; color: var(--theme-muted, #53647c); font-size: 14px; }
+.menu-language > button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 14px; background: var(--theme-soft, #f3f7ff); color: var(--theme-ink, #153860); font-size: 14px; }
 .menu-language > button[aria-pressed="true"] { color: #fff; background: #0066ff; border-color: #0066ff; }
 
 /* The shared header takes the space previously owned by the photo headers. */
@@ -41,7 +41,7 @@
 .shared-shell.view-community .screen.community-social .cs-hero { min-height: 324px; padding: 18px 27px 48px; }
 .shared-shell.view-community .community-social .cs-hero-tools { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .shared-shell.view-community .community-social .cs-hero-tools p { color: #fff; margin: 0; font-size: 12px; }
-.cs-hero-tools > button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid rgb(255 255 255 / 35%); border-radius: 50%; background: rgb(255 255 255 / 90%); color: #091832; }
+.cs-hero-tools > button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid rgb(255 255 255 / 35%); border-radius: 50%; background: rgb(var(--theme-surface-rgb, 255 255 255) / 0.9); color: var(--theme-ink, #091832); }
 .shared-shell.view-community .community-social .cs-hero-copy { margin-top: 18px; }
 .shared-shell.view-community .community-social .cs-handwritten { top: 132px; }
 /* Retain the home composition's extra breathing room at tablet/landscape widths. */

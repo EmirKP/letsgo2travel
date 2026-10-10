@@ -1,28 +1,26 @@
 /* Full-colour companion illustrations share the Home shortcut proportions. */
 .travel-assistant .ta-tool-card {
-  gap: 10px;
-  padding: 14px 16px 18px;
+  gap: 8px;
+  min-height: 132px;
+  padding: 12px 14px;
   border-radius: 22px;
-  background: linear-gradient(155deg, #fff 60%, #f6faff);
+  background: linear-gradient(155deg, var(--theme-surface, #fff) 60%, var(--theme-soft, #f6faff));
   box-shadow: 0 7px 20px #173c6c06;
 }
 .travel-assistant .ta-tool-card > .ta-tool-icon {
-  width: 80px;
-  height: 80px;
-  margin-left: -4px;
+  width: 56px;
+  height: 56px;
+  margin-left: 0;
   border-radius: 0;
   background: transparent;
   flex-shrink: 0;
 }
 .ta-tool-icon .travel-tool-artwork,
-.ta-tool-icon .travel-feature-icon { display: block; width: 80px; height: 80px; }
-.travel-assistant .ta-tool-card > svg { top: 27px; right: 14px; }
+.ta-tool-icon .travel-feature-icon { display: block; width: 56px; height: 56px; }
+.travel-assistant .ta-tool-card > svg { top: 32px; right: 14px; }
 .travel-assistant .ta-tool-card strong { font-size: 16px; overflow-wrap: anywhere; }
 .travel-assistant .ta-tool-card small { font-size: 13px; }
-.travel-assistant .ta-tool-card:hover { background: linear-gradient(155deg, #fff 35%, #edf6ff); }
+.travel-assistant .ta-tool-card:hover { background: linear-gradient(155deg, var(--theme-surface, #fff) 35%, var(--theme-soft, #edf6ff)); }
 @media (max-width: 340px) {
-  .travel-assistant .ta-tool-card { padding: 12px; gap: 14px; }
-  .travel-assistant .ta-tool-card > .ta-tool-icon,
-  .ta-tool-icon .travel-tool-artwork,
-  .ta-tool-icon .travel-feature-icon { width: 68px; height: 68px; }
+  .travel-assistant .ta-tool-card { min-height: 96px; padding: 12px; gap: 10px; }
 }

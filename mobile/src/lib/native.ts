@@ -2,6 +2,7 @@ import { isIOSNative, isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import { getMobilePreferences } from "./storage";
 import { handoffMailDraft, type MailDraftResult, type SupportDraft } from "./support";
+import { getThemeSnapshot } from "./theme";
 
 export function resolveExternalUrl(url: string) {
   const clean = url.trim();
@@ -39,7 +40,11 @@ export async function openExternal(url: string): Promise<boolean> {
   if (isNativePlatform()) {
     if (!browser?.open) return false;
     try {
-      await browser.open({ url: resolvedUrl, presentationStyle: "popover" });
+      await browser.open({
+        url: resolvedUrl,
+        presentationStyle: "popover",
+        toolbarColor: getThemeSnapshot().resolved === "dark" ? "#101b2d" : "#0877b8",
+      });
       return true;
     } catch {
       // Native uygulamanın ana WebView'ini üçüncü taraf siteye yönlendirme.

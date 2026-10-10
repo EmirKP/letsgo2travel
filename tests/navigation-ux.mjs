@@ -51,6 +51,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
     lazy: loader => `Lazy:${loader.toString()}`, Suspense: 'Suspense', Activity: 'Activity',
   };
   const auth = { user: null, accessToken: '' };
+  const theme = { resolved: 'light', preference: 'system' };
   const savedByOwner = new Map();
   const storage = {
     getMobilePreferences: () => ({ inAppNotifications }), getGuestDataSummary: () => ({ total: 0 }), hasCompletedOnboarding: () => true, hasSeenRelease: () => releaseSeen, markReleaseSeen: id => calls.releaseSeen.push(id),
@@ -65,6 +66,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'react-dom': { createPortal: value => value },
     './hooks/useAuth': { useAuth: () => auth },
+    './lib/useTheme': { useTheme: () => theme },
     './lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en, setLocale: () => {} }) },
     './lib/native': { impact: async () => {} },
     './lib/capacitor': {
@@ -97,7 +99,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const bottomButton = (view, label) => nodes(nodes(view).find(node => node.type === 'nav' && node.props.className === 'bottom-nav')).find(node => node.type === 'button' && text(node.props.children) === label);
   const screen = (view, name) => nodes(view).find(node => typeof node.type === 'string' && (node.type === name || (node.type.startsWith('Lazy:') && node.type.includes(name))));
   const plannerPane = view => nodes(view).find(node => node.type === 'NavigationPane' && planner(node));
-  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, storage, savedByOwner };
+  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner };
 }
 
 test('Planner preserves its draft across menu reselect and home shortcut round trips without duplicate history', () => {
@@ -204,6 +206,19 @@ test('Native status-bar text and blue background remain stable across navigation
   assert.equal(calls.statusBackground.length, 1, 'Navigation does not reapply the stable native background');
   assert.equal(calls.statusOverlay.length, 1);
   assert.equal(calls.statusOverlay[0].overlay, true);
+});
+
+test('Native status-bar follows resolved appearance with white icons and no repeated overlay setup', () => {
+  const { render, calls, theme } = appHarness({ initialView: 'home', nativeStatus: true });
+  render();theme.resolved = 'dark';render();
+  assert.equal(calls.statusBackground.at(-1).color, '#101b2d');
+  assert.equal(calls.statusStyle.at(-1).style, 'DARK');
+  theme.preference = 'dark';render();
+  assert.equal(calls.statusBackground.length, 2, 'Changing preference without changing appearance does not repeat bridge calls');
+  theme.resolved = 'light';render();
+  assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
+  assert.equal(calls.statusStyle.at(-1).style, 'DARK');
+  assert.equal(calls.statusOverlay.length, 1, 'A theme change must not disturb safe-area layout');
 });
 
 test('Community cold start connects the shared header to real notifications and menu while preserving account, events and search actions', () => {

@@ -23,6 +23,7 @@ function nativeHarness({ native = true, assign = () => {}, clipboard } = {}) {
     "./config": { config: { apiBaseUrl: "https://www.letsgo2travel.com.tr" } },
     "./storage": { getMobilePreferences: () => ({ haptics: false }) },
     "./support": support,
+    "./theme": { getThemeSnapshot: () => ({ resolved: "light" }) },
   }, { window: { location: { assign }, open: (...args) => { calls.push(["window.open", ...args]); return {}; } }, navigator: { clipboard } });
   return { api, calls };
 }

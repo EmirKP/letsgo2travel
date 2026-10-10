@@ -1,0 +1,67 @@
+/* Semantic dark surfaces. Light CSS retains its original colour as a fallback.
+   Photos, flags, map tiles and the illustration palette are never filtered. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-page: #101b2d;
+  --theme-surface: #17243a;
+  --theme-soft: #1e2f48;
+  --theme-border: #324761;
+  --theme-ink: #f1f5fc;
+  --theme-muted: #b2bfd2;
+  --theme-link: #8ebcff;
+  --theme-success: #8cdec4;
+  --theme-success-bg: #12392f;
+  --theme-warning: #f2d18a;
+  --theme-warning-bg: #302915;
+  --theme-danger: #ffb4b9;
+  --theme-danger-bg: #3a222c;
+  --theme-surface-rgb: 23 36 58;
+  --theme-page-rgb: 16 27 45;
+  --theme-soft-rgb: 30 47 72;
+  --ink: var(--theme-ink);
+  --muted: var(--theme-muted);
+  --line: var(--theme-border);
+  --surface: var(--theme-surface);
+  --paper: var(--theme-page);
+  --reference-soft: var(--theme-soft);
+  --reference-blue-soft: #213b60;
+  --reference-card-shadow: 0 7px 24px rgb(0 0 0 / 14%);
+  --success: var(--theme-success);
+  --danger: var(--theme-danger);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+:root[data-theme="dark"] :is(body, #root, .app-shell.editorial-app) {
+  background: var(--theme-page);
+}
+:root[data-theme="dark"] .app-shell.editorial-app .screen {
+  background-color: var(--theme-page);
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell { --header-sky: #101b2d; }
+:root[data-theme="dark"] .app-shell.editorial-app .topbar.shared-topbar {
+  background: rgb(16 27 45 / 96%);
+  border-bottom-color: var(--theme-border);
+}
+:root[data-theme="dark"] .app-shell.editorial-app .bottom-nav {
+  background: rgb(23 36 58 / 98%);
+  border-color: var(--theme-border);
+  box-shadow: 0 -6px 28px rgb(0 0 0 / 18%);
+}
+:root[data-theme="dark"] body:has(.editorial-app) .sheet-header { background: var(--theme-surface); }
+:root[data-theme="dark"] .sheet-layer { background-color: rgb(0 0 0 / 62%); }
+:root[data-theme="dark"] :is(input, textarea)::placeholder { color: var(--theme-muted); opacity: 1; }
+:root[data-theme="dark"] :is(button, input, select, textarea, a):focus-visible {
+  outline-color: var(--theme-link);
+}
+:root[data-theme="dark"] ::selection { background: #305c94; color: #fff; }
+
+/* Yellow is a brand action colour in either appearance. */
+:root[data-theme="dark"] :is(.primary-wide, .primary-button, .planner-generate, .surprise-main-action, .daily-primary) {
+  color: #091832;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme="dark"] .app-shell.editorial-app .topbar.shared-topbar { background: var(--theme-page); }
+  :root[data-theme="dark"] .app-shell.editorial-app .bottom-nav { background: var(--theme-surface); }
+}

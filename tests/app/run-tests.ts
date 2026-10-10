@@ -934,7 +934,8 @@ test("Build 18: mobil tema, ülke araçları, harita ve yönetici incelemesi sö
   const admin = readFileSync("mobile/src/screens/AdminScreen.tsx", "utf8");
   const countries = JSON.parse(readFileSync("mobile/src/data/iso3166.json", "utf8")) as Array<{ alpha2: string; alpha3: string; flag: string }>;
 
-  assert.ok(indexStyles.includes("--brand-blue: #2352c4") && indexStyles.includes("--brand-yellow: #eac361") && indexStyles.includes("background: #ffffff"), "onaylanan beyaz, siyah, mavi ve sarı palet korunmalı");
+  assert.ok(indexStyles.includes("--brand-blue: #2352c4") && indexStyles.includes("--brand-yellow: #eac361"), "onaylanan marka mavisi ve sarısı korunmalı");
+  assert.match(indexStyles, /background:\s*(?:var\(--theme-page,\s*)?#ffffff\b/, "açık tema beyaz sayfa rengini korumalı; koyu tema kendi yüzeyini kullanabilmeli");
   assert.ok(styles.includes("Build 17 tema değerleri Git geçmişindeki ana committe korunur") && styles.includes("Build 18 — beyaz / siyah / marka mavisi / sıcak sarı tema"), "eski tema geri dönüş noktası belgelenmeli");
   assert.ok(capacitor.includes('backgroundColor: "#2352C4"') && capacitor.includes("overlaysWebView: true") && app.includes("setOverlaysWebView?.({ overlay: true })"), "açılış ve üst güvenli alan kesintisiz marka mavisi olmalı");
   assert.ok(picker.includes('type="search"') && picker.includes('role="listbox"') && picker.includes("CountryFlag"), "ülke seçimi aranabilir ve erişilebilir özel panel kullanmalı");

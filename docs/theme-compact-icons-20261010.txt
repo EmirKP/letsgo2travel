@@ -1,0 +1,50 @@
+LetsGo2Travel — 10 Ekim 2026 görünüm güncellemesi
+
+Kullanıcı isteği
+- Araç ekranındaki büyük görselleri ve kart boşluklarını küçültmek.
+- Uygulamanın geneline koyu tema eklemek.
+- Ek özellikleri yalnız ayrıca onaylandıktan sonra yapmak.
+
+Uygulama
+- Araç görselleri 80 yerine 56 CSS piksel. Profil ve Planlar kartları
+  56–64 piksel aralığında; ilgili kart boşlukları orantılı azaltıldı.
+- Daha Fazla > Görünüm: Açık / Koyu / Sistem (Türkçe, İngilizce, Arnavutça).
+- Varsayılan Sistem. Tercih cihazda saklanır; hesap girişinden bağımsızdır.
+  Sistem görünümü ve diğer sekmedeki tercih değişiklikleri canlı uygulanır.
+  Depolama engellenirse seçim mevcut oturumda çalışmaya devam eder.
+- İlk boyamada tema uygulanır; sayfa arka planı ve theme-color eşleşir.
+- Ekranlar, menüler, formlar, bildirim/durum kartları ve alt gezinme için
+  semantik koyu renkler eklendi. Açık tema mevcut renkleri fallback kullanır.
+  Fotoğraf, bayrak, harita verisi ve illüstrasyon renkleri filtrelenmez.
+- Sarı marka düğmeleri ve ilerleme vurgularının koyu yazı/renkleri korundu.
+- Native durum çubuğu ve dış tarayıcı araç çubuğu seçili temayı izler.
+  Android DayNight kaynakları eklendi. Apple/Google kimlik akışı değiştirilmedi.
+
+Doğrulama
+- Mobil lint başarılı; son üretim derlemesi başarılı.
+- Tam yayın kontrolü başarılı: Release requirement checks completed.
+  Eski yalnız-beyaz-yüzey testi açık tema fallback'ını kabul edecek şekilde
+  güncellendi; marka paleti kontrolü ve diğer kontroller korundu.
+- Yeni 7 tema davranış testi: ilk boyama/çalışma anı eşleşmesi, tercih
+  kalıcılığı, sistem değişimi, sekmeler arası değişim, depolama hataları,
+  dinleyici temizliği ve üç dilde erişilebilir radio kontrolleri.
+- Native giriş/gezinti testleri tema entegrasyonu ile geçti.
+- CUA yerel önizleme: 320, 390 ve 768 piksel tarayıcı genişlikleri.
+  Araç ikonları 56 piksel; sayfada yatay taşma yok.
+- Koyu Home, Profile, Plans, Route, Community, Tools, Money ve menü
+  görsel olarak incelendi. Açık Tools görünümü de kontrol edildi.
+- Rota formunda ölçülebilen düz renkli metin/yüzey kontrastları >= 4.5.
+  Bu ölçüm fotoğraf ve gradient alanlarını kapsamaz; onlar görsel incelendi.
+- Koyu tema seçimi sayfa yeniden yüklenince korundu. Tarayıcı hata/uyarı
+  günlüğü boştu. Tüm CSS ayrıştırıldı; tanımsız tema değişkeni yok.
+
+Sınırlar ve teslim
+- Fiziksel iPhone/iPad/Android testi bu çalışma sırasında yapılmadı.
+  iOS sistem kimlik penceresi ve Android sistem gezinme çubuğu cihazın
+  kendi görünümünü kullanabilir; yeni native appearance köprüsü eklenmedi.
+- Yeni TestFlight yüklemesi, App Store yayını veya sunucu dağıtımı yapılmadı.
+  Mevcut 1.4.1(64) paketi bu yeni değişiklikleri içermez.
+- Normal/Büyük yazı seçeneği ek öneri olarak soruldu; onay gelmediği için
+  uygulanmadı.
+- Önizleme kanıtı: outputs/tools-compact-dark.png, tools-compact-light.png
+  ve theme-menu-dark.png (bu sohbetin çalışma alanında).

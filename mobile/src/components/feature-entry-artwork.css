@@ -13,21 +13,23 @@
 
 .journey-tools .journey-tool-grid > button {
   grid-template-columns: minmax(0, 1fr) 18px;
-  grid-template-rows: 72px auto 1fr;
+  grid-template-rows: 64px auto 1fr;
   align-content: start;
-  gap: 8px;
-  min-height: 180px;
-  padding: 15px;
+  gap: 7px;
+  min-height: 164px;
+  padding: 13px;
 }
 
 .journey-tools .journey-tool-grid > button > .journey-feature-art {
   grid-column: 1;
   grid-row: 1;
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 0;
   background: transparent;
 }
+
+.journey-tools .journey-tool-grid > button > .journey-feature-art > svg { display: block; width: 100%; height: 100%; }
 
 .journey-tools .journey-tool-grid > button > strong,
 .journey-tools .journey-tool-grid > button > small { grid-column: 1 / -1; }

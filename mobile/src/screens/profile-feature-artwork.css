@@ -16,15 +16,17 @@
   gap: 12px;
 }
 .editorial-app .screen.profile-screen.reference-profile.profile-polished .profile-travel-shortcuts > button > .profile-feature-artwork {
-  width: 76px;
-  height: 76px;
-  margin-left: -4px;
+  width: 64px;
+  height: 64px;
+  margin-left: 0;
 }
 .editorial-app .screen.profile-polished .profile-travel-shortcuts > button {
-  gap: 10px;
-  background: linear-gradient(155deg, #fff 60%, #f6faff);
+  gap: 8px;
+  min-height: 144px;
+  padding: 14px;
+  background: linear-gradient(155deg, var(--theme-surface, #fff) 60%, var(--theme-soft, #f6faff));
 }
-.editorial-app .screen.profile-polished .profile-travel-shortcuts > button > svg { top: 40px; }
+.editorial-app .screen.profile-polished .profile-travel-shortcuts > button > svg { top: 38px; }
 .editorial-app .screen.profile-polished .profile-preference-group > summary {
   grid-template-columns: 56px minmax(0, 1fr) 18px;
   gap: 12px;
@@ -34,6 +36,7 @@
 .verification-summary { grid-template-columns: 56px minmax(0, 1fr); }
 .verification-summary > .profile-feature-artwork { width: 56px; height: 56px; background: transparent; border-radius: 0; }
 @media (max-width: 380px) {
-  .editorial-app .screen.profile-screen.reference-profile.profile-polished .profile-travel-shortcuts > button > .profile-feature-artwork { width: 66px; height: 66px; }
-  .editorial-app .screen.profile-polished .profile-travel-shortcuts > button > svg { top: 34px; }
+  .editorial-app .screen.profile-screen.reference-profile.profile-polished .profile-travel-shortcuts > button > .profile-feature-artwork { width: 56px; height: 56px; }
+  .editorial-app .screen.profile-polished .profile-travel-shortcuts > button { min-height: 140px; padding: 12px; }
+  .editorial-app .screen.profile-polished .profile-travel-shortcuts > button > svg { top: 32px; }
 }

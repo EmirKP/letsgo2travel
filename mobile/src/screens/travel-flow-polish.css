@@ -4,13 +4,13 @@
 .editorial-app:not(.view-home) .screen.plans-library .empty-state {
   min-height: 260px;
   padding: 30px 22px;
-  border: 1px solid #e0e9f5;
-  background: linear-gradient(180deg, #f4f8ff, #fff 75%);
+  border: 1px solid var(--theme-border, #e0e9f5);
+  background: linear-gradient(180deg, var(--theme-soft, #f4f8ff), var(--theme-surface, #fff) 75%);
   box-shadow: 0 6px 22px rgb(21 56 96 / 4%);
   gap: 12px;
 }
 .editorial-app:not(.view-home) .screen.plans-library .empty-state > span {
-  width: 60px; height: 60px; border-radius: 20px; background: #eaf3ff; color: #0066ff;
+  width: 60px; height: 60px; border-radius: 20px; background: var(--theme-soft, #eaf3ff); color: var(--theme-link, #0066ff);
 }
 .editorial-app:not(.view-home) .screen.plans-library .empty-state strong { line-height: 1.35; }
 .editorial-app:not(.view-home) .screen.plans-library .empty-state p { max-width: 280px; font-size: 13px; line-height: 1.65; }
@@ -18,18 +18,18 @@
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-section > .section-heading { flex-wrap: wrap; align-items: center; }
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-section > .section-heading h2 { font-size: 19px; line-height: 1.3; }
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-empty {
-  min-height: 110px; padding: 18px; gap: 12px; border: 1px solid #e0e9f5; border-radius: 20px; background: #f6f9ff;
+  min-height: 110px; padding: 18px; gap: 12px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 20px; background: var(--theme-soft, #f6f9ff);
 }
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-empty > div { min-width: 0; }
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-empty strong { font-size: 15px; line-height: 1.4; }
 .editorial-app:not(.view-home) .screen.plans-library .saved-events-empty small { font-size: 12px; line-height: 1.6; }
 .editorial-app:not(.view-home) .screen.plans-library .saved-travel-tools > .daily-featured-disclosure {
-  margin: 14px 0; padding: 0 16px; border: 1px solid #e0e9f5; border-radius: 18px; background: #fff;
+  margin: 14px 0; padding: 0 16px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 18px; background: var(--theme-surface, #fff);
 }
 .editorial-app:not(.view-home) .screen.plans-library .saved-travel-tools > .daily-featured-disclosure > summary {
-  min-height: 62px; color: #14385a; font-size: 14px; line-height: 1.45;
+  min-height: 62px; color: var(--theme-ink, #14385a); font-size: 14px; line-height: 1.45;
 }
-.editorial-app:not(.view-home) .screen.plans-library .saved-travel-tools > .daily-featured-disclosure > summary > svg { flex: none; color: #0066ff; }
+.editorial-app:not(.view-home) .screen.plans-library .saved-travel-tools > .daily-featured-disclosure > summary > svg { flex: none; color: var(--theme-link, #0066ff); }
 .editorial-app:not(.view-home) .screen.plans-library .saved-travel-tools > .daily-featured-disclosure[open] { padding-bottom: 16px; }
 
 /* Give result headings and their actions independent room on small screens. */
@@ -39,10 +39,10 @@
 .editorial-app:not(.view-home) .screen.route-screen .results-heading h2 { font-size: 23px; line-height: 1.25; }
 .editorial-app:not(.view-home) .screen.route-screen .save-plan-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 46px; padding: 11px 14px; border: 1px solid #d8e5f7; border-radius: 14px;
-  color: #0056d8; background: #edf5ff; font-size: 13px; font-weight: 700; line-height: 1.4;
+  min-height: 46px; padding: 11px 14px; border: 1px solid var(--theme-border, #d8e5f7); border-radius: 14px;
+  color: var(--theme-link, #0056d8); background: var(--theme-soft, #edf5ff); font-size: 13px; font-weight: 700; line-height: 1.4;
 }
-.editorial-app:not(.view-home) .screen.route-screen .plan-summary { font-size: 14px; line-height: 1.7; color: #53647c; }
+.editorial-app:not(.view-home) .screen.route-screen .plan-summary { font-size: 14px; line-height: 1.7; color: var(--theme-muted, #53647c); }
 .editorial-app:not(.view-home) .screen.route-screen .route-result-head {
   padding: 17px 16px; grid-template-columns: 46px minmax(0, 1fr) 18px; gap: 11px;
 }
@@ -53,13 +53,13 @@
 .editorial-app:not(.view-home) .screen.route-screen .route-result-body { padding: 17px; }
 .editorial-app:not(.view-home) .screen.route-screen .route-result-body > p { margin: 0 0 17px; font-size: 14px; line-height: 1.7; }
 .editorial-app:not(.view-home) .screen.route-screen .route-meta-grid { gap: 10px; }
-.editorial-app:not(.view-home) .screen.route-screen .route-meta-grid > div { min-width: 0; padding: 12px; gap: 8px; background: #f4f8ff; }
-.editorial-app:not(.view-home) .screen.route-screen .route-meta-grid > div > svg { flex: none; margin-top: 2px; color: #0066ff; }
+.editorial-app:not(.view-home) .screen.route-screen .route-meta-grid > div { min-width: 0; padding: 12px; gap: 8px; background: var(--theme-soft, #f4f8ff); }
+.editorial-app:not(.view-home) .screen.route-screen .route-meta-grid > div > svg { flex: none; margin-top: 2px; color: var(--theme-link, #0066ff); }
 .editorial-app:not(.view-home) .screen.route-screen .route-meta-grid span { gap: 5px; font-size: 11px; line-height: 1.5; }
 .editorial-app:not(.view-home) .screen.route-screen .route-meta-grid strong { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .editorial-app:not(.view-home) .screen.route-screen .daily-plan { margin-top: 22px; }
 .editorial-app:not(.view-home) .screen.route-screen .daily-plan h3 { font-size: 17px; }
-.editorial-app:not(.view-home) .screen.route-screen .daily-plan > div { padding: 11px 0; font-size: 13px; line-height: 1.65; border-bottom: 1px solid #e8eff8; }
+.editorial-app:not(.view-home) .screen.route-screen .daily-plan > div { padding: 11px 0; font-size: 13px; line-height: 1.65; border-bottom: 1px solid var(--theme-border, #e8eff8); }
 .editorial-app:not(.view-home) .screen.route-screen .daily-plan > div:last-child { border-bottom: 0; }
 .editorial-app:not(.view-home) .screen.route-screen .warning-list { margin-block: 16px; }
 .editorial-app:not(.view-home) .screen.route-screen .warning-list > div { font-size: 12px; line-height: 1.65; }
@@ -77,28 +77,28 @@
 }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-toolbar > .icon-only { width: 50px; padding: 0; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state {
-  margin-top: 18px; padding: 28px 22px; border: 1px solid #e0e9f5; border-radius: 24px;
-  background: linear-gradient(180deg, #f4f8ff, #fff 75%); box-shadow: 0 6px 22px rgb(21 56 96 / 4%);
+  margin-top: 18px; padding: 28px 22px; border: 1px solid var(--theme-border, #e0e9f5); border-radius: 24px;
+  background: linear-gradient(180deg, var(--theme-soft, #f4f8ff), var(--theme-surface, #fff) 75%); box-shadow: 0 6px 22px rgb(21 56 96 / 4%);
 }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state > span {
   display: grid; place-items: center; width: 60px; height: 60px; margin: 0 auto 16px;
-  border-radius: 20px; background: #eaf3ff; color: #0066ff;
+  border-radius: 20px; background: var(--theme-soft, #eaf3ff); color: var(--theme-link, #0066ff);
 }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state h2 { margin: 0 0 10px; font-size: 23px; line-height: 1.3; letter-spacing: -.5px; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state p { max-width: 340px; margin: 0 auto 22px; font-size: 14px; line-height: 1.7; color: #53647c; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state p { max-width: 340px; margin: 0 auto 22px; font-size: 14px; line-height: 1.7; color: var(--theme-muted, #53647c); }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-auth-state .primary-wide { max-width: 340px; margin-inline: auto; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-trip-form { gap: 18px; padding: 18px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-journey-steps { gap: 5px; font-size: 11px; line-height: 1.5; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-journey-steps li { min-width: 0; padding: 10px 5px; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-journey-steps .current { border-color: #0066ff; color: #0056d8; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-journey-steps .current { border-color: #0066ff; color: var(--theme-link, #0056d8); }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-flight-lookup {
-  padding: 16px; gap: 16px; background: #f7faff; border: 1px solid #e0e9f5; border-radius: 18px;
+  padding: 16px; gap: 16px; background: var(--theme-soft, #f7faff); border: 1px solid var(--theme-border, #e0e9f5); border-radius: 18px;
 }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-flight-lookup header { align-items: flex-start; gap: 10px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-flight-lookup h3 { font-size: 18px; line-height: 1.3; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-flight-lookup p { font-size: 13px; line-height: 1.6; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .flight-lookup-icon { width: 40px; height: 40px; background: #e7f0ff; color: #0066ff; border-radius: 13px; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-optional-details { padding: 0 14px; border-color: #e0e9f5; background: #f7faff; border-radius: 16px; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .flight-lookup-icon { width: 40px; height: 40px; background: var(--theme-soft, #e7f0ff); color: var(--theme-link, #0066ff); border-radius: 13px; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-optional-details { padding: 0 14px; border-color: var(--theme-border, #e0e9f5); background: var(--theme-soft, #f7faff); border-radius: 16px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-optional-details summary { display: flex; align-items: center; min-height: 52px; font-size: 13px; line-height: 1.5; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-optional-details[open] { padding-bottom: 14px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card { padding: 0; }
@@ -106,11 +106,11 @@
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card-head h2 { overflow-wrap: anywhere; line-height: 1.3; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card-head p { line-height: 1.6; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-details { padding: 16px; gap: 10px; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-details > div { min-width: 0; padding: 13px; gap: 7px; background: #f4f8ff; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-details > div { min-width: 0; padding: 13px; gap: 7px; background: var(--theme-soft, #f4f8ff); }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-details span { font-size: 11px; line-height: 1.45; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-details strong { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card > :is(p, .secondary-wide, .cockpit-next-action, .cockpit-journey-flight, .personal-travel-cards) { width: calc(100% - 32px); margin: 0 16px 16px; }
-.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card > p { font-size: 12px; line-height: 1.65; color: #53647c; }
+.editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-native-card > p { font-size: 12px; line-height: 1.65; color: var(--theme-muted, #53647c); }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-status-field { padding: 0 16px 20px; gap: 8px; font-size: 13px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-checklist-section { padding: 20px 16px; }
 .editorial-app:not(.view-home) .screen.cockpit-native-screen .cockpit-checklist-section .section-heading { align-items: center; }

@@ -1,21 +1,21 @@
 .cockpit-journey-details { display:grid; gap:16px; margin:16px 0; }
 .cockpit-journey-details:empty { display:none; }
-.cockpit-import-card,.cockpit-attached-route,.cockpit-attached-budget { border:1px solid #d9e5f4; background:#f8fbff; border-radius:22px; padding:20px; color:#102641; }
+.cockpit-import-card,.cockpit-attached-route,.cockpit-attached-budget { border:1px solid var(--theme-border, #d9e5f4); background:var(--theme-soft, #f8fbff); border-radius:22px; padding:20px; color:var(--theme-ink, #102641); }
 .cockpit-journey-details h2 { margin:10px 0; font-size:22px; line-height:1.25; }
-.cockpit-journey-details p { color:#526780; line-height:1.55; font-size:14px; }
-.cockpit-section-label { display:flex; align-items:center; gap:8px; color:#0965d8; font-size:11px; font-weight:750; letter-spacing:.07em; }
+.cockpit-journey-details p { color:var(--theme-muted, #526780); line-height:1.55; font-size:14px; }
+.cockpit-section-label { display:flex; align-items:center; gap:8px; color:var(--theme-link, #0965d8); font-size:11px; font-weight:750; letter-spacing:.07em; }
 .cockpit-journey-details label { display:grid; gap:8px; font-size:14px; font-weight:650; }
-.cockpit-journey-details select,.cockpit-edit-form select { width:100%; min-width:0; min-height:48px; padding:10px; border:1px solid #cbdcf1; border-radius:12px; color:#102641; background:#fff; font:inherit; }
+.cockpit-journey-details select,.cockpit-edit-form select { width:100%; min-width:0; min-height:48px; padding:10px; border:1px solid var(--theme-border, #cbdcf1); border-radius:12px; color:var(--theme-ink, #102641); background:var(--theme-surface, #fff); font:inherit; }
 .cockpit-journey-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .cockpit-journey-actions button { min-height:44px; white-space:normal; }
 .cockpit-attached-route ol { display:grid; gap:14px; padding:0; list-style:none; }
 .cockpit-attached-route li { display:grid; grid-template-columns:64px 1fr; gap:10px; font-size:14px; line-height:1.55; }
-.cockpit-attached-route li strong { color:#0965d8; }
-.cockpit-budget-total { display:block; margin:12px 0; color:#0062eb; font-size:30px; font-variant-numeric:tabular-nums; }
+.cockpit-attached-route li strong { color:var(--theme-link, #0965d8); }
+.cockpit-budget-total { display:block; margin:12px 0; color:var(--theme-link, #0062eb); font-size:30px; font-variant-numeric:tabular-nums; }
 .cockpit-attached-budget dl { display:grid; gap:10px; }
 .cockpit-attached-budget dl>div { display:flex; justify-content:space-between; gap:10px; font-size:14px; }
 .cockpit-attached-budget dd { margin:0; font-weight:700; }
-.cockpit-journey-error { border:1px solid #f0c5c9; padding:16px; border-radius:16px; background:#fff5f5; }
+.cockpit-journey-error { border:1px solid var(--theme-border, #f0c5c9); padding:16px; border-radius:16px; background:var(--theme-danger-bg, #fff5f5); }
 .cockpit-edit-form { padding-bottom:16px; }
 .cockpit-edit-form .primary-wide { min-height:48px; }
 @media(max-width:380px) { .cockpit-journey-actions { flex-direction:column; }.cockpit-import-card,.cockpit-attached-route,.cockpit-attached-budget { padding:16px; } }

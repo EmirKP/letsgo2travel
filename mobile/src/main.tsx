@@ -4,6 +4,10 @@ import "./index.css";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { I18nProvider } from "./lib/i18n";
+import { initializeTheme } from "./lib/theme";
+
+const stopTheme = initializeTheme();
+if (import.meta.hot) import.meta.hot.dispose(stopTheme);
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Uygulama kök elemanı bulunamadı.");

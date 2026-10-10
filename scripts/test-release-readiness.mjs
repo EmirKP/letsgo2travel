@@ -43,6 +43,7 @@ const checks = [
   ["--test", "tests/live-activity-read.test.mjs"],
   ["--test", "tests/live-activity-schedule.test.mjs"],
   ["--test", "tests/mobile-public-config.test.mjs"],
+  ["--test", "tests/mobile-theme.mjs"],
   ["--test", "tests/android-packaging.mjs"],
   ["--test", "tests/account-sync-parity.mjs"],
   ["--test", "tests/account-collections-db.mjs"],

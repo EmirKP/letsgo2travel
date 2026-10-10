@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#101B2D</color>
+    <color name="colorPrimaryDark">#101B2D</color>
+    <color name="colorStatusBar">#101B2D</color>
+    <color name="colorNavigationBar">#101B2D</color>
+</resources>

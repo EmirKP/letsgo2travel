@@ -11,6 +11,7 @@ import "./journey.css";
 import "./reference-theme.css";
 import "./screens/secondary-polish.css";
 import "./shared-shell.css";
+import "./dark-theme.css";
 import { NavigationPane } from "./components/NavigationPane";
 import { LazyOverlay } from "./components/LazyOverlay";
 import { AnimatedSplash } from "./components/AnimatedSplash";
@@ -30,6 +31,7 @@ import { tripInviteFromUrl, pendingTripInvite, rememberTripInvite } from "./lib/
 import { initFlightReminderTapListener } from "./lib/liveActivity";
 import { initEventReminderTapListener, startEventReminderMaintenance } from "./lib/eventReminders";
 import { useI18n } from "./lib/i18n";
+import { useTheme } from "./lib/useTheme";
 import { initLiveActivityRetry, initLiveActivityTokenSync, syncTokensAfterLogin } from "./lib/liveActivityPush";
 import {
   hasPendingPushDetach,
@@ -139,6 +141,7 @@ function highlightedTabFor(view: ViewId): TabId | null {
 
 export default function App() {
   const { locale, copy } = useI18n();
+  const { resolved: resolvedTheme } = useTheme();
   const [launching, setLaunching] = useState(() => isNativePlatform());
   const [openTransfer, setOpenTransfer] = useState(false);
   const [exploreCode, setExploreCode] = useState("");
@@ -686,10 +689,10 @@ export default function App() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     const statusBar = plugin("StatusBar");
-    // All screens share the same blue safe area and white status text.
+    // Both header palettes need white status icons; only their background changes.
     void statusBar?.setStyle?.({ style: "DARK" }).catch(() => undefined);
-    void statusBar?.setBackgroundColor?.({ color: "#0877b8" }).catch(() => undefined);
-  }, []);
+    void statusBar?.setBackgroundColor?.({ color: resolvedTheme === "dark" ? "#101b2d" : "#0877b8" }).catch(() => undefined);
+  }, [resolvedTheme]);
 
   useEffect(() => {
     let active = true;

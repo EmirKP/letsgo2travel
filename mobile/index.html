@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0877b8" />
     <meta name="color-scheme" content="light" />
+    <style>html { background: #fff; } html[data-theme="dark"] { background: #101b2d; }</style>
+    <script>
+      (() => {
+        let preference = "system";
+        try {
+          const stored = window.localStorage.getItem("l2t-theme");
+          if (stored === "light" || stored === "dark") preference = stored;
+        } catch { /* Use the device setting when storage is unavailable. */ }
+        let dark = preference === "dark";
+        if (preference === "system") {
+          try { dark = window.matchMedia("(prefers-color-scheme: dark)").matches; } catch { /* Default to light. */ }
+        }
+        const resolved = dark ? "dark" : "light";
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#101b2d" : "#0877b8");
+        document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
+      })();
+    </script>
     <meta name="format-detection" content="telephone=no" />
     <title>LetsGo2Travel</title>
   </head>

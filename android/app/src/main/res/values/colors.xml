@@ -4,4 +4,7 @@
     <color name="colorPrimaryDark">#F5F8FC</color>
     <color name="colorAccent">#0066FF</color>
     <color name="colorSplash">#2352C4</color>
+    <color name="colorStatusBar">#0877B8</color>
+    <!-- Before API 27 navigation icons are always light. -->
+    <color name="colorNavigationBar">#2352C4</color>
 </resources>
