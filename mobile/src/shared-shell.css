@@ -23,8 +23,7 @@
   width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0;
   color: #fff; background: rgb(255 255 255 / 14%); border: 1px solid rgb(255 255 255 / 23%); border-radius: 50%;
 }
-.app-shell.editorial-app .shared-topbar .language-toggle { flex-direction: column; gap: 3px; border-radius: 14px; width: 48px; min-width: 48px; background: rgb(255 255 255 / 12%); }
-.app-shell.editorial-app .shared-topbar .language-code { font-size: 8px; font-weight: 750; line-height: 1; letter-spacing: .6px; }
+.app-shell.editorial-app .shared-topbar .language-toggle { border-radius: 14px; width: 48px; min-width: 48px; background: rgb(255 255 255 / 12%); }
 .app-shell.editorial-app .shared-topbar .language-toggle strong { color: #fff; font-size: 10px; }
 .app-shell.editorial-app .shared-topbar .icon-button svg { width: 21px; height: 21px; }
 .app-shell.editorial-app .shared-topbar button:focus-visible { outline: 3px solid #ffda24; outline-offset: 3px; }

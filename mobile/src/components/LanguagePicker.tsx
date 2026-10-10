@@ -23,7 +23,7 @@ export function LanguagePicker() {
   const [open, setOpen] = useState(false);
   return <>
     <button type="button" className="language-toggle" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} aria-label={`${copy('Uygulama dili', 'App language')}: ${LANGUAGES.find(item => item.id === locale)?.name}`}>
-      <LanguageFlag locale={locale}/><span className="language-code">{locale.toUpperCase()}</span>
+      <LanguageFlag locale={locale}/>
     </button>
     <Sheet open={open} title={copy('Dil seç', 'Choose language', 'Zgjidh gjuhën')} onClose={() => setOpen(false)}>
       <div className="language-options" role="group" aria-label={copy('Uygulama dili', 'App language')}>
