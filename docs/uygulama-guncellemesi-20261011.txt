@@ -1,0 +1,68 @@
+11 Ekim 2026 — Uygulama güncellemesi
+
+Kaynak: efe190e1029e
+Mobil web/iOS/Android varlıkları: 0d24132176bf
+
+Tamamlanan liste
+1. Kısayol düzenleyici tek listeye indirildi. Sürükleyerek veya klavye ile
+   sıralama, ayrı araç ekleme alanı ve içeriği örtmeyen Kaydet düğmesi var.
+2. Hızlı tema dokunuşları üst üste ekran görüntüsü animasyonu başlatmıyor;
+   son seçim uygulanıyor, normal kullanımda kısa geçiş korunuyor.
+3. Topluluğa fotoğraflı gönderi ve profillere üç sütunlu galeri eklendi.
+   Galeri, Forum, Cevaplar; beğeni, yorum ve yanıtlama akışları bağlı.
+4. Konum gerektiren araçlar cihaz konumuyla açılıyor. Manuel seçim korunuyor;
+   izin/konum hatasında seçim ve yeniden deneme kullanılabiliyor.
+5. Kaşif kartında ikon, başlık ve istatistikler arasındaki boşluklar düzeltildi.
+6. Alarm silme, geçmiş tarih, durdur/başlat ve geciken sunucu işlemleri düzeltildi.
+   İptal edilmiş kayıt tekrar listelenmiyor veya bildirim sonunda canlanmıyor.
+7. Alarm silmede 6 saniye, gönderi silmede 30 saniye geri alma var.
+   Başarısız işlem başarı gibi gösterilmiyor.
+8. Gönderi taslağı hesaba özel cihazda korunuyor. Hatalı yükleme aynı işlem
+   kimliğiyle tekrar deneniyor; eski istek yeni taslağı silemiyor.
+9. Gönderi fotoğrafları sıkıştırılıyor, sunucuda yeniden kodlanıyor ve
+   gömülü konum/EXIF bilgisi kaldırılıyor.
+10. Keşfet ve Takip ettiklerim akışları eklendi.
+11. Gönderideki yer, kayıtlı rotanın seçilen gününe eklenebiliyor.
+    Eşitleme sırasında değişmiş/silinmiş rota yanlışlıkla güncellenmiyor.
+12. Özel gönderi koleksiyonları ve koleksiyondan çıkarma eklendi.
+13. Kayıtlı rota ve kişisel seyahat kartlarının çevrimdışı erişimi korunuyor;
+    son kayıt/güncelleme zamanı gösteriliyor.
+14. Yorum, yanıt, takipçi ve fiyat alarmı tercihleri eklendi. Sosyal bildirimler
+    uygulama içi kutuda; fiyat alarmlarında mevcut e-posta/telefon kanalları var.
+15. Herkese açık / yalnız takipçiler görünürlüğü, fotoğrafın kendisi dahil
+    sunucuda denetleniyor. Takibi bırakma ve engelleme erişimi kaldırıyor.
+16. Forum ve sosyal metinler Türkçe, İngilizce, Arnavutça çevrilebiliyor.
+    Hedef dil, makine çevirisi etiketi ve aslına dönüş var.
+
+Tamamlayıcı kontroller
+- Sosyal kullanıcılar şikayet edilebiliyor ve engellenebiliyor.
+- Yönetici, bildirilen metni/fotoğrafı görüp tek işlemde gizleyip çözebiliyor.
+- Yeni fotoğraflı gönderiler yönetici incelemesinden sonra görünür oluyor.
+- Hesap silme, özel fotoğraflar kaldırılamazsa güvenli biçimde duruyor.
+- Bildirim ve taslaklar başka hesaba taşınmıyor.
+
+Doğrulama
+- Tam yayın kontrolü: npm run test:release geçti. Node test gruplarında
+  718 test ve ek yayın/integrity kontrolleri başarıyla tamamlandı.
+- Kök ESLint, mobil ESLint ve TypeScript kontrolleri geçti.
+- Next üretim derlemesi geçti.
+- Mobil derleme, iOS/Android dosya eşitleme ve doktor kontrolleri geçti.
+  Android FCM yapılandırma dosyası yerelde yok; Android imzalı paket
+  üretimi ve gerçek telefon bildirimi bu çalışmada doğrulanmadı.
+- 390x844 tarayıcı: kısayol sürükleme/sıralama/kalıcı kayıt, tema geçişi,
+  profil boşlukları, gönderi taslağı ve koyu tema okunabilirliği kontrol edildi.
+- Üç yeni Supabase geçişi canlıya uygulandı; erişim yetkileri ve özel
+  fotoğraf alanı doğrulandı. Gerçek içerik veya bildirim üretilmedi.
+
+Yayın durumu
+Sunucu yayında: dpl_3DMHCBbduG7i1dgbepDnd17fDFye.
+www.letsgo2travel.com.tr bu dağıtıma bağlı. Yeni sosyal akış 200 yanıtı,
+oturumsuz tercihler/yönetici/alarm istekleri 401 yanıtı verdi.
+Fiyat alarmı zamanlaması her gün 09:00 UTC olarak doğrulandı; test amacıyla
+gerçek bildirim gönderen görev çalıştırılmadı.
+Canlı oturumda Türkçe forum yazısı Arnavutçaya ve İngilizceye çevrildi;
+orijinal metne dönüş doğrulandı.
+Canlı hesaptaki beş bildirim tercihi başarıyla yüklendi; tercihlerin
+değerleri test sırasında değiştirilmedi.
+TestFlight'a yeni paket gönderilmedi. Fiziksel iPhone/iPad performansı ve
+iki gerçek hesapla özel gönderi paylaşımı henüz cihaz üzerinde denenmedi.

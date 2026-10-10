@@ -41,3 +41,15 @@ Verification
 - Targeted mobile/root eslint passed.
 - No live emails, push notifications, deployment, DB write or generated build
   asset updates were performed by this task.
+
+Final root rollout — 11 October 2026
+Source efe190e1029e and native web artifacts 0d24132176bf were committed and pushed.
+All three new migrations were applied to mwlucroyjvtoxillvzga and recorded atomically.
+Main Vercel deployment dpl_3DMHCBbduG7i1dgbepDnd17fDFye is READY and promoted;
+www.letsgo2travel.com.tr alias points to it. Full release checks, root/mobile lint,
+TypeScript, Next production build and mobile/native asset checks passed.
+The new daily 09:00 UTC price cron is configured; it was not manually invoked.
+Live signed-in forum translation to Albanian and English succeeded, as did return
+to original text. No community post, email, push or test account was created.
+No new TestFlight submission was made; physical device and two-account photo
+sharing checks remain separate. Earlier readiness notes describe pre-rollout state.
