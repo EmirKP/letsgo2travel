@@ -34,7 +34,7 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
   const { copy } = useI18n();
   const [history, setHistory] = useState([props.profileKey]);
   const key = history.at(-1)!;
-  return <Sheet open title={copy("Gezgin profili", "Traveller profile", "Profili i udhëtarit")} size="large" onClose={props.onClose}>
+  return <Sheet open title={copy("Gezgin profili", "Traveller profile", "Profili i udhëtarit")} size="large" className="community-profile-sheet" onClose={props.onClose}>
     <div className="community-profile">
       {history.length > 1 && <button className="community-profile-back" type="button" onClick={() => setHistory(value => value.slice(0, -1))}>
         <Icon name="back" size={18} />{copy("Önceki profil", "Previous profile", "Profili i mëparshëm")}
@@ -194,24 +194,26 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   return <>
     {profile && <>
       <div className="community-profile-hero">
-        <div className="community-profile-summary">
         <div className="community-profile-overview">
-          <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
-        <div className="community-profile-stats">
-          <button type="button" aria-pressed={section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
-          <button type="button" aria-pressed={section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
-          <div><strong>{(profile.postCount + profile.answerCount).toLocaleString(dateLocale)}</strong><span>{copy("Katkı", "Contributions", "Kontribute")}</span></div>
-        </div>
-        </div>
-        <div className="community-profile-identity">
-          <h2><span>@</span>{profile.username}</h2>
+          <div className="community-profile-identity">
+            <div className="community-profile-avatar-scene">
+              <span className="community-profile-postcard" aria-hidden="true" />
+              <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
+            </div>
+            <h2><span>@</span>{profile.username}</h2>
+            <p className="community-profile-role">{copy("Gezgin", "Traveller", "Udhëtar")}</p>
+          </div>
+          <div className="community-profile-stats">
+            <button type="button" aria-pressed={section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
+            <button type="button" aria-pressed={section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
+            <div><strong>{(profile.postCount + profile.answerCount).toLocaleString(dateLocale)}</strong><span>{copy("Katkı", "Contributions", "Kontribute")}</span></div>
+          </div>
           {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
         </div>
         <div className="community-profile-actions">
           {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={18} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
             : <button className={`community-profile-follow${profile.isFollowing ? " is-following" : ""}`} type="button" aria-pressed={profile.isFollowing} disabled={busy} onClick={() => void follow()}><Icon name={profile.isFollowing ? "check" : "plus"} size={18} />{busy ? copy("Güncelleniyor…", "Updating…", "Po përditësohet…") : profile.isFollowing ? copy("Takip ediliyor", "Following", "Po e ndjek") : copy("Takip et", "Follow", "Ndiq")}</button>}
           {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
-        </div>
         </div>
       </div>
       {editing && ownProfile && <form className="community-profile-editor" onSubmit={event => { event.preventDefault(); void saveBio(); }}>
@@ -232,7 +234,22 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
       {profile && (section === "followers" || section === "following") && <h3>{title}</h3>}
       {loading && !page && <div className="community-profile-empty" role="status"><Icon name="user" size={28} /><p>{copy("Profil yükleniyor…", "Loading profile…", "Po ngarkohet profili…")}</p></div>}
-      {!loading && !failure && page?.items.length === 0 && <div className="community-profile-empty"><Icon name={section === "followers" || section === "following" ? "users" : "message"} size={28} /><p>{empty}</p></div>}
+      {!loading && !failure && page?.items.length === 0 && (section === "posts" ? <div className="community-profile-empty community-profile-empty-posts">
+        <svg className="community-profile-empty-art" viewBox="0 0 100 90" fill="none" aria-hidden="true" focusable="false">
+          <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <g transform="rotate(9 65 49)"><rect x="40" y="25" width="43" height="52" rx="3" /><path d="M52 38h21M52 45h18" /></g>
+            <g transform="rotate(-13 35 42)"><rect x="12" y="14" width="49" height="57" rx="3" fill="var(--community-profile-art-paper, #f5f8fc)" /><circle cx="45" cy="30" r="5.5" fill="#3a9cff" /><path d="m18 57 9-13c1-2 3-2 5 0l8 11 5-6c1-2 3-2 5 0l5 6" /></g>
+          </g>
+        </svg>
+        <div className="community-profile-empty-copy">
+          <h3>{copy("Henüz paylaşım yok", "No posts yet", "Nuk ka ende postime")}</h3>
+          <p>{copy("Bu gezginin paylaşımları burada görünecek.", "This traveller’s posts will appear here.", "Postimet e këtij udhëtari do të shfaqen këtu.")}</p>
+          {!!profile && profile.answerCount > 0 && <button type="button" className="community-profile-answer-link" onClick={() => { switchSection("answers"); document.getElementById(`${id}-answers`)?.focus(); }}>
+            {copy(`${profile.answerCount.toLocaleString(dateLocale)} cevabı gör`, `View ${profile.answerCount.toLocaleString(dateLocale)} ${profile.answerCount === 1 ? "answer" : "answers"}`, `Shiko ${profile.answerCount.toLocaleString(dateLocale)} përgjigje`)}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
+          </button>}
+        </div>
+      </div> : <div className="community-profile-empty"><Icon name={section === "followers" || section === "following" ? "users" : "message"} size={28} /><p>{empty}</p></div>)}
       <div className="community-profile-items">{page?.items.map((item: CommunityProfileItem) => "key" in item
         ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}</strong><Icon name="chevron" size={18} /></button>
         : <button type="button" className="community-profile-post" key={profileItemKey(item)} onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>

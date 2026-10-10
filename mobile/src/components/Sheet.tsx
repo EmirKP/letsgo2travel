@@ -31,13 +31,14 @@ function unlockBodyScroll() {
   else root.setAttribute("aria-hidden", rootAriaHidden);
 }
 
-export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true }: {
+export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true, className = "" }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   size?: "normal" | "large";
   dismissible?: boolean;
+  className?: string;
 }) {
   const { copy } = useI18n();
   const sheetRef = useRef<HTMLElement>(null);
@@ -110,7 +111,7 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
     <div className="sheet-layer" role="presentation" style={{ zIndex: topSheet ? 131 : 130 }} inert={!topSheet || undefined} aria-hidden={!topSheet || undefined} onMouseDown={(event) => {
       if (event.currentTarget === event.target && dismissible) onClose();
     }}>
-      <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
+      <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""} ${className}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId}>{title}</h2>

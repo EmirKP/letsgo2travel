@@ -40,7 +40,7 @@ const sample = (key = 'starter:selin.kaplan', overrides = {}) => ({ key, userId:
 const post = id => ({ id, title: `Topic ${id}`, body: `Advice ${id}`, countryCode: 'TR', createdAt: '2026-10-01T10:00:00Z' });
 function harness(initial = {}) {
   let activeHost, navHost, contentHost, navKey, contentKey, tree, navigation;
-  const requests = [], calls = { account: 0, follow: 0, profile: 0, questions: [] };
+  const requests = [], calls = { account: 0, follow: 0, profile: 0, questions: [], focused: [] };
   const requestJson = (path, options = {}) => { const waiting = deferred(); requests.push({ path, options, ...waiting }); return waiting.promise; };
   const profiles = load('mobile/src/lib/communityProfiles.ts', { './api': { requestJson } });
   const react = Object.fromEntries(['useState', 'useRef', 'useEffect', 'useId'].map(name => [name, (...args) => activeHost.react[name](...args)]));
@@ -49,7 +49,7 @@ function harness(initial = {}) {
     '../lib/api': { ApiError }, '../lib/communityProfiles': profiles,
     '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale: 'en-GB' }) },
     './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
-  }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: () => ({ focus() {} }) } });
+  }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });
   let props = { profileKey: 'starter:selin.kaplan', userId: 'me', accessToken: 'token', onClose() {}, onOpenAccount: () => calls.account++, onEditProfile() {}, onFollowChanged: () => calls.follow++, onProfileChanged: () => calls.profile++, onOpenQuestion: id => calls.questions.push(id), ...initial };
   const h = {
     requests, calls, profiles,
@@ -133,6 +133,32 @@ test('switching sections rejects stale responses; answers open their parent topi
   await h.resolve(3, { profile: sample(), items: [{ id: 'answer', questionId: 'parent', questionTitle: 'Parent', body: 'Answer text', createdAt: '2026-10-01T10:00:00Z' }], nextOffset: null });
   find(h.tree, 'button', props => props.className === 'community-profile-post').props.onClick();
   assert.deepEqual(h.calls.questions, ['parent']);
+  h.dispose();
+});
+
+test('empty posts shortcut uses the real answer count and opens the answers tab with keyboard focus', async () => {
+  const h = harness();
+  const profile = sample(undefined, { postCount: 0, answerCount: 6 });
+  await h.resolve(0, { profile, items: [], nextOffset: null });
+  assert.match(text(h.tree), /No posts yetThis traveller’s posts will appear here\./);
+  assert.ok(button(h.tree, 'View 6 answers'));
+  h.click('View 6 answers');
+  assert.match(h.requests[1].path, /section=answers/);
+  const selectedTab = find(h.tree, 'button', props => props.role === 'tab' && props['aria-selected']);
+  assert.equal(text(selectedTab), 'Answers6');
+  assert.deepEqual(h.calls.focused, [selectedTab.props.id]);
+  await h.resolve(1, { profile, items: [{ id: 'answer', questionId: 'parent', questionTitle: 'Parent', body: 'Answer text', createdAt: '2026-10-01T10:00:00Z' }], nextOffset: null });
+  assert.match(text(h.tree), /Answer text/);
+  assert.equal(button(h.tree, 'View 6 answers'), undefined);
+  h.dispose();
+});
+
+test('empty posts never invent an answer shortcut for a profile without answers', async () => {
+  const h = harness();
+  await h.resolve(0, { profile: sample(undefined, { postCount: 0, answerCount: 0 }), items: [], nextOffset: null });
+  assert.match(text(h.tree), /No posts yet/);
+  assert.equal(find(h.tree, 'button', props => props.className === 'community-profile-answer-link'), undefined);
+  assert.match(text(h.tree), /0Contributions/);
   h.dispose();
 });
 
