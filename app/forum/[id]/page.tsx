@@ -36,6 +36,7 @@ interface ForumTopicRow {
   created_at: string;
   updated_at: string;
   is_paywalled?: boolean | null;
+  seed_key?: string | null;
 }
 
 function dateLabel(value: string) {
@@ -141,6 +142,7 @@ export default async function ForumTopicPage({
   const topic = await getTopic(id);
 
   if (!topic) notFound();
+  const isStarter = topic.author_id === null && /^starter-20260930-\d{2}$/.test(topic.seed_key || "");
 
   const codeMarksTopicAsPaywalled = forumTopicIsPaywalled(
     topic.country_slug,
@@ -206,12 +208,12 @@ export default async function ForumTopicPage({
     <ForumSafetyProvider>
     <ForumUserContent authorId={topic.author_id} showHiddenMessage>
     <div className={styles.page}>
-      <script
+      {!isStarter && <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
         }}
-      />
+      />}
 
       <section className={styles.hero}>
         <div className={styles.container}>
@@ -232,8 +234,7 @@ export default async function ForumTopicPage({
 
           <h1>{topic.title}</h1>
           <p className={styles.heroDescription}>
-            Gerçek gezgin deneyimleri, güncel giriş süreçleri ve topluluk
-            cevapları tek başlıkta.
+            {isStarter ? "Birlikte fikir üretmek için hazırlanmış örnek sohbet. Kendi hesabınla katılabilirsin." : "Gezgin deneyimleri, güncel giriş süreçleri ve topluluk cevapları tek başlıkta."}
           </p>
         </div>
       </section>
@@ -242,9 +243,7 @@ export default async function ForumTopicPage({
         <aside className={styles.notice}>
           <AlertCircle size={21} aria-hidden="true" />
           <p>
-            Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş
-            kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi
-            kurumların güncel duyurularını doğrula.
+            {isStarter ? "Bu sohbet ve “Örnek profil” etiketli yorumlar, LetsGo2Travel tarafından kurgusal isimlerle hazırlanmış başlangıç içerikleridir. Gerçek kullanıcıların kendi hesaplarıyla verdiği yanıtlar ayrıca bu sohbete eklenir." : "Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi kurumların güncel duyurularını doğrula."}
           </p>
         </aside>
 

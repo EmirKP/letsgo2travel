@@ -91,6 +91,8 @@ await test("the support screen exposes a permanent no-mail fallback and reviewab
     "../lib/i18n": { useI18n: () => ({ locale: "tr", copy: (tr) => tr }) },
     "../lib/native": nativeHarness().api,
     "../lib/support": support,
+    "../lib/api": { ApiError: class extends Error {} },
+    "../lib/issueReport": { readIssueDraft: () => ({ requestId: "test", description: "", email: "", screen: "home", screenshot: null }) },
     "./Sheet": { Sheet: ({ children }) => React.createElement("section", null, children) },
     "./support-sheet.css": {},
   });
@@ -101,5 +103,7 @@ await test("the support screen exposes a permanent no-mail fallback and reviewab
   assert.match(html, /Taslağı kopyala/);
   assert.match(html, /Build: 29/);
   assert.match(html, /hello@letsgo2travel.com.tr/);
+  assert.match(html, /Bildirimi gönder/);
+  assert.match(html, /Ekran görüntüsü/);
 });
 console.log(`PASS ${passed} support checks`);

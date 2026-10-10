@@ -64,7 +64,10 @@ function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error(
   return load('mobile/src/screens/HomeScreen.tsx', {
     ...common(host), ...homeAssets,
     '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en) => locale === 'tr' ? tr : en }) },
-    '../components/Icon': { Icon: 'Icon' }, '../components/TravelFeatureIcon': { TravelFeatureIcon: 'TravelFeatureIcon' },
+    '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../components/HomeShortcutPicker': { HomeShortcutPicker: 'HomeShortcutPicker' },
+    '../hooks/useHomeShortcuts': { useHomeShortcuts: () => ({ views: ['route', 'explore', 'passport', 'trips', 'companion'], save: () => true }) },
+    '../lib/appTools': load('mobile/src/lib/appTools.ts'),
     '../components/BrandMark': { BrandMark: 'BrandMark' },
     '../data/homeDestinations': homeData, '../lib/supabaseData': { listCockpitTrips },
     '../lib/dates': { localIsoDate: () => '2026-09-28' }, '../lib/homeJourney': homeJourney,
@@ -208,12 +211,14 @@ const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
 function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en' } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
+  let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
     '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../components/RequestFailure': { RequestFailure: 'RequestFailure' },
     ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
-    '../lib/api': { generateRoutePlan: async input => { generated.push(input); return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
+    '../lib/api': { generateRoutePlan: async input => { generated.push(input); if (generationFailure) throw generationFailure; if (generationResponse !== undefined) return generationResponse; return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
     '../lib/routeSync': { syncRoutePlan: async () => { if (syncFails) throw Error('offline'); } },
     '../lib/routeOutbox': { readRouteOutbox: () => syncFails && saves.length ? { [saves[0].id]: { kind: 'save', pending: true } } : {} },
@@ -221,7 +226,7 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
   }, {window: fixtureWindow});
   host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '' });
-  return { host, saves, navigations, notices, generated, fixtureWindow };
+  return { host, saves, navigations, notices, generated, fixtureWindow, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
 
@@ -301,6 +306,96 @@ test('Generated plans state the scope when one save stores multiple suggestions'
     assert.equal(h.saves[0].input.days, h.generated[0].days, 'Generated plans retain the user preferences that produced them');
     assert.ok(button(h.host.render(), 'Go to Saved'));
   } finally { h.host.dispose(); }
+});
+
+test('A network generation failure retains form choices and the edited previous plan, then retries the same request', async () => {
+  const h = plannerHarness({ seeded: false });
+  try {
+    const view = () => h.host.render();
+    const duration = () => find(find(view(), 'label', props => text(props.children).startsWith('How many days?')), 'select');
+    find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
+    duration().props.onChange({ target: { value: '7' } });
+    button(view(), 'Create Route').props.onClick(); await tick();
+    button(view(), 'Edit').props.onClick();
+    find(find(view(), 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.onChange({ target: { value: 'Evening museum visit with friends' } });
+    button(view(), 'Add stop').props.onClick(); button(view(), 'Apply changes').props.onClick();
+    const before = JSON.parse(JSON.stringify(find(view(), 'RouteBudgetAnalysis').props));
+    assert.equal(before.route.dailyPlan.at(-1), 'Evening museum visit with friends');
+    button(view(), 'Edit').props.onClick();
+    find(find(view(), 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.onChange({ target: { value: 'Still editing a late dinner stop' } });
+    duration().props.onChange({ target: { value: '8' } });
+    h.failGeneration(new TypeError('Failed to fetch'));
+    button(view(), 'Create Route').props.onClick(); await tick();
+    const failed = view(), retry = find(failed, 'RequestFailure');
+    assert.ok(retry); assert.equal(retry.props.draftsKept, true); assert.equal(retry.props.busy, false);
+    assert.match(retry.props.message, /current plan and choices are unchanged/); assert.doesNotMatch(retry.props.message, /Failed to fetch/);
+    assert.deepEqual(JSON.parse(JSON.stringify(find(failed, 'RouteBudgetAnalysis').props)), before);
+    assert.equal(find(find(failed, 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.value, 'Still editing a late dinner stop');
+    assert.equal(duration().props.value, 8); assert.equal(find(failed, 'AirportField', props => props.label === 'From?').props.value.iata, 'IST');
+    h.failGeneration(null); retry.props.onRetry(); retry.props.onRetry(); await tick();
+    assert.equal(h.generated.length, 3, 'The retry is deduplicated during the pending request');
+    assert.deepEqual(h.generated[2], h.generated[1], 'Retry keeps the entered destination, duration and preferences');
+    assert.equal(find(view(), 'RequestFailure'), undefined);
+    assert.equal(find(view(), 'div', props => props.className === 'planner-stop-editor'), undefined, 'A valid deliberate replacement closes the old editor');
+  } finally { h.host.dispose(); }
+});
+
+test('Fallback, invalid, empty and wrong-destination responses retain applied edits, open editor and original plan preferences', async () => {
+  const failures = [
+    { label: 'server fallback', response: { isFallback: true, data: { summary: 'Unrelated fallback', routes: [route] } } },
+    { label: 'invalid response', response: { data: null } },
+    { label: 'missing routes', response: { data: { summary: 'No routes' } } },
+    { label: 'empty response', response: { data: { summary: 'Empty', routes: [] } } },
+    { label: 'explicit failure', response: { success: false, data: { summary: 'Not successful', routes: [route] } } },
+    { label: 'wrong fixed destination', fixed: true, response: { data: { summary: 'Wrong target', routes: [{ ...route, name: 'Bodrum', cityOrRegion: 'Bodrum', destinationCode: 'BJV' }] } } },
+  ];
+  for (const failure of failures) {
+    const h = plannerHarness({ seeded: false });
+    try {
+      const view = () => h.host.render();
+      find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
+      if (failure.fixed) {
+        find(view(), 'button', props => text(props.children).startsWith('I know where to go')).props.onClick();
+        find(view(), 'AirportField', props => props.label === 'To?').props.onChange({ iata: 'FCO', city: 'Rome', name: 'Rome Airport', country: 'Italy', countryCode: 'IT' });
+        h.respondGeneration({ data: { summary: 'Original fixed plan', routes: [route] } });
+      }
+      button(view(), 'Create Route').props.onClick(); await tick();
+      button(view(), 'Edit').props.onClick();
+      find(find(view(), 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.onChange({ target: { value: 'My saved-in-plan personal stop' } });
+      button(view(), 'Add stop').props.onClick(); button(view(), 'Apply changes').props.onClick();
+      const originalBudget = JSON.parse(JSON.stringify(find(view(), 'RouteBudgetAnalysis').props));
+      button(view(), 'Edit').props.onClick();
+      const stop = find(find(view(), 'label', props => text(props.children).startsWith('Stop 1')), 'textarea');
+      stop.props.onChange({ target: { value: 'Not-yet-applied first stop' } });
+      find(find(view(), 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.onChange({ target: { value: 'Not-yet-added new stop' } });
+      find(find(view(), 'label', props => text(props.children).startsWith('How many days?')), 'select').props.onChange({ target: { value: '9' } });
+      h.respondGeneration(failure.response); button(view(), 'Create Route').props.onClick(); await tick();
+      const failed = view(), retry = find(failed, 'RequestFailure');
+      assert.ok(retry, failure.label); assert.match(retry.props.message, /current plan and choices are unchanged/);
+      assert.deepEqual(JSON.parse(JSON.stringify(find(failed, 'RouteBudgetAnalysis').props)), originalBudget, failure.label);
+      assert.equal(find(find(failed, 'label', props => text(props.children).startsWith('Stop 1')), 'textarea').props.value, 'Not-yet-applied first stop', failure.label);
+      assert.equal(find(find(failed, 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.value, 'Not-yet-added new stop', failure.label);
+      assert.equal(find(find(failed, 'label', props => text(props.children).startsWith('How many days?')), 'select').props.value, 9);
+      h.respondGeneration({ success: true, data: { summary: 'A genuine new response', routes: [{ ...route, dailyPlan: ['New generated museum itinerary'] }] } });
+      retry.props.onRetry(); await tick();
+      const replaced = view(); assert.equal(find(replaced, 'RequestFailure'), undefined); assert.equal(find(replaced, 'div', props => props.className === 'planner-stop-editor'), undefined);
+      assert.equal(find(replaced, 'RouteBudgetAnalysis').props.route.dailyPlan[0], 'New generated museum itinerary');
+      assert.equal(find(replaced, 'RouteBudgetAnalysis').props.input.dayCount, 9);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('An initial failed or fallback request still provides a clearly labeled local starter and an actionable retry', async () => {
+  for (const response of [{ isFallback: true, data: { summary: 'Server sample', routes: [route] } }, { data: null }, { data: { routes: [] } }]) {
+    const h = plannerHarness({ seeded: false });
+    try {
+      find(h.host.render(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport' });
+      h.respondGeneration(response); button(h.host.render(), 'Create Route').props.onClick(); await tick();
+      const view = h.host.render(); assert.match(text(view), /Starter outline/); assert.ok(find(view, 'RouteBudgetAnalysis'));
+      const retry = find(view, 'RequestFailure'); assert.ok(retry); assert.match(retry.props.message, /prepared a starter outline/); assert.equal(retry.props.busy, false);
+      assert.ok(!h.notices.includes('Your suggestions are ready.'), 'A failed generation must not claim new suggestions succeeded');
+    } finally { h.host.dispose(); }
+  }
 });
 
 test('Choosing a ready route records its displayed duration without rewriting alternative-search preferences', async () => {

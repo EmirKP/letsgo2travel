@@ -7,6 +7,8 @@
 
 import assert from "node:assert";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import { airportCount, findAirportByIata, listEventCities, normalizeSearchText, searchAirports } from "../../lib/airport-search";
 import { collectKeysDeep, serializeAnswer, serializeQuestionDetail, serializeQuestionSummary } from "../../lib/community/serializers";
 import {
@@ -868,8 +870,13 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
-  assert.ok(capacitor.includes("zoomEnabled: false"), "native WebView yakınlaştırması kapalı olmalı");
-  assert.ok(mobileIndex.includes("maximum-scale=1") && mobileIndex.includes("user-scalable=no"), "mobil sayfa ölçeklendirmesi kapalı olmalı");
+  assert.ok(capacitor.includes("zoomEnabled: true"), "native WebView kullanıcının yakınlaştırmasını desteklemeli");
+  const viewport = /<meta\s+name="viewport"\s+content="([^"]+)"/.exec(mobileIndex)?.[1];
+  assert.ok(viewport, "mobil görünüm alanı tanımlanmalı");
+  const viewportSettings = new Map(viewport.split(",").map(setting => setting.trim().toLowerCase().split("=").map(part => part.trim()) as [string, string]));
+  assert.equal(viewportSettings.get("width"), "device-width", "cihaz genişliği korunmalı");
+  assert.ok(!viewportSettings.has("maximum-scale"), "kullanıcının yakınlaştırmasına üst sınır konmamalı");
+  assert.ok(!["no", "0"].includes(viewportSettings.get("user-scalable") || ""), "mobil sayfa yakınlaştırması engellenmemeli");
   assert.ok(doctor.includes("packagedRelease?.appVersion === expectedAppVersion"), "doktor paket sürümünü kaynakla karşılaştırmalı");
   assert.ok(doctor.includes('iosConfig.loggingBehavior === "none"'), "doktor iOS üretilmiş log ayarını doğrulamalı");
   assert.ok(doctor.includes('androidConfig?.loggingBehavior === "none"'), "doktor Android üretilmiş log ayarını doğrulamalı");
@@ -1122,8 +1129,17 @@ test("Çevrimdışı ifadeler ana sayfanın asistanından ve doğrudan bağlant�
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const companion = readFileSync("mobile/src/screens/TravelCompanionScreen.tsx", "utf8");
+  const registry = { appTools: undefined as unknown as (locale: string) => Array<{ id: string; view: string; icon: string; label: string }> };
+  const registrySource = ts.transpileModule(readFileSync("mobile/src/lib/appTools.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  runInNewContext(registrySource, { exports: registry, require(name: string) { throw new Error(`Araç kaydı beklenmedik bağımlılık çağırdı: ${name}`); } });
+  for (const [locale, label] of [["tr", "Tüm Araçlar"], ["en", "All Tools"], ["sq", "Të gjitha mjetet"]]) {
+    const tools = registry.appTools(locale);
+    const assistant = tools.find(item => item.id === "companion");
+    assert.ok(assistant && assistant.view === "companion" && assistant.icon === "tools" && assistant.label === label, "ortak araç kaydı her dilde gerçek asistan hedefini korumalı");
+    assert.ok(tools.some(item => item.id === "phrases" && item.view === "phrases"), "hazır ifadeler ortak kayıtta doğrudan erişilebilir kalmalı");
+  }
   // The translated tools shortcut is also clicked in planning-ux.mjs; keep the screen/tab wiring check here.
-  assert.ok(/kind: "tools"[^\n]*view: "companion"/.test(home) && home.includes('onNavigate(feature.view)') && companion.includes('["assistant", "now", "phrases", "etiquette"]') && companion.includes("setTab(item)"), "ana sayfadan açılan asistanın hazır ifadeler sekmesi kullanılabilir kalmalı");
+  assert.ok(home.includes("appTools(locale)") && home.includes('onNavigate(feature.view)') && companion.includes('["assistant", "now", "phrases", "etiquette"]') && companion.includes("setTab(item)"), "ana sayfadan açılan asistanın hazır ifadeler sekmesi kullanılabilir kalmalı");
   assert.ok(app.includes('view === "companion" || view === "phrases"') && app.includes('initialTab={view === "phrases" ? "phrases" : "assistant"}'), "ifade derin bağlantısı ifadeleri, genel yardımcı asistanı açmalı");
   assert.ok(companion.includes("useEffect(() => setTab(initialTab), [initialTab])"), "aynı ekran açıkken derin bağlantı sekmeyi güncellemeli");
   assert.ok(companion.includes("profile.phrases.map") && companion.includes("essential-offline"), "hazır ifade kartları ve çevrimdışı kullanım bilgisi korunmalı");

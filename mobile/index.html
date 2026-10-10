@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0877b8" />
     <meta name="color-scheme" content="light" />
     <style>html { background: #fff; } html[data-theme="dark"] { background: #101b2d; }</style>
@@ -23,6 +23,9 @@
         document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#101b2d" : "#0877b8");
         document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
       })();
+    </script>
+    <script>
+      try { document.documentElement.dataset.textSize = window.localStorage.getItem('l2t-text-size') === 'large' ? 'large' : 'normal'; } catch { /* Normal size when storage is blocked. */ }
     </script>
     <meta name="format-detection" content="telephone=no" />
     <title>LetsGo2Travel</title>

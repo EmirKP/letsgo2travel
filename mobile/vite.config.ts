@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveMobilePublicConfig } from "../scripts/mobile-public-config.mjs";
 import { resolveMobileSourceIdentity } from "../scripts/mobile-source-identity.mjs";
+import { mobileTextScaling } from "../scripts/mobile-text-scaling.mjs";
 
 const mobileDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(mobileDir, "..");
@@ -27,6 +28,7 @@ export default defineConfig(({ mode, command }) => {
     // VITE_ names are not automatically public. __L2T_CONFIG__ below is the
     // sole allowlist; Vite's built-in MODE/DEV/PROD values remain available.
     envPrefix: [],
+    css: { postcss: { plugins: [mobileTextScaling()] } },
     plugins: [
       react(),
       {

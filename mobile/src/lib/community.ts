@@ -11,6 +11,7 @@ export type CommunityQuestion = {
   authorId: string | null;
   answerCount: number;
   photoUrl?: string | null;
+  isStarter?: boolean;
 };
 
 function record(value: unknown) {
@@ -45,6 +46,7 @@ export function normalizeCommunityQuestion(value: unknown): CommunityQuestion | 
     username: communityText(item.username, 40) || "anonim_gezgin",
     authorId: communityText(item.authorId, 80) || null,
     answerCount: communityCount(item.answerCount ?? item.answer_count),
+    isStarter: item.isStarter === true,
     // Only the authenticated media endpoint may supply a post photo.
     photoUrl: typeof item.photoUrl === "string" && item.photoUrl === `/api/country-community/questions/${id}/photo`
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? item.photoUrl : null,

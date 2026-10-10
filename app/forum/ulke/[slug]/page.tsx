@@ -35,6 +35,7 @@ interface ForumTopicRow {
   created_at: string;
   updated_at?: string | null;
   is_paywalled?: boolean | null;
+  seed_key?: string | null;
 }
 
 interface ForumReplyRow {
@@ -105,7 +106,7 @@ export default async function CountryForumPage({ params }: PageProps) {
 
   const { data: topicData, error: topicsError } = await supabase
     .from("forum_topics")
-    .select("id,author_id,title,content,category,country_slug,author_name,created_at,updated_at,is_paywalled")
+    .select("id,author_id,title,content,category,country_slug,author_name,created_at,updated_at,is_paywalled,seed_key")
     .eq("status", "published")
     .eq("country_slug", slug)
     .order("created_at", { ascending: false })
@@ -161,7 +162,7 @@ export default async function CountryForumPage({ params }: PageProps) {
     `${countryName} ilk kez gidecekler nelere dikkat etmeli?`,
   ];
 
-  const jsonLd = featuredTopic
+  const jsonLd = featuredTopic && !featuredTopic.seed_key
     ? {
         "@context": "https://schema.org",
         "@type": "QAPage",

@@ -16,6 +16,7 @@ import './travel-tools-reliability.css';
 import { Icon } from './Icon';
 import { TravelToolArtwork } from './TravelToolArtwork';
 import type { IconName } from './Icon';
+import type { TravelAssistantTool } from '../lib/appTools';
 import './travel-assistant.css';
 import './travel-tool-artwork.css';
 import './feature-entry-artwork.css';
@@ -26,7 +27,7 @@ const TravelTransit = lazy(() => import('./TravelTransit').then(m => ({default:m
 const TravelPhotoGuide = lazy(() => import('./TravelPhotoGuide').then(m => ({default:m.TravelPhotoGuide})));
 const TravelOfflineMap = lazy(() => import('./TravelOfflineMap').then(m => ({default:m.TravelOfflineMap})));
 const TravelSavedPlaces = lazy(() => import('./TravelSavedPlaces').then(m => ({default:m.TravelSavedPlaces})));
-type Tool = 'safety'|'needs'|'explore'|'embassies'|'money'|'guide'|'translate'|'transit'|'photo'|'offline'|'saved';
+type Tool = TravelAssistantTool;
 const labels: Record<Tool,[string,string,string]> = {safety:['Acil Mod','Emergency','Urgjenca'],needs:['İhtiyaç haritası','Essentials map','Harta e nevojave'],explore:['Gezi haritası','Sightseeing map','Harta e vizitave'],saved:['Kayıtlı yerler','Saved places','Vendet e ruajtura'],embassies:['Konsolosluk','Consulate','Konsullata'],money:['Para Merkezi','Money','Qendra e parave'],guide:['Gitmeden Önce Bil','Before you go','Para se të nisesh'],translate:['Çeviri','Translate','Përkthimi'],transit:['Ulaşım','Transport','Transporti'],photo:['Fotoğraftan rehber','Photo guide','Udhëzues nga fotoja'],offline:['Çevrimdışı harita','Offline map','Harta pa internet']};
 const descriptions: Record<Tool,[string,string,string]> = {
   safety:['Acil numaralar ve yardım','Emergency numbers and help','Numrat e urgjencës dhe ndihma'],
@@ -56,10 +57,10 @@ const keywords: Record<Tool,string> = {
   photo:'kamera fotoğraf fotograf camera picture',
   offline:'internetsiz çevrimdışı cevrimdisi indir download offline',
 };
-export function TravelAssistant({initialCountry='',onPhrases,onNotice,accessToken,onSignIn,ownerId}:{initialCountry?:string;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null}) {
+export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotice,accessToken,onSignIn,ownerId}:{initialCountry?:string;initialTool?:TravelAssistantTool;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null}) {
   const { copy,locale,countryName } = useI18n(); const passport = usePassportPreference();
   const [country,setCountry] = useState(() => initialCountry || readTravelCountry()); const [citizenship,setCitizenship] = useState(passport.country);
-  const [tool,setTool] = useState<Tool|null>(null);
+  const [tool,setTool] = useState<Tool|null>(initialTool || null);
   const [query,setQuery] = useState('');
   const [showAll,setShowAll] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);

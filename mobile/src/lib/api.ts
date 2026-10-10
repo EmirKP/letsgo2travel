@@ -137,6 +137,9 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
   };
   const timeoutMs = options.timeoutMs ?? 18_000;
   const timedOut = () => new ApiError(apiCopy("İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.", "The request timed out. Check your connection and try again.", "Kërkesa zgjati tepër. Kontrollo lidhjen dhe provo sërish."), 0, "timeout");
+  const connectionFailed = () => typeof navigator !== 'undefined' && navigator.onLine === false
+    ? new ApiError(apiCopy("İnternet bağlantısı yok. Bağlantını kontrol edip tekrar dene.", "You're offline. Check your connection and try again.", "Je jashtë linje. Kontrollo lidhjen dhe provo sërish."), 0, "offline")
+    : new ApiError(apiCopy("Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.", "Couldn't reach the server. Check your connection and try again.", "Nuk u arrit serveri. Kontrollo lidhjen dhe provo sërish."), 0, "network");
 
   if (isNativePlatform()) {
     const http = plugin("CapacitorHttp");
@@ -185,7 +188,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
       return data as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(error instanceof Error ? error.message : apiCopy("Sunucuya bağlanılamadı.", "Could not connect to the server.", "Nuk u arrit lidhja me serverin."));
+      throw connectionFailed();
     }
   }
 
@@ -217,7 +220,7 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     if (error instanceof DOMException && error.name === "AbortError") {
       throw timedOut();
     }
-    throw new ApiError(error instanceof Error ? error.message : apiCopy("Bağlantı kurulamadı.", "Could not connect.", "Nuk u arrit lidhja."));
+    throw connectionFailed();
   } finally {
     options.signal?.removeEventListener("abort", cancel);
     window.clearTimeout(timer);

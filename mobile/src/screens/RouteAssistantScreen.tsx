@@ -4,6 +4,7 @@ import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
 import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
+import { RequestFailure } from "../components/RequestFailure";
 import { normalizePlannerPreferences, validTravelParty, type TravelTier } from "../../../lib/planner-preferences";
 import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
@@ -67,6 +68,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [newStop, setNewStop] = useState("");
   const [editError, setEditError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generationError, setGenerationError] = useState("");
   const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
   const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
   const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(surpriseRoute ? { ...INITIAL, dayCount: undefined, days: surpriseRoute.idealDuration } : INITIAL));
@@ -195,31 +197,33 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       }) };
     };
     setLoading(true);
-    setEditingRoute(null);
+    setGenerationError("");
     try {
       const response = await generateRoutePlan(requestInput, locale);
-      const matchesTarget = requestInput.mode !== "fixed" || (requestInput.destination && response.data?.routes.length === 1 && routeMatchesDestination(response.data.routes[0], requestInput.destination));
-      if (response.data?.routes?.length && matchesTarget) {
-        setPlan(response.data);
-        setPlanInput(requestInput);
-        setSource(response.isFallback ? "local" : "ai");
-        setExpanded(response.data.routes[0]?.name || "");
-      } else {
+      const routes = response.data?.routes;
+      // A provider fallback or an unusable response is not a successful refresh.
+      // Keep both applied edits and the open editor until a real replacement arrives.
+      if (response.success === false || response.isFallback || !response.data || !Array.isArray(routes) || !routes.length) throw new Error("route-generation-unavailable");
+      const matchesTarget = requestInput.mode !== "fixed" || (requestInput.destination && routes.length === 1 && routeMatchesDestination(routes[0], requestInput.destination));
+      if (!matchesTarget) throw new Error("route-generation-unavailable");
+      setPlan(response.data);
+      setPlanInput(requestInput);
+      setSource("ai");
+      setExpanded(routes[0]?.name || "");
+      setEditingRoute(null);
+      await hapticSuccess();
+    } catch {
+      // A failed refresh must never replace a route the user already edited.
+      if (!plan) {
         const fallback = starter();
         setPlan(fallback);
         setPlanInput(requestInput);
         setSource("local");
         setExpanded(fallback.routes[0]?.name || "");
-        onNotice(copy("Önerilerin hazır.", "Your suggestions are ready."));
       }
-      await hapticSuccess();
-    } catch {
-      const fallback = starter();
-      setPlan(fallback);
-      setPlanInput(requestInput);
-      setSource("local");
-      setExpanded(fallback.routes[0]?.name || "");
-      onNotice(copy("Şu an çevrimdışı önerilerle devam ediyoruz; bağlantı gelince tekrar deneyebilirsin.", "We are using offline suggestions for now; try again when you are online."));
+      setGenerationError(plan
+        ? copy("Yeni rota önerisi alınamadı. Mevcut planın ve seçimlerin korundu.", "Couldn't fetch a new route. Your current plan and choices are unchanged.", "Nuk u mor një itinerar i ri. Plani aktual dhe zgjedhjet e tua janë ruajtur.")
+        : copy("Yeni rota önerisi alınamadı. Seçimlerinle bir başlangıç taslağı hazırladık; yeni öneri için tekrar deneyebilirsin.", "Couldn't fetch a new route. We prepared a starter outline using your choices; try again for a new suggestion.", "Nuk u mor një itinerar i ri. Përgatitëm një plan fillestar sipas zgjedhjeve të tua; provo sërish për një sugjerim të ri."));
     } finally {
       setLoading(false);
       generating.current = false;
@@ -361,6 +365,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       </section>
       </div>
 
+      {generationError && <RequestFailure message={generationError} onRetry={() => void generate()} busy={loading} draftsKept />}
       {plan && <section className="plan-results">
         <div className="results-heading">
           <div><span>{source === "surprise" ? copy("SÜRPRİZ ROTA", "SURPRISE ROUTE") : source === "explore" ? copy("SEÇTİĞİN ROTA", "YOUR ROUTE") : copy("SANA ÖZEL ÖNERİLER", "PERSONALISED PICKS")}</span><h2 ref={resultsHeading} tabIndex={-1}>{source === "explore" ? copy("Planlamaya hazır", "Ready to plan") : copy("Senin için seçtiklerimiz", "Picked for you")}</h2></div>

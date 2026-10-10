@@ -1,0 +1,28 @@
+html { --app-text-scale: 1; }
+html[data-text-size="large"] { --app-text-scale: 1.18; }
+body { font-size: 1rem; }
+.text-size-picker { margin: 14px 0 0; padding: 0; border: 0; min-width: 0; color: var(--ink); }
+.text-size-picker legend { font-weight: 750; font-size: .95rem; padding: 0; }
+.text-size-picker > div { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.text-size-picker label { display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--theme-border, #dfe7f1); border-radius: 14px; background: var(--theme-soft, #f4f7ff); cursor: pointer; }
+.text-size-picker label:has(:checked) { border-color: var(--theme-link, #0066ff); color: var(--theme-link, #005bd5); }
+.text-size-picker input { accent-color: var(--brand-blue); }
+.text-size-picker p { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+html[data-text-size="large"] :is(button, label, p, h1, h2, h3, h4, strong, small) { overflow-wrap: anywhere; }
+html[data-text-size="large"] .bottom-nav { min-height: calc(82px + env(safe-area-inset-bottom)); }
+html[data-text-size="large"] .bottom-nav small { white-space: normal; line-height: 1.25; }
+html[data-text-size="large"] :is(.feature-entry-grid, .profile-quick-grid, .form-grid.two) { grid-template-columns: minmax(0, 1fr); }
+html[data-text-size="large"] .rh-hero { height: auto; min-height: 0; padding: 30px var(--rh-edge) 24px; display: grid; gap: 18px; }
+html[data-text-size="large"] .rh-hero :is(.rh-hero-copy, .rh-search, .rh-city-chips) { position: relative; inset: auto; width: 100%; }
+html[data-text-size="large"] .rh-handwritten { display: none; }
+html[data-text-size="large"] .rh-hero-copy { margin: 0; }
+html[data-text-size="large"] .rh-search { min-height: 64px; height: auto; }
+html[data-text-size="large"] .rh-features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-text-size="large"] .rh-features > button { height: auto; min-height: 132px; }
+html[data-text-size="large"] .rh-city-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html[data-text-size="large"] .rh-city-chips > button { flex: 1 1 78px; }
+html[data-text-size="large"] .rh-section-heading { flex-wrap: wrap; gap: 8px; }
+@media (max-width: 540px) {
+  html[data-text-size="large"] :is(.ta-tool-grid, .profile-hub-grid, .saved-route-grid) { grid-template-columns: minmax(0, 1fr); }
+  html[data-text-size="large"] .rh-personal-banner { min-height: 280px; height: auto; }
+}

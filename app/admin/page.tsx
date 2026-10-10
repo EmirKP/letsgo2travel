@@ -1,6 +1,6 @@
 import Link from "next/link";
 import LogoutButton from "./components/LogoutButton";
-import { LayoutDashboard, Settings, ShieldCheck, Users, Trophy, BarChart3, CalendarSearch, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Settings, ShieldCheck, Users, Trophy, BarChart3, CalendarSearch, CalendarDays, MessageSquare } from "lucide-react";
 
 export default function AdminHome() {
   return (
@@ -15,6 +15,12 @@ export default function AdminHome() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px" }}>
+        <Link href="/admin/destek" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
+          <MessageSquare size={32} color="#2563eb" />
+          <h3 style={{ margin: 0, fontSize: "1.5rem", color: "var(--l2t-navy)" }}>Sorun Bildirimleri</h3>
+          <p style={{ margin: 0, color: "var(--l2t-soft)", lineHeight: "1.6" }}>Uygulamadan gönderilen açıklamaları ve isteğe bağlı ekran görüntülerini incele.</p>
+          <span style={{ color: "#2563eb", fontWeight: "700", marginTop: "auto" }}>Bildirimleri Aç &rarr;</span>
+        </Link>
                 <Link href="/admin/dashboard" className="glass-panel hover-tilt" style={{ padding: "32px", borderRadius: "24px", background: "#fff", textDecoration: "none", display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ width: "64px", height: "64px", borderRadius: "16px", background: "#e0e7ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <LayoutDashboard size={32} />

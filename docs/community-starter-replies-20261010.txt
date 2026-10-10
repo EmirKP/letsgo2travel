@@ -1,0 +1,51 @@
+Community starter replies — 10 October 2026
+
+Problem
+The existing community starter seed created 15 topics and deliberately no
+replies. The feed correctly counted zero published rows for those topics.
+Additionally, posting a real reply refreshed the detail but left the feed card
+count stale until a later refresh. Both are addressed in this change.
+
+Content and behaviour
+- 30 varied editorial example comments, two per existing starter discussion.
+- Fictional display names have the visible suffix “Örnek profil”, including in
+  older clients and the website. No auth accounts, votes, points or backdated
+  activity are created. Mobile also labels example topics/comments explicitly.
+- Examples are ordinary durable forum_replies records. The existing canonical
+  count function counts actual published, visible replies; no UI count is faked.
+- Signed-in users reply through the existing authenticated/moderated endpoint.
+  The answer-level Reply control addresses the author in the normal composer;
+  these remain flat topic replies, not a new nested-thread data structure.
+- Successful publication reloads both topic detail and canonical feed counts.
+  Rapid double taps submit once. A failed submit keeps the draft for retry.
+- Fictional personas are excluded from the feed's actual traveller count.
+- Seed discussion pages do not emit fictional Person/Answer structured data.
+
+Release sequence
+1. Apply supabase/migrations/20261010130000_community_starter_replies.sql.
+   Existing 20260930121000 starter-topic migration must already be present.
+2. Review and run supabase/seeds/community-starter-replies-20261010.sql.
+   Existing topic seed is its prerequisite. Missing, hidden or paywalled
+   starter discussions do not receive new comments.
+3. Deploy backend/client changes that read forum_replies.seed_key.
+   The schema step must precede the API deployment.
+4. Read a starter detail and verify its count; post a clearly labelled test
+   reply with an authorized test account, then confirm detail/feed/reopen and
+   cleanup. No production test reply was written as part of these local tests.
+
+Seed safety
+Unique seed keys make re-runs idempotent. Re-runs preserve real replies and
+moderation states. Client roles cannot assign seed identities or write
+authorless replies. Trusted account deletion can still anonymize genuine rows.
+
+Validation
+Production database rollout completed on 10 October 2026 in project
+mwlucroyjvtoxillvzga. SQL verification returned 30 example replies across
+15 distinct starter topics. No real user reply or synthetic account was created.
+
+tests/community-starter-replies.mjs executes migration and seed in PGlite,
+then checks 30 persisted comments, count aggregation, moderation/block filters,
+idempotence, no synthetic users, client forgery denial and account anonymization.
+tests/community-ui.mjs covers visible example disclosure, reply focus/mention,
+guest sign-in, duplicate-tap guard, authenticated submission and feed refresh.
+Existing community pagination/admin/starter-permission suites are retained.

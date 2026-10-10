@@ -1,0 +1,6 @@
+.request-failure { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 16px; margin: 14px 0; border: 1px solid var(--theme-border, #dbe4ef); border-radius: 18px; background: var(--theme-soft, #f4f7ff); color: var(--theme-ink, #142b49); }
+.request-failure > svg { flex: none; margin-top: 3px; color: var(--theme-link, #0066ff); }
+.request-failure > div { flex: 1 1 180px; min-width: 0; }
+.request-failure strong { font-size: 14px; line-height: 1.5; }
+.request-failure p { color: var(--theme-muted, #596c84); font-size: 13px; line-height: 1.5; margin: 6px 0 0; }
+.request-failure button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border: 1px solid var(--theme-border, #c7d6eb); background: var(--theme-surface, #fff); color: var(--theme-link, #005bd5); border-radius: 12px; padding: 8px 12px; font-size: 14px; }

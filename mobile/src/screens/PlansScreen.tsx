@@ -81,10 +81,12 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ initialTool, initialSection, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
+export function TripsScreen({ initialTool, initialSection, initialRouteId, onInitialRouteHandled, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
   onPrepareCockpit?: (intent: RouteCockpitIntent) => void;
   initialTool?: "airport";
   initialSection?: LibrarySection;
+  initialRouteId?: string;
+  onInitialRouteHandled?: () => void;
   onOpenDestination: (code: string) => void;
   onOpenEvent?: (id: string) => void;
   user: AuthUser | null;
@@ -120,6 +122,16 @@ export function TripsScreen({ initialTool, initialSection, onOpenDestination, on
   const [cloudError, setCloudError] = useState("");
   const [cloudRetry, setCloudRetry] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlan | null>(null);
+  useEffect(() => {
+    if (!initialRouteId) return;
+    const saved = getSavedRoutePlans(ownerId).find(route => route.id === initialRouteId);
+    if (saved) {
+      setSelectedPlan({ id: saved.id, title: saved.plan.routes[0]?.name || copy('Kayıtlı rota', 'Saved route', 'Itinerar i ruajtur'), createdAt: saved.createdAt, input: saved.input, plan: saved.plan });
+      setLibraryTab('routes');
+      setQuery('');
+    } else onNotice(copy('Bu rota artık cihazındaki kayıtlarda bulunmuyor.', 'This route is no longer saved on this device.', 'Ky itinerar nuk është më i ruajtur në këtë pajisje.'));
+    onInitialRouteHandled?.();
+  }, [initialRouteId, ownerId, onInitialRouteHandled, onNotice, copy]);
   const [unavailableCountry, setUnavailableCountry] = useState<{ name: string; alpha3: string } | null>(null);
 
   const refreshLocal = useCallback(() => {

@@ -575,6 +575,64 @@ test('Country filters request server pages and older posts can be reached withou
  }finally{h.dispose();}
 });
 
+test('Example comments are labelled, accept genuine replies and refresh the feed count after publication', async () => {
+  const h = harness({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' });
+  const starter = question('starter', 'TR', 'A starter discussion', { authorId: null, isStarter: true, username: 'nil · Örnek profil', answerCount: 2 });
+  const answer = { id: 'starter-reply', authorId: null, username: 'baran · Örnek profil', isStarter: true, body: 'An editorial travel idea', createdAt: starter.createdAt };
+  try {
+    let view = await h.feed([starter]);
+    assert.match(text(view), /Example discussion · Join in/);
+    const travellerCount = nodes(view).find(node => node.type === 'span' && text(find(node, 'small')) === 'In this feed');
+    assert.equal(text(find(travellerCount, 'strong')), '0', 'Fictional personas never inflate actual traveller numbers');
+    h.click('Open question: A starter discussion');
+    h.requests.at(-1).resolve({ data: { ...starter, answers: [answer], totalAnswerCount: 2 } });
+    view = await h.settle();
+    assert.match(text(view), /fictional names/); assert.match(text(view), /Example comment/);
+    h.change('textarea', props => props.id === 'community-answer-body', 'My genuine advice');
+    view = h.click('Reply to @baran · Örnek profil');
+    assert.equal(h.focused, 'community-answer-body');
+    assert.equal(find(view, 'textarea', props => props.id === 'community-answer-body').props.value, '@baran My genuine advice');
+    const submit = button(view, 'Send answer'); submit.props.onClick(); submit.props.onClick(); h.render();
+    const writes = h.requests.filter(request => request.path === '/api/country-community/answers');
+    assert.equal(writes.length, 1, 'Double taps produce exactly one real submission');
+    assert.equal(writes[0].options.body.body, '@baran My genuine advice');
+    assert.equal(writes[0].options.headers.Authorization, 'Bearer TOKEN_A');
+    writes[0].resolve({ moderation: { action: 'visible' } }); await h.settle();
+    assert.ok(h.requests.findLast(request => request.path.startsWith('/api/country-community/feed') && !request.done), 'Successful post refreshes canonical feed counts');
+    const detail = h.requests.findLast(request => request.path === '/api/country-community/questions/starter');
+    detail.resolve({ data: { ...starter, answers: [answer, { ...answer, id: 'real-reply', authorId: 'account-a', username: 'Real user', isStarter: false }], totalAnswerCount: 3 } });
+    await h.settle(); view = await h.feed([{ ...starter, answerCount: 3 }]);
+    find(view, 'Sheet', props => props.title === 'Question details').props.onClose(); view = h.render();
+    assert.ok(button(view, '3 replies: A starter discussion'));
+  } finally { h.dispose(); }
+});
+
+test('Guests can read starter examples but replying opens real account sign-in', async () => {
+  const h = harness();
+  try {
+    await h.feed(); h.click('Open question: Tokyo train advice');
+    h.requests.at(-1).resolve({ data: { ...rows[2], answers: [{ id: 'example', authorId: null, username: 'nil · Örnek profil', isStarter: true, body: 'An example', createdAt: rows[2].createdAt }] } });
+    await h.settle(); h.click('Reply to @nil · Örnek profil');
+    assert.equal(h.accountOpened, 1);
+    assert.equal(h.requests.filter(request => request.options.method === 'POST').length, 0);
+  } finally { h.dispose(); }
+});
+
+test('A reply finishing after detail closes refreshes its real feed count without reopening the sheet', async () => {
+  const h = harness({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' });
+  try {
+    await h.feed(); h.click('Open question: Tokyo train advice');
+    h.requests.at(-1).resolve({ data: { ...rows[2], answers: [] } });
+    await h.settle(); h.change('textarea', props => props.id === 'community-answer-body', 'A real traveller reply'); h.click('Send answer');
+    const pending = h.requests.at(-1);
+    find(h.render(), 'Sheet', props => props.title === 'Question details').props.onClose(); h.render();
+    pending.resolve({ moderation: { action: 'visible' } }); const view = await h.settle();
+    assert.equal(find(view, 'Sheet', props => props.title === 'Question details'), undefined);
+    assert.ok(h.requests.findLast(request => request.path.startsWith('/api/country-community/feed') && !request.done));
+    assert.equal(h.requests.filter(request => request.path === '/api/country-community/questions/jp').length, 1);
+  } finally { h.dispose(); }
+});
+
 test('More than 100 replies remain accessible and a failed later page preserves both replies and draft',async()=>{
  const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
  try{

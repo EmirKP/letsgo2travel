@@ -54,6 +54,84 @@ test('Native success and HTTP failures clear their timers without changing paylo
   assert.equal(bad.timers.size, 0);
 });
 
+function transport({ native, locale, online, rawError = new TypeError('Private socket details: https://internal.example.test/session'), response } = {}) {
+  const calls = [], timers = new Map(); let timerId = 0, nextError = rawError, nextResponse = response;
+  async function send(options) {
+    calls.push(options);
+    if (nextError !== null) throw nextError;
+    return native ? nextResponse : new Response(JSON.stringify(nextResponse.data), { status: nextResponse.status, headers: { 'Content-Type': 'application/json' } });
+  }
+  const api = load('mobile/src/lib/api.ts', {
+    './capacitor': { isNativePlatform: () => native, plugin: () => ({ request: send }) },
+    './config': { config: { apiBaseUrl: 'https://example.test' } },
+    './i18n': { localeFromStorage: () => locale },
+  }, {
+    window: { setTimeout: callback => { timers.set(++timerId, callback); return timerId; }, clearTimeout: id => timers.delete(id) },
+    ...(online === undefined ? {} : { navigator: { onLine: online } }),
+    fetch: (_url, options) => send(options),
+  });
+  return { api, calls, timers, recover(data = { saved: true }) { nextError = null; nextResponse = { status: 200, data }; } };
+}
+
+test('Browser and native raw connection failures become localized offline/network ApiErrors in all three languages', async () => {
+  const translations = {
+    tr: { offline: 'İnternet bağlantısı yok. Bağlantını kontrol edip tekrar dene.', network: 'Sunucuya ulaşılamadı. Bağlantını kontrol edip tekrar dene.' },
+    en: { offline: "You're offline. Check your connection and try again.", network: "Couldn't reach the server. Check your connection and try again." },
+    sq: { offline: 'Je jashtë linje. Kontrollo lidhjen dhe provo sërish.', network: 'Nuk u arrit serveri. Kontrollo lidhjen dhe provo sërish.' },
+  };
+  for (const native of [false, true]) for (const locale of ['tr', 'en', 'sq']) for (const online of [false, true, undefined]) {
+    const code = online === false ? 'offline' : 'network';
+    for (const rawError of [new TypeError('Failed to fetch private session URL'), { message: 'NSURLErrorDomain -1009; private hostname', code: -1009 }, 'Network request failed']) {
+      const h = transport({ native, locale, online, rawError });
+      await assert.rejects(h.api.requestJson('/private-data'), error => {
+        assert.ok(error instanceof h.api.ApiError);
+        assert.equal(error.name, 'ApiError'); assert.equal(error.status, 0); assert.equal(error.code, code);
+        assert.equal(error.message, translations[locale][code]); assert.equal(error.payload, null);
+        assert.doesNotMatch(error.message, /private|NSURLErrorDomain|Failed to fetch/i);
+        return true;
+      });
+      assert.equal(h.calls.length, 1); assert.equal(h.calls[0].headers['Accept-Language'], locale);
+      assert.equal(h.timers.size, 0, 'Failed connections must not leave deadline timers behind');
+    }
+  }
+});
+
+test('Failed POSTs are never retried automatically; only a deliberate second request resends the preserved body', async () => {
+  const body = { description: 'My unsent description', requestId: 'unchanged-retry-id' };
+  for (const native of [false, true]) {
+    const h = transport({ native, locale: 'en', online: false });
+    await assert.rejects(h.api.requestJson('/api/support/issues', { method: 'POST', body }), error => error.code === 'offline');
+    await new Promise(setImmediate);
+    assert.equal(h.calls.length, 1, 'A mutation must not be replayed after a connection failure');
+    assert.equal(h.timers.size, 0, 'No retry/deadline timer may remain');
+    assert.equal(h.calls[0].method, 'POST');
+    const sentBody = call => native ? call.data : JSON.parse(call.body);
+    assert.deepEqual(sentBody(h.calls[0]), body);
+    h.recover();
+    assert.equal((await h.api.requestJson('/api/support/issues', { method: 'POST', body })).saved, true);
+    assert.equal(h.calls.length, 2);
+    assert.deepEqual(sentBody(h.calls[1]), body);
+    assert.deepEqual(body, { description: 'My unsent description', requestId: 'unchanged-retry-id' }, 'Transport cannot mutate the caller draft');
+  }
+});
+
+test('Structured HTTP errors retain their message, status, code and payload even when device connectivity reports offline', async () => {
+  for (const native of [false, true]) for (const locale of ['tr', 'en', 'sq']) for (const payload of [
+    { error: 'Server validation detail', code: 'validation', field: 'destination' },
+    { data: { message: 'Nested quota detail', code: 'daily-limit' }, remaining: 0 },
+  ]) {
+    const h = transport({ native, locale, online: false, rawError: null, response: { status: 422, data: payload } });
+    await assert.rejects(h.api.requestJson('/save', { method: 'POST', body: { destination: '' } }), error => {
+      assert.ok(error instanceof h.api.ApiError); assert.equal(error.status, 422);
+      assert.equal(error.message, payload.error || payload.data.message);
+      assert.equal(error.code, payload.code || payload.data.code);
+      assert.deepEqual(JSON.parse(JSON.stringify(error.payload)), payload);
+      return true;
+    });
+    assert.equal(h.calls.length, 1); assert.equal(h.timers.size, 0);
+  }
+});
+
 test('A successful noopener handoff never also navigates the application tab', async () => {
   const opened = [], assigned = [];
   const api = load('mobile/src/lib/native.ts', {

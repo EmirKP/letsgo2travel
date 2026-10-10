@@ -9,16 +9,21 @@ import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
 import { SupportSheet } from "./SupportSheet";
 import { AppearancePicker } from "./AppearancePicker";
+import { TextSizePicker } from "./TextSizePicker";
 import type { ViewId } from "../types";
 import "./menu-artwork.css";
 
 // Yasal metinler artık UYGULAMA İÇİNDE okunur (tarayıcıya yönlendirme yok).
-export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: {
+export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount, onOpenGlobalSearch, accessToken, ownerId, screen }: {
   open: boolean;
   onClose: () => void;
   online: boolean;
   onNavigate: (view: ViewId) => void;
   onOpenAccount: () => void;
+  onOpenGlobalSearch?: () => void;
+  accessToken?: string;
+  ownerId?: string | null;
+  screen?: string;
 }) {
   const { locale, copy } = useI18n();
   const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
@@ -64,6 +69,8 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
     </div>
 
     <AppearancePicker />
+    <TextSizePicker />
+    {onOpenGlobalSearch && <button type="button" className="secondary-wide" style={{ marginTop: 16 }} onClick={onOpenGlobalSearch}><Icon name="search" size={20} />{copy('Uygulamada ara', 'Search the app', 'Kërko në aplikacion')}</button>}
 
     <label className="sr-only" htmlFor={searchId}>{copy("Araç ara", "Search tools")}</label>
     <div className="search-input" style={{ marginTop: 16 }}><Icon name="search" size={18}/><input ref={searchInput} id={searchId} type="search" maxLength={80} value={query} onChange={event => setQuery(event.target.value)} placeholder={copy("Harita, çeviri, uçuş…", "Maps, translation, flights…")}/>{query && <button type="button" className="icon-button compact" onClick={() => {setQuery("");searchInput.current?.focus();}} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</div>
@@ -86,6 +93,6 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount }: 
     <p className="version-note">LetsGo2Travel {config.appVersion} · Build {config.buildNumber} · {locale.toUpperCase()}</p>
 
     {legalSlug && <LegalSheet open={Boolean(legalSlug)} slug={legalSlug} onClose={() => setLegalSlug(null)} />}
-    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
+    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={ownerId} screen={screen} />
   </Sheet>;
 }

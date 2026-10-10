@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const search = (params.get("search") || "").slice(0, 100).replace(/[(),.%_*\\"\r\n]/g, " ").trim();
     let questionQuery = supabase
       .from("forum_topics")
-      .select("id,author_id,country_slug,title,content,category,author_name,created_at")
+      .select("id,author_id,country_slug,title,content,category,author_name,created_at,seed_key")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
@@ -87,6 +87,7 @@ export async function GET(request: Request) {
         category: item.category,
         created_at: item.created_at,
         hasPhoto: photoTopics.has(item.id),
+        seed_key: item.seed_key,
       },
       item.author_name,
       answerCounts.get(item.id) || 0,

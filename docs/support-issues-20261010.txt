@@ -1,0 +1,39 @@
+In-app issue reporting - 10 October 2026
+
+User flow
+- Existing SupportSheet entries now open Report a problem (TR/EN/SQ).
+- Brief description; current screen name and version/build visible before sending.
+- Optional user-entered reply email; optional user-selected JPG/PNG/WebP up to 8 MB.
+- No automatic screenshot, location, auth token, booking reference, logs, or URL query data is collected.
+- Preview/remove image. Browser and server resize/re-encode it; server strips metadata.
+- Text survives closing and page reload through session storage. Screenshot pixels remain only in memory before sending.
+- SupportSheet requires the verified ownerId from its caller for signed-in users (null for guests). Switching account/guest when opening the form purges the previous owner's draft; in-flight work from that owner cannot overwrite a new owner's draft. The keyed form also remounts if identity changes while open.
+- Failed sends preserve draft. Same-payload retries use the same random request ID.
+- Report received is shown only after durable server acknowledgement.
+- Existing editable mail draft/copy fallbacks remain. They explicitly state images must be attached manually in the mail app.
+
+Server and administration
+- POST /api/support/issues accepts guest submissions; optional bearer auth is validated if supplied.
+- Bounded streamed body, field and image validation; anonymous IP is keyed-hashed, never stored raw.
+- Supabase service-only submit_support_issue RPC atomically enforces five reports/hour per sender and idempotency.
+- Private support_issues table has no anon/authenticated read/write or RPC permissions.
+- Permanent account deletion cascades to that account's support reports, including descriptions, reply addresses and screenshots. Other accounts and guest reports are preserved even if their unverified reply email matches.
+- Normalized JPEG is bounded to 600 KB and stored atomically with its report; list responses exclude image data.
+- /admin/destek lists reports, shows selected images, and marks resolved/reopens.
+- /api/admin/support-issues checks current administrator privileges before listing, showing images or editing status.
+- Private API replies are no-store. No automatic emails or external messages are sent.
+
+Deployment prerequisite
+Apply supabase/migrations/20261010150000_support_issues.sql, then deploy server and mobile changes together.
+Until the migration and server are available, the form reports send failure honestly and retains its draft; mail fallback still works.
+No production issue report was created during tests.
+
+Production migration applied on 10 October 2026 in project
+mwlucroyjvtoxillvzga; the private support_issues table was verified present.
+Server deployment is tracked separately from the database rollout.
+
+Verification
+node --test tests/support/issues.mjs: includes API failure/success, image re-encoding, privacy, admin auth, PostgreSQL migration/RPC/RLS and account deletion, owner-isolated draft persistence and retry UI.
+node tests/support/run.mjs: 8 existing mail-fallback checks passed.
+Scoped mobile/server ESLint and repository TypeScript check passed.
+Root performs integrated mobile build/browser verification; this subtask did not claim production end-to-end delivery.

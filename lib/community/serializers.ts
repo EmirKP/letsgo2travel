@@ -19,6 +19,7 @@ export type PublicAnswer = {
   body: string;
   createdAt: string;
   username: string;
+  isStarter: boolean;
 };
 
 export type PublicQuestionSummary = {
@@ -32,6 +33,7 @@ export type PublicQuestionSummary = {
   username: string;
   answerCount: number;
   photoUrl: string | null;
+  isStarter: boolean;
 };
 
 export type PublicQuestionDetail = Omit<PublicQuestionSummary, "answerCount"> & {
@@ -45,6 +47,7 @@ export function serializeAnswer(row: Unknown, username: string | null | undefine
     body: text(row.body, 10_000),
     createdAt: text(row.created_at, 40),
     username: username || "anonim_gezgin",
+    isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-reply-20261010-\d{2}-\d{2}$/.test(row.seed_key),
   };
 }
 
@@ -64,6 +67,7 @@ export function serializeQuestionSummary(
     username: username || "anonim_gezgin",
     answerCount: Number.isFinite(answerCount) ? Math.max(0, Math.floor(answerCount)) : 0,
     photoUrl: publicPhotoUrl(row),
+    isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-20260930-\d{2}$/.test(row.seed_key),
   };
 }
 
@@ -83,6 +87,7 @@ export function serializeQuestionDetail(
     createdAt: summary.createdAt,
     username: summary.username,
     photoUrl: summary.photoUrl,
+    isStarter: summary.isStarter,
     answers,
   };
 }

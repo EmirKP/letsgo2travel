@@ -56,6 +56,8 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { BrandMark } from "./components/BrandMark";
 import { LanguagePicker } from './components/LanguagePicker';
 import { HeaderThemeToggle } from './components/AppearancePicker';
+import type { TravelAssistantTool } from './lib/appTools';
+import { alpha2FromAlpha3 } from './data/countryIso';
 import type { RouteSuggestion, TabId, ViewId } from "./types";
 
 // Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
@@ -78,6 +80,7 @@ const AirportGuideScreen = lazy(() => import("./screens/AirportGuideScreen").the
 const AccountSheet = lazy(() => import("./components/AccountSheet").then(module => ({ default: module.AccountSheet })));
 const GuestDataImportSheet = lazy(() => import("./components/GuestDataImportSheet").then(module => ({ default: module.GuestDataImportSheet })));
 const ReleaseNotesSheet = lazy(() => import("./components/ReleaseNotesSheet").then(module => ({ default: module.ReleaseNotesSheet })));
+const GlobalSearchSheet = lazy(() => import('./components/GlobalSearchSheet').then(module => ({ default: module.GlobalSearchSheet })));
 
 const tabDefinitions: Array<{ id: TabId; icon: IconName }> = [
   { id: "home", icon: "home" },
@@ -154,6 +157,11 @@ export default function App() {
   const [scrollPositions, setScrollPositions] = useState<Partial<Record<ViewId, number>>>({});
   const [navigationDirection, setNavigationDirection] = useState<"forward" | "back">("forward");
   const [savedSection, setSavedSection] = useState<"all" | "routes" | "places" | "events">("all");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [savedRouteId, setSavedRouteId] = useState('');
+  const [toolRequest, setToolRequest] = useState<{ tool: TravelAssistantTool; id: number } | null>(null);
+  const toolRequestCounter = useRef(0);
   const [notice, setNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -346,8 +354,16 @@ export default function App() {
   const openNavigationView = useCallback((view: ViewId) => {
     // Switching tabs keeps the current plan and its form selections.
     if (view === "trips") setSavedSection("all");
+    if (view === "companion") setToolRequest(null);
     navigate(view);
   }, [navigate]);
+
+  const openTool = useCallback((tool: TravelAssistantTool) => {
+    setToolRequest({ tool, id: ++toolRequestCounter.current });
+    navigate('companion');
+    setScrollPositions(positions => ({ ...positions, companion: 0 }));
+  }, [navigate]);
+  const openGlobalSearch = useCallback((query = '') => { setGlobalQuery(query); setSearchOpen(true); }, []);
 
   const openSeededRoute = useCallback((route: RouteSuggestion, kind: "surprise" | "explore") => {
     setRouteSeedKind(kind);
@@ -390,6 +406,10 @@ export default function App() {
     setVisitedViews([activeViewRef.current]);
     setScrollPositions({});
     setSavedSection("all");
+    setSearchOpen(false);
+    setGlobalQuery('');
+    setSavedRouteId('');
+    setToolRequest(null);
     setAdminOverview(null);
     setMenuOpen(false);
     setAccountOpen(false);
@@ -899,17 +919,17 @@ export default function App() {
     setCockpitJourneyIntent(intent); navigate("cockpit");
   };
   const renderView = (view: ViewId) => {
-    if (view === "home") return <HomeScreen initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
+    if (view === "home") return <HomeScreen onOpenGlobalSearch={openGlobalSearch} onOpenTool={openTool} initialSearchQuery={exploreSearch.query} onSearchDestination={searchDestinations} onToggleSaved={toggleHomeRoute} savedRouteIds={homeSavedRoutes?.owner === ownerId ? homeSavedRoutes.codes : []} onOpenTrip={id => { setCockpitFocusTripId(id); navigate("cockpit"); }} onOpenSaved={section => { navigate("trips"); setSavedSection(section); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} refreshToken={refreshTick} onNavigate={openNavigationView} onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "explore") return <ExploreScreen initialSearchQuery={exploreSearch.query} searchRequestId={exploreSearch.requestId} initialDestinationCode={exploreCode} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onSurprise={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); navigate("surprise"); }} onBuildRoute={route => openSeededRoute(route, "explore")} onNotice={showNotice} />;
     if (view === "events") return <EventsScreen key={ownerId || "guest"} focusEventId={focusEventId} onFocusHandled={() => setFocusEventId("")} ownerId={ownerId} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onOpenSaved={() => { navigate("trips"); setSavedSection("events"); }} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "country-news") return <CountryNewsScreen key={newsCountryCode} initialCountry={newsCountryCode}/>;
     if (view === "costs") return <CostsScreen ownerId={ownerId} onPrepareCockpitBudget={prepareCockpitJourney} onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "airports") return <AirportGuideScreen onOpenTransfer={() => { navigate("trips"); setOpenTransfer(true); }} onNotice={showNotice} />;
-    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={ownerId || "guest"} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={`${ownerId || "guest"}-${toolRequest?.id || 0}`} initialTool={toolRequest?.tool} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={route => openSeededRoute(route, "surprise")} onNotice={showNotice} />;
     if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
-    if (view === "trips") return <TripsScreen onPrepareCockpit={prepareCockpitJourney} initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "trips") return <TripsScreen initialRouteId={savedRouteId} onInitialRouteHandled={() => setSavedRouteId("")} onPrepareCockpit={prepareCockpitJourney} initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "cockpit") return <CockpitScreen journeyIntent={cockpitJourneyIntent?.ownerId === ownerId ? cockpitJourneyIntent : null} onJourneyHandled={() => setCockpitJourneyIntent(null)} user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onNotice={showNotice} />;
     if (view === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
@@ -967,7 +987,13 @@ export default function App() {
     {accountOpen && <LazyOverlay title={copy("Hesap", "Account")} loadingMessage={copy("Hesap hazırlanıyor…", "Opening your account…")} onClose={() => setAccountOpen(false)}>
       <AccountSheet open onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
     </LazyOverlay>}
-    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={openNavigationView} onOpenAccount={() => setAccountOpen(true)} />
+    <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={openNavigationView} onOpenAccount={() => setAccountOpen(true)} onOpenGlobalSearch={() => { setMenuOpen(false); openGlobalSearch(); }} accessToken={auth.accessToken} ownerId={ownerId} screen={activeView} />
+    {searchOpen && <LazyOverlay title={copy('Uygulamada ara', 'Search the app', 'Kërko në aplikacion')} loadingMessage={copy('Arama hazırlanıyor…', 'Preparing search…', 'Po përgatitet kërkimi…')} onClose={() => setSearchOpen(false)}>
+      <GlobalSearchSheet key={authUiKey} open onClose={() => setSearchOpen(false)} ownerId={ownerId} initialQuery={globalQuery}
+        onNavigate={openNavigationView} onOpenTool={openTool} onSearchDestination={searchDestinations}
+        onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate('country-news'); }}
+        onOpenSavedRoute={id => { setSavedRouteId(id); navigate('trips'); setSavedSection('routes'); }} />
+    </LazyOverlay>}
     {guestImportOpen && <LazyOverlay title={copy("Misafir kayıtları", "Guest items")} loadingMessage={copy("Kayıtlar hazırlanıyor…", "Preparing saved items…")} onClose={() => setGuestImportOpen(false)}>
     <GuestDataImportSheet
       open={guestImportOpen}

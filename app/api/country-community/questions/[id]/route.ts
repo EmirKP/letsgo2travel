@@ -56,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { data: question, error } = await supabase
       .from("forum_topics")
-      .select("id,author_id,country_slug,title,content,category,author_name,created_at,status")
+      .select("id,author_id,country_slug,title,content,category,author_name,created_at,status,seed_key")
       .eq("id", questionId)
       .eq("status", "published")
       .maybeSingle();
@@ -86,7 +86,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const pageSize = forumReplyLimit(isPaywalled, hasFullAccess);
     let answerQuery = supabase
       .from("forum_replies")
-      .select("id,user_id,author_name,content,created_at", { count: "exact" })
+      .select("id,user_id,author_name,content,created_at,seed_key", { count: "exact" })
       .eq("topic_id", questionId)
       .eq("status", "published")
       .order("created_at", { ascending: true })
@@ -111,6 +111,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         category: question.category,
         created_at: question.created_at,
         hasPhoto: photoTopics.has(question.id),
+        seed_key: question.seed_key,
       },
       question.author_name,
       (answers || []).map((answer) => serializeAnswer({
@@ -118,6 +119,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         authorId: answer.user_id,
         body: answer.content,
         created_at: answer.created_at,
+        seed_key: answer.seed_key,
       }, answer.author_name)),
     );
     const totalAnswerCount = Math.max(Number(count) || 0, serialized.answers.length);

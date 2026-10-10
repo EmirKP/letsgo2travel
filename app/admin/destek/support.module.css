@@ -1,0 +1,11 @@
+.page { max-width:960px; margin:0 auto; padding:32px 20px 80px; color:#172033; }
+.actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.page button,.page select { padding:10px 16px; min-height:44px; border:1px solid #bdcddd; border-radius:10px; background:#fff; color:#153b61; font:inherit; }
+.page button { cursor:pointer; }
+.page button:disabled { opacity:.55; cursor:default; }
+.card { display:grid; gap:12px; margin:20px 0; padding:22px; border:1px solid #d7e2ed; border-radius:20px; background:#fff; overflow-wrap:anywhere; }
+.card p { margin:0; line-height:1.6; }
+.card small { color:#52647b; }
+.description { white-space:pre-wrap; }
+.image { display:grid; gap:12px; }
+.image img { max-width:100%; max-height:600px; object-fit:contain; }

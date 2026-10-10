@@ -43,6 +43,7 @@ type CommunityAnswer = {
   createdAt: string;
   username: string;
   authorId: string | null;
+  isStarter?: boolean;
 };
 
 type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
@@ -190,6 +191,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [detailError, setDetailError] = useState("");
   const [answerBody, setAnswerBody] = useState("");
   const [answerPosting, setAnswerPosting] = useState(false);
+  const answerInput = useRef<HTMLTextAreaElement>(null);
+  const answerPending = useRef(false);
   const [unlocking, setUnlocking] = useState(false);
   const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
   const [blocksOpen, setBlocksOpen] = useState(false);
@@ -429,8 +432,9 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     if (!detail) return;
     const body = answerBody.trim();
     if (body.length < 3) return onNotice(copy("Cevap en az 3 karakter olmalı.", "Your answer must be at least 3 characters."));
-    if (answerPosting) return;
+    if (answerPending.current) return;
     const generation = detailGeneration.current;
+    answerPending.current = true;
     setAnswerPosting(true);
     try {
       const result = await requestJson<{ moderation?: { action?: string } }>("/api/country-community/answers", {
@@ -438,10 +442,16 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { countryCode: detail.countryCode, questionId: detail.id, body },
       });
+      if (!active.current) return;
+      // Even if the sheet closed while sending, this account's feed must
+      // reflect the saved reply. A late response must never reopen the sheet.
+      if (result.moderation?.action === "visible") void loadFeed();
       if (generation !== detailGeneration.current) return;
       setAnswerBody("");
       onNotice(result.moderation?.action === "visible" ? copy("Cevabın yayınlandı.", "Your answer is live.") : copy("Cevabın incelemeye alındı.", "Your answer was sent for review."));
-      if (result.moderation?.action === "visible") await openDetail(detail.id);
+      if (result.moderation?.action === "visible") {
+        await openDetail(detail.id);
+      }
     } catch (requestError) {
       // 403: cevap için Belgeli Gezgin doğrulaması gerekir — teknik detay
       // göstermeden anlaşılır biçimde aktarılır.
@@ -450,8 +460,19 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         ? requestError.message
         : copy("Cevap gönderilemedi. Tekrar dene.", "The answer could not be sent. Try again."));
     } finally {
+      answerPending.current = false;
       if (active.current) setAnswerPosting(false);
     }
+  };
+
+  const replyToAnswer = (answer: CommunityAnswer) => {
+    if (!user || !accessToken) return onOpenAccount();
+    const mention = `@${answer.username.replace(/ · Örnek profil$/, "")} `;
+    if (!answerBody.startsWith(mention)) {
+      if (mention.length + answerBody.length > 4000) return onNotice(copy("Cevabını biraz kısaltıp tekrar dene.", "Shorten your answer a little and try again.", "Shkurto pak përgjigjen dhe provo sërish."));
+      setAnswerBody(mention + answerBody);
+    }
+    window.requestAnimationFrame(() => answerInput.current?.focus());
   };
 
   const unlockReplies = async () => {
@@ -542,7 +563,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       <div className="cs-hero-copy"><h1 id="community-welcome-title">{copy("Topluluk", "Community")}</h1><p>{copy("Aynı tutkuyu paylaşan gezginlerle tanış, ilham al, deneyimlerini paylaş.", "Meet travellers who share your passion, find inspiration and share experiences.")}</p></div>
       <p className="cs-handwritten" aria-hidden="true">{copy("Daha Fazla", "More")}<br/>{copy("Hikâye", "Stories")}<br/><span>{copy("Daha Fazla Sen", "More You")}</span></p>
       <div className="cs-stats" aria-label={copy("Son yüklenen topluluk akışı", "Latest loaded community feed")}>
-        <div><Icon name="users" size={24}/><span><strong>{feedLoading || feedError ? "—" : new Set(questions.map(item => item.authorId || item.username)).size}</strong><small>{copy("Akışta gezgin", "In this feed")}</small></span></div>
+        <div><Icon name="users" size={24}/><span><strong>{feedLoading || feedError ? "—" : new Set(questions.filter(item => !item.isStarter && item.authorId).map(item => item.authorId)).size}</strong><small>{copy("Akışta gezgin", "In this feed")}</small></span></div>
         <div><Icon name="globe" size={24}/><span><strong>{questionCountries.length}</strong><small>{copy("Ülke grubu", "Country groups")}</small></span></div>
         <div><Icon name="users" size={24}/><span><strong>{feedLoading || feedError ? "—" : questions.length}</strong><small>{copy("Güncel paylaşım", "Recent posts")}</small></span></div>
       </div>
@@ -592,6 +613,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
               {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`, `Veprimet për përdoruesin @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
             </header>
             {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`, `Fotografi e ndarë nga ${question.username}: ${question.title}`)}/>}
+            {question.isStarter && <span className="community-starter-badge">{copy("Örnek sohbet · Katılabilirsin", "Example discussion · Join in", "Bisedë shembull · Bashkohu")}</span>}
             <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
             <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`, `${question.answerCount} përgjigje: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`, `${question.answerCount} përgjigje`)}</span><Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
@@ -673,13 +695,16 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
         <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
+        {detail.isStarter && <p className="community-starter-note">{copy("Bu sohbet ve “Örnek profil” etiketli yorumlar, LetsGo2Travel tarafından kurgusal isimlerle hazırlanmış başlangıç içerikleridir. Kendi hesabınla yanıt verebilirsin.", "This discussion and comments labelled “Örnek profil” are starter examples written by LetsGo2Travel using fictional names. You can reply with your own account.", "Kjo bisedë dhe komentet me etiketën “Örnek profil” janë shembuj të përgatitur nga LetsGo2Travel me emra imagjinarë. Mund të përgjigjesh me llogarinë tënde.")}</p>}
         {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
         <p>{detail.body}</p>
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`, `${totalAnswerCount} përgjigje`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`, `${shownAnswerCount} të shfaqura · ${hiddenAnswerCount} të kyçura`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`, `${shownAnswerCount} të shfaqura`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
             <header>{authorButton(answer, "answer")}<small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
+            {answer.isStarter && <span className="community-starter-badge">{copy("Örnek yorum", "Example comment", "Koment shembull")}</span>}
             <p>{answer.body}</p>
+            <button type="button" className="community-reply-action" disabled={answerPosting} onClick={() => replyToAnswer(answer)} aria-label={copy(`@${answer.username} kullanıcısına yanıt yaz`, `Reply to @${answer.username}`, `Përgjigju @${answer.username}`)}><Icon name="message" size={15}/>{copy("Yanıt yaz", "Reply", "Përgjigju")}</button>
           </article>)}
           {answersError && <p role="alert">{answersError}</p>}
           {detail.nextOffset != null && <button type="button" className="secondary-wide" disabled={answersLoading} onClick={() => void loadMoreAnswers()}>{copy("Diğer cevapları yükle", "Load more replies", "Ngarko përgjigje të tjera")}</button>}
@@ -691,7 +716,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
             <span><Icon name="users" size={18} /></span>
             <div><strong>{copy("Deneyimini paylaş", "Share your experience")}</strong><small>{copy("Kısa, açık ve kişisel bilgi içermeyen bir cevap yaz.", "Write a clear answer without personal information.")}</small></div>
           </div>
-          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea disabled={answerPosting} id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
+          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea ref={answerInput} disabled={answerPosting} id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
           <div className="community-answer-form-meta"><small>{answerBody.trim().length < 3 ? copy("Göndermek için en az 3 karakter yaz.", "Write at least 3 characters to send.") : copy("Göndermeye hazır", "Ready to send")}</small><span>{answerRemaining}</span></div>
           <button type="button" className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? copy("Gönderiliyor", "Sending") : copy("Cevabı gönder", "Send answer")}</button>
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
@@ -699,6 +724,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </Sheet>
     <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} onManageBlocks={() => { setSafetyTarget(null); setBlocksOpen(true); }} />
     {blocksOpen && <CommunityBlocksSheet key={user?.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
-    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
+    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={user?.id ?? null} screen="community" />
   </div>;
 }

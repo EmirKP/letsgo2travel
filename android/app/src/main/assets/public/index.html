@@ -2,21 +2,43 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0877b8" />
     <meta name="color-scheme" content="light" />
+    <style>html { background: #fff; } html[data-theme="dark"] { background: #101b2d; }</style>
+    <script>
+      (() => {
+        let preference = "system";
+        try {
+          const stored = window.localStorage.getItem("l2t-theme");
+          if (stored === "light" || stored === "dark") preference = stored;
+        } catch { /* Use the device setting when storage is unavailable. */ }
+        let dark = preference === "dark";
+        if (preference === "system") {
+          try { dark = window.matchMedia("(prefers-color-scheme: dark)").matches; } catch { /* Default to light. */ }
+        }
+        const resolved = dark ? "dark" : "light";
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#101b2d" : "#0877b8");
+        document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
+      })();
+    </script>
+    <script>
+      try { document.documentElement.dataset.textSize = window.localStorage.getItem('l2t-text-size') === 'large' ? 'large' : 'normal'; } catch { /* Normal size when storage is blocked. */ }
+    </script>
     <meta name="format-detection" content="telephone=no" />
     <title>LetsGo2Travel</title>
-    <script type="module" crossorigin src="./assets/index-CfK1CNVD.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/i18n-BqCgLD--.js">
-    <link rel="modulepreload" crossorigin href="./assets/config-BrQvDzaQ.js">
-    <link rel="modulepreload" crossorigin href="./assets/capacitor-CBjCZd2k.js">
-    <link rel="modulepreload" crossorigin href="./assets/api-QCLjhOo3.js">
+    <script type="module" crossorigin src="./assets/index-Ca_mh_LB.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/i18n-BL0yrJPG.js">
     <link rel="modulepreload" crossorigin href="./assets/id-BcSrG7aE.js">
-    <link rel="modulepreload" crossorigin href="./assets/storage-BlFNXiQr.js">
+    <link rel="modulepreload" crossorigin href="./assets/storage-e4sgonSG.js">
+    <link rel="modulepreload" crossorigin href="./assets/config-B5FUeqTH.js">
+    <link rel="modulepreload" crossorigin href="./assets/capacitor-CBjCZd2k.js">
+    <link rel="modulepreload" crossorigin href="./assets/api-DF4gs2Un.js">
     <link rel="modulepreload" crossorigin href="./assets/dates-jwk1XFsZ.js">
-    <link rel="modulepreload" crossorigin href="./assets/supabaseData-X5Vfu_PI.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-BuJivaqq.css">
+    <link rel="modulepreload" crossorigin href="./assets/supabaseData-BsdURg-s.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-CQjeKUeG.css">
   </head>
   <body>
     <div id="root"></div>

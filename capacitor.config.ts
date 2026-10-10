@@ -9,9 +9,8 @@ const config: CapacitorConfig = {
   // Yayında bridge yanıtları (özellikle push kayıt sonucu) cihaz konsoluna
   // yazılmasın. Geliştirici gerektiğinde Xcode/Safari debug araçlarını açar.
   loggingBehavior: "none",
-  // Native WebView ölçeklemesi kapalıdır; form alanları 16px ve tüm ana
-  // yüzeyler dar ekranda tek sütuna indiği için odak zoom'una gerek kalmaz.
-  zoomEnabled: false,
+  // Allow pinch zoom as well as the app's Normal / Large text preference.
+  zoomEnabled: true,
 
   server: {
     errorPath: "error.html",

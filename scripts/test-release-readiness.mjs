@@ -19,6 +19,7 @@ const checks = [
   ["--test", "tests/community-discovery.mjs"],
   ["--test", "tests/community-preferences.mjs"],
   ["--test", "tests/community-ui.mjs"],
+  ["--test", "tests/community-starter-replies.mjs"],
   ["--test", "tests/community-pagination.mjs"],
   ["--test", "tests/admin-community-upgrade.mjs"],
   ["--test", "tests/planning-ux.mjs"],
@@ -44,6 +45,8 @@ const checks = [
   ["--test", "tests/live-activity-schedule.test.mjs"],
   ["--test", "tests/mobile-public-config.test.mjs"],
   ["--test", "tests/mobile-theme.mjs"],
+  ["--test", "tests/mobile-text-size.mjs"],
+  ["--test", "tests/mobile-personal-discovery.mjs"],
   ["--test", "tests/android-packaging.mjs"],
   ["--test", "tests/account-sync-parity.mjs"],
   ["--test", "tests/account-collections-db.mjs"],
@@ -61,6 +64,7 @@ const checks = [
   ["tests/community/moderation.mjs"],
   ["node_modules/ts-node/dist/bin.js", "tests/community/safety.ts"],
   ["tests/support/run.mjs"],
+  ["--test", "tests/support/issues.mjs"],
   ["--test", "tests/ios-privacy.test.mjs"],
 ];
 for (const args of checks) {

@@ -1,0 +1,21 @@
+.home-shortcut-picker { display: grid; gap: 14px; color: var(--ink); }
+.home-shortcut-picker > p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.home-shortcut-picker ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.home-shortcut-picker li { display: flex; align-items: center; gap: 4px; padding: 6px 8px 6px 12px; border-radius: 13px; background: var(--theme-soft, #f3f7ff); }
+.home-shortcut-picker li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 750; }
+.home-shortcut-picker li button { display: grid; place-items: center; flex: 0 0 44px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.home-shortcut-picker button:disabled { opacity: .45; }
+.home-shortcut-picker .home-shortcut-count { color: var(--ink); font-weight: 750; }
+.home-shortcut-options { display: grid; gap: 8px; }
+.home-shortcut-options label { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.home-shortcut-options input { flex: 0 0 19px; width: 19px; height: 19px; accent-color: #0066ff; }
+.home-shortcut-options label:has(input:checked) { border-color: var(--theme-link, #0066ff); background: var(--theme-soft, #f3f7ff); }
+.home-shortcut-options label:has(input:disabled) { opacity: .55; }
+.home-shortcut-options svg { flex: none; }
+.home-shortcut-options label > span { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.home-shortcut-options strong { font-size: 13px; line-height: 1.4; }
+.home-shortcut-options small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.home-shortcut-actions { position: sticky; bottom: 0; display: flex; gap: 9px; padding: 12px 0 2px; background: var(--surface); }
+.home-shortcut-actions button { flex: 1; min-width: 0; min-height: 48px; padding: 11px; border: 1px solid var(--line); border-radius: 13px; color: var(--ink); background: var(--theme-soft, #f3f7ff); font-size: 13px; font-weight: 800; }
+.home-shortcut-actions button:last-child { color: #091832; background: #ffda24; border-color: #ffda24; }
+.home-shortcut-picker .home-shortcut-error { color: var(--theme-danger, #a32437); }

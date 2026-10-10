@@ -183,7 +183,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
     {!expanded && !pending && <button className="secondary-wide" disabled={busy || loading} onClick={() => setExpanded(true)}><Icon name="trash" size={18} /> {copy("Hesabımı silme talebi oluştur", "Request account deletion")}</button>}
     <button className="secondary-wide" disabled={busy || loading || !accessToken} onClick={() => void refresh()}><Icon name="refresh" size={18} /> {copy("Durumu yenile", "Refresh status")}</button>
     <button className="secondary-wide" disabled={busy} onClick={() => setSupportOpen(true)}>{copy("Destek ekibine yaz", "Contact support")}</button>
-    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} />
+    <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={ownerId} screen="profile" />
   </section>;
 }
 
