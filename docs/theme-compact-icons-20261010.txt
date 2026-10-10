@@ -8,7 +8,8 @@ Kullanıcı isteği
 Uygulama
 - Araç görselleri 80 yerine 56 CSS piksel. Profil ve Planlar kartları
   56–64 piksel aralığında; ilgili kart boşlukları orantılı azaltıldı.
-- Daha Fazla > Görünüm: Açık / Koyu / Sistem (Türkçe, İngilizce, Arnavutça).
+- Daha Fazla > Görünüm: Koyu tema anahtarı ve cihaz temasını kullan seçeneği
+  (Türkçe, İngilizce, Arnavutça).
 - Varsayılan Sistem. Tercih cihazda saklanır; hesap girişinden bağımsızdır.
   Sistem görünümü ve diğer sekmedeki tercih değişiklikleri canlı uygulanır.
   Depolama engellenirse seçim mevcut oturumda çalışmaya devam eder.
@@ -27,7 +28,7 @@ Doğrulama
   güncellendi; marka paleti kontrolü ve diğer kontroller korundu.
 - Yeni 7 tema davranış testi: ilk boyama/çalışma anı eşleşmesi, tercih
   kalıcılığı, sistem değişimi, sekmeler arası değişim, depolama hataları,
-  dinleyici temizliği ve üç dilde erişilebilir radio kontrolleri.
+  dinleyici temizliği ve üç dilde erişilebilir görünüm kontrolleri.
 - Native giriş/gezinti testleri tema entegrasyonu ile geçti.
 - CUA yerel önizleme: 320, 390 ve 768 piksel tarayıcı genişlikleri.
   Araç ikonları 56 piksel; sayfada yatay taşma yok.
@@ -48,3 +49,17 @@ Sınırlar ve teslim
   uygulanmadı.
 - Önizleme kanıtı: outputs/tools-compact-dark.png, tools-compact-light.png
   ve theme-menu-dark.png (bu sohbetin çalışma alanında).
+
+Güneş / ay anahtarı — aynı gün devam isteği
+- Üçlü görünüm seçimi yerine Koyu tema switch'i eklendi. Açık temada güneş,
+  koyuda ay görünür; 360 ms kayma/dönme ve kısa solma geçişi kullanılır.
+- Cihazın temasını kullan checkbox'ı otomatik seçeneği korur. Anahtarın
+  elle değiştirilmesi açık/koyu tercihini kaydeder ve sistem takibini kapatır.
+- Azaltılmış hareket tercihinde geçiş animasyonu kapalı; simgeler dekoratif,
+  switch adı sabit ve açık/kapalı durumu erişilebilir şekilde bildirilir.
+- Mobil lint, üretim derlemesi ve güncellenen 7 tema testi başarılı.
+  Bu küçük arayüz değişikliğinden sonra tam yayın dizisi tekrar çalıştırılmadı.
+- CUA: Space ve tıklama ile iki yönlü geçiş; 320/390 px görünüm, sıfır
+  yatay taşma, güneş/ay opaklıkları ve kayıtlı koyu tercihle yeniden açılış.
+- Kanıt: outputs/theme-toggle-sun.png ve theme-toggle-moon.png.
+- Bu devam isteğinde de yeni TestFlight/mağaza/sunucu yayını yapılmadı.
