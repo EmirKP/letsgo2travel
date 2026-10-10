@@ -12,7 +12,8 @@ Content and behaviour
 - 30 recurring fictional personas use plain display names. Repeated profile,
   card and comment labels are removed. The discussion detail carries one short
   disclosure in Turkish, English or Albanian; web detail/featured excerpts also
-  disclose once. No auth accounts, votes, points or backdated activity are made.
+  disclose once. No auth accounts, votes or points are made. The later,
+  explicitly requested date follow-up assigns a fixed fictional timeline.
 - Examples are ordinary durable forum_replies records. The existing canonical
   count function counts actual published, visible replies; no UI count is faked.
 - Signed-in users reply through the existing authenticated/moderated endpoint.
@@ -38,12 +39,17 @@ Release sequence
 4. Read a starter detail and verify its count; post a clearly labelled test
    reply with an authorized test account, then confirm detail/feed/reopen and
    cleanup. No production test reply was written as part of these local tests.
+5. For the later requested refinement, run community-starter-dates-20261010.sql
+   and community-starter-names-20261010.sql from supabase/seeds. These change
+   only eligible editorial dates/display names and exact @handle references.
+   See docs/community-starter-dates-20261010.txt for scope and validation.
 
 Seed safety
 Unique seed keys make re-runs idempotent. Re-runs preserve real replies and
 moderation states. Client roles cannot assign seed identities or write
 authorless replies. Trusted account deletion can still anonymize genuine rows.
-The first 30 reply bodies and all existing dates remain unchanged. Every topic
+The reply-count rollout preserves the first 30 reply bodies and all dates;
+the later, separately scoped date/name refinements are documented above. Every topic
 has a distinct target count from 2 through 16, in a shuffled assignment. Actual
 moderation, blocking and genuine user replies can change the visible counts.
 

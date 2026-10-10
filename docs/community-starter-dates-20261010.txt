@@ -1,0 +1,54 @@
+Community starter dates and names — 10 October 2026
+
+The user requested distinct dates for the fictional starter topics AND their
+comments. Apply supabase/seeds/community-starter-dates-20261010.sql after the
+original topic seed and either complete or variation reply seed.
+
+This explicitly supersedes the earlier insertion-time-only/no-backdating rule
+for these 15 editorial seed topics and their 135 seeded comments only. The
+existing compact fictional-participant disclosure stays unchanged. These are
+fixed editorial dates, not a claim that actual users posted on those dates.
+
+Topic dates range from 12 September to 8 October 2026, in a shuffled order.
+Comments advance in their original reply-number order, with uneven intervals
+and multiple visible calendar days per topic. All planned dates are before
+10 October 2026 in Europe/Istanbul. A guard prevents premature application.
+
+Only exact topic IDs plus seed keys, and exact reply IDs plus seed keys plus
+parent matches are eligible. Topic author and reply user must be null; both
+must be published, and the topic must be public in the original category.
+Any genuine, anonymized, moderated or mismatched reply stays untouched. Its
+earliest timestamp caps the editorial timeline: the topic is moved to at
+least three days before that reply if needed, and eligible seed comments end
+at least one minute before it. This prevents a topic or seeded reply appearing
+after a real response it precedes, without altering genuine activity.
+
+The follow-up writes only created_at. It adds no rows and changes no content,
+names, identity, status or counts. A rerun computes from fixed values and the
+same protected rows, updating nothing when the data has not changed. Missing
+or moderated seed rows retain their places in the complete ordinal weights;
+an earlier protected date may shorten the whole editorial time window.
+
+Validation: node --test tests/community-starter-dates.mjs
+The PGlite suite executes the actual migrations and seed follow-up, checks
+15 distinct topic dates, 135 ordered comment dates spanning multiple days,
+future-date bounds, genuine/moderated/mismatched identity preservation and
+exact idempotence. No client, schema or API date-format changes are needed.
+
+The same request was extended to simplify the fictional usernames. Run
+supabase/seeds/community-starter-names-20261010.sql after the original seeds.
+It maps the 15 topic personas and 30 recurring comment personas to ordinary
+first/surname-style handles such as dila.aydin, nil_aktas and borademir. Only
+exact @old-handle references change inside prose; display names and references
+stay consistent. All dates, counts, other text and protected records remain.
+The mapping/helper objects are temporary and leave no schema changes behind.
+Validation: node --test tests/community-starter-names.mjs (3 tests).
+
+Production verification — 10 October 2026
+Both follow-ups were applied to project mwlucroyjvtoxillvzga. The date update
+reported 15 topics and 135 replies; a second run reported 0 and 0. Production
+feed/detail reads confirmed all 15 topic dates differ and every discussion has
+comments across 2–9 calendar days. All 45 persona names and exact @references
+changed consistently, while counts and non-mention prose remained unchanged.
+The genuine discussion and its three replies matched the pre-change snapshot.
+No frontend or native package release is required for these data changes.
