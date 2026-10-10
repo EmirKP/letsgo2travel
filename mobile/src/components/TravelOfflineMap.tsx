@@ -41,6 +41,7 @@ export function TravelOfflineMap() {
   useEffect(() => () => downloadRef.current?.abort(), []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [downloadStatus, setDownloadStatus] = useState("");
   const [pendingDelete, setPendingDelete] = useState<OfflineMapPack | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const pack = packs.find((p) => p.id === selected) || packs[0];
@@ -50,6 +51,7 @@ export function TravelOfflineMap() {
     downloadRef.current = controller;
     setBusy(true);
     setError("");
+    setDownloadStatus("");
     try {
       const center = locate
         ? await locateForTravel()
@@ -63,8 +65,16 @@ export function TravelOfflineMap() {
       if (controller.signal.aborted) return;
       const value = validateOfflinePack(raw);
       if (!value) throw new Error("invalid");
-      setPacks(saveOfflineMap(value));
+      const saved = saveOfflineMap(value);
+      setPacks(saved);
       setSelected(value.id);
+      if (saved.some((p) => p.id === value.id && Date.parse(p.downloadedAt) > Date.parse(value.downloadedAt))) {
+        setDownloadStatus(copy(
+          "Bu bölgenin daha güncel haritası zaten cihazında. Mevcut haritan korundu.",
+          "A newer map of this area is already on your device. Your saved map was kept.",
+          "Një hartë më e re e kësaj zone është tashmë në pajisjen tënde. Harta e ruajtur u mbajt.",
+        ));
+      }
     } catch (e) {
       if (controller.signal.aborted) return;
       setUnreadable(hasUnreadableOfflineMaps());
@@ -91,6 +101,7 @@ export function TravelOfflineMap() {
       setPacks(deleteOfflineMap(id));
       setPendingDelete(null);
       setError("");
+      setDownloadStatus("");
     } catch {
       setUnreadable(hasUnreadableOfflineMaps());
       setDeleteError(copy("Paket silinemedi. Yeniden deneyebilirsin; mevcut paket korunuyor.", "Could not delete pack. You can try again; the existing pack is preserved."));
@@ -134,13 +145,14 @@ export function TravelOfflineMap() {
           {error}
         </p>
       )}
+      {downloadStatus && <p className="ta-warning" role="status">{downloadStatus}</p>}
       {unreadable && <div className="ta-warning" role="alert"><p>{copy('Kayıtlı haritalardan biri okunamıyor. Okunabilen paketlerin aşağıda; diğer kayıtlar otomatik silinmedi. Harita verisini sıfırlayıp bölgeleri yeniden indirebilirsin.', 'A saved map cannot be read. Readable packs are below; other records were not automatically deleted. Reset map data to download your areas again.', 'Një hartë e ruajtur nuk lexohet. Paketat e lexueshme janë më poshtë; të tjerat nuk u fshinë automatikisht. Rivendos të dhënat e hartave për t’i shkarkuar zonat sërish.')}</p><button type="button" className="secondary-wide" disabled={busy} onClick={() => {setDeleteError('');setResetOpen(true);}}>{copy('Harita verisini sıfırla', 'Reset map data', 'Rivendos të dhënat e hartave')}</button></div>}
       <div className="ta-actions ta-offline-packs" aria-label={copy("İndirilen bölgeler", "Downloaded areas")}>
         {packs.map((p) => (
           <button
             key={p.id}
             aria-pressed={pack?.id === p.id}
-            onClick={() => setSelected(p.id)}
+            onClick={() => { setSelected(p.id); setDownloadStatus(""); }}
           >
             {packName(p)}
           </button>
@@ -202,7 +214,7 @@ export function TravelOfflineMap() {
         <p>{copy('Okunabilenler dahil bu cihazdaki bütün indirilmiş haritalar silinir. Yeniden indirmek için internet gerekir. Kayıtlı yerlerin ve diğer seyahat bilgilerin korunur.', 'All downloaded maps on this device, including readable ones, will be removed. Downloading again needs internet. Saved places and other travel data are preserved.', 'Të gjitha hartat e shkarkuara në këtë pajisje, edhe ato të lexueshme, do të hiqen. Shkarkimi i ri kërkon internet. Vendet e ruajtura dhe të dhënat e tjera të udhëtimit ruhen.')}</p>
         {deleteError && <p role="alert">{deleteError}</p>}
         <button className="secondary-wide" type="button" onClick={() => setResetOpen(false)}>{copy('Vazgeç', 'Cancel', 'Anulo')}</button>
-        <button className="primary-wide" type="button" onClick={() => {try {resetOfflineMaps();setPacks([]);setSelected('');setUnreadable(false);setResetOpen(false);setError('');} catch {setDeleteError(copy('Harita verisi sıfırlanamadı. Depolama iznini kontrol et.', 'Map data could not be reset. Check storage access.', 'Të dhënat e hartave nuk u rivendosën. Kontrollo lejen e ruajtjes.'));}}}>{copy('Evet, indirilmiş haritaları sil', 'Yes, delete downloaded maps', 'Po, fshi hartat e shkarkuara')}</button>
+        <button className="primary-wide" type="button" onClick={() => {try {resetOfflineMaps();setPacks([]);setSelected('');setUnreadable(false);setResetOpen(false);setError('');setDownloadStatus('');} catch {setDeleteError(copy('Harita verisi sıfırlanamadı. Depolama iznini kontrol et.', 'Map data could not be reset. Check storage access.', 'Të dhënat e hartave nuk u rivendosën. Kontrollo lejen e ruajtjes.'));}}}>{copy('Evet, indirilmiş haritaları sil', 'Yes, delete downloaded maps', 'Po, fshi hartat e shkarkuara')}</button>
       </div></Sheet>
     </section>
   );

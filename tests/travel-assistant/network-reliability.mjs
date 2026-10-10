@@ -102,3 +102,68 @@ test('A valid slow interchange lookup fits within the station picker request bud
   assert.equal(elapsed, 16000);
   assert.ok(nodes(render()).some(node => node.type === 'button' && node.props.children === 'Waterloo Underground'));
 });
+
+test('Offline download displays the newer retained pack after a late response and accepts the next newer update', async () => {
+  const places=load('lib/travel-assistant/places.ts',{});
+  const offline=load('lib/travel-assistant/offline-map.ts',{'./places':places});
+  const center={latitude:41.01,longitude:28.98}, now=Date.now();
+  const street={type:'way',id:1,tags:{highway:'residential'},geometry:[{lat:41.01,lon:28.98},{lat:41.011,lon:28.981}]};
+  const pharmacy={type:'node',id:2,lat:41.01,lon:28.98,tags:{amenity:'pharmacy',name:'Saved pharmacy'}};
+  const pack=(time,points=[])=>offline.normalizeOfflineMap({elements:[street,...points]},center,new Date(time));
+  const other=offline.normalizeOfflineMap({elements:[street]},{...center,latitude:41.02},new Date(now));
+  let stored=JSON.stringify([pack(now-10800000),other]), writes=0;
+  const storage=load('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':offline},{Blob,localStorage:{
+    getItem:()=>stored,setItem:(_,value)=>{stored=value;writes++;},
+  }});
+  const hooks=[],requests=[];let index=0;
+  const jsx=(type,props)=>({type,props});
+  const react={
+    useState(initial){const i=index++;if(!(i in hooks))hooks[i]=typeof initial==='function'?initial():initial;return [hooks[i],value=>{hooks[i]=typeof value==='function'?value(hooks[i]):value;}];},
+    useRef(initial){const i=index++;if(!(i in hooks))hooks[i]={current:initial};return hooks[i];},
+    useEffect(){},
+  };
+  const component=load('mobile/src/components/TravelOfflineMap.tsx',{
+    react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/offlineMaps':storage,
+    '../../../lib/travel-assistant/offline-map':offline,'../../../lib/travel-assistant/places':places,
+    '../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},
+    '../lib/localeFormatting':{formatAppDate:date=>date.toISOString()},
+    '../hooks/useCurrentTime':{useCurrentTime:()=>now},
+    '../lib/config':{config:{travelAssistantApiBaseUrl:'https://example.test'}},
+    '../lib/travelAssistant':{locateForTravel:async()=>center},
+    '../lib/travelAreas':{TRAVEL_CENTRES:[]},
+    '../lib/api':{ApiError:class extends Error{},requestJson:()=>{const wait=deferred();requests.push(wait);return wait.promise;}},
+    './Sheet':{Sheet:'Sheet'},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},
+  },{Blob});
+  const render=()=>{index=0;return component.TravelOfflineMap();};
+  const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
+  const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree?.props?text(tree.props.children):typeof tree==='string'?tree:'';
+  const download=async()=>{
+    nodes(render()).find(node=>node.type==='button'&&node.props.children==='Download my current area').props.onClick();
+    await new Promise(setImmediate);
+  };
+
+  await download();
+  const current=pack(now-3600000,[pharmacy]);
+  storage.saveOfflineMap(current); // A newer download finishes elsewhere while this request is pending.
+  const before=stored;
+  requests[0].resolve({...pack(now-7200000),stale:true});
+  await new Promise(setImmediate);
+  let view=render();
+  assert.equal(stored,before);assert.equal(writes,1);
+  assert.match(text(view),/A newer map of this area is already on your device/);
+  assert.match(text(view),new RegExp(current.downloadedAt.replaceAll('.','\\.')));
+  assert.doesNotMatch(text(view),/The last retrieved pack for this area was saved/);
+  const shown=nodes(view).find(node=>node.type?.name==='OfflinePackExplorer').props.pack;
+  assert.equal(shown.downloadedAt,current.downloadedAt);assert.equal(shown.places[0].name,'Saved pharmacy');
+  nodes(view).find(node=>node.type==='button'&&node.props['aria-pressed']===false).props.onClick();
+  assert.doesNotMatch(text(render()),/A newer map of this area is already on your device/);
+
+  await download();
+  assert.doesNotMatch(text(render()),/A newer map of this area is already on your device/);
+  const newest=pack(now,[{...pharmacy,tags:{...pharmacy.tags,name:'Updated pharmacy'}}]);
+  requests[1].resolve(newest);await new Promise(setImmediate);
+  view=render();
+  assert.equal(writes,2);assert.equal(storage.readOfflineMaps()[0].downloadedAt,newest.downloadedAt);
+  assert.equal(nodes(view).find(node=>node.type?.name==='OfflinePackExplorer').props.pack.places[0].name,'Updated pharmacy');
+  assert.doesNotMatch(text(view),/A newer map of this area is already on your device/);
+});

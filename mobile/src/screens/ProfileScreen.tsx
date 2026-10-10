@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { ProfilePhoto } from "../components/ProfilePhoto";
@@ -9,6 +9,7 @@ import { COUNTRY_LIST } from "../data/countries";
 import { profileIdsForAlpha3 } from "../data/countryCodes";
 import { alpha3FromAlpha2 } from "../data/countryIso";
 import { reconcileProfileCountries } from "../lib/profileCountries";
+import { pendingProfileWrites, trackProfileWrite } from "../lib/profileSync";
 import { onAccountResume } from "../lib/accountResume";
 import { config } from "../lib/config";
 import { getTravelVerifications, sendTestPushNotification } from "../lib/api";
@@ -75,9 +76,12 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const [profileError, setProfileError] = useState(false);
   const [profileReload, setProfileReload] = useState(0);
   const [profileBusy, setProfileBusy] = useState("");
-  const [verifications, setVerifications] = useState<TravelVerification[]>([]);
-  const [verificationLoading, setVerificationLoading] = useState(false);
-  const [verificationError, setVerificationError] = useState(false);
+  const profileWrite = useRef<Promise<UserProfileData> | null>(null);
+  const [verificationState, setVerificationState] = useState<{ owner: string | null; rows: TravelVerification[]; status: "loading" | "ready" | "error" }>({ owner: null, rows: [], status: "ready" });
+  const verificationOwnerMatches = verificationState.owner === (user?.id || null);
+  const verifications = verificationOwnerMatches ? verificationState.rows : [];
+  const verificationLoading = Boolean(user && (!verificationOwnerMatches || verificationState.status === "loading"));
+  const verificationError = verificationOwnerMatches && verificationState.status === "error";
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [pushState, setPushState] = useState<PushPermissionSummary>("unsupported");
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -126,36 +130,41 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     let active = true;
     if (!user || !accessToken) {
       setProfile(null);
-      setVerifications([]);
+      setVerificationState({ owner: null, rows: [], status: "ready" });
       setProfileLoading(false);
-      setProfileError(false); setVerificationLoading(false); setVerificationError(false);
+      setProfileError(false);
       return;
     }
 
     setProfileLoading(true);
-    setProfileError(false); setVerificationLoading(true); setVerificationError(false);
-    void Promise.allSettled([getUserProfile(user.id, accessToken), getTravelVerifications(accessToken)])
-      .then(([profileResult, verificationResult]) => {
-        if (!active) return;
-        if (verificationResult.status === "fulfilled") setVerifications(verificationResult.value);
-        else setVerificationError(true);
-        if (profileResult.status !== "fulfilled" || !profileResult.value) {
-          setProfileError(true);
-          onNotice(profileResult.status === "rejected"
-            ? getSupabaseDataErrorMessage(profileResult.reason, copy("Profil eşitlenemedi.", "Your profile could not be synced."))
-            : copy("Profil kaydı bulunamadı.", "Your profile record could not be found."));
-          return;
-        }
+    setProfileError(false);
+    setVerificationState({ owner: user.id, rows: [], status: "loading" });
+    const refresh = async () => {
+      // Token rotation can reconnect this effect while an optimistic edit is
+      // still saving. Read only after it settles, never a pre-write snapshot.
+      const pending = pendingProfileWrites(user.id);
+      if (pending) await pending;
+      if (!active) return;
+      const [profileResult, verificationResult] = await Promise.allSettled([getUserProfile(user.id, accessToken), getTravelVerifications(accessToken)]);
+      if (!active) return;
+      setVerificationState({ owner: user.id, rows: verificationResult.status === "fulfilled" ? verificationResult.value : [], status: verificationResult.status === "fulfilled" ? "ready" : "error" });
+      if (profileResult.status !== "fulfilled" || !profileResult.value) {
+        setProfileError(true);
+        onNotice(profileResult.status === "rejected"
+          ? getSupabaseDataErrorMessage(profileResult.reason, copy("Profil eşitlenemedi.", "Your profile could not be synced."))
+          : copy("Profil kaydı bulunamadı.", "Your profile record could not be found."));
+        return;
+      }
 
-        const remote = profileResult.value;
-        const pendingImport = Boolean(ownerId && getPendingGuestDataSync(ownerId)?.profile);
-        const mergedVisited = reconcileProfileCountries(remote.visitedCountries, getVisitedCountries(ownerId), pendingImport);
-        const mergedWishlist = reconcileProfileCountries(remote.wishlistCountries, getFavoriteDestinations(ownerId), pendingImport);
-        setVisitedCountries(mergedVisited, ownerId);
-        setFavoriteDestinations(mergedWishlist, ownerId);
-        setProfile(remote);
-      })
-      .finally(() => { if (active) { setProfileLoading(false); setVerificationLoading(false); } });
+      const remote = profileResult.value;
+      const pendingImport = Boolean(ownerId && getPendingGuestDataSync(ownerId)?.profile);
+      const mergedVisited = reconcileProfileCountries(remote.visitedCountries, getVisitedCountries(ownerId), pendingImport);
+      const mergedWishlist = reconcileProfileCountries(remote.wishlistCountries, getFavoriteDestinations(ownerId), pendingImport);
+      setVisitedCountries(mergedVisited, ownerId);
+      setFavoriteDestinations(mergedWishlist, ownerId);
+      setProfile(remote);
+    };
+    void refresh().finally(() => { if (active) setProfileLoading(false); });
     return () => { active = false; };
   }, [accessToken, copy, onNotice, ownerId, user, profileReload]);
 
@@ -172,6 +181,9 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const localizedLevel = level === "Dünya Gezgini" ? copy(level, "World Traveller") : level === "Balkan Kaşifi" ? copy(level, "Balkan Explorer") : level === "Rota Meraklısı" ? copy(level, "Route Enthusiast") : copy(level, "New Explorer");
   const progress = Math.min(100, Math.max(0, Math.round((visited.length / 25) * 100)));
   const approvedCount = verifications.filter((item) => item.status === "approved").length;
+  const verificationStatusText = verificationLoading
+    ? copy("Doğrulamalar yükleniyor…", "Loading verifications…", "Duke ngarkuar verifikimet…")
+    : verificationError ? copy("Doğrulama durumu alınamadı", "Verification status unavailable", "Statusi i verifikimit nuk është i disponueshëm") : "";
   const countries = useMemo(() => COUNTRY_LIST.filter((country) => `${country.name} ${countryName(country.alpha3, country.name)}`.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale))), [countryName, locale, query]);
   const visibleCountries = useMemo(() => countries.slice(0, visibleCountryCount), [countries, visibleCountryCount]);
   const visitedCodes = useMemo(() => new Set(visited.map((item) => item.alpha3)), [visited]);
@@ -247,7 +259,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   };
 
   const toggleCountry = async (country: Omit<FavoriteDestination, "createdAt">) => {
-    if (profileBusy || (user && (profileLoading || profileError || !profile))) return;
+    if (profileWrite.current || profileBusy || (user && (profileLoading || profileError || !profile))) return;
     const previous = getVisitedCountries(ownerId);
     const next = toggleVisitedCountry(country, ownerId);
     setTick((value) => value + 1);
@@ -255,9 +267,11 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
 
     setProfileBusy(`country-${country.alpha3}`);
     try {
-      const updated = await updateUserProfile(user.id, {
+      const pending = trackProfileWrite(user.id, updateUserProfile(user.id, {
         visitedCountries: profileIdsForDestinations(profile.visitedCountries, next),
-      }, accessToken);
+      }, accessToken));
+      profileWrite.current = pending;
+      const updated = await pending;
       if (!updated) throw new Error("profile missing");
       setProfile(updated);
       onNotice(copy("Ziyaret haritan web hesabınla eşitlendi.", "Your visited map is synced with your web account."));
@@ -266,17 +280,20 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       setTick((value) => value + 1);
       onNotice(getSupabaseDataErrorMessage(error, copy("Ziyaret kaydedilemedi; değişiklik geri alındı.", "The visit could not be saved; the change was reverted.")));
     } finally {
+      profileWrite.current = null;
       setProfileBusy("");
     }
   };
 
   const toggleLeaderboard = async (enabled: boolean) => {
-    if (!user || !accessToken || !profile || profileBusy || profileLoading || profileError) return;
+    if (!user || !accessToken || !profile || profileWrite.current || profileBusy || profileLoading || profileError) return;
     setProfileBusy("leaderboard");
     const previous = profile;
     setProfile({ ...profile, optInLeaderboard: enabled });
     try {
-      const updated = await updateUserProfile(user.id, { optInLeaderboard: enabled }, accessToken);
+      const pending = trackProfileWrite(user.id, updateUserProfile(user.id, { optInLeaderboard: enabled }, accessToken));
+      profileWrite.current = pending;
+      const updated = await pending;
       if (!updated) throw new Error("profile missing");
       setProfile(updated);
       onNotice(enabled ? copy("Kaşifler Ligi'ne katıldın.", "You joined the Explorer League.") : copy("Profilin ligden gizlendi.", "Your profile is hidden from the league."));
@@ -284,6 +301,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       setProfile(previous);
       onNotice(getSupabaseDataErrorMessage(error, copy("Lig tercihi kaydedilemedi.", "Your league preference could not be saved.")));
     } finally {
+      profileWrite.current = null;
       setProfileBusy("");
     }
   };
@@ -329,7 +347,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       <div className="section-heading"><div><h2 id="profile-community-heading">{copy("Toplulukta sen", "You in the community")}</h2></div></div>
       <div className="profile-action-list">
         <button onClick={() => onNavigate("community")}><span className="profile-feature-artwork"><TravelToolArtwork kind="league" size={56} /></span><div><strong>{copy("Kaşifler Ligi", "Explorer League")}</strong><small>{copy("Gezgin sıralaması ve topluluk", "Traveller ranking and community")}</small></div><Icon name="chevron" size={16} /></button>
-        <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={56} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`, `${approvedCount} të miratuara · ${verifications.filter((item) => item.status === "pending").length} në pritje`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
+        <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={56} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? verificationStatusText || copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`, `${approvedCount} të miratuara · ${verifications.filter((item) => item.status === "pending").length} në pritje`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
       </div>
     </section>
 
@@ -381,7 +399,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     </Sheet>}
 
     <Sheet open={verificationOpen} title={copy("Belgeli Gezgin", "Verified Traveller")} onClose={() => setVerificationOpen(false)} size="large">
-      <div className="verification-summary"><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={56} /></span><div><small>{copy("SEYAHAT DOĞRULAMALARI", "TRAVEL VERIFICATIONS")}</small><strong>{copy(`${approvedCount} onaylı kayıt`, `${approvedCount} approved`, `${approvedCount} të miratuara`)}</strong><p>{copy("Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.", "Applications stay in sync on web and mobile, and documents can be submitted in the app.")}</p></div></div>
+      <div className="verification-summary"><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={56} /></span><div><small>{copy("SEYAHAT DOĞRULAMALARI", "TRAVEL VERIFICATIONS")}</small><strong>{verificationStatusText || copy(`${approvedCount} onaylı kayıt`, `${approvedCount} approved`, `${approvedCount} të miratuara`)}</strong><p>{copy("Başvurular aynı hesapla web ve mobilde birlikte çalışır; belge gönderimi artık uygulama içinde tamamlanır.", "Applications stay in sync on web and mobile, and documents can be submitted in the app.")}</p></div></div>
 
       {user && accessToken && <VerificationForm
         accessToken={accessToken}

@@ -147,6 +147,37 @@ test('Damaged stored packs cannot be overwritten or silently deleted by subseque
   storage.saveOfflineMap(normalizeOfflineMap(raw,center));
   assert.equal(storage.readOfflineMaps().length,1);
 });
+
+test('Late older offline packs preserve newer same-area data without writes, while newer updates remain atomic',()=>{
+  let stored=null, writes=0, quota=false;
+  const storage=moduleFrom('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':{validateOfflinePack}},{Blob,localStorage:{
+    getItem:()=>stored,
+    setItem:(_,value)=>{if(quota)throw new Error('quota');stored=value;writes++;},
+  }});
+  const now=Date.now();
+  const older={...normalizeOfflineMap({elements:[raw.elements[0]]},center,new Date(now-7200000)),stale:true};
+  const current=normalizeOfflineMap(raw,center,new Date(now-3600000));
+  const newer=normalizeOfflineMap({...raw,elements:[raw.elements[0],{...raw.elements[1],tags:{amenity:'hospital',name:'Updated hospital'}}]},center,new Date(now));
+  storage.saveOfflineMap(current);
+  storage.saveOfflineMap(normalizeOfflineMap(raw,{...center,latitude:41.02}));
+  storage.saveOfflineMap(normalizeOfflineMap(raw,{...center,longitude:28.99}));
+  const before=stored, beforeWrites=writes;
+  quota=true;
+  const retained=storage.saveOfflineMap(older).find(pack=>pack.id===current.id);
+  assert.equal(retained.downloadedAt,current.downloadedAt);
+  assert.equal(retained.places[0].name,'Hospital');
+  assert.equal(retained.stale,undefined);
+  assert.equal(stored,before);assert.equal(writes,beforeWrites);
+  assert.throws(()=>storage.saveOfflineMap(newer),/quota/);
+  assert.equal(stored,before);assert.equal(writes,beforeWrites);
+  quota=false;
+  const updated=storage.saveOfflineMap(newer);
+  assert.equal(updated.length,3);assert.equal(updated[0].downloadedAt,newer.downloadedAt);
+  assert.equal(updated[0].places[0].name,'Updated hospital');
+  const after=stored;
+  assert.throws(()=>storage.saveOfflineMap(normalizeOfflineMap(raw,{latitude:41.02,longitude:28.99})),/full/);
+  assert.equal(stored,after);
+});
 test('Repeated identical point searches share a request while different map modes do not',async()=>{
   const pending=[];
   const loader=createPlacesLoader((c,mode)=>new Promise(resolve=>pending.push({c,mode,resolve})));

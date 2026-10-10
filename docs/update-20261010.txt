@@ -1,0 +1,56 @@
+LetsGo2Travel — 10 Ekim 2026 güncelleme kaydı
+
+Kapsam ve yayın durumu
+Kullanıcı, Apple kabulünü bildirdi. Bu çalışma sonraki güncellemenin kaynak
+kodudur; yeni mağaza paketi yüklenmedi ve canlı web dağıtımı yapılmadı.
+
+Giderilen hatalar
+1. Hesapta 100'den fazla kayıtlı rota varken, sayfalar okunurken başka bir
+   cihazdaki silme işlemi kalan bir rotanın atlanmasına neden olabiliyordu.
+   Sonraki eşitleme bunu silme olarak yorumlayıp gerçek kaydı silebiliyordu.
+   Sayfalama artık tarih ve kimlik imleciyle ilerler; eksik/güvensiz sayfa
+   eşitlemeye aktarılmaz. Eski boş tarihler ve tarih hassasiyeti korunur.
+2. Daha eski bir çevrimdışı harita yanıtı, aynı bölgenin daha yeni cihaz
+   kaydını artık ezmez. Korunan harita ve tarihi gösterilir; kullanıcıya
+   Türkçe, İngilizce veya Arnavutça kısa bir açıklama sunulur.
+3. Profil ve favori kaydı sürerken oturum yenilenmesi veya ekrana dönüş,
+   kayıttan önceki veriyi okuyup yerel ülke/favori seçimini kaybettirebiliyordu.
+   Hesaba ait profil okumaları devam eden kayıt işlemini bekler. Bu bekleme
+   ekran yeniden açıldığında da korunur ve başka hesabın okumasını engellemez.
+4. Belgeli Gezgin kartı ve ayrıntısı, yükleme veya servis hatası sırasında
+   yanıltıcı sıfır kayıt sayısı yerine gerçek durumu gösterir. Başka hesaba
+   geçişte önceki hesabın doğrulama kayıtları gösterilmez.
+
+Geliştirme ortamı
+Yerel mobil önizlemede genel API yönlendirmesi, yalnızca herkese açık
+anahtarları bulunan ve bazı hesap servislerini çalıştıramayan yerel
+sunucudan mevcut www.letsgo2travel.com.tr API adresine geri alındı.
+Seyahat araçlarının yerel API yönlendirmesi ayrı tutuldu. Değişiklik yalnız
+yok sayılan .env.development.local dosyasındadır; üretim ayarı değişmedi.
+
+Doğrulama
+- Tam yayın testi dizisi başarılı: npm run test:release.
+- Mobil lint ve TypeScript dahil üretim arayüzü derlemesi başarılı.
+- Profil/gezinme için 72, hesap eşitlemesi için 14 hedefli kontrol başarılı.
+  Harita güvenilirliği/ağ kontrollerinde 32 ve mevcut çevrimdışı depolama
+  kontrollerinde 2 test başarılı. Bu gruplar tam yayın dizisinde de yer alır.
+- Geç yanıt, eşzamanlı silme, oturum yenileme, ekrandan ayrılıp dönme,
+  başarısız kaydı geri alma ve hesap değiştirme senaryoları kapsandı.
+- Son kaynak değişikliklerinin bağımsız incelemesi ve boşluk kontrolü geçti.
+
+Doğrulama sınırları
+Bu turda tarayıcı aracı açık yerel önizlemeye erişimi güvenlik politikasıyla
+reddetti. Başka bir tarayıcı yolu denenmedi. Canlı hesap, iPhone/iPad veya
+Android cihaz testi yapılmadı; otomatik kontroller bunların yerine geçmez.
+
+Takip edilecekler
+- Çevrimdışı harita dönüştürücüsü, yalnız members[].geometry içinde şekli
+  bulunan OSM relation noktalarını atlıyor; hastane gibi bazı yerler eksik
+  kalabiliyor. Bu bulgu doğrulandı; ilgili sunucu dönüştürücüsü değiştirilmedi.
+- Önceki çalışmada saptanan Overpass erişim/zaman aşımı sorunu canlıda
+  yeniden doğrulanmalı. Bu turda sağlayıcı erişiminin düzeldiği iddia edilmez.
+- Önceki profil kurtarma veritabanı değişikliği, gerçek hesapla web kokpiti
+  testi, Android mağaza/bildirim kurulumu ve otomatik uçuş verisinin ticari
+  kullanım hakkı için docs/update-20261004.txt içindeki açık maddeler sürer.
+- Yeni kaynaklar dağıtıldıktan sonra cihazlar arası gerçek hesapla kaydet,
+  yeniden aç, sil ve oturum yenileme kontrolleri yapılmalı.

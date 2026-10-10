@@ -397,6 +397,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const countries = load('data/countries.ts', { './iso3166.json': { default: JSON.parse(readFileSync(new URL('../mobile/src/data/iso3166.json', import.meta.url), 'utf8')) } });
   const countryCodes = load('data/countryCodes.ts', { './countries': countries });
   const profileCountries = load('lib/profileCountries.ts', { '../data/countries': countries, '../data/countryCodes': countryCodes });
+  const profileSync = profileFixture.sync || load('lib/profileSync.ts');
   const routes = load('data/routes.ts');
   const home = load('data/homeDestinations.ts', { './routes': routes });
   const artworkSource = readFileSync(new URL('../mobile/src/data/artwork.ts', import.meta.url), 'utf8');
@@ -415,7 +416,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
     useMemo: factory => factory(),
-    useEffect(fn, deps) { const i = cursor++; if (!slots[i] || changed(slots[i].deps, deps)) effects.push(fn); slots[i] = { deps, effect: fn }; },
+    useEffect(fn, deps) { const i = cursor++, previous = slots[i]; if (!previous || changed(previous.deps, deps)) effects.push(() => { previous?.cleanup?.(); slots[i].cleanup = fn(); }); slots[i] = { ...previous, deps, effect: fn }; },
   };
   const i18n = { locale, copy: (tr, en) => locale === 'tr' ? tr : en };
   let favorites = profileFixture.local || [];
@@ -427,9 +428,10 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/discovery': discovery,
     '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,
     '../lib/accountResume': { onAccountResume: () => () => {} },
+    '../lib/profileSync': profileSync,
     '../data/artwork': artwork, '../data/routes': routes,
     '../data/homeDestinations': home, '../lib/searchText': search,
-    '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: async () => profileFixture.remote, updateUserProfile: (...args) => profileWrites.push(args), getSupabaseDataErrorMessage: (_, fallback) => fallback },
+    '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, toggleFavoriteDestination: destination => { favorites = favorites.some(item => item.alpha3 === destination.alpha3) ? favorites.filter(item => item.alpha3 !== destination.alpha3) : [...favorites, { ...destination, createdAt: '2026-10-10' }]; return favorites; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: profileFixture.read || (async () => profileFixture.remote), updateUserProfile: (...args) => { profileWrites.push(args); return profileFixture.write?.(...args); }, getSupabaseDataErrorMessage: (_, fallback) => fallback },
     '../lib/i18n': { useI18n: () => i18n }, '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR', type: 'ordinary' }) },
     '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify current entry rules', visaFree: true }) }, '../data/passport-index.json': {},
   };
@@ -447,7 +449,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     }
     throw Error('Unstable Explore fixture');
   };
-  return { render, calls, profileWrites, get favorites() { return favorites; }, reactivate: () => { slots.forEach(slot => slot?.effect?.()); return render(); } };
+  return { render, calls, profileWrites, profileSync, get favorites() { return favorites; }, reactivate: () => { slots.forEach(slot => { if (slot?.effect) { slot.cleanup?.(); slot.cleanup = slot.effect(); } }); return render(); }, dispose: () => slots.forEach(slot => slot?.cleanup?.()) };
 }
 
 test('Home destination searches use real catalog data, translated aliases and deduplicated route drafts', () => {
@@ -511,4 +513,41 @@ test('Explore respects remote favourite deletion while retaining explicitly pend
   assert.equal(h.profileWrites.length,0,'A read does not silently PATCH cached favourites');
   assert.equal(h.favorites.length,pending?1:0);
  }
+});
+
+test('Account changes remount both retained Explore and Profile while token rotation preserves their owner boundary', () => {
+  const { render, auth, bottomButton, screen } = appHarness({ initialView: 'explore', locale: 'en' });
+  auth.user = { id: 'a' }; auth.accessToken = 'token-a'; let view = render();
+  const boundary = () => nodes(view).find(node => node.type === 'main' && node.props.className === 'app-content').props.children;
+  assert.equal(boundary().key, 'user-a');
+  bottomButton(view, 'Profile').props.onClick(); view = render();
+  assert.ok(screen(boundary(), 'ExploreScreen'));
+  assert.ok(screen(boundary(), 'ProfileScreen'));
+  auth.user = { id: 'b' }; auth.accessToken = 'token-b'; view = render();
+  assert.equal(boundary().key, 'user-b', 'Late old-owner handlers target unmounted screen instances');
+  for (const name of ['ProfileScreen', 'ExploreScreen']) assert.equal(screen(boundary(), name).props.ownerId, 'b');
+  auth.accessToken = 'token-b-rotated'; view = render();assert.equal(boundary().key, 'user-b');
+});
+
+for(const refresh of ['token rotation','Activity return'])for(const succeeds of [true,false])test(`Explore ${refresh} waits for a favourite to ${succeeds?'save':'roll back'} before reading the account`,async()=>{
+ const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));
+ const reads=[],writes=[];
+ const h=exploreHarness('','en',{ownerId:'a',read:(owner,token)=>{const d=deferred();reads.push({owner,token,...d});return d.promise;},write:()=>{const d=deferred();writes.push(d);return d.promise;}});
+ let view=h.render();reads[0].resolve({wishlistCountries:[]});await tick();view=h.render();
+ const buttons=()=>nodes(view).filter(node=>node.type==='button'&&node.props.className?.startsWith('favorite'));
+ buttons()[0].props.onClick();view=h.render();const saved=h.favorites[0].alpha3;
+ view=refresh==='token rotation'?h.render({accessToken:'token-rotated'}):h.reactivate();await tick();view=h.render();
+ assert.equal(reads.length,1,'Refreshing cannot start an authoritative read until the pending save settles');
+ assert.equal(h.favorites[0].alpha3,saved);
+ const remote={wishlistCountries:succeeds?h.profileWrites[0][1].wishlistCountries:[]};
+ if(succeeds)writes[0].resolve(remote);else writes[0].reject(Error('503'));
+ await tick();view=h.render();assert.equal(reads.length,2);
+ assert.equal(reads[1].token,refresh==='token rotation'?'token-rotated':'token-a');
+ reads[1].resolve(remote);await tick();view=h.render();
+ assert.equal(buttons()[0].props.className==='favorite active',succeeds);
+ buttons()[1].props.onClick();view=h.render();
+ assert.equal(h.favorites.some(item=>item.alpha3===saved),succeeds);
+ if(succeeds)assert.ok(h.profileWrites[0][1].wishlistCountries.every(id=>h.profileWrites[1][1].wishlistCountries.includes(id)),'The next full wishlist write preserves the first successful save');
+ h.dispose();
 });

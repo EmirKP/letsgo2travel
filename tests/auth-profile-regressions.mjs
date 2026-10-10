@@ -34,10 +34,10 @@ const codes=load('mobile/src/data/countryCodes.ts',{'./countries':countries});
 const iso=load('mobile/src/data/countryIso.ts',{'./countries':countries});
 const profileCountries=load('mobile/src/lib/profileCountries.ts',{'../data/countries':countries,'../data/countryCodes':codes});
 const i18n={copy:(_,en)=>en,countryName:(_,name)=>name,locale:'en'};
-function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false}={}){
- const h=host(), storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set();
+function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false,holdVerifications=false,sync=load('mobile/src/lib/profileSync.ts',{})}={}){
+ const h=host(), storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set(),verificationReads=[],storageListeners=new Set();
  const get=(owner,key)=>storage.get(`${owner}:${key}`)||[];
- const set=(owner,key,value)=>storage.set(`${owner}:${key}`,value);
+ const set=(owner,key,value)=>{storage.set(`${owner}:${key}`,value);storageListeners.forEach(fn=>fn());};
  set('a','visited',local);
  let props={user:{id:'a',email:'a@example.invalid',user_metadata:{full_name:'User A'}},ownerId:'a',accessToken:'token-a',isAdmin:false,onOpenAccount(){},onNavigate(){},onOpenRelease(){},onOpenOnboarding(){},onNotice:v=>notices.push(v)};
  const source=load('mobile/src/screens/ProfileScreen.tsx',{
@@ -45,15 +45,16 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   '../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
   '../data/countries':countries,'../data/countryCodes':codes,'../data/countryIso':iso,'../lib/profileCountries':profileCountries,'../lib/config':{config:{}},
-  '../lib/api':{getTravelVerifications:async()=>{if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},
+  '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},
   '../lib/push':{getPushPermissionState:async()=> 'unsupported',isPushEnabledForDevice:()=>false},
   '../lib/i18n':{useI18n:()=>i18n},
   '../lib/accountResume':{onAccountResume:fn=>{resumes.add(fn);return ()=>resumes.delete(fn);}},
-  '../lib/supabaseData':{getUserProfile:(id)=>{const d=deferred();reads.push({id,...d});if(remote&&id==='a')d.resolve(remote);return d.promise;},updateUserProfile:(id,change,token)=>{const d=deferred();writes.push({id,change,token,...d});return d.promise;},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
+  '../lib/profileSync':sync,
+  '../lib/supabaseData':{getUserProfile:(id,token)=>{const d=deferred();reads.push({id,token,...d});if(remote&&id==='a')d.resolve(remote);return d.promise;},updateUserProfile:(id,change,token)=>{const d=deferred();writes.push({id,change,token,...d});return d.promise;},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
   '../lib/storage':{getPendingGuestDataSync:()=>pendingImport?{profile:true}:null,getMobilePreferences:()=>({}),getVisitedCountries:owner=>get(owner,'visited'),getFavoriteDestinations:owner=>get(owner,'favorites'),getSavedRoutePlans:()=>[],saveMobilePreferences(){},setVisitedCountries:(value,owner)=>set(owner,'visited',value),setFavoriteDestinations:(value,owner)=>set(owner,'favorites',value),toggleVisitedCountry:(country,owner)=>{const prev=get(owner,'visited');const next=prev.some(c=>c.alpha3===country.alpha3)?prev.filter(c=>c.alpha3!==country.alpha3):[...prev,{...country,createdAt:new Date().toISOString()}];set(owner,'visited',next);return next;}},
- },{window:{addEventListener(){},removeEventListener(){}},document:{addEventListener(){},removeEventListener(){},visibilityState:'visible'}});
+ },{window:{addEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.add(fn);},removeEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.delete(fn);}},document:{addEventListener(){},removeEventListener(){},visibilityState:'visible'}});
  let tree;const render=(next={})=>{props={...props,...next};tree=h.render(()=>source.ProfileScreen(props));return tree;};render();
- return {h,source,reads,writes,notices,storage,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
+ return {h,source,reads,writes,notices,storage,verificationReads,sync,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
 }
 const base={id:'a',username:'user_a',visitedCountries:[],wishlistCountries:[],optInLeaderboard:false};
 const tr=countries.COUNTRY_LIST.find(c=>c.alpha3==='TUR');
@@ -81,6 +82,8 @@ test('Verification service failure shows retry without inventing an empty submis
  const h=profileHarness({remote:base,verificationFailure:true});await tick();h.render();
  nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
  assert.ok(text(h.tree).includes('Verifications could not load'));assert.ok(!text(h.tree).includes('No verifications yet'));
+ assert.ok(!text(h.tree).includes('0 approved'));assert.ok(!text(h.tree).includes('0 pending'));
+ assert.ok(text(h.tree).includes('Verification status unavailable'));
  const retry=nodes(h.tree).find(n=>n.type==='button'&&text(n)==='Retry');assert.ok(retry);retry.props.onClick();h.render();assert.equal(h.reads.length,2);h.h.dispose();
 });
 test('Failed remote profile read retains cache, disables edits and can be retried',async()=>{
@@ -88,6 +91,70 @@ test('Failed remote profile read retains cache, disables edits and can be retrie
  assert.equal(h.get('a','visited').length,1);assert.ok(text(h.tree).includes('Your profile could not load'));assert.equal(h.writes.length,0);
  const retry=nodes(h.tree).find(n=>n.type==='button'&&text(n)==='Retry');retry.props.onClick();h.render();h.reads[1].resolve(base);await tick();h.render();assert.equal(h.get('a','visited').length,0);h.h.dispose();
 });
+test('Verification summaries show loading until a successful empty result establishes zero counts',async()=>{
+ const h=profileHarness({holdVerifications:true});
+ nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
+ assert.ok(text(h.tree).includes('Loading verifications'));assert.ok(!text(h.tree).includes('0 approved'));assert.ok(!text(h.tree).includes('No verifications yet'));
+ h.reads[0].resolve(base);h.verificationReads[0].resolve([]);await tick();h.render();
+ assert.ok(text(h.tree).includes('0 approved'));assert.ok(text(h.tree).includes('0 pending'));assert.ok(text(h.tree).includes('No verifications yet'));h.h.dispose();
+});
+test('Switching accounts hides previous verification rows and counts during loading and failure',async()=>{
+ const h=profileHarness({holdVerifications:true});
+ h.reads[0].resolve(base);h.verificationReads[0].resolve([{id:'a-private',country_name:'Private account A country',status:'approved'}]);await tick();h.render();
+ nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
+ assert.ok(text(h.tree).includes('Private account A country'));assert.ok(text(h.tree).includes('1 approved'));
+ h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+ assert.ok(text(h.tree).includes('Loading verifications'));assert.ok(!text(h.tree).includes('Private account A country'));assert.ok(!text(h.tree).includes('1 approved'));
+ h.reads[1].resolve({...base,id:'b'});h.verificationReads[1].reject(Error('503'));await tick();h.render();
+ assert.ok(text(h.tree).includes('Verification status unavailable'));assert.ok(!text(h.tree).includes('Private account A country'));assert.ok(!text(h.tree).includes('0 approved'));h.h.dispose();
+});
+for(const succeeds of [true,false])test(`Token rotation waits for a country edit to ${succeeds?'save':'roll back'} before refreshing its account snapshot`,async()=>{
+ const h=profileHarness();h.reads[0].resolve(base);await tick();h.render();
+ nodes(h.tree).find(n=>n.type==='button'&&text(n).includes("Countries I've visited")).props.onClick();h.render();
+ const choices=()=>nodes(h.tree).filter(n=>n.type==='button'&&typeof n.props['aria-pressed']==='boolean');
+ choices()[0].props.onClick();h.render();const saved=h.get('a','visited')[0].alpha3;
+ h.render({accessToken:'token-rotated'});await tick();h.render();
+ assert.equal(h.reads.length,1,'A new token must not fetch a pre-write snapshot');
+ assert.equal(h.get('a','visited')[0].alpha3,saved);
+ const remote={...base,visitedCountries:succeeds?h.writes[0].change.visitedCountries:[]};
+ if(succeeds)h.writes[0].resolve(remote);else h.writes[0].reject(Error('503'));
+ await tick();h.render();assert.equal(h.reads.length,2);assert.equal(h.reads[1].token,'token-rotated');
+ h.reads[1].resolve(remote);await tick();h.render();
+ assert.equal(choices()[0].props['aria-pressed'],succeeds);
+ choices()[1].props.onClick();h.render();
+ const nextIds=h.writes[1].change.visitedCountries.map(codes.profileIdToAlpha3);
+ assert.equal(nextIds.includes(saved),succeeds,'The next full-list write must preserve the previous successful selection');h.h.dispose();
+});
+test('Token rotation waits for a leaderboard preference write before reading it back',async()=>{
+ const h=profileHarness();h.reads[0].resolve(base);await tick();h.render();
+ const checkbox=()=>nodes(h.tree).find(n=>n.type==='label'&&text(n).includes('Appear in Explorer League')).props.children.at(-1);
+ checkbox().props.onChange({target:{checked:true}});h.render();h.render({accessToken:'token-rotated'});await tick();
+ assert.equal(h.reads.length,1);h.writes[0].resolve({...base,optInLeaderboard:true});await tick();h.render();
+ assert.equal(h.reads.length,2);h.reads[1].resolve({...base,optInLeaderboard:true});await tick();h.render();assert.equal(checkbox().props.checked,true);h.h.dispose();
+});
+
+test('A newly mounted profile waits for the previous instance\'s write, with no wait in another account',async()=>{
+ const first=profileHarness();first.reads[0].resolve(base);await tick();first.render();
+ nodes(first.tree).find(n=>n.type==='button'&&text(n).includes("Countries I've visited")).props.onClick();first.render();
+ nodes(first.tree).find(n=>n.type==='button'&&typeof n.props['aria-pressed']==='boolean').props.onClick();first.render();
+ const saved=first.get('a','visited')[0].alpha3,remote={...base,visitedCountries:first.writes[0].change.visitedCountries};first.h.dispose();
+ const next=profileHarness({sync:first.sync,local:first.get('a','visited')});assert.equal(next.reads.length,0,'A remount must not discard an in-flight optimistic edit');
+ const other=profileHarness({sync:first.sync});other.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});assert.equal(other.reads.length,1);assert.equal(other.reads[0].id,'b');
+ first.writes[0].resolve(remote);await tick();next.render();assert.equal(next.reads.length,1);assert.equal(other.reads.length,1,'The cancelled account-A wait cannot start a late read');
+ next.reads[0].resolve(remote);other.reads[0].resolve({...base,id:'b'});await tick();next.render();other.render();
+ assert.equal(next.get('a','visited')[0].alpha3,saved);assert.equal(other.get('b','visited').length,0);next.h.dispose();other.h.dispose();
+});
+
+test('The profile read barrier includes concurrent writes and cannot be cleared by an earlier completion',async()=>{
+ const sync=load('mobile/src/lib/profileSync.ts',{}),first=deferred(),second=deferred(),third=deferred();
+ sync.trackProfileWrite('a',first.promise);let settled=false;const waiting=sync.pendingProfileWrites('a').then(()=>{settled=true;});
+ sync.trackProfileWrite('a',second.promise);assert.equal(sync.pendingProfileWrites('b'),null);
+ first.resolve();await tick();assert.equal(settled,false);assert.ok(sync.pendingProfileWrites('a'));
+ sync.trackProfileWrite('a',third.promise);second.reject(Error('503'));await tick();assert.equal(settled,false);
+ third.resolve();await waiting;assert.equal(settled,true);assert.equal(sync.pendingProfileWrites('a'),null);
+});
+
+
 function authHarness({native=false, seedSession=true, openOAuthSession=async()=>null, values=new Map(), getLaunchUrl, href='http://test.invalid/'}={}){
  const h=host(),requests=[],intervals=[],listeners=new Map(),timers=[],assignments=[];
  const session={access_token:'token-a',refresh_token:'refresh-a',expires_at:Math.floor(Date.now()/1000)+150,user:{id:'a',email:'a@example.invalid'}};
@@ -201,7 +268,6 @@ for(const seedSession of [false,true])test(`Native OAuth persists PKCE session w
  x.requests[0].resolve(response);await pending;assertOAuthSuccess(x,response);
  }finally{x.h.dispose();}
 });
-
 for(const seedSession of [false,true])test(`Cancelled native OAuth can retry successfully with ${seedSession?'an existing session':'empty local storage'}`,async()=>{
  let attempts=0;const x=authHarness({native:true,seedSession,openOAuthSession:async()=>{
   attempts++;if(attempts===1)throw Error('Sign-in cancelled');

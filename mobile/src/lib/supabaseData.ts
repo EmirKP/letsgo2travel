@@ -640,6 +640,20 @@ export async function mergeUserProfileCountries(
   });
 }
 
+function userTripPageCursor(row: UserTripRow) {
+  const id = typeof row.id === "number" && Number.isSafeInteger(row.id) ? String(row.id)
+    : typeof row.id === "string" && /^-?\d{1,19}$/.test(row.id) ? row.id : null;
+  const createdAt = row.created_at;
+  if (id === null || !(createdAt === null || typeof createdAt === "string"
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(createdAt)
+    && Number.isFinite(Date.parse(createdAt)))) throw new SupabaseDataError("service_unavailable", 503);
+  // Legacy timestamps are nullable. Keep their existing NULLS FIRST order,
+  // and retain PostgreSQL's full timestamp precision in the next-page filter.
+  if (createdAt === null) return `(and(created_at.is.null,id.lt.${id}),created_at.not.is.null)`;
+  const timestamp = `"${createdAt}"`;
+  return `(created_at.lt.${timestamp},and(created_at.eq.${timestamp},id.lt.${id}))`;
+}
+
 export async function listUserTrips(userId: string, accessToken: string, mobileKind?: string) {
   assertUserId(userId);
   if (mobileKind && !/^[a-z0-9_-]{1,60}$/.test(mobileKind)) throw new SupabaseDataError("invalid_data", 400);
@@ -647,25 +661,29 @@ export async function listUserTrips(userId: string, accessToken: string, mobileK
     const params = new URLSearchParams({
       select: USER_TRIP_SELECT,
       user_id: `eq.${userId}`,
-      order: "created_at.desc,id.desc",
+      order: "created_at.desc.nullsfirst,id.desc",
       limit: "100",
     });
     if (mobileKind) params.set("trip_data->>mobile_kind", `eq.${safeString(mobileKind, 60)}`);
     const rows: UserTripRow[] = [];
     const seen = new Set<string>();
-    for (let offset = 0; ; offset += 100) {
-      params.set("offset",String(offset));
+    for (;;) {
       const page = await requestJson<UserTripRow[]>(dataUrl("user_trips", params), { headers:dataHeaders(accessToken) });
       let added = 0;
       for (const row of page) {
         const key = String(row.id);
         if (!seen.has(key)) { seen.add(key); rows.push(row); added++; }
       }
-      // A misconfigured proxy that ignores offset must not keep an account
+      // A misconfigured proxy that ignores the cursor must not keep an account
       // synchronizer fetching the same page forever or mark a partial list as
       // authoritative (which would remove saved items on the other device).
       if (mobileKind && page.length === 100 && added === 0) throw new SupabaseDataError("service_unavailable", 503);
       if (!mobileKind || page.length < 100) break;
+      // Offsets can skip an existing row when another device deletes an earlier
+      // page's row. Reconciliation would then mistake that omission for a delete.
+      const cursor = userTripPageCursor(page[page.length - 1]);
+      if (params.get("or") === cursor) throw new SupabaseDataError("service_unavailable", 503);
+      params.set("or", cursor);
     }
     return rows.flatMap((row) => {
       const normalized = normalizeUserTrip(row);

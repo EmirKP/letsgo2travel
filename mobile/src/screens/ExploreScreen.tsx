@@ -11,6 +11,7 @@ import { destinationArtwork } from "../data/artwork";
 import { randomRoute, routeByDestinationCode } from "../data/routes";
 import { homeSearchDestinations } from "../data/homeDestinations";
 import { reconcileProfileCountries } from "../lib/profileCountries";
+import { pendingProfileWrites, trackProfileWrite } from "../lib/profileSync";
 import { onAccountResume } from "../lib/accountResume";
 import { normalizeSearchText } from "../lib/searchText";
 import {
@@ -56,6 +57,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
   const [favoritesError, setFavoritesError] = useState(false);
   const [remoteWishlist, setRemoteWishlist] = useState<string[]>([]);
   const [favoriteBusy, setFavoriteBusy] = useState("");
+  const favoriteWrite = useRef<Promise<unknown> | null>(null);
   const [selectedDestinationValue, setSelectedDestination] = useState<DiscoveryDestination | null>(() => { const item = DISCOVERY_DESTINATIONS.find(item => item.code === initialDestinationCode || item.alpha3 === initialDestinationCode); return item ? localizedDiscovery(item, locale) : null; });
   const selectedDestination = selectedDestinationValue ? withEntry(selectedDestinationValue) : null;
   const featured = withEntry(dailyDiscovery());
@@ -107,7 +109,12 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     setFavoritesReady(!ownerId);
     setFavoritesError(false);
     if (!ownerId || !accessToken) return () => { active = false; };
-    void getUserProfile(ownerId, accessToken).then((profile) => {
+    const refresh = async () => {
+      // Token refresh and Activity return may reconnect while a save is pending.
+      const pending = pendingProfileWrites(ownerId);
+      if (pending) await pending;
+      if (!active) return;
+      const profile = await getUserProfile(ownerId, accessToken);
       if (!active) return;
       if (!profile) throw new Error("profile missing");
       const merged = reconcileProfileCountries(profile.wishlistCountries, getFavoriteDestinations(ownerId), Boolean(getPendingGuestDataSync(ownerId)?.profile));
@@ -115,7 +122,8 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
       setFavorites(merged);
       setRemoteWishlist(profile.wishlistCountries);
       setFavoritesReady(true);
-    }).catch((error) => {
+    };
+    void refresh().catch((error) => {
       if (active) setFavoritesError(true);
       if (active) onNotice(getSupabaseDataErrorMessage(error, copy("Favoriler web hesabından alınamadı.", "Favourites could not be loaded from your web account.")));
     });
@@ -163,7 +171,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
   };
 
   const toggleFavorite = async (destination: DiscoveryDestination) => {
-    if (favoriteBusy) return;
+    if (favoriteWrite.current || favoriteBusy) return;
     if (ownerId && !favoritesReady) {
       if (favoritesError) setFavoritesRetry(value => value + 1);
       onNotice(copy("Favorilerin yükleniyor. Biraz sonra tekrar dene.", "Your favourites are loading. Please try again shortly.", "Të preferuarat po ngarkohen. Provo sërish pas pak."));
@@ -179,9 +187,11 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     }
     setFavoriteBusy(destination.alpha3);
     try {
-      const updated = await updateUserProfile(ownerId, {
+      const pending = trackProfileWrite(ownerId, updateUserProfile(ownerId, {
         wishlistCountries: profileIdsForAlpha3(remoteWishlist, next.map((item) => item.alpha3)),
-      }, accessToken);
+      }, accessToken));
+      favoriteWrite.current = pending;
+      const updated = await pending;
       if (!updated) throw new Error("profile missing");
       setRemoteWishlist(updated.wishlistCountries);
       onNotice(saved ? copy(`${destination.country} web hesabınla eşitlendi.`, `${destination.country} synced with your web account.`, `${destination.country} u sinkronizua me llogarinë tënde në web.`) : copy(`${destination.country} favorilerden çıkarıldı.`, `${destination.country} removed from favourites.`, `${destination.country} u hoq nga të preferuarat.`));
@@ -190,6 +200,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
       setFavorites(previous);
       onNotice(getSupabaseDataErrorMessage(error, copy("Favori kaydedilemedi; değişiklik geri alındı.", "The favourite could not be saved; the change was reverted.")));
     } finally {
+      favoriteWrite.current = null;
       setFavoriteBusy("");
     }
   };

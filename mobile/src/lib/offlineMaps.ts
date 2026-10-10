@@ -33,7 +33,11 @@ export function resetOfflineMaps(): void {
 }
 export function saveOfflineMap(pack: OfflineMapPack) {
   if (!validateOfflinePack(pack)) throw new Error("Invalid pack");
-  const existing = writablePacks().filter((p) => p.id !== pack.id);
+  const saved = writablePacks();
+  const current = saved.find((p) => p.id === pack.id);
+  // A stale server cache or a late download must not replace newer local data.
+  if (current && Date.parse(current.downloadedAt) > Date.parse(pack.downloadedAt)) return saved;
+  const existing = saved.filter((p) => p.id !== pack.id);
   if (existing.length >= 3) throw new Error("full");
   const next = [pack, ...existing];
   const value = JSON.stringify(next);

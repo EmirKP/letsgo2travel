@@ -84,10 +84,60 @@ test('A late response after logout cannot change the account cache',async()=>{
 test('Unreadable local queues and failed writes preserve earlier data and do not upload an empty collection',async()=>{
  const s=server(),d=device(s);const key=d.collections().collectionKey(owner,'saved_places');d.values.set(key,'{broken');await assert.rejects(d.sync().syncAccountCollection(owner,'token','saved_places'));assert.equal(d.values.get(key),'{broken');assert.equal(s.calls.length,0);
 });
-test('Saved-route pagination uses a stable order and deduplicates a shifting page',async()=>{
- const calls=[];const rows=Array.from({length:101},(_,id)=>({id,user_id:owner,title:`Plan ${id}`,destination:'Rome',created_at:'2026-10-01T00:00:00Z',trip_data:{mobile_kind:'route_plan',client_key:`saved-plan-${id}`}}));
- const d=device(server(),{request:async url=>{const query=new URL(url).searchParams;calls.push(query);return query.get('offset')==='0'?rows.slice(0,100):rows.slice(99);}});
- const result=await d.load('mobile/src/lib/supabaseData.ts').listUserTrips(owner,'token','route_plan');assert.equal(result.length,101);assert.equal(calls.length,2);assert.ok(calls.every(query=>query.get('order')==='created_at.desc,id.desc'&&query.get('user_id')===`eq.${owner}`));
+const tripRow=(id,createdAt='2026-10-01T00:00:00Z')=>({id,user_id:owner,title:`Plan ${id}`,destination:'Rome',created_at:createdAt,trip_data:{mobile_kind:'route_plan',client_key:`saved-plan-${id}`,saved_at:'2026-10-01T00:00:00Z',input:{},plan:{routes:[{name:'Rome',country:'Italy'}]}}});
+// Model the database predicates independently of page sizes. Offset requests
+// deliberately retain their real shifting-page behavior for the regression.
+function tripPage(rows,query){
+ const cursor=query.get('or');let remaining=rows;
+ if(cursor?.includes('created_at.is.null')){
+  const match=/^\(and\(created_at\.is\.null,id\.lt\.(-?\d+)\),created_at\.not\.is\.null\)$/.exec(cursor);assert.ok(match,`Unsupported cursor ${cursor}`);
+  remaining=rows.filter(row=>row.created_at!==null||BigInt(row.id)<BigInt(match[1]));
+ }else if(cursor){
+  const match=/^\(created_at\.lt\."([^"]+)",and\(created_at\.eq\."([^"]+)",id\.lt\.(-?\d+)\)\)$/.exec(cursor);assert.ok(match,`Unsupported cursor ${cursor}`);assert.equal(match[1],match[2]);
+  remaining=rows.filter(row=>row.created_at!==null&&(row.created_at<match[1]||row.created_at===match[1]&&BigInt(row.id)<BigInt(match[3])));
+ }
+ const offset=Number(query.get('offset')||0);return plain(remaining.slice(offset,offset+100));
+}
+
+test('Saved-route pagination uses timestamp and ID cursors across timestamp ties and new inserts',async()=>{
+ const calls=[],rows=Array.from({length:101},(_,index)=>tripRow(101-index));
+ const d=device(server(),{request:async url=>{const query=new URL(url).searchParams;calls.push(query);const page=tripPage(rows,query);if(calls.length===1)rows.unshift(tripRow(102));return page;}});
+ const result=await d.load('mobile/src/lib/supabaseData.ts').listUserTrips(owner,'token','route_plan');assert.deepEqual(plain(result.map(row=>row.id)),Array.from({length:101},(_,index)=>101-index));assert.equal(calls.length,2);
+ assert.ok(calls.every(query=>query.get('order')==='created_at.desc.nullsfirst,id.desc'&&query.get('user_id')===`eq.${owner}`&&!query.has('offset')));
+ assert.equal(calls[1].get('or'),'(created_at.lt."2026-10-01T00:00:00Z",and(created_at.eq."2026-10-01T00:00:00Z",id.lt.2))');
+});
+
+test('A deletion between route pages never tombstones or deletes the route shifted across the page boundary',async()=>{
+ const rows=Array.from({length:101},(_,index)=>tripRow(101-index));let reads=0;const deleted=[];
+ const d=device(server(),{request:async(url,options={})=>{
+  const query=new URL(url).searchParams;
+  if(options.method==='DELETE'){const id=Number(query.get('id').slice(3));deleted.push(id);const index=rows.findIndex(row=>row.id===id);return index<0?[]:rows.splice(index,1);}
+  const page=tripPage(rows,query);if(++reads===1)rows.shift();return page;
+ }});
+ const box=d.load('mobile/src/lib/routeOutbox.ts'),sync=d.load('mobile/src/lib/routeSync.ts');
+ box.writeRouteOutbox(owner,Object.fromEntries(rows.map(row=>[row.trip_data.client_key,{kind:'save',revision:`ack-${row.id}`,pending:false,route:{id:row.trip_data.client_key,createdAt:row.created_at,input:{},plan:row.trip_data.plan}}])),true);
+ await sync.syncSavedRoutes(owner,'token');
+ assert.equal(box.readRouteOutbox(owner)['saved-plan-1'].kind,'save','the skipped boundary route must remain a saved route');
+ await sync.syncSavedRoutes(owner,'token');
+ assert.equal(rows.some(row=>row.id===1),true,'a later reconciliation must preserve the real server record');assert.deepEqual(deleted,[]);
+ assert.equal(d.events().getSavedRoutePlans(owner).length,100,'only the route actually removed on the other device should disappear');
+});
+
+test('Route cursors preserve nullable legacy timestamps, microseconds and string BIGINT IDs',async()=>{
+ const timestamp='2026-10-01T00:00:00.123456+00:00',calls=[];
+ const rows=Array.from({length:203},(_,index)=>tripRow(String(9007199254741200n-BigInt(index)),index<101?null:index<202?timestamp:'2026-10-01T00:00:00.123455+00:00'));
+ const d=device(server(),{request:async url=>{const query=new URL(url).searchParams;calls.push(query);return tripPage(rows,query);}});
+ const result=await d.load('mobile/src/lib/supabaseData.ts').listUserTrips(owner,'token','route_plan');assert.deepEqual(plain(result.map(row=>row.id)),rows.map(row=>row.id));assert.equal(calls.length,3);
+ assert.equal(calls[1].get('or'),'(and(created_at.is.null,id.lt.9007199254741101),created_at.not.is.null)');
+ assert.equal(calls[2].get('or'),`(created_at.lt."${timestamp}",and(created_at.eq."${timestamp}",id.lt.9007199254741001))`);
+});
+
+test('An unreadable route page cursor fails before a partial account list can be reconciled',async()=>{
+ for(const invalid of [{id:Number.MAX_SAFE_INTEGER+1},{created_at:'not-a-timestamp'}]){
+  let calls=0;const rows=Array.from({length:100},(_,index)=>tripRow(100-index));Object.assign(rows[99],invalid);
+  const d=device(server(),{request:async()=>{calls++;return rows;}});
+  await assert.rejects(d.load('mobile/src/lib/supabaseData.ts').listUserTrips(owner,'token','route_plan'),error=>error.status===503);assert.equal(calls,1);
+ }
 });
 test('A server repeating the same route page fails instead of deleting uncaptured account items or fetching forever',async()=>{
  let calls=0;const rows=Array.from({length:100},(_,id)=>({id,user_id:owner,trip_data:{mobile_kind:'route_plan'},created_at:'2026-10-01T00:00:00Z'}));const d=device(server(),{request:async()=>{calls++;return rows;}});
