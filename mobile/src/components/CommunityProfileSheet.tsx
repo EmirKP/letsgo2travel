@@ -194,9 +194,18 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   return <>
     {profile && <>
       <div className="community-profile-hero">
+        <div className="community-profile-cover" aria-hidden="true">
+          <svg viewBox="0 0 560 100" fill="none" focusable="false" preserveAspectRatio="xMidYMid slice">
+            <path className="community-profile-contour" d="M-30 115C30 15 104 133 172 42S315-17 336 40s65 82 131 6 113-51 135-16M-30 137C30 37 104 155 172 64S315 5 336 62s65 82 131 6 113-51 135-16M-30 93C30-7 104 111 172 20S315-39 336 18s65 82 131 6 113-51 135-16" />
+            <path className="community-profile-route" d="M264 92c39-69 97 17 139-36s79-29 113-46" />
+            <circle cx="403" cy="56" r="7" className="community-profile-route-stop" />
+            <circle cx="403" cy="56" r="2.5" fill="currentColor" />
+          </svg>
+        </div>
+        <div className="community-profile-summary">
         <div className="community-profile-identity">
           <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
-          <div><span className="community-profile-eyebrow">{copy("GEZGİN PROFİLİ", "TRAVELLER PROFILE", "PROFILI I UDHËTARIT")}</span><h2>@{profile.username}</h2></div>
+          <div><h2>@{profile.username}</h2></div>
           {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
         </div>
         {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
@@ -207,6 +216,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         </div>
         {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={18} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
           : <button className={`community-profile-follow${profile.isFollowing ? " is-following" : ""}`} type="button" aria-pressed={profile.isFollowing} disabled={busy} onClick={() => void follow()}><Icon name={profile.isFollowing ? "check" : "plus"} size={18} />{busy ? copy("Güncelleniyor…", "Updating…", "Po përditësohet…") : profile.isFollowing ? copy("Takip ediliyor", "Following", "Po e ndjek") : copy("Takip et", "Follow", "Ndiq")}</button>}
+        </div>
       </div>
       {editing && ownProfile && <form className="community-profile-editor" onSubmit={event => { event.preventDefault(); void saveBio(); }}>
         <label htmlFor={`${id}-bio`}>{copy("Hakkımda", "About me", "Rreth meje")}</label>
