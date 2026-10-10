@@ -1,18 +1,19 @@
-/* Enabled only while appearance changes; first paint and ordinary interactions
-   retain their existing behaviour. The sun/moon has its own motion. */
-@media (prefers-reduced-motion: no-preference) {
-  :root[data-theme-transition],
-  :root[data-theme-transition] :where(body, body *):not(:where(.theme-toggle-track, .theme-toggle-track *, .appearance-system-track)),
-  :root[data-theme-transition] :where(body *)::before,
-  :root[data-theme-transition] :where(body *):not(.appearance-system-track)::after,
-  :root[data-theme-transition] :is(input, textarea)::placeholder {
-    transition:
-      color 360ms cubic-bezier(.22, .8, .3, 1),
-      background-color 360ms cubic-bezier(.22, .8, .3, 1),
-      border-color 360ms cubic-bezier(.22, .8, .3, 1),
-      outline-color 360ms cubic-bezier(.22, .8, .3, 1),
-      box-shadow 360ms cubic-bezier(.22, .8, .3, 1),
-      --home-theme-fade 360ms cubic-bezier(.22, .8, .3, 1),
-      --home-banner-tint 360ms cubic-bezier(.22, .8, .3, 1) !important;
+/* Only the new snapshot fades in. Existing content stays fully opaque beneath
+   it, so the page never flashes or changes its layout during the switch. */
+:root[data-theme-transition="crossfade"]::view-transition { pointer-events: none; }
+:root[data-theme-transition="crossfade"]::view-transition-group(root) { animation: none; }
+:root[data-theme-transition="crossfade"]::view-transition-image-pair(root) { isolation: isolate; }
+:root[data-theme-transition="crossfade"]::view-transition-old(root),
+:root[data-theme-transition="crossfade"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+:root[data-theme-transition="crossfade"]::view-transition-new(root) {
+  animation: theme-appear 200ms ease-out both;
+}
+@keyframes theme-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme-transition="crossfade"]::view-transition-new(root) {
+    animation: none;
   }
 }

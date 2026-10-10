@@ -7,26 +7,25 @@ export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#0877b8", d
 const SYSTEM_QUERY = "(prefers-color-scheme: dark)";
 const serverSnapshot: ThemeSnapshot = { preference: "system", resolved: "light" };
 let snapshot = serverSnapshot;
+let requestedPreference: ThemePreference = serverSnapshot.preference;
 let media: MediaQueryList | undefined;
 let initializers = 0;
 let detach: (() => void) | undefined;
-let transitionTimer: number | undefined;
+let activeTransition: ViewTransition | undefined;
+let appearanceRevision = 0;
 const listeners = new Set<() => void>();
 
 function stopColorTransition() {
-  if (transitionTimer !== undefined) window.clearTimeout(transitionTimer);
-  transitionTimer = undefined;
+  appearanceRevision++;
+  activeTransition?.skipTransition();
+  activeTransition = undefined;
   if (typeof document !== "undefined") delete document.documentElement.dataset.themeTransition;
 }
 
-function startColorTransition() {
-  stopColorTransition();
-  try { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; }
-  catch { /* CSS also respects reduced motion when matchMedia is unavailable. */ }
-  document.documentElement.dataset.themeTransition = "";
-  // Leave a small buffer after the 360ms colour/icon animation, then restore
-  // each component's normal hover and interaction transitions.
-  transitionTimer = window.setTimeout(stopColorTransition, 420);
+function canAnimateAppearance() {
+  if (typeof document === "undefined" || !document.startViewTransition || document.visibilityState === "hidden") return false;
+  try { return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  catch { return false; }
 }
 
 function preference(value: unknown): ThemePreference {
@@ -44,17 +43,48 @@ function systemTheme(): ResolvedTheme {
 }
 
 function apply(nextPreference: ThemePreference, animate = true) {
+  requestedPreference = nextPreference;
   const resolved = nextPreference === "system" ? systemTheme() : nextPreference;
-  if (typeof document !== "undefined") {
-    if (animate && snapshot.resolved !== resolved) startColorTransition();
-    document.documentElement.dataset.theme = resolved;
-    document.documentElement.style.colorScheme = resolved;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[resolved]);
-    document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
+  const changesColors = snapshot.resolved !== resolved;
+  stopColorTransition();
+  const revision = appearanceRevision;
+  let committed = false;
+  const commit = () => {
+    // Skipped transitions may still invoke their callback after a newer choice.
+    if (revision !== appearanceRevision || committed) return;
+    committed = true;
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.style.colorScheme = resolved;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[resolved]);
+      document.querySelector('meta[name="color-scheme"]')?.setAttribute("content", resolved);
+    }
+    if (snapshot.preference === nextPreference && snapshot.resolved === resolved) return;
+    snapshot = { preference: nextPreference, resolved };
+    listeners.forEach(listener => listener());
+  };
+  if (!animate || !changesColors || !canAnimateAppearance()) {
+    commit();
+    return;
   }
-  if (snapshot.preference === nextPreference && snapshot.resolved === resolved) return;
-  snapshot = { preference: nextPreference, resolved };
-  listeners.forEach(listener => listener());
+
+  // Composite two page snapshots instead of repainting every text, shadow and
+  // translucent surface on every frame. Older webviews switch directly.
+  document.documentElement.dataset.themeTransition = "crossfade";
+  const cleanup = () => {
+    if (revision !== appearanceRevision) return;
+    activeTransition = undefined;
+    delete document.documentElement.dataset.themeTransition;
+  };
+  try {
+    const transition = document.startViewTransition(commit);
+    activeTransition = transition;
+    void transition.ready.catch(() => { /* Skips still run the update callback. */ });
+    void transition.finished.then(cleanup, () => { commit(); cleanup(); });
+  } catch {
+    commit();
+    cleanup();
+  }
 }
 
 export const getThemeSnapshot = () => snapshot;
@@ -78,7 +108,7 @@ export function initializeTheme() {
   if (initializers === 1) {
     try { media = window.matchMedia(SYSTEM_QUERY); } catch { media = undefined; }
     apply(storedPreference(), false);
-    const onSystemChange = () => { if (snapshot.preference === "system") apply("system"); };
+    const onSystemChange = () => { if (requestedPreference === "system") apply("system"); };
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
       try { if (event.storageArea && event.storageArea !== window.localStorage) return; } catch { /* A blocked store still accepts the event value. */ }

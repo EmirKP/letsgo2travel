@@ -16,23 +16,33 @@ function load(file,globals,imports={}){
  },output,output.exports);
  return output.exports;
 }
-function browser({stored=null,dark=false,reducedMotion=false,denied='',legacyMedia=false,noMedia=false,values=new Map()}={}){
+function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
+const flush=async()=>{await Promise.resolve();await Promise.resolve();await Promise.resolve();};
+function browser({stored=null,dark=false,reducedMotion=false,viewTransitions=false,denied='',legacyMedia=false,noMedia=false,values=new Map()}={}){
  if(stored!==null)values.set(key,stored);
  let writes=0;
  const localStorage={getItem:name=>{if(denied==='read')throw Error('blocked');return values.get(name)??null;},setItem:(name,value)=>{if(denied==='write')throw Error('blocked');writes++;values.set(name,String(value));}};
- const storageListeners=new Set(),mediaListeners=new Set(),timers=new Map();
- let clock=0,nextTimer=0;
+ const storageListeners=new Set(),mediaListeners=new Set(),transitions=[];
  const media={matches:dark};
  if(legacyMedia){media.addListener=callback=>mediaListeners.add(callback);media.removeListener=callback=>mediaListeners.delete(callback);}
  else{media.addEventListener=(name,callback)=>{assert.equal(name,'change');mediaListeners.add(callback);};media.removeEventListener=(name,callback)=>{assert.equal(name,'change');mediaListeners.delete(callback);};}
- const window={matchMedia:query=>{if(noMedia)throw Error('unsupported');if(query==='(prefers-reduced-motion: reduce)')return {matches:reducedMotion};assert.equal(query,'(prefers-color-scheme: dark)');return media;},addEventListener:(name,callback)=>{assert.equal(name,'storage');storageListeners.add(callback);},removeEventListener:(name,callback)=>{assert.equal(name,'storage');storageListeners.delete(callback);},setTimeout:(callback,delay)=>{const id=++nextTimer;timers.set(id,{callback,at:clock+delay});return id;},clearTimeout:id=>timers.delete(id)};
+ const window={matchMedia:query=>{if(noMedia)throw Error('unsupported');if(query==='(prefers-reduced-motion: reduce)')return {matches:reducedMotion};assert.equal(query,'(prefers-color-scheme: dark)');return media;},addEventListener:(name,callback)=>{assert.equal(name,'storage');storageListeners.add(callback);},removeEventListener:(name,callback)=>{assert.equal(name,'storage');storageListeners.delete(callback);}};
  Object.defineProperty(window,'localStorage',{get(){if(denied==='getter')throw Error('blocked');return localStorage;}});
  const metas=new Map(['theme-color','color-scheme'].map(name=>[name,{content:name==='theme-color'?'#0877b8':'light',setAttribute(attribute,value){assert.equal(attribute,'content');this.content=value;}}]));
  const document={documentElement:{dataset:{},style:{}},querySelector:selector=>{const name=/^meta\[name="(.+)"\]$/.exec(selector)?.[1];assert.ok(metas.has(name));return metas.get(name);}};
+ if(viewTransitions)document.startViewTransition=callback=>{
+  const ready=deferred(),finished=deferred(),updated=deferred();
+  const transition={ready:ready.promise,finished:finished.promise,updateCallbackDone:updated.promise,skipped:0,
+   skipTransition(){this.skipped++;},
+   async update(){await callback();updated.resolve();},
+   show:()=>ready.resolve(),finish:()=>finished.resolve(),
+   failReady:()=>ready.reject(Error('Snapshot unavailable')),failFinish:()=>finished.reject(Error('Transition interrupted')),
+  };
+  transitions.push(transition);return transition;
+ };
  const globals={window,document};
- return {globals,values,document,metas,storageListeners,mediaListeners,get writes(){return writes;},get pendingTimers(){return timers.size;},
+ return {globals,values,document,metas,storageListeners,mediaListeners,transitions,get writes(){return writes;},
   theme:()=>load('mobile/src/lib/theme.ts',globals),
-  advance(milliseconds){const until=clock+milliseconds;for(;;){const due=[...timers].filter(([,timer])=>timer.at<=until).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;const [id,timer]=due;clock=timer.at;timers.delete(id);timer.callback();}clock=until;},
   system(value){media.matches=value;mediaListeners.forEach(callback=>callback({matches:value}));},
   remote(value,{eventKey=key,storageArea=localStorage}={}){if(eventKey===null)values.clear();else if(value===null)values.delete(eventKey);else values.set(eventKey,value);storageListeners.forEach(callback=>callback({key:eventKey,newValue:value,storageArea}));},
  };
@@ -112,58 +122,95 @@ test('Overlapping initializers and remounts own exactly one set of listeners; st
 
 test('Theme initialization and preference-only changes do not animate the first paint',()=>{
  for(const stored of ['light','dark']){
-  const f=browser({stored,dark:stored==='dark'});runBootstrap(f);
+  const f=browser({stored,dark:stored==='dark',viewTransitions:true});runBootstrap(f);
   const theme=f.theme(),stop=theme.initializeTheme();assertAppearance(f,stored);
   assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
-  assert.equal(f.pendingTimers,0);
+  assert.equal(f.transitions.length,0);
   theme.setThemePreference('system');assertAppearance(f,stored);
   assert.equal(theme.getThemeSnapshot().preference,'system');assert.equal(f.values.get(key),'system');
   assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false,'Changing the preference without changing colors does not start an animation');
-  assert.equal(f.pendingTimers,0);stop();
+  assert.equal(f.transitions.length,0);stop();
  }
 });
 
-test('A theme change updates state and metadata immediately while its color transition expires',()=>{
- const f=browser(),theme=f.theme(),stop=theme.initializeTheme();
- let notified=false;const unsubscribe=theme.subscribeTheme(()=>{
-  notified=true;assertAppearance(f,'dark');
-  assert.equal(f.document.documentElement.dataset.themeTransition,'','The animation is active before subscribers render the moon');
- });
- theme.setThemePreference('dark');assert.equal(notified,true);
+test('A supported transition persists the choice immediately and updates appearance in the snapshot callback',async()=>{
+ const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
+ let notifications=0;const unsubscribe=theme.subscribeTheme(()=>{notifications++;assertAppearance(f,'dark');});
+ theme.setThemePreference('dark');assert.equal(f.values.get(key),'dark');
+ assert.equal(f.transitions.length,1);assertAppearance(f,'light');assert.equal(notifications,0);
+ assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
+ const transition=f.transitions[0];await transition.update();transition.show();await flush();
+ assertAppearance(f,'dark');assert.equal(notifications,1);
  assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'dark',resolved:'dark'});
- assert.equal(f.values.get(key),'dark');assert.equal(f.pendingTimers,1);
- f.advance(350);assert.equal(f.document.documentElement.dataset.themeTransition,'');
- f.advance(150);assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
- assert.equal(f.pendingTimers,0);assertAppearance(f,'dark');unsubscribe();stop();
+ assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
+ transition.finish();await flush();
+ assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
+ assertAppearance(f,'dark');unsubscribe();stop();
 });
 
-test('Rapidly reversing the theme keeps the latest transition active past the old cleanup deadline',()=>{
- const f=browser(),theme=f.theme(),stop=theme.initializeTheme();
- theme.setThemePreference('dark');f.advance(250);
- theme.setThemePreference('light');assertAppearance(f,'light');assert.equal(f.values.get(key),'light');
- assert.equal(f.pendingTimers,1,'A new transition replaces the old cleanup timer');
- f.advance(200);assert.equal(f.document.documentElement.dataset.themeTransition,'','The first transition cannot end a newer one');
- assertAppearance(f,'light');f.advance(300);
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.pendingTimers,0);stop();
+test('A rapid reversal invalidates an older queued callback and keeps the latest persisted preference',async()=>{
+ const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
+ theme.setThemePreference('dark');const stale=f.transitions[0];
+ theme.setThemePreference('light');assert.equal(f.values.get(key),'light');
+ assert.ok(stale.skipped>0,'A superseded snapshot must stop painting over the latest appearance');
+ for(const transition of f.transitions){await transition.update();transition.show();transition.finish();}
+ await flush();assertAppearance(f,'light');
+ assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'light',resolved:'light'});
+ assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
 });
 
-test('Reduced motion keeps appearance changes immediate without starting animation timers',()=>{
- const f=browser({reducedMotion:true}),theme=f.theme(),stop=theme.initializeTheme();
- theme.setThemePreference('dark');assertAppearance(f,'dark');assert.equal(f.values.get(key),'dark');
- theme.setThemePreference('system');assertAppearance(f,'light');
- f.system(true);assertAppearance(f,'dark');
- f.remote('light');assertAppearance(f,'light');
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.pendingTimers,0);stop();
+test('A system appearance event cannot supersede an explicit choice waiting for its snapshot callback',async()=>{
+ const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
+ assert.equal(theme.getThemeSnapshot().preference,'system');
+ theme.setThemePreference('dark');const pending=f.transitions[0];assert.equal(f.values.get(key),'dark');
+ f.system(false);assert.equal(pending.skipped,0,'System events must respect the most recently requested explicit choice');
+ assert.equal(f.transitions.length,1);assert.equal(f.values.get(key),'dark');
+ await pending.update();pending.show();pending.finish();await flush();
+ assertAppearance(f,'dark');assert.deepEqual(plain(theme.getThemeSnapshot()),{preference:'dark',resolved:'dark'});
+ assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
 });
 
-test('Only the last theme owner cancels an active transition, and a remount starts without animation',()=>{
- const f=browser(),theme=f.theme(),first=theme.initializeTheme(),last=theme.initializeTheme();
- theme.setThemePreference('dark');first();
- assert.equal(f.document.documentElement.dataset.themeTransition,'');assert.equal(f.pendingTimers,1);
- last();assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.pendingTimers,0);
- const remount=theme.initializeTheme();assertAppearance(f,'dark');
- assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.pendingTimers,0);
- first();last();f.advance(1000);assertAppearance(f,'dark');remount();
+test('An older transition finishing cannot remove the active transition state',async()=>{
+ const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
+ theme.setThemePreference('dark');const first=f.transitions[0];await first.update();first.show();
+ theme.setThemePreference('light');const second=f.transitions[1];await second.update();second.show();
+ assert.ok(first.skipped>0);assertAppearance(f,'light');
+ first.finish();await flush();assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
+ second.finish();await flush();assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
+});
+
+test('Reduced motion and unsupported browsers update synchronously without starting a transition',()=>{
+ for(const options of [{viewTransitions:true,reducedMotion:true},{viewTransitions:false}]){
+  const f=browser(options),theme=f.theme(),stop=theme.initializeTheme();
+  theme.setThemePreference('dark');assertAppearance(f,'dark');assert.equal(f.values.get(key),'dark');
+  theme.setThemePreference('system');assertAppearance(f,'light');
+  f.system(true);assertAppearance(f,'dark');
+  f.remote('light');assertAppearance(f,'light');
+  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.transitions.length,0);stop();
+ }
+});
+
+test('Rejected transition promises are handled and cannot leave transition styling active',async()=>{
+ for(const failure of ['failReady','failFinish']){
+  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
+  theme.setThemePreference('dark');const transition=f.transitions[0];await transition.update();
+  if(failure==='failReady'){transition.failReady();transition.finish();}
+  else{transition.show();transition.failFinish();}
+  await flush();assertAppearance(f,'dark');
+  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
+ }
+ await new Promise(resolve=>setImmediate(resolve));
+});
+
+test('Only the last theme owner cancels a transition and disposed callbacks cannot alter a remount',async()=>{
+ const f=browser({viewTransitions:true}),theme=f.theme(),first=theme.initializeTheme(),last=theme.initializeTheme();
+ theme.setThemePreference('dark');const stale=f.transitions[0];first();
+ assert.equal(stale.skipped,0);assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
+ last();assert.ok(stale.skipped>0);assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
+ f.values.set(key,'light');const remount=theme.initializeTheme();assertAppearance(f,'light');
+ await stale.update();stale.show();stale.finish();await flush();assertAppearance(f,'light');
+ assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);assert.equal(f.transitions.length,1);
+ first();last();remount();
 });
 
 const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
