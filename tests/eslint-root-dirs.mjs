@@ -11,7 +11,7 @@ const { getRootDirs } = require("@next/eslint-plugin-next/dist/utils/get-root-di
 
 test("the local glob adapter is restricted to the reviewed Next lint dependency", () => {
   const plugin = require("@next/eslint-plugin-next/package.json");
-  assert.equal(plugin.version, "16.3.6", "review the adapter before upgrading Next's ESLint plugin");
+  assert.equal(plugin.version, "16.3.8", "review the adapter before upgrading Next's ESLint plugin");
   const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
   const consumers = Object.entries(lock.packages).filter(([, value]) => [value.dependencies, value.devDependencies, value.optionalDependencies].some((dependencies) => dependencies?.["fast-glob"]));
   assert.deepEqual(consumers.map(([name]) => name), ["node_modules/@next/eslint-plugin-next"]);

@@ -1,7 +1,7 @@
 # Next ESLint directory-glob adapter
 
 This private npm workspace replaces **only** the `fast-glob` dependency of
-`@next/eslint-plugin-next@16.3.6`. The prerelease version `3.3.1-l2t.1` identifies
+`@next/eslint-plugin-next@16.3.8`. The prerelease version `3.3.1-l2t.1` identifies
 our adapter; it is not a release of the upstream fast-glob library. No upstream
 fast-glob, micromatch or braces implementation is retained.
 
@@ -27,7 +27,9 @@ is included in Git so `npm ci` resolves it in a fresh checkout on every platform
 reviewed plugin version/consumer, directory discovery and actual Next, React
 hooks, accessibility and TypeScript violations. The directory-discovery fixtures
 also passed against the original plugin's fast-glob implementation before the
-replacement. Next.js, ESLint configuration and enabled rules remain unchanged.
+replacement. The Next 16.3.8 security update was reviewed on 10 October 2026;
+its directory-glob caller still uses the same API. ESLint configuration and
+enabled rules remain unchanged by this adapter.
 
 When upgrading the plugin, review its use of globbing and remove this workspace
 and override when upstream provides a dependency tree that passes the audit.

@@ -1,0 +1,46 @@
+LetsGo2Travel — 10 Ekim 2026 TestFlight yayın kaydı
+
+Kapsam
+Kullanıcı, son güncellemeyi mevcut iç test grubuna yüklemeyi istedi.
+Yeni pazarlama sürümü 1.4.1; App Store incelemesi veya herkese açık yayın
+bu işlem kapsamında başlatılmadı. Web/sunucu dağıtımı yapılmadı.
+
+İlk derleme
+- Kaynak: cfb10371b99530a356f6f4eb39181992098cf2be
+- Codemagic: 6ac9f634546ce6236ced2cf1 (#16)
+- İş akışı: letsgo2travel-ios-testflight
+- Sonuç: bağımlılık güvenlik denetiminde durdu; Apple'a paket yüklenmedi.
+- Rapor: Capacitor Android/iOS kritik açıkları; Next.js, sharp ve
+  source-map-js yüksek önem seviyeli açıkları. Güvenlik denetimi korunuyor.
+
+Güvenlik düzeltmesi
+- Capacitor core/cli/android/ios ve iOS SwiftPM: 8.4.3.
+- Next.js ve eşleşen ESLint yapılandırması: 16.3.8.
+- sharp: 0.35.5; kök/mobil source-map-js: 1.2.2.
+- Next ESLint yerel glob adaptörünün çağrı sözleşmesi tekrar incelendi;
+  sürüm koruması ve açıklaması güncellendi, 3/3 adaptör testi geçti.
+- Kök ve mobil npm audit: 0 açık. Mobil lint ve üretim arayüzü derlemesi geçti.
+- Tam yayın test dizisi başarılı (npm run test:release).
+- Next üretim derlemesi başarılı; TypeScript ve 147/147 sayfa tamamlandı.
+- Uygulamanın 1.4.1 sürüm numarası korundu; denetim seviyesi düşürülmedi.
+
+Doğrulanacak sunucu bağımlılıkları
+- Norveç/Entur ulaşımı için testflight seyahat aracı sunucusu güncellenmeli.
+- AI rotalarının aile/çocuk yaşı/seviye/para birimiyle uyarlanması için
+  www API dağıtımı ayrıca doğrulanmalı.
+- Profili eksik hesapların kurtarılması için
+  20261004230000_profile_completion_recovery.sql uygulaması doğrulanmalı.
+Bu kayıt canlı sunucu sürümlerinin güncel olduğunu ileri sürmez.
+
+İç test kapsamı
+- Apple/Google girişi, iptal ve tekrar deneme, kapatıp açma.
+- Rota kaydetme/açma/silme ve iki cihaz arasında eşitleme.
+- Favori/ülke seçimlerini ekran değişimi ve oturum yenilemesi sonrası koruma.
+- Geç gelen çevrimdışı harita yanıtının yeni cihaz kaydını değiştirmemesi.
+- Profil doğrulamalarının yükleme/hata/hesap değişimi durumları.
+- Rota formunda eksik alana yönlendirme, gün/kişi/çocuk yaşı/seviye ve maliyet.
+- Profil, Planlar ve Araçlar görsellerinin iPhone/iPad yerleşimi.
+
+Tamamlanma kaydı
+Derleme düzeltmesi, son paket numarası, Apple işleme ve iç test grubuna
+ekleme sonucu bu dosyada tamamlandığında kaydedilecek.

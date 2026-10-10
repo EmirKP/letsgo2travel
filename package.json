@@ -33,11 +33,11 @@
     "test:release": "node scripts/test-release-readiness.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.2",
+    "@capacitor/android": "8.4.3",
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
     "@capacitor/haptics": "^8.0.2",
-    "@capacitor/ios": "^8.4.2",
+    "@capacitor/ios": "8.4.3",
     "@capacitor/local-notifications": "8.3.1",
     "@capacitor/network": "^8.0.1",
     "@capacitor/push-notifications": "^8.0.0",
@@ -52,18 +52,18 @@
     "framer-motion": "^12.40.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.18.0",
-    "next": "16.3.6",
+    "next": "16.3.8",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-simple-maps": "4.0.0-beta.6",
     "sanitize-html": "^2.17.0",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2",
+    "@capacitor/cli": "8.4.3",
+    "@capacitor/core": "8.4.3",
     "@electric-sql/pglite": "^0.5.8",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
@@ -75,7 +75,7 @@
     "airports-json": "1.0.0",
     "d3-geo": "3.1.1",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.3.8",
     "i18n-iso-countries": "7.14.0",
     "topojson-client": "3.1.0",
     "ts-node": "^10.9.2",
@@ -83,11 +83,11 @@
     "world-atlas": "2.0.2"
   },
   "allowScripts": {
-    "sharp@0.35.4": true,
+    "sharp@0.35.5": true,
     "unrs-resolver@1.11.1": true
   },
   "overrides": {
-    "@next/eslint-plugin-next@16.3.6": {
+    "@next/eslint-plugin-next@16.3.8": {
       "fast-glob": "3.3.1-l2t.1"
     }
   }
