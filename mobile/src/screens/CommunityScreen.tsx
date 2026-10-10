@@ -415,7 +415,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     : <button type="button" className="community-author-button" aria-haspopup="dialog"
       onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
       aria-label={copy(`@${item.username} için kullanıcı seçenekleri`, `User options for @${item.username}`, `Veprimet për përdoruesin @${item.username}`)}
-    ><strong>@{item.username}</strong><Icon name="chevron" size={12} /></button>;
+    ><strong>@{item.username}</strong></button>;
 
   const onBlocked = (blockedId: string) => {
     setSafetyTarget(null);
