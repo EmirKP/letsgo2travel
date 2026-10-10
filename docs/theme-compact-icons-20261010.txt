@@ -8,8 +8,8 @@ Kullanıcı isteği
 Uygulama
 - Araç görselleri 80 yerine 56 CSS piksel. Profil ve Planlar kartları
   56–64 piksel aralığında; ilgili kart boşlukları orantılı azaltıldı.
-- Daha Fazla > Görünüm: Koyu tema anahtarı ve cihaz temasını kullan seçeneği
-  (Türkçe, İngilizce, Arnavutça).
+- Üst çubukta dil seçicinin yanında Koyu tema anahtarı. Daha Fazla > Görünüm
+  altında cihaz temasını kullan seçeneği (Türkçe, İngilizce, Arnavutça).
 - Varsayılan Sistem. Tercih cihazda saklanır; hesap girişinden bağımsızdır.
   Sistem görünümü ve diğer sekmedeki tercih değişiklikleri canlı uygulanır.
   Depolama engellenirse seçim mevcut oturumda çalışmaya devam eder.
@@ -63,3 +63,16 @@ Güneş / ay anahtarı — aynı gün devam isteği
   yatay taşma, güneş/ay opaklıkları ve kayıtlı koyu tercihle yeniden açılış.
 - Kanıt: outputs/theme-toggle-sun.png ve theme-toggle-moon.png.
 - Bu devam isteğinde de yeni TestFlight/mağaza/sunucu yayını yapılmadı.
+
+Üst çubuk yerleşimi — aynı gün kullanıcı tercihi
+- Güneş/ay anahtarı ortak üst çubuğa, dil bayrağının hemen soluna taşındı.
+  44 piksel dokunma alanında güneş/ay dönme ve solma animasyonu korunur.
+  Menüde yalnız cihaz temasını izleme seçeneği kalır.
+- 320 ve 390 piksel tarayıcı genişliğinde ana/detay ekranlarında yatay
+  taşma yok; görünür üst çubuk kontrolleri en az 44 piksel. 359 pikselin
+  altındaki detay ekranlarında geri düğmesine yer açmak için logo gizlenir.
+- 7 tema + 23 gezinme testi, mobil lint ve üretim derlemesi başarılı.
+- CUA: üst anahtarda Space ve tıklama, güneş/ay görünümü, dil menüsünün
+  açılması ve yeniden yükleme sonrası koyu tercihin korunması doğrulandı.
+- Kanıt: outputs/theme-header-sun.png ve theme-header-moon.png.
+- Yerel önizleme hazır; yeni TestFlight/mağaza/sunucu yayını yapılmadı.

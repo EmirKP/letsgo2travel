@@ -62,6 +62,9 @@
   }
 }
 @media (max-width: 540px) {
+  .app-shell.editorial-app .topbar.shared-topbar { padding-inline: max(12px, env(safe-area-inset-left)); }
+  .app-shell.editorial-app .shared-topbar .topbar-actions { gap: 4px; }
+  .app-shell.editorial-app .shared-topbar .topbar-brand-group { margin-right: 8px; }
   .shared-shell.view-community .screen.community-social .cs-hero { min-height: 302px; padding: 12px 18px 48px; }
   .shared-shell.view-community .community-social .cs-handwritten { top: 131px; }
 }
@@ -69,6 +72,8 @@
   .app-shell.editorial-app .topbar.shared-topbar { padding-inline: max(10px, env(safe-area-inset-left)); }
   .app-shell.editorial-app .shared-topbar .topbar-actions { gap: 3px; }
   .app-shell.editorial-app .shared-topbar .topbar-brand-group { gap: 4px; margin-right: 6px; }
+  /* Detail screens retain Back instead of squeezing the wordmark below legibility. */
+  .app-shell.editorial-app .shared-topbar .topbar-brand-group:has(.topbar-back) .brand-button { display: none; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .app-shell.editorial-app .topbar.shared-topbar { background: #0877b8; }

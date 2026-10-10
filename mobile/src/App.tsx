@@ -55,6 +55,7 @@ import {
 import { HomeScreen } from "./screens/HomeScreen";
 import { BrandMark } from "./components/BrandMark";
 import { LanguagePicker } from './components/LanguagePicker';
+import { HeaderThemeToggle } from './components/AppearancePicker';
 import type { RouteSuggestion, TabId, ViewId } from "./types";
 
 // Ana ekran ilk karede hazır kalır; diğer modüller yalnız açıldığında
@@ -929,6 +930,7 @@ export default function App() {
         <button className="brand-button" onClick={() => navigate("home")} aria-label={copy("LetsGo2Travel ana sayfa", "LetsGo2Travel home")}><BrandMark decorative /></button>
       </div>
       <div className="topbar-actions">
+        <HeaderThemeToggle />
         <LanguagePicker />
         <button className="icon-button" onClick={() => setNotificationsOpen(true)} aria-label={`${copy("Bildirimler", "Notifications")}${visibleUnreadCount ? `, ${visibleUnreadCount} ${copy("okunmamış", "unread")}` : ""}`}><Icon name="bell" size={20} />{visibleUnreadCount > 0 && <span className="notification-badge" aria-hidden="true">{visibleUnreadCount > 9 ? "9+" : visibleUnreadCount}</span>}</button>
         <button className="icon-button mobile-menu-button" onClick={() => setMenuOpen(true)} aria-label={copy("Daha fazla", "More")}><Icon name="menu" size={21} /></button>

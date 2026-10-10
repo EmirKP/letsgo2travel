@@ -3,17 +3,16 @@ import { useI18n } from "../lib/i18n";
 import { useTheme } from "../lib/useTheme";
 import "./appearance-picker.css";
 
-export function AppearancePicker() {
+export function HeaderThemeToggle() {
   const { copy } = useI18n();
-  const { preference, resolved, setPreference } = useTheme();
+  const { resolved, setPreference } = useTheme();
   const id = useId();
   const dark = resolved === "dark";
-  return <fieldset className="appearance-picker" aria-labelledby={`${id}-label`}>
-    <legend id={`${id}-label`}>{copy("Görünüm", "Appearance", "Pamja")}</legend>
-    <button type="button" role="switch" className="theme-toggle" aria-checked={dark}
+  return <button type="button" role="switch" className="theme-toggle theme-toggle-header" aria-checked={dark}
       aria-labelledby={`${id}-toggle-label`} aria-describedby={`${id}-status`}
+      title={copy("Koyu tema", "Dark mode", "Tema e errët")}
       onClick={() => setPreference(dark ? "light" : "dark")}>
-      <span className="theme-toggle-copy">
+      <span className="sr-only">
         <strong id={`${id}-toggle-label`}>{copy("Koyu tema", "Dark mode", "Tema e errët")}</strong>
         <span id={`${id}-status`}>{dark
           ? copy("Koyu tema etkin", "Dark theme active", "Tema e errët aktive")
@@ -36,7 +35,15 @@ export function AppearancePicker() {
           </svg>
         </span>
       </span>
-    </button>
+    </button>;
+}
+
+export function AppearancePicker() {
+  const { copy } = useI18n();
+  const { preference, resolved, setPreference } = useTheme();
+  const id = useId();
+  return <fieldset className="appearance-picker" aria-labelledby={`${id}-label`}>
+    <legend id={`${id}-label`}>{copy("Görünüm", "Appearance", "Pamja")}</legend>
     <label className="appearance-system">
       <input type="checkbox" checked={preference === "system"}
         onChange={event => setPreference(event.target.checked ? "system" : resolved)} />

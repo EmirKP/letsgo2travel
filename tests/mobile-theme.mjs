@@ -110,7 +110,7 @@ test('Overlapping initializers and remounts own exactly one set of listeners; st
 
 const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
 const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree?.props?text(tree.props.children):typeof tree==='string'?tree:'';
-test('Localized dark-mode switch follows the resolved appearance and device checkbox restores automatic changes',()=>{
+test('Localized header theme switch and menu device preference share the resolved appearance',()=>{
  for(const [locale,title,switchLabel,deviceLabel,lightStatus,darkStatus] of [
   ['tr','Görünüm','Koyu tema','Cihazın temasını kullan','Açık tema etkin','Koyu tema etkin'],
   ['en','Appearance','Dark mode','Use device appearance','Light theme active','Dark theme active'],
@@ -122,11 +122,8 @@ test('Localized dark-mode switch follows the resolved appearance and device chec
    '../lib/i18n':{useI18n:()=>({copy:(tr,en,sq)=>({tr,en,sq}[locale])})},
    '../lib/useTheme':{useTheme:()=>({...theme.getThemeSnapshot(),setPreference:theme.setThemePreference})},
   });
-  const render=(preference,resolved)=>{
-   const view=component.AppearancePicker(),all=nodes(view);
-   assert.deepEqual(plain(theme.getThemeSnapshot()),{preference,resolved});assertAppearance(f,resolved);
-   assert.equal(view.type,'fieldset');assert.notEqual(view.props.role,'radiogroup');
-   assert.equal(text(all.find(node=>node.type==='legend')),title);
+  const renderHeader=resolved=>{
+   const view=component.HeaderThemeToggle(),all=nodes(view);
    const switches=all.filter(node=>node.props?.role==='switch');assert.equal(switches.length,1);
    const toggle=switches[0];assert.equal(toggle.type,'button');assert.equal(toggle.props.type,'button');
    assert.equal(toggle.props['aria-checked'],resolved==='dark');
@@ -135,12 +132,24 @@ test('Localized dark-mode switch follows the resolved appearance and device chec
    const track=nodes(toggle).find(node=>node.props?.className?.split(/\s+/).includes('theme-toggle-track'));
    assert.ok(track);assert.equal(String(track.props['aria-hidden']),'true');
    for(const iconClass of ['theme-toggle-sun','theme-toggle-moon'])assert.ok(nodes(track).some(node=>node.type==='svg'&&node.props?.className?.split(/\s+/).includes(iconClass)),`${iconClass} is decorative inside the hidden track`);
+   assert.equal(all.filter(node=>node.type==='input').length,0,'Device preference stays in the menu');
+   assert.equal(text(all.find(node=>node.props?.id===toggle.props['aria-describedby'])),resolved==='dark'?darkStatus:lightStatus);
+   return toggle;
+  };
+  const renderPreferences=preference=>{
+   const view=component.AppearancePicker(),all=nodes(view);
+   assert.equal(view.type,'fieldset');assert.notEqual(view.props.role,'radiogroup');
+   assert.equal(text(all.find(node=>node.type==='legend')),title);
+   assert.equal(all.filter(node=>node.props?.role==='switch').length,0,'The menu does not duplicate the header switch');
    const inputs=all.filter(node=>node.type==='input');assert.equal(inputs.length,1);
    const device=inputs[0];assert.equal(device.props.type,'checkbox');assert.equal(device.props.checked,preference==='system');
    const label=all.find(node=>node.type==='label'&&(nodes(node).includes(device)||(device.props.id&&node.props.htmlFor===device.props.id)));
    assert.ok(label);assert.equal(text(label),deviceLabel);
-   assert.equal(text(all.find(node=>node.props?.id===toggle.props['aria-describedby'])),resolved==='dark'?darkStatus:lightStatus);
-   return {toggle,device};
+   return device;
+  };
+  const render=(preference,resolved)=>{
+   assert.deepEqual(plain(theme.getThemeSnapshot()),{preference,resolved});assertAppearance(f,resolved);
+   return {toggle:renderHeader(resolved),device:renderPreferences(preference)};
   };
   const changeDevice=(device,checked)=>{const target={checked};device.props.onChange({target,currentTarget:target});};
   let controls=render('system','dark');assert.equal(f.writes,0);
