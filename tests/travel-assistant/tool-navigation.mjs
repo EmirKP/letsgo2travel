@@ -30,17 +30,19 @@ const searchText = load('mobile/src/lib/searchText.ts', {});
 
 // Run the real component and event closures. Only child tools and React's host
 // are replaced. Refs attach during a simulated commit, before animation frames.
-function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [] } = {}) {
-  const slots = [], frames = [], selectedCountries = [], phrases = [];
+function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [], locate = async () => {throw Error('unavailable');} } = {}) {
+  const slots = [], frames = [], selectedCountries = [], phrases = [], effects = [];
   let cursor = 0, locale = initialLocale, view, focused, oldRefs = [], signIns = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { slots[i].value = typeof next === 'function' ? next(slots[i].value) : next; }]; },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
+    useEffect(effect,deps) { const i=cursor++; const old=slots[i]; if(!old || deps.some((value,index)=>value!==old.deps[index])) { const next={deps,cleanup:null};slots[i]=next;effects.push(()=>{old?.cleanup?.();next.cleanup=effect();}); } },
     lazy(loader) { const name = loader.toString().match(/require\(['"]\.\/([^'"]+)/)?.[1]; assert.ok(name, 'Lazy child remains identifiable'); return name; },
     Suspense: 'Suspense',
   };
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
+    '../lib/deviceArea': {locateDeviceArea:locate},
     '../../../lib/travel-assistant/guides': { GUIDE_CARDS: guides },
     '../../../lib/country-intelligence/advisory-destinations.json': {default: JSON.parse(readFileSync('lib/country-intelligence/advisory-destinations.json', 'utf8'))},
     '../lib/native': { openExternal: async () => true },
@@ -65,6 +67,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
       oldRefs.forEach(ref => { ref.current = null; }); oldRefs = [];
       nodes(view).forEach(node => { if (node.props?.ref && typeof node.props.ref === 'object') { const ref = node.props.ref; oldRefs.push(ref); ref.current = { focus: () => { focused = node; } }; } });
       frames.splice(0).forEach(fn => fn());
+      effects.splice(0).forEach(fn=>fn());
       return view;
     },
     choose(label) { const control = button(view, label); assert.ok(control, `Visible control: ${label}`); control.props.onClick(); return h.render(); },
@@ -75,6 +78,17 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
   };
   h.render(); return h;
 }
+
+test('Auto country never overrides a manual country or an abandoned tool; denied location leaves manual selection usable',async()=>{
+ let finish;const pending=new Promise(resolve=>{finish=resolve;});const h=harness({locate:()=>pending});
+ h.choose('Emergency help');find(h.render(),'CountryPicker').props.onChange('GB');
+ finish({country:'TR',center:{latitude:41.01,longitude:28.98},city:'İstanbul'});await new Promise(setImmediate);
+ assert.equal(find(h.render(),'CountryPicker').props.value,'GB');assert.equal(find(h.render(),'TravelSafety').props.country,'GB');
+ const denied=harness();denied.choose('Emergency help');await new Promise(setImmediate);assert.ok(text(denied.render()).includes('Location unavailable'));
+ find(denied.render(),'CountryPicker').props.onChange('TR');assert.equal(find(denied.render(),'TravelSafety').props.country,'TR');
+ let late;const leave=harness({locate:()=>new Promise(resolve=>{late=resolve;})});leave.choose('Emergency help');leave.choose('All tools');late({country:'TR'});await new Promise(setImmediate);
+ assert.equal(find(leave.render(),'CountryPicker'),undefined);
+});
 
 test('Four main tools and all remaining tools stay reachable without an unrelated country gate', () => {
   const h = harness();

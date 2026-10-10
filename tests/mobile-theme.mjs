@@ -40,9 +40,10 @@ function browser({stored=null,dark=false,reducedMotion=false,viewTransitions=fal
   };
   transitions.push(transition);return transition;
  };
- const globals={window,document};
+ let now=1000;
+ const globals={window,document,Date:{now:()=>now}};
  return {globals,values,document,metas,storageListeners,mediaListeners,transitions,get writes(){return writes;},
-  theme:()=>load('mobile/src/lib/theme.ts',globals),
+  theme:()=>load('mobile/src/lib/theme.ts',globals),tick:ms=>{now+=ms;},
   system(value){media.matches=value;mediaListeners.forEach(callback=>callback({matches:value}));},
   remote(value,{eventKey=key,storageArea=localStorage}={}){if(eventKey===null)values.clear();else if(value===null)values.delete(eventKey);else values.set(eventKey,value);storageListeners.forEach(callback=>callback({key:eventKey,newValue:value,storageArea}));},
  };
@@ -170,13 +171,15 @@ test('A system appearance event cannot supersede an explicit choice waiting for 
  assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
 });
 
-test('An older transition finishing cannot remove the active transition state',async()=>{
+test('Rapid taps stop capturing page snapshots and keep the last requested theme',async()=>{
  const f=browser({viewTransitions:true}),theme=f.theme(),stop=theme.initializeTheme();
- theme.setThemePreference('dark');const first=f.transitions[0];await first.update();first.show();
- theme.setThemePreference('light');const second=f.transitions[1];await second.update();second.show();
- assert.ok(first.skipped>0);assertAppearance(f,'light');
- first.finish();await flush();assert.equal(f.document.documentElement.dataset.themeTransition,'crossfade');
- second.finish();await flush();assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);stop();
+ theme.toggleThemePreference();const first=f.transitions[0];
+ for(let i=0;i<20;i++){f.tick(25);theme.toggleThemePreference();}
+ assert.equal(f.transitions.length,1);assertAppearance(f,'dark');
+ assert.ok(first.skipped>0);await first.update();first.show();first.finish();await flush();
+ assertAppearance(f,'dark');assert.equal(Object.hasOwn(f.document.documentElement.dataset,'themeTransition'),false);
+ f.tick(650);theme.toggleThemePreference();assert.equal(f.transitions.length,2);
+ const second=f.transitions[1];await second.update();second.show();second.finish();await flush();assertAppearance(f,'light');stop();
 });
 
 test('Reduced motion and unsupported browsers update synchronously without starting a transition',()=>{
@@ -225,7 +228,7 @@ test('Localized header theme switch and menu device preference share the resolve
   const component=load('mobile/src/components/AppearancePicker.tsx',{}, {
    react:{useId:()=>':theme-test:'},'react/jsx-runtime':{jsx,jsxs:jsx},
    '../lib/i18n':{useI18n:()=>({copy:(tr,en,sq)=>({tr,en,sq}[locale])})},
-   '../lib/useTheme':{useTheme:()=>({...theme.getThemeSnapshot(),setPreference:theme.setThemePreference})},
+   '../lib/useTheme':{useTheme:()=>({...theme.getThemeSnapshot(),setPreference:theme.setThemePreference,toggle:theme.toggleThemePreference})},
   });
   const renderHeader=resolved=>{
    const view=component.HeaderThemeToggle(),all=nodes(view);

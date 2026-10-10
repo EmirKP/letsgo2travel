@@ -17,6 +17,7 @@ import { disablePushDevices, sendPushToUser } from "../../lib/push";
 import { runPriceAlertCheck, settleAlertNotification } from "../../lib/price-alert-cron";
 
 type Row = Record<string, any>;
+const DEPARTURE_DATE = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------
 // Mock Supabase: cron ve push katmanının kullandığı zincirleri destekler.
@@ -61,6 +62,14 @@ class MockSupabase {
         state.filters.push((r) => r[col] !== value);
         return builder;
       },
+      is(col: string, value: any) {
+        state.filters.push((r) => value === null ? r[col] == null : r[col] === value);
+        return builder;
+      },
+      gte(col: string, value: any) {
+        state.filters.push((r) => r[col] >= value);
+        return builder;
+      },
       lt(col: string, value: any) {
         state.filters.push((r) => Number(r[col]) < Number(value));
         return builder;
@@ -102,7 +111,7 @@ class MockSupabase {
     if (name === "mark_alert_notified") {
       // Gercek SQL fonksiyonuyla ayni semantik: least(fiyat) / greatest(zaman).
       const alert = this.tables.flight_price_alerts.find((r) => r.id === params.p_alert_id);
-      if (alert) {
+      if (alert && alert.is_active !== false && !alert.cancelled_at && alert.status !== "cancelled") {
         const price = Number(params.p_event_price);
         const at = typeof params.p_notified_at === "string" ? params.p_notified_at : new Date().toISOString();
         alert.last_notified_price = alert.last_notified_price != null
@@ -171,7 +180,7 @@ function makeAlert(overrides: Row = {}): Row {
     origin_label: "İstanbul",
     destination_code: "LHR",
     destination_label: "Londra",
-    departure_date: "2026-10-10",
+    departure_date: DEPARTURE_DATE,
     return_date: null,
     trip_type: "one_way",
     cabin_class: "economy",
@@ -353,7 +362,7 @@ test("cron: 'sent' olay bir daha ASLA gonderilmez", async () => {
   const db = new MockSupabase();
   const alert = makeAlert();
   db.tables.flight_price_alerts.push(alert);
-  db.tables.flight_price_alert_notifications.push({ id: "n1", alert_id: alert.id, channel: "email", event_key: "2026-10-10:2500:TRY", status: "sent", attempt_count: 1, last_attempt_at: new Date(0).toISOString(), failure_kind: null, next_retry_at: null });
+  db.tables.flight_price_alert_notifications.push({ id: "n1", alert_id: alert.id, channel: "email", event_key: `${DEPARTURE_DATE}:2500:TRY`, status: "sent", attempt_count: 1, last_attempt_at: new Date(0).toISOString(), failure_kind: null, next_retry_at: null });
   let mailCalls = 0;
   const mailSpy = async () => { mailCalls += 1; return { success: true, providerId: "x" }; };
   const result = await runCron(db, { sendMail: mailSpy, sendPush: pushOk });
@@ -384,7 +393,7 @@ test("cron: taze 'pending' baska cron tarafindan alinamaz; suresi gecen alinir",
   const alert = makeAlert();
   db.tables.flight_price_alerts.push(alert);
   // taze pending
-  db.tables.flight_price_alert_notifications.push({ id: "n1", alert_id: alert.id, channel: "email", event_key: "2026-10-10:2500:TRY", status: "pending", attempt_count: 1, last_attempt_at: new Date().toISOString(), failure_kind: null, next_retry_at: null });
+  db.tables.flight_price_alert_notifications.push({ id: "n1", alert_id: alert.id, channel: "email", event_key: `${DEPARTURE_DATE}:2500:TRY`, status: "pending", attempt_count: 1, last_attempt_at: new Date().toISOString(), failure_kind: null, next_retry_at: null });
   let mailCalls = 0;
   const mailSpy = async () => { mailCalls += 1; return { success: true, providerId: "x" }; };
   await runCron(db, { sendMail: mailSpy, sendPush: pushOk });
@@ -639,7 +648,7 @@ test("v3: fiyat degisse bile eski olayin transient kanali SNAPSHOT ile tamamlani
   assert.equal(pushCalls, 1);
   const pushRow = db.tables.flight_price_alert_notifications.find((n) => n.channel === "push");
   assert.ok(pushRow, "push bildirim kaydi olusmali");
-  assert.equal(pushRow.event_key, "2026-10-10:2500:TRY");
+  assert.equal(pushRow.event_key, `${DEPARTURE_DATE}:2500:TRY`);
   assert.equal(pushRow.event_price, 2500, "olay snapshot fiyati kaydedilmeli");
 
   // 2. cron: FIYAT DEGISTI (2300); push retry zamani geldi
@@ -648,7 +657,7 @@ test("v3: fiyat degisse bile eski olayin transient kanali SNAPSHOT ile tamamlani
   const r2 = await runCron(db, { sendMail: mailSpy, sendPush: pushSpy, fetchPrice: priceChanged });
   assert.equal(pushCalls, 2, "eski olayin push retry'i fiyat degisse de TAMAMLANMALI");
   assert.equal(pushRow.status, "sent");
-  assert.equal(pushRow.event_key, "2026-10-10:2500:TRY", "retry ORIJINAL olay anahtariyla tamamlanmali");
+  assert.equal(pushRow.event_key, `${DEPARTURE_DATE}:2500:TRY`, "retry ORIJINAL olay anahtariyla tamamlanmali");
   assert.equal(r2.retrySent, 1);
   assert.equal(mailCalls, 1, "basarili e-posta kanali yeni event sanilip TEKRAR gonderilmemeli");
   const newEventRows = db.tables.flight_price_alert_notifications.filter((n) => String(n.event_key).includes("2300"));
@@ -663,30 +672,30 @@ test("v3: suresi gecmis pending attempt sinirini asamaz (2->3 bir kez; sonra asl
   const db = new MockSupabase();
   const staleIso = new Date(Date.now() - 3600 * 1000).toISOString();
   db.tables.flight_price_alert_notifications.push({
-    id: "n1", alert_id: "a1", channel: "push", event_key: "2026-10-10:2500:TRY",
+    id: "n1", alert_id: "a1", channel: "push", event_key: `${DEPARTURE_DATE}:2500:TRY`,
     status: "pending", attempt_count: 2, last_attempt_at: staleIso,
     failure_kind: null, next_retry_at: null, claim_token: "eski-token",
   });
   const row = db.tables.flight_price_alert_notifications[0];
 
   // stale + attempt=2 -> YALNIZ BIR KEZ claim edilir, attempt 3 olur
-  const r1 = await db.rpc("claim_alert_notification", { p_alert_id: "a1", p_channel: "push", p_event_key: "2026-10-10:2500:TRY" });
+  const r1 = await db.rpc("claim_alert_notification", { p_alert_id: "a1", p_channel: "push", p_event_key: `${DEPARTURE_DATE}:2500:TRY` });
   assert.ok(typeof r1.data === "string" && r1.data, "stale pending (attempt=2) claim edilebilmeli");
   assert.equal(row.attempt_count, 3);
 
   // tekrar stale hale gelse bile claim EDILMEZ (attempt=3 = sinir)
   row.last_attempt_at = staleIso;
-  const r2 = await db.rpc("claim_alert_notification", { p_alert_id: "a1", p_channel: "push", p_event_key: "2026-10-10:2500:TRY" });
+  const r2 = await db.rpc("claim_alert_notification", { p_alert_id: "a1", p_channel: "push", p_event_key: `${DEPARTURE_DATE}:2500:TRY` });
   assert.equal(r2.data, null, "attempt sinirina ulasan stale pending TEKRAR claim edilmemeli");
   assert.equal(row.attempt_count, 3, "attempt_count artmamali");
 
   // dogrudan attempt=3 ile stale pending: hic claim edilmez
   db.tables.flight_price_alert_notifications.push({
-    id: "n2", alert_id: "a2", channel: "email", event_key: "2026-10-10:2500:TRY",
+    id: "n2", alert_id: "a2", channel: "email", event_key: `${DEPARTURE_DATE}:2500:TRY`,
     status: "pending", attempt_count: 3, last_attempt_at: staleIso,
     failure_kind: null, next_retry_at: null, claim_token: "eski-token-2",
   });
-  const r3 = await db.rpc("claim_alert_notification", { p_alert_id: "a2", p_channel: "email", p_event_key: "2026-10-10:2500:TRY" });
+  const r3 = await db.rpc("claim_alert_notification", { p_alert_id: "a2", p_channel: "email", p_event_key: `${DEPARTURE_DATE}:2500:TRY` });
   assert.equal(r3.data, null, "attempt=3 stale pending HIC claim edilmemeli");
 });
 
@@ -697,7 +706,7 @@ test("v3: retry kuyrugu da stale pending'i attempt siniri icinde tamamlar (cron 
   seedDevice(db);
   const staleIso = new Date(Date.now() - 3600 * 1000).toISOString();
   db.tables.flight_price_alert_notifications.push({
-    id: "n1", alert_id: alert.id, channel: "push", event_key: "2026-10-10:2500:TRY",
+    id: "n1", alert_id: alert.id, channel: "push", event_key: `${DEPARTURE_DATE}:2500:TRY`,
     status: "pending", attempt_count: 3, last_attempt_at: staleIso,
     failure_kind: null, next_retry_at: null, claim_token: "olu-worker-token",
     event_price: 2500, event_currency: "TRY",
@@ -717,7 +726,7 @@ test("v3: eski worker yeni claim'in 'sent' sonucunu EZEMEZ (fencing token)", asy
 
   // Cron A claim alir (henuz settle etmedi — yavas/askida kaldi)
   const rA = await db.rpc("claim_alert_notification", {
-    p_alert_id: alert.id, p_channel: "email", p_event_key: "2026-10-10:2500:TRY",
+    p_alert_id: alert.id, p_channel: "email", p_event_key: `${DEPARTURE_DATE}:2500:TRY`,
     p_event_price: 2500, p_event_currency: "TRY",
   });
   const tokenA = rA.data as string;
@@ -736,7 +745,7 @@ test("v3: eski worker yeni claim'in 'sent' sonucunu EZEMEZ (fencing token)", asy
   assert.notEqual(row.claim_token, tokenA, "B'nin claim'i yeni token uretmis olmali");
 
   // Cron A GEC doner ve kendi (eski) token'iyla 'failed' yazmaya calisir
-  await settleAlertNotification(db as any, { alertId: alert.id, channel: "email", eventKey: "2026-10-10:2500:TRY" }, tokenA, {
+  await settleAlertNotification(db as any, { alertId: alert.id, channel: "email", eventKey: `${DEPARTURE_DATE}:2500:TRY` }, tokenA, {
     ok: false, failureKind: "transient", errorMessage: "gec kalan eski worker",
   });
   assert.equal(row.status, "sent", "SON DURUM 'sent' KALMALI — eski worker ezememeli");
@@ -814,7 +823,7 @@ test("v3: transient-failed push kaydi da saglayici yapilandirilinca retry kuyrug
   db.tables.push_devices.push({ id: "d-and", user_id: "user-1", platform: "android", device_token: "tok-android-000000000", enabled: true });
   // Gecmiste transient fail olmus kayit (ornegin FCM o sirada dusmustu)
   db.tables.flight_price_alert_notifications.push({
-    id: "n1", alert_id: alert.id, channel: "push", event_key: "2026-10-10:2500:TRY",
+    id: "n1", alert_id: alert.id, channel: "push", event_key: `${DEPARTURE_DATE}:2500:TRY`,
     status: "failed", attempt_count: 1, last_attempt_at: new Date(Date.now() - 3600e3).toISOString(),
     failure_kind: "transient", next_retry_at: new Date(0).toISOString(), claim_token: "t-eski",
     event_price: 2500, event_currency: "TRY",
@@ -891,7 +900,7 @@ test("v4: gec tamamlanan eski retry, daha dusuk yeni bildirilen fiyati YUKSELTEM
   db.tables.flight_price_alerts.push(alert);
   seedDevice(db);
   db.tables.flight_price_alert_notifications.push({
-    id: "n-eski", alert_id: alert.id, channel: "push", event_key: "2026-10-10:2500:TRY",
+    id: "n-eski", alert_id: alert.id, channel: "push", event_key: `${DEPARTURE_DATE}:2500:TRY`,
     status: "failed", attempt_count: 1, last_attempt_at: new Date(Date.now() - 3600e3).toISOString(),
     failure_kind: "transient", next_retry_at: new Date(0).toISOString(), claim_token: "t-eski",
     event_price: 2500, event_currency: "TRY",
@@ -961,6 +970,54 @@ test("v4: push gonderimleri paralel; tek cihazin timeout'u digerlerini bekletmez
   assert.ok(summary.errors.some((e) => e.reason === "transport_timeout"), "timeout nedeni transport_timeout olmali");
   assert.equal(summary.disabledTokens, 0, "timeout GECICI hatadir; token disable edilmemeli");
   assert.equal(db.tables.push_devices.find((d) => d.id === "d-yavas")?.enabled, true, "yavas cihaz kaydi acik kalmali");
+});
+
+test("v5: gecmis tarih veya silinme isareti fiyat taramasi ve retry gonderiminden dislanir", async () => {
+  const db = new MockSupabase();
+  const expired = makeAlert({ departure_date: "2020-01-01" });
+  const deleted = makeAlert({ status: "active", cancelled_at: new Date().toISOString() });
+  db.tables.flight_price_alerts.push(expired, deleted);
+  for (const alert of [expired, deleted]) db.tables.flight_price_alert_notifications.push({
+    id: `retry-${alert.id}`, alert_id: alert.id, channel: "email", event_key: `${alert.departure_date}:2500:TRY`,
+    status: "failed", attempt_count: 1, last_attempt_at: new Date(0).toISOString(), failure_kind: "transient", next_retry_at: new Date(0).toISOString(),
+    event_price: 2500, event_currency: "TRY",
+  });
+  let deliveryCalls = 0, priceCalls = 0;
+  await runCron(db, { sendMail: async () => { deliveryCalls++; return mailOk(); }, sendPush: pushOk,
+    fetchPrice: async () => { priceCalls++; return mockPriceOk(); } });
+  assert.equal(priceCalls, 0);
+  assert.equal(deliveryCalls, 0);
+  assert.ok(db.tables.flight_price_alert_notifications.every(row => row.failure_kind === "permanent"));
+});
+
+test("v5: fiyat saglayicisi beklerken silinen alarm canlanmaz veya bildirim uretmez", async () => {
+  for (const response of [mockPriceOk(), Promise.resolve(null)]) {
+    const db = new MockSupabase(), alert = makeAlert();
+    db.tables.flight_price_alerts.push(alert);
+    let deliveries = 0;
+    await runCron(db, { sendMail: async () => { deliveries++; return mailOk(); }, sendPush: pushOk,
+      fetchPrice: async () => { Object.assign(alert, { is_active: false, status: "cancelled", cancelled_at: new Date().toISOString() }); return response; } });
+    assert.equal(alert.status, "cancelled");
+    assert.equal(alert.is_active, false);
+    assert.equal(deliveries, 0);
+  }
+});
+
+test("v5: genel fiyat bildirimi tercihleri kanal bazinda yeni olayi ve retry'i durdurur", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ notify_push: true });
+  db.tables.flight_price_alerts.push(alert); seedDevice(db);
+  db.tables.community_notification_preferences = [{ user_id: "user-1", price_alert_email: false, price_alert_push: false }];
+  db.tables.flight_price_alert_notifications.push({ id: "queued", alert_id: alert.id, channel: "email", event_key: `${DEPARTURE_DATE}:2500:TRY`,
+    status: "failed", attempt_count: 1, last_attempt_at: new Date(0).toISOString(), failure_kind: "transient", next_retry_at: new Date(0).toISOString(), event_price: 2500, event_currency: "TRY" });
+  let emails = 0, pushes = 0;
+  const deps = { sendMail: async () => { emails++; return mailOk(); }, sendPush: async () => { pushes++; return pushOk(); } };
+  await runCron(db, deps);
+  assert.equal(emails, 0); assert.equal(pushes, 0);
+  assert.equal(db.tables.flight_price_alert_notifications[0].attempt_count, 1);
+  assert.equal(alert.notify_email, true, "Genel tercih alarm ozelindeki tercihi ezmemeli");
+  db.tables.community_notification_preferences[0].price_alert_push = true;
+  await runCron(db, deps);
+  assert.equal(emails, 0); assert.equal(pushes, 1);
 });
 
 // ------------------------------ runner -------------------------------

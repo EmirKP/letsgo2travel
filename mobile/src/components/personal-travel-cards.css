@@ -7,4 +7,5 @@
 .personal-travel-cards>header>.ptc-artwork{width:64px;height:64px;background:transparent;border-radius:0}
 .personal-travel-cards .ptc-artwork>.travel-tool-artwork{display:block;width:100%;height:100%}
 .personal-travel-cards>header>div{min-width:0}
+.ptc-updated{display:block;margin-top:5px;color:var(--theme-muted,#64748b);font-size:12px;line-height:1.5}
 @media(max-width:359px){.personal-travel-cards>header{gap:9px}.personal-travel-cards>header>.ptc-artwork{width:56px;height:56px}}

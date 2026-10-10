@@ -10,8 +10,15 @@ import {
   shouldNotifyForPrice,
 } from "./price-alerts";
 import { isPushConfigured as isPushProviderConfigured, sendPushToUser } from "./push";
+import { isPastTravelDate, todayIsoInTimeZone } from "./date-utils";
+import { priceAlertPreferenceReader } from "./price-alert-preferences";
 
 type PriceAlertRow = Record<string, any>;
+
+// No departure-zone column exists on legacy alerts. Wait until the date has
+// passed in every time zone before retiring one in the background. The UI
+// and resume API use the user's local calendar for an immediate expiry label.
+const ALERT_EXPIRY_ZONE = "Etc/GMT+12";
 
 // ---------------------------------------------------------------------
 // Bildirim teslim kuralları (v3) + zaman bütçesi (v4):
@@ -139,7 +146,7 @@ async function markNoPrice(params: {
         last_error_at: now,
         last_error_message: message,
         error_count: errorCount,
-      }).eq("id", alert.id),
+      }).eq("id", alert.id).eq("is_active", true).is("cancelled_at", null),
       supabase.from("flight_price_alert_logs").insert({
         alert_id: alert.id,
         status: isHardError ? "no_price_error" : "no_price_retry",
@@ -346,8 +353,9 @@ async function processRetryQueue(params: {
   emailConfigured: boolean;
   pushCfg: PushConfig;
   pastDeadline: () => boolean;
+  getPreferences: ReturnType<typeof priceAlertPreferenceReader>;
 }): Promise<{ processed: number; sent: number; deferred: number; deadlineReached: boolean }> {
-  const { supabase, sendMail, sendPush, emailConfigured, pushCfg, pastDeadline } = params;
+  const { supabase, sendMail, sendPush, emailConfigured, pushCfg, pastDeadline, getPreferences } = params;
   const stats = { processed: 0, sent: 0, deferred: 0, deadlineReached: false };
   const nowMs = Date.now();
 
@@ -412,6 +420,10 @@ async function processRetryQueue(params: {
     // kanal kapatılmış, push için kullanıcı yok) -> claim + kalıcı kapanış.
     const permanentReason = !alert
       ? "alert_missing"
+      : alert.cancelled_at || alert.status === "cancelled"
+        ? "alert_deleted"
+        : isPastTravelDate(alert.departure_date, ALERT_EXPIRY_ZONE)
+          ? "alert_expired"
       : alert.is_active === false
         ? "alert_inactive"
         : channel === "email" && !alert.notify_email
@@ -424,6 +436,8 @@ async function processRetryQueue(params: {
     // kalır; sağlayıcı/cihaz hazır olunca gönderilir (olay tüketilmez).
     let eligiblePlatforms: PushPlatform[] = [];
     if (!permanentReason && alert) {
+      const preferences = await getPreferences(alert.user_id);
+      if ((channel === "email" && !preferences.email) || (channel === "push" && !preferences.push)) continue;
       if (channel === "email") {
         if (!emailConfigured) continue;
       } else {
@@ -536,18 +550,22 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
 
   let deadlineReached = false;
   let deferred = 0;
+  const getPreferences = priceAlertPreferenceReader(supabase);
 
   // 1) RETRY KUYRUĞU: yeni olay tespitinden BAĞIMSIZ çalışır; alarm
   //    cooldown'u bekleyen/başarısız kanal retry'ını durdurmaz.
-  const retryStats = await processRetryQueue({ supabase, sendMail, sendPush, emailConfigured, pushCfg, pastDeadline });
+  const retryStats = await processRetryQueue({ supabase, sendMail, sendPush, emailConfigured, pushCfg, pastDeadline, getPreferences });
   deadlineReached = deadlineReached || retryStats.deadlineReached;
   deferred += retryStats.deferred;
 
   // 2) YENİ FİYAT OLAYI TESPİTİ
+  const oldestDeparture = todayIsoInTimeZone(ALERT_EXPIRY_ZONE);
   const { data: activeAlerts, error: alertsError } = await supabase
     .from("flight_price_alerts")
     .select("*")
     .eq("is_active", true)
+    .is("cancelled_at", null)
+    .gte("departure_date", oldestDeparture)
     .or("notify_email.eq.true,notify_push.eq.true")
     .in("status", ["active", "triggered", "error"])
     .order("last_checked_at", { ascending: true, nullsFirst: true })
@@ -627,7 +645,7 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
       let groupErrors = 0;
       let groupProcessed = 0;
 
-      for (const alert of group) {
+      for (const snapshotAlert of group) {
         // Deadline: bu alarmın bildirim işi HİÇ başlatılmaz (claim yok,
         // attempt yok); alarm sonraki cron'da güvenle işlenir.
         if (pastDeadline()) {
@@ -635,6 +653,14 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
           deferred += 1;
           continue;
         }
+        // Provider calls can take seconds. Re-read delivery preferences after
+        // that wait so a delete/pause/channel change takes effect immediately.
+        const { data: currentRows, error: currentError } = await supabase.from("flight_price_alerts")
+          .select("*").eq("id", snapshotAlert.id).limit(1);
+        if (currentError) { deferred += 1; continue; }
+        const alert = currentRows?.[0];
+        if (!alert || alert.is_active === false || alert.cancelled_at || alert.status === "cancelled"
+          || isPastTravelDate(alert.departure_date, ALERT_EXPIRY_ZONE)) continue;
         groupProcessed += 1;
         processedAlerts += 1;
 
@@ -666,8 +692,9 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
           currentPrice,
           currency: eventCurrency,
         });
+        const preferences = await getPreferences(alert.user_id);
 
-        if (shouldNotify && alert.notify_email && !pastDeadline()) {
+        if (shouldNotify && alert.notify_email && preferences.email && !pastDeadline()) {
           if (!emailConfigured) {
             // Saglayici yok: olay claim edilmez, ileride yeniden denenebilir.
             await supabase.from("flight_price_alert_logs").insert({
@@ -716,7 +743,7 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
           }
         }
 
-        if (shouldNotify && alert.notify_push && alert.user_id && !pastDeadline()) {
+        if (shouldNotify && alert.notify_push && preferences.push && alert.user_id && !pastDeadline()) {
           // Hazirlik on kontrolleri PLATFORM BAZLIDIR: iOS cihaz icin APNs,
           // Android cihaz icin FCM. Uygun sağlayıcısı yapılandırılmış en az
           // bir aktif cihaz yoksa olay claim edilmez (tuketilmez).
@@ -823,7 +850,7 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
         }
 
         await Promise.all([
-          supabase.from("flight_price_alerts").update(updatePayload).eq("id", alert.id),
+          supabase.from("flight_price_alerts").update(updatePayload).eq("id", alert.id).eq("is_active", true).is("cancelled_at", null),
           notifySent ? markAlertNotified(supabase, alert.id, currentPrice, now) : Promise.resolve(),
           supabase.from("flight_price_alert_logs").insert({
             alert_id: alert.id,

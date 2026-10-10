@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/check-price-alerts",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/purge-flight-data",
       "schedule": "45 3 * * *"
     },

@@ -1,0 +1,115 @@
+2026-10-11 live rollout readiness and migration execution
+The preflight sections below describe the initial read-only inspection. The final
+execution record at the end reflects the subsequently authorized live migrations.
+
+Confirmed deployment target
+  Vercel team: emirkaanpolat34-9211s-projects / team_nrPGcjAHHiXJJwwEmfGr38qK
+  Main project: letsgo2travel / prj_aHsK5Gpy7IcqrQoMdbgXMiVUAJz1
+  www.letsgo2travel.com.tr and letsgo2travel.com.tr currently point to the main project.
+  letsgo2travel-testflight is a separate project; do not use it for main API deployment.
+  Repository has no .vercel/project.json. Use an explicit project and team, with an
+  isolated release directory or explicit link before deployment. Do not accept an
+  inferred new-project setup.
+
+Production environment metadata (names/presence only; no values read or recorded)
+  Present: GEMINI_MODEL, GEMINI_API_KEY, CRON_SECRET, RESEND_API_KEY,
+  SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SECRET_KEY, NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  TRAVELPAYOUTS_TOKEN, APNS_TEAM_ID, APNS_KEY_ID, APNS_PRIVATE_KEY,
+  APNS_BUNDLE_ID, APNS_ENVIRONMENT.
+  GEMINI_TRANSLATION_MODEL is absent; translation uses the configured GEMINI_MODEL.
+  Presence does not confirm provider quota, credentials validity or delivery.
+  No FCM environment name was found in the inspected project metadata.
+  Live cron definitions currently contain only the two existing purge jobs.
+  The checked-in config adds the price check once daily at 09:00 UTC.
+
+Available migration path
+  Cached Supabase CLI 2.116.0 is authenticated. No browser/login or secret extraction
+  was needed. projects list shows mwlucroyjvtoxillvzga (letsgo2travel), ACTIVE_HEALTHY.
+  Read-only db query succeeded with explicit --linked --project-ref despite no local
+  project link. The recorded migration ledger ends at 20260928150000, while newer
+  community profile functions exist. Do not push all locally unrecorded migrations.
+
+  Verified command form for an explicitly selected project:
+  npm exec --offline --no -- supabase db query --linked --project-ref mwlucroyjvtoxillvzga --file <reviewed SQL file>
+  Only SELECT statements have been executed during this inspection.
+
+Schema preflight for exactly the three new migrations
+  Present: auth.users, flight_price_alerts, community_profile_follows,
+  community_user_blocks, storage.buckets and storage.objects.
+  Present flight fields include is_active, status, cancelled_at, last_notified_price,
+  last_notified_at, last_error_message, last_error_at and error_count.
+  Present functions/signatures: mark_alert_notified(uuid,numeric,timestamptz),
+  community_users_blocked(uuid,uuid), community_profile_identity(text,uuid).
+  The identity function returns profile_key,user_id,username,avatar_path,bio,
+  is_starter,show_avatar, as required by the new social functions.
+  All eight new social/preferences tables and forum_translation_usage are absent.
+  travel-social-photos bucket and its restrictive policy are also absent.
+
+Ordered rollout after verification is complete
+  1. Apply 20261011100000_price_alert_cancel_fencing.sql.
+     Existing function signature is unchanged. Re-running is safe.
+  2. Apply 20261011120000_travel_social_posts.sql.
+     This is one atomic transaction and uses plain CREATE for tables/functions/
+     policy/trigger. Do not blindly replay after a successful or unknown outcome.
+     Inspect table/function presence first; record successful migration version.
+  3. Apply 20261011140000_forum_translation_quota.sql.
+     Additive counters-only table and service RPC; re-running is safe with the same
+     schema. Record successful migration version.
+  4. Verify schema/RLS/service-only RPC grants and new private storage bucket.
+     Use metadata SELECTs; no sample community content or user notifications needed.
+  5. Deploy the verified API and mobile web output to the main Vercel project.
+     Confirm production aliases point to the intended release and cron definitions
+     include /api/cron/check-price-alerts. Never invoke the price cron as a smoke test:
+     it can send real email/push notifications.
+  6. Verify public reads plus authenticated social/preferences and price-alert reads;
+     verify translation with an authorized signed-in smoke test if desired. Confirm
+     real photo posting on a test account separately; do not claim it was checked
+     from metadata alone. TestFlight packaging/submission is a separate release step.
+
+Backwards compatibility
+  Price fencing prevents completion of an old delivery from reactivating deleted or
+  paused alerts. It preserves the existing RPC signature and existing row columns.
+  Social schema does not change legacy question/answer data shapes. It adds service-
+  only tables/functions, one follow-notification trigger and a bucket-specific policy
+  which leaves other storage buckets unchanged. Existing follow calls continue to work.
+  No preference row means existing per-alert email/push behavior is retained. During
+  a staggered rollout only missing-table errors (42P01/PGRST205) fall back to enabled
+  global preferences; other preference read errors fail closed for delivery.
+  Translation requires its quota migration before use; missing quota capability
+  produces an availability error rather than an unmetered provider call.
+  App rollback does not require deleting additive social tables or user content.
+
+Limitations
+  Initial inspection performed no DDL. See the authorized execution record below.
+  No live deployment, quota consumption, email or push send was performed here.
+  The final main build, deployment, user flows and TestFlight remain root-owned.
+
+Authorized execution record (2026-10-11)
+  Target: mwlucroyjvtoxillvzga only. Authenticated Supabase CLI db query with explicit
+  --linked --project-ref. No push of historical/unrecorded migrations.
+  Each exact reviewed source was copied into a temporary SQL wrapper; its final
+  COMMIT was preceded by the migration ledger INSERT(version,name), so schema and
+  ledger committed together. No original migration SQL was otherwise changed.
+
+  APPLIED and verified in this order:
+  20261011100000 price_alert_cancel_fencing
+    Source SHA256 169645F113ECA16F5446A0837B5EA33530797A58F131B5CA93F108D71B7501E2
+    Active/cancelled guards and service-only mark_alert_notified execution verified.
+  20261011120000 travel_social_posts
+    Final backend freeze source SHA256:
+    AFD5AC3129940D9D36CC2C4F9F3EE8A86404B1938BFDB0030E4A65AE7E462D0D
+    Includes the atomic moderate_travel_social_report RPC.
+    All eight tables have RLS, no anon/authenticated direct table privileges, and
+    service access. All eleven named functions have service EXECUTE and no anon/
+    authenticated EXECUTE. Both social notification triggers are enabled.
+    Photo bucket is private, allows only image/jpeg, caps objects at 300000 bytes;
+    restrictive bucket policy applies to anon/authenticated, leaving others intact.
+  20261011140000 forum_translation_quota
+    Source SHA256 B56D72869B95772C76B090870BB6401C0D65479E9C1D4FEB6209DF2594D390D9
+    Table RLS and service-only privileges/function verified; 100/day and 8/minute
+    checks and cascading auth-user FK verified. Quota row count remains zero.
+
+  Final ledger SELECT returned all three exact version/name pairs above.
+  No real social content, alarm notification, provider request, cron invocation,
+  or Vercel deployment was performed. Root owns the subsequent main deployment.

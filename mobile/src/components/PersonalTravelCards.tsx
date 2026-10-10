@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
 import { TravelToolArtwork } from "./TravelToolArtwork";
 import { useI18n } from "../lib/i18n";
+import { formatAppDate } from "../lib/localeFormatting";
 import { MAX_PERSONAL_CARDS, PERSONAL_TRAVEL_CARDS_EVENT, readPersonalTravelCards, removePersonalTravelCard, restorePersonalTravelCard, savePersonalTravelCard, type PersonalCardDraft, type PersonalTravelCard } from "../lib/personalTravelCards";
 import "./personal-travel-cards.css";
 
@@ -11,7 +12,7 @@ export function PersonalTravelCards({ ownerId, tripId }: { ownerId?: string | nu
 }
 
 function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tripId?: string }) {
-  const { copy } = useI18n();
+  const { copy, dateLocale } = useI18n();
   const [stored, setStored] = useState(() => readPersonalTravelCards(ownerId));
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<PersonalCardDraft>({ title: "", hotelName: "", address: "", reservationNote: "", tripId: tripId || null });
@@ -66,7 +67,7 @@ function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tri
       <label htmlFor={`${formId}-note`}>{copy("Rezervasyon ve diğer notlar", "Reservation and other notes")}<textarea id={`${formId}-note`} rows={3} maxLength={1000} value={draft.reservationNote} placeholder={copy("Giriş saati, rezervasyon numarası, buluşma noktası…", "Check-in time, booking reference, meeting point…")} onChange={event => setDraft(value => ({ ...value, reservationNote: event.target.value }))}/></label>
       <div className="ptc-form-actions"><button type="submit" disabled={Boolean(stored.error)}>{copy("Cihaza kaydet", "Save on this device")}</button><button type="button" onClick={() => { setEditing(null); setError(""); }}>{copy("Vazgeç", "Cancel")}</button></div>
     </form> : <>
-      {items.map(card => <article className="ptc-card" key={card.id}><header><h3>{card.title}</h3><button type="button" onClick={() => start(card)} aria-label={copy(`${card.title} kartını düzenle`, `Edit ${card.title}`, `Ndrysho ${card.title}`)}>{copy("Düzenle", "Edit")}</button></header>{card.hotelName && <div><small>{copy("KONAKLAMA", "STAY")}</small><p>{card.hotelName}</p></div>}{card.address && <div><small>{copy("ADRES", "ADDRESS")}</small><p>{card.address}</p></div>}{card.reservationNote && <div><small>{copy("NOTUN", "YOUR NOTE")}</small><p>{card.reservationNote}</p></div>}<button type="button" className="ptc-remove" onClick={() => remove(card)} aria-label={copy(`${card.title} kartını kaldır`, `Remove ${card.title}`, `Hiq ${card.title}`)}><Icon name="trash" size={16}/>{copy("Kartı kaldır", "Remove card")}</button></article>)}
+      {items.map(card => <article className="ptc-card" key={card.id}><header><h3>{card.title}</h3><button type="button" onClick={() => start(card)} aria-label={copy(`${card.title} kartını düzenle`, `Edit ${card.title}`, `Ndrysho ${card.title}`)}>{copy("Düzenle", "Edit")}</button></header><small className="ptc-updated">{copy("Son güncelleme:", "Last updated:", "Përditësimi i fundit:")} <time dateTime={card.updatedAt}>{formatAppDate(new Date(card.updatedAt), dateLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></small>{card.hotelName && <div><small>{copy("KONAKLAMA", "STAY")}</small><p>{card.hotelName}</p></div>}{card.address && <div><small>{copy("ADRES", "ADDRESS")}</small><p>{card.address}</p></div>}{card.reservationNote && <div><small>{copy("NOTUN", "YOUR NOTE")}</small><p>{card.reservationNote}</p></div>}<button type="button" className="ptc-remove" onClick={() => remove(card)} aria-label={copy(`${card.title} kartını kaldır`, `Remove ${card.title}`, `Hiq ${card.title}`)}><Icon name="trash" size={16}/>{copy("Kartı kaldır", "Remove card")}</button></article>)}
       <button type="button" className="ptc-add" disabled={Boolean(stored.error) || stored.items.length >= MAX_PERSONAL_CARDS} onClick={() => start()}><Icon name="plus" size={19}/>{items.length ? copy("Yeni kart ekle", "Add another card") : copy("Kişisel kartımı oluştur", "Create my personal card")}</button>
     </>}
   </section>;

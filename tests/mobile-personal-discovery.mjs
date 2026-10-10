@@ -256,7 +256,7 @@ test('Shortcut editor saves deliberate order and keeps failed edits visible', ()
  const load = loader({}, { ...shared('en'), react: h.react });
  const { HomeShortcutPicker } = load('mobile/src/components/HomeShortcutPicker.tsx');
  let tree = h.start(HomeShortcutPicker, { views: ['tool:translate', 'tool:money'], onSave: views => { saved.push(plain(views)); return allowSave; }, onClose: () => closed++ });
- find(tree, 'button', props => props['aria-label'] === 'Move Money earlier').props.onClick(); tree = h.render();
+ find(tree, 'button', props => props['aria-label'] === 'Money: drag or use up/down arrow keys to reorder').props.onKeyDown({key:'ArrowUp',preventDefault(){}}); tree = h.render();
  find(tree, 'button', props => text(props.children) === 'Save').props.onClick(); tree = h.render();
  assert.deepEqual(saved[0], ['tool:money', 'tool:translate']); assert.equal(closed, 0); assert.match(text(tree), /could not be saved/);
  allowSave = true; find(tree, 'button', props => text(props.children) === 'Save').props.onClick(); assert.equal(closed, 1);

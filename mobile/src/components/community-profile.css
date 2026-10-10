@@ -64,6 +64,10 @@ body:has(.editorial-app) .community-profile-sheet .sheet-header h2 { color: var(
 .community-profile-post > strong { font-size: .875rem; font-weight: 650; line-height: 1.5; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .community-profile-post > p { margin: 0; padding-left: 12px; border-left: 2px solid var(--theme-border, #d6e2f0); color: var(--theme-ink, #32465f); font-size: .9375rem; line-height: 1.65; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .community-profile-post-cta { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--theme-link, #0966dc); font-weight: 650; font-size: .75rem; padding-top: 1px; }
+.community-profile-post > button.community-profile-post-cta { width: 100%; border: 0; background: transparent; text-align: left; padding: 8px 0; min-height: 40px; }
+.community-profile-post-copy { display: grid; gap: 12px; }
+.community-profile-post-copy > strong { font-size: .875rem; font-weight: 650; line-height: 1.5; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.community-profile-post-copy > p { margin: 0; padding-left: 12px; border-left: 2px solid var(--theme-border, #d6e2f0); color: var(--theme-ink, #32465f); font-size: .9375rem; line-height: 1.65; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .community-profile-person { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 12px 2px; border: 0; border-bottom: 1px solid var(--theme-border, #e0e8f2); border-radius: 0; background: transparent; color: inherit; text-align: left; }
 .community-profile-person:last-child { border-bottom: 0; }
 .community-profile-person > strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }

@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { CATEGORY_LABELS, NEEDS, TOURING, distanceKm, filterPlaces } from '../../../lib/travel-assistant/places';
 import type { Coordinates, MapMode, Place, PlacesResult } from '../../../lib/travel-assistant/types';
 import { loadPlaces, locateForTravel, directionsUrl } from '../lib/travelAssistant';
@@ -60,7 +60,7 @@ export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizensh
       const c = chosen || await locateForTravel();
       if (id !== generation.current) return;
       if (!center || center.latitude !== c.latitude || center.longitude !== c.longitude) setResult(null);
-      setCenter(c);
+      setCenter(c); setArea(c);
       const data = await loadPlaces(c,mode,{refresh});
       if (id === generation.current) setResult(data);
     } catch(error) {
@@ -72,10 +72,12 @@ export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizensh
           : copy('Yakındaki noktalar şu anda alınamadı. Bağlantını kontrol edip tekrar dene; acil numaralar çevrimdışı kullanılabilir.','Nearby places are unavailable. Check your connection and retry; emergency numbers remain available offline.'));
     } finally { if(id === generation.current) setBusy(false); }
   }
+  const autoSearch = useEffectEvent(() => { void search(); });
+  useEffect(() => { autoSearch(); }, []);
   return <section className="ta-panel"><h3>{mode === 'needs' ? copy('Acil & İhtiyaç Haritası','Emergency & essentials map') : copy('Gezi & Tur Rehberi Haritası','Sightseeing map')}</h3>
-    <p className="ta-muted">{copy('Butona basınca yaklaşık konumun (~1 km) yakındaki noktaları bulmak için sunucuya iletilir. Harita açıldığında harita sağlayıcısı görüntülenen bölgeyi ve IP adresini görebilir. Konum geçmişi tutmayız.','Tapping requests approximate location (~1 km) to find nearby places through our server. The map provider can see the viewed area and IP address when the map opens. We keep no location history.')}</p>
+    <p className="ta-muted">{copy('Konum izninle yakınındaki yerler otomatik aranır. Yaklaşık konum (~1 km) kullanılır; konum geçmişi tutulmaz. İstersen başka bir bölge seçebilirsin.','With location permission, nearby places load automatically using approximate location (~1 km). No location history is kept. You can choose another area.','Me lejen tënde, vendet pranë kërkohen automatikisht me vendndodhjen e përafërt (~1 km). Nuk ruhet historik. Mund të zgjedhësh zonë tjetër.')}</p>
     <button type="button" className="primary-wide" onClick={() => void search()} disabled={busy}>{busy ? copy('Yakınım aranıyor…','Searching nearby…') : copy('Konumumla yakınları bul','Find places near me')}</button>
-    <TravelAreaPicker value={area} onChange={setArea} disabled={busy}/>
+    <TravelAreaPicker value={area} onChange={point => {generation.current++;setBusy(false);setArea(point);setResult(null);setSelected(null);setError('');}}/>
     <button type="button" className="secondary-wide" disabled={busy || !area} onClick={()=>area && void search(area)}>{copy('Seçili bölgede ara','Search selected area','Kërko në zonën e zgjedhur')}</button>
     {error && <p role="alert" className="ta-empty">{error}</p>}
     {busy && <p role="status" className="ta-tools-status">{copy('Bölgedeki kayıtlar yükleniyor…', 'Loading places in this area…', 'Po ngarkohen vendet në këtë zonë…')}</p>}

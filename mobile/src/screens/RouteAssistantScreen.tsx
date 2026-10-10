@@ -50,16 +50,17 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken }: {
+export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '' }: {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
   surpriseRoute?: RouteSuggestion | null;
   routeSeedKind?: "surprise" | "explore";
   ownerId?: string | null;
   accessToken: string;
+  placeName?: string;
 }) {
   const { copy, locale } = useI18n();
-  const [form, setForm] = useState<PlannerInput>(INITIAL);
+  const [form, setForm] = useState<PlannerInput>(()=>placeName?{...INITIAL,mode:'fixed'}:INITIAL);
   const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(null);
@@ -317,7 +318,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       </div>
       {plannerTab !== "ready" && <section ref={formFields} className="form-card planner-form reference-planner">
         {plannerTab === "plan" ? <>
-          <div className="planner-form-intro"><span><TravelToolArtwork kind="explore" size={56}/></span><div><h2>{copy("Rotanı sen seç, birlikte planlayalım", "Your destination, your plan", "Destinacioni yt, plani yt")}</h2><p>{copy("Hedefin belli olabilir; istersen yeni yerler de önerebiliriz.", "Choose your destination or discover somewhere new.", "Zgjidh destinacionin tënd ose zbulo një vend të ri.")}</p></div></div>
+          <div className="planner-form-intro"><span><TravelToolArtwork kind="explore" size={56}/></span><div><h2>{copy("Rotanı sen seç, birlikte planlayalım", "Your destination, your plan", "Destinacioni yt, plani yt")}</h2><p>{placeName?copy(`${placeName} için önce bulunduğu şehri seç. Planı kaydettikten sonra gönderiden istediğin güne ekleyebilirsin.`,`Choose the city for ${placeName}. After saving your plan, add the place to your chosen day from the post.`,`Zgjidh qytetin për ${placeName}. Pasi ta ruash planin, shtoje vendin te dita e zgjedhur nga postimi.`):copy("Hedefin belli olabilir; istersen yeni yerler de önerebiliriz.", "Choose your destination or discover somewhere new.", "Zgjidh destinacionin tënd ose zbulo një vend të ri.")}</p></div></div>
           <div className="planner-target-modes" role="group" aria-label={copy("Rota seçimi", "Destination choice", "Zgjedhja e destinacionit")}>
             <button type="button" disabled={loading} aria-pressed={form.mode === "fixed"} onClick={() => setForm(current => ({ ...current, mode: "fixed", dayCount: current.dayCount || 3 }))}><Icon name="map" size={19}/><span>{copy("Gideceğim yer belli", "I know where to go", "E di ku do të shkoj")}<small>{copy("Sen seç, AI planlasın", "You choose, AI plans", "Ti zgjedh, AI planifikon")}</small></span></button>
             <button type="button" disabled={loading} aria-pressed={form.mode !== "fixed"} onClick={() => setForm(current => ({ ...current, mode: "discover" }))}><Icon name="compass" size={19}/><span>{copy("Bana yer öner", "Suggest a destination", "Më sugjero një destinacion")}<small>{copy("Yeni rotalar keşfet", "Discover new routes", "Zbulo rrugë të reja")}</small></span></button>

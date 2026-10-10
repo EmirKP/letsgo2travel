@@ -8,6 +8,9 @@ import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { CommunityPostPhoto } from "../components/CommunityPostPhoto";
 import { CommunityProfileSheet } from "../components/CommunityProfileSheet";
+import { SocialHub } from "../components/SocialHub";
+import { ForumTranslation } from "../components/ForumTranslation";
+import type { SocialPlace } from "../lib/social";
 import { CommunityAvatar } from "../components/CommunityAvatar";
 import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
@@ -68,6 +71,10 @@ type CommunityScreenProps = {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
   onSearchDestination: (query: string) => void;
+  onAddSocialPlace?: (place: SocialPlace) => void;
+  initialSocialPostId?: string;
+  initialSocialProfileKey?: string;
+  onSocialIntentHandled?: () => void;
 };
 
 export type CommunityLeader = {
@@ -140,7 +147,7 @@ export function CommunityScreen(props: CommunityScreenProps) {
   return <CommunityScreenForAccount key={props.user?.id || "guest"} {...props} />;
 }
 
-function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onSearchDestination }: CommunityScreenProps) {
+function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onSearchDestination, onAddSocialPlace, initialSocialPostId, initialSocialProfileKey, onSocialIntentHandled }: CommunityScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const questionCountries = useMemo(() => [...COUNTRY_LIST]
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
@@ -153,6 +160,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   })), [questionCountries]);
   const questionCountryLabels = useMemo(() => new Map(questionCountries.map(country => [country.alpha2, country.name])), [questionCountries]);
   const [tab, setTab] = useState<CommunityTab>("feed");
+  const [mode, setMode] = useState<"social" | "forum">(() => initialCountryCode ? "forum" : "social");
+  const [socialRevision, setSocialRevision] = useState(0);
   const [followingKind, setFollowingKind] = useState<"people" | "countries">("people");
   const followingPeople = tab === "following" && followingKind === "people";
   const [profileKey, setProfileKey] = useState<string | null>(null);
@@ -260,7 +269,12 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
   useEffect(() => {
     setCountryFilter(/^[A-Z]{2}$/.test(initialCountryCode) ? initialCountryCode : "");
+    if (initialCountryCode) setMode("forum");
   }, [initialCountryCode]);
+  useEffect(() => {
+    if (initialSocialProfileKey) { setProfileKey(initialSocialProfileKey); onSocialIntentHandled?.(); }
+    if (initialSocialPostId) setMode("social");
+  }, [initialSocialProfileKey, initialSocialPostId]);
 
   const selectTab = (nextTab: CommunityTab) => {
     setTab(nextTab);
@@ -460,6 +474,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const onBlocked = (blockedId: string) => {
     setSafetyTarget(null);
     setProfileKey(null);
+    setSocialRevision(value => value + 1);
     setQuestions((rows) => rows.filter((row) => row.authorId !== blockedId));
     // Reload server-derived counts and access state after filtering any blocked reply.
     if (detail?.authorId === blockedId) closeDetail();
@@ -600,7 +615,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   return <div className="screen community-native-screen reference-community community-social">
     <section className="cs-hero" aria-labelledby="community-welcome-title">
       <img className="cs-hero-image" src={communityCover} alt="" width={1600} height={800} fetchPriority="high"/>
-      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) setSearch(""); if (tab === "groups" || tab === "events") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
+      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setMode("forum"); setSearchOpen(open => !open); if (searchOpen) setSearch(""); if (tab === "groups" || tab === "events") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
       <div className="cs-hero-copy"><h1 id="community-welcome-title">{copy("Topluluk", "Community")}</h1><p>{copy("Aynı tutkuyu paylaşan gezginlerle tanış, ilham al, deneyimlerini paylaş.", "Meet travellers who share your passion, find inspiration and share experiences.")}</p></div>
       <p className="cs-handwritten" aria-hidden="true">{copy("Daha Fazla", "More")}<br/>{copy("Hikâye", "Stories")}<br/><span>{copy("Daha Fazla Sen", "More You")}</span></p>
       <div className="cs-stats" aria-label={copy("Son yüklenen topluluk akışı", "Latest loaded community feed")}>
@@ -612,6 +627,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
     <div className="cs-surface">
       <button type="button" className="cs-my-profile" onClick={() => user ? setProfileKey(`user:${user.id}`) : onOpenAccount()}><Icon name="user" size={18}/>{copy("Topluluk profilim", "My community profile", "Profili im në komunitet")}<Icon name="chevron" size={16}/></button>
+      <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button></div>
+      {mode === "social" ? <SocialHub userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} onIntentHandled={onSocialIntentHandled}/> : <>
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
@@ -661,7 +678,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
               {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`, `Veprimet për përdoruesin @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
             </header>
             {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`, `Fotografi e ndarë nga ${question.username}: ${question.title}`)}/>}
-            <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
+            <ForumTranslation text={`${question.title}\n\n${question.body}`} accessToken={accessToken} onSignIn={onOpenAccount}><button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button></ForumTranslation>
             <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`, `${question.answerCount} përgjigje: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`, `${question.answerCount} përgjigje`)}</span><Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
           : !feedError && !feedLoading && feedNextOffset === null && <div className="empty-state cs-empty">
@@ -674,6 +691,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         {sort !== "newest" && feedNextOffset !== null && <p className="field-hint">{copy("Sıralama yüklenen paylaşımlara uygulanır. Diğer sonuçlar için daha fazla yükle.", "Sorting applies to loaded posts. Load more to see other results.", "Renditja zbatohet për postimet e ngarkuara. Ngarko më shumë për rezultatet e tjera.")}</p>}
       </section>}
       <button type="button" className="cs-compose" onClick={startQuestion} aria-label={copy("Gönderi Paylaş", "Share a Post")} aria-haspopup="dialog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/></svg>{copy("Deneyimini paylaş", "Share your experience")}</button>
+      </>}
       <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
         <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="unlock" size={17}/><span>{copy("Engellenenler", "Blocked users")}<small>{copy("Engeli kaldır", "Unblock")}</small></span></button>
         <button type="button" onClick={() => setSupportOpen(true)}><Icon name="mail" size={17}/>{copy("Destek", "Support")}</button>
@@ -746,14 +764,13 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
         <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail)}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div>{contentOptions(detail, "question")}</header>
-        <h3>{detail.title}</h3>
         {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
-        <p>{detail.body}</p>
+        <ForumTranslation text={`${detail.title}\n\n${detail.body}`} accessToken={accessToken} onSignIn={onOpenAccount}><h3>{detail.title}</h3><p>{detail.body}</p></ForumTranslation>
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`, `${totalAnswerCount} përgjigje`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`, `${shownAnswerCount} të shfaqura · ${hiddenAnswerCount} të kyçura`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`, `${shownAnswerCount} të shfaqura`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
             <header>{authorButton(answer)}<div className="community-answer-meta"><small>{formatQuestionDate(answer.createdAt, dateLocale)}</small>{contentOptions(answer, "answer")}</div></header>
-            <p>{answer.body}</p>
+            <ForumTranslation text={answer.body} accessToken={accessToken} onSignIn={onOpenAccount}><p>{answer.body}</p></ForumTranslation>
             <button type="button" className="community-reply-action" disabled={answerPosting} onClick={() => replyToAnswer(answer)} aria-label={copy(`@${answer.username} kullanıcısına yanıt yaz`, `Reply to @${answer.username}`, `Përgjigju @${answer.username}`)}><Icon name="message" size={15}/>{copy("Yanıt yaz", "Reply", "Përgjigju")}</button>
           </article>)}
           {answersError && <p role="alert">{answersError}</p>}
@@ -772,9 +789,9 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
       </div>}
     </Sheet>
-    {profileKey && <CommunityProfileSheet profileKey={profileKey} accessToken={accessToken} userId={user?.id || null} onClose={() => setProfileKey(null)} onOpenAccount={onOpenAccount} onEditProfile={() => { setProfileKey(null); onNavigate("profile"); }} onOpenQuestion={(id) => { setProfileKey(null); void openDetail(id); }} onSafety={openSafety} onFollowChanged={() => { if (followingPeople) void loadFeed(); }} onProfileChanged={() => void refreshOwnCommunityIdentity()}/>}
+    {profileKey && <CommunityProfileSheet profileKey={profileKey} accessToken={accessToken} userId={user?.id || null} onClose={() => setProfileKey(null)} onOpenAccount={onOpenAccount} onEditProfile={() => { setProfileKey(null); onNavigate("profile"); }} onOpenQuestion={(id) => { setProfileKey(null); setMode("forum"); void openDetail(id); }} onSafety={openSafety} onBlocked={onBlocked} onFollowChanged={() => { setSocialRevision(value => value + 1); if (followingPeople) void loadFeed(); }} onProfileChanged={() => void refreshOwnCommunityIdentity()} onAddPlace={place => { setProfileKey(null); if (onAddSocialPlace) onAddSocialPlace(place); else onSearchDestination(place.name); }}/>}
     <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} onManageBlocks={() => { setSafetyTarget(null); setBlocksOpen(true); }} />
-    {blocksOpen && <CommunityBlocksSheet key={user?.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
+    {blocksOpen && <CommunityBlocksSheet key={user?.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { setSocialRevision(value => value + 1); void loadFeed(); if (detail) void openDetail(detail.id); }} />}
     <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={user?.id ?? null} screen="community" />
   </div>;
 }

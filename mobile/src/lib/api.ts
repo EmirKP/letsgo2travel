@@ -252,7 +252,9 @@ export async function listAlerts(accessToken: string) {
   const result = await requestJson<{ data: FlightAlert[] }>("/api/flight-alerts", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  return Array.isArray(result.data) ? result.data : [];
+  // Older servers returned soft-deleted rows. Keep them hidden during a
+  // staggered mobile/API rollout as well.
+  return Array.isArray(result.data) ? result.data.filter((alert) => alert.status !== "cancelled") : [];
 }
 
 export async function createAlert(input: CreateAlertInput, accessToken: string) {
@@ -285,7 +287,15 @@ export async function updateAlert(
   return requestJson<AlertMutationResponse>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
-    body,
+    body: { ...body, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" },
+  });
+}
+
+export async function restoreAlert(id: string, active: boolean, accessToken: string) {
+  return requestJson<AlertMutationResponse>(`/api/flight-alerts/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: { restore: true, is_active: active, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" },
   });
 }
 

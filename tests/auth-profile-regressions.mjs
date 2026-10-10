@@ -43,6 +43,7 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
  const source=load('mobile/src/screens/ProfileScreen.tsx',{
   react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
   '../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
+  '../components/NotificationPreferences':{NotificationPreferences:'NotificationPreferences'},
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
   '../data/countries':countries,'../data/countryCodes':codes,'../data/countryIso':iso,'../lib/profileCountries':profileCountries,'../lib/config':{config:{}},
   '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},

@@ -1,4 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
+import { AdminSocialQueue } from "../components/AdminSocialQueue";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
@@ -24,7 +25,7 @@ import { alpha3FromAlpha2 } from "../data/countryIso";
 import { openExternal } from "../lib/native";
 import { clampLocalDateTime, localIsoDateTime } from "../lib/dates";
 
-type AdminTab = "overview" | "content" | "events" | "reports" | "records";
+type AdminTab = "overview" | "content" | "events" | "reports" | "records" | "social";
 type EvidencePreview = { id: string; signedUrl: string; evidenceType: string };
 
 const EMPTY_EVENT: AdminTravelEventInput = {
@@ -285,6 +286,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
     ["events", copy("Etkinlik", "Events"), "calendar", events.length],
     ["reports", copy("Rapor", "Reports"), "flag", overview.stats.openReports],
     ["records", copy("Kayıtlar", "Records", "Regjistrimet"), "search", 0],
+    ["social", copy("Gönderiler", "Posts", "Postime"), "camera", 0],
   ];
 
   return <div className="screen admin-screen admin-v14">
@@ -295,6 +297,7 @@ export function AdminScreen({ accessToken, initialOverview, checking, onOverview
 
     {tab === "overview" && <><section className="admin-stat-grid" aria-label={copy("Yönetim özeti", "Admin overview")}>{statCards.map(([label, value, icon], index) => <button type="button" key={label} onClick={() => openRecords((["users", "verifications", "topics", "reports", "visa", "alerts"] as AdminCollection[])[index])}><span><Icon name={icon} size={19} /></span><strong>{value ?? "—"}</strong><small>{label}</small></button>)}</section><VerificationQueue unavailable={overview.moduleHealth?.verifications === "unavailable" || overview.unavailableModules.includes("Doğrulamalar")} reviewReady={overview.verificationReviewReady !== false} items={overview.pendingVerifications} busyId={busyId} opened={openedEvidenceIds} missing={missingEvidenceIds} formatCountry={(code, fallback) => countryName(alpha3FromAlpha2(code), fallback || code)} formatDate={formatDate} openEvidence={openEvidence} decide={decideVerification} copy={copy} /></>}
     {tab === "records" && <AdminRecords key={`${accessToken}:${recordsKey}`} accessToken={accessToken} initialCollection={recordCollection} />}
+    {tab === "social" && <AdminSocialQueue key={accessToken} accessToken={accessToken}/>}
     {tab === "content" && <ContentQueues overview={overview} busyId={busyId} formatDate={formatDate} updateForum={updateForum} copy={copy} />}
     {tab === "events" && <><div hidden={!eventsError} className="info-box error" role="alert"><p>{copy("Etkinlik listesi yüklenemedi. Son alınan kayıtlar varsa korunuyor.", "The event list could not load. Previously loaded records are kept.", "Lista e ngjarjeve nuk u ngarkua. Regjistrimet e mëparshme ruhen.")}</p><button type="button" disabled={loading} onClick={() => void loadEvents()}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div><EventManager events={events} loading={loading || eventsError} busyId={busyId} formOpen={eventFormOpen} editingId={editingEventId} form={eventForm} setForm={setEventForm} toggleForm={toggleEventForm} submit={submitEvent} editEvent={editEvent} patchEvent={patchEvent} formatDate={formatDate} copy={copy} /></>}
     {tab === "reports" && <AdminReports key={accessToken} accessToken={accessToken} onChanged={() => void refresh()} />}

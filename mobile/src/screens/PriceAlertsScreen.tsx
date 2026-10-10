@@ -6,7 +6,7 @@ import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import "./price-alert-artwork.css";
 import { PageHero } from "../components/PageHero";
-import { ApiError, createAlert, deleteAlert, listAlerts, updateAlert, type AlertMutationResponse } from "../lib/api";
+import { ApiError, createAlert, deleteAlert, listAlerts, restoreAlert, updateAlert, type AlertMutationResponse } from "../lib/api";
 import type { AirportOption } from "../lib/airports";
 import { clampLocalDate, isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
@@ -106,7 +106,10 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<AlertForm>(EMPTY_FORM);
   const [pushBusy, setPushBusy] = useState(false);
+  const [undoDelete, setUndoDelete] = useState<{ alert: FlightAlert; expiresAt: number } | null>(null);
   const loadGeneration = useRef(0);
+  const mutationLock = useRef(false);
+  const deletedIds = useRef(new Set<string>());
   const priceFormat = useMemo(() => new Intl.NumberFormat(dateLocale), [dateLocale]);
 
   const getToken = useCallback(() => accessToken, [accessToken]);
@@ -125,7 +128,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     try {
       const next = await listAlerts(accessToken);
       if (generation !== loadGeneration.current) return;
-      setAlerts(next);
+      setAlerts(next.filter((alert) => !deletedIds.current.has(alert.id)));
     } catch (requestError) {
       if (generation === loadGeneration.current) setLoadError(errorText(requestError, copy("Fiyat alarmların yüklenemedi.", "Your price alerts could not be loaded."), locale));
     } finally {
@@ -137,6 +140,33 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     void load();
     return () => { loadGeneration.current += 1; };
   }, [load]);
+
+  useEffect(() => {
+    deletedIds.current.clear();
+    setUndoDelete(null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!undoDelete) return;
+    const timer = window.setTimeout(() => setUndoDelete(null), Math.max(0, undoDelete.expiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [undoDelete]);
+
+  const beginMutation = useCallback((id: string) => {
+    if (!accessToken || mutationLock.current) return false;
+    mutationLock.current = true;
+    // A list request started before this change must not overwrite it.
+    loadGeneration.current += 1;
+    setLoading(false);
+    setBusy(id);
+    setActionError("");
+    return true;
+  }, [accessToken]);
+
+  const endMutation = useCallback(() => {
+    mutationLock.current = false;
+    setBusy("");
+  }, []);
 
   const requestPushOptIn = useCallback(async () => {
     if (!isPushAvailable()) {
@@ -192,8 +222,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       setActionError(validation);
       return;
     }
-    setBusy("create");
-    setActionError("");
+    if (!beginMutation("create")) return;
     try {
       const result = await createAlert({
         originCode: form.origin!.iata,
@@ -212,7 +241,7 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     } catch (requestError) {
       setActionError(errorText(requestError, copy("Alarm kaydedilemedi. Bilgileri kontrol edip tekrar dene.", "The alert could not be saved. Check the details and try again."), locale));
     } finally {
-      setBusy("");
+      endMutation();
     }
   };
 
@@ -222,23 +251,25 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     notice: string,
     failNotice: string,
   ) => {
-    if (!accessToken || busy) return;
-    setBusy(alert.id);
-    setActionError("");
+    if (!beginMutation(alert.id)) return;
     try {
       const result = await updateAlert(alert.id, body, accessToken);
-      setAlerts((current) => current.map((item) => item.id === alert.id ? { ...item, ...body } : item));
+      setAlerts((current) => current.map((item) => item.id === alert.id ? { ...item, ...body, ...(body.is_active === undefined ? {} : { status: body.is_active ? "active" : "paused" }) } : item));
       onNotice(responseNotice(result, notice, locale));
     } catch (requestError) {
       // İstek başarısızsa ekrandaki doğrulanmış son listeyi koru. Kullanıcı
       // isterse üstteki Yenile düğmesiyle sunucudan yeniden eşitleyebilir.
       setActionError(errorText(requestError, failNotice, locale));
     } finally {
-      setBusy("");
+      endMutation();
     }
   };
 
   const toggleActive = (alert: FlightAlert) => {
+    if (isPastLocalDate(alert.departure_date)) {
+      setActionError(copy("Bu alarmın gidiş tarihi geçti. Yeni bir tarih için alarm oluştur.", "This alert's departure date has passed. Create an alert for a new date.", "Data e nisjes për këtë njoftim ka kaluar. Krijo një njoftim për një datë të re."));
+      return;
+    }
     const nextActive = alert.is_active === false;
     if (nextActive && !hasAlertChannel(alert)) {
       setActionError(copy("Bu alarmı başlatmadan önce e-posta veya telefon bildirimini aç.", "Enable email or phone notifications before restarting this alert."));
@@ -279,21 +310,36 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     void patchAlert(alert, { notify_push: true }, copy("Bu alarm için telefon bildirimi açıldı.", "Phone notifications enabled for this alert."), copy("Bildirim kanalı güncellenemedi.", "Notification channel could not be updated."));
   };
 
-  const removeAlert = async (alert: FlightAlert) => {
-    if (!accessToken || busy) return;
-    if (!window.confirm(copy(`${alert.origin_code} → ${alert.destination_code} alarmını silmek istiyor musun?`, `Delete the ${alert.origin_code} → ${alert.destination_code} alert?`, `Dëshiron ta fshish njoftimin ${alert.origin_code} → ${alert.destination_code}?`))) return;
-    setBusy(alert.id);
-    setActionError("");
+  const removeAlert = useCallback(async (alert: FlightAlert) => {
+    if (!beginMutation(alert.id)) return;
     try {
       await deleteAlert(alert.id, accessToken);
+      deletedIds.current.add(alert.id);
       setAlerts((current) => current.filter((item) => item.id !== alert.id));
-      onNotice(copy("Fiyat alarmı silindi.", "Price alert deleted."));
+      setUndoDelete({ alert, expiresAt: Date.now() + 6_000 });
     } catch (requestError) {
       setActionError(errorText(requestError, copy("Alarm silinemedi.", "The alert could not be deleted."), locale));
     } finally {
-      setBusy("");
+      endMutation();
     }
-  };
+  }, [accessToken, beginMutation, copy, endMutation, locale]);
+
+  const undoRemoveAlert = useCallback(async () => {
+    if (!undoDelete || Date.now() >= undoDelete.expiresAt || !beginMutation(undoDelete.alert.id)) return;
+    const alert = undoDelete.alert;
+    setUndoDelete(null);
+    const active = alert.is_active !== false && !isPastLocalDate(alert.departure_date);
+    try {
+      await restoreAlert(alert.id, active, accessToken);
+      deletedIds.current.delete(alert.id);
+      setAlerts((current) => [{ ...alert, is_active: active, status: active ? "active" : "paused" }, ...current.filter((item) => item.id !== alert.id)]);
+      onNotice(copy("Alarm geri alındı.", "Alert restored.", "Njoftimi u rikthye."));
+    } catch (requestError) {
+      setActionError(errorText(requestError, copy("Alarm geri alınamadı. Listeyi yenileyip tekrar kontrol et.", "The alert could not be restored. Refresh the list to check its status.", "Njoftimi nuk u rikthye. Rifresko listën për të kontrolluar gjendjen."), locale));
+    } finally {
+      endMutation();
+    }
+  }, [accessToken, beginMutation, copy, endMutation, locale, onNotice, undoDelete]);
 
   if (!user || !accessToken) {
     return <div className="screen alerts-screen">
@@ -318,6 +364,13 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
         {loading ? <span className="button-loader dark" /> : <Icon name="refresh" size={17} />} {copy("Yenile", "Refresh")}
       </button>
     </div>
+
+    <p className="alert-refresh-help">{copy("Yenile, kayıtlı alarmları ve son fiyat kontrolünü getirir. Yeni fiyatlar günlük olarak kontrol edilir.", "Refresh loads saved alerts and their last price check. New prices are checked daily.", "Rifresko ngarkon njoftimet e ruajtura dhe kontrollin e fundit. Çmimet e reja kontrollohen çdo ditë.")}</p>
+
+    {undoDelete && <div className="alert-undo" role="status">
+      <span>{copy("Alarm silindi.", "Alert deleted.", "Njoftimi u fshi.")}</span>
+      <button type="button" disabled={Boolean(busy)} onClick={() => void undoRemoveAlert()}>{copy("Geri al", "Undo", "Zhbëj")}</button>
+    </div>}
 
     {formOpen && <form className="form-card alert-form" onSubmit={submitAlert}>
       <AirportField label={copy("Nereden", "From")} required value={form.origin} onChange={(origin) => setForm({ ...form, origin })} />
@@ -359,14 +412,15 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
         ? <div className="skeleton-list" role="status" aria-label={copy("Fiyat alarmları yükleniyor", "Loading price alerts")}><div /><div /></div>
         : alerts.length ? alerts.map((alert) => {
           const paused = alert.is_active === false;
-          return <article className={`saved-card alert-card ${paused ? "paused" : ""}`} key={alert.id}>
+          const expired = isPastLocalDate(alert.departure_date);
+          return <article className={`saved-card alert-card ${expired ? "expired" : paused ? "paused" : ""}`} key={alert.id}>
             <div className="saved-card-head">
               <span className="saved-icon alert-card-artwork"><TravelToolArtwork kind="alerts" size={56} /></span>
               <div>
-                <small>{alert.is_active === false ? copy("DURAKLATILDI", "PAUSED") : alert.status === "triggered" ? copy("HEDEF YAKALANDI", "TARGET REACHED") : copy("TAKİPTE", "TRACKING")} · {formatDate(alert.departure_date, dateLocale)} {copy("gidiş", "departure")}</small>
+                <small>{expired ? copy("SÜRESİ DOLDU", "EXPIRED", "KA SKADUAR") : alert.is_active === false ? copy("DURAKLATILDI", "PAUSED") : alert.status === "triggered" ? copy("HEDEF YAKALANDI", "TARGET REACHED") : copy("TAKİPTE", "TRACKING")} · {formatDate(alert.departure_date, dateLocale)} {copy("gidiş", "departure")}</small>
                 <strong>{alert.origin_label || alert.origin_code} ({alert.origin_code}) → {alert.destination_label || alert.destination_code} ({alert.destination_code})</strong>
               </div>
-              <button type="button" disabled={busy === alert.id} onClick={() => void removeAlert(alert)} aria-label={copy("Alarmı sil", "Delete alert")}><Icon name="trash" size={18} /></button>
+              <button type="button" disabled={Boolean(busy)} onClick={() => void removeAlert(alert)} aria-label={copy("Alarmı sil", "Delete alert")}><Icon name="trash" size={18} /></button>
             </div>
             <div className="alert-metrics">
               <div><span>{copy("Hedef", "Target")}</span><strong>{alert.target_price ? `${priceFormat.format(alert.target_price)} TL` : copy(`%${alert.threshold_percent || 5} düşüş`, `${alert.threshold_percent || 5}% drop`, `${alert.threshold_percent || 5}% ulje`)}</strong></div>
@@ -378,14 +432,15 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
               <Icon name="alert" size={17} />
               <div><strong>{copy("Bildirim uyarısı", "Notification warning")}</strong><p>{alert.last_error_message}</p></div>
             </div>}
-            <fieldset className="alert-channels compact">
+            {expired && <p className="alert-expired-note">{copy("Gidiş tarihi geçti. Bu alarm için fiyat takibi sona erdi.", "The departure date has passed. Price tracking has ended for this alert.", "Data e nisjes ka kaluar. Ndjekja e çmimit ka përfunduar për këtë njoftim.")}</p>}
+            {!expired && <fieldset className="alert-channels compact">
               <legend className="sr-only">{copy("Bu alarmın bildirim kanalları", "Notification channels for this alert")}</legend>
-              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={busy === alert.id} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> {copy("E-posta", "Email")}</label>
-              <label><input type="checkbox" checked={alert.notify_push === true} disabled={busy === alert.id || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
-            </fieldset>
-            <button type="button" className="secondary-wide" disabled={busy === alert.id} onClick={() => toggleActive(alert)}>
+              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={Boolean(busy) || pushBusy} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> {copy("E-posta", "Email")}</label>
+              <label><input type="checkbox" checked={alert.notify_push === true} disabled={Boolean(busy) || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
+            </fieldset>}
+            {!expired && <button type="button" className="secondary-wide" disabled={Boolean(busy) || pushBusy} onClick={() => toggleActive(alert)}>
               {busy === alert.id ? <span className="button-loader dark" /> : <Icon name={paused ? "check" : "close"} size={17} />} {paused ? copy("Başlat", "Resume") : copy("Durdur", "Pause")}
-            </button>
+            </button>}
           </article>;
         }) : !loadError && !actionError ? <div className="empty-state compact">
           <span className="alert-state-artwork"><TravelToolArtwork kind="alerts" size={80} /></span>

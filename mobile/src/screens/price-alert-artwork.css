@@ -17,3 +17,38 @@
   border: 0;
   border-radius: 0;
 }
+
+.alerts-screen .alert-refresh-help,
+.alerts-screen .alert-expired-note {
+  color: var(--muted, #68778e);
+  font-size: .82rem;
+  line-height: 1.5;
+  margin: 10px 0 18px;
+}
+.alerts-screen .alert-undo {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border, #cddff4);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  box-shadow: 0 5px 20px #081a3820;
+}
+.alerts-screen .alert-undo button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary, #0867ef);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+.alerts-screen .alert-card.expired .saved-card-head small { color: var(--muted, #68778e); }
+.alerts-screen .alert-expired-note { margin: 4px 0 0; }

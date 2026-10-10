@@ -10,6 +10,10 @@ import { formatAppDate } from "../lib/localeFormatting";
 import { CommunityAvatar } from "./CommunityAvatar";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
+import { SocialGallery } from "./SocialHub";
+import { SocialComposer } from "./SocialComposer";
+import { ForumTranslation } from "./ForumTranslation";
+import type { SocialPlace } from "../lib/social";
 import "./community-profile.css";
 
 type ProfileSheetProps = {
@@ -23,6 +27,8 @@ type ProfileSheetProps = {
   onSafety?: (target: CommunitySafetyTarget) => void;
   onFollowChanged?: () => void;
   onProfileChanged?: () => void;
+  onAddPlace?: (place: SocialPlace) => void;
+  onBlocked?: (userId: string) => void;
 };
 
 export function CommunityProfileSheet(props: ProfileSheetProps) {
@@ -47,11 +53,14 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
 
 type SectionState = Pick<CommunityProfilePage, "items" | "nextOffset">;
 
-function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, onSafety, onFollowChanged, onProfileChanged }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void }) {
+function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void }) {
   const { copy, dateLocale } = useI18n();
   const id = useId();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [section, setSection] = useState<CommunityProfileSection>("posts");
+  const [gallery, setGallery] = useState(true);
+  const [compose, setCompose] = useState(false);
+  const [socialRevision, setSocialRevision] = useState(0);
   const [pages, setPages] = useState<Partial<Record<CommunityProfileSection, SectionState>>>({});
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -176,18 +185,19 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const ownProfile = !!profile?.isOwn && profile.userId === userId;
   const hasUnsavedEdits = !!profile && (bio.trim() !== profile.bio || showAvatar !== (profile.showAvatar === true));
   const page = pages[section];
-  const title = section === "posts" ? copy("Paylaşımlar", "Posts", "Postimet") : section === "answers" ? copy("Cevaplar", "Answers", "Përgjigjet") : section === "followers" ? copy("Takipçiler", "Followers", "Ndjekësit") : copy("Takip edilenler", "Following", "Të ndjekurit");
+  const title = gallery ? copy("Gönderiler", "Posts", "Postimet") : section === "posts" ? copy("Forum", "Forum", "Forumi") : section === "answers" ? copy("Cevaplar", "Answers", "Përgjigjet") : section === "followers" ? copy("Takipçiler", "Followers", "Ndjekësit") : copy("Takip edilenler", "Following", "Të ndjekurit");
   const empty = section === "posts" ? copy("Henüz bir paylaşım yok.", "No posts yet.", "Nuk ka ende postime.") : section === "answers" ? copy("Henüz bir cevap yok.", "No answers yet.", "Nuk ka ende përgjigje.") : section === "followers" ? copy("Henüz takipçi yok.", "No followers yet.", "Nuk ka ende ndjekës.") : copy("Henüz kimseyi takip etmiyor.", "Not following anyone yet.", "Nuk ndjek ende askënd.");
   const date = (value: string) => {
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? "" : formatAppDate(parsed, dateLocale, { day: "numeric", month: "short", year: "numeric" });
   };
-  const switchSection = (next: CommunityProfileSection) => { if (next !== section) setSection(next); };
-  const tabs = ["posts", "answers"] as const;
+  const switchSection = (next: CommunityProfileSection | "gallery") => { setGallery(next === "gallery"); if (next !== "gallery" && next !== section) setSection(next); };
+  const tabs = ["gallery", "posts", "answers"] as const;
+  const activeSection = gallery ? "gallery" : section;
   const moveTab = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
+    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
     switchSection(tabs[next]);
     document.getElementById(`${id}-${tabs[next]}`)?.focus();
   };
@@ -205,9 +215,9 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
             <p className="community-profile-role">{copy("Gezgin", "Traveller", "Udhëtar")}</p>
           </div>
           <div className="community-profile-stats">
-            <button type="button" aria-pressed={section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
-            <button type="button" aria-pressed={section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
-            <div><strong>{(profile.postCount + profile.answerCount).toLocaleString(dateLocale)}</strong><span>{copy("Katkı", "Contributions", "Kontribute")}</span></div>
+            <button type="button" aria-pressed={!gallery && section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
+            <button type="button" aria-pressed={!gallery && section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
+            <div><strong>{(profile.postCount + profile.answerCount).toLocaleString(dateLocale)}</strong><span>{copy("Forum katkısı", "Forum contributions", "Kontribute në forum")}</span></div>
           </div>
           {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
         </div>
@@ -217,6 +227,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
           {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
         </div>
       </div>
+      {ownProfile && <button type="button" className="primary-wide community-profile-share" onClick={() => setCompose(true)}><Icon name="camera" size={20}/>{copy("Gönderi paylaş", "Share a post", "Ndaj një postim")}</button>}
       {editing && ownProfile && <form className="community-profile-editor" onSubmit={event => { event.preventDefault(); void saveBio(); }}>
         <label htmlFor={`${id}-bio`}>{copy("Hakkımda", "About me", "Rreth meje")}</label>
         <textarea id={`${id}-bio`} value={bio} maxLength={300} rows={3} disabled={busy} onChange={event => setBio(event.target.value)} placeholder={copy("Seyahat tarzından ve sevdiğin yerlerden bahset…", "Share your travel style and favourite places…", "Trego stilin e udhëtimit dhe vendet e tua të preferuara…")} />
@@ -228,11 +239,11 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       </form>}
       {saved && <p className="community-profile-notice" role="status">{copy("Profilin güncellendi.", "Your profile was updated.", "Profili yt u përditësua.")}</p>}
       {mutationError && <p className="community-profile-error" role="alert">{mutationError}</p>}
-      <div className="community-profile-tabs" role="tablist" aria-label={copy("Profil içeriği", "Profile content", "Përmbajtja e profilit")}>
-        {tabs.map((tab, index) => <button id={`${id}-${tab}`} key={tab} type="button" role="tab" aria-selected={section === tab} aria-controls={`${id}-content`} tabIndex={section === tab || (index === 0 && !tabs.some(value => value === section)) ? 0 : -1} onKeyDown={event => moveTab(event, index)} onClick={() => switchSection(tab)}>{tab === "posts" ? copy("Paylaşımlar", "Posts", "Postimet") : copy("Cevaplar", "Answers", "Përgjigjet")}<span>{tab === "posts" ? profile.postCount : profile.answerCount}</span></button>)}
+      <div className="community-profile-tabs community-profile-social-tabs" role="tablist" aria-label={copy("Profil içeriği", "Profile content", "Përmbajtja e profilit")}>
+        {tabs.map((tab, index) => <button id={`${id}-${tab}`} key={tab} type="button" role="tab" aria-selected={activeSection === tab} aria-controls={`${id}-content`} tabIndex={activeSection === tab || (index === 0 && !tabs.some(value => value === activeSection)) ? 0 : -1} onKeyDown={event => moveTab(event, index)} onClick={() => switchSection(tab)}>{tab === "gallery" ? copy("Gönderiler", "Posts", "Postimet") : tab === "posts" ? copy("Forum", "Forum", "Forumi") : copy("Cevaplar", "Answers", "Përgjigjet")}{tab !== "gallery" && <span>{tab === "posts" ? profile.postCount : profile.answerCount}</span>}</button>)}
       </div>
     </>}
-    <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
+    {gallery && profile ? <section id={`${id}-content`} className="community-profile-content" role="tabpanel" aria-labelledby={`${id}-gallery`}><SocialGallery authorRef={profileKey} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={onBlocked} revision={socialRevision + revision}/></section> : <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
       {profile && (section === "followers" || section === "following") && <h3>{title}</h3>}
       {loading && !page && <div className="community-profile-empty" role="status"><Icon name="user" size={28} /><p>{copy("Profil yükleniyor…", "Loading profile…", "Po ngarkohet profili…")}</p></div>}
       {!loading && !failure && page?.items.length === 0 && (section === "posts" ? <div className="community-profile-empty community-profile-empty-posts">
@@ -253,12 +264,13 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       </div> : <div className="community-profile-empty"><Icon name={section === "followers" || section === "following" ? "users" : "message"} size={28} /><p>{empty}</p></div>)}
       <div className="community-profile-items">{page?.items.map((item: CommunityProfileItem) => "key" in item
         ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}</strong><Icon name="chevron" size={18} /></button>
-        : <button type="button" className="community-profile-post" key={profileItemKey(item)} onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>
+        : <article className="community-profile-post" key={profileItemKey(item)}>
           <span className="community-profile-post-meta"><span><Icon name={"questionId" in item ? "message" : "book"} size={15} />{"questionId" in item ? copy("Cevap", "Answer", "Përgjigje") : copy("Paylaşım", "Post", "Postim")}</span><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
-          <strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p><span className="community-profile-post-cta">{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></span>
-        </button>)}</div>
+          <ForumTranslation text={`${"questionTitle" in item ? item.questionTitle : item.title}\n\n${item.body}`} accessToken={accessToken || ""} onSignIn={onOpenAccount}><div className="community-profile-post-copy"><strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p></div></ForumTranslation><button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>
+        </article>)}</div>
       {failure?.section === section && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
       {page?.nextOffset != null && !failure?.more && <button className="community-profile-more" type="button" disabled={loading || loadingMore} onClick={() => void loadMore()}>{loadingMore ? copy("Yükleniyor…", "Loading…", "Po ngarkohet…") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
-    </section>
+    </section>}
+    {compose && ownProfile && userId && accessToken && <SocialComposer ownerId={userId} accessToken={accessToken} onClose={() => setCompose(false)} onPublished={() => { setCompose(false); setGallery(true); setSocialRevision(value => value + 1); }}/>}
   </>;
 }

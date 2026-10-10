@@ -5,10 +5,10 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 function load(path, imports = {}) {
- const module={exports:{}};
+ const loaded={exports:{}};
  const code=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,Buffer,Uint8Array,Map,Set,Date})(name=>{if(name in imports)return imports[name];throw Error(`Missing import ${name}`);},module,module.exports);
- return module.exports;
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Request,Response,URL,Buffer,Uint8Array,Map,Set,Date})(name=>{if(name in imports)return imports[name];throw Error(`Missing import ${name}`);},loaded,loaded.exports);
+ return loaded.exports;
 }
 const a='10000000-0000-4000-8000-000000000001',b='10000000-0000-4000-8000-000000000002';
 const safety=load('lib/community/safety.ts');

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveAlertDeliveryState, verifyAlertToken } from "@/lib/price-alerts";
+import { isPastTravelDate, isValidTimeZone, sanitizeTimeZone } from "@/lib/date-utils";
 
-const PATCH_FIELDS = new Set(["is_active", "target_price", "threshold_percent", "notify_email", "notify_push"]);
+const PATCH_FIELDS = new Set(["is_active", "target_price", "threshold_percent", "notify_email", "notify_push", "restore", "timeZone"]);
+const RESTORE_WINDOW_MS = 60_000;
 
 function validOptionalPrice(value: unknown) {
   return value === null || (typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 10_000_000);
@@ -23,7 +25,7 @@ async function getCurrentUser(request: Request, supabase: any) {
 async function assertAlertAccess(request: Request, supabase: any, id: string, token?: string | null) {
   const { data: alertData, error: fetchError } = await supabase
     .from("flight_price_alerts")
-    .select("user_id, manage_token_hash, manage_token_expires_at, is_active, notify_email, notify_push")
+    .select("user_id, manage_token_hash, manage_token_expires_at, is_active, notify_email, notify_push, departure_date, status, cancelled_at")
     .eq("id", id)
     .single();
 
@@ -57,10 +59,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Geçersiz güncelleme isteği." }, { status: 400 });
     }
     const fields = Object.keys(body);
-    if (!fields.length || fields.some((field) => !PATCH_FIELDS.has(field))) {
+    if (!fields.some((field) => field !== "timeZone") || fields.some((field) => !PATCH_FIELDS.has(field))) {
       return NextResponse.json({ error: "Desteklenmeyen güncelleme alanı." }, { status: 400 });
     }
-    const { is_active, target_price, threshold_percent, notify_email, notify_push } = body;
+    const { is_active, target_price, threshold_percent, notify_email, notify_push, restore, timeZone } = body;
+    if (restore !== undefined && restore !== true) {
+      return NextResponse.json({ error: "Geçersiz geri alma isteği." }, { status: 400 });
+    }
+    if (timeZone !== undefined && (typeof timeZone !== "string" || !isValidTimeZone(timeZone))) {
+      return NextResponse.json({ error: "Geçersiz saat dilimi." }, { status: 400 });
+    }
     if (is_active !== undefined && typeof is_active !== "boolean") {
       return NextResponse.json({ error: "Alarm durumu true veya false olmalıdır." }, { status: 400 });
     }
@@ -82,6 +90,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
+    const deleted = Boolean(access.alertData.cancelled_at) || access.alertData.status === "cancelled";
+    if (restore === true) {
+      const deletedAt = Date.parse(access.alertData.cancelled_at || "");
+      if (!deleted || !Number.isFinite(deletedAt) || Date.now() - deletedAt > RESTORE_WINDOW_MS || deletedAt > Date.now()) {
+        return NextResponse.json({ error: "Bu alarm için geri alma süresi doldu." }, { status: 409 });
+      }
+      if (fields.some((field) => !["restore", "is_active", "timeZone"].includes(field))) {
+        return NextResponse.json({ error: "Geri alma başka bir güncellemeyle birleştirilemez." }, { status: 400 });
+      }
+    } else if (deleted) {
+      return NextResponse.json({ error: "Bu alarm silinmiş. Listeyi yenile." }, { status: 410 });
+    }
+    if (is_active === true && isPastTravelDate(access.alertData.departure_date, sanitizeTimeZone(timeZone))) {
+      return NextResponse.json({ error: "Gidiş tarihi geçtiği için bu alarm yeniden başlatılamaz. Yeni bir tarih için alarm oluştur." }, { status: 409 });
+    }
+
     const delivery = resolveAlertDeliveryState(access.alertData, {
       is_active: is_active as boolean | undefined,
       notify_email: notify_email as boolean | undefined,
@@ -95,6 +119,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const updatePayload: Record<string, unknown> = {};
+    if (restore === true) {
+      updatePayload.cancelled_at = null;
+      updatePayload.is_active = is_active === true;
+      updatePayload.status = is_active === true ? "active" : "paused";
+    }
     if (is_active !== undefined) {
       updatePayload.is_active = is_active;
       updatePayload.status = is_active ? "active" : "paused";
@@ -112,6 +141,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .from("flight_price_alerts")
       .update(updatePayload)
       .eq("id", resolvedParams.id);
+    updateQuery = restore === true
+      ? updateQuery.eq("cancelled_at", access.alertData.cancelled_at)
+      : updateQuery.is("cancelled_at", null);
     for (const field of ["is_active", "notify_email", "notify_push"] as const) {
       const currentValue = access.alertData[field];
       updateQuery = currentValue === null || currentValue === undefined
@@ -134,7 +166,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ? ["Alarm duraklatıldı ve bildirim kanalı seçili değil. Yeniden başlatmadan önce e-posta veya telefon bildirimini açmalısın."]
       : [];
 
-    return NextResponse.json({ success: true, message: "Alarm güncellendi.", warnings });
+    return NextResponse.json({ success: true, message: restore === true ? "Alarm geri alındı." : "Alarm güncellendi.", warnings });
   } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
@@ -154,16 +186,24 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    const { error: updateError } = await supabase
+    // Retried DELETEs must not extend the undo deadline.
+    if (access.alertData.cancelled_at) {
+      return NextResponse.json({ success: true, message: "Alarm silindi." });
+    }
+    const { data: deletedRows, error: updateError } = await supabase
       .from("flight_price_alerts")
       .update({ is_active: false, status: "cancelled", cancelled_at: new Date().toISOString() })
-      .eq("id", resolvedParams.id);
+      .eq("id", resolvedParams.id)
+      .is("cancelled_at", null)
+      .select("id");
 
     if (updateError) {
-      return NextResponse.json({ error: "Alarm kapatılamadı." }, { status: 500 });
+      return NextResponse.json({ error: "Alarm silinemedi. Tekrar dene." }, { status: 500 });
     }
-
-    return NextResponse.json({ success: true, message: "Alarm kapatıldı." });
+    if (!deletedRows?.length) {
+      return NextResponse.json({ error: "Alarm değişti. Listeyi yenileyip tekrar dene." }, { status: 409 });
+    }
+    return NextResponse.json({ success: true, message: "Alarm silindi." });
   } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }

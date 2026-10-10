@@ -4,17 +4,36 @@ import { coarseLocation, coordinates } from '../../../lib/travel-assistant/place
 import type { Coordinates, FxQuote } from '../../../lib/travel-assistant/types';
 import { createPlacesLoader, validateQuote } from '../../../lib/travel-assistant/responses';
 
+let locationRequest: Promise<Coordinates> | null = null;
+let lastLocation: { center: Coordinates; until: number } | null = null;
+let deniedUntil = 0;
 export function locateForTravel(): Promise<Coordinates> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error('unavailable')); return; }
-    const timer = setTimeout(() => reject(new Error('unavailable')), 14000);
-    navigator.geolocation.getCurrentPosition(p => {
-      clearTimeout(timer);
-      const c = coordinates({ latitude: p.coords.latitude, longitude: p.coords.longitude });
-      if (c) resolve(coarseLocation(c)); else reject(new Error('unavailable'));
-    }, error => { clearTimeout(timer); reject(new Error(error.code === 1 ? 'denied' : 'unavailable')); },
-    { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
-  });
+  if (lastLocation && lastLocation.until > Date.now()) return Promise.resolve(lastLocation.center);
+  if (deniedUntil > Date.now()) return Promise.reject(new Error('denied'));
+  if (locationRequest) return locationRequest;
+  locationRequest = new Promise<Coordinates>((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { reject(new Error('unavailable')); return; }
+    let settled = false;
+    const fail = (denied = false) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      if (denied) deniedUntil = Date.now()+60_000;
+      reject(new Error(denied ? 'denied' : 'unavailable'));
+    };
+    const timer = setTimeout(() => fail(), 14000);
+    try {
+      navigator.geolocation.getCurrentPosition(p => {
+        // WebViews can deliver a late success after timeout; never let that
+        // abandoned request overwrite a newer result or populate the cache.
+        if (settled) return;
+        const c = coordinates({ latitude: p.coords.latitude, longitude: p.coords.longitude });
+        if (!c) { fail(); return; }
+        settled = true; clearTimeout(timer);
+        const center = coarseLocation(c); lastLocation = { center, until: Date.now()+60_000 }; resolve(center);
+      }, error => fail(error.code === 1), { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
+    } catch { fail(); }
+  }).finally(() => { locationRequest = null; });
+  return locationRequest;
 }
 export const loadPlaces = createPlacesLoader((center, mode) =>
   requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...center, mode }, timeoutMs: 32000 }));

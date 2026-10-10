@@ -1,0 +1,92 @@
+Travel photo posts — backend integration record (11 October 2026)
+
+Deployment order
+1. Apply supabase/migrations/20261011120000_travel_social_posts.sql after
+   20261010190000_community_public_profiles.sql. This migration is additive and
+   creates a private travel-social-photos bucket (JPEG, 300000 bytes).
+2. Deploy the main API/admin application. Existing forum APIs are unchanged.
+3. Release the mobile client after authenticated staging checks.
+See docs/release-readiness-20261011.txt for current rollout status. The social
+migration is transactional and intentionally one-time: use the migration ledger
+and do not rerun its CREATE statements after a successful application.
+
+Contract
+- Shared TypeScript: lib/community/social-contract.ts.
+- GET /api/country-community/social: feed=discover|following, authorRef,
+  collectionId, offset. Data: {items,nextOffset}, 20 items per page.
+- GET with postId: data {post,comments:{items,nextOffset}}.
+- GET section=collections: data array {id,name,postCount}.
+- GET section=notifications: paginated own notification inbox.
+- POST actions: create, like, comment, delete, restore, collection-create,
+  save, report, block, notifications-read. Actor always comes from the verified token.
+- GET/PATCH /api/country-community/social/preferences: comments, replies,
+  follows, price_alert_email, price_alert_push (all default true).
+- GET /api/admin/social: section=posts|comments|reports,
+  status=pending|published|hidden|all, offset. Reports additionally accept
+  status=resolved. Data {items,total,nextOffset}; report items include the
+  canonical target's text, author and protected admin photo URL.
+- PATCH admin: {section,id,status}; reports use {section:'reports',id,
+  action:'resolve'|'hide'}. Omitting action preserves resolve-only behavior.
+  Hide and resolve run atomically in moderate_travel_social_report; target IDs
+  always come from the stored report. No arbitrary client target is accepted.
+
+Behavior and integrity
+- Photos are optimized and re-encoded server-side using the existing photo
+  pipeline, stripping EXIF/location metadata. A deliberate place field is optional.
+- New photo posts are pending human review. Owner can view them; other users
+  cannot. Admin publishing makes them eligible for their selected audience.
+- Followers-only visibility is checked on each feed/detail/media request using
+  the existing durable follows, public-profile consent, and bidirectional blocks.
+- Public and private media both pass through a no-store permission-checking
+  endpoint. Clients must fetch photos with the same bearer token and display the
+  returned blob. Storage objects have no public access or client write policies.
+- Posts/comments have idempotent request UUIDs. Retrying an upload cannot create
+  duplicate posts or overwrite another photo. Likes and saves are idempotent.
+- Captions <=2200 characters, comments <=2000, collection names <=60.
+- Write quotas: 10 posts/hour, 60 comments/hour, 20 reports/day per account;
+  collection maximum 100. Direct database clients cannot bypass service RPCs.
+- Comments/replies use existing text moderation; blocked/hidden parent chains
+  remain hidden. Reports are durable and handled by the new admin queue.
+- Delete writes a durable tombstone. Only the owner can restore it within
+  30 seconds; refresh/retry cannot recreate it after expiry. Media becomes
+  inaccessible immediately. Account erasure removes all private stored photos
+  (including unfinished uploads) before social rows cascade with the user.
+- Comment/reply/follow events populate a real per-user notification inbox and
+  honor preferences. Like notifications are intentionally outside this scope.
+  This inbox is in-app; external push/email dispatch is not added for social
+  events. Existing price-alert dispatch reads the two new alert preferences.
+- Saved collections and membership are private; inaccessible posts disappear
+  from saved views without exposing their caption or media.
+
+Verified locally
+- node --test tests/social-posts-db.mjs: 8/8 PGlite behavioral tests.
+- node --test tests/social-posts-api.mjs: 12/12 handler/parser/media tests.
+- node --test tests/admin-social-queue-ui.mjs: 3/3 review interaction tests.
+- npx tsc --noEmit --pretty false: passed.
+- Scoped ESLint for social API/helpers/account cleanup: passed.
+Tests include real migration execution, RLS/RPC and storage denial, audience and
+block revocation, comment identity/retry/parent checks, persistent collections,
+delete/undo/expiry, notification settings and owner isolation, pagination,
+body validation, actor spoofing, moderation, upload compensation and media proxy.
+Admin review tests cover protected target previews, current moderation auth,
+canonical hide-and-resolve, database rollback on failure, double clicks,
+unavailable targets, resolved filtering, and late writes after account changes.
+
+Compatibility review
+- Existing forum, follow and profile contracts remain intact; the social model
+  is additive. Existing apps do not need to consume the new tables or endpoints.
+- Existing follow writes now also create social inbox events; this trigger and
+  all its required tables/functions are installed in the same transaction.
+- Price-alert notification readers default missing rows to true. An absent
+  preference table is tolerated for a staged rollout; other database errors
+  fail closed, preventing a transient failure from bypassing opted-out channels.
+- Account erasure tolerates a not-yet-installed social table. Once installed,
+  private storage failures stop erasure so photos cannot become unowned orphans.
+- Apply the price fence, social/preferences and translation quota migrations in
+  timestamp order before deploying the corresponding API and mobile client.
+
+Device checks remaining after deployment
+- Two real test accounts: follow, private post, revoke follow, block, fresh reload.
+- Offline upload retry, app restart with draft, upload progress and error feedback.
+- Admin review/publish/hide plus report resolution.
+- Real TestFlight iPhone/iPad user flow. Local tests do not replace device tests.

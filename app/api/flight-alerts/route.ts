@@ -307,6 +307,10 @@ export async function GET(request: Request) {
     .from("flight_price_alerts")
     .select("id, user_id, email, origin_code, origin_label, destination_code, destination_label, departure_date, return_date, trip_type, adults, children, infants, cabin_class, currency, base_price, target_price, threshold_percent, last_checked_price, lowest_price_seen, last_notified_price, last_checked_at, last_notified_at, notify_email, notify_push, is_active, status, last_mail_status, last_error_message, last_error_at, error_count, created_at, updated_at")
     .eq("user_id", user.id)
+    // DELETE is a soft delete. Exclude its tombstone even if an older cron
+    // worker later wrote a stale status value back to this row.
+    .is("cancelled_at", null)
+    .or("status.is.null,status.neq.cancelled")
     .order("created_at", { ascending: false });
 
   if (error) {

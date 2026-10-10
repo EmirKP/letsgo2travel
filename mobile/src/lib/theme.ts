@@ -13,6 +13,8 @@ let initializers = 0;
 let detach: (() => void) | undefined;
 let activeTransition: ViewTransition | undefined;
 let appearanceRevision = 0;
+let lastAnimatedRequest = -Infinity;
+const ANIMATION_QUIET_MS = 600;
 const listeners = new Set<() => void>();
 
 function stopColorTransition() {
@@ -46,6 +48,12 @@ function apply(nextPreference: ThemePreference, animate = true) {
   requestedPreference = nextPreference;
   const resolved = nextPreference === "system" ? systemTheme() : nextPreference;
   const changesColors = snapshot.resolved !== resolved;
+  // A burst uses direct updates: repeatedly capturing the whole page is costly
+  // on iOS even when the previous View Transition has been skipped.
+  const now = Date.now();
+  const interrupted = Boolean(activeTransition);
+  const burst = now - lastAnimatedRequest < ANIMATION_QUIET_MS;
+  if (animate) lastAnimatedRequest = now;
   stopColorTransition();
   const revision = appearanceRevision;
   let committed = false;
@@ -63,7 +71,7 @@ function apply(nextPreference: ThemePreference, animate = true) {
     snapshot = { preference: nextPreference, resolved };
     listeners.forEach(listener => listener());
   };
-  if (!animate || !changesColors || !canAnimateAppearance()) {
+  if (!animate || interrupted || burst || !changesColors || !canAnimateAppearance()) {
     commit();
     return;
   }
@@ -100,6 +108,11 @@ export function setThemePreference(nextPreference: ThemePreference) {
   // The selection still works for this session when device storage is blocked.
   try { window.localStorage.setItem(THEME_STORAGE_KEY, nextPreference); } catch { /* Storage is optional. */ }
   apply(nextPreference);
+}
+
+export function toggleThemePreference() {
+  const requested = requestedPreference === "system" ? systemTheme() : requestedPreference;
+  setThemePreference(requested === "dark" ? "light" : "dark");
 }
 
 /** Initialize once above the account/session boundary. Safe for overlapping mounts and HMR. */

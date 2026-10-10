@@ -5,13 +5,13 @@ import "./appearance-picker.css";
 
 export function HeaderThemeToggle() {
   const { copy } = useI18n();
-  const { resolved, setPreference } = useTheme();
+  const { resolved, toggle } = useTheme();
   const id = useId();
   const dark = resolved === "dark";
   return <button type="button" role="switch" className="theme-toggle theme-toggle-header" aria-checked={dark}
       aria-labelledby={`${id}-toggle-label`} aria-describedby={`${id}-status`}
       title={copy("Koyu tema", "Dark mode", "Tema e errët")}
-      onClick={() => setPreference(dark ? "light" : "dark")}>
+      onClick={toggle}>
       <span className="sr-only">
         <strong id={`${id}-toggle-label`}>{copy("Koyu tema", "Dark mode", "Tema e errët")}</strong>
         <span id={`${id}-status`}>{dark

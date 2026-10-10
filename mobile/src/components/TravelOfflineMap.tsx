@@ -37,6 +37,16 @@ export function TravelOfflineMap() {
   const [resetOpen, setResetOpen] = useState(false);
   const [selected, setSelected] = useState("");
   const [area, setArea] = useState<Coordinates | null>(null);
+  const areaChosen = useRef(false);
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'found' | 'failed' | 'manual'>('loading');
+  useEffect(() => {
+    let active = true;
+    void locateForTravel().then(center => {
+      if (!active || areaChosen.current) return;
+      setArea(center); setLocationStatus('found');
+    }).catch(() => { if (active && !areaChosen.current) setLocationStatus('failed'); });
+    return () => { active = false; };
+  }, []);
   const downloadRef = useRef<AbortController | null>(null);
   useEffect(() => () => downloadRef.current?.abort(), []);
   const [busy, setBusy] = useState(false);
@@ -116,7 +126,8 @@ export function TravelOfflineMap() {
           "Download streets and selected travel/essential points within about 1.5 km of your chosen center. This simple map has no turn-by-turn directions, satellite imagery or full-city coverage.",
         )}
       </p>
-      <TravelAreaPicker value={area} onChange={setArea} disabled={busy}/>
+      <p className="ta-muted" role="status">{locationStatus === 'loading' ? copy('Bulunduğun bölge seçiliyor… İstersen kendin değiştirebilirsin.', 'Selecting your current area… You can choose another area.', 'Po zgjidhet zona jote… Mund të zgjedhësh një zonë tjetër.') : locationStatus === 'found' ? copy('Bulunduğun bölge seçildi. Harita yalnız İndir düğmesine bastığında indirilir.', 'Your area is selected. The map downloads only when you tap Download.', 'Zona jote u zgjodh. Harta shkarkohet vetëm kur prek Shkarko.') : locationStatus === 'failed' ? copy('Konum alınamadı. Aşağıdan bölge seçebilirsin.', 'Location unavailable. Choose an area below.', 'Vendndodhja nuk u gjet. Zgjidh një zonë më poshtë.') : ''}</p>
+      <TravelAreaPicker value={area} onChange={center => {areaChosen.current=true;setLocationStatus('manual');setArea(center);}} disabled={busy}/>
       <button
         className="primary-wide"
         disabled={busy || !area}

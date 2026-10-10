@@ -1,0 +1,31 @@
+Forum translation — 11 October 2026
+
+- New POST /api/country-community/translate authenticates before processing text.
+- Accepts nonempty text up to 8,000 UTF-16 units, target tr/en/sq, bounded 48KB body.
+- Existing GoogleGenAI SDK is used. GEMINI_TRANSLATION_MODEL overrides GEMINI_MODEL;
+  one of them and GEMINI_API_KEY/GOOGLE_GENERATIVE_AI_API_KEY must be configured.
+  No guessed model ID or synthetic translation fallback is used.
+- Separate system instruction treats source text as data, preserves meaning,
+  mentions/URLs/numbers, and requests validated JSON. No provider tools enabled.
+- Quota is atomic per user across workers: 8 per UTC minute / 100 per UTC day.
+  Migration: 20261011140000_forum_translation_quota.sql. Missing quota schema
+  fails closed without a provider call. Only counters persist; source and
+  translated text are not stored or logged by the application.
+- Auth/body/quota/provider waits are bounded. Provider errors expose a generic
+  status, never provider payload or private prompt text.
+- ForumTranslation.tsx supports text/accessToken/onSignIn/children. Default target
+  follows application locale; select offers Turkish/English/Albanian. It toggles
+  translated/original display and clearly marks automatic translation.
+- Concurrent taps are deduplicated; language/text/session changes abort old work
+  and cannot display late responses. Per-component target cache is cleared on
+  text/session/language identity change, never persisted between accounts.
+- Display is plain React text, not raw HTML. Controls stop card-click bubbling.
+- Social frontend agent is wiring component beside forum/profile/social bodies.
+
+Verified
+- tests/forum-translation.mjs: 7/7 API/provider boundary and real SQL quota tests.
+- tests/forum-translation-ui.mjs: 5/5 rendered interaction tests.
+- Scoped root/mobile ESLint passed. React best-practices reviewed: event-triggered
+  requests, no background provider work, bounded transient cache, request cleanup,
+  native accessible controls and no nested interactive content in component.
+- No live model calls, deployment or database mutation performed here.

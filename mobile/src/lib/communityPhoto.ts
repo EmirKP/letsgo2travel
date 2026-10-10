@@ -2,7 +2,7 @@ import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 
 export const COMMUNITY_PHOTO_MAX_BYTES = 300_000;
-const PHOTO_PATH = /^\/api\/country-community\/questions\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/photo$/i;
+const PHOTO_PATH = /^\/api\/(?:country-community\/(?:questions|social)|admin\/social)\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/photo$/i;
 const JPEG_PREFIX = "data:image/jpeg;base64,";
 
 export function isCommunityPhotoPath(value: unknown): value is string {

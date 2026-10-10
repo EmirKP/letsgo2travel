@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { ProfilePhoto } from "../components/ProfilePhoto";
+import { NotificationPreferences } from "../components/NotificationPreferences";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet } from "../components/CommunitySafetySheet";
 import { LegalSheet } from "../components/LegalSheet";
@@ -363,6 +364,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         )}
       </div>
       </details>
+      {user && accessToken && <details className="profile-preference-group"><summary><span className="profile-feature-artwork"><TravelToolArtwork kind="alerts" size={48}/></span><span><strong>{copy("Bildirim tercihleri","Notification preferences","Preferencat e njoftimeve")}</strong><small>{copy("Yorum, yanıt, takipçi ve fiyat alarmları","Comments, replies, followers and price alerts","Komente, përgjigje, ndjekës dhe çmime")}</small></span><Icon name="chevron" size={18}/></summary><NotificationPreferences key={user.id} accessToken={accessToken}/></details>}
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="privacy" size={56}/></span><span><strong>{copy("Gizlilik ve topluluk", "Privacy & community")}</strong><small>{copy("Görünürlük, engellenenler ve veri hakların", "Visibility, blocked users and your data rights")}</small></span><Icon name="chevron" size={18}/></summary>
       <div className="settings-card">

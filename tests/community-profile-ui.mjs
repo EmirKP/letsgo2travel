@@ -53,6 +53,8 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
     '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale }) },
     '../lib/localeFormatting': localeFormatting,
     './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
+    './SocialHub': { SocialGallery: 'SocialGallery' }, './SocialComposer': { SocialComposer: 'SocialComposer' },
+    './ForumTranslation': { ForumTranslation: 'ForumTranslation' },
   }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });
   let props = { profileKey: 'starter:selin.kaplan', userId: 'me', accessToken: 'token', onClose() {}, onOpenAccount: () => calls.account++, onEditProfile() {}, onFollowChanged: () => calls.follow++, onProfileChanged: () => calls.profile++, onOpenQuestion: id => calls.questions.push(id), ...initial };
   const h = {
@@ -88,6 +90,7 @@ test('profile dates retain the selected language, including Albanian on limited 
   for (const [dateLocale, expected] of [['tr-TR', '1 Eki 2026'], ['en-GB', '1 Oct 2026'], ['sq-AL', '1 tet 2026']]) {
     const h = harness({}, { dateLocale, intl: { DateTimeFormat: LimitedDateTimeFormat } });
     await h.resolve(0, { profile: sample(), items: [post('date')], nextOffset: null });
+    h.click('Forum1');
     assert.ok(text(h.tree).includes(expected), `${dateLocale}: ${text(h.tree)}`);
     h.dispose();
   }
@@ -101,6 +104,22 @@ test('guest follow opens login without a mutation and avatar/content do not inve
   assert.equal(h.requests.length, 1);
   assert.match(text(h.tree), /0Followers0Following/);
   assert.equal(find(h.tree, 'CommunityAvatar').props.avatarUrl, null);
+  h.dispose();
+});
+
+test('profile starts with a real photo gallery and offers three navigable sections plus own sharing', async () => {
+  const h = harness({ profileKey: 'user:me' });
+  await h.resolve(0, { profile: sample('user:me', { isOwn: true }), items: [post('forum')], nextOffset: null });
+  const gallery = find(h.tree, 'SocialGallery');
+  assert.equal(gallery.props.authorRef, 'user:me');
+  assert.equal(gallery.props.accessToken, 'token');
+  assert.deepEqual(nodes(h.tree).filter(node => node.props?.role === 'tab').map(text), ['Posts', 'Forum1', 'Answers2']);
+  const posts = button(h.tree, 'Posts');
+  posts.props.onKeyDown({ key: 'ArrowRight', preventDefault() {} }); h.render();
+  assert.equal(button(h.tree, 'Forum1').props['aria-selected'], true);
+  assert.match(text(h.tree), /Topic forum/);
+  h.click('Share a post');
+  assert.equal(find(h.tree, 'SocialComposer').props.ownerId, 'me');
   h.dispose();
 });
 
@@ -141,14 +160,14 @@ test('switching sections rejects stale responses; answers open their parent topi
   const h = harness();
   await h.resolve(0, { profile: sample(), items: [post('first')], nextOffset: null });
   h.click('Answers2');
-  h.click('Posts1');
+  h.click('Forum1');
   assert.equal(h.requests[1].options.signal.aborted, true);
   await h.resolve(1, { profile: sample(), items: [{ id: 'answer', questionId: 'parent', questionTitle: 'Parent', body: 'Old response', createdAt: '2026-10-01T10:00:00Z' }], nextOffset: null });
   assert.doesNotMatch(text(h.tree), /Old response/);
   await h.resolve(2, { profile: sample(), items: [post('current')], nextOffset: null });
   h.click('Answers2');
   await h.resolve(3, { profile: sample(), items: [{ id: 'answer', questionId: 'parent', questionTitle: 'Parent', body: 'Answer text', createdAt: '2026-10-01T10:00:00Z' }], nextOffset: null });
-  find(h.tree, 'button', props => props.className === 'community-profile-post').props.onClick();
+  find(h.tree, 'button', props => props.className === 'community-profile-post-cta').props.onClick();
   assert.deepEqual(h.calls.questions, ['parent']);
   h.dispose();
 });
@@ -157,6 +176,7 @@ test('empty posts shortcut uses the real answer count and opens the answers tab 
   const h = harness();
   const profile = sample(undefined, { postCount: 0, answerCount: 6 });
   await h.resolve(0, { profile, items: [], nextOffset: null });
+  h.click('Forum0');
   assert.match(text(h.tree), /No posts yetThis traveller’s posts will appear here\./);
   assert.ok(button(h.tree, 'View 6 answers'));
   h.click('View 6 answers');
@@ -173,15 +193,17 @@ test('empty posts shortcut uses the real answer count and opens the answers tab 
 test('empty posts never invent an answer shortcut for a profile without answers', async () => {
   const h = harness();
   await h.resolve(0, { profile: sample(undefined, { postCount: 0, answerCount: 0 }), items: [], nextOffset: null });
+  h.click('Forum0');
   assert.match(text(h.tree), /No posts yet/);
   assert.equal(find(h.tree, 'button', props => props.className === 'community-profile-answer-link'), undefined);
-  assert.match(text(h.tree), /0Contributions/);
+  assert.match(text(h.tree), /0Forum contributions/);
   h.dispose();
 });
 
 test('paging failure keeps existing content and retry deduplicates rows', async () => {
   const h = harness();
   await h.resolve(0, { profile: sample(), items: [post('a')], nextOffset: 20 });
+  h.click('Forum1');
   h.click('Show more');
   await h.reject(1);
   assert.match(text(h.tree), /Topic a/);

@@ -28,8 +28,8 @@ function harness(options={}) {
  rpc:async()=>{state.events.push('lease');if(state.busy)return{data:[],error:null};state.job.lease_token='lease';return{data:[{...state.job}],error:null};},
  auth:{admin:{getUserById:async()=>{state.events.push('get-user');return state.user?{data:{user:state.user},error:null}:{data:{user:null},error:{status:404}};},deleteUser:async()=>{state.events.push('delete-account');if(state.deleteFails)return{error:{status:500}};state.user=null;state.kvkk.user_id=null;return{error:null};}}}};
  const notification=load('lib/account-deletion-notification.ts',{'./mail':{sendMail:async(mail)=>{state.events.push('send-mail');state.mail=mail;return{success:!state.mailFails};}}});
- class CleanupError extends Error{}
- const route=load('app/api/admin/kvkk-requests/[id]/execute-account-deletion/route.ts',{'next/server':{NextResponse},'@/lib/admin-auth':{adminPrincipalFromRequest:async()=>state.unauthorized?null:{subject:state.self?owner:'admin'}},'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db},'@/lib/account-deletion-policy':policy,'@/lib/account-deletion-notification':notification,'@/lib/account-deletion-cleanup':{AccountCleanupError:CleanupError,cleanAccountData:async()=>{state.events.push('cleanup');if(state.cleanupFails)throw new Error('cleanup failed');}},'@/lib/apple-account-deletion':{revokeAppleBeforeDeletion:async()=>{state.events.push('apple-revoke');return state.appleFails?{ok:false,status:409,code:'apple_authorization_required',message:'Apple required'}:{ok:true};}}});
+ class CleanupError extends Error{constructor(message,status=500){super(message);this.status=status;}}
+ const route=load('app/api/admin/kvkk-requests/[id]/execute-account-deletion/route.ts',{'next/server':{NextResponse},'@/lib/admin-auth':{adminPrincipalFromRequest:async()=>state.unauthorized?null:{subject:state.self?owner:'admin'}},'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db},'@/lib/account-deletion-policy':policy,'@/lib/account-deletion-notification':notification,'@/lib/account-deletion-cleanup':{AccountCleanupError:CleanupError,cleanAccountData:async()=>{state.events.push('cleanup');if(state.cleanupFails)throw new CleanupError('cleanup failed');}},'@/lib/apple-account-deletion':{revokeAppleBeforeDeletion:async()=>{state.events.push('apple-revoke');return state.appleFails?{ok:false,status:409,code:'apple_authorization_required',message:'Apple required'}:{ok:true};}}});
  const call=async(confirmation='HESABI KALICI SIL')=>{const response=await route.POST(new Request('https://example.com/api/delete',{method:'POST',body:JSON.stringify({confirmation})}),{params:Promise.resolve({id})});return{status:response.status,...await response.json()};};
  return{state,db,call,notification};
 }
@@ -49,6 +49,12 @@ await check('successful deletion orders Apple revoke, cleanup, account delete th
 });
 await check('provider deletion failure sends no completion mail and is resumable',async()=>{
  const h=harness({deleteFails:true});assert.equal((await h.call()).status,500);assert.equal(h.state.job.phase,'cleaned');assert(!h.state.events.includes('send-mail'));h.state.deleteFails=false;assert.equal((await h.call()).status,200);
+});
+await check('private data cleanup failure preserves the account and retries cleanup before deletion',async()=>{
+ const h=harness({cleanupFails:true});assert.equal((await h.call()).status,500);assert.equal(h.state.job.phase,'prepared');assert.notEqual(h.state.user,null);
+ assert(!h.state.events.includes('delete-account'));assert(!h.state.events.includes('send-mail'));assert.equal(h.state.job.lease_until,null);
+ h.state.cleanupFails=false;assert.equal((await h.call()).status,200);assert.equal(h.state.events.filter(e=>e==='cleanup').length,2);
+ assert.equal(h.state.events.filter(e=>e==='delete-account').length,1);assert.equal(h.state.events.filter(e=>e==='send-mail').length,1);
 });
 await check('crash after provider deletion resumes with missing user from durable cleaned phase',async()=>{
  const h=harness({failPhase:'deleted'});assert.equal((await h.call()).status,503);assert.equal(h.state.user,null);assert.equal(h.state.job.phase,'cleaned');assert(!h.state.events.includes('send-mail'));assert.equal((await h.call()).status,200);assert.equal(h.state.events.filter(e=>e==='delete-account').length,1);

@@ -90,6 +90,8 @@ function harness(initial = {}) {
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../components/CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
     '../components/CommunityProfileSheet': { CommunityProfileSheet: 'CommunityProfileSheet' },
+    '../components/SocialHub': { SocialHub: 'SocialHub' },
+    '../components/ForumTranslation': { ForumTranslation: 'ForumTranslation' },
     '../components/CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
@@ -112,7 +114,7 @@ function harness(initial = {}) {
       frames.splice(0).forEach(fn => fn()); return tree;
     },
     click(label) { const control = button(tree, label); assert.ok(control, `Visible button: ${label}`); assert.ok(!control.props.disabled, `${label} is enabled`); control.props.onClick(); return h.render(); },
-    tab(id) { const control = find(tree, 'button', props => props.id === `community-tab-${id}`); assert.ok(control); control.props.onClick(); return h.render(); },
+    tab(id) { h.click(i18n[locale].copy('Forum', 'Forum', 'Forumi')); const control = find(tree, 'button', props => props.id === `community-tab-${id}`); assert.ok(control); control.props.onClick(); return h.render(); },
     change(type, predicate, value) { const control = find(tree, type, predicate); assert.ok(control, `Input: ${type}`); control.props.onChange({ target: { value } }); return h.render(); },
     selectPhoto(file) { const control = find(tree, 'input', props => props.type === 'file' && props['aria-label'] === 'Post photo'); assert.ok(control, 'Photo picker is visible'); assert.ok(!control.props.disabled, 'Photo picker is enabled'); const target = { files: file ? [file] : [], value: file?.name || '' }; control.props.onChange({ target }); assert.equal(target.value, '', 'Picker resets so the same file can be selected again'); return h.render(); },
     async feed(data = rows, nextOffset = null) { const request = requests.findLast(item => item.path.startsWith('/api/country-community/feed') && !item.done); assert.ok(request, 'Pending feed request'); request.done = true; request.resolve({ data, nextOffset }); await tick(); return h.render(); },
@@ -122,7 +124,7 @@ function harness(initial = {}) {
     get focused() { return focused; }, get accountOpened() { return accountOpened; },
     dispose() { host.dispose(); },
   };
-  h.render(); return h;
+  h.render(); h.click(i18n[locale].copy('Forum', 'Forum', 'Forumi')); return h;
 }
 
 test('Five community tabs support arrow wrap, Home/End and one keyboard focus target', async () => {
@@ -355,6 +357,7 @@ test('Changing language while a question opens preserves the independent authent
 const account = { user: { id: 'account-a' }, accessToken: 'TOKEN_A' };
 const photoPreview = tree => find(tree, 'img', props => props.alt === 'Photo to attach to your post');
 function composeDraft(h) {
+  h.click('Forum');
   let view = h.click('Share a Post');
   find(view, 'CountryPicker').props.onChange('IT'); h.render();
   h.change('input', props => props.placeholder === 'What would you like to share?', 'Rome walking experience');

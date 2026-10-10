@@ -202,7 +202,7 @@ export type FavoriteDestination = {
   createdAt: string;
 };
 
-export type AppNotificationKind = "release" | "route" | "visa" | "price";
+export type AppNotificationKind = "release" | "route" | "visa" | "price" | "social";
 
 export type AppNotification = {
   id: string;

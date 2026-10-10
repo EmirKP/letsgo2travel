@@ -35,7 +35,7 @@ async function snapshot(db) {
 }
 
 const withoutDates = data => Object.fromEntries(Object.entries(data).map(([key, rows]) =>
-  [key, rows.map(({ created_at, ...row }) => row)]));
+  [key, rows.map(row => Object.fromEntries(Object.entries(row).filter(([field]) => field !== 'created_at')))]));
 
 test('Fixed editorial dates are varied, ordered, before cutoff and exactly idempotent', async () => {
   const db = new PGlite();

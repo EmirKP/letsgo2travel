@@ -1,0 +1,43 @@
+Price alert reliability — 11 October 2026
+
+Implemented
+- GET excludes cancelled soft deletes and cancelled_at tombstones. This was the
+  direct cause of a deleted alarm returning after refresh/reopening.
+- DELETE verifies persistence; repeated requests preserve the original undo
+  deadline. PATCH cannot reactivate cancelled rows via a normal update.
+- Mobile offers 6 seconds to undo. The owner-only restore API allows 60 seconds
+  for network transit and uses a conditional update against the deletion time.
+- Mobile invalidates older list loads before mutations, suppresses duplicate
+  taps synchronously, and retains confirmed data after an API failure.
+- Past departures render as expired; channel/resume controls disappear.
+  Resume validation uses the client's calendar timezone.
+- Cron excludes past departures from new scans, and retry delivery terminates
+  for expired/deleted alerts. Legacy records have no departure timezone, so
+  background retirement waits until the date has passed even in UTC-12.
+- Cron reloads alert state after provider waits and conditional writes preserve
+  delete/pause decisions. SQL mark_alert_notified is fenced too.
+- Global community_notification_preferences.price_alert_email/price_alert_push
+  are honored independently, without overwriting per-alert channel settings.
+  Missing rows default on; absent schema falls back during staged rollout;
+  other database failures fail closed for delivery.
+- vercel.json now schedules the bounded check-price-alerts job daily at 09:00 UTC.
+  Refresh remains a list refresh; helper text explains the daily background scan.
+
+Required rollout
+- Apply supabase/migrations/20261011100000_price_alert_cancel_fencing.sql.
+- Apply social preferences migration together with social feature rollout.
+- Deploy API and scheduler before shipping the new mobile client (restore/timeZone
+  PATCH fields are new). Mobile also filters legacy cancelled responses.
+- Production needs CRON_SECRET, TRAVELPAYOUTS_TOKEN, RESEND_API_KEY for email,
+  configured APNs/FCM as appropriate and active per-user device registration.
+  No secret values or live provider configuration were inspected here.
+- Confirm the scheduled worker actually runs and reaches the price provider;
+  code/tests do not establish real email/push delivery on a physical device.
+
+Verification
+- npm run test:alerts: 42/42 provider-mocked checks.
+- node --test tests/price-alert-lifecycle.mjs tests/price-alert-lifecycle-ui.mjs
+  tests/price-alert-lifecycle-db.mjs: 17/17 (real PGlite function/privilege checks).
+- Targeted mobile/root eslint passed.
+- No live emails, push notifications, deployment, DB write or generated build
+  asset updates were performed by this task.

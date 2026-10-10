@@ -110,6 +110,19 @@ test('Guests send no Authorization header and forbidden photos do not retry as a
   assert.equal(expired.calls.length, 1);
 });
 
+test('Social and admin photos use only exact protected routes, with no token in query or image URL', async () => {
+  const h = setup();
+  for (const photoPath of [path.replace('/questions/', '/social/'), path.replace('/country-community/questions/', '/admin/social/')]) {
+    await h.api.loadCommunityPhoto(photoPath, 'private-token');
+    const [url, options] = h.calls.at(-1);
+    assert.equal(url, `https://app.example.test${photoPath}`);
+    assert.equal(options.headers.Authorization, 'Bearer private-token');
+    assert.equal(options.redirect, 'error');
+    await assert.rejects(h.api.loadCommunityPhoto(`${photoPath}?token=secret`, 'private-token'), { message: 'photo_path' });
+  }
+  assert.equal(h.calls.length, 2);
+});
+
 test('Native binary requests decode Capacitor base64 and disable redirects', async () => {
   const h = setup({ native: true });
   const photo = await h.api.loadCommunityPhoto(path, 'account-token');

@@ -18,6 +18,8 @@ import { AnimatedSplash } from "./components/AnimatedSplash";
 import { Icon, type IconName } from "./components/Icon";
 import { MenuSheet } from "./components/MenuSheet";
 import { NotificationCenter } from "./components/NotificationCenter";
+import { SocialRoutePicker } from "./components/SocialRoutePicker";
+import type { SocialPlace } from "./lib/social";
 import { Onboarding } from "./components/Onboarding";
 import { useAuth } from "./hooks/useAuth";
 import { getMobileAdminAccess, getMobileAdminOverview, type MobileAdminOverview } from "./lib/admin";
@@ -179,6 +181,9 @@ export default function App() {
   const [cockpitFocusTripId, setCockpitFocusTripId] = useState("");
   const [cockpitInviteCode, setCockpitInviteCode] = useState(() => pendingTripInvite(window.location.href));
   const [communityCountryCode, setCommunityCountryCode] = useState("");
+  const [socialPlace,setSocialPlace] = useState<{owner:string|null;place:SocialPlace}|null>(null);
+  const [socialIntent,setSocialIntent] = useState<{postId?:string;profileKey?:string}>({});
+  const [routePlaceName,setRoutePlaceName] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -366,6 +371,7 @@ export default function App() {
   const openGlobalSearch = useCallback((query = '') => { setGlobalQuery(query); setSearchOpen(true); }, []);
 
   const openSeededRoute = useCallback((route: RouteSuggestion, kind: "surprise" | "explore") => {
+    setRoutePlaceName('');
     setRouteSeedKind(kind);
     setSurpriseRoute(route);
     navigate("route");
@@ -399,6 +405,9 @@ export default function App() {
     // hesabının ekran durumuna yazamaz.
     setSurpriseRoute(null);
     setExploreSearch({ query: "", requestId: 0 });
+    setSocialPlace(null);
+    setSocialIntent({});
+    setRoutePlaceName('');
     setRouteSeedKind("surprise");
     setRouteResetToken((value) => value + 1);
     setCockpitFocusTripId("");
@@ -928,10 +937,10 @@ export default function App() {
     if (view === "companion" || view === "phrases") return <TravelCompanionScreen key={`${ownerId || "guest"}-${toolRequest?.id || 0}`} initialTool={toolRequest?.tool} ownerId={ownerId} accessToken={auth.accessToken} onSignIn={() => setAccountOpen(true)} initialTab={view === "phrases" ? "phrases" : "assistant"} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "passport") return <PassportScreen onOpenCountryNews={code => { setNewsCountryCode(code); navigate("country-news"); }}/>;
     if (view === "surprise") return <SurpriseScreen initialRoute={surpriseRoute} onSelect={(route) => { setRouteSeedKind("surprise"); setSurpriseRoute(route); }} onBuildRoute={route => openSeededRoute(route, "surprise")} onNotice={showNotice} />;
-    if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
+    if (view === "route") return <RouteAssistantScreen key={`planner-${ownerId || "guest"}-${routeResetToken}`} placeName={routePlaceName} surpriseRoute={surpriseRoute} routeSeedKind={routeSeedKind} ownerId={ownerId} accessToken={auth.accessToken} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "trips") return <TripsScreen initialRouteId={savedRouteId} onInitialRouteHandled={() => setSavedRouteId("")} onPrepareCockpit={prepareCockpitJourney} initialSection={savedSection} onOpenEvent={id => { setFocusEventId(id); navigate("events"); }} key={ownerId || "guest"} initialTool={openTransfer ? "airport" : undefined} onOpenDestination={(code) => { navigate("explore"); setExploreCode(code); }} user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} inviteCode={cockpitInviteCode || undefined} onInviteHandled={() => { rememberTripInvite(""); setCockpitInviteCode(""); }} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onNotice={showNotice} />;
     if (view === "cockpit") return <CockpitScreen journeyIntent={cockpitJourneyIntent?.ownerId === ownerId ? cockpitJourneyIntent : null} onJourneyHandled={() => setCockpitJourneyIntent(null)} user={auth.user} accessToken={auth.accessToken} focusTripId={cockpitFocusTripId || undefined} onFocusHandled={() => setCockpitFocusTripId("")} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
-    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onNotice={showNotice} />;
+    if (view === "community") return <CommunityScreen user={auth.user} accessToken={auth.accessToken} initialCountryCode={communityCountryCode} initialSocialPostId={socialIntent.postId} initialSocialProfileKey={socialIntent.profileKey} onSocialIntentHandled={()=>setSocialIntent({})} onAddSocialPlace={place=>setSocialPlace({owner:ownerId,place})} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onSearchDestination={searchDestinations} onNotice={showNotice} />;
     if (view === "alerts") return <PriceAlertsScreen user={auth.user} accessToken={auth.accessToken} onOpenAccount={() => setAccountOpen(true)} onNotice={showNotice} />;
     if (view === "admin" && adminAllowed && Boolean(auth.accessToken)) return <AdminScreen accessToken={auth.accessToken} initialOverview={adminOverview} checking={adminChecking || !adminOverview} onOverviewChange={setAdminOverview} onNotice={showNotice} />;
     return <ProfileScreen user={auth.user} ownerId={ownerId} accessToken={auth.accessToken} isAdmin={adminAllowed} onOpenAccount={() => setAccountOpen(true)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onOpenOnboarding={() => setOnboardingOpen(true)} onNotice={showNotice} />;
@@ -983,7 +992,8 @@ export default function App() {
     </nav>
 
     {notice && createPortal(<div className="toast" role="status"><Icon name="info" size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label={copy("Bildirimi kapat", "Dismiss notification")}><Icon name="close" size={15} /></button></div>, document.body)}
-    <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onOpenRelease={() => setReleaseOpen(true)} onUnreadChange={setUnreadCount} />
+    <NotificationCenter open={notificationsOpen} ownerId={ownerId} accessToken={auth.accessToken} online={online} onClose={() => setNotificationsOpen(false)} onNavigate={navigate} onOpenSocial={intent=>{setSocialIntent(intent);navigate('community');}} onOpenRelease={() => setReleaseOpen(true)} onUnreadChange={setUnreadCount} />
+    {socialPlace&&socialPlace.owner===ownerId&&<SocialRoutePicker key={ownerId||'guest'} place={socialPlace.place} ownerId={ownerId} onClose={()=>setSocialPlace(null)} onNotice={showNotice} onCreate={place=>{setRoutePlaceName(place.name);setSurpriseRoute(null);setRouteResetToken(value=>value+1);navigate('route');}}/>}
     {accountOpen && <LazyOverlay title={copy("Hesap", "Account")} loadingMessage={copy("Hesap hazırlanıyor…", "Opening your account…")} onClose={() => setAccountOpen(false)}>
       <AccountSheet open onClose={() => setAccountOpen(false)} auth={auth} onNotice={showNotice} />
     </LazyOverlay>}

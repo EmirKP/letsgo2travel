@@ -126,11 +126,20 @@ test('Real account cleanup anonymizes ordinary authors and starter replies witho
       };
       return query;
     } };
+    const photoCleanup = [];
     const { cleanAccountData } = load('lib/account-deletion-cleanup.ts', {
       './profile-photo': { ownedAvatarPath: () => false },
-      './community/photos': { removeCommunityAccountPhotos: async () => {} },
+      './community/photos': { removeCommunityAccountPhotos: async (client, ownerId) => {
+        assert.equal(client, supabase); assert.equal(ownerId, uid); photoCleanup.push('forum');
+      } },
+      './community/social': { removeSocialAccountPhotos: async (client, ownerId) => {
+        assert.equal(client, supabase); assert.equal(ownerId, uid);
+        assert.deepEqual(sqlUpdates, [], 'Private media is removed before author data is anonymized');
+        photoCleanup.push('social');
+      } },
     });
     await cleanAccountData(supabase, { id: uid, user_metadata: {} });
+    assert.deepEqual(photoCleanup, ['forum', 'social']);
     assert.deepEqual(sqlUpdates, ['forum_topics', 'forum_replies']);
     const ordinary = (await db.query("select * from forum_topics where slug='ordinary'")).rows[0];
     assert.equal(ordinary.author_id, null); assert.equal(ordinary.seed_key, null);

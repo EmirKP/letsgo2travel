@@ -12,6 +12,26 @@ import { config, releaseId } from "../lib/config";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { useI18n } from "../lib/i18n";
+import { socialRead, socialWrite } from "../lib/social";
+type SocialNotification = { id: string; kind: 'comment'|'reply'|'follow'; author: {username:string;key:string}; postId: string|null; commentId: string|null; createdAt:string; readAt:string|null };
+
+function checkedSocialNotifications(value: unknown): SocialNotification[] {
+  if (!value || typeof value !== "object" || !Array.isArray((value as { items?: unknown }).items)) {
+    throw new Error("Invalid notifications response");
+  }
+  const items = (value as { items: unknown[] }).items;
+  if (!items.every(item => {
+    if (!item || typeof item !== "object") return false;
+    const row = item as SocialNotification;
+    return typeof row.id === "string" && ["comment", "reply", "follow"].includes(row.kind)
+      && row.author && typeof row.author.username === "string" && typeof row.author.key === "string"
+      && typeof row.createdAt === "string" && Number.isFinite(Date.parse(row.createdAt))
+      && (row.readAt === null || typeof row.readAt === "string")
+      && (row.postId === null || typeof row.postId === "string")
+      && (row.commentId === null || typeof row.commentId === "string");
+  })) throw new Error("Invalid notifications response");
+  return items as SocialNotification[];
+}
 
 function formatDate(value: string, locale = "tr-TR") {
   try {
@@ -21,7 +41,7 @@ function formatDate(value: string, locale = "tr-TR") {
   }
 }
 
-export function NotificationCenter({ open, ownerId, accessToken, online, onClose, onNavigate, onOpenRelease, onUnreadChange }: {
+type NotificationCenterProps = {
   open: boolean;
   ownerId?: string | null;
   accessToken: string;
@@ -30,10 +50,18 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
   onUnreadChange: (count: number) => void;
-}) {
+  onOpenSocial?: (intent:{postId?:string;profileKey?:string})=>void;
+};
+
+export function NotificationCenter(props: NotificationCenterProps) {
+  return <NotificationCenterSession key={JSON.stringify([props.ownerId || "", props.accessToken])} {...props} />;
+}
+
+function NotificationCenterSession({ open, ownerId, accessToken, online, onClose, onNavigate, onOpenRelease, onUnreadChange, onOpenSocial }: NotificationCenterProps) {
   const { copy, dateLocale } = useI18n();
   const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<FlightAlert[]>([]);
+  const [socialNotifications,setSocialNotifications] = useState<SocialNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [serverWarning, setServerWarning] = useState("");
   const [readIds, setReadIds] = useState<string[]>(() => getReadNotificationIds(ownerId));
@@ -48,34 +76,31 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   useEffect(() => setReadIds(getReadNotificationIds(ownerId)), [ownerId, storageTick]);
 
   useEffect(() => {
-    setVisaNotifications([]);
-    setTriggeredAlerts([]);
-    setServerWarning("");
-    setLoading(false);
-  }, [accessToken, ownerId]);
-
-  useEffect(() => {
     if (!open || !accessToken || !online) {
       setLoading(false);
       return;
     }
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setServerWarning("");
-    void Promise.allSettled([getVisaAppointmentNotifications(accessToken), listAlerts(accessToken)])
-      .then(([visaResult, alertResult]) => {
+    void Promise.allSettled([
+      getVisaAppointmentNotifications(accessToken),
+      listAlerts(accessToken),
+      socialRead<unknown>({section:'notifications'},accessToken,controller.signal).then(checkedSocialNotifications),
+    ])
+      .then(([visaResult, alertResult, socialResult]) => {
         if (!active) return;
-        setVisaNotifications(visaResult.status === "fulfilled" ? visaResult.value.slice(0, 10) : []);
-        setTriggeredAlerts(alertResult.status === "fulfilled"
-          ? alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6)
-          : []);
-        if (visaResult.status === "rejected" || alertResult.status === "rejected") {
-          setServerWarning(copy("Bazı canlı bildirimler şu an alınamadı. Kayıtlı içerikler gösteriliyor.", "Some live notifications could not be loaded. Saved items are shown."));
+        if (visaResult.status === "fulfilled") setVisaNotifications(visaResult.value.slice(0, 10));
+        if (alertResult.status === "fulfilled") setTriggeredAlerts(alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6));
+        if (socialResult.status === 'fulfilled') setSocialNotifications(socialResult.value);
+        if (visaResult.status === "rejected" || alertResult.status === "rejected" || socialResult.status === 'rejected') {
+          setServerWarning(copy("Bazı bildirimler yenilenemedi. Varsa son alınan bilgiler gösteriliyor.", "Some notifications could not refresh. Last loaded items are shown when available.", "Disa njoftime nuk u rifreskuan. Shfaqen të dhënat e fundit kur janë të disponueshme."));
         }
       })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [accessToken, copy, online, open]);
+    return () => { active = false; controller.abort(); };
+  }, [accessToken, copy, online, open, ownerId]);
 
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [{
@@ -116,15 +141,17 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       kind: "visa",
       view: "passport",
     });
+    for(const item of socialNotifications) items.push({id:`social-${item.id}`,title:`@${item.author.username}`,message:item.kind==='follow'?copy('Seni takip etmeye başladı.','Started following you.','Filloi të të ndjekë.'):item.kind==='reply'?copy('Yorumuna yanıt yazdı.','Replied to your comment.','Iu përgjigj komentit tënd.'):copy('Gönderine yorum yazdı.','Commented on your post.','Komentoi në postimin tënd.'),createdAt:item.createdAt,kind:'social',view:'community'});
     return items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  }, [copy, ownerId, storageTick, triggeredAlerts, visaNotifications]);
+  }, [copy, ownerId, storageTick, triggeredAlerts, visaNotifications,socialNotifications]);
 
   const isRead = useCallback((item: AppNotification) => {
     if (readIds.includes(item.id)) return true;
+    if(item.kind==='social')return Boolean(socialNotifications.find(n=>`social-${n.id}`===item.id)?.readAt);
     if (item.kind === "release" && hasSeenRelease(releaseId)) return true;
     if (!item.id.startsWith("visa-")) return false;
     return Boolean(visaNotifications.find((notification) => `visa-${notification.id}` === item.id)?.read_at);
-  }, [readIds, visaNotifications]);
+  }, [readIds, visaNotifications,socialNotifications]);
   const unread = useMemo(() => notifications.filter((item) => !isRead(item)).length, [isRead, notifications]);
   useEffect(() => onUnreadChange(unread), [onUnreadChange, unread]);
 
@@ -137,7 +164,9 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
     markRead([item.id]);
     const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
     if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
+    if(item.kind==='social'&&accessToken)void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).catch(()=>undefined);
     onClose();
+    if(item.kind==='social'&&onOpenSocial){const social=socialNotifications.find(n=>`social-${n.id}`===item.id);if(social){onOpenSocial(social.kind==='follow'?{profileKey:social.author.key}:{postId:social.postId||undefined});return;}}
     if (item.kind === "release") onOpenRelease();
     else if (item.view) onNavigate(item.view);
   };
@@ -145,6 +174,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
   const markAllRead = () => {
     markRead(notifications.map((item) => item.id));
     if (!accessToken) return;
+    void socialWrite('notifications-read',{},accessToken).catch(()=>undefined);
     void Promise.allSettled(visaNotifications.filter((item) => !item.read_at).map((item) => markVisaAppointmentNotificationRead(item.id, accessToken)));
   };
 
@@ -159,7 +189,7 @@ export function NotificationCenter({ open, ownerId, accessToken, online, onClose
       {notifications.map((item) => {
         const unreadItem = !isRead(item);
         return <button className={unreadItem ? "notification-item unread" : "notification-item"} key={item.id} onClick={() => openNotification(item)}>
-          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "price" ? "bell" : item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "passport"} size={20} /></span>
+          <span className={`notification-icon kind-${item.kind}`}><Icon name={item.kind === "social" ? "users" : item.kind === "price" ? "bell" : item.kind === "route" ? "route" : item.kind === "release" ? "sparkles" : "passport"} size={20} /></span>
           <span><strong>{item.title}</strong><small>{item.message}</small><em>{formatDate(item.createdAt, dateLocale)}</em></span>
           {unreadItem ? <i /> : <Icon name="chevron" size={16} />}
         </button>;

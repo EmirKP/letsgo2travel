@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { requestJson } from "../lib/api";
 import { config } from "../lib/config";
 import { useI18n } from "../lib/i18n";
@@ -39,6 +39,8 @@ function WorldwideTransit() {
   const generation = useRef(0);
   useEffect(() => () => {generation.current++;}, []);
   const url = transitDirectionsUrl(origin, destination);
+  const autoLocate = useEffectEvent(() => { void locate(); });
+  useEffect(() => { autoLocate(); }, []);
   async function locate() {
     if (busy) return;
     const id = ++generation.current; setBusy(true); setError('');

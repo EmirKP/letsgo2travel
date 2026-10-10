@@ -1,4 +1,5 @@
-import { lazy, Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { locateDeviceArea } from '../lib/deviceArea';
 import { GUIDE_CARDS } from '../../../lib/travel-assistant/guides';
 import { COUNTRY_LIST } from '../data/countries';
 import { alpha2FromAlpha3 } from '../data/countryIso';
@@ -63,6 +64,22 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotic
   const [tool,setTool] = useState<Tool|null>(initialTool || null);
   const [query,setQuery] = useState('');
   const [showAll,setShowAll] = useState(false);
+  const [locating,setLocating] = useState(false);
+  const [locationState,setLocationState] = useState<'idle'|'found'|'failed'>('idle');
+  const [locationRetry,setLocationRetry] = useState(0);
+  const manualCountry = useRef(Boolean(initialCountry));
+  useEffect(() => {
+    if (!tool || !['safety','embassies','guide'].includes(tool) || manualCountry.current) return;
+    let active = true;
+    setLocating(true);
+    void locateDeviceArea().then(area => {
+      if (!active || manualCountry.current) return;
+      if (!area.country) { setLocationState('failed'); return; }
+      setCountry(area.country); setLocationState('found');
+    }).catch(() => { if (active && !manualCountry.current) setLocationState('failed'); })
+      .finally(() => { if (active) setLocating(false); });
+    return () => { active = false; };
+  }, [tool,locationRetry]);
   const heading = useRef<HTMLHeadingElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const now = useCurrentTime();
@@ -98,7 +115,11 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotic
         </>}
       </nav>
     </>}
-    {(tool === 'safety' || tool === 'embassies' || tool === 'guide') && <div className="ta-country-context"><CountryPicker value={country} options={options} onChange={code => {setCountry(code);setGuideNotice('');selectTravelCountry(code);}} label={copy('Hangi ülke için?','For which country?')} placeholder={copy('Ülke seç','Choose a country')}/>{!country && <p className="ta-muted">{copy('Doğru yerel bilgileri gösterebilmemiz için ülkeyi seç.','Choose a country to see the relevant local information.')}</p>}</div>}
+    {(tool === 'safety' || tool === 'embassies' || tool === 'guide') && <div className="ta-country-context">
+      <p className="ta-muted" role="status">{locating ? copy('Konumun belirleniyor… İstersen ülkeyi kendin seçebilirsin.','Finding your location… You can also choose the country.','Po gjendet vendndodhja… Mund ta zgjedhësh vetë shtetin.') : locationState === 'found' ? copy('Ülke yaklaşık konumundan seçildi. Gerekirse değiştirebilirsin.','Country selected from your approximate location. Change it if needed.','Shteti u zgjodh nga vendndodhja e përafërt. Mund ta ndryshosh.') : locationState === 'failed' ? copy('Konum alınamadı. Ülkeni seçerek devam et.','Location unavailable. Choose your country to continue.','Vendndodhja nuk u gjet. Zgjidh shtetin për të vazhduar.') : ''}</p>
+      <CountryPicker value={country} options={options} onChange={code => {manualCountry.current=true;setLocating(false);setLocationState('idle');setCountry(code);setGuideNotice('');selectTravelCountry(code);}} label={copy('Ülke','Country','Shteti')} placeholder={copy('Ülke seç','Choose a country')}/>
+      {!locating && <button type="button" className="secondary-wide" onClick={() => {manualCountry.current=false;setLocationRetry(value=>value+1);}}><Icon name="map" size={16}/>{copy('Konumumu kullan','Use my location','Përdor vendndodhjen time')}</button>}
+    </div>}
     <Suspense fallback={<p role="status">{copy('Araç açılıyor…','Opening tool…')}</p>}>
       {tool==='safety' && country && <TravelSafety country={country} onNotice={onNotice} onOpen={t => t==='phrases' ? onPhrases(country) : chooseTool(t)}/>}
       {(tool==='needs'||tool==='explore') && <TravelNearby key={`${ownerId || 'guest'}:${tool}`} ownerId={ownerId} mode={tool} citizenship={citizenship}/>}
