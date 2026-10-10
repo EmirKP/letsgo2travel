@@ -29,7 +29,12 @@ export function HeaderThemeToggle() {
             <path d="M14.5 19a6 6 0 0 1 5-5" fill="none" stroke="#fff2b5" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
           <svg className="theme-toggle-moon" viewBox="0 0 40 40" focusable="false">
-            <path d="M15.5 6.75A14 14 0 1 0 30.5 29.25A14 14 0 0 1 15.5 6.75Z" fill="#ffd66b" />
+            <path d="M15.5 6.75A14 14 0 1 0 30.5 29.25A14 14 0 0 1 15.5 6.75Z" fill="#f1e7c9" />
+            <g fill="#baad88" opacity=".5">
+              <circle cx="10.3" cy="17.8" r="1.6" />
+              <circle cx="12.5" cy="26" r="2" />
+              <circle cx="19" cy="31" r=".95" />
+            </g>
           </svg>
         </span>
       </span>
