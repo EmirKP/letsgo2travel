@@ -89,6 +89,8 @@ function harness(initial = {}) {
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/Sheet': { Sheet: 'Sheet' },
     '../components/CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
+    '../components/CommunityProfileSheet': { CommunityProfileSheet: 'CommunityProfileSheet' },
+    '../components/CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
     '../lib/communityPreferences': preferences, '../lib/community': community,
@@ -166,6 +168,11 @@ test('Feed combines real region, country, text and answer filters and country de
 
 test('Country-group follows use the real device store, survive remounts and never leak across accounts', async () => {
   const h = harness();
+  const following = async () => {
+    h.tab('following'); h.click('Country groups');
+    const request = h.requests.findLast(item => item.path.startsWith('/api/country-community/feed') && !item.done);
+    return request ? await h.feed() : h.render();
+  };
   const follow = (code, expected) => {
     let view = h.tab('groups');
     const article = nodes(view).find(node => node.type === 'article' && find(node, 'CountryFlag', props => props.code === code));
@@ -176,23 +183,23 @@ test('Country-group follows use the real device store, survive remounts and neve
   try {
     await h.feed(); follow('TR', true);
     assert.deepEqual(Array.from(h.preferences.readCommunityFollows(null)), ['TR']);
-    assert.deepEqual(postTitles(h.tab('following')), ['Cappadocia walking routes', 'Istanbul ferry tips']);
+    assert.deepEqual(postTitles(await following()), ['Cappadocia walking routes', 'Istanbul ferry tips']);
     h.render({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' }); await h.feed();
-    assert.deepEqual(postTitles(h.tab('following')), []);
-    follow('JP', true); h.tab('following'); assert.deepEqual(postTitles(await h.feed()), ['Tokyo train advice']);
+    assert.deepEqual(postTitles(await following()), []);
+    follow('JP', true); assert.deepEqual(postTitles(await following()), ['Tokyo train advice']);
     h.render({ user: { id: 'account-b' }, accessToken: 'TOKEN_B' }); await h.feed();
-    assert.deepEqual(postTitles(h.tab('following')), []);
+    assert.deepEqual(postTitles(await following()), []);
     h.render({ user: null, accessToken: '' }); await h.feed();
-    assert.deepEqual(postTitles(h.tab('following')), ['Cappadocia walking routes', 'Istanbul ferry tips']);
+    assert.deepEqual(postTitles(await following()), ['Cappadocia walking routes', 'Istanbul ferry tips']);
     h.tab('groups'); h.failStorage(true);
     const trArticle = nodes(h.render()).find(node => node.type === 'article' && find(node, 'CountryFlag', props => props.code === 'TR'));
     byClass(trArticle, 'cs-follow').props.onClick(); h.render();
     assert.match(h.notices.at(-1), /could not be saved/);
-    assert.deepEqual(postTitles(h.tab('following')), ['Cappadocia walking routes', 'Istanbul ferry tips'], 'Failed storage does not pretend an unfollow succeeded');
+    assert.deepEqual(postTitles(await following()), ['Cappadocia walking routes', 'Istanbul ferry tips'], 'Failed storage does not pretend an unfollow succeeded');
     assert.deepEqual(Array.from(h.preferences.readCommunityFollows(null)), ['TR']);
-    h.failStorage(false); follow('TR', false); assert.deepEqual(postTitles(h.tab('following')), []);
+    h.failStorage(false); follow('TR', false); assert.deepEqual(postTitles(await following()), []);
     h.render({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' }); await h.feed();
-    assert.deepEqual(postTitles(h.tab('following')), ['Tokyo train advice']);
+    assert.deepEqual(postTitles(await following()), ['Tokyo train advice']);
   } finally { h.dispose(); }
 });
 
@@ -507,7 +514,7 @@ test('The slim reply row opens genuine detail and own posts have no inert author
   try {
     let view = await h.feed([question('mine', 'IT', 'My own question', { authorId: 'account-a', username: 'me', answerCount: 4 }), rows[2]]);
     const ownCard = nodes(byClass(view, 'cs-posts')).find(node => node.type === 'article' && postTitles(node).includes('My own question'));
-    assert.equal(text(byClass(ownCard, 'cs-post-author')), 'me');
+    assert.ok(button(ownCard, "Open @me's profile"));
     assert.equal(byClass(ownCard, 'cs-post-options'), undefined);
     h.click('4 replies: My own question'); const detailRequest = h.requests.at(-1);
     assert.equal(detailRequest.path, '/api/country-community/questions/mine');
@@ -524,10 +531,9 @@ test('The slim reply row opens genuine detail and own posts have no inert author
 test('A country starter with no auth account remains visible, reportable and replyable in Albanian', async () => {
   const h = harness({ ...account, locale: 'sq' });
   try {
-    const starter = question('starter', 'TR', 'Istanbul to Bodrum ideas', { authorId: null, username: 'yol_notlari' });
+    const starter = question('starter', 'TR', 'Istanbul to Bodrum ideas', { authorId: null, username: 'yol_notlari', isStarter: true });
     let view = await h.feed([starter]);
-    assert.equal(byClass(view, 'cs-post-author').type, 'strong', 'Fictional author has no profile button');
-    assert.equal(text(byClass(view, 'cs-post-author')), 'yol_notlari');
+    assert.ok(button(view, 'Hap profilin e @yol_notlari'));
     view = h.click('Veprimet për përdoruesin @yol_notlari');
     assert.equal(find(view, 'CommunitySafetySheet').props.target.authorId, null);
     find(view, 'CommunitySafetySheet').props.onClose(); h.render();
@@ -634,6 +640,51 @@ test('A reply finishing after detail closes refreshes its real feed count withou
   } finally { h.dispose(); }
 });
 
+test('Author photos and names open profiles for accounts and starter personas, preserve drafts and isolate account changes', async () => {
+  const h = harness(account);
+  try {
+    const starter = question('starter', 'TR', 'Starter conversation', { authorId: null, isStarter: true, username: 'selma.dogan', profileKey: 'starter:selma.dogan' });
+    let view = await h.feed([starter, rows[2]]);
+    const entry = button(view, "Open @selma.dogan's profile");
+    assert.ok(find(entry, 'CommunityAvatar', props => props.username === 'selma.dogan'));
+    view = h.click("Open @selma.dogan's profile");
+    assert.equal(find(view, 'CommunityProfileSheet').props.profileKey, 'starter:selma.dogan');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target, null);
+    find(view, 'CommunityProfileSheet').props.onClose(); h.render();
+    h.click('Open question: Tokyo train advice');
+    const answer = { id: 'a1', username: 'Selin', authorId: 'author-selin', body: 'Advice', createdAt: rows[2].createdAt, avatarUrl: 'https://example.com/avatar.jpg' };
+    h.requests.at(-1).resolve({ data: { ...rows[2], answers: [answer] } });
+    await h.settle(); h.change('textarea', props => props.id === 'community-answer-body', 'Keep this reply draft');
+    view = h.click("Open @Selin's profile");
+    assert.equal(find(view, 'CommunityProfileSheet').props.profileKey, 'user:author-selin');
+    assert.ok(find(button(view, "Open @Selin's profile"), 'CommunityAvatar', props => props.avatarUrl === answer.avatarUrl));
+    find(view, 'CommunityProfileSheet').props.onClose(); view = h.render();
+    assert.equal(find(view, 'textarea', props => props.id === 'community-answer-body').props.value, 'Keep this reply draft');
+    h.click("Open @Selin's profile");
+    view = h.render({ user: { id: 'account-b' }, accessToken: 'TOKEN_B' });
+    assert.equal(find(view, 'CommunityProfileSheet'), undefined);
+  } finally { h.dispose(); }
+});
+
+test('Following travellers uses authenticated server results, separates country follows and refreshes after a follow change', async () => {
+  const h = harness(account);
+  try {
+    await h.feed(); let view = h.tab('following');
+    assert.deepEqual(postTitles(view), [], 'Discover rows cannot flash as followed travellers');
+    let req = h.requests.at(-1);
+    assert.equal(new URL(req.path, 'https://test').searchParams.get('following'), '1');
+    assert.equal(req.options.headers.Authorization, 'Bearer TOKEN_A');
+    view = await h.feed([rows[2]]); assert.deepEqual(postTitles(view), ['Tokyo train advice']);
+    view = h.click("Open @akira's profile");
+    find(view, 'CommunityProfileSheet').props.onFollowChanged(); h.render();
+    req = h.requests.at(-1); assert.equal(new URL(req.path, 'https://test').searchParams.get('following'), '1');
+    await h.feed([]);
+    h.render({ user: null, accessToken: '' }); await h.feed();
+    view = h.tab('following'); assert.deepEqual(postTitles(view), []);
+    view = h.click('Sign in'); assert.equal(h.accountOpened, 1);
+  } finally { h.dispose(); }
+});
+
 test('More than 100 replies remain accessible and a failed later page preserves both replies and draft',async()=>{
  const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
  try{
@@ -646,4 +697,50 @@ test('More than 100 replies remain accessible and a failed later page preserves 
   h.click('Load more replies');h.requests.at(-1).resolve({data:{...rows[2],answers:[{...answers[0],id:'latest',body:'Newest reply'}],totalAnswerCount:101,nextOffset:null}});
   view=await h.settle();assert.equal(nodes(view).filter(n=>n.props?.className==='community-answer').length,101);assert.equal(find(view,'textarea').props.value,'Keep my draft');assert.ok(!button(view,'Load more replies'));
  }finally{h.dispose();}
+});
+
+test('Discussion and individual reply options retain their exact moderation targets while author taps open profiles', async () => {
+  const h = harness(account);
+  try {
+    await h.feed(); h.click('Open question: Tokyo train advice');
+    const replies = [
+      { id: 'reply-one', username: 'Selin', authorId: 'author-selin', body: 'First advice', createdAt: rows[2].createdAt },
+      { id: 'reply-two', username: 'Selin', authorId: 'author-selin', body: 'Second advice', createdAt: rows[2].createdAt },
+    ];
+    h.requests.at(-1).resolve({ data: { ...rows[2], answers: replies } });
+    let view = await h.settle();
+    view = h.click('Options for this post');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetType, 'question');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetId, 'jp');
+    find(view, 'CommunitySafetySheet').props.onClose(); view = h.render();
+    const articles = nodes(view).filter(node => node.props?.className === 'community-answer');
+    button(articles[1], 'Options for this answer by @Selin').props.onClick(); view = h.render();
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetType, 'answer');
+    assert.equal(find(view, 'CommunitySafetySheet').props.target.targetId, 'reply-two', 'The second reply does not report the author’s first published answer');
+    find(view, 'CommunitySafetySheet').props.onClose(); h.render();
+    view = h.click("Open @Selin's profile");
+    assert.equal(find(view, 'CommunityProfileSheet').props.profileKey, 'user:author-selin');
+  } finally { h.dispose(); }
+});
+
+test('Saving a community profile refreshes author photos without resetting the discussion, reply draft or loaded answer pages', async () => {
+  const h = harness(account);
+  try {
+    await h.feed(); h.click('Open question: Tokyo train advice');
+    const own = { id: 'own-reply', username: 'Me', authorId: account.user.id, body: 'My advice', createdAt: rows[2].createdAt };
+    const other = { id: 'other-reply', username: 'Other', authorId: 'other', body: 'Other advice', createdAt: rows[2].createdAt };
+    h.requests.at(-1).resolve({ data: { ...rows[2], answers: [other, own], nextOffset: 100, totalAnswerCount: 101 } });
+    await h.settle(); h.change('textarea', props => props.id === 'community-answer-body', 'Unsent travel advice');
+    let view = h.click("Open @Me's profile");
+    find(view, 'CommunityProfileSheet').props.onProfileChanged(); view = h.render();
+    assert.equal(find(view, 'textarea', props => props.id === 'community-answer-body').props.value, 'Unsent travel advice');
+    const refresh = h.requests.findLast(request => request.path.startsWith('/api/country-community/profiles/'));
+    refresh.resolve({ profile: { key: `user:${account.user.id}`, userId: account.user.id, username: 'Me', avatarUrl: 'https://example.com/new-photo.jpg' } });
+    view = await h.settle();
+    assert.equal(find(view, 'textarea', props => props.id === 'community-answer-body').props.value, 'Unsent travel advice');
+    assert.equal(nodes(view).filter(node => node.props?.className === 'community-answer').length, 2);
+    assert.ok(button(view, 'Load more replies'));
+    assert.equal(find(button(view, "Open @Me's profile"), 'CommunityAvatar').props.avatarUrl, 'https://example.com/new-photo.jpg');
+    assert.equal(h.requests.filter(request => request.path === '/api/country-community/questions/jp').length, 1, 'Profile edits must not reopen and reset the discussion');
+  } finally { h.dispose(); }
 });

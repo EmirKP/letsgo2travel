@@ -1,7 +1,7 @@
 import { communityViewer } from "@/lib/community/viewer";
 import { blockedAuthorFilter, COMMUNITY_PRIVATE_HEADERS } from "@/lib/community/safety";
 import { NextResponse } from "next/server";
-import { serializeAnswer, serializeQuestionDetail } from "@/lib/community/serializers";
+import { communityProfileKey, serializeAnswer, serializeQuestionDetail } from "@/lib/community/serializers";
 import {
   countryCodeFromForumSlug,
   forumReplyLimit,
@@ -9,6 +9,7 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { communityPhotoTopics } from "@/lib/community/photos";
+import { communityAuthorAvatars } from "@/lib/community/profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { data: question, error } = await supabase
       .from("forum_topics")
-      .select("id,author_id,country_slug,title,content,category,author_name,created_at,status,seed_key")
+      .select("id,author_id,country_slug,title,content,category,author_name,created_at,status,seed_key,is_paywalled")
       .eq("id", questionId)
       .eq("status", "published")
       .maybeSingle();
@@ -101,6 +102,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const photoTopics = await communityPhotoTopics(supabase, [question]);
+    const avatars = await communityAuthorAvatars(supabase, [question.author_id, ...(answers || []).map(answer => answer.user_id)], viewer.userId);
+    const parentProfileKey = communityProfileKey({ ...question, authorId: question.author_id }, question.author_name, "question");
     const serialized = serializeQuestionDetail(
       {
         id: question.id,
@@ -112,6 +115,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         created_at: question.created_at,
         hasPhoto: photoTopics.has(question.id),
         seed_key: question.seed_key,
+        is_paywalled: question.is_paywalled,
+        status: question.status,
+        avatarUrl: avatars.get(question.author_id),
       },
       question.author_name,
       (answers || []).map((answer) => serializeAnswer({
@@ -120,6 +126,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         body: answer.content,
         created_at: answer.created_at,
         seed_key: answer.seed_key,
+        topic_id: question.id,
+        parentProfileKey,
+        avatarUrl: avatars.get(answer.user_id),
       }, answer.author_name)),
     );
     const totalAnswerCount = Math.max(Number(count) || 0, serialized.answers.length);

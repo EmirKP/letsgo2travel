@@ -1315,7 +1315,7 @@
 .community-question-open { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 0; }
 .community-question-detail { display: grid; gap: 12px; }
 .community-question-detail > header { display: flex; align-items: center; gap: 9px; }
-.community-question-detail > header span { min-height: 28px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; background: var(--theme-soft, #eaf2f6); color: var(--theme-ink, #12263c); font-size: 11px; font-weight: 800; }
+.community-question-detail > header > span { min-height: 28px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; background: var(--theme-soft, #eaf2f6); color: var(--theme-ink, #12263c); font-size: 11px; font-weight: 800; }
 .community-question-detail > header strong { font-size: 13px; color: var(--theme-ink, #12263c); }
 .community-question-detail > header small { display: block; font-size: 10px; color: var(--theme-muted, #62748a); }
 .community-question-detail h3 { margin: 0; font-size: 17px; color: var(--theme-ink, #183b91); }

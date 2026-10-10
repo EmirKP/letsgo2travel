@@ -39,7 +39,7 @@ function dbFixture(topics,replies=[]){
  return {db,setLocked:v=>locked=v,setUnlocked:v=>unlocked=v,setFail:v=>fail=v};
 }
 function routes(fixture,viewer={ok:true,userId:id,hiddenUserIds:[blocked]}){
- const imports={'next/server':next,'@/lib/community/viewer':{communityViewer:async()=>viewer},'@/lib/community/safety':safety,'@/lib/community/serializers':serializers,'@/lib/community/forum-sync':sync,'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>fixture.db},'@/lib/community/photos':{communityPhotoTopics:async()=>new Set()}};
+ const imports={'next/server':next,'@/lib/community/viewer':{communityViewer:async()=>viewer},'@/lib/community/safety':safety,'@/lib/community/serializers':serializers,'@/lib/community/forum-sync':sync,'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>fixture.db},'@/lib/community/photos':{communityPhotoTopics:async()=>new Set()},'@/lib/community/profiles':{communityAuthorAvatars:async()=>new Map()}};
  return {feed:load('app/api/country-community/feed/route.ts',imports),detail:load('app/api/country-community/questions/[id]/route.ts',imports)};
 }
 test('Country feed filters before its page boundary, includes legacy aliases and has no duplicate adjacent pages',async()=>{
@@ -66,4 +66,18 @@ test('Reply pagination exposes the 101st reply only with full access; offsets ne
 test('Denied viewer never starts a service-role feed or reply query',async()=>{
  const fixture=dbFixture([]),route=routes(fixture,{ok:false,response:next.NextResponse.json({error:'Unauthorized'},{status:401})});
  assert.equal((await route.feed.GET(new Request('https://test'))).status,401);assert.equal((await route.detail.GET(new Request('https://test'),{params:Promise.resolve({id})})).status,401);assert.equal(fixture.db.calls.length,0);
+});
+
+test('People following uses server-filtered pagination and rejects guests instead of returning a general feed',async()=>{
+ const fixture=dbFixture([]),calls=[];
+ fixture.db.rpc=async(name,args)=>{
+  calls.push({name,args});
+  if(name==='get_community_following_feed')return {data:Array.from({length:41},(_,i)=>topic(100+i)),error:null};
+  return {data:[],error:null};
+ };
+ const result=await routes(fixture).feed.GET(new Request('https://test?following=1&offset=40&countries=TR&search=walk'));
+ assert.equal(result.status,200);assert.equal(result.body.data.length,40);assert.equal(result.body.nextOffset,80);
+ assert.equal(calls[0].name,'get_community_following_feed');assert.equal(calls[0].args.p_offset,40);assert.equal(calls[0].args.p_viewer,id);assert.equal(calls[0].args.p_search,'walk');assert.ok(calls[0].args.p_slugs.includes('turkiye'));
+ calls.length=0;
+ assert.equal((await routes(fixture,{ok:true,userId:null,hiddenUserIds:[]}).feed.GET(new Request('https://test?following=1'))).status,401);assert.equal(calls.length,0);
 });

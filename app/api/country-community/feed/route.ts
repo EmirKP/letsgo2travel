@@ -5,6 +5,7 @@ import { serializeQuestionSummary } from "@/lib/community/serializers";
 import { countryCodeFromForumSlug, forumCountrySlugsForCodes } from "@/lib/community/forum-sync";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { communityPhotoTopics } from "@/lib/community/photos";
+import { communityAuthorAvatars } from "@/lib/community/profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,11 @@ export async function GET(request: Request) {
     const codes = [...new Set((params.get("countries") || "").split(",").filter(code => /^[A-Z]{2}$/.test(code)))].slice(0, 250);
     // Strip PostgREST grammar and wildcard characters; values are search text only.
     const search = (params.get("search") || "").slice(0, 100).replace(/[(),.%_*\\"\r\n]/g, " ").trim();
+    const following = params.get("following") === "1";
+    if (following && !viewer.userId) return NextResponse.json({ error: "Takip ettiklerini görmek için giriş yap." }, { status: 401, headers: COMMUNITY_PRIVATE_HEADERS });
     let questionQuery = supabase
       .from("forum_topics")
-      .select("id,author_id,country_slug,title,content,category,author_name,created_at,seed_key")
+      .select("id,author_id,country_slug,title,content,category,author_name,created_at,seed_key,is_paywalled,status")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
@@ -48,7 +51,10 @@ export async function GET(request: Request) {
     }
     const authorFilter = blockedAuthorFilter("author_id", viewer.hiddenUserIds);
     if (authorFilter) questionQuery = questionQuery.or(authorFilter);
-    const { data: rows, error } = await questionQuery;
+    const { data: rows, error } = following ? await supabase.rpc("get_community_following_feed", {
+      p_viewer: viewer.userId, p_offset: offset, p_slugs: forumCountrySlugsForCodes(codes), p_general: codes.includes("ZZ"), p_search: search,
+      p_search_slugs: forumCountrySlugsForCodes((params.get("searchCountries") || "").split(",").filter(code => /^[A-Z]{2}$/.test(code)).slice(0, 250)),
+    }) : await questionQuery;
     if (error) {
       // Teşhis için yalnız hata KODU loglanır (içerik/secret yok).
       console.error("country_community_feed_hatasi", { code: (error as { code?: string }).code || "unknown" });
@@ -56,7 +62,7 @@ export async function GET(request: Request) {
     }
 
     const hasMore = (rows?.length || 0) > 40;
-    const questions = (rows || []).slice(0, 40);
+    const questions: Array<{ id: string; author_id: string | null; country_slug: string | null; title: string; content: string; category: string; author_name: string; created_at: string; seed_key: string | null; is_paywalled: boolean; status: string }> = (rows || []).slice(0, 40);
     const questionIds = (questions || []).map((item) => item.id);
     const answersResult = questionIds.length
       ? await supabase.rpc("get_forum_visible_reply_counts", { p_topic_ids: questionIds, p_user_id: viewer.userId })
@@ -77,6 +83,7 @@ export async function GET(request: Request) {
     }
 
     const photoTopics = await communityPhotoTopics(supabase, questions || []);
+    const avatars = await communityAuthorAvatars(supabase, questions.map(item => item.author_id), viewer.userId);
     const data = (questions || []).map((item) => serializeQuestionSummary(
       {
         id: item.id,
@@ -88,6 +95,9 @@ export async function GET(request: Request) {
         created_at: item.created_at,
         hasPhoto: photoTopics.has(item.id),
         seed_key: item.seed_key,
+        is_paywalled: item.is_paywalled,
+        status: item.status,
+        avatarUrl: item.author_id ? avatars.get(item.author_id) : null,
       },
       item.author_name,
       answerCounts.get(item.id) || 0,

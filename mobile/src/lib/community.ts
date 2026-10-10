@@ -12,6 +12,8 @@ export type CommunityQuestion = {
   answerCount: number;
   photoUrl?: string | null;
   isStarter?: boolean;
+  profileKey?: string | null;
+  avatarUrl?: string | null;
 };
 
 function record(value: unknown) {
@@ -47,19 +49,28 @@ export function normalizeCommunityQuestion(value: unknown): CommunityQuestion | 
     authorId: communityText(item.authorId, 80) || null,
     answerCount: communityCount(item.answerCount ?? item.answer_count),
     isStarter: item.isStarter === true,
+    profileKey: communityText(item.profileKey, 120) || null,
+    avatarUrl: typeof item.avatarUrl === "string" ? item.avatarUrl : null,
     // Only the authenticated media endpoint may supply a post photo.
     photoUrl: typeof item.photoUrl === "string" && item.photoUrl === `/api/country-community/questions/${id}/photo`
       && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? item.photoUrl : null,
   };
 }
 
-export type CommunityFeedOptions = { countries?: string[]; searchCountries?: string[]; search?: string; offset?: number };
+export function communityProfileKey(item: { profileKey?: string | null; authorId: string | null; username: string; isStarter?: boolean }) {
+  if (item.profileKey) return item.profileKey;
+  if (item.authorId) return `user:${item.authorId}`;
+  return item.isStarter ? `starter:${item.username}` : null;
+}
+
+export type CommunityFeedOptions = { countries?: string[]; searchCountries?: string[]; search?: string; offset?: number; following?: boolean };
 export async function listCommunityPage(accessToken = "", options: CommunityFeedOptions = {}) {
   const params = new URLSearchParams();
   if (options.countries?.length) params.set("countries", options.countries.join(","));
   if (options.searchCountries?.length) params.set("searchCountries", options.searchCountries.join(","));
   if (options.search?.trim()) params.set("search", options.search.trim());
   if (options.offset) params.set("offset", String(options.offset));
+  if (options.following) params.set("following", "1");
   const response = await requestJson<{ data?: unknown; nextOffset?: number | null }>(`/api/country-community/feed${params.size ? `?${params}` : ""}`, {
     timeoutMs: 15_000,
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,

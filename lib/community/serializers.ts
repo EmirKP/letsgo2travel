@@ -13,6 +13,24 @@ function text(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.slice(0, maxLength) : "";
 }
 
+export function communityProfileKey(row: Unknown, username: string | null | undefined, kind: "question" | "answer") {
+  const author = publicAuthorId(row.authorId);
+  if (author) return `user:${author.toLowerCase()}`;
+  if (row.authorId !== null || !username || !/^[a-z0-9][a-z0-9._]{1,59}$/.test(username)) return null;
+  const seed = typeof row.seed_key === "string" ? row.seed_key : "";
+  if (kind === "question") {
+    const match = /^starter-20260930-(0[1-9]|1[0-5])$/.exec(seed);
+    if (match && row.id === `f09a2026-0930-4000-8000-${match[1].padStart(12, "0")}` && row.status === "published" && row.is_paywalled === false && row.category === "Ülke Bazlı Sorunlar") return `starter:${username}`;
+  } else {
+    const match = /^starter-reply-20261010-(0[1-9]|1[0-5])-(0[1-9]|1[0-6])$/.exec(seed);
+    if (match && row.id === `f09a2026-1010-4000-8000-${match[1].padStart(10, "0")}${match[2]}`
+      && row.topic_id === `f09a2026-0930-4000-8000-${match[1].padStart(12, "0")}` && typeof row.parentProfileKey === "string" && row.parentProfileKey.startsWith("starter:")) return `starter:${username}`;
+  }
+  return null;
+}
+
+const avatarUrl = (row: Unknown) => typeof row.avatarUrl === "string" && /^https:\/\/[^/]+\/storage\/v1\/object\/sign\/profile-avatars\//.test(row.avatarUrl) ? row.avatarUrl : null;
+
 export type PublicAnswer = {
   id: string;
   authorId: string | null;
@@ -20,6 +38,8 @@ export type PublicAnswer = {
   createdAt: string;
   username: string;
   isStarter: boolean;
+  profileKey: string | null;
+  avatarUrl: string | null;
 };
 
 export type PublicQuestionSummary = {
@@ -34,6 +54,8 @@ export type PublicQuestionSummary = {
   answerCount: number;
   photoUrl: string | null;
   isStarter: boolean;
+  profileKey: string | null;
+  avatarUrl: string | null;
 };
 
 export type PublicQuestionDetail = Omit<PublicQuestionSummary, "answerCount"> & {
@@ -48,6 +70,8 @@ export function serializeAnswer(row: Unknown, username: string | null | undefine
     createdAt: text(row.created_at, 40),
     username: username || "anonim_gezgin",
     isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-reply-20261010-\d{2}-\d{2}$/.test(row.seed_key),
+    profileKey: communityProfileKey(row, username, "answer"),
+    avatarUrl: avatarUrl(row),
   };
 }
 
@@ -68,6 +92,8 @@ export function serializeQuestionSummary(
     answerCount: Number.isFinite(answerCount) ? Math.max(0, Math.floor(answerCount)) : 0,
     photoUrl: publicPhotoUrl(row),
     isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-20260930-\d{2}$/.test(row.seed_key),
+    profileKey: communityProfileKey(row, username, "question"),
+    avatarUrl: avatarUrl(row),
   };
 }
 
@@ -88,6 +114,8 @@ export function serializeQuestionDetail(
     username: summary.username,
     photoUrl: summary.photoUrl,
     isStarter: summary.isStarter,
+    profileKey: summary.profileKey,
+    avatarUrl: summary.avatarUrl,
     answers,
   };
 }

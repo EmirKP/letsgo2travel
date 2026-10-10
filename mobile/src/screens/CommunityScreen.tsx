@@ -7,6 +7,8 @@ import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { CommunityPostPhoto } from "../components/CommunityPostPhoto";
+import { CommunityProfileSheet } from "../components/CommunityProfileSheet";
+import { CommunityAvatar } from "../components/CommunityAvatar";
 import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
@@ -16,6 +18,7 @@ import { prepareCommunityPhoto } from "../lib/communityPhoto";
 import { ApiError, requestJson } from "../lib/api";
 import {
   communityCount as count,
+  communityProfileKey,
   communityText as text,
   listCommunityPage,
   type CommunityQuestion,
@@ -44,6 +47,8 @@ type CommunityAnswer = {
   username: string;
   authorId: string | null;
   isStarter?: boolean;
+  profileKey?: string | null;
+  avatarUrl?: string | null;
 };
 
 type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
@@ -127,12 +132,8 @@ function userName(user: AuthUser | null) {
 }
 
 function initials(username: string) {
-  return username
-    .split(/[._\s-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.slice(0, 1).toLocaleUpperCase("tr-TR"))
-    .join("") || "K";
+  return username.split(/[._\s-]+/).filter(Boolean).slice(0, 2)
+    .map(part => part.slice(0, 1).toLocaleUpperCase("tr-TR")).join("") || "K";
 }
 
 export function CommunityScreen(props: CommunityScreenProps) {
@@ -152,6 +153,9 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   })), [questionCountries]);
   const questionCountryLabels = useMemo(() => new Map(questionCountries.map(country => [country.alpha2, country.name])), [questionCountries]);
   const [tab, setTab] = useState<CommunityTab>("feed");
+  const [followingKind, setFollowingKind] = useState<"people" | "countries">("people");
+  const followingPeople = tab === "following" && followingKind === "people";
+  const [profileKey, setProfileKey] = useState<string | null>(null);
   const [leagueOpen, setLeagueOpen] = useState(false);
   const [region, setRegion] = useState<CommunityRegionId>("all");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -167,6 +171,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState<CommunityQuestion[]>([]);
+  const [feedForPeople, setFeedForPeople] = useState(false);
   const [feedLoading, setFeedLoading] = useState(true);
   const [serverSearch, setServerSearch] = useState<string | null>(null);
   const [feedNextOffset, setFeedNextOffset] = useState<number | null>(null);
@@ -199,6 +204,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [supportOpen, setSupportOpen] = useState(false);
   const active = useRef(true);
   const detailGeneration = useRef(0);
+  const profileRefreshGeneration = useRef(0);
   const requestGeneration = useRef(0);
   const feedGeneration = useRef(0);
   const currentUsername = useMemo(() => userName(user).toLocaleLowerCase("tr-TR"), [user]);
@@ -215,14 +221,15 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     return codes.slice(0, 8);
   }, [countryFilter, questions]);
   const filteredQuestions = useMemo(() => {
+    if (followingPeople !== feedForPeople) return [];
     const query = search.trim().toLocaleLowerCase(locale);
     return questions.filter(question => (!countryFilter || question.countryCode === countryFilter)
       && matchesCommunityRegion(question.countryCode, region)
-      && (tab !== "following" || followedCountries.includes(question.countryCode))
+      && (tab !== "following" || followingKind !== "countries" || followedCountries.includes(question.countryCode))
       && (sort !== "unanswered" || question.answerCount === 0)
       && (!query || serverSearch === search || [question.title, question.body, question.username, questionCountryLabels.get(question.countryCode)].join(" ").toLocaleLowerCase(locale).includes(query)))
       .sort((a, b) => sort === "answered" ? b.answerCount - a.answerCount || b.createdAt.localeCompare(a.createdAt) : b.createdAt.localeCompare(a.createdAt));
-  }, [countryFilter, followedCountries, locale, questionCountryLabels, questions, region, search, serverSearch, sort, tab]);
+  }, [countryFilter, feedForPeople, followedCountries, followingKind, followingPeople, locale, questionCountryLabels, questions, region, search, serverSearch, sort, tab]);
   const regions = useMemo(() => communityRegions(locale), [locale]);
   const groups = useMemo(() => questionCountries.filter(country => matchesCommunityRegion(country.alpha2, region)
     && country.name.toLocaleLowerCase(locale).includes(groupSearch.trim().toLocaleLowerCase(locale))), [groupSearch, locale, questionCountries, region]);
@@ -296,21 +303,22 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   }, [copy]);
 
   const feedCountriesKey = useMemo(() => {
-    if (!countryFilter && region === "all" && tab !== "following") return "";
+    if (!countryFilter && region === "all" && (tab !== "following" || followingKind !== "countries")) return "";
     return [...questionCountries.map(country => country.alpha2), "ZZ"].filter(code => (!countryFilter || code === countryFilter)
-      && matchesCommunityRegion(code, region) && (tab !== "following" || followedCountries.includes(code))).join(",") || "NONE";
-  }, [countryFilter, region, tab, questionCountries, followedCountries]);
+      && matchesCommunityRegion(code, region) && (tab !== "following" || followingKind !== "countries" || followedCountries.includes(code))).join(",") || "NONE";
+  }, [countryFilter, region, tab, followingKind, questionCountries, followedCountries]);
   const searchCountryKey = useMemo(() => search.trim() ? questionCountries.filter(country => country.name.toLocaleLowerCase(locale).includes(search.trim().toLocaleLowerCase(locale))).map(country => country.alpha2).join(",") : "", [questionCountries, search, locale]);
   const loadFeed = useCallback(async (offset = 0) => {
     const generation = ++feedGeneration.current;
     setFeedLoading(true);
     setFeedError("");
     try {
-      const next = feedCountriesKey === "NONE" ? { data: [], nextOffset: null } : await listCommunityPage(accessToken, {
-        countries: feedCountriesKey ? feedCountriesKey.split(",") : undefined, searchCountries: searchCountryKey ? searchCountryKey.split(",") : undefined, search, offset,
+      const next = feedCountriesKey === "NONE" || (followingPeople && !accessToken) ? { data: [], nextOffset: null } : await listCommunityPage(accessToken, {
+        countries: feedCountriesKey ? feedCountriesKey.split(",") : undefined, searchCountries: searchCountryKey ? searchCountryKey.split(",") : undefined, search, offset, following: followingPeople,
       });
       if (generation !== feedGeneration.current) return;
       setQuestions(previous => offset ? [...previous, ...next.data.filter(item => !previous.some(old => old.id === item.id))] : next.data);
+      setFeedForPeople(followingPeople);
       setFeedNextOffset(next.nextOffset);
       setServerSearch(search);
     } catch {
@@ -318,7 +326,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     } finally {
       if (generation === feedGeneration.current) setFeedLoading(false);
     }
-  }, [accessToken, copy, feedCountriesKey, search, searchCountryKey]);
+  }, [accessToken, copy, feedCountriesKey, followingPeople, search, searchCountryKey]);
 
   useEffect(() => {
     active.current = true;
@@ -410,15 +418,48 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     setSafetyTarget(target);
   };
 
-  const authorButton = (item: { id: string; authorId: string | null; username: string }, targetType: "question" | "answer") => !item.authorId || item.authorId === user?.id
-    ? <strong className="community-author-self">@{item.username}</strong>
-    : <button type="button" className="community-author-button" aria-haspopup="dialog"
-      onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}
-      aria-label={copy(`@${item.username} için kullanıcı seçenekleri`, `User options for @${item.username}`, `Veprimet për përdoruesin @${item.username}`)}
-    ><strong>@{item.username}</strong></button>;
+  const authorButton = (item: CommunityAnswer | CommunityQuestion) => {
+    const key = communityProfileKey(item);
+    const content = <><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl}/><strong>@{item.username}</strong></>;
+    return key ? <button type="button" className="community-author-button" aria-haspopup="dialog"
+      onClick={() => setProfileKey(key)}
+      aria-label={copy(`@${item.username} profilini aç`, `Open @${item.username}'s profile`, `Hap profilin e @${item.username}`)}
+    >{content}</button> : <span className="community-author-self">{content}</span>;
+  };
+
+  const contentOptions = (item: CommunityAnswer | CommunityQuestion, targetType: "question" | "answer") => item.authorId !== user?.id && <button type="button" className="community-content-options" aria-haspopup="dialog"
+    aria-label={targetType === "answer"
+      ? copy(`@${item.username} kullanıcısının bu cevabı için seçenekler`, `Options for this answer by @${item.username}`, `Opsionet për këtë përgjigje nga @${item.username}`)
+      : copy("Bu paylaşım için seçenekler", "Options for this post", "Opsionet për këtë postim")}
+    onClick={() => openSafety({ targetType, targetId: item.id, authorId: item.authorId, username: item.username })}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
+  </button>;
+
+  const refreshOwnCommunityIdentity = async () => {
+    void loadFeed();
+    if (!user || !accessToken) return;
+    const generation = ++profileRefreshGeneration.current;
+    const accountId = user.id;
+    const key = `user:${accountId}`;
+    try {
+      const response = await requestJson<{ profile?: { key: string; userId: string | null; username: string; avatarUrl: string | null } }>(`/api/country-community/profiles/${encodeURIComponent(key)}?section=posts&offset=0`, {
+        headers: { Authorization: `Bearer ${accessToken}` }, timeoutMs: 15_000,
+      });
+      const identity = response.profile;
+      if (!active.current || generation !== profileRefreshGeneration.current || identity?.key !== key || identity.userId !== accountId) return;
+      const updated = { username: identity.username, profileKey: key, avatarUrl: identity.avatarUrl };
+      // Refresh author metadata only. The current discussion, paged answers,
+      // reply draft and any in-flight reply submission remain intact.
+      setDetail(previous => previous ? { ...previous,
+        ...(previous.authorId === accountId ? updated : {}),
+        answers: previous.answers.map(answer => answer.authorId === accountId ? { ...answer, ...updated } : answer),
+      } : previous);
+    } catch { /* Keep the existing discussion and its unsent reply on failure. */ }
+  };
 
   const onBlocked = (blockedId: string) => {
     setSafetyTarget(null);
+    setProfileKey(null);
     setQuestions((rows) => rows.filter((row) => row.authorId !== blockedId));
     // Reload server-derived counts and access state after filtering any blocked reply.
     if (detail?.authorId === blockedId) closeDetail();
@@ -570,6 +611,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </section>
 
     <div className="cs-surface">
+      <button type="button" className="cs-my-profile" onClick={() => user ? setProfileKey(`user:${user.id}`) : onOpenAccount()}><Icon name="user" size={18}/>{copy("Topluluk profilim", "My community profile", "Profili im në komunitet")}<Icon name="chevron" size={16}/></button>
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
@@ -603,20 +645,31 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
       {(tab === "feed" || tab === "following" || tab === "questions") && <section id={`community-panel-${tab}`} className="community-feed cs-feed" role="tabpanel" aria-labelledby={`community-tab-${tab}`} tabIndex={0}>
         <div className="cs-section-heading cs-feed-heading"><div><h2>{tab === "following" ? copy("Takip Ettiklerim", "Following") : tab === "questions" ? copy("Soru & Cevap", "Questions & Answers") : copy("Topluluktan En Yeniler", "Latest from the Community")}</h2></div><label className="cs-sort"><span className="sr-only">{copy("Akışı sırala", "Sort the feed")}</span><select value={sort} onChange={event => setSort(event.target.value)}><option value="newest">{copy("En Yeni", "Newest")}</option><option value="answered">{copy("En Çok Cevap", "Most Answered")}</option><option value="unanswered">{copy("Cevap Bekleyen", "Unanswered")}</option></select></label></div>
-        {tab === "following" && <div className="cs-following-info"><p>{copy("Takip ettiğin ülke gruplarının son paylaşımları. Tercihlerin bu cihazda saklanır.", "Latest posts from your followed country groups. Preferences are saved on this device.")}</p><button type="button" onClick={() => setTab("groups")}>{copy("Grupları seç", "Choose groups")}<Icon name="plus" size={16}/></button></div>}
+        {tab === "following" && <>
+          <div className="cs-following-switch" role="group" aria-label={copy("Takip akışı", "Following feed", "Postimet që ndjek")}>
+            <button type="button" aria-pressed={followingKind === "people"} onClick={() => setFollowingKind("people")}>{copy("Gezginler", "Travellers", "Udhëtarët")}</button>
+            <button type="button" aria-pressed={followingKind === "countries"} onClick={() => setFollowingKind("countries")}>{copy("Ülke grupları", "Country groups", "Grupet e vendeve")}</button>
+          </div>
+          <div className="cs-following-info"><p>{followingPeople ? copy("Takip ettiğin kişilerin yeni paylaşımları burada.", "New posts from the people you follow appear here.", "Postimet e reja të personave që ndjek shfaqen këtu.") : copy("Takip ettiğin ülke gruplarının son paylaşımları. Tercihlerin bu cihazda saklanır.", "Latest posts from your followed country groups. Preferences are saved on this device.")}</p>{!followingPeople && <button type="button" onClick={() => setTab("groups")}>{copy("Grupları seç", "Choose groups")}<Icon name="plus" size={16}/></button>}</div>
+        </>}
         {countryFilter && <div className="cs-active-country">{questionScopeLabel(countryFilter, questionCountryLabels, copy("Genel", "General"))}<button type="button" aria-label={copy("Ülke filtresini kaldır", "Clear country filter")} onClick={() => setCountryFilter("")}><Icon name="close" size={16}/></button>{countryFilter !== "ZZ" && <button type="button" className="cs-follow-country" aria-pressed={followedCountries.includes(countryFilter)} onClick={() => toggleFollow(countryFilter)}><Icon name={followedCountries.includes(countryFilter) ? "check" : "plus"} size={16}/>{followedCountries.includes(countryFilter) ? copy("Takip ediliyor", "Following") : copy("Grubu takip et", "Follow group")}</button>}</div>}
         {feedCountries.length > 1 && <div className="community-country-filters" role="group" aria-label={copy("Ülke topluluğunu filtrele", "Filter country community")}><button type="button" className={!countryFilter ? "active" : ""} aria-pressed={!countryFilter} onClick={() => setCountryFilter("")}>{copy("Tümü", "All")}</button>{feedCountries.filter(code => matchesCommunityRegion(code, region)).map(code => <button type="button" key={code} className={countryFilter === code ? "active" : ""} aria-pressed={countryFilter === code} onClick={() => setCountryFilter(code)}>{questionScopeLabel(code, questionCountryLabels, copy("Genel", "General"))}</button>)}</div>}
         {feedError && <div className="info-box error community-native-error" role="alert"><Icon name="alert" size={20}/><p>{feedError}</p><button disabled={feedLoading} onClick={() => void loadFeed()}>{copy("Tekrar dene", "Try again")}</button></div>}
         {feedLoading && !questions.length ? <div className="skeleton-list community-native-loading" role="status" aria-label={copy("Paylaşımlar yükleniyor", "Loading posts")}><div/><div/><div/></div>
           : filteredQuestions.length ? <div className="cs-posts">{filteredQuestions.map(question => <article key={question.id}>
-            <header><span className="cs-author-avatar" aria-hidden="true">{initials(question.username)}</span><div><strong className="cs-post-author">{question.username}</strong><p><span className="cs-post-country">{question.countryCode === "ZZ" ? copy("Gezgin topluluğu", "Traveller community") : questionCountryLabels.get(question.countryCode) || question.countryCode}</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div>
+            <header><div className="cs-post-identity">{authorButton(question)}<p><span className="cs-post-country">{question.countryCode === "ZZ" ? copy("Gezgin topluluğu", "Traveller community") : questionCountryLabels.get(question.countryCode) || question.countryCode}</span><time dateTime={question.createdAt}>{formatQuestionDate(question.createdAt, dateLocale)}</time></p></div>
               {question.authorId !== user?.id && <button type="button" className="cs-post-options" aria-haspopup="dialog" aria-label={copy(`@${question.username} için kullanıcı seçenekleri`, `User options for @${question.username}`, `Veprimet për përdoruesin @${question.username}`)} onClick={() => openSafety({ targetType: "question", targetId: question.id, authorId: question.authorId, username: question.username })}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>}
             </header>
             {question.photoUrl && <CommunityPostPhoto photoUrl={question.photoUrl} accessToken={accessToken} alt={copy(`${question.username} tarafından paylaşılan fotoğraf: ${question.title}`, `Photo shared by ${question.username}: ${question.title}`, `Fotografi e ndarë nga ${question.username}: ${question.title}`)}/>}
             <button type="button" className="community-question-open" onClick={() => void openDetail(question.id)} aria-label={copy(`Soruyu aç: ${question.title}`, `Open question: ${question.title}`, `Hap pyetjen: ${question.title}`)}><h3>{question.title}</h3><p>{question.body}</p></button>
             <footer><button type="button" className="cs-post-answers" aria-label={copy(`${question.answerCount} yanıt: ${question.title}`, `${question.answerCount} replies: ${question.title}`, `${question.answerCount} përgjigje: ${question.title}`)} onClick={() => void openDetail(question.id)}><Icon name="message" size={18}/><span>{copy(`${question.answerCount} yanıt`, `${question.answerCount} replies`, `${question.answerCount} përgjigje`)}</span><Icon name="chevron" size={17}/></button></footer>
           </article>)}</div>
-          : !feedError && !feedLoading && feedNextOffset === null && <div className="empty-state cs-empty"><span><TravelToolArtwork kind={tab === "following" ? "globe" : "community"} size={72}/></span><strong>{tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong><p>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p><button type="button" className="secondary-button" onClick={() => { if (tab === "following" && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{tab === "following" && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button></div>}
+          : !feedError && !feedLoading && feedNextOffset === null && <div className="empty-state cs-empty">
+            <span><TravelToolArtwork kind={followingPeople ? "community" : tab === "following" ? "globe" : "community"} size={72}/></span>
+            <strong>{followingPeople ? !user ? copy("Gezginleri takip etmek için giriş yap", "Sign in to follow travellers", "Hyr për të ndjekur udhëtarët") : copy("Takip akışında henüz paylaşım yok", "No posts in your following feed yet", "Ende nuk ka postime nga ndjekjet") : tab === "following" && !followedCountries.length ? copy("İlgini çeken ülkelerle başla", "Start with countries you love") : copy("Burada henüz paylaşım yok", "No posts here yet")}</strong>
+            <p>{followingPeople ? copy("Bir gezginin profilini açıp takip et; yeni paylaşımları burada görünsün.", "Open a traveller's profile and follow them to see their new posts here.", "Hap profilin e një udhëtari dhe ndiqe për të parë postimet e reja këtu.") : tab === "following" && !followedCountries.length ? copy("Ülke gruplarını takip et, yeni sorularını burada bul.", "Follow country groups to find their latest questions here.") : copy("Seçtiğin filtrelere uygun güncel paylaşım bulunamadı. İlk soruyu sen sorabilirsin.", "No recent posts match your filters. You can ask the first question.")}</p>
+            <button type="button" className="secondary-button" onClick={() => { if (followingPeople && !user) onOpenAccount(); else if (tab === "following" && !followingPeople && !followedCountries.length) setTab("groups"); else { setCountryFilter(""); setRegion("all"); setSearch(""); setSort("newest"); setTab("feed"); } }}>{followingPeople && !user ? copy("Giriş yap", "Sign in", "Hyr") : tab === "following" && !followingPeople && !followedCountries.length ? copy("Ülke gruplarını keşfet", "Explore country groups") : copy("Tüm paylaşımları gör", "See all posts")}</button>
+          </div>}
         {feedNextOffset !== null && <button type="button" className="secondary-wide" disabled={feedLoading} onClick={() => void loadFeed(feedNextOffset)}>{copy("Daha fazla paylaşım yükle", "Load more posts", "Ngarko më shumë postime")}</button>}
         {sort !== "newest" && feedNextOffset !== null && <p className="field-hint">{copy("Sıralama yüklenen paylaşımlara uygulanır. Diğer sonuçlar için daha fazla yükle.", "Sorting applies to loaded posts. Load more to see other results.", "Renditja zbatohet për postimet e ngarkuara. Ngarko më shumë për rezultatet e tjera.")}</p>}
       </section>}
@@ -692,14 +745,14 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detailLoading && <div className="skeleton-list"><div /><div /></div>}
       {detailError && !detailLoading && <div className="info-box error" role="alert"><Icon name="alert" size={19} /><p>{detailError}</p><button onClick={() => detailId && void openDetail(detailId)}>{copy("Tekrar dene", "Try again")}</button></div>}
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
-        <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
+        <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail)}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div>{contentOptions(detail, "question")}</header>
         <h3>{detail.title}</h3>
         {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
         <p>{detail.body}</p>
         <div className="community-answers">
           <div className="section-heading"><div><span>{copy("CEVAPLAR", "ANSWERS")}</span><h2>{totalAnswerCount ? copy(`${totalAnswerCount} cevap`, `${totalAnswerCount} answers`, `${totalAnswerCount} përgjigje`) : copy("Henüz cevap yok", "No answers yet")}</h2>{totalAnswerCount > 0 && <small>{hiddenAnswerCount > 0 ? copy(`${shownAnswerCount} gösteriliyor · ${hiddenAnswerCount} kilitli`, `${shownAnswerCount} shown · ${hiddenAnswerCount} locked`, `${shownAnswerCount} të shfaqura · ${hiddenAnswerCount} të kyçura`) : shownAnswerCount < totalAnswerCount ? copy(`${shownAnswerCount} gösteriliyor`, `${shownAnswerCount} shown`, `${shownAnswerCount} të shfaqura`) : copy("Tüm cevaplar gösteriliyor", "All answers shown")}</small>}</div></div>
           {detail.answers.map((answer) => <article key={answer.id} className="community-answer">
-            <header>{authorButton(answer, "answer")}<small>{formatQuestionDate(answer.createdAt, dateLocale)}</small></header>
+            <header>{authorButton(answer)}<div className="community-answer-meta"><small>{formatQuestionDate(answer.createdAt, dateLocale)}</small>{contentOptions(answer, "answer")}</div></header>
             <p>{answer.body}</p>
             <button type="button" className="community-reply-action" disabled={answerPosting} onClick={() => replyToAnswer(answer)} aria-label={copy(`@${answer.username} kullanıcısına yanıt yaz`, `Reply to @${answer.username}`, `Përgjigju @${answer.username}`)}><Icon name="message" size={15}/>{copy("Yanıt yaz", "Reply", "Përgjigju")}</button>
           </article>)}
@@ -719,6 +772,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}
       </div>}
     </Sheet>
+    {profileKey && <CommunityProfileSheet profileKey={profileKey} accessToken={accessToken} userId={user?.id || null} onClose={() => setProfileKey(null)} onOpenAccount={onOpenAccount} onEditProfile={() => { setProfileKey(null); onNavigate("profile"); }} onOpenQuestion={(id) => { setProfileKey(null); void openDetail(id); }} onSafety={openSafety} onFollowChanged={() => { if (followingPeople) void loadFeed(); }} onProfileChanged={() => void refreshOwnCommunityIdentity()}/>}
     <CommunitySafetySheet target={safetyTarget} accessToken={accessToken} userId={user?.id || ""} onClose={() => setSafetyTarget(null)} onBlocked={onBlocked} onManageBlocks={() => { setSafetyTarget(null); setBlocksOpen(true); }} />
     {blocksOpen && <CommunityBlocksSheet key={user?.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { void loadFeed(); if (detail) void openDetail(detail.id); }} />}
     <SupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={user?.id ?? null} screen="community" />
