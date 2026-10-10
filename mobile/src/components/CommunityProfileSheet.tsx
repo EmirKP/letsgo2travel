@@ -195,20 +195,22 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     {profile && <>
       <div className="community-profile-hero">
         <div className="community-profile-summary">
-        <div className="community-profile-identity">
+        <div className="community-profile-overview">
           <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
-          <div>
-            <h2>@{profile.username}</h2>
-            {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={16} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
-              : <button className={`community-profile-follow${profile.isFollowing ? " is-following" : ""}`} type="button" aria-pressed={profile.isFollowing} disabled={busy} onClick={() => void follow()}><Icon name={profile.isFollowing ? "check" : "plus"} size={16} />{busy ? copy("Güncelleniyor…", "Updating…", "Po përditësohet…") : profile.isFollowing ? copy("Takip ediliyor", "Following", "Po e ndjek") : copy("Takip et", "Follow", "Ndiq")}</button>}
-          </div>
-          {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
-        </div>
-        {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
         <div className="community-profile-stats">
           <button type="button" aria-pressed={section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
           <button type="button" aria-pressed={section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
           <div><strong>{(profile.postCount + profile.answerCount).toLocaleString(dateLocale)}</strong><span>{copy("Katkı", "Contributions", "Kontribute")}</span></div>
+        </div>
+        </div>
+        <div className="community-profile-identity">
+          <h2><span>@</span>{profile.username}</h2>
+          {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
+        </div>
+        <div className="community-profile-actions">
+          {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={18} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
+            : <button className={`community-profile-follow${profile.isFollowing ? " is-following" : ""}`} type="button" aria-pressed={profile.isFollowing} disabled={busy} onClick={() => void follow()}><Icon name={profile.isFollowing ? "check" : "plus"} size={18} />{busy ? copy("Güncelleniyor…", "Updating…", "Po përditësohet…") : profile.isFollowing ? copy("Takip ediliyor", "Following", "Po e ndjek") : copy("Takip et", "Follow", "Ndiq")}</button>}
+          {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
         </div>
         </div>
       </div>
@@ -234,8 +236,8 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       <div className="community-profile-items">{page?.items.map((item: CommunityProfileItem) => "key" in item
         ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}</strong><Icon name="chevron" size={18} /></button>
         : <button type="button" className="community-profile-post" key={profileItemKey(item)} onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>
-          <span className="community-profile-post-meta"><Icon name={"questionId" in item ? "message" : "book"} size={16} /><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
-          <strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p><span className="community-profile-post-cta">{copy("Sohbeti aç", "Open discussion", "Hap bisedën")}<Icon name="chevron" size={16} /></span>
+          <span className="community-profile-post-meta"><span><Icon name={"questionId" in item ? "message" : "book"} size={15} />{"questionId" in item ? copy("Cevap", "Answer", "Përgjigje") : copy("Paylaşım", "Post", "Postim")}</span><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
+          <strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p><span className="community-profile-post-cta">{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></span>
         </button>)}</div>
       {failure?.section === section && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
       {page?.nextOffset != null && !failure?.more && <button className="community-profile-more" type="button" disabled={loading || loadingMore} onClick={() => void loadMore()}>{loadingMore ? copy("Yükleniyor…", "Loading…", "Po ngarkohet…") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
