@@ -31,6 +31,9 @@ No production issue report was created during tests.
 Production migration applied on 10 October 2026 in project
 mwlucroyjvtoxillvzga; the private support_issues table was verified present.
 Server deployment is tracked separately from the database rollout.
+The production RPC was exercised inside an explicit transaction and rolled back;
+the final query verified no test record remained and anonymous SELECT is denied.
+The browser draft was reopened successfully and cleared without submission.
 
 Verification
 node --test tests/support/issues.mjs: includes API failure/success, image re-encoding, privacy, admin auth, PostgreSQL migration/RPC/RLS and account deletion, owner-isolated draft persistence and retry UI.

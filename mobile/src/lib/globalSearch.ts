@@ -1,12 +1,15 @@
 import { ISO_3166 } from "../data/countries";
 import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { homeSearchDestinations } from "../data/homeDestinations";
-import { appRegionName } from "./localeFormatting";
+import { appRegionName, formatAppDate } from "./localeFormatting";
 import { normalizeSearchText } from "./searchText";
 import { appTools, type TravelAssistantTool } from "./appTools";
 import type { AppLocale } from "./locale";
 import type { SavedRoutePlan, ViewId } from "../types";
 import type { TravelToolArtworkKind } from "../components/TravelToolArtwork";
+import type { CockpitTrip } from "./supabaseData";
+
+export type SearchableTrip = Pick<CockpitTrip, "id" | "userId" | "destinationCountry" | "destinationCode" | "destinationCity" | "startDate" | "endDate">;
 
 type BaseResult = { id: string; title: string; subtitle: string };
 export type GlobalSearchResult = BaseResult & (
@@ -14,6 +17,7 @@ export type GlobalSearchResult = BaseResult & (
   | { kind: "city"; query: string }
   | { kind: "tool"; view: ViewId; tool?: TravelAssistantTool; icon: TravelToolArtworkKind }
   | { kind: "saved-route"; routeId: string }
+  | { kind: "saved-trip"; tripId: string }
 );
 export type GlobalSearchKind = GlobalSearchResult["kind"];
 type Entry = { result: GlobalSearchResult; terms: string };
@@ -55,8 +59,8 @@ function catalog(locale: AppLocale): Entry[] {
   return entries;
 }
 
-/** Search only the caller's scoped saved routes; no account reads or remote search. */
-export function searchApp(query: string, locale: AppLocale, savedRoutes: readonly SavedRoutePlan[] = [], kind?: GlobalSearchKind): GlobalSearchResult[] {
+/** Search only the caller's scoped routes and trip summaries; no account reads. */
+export function searchApp(query: string, locale: AppLocale, savedRoutes: readonly SavedRoutePlan[] = [], kind?: GlobalSearchKind, savedTrips: readonly SearchableTrip[] = []): GlobalSearchResult[] {
   const term = normalizeSearchText(query.slice(0, 120));
   if (!term) return [];
   const saved = new Map<string, Entry>();
@@ -71,12 +75,31 @@ export function searchApp(query: string, locale: AppLocale, savedRoutes: readonl
       terms: normalizeSearchText([clean(item.plan.summary), ...routes.flatMap(route => [clean(route.name), clean(route.cityOrRegion), clean(route.country), clean(route.destinationCode)])].join(" ")),
     });
   }
+  const trips = new Map<string, Entry>();
+  const dateLabel = (value: string) => {
+    const date = new Date(`${value}T12:00:00`);
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime())
+      ? formatAppDate(date, locale, { day: "numeric", month: "short", year: "numeric" }) : "";
+  };
+  for (const item of savedTrips) {
+    if (!item || typeof item.id !== "string" || !item.id) continue;
+    const code = clean(item.destinationCode).toUpperCase();
+    const countryNames = /^[A-Z]{2}$/.test(code) ? locales.map(language => appRegionName(code, language, clean(item.destinationCountry))) : [];
+    const country = countryNames[locales.indexOf(locale)] || clean(item.destinationCountry);
+    const dates = [clean(item.startDate), clean(item.endDate)];
+    const title = clean(item.destinationCity) || country || ({ tr: "Seyahat", en: "Trip", sq: "Udhëtim" }[locale]);
+    const subtitle = [country, dates.map(dateLabel).filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
+    trips.set(item.id, {
+      result: { kind: "saved-trip", id: `trip:${item.id}`, tripId: item.id, title, subtitle },
+      terms: normalizeSearchText([title, clean(item.destinationCountry), code, ...countryNames, ...dates, subtitle].join(" ")),
+    });
+  }
   const words = term.split(" ");
   const score = (entry: Entry) => {
     const title = normalizeSearchText(entry.result.title);
     return title === term ? 0 : title.startsWith(term) ? 1 : title.includes(term) ? 2 : 3;
   };
-  const matches = [...catalog(locale), ...saved.values()]
+  const matches = [...catalog(locale), ...saved.values(), ...trips.values()]
     .filter(entry => (!kind || entry.result.kind === kind) && words.every(word => entry.terms.includes(word)))
     .sort((a, b) => score(a) - score(b) || a.result.title.localeCompare(b.result.title, locale));
   // Each category retains space even for common queries such as a country name.

@@ -120,6 +120,27 @@ test('Tool search exposes precise existing assistant targets and localized resul
 });
 
 const route = (id, city, country = 'France') => ({ id, createdAt: '2026-10-10', plan: { summary: 'Weekend holiday', routes: [{ cityOrRegion: city, name: city, country, destinationCode: 'CDG' }] } });
+const trip = (id, owner = 'a', city = 'Paris') => ({ id, userId: owner, destinationCountry: 'France', destinationCode: 'FR', destinationCity: city, startDate: '2027-04-12', endDate: '2027-04-19' });
+const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+
+function tripSearchSheet(initial = {}) {
+ const h = hooks(), d = device(), requests = [], calls = [];
+ const load = loader(d.globals, {
+  ...shared('en'), react: h.react,
+  '../lib/storage': { getSavedRoutePlans: () => [] },
+  '../lib/supabaseData': { listCockpitTrips: (...args) => new Promise((resolve, reject) => requests.push({ args, resolve, reject })) },
+ });
+ const { GlobalSearchSheet } = load('mobile/src/components/GlobalSearchSheet.tsx');
+ const tree = h.start(GlobalSearchSheet, {
+  open: true, ownerId: 'a', accessToken: 'token-a', initialQuery: 'Paris',
+  onClose: () => calls.push('close'), onOpenTrip: id => calls.push(id),
+  onOpenSavedRoute: id => calls.push(id), onOpenCountry: id => calls.push(id),
+  onSearchDestination: query => calls.push(query), onOpenTool: tool => calls.push(tool), onNavigate: view => calls.push(view),
+  ...initial,
+ });
+ return { h, d, requests, calls, tree };
+}
+
 test('Saved route search uses only supplied records, skips malformed records and reserves room per category', () => {
  const records = [null, {}, { id: 'broken', plan: { routes: null } }, { id: 'empty', plan: { routes: [] } }, route('a', 'Paris'), route('a', 'Paris')];
  assert.deepEqual(plain(search('weekend', 'en', records).map(item => item.routeId)), ['a']);
@@ -131,11 +152,27 @@ test('Saved route search uses only supplied records, skips malformed records and
  assert.ok(results.some(item => item.kind === 'city')); assert.equal(search('Paris', 'en', many, 'saved-route').length, 20);
 });
 
+test('Saved trip search matches destination and dates without indexing private flight or checklist data', () => {
+ const record = { ...trip('trip-a'), flightPnr: 'PRIVATEPNR', flightNumber: 'SECRETFLIGHT', airline: 'HIDDEN CARRIER', checklistItems: [{ title: 'CONFIDENTIAL NOTE' }] };
+ for (const query of ['Paris', 'France', 'FR', '2027-04-12', '2027-04-19']) {
+  const results = search(query, 'en', [], 'saved-trip', [record]);
+  assert.deepEqual(plain(results.map(item => item.tripId)), ['trip-a'], query);
+  assert.ok(results.every(item => item.kind === 'saved-trip'));
+ }
+ for (const query of ['PRIVATEPNR', 'SECRETFLIGHT', 'HIDDEN CARRIER', 'CONFIDENTIAL NOTE']) assert.equal(search(query, 'en', [], undefined, [record]).length, 0, query);
+ const results = search('Paris', 'en', [], 'saved-trip', [record]);
+ assert.doesNotMatch(JSON.stringify(results), /PRIVATEPNR|SECRETFLIGHT|HIDDEN CARRIER|CONFIDENTIAL NOTE/);
+ assert.equal(search('2027-04-12', 'en', [], 'saved-trip').length, 0, 'Only the supplied account-scoped records can appear');
+ const many = Array.from({ length: 30 }, (_, index) => trip(`trip-${index}`));
+ assert.equal(search('Paris', 'en', [], undefined, many).filter(item => item.kind === 'saved-trip').length, 6);
+ assert.equal(search('Paris', 'en', [], 'saved-trip', many).length, 20);
+});
+
 test('Search sheet opens exact results, blocks deleted routes and hides old-owner routes before effects run', () => {
  const h = hooks(), d = device(), saved = new Map([['a', [route('saved-a', 'Paris')]], ['b', [route('saved-b', 'Rome')]]]), calls = [];
- const load = loader(d.globals, { ...shared('en'), react: h.react, '../lib/storage': { getSavedRoutePlans: owner => saved.get(owner) || [] } });
+ const load = loader(d.globals, { ...shared('en'), react: h.react, '../lib/storage': { getSavedRoutePlans: owner => saved.get(owner) || [] }, '../lib/supabaseData': { listCockpitTrips: () => { throw Error('No trip request without a token'); } } });
  const { GlobalSearchSheet } = load('mobile/src/components/GlobalSearchSheet.tsx');
- let tree = h.start(GlobalSearchSheet, { open: true, ownerId: 'a', initialQuery: 'weekend', onClose: () => calls.push('close'), onOpenSavedRoute: id => calls.push(id), onOpenCountry: id => calls.push(id), onSearchDestination: query => calls.push(query), onOpenTool: tool => calls.push(tool), onNavigate: view => calls.push(view) });
+ let tree = h.start(GlobalSearchSheet, { open: true, ownerId: 'a', initialQuery: 'weekend', onClose: () => calls.push('close'), onOpenTrip: id => calls.push(id), onOpenSavedRoute: id => calls.push(id), onOpenCountry: id => calls.push(id), onSearchDestination: query => calls.push(query), onOpenTool: tool => calls.push(tool), onNavigate: view => calls.push(view) });
  assert.match(text(tree), /Paris/); tree = h.render({ ownerId: 'b' }, false); assert.doesNotMatch(text(tree), /Paris/);
  tree = h.render(); assert.match(text(tree), /Rome/);
  let result = find(tree, 'button', props => text(props.children).includes('Rome'));
@@ -146,6 +183,72 @@ test('Search sheet opens exact results, blocks deleted routes and hides old-owne
   tree = h.render({ initialQuery: query }); find(tree, 'button', props => text(props.children).startsWith(label)).props.onClick(); assert.deepEqual(calls.splice(0), ['close', expected]);
  }
  h.dispose(); assert.ok([...d.listeners.values()].every(listeners => listeners.size === 0));
+});
+
+test('Search sheet keeps catalog results available while trips load and opens the exact saved trip', async () => {
+ const { h, requests, calls, tree: initial } = tripSearchSheet();
+ assert.match(text(initial), /Loading your saved trips/);
+ assert.ok(find(initial, 'strong', props => text(props.children) === 'Paris'), 'The city catalog is available before the account request finishes');
+ assert.deepEqual(requests.map(request => request.args), [['a', 'token-a', true]]);
+ let tree = h.render({ initialQuery: 'France' });
+ find(tree, 'button', props => text(props.children) === 'Saved trips').props.onClick(); tree = h.render();
+ assert.equal(requests.length, 1, 'Typing or changing the category must not repeat the account request');
+ requests[0].resolve([trip('exact-cockpit-trip')]); await settle(); tree = h.render();
+ assert.doesNotMatch(text(tree), /Loading your saved trips/);
+ find(tree, 'button', props => text(props.children).startsWith('Paris')).props.onClick();
+ assert.deepEqual(calls, ['close', 'exact-cockpit-trip']);
+ h.render({ open: false }); h.render({ open: true });
+ assert.equal(requests.length, 2, 'Reopening refreshes trips changed elsewhere');
+ h.dispose();
+});
+
+test('Search sheet hides a previous owner immediately and discards late account responses', async () => {
+ const { h, requests } = tripSearchSheet({ initialQuery: 'Private' });
+ requests[0].resolve([trip('trip-a', 'a', 'Private Alpha Harbor')]); await settle();
+ assert.match(text(h.render()), /Private Alpha Harbor/);
+ let tree = h.render({ ownerId: 'b', accessToken: 'token-b' }, false);
+ assert.doesNotMatch(text(tree), /Private Alpha Harbor/, 'No prior-account result appears even before the new effect runs');
+ h.render(); assert.deepEqual(requests[1].args, ['b', 'token-b', true]);
+ h.render({ ownerId: 'c', accessToken: 'token-c' });
+ requests[1].resolve([trip('trip-b', 'b', 'Private Beta Harbor')]); await settle();
+ tree = h.render(); assert.doesNotMatch(text(tree), /Private Alpha Harbor|Private Beta Harbor/);
+ requests[2].resolve([trip('trip-c', 'c', 'Private Gamma Harbor'), trip('foreign-trip', 'b', 'Private Foreign Harbor')]); await settle();
+ tree = h.render(); assert.match(text(tree), /Private Gamma Harbor/); assert.doesNotMatch(text(tree), /Private Alpha Harbor|Private Beta Harbor|Private Foreign Harbor/, 'Unexpected records for another owner are excluded');
+ h.dispose();
+});
+
+test('Search sheet treats a changed token as a new request and ignores results after closing', async () => {
+ const { h, requests } = tripSearchSheet({ initialQuery: 'Private' });
+ h.render({ accessToken: 'token-a-refreshed' });
+ assert.deepEqual(requests[1].args, ['a', 'token-a-refreshed', true]);
+ requests[0].resolve([trip('old-token-trip', 'a', 'Private Old Token Harbor')]); await settle();
+ assert.doesNotMatch(text(h.render()), /Private Old Token Harbor/);
+ requests[1].resolve([trip('new-token-trip', 'a', 'Private New Token Harbor')]); await settle();
+ assert.match(text(h.render()), /Private New Token Harbor/);
+ let tree = h.render({ accessToken: 'token-a-again' }, false);
+ assert.doesNotMatch(text(tree), /Private New Token Harbor/, 'Token-bound results are hidden before the new effect runs');
+ h.render(); h.render({ open: false });
+ requests[2].resolve([trip('closed-trip', 'a', 'Private Closed Harbor')]); await settle();
+ tree = h.render({ open: true }); assert.doesNotMatch(text(tree), /Private Closed Harbor/);
+ assert.equal(requests.length, 4); h.dispose();
+});
+
+test('Search sheet skips guest and closed requests and retries a trip failure without blocking catalogs', async () => {
+ const { h, requests } = tripSearchSheet({ open: false, ownerId: null, accessToken: undefined });
+ h.render({ open: true }); assert.equal(requests.length, 0);
+ h.render({ ownerId: 'a' }); assert.equal(requests.length, 0, 'An owner without a session does not trigger an authenticated read');
+ h.render({ open: false, accessToken: 'token-a' }); assert.equal(requests.length, 0);
+ h.render({ open: true }); assert.equal(requests.length, 1);
+ requests[0].reject(Error('Network unavailable')); await settle(); let tree = h.render();
+ assert.match(text(tree), /Your saved trips could not be loaded\. Other results are available\./);
+ assert.ok(find(tree, 'strong', props => text(props.children) === 'Paris'));
+ find(tree, 'button', props => text(props.children) === 'Try again').props.onClick(); tree = h.render();
+ assert.equal(requests.length, 2); assert.match(text(tree), /Loading your saved trips/);
+ requests[1].resolve([trip('retried-trip')]); await settle(); tree = h.render();
+ assert.doesNotMatch(text(tree), /could not be loaded|Loading your saved trips/);
+ find(tree, 'button', props => text(props.children) === 'Saved trips').props.onClick(); tree = h.render();
+ assert.ok(find(tree, 'strong', props => text(props.children) === 'Paris'));
+ h.dispose();
 });
 
 test('Shortcut editor saves deliberate order and keeps failed edits visible', () => {

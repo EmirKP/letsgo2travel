@@ -8,6 +8,9 @@
 .global-search-filters button[aria-pressed="true"] { border-color: var(--theme-link, #0066ff); background: var(--theme-soft, #eaf2ff); color: var(--theme-link, #0056d8); }
 .global-search-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .global-search-error { margin: 0; padding: 12px; border-radius: 12px; color: var(--theme-danger, #a32437); background: var(--theme-danger-bg, #fff0f1); font-size: 13px; line-height: 1.5; }
+.global-search-trip-error { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 12px; border-radius: 12px; color: var(--theme-danger, #a32437); background: var(--theme-danger-bg, #fff0f1); }
+.global-search-trip-error p { flex: 1 1 200px; margin: 0; font-size: 13px; line-height: 1.5; }
+.global-search-trip-error button { min-height: 44px; padding: 8px 12px; border: 1px solid currentColor; border-radius: 12px; color: inherit; background: transparent; font-size: 13px; font-weight: 700; }
 .global-search section { min-width: 0; }
 .global-search h3 { margin: 4px 0 8px; font-size: 14px; }
 .global-search ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }

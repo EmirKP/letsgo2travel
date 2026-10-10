@@ -989,9 +989,10 @@ export default function App() {
     </LazyOverlay>}
     <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} online={online} onNavigate={openNavigationView} onOpenAccount={() => setAccountOpen(true)} onOpenGlobalSearch={() => { setMenuOpen(false); openGlobalSearch(); }} accessToken={auth.accessToken} ownerId={ownerId} screen={activeView} />
     {searchOpen && <LazyOverlay title={copy('Uygulamada ara', 'Search the app', 'Kërko në aplikacion')} loadingMessage={copy('Arama hazırlanıyor…', 'Preparing search…', 'Po përgatitet kërkimi…')} onClose={() => setSearchOpen(false)}>
-      <GlobalSearchSheet key={authUiKey} open onClose={() => setSearchOpen(false)} ownerId={ownerId} initialQuery={globalQuery}
+      <GlobalSearchSheet key={authUiKey} open onClose={() => setSearchOpen(false)} ownerId={ownerId} accessToken={auth.accessToken} initialQuery={globalQuery}
         onNavigate={openNavigationView} onOpenTool={openTool} onSearchDestination={searchDestinations}
         onOpenCountry={code => { setNewsCountryCode(alpha2FromAlpha3(code)); navigate('country-news'); }}
+        onOpenTrip={id => { setCockpitFocusTripId(id); navigate('cockpit'); }}
         onOpenSavedRoute={id => { setSavedRouteId(id); navigate('trips'); setSavedSection('routes'); }} />
     </LazyOverlay>}
     {guestImportOpen && <LazyOverlay title={copy("Misafir kayıtları", "Guest items")} loadingMessage={copy("Kayıtlar hazırlanıyor…", "Preparing saved items…")} onClose={() => setGuestImportOpen(false)}>
