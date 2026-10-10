@@ -19,7 +19,6 @@ export function HeaderThemeToggle() {
           : copy("Açık tema etkin", "Light theme active", "Tema e çelët aktive")}</span>
       </span>
       <span className="theme-toggle-track" aria-hidden="true">
-        <span className="theme-toggle-stars"><i /><i /><i /></span>
         <span className="theme-toggle-thumb">
           <svg className="theme-toggle-sun" viewBox="0 0 40 40" focusable="false">
             <g fill="none" stroke="#eaa520" strokeWidth="2.5" strokeLinecap="round">
@@ -28,8 +27,8 @@ export function HeaderThemeToggle() {
             <circle cx="20" cy="20" r="8.5" fill="#ffd448" />
             <path d="M14.5 19a6 6 0 0 1 5-5" fill="none" stroke="#fff2b5" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
-          <svg className="theme-toggle-moon" viewBox="0 0 40 40" focusable="false">
-            <path d="M15.5 6.75A14 14 0 1 0 30.5 29.25A14 14 0 0 1 15.5 6.75Z" fill="#e2efff" />
+          <svg className="theme-toggle-moon" viewBox="0 0 24 24" focusable="false">
+            <path d="M20.985 12.486A9 9 0 1 1 11.51 3.01a7 7 0 0 0 9.475 9.476Z" fill="#e2efff" />
           </svg>
         </span>
       </span>
