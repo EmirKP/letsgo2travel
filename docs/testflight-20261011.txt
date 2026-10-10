@@ -1,0 +1,46 @@
+LetsGo2Travel — Güncel TestFlight paketi: 1.4.1 (67)
+
+Kaynak
+- Dal: feature/travel-companion-polish-20260927
+- Uygulama kaynağı: 1378e92528da1e69934f93219cde1498b06f7bcf
+- Codemagic: 6aca72e4a54783a3e94472ed (#20)
+- İş akışı: letsgo2travel-ios-testflight
+- Sonuç: finished; süre 7 dakika 47 saniye.
+- İmzalı IPA: LetsGo2Travel.ipa; pazarlama sürümü 1.4.1, build 67.
+- Apple yükleme kaydı: UPLOAD SUCCEEDED with no errors.
+- Apple işleme tamamlandı; iOS Builds listesinde 67 görünüyor.
+- 11 Ekim 2026 kontrolü: LetsGo2Travel İç Test grubuna atanmış, 3 test kullanıcısına açık.
+- Türkçe What to Test notları kaydedildi; App Store Connect Saved durumuyla doğrulandı.
+- App Store incelemesi veya herkese açık uygulama yayını başlatılmadı.
+
+Kapsam
+- Küçültülen renkli araç görselleri, açık/koyu tema ve kısa ekran geçişi.
+- Yazı boyutu, kişisel kısayollar, genel arama ve bağlantı hata akışları.
+- Yeni gezgin profili görünümü, takip/takipçi ve paylaşım/cevap sekmeleri.
+- Uygulama içi sorun bildirme, topluluk ve profil iyileştirmeleri.
+- Ana sayfa üst boşluğunun giderilmesi.
+
+Yayın kontrolleri
+- Kök ve mobil bağımlılık denetimi: 0 güvenlik açığı.
+- Mobil lint, derleme ve tam npm run test:release başarılı.
+- Yayın kontrolünün yakaladığı profil tarih biçimlendirmesi ortak
+  formatAppDate yardımcısına taşındı. Türkçe, İngilizce ve Arnavutça;
+  Arnavutça Intl verisi eksik WebView durumu dahil test edildi.
+- iOS ve Android gömülü arayüz dosyaları eşitlendi.
+
+Sunucu
+- www ana API: 09f17d34c49b1414439b4f3cd7693c7030277655.
+  Mevcut API/lib/SQL kaynakları ile aynı; profil ve takipçi okumaları 200.
+- Profil migration/RPC'leri canlı çalışıyor; destek API rotası mevcut.
+  Bu yayında www ana sunucusu yeniden dağıtılmadı.
+- testflight.letsgo2travel.com.tr güncel uygulama kaynağından dağıtıldı.
+  Proje: prj_heSYCDgFyma40mm9z8eIFSBCNOZj
+  Dağıtım: dpl_Au6cpnXRM3Bod2JkXsa8yfgUZYYp
+  Kaynak: 1378e92528da1e69934f93219cde1498b06f7bcf
+  Norveç/Oslo ulaşımı: 200, 10 durak; EUR/TRY kuru: 200.
+
+Apple paket bağlantısı
+https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/d4782e1c-e5ce-467b-9769-e2e9aa3f619d
+
+Not: 6aca636f546ce6236ced4690 (#18) iptal edilmişti; başarı kaydı değildir.
+67'nin fiziksel iPhone/iPad testi bu yayın işleminde yapılmadı.
