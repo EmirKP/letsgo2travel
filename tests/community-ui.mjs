@@ -575,7 +575,7 @@ test('Country filters request server pages and older posts can be reached withou
  }finally{h.dispose();}
 });
 
-test('Starter discussions disclose once in detail, accept genuine replies and refresh the feed count after publication', async () => {
+test('Starter discussions accept genuine replies and refresh the feed count after publication', async () => {
   const h = harness({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' });
   const starter = question('starter', 'TR', 'A starter discussion', { authorId: null, isStarter: true, username: 'nil', answerCount: 2 });
   const answer = { id: 'starter-reply', authorId: null, username: 'baran', isStarter: true, body: 'An editorial travel idea', createdAt: starter.createdAt };
@@ -587,8 +587,6 @@ test('Starter discussions disclose once in detail, accept genuine replies and re
     h.click('Open question: A starter discussion');
     h.requests.at(-1).resolve({ data: { ...starter, answers: [answer], totalAnswerCount: 2 } });
     view = await h.settle();
-    assert.match(text(view), /LetsGo2Travel starter discussion · Fictional participants; everyone can reply\./);
-    assert.equal(nodes(view).filter(node => node.props?.className === 'community-starter-note').length, 1);
     assert.equal(nodes(view).filter(node => node.props?.className === 'community-starter-badge').length, 0);
     assert.doesNotMatch(text(view), /Example comment|Örnek profil/);
     h.change('textarea', props => props.id === 'community-answer-body', 'My genuine advice');
@@ -619,25 +617,6 @@ test('Guests can read starter examples but replying opens real account sign-in',
     assert.equal(h.accountOpened, 1);
     assert.equal(h.requests.filter(request => request.options.method === 'POST').length, 0);
   } finally { h.dispose(); }
-});
-
-test('The single compact starter disclosure follows all three app languages', async () => {
-  for (const [locale, openLabel, disclosure] of [
-    ['tr', 'Soruyu aç: Discussion', 'LetsGo2Travel başlangıç sohbeti · Kurgusal katılımcılar; herkes yanıtlayabilir.'],
-    ['en', 'Open question: Discussion', 'LetsGo2Travel starter discussion · Fictional participants; everyone can reply.'],
-    ['sq', 'Hap pyetjen: Discussion', 'Bisedë fillestare e LetsGo2Travel · Pjesëmarrës imagjinarë; kushdo mund të përgjigjet.'],
-  ]) {
-    const h = harness({ locale });
-    const starter = question('starter', 'TR', 'Discussion', { authorId: null, isStarter: true, username: 'nil', answerCount: 7 });
-    try {
-      await h.feed([starter]); h.click(openLabel);
-      h.requests.at(-1).resolve({ data: { ...starter, answers: [], totalAnswerCount: 7 } });
-      const view = await h.settle();
-      const notes = nodes(view).filter(node => node.props?.className === 'community-starter-note');
-      assert.equal(notes.length, 1); assert.equal(text(notes[0]), disclosure);
-      assert.doesNotMatch(text(view), /Örnek profil|Example comment|Koment shembull/);
-    } finally { h.dispose(); }
-  }
 });
 
 test('A reply finishing after detail closes refreshes its real feed count without reopening the sheet', async () => {

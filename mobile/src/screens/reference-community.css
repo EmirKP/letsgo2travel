@@ -195,6 +195,5 @@
 }
 
 .cs-league-explainer { padding: 18px; margin: 16px 0; border: 1px solid var(--theme-border, #dce7f6); border-radius: 18px; background: var(--theme-soft, #f3f7ff); color: var(--theme-ink, #183d65); }.cs-league-explainer strong { font-size: 15px; }.cs-league-explainer p { font-size: 13px; line-height: 1.55; color: var(--theme-muted, #59718e); }.cs-league-explainer small { display: block; margin-top: 12px; color: var(--theme-muted, #6c7f96); font-size: 11px; }
-.community-question-detail .community-starter-note { margin: 8px 0 16px; color: var(--theme-muted, #516882); font-size: 12px; line-height: 1.5; }
 .community-answer .community-reply-action { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--theme-border, #dce7f4); border-radius: 10px; background: var(--theme-surface, #fff); color: var(--theme-link, #0965ce); font: inherit; font-size: 13px; font-weight: 650; }
 .community-answer .community-reply-action:disabled { opacity: .55; }

@@ -694,7 +694,6 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       {detail && !detailLoading && <div className="community-question-detail" data-autofocus tabIndex={-1}>
         <header><span>{questionScopeLabel(detail.countryCode, questionCountryLabels, copy("Genel", "General"))}</span><div>{authorButton(detail, "question")}<small>{formatQuestionDate(detail.createdAt, dateLocale)}</small></div></header>
         <h3>{detail.title}</h3>
-        {detail.isStarter && <p className="community-starter-note">{copy("LetsGo2Travel başlangıç sohbeti · Kurgusal katılımcılar; herkes yanıtlayabilir.", "LetsGo2Travel starter discussion · Fictional participants; everyone can reply.", "Bisedë fillestare e LetsGo2Travel · Pjesëmarrës imagjinarë; kushdo mund të përgjigjet.")}</p>}
         {detail.photoUrl && <CommunityPostPhoto photoUrl={detail.photoUrl} accessToken={accessToken} alt={copy(`${detail.username} tarafından paylaşılan fotoğraf: ${detail.title}`, `Photo shared by ${detail.username}: ${detail.title}`, `Fotografi e ndarë nga ${detail.username}: ${detail.title}`)}/>}
         <p>{detail.body}</p>
         <div className="community-answers">

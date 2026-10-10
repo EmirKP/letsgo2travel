@@ -240,12 +240,14 @@ export default async function ForumTopicPage({
       </section>
 
       <div className={styles.containerNarrow}>
-        <aside className={styles.notice}>
-          <AlertCircle size={21} aria-hidden="true" />
-          <p>
-            {isStarter ? "LetsGo2Travel başlangıç sohbeti · Kurgusal katılımcılar; herkes yanıtlayabilir." : "Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi kurumların güncel duyurularını doğrula."}
-          </p>
-        </aside>
+        {!isStarter ? (
+          <aside className={styles.notice}>
+            <AlertCircle size={21} aria-hidden="true" />
+            <p>
+              Bu sayfadaki mesajlar kullanıcı deneyimidir. Vize, pasaport ve giriş kuralları değişebilir; işlem öncesinde ilgili konsolosluğun ve resmi kurumların güncel duyurularını doğrula.
+            </p>
+          </aside>
+        ) : null}
 
         <article className={styles.topicCard}>
           <header className={styles.topicAuthorRow}>
