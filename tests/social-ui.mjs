@@ -7,12 +7,12 @@ import ts from 'typescript';
 const jsx = (type, props, key) => ({ type, props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
-class ApiError extends Error { constructor(message, status = 0) { super(message); this.status = status; } }
+class ApiError extends Error { constructor(message, status = 0, code = '') { super(message); this.status = status; this.code = code; } }
 function load(path, imports, globals = {}, expose = '') {
   const code = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const loaded = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n${expose}})`, { Date, Intl, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, ...globals })(name => {
-    if (name.endsWith('.css')) return {};
+    if (name.endsWith('.css')) return {}; if(name.endsWith('.webp')) return 'empty-art.webp';
     if (Object.hasOwn(imports, name)) return imports[name];
     throw Error(`Missing import ${name}`);
   }, loaded, loaded.exports);
@@ -103,6 +103,20 @@ test('edited failed draft gets a fresh operation ID and pagehide retains its lat
   h.dispose();
   await h.resolve(1, samplePost());
   assert.equal(h.calls.published.length, 0, 'Unmounted account does not open another account\'s post');
+});
+
+test('expired upload rotates its operation key and preserves photo/caption across reload, while ordinary retry keeps identity',async()=>{
+ const env=environment();env.social.saveSocialDraft('me',{...env.social.emptySocialDraft(),photo,caption:'Keep this memory'});
+ const h=harness('SocialComposer',{},env);h.click('Share');
+ const original=h.requests[0].options.body.requestId;
+ h.requests[0].reject(new ApiError('Expired',409,'social_upload_expired'));await tick();h.render();
+ assert.match(text(h.tree),/upload expired/);
+ const recovered=env.social.readSocialDraft('me');assert.notEqual(recovered.requestId,original);assert.equal(recovered.photo,photo);assert.equal(recovered.caption,'Keep this memory');
+ h.dispose();const reopened=harness('SocialComposer',{},env);reopened.click('Share');
+ assert.equal(env.requests[1].options.body.requestId,recovered.requestId);
+ await reopened.reject(1);reopened.click('Try again');
+ assert.equal(env.requests[2].options.body.requestId,recovered.requestId,'timeout retry must not allocate another object');
+ await reopened.resolve(2,samplePost());assert.equal(reopened.calls.published.length,1);reopened.dispose();
 });
 
 test('feed preserves old rows on paging error, ignores stale requests and opens notification target once', async () => {
@@ -197,4 +211,38 @@ test('blocked social-only author is removed immediately and the server feed refr
   assert.deepEqual(h.calls.blocked, ['social-only']);
   assert.equal(nodes(h.tree).some(node => typeof node.type === 'function' && node.type.name === 'SocialPostSheet'), false);
   h.dispose();
+});
+
+
+test('collection feed omits following filter and comment deep links request the exact page', async()=>{
+ const h=harness('SocialBrowser',{feed:'following',collectionId:uuid(90)});try{
+  assert.ok(!h.requests[0].path.includes('feed=following'));assert.ok(h.requests[0].path.includes('collectionId='));
+ }finally{h.dispose();}
+ const detail=harness('SocialPostSheet',{postId:uuid(1),focusCommentId:uuid(25)});try{
+  assert.ok(detail.requests[0].path.includes(`commentId=${uuid(25)}`));
+ }finally{detail.dispose();}
+});
+
+test('own comment edit preserves failed text and deletes only after confirmation; other reason validates before sending',async()=>{
+ const post=samplePost(),comment=sampleComment();
+ const h=harness('SocialPostSheet',{postId:post.id});try{
+  await h.resolve(0,{post,comments:{items:[comment],nextOffset:null}});
+  h.click('Edit');let edit=nodes(h.tree).find(n=>n.type==='textarea'&&n.props.value===comment.body);
+  edit.props.onChange({target:{value:'My revised comment'}});h.render();
+  let form=nodes(h.tree).find(n=>n.type==='form'&&text(n).includes('Edit comment'));form.props.onSubmit({preventDefault(){}});h.render();
+  assert.equal(h.requests[1].options.body.action,'comment-edit');assert.equal(h.requests[1].options.body.commentId,comment.id);
+  await h.reject(1);assert.ok(nodes(h.tree).some(n=>n.type==='textarea'&&n.props.value==='My revised comment'));
+  form=nodes(h.tree).find(n=>n.type==='form'&&text(n).includes('Edit comment'));form.props.onSubmit({preventDefault(){}});h.render();
+  await h.resolve(2,{post,comments:{items:[{...comment,body:'My revised comment',editedAt:new Date().toISOString()}],nextOffset:null}});
+  h.click('Delete');assert.equal(h.requests.length,3);h.click('Delete comment');
+  assert.equal(h.requests[3].options.body.action,'comment-delete');
+  await h.resolve(3,{post,comments:{items:[{...comment,isDeleted:true,body:''}],nextOffset:null}});
+  assert.match(text(h.tree),/This comment was deleted/);assert.equal(button(h.tree,'Edit'),undefined);
+ }finally{h.dispose();}
+ const report=harness('ReportSheet',{postId:post.id});try{
+  find(report.tree,'select').props.onChange({target:{value:'other'}});report.render();
+  assert.match(text(report.tree),/required, at least 5/);
+  find(report.tree,'form').props.onSubmit({preventDefault(){}});report.render();assert.equal(report.requests.length,0);assert.match(text(report.tree),/Please enter at least 5/);
+  find(report.tree,'textarea').props.onChange({target:{value:'Clear reason'}});report.render();find(report.tree,'form').props.onSubmit({preventDefault(){}});report.render();assert.equal(report.requests.length,1);
+ }finally{report.dispose();}
 });

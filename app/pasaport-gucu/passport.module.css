@@ -600,3 +600,10 @@
   .next { padding: 22px 18px; }
   .nextLinks { grid-template-columns: 1fr; }
 }
+
+.status[data-status="eta"], .countryRow strong[data-status="eta"] { color: #68439b; background: #f2ecfb; }
+.status[data-status="unknown"], .countryRow strong[data-status="unknown"] { color: #526277; background: #edf1f5; }
+.status[data-status="restricted"], .countryRow strong[data-status="restricted"] { color: #814151; background: #faeaf0; }
+.legendItem[data-status="eta"] i { background: #956ccc; }
+.legendItem[data-status="unknown"] i { background: #94a3b8; }
+.legendItem[data-status="restricted"] i { background: #814151; }

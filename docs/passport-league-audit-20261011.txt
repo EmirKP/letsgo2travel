@@ -1,0 +1,32 @@
+PASAPORT VE KÂŞİFLER LİGİ — 11 EKİM 2026
+
+Pasaport incelemesi
+- Hata iki farklı veri kaynağından geliyordu: harita/listenin pasaport matrisi ile detayın yalnız Türk umuma mahsus pasaportuna ait eski cevabı çelişebiliyordu. Türk hususi/hizmet/diplomatik kapsamı yalnız 13 ülkeydi. Web pasaport sayfasında üçüncü, sabit bir tablo vardı; ETA e-vizeye karışıyor ve eksik kayıtlar vize gerekli kabul ediliyordu.
+- Mobil harita, listeler, sayaçlar, ülke detayı, rota tercihleri ve web pasaport haritası aynı passportEntry çözümleyicisini kullanıyor. Ülke/pasaport türü değişince eski asenkron cevap geri gelemez.
+- 199 pasaport ülkesi x 199 varış ülkesi x 4 tür = 158.404 eşleşmenin yapısı ve deterministik sonucu test edildi. Bu sayı bütün kuralların resmî olarak doğrulandığı anlamına gelmez.
+- Türkiye için 198 yabancı varış ülkesinin dört türü ayrı incelendi (792 eşleşme). 17 eşleşmede kaynak tek bir giriş sonucu vermediği için koşulu doğrula durumu korunur: Andorra ve Filistin dört tür; Türkmenistan, Haiti ve Marshall Adaları resmî üç tür. Bu durumlar vizesiz/ret gibi gösterilmez.
+- Diğer pasaportların umuma mahsus türü için 29 Schengen ülkesindeki 5.713 eşleşme AB'nin ek listeleri ve serbest dolaşım kaynağıyla eşlendi. Biyometrik pasaport, Tayvan kimlik numarası, Hong Kong/Makao pasaport türü, 90/180 toplamı ve seyahat izni koşulları saklandı.
+- Toplam 6.505 eşleşme resmî inceleme kaynaklı; 33.491 umuma mahsus eşleşme 17 Şubat 2026 tarihli keşif veri seti olarak açıkça ayrılıyor. Bunlar güncel resmî teyit sayılmaz. Diğer ülkelerin 117.612 hususi/hizmet/diplomatik eşleşmesi doğrulanmadı olarak kalır; umuma mahsus kuralları bu türlere aktarılmaz. Kendi ülkesine ait 796 eşleşme yabancı ülke sayaçlarından çıkarılır.
+- ETA, e-vize, kapıda vize, vizesiz, kimlikle, vize gerekli ve giriş kısıtlaması ayrı durumlardır. Verisiz ülke otomatik olarak vize gerekli veya vizesiz olmaz.
+- Örnek düzeltmeler: Türk hususi ile Almanya vizesiz, Meksika vize gerekli; diplomatik ile Meksika vizesiz. Kore'de hususi ve umuma mahsus K-ETA, hizmet/diplomatik muaf. Tayvan'da hususi e-vize, hizmet/diplomatik basılı vize. Namibya'da hususi kapıda vize, hizmet/diplomatik vizesiz.
+- İnceleme kısa turistik ziyaret içindir. Çalışma, ikamet, görevlendirme, transit, yaşa bağlı istisnalar ve tarihsel değişiklikler ayrı kapsam gerektirir. Belgede belirtilen sınır budur; dünyadaki bütün pasaport türlerinin eksiksiz güncel doğrulandığı iddia edilmez.
+
+Birincil kaynaklar (11 Ekim 2026 erişimi)
+https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa
+https://www.mfa.gov.tr/SanMarino-seyahat.tr.mfa
+https://www.mfa.gov.tr/dominika-seyahat-edecek-turk-vatandaslarinin-dikkatine.tr.mfa
+https://overseas.mofa.go.kr/tr-tr/brd/m_9149/view.do?seq=758866
+https://k-eta.go.kr/portal/board/viewboarddetail.do?bbsSn=1025&pageIndex=2
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02018R1806-20251230
+https://europa.eu/youreurope/citizens/travel/entry-exit/eu-citizen/index_en.htm
+
+Kâşifler Ligi
+- Yalnız travel_verifications.status=approved VE verification_method=document olan farklı ülkeler 10 puan verir. ISO2, ISO3, sayısal kodlar ve Kosova eş adları tek ülkeye indirgenir. Bekleyen, reddedilen, süresi dolmuş, konumla veya elle işaretlenmiş kayıtlar puan vermez.
+- İki public API, yönetim listesi, eski RPC uyumluluk işlevi ve mobil/web profil seviye göstergeleri aynı kurala geçti. Belge onayı geri alınırsa puan ve sıralama hemen yeniden hesaplanır. Kart dışa aktarmada eski puan defteri ve yüzdelik sıralama kullanılmaz.
+- Kamuya açık sıralama yalnız katılmayı seçen, gizlenmemiş ve en az bir onaylı ülkesi bulunan hesapları döndürür. Lig hedef kartları genel hedeflerdir; ilk 100 dışında kalanları kazanmadı gibi göstermez. Kişisel doğrulama rozetleri profilin kendi belge sonuçlarından hesaplanır. Sahte kullanıcı, sayı veya puan eklenmedi.
+- supabase/migrations/20261011170000_verified_explorer_league.sql yeni servis erişimli RPC'leri ve dar bir indeksi oluşturur; belge/profil kayıtlarını silmez veya değiştirmez. Yeni API eski migration durumunda eski puana dönmek yerine 503 verir. Üst görev migration'ı uyguladığını bildirdi; bu alt görev uzak veritabanına yazmadı.
+
+Kontroller
+- Yeni 8 test: tüm 158.404 eşleşme; tür ayrımı; uluslararası Schengen; ETA; onaylı ülke normalleştirme; 503 kullanıcı üzerinde SQL sıralama/onay iptali/mahremiyet/servis yetkisi/idempotent migration; geçişte API fail-closed; dışa aktarılan kartın eski puanları reddetmesi.
+- 94 birleşik pasaport/lig, hesap/profil, navigasyon ve Arnavutça kontrolü geçti; 46 ülke-verisi kontrolü geçti. Web ve mobil TypeScript ile hedef ESLint kontrolleri geçti.
+- Görünüm ve Yazı boyutu profil içindeki Görünüm bölümüne taşındı; misafir de erişebilir.

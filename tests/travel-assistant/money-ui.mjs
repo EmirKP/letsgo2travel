@@ -13,11 +13,14 @@ function loadFormatting(file) {
   const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Intl })(name => {
     if (name === './locales/sq-regions') return loadFormatting('mobile/src/lib/locales/sq-regions.ts');
+    if (name === '../../../lib/travel-assistant/money') return money;
+    if (name === '../../../lib/country-intelligence/currencies') return require('../../lib/country-intelligence/currencies.ts');
     throw Error(`Unexpected formatting dependency ${name}`);
   }, output, output.exports);
   return output.exports;
 }
 const localeFormatting = loadFormatting('mobile/src/lib/localeFormatting.ts');
+const { moneyCurrencyForCountry } = loadFormatting('mobile/src/lib/moneyPreferences.ts');
 const jsx = (type, props, key) => ({ type, props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const now = Date.parse('2026-09-29T12:00:00Z');
@@ -32,10 +35,11 @@ const find = (tree, predicate) => nodes(tree).find(predicate);
 const byClass = (tree, name) => find(tree, node => node.props?.className?.split(' ').includes(name));
 const namedButton = (tree, name) => find(tree, node => node.type === 'button' && node.props['aria-label'] === name);
 
-function mount({ response = quote(), saved = null, loader, locale = 'en' } = {}) {
+function mount({ response = quote(), saved = null, loader, locale = 'en', initialPair = null, locate = () => Promise.reject(Error('denied')) } = {}) {
   const slots = []; let cursor = 0, dirty = false, effects = [], tree;
-  const calls = [], opened = [];
+  const calls = [], opened = [], choices = []; let locationCalls = 0;
   const react = {
+    useRef(initial) { const index = cursor++; if (!slots[index]) slots[index] = { current: initial }; return slots[index]; },
     useState(initial) {
       const index = cursor++;
       if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial };
@@ -58,6 +62,8 @@ function mount({ response = quote(), saved = null, loader, locale = 'en' } = {})
       storedQuote: (base, target) => saved?.base === base && saved.quote === target ? saved : null,
       loadQuote: (base, target) => { calls.push([base, target]); return loader ? loader(base, target) : Promise.resolve(response); },
     },
+    '../lib/deviceArea': { locateDeviceArea: () => { locationCalls++; return locate(); } },
+    '../lib/moneyPreferences': { readMoneyPair: () => initialPair, saveMoneyPair: value => choices.push(value), moneyCurrencyForCountry },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en }) },
     '../lib/localeFormatting': localeFormatting,
     '../lib/native': { openExternal: url => opened.push(url) }, './Icon': { Icon: 'Icon' }, './travel-money.css': {},
@@ -76,7 +82,7 @@ function mount({ response = quote(), saved = null, loader, locale = 'en' } = {})
     throw Error('Money render did not settle');
   }
   render();
-  return { get tree() { return tree; }, render, calls, opened, async settle() { await tick(); return render(); }, dispose() { slots.forEach(slot => slot?.cleanup?.()); } };
+  return { get tree() { return tree; }, render, calls, opened, choices, get locationCalls() { return locationCalls; }, async settle() { await tick(); return render(); }, dispose() { slots.forEach(slot => slot?.cleanup?.()); } };
 }
 
 test('Dated real comparisons distinguish rising, falling and unchanged reference rates', async () => {
@@ -117,9 +123,9 @@ test('Converter accepts Turkish decimals and zero, and clears the result for inv
   const app = mount({ locale: 'tr' }); await app.settle();
   const amount = () => find(app.tree, node => node.type === 'input');
   amount().props.onChange({ target: { value: '2,5' } }); app.render();
-  assert.match(text(byClass(app.tree, 'tm-conversion')), /≈ 110 TRY/);
+  assert.match(text(byClass(app.tree, 'tm-conversion')), /≈ 110/);
   amount().props.onChange({ target: { value: '0' } }); app.render();
-  assert.match(text(byClass(app.tree, 'tm-conversion')), /≈ 0 TRY/);
+  assert.match(text(byClass(app.tree, 'tm-conversion')), /≈ 0/);
   amount().props.onChange({ target: { value: '1.000,50' } }); app.render();
   assert.equal(amount().props['aria-invalid'], true);
   assert.ok(find(app.tree, node => node.props?.role === 'alert'));
@@ -130,7 +136,7 @@ test('Converter accepts Turkish decimals and zero, and clears the result for inv
 test('A cached old rate remains dated but cannot create a current conversion', async () => {
   const app = mount({ saved: quote({ date: '2026-09-01', previousDate: '2026-08-31' }), loader: () => Promise.reject(Error('offline')) }); await app.settle();
   assert.match(text(app.tree), /SAVED REFERENCE/);
-  assert.match(text(app.tree), /Offline · saved rate/);
+  assert.match(text(app.tree), /Update unavailable · saved rate/);
   assert.match(text(app.tree), /No usable rate from the last seven days/);
   assert.doesNotMatch(text(byClass(app.tree, 'tm-conversion')), /≈/);
   app.dispose();
@@ -164,4 +170,72 @@ test('Missing rates show no number; refresh and the source control remain usable
   assert.deepEqual(app.opened, ['https://frankfurter.dev/']);
   assert.equal(nodes(app.tree).filter(node => /^h[1-6]$/.test(node.type) && /Money centre/.test(text(node))).length, 0);
   await app.settle(); app.dispose();
+});
+
+
+test('Local currency is selected on first opening, with a distinct target for Turkey', async () => {
+  for (const [country, base, target] of [['TR', 'TRY', 'EUR'], ['AL', 'ALL', 'TRY'], ['GB', 'GBP', 'TRY'], ['DE', 'EUR', 'TRY']]) {
+    const app = mount({ locate: async () => ({ country }) }); await app.settle();
+    assert.equal(app.locationCalls, 1);
+    assert.deepEqual(app.calls.at(-1), [base, target]);
+    assert.match(text(app.tree), /Your local currency is selected/);
+    assert.equal(app.choices.length, 0, 'Automatic selection must not become a manual preference');
+    app.dispose();
+  }
+});
+
+test('A saved manual choice suppresses GPS and late GPS never overwrites a manual change', async () => {
+  const saved = mount({ initialPair: { base: 'GBP', quote: 'USD' } }); await saved.settle();
+  assert.equal(saved.locationCalls, 0); assert.deepEqual(saved.calls[0], ['GBP', 'USD']); saved.dispose();
+  let resolveLocation; const app = mount({ locate: () => new Promise(resolve => { resolveLocation = resolve; }) });
+  find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.onChange({ target: { value: 'CHF' } }); app.render();
+  resolveLocation({ country: 'TR' }); await app.settle();
+  assert.deepEqual(app.calls.at(-1), ['CHF', 'TRY']); assert.equal(app.choices.at(-1).base, 'CHF');
+  assert.match(text(app.tree), /choices are remembered/); app.dispose();
+});
+
+test('Denied or unsupported device area leaves manual selection available without guessing', async () => {
+  for (const locate of [async () => { throw Error('denied'); }, async () => ({ country: 'ZZ' })]) {
+    const app = mount({ locate }); await app.settle();
+    assert.match(text(app.tree), /could not be determined/);
+    assert.equal(nodes(app.tree).filter(node => node.type === 'select').length, 2);
+    assert.deepEqual(app.calls[0], ['EUR', 'TRY']); app.dispose();
+  }
+});
+
+
+function fxLoader(request, assistant = 'https://assistant.example') {
+  const values = new Map(), calls = [];
+  const output = { exports: {} };
+  const source = ts.transpileModule(readFileSync('mobile/src/lib/travelAssistant.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const imports = {
+    './api': { requestJson: async (url, options) => { calls.push({ url, options }); return request(url); } },
+    './config': { config: { apiBaseUrl: 'https://main.example', travelAssistantApiBaseUrl: assistant } },
+    '../../../lib/travel-assistant/places': require('../../lib/travel-assistant/places.ts'),
+    '../../../lib/travel-assistant/responses': require('../../lib/travel-assistant/responses.ts'),
+  };
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: FixedDate, URLSearchParams, localStorage: { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) } })(name => imports[name], output, output.exports);
+  return { ...output.exports, calls, values };
+}
+
+test('FX uses the main public API when the optional host is down; concurrent requests share one validated result', async () => {
+  const app = fxLoader(async url => { if (url.startsWith('https://assistant')) throw Error('502'); return quote(); });
+  const first = app.loadQuote('EUR', 'TRY'), second = app.loadQuote('EUR', 'TRY'); assert.equal(first, second);
+  assert.equal((await first).rate, 44);
+  assert.deepEqual(app.calls.map(call => call.url), ['https://assistant.example/api/travel-assistant/rates?base=EUR&quote=TRY', '/api/travel-assistant/rates?base=EUR&quote=TRY']);
+  assert.equal(app.storedQuote('EUR', 'TRY').rate, 44);
+  assert.equal(app.calls.every(call => call.options.timeoutMs === 8000), true);
+});
+
+test('FX rejects malformed, wrong-pair and stale host data before fallback; failed retries leave the saved rate intact', async () => {
+  for (const bad of [{ ...quote(), quote: 'USD' }, { ...quote(), rate: Infinity }, { ...quote(), date: '2026-09-01', previousDate: '2026-08-31' }]) {
+    const app = fxLoader(async url => url.startsWith('https://assistant') ? bad : quote());
+    assert.equal((await app.loadQuote('EUR', 'TRY')).date, '2026-09-28'); assert.equal(app.calls.length, 2);
+  }
+  let failing = false;
+  const app = fxLoader(async () => { if (failing) throw Error('offline'); return quote(); }, '');
+  await app.loadQuote('EUR', 'TRY'); failing = true;
+  await assert.rejects(app.loadQuote('EUR', 'TRY'), /offline/);
+  assert.equal(app.storedQuote('EUR', 'TRY').rate, 44);
+  failing = false; assert.equal((await app.loadQuote('EUR', 'TRY')).rate, 44); assert.equal(app.calls.length, 3);
 });

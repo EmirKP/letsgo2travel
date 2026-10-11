@@ -147,6 +147,7 @@ export type VisaAppointmentNotification = {
 };
 
 export type TravelVerification = {
+  verification_method?: string;
   id: string;
   country_code?: string;
   country_name?: string;

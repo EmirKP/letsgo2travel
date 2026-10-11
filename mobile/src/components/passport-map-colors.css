@@ -38,3 +38,10 @@
 @media (prefers-reduced-motion: reduce) {
   .passport-screen .passport-map path { transition: none; }
 }
+.passport-screen { --passport-map-eta: #b394ed; --passport-map-restricted: #824359; --passport-map-domestic: #f3f5f9; }
+.passport-screen .legend-eta::before { background: var(--passport-map-eta); }
+.passport-screen .legend-restricted::before { background: var(--passport-map-restricted); }
+.passport-screen .status-eta { background: #eee7ff; color: #64448d; }
+.passport-screen .status-restricted { background: #f5e5eb; color: #824359; }
+.passport-source-badge { padding: 10px 14px; border-radius: 12px; background: var(--theme-soft, #f2f6fc); font-size: .85rem; color: var(--theme-muted, #657b96); }
+.passport-source-badge.source-official { border-left: 3px solid #28a47b; }

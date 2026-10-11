@@ -52,3 +52,7 @@
 }
 .alerts-screen .alert-card.expired .saved-card-head small { color: var(--muted, #68778e); }
 .alerts-screen .alert-expired-note { margin: 4px 0 0; }
+.alert-global-preferences { padding: 16px; border: 1px solid var(--theme-border, #dbe6f2); border-radius: 20px; background: var(--theme-surface, #f5f9ff); color: var(--theme-ink, #13243d); }
+.alert-global-preferences summary { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; min-height: 36px; }
+.alert-global-preferences summary span { flex: 1; }
+.alert-global-preferences p { color: var(--theme-muted, #64748b); font-size: 14px; line-height: 1.6; }

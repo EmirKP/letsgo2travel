@@ -5,8 +5,8 @@ import { useI18n } from "../lib/i18n";
 
 type Preferences = SocialNotificationPreferences;
 const endpoint = "/api/country-community/social/preferences";
-export function NotificationPreferences({ accessToken }: { accessToken: string }) {
-  return <NotificationPreferencesSession key={accessToken} accessToken={accessToken} />;
+export function NotificationPreferences({ accessToken, onSaved }: { accessToken: string; onSaved?: (preferences: Preferences) => void }) {
+  return <NotificationPreferencesSession key={accessToken} accessToken={accessToken} onSaved={onSaved} />;
 }
 
 function checkedPreferences(value: unknown): Preferences {
@@ -17,7 +17,7 @@ function checkedPreferences(value: unknown): Preferences {
   return Object.fromEntries(keys.map(key => [key, (value as Preferences)[key]])) as Preferences;
 }
 
-function NotificationPreferencesSession({ accessToken }: { accessToken: string }) {
+function NotificationPreferencesSession({ accessToken, onSaved }: { accessToken: string; onSaved?: (preferences: Preferences) => void }) {
   const { copy } = useI18n();
   const [preferences,setPreferences] = useState<Preferences|null>(null);
   const [error,setError] = useState(false);
@@ -26,11 +26,13 @@ function NotificationPreferencesSession({ accessToken }: { accessToken: string }
   const [retry,setRetry] = useState(0);
   const request = useRef<AbortController|null>(null);
   const locked = useRef(Boolean(accessToken));
+  const onSavedRef = useRef(onSaved);
+  useEffect(() => { onSavedRef.current = onSaved; }, [onSaved]);
   useEffect(() => {
     if (!accessToken) return;
     const controller=new AbortController();request.current=controller;locked.current=true;setLoading(true);setError(false);
     void requestJson<{data:Preferences}>(endpoint,{headers:{Authorization:`Bearer ${accessToken}`},signal:controller.signal})
-      .then(result=>{if(!controller.signal.aborted)setPreferences(checkedPreferences(result.data));})
+      .then(result=>{if(!controller.signal.aborted){const saved=checkedPreferences(result.data);setPreferences(saved);onSavedRef.current?.(saved);}})
       .catch(()=>{if(!controller.signal.aborted)setError(true);})
       .finally(()=>{if(!controller.signal.aborted){locked.current=false;setLoading(false);}});
     return ()=>{controller.abort();request.current?.abort();};
@@ -43,7 +45,7 @@ function NotificationPreferencesSession({ accessToken }: { accessToken: string }
     const controller=new AbortController();request.current=controller;locked.current=true;setBusy(true);setError(false);
     try {
       const result=await requestJson<{data:Preferences}>(endpoint,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`},body:{[key]:value},signal:controller.signal});
-      if(!controller.signal.aborted)setPreferences(checkedPreferences(result.data));
+      if(!controller.signal.aborted){ const saved=checkedPreferences(result.data); setPreferences(saved); onSavedRef.current?.(saved); }
     } catch {if(!controller.signal.aborted)setError(true);}
     finally{if(!controller.signal.aborted){locked.current=false;setBusy(false);}}
   }

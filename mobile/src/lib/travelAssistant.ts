@@ -51,11 +51,31 @@ function readQuotes(): FxQuote[] {
 export function storedQuote(base: string, quote: string) {
   return readQuotes().find(q => q.base === base && q.quote === quote) || null;
 }
-export async function loadQuote(base: string, quote: string) {
-  const raw = await requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/rates?${new URLSearchParams({base,quote})}`, { timeoutMs: 12000 });
-  const value = validateQuote(raw, base, quote);
-  if (!value) throw new Error('Invalid exchange rate');
-  try { localStorage.setItem(FX_KEY, JSON.stringify([value, ...readQuotes().filter(q => q.base !== base || q.quote !== quote)].slice(0,32))); } catch { /* A full device must not hide an online quote. */ }
-  return value;
+const quoteRequests = new Map<string, Promise<FxQuote>>();
+export function loadQuote(base: string, quote: string): Promise<FxQuote> {
+  const pair = `${base}:${quote}`;
+  const running = quoteRequests.get(pair);
+  if (running) return running;
+  const operation = (async () => {
+    const path = `/api/travel-assistant/rates?${new URLSearchParams({base,quote})}`;
+    // Public FX also exists on the main API. An unavailable optional assistant
+    // host must not break every budget calculation in the app.
+    const hosts = config.travelAssistantApiBaseUrl && config.travelAssistantApiBaseUrl !== config.apiBaseUrl
+      ? [config.travelAssistantApiBaseUrl, ''] : [''];
+    let failure: unknown;
+    for (const host of hosts) {
+      try {
+        const raw = await requestJson<unknown>(`${host}${path}`, { timeoutMs: 8000 });
+        const value = validateQuote(raw, base, quote);
+        if (!value || Date.now() - Date.parse(value.date) > 7 * 86400000) throw new Error('Invalid or stale exchange rate');
+        try { localStorage.setItem(FX_KEY, JSON.stringify([value, ...readQuotes().filter(q => q.base !== base || q.quote !== quote)].slice(0,32))); } catch { /* A full device must not hide an online quote. */ }
+        return value;
+      } catch (error) { failure = error; }
+    }
+    throw failure;
+  })();
+  quoteRequests.set(pair, operation);
+  void operation.finally(() => { if (quoteRequests.get(pair) === operation) quoteRequests.delete(pair); }).catch(() => {});
+  return operation;
 }
 export const directionsUrl = (destination: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;

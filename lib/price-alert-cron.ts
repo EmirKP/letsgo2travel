@@ -12,6 +12,7 @@ import {
 import { isPushConfigured as isPushProviderConfigured, sendPushToUser } from "./push";
 import { isPastTravelDate, todayIsoInTimeZone } from "./date-utils";
 import { priceAlertPreferenceReader } from "./price-alert-preferences";
+import { priceAlertScanFilter } from "./price-alert-scan";
 
 type PriceAlertRow = Record<string, any>;
 
@@ -528,7 +529,7 @@ async function processRetryQueue(params: {
   return stats;
 }
 
-export async function runPriceAlertCheck(options?: { limit?: number; deps?: PriceAlertCronDeps }): Promise<PriceAlertCheckResult> {
+export async function runPriceAlertCheck(options?: { limit?: number; checkedBefore?: string; deps?: PriceAlertCronDeps }): Promise<PriceAlertCheckResult> {
   const startedAt = new Date().toISOString();
   const startedMs = Date.now();
   const deps = options?.deps || {};
@@ -566,7 +567,7 @@ export async function runPriceAlertCheck(options?: { limit?: number; deps?: Pric
     .eq("is_active", true)
     .is("cancelled_at", null)
     .gte("departure_date", oldestDeparture)
-    .or("notify_email.eq.true,notify_push.eq.true")
+    .or(priceAlertScanFilter(options?.checkedBefore))
     .in("status", ["active", "triggered", "error"])
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(options?.limit || 80);

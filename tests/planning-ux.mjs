@@ -690,3 +690,48 @@ test('Route cost result changes currency safely, ignores an obsolete rate reply,
     assert.equal(find(host.render(), 'select'), undefined);
   } finally { host.dispose(); }
 });
+
+
+test('Country costs recover FX failure, recalculate duration and party, sort both ways and keep detail totals consistent', async () => {
+  const host = hooks(), waiting = [];
+  const benchmarks = load('lib/country-intelligence/city-benchmarks.ts');
+  const budget = load('lib/country-intelligence/trip-budget.ts');
+  const { CityPriceCatalog } = load('mobile/src/components/CityPriceCatalog.tsx', {
+    ...common(host), '../../../lib/country-intelligence/city-benchmarks': benchmarks,
+    '../../../lib/country-intelligence/currencies': { COST_CURRENCIES: {} }, '../../../lib/country-intelligence/cost-model': {},
+    '../lib/countryIntelligence': { useAdvisories: () => [], useCountryData: () => ({ data: null, loading: false, error: null }) },
+    '../lib/native': {}, './Sheet': { Sheet: 'Sheet' }, './CountryFlag': { CountryFlag: 'Flag' }, './CountryAdvisory': { CountryRiskBadge: 'Risk', CountryAdvisory: 'Advisory' }, './CostCalculators': { LocationCalculator: 'Location' }, './Icon': { Icon: 'Icon' },
+    '../../../lib/country-intelligence/trip-budget': budget,
+    '../lib/budgetPreferences': { readBudgetPreferences: () => ({ currency: 'EUR', days: '7', people: '3' }), saveBudgetPreferences() {} },
+    '../lib/travelAssistant': { storedQuote: () => null, loadQuote: (base, quote) => new Promise((resolve, reject) => waiting.push({ base, quote, resolve, reject })) },
+    '../lib/budgetCockpitIntent': {},
+  }, { window: { setInterval: () => 1, clearInterval() {} } });
+  const rows = tree => nodes(tree).filter(node => node.type === 'button' && node.props.className === 'budget-city-row');
+  const total = row => text(find(row, 'span', p => p.className === 'budget-row-total'));
+  try {
+    host.start(CityPriceCatalog, { onOpenCountryNews() {} });
+    waiting[0].reject(Error('offline')); await tick();
+    let tree = host.render();
+    assert.match(text(tree), /Estimates are shown in GBP/); assert.match(total(rows(tree)[0]), /£/); assert.doesNotMatch(total(rows(tree)[0]), /€/);
+    button(tree, 'Refresh rate').props.onClick(); tree = host.render();
+    waiting[1].resolve({ base: 'GBP', quote: 'EUR', rate: 2, date: new Date().toISOString().slice(0,10) }); await tick();
+    tree = host.render(); assert.match(total(rows(tree)[0]), /€/); assert.doesNotMatch(text(tree), /Estimates are shown in GBP/);
+    const before = total(rows(tree)[0]);
+    find(tree, 'label', p => text(p.children).startsWith('Days')).props.children[1].props.onChange({ target: { value: '2' } }); tree = host.render();
+    assert.notEqual(total(rows(tree)[0]), before);
+    find(tree, 'label', p => text(p.children).startsWith('Travellers')).props.children[1].props.onChange({ target: { value: '1' } }); tree = host.render();
+    const firstCity = text(find(rows(tree)[0], 'strong'));
+    const source = benchmarks.CITY_BENCHMARKS.find(row => row.city.en === firstCity);
+    const expected = new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(budget.tripBudget(source, 2, 1).total * 2);
+    assert.ok(total(rows(tree)[0]).includes(expected));
+    rows(tree)[0].props.onClick(); tree = host.render();
+    assert.equal(text(find(find(tree, 'section', p => p.className === 'budget-detail-total'), 'strong')), expected);
+    find(tree, 'Sheet').props.onClose(); tree = host.render();
+    find(tree, 'select', p => p['aria-label'] === 'City order').props.onChange({ target: { value: 'high' } }); tree = host.render();
+    assert.notEqual(text(find(rows(tree)[0], 'strong')), firstCity);
+    find(tree, 'select', p => p['aria-label'] === 'City order').props.onChange({ target: { value: 'price' } }); tree = host.render();
+    assert.equal(text(find(rows(tree)[0], 'strong')), firstCity);
+    find(tree, 'label', p => text(p.children).startsWith('Days')).props.children[1].props.onChange({ target: { value: '' } }); tree = host.render();
+    assert.match(text(tree), /Enter whole numbers/); assert.match(total(rows(tree)[0]), /—/);
+  } finally { host.dispose(); }
+});

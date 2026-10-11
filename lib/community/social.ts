@@ -60,6 +60,10 @@ export function parseSocialAction(input: RecordValue) {
     if (!plainText(input.body, 2000, true) || !socialUuid(input.requestId) || input.parentId != null && !socialUuid(input.parentId)) return null;
     return { ...base, body: input.body.trim(), requestId: input.requestId, parentId: input.parentId || null };
   }
+  if (action === "comment-edit" || action === "comment-delete") {
+    if (!socialUuid(input.commentId) || action === "comment-edit" && !plainText(input.body, 2000, true)) return null;
+    return { ...base, commentId: input.commentId, ...(action === "comment-edit" ? { body: (input.body as string).trim() } : {}) };
+  }
   if (action === "report") {
     if (!["spam", "harassment", "inappropriate", "other"].includes(String(input.reason)) || input.commentId != null && !socialUuid(input.commentId)
       || input.details !== undefined && !plainText(input.details, 1000) || input.reason === "other" && (!plainText(input.details, 1000, true) || input.details.trim().length < 5)) return null;
@@ -75,6 +79,7 @@ export function parseSocialPreferences(input: RecordValue) {
 }
 
 export function socialError(error?: { code?: string } | null) {
+  if (error?.code === "P0010") return Response.json({ error: "Yüklemenin süresi dolmuş. Taslağını yeniden gönderebilirsin.", code: "social_upload_expired" }, { status: 409, headers: COMMUNITY_PRIVATE_HEADERS });
   const status = error?.code === "P0002" ? 404 : error?.code === "42501" ? 403 : error?.code === "54000" ? 429
     : error?.code === "23505" ? 409 : ["22023", "22P02", "23514"].includes(error?.code || "") ? 400 : 503;
   const message = status === 404 ? "Gönderi bulunamadı veya artık erişilebilir değil." : status === 429 ? "Çok sık işlem yapıldı. Lütfen biraz sonra tekrar dene."

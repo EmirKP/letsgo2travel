@@ -14,15 +14,17 @@ interface Leader {
 export default function ExplorerLeaderboard() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function fetchLeaderboard() {
       try {
         const res = await fetch('/api/leaderboard?limit=20');
+        if (!res.ok) throw new Error("league_unavailable");
         const json = await res.json();
         if (json.data) setLeaders(json.data);
       } catch (err) {
-        console.error(err);
+        console.error(err); setError(true);
       } finally {
         setLoading(false);
       }
@@ -30,12 +32,13 @@ export default function ExplorerLeaderboard() {
     fetchLeaderboard();
   }, []);
 
+  if (error) return <div className={styles.empty}>Sıralama yüklenemedi. Lütfen sayfayı yenileyerek tekrar dene.</div>;
   if (loading) return <div className={styles.loading}>Yükleniyor...</div>;
 
   return (
     <div className={styles.stack}>
       <div className={`l2t-legal-notice ${styles.notice}`}>
-        <strong>Ödül Bilgisi:</strong> LetsGo2Travel’de faydalı bilgi paylaşan gezginler dönemsel küçük ödüller kazanabilir. Ödüller kampanya dönemine göre değişebilir.
+        <strong>Doğrulanmış keşifler:</strong> Onaylanan her farklı ülke ziyareti 10 puan kazandırır. Bekleyen ve yalnız işaretlenen ziyaretler puan kazandırmaz.
       </div>
       
       {leaders.map((leader, idx) => (
@@ -50,7 +53,7 @@ export default function ExplorerLeaderboard() {
                 {idx === 0 && <Trophy />}
               </div>
               <div className={styles.meta}>
-                <span><MapPin /> {leader.visited_count} Ülke</span>
+                <span><MapPin /> {leader.visited_count} Onaylı ülke</span>
                 <span><Medal /> Puan: {leader.points}</span>
               </div>
             </div>
@@ -71,7 +74,7 @@ export default function ExplorerLeaderboard() {
 
       {leaders.length === 0 && (
         <div className={styles.empty}>
-          Henüz sıralamada kimse yok. İlk giren sen ol!
+          İlk ülke ziyaretini belgeyle doğrula, onaydan sonra ligdeki yerini al.
         </div>
       )}
     </div>

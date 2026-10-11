@@ -35,7 +35,7 @@ class MockSupabase {
 
   from(table: string) {
     const self = this;
-    const state: { filters: Array<(r: Row) => boolean>; op: string; payload?: Row } = { filters: [], op: "select" };
+    const state: { filters: Array<(r: Row) => boolean>; op: string; payload?: Row; limit?: number } = { filters: [], op: "select" };
 
     const builder: any = {
       select(_cols?: string, opts?: { count?: string; head?: boolean }) {
@@ -43,8 +43,14 @@ class MockSupabase {
         return builder;
       },
       order() { return builder; },
-      limit() { return builder; },
+      limit(value: number) { state.limit=value; return builder; },
       or(expr: string) {
+        if (expr.startsWith("and(or(notify_email")) {
+          const checkedBefore = /last_checked_at\.lt\.([^,)]+)/.exec(expr)?.[1];
+          const snapshotBefore = /created_at\.lte\.([^,)]+)/.exec(expr)?.[1];
+          state.filters.push(r => Boolean(r.notify_email || r.notify_push) && (!r.last_checked_at || r.last_checked_at < checkedBefore!) && r.created_at <= snapshotBefore!);
+          return builder;
+        }
         // "notify_email.eq.true,notify_push.eq.true"
         const parts = expr.split(",").map((p) => p.split(".eq."));
         state.filters.push((r) => parts.some(([col, val]) => String(r[col]) === val));
@@ -96,7 +102,7 @@ class MockSupabase {
           for (const r of matched) Object.assign(r, state.payload);
           return resolve({ data: matched, error: null });
         }
-        return resolve({ data: matched, error: null });
+        return resolve({ data: state.limit === undefined ? matched : matched.slice(0,state.limit), error: null });
       },
     };
     return builder;
@@ -1018,6 +1024,21 @@ test("v5: genel fiyat bildirimi tercihleri kanal bazinda yeni olayi ve retry'i d
   db.tables.community_notification_preferences[0].price_alert_push = true;
   await runCron(db, deps);
   assert.equal(emails, 0); assert.equal(pushes, 1);
+});
+
+test("v6: daily bounded batches drain beyond 80 and include same-day creation without rechecking completed rows", async () => {
+  const db = new MockSupabase();
+  const cutoff = new Date().toISOString(), dayStart = cutoff.slice(0,10)+"T00:00:00.000Z";
+  for(let i=0;i<185;i++) db.tables.flight_price_alerts.push(makeAlert({id:`batch-${i}`,created_at:dayStart,last_checked_at:null}));
+  db.tables.flight_price_alerts.push(makeAlert({id:"already-checked",created_at:dayStart,last_checked_at:cutoff}));
+  db.tables.flight_price_alerts.push(makeAlert({id:"after-snapshot",created_at:new Date(Date.parse(cutoff)+1).toISOString(),last_checked_at:null}));
+  let emails=0;
+  const deps={supabase:db,fetchPrice:mockPriceOk,sendMail:async()=>{emails++;return mailOk();},sendPush:pushOk,isEmailConfigured:()=>true,pushConfig:()=>({apns:false,fcm:false})};
+  const first=await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps});assert.equal(first.processedAlerts,80);
+  const second=await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps});assert.equal(second.processedAlerts,80);
+  const last=await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps});assert.equal(last.processedAlerts,25);
+  assert.equal((await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps})).processedAlerts,0);
+  assert.equal(emails,185);assert.equal(db.tables.flight_price_alerts.find(r=>r.id==="after-snapshot")?.last_checked_at,null);
 });
 
 // ------------------------------ runner -------------------------------

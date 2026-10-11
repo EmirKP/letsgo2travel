@@ -1,0 +1,16 @@
+Daily price alert scan - 12 October 2026
+
+The existing bearer-protected daily cron now enqueues a Vercel Workflow and returns HTTP202 with runId. It no longer stops after the first80 rows. Workflow5.2.0 is integrated via withWorkflow(nextConfig); no extra paid service is provisioned.
+
+Each durable step runs one bounded batch with the existing48-second budget, notification claims and cancellation fences. Selection includes active, un-cancelled, unexpired rows with an enabled per-alert delivery channel, present at the captured snapshot and not checked since UTC midnight. New rows created before the daily run are included. Completed rows are excluded on replay. Remaining eligible count is verified in storage after each batch; failed persistence retries instead of falsely completing. Steps retry up to8 times. Outages beyond that remain a failed run in Workflow observability and will be eligible for the next daily scan.
+
+Same-day active duplicates coordinate by deterministic hook before processing. After100 batches, a durable child continuation bounds replay history while retaining the same snapshot. Daily cron schedule remains unchanged, compatible with Hobby cron frequency. Rows created after the snapshot await the next daily scan.
+
+Production requirements: System Environment Variables enabled (VERCEL_DEPLOYMENT_ID) and Fluid compute. Root confirmed both already enabled on the main project. The exact proxy matcher does not intercept .well-known/workflow. Generated handlers are ignored in Git and rebuilt on deployment. Verify Vercel-generated queue trigger/flow and webhook handlers during deployment. Do not smoke-test the real price cron: it sends actual notifications.
+
+Safe deployment probe: GET /api/cron/check-price-alerts/health with Authorization: Bearer CRON_SECRET exercises the SDK's dedicated queue health message, without importing or invoking the alarm scan. It returns HTTP200 with healthy, latency and SDK versions after a successful round trip; timeout or delivery failure returns HTTP503. Missing or URL-based credentials are rejected. The probe has a20-second timeout and private/no-store responses. Its authentication and probe-only behavior are covered by the workflow suite; all7 workflow tests pass, including successful retry-backlog progress that consumes a batch budget before fresh rows can run.
+
+Validation: Next production build succeeds with the generated routes. Existing43 alert tests pass, including185 eligible rows over80/80/25 batches with no duplicate notifications. tests/price-alert-workflow.mjs covers queue authentication, duplicate guard, bounded continuation, no-progress retries and snapshot filtering. New SDK transitive dependency vulnerabilities were resolved using compatible scoped devalue5.9.3/nanoid5.1.16 overrides; npm audit reports0.
+
+Official docs consulted: https://workflow-sdk.dev/docs/getting-started/next
+Installed version docs: node_modules/workflow/docs/api-reference/workflow-api/start.mdx, api-reference/workflow/create-hook.mdx, worlds/vercel.mdx.

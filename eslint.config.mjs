@@ -18,6 +18,7 @@ const eslintConfig = defineConfig([
   },
   globalIgnores([
     ".next/**",
+    "app/.well-known/workflow/**",
     "out/**",
     "build/**",
     "android/**",

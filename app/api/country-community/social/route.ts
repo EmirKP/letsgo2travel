@@ -10,6 +10,8 @@ import { SOCIAL_PHOTO_BUCKET } from "@/lib/community/social-contract";
 import { hydrateSocialData, parseSocialAction, parseSocialCreate, readSocialJson, socialError, socialRecord, socialStorageReady, socialUuid } from "@/lib/community/social";
 
 export const runtime = "nodejs";
+// Expired-upload cleanup waits twice this enforced invocation lifetime.
+export const maxDuration = 60;
 const reply = (data: unknown, status = 200) => Response.json({ data }, { status, headers: COMMUNITY_PRIVATE_HEADERS });
 
 export async function GET(request: Request) {
@@ -27,7 +29,9 @@ export async function GET(request: Request) {
     const feed = params.get("feed");
     if (feed !== null && !["discover", "following"].includes(feed)) return socialError({ code: "22023" });
     if (feed) input.feed = feed;
-    for (const key of ["postId", "collectionId"]) { const value = params.get(key); if (value !== null) { if (!socialUuid(value)) return socialError({ code: "22023" }); input[key] = value; } }
+    for (const key of ["postId", "collectionId", "commentId"]) { const value = params.get(key); if (value !== null) { if (!socialUuid(value)) return socialError({ code: "22023" }); input[key] = value; } }
+    if (input.commentId && !input.postId) return socialError({ code: "22023" });
+    if (input.collectionId) delete input.feed;
     const author = params.get("authorRef");
     if (author !== null) { if (!validCommunityProfileKey(author)) return socialError({ code: "22023" }); input.authorRef = author; }
     if (!viewer.userId && (section || feed === "following" || input.collectionId)) return Response.json({ error: "Oturum gerekli." }, { status: 401, headers: COMMUNITY_PRIVATE_HEADERS });
@@ -57,20 +61,42 @@ export async function POST(request: Request) {
         return error ? socialError(error) : reply(await hydrateSocialData(db, data));
       }
       if (!await socialStorageReady(db)) return socialError();
+      // Tombstones fence late commits before an expired object can be removed.
+      // The DB waits120s (beyond maxDuration) and never returns committed media.
+      const cleanup = await db.rpc("prepare_travel_social_upload_cleanup", { p_viewer: user.id });
+      if (cleanup.error) return socialError(cleanup.error);
+      const expiredIds = socialRecord(cleanup.data).requestIds;
+      if (!Array.isArray(expiredIds) || expiredIds.length > 10 || !expiredIds.every(socialUuid)) return socialError();
+      if (expiredIds.length) {
+        const removed = await db.storage.from(SOCIAL_PHOTO_BUCKET).remove(expiredIds.map(id => `${user.id}/${id}.jpg`));
+        if (removed.error) return socialError();
+        const confirmed = await db.rpc("finish_travel_social_upload_cleanup", { p_viewer: user.id, p_request_ids: expiredIds });
+        if (confirmed.error || socialRecord(confirmed.data).success !== true) return socialError(confirmed.error);
+      }
+      // Reserve before accepting any bytes. Failed writes also consume quota,
+      // while the same immutable request remains resumable after a lost commit.
+      const admission = await db.rpc("reserve_travel_social_upload", { p_viewer: user.id, p_input: values });
+      if (admission.error) return socialError(admission.error);
+      if (socialRecord(admission.data).admitted !== true) return socialError();
       const storagePath = `${user.id}/${parsed.requestId}.jpg`;
       const upload = await db.storage.from(SOCIAL_PHOTO_BUCKET).upload(storagePath, photo, { contentType: "image/jpeg", upsert: false });
-      if (upload.error) return socialError(upload.error.statusCode === "409" || upload.error.statusCode === "Duplicate" ? { code: "23505" } : undefined);
-      const { data, error } = await db.rpc("write_travel_social", { p_viewer: user.id, p_action: "create", p_input: values });
-      if (error) {
-        // Verify a concurrent request did not commit the same object before cleanup.
-        const committed = await db.from("travel_social_posts").select("id,user_id").eq("id", parsed.requestId).maybeSingle();
-        if (!committed.error && (!committed.data || committed.data.user_id !== user.id)) await db.storage.from(SOCIAL_PHOTO_BUCKET).remove([storagePath]);
-        return socialError(error);
+      if (upload.error) {
+        if (!["409", "Duplicate"].includes(String(upload.error.statusCode))) return socialError();
+        // A previous request may have uploaded successfully before its DB call timed out.
+        // Resume only when these exact immutable bytes belong to this request and owner.
+        const previous = await db.storage.from(SOCIAL_PHOTO_BUCKET).download(storagePath);
+        if (previous.error || !previous.data) return socialError();
+        const previousHash = createHash("sha256").update(Buffer.from(await previous.data.arrayBuffer())).digest("hex");
+        if (previousHash !== photoHash) return socialError({ code: "23505" });
       }
+      const { data, error } = await db.rpc("write_travel_social", { p_viewer: user.id, p_action: "create", p_input: values });
+      // Do not delete after an uncertain commit: a concurrent retry may be about to
+      // reference this object. Retry verifies the hash; account erasure removes orphans.
+      if (error) return socialError(error);
       return reply(await hydrateSocialData(db, data), 201);
     }
     const parsed = parseSocialAction(input); if (!parsed || typeof action !== "string") return socialError({ code: "22023" });
-    if (action === "comment") parsed.status = moderateUserText(String(parsed.body)).action === "visible" ? "published" : "pending";
+    if (action === "comment" || action === "comment-edit") parsed.status = moderateUserText(String(parsed.body)).action === "visible" ? "published" : "pending";
     const { data, error } = await db.rpc("write_travel_social", { p_viewer: user.id, p_action: action, p_input: parsed });
     if (error) return socialError(error);
     return reply(await hydrateSocialData(db, socialRecord(data)));

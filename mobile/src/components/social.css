@@ -103,3 +103,8 @@
 .community-profile-share { margin-bottom: 0; }
 @media (min-width: 680px) { .social-post-list { max-width: 580px; margin-inline: auto; width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .social-hub *, .social-sheet * { scroll-behavior: auto; } }
+
+.social-comment footer { flex-wrap: wrap; gap: 8px 14px; }
+.social-comment.is-notification-target { padding: 12px; border-radius: 14px; background: var(--social-soft); outline: 2px solid var(--theme-link, #096bfa); scroll-margin-block: 20px; }
+.social-comment-edit-actions { display: flex; gap: 12px; }
+.social-empty .social-empty-art { display: block; width: 172px; height: 172px; object-fit: contain; margin: 0 auto 12px; }

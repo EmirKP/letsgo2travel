@@ -81,7 +81,10 @@ android/app/google-services.json
 .env*.local
 
 supabase/.temp/
+/app/.well-known/workflow/
+/.workflow-data/
 tests/app/_mobile/
 
 .vercel
 .env*
+/.swc

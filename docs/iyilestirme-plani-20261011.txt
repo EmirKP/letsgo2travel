@@ -1,0 +1,69 @@
+11 Ekim 2026 — İkinci iyileştirme turu
+
+Kullanıcı 20 maddelik listenin uygulanmasını onayladı. Bu tur önceki sürümün
+üzerine eklenir; yeni TestFlight gönderimi ayrıca istenmedi.
+
+1. Forum solda ve varsayılan; Gönderiler sağda.
+2. Boş sosyal akış için renkli seyahat/fotoğraf illüstrasyonu.
+3. Fotoğraflı başlangıç içerikleri, çalışan gerçek etkileşimler.
+   İçerikler LetsGo2Travel editoryal paylaşımları; uydurma etkileşim yok.
+4. Kesilen fotoğraf yüklemesini aynı istekle güvenle yeniden deneme.
+5. Koleksiyonların takip akışı filtresinden bağımsız olması.
+6. Alarm geri almada belirsiz ağ sonucunu sunucuyla uzlaştırma.
+7. Alarm kanal seçeneklerinde genel bildirim tercihlerini dikkate alma.
+8. Bildirim rozeti, sayfalama, doğru okunmamış toplamı ve yorum bağlantısı.
+9. Kullanıcının kendi sosyal yorumlarını düzenlemesi ve silmesi.
+10. Şikâyet formunda Diğer açıklamasının doğrulanması.
+11. Tüm uygun alarmları süre sınırları içinde devam ederek işleme.
+12. Para Merkezi kur kartının yeniden tasarımı.
+13. Ne kadar eder dönüştürücüsünün yeniden tasarımı.
+14. İlk kaynak para seçimini cihaz konumuyla belirleme; elle seçimi koruma.
+15. Yazı boyutunu Daha Fazla'dan profil Görünüm ayarlarına taşıma.
+16. Ülke maliyetleri kur yükleme/dönüşüm/gün/kişi/sıralama hataları.
+17. Gizlilik ve hesap silme için farklı, mevcut stile uygun simgeler.
+18. Sunulan tüm pasaport ülkeleri/türleri için veri ve harita tutarlılığı;
+    resmi kaynak, tarih, koşul ve doğrulanmamış durumun açık gösterimi.
+19. Lig puanını yalnız onaylı, benzersiz ülke ziyaretlerinden hesaplama.
+20. Az katılımcılı ligde gerçek hedefler ve doğrulama çağrısı; sahte puan yok.
+
+Uygulama durumu
+20 maddenin kod değişiklikleri tamamlandı. Üç veritabanı değişikliği ayrı
+işlemlerle ve migration kaydıyla canlıya uygulandı: 20261011170000,
+20261012100000, 20261012120000. Sunucu yayını sonrasında sonuç eklenecek.
+
+Kullanıcının açık seçimiyle LetsGo2Travel uygulama hesabı oluşturuldu:
+@letsgo2travel_app. Mevcut uygulama iletişim adresi kullanıldı; parola,
+doğrulama rozeti veya davet e-postası oluşturulmadı. Uygulama logosu ve
+tanıtıcı biyografi eklendi. Kapadokya, Bali ve Tokyo fotoğrafları uygulama
+seçkisi olarak yayımlandı. Beğeni, yorum, takipçi veya lig puanı eklenmedi.
+
+Doğrulama
+- 67 grupta 746 test içeren genel yayın paketi ve ek bütünlük kontrolleri geçti.
+- Son incelemedeki yükleme rezervasyonu/kurtarma değişikliklerinin 41 testi,
+  iş akışı ve altyapının 10 testi, bildirim tercihi uzlaştırma testleri geçti.
+- Web/mobil TypeScript, lint ve üretim derlemeleri kontrol edildi.
+- Gerçek tarayıcıda 390x844: Forum varsayılanı, üç fotoğraflı uygulama profili,
+  gönderi detayları, lig, profil Görünüm ayarları ve ABD pasaportu ile Almanya
+  detayının aynı sonucu vermesi doğrulandı. Para Merkezi açık/koyu temada,
+  ülke maliyetleri liste/detay toplamlarıyla kontrol edildi.
+- Mevcut canlı ligde bir onaylı ülke 10 puan; elle işaretlenen yedi ülke
+  profilin kişisel istatistiğinde kalıyor ve lig puanı olarak sayılmıyor.
+
+Kapsam sınırları
+- 158.404 pasaport/tür/varış eşleşmesinin teknik tutarlılığı test edildi.
+  6.505 eşleşme resmî kaynak incelemeli; bu sayı tüm dünyanın tüm türlerinin
+  güncel doğrulandığı anlamına gelmez. Tarihli ve doğrulanmamış kayıtlar
+  açıkça ayrıldı. Ayrıntı: passport-league-audit-20261011.txt.
+- GPS izinli fiziksel cihaz testi yapılmadı; otomatik para birimi seçiminde
+  konum gecikmesi ve elle seçim korunması kontrollü testlerle doğrulandı.
+- iOS/Android varlık eşliği sağlandı; yerel Android FCM dosyası yok. Android
+  yayın derlemesinde CI'ın google-services.json sağlaması gerekir.
+- Bu tur için yeni TestFlight gönderimi yapılmadı.
+
+Yeni illüstrasyon
+Yerleşik imagegen ile şeffaf arka planlı mavi kamera, iki seyahat fotoğrafı,
+turkuaz deniz, dağ, sarı güneş ve harita iğnesi istendi; metin ve insan yok.
+PNG çıktı: C:/Users/emirk/.codex/generated_images/01a0de1a-7713-7561-8967-222b602afd19/exec-a8896432-d5ff-45f7-ab76-63a5571c1b30.png
+Uygulama varlığı: mobile/src/assets/editorial/social-empty-camera.webp
+440x440, yaklaşık 33 KB. Gizlilik ve hesap silme simgeleri mevcut SVG
+çizim sisteminde birbirinden farklı biçimlerle düzenlendi.

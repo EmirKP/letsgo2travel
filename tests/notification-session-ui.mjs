@@ -10,7 +10,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a,b) 
 function load(filename, imports, globals = {}) {
   const code = ts.transpileModule(readFileSync(filename,'utf8'),{compilerOptions:{ module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX }}).outputText;
   const result = {exports:{}};
-  vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date,Intl,...globals})(name => {
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Date,Intl,setInterval,clearInterval,...globals})(name => {
     if(name.endsWith('.css')) return {};
     if(Object.hasOwn(imports,name)) return imports[name];
     throw Error(name);
@@ -80,14 +80,31 @@ test('Guests do not request private preferences',()=>{
   const h=preferenceHarness('');try{assert.equal(h.requests.length,0);assert.match(text(h.tree),/Sign in/);}finally{h.dispose();}
 });
 
+test('Retry confirms a server-saved preference after a lost response and updates its parent',async()=>{
+  const h=preferenceHarness();const saved=[];
+  const push=()=>nodes(h.tree).find(node=>node.type==='input'&&node.props.name==='price_alert_push');
+  try{
+    h.render({onSaved:preferences=>saved.push(preferences)});
+    h.requests[0].resolve({data:{...allPreferences,price_alert_push:false}});await h.settle();
+    assert.equal(saved.at(-1).price_alert_push,false);
+    push().props.onChange({target:{name:'price_alert_push',checked:true}});
+    h.requests[1].reject(Error('response lost after server commit'));await h.settle();
+    assert.equal(push().props.checked,false);assert.equal(saved.length,1);
+    button(h.tree,'Retry').props.onClick();h.render();
+    h.requests[2].resolve({data:allPreferences});await h.settle();
+    assert.equal(push().props.checked,true);assert.equal(saved.at(-1).price_alert_push,true);
+    assert.equal(saved.length,2);assert.equal(h.requests.length,3);
+  }finally{h.dispose();}
+});
+
 const notification=(id='one',kind='comment')=>({id,kind,author:{username:`person-${id}`,key:`user:${id}`},postId:kind==='follow'?null:'post-one',commentId:kind==='follow'?null:'comment-one',createdAt:'2026-10-11T12:00:00Z',readAt:null});
-function centerHarness() {
+function centerHarness(initial={}) {
   const requests=[],writes=[],intents=[],reads=new Map(),unread=[];
   const copy=(_,en)=>en;
   const request=(kind,token,signal)=>{const task=deferred();requests.push({kind,token,signal,...task});return task.promise;};
   const h=sessionHarness('mobile/src/components/NotificationCenter.tsx','NotificationCenter',{
     open:true,ownerId:'owner-one',accessToken:'token',online:true,onClose(){},onNavigate(){},onOpenRelease(){},
-    onUnreadChange:value=>{unread.push(value);},onOpenSocial:value=>{intents.push(value);},
+    onUnreadChange:value=>{unread.push(value);},onOpenSocial:value=>{intents.push(value);},...initial,
   },{
     '../lib/localeFormatting':{formatAppDate:()=> '11 Oct'},
     '../lib/api':{getVisaAppointmentNotifications:token=>request('visa',token),listAlerts:token=>request('alert',token),markVisaAppointmentNotificationRead:async()=>{}},
@@ -124,10 +141,23 @@ test('Real social event schemas navigate to posts or follower profiles and ackno
   const h=centerHarness();try{
     h.resolveBatch(0,[notification('comment'),notification('reply','reply'),notification('follow','follow')]);await h.settle();
     for(const id of ['comment','reply','follow'])socialButton(h,id).props.onClick();await h.settle();
-    assert.deepEqual(h.intents.map(value=>JSON.parse(JSON.stringify(value))),[{postId:'post-one'},{postId:'post-one'},{profileKey:'user:follow'}]);
+    assert.deepEqual(h.intents.map(value=>JSON.parse(JSON.stringify(value))),[{postId:'post-one',commentId:'comment-one'},{postId:'post-one',commentId:'comment-one'},{profileKey:'user:follow'}]);
     assert.deepEqual(h.writes.map(value=>({action:value.action,id:value.value.id,token:value.token})),[
       {action:'notifications-read',id:'comment',token:'token'},{action:'notifications-read',id:'reply',token:'token'},{action:'notifications-read',id:'follow',token:'token'},
     ]);
     assert.equal(h.unread.at(-1),0);assert.equal(h.reads.has('owner-two'),false);
   }finally{h.dispose();}
+});
+
+
+test('closed inbox refreshes unread badge and older pages preserve the server total beyond the first twenty',async()=>{
+ const h=centerHarness({open:false});try{
+  assert.equal(h.requests.length,3);
+  h.requests[0].resolve([]);h.requests[1].resolve([]);h.requests[2].resolve({items:[notification('first')],nextOffset:20,unreadCount:45});
+  await h.settle();assert.equal(h.unread.at(-1),45);
+  button(h.tree,'Show older notifications').props.onClick();h.render();assert.equal(h.requests.length,4);
+  h.requests[3].resolve({items:[notification('older')],nextOffset:40,unreadCount:45});await h.settle();
+  assert.ok(socialButton(h,'first'));assert.ok(socialButton(h,'older'));assert.equal(h.unread.at(-1),45);
+  socialButton(h,'older').props.onClick();await h.settle();assert.equal(h.unread.at(-1),44);
+ }finally{h.dispose();}
 });

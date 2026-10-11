@@ -8,8 +8,6 @@ import { BrandMark } from "./BrandMark";
 import { LegalSheet, type LegalSlug } from "./LegalSheet";
 import { Sheet } from "./Sheet";
 import { SupportSheet } from "./SupportSheet";
-import { AppearancePicker } from "./AppearancePicker";
-import { TextSizePicker } from "./TextSizePicker";
 import type { ViewId } from "../types";
 import "./menu-artwork.css";
 
@@ -43,7 +41,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount, on
     { group: "travel", label: copy("Havalimanı Rehberi", "Airport Guide"), text: copy("Havalimanı arama ve yolculuk hazırlığı", "Airport search and travel preparation"), keywords: "uçak uçuş flight aktarma transfer", icon: "flight", view: "airports" },
     { group: "discover", label: copy("Etkinlik Radarı", "Event Radar"), text: copy("Konser, festival, spor ve kültür", "Concerts, festivals, sport and culture"), keywords: "maç konser concert festival", icon: "events", view: "events" },
     { group: "travel", label: copy("Seyahat Asistanı", "Travel Assistant"), text: copy("Acil yardım, harita, çeviri ve yol araçları", "Emergency help, maps, translation and travel tools"), keywords: "çeviri çevir translate translation harita map çevrimdışı offline ulaşım transport para money kur currency konsolosluk consulate kayıtlı yer saved place", icon: "tools", view: "companion" },
-    { group: "plan", label: copy("Pasaport Gücü", "Passport Power"), text: copy("Türkiye pasaportu için giriş koşulları", "Entry rules for a Turkish passport"), keywords: "vize visa pasaport passport", icon: "passport", view: "passport" },
+    { group: "plan", label: copy("Pasaport Gücü", "Passport Power"), text: copy("Pasaportuna göre giriş koşulları", "Entry rules for your passport", "Kushtet e hyrjes për pasaportën tënde"), keywords: "vize visa pasaport passport", icon: "passport", view: "passport" },
     { group: "plan", label: copy("Rota Planla", "Plan a Route"), text: copy("Bütçene ve tercihlerine göre gezi oluştur", "Create a trip for your budget and interests"), keywords: "rota route plan", icon: "explore", view: "route" },
     { group: "travel", label: copy("Seyahat Kokpiti", "Travel Cockpit"), text: copy("Uçuşlarını, tarihlerini ve hazırlık listeni yönet", "Manage flights, dates and your checklist"), keywords: "uçak uçuş flight bilet ticket pnr seyahatlerim my trips", icon: "trips", view: "cockpit" },
     { group: "plan", label: copy("Fiyat Alarmı", "Price Alerts"), text: copy("Hedef fiyata düşünce haber al", "Know when the fare reaches your target"), keywords: "ucuz cheap bilet ticket uçuş flight", icon: "alerts", view: "alerts" },
@@ -52,7 +50,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount, on
   const term = normalizeSearchText(query);
   const visibleLinks = nativeLinks.filter(link => !term || normalizeSearchText(`${link.label} ${link.text} ${link.keywords}`).includes(term));
   const legalSheets: Array<{ label: string; text: string; icon: TravelToolArtworkKind; slug: LegalSlug }> = [
-    { label: copy("Gizlilik Politikası", "Privacy Policy"), text: copy("Veri kullanım bilgileri", "How data is used"), icon: "privacy", slug: "gizlilik-politikasi" },
+    { label: copy("Gizlilik Politikası", "Privacy Policy"), text: copy("Veri kullanım bilgileri", "How data is used"), icon: "private-file", slug: "gizlilik-politikasi" },
     { label: copy("Kullanım Şartları", "Terms of Use"), text: copy("Hizmet koşulları", "Service terms"), icon: "guide", slug: "kullanim-sartlari" },
   ];
 
@@ -68,8 +66,6 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount, on
       <div className={`connection-badge ${online ? "online" : "offline"}`}><Icon name={online ? "wifi" : "offline"} size={15} /> {online ? copy("İnternet bağlantısı var", "Online") : copy("Çevrimdışı mod", "Offline mode")}</div>
     </div>
 
-    <AppearancePicker />
-    <TextSizePicker />
     {onOpenGlobalSearch && <button type="button" className="secondary-wide" style={{ marginTop: 16 }} onClick={onOpenGlobalSearch}><Icon name="search" size={20} />{copy('Uygulamada ara', 'Search the app', 'Kërko në aplikacion')}</button>}
 
     <label className="sr-only" htmlFor={searchId}>{copy("Araç ara", "Search tools")}</label>
@@ -86,7 +82,7 @@ export function MenuSheet({ open, onClose, online, onNavigate, onOpenAccount, on
     <p className="menu-section-label">{copy("DESTEK VE HUKUKİ", "SUPPORT & LEGAL")}</p>
     <div className="menu-link-list compact-links feature-menu-links">
       {legalSheets.map((link) => <button key={link.slug} onClick={() => setLegalSlug(link.slug)}><span><TravelToolArtwork kind={link.icon} size={56} /></span><div><strong>{link.label}</strong><small>{link.text}</small></div><Icon name="chevron" size={16} /></button>)}
-      <button onClick={() => { onClose(); onOpenAccount(); }}><span><TravelToolArtwork kind="privacy" size={56} /></span><div><strong>{copy("Hesap ve veri silme", "Account & data deletion")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section")}</small></div><Icon name="chevron" size={16} /></button>
+      <button onClick={() => { onClose(); onOpenAccount(); }}><span><TravelToolArtwork kind="account-delete" size={56} /></span><div><strong>{copy("Hesap ve veri silme", "Account & data deletion")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section")}</small></div><Icon name="chevron" size={16} /></button>
       <button onClick={() => setSupportOpen(true)}><span><TravelToolArtwork kind="support" size={56} /></span><div><strong>{copy("Destek", "Support")}</strong><small>{config.supportEmail}</small></div><Icon name="chevron" size={16} /></button>
     </div>
 

@@ -8,11 +8,11 @@ import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 function harness() {
-  const state = { now: Date.parse('2026-10-11T01:00:00Z'), user: { id: 'owner', email: 'owner@example.test' }, rows: [], mutationError: false, beforeUpdate: null };
+  const state = { now: Date.parse('2026-10-11T01:00:00Z'), user: { id: 'owner', email: 'owner@example.test' }, rows: [], preferences: [], mailCalls: 0, mutationError: false, beforeUpdate: null };
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [state.now])); } static now() { return state.now; } }
   const db = {
     auth: { getUser: async () => ({ data: { user: state.user }, error: null }) },
-    from: () => {
+    from: table => {
       const filters = []; let op = 'select', payload, single = false, count = false;
       const q = {
         select: (_, options) => { count = options?.count === 'exact'; return q; },
@@ -27,7 +27,7 @@ function harness() {
         then: resolve => {
           if (op === 'update') state.beforeUpdate?.();
           if (state.mutationError && op !== 'select') return resolve({ error: { message: 'database unavailable' }, data: null });
-          let rows = state.rows.filter(row => filters.every(fn => fn(row)));
+          let rows = (table === 'community_notification_preferences' ? state.preferences : state.rows).filter(row => filters.every(fn => fn(row)));
           if (op === 'update') rows.forEach(row => Object.assign(row, payload));
           if (op === 'insert') { const row = { id: `new-${state.rows.length}`, is_active: true, cancelled_at: null, ...payload }; state.rows.push(row); rows = [row]; }
           resolve({ data: single ? (rows[0] ? { ...rows[0] } : null) : rows.map(row => ({ ...row })), count: count ? rows.length : undefined, error: null });
@@ -45,7 +45,7 @@ function harness() {
     vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date: Clock, Intl, Buffer, URL, URLSearchParams, process: { env: {} }, console })(name => {
       if (name === 'next/server') return { NextResponse: { json: (body, options) => Response.json(body, options) } };
       if (name === '@/lib/supabaseAdmin') return { getSupabaseAdmin: () => db };
-      if (name === '@/lib/mail') return { sendMailAndLog: async () => ({ success: true }), generateAlertCreatedEmailHtml: () => '' };
+      if (name === '@/lib/mail') return { sendMailAndLog: async () => { state.mailCalls++; return { success: true }; }, generateAlertCreatedEmailHtml: () => '' };
       if (name === './structured-data') return { siteUrl: path => `https://example.test${path}` };
       if (name.startsWith('@/')) return load(name.slice(2));
       if (name.startsWith('.')) return load(path.resolve(path.dirname(full), name));
@@ -154,5 +154,21 @@ test('Global alert preferences default only on missing schema/row; a read failur
     const prefs = await read('owner');
     assert.equal(prefs.email, expected); assert.equal(prefs.push, expected);
     await read('owner'); assert.equal(queries, 1, 'One read per user in each cron run');
+  }
+});
+
+test('Creation respects global opt-outs without losing the per-alert selection', async () => {
+  for (const [email, push] of [[false, false], [false, true], [true, false]]) {
+    const h = harness();
+    h.state.preferences = [{ user_id: 'owner', price_alert_email: email, price_alert_push: push }];
+    const response = await h.list.POST(h.request('POST', { originCode: 'IST', destinationCode: 'LHR', departureDate: '2026-11-10', notifyEmail: true, notifyPush: true, timeZone: 'Europe/Istanbul' }));
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.channels, { email, push });
+    assert.equal(h.state.mailCalls, email ? 1 : 0);
+    assert.equal(h.state.rows[0].notify_email, true);
+    assert.equal(h.state.rows[0].notify_push, true);
+    assert.equal(body.warnings.length, Number(!email) + Number(!push));
+    if (!email && !push) assert.match(body.message, /bildirim gönderilmeyecek/);
   }
 });

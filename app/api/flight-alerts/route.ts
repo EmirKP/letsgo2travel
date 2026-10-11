@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { priceAlertPreferenceReader } from "@/lib/price-alert-preferences";
 import { sendMailAndLog, generateAlertCreatedEmailHtml } from "@/lib/mail";
 import {
   createAlertToken,
@@ -175,6 +176,9 @@ export async function POST(request: Request) {
     }
 
     const userId = requestUser.user?.id || null;
+    const preferences = await priceAlertPreferenceReader(supabase)(userId);
+    const effectiveEmail = wantsEmail && preferences.email;
+    const effectivePush = wantsPush && preferences.push;
     const plainToken = createAlertToken();
     const manageTokenHash = hashAlertToken(plainToken);
     const manageTokenExpiresAt = tokenExpiresInOneYear();
@@ -216,7 +220,7 @@ export async function POST(request: Request) {
     // Onay e-postasi YALNIZ e-posta kanali secildiyse gonderilir.
     // Push-only kullaniciya alarm olusturma e-postasi GONDERILMEZ.
     let confirmationMailOk: boolean | null = null;
-    if (wantsEmail) {
+    if (effectiveEmail) {
       const unsubscribeLink = makeUnsubscribeLink(data.id, plainToken);
       const subject = priceAlertSubject({ originLabel: normalizedOriginLabel, destinationLabel: normalizedDestinationLabel, type: "created" });
       const emailHtml = generateAlertCreatedEmailHtml({
@@ -237,7 +241,7 @@ export async function POST(request: Request) {
       });
       confirmationMailOk = Boolean(mailRes.success) && mailRes.providerId !== "mock";
 
-      if (!confirmationMailOk && !wantsPush) {
+      if (!confirmationMailOk && !effectivePush) {
         // Yalniz e-posta secilmis ve onay e-postasi gonderilememis:
         // alarm guvenli sekilde geri alinir.
         await supabase.from("flight_price_alerts").delete().eq("id", data.id);
@@ -254,11 +258,13 @@ export async function POST(request: Request) {
 
     // Kullaniciya donen mesaj GERCEKTEN etkin kanallari soyler.
     let message: string;
-    if (wantsEmail && wantsPush) {
+    if (!effectiveEmail && !effectivePush) {
+      message = "Fiyat alarmın kaydedildi. Genel bildirim tercihlerinde seçtiğin kanallar kapalı; bu kanalları açana kadar bildirim gönderilmeyecek.";
+    } else if (effectiveEmail && effectivePush) {
       message = confirmationMailOk
         ? "Fiyat alarmın kuruldu. Onay e-postası gönderildi; fiyat düşünce e-posta ve telefon bildirimi alacaksın."
         : "Fiyat alarmın kuruldu ve telefon bildirimi aktif.";
-    } else if (wantsEmail) {
+    } else if (effectiveEmail) {
       message = "Fiyat alarmın kuruldu. Onay e-postası gönderildi; fiyat düşünce e-posta alacaksın.";
     } else {
       message = "Fiyat alarmın kuruldu. Fiyat düşünce telefon bildirimi alacaksın (e-posta bildirimi kapalı).";
@@ -267,12 +273,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       id: data.id,
-      channels: { email: wantsEmail, push: wantsPush },
+      channels: { email: effectiveEmail, push: effectivePush },
       emailConfirmation: confirmationMailOk,
       message,
-      warnings: wantsEmail && confirmationMailOk === false
-        ? ["E-posta gönderimi şu anda doğrulanamadı; telefon bildirimi açık olduğu için alarmın çalışmaya devam ediyor."]
-        : [],
+      warnings: [
+        ...(effectiveEmail && confirmationMailOk === false ? ["E-posta gönderimi şu anda doğrulanamadı; telefon bildirimi açık olduğu için alarmın çalışmaya devam ediyor."] : []),
+        ...(wantsEmail && !preferences.email ? ["E-posta kanalı genel bildirim tercihlerinde kapalı."] : []),
+        ...(wantsPush && !preferences.push ? ["Telefon kanalı genel bildirim tercihlerinde kapalı."] : []),
+      ],
     });
   } catch (error) {
     console.error("POST flight-alerts error:", error);

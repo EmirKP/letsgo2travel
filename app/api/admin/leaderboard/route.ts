@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { countExplorerCountries } from "@/lib/leaderboard/countries";
+import { explorerCountryAliases } from "@/lib/leaderboard/countries";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -16,35 +16,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Veritabanı bağlantısı kurulamadı." }, { status: 503 });
   }
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id,username,visited_countries,opt_in_leaderboard")
-    .eq("opt_in_leaderboard", true);
-
-  if (profilesError) {
-    return NextResponse.json({ error: "Katılımcılar alınamadı." }, { status: 500 });
-  }
-
-  const { data: blockedUsers, error: blocksError } = await supabase
-    .from("leaderboard_blocks")
-    .select("user_id");
-
-  if (blocksError) {
-    return NextResponse.json(
-      { error: "Kaşifler Ligi yönetim tablosu hazır değil." },
-      { status: 503 },
-    );
-  }
-
-  const blockedIds = new Set((blockedUsers || []).map((row) => row.user_id));
-  const data = (profiles || [])
-    .map((profile) => ({
-      id: profile.id,
-      username: profile.username,
-      visitedCount: countExplorerCountries(profile.visited_countries),
-      hidden: blockedIds.has(profile.id),
-    }))
-    .sort((first, second) => second.visitedCount - first.visitedCount);
+  const { data: scores, error } = await supabase.rpc("get_verified_explorer_scores", { p_country_aliases: explorerCountryAliases });
+  if (error || !Array.isArray(scores)) return NextResponse.json({ error: "Doğrulanmış lig sıralaması alınamadı." }, { status: 503 });
+  const data = scores.map(row => ({ id: row.user_id, username: row.username, visitedCount: Number(row.visited_count), points: Number(row.points), hidden: row.hidden === true }))
+    .sort((first, second) => second.visitedCount - first.visitedCount || String(first.username).localeCompare(String(second.username)));
 
   return NextResponse.json(
     { data },

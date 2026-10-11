@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getVisaAppointmentNotifications, listAlerts, markVisaAppointmentNotificationRead } from "../lib/api";
 import {
   getReadNotificationIds,
@@ -15,7 +15,8 @@ import { useI18n } from "../lib/i18n";
 import { socialRead, socialWrite } from "../lib/social";
 type SocialNotification = { id: string; kind: 'comment'|'reply'|'follow'; author: {username:string;key:string}; postId: string|null; commentId: string|null; createdAt:string; readAt:string|null };
 
-function checkedSocialNotifications(value: unknown): SocialNotification[] {
+type SocialInbox = { items: SocialNotification[]; nextOffset: number | null; unreadCount: number };
+function checkedSocialNotifications(value: unknown): SocialInbox {
   if (!value || typeof value !== "object" || !Array.isArray((value as { items?: unknown }).items)) {
     throw new Error("Invalid notifications response");
   }
@@ -30,7 +31,11 @@ function checkedSocialNotifications(value: unknown): SocialNotification[] {
       && (row.postId === null || typeof row.postId === "string")
       && (row.commentId === null || typeof row.commentId === "string");
   })) throw new Error("Invalid notifications response");
-  return items as SocialNotification[];
+  const page = value as {nextOffset?: unknown; unreadCount?: unknown};
+  if (page.nextOffset != null && (!Number.isInteger(page.nextOffset) || Number(page.nextOffset) < 0)
+    || page.unreadCount !== undefined && (!Number.isInteger(page.unreadCount) || Number(page.unreadCount) < 0)) throw new Error("Invalid notifications response");
+  return {items: items as SocialNotification[], nextOffset: page.nextOffset as number | null ?? null,
+    unreadCount: typeof page.unreadCount === "number" ? page.unreadCount : (items as SocialNotification[]).filter(item => !item.readAt).length};
 }
 
 function formatDate(value: string, locale = "tr-TR") {
@@ -50,7 +55,7 @@ type NotificationCenterProps = {
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
   onUnreadChange: (count: number) => void;
-  onOpenSocial?: (intent:{postId?:string;profileKey?:string})=>void;
+  onOpenSocial?: (intent:{postId?:string;commentId?:string;profileKey?:string})=>void;
 };
 
 export function NotificationCenter(props: NotificationCenterProps) {
@@ -62,6 +67,14 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   const [visaNotifications, setVisaNotifications] = useState<VisaAppointmentNotification[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<FlightAlert[]>([]);
   const [socialNotifications,setSocialNotifications] = useState<SocialNotification[]>([]);
+  const [socialUnread, setSocialUnread] = useState(0);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const moreRequest = useRef<AbortController | null>(null);
+  const previouslyOpen = useRef(open);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; moreRequest.current?.abort(); }; }, []);
   const [loading, setLoading] = useState(false);
   const [serverWarning, setServerWarning] = useState("");
   const [readIds, setReadIds] = useState<string[]>(() => getReadNotificationIds(ownerId));
@@ -74,15 +87,29 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   }, []);
 
   useEffect(() => setReadIds(getReadNotificationIds(ownerId)), [ownerId, storageTick]);
+  useEffect(() => {
+    if (open && !previouslyOpen.current) setRefreshTick(value => value + 1);
+    previouslyOpen.current = open;
+  }, [open]);
 
   useEffect(() => {
-    if (!open || !accessToken || !online) {
+    if (!accessToken || !online) return;
+    const refresh = () => { if (typeof document === "undefined" || document.visibilityState !== "hidden") setRefreshTick(value => value + 1); };
+    const timer = setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); if (typeof document !== "undefined") document.removeEventListener("visibilitychange", refresh); };
+  }, [accessToken, online]);
+
+  useEffect(() => {
+    if (!accessToken || !online) {
       setLoading(false);
       return;
     }
     let active = true;
     const controller = new AbortController();
-    setLoading(true);
+    moreRequest.current?.abort(); moreRequest.current = null; setLoadingMore(false);
+    setLoading(open);
     setServerWarning("");
     void Promise.allSettled([
       getVisaAppointmentNotifications(accessToken),
@@ -93,14 +120,14 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
         if (!active) return;
         if (visaResult.status === "fulfilled") setVisaNotifications(visaResult.value.slice(0, 10));
         if (alertResult.status === "fulfilled") setTriggeredAlerts(alertResult.value.filter((item) => item.status === "triggered" || item.last_notified_at).slice(0, 6));
-        if (socialResult.status === 'fulfilled') setSocialNotifications(socialResult.value);
+        if (socialResult.status === 'fulfilled') { setSocialNotifications(socialResult.value.items); setNextOffset(socialResult.value.nextOffset); setSocialUnread(socialResult.value.unreadCount); }
         if (visaResult.status === "rejected" || alertResult.status === "rejected" || socialResult.status === 'rejected') {
           setServerWarning(copy("Bazı bildirimler yenilenemedi. Varsa son alınan bilgiler gösteriliyor.", "Some notifications could not refresh. Last loaded items are shown when available.", "Disa njoftime nuk u rifreskuan. Shfaqen të dhënat e fundit kur janë të disponueshme."));
         }
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; controller.abort(); };
-  }, [accessToken, copy, online, open, ownerId]);
+  }, [accessToken, copy, online, ownerId, refreshTick]);
 
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [{
@@ -146,13 +173,13 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   }, [copy, ownerId, storageTick, triggeredAlerts, visaNotifications,socialNotifications]);
 
   const isRead = useCallback((item: AppNotification) => {
-    if (readIds.includes(item.id)) return true;
     if(item.kind==='social')return Boolean(socialNotifications.find(n=>`social-${n.id}`===item.id)?.readAt);
+    if (readIds.includes(item.id)) return true;
     if (item.kind === "release" && hasSeenRelease(releaseId)) return true;
     if (!item.id.startsWith("visa-")) return false;
     return Boolean(visaNotifications.find((notification) => `visa-${notification.id}` === item.id)?.read_at);
   }, [readIds, visaNotifications,socialNotifications]);
-  const unread = useMemo(() => notifications.filter((item) => !isRead(item)).length, [isRead, notifications]);
+  const unread = useMemo(() => socialUnread + notifications.filter((item) => item.kind !== "social" && !isRead(item)).length, [isRead, notifications, socialUnread]);
   useEffect(() => onUnreadChange(unread), [onUnreadChange, unread]);
 
   const markRead = useCallback((ids: string[]) => {
@@ -161,21 +188,42 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
   }, [ownerId]);
 
   const openNotification = (item: AppNotification) => {
-    markRead([item.id]);
+    if (item.kind !== "social") markRead([item.id]);
     const visaId = item.id.startsWith("visa-") ? item.id.slice(5) : "";
     if (visaId && accessToken) void markVisaAppointmentNotificationRead(visaId, accessToken).catch(() => undefined);
-    if(item.kind==='social'&&accessToken)void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).catch(()=>undefined);
+    if(item.kind==='social'&&accessToken)void socialWrite('notifications-read',{id:item.id.slice(7)},accessToken).then(() => {
+      if (!alive.current) return;
+      const wasUnread = socialNotifications.some(row => `social-${row.id}` === item.id && !row.readAt);
+      setSocialNotifications(previous => previous.map(row => `social-${row.id}` === item.id ? {...row,readAt:new Date().toISOString()} : row));
+      if (wasUnread) setSocialUnread(value => Math.max(0,value-1));
+    }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); });
     onClose();
-    if(item.kind==='social'&&onOpenSocial){const social=socialNotifications.find(n=>`social-${n.id}`===item.id);if(social){onOpenSocial(social.kind==='follow'?{profileKey:social.author.key}:{postId:social.postId||undefined});return;}}
+    if(item.kind==='social'&&onOpenSocial){const social=socialNotifications.find(n=>`social-${n.id}`===item.id);if(social){onOpenSocial(social.kind==='follow'?{profileKey:social.author.key}:{postId:social.postId||undefined,commentId:social.commentId||undefined});return;}}
     if (item.kind === "release") onOpenRelease();
     else if (item.view) onNavigate(item.view);
   };
 
   const markAllRead = () => {
-    markRead(notifications.map((item) => item.id));
+    markRead(notifications.filter(item => item.kind !== "social").map((item) => item.id));
     if (!accessToken) return;
-    void socialWrite('notifications-read',{},accessToken).catch(()=>undefined);
+    void socialWrite('notifications-read',{},accessToken).then(() => {
+      if (!alive.current) return;
+      setSocialUnread(0); setSocialNotifications(previous => previous.map(row => ({...row,readAt:row.readAt || new Date().toISOString()})));
+    }).catch(() => { if (alive.current) setServerWarning(copy("Okundu bilgisi kaydedilemedi. Tekrar dene.", "Could not save read status. Try again.", "Gjendja e leximit nuk u ruajt. Provo sërish.")); });
     void Promise.allSettled(visaNotifications.filter((item) => !item.read_at).map((item) => markVisaAppointmentNotificationRead(item.id, accessToken)));
+  };
+
+  const loadOlder = async () => {
+    if (moreRequest.current || nextOffset === null || !accessToken || !online) return;
+    const controller = new AbortController(); moreRequest.current = controller; setLoadingMore(true);
+    try {
+      const page = checkedSocialNotifications(await socialRead<unknown>({section:"notifications",offset:nextOffset},accessToken,controller.signal));
+      if (!controller.signal.aborted) {
+        setSocialNotifications(previous => [...new Map([...previous,...page.items].map(item => [item.id,item])).values()]);
+        setNextOffset(page.nextOffset); setSocialUnread(page.unreadCount);
+      }
+    } catch { if (!controller.signal.aborted) setServerWarning(copy("Eski bildirimler yüklenemedi. Tekrar dene.", "Could not load older notifications. Try again.", "Njoftimet e vjetra nuk u ngarkuan. Provo sërish.")); }
+    finally { if (moreRequest.current === controller) { moreRequest.current = null; if (alive.current) setLoadingMore(false); } }
   };
 
   return <Sheet open={open} title={copy("Bildirimler", "Notifications")} onClose={onClose} size="large">
@@ -195,6 +243,7 @@ function NotificationCenterSession({ open, ownerId, accessToken, online, onClose
         </button>;
       })}
     </div>
+    {nextOffset !== null && <button type="button" className="secondary-wide" disabled={loadingMore || !online} onClick={() => void loadOlder()}>{copy("Eski bildirimleri göster", "Show older notifications", "Shfaq njoftimet e vjetra")}</button>}
     {serverWarning && <div className="info-box"><Icon name="info" size={19} /><p>{serverWarning}</p></div>}
     {!online && <div className="info-box"><Icon name="offline" size={19} /><p>{copy("Çevrimdışısın. Kayıtlı bildirimler gösteriliyor; canlı bildirimler bağlantı geldiğinde yenilenir.", "You're offline. Saved notifications are shown; live notifications will refresh when you're connected.")}</p></div>}
   </Sheet>;

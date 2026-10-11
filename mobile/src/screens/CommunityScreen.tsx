@@ -73,6 +73,7 @@ type CommunityScreenProps = {
   onSearchDestination: (query: string) => void;
   onAddSocialPlace?: (place: SocialPlace) => void;
   initialSocialPostId?: string;
+  initialSocialCommentId?: string;
   initialSocialProfileKey?: string;
   onSocialIntentHandled?: () => void;
 };
@@ -147,7 +148,7 @@ export function CommunityScreen(props: CommunityScreenProps) {
   return <CommunityScreenForAccount key={props.user?.id || "guest"} {...props} />;
 }
 
-function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onSearchDestination, onAddSocialPlace, initialSocialPostId, initialSocialProfileKey, onSocialIntentHandled }: CommunityScreenProps) {
+function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "", onOpenAccount, onNotice, onNavigate, onSearchDestination, onAddSocialPlace, initialSocialPostId, initialSocialCommentId, initialSocialProfileKey, onSocialIntentHandled }: CommunityScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const questionCountries = useMemo(() => [...COUNTRY_LIST]
     .map((country) => ({ name: countryName(country.alpha3, country.name), alpha2: alpha2FromAlpha3(country.alpha3) }))
@@ -160,7 +161,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   })), [questionCountries]);
   const questionCountryLabels = useMemo(() => new Map(questionCountries.map(country => [country.alpha2, country.name])), [questionCountries]);
   const [tab, setTab] = useState<CommunityTab>("feed");
-  const [mode, setMode] = useState<"social" | "forum">(() => initialCountryCode ? "forum" : "social");
+  const [mode, setMode] = useState<"social" | "forum">(() => initialSocialPostId ? "social" : "forum");
   const [socialRevision, setSocialRevision] = useState(0);
   const [followingKind, setFollowingKind] = useState<"people" | "countries">("people");
   const followingPeople = tab === "following" && followingKind === "people";
@@ -627,8 +628,8 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
     <div className="cs-surface">
       <button type="button" className="cs-my-profile" onClick={() => user ? setProfileKey(`user:${user.id}`) : onOpenAccount()}><Icon name="user" size={18}/>{copy("Topluluk profilim", "My community profile", "Profili im në komunitet")}<Icon name="chevron" size={16}/></button>
-      <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button></div>
-      {mode === "social" ? <SocialHub userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} onIntentHandled={onSocialIntentHandled}/> : <>
+      <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button></div>
+      {mode === "social" ? <SocialHub userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} initialCommentId={initialSocialCommentId} onIntentHandled={onSocialIntentHandled}/> : <>
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
@@ -637,7 +638,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       </div>
       <section className="cs-league-banner" aria-labelledby="cs-league-title">
         <img src={leagueCover} alt="" width={1200} height={300} loading="lazy"/>
-        <span className="cs-trophy" aria-hidden="true"><TravelToolArtwork kind="league" size={56}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Seyahat et, keşfet, ligde yerini al!", "Travel, explore, take your place!")}</p></div>
+        <span className="cs-trophy" aria-hidden="true"><TravelToolArtwork kind="league" size={56}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Ziyaretini doğrula, ligde yerini al!", "Verify your visits and join the league!", "Verifiko vizitat dhe hyr në ligë!")}</p></div>
         <button type="button" aria-haspopup="dialog" onClick={() => setLeagueOpen(true)}>{copy("Ligi Keşfet", "Explore League")}<Icon name="chevron" size={20}/></button>
       </section>
 
@@ -718,7 +719,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
     {loading && !loaded ? <div className="skeleton-list community-native-loading" aria-label={copy("Gezgin sıralaması yükleniyor", "Loading traveller ranking")}><div /><div /><div /></div>
       : !error && !leaders.length ? <div className="empty-state community-native-empty">
-        <span><TravelToolArtwork kind="league" size={72} /></span><strong>{copy("Sıralama henüz boş", "The ranking is empty")}</strong><p>{copy("Görünür olmayı seçen ilk gezginler burada listelenecek.", "Travellers who opt in will appear here.")}</p>
+        <span><TravelToolArtwork kind="league" size={72} /></span><strong>{copy("Sıralama henüz boş", "The ranking is empty")}</strong><p>{copy("İlk onaylı ziyaretinle sıralamadaki yerini al.", "Get your first visit approved to join the ranking.", "Mirato vizitën e parë për t’u bashkuar me renditjen.")}</p>
       </div>
       : leaders.length > 0 && <div className="community-leader-list" aria-live="polite">
         {leaders.map((leader, index) => {
@@ -739,7 +740,13 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         })}
       </div>}
 
-    <div className="cs-league-explainer"><strong>{copy("Sıralama nasıl hesaplanır?", "How is the ranking calculated?", "Si llogaritet renditja?")}</strong><p>{copy("Profilinde ziyaret edildi olarak işaretlediğin her farklı ülke 10 puan. Tekrarlanan ülkeler bir kez sayılır. Bu sıralama, belgeli gezgin doğrulamasından ayrıdır.", "Each different country marked visited in your profile is worth 10 points. Duplicates count once. This ranking is separate from verified traveller status.", "Çdo shtet i ndryshëm i shënuar si i vizituar vlen 10 pikë. Përsëritjet numërohen vetëm një herë. Renditja është e veçantë nga verifikimi i udhëtarit.")}</p>{user && <button type="button" className="secondary-wide" onClick={() => { setLeagueOpen(false); onNavigate("profile"); }}>{copy("Ziyaret ettiğim ülkeleri düzenle", "Edit my visited countries", "Ndrysho shtetet e vizituara")}</button>}{leagueUpdatedAt && <small>{copy("Son başarılı güncelleme", "Last successful update", "Përditësimi i fundit i suksesshëm")}: {formatAppDate(new Date(leagueUpdatedAt), dateLocale, { hour: "2-digit", minute: "2-digit" })}</small>}</div>
+    <section className="league-milestones" aria-label={copy("Keşif hedeflerin", "Explorer milestones", "Synimet e eksplorimit")}>
+      <div className="league-milestones-heading"><TravelToolArtwork kind="passport" size={52}/><div><strong>{copy("Her yolculuk bir iz bırakır", "Every journey leaves a mark", "Çdo udhëtim lë një gjurmë")}</strong><p>{copy("Belgelerin incelensin, keşiflerin değer kazansın.", "Have your evidence reviewed and your travels count.", "Verifiko dokumentet që udhëtimet e tua të vlejnë.")}</p></div></div>
+      <div className="league-milestone-grid">{[{ target: 1, tr: "İlk iz", en: "First step", sq: "Hapi i parë" }, { target: 5, tr: "Rota Meraklısı", en: "Route Enthusiast", sq: "Entuziast itinerarësh" }, { target: 25, tr: "Dünya Gezgini", en: "World Traveller", sq: "Udhëtar i botës" }].map(goal => {
+        return <div key={goal.target} className="league-milestone"><Icon name="flag" size={22}/><strong>{copy(goal.tr, goal.en, goal.sq)}</strong><small>{goal.target} {copy("onaylı ülke", "approved countries", "shtete të miratuara")}</small><em>{copy("Keşif hedefi", "Milestone", "Synim")}</em></div>;
+      })}</div>
+    </section>
+    <div className="cs-league-explainer"><strong>{copy("Sıralama nasıl hesaplanır?", "How is the ranking calculated?", "Si llogaritet renditja?")}</strong><p>{copy("Belgesi incelenip onaylanan her farklı ülke 10 puan kazandırır. Aynı ülke bir kez sayılır. Yalnızca işaretlenen, bekleyen veya reddedilen ziyaretler puan kazandırmaz.", "Each distinct country with approved documentary evidence earns 10 points. Repeated countries count once. Self-reported, pending and rejected visits earn no points.", "Çdo shtet me dokument të miratuar jep 10 pikë, vetëm një herë. Vizitat e shënuara vetë, në pritje ose të refuzuara nuk japin pikë.")}</p>{user && <button type="button" className="secondary-wide" onClick={() => { setLeagueOpen(false); onNavigate("profile"); }}>{copy("Ziyaretini belgeyle doğrula", "Verify a visit with evidence", "Verifiko një vizitë me dokument")}</button>}{leagueUpdatedAt && <small>{copy("Son başarılı güncelleme", "Last successful update", "Përditësimi i fundit i suksesshëm")}: {formatAppDate(new Date(leagueUpdatedAt), dateLocale, { hour: "2-digit", minute: "2-digit" })}</small>}</div>
     <div className="info-box community-privacy-note"><Icon name="shield" size={20} /><p>{copy("Sıralama yalnızca katılmayı seçen kullanıcıları ve güvenli profil özetlerini gösterir.", "The ranking shows only people who opted in and a safe profile summary.")}</p></div>
     </div></Sheet>
     <Sheet open={questionOpen} title={copy("Deneyimini paylaş", "Share your experience")} dismissible={!posting} onClose={() => { if (!postPending.current) { photoSelection.current++; setPhotoPreparing(false); setQuestionOpen(false); } }}>

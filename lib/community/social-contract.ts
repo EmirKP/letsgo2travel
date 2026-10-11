@@ -7,10 +7,12 @@ export type SocialPost = {
   place: SocialPlace | null; photoUrl: string; createdAt: string;
   status: "pending" | "published" | "hidden";
   likeCount: number; commentCount: number; liked: boolean; saved: boolean; isOwn: boolean; collectionIds: string[];
+  editorial?: boolean;
 };
 export type SocialComment = {
   id: string; author: SocialAuthor; body: string; parentId: string | null;
   createdAt: string; status: "pending" | "published" | "hidden"; isOwn: boolean;
+  isDeleted?: boolean; editedAt?: string | null;
 };
 export type SocialPage<T> = { items: T[]; nextOffset: number | null };
 export type SocialDetail = { post: SocialPost; comments: SocialPage<SocialComment> };

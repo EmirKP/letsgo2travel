@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { prepareCommunityPhoto } from "../lib/communityPhoto";
 import { createId } from "../lib/id";
+import { ApiError } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { readSocialDraft, saveSocialDraft, clearSocialDraft, socialWrite, type SocialDraft, type SocialPost } from "../lib/social";
 import { COUNTRY_LIST } from "../data/countries";
@@ -66,8 +67,13 @@ export function SocialComposer({ ownerId, accessToken, onClose, onPublished }: {
       completed.current = true;
       clearSocialDraft(ownerId, draft.requestId);
       if (alive.current) onPublished(post);
-    } catch {
-      if (alive.current) setError(copy("Gönderilemedi. Taslağın duruyor; bağlantını kontrol edip tekrar dene.", "Could not share. Your draft is safe; check your connection and retry.", "Nuk u nda. Drafti është ruajtur; kontrollo lidhjen dhe provo sërish."));
+    } catch (failure) {
+      if (alive.current && failure instanceof ApiError && failure.code === "social_upload_expired") {
+        current.current = { ...current.current, requestId: createId(), attempted: false };
+        setDraft(current.current);
+        saveSocialDraft(ownerId, current.current);
+        setError(copy("Yüklemenin süresi dolmuş. Fotoğrafın ve yazın duruyor; tekrar dene.", "The upload expired. Your photo and caption are safe; try again.", "Ngarkimi ka skaduar. Fotografia dhe përshkrimi janë ruajtur; provo sërish."));
+      } else if (alive.current) setError(copy("Gönderilemedi. Taslağın duruyor; bağlantını kontrol edip tekrar dene.", "Could not share. Your draft is safe; check your connection and retry.", "Nuk u nda. Drafti është ruajtur; kontrollo lidhjen dhe provo sërish."));
     } finally { busy.current = false; if (alive.current) setPhase("idle"); }
   };
 

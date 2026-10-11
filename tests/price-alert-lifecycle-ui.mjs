@@ -38,13 +38,13 @@ function harness() {
   const call=(kind,...args)=>{const task=deferred();requests.push({kind,args,...task});return task.promise;};
   const copy=(_,en)=>en;
   class ApiError extends Error {}
-  const api={ApiError,listAlerts:token=>call('list',token),deleteAlert:(...a)=>call('delete',...a),restoreAlert:(...a)=>call('restore',...a),updateAlert:(...a)=>call('patch',...a),createAlert:(...a)=>call('create',...a)};
+  const api={ApiError,requestJson:async()=>({data:{price_alert_email:true,price_alert_push:false,comments:true,replies:true,follows:true}}),listAlerts:token=>call('list',token),deleteAlert:(...a)=>call('delete',...a),restoreAlert:(...a)=>call('restore',...a),updateAlert:(...a)=>call('patch',...a),createAlert:(...a)=>call('create',...a)};
   const {PriceAlertsScreen}=load('mobile/src/screens/PriceAlertsScreen.tsx',{
     react:host.react,'react/jsx-runtime':{jsx,jsxs:jsx},
     '../components/AirportField':{AirportField:'AirportField'},'../components/DateTimeField':{DateTimeField:'DateTimeField'},'../components/Icon':{Icon:'Icon'},'../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},'../components/PageHero':{PageHero:'PageHero'},
-    '../lib/api':api,'../lib/dates':load('mobile/src/lib/dates.ts',{}),'../lib/push':{enablePushForUser:async()=>({ok:true}),isPushAvailable:()=>false},
+    '../lib/api':api,'../components/NotificationPreferences':{NotificationPreferences:'NotificationPreferences'},'../lib/dates':load('mobile/src/lib/dates.ts',{}),'../lib/push':{enablePushForUser:async()=>({ok:true}),isPushAvailable:()=>false},
     '../lib/localeFormatting':{formatAppDate:(date)=>date.toISOString()},'../lib/i18n':{useI18n:()=>({copy,dateLocale:'en-GB',locale:'en'})},'../lib/locale':{translateCopy:(_,__,en)=>en},
-  },{window:{setTimeout:(fn)=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)}});
+  },{AbortController,window:{setTimeout:(fn)=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)}});
   const props={user:{id:'owner'},accessToken:'token',onOpenAccount(){},onNotice:msg=>notices.push(msg)};
   let tree;
   const h={requests,notices,render(){tree=host.render(()=>PriceAlertsScreen(props));return tree;},get tree(){return tree;},async settle(){await tick();return h.render();},dispose:()=>host.dispose(),expire(){for(const fn of timers.values())fn();h.render();}};
@@ -85,4 +85,28 @@ test('Undo expires without restoring and failed undo never creates a phantom loc
     if(fail){button(h.tree,'Undo').props.onClick();h.requests.at(-1).reject(Error('failed'));await h.settle();assert.match(text(h.tree),/could not be restored/);}else h.expire();
     assert.equal(button(h.tree,'Undo'),undefined);assert.equal(button(h.tree,'Delete alert'),undefined);
   }finally{h.dispose();}}
+});
+
+test('Lost restore response does not hide a server-confirmed restored alert after refresh',async()=>{
+  const h=await ready();try{
+    button(h.tree,'Delete alert').props.onClick();h.requests.at(-1).resolve({success:true});await h.settle();
+    button(h.tree,'Undo').props.onClick();h.requests.at(-1).reject(Error('response lost'));await h.settle();
+    assert.equal(button(h.tree,'Delete alert'),undefined);
+    button(h.tree,'Refresh').props.onClick();h.requests.at(-1).resolve([fixture()]);await h.settle();
+    assert.ok(button(h.tree,'Delete alert'));assert.ok(button(h.tree,'Pause'));
+  }finally{h.dispose();}
+});
+
+test('Globally muted channel is explained even when the per-alert checkbox is selected',async()=>{
+  const h=await ready({notify_push:true});try{
+    assert.match(text(h.tree),/Phone notification · muted in settings/);
+    assert.match(text(h.tree),/A globally muted channel will not send notifications/);
+    const preferences=nodes(h.tree).find(n=>n.type==='NotificationPreferences');assert.ok(preferences);
+    button(h.tree,'Create alert').props.onClick();h.render();
+    assert.doesNotMatch(text(h.tree),/You'll get an instant notification/);
+    assert.match(text(h.tree),/general preference and device permission/);
+    preferences.props.onSaved({price_alert_email:true,price_alert_push:true,comments:true,replies:true,follows:true});h.render();
+    assert.doesNotMatch(text(h.tree),/Phone notification · muted in settings/);
+    assert.equal(nodes(h.tree).find(n=>n.type==='NotificationPreferences'),undefined);
+  }finally{h.dispose();}
 });

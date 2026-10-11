@@ -40,9 +40,9 @@ test('avatar hydration strips storage paths and signs only consented owned paths
  assert.ok(!JSON.stringify(data).includes('avatarPath'));assert.deepEqual(paths,[`${a}/${id}.jpg`]);
 });
 
-function harness({user=a,result={items:[],nextOffset:null},rpcError=null,existing=null,uploadError=null,bucketPublic=false}={}){
+function harness({user=a,result={items:[],nextOffset:null},rpcError=null,admissionError=null,cleanupIds=[],cleanupError=null,removeError=null,finishError=null,existing=null,uploadError=null,bucketPublic=false,storedPhoto='jpeg'}={}){
  const calls=[],downloads=[],uploads=[],removed=[];
- const db={rpc:async(name,input)=>{calls.push({name,input});return{data:result,error:rpcError};},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:existing,error:null})})})}),storage:{getBucket:async()=>({data:{public:bucketPublic},error:null}),from:()=>({createSignedUrls:async()=>({data:[]}),download:async path=>{downloads.push(path);return{data:new Blob(['jpeg']),error:null};},upload:async(path,_bytes,options)=>{uploads.push({path,options});return{error:uploadError};},remove:async paths=>{removed.push(...paths);return{error:null};}})}};
+ const db={rpc:async(name,input)=>{calls.push({name,input});return name==='prepare_travel_social_upload_cleanup'?{data:{requestIds:cleanupIds},error:cleanupError}:name==='finish_travel_social_upload_cleanup'?{data:{success:true},error:finishError}:name==='reserve_travel_social_upload'?{data:{admitted:true},error:admissionError}:{data:result,error:rpcError};},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:existing,error:null})})})}),storage:{getBucket:async()=>({data:{public:bucketPublic},error:null}),from:()=>({createSignedUrls:async()=>({data:[]}),download:async path=>{downloads.push(path);return{data:new Blob([storedPhoto]),error:null};},upload:async(path,_bytes,options)=>{uploads.push({path,options});return{error:uploadError};},remove:async paths=>{removed.push(...paths);return{error:removeError};}})}};
  const imports={'node:crypto':{createHash},'@/lib/authenticated-user':{requireAuthenticatedUser:async()=>user?{ok:true,user:{id:user},supabase:db}:{ok:false,response:Response.json({error:'Sign in'},{status:401})}},'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db},'@/lib/community/viewer':{communityViewer:async()=>({ok:true,userId:user,hiddenUserIds:[]})},'@/lib/community/safety':safety,'@/lib/community/photos':{prepareCommunityPhoto:async value=>value==='valid-photo'?Buffer.from('safe-jpeg'):null},'@/lib/community/moderation':moderation,'@/lib/community/profiles':profiles,'@/lib/community/social-contract':contract,'@/lib/community/social':social};
  return{calls,uploads,removed,downloads,db,route:load('app/api/country-community/social/route.ts',imports),photo:load('app/api/country-community/social/[id]/photo/route.ts',imports),preferences:load('app/api/country-community/social/preferences/route.ts',imports)};
 }
@@ -76,13 +76,14 @@ test('blocking is authenticated and canonical-content scoped; caller-supplied ta
  const guest=harness({user:null});assert.equal((await guest.route.POST(body({action:'block',postId:id}))).status,401);assert.equal(guest.calls.length,0);
 });
 
-test('photo creation strips private storage details, retries never reupload, and failed commits clean only owned new uploads',async()=>{
+test('photo creation strips private storage details, retries never reupload, and uncertain failed commits retain immutable bytes for recovery',async()=>{
  const input={action:'create',requestId:id,caption:'Trip',visibility:'public',photo:'valid-photo'};
  const h=harness({result:{id,status:'pending',author:{key:`user:${a}`,userId:a,username:'Alice',avatarPath:null}}});
  const response=await h.route.POST(body(input));assert.equal(response.status,201);assert.equal(h.uploads[0].path,`${a}/${id}.jpg`);assert.equal(h.uploads[0].options.upsert,false);
- assert.equal(h.calls[0].input.p_input.photoHash,createHash('sha256').update('safe-jpeg').digest('hex'));assert.ok(!('photo' in h.calls[0].input.p_input));
+ assert.deepEqual(h.calls.map(call=>call.name),['prepare_travel_social_upload_cleanup','reserve_travel_social_upload','write_travel_social']);
+ assert.equal(h.calls[1].input.p_input.photoHash,createHash('sha256').update('safe-jpeg').digest('hex'));assert.ok(!('photo' in h.calls[1].input.p_input));
  const retry=harness({existing:{id},result:{id}});assert.equal((await retry.route.POST(body(input))).status,200);assert.equal(retry.uploads.length,0);
- const failed=harness({rpcError:{code:'54000'}});assert.equal((await failed.route.POST(body(input))).status,429);assert.deepEqual(failed.removed,[`${a}/${id}.jpg`]);
+ const failed=harness({rpcError:{code:'54000'}});assert.equal((await failed.route.POST(body(input))).status,429);assert.deepEqual(failed.removed,[]);
  const publicBucket=harness({bucketPublic:true});assert.equal((await publicBucket.route.POST(body(input))).status,503);assert.equal(publicBucket.uploads.length,0);
 });
 
@@ -204,4 +205,66 @@ test('admin report actions require current moderation auth; hide resolves canoni
  assert.equal((await denied.route.PATCH(request({section:'reports',id:h.report,action:'hide'}))).status,401);
  assert.equal((await denied.photo.GET(new Request('https://example.com'),{params:Promise.resolve({id})})).status,401);assert.equal(denied.calls.length,0);
  const failed=adminHarness({rpcError:{code:'P0002'}});assert.equal((await failed.route.PATCH(request({section:'reports',id:h.report,action:'hide'}))).status,404);
+});
+
+
+test('orphan upload retries resume only exact bytes and never overwrite another payload', async()=>{
+ const input={action:'create',requestId:id,caption:'Trip',visibility:'public',photo:'valid-photo'};
+ const recovered=harness({uploadError:{statusCode:'409'},storedPhoto:'safe-jpeg',result:{id}});
+ assert.equal((await recovered.route.POST(body(input))).status,201);
+ assert.equal(recovered.calls.length,3);assert.deepEqual(recovered.downloads,[`${a}/${id}.jpg`]);assert.deepEqual(recovered.removed,[]);
+ const mismatch=harness({uploadError:{statusCode:'409'},storedPhoto:'other-jpeg'});
+ assert.equal((await mismatch.route.POST(body(input))).status,409);assert.equal(mismatch.calls.length,2);assert.deepEqual(mismatch.removed,[]);
+ const interrupted=harness();interrupted.db.rpc=async name=>{if(name==='prepare_travel_social_upload_cleanup')return{data:{requestIds:[]},error:null};if(name==='reserve_travel_social_upload')return{data:{admitted:true},error:null};throw Error('transport lost after upload');};
+ assert.equal((await interrupted.route.POST(body(input))).status,503);assert.equal(interrupted.uploads.length,1);assert.deepEqual(interrupted.removed,[]);
+});
+
+test('upload admission rejects exhausted quota, missing profiles and uncertain admission before any storage write',async()=>{
+ const input={action:'create',requestId:id,caption:'Trip',visibility:'public',photo:'valid-photo',userId:b};
+ for(const [code,status] of [['54000',429],['22023',400],['23505',409]]) {
+  const denied=harness({admissionError:{code}});
+  for(let i=0;i<25;i++)assert.equal((await denied.route.POST(body({...input,requestId:`20000000-0000-4000-8000-${String(i).padStart(12,'0')}`}))).status,status);
+  assert.equal(denied.uploads.length,0);assert.equal(denied.downloads.length,0);
+  assert.ok(denied.calls.every(call=>['prepare_travel_social_upload_cleanup','reserve_travel_social_upload'].includes(call.name)&&call.input.p_viewer===a));
+ }
+ const lost=harness();lost.db.rpc=async()=>{throw Error('admission response lost');};
+ assert.equal((await lost.route.POST(body(input))).status,503);assert.equal(lost.uploads.length,0);
+ const invalid=harness();invalid.db.rpc=async()=>({data:null,error:null});
+ assert.equal((await invalid.route.POST(body(input))).status,503);assert.equal(invalid.uploads.length,0);
+});
+
+test('expired upload cleanup is bounded and owner-scoped; failures prevent admission until removal is confirmed',async()=>{
+ const input={action:'create',requestId:id,caption:'Trip',visibility:'public',photo:'valid-photo'};
+ const cleanupId='20000000-0000-4000-8000-000000000099';
+ const failed=harness({cleanupIds:[cleanupId],removeError:{message:'storage unavailable'}});
+ assert.equal((await failed.route.POST(body(input))).status,503);assert.equal(failed.uploads.length,0);
+ assert.deepEqual(failed.calls.map(call=>call.name),['prepare_travel_social_upload_cleanup']);
+ const ackLost=harness({cleanupIds:[cleanupId],finishError:{code:'08006'}});
+ assert.equal((await ackLost.route.POST(body(input))).status,503);assert.equal(ackLost.uploads.length,0);
+ assert.ok(!ackLost.calls.some(call=>call.name==='reserve_travel_social_upload'));
+ const retried=harness({cleanupIds:[cleanupId]});assert.equal((await retried.route.POST(body(input))).status,201);
+ assert.deepEqual(retried.removed,[`${a}/${cleanupId}.jpg`]);
+ assert.deepEqual(retried.calls.map(call=>call.name),['prepare_travel_social_upload_cleanup','finish_travel_social_upload_cleanup','reserve_travel_social_upload','write_travel_social']);
+ assert.deepEqual(copy(retried.calls[1].input),{p_viewer:a,p_request_ids:[cleanupId]});
+ for(const ids of [['../foreign'],Array(11).fill(cleanupId)]){
+  const invalid=harness({cleanupIds:ids});assert.equal((await invalid.route.POST(body(input))).status,503);assert.equal(invalid.removed.length,0);assert.equal(invalid.uploads.length,0);
+ }
+ const expired=harness({admissionError:{code:'P0010'}});const response=await expired.route.POST(body(input));
+ assert.equal(response.status,409);assert.equal((await response.json()).code,'social_upload_expired');assert.equal(expired.uploads.length,0);
+ const committed=harness({existing:{id},cleanupIds:[id]});assert.equal((await committed.route.POST(body(input))).status,200);
+ assert.equal(committed.removed.length,0);assert.deepEqual(committed.calls.map(call=>call.name),['write_travel_social']);
+ assert.equal(retried.route.maxDuration,60);
+});
+
+test('saved collection ignores following feed; comment actions validate and moderate the edited body',async()=>{
+ const h=harness({result:{id}});
+ await h.route.GET(new Request(`https://example.com?feed=following&collectionId=${id}`));
+ assert.equal(h.calls[0].input.p_input.feed,undefined);
+ assert.equal((await h.route.GET(new Request(`https://example.com?commentId=${id}`))).status,400);
+ await h.route.GET(new Request(`https://example.com?postId=${id}&commentId=${b}`));
+ assert.equal(h.calls[1].input.p_input.commentId,b);
+ assert.equal((await h.route.POST(body({action:'comment-edit',postId:id,commentId:b,body:'You are an asshole',status:'published',userId:b}))).status,200);
+ assert.equal(h.calls[2].input.p_input.status,'pending');assert.ok(!('userId' in h.calls[2].input.p_input));
+ assert.equal((await h.route.POST(body({action:'comment-delete',postId:id,commentId:b}))).status,200);
+ assert.equal((await h.route.POST(body({action:'comment-edit',postId:id,commentId:b,body:'   '}))).status,400);
 });

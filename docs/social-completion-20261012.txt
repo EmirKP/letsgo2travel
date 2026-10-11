@@ -1,0 +1,24 @@
+Community completion - 12 October 2026
+
+Migration: supabase/migrations/20261012100000_social_completion.sql
+Apply after 20261011120000_travel_social_posts.sql. No remote migration was run by this implementation agent.
+
+Photo retry: duplicate immutable owner/request-ID objects are downloaded and hash-checked before retrying the create RPC. Different bytes remain a conflict. Unknown commit outcomes never delete an object that another request could have committed. Existing account-erasure cleanup removes orphan objects.
+
+Upload admission follow-up: additive migration 20261012120000_social_upload_admission.sql must deploy before the updated API. The service-only reservation RPC validates the profile and binds request owner/hash/caption/privacy/place before Storage receives bytes. The10-per-hour allowance counts the union of committed posts and reservations, including failed writes; an additional hard limit of10 unresolved requests prevents slow orphan accumulation across hours. Exact retries remain valid within24 hours at the limit and committed posts free unresolved slots. The original applied migration is unchanged.
+
+Abandoned-draft recovery: each upload attempt checks for expired reservations. After24 hours, unresolved requests become tombstones under the same per-owner transaction lock used by commits. A before-insert trigger rejects late/changed commits. Cleanup waits120 seconds beyond that fence (the route has an enforced60-second lifetime), removes at most10 owned objects, then confirms cleanup in SQL. Quota remains occupied until successful deletion/confirmation; failed cleanup safely retries next time. Already-committed photos are never selected. Tombstones remain so expired IDs cannot be reused after deletion; draft payload is erased after cleanup. No real posts are deleted by this process.
+
+The composer already persists photo, caption and requestId privately across reloads. Only an explicit social_upload_expired response rotates the operation key while keeping the draft; ordinary timeouts keep the original key. All41 targeted API/SQL/UI tests pass, covering25 parallel fresh IDs, quota/missing-profile rejection before bytes, ownership and payload conflicts, expiry grace, late commits, cleanup failure and retry, protected real posts, and expired draft recovery across reload. Root/mobile TypeScript and targeted lint also pass.
+
+Collections: the server and client ignore Following when a collection is selected. Visibility, blocks and collection ownership are still checked.
+
+Own comments: edit and delete use authenticated actions; ownership is enforced in service-only SQL. Edited content passes moderation again. Deleted comments keep a tombstone so replies survive, but the stored original body is erased; deleted comments cannot be replied to or resurrected. Hidden comments cannot be edited around moderation. Direct table/RPC access remains revoked from clients.
+
+Notifications: refresh on launch/reconnect/foreground and every 60 visible seconds, even with the sheet closed. The unread badge uses the full server total. Older pages load on demand. Notification intents carry commentId and the server selects its page before UI focus. Malformed/stale/account-switched responses cannot replace current account data. Social read state is acknowledged after server success.
+
+Other reports: a clear required description label and 5-character minimum match server validation.
+
+Starter photos: scripts/social-editorial-posts.json contains 3 LetsGo2Travel travel-inspiration posts (Kapadokya, Bali, Tokyo), using existing repository imagery. scripts/prepare-social-editorial.mjs defaults to dry-run. Explicit publication flags require an existing official branded account and reviewed image rights. Media is stripped/re-encoded below 300KB, posts use current real creation dates and an editorial badge. No accounts, comments, likes or followers are fabricated. No publication was performed by this implementation agent.
+
+Targeted regression tests: tests/social-posts-db.mjs, tests/social-posts-api.mjs, tests/social-ui.mjs, tests/notification-session-ui.mjs. PGlite verifies owner isolation, deleted text removal, reply retention, inaccessible notification filtering, >20 unread totals and comment page targeting.

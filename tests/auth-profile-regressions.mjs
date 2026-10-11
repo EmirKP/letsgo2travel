@@ -44,6 +44,8 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
   '../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
   '../components/NotificationPreferences':{NotificationPreferences:'NotificationPreferences'},
+  '../components/AppearancePicker':{AppearancePicker:'AppearancePicker'}, '../components/TextSizePicker':{TextSizePicker:'TextSizePicker'},
+  '../../../lib/leaderboard/verified':load('lib/leaderboard/verified.ts',{'./countries':load('lib/leaderboard/countries.ts',{'../countries/isoSource':{ISO_COUNTRIES:countries.ISO_3166}})}),
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
   '../data/countries':countries,'../data/countryCodes':codes,'../data/countryIso':iso,'../lib/profileCountries':profileCountries,'../lib/config':{config:{}},
   '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},
@@ -101,7 +103,7 @@ test('Verification summaries show loading until a successful empty result establ
 });
 test('Switching accounts hides previous verification rows and counts during loading and failure',async()=>{
  const h=profileHarness({holdVerifications:true});
- h.reads[0].resolve(base);h.verificationReads[0].resolve([{id:'a-private',country_name:'Private account A country',status:'approved'}]);await tick();h.render();
+ h.reads[0].resolve(base);h.verificationReads[0].resolve([{id:'a-private',country_code:'TR',country_name:'Private account A country',status:'approved',verification_method:'document'}]);await tick();h.render();
  nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
  assert.ok(text(h.tree).includes('Private account A country'));assert.ok(text(h.tree).includes('1 approved'));
  h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
@@ -223,7 +225,7 @@ for(const operation of ['updateProfile','updatePassword'])test(`${operation} fin
 
 test('Verification country labels follow the selected UI language instead of stored Turkish names',async()=>{
  const original=i18n.countryName;i18n.countryName=(code,fallback)=>code==='TUR'?'Turkey':fallback;
- const h=profileHarness({remote:base,verificationRows:[{id:'verification-1',country_code:'TR',country_name:'Türkiye',status:'approved'}]});
+ const h=profileHarness({remote:base,verificationRows:[{id:'verification-1',country_code:'TR',country_name:'Türkiye',status:'approved',verification_method:'document'}]});
  try{await tick();h.render();nodes(h.tree).find(n=>n.type==='button'&&text(n).includes('Verified Traveller')).props.onClick();h.render();
   const list=nodes(h.tree).find(n=>n.props?.className==='verification-list');assert.ok(text(list).includes('Turkey'));assert.ok(!text(list).includes('Türkiye'));
  }finally{h.h.dispose();i18n.countryName=original;}

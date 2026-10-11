@@ -6,92 +6,20 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import { Search, TrendingUp, CheckCircle, FileText, Globe, AlertTriangle, Hotel, Wifi, MessageCircle, Sparkles, Calculator, Plane } from "lucide-react";
 import Link from "next/link";
 import styles from "./passport.module.css";
+import { ISO_COUNTRIES } from "@/lib/countries/isoSource";
+import { DESTINATION_INDEX, passportEntry, passportStayLabel, type EntryStatus } from "@/lib/country-intelligence/passports";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// Türk pasaportu ile vize durumu (ISO 3166-1 numeric kodları)
-// Kaynak: Passportindex.org verileri baz alınmıştır
-type VisaStatus = "free" | "on_arrival" | "evisa" | "required" | "home" | "id_card";
-
-const VISA_DATA: Record<string, VisaStatus> = {
-  // --- KENDİ ÜLKESİ ---
-  TUR: "home",
-
-  // --- KİMLİKLE ---
-  GEO: "id_card", AZE: "id_card", MDA: "id_card", UKR: "id_card",
-
-  // --- VİZESİZ (Free/ETA/Days) ---
-  ALB: "free", ATG: "free", ARG: "free", BHS: "free", BRB: "free", BLR: "free", 
-  BLZ: "free", BOL: "free", BIH: "free", BWA: "free", BRA: "free", BRN: "free", CHL: "free", 
-  COL: "free", CRI: "free", DOM: "free", ECU: "free", SLV: "free", SWZ: "free", 
-  GMB: "free", GTM: "free", HTI: "free", HND: "free", HKG: "free", IRN: "free", JAM: "free", 
-  JPN: "free", JOR: "free", KAZ: "free", XKX: "free", KGZ: "free", MAC: "free", MYS: "free", 
-  MUS: "free", MNG: "free", MNE: "free", MAR: "free", NIC: "free", MKD: "free", 
-  PSE: "free", PAN: "free", PRY: "free", PER: "free", PHL: "free", KNA: "free", LCA: "free", 
-  VCT: "free", SRB: "free", SYC: "free", SGP: "free", ZAF: "free", SYR: "free", THA: "free", 
-  TTO: "free", TUN: "free", URY: "free", UZB: "free", VEN: "free", FJI: "free",
-  VUT: "free", CIV: "evisa", KEN: "evisa", MEX: "evisa", PAK: "evisa", KOR: "evisa", // ETA's coded as evisa
-
-  // --- VARIŞTA VİZE (On Arrival) ---
-  ARM: "on_arrival", BGD: "on_arrival", BFA: "on_arrival", BDI: "on_arrival", KHM: "on_arrival", 
-  CPV: "on_arrival", COM: "on_arrival", DJI: "on_arrival", EGY: "on_arrival", ETH: "on_arrival", 
-  GHA: "on_arrival", GNB: "on_arrival", IDN: "on_arrival", KWT: "on_arrival", LAO: "on_arrival", 
-  LBN: "on_arrival", MDG: "on_arrival", MDV: "on_arrival", MHL: "on_arrival", MRT: "on_arrival", 
-  MOZ: "on_arrival", NAM: "on_arrival", NPL: "on_arrival", OMN: "on_arrival", PLW: "on_arrival", 
-  QAT: "on_arrival", RWA: "on_arrival", WSM: "on_arrival", STP: "on_arrival", SAU: "on_arrival", 
-  SEN: "on_arrival", SLE: "on_arrival", SOM: "on_arrival", LKA: "on_arrival", SDN: "on_arrival", 
-  TWN: "on_arrival", TZA: "on_arrival", TLS: "on_arrival", TON: "on_arrival", TUV: "on_arrival", 
-  ZMB: "on_arrival", ZWE: "on_arrival",
-
-  // --- E-VİZE (E-Visa) ---
-  AUS: "evisa", BHR: "evisa", BEN: "evisa", BTN: "evisa", CMR: "evisa", COD: "evisa", CUB: "evisa", 
-  GAB: "evisa", GIN: "evisa", IRQ: "evisa", LSO: "evisa", LBY: "evisa", MWI: "evisa", MMR: "evisa", 
-  NGA: "evisa", PNG: "evisa", RUS: "evisa", SSD: "evisa", TJK: "evisa", TGO: "evisa", UGA: "evisa", 
-  ARE: "evisa", VNM: "evisa",
-
-  // --- VİZE GEREKLİ (Required) ---
-  DZA: "required", AND: "required", AUT: "required", BEL: "required", BGR: "required", CAN: "required", 
-  CAF: "required", TCD: "required", CHN: "required", COG: "required", HRV: "required", CYP: "required", 
-  CZE: "required", DNK: "required", ERI: "required", EST: "required", FIN: "required", FRA: "required", 
-  DEU: "required", GRC: "required", GRD: "required", GUY: "required", HUN: "required", ISL: "required", 
-  IND: "required", IRL: "required", ISR: "required", ITA: "required", KIR: "required", LVA: "required", 
-  LBR: "required", LIE: "required", LTU: "required", LUX: "required", MLI: "required", MLT: "required", 
-  MCO: "required", NRU: "required", NLD: "required", NZL: "required", NER: "required", PRK: "required", 
-  NOR: "required", POL: "required", PRT: "required", ROU: "required", SMR: "required", SVK: "required", 
-  SVN: "required", SLB: "required", ESP: "required", SUR: "required", SWE: "required", CHE: "required", 
-  TKM: "required", GBR: "required", USA: "required", YEM: "required", AFG: "required", AGO: "required",
-  GNQ: "required",
-};
-
-// ISO Alpha-3 → ISO numeric mapping (react-simple-maps numeric kullanır)
-// Basit bir set için Manuel mapping
-const ALPHA3_TO_NUMERIC: Record<string, string> = {
-  AFG:"4",ALB:"8",DZA:"12",AND:"20",AGO:"24",ATG:"28",ARG:"32",ARM:"51",
-  AUS:"36",AUT:"40",AZE:"31",BHS:"44",BHR:"48",BGD:"50",BRB:"52",BLR:"112",
-  BEL:"56",BLZ:"84",BEN:"204",BTN:"64",BOL:"68",BIH:"70",BWA:"72",BRA:"76",
-  BRN:"96",BGR:"100",BFA:"854",BDI:"108",CPV:"132",KHM:"116",CMR:"120",CAN:"124",
-  CAF:"140",TCD:"148",CHL:"152",CHN:"156",COL:"170",COM:"174",COD:"180",COG:"178",
-  CRI:"188",CIV:"384",HRV:"191",CUB:"192",CYP:"196",CZE:"203",DNK:"208",DJI:"262",
-  DMA:"212",DOM:"214",ECU:"218",EGY:"818",SLV:"222",GNQ:"226",ERI:"232",EST:"233",
-  ETH:"231",FJI:"242",FIN:"246",FRA:"250",GAB:"266",GMB:"270",GEO:"268",DEU:"276",
-  GHA:"288",GRC:"300",GRD:"308",GTM:"320",GIN:"324",GNB:"624",GUY:"328",HTI:"332",
-  HND:"340",HUN:"348",ISL:"352",IND:"356",IDN:"360",IRN:"364",IRQ:"368",IRL:"372",
-  ISR:"376",ITA:"380",JAM:"388",JPN:"392",JOR:"400",KAZ:"398",KEN:"404",KIR:"296",
-  PRK:"408",KOR:"410",KWT:"414",KGZ:"417",LAO:"418",LVA:"428",LBN:"422",LSO:"426",
-  LBR:"430",LBY:"434",LIE:"438",LTU:"440",LUX:"442",MDG:"450",MWI:"454",MYS:"458",
-  MDV:"462",MLI:"466",MLT:"470",MHL:"584",MRT:"478",MUS:"480",MEX:"484",FSM:"583",
-  MDA:"498",MCO:"492",MNG:"496",MNE:"499",MAR:"504",MOZ:"508",MMR:"104",NAM:"516",
-  NRU:"520",NPL:"524",NLD:"528",NZL:"554",NIC:"558",NER:"562",NGA:"566",MKD:"807",
-  NOR:"578",OMN:"512",PAK:"586",PLW:"585",PSE:"275",PAN:"591",PNG:"598",PRY:"600",
-  PER:"604",PHL:"608",POL:"616",PRT:"620",QAT:"634",ROU:"642",RUS:"643",RWA:"646",
-  KNA:"659",LCA:"662",VCT:"670",WSM:"882",SMR:"674",STP:"678",SAU:"682",SEN:"686",
-  SRB:"688",SYC:"690",SLE:"694",SGP:"702",SVK:"703",SVN:"705",SLB:"090",SOM:"706",
-  ZAF:"710",SSD:"728",ESP:"724",LKA:"144",SDN:"729",SUR:"740",SWZ:"748",SWE:"752",
-  CHE:"756",SYR:"760",TWN:"158",TJK:"762",TZA:"834",THA:"764",TLS:"626",TGO:"768",
-  TON:"776",TTO:"780",TUN:"788",TUR:"792",TKM:"795",TUV:"798",UGA:"800",UKR:"804",
-  ARE:"784",GBR:"826",USA:"840",URY:"858",UZB:"860",VUT:"548",VEN:"862",VNM:"704",
-  YEM:"887",ZMB:"894",ZWE:"716",XKX:"383",
-};
+// The web map shares the reviewed rules used by the mobile map and detail sheet.
+type VisaStatus = Exclude<EntryStatus, "domestic"> | "home";
+const COUNTRY_LIST = ISO_COUNTRIES.filter(country => DESTINATION_INDEX.has(country.alpha2));
+const ALPHA3_TO_NUMERIC = Object.fromEntries(COUNTRY_LIST.map(country => [country.alpha3, country.numeric]));
+const VISA_DATA: Record<string, VisaStatus> = Object.fromEntries(COUNTRY_LIST.map(country => {
+  const entry = passportEntry("TR", "ordinary", country.alpha2);
+  return [country.alpha3, entry.status === "domestic" ? "home" : entry.status];
+}));
+const countryEntry = (alpha3: string) => passportEntry("TR", "ordinary", COUNTRY_LIST.find(country => country.alpha3 === alpha3)?.alpha2 || "");
 
 const NUMERIC_TO_STATUS: Record<string, VisaStatus> = {};
 Object.entries(VISA_DATA).forEach(([alpha3, status]) => {
@@ -109,6 +37,9 @@ const STATUS_COLOR: Record<VisaStatus, string> = {
   evisa: "#73A9D7",
   on_arrival: "#4C7FB3",
   required: "#D56A76",
+  eta: "#956ccc",
+  restricted: "#814151",
+  unknown: "#94a3b8",
 };
 
 const STATUS_LABEL: Record<VisaStatus, string> = {
@@ -118,56 +49,27 @@ const STATUS_LABEL: Record<VisaStatus, string> = {
   evisa: "e-Vize",
   on_arrival: "Kapıda Vize",
   required: "Vize Gerekli",
+  eta: "Elektronik seyahat izni",
+  restricted: "Giriş kısıtlaması",
+  unknown: "Koşulu doğrula",
 };
-
-// Arama ve sonuç bölümünde gösterilen ülke listesi
-const COUNTRY_LIST: { name: string; alpha3: string }[] = [
-  { name: "Türkiye", alpha3: "TUR" }, { name: "Almanya", alpha3: "DEU" }, { name: "Fransa", alpha3: "FRA" }, { name: "İspanya", alpha3: "ESP" },
-  { name: "İtalya", alpha3: "ITA" }, { name: "Yunanistan", alpha3: "GRC" }, { name: "Portekiz", alpha3: "PRT" },
-  { name: "Hollanda", alpha3: "NLD" }, { name: "Belçika", alpha3: "BEL" }, { name: "Avusturya", alpha3: "AUT" },
-  { name: "İsviçre", alpha3: "CHE" }, { name: "Norveç", alpha3: "NOR" }, { name: "İsveç", alpha3: "SWE" },
-  { name: "Finlandiya", alpha3: "FIN" }, { name: "Danimarka", alpha3: "DNK" }, { name: "Polonya", alpha3: "POL" },
-  { name: "Çek Cumhuriyeti", alpha3: "CZE" }, { name: "Macaristan", alpha3: "HUN" }, { name: "Romanya", alpha3: "ROU" },
-  { name: "Bulgaristan", alpha3: "BGR" }, { name: "Sırbistan", alpha3: "SRB" }, { name: "Bosna Hersek", alpha3: "BIH" },
-  { name: "Hırvatistan", alpha3: "HRV" }, { name: "Slovenya", alpha3: "SVN" }, { name: "Slovakya", alpha3: "SVK" },
-  { name: "Azerbaycan", alpha3: "AZE" }, { name: "Gürcistan", alpha3: "GEO" }, { name: "Ermenistan", alpha3: "ARM" },
-  { name: "Ukrayna", alpha3: "UKR" }, { name: "Moldova", alpha3: "MDA" }, { name: "Belarus", alpha3: "BLR" },
-  { name: "Rusya", alpha3: "RUS" }, { name: "Kazakistan", alpha3: "KAZ" }, { name: "Özbekistan", alpha3: "UZB" },
-  { name: "Kırgızistan", alpha3: "KGZ" }, { name: "Tacikistan", alpha3: "TJK" }, { name: "Türkmenistan", alpha3: "TKM" },
-  { name: "Japonya", alpha3: "JPN" }, { name: "Güney Kore", alpha3: "KOR" }, { name: "Çin", alpha3: "CHN" },
-  { name: "Hindistan", alpha3: "IND" }, { name: "Tayland", alpha3: "THA" }, { name: "Endonezya", alpha3: "IDN" },
-  { name: "Malezya", alpha3: "MYS" }, { name: "Singapur", alpha3: "SGP" }, { name: "Vietnam", alpha3: "VNM" },
-  { name: "Kamboçya", alpha3: "KHM" }, { name: "Filipinler", alpha3: "PHL" }, { name: "Bangladeş", alpha3: "BGD" },
-  { name: "Pakistan", alpha3: "PAK" }, { name: "Nepal", alpha3: "NPL" }, { name: "Sri Lanka", alpha3: "LKA" },
-  { name: "Maldivler", alpha3: "MDV" }, { name: "BAE", alpha3: "ARE" }, { name: "Katar", alpha3: "QAT" },
-  { name: "Suudi Arabistan", alpha3: "SAU" }, { name: "Kuveyt", alpha3: "KWT" }, { name: "Bahreyn", alpha3: "BHR" },
-  { name: "Ürdün", alpha3: "JOR" }, { name: "Irak", alpha3: "IRQ" }, { name: "Mısır", alpha3: "EGY" },
-  { name: "Fas", alpha3: "MAR" }, { name: "Tunus", alpha3: "TUN" }, { name: "Cezayir", alpha3: "DZA" },
-  { name: "Nijerya", alpha3: "NGA" }, { name: "Güney Afrika", alpha3: "ZAF" }, { name: "Kenya", alpha3: "KEN" },
-  { name: "Tanzanya", alpha3: "TZA" }, { name: "Etiyopya", alpha3: "ETH" }, { name: "Gana", alpha3: "GHA" },
-  { name: "ABD", alpha3: "USA" }, { name: "Kanada", alpha3: "CAN" }, { name: "Meksika", alpha3: "MEX" },
-  { name: "Brezilya", alpha3: "BRA" }, { name: "Arjantin", alpha3: "ARG" }, { name: "Kolombiya", alpha3: "COL" },
-  { name: "Şili", alpha3: "CHL" }, { name: "Peru", alpha3: "PER" }, { name: "Avustralya", alpha3: "AUS" },
-  { name: "Yeni Zelanda", alpha3: "NZL" }, { name: "İngiltere", alpha3: "GBR" }, { name: "İrlanda", alpha3: "IRL" },
-  { name: "Kuzey Makedonya", alpha3: "MKD" }, { name: "Karadağ", alpha3: "MNE" }, { name: "Kosova", alpha3: "XKX" },
-  { name: "Arnavutluk", alpha3: "ALB" }, { name: "Kıbrıs", alpha3: "CYP" }, { name: "İzlanda", alpha3: "ISL" },
-  { name: "Lüksemburg", alpha3: "LUX" }, { name: "Letonya", alpha3: "LVA" }, { name: "Litvanya", alpha3: "LTU" },
-  { name: "Estonya", alpha3: "EST" }, { name: "Yeni Kaledonya (Fiji)", alpha3: "FJI" },
-];
 
 const PASSPORT_COUNTRIES = COUNTRY_LIST.filter((country) => country.alpha3 !== "TUR");
 
 const STATS = {
   total: PASSPORT_COUNTRIES.length,
   mobility: PASSPORT_COUNTRIES.filter((country) => {
-    const status = VISA_DATA[country.alpha3] || "required";
-    return status !== "required";
+    const status = VISA_DATA[country.alpha3] || "unknown";
+    return ["id_card", "free", "evisa", "on_arrival", "eta"].includes(status);
   }).length,
-  id_card: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "id_card").length,
-  free: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "free").length,
-  on_arrival: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "on_arrival").length,
-  evisa: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "evisa").length,
-  required: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "required") === "required").length,
+  id_card: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "unknown") === "id_card").length,
+  free: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "unknown") === "free").length,
+  on_arrival: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "unknown") === "on_arrival").length,
+  evisa: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "unknown") === "evisa").length,
+  eta: PASSPORT_COUNTRIES.filter(country => VISA_DATA[country.alpha3] === "eta").length,
+  restricted: PASSPORT_COUNTRIES.filter(country => VISA_DATA[country.alpha3] === "restricted").length,
+  unknown: PASSPORT_COUNTRIES.filter(country => VISA_DATA[country.alpha3] === "unknown").length,
+  required: PASSPORT_COUNTRIES.filter((country) => (VISA_DATA[country.alpha3] || "unknown") === "required").length,
 };
 
 export default function PassportPowerPage() {
@@ -175,6 +77,8 @@ export default function PassportPowerPage() {
   const [visaFilter, setVisaFilter] = useState("all");
   const [tooltip, setTooltip] = useState<{ name: string; status: string } | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<{ name: string; status: string; statusKey: VisaStatus; alpha3: string } | null>(null);
+
+  const selectedEntry = selectedCountry ? countryEntry(selectedCountry.alpha3) : null;
 
   const filteredCountries = useMemo(() => {
     const q = search.toLowerCase();
@@ -185,20 +89,23 @@ export default function PassportPowerPage() {
       evisa: 3,
       on_arrival: 4,
       required: 5,
-      home: 6
+      eta: 5,
+      restricted: 7,
+      unknown: 8,
+      home: 9
     };
 
     const list = PASSPORT_COUNTRIES.filter((c) => {
       const matchSearch = c.name.toLowerCase().includes(q);
       if (!matchSearch) return false;
       if (visaFilter === "all") return true;
-      const status = VISA_DATA[c.alpha3] || "required";
+      const status = VISA_DATA[c.alpha3] || "unknown";
       return status === visaFilter;
     });
 
     list.sort((a, b) => {
-      const statusA = VISA_DATA[a.alpha3] || "required";
-      const statusB = VISA_DATA[b.alpha3] || "required";
+      const statusA = VISA_DATA[a.alpha3] || "unknown";
+      const statusB = VISA_DATA[b.alpha3] || "unknown";
       
       if (statusOrder[statusA] !== statusOrder[statusB]) {
         return statusOrder[statusA] - statusOrder[statusB];
@@ -227,7 +134,7 @@ export default function PassportPowerPage() {
 
           <div className={styles.summary}>
             <p className={styles.eyebrow}><Globe size={16} /> Pasaport merkezi</p>
-            <h1>Türkiye pasaportu</h1>
+            <h1>Türkiye umuma mahsus pasaportu</h1>
             <p className={styles.lead}>
               Kimlikle, vizesiz, e-Vize ve kapıda vize seçeneklerini tek ekranda karşılaştır.
             </p>
@@ -304,6 +211,9 @@ export default function PassportPowerPage() {
               { id: "evisa", label: "e-Vize" },
               { id: "on_arrival", label: "Kapıda vize" },
               { id: "required", label: "Vize gerekli" },
+              { id: "eta", label: "Seyahat izni" },
+              { id: "restricted", label: "Kısıtlama" },
+              { id: "unknown", label: "Koşulu doğrula" },
             ].map((filter) => (
               <button
                 key={filter.id}
@@ -325,14 +235,14 @@ export default function PassportPowerPage() {
                       {({ geographies }) =>
                         geographies.map((geo) => {
                           const id = geo.id as string;
-                          let status: VisaStatus = "required";
+                          let status: VisaStatus = "unknown";
 
                           if (id === "792") {
                             status = "home";
                           } else if (id && NUMERIC_TO_STATUS[id]) {
                             status = NUMERIC_TO_STATUS[id];
                           } else if (geo.properties.name === "Kosovo") {
-                            status = VISA_DATA.XKX || "free";
+                            status = VISA_DATA[COUNTRY_LIST.find(country => country.alpha2 === "XK")?.alpha3 || ""] || "unknown";
                           }
 
                           return (
@@ -342,7 +252,7 @@ export default function PassportPowerPage() {
                               onMouseEnter={() => setTooltip({ name: geo.properties.name, status: STATUS_LABEL[status] })}
                               onMouseLeave={() => setTooltip(null)}
                               onClick={() => {
-                                const alpha3 = Object.keys(ALPHA3_TO_NUMERIC).find((key) => ALPHA3_TO_NUMERIC[key] === id) || "";
+                                const alpha3 = Object.keys(ALPHA3_TO_NUMERIC).find((key) => Number(ALPHA3_TO_NUMERIC[key]) === Number(id)) || (geo.properties.name === "Kosovo" ? COUNTRY_LIST.find(country => country.alpha2 === "XK")?.alpha3 : "") || "";
                                 setSelectedCountry({ name: geo.properties.name, status: STATUS_LABEL[status], statusKey: status, alpha3 });
                               }}
                               style={{
@@ -371,7 +281,9 @@ export default function PassportPowerPage() {
                     <small>Seçili ülke</small>
                     <h3>{selectedCountry.name}</h3>
                     <span className={styles.status} data-status={selectedCountry.statusKey}>{selectedCountry.status}</span>
-                    <p>Giriş koşulları değişebilir. Seyahatten önce resmi temsilcilik ve havayolu kaynaklarını kontrol et.</p>
+                    <p>{selectedEntry?.note[0]}</p>
+                    <p>{passportStayLabel(selectedEntry?.stay || null)} · {selectedEntry?.checkedAt || "Tarih doğrulanmadı"}</p>
+                    <a href={selectedEntry?.sourceUrl} target="_blank" rel="noopener noreferrer">{selectedEntry?.provenance === "official" ? "Resmî kaynağı aç" : "Giriş koşullarını doğrula"}</a>
                     <div>
                       <Link href="/seyahat-kokpiti">Bu ülke için plan oluştur</Link>
                       <Link href={`/forum/ulke/${selectedCountry.name.toLowerCase().replaceAll(" ", "-")}`}>Gezginlere sor</Link>
@@ -388,6 +300,9 @@ export default function PassportPowerPage() {
                   { status: "evisa", label: "e-Vize", count: STATS.evisa },
                   { status: "on_arrival", label: "Kapıda", count: STATS.on_arrival },
                   { status: "required", label: "Vize gerekli", count: STATS.required },
+                  { status: "eta", label: "Seyahat izni", count: STATS.eta },
+                  { status: "restricted", label: "Kısıtlama", count: STATS.restricted },
+                  { status: "unknown", label: "Koşulu doğrula", count: STATS.unknown },
                 ].map((item) => (
                   <span key={item.status} data-status={item.status} className={styles.legendItem}>
                     <i /> {item.label} <strong>{item.count}</strong>
@@ -397,7 +312,7 @@ export default function PassportPowerPage() {
 
               <div className={styles.note}>
                 <AlertTriangle size={18} />
-                <p><strong>Bilgilendirme:</strong> Vize ve giriş koşulları değişebilir. Satın alma ve seyahat öncesinde resmi kaynaklardan doğrulama yap.</p>
+                <p><strong>Umuma mahsus pasaport · kısa turistik seyahat:</strong> Resmî inceleme 11 Ekim 2026. İncelenmeyen eşleşmeler tarihli ön bilgi olarak ayrılır. Süre, transit ve ek koşullar ülke detayındadır.</p>
               </div>
             </div>
 
@@ -417,7 +332,7 @@ export default function PassportPowerPage() {
 
               <div className={styles.countryList}>
                 {filteredCountries.map((country) => {
-                  const status = VISA_DATA[country.alpha3] || "required";
+                  const status = VISA_DATA[country.alpha3] || "unknown";
                   return (
                     <button
                       type="button"

@@ -6,7 +6,9 @@ import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import "./price-alert-artwork.css";
 import { PageHero } from "../components/PageHero";
-import { ApiError, createAlert, deleteAlert, listAlerts, restoreAlert, updateAlert, type AlertMutationResponse } from "../lib/api";
+import { ApiError, createAlert, deleteAlert, listAlerts, requestJson, restoreAlert, updateAlert, type AlertMutationResponse } from "../lib/api";
+import { NotificationPreferences } from "../components/NotificationPreferences";
+import type { SocialNotificationPreferences } from "../../../lib/community/social-contract";
 import type { AirportOption } from "../lib/airports";
 import { clampLocalDate, isPastLocalDate, localIsoDate } from "../lib/dates";
 import { enablePushForUser, isPushAvailable } from "../lib/push";
@@ -107,12 +109,34 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
   const [form, setForm] = useState<AlertForm>(EMPTY_FORM);
   const [pushBusy, setPushBusy] = useState(false);
   const [undoDelete, setUndoDelete] = useState<{ alert: FlightAlert; expiresAt: number } | null>(null);
+  const [preferences, setPreferences] = useState<SocialNotificationPreferences | null>(null);
+  const [preferencesError, setPreferencesError] = useState(false);
+  const [preferencesAttempt, setPreferencesAttempt] = useState(0);
   const loadGeneration = useRef(0);
   const mutationLock = useRef(false);
   const deletedIds = useRef(new Set<string>());
   const priceFormat = useMemo(() => new Intl.NumberFormat(dateLocale), [dateLocale]);
 
   const getToken = useCallback(() => accessToken, [accessToken]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPreferences(null); setPreferencesError(false);
+    if (accessToken) void requestJson<{data: SocialNotificationPreferences}>("/api/country-community/social/preferences", {
+      headers: {Authorization: `Bearer ${accessToken}`}, signal: controller.signal,
+    }).then(result => {
+      if (controller.signal.aborted) return;
+      if (typeof result.data?.price_alert_email !== "boolean" || typeof result.data?.price_alert_push !== "boolean") throw Error("Invalid alert preferences");
+      setPreferences(result.data);
+    }).catch(() => { if (!controller.signal.aborted) setPreferencesError(true); });
+    return () => controller.abort();
+  }, [accessToken, preferencesAttempt]);
+
+  const channelLabel = (kind: "email" | "push") => {
+    const label = kind === "email" ? copy("E-posta", "Email") : copy("Telefon bildirimi", "Phone notification");
+    return preferences?.[kind === "email" ? "price_alert_email" : "price_alert_push"] === false
+      ? `${label} · ${copy("genel ayarlarda kapalı", "muted in settings", "çaktivizuar te cilësimet")}` : label;
+  };
 
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -328,6 +352,9 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
     if (!undoDelete || Date.now() >= undoDelete.expiresAt || !beginMutation(undoDelete.alert.id)) return;
     const alert = undoDelete.alert;
     setUndoDelete(null);
+    // The server may commit even if the response is lost. Any subsequent fresh
+    // GET is authoritative; never keep a local tombstone over a restore attempt.
+    deletedIds.current.delete(alert.id);
     const active = alert.is_active !== false && !isPastLocalDate(alert.departure_date);
     try {
       await restoreAlert(alert.id, active, accessToken);
@@ -367,6 +394,13 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
 
     <p className="alert-refresh-help">{copy("Yenile, kayıtlı alarmları ve son fiyat kontrolünü getirir. Yeni fiyatlar günlük olarak kontrol edilir.", "Refresh loads saved alerts and their last price check. New prices are checked daily.", "Rifresko ngarkon njoftimet e ruajtura dhe kontrollin e fundit. Çmimet e reja kontrollohen çdo ditë.")}</p>
 
+    {preferencesError && <div className="info-box" role="alert"><p>{copy("Genel bildirim tercihleri alınamadı. Kanal durumunu doğrulamak için tekrar dene.", "Notification preferences could not load. Retry to check delivery channels.", "Preferencat e njoftimeve nuk u ngarkuan. Provo sërish për të kontrolluar kanalet.")}</p><button type="button" className="secondary-button" onClick={() => setPreferencesAttempt(value => value + 1)}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div>}
+    {preferences && (!preferences.price_alert_email || !preferences.price_alert_push) && <details className="alert-global-preferences">
+      <summary><Icon name="bell" size={19}/><span>{copy("Genel bildirim tercihlerini kontrol et", "Check notification settings", "Kontrollo cilësimet e njoftimeve")}</span><Icon name="chevron" size={16}/></summary>
+      <p>{copy("Genel ayarlarda kapalı bir kanal bu alarmda seçili olsa da bildirim göndermez. Tercihini buradan değiştirebilirsin.", "A globally muted channel will not send notifications, even when selected on an alert. You can change your preference here.", "Një kanal i çaktivizuar te cilësimet nuk dërgon njoftime, edhe kur është zgjedhur këtu. Mund ta ndryshosh më poshtë.")}</p>
+      <NotificationPreferences accessToken={accessToken} onSaved={setPreferences}/>
+    </details>}
+
     {undoDelete && <div className="alert-undo" role="status">
       <span>{copy("Alarm silindi.", "Alert deleted.", "Njoftimi u fshi.")}</span>
       <button type="button" disabled={Boolean(busy)} onClick={() => void undoRemoveAlert()}>{copy("Geri al", "Undo", "Zhbëj")}</button>
@@ -385,9 +419,9 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
       </div>
       <fieldset className="alert-channels" aria-describedby="alert-channel-help">
         <legend>{copy("Bildirim kanalları · en az biri zorunlu", "Notification channels · choose at least one")}</legend>
-        <label><input type="checkbox" checked={form.notifyEmail} onChange={(event) => toggleFormEmail(event.target.checked)} /> {copy("E-posta", "Email")}</label>
-        <label><input type="checkbox" checked={form.notifyPush} disabled={pushBusy} onChange={(event) => void toggleFormPush(event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
-        <p className="alert-push-note" id="alert-channel-help">{copy("En az bir kanal açık kalmalı.", "At least one channel must stay on.")}{form.notifyPush ? copy(" Fiyat hedefe inince telefonuna anlık bildirim gönderilir.", " You'll get an instant notification when the target is reached.") : copy(" Telefon bildirimi için cihaz izni gerekir.", " Device permission is required for phone notifications.")}</p>
+        <label><input type="checkbox" checked={form.notifyEmail} onChange={(event) => toggleFormEmail(event.target.checked)} /> {channelLabel("email")}</label>
+        <label><input type="checkbox" checked={form.notifyPush} disabled={pushBusy} onChange={(event) => void toggleFormPush(event.target.checked)} /> {channelLabel("push")}</label>
+        <p className="alert-push-note" id="alert-channel-help">{copy("En az bir kanal açık kalmalı.", "At least one channel must stay on.")}{form.notifyPush && preferences?.price_alert_push === false ? copy(" Telefon bildirimleri genel ayarlarda kapalı; bildirim almak için oradan açmalısın.", " Phone notifications are muted in settings; enable them there to receive alerts.", " Njoftimet në telefon janë të çaktivizuara në cilësime; aktivizoji atje për të marrë njoftime.") : copy(" Telefon bildirimi için genel tercihin ve cihaz iznin açık olmalı.", " Phone notifications require your general preference and device permission to be enabled.", " Njoftimet në telefon kërkojnë që preferenca e përgjithshme dhe leja e pajisjes të jenë aktive.")}</p>
       </fieldset>
       <button className="primary-wide" disabled={busy === "create" || loading || pushBusy} type="submit">
         {busy === "create" ? <span className="button-loader" /> : <Icon name="bell" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Alarmı kur", "Create alert")}
@@ -435,8 +469,8 @@ export function PriceAlertsScreen({ user, accessToken, onOpenAccount, onNotice }
             {expired && <p className="alert-expired-note">{copy("Gidiş tarihi geçti. Bu alarm için fiyat takibi sona erdi.", "The departure date has passed. Price tracking has ended for this alert.", "Data e nisjes ka kaluar. Ndjekja e çmimit ka përfunduar për këtë njoftim.")}</p>}
             {!expired && <fieldset className="alert-channels compact">
               <legend className="sr-only">{copy("Bu alarmın bildirim kanalları", "Notification channels for this alert")}</legend>
-              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={Boolean(busy) || pushBusy} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> {copy("E-posta", "Email")}</label>
-              <label><input type="checkbox" checked={alert.notify_push === true} disabled={Boolean(busy) || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> {copy("Telefon bildirimi", "Phone notification")}</label>
+              <label><input type="checkbox" checked={alert.notify_email !== false} disabled={Boolean(busy) || pushBusy} onChange={(event) => toggleEmailChannel(alert, event.target.checked)} /> {channelLabel("email")}</label>
+              <label><input type="checkbox" checked={alert.notify_push === true} disabled={Boolean(busy) || pushBusy} onChange={(event) => void togglePushChannel(alert, event.target.checked)} /> {channelLabel("push")}</label>
             </fieldset>}
             {!expired && <button type="button" className="secondary-wide" disabled={Boolean(busy) || pushBusy} onClick={() => toggleActive(alert)}>
               {busy === alert.id ? <span className="button-loader dark" /> : <Icon name={paused ? "check" : "close"} size={17} />} {paused ? copy("Başlat", "Resume") : copy("Durdur", "Pause")}

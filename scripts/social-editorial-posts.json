@@ -1,0 +1,20 @@
+[
+  {
+    "id": "e0112026-1012-4000-8000-000000000001",
+    "photo": "mobile/src/assets/home-reference/cappadocia.webp",
+    "caption": "Kapadokya için bir keşif fikri: vadi manzaraları, taş sokaklar ve yavaş bir yürüyüş. Planında manzara molalarına da yer aç. Sen bir günlük rotana hangi durağı eklerdin?",
+    "place": { "name": "Kapadokya", "countryCode": "TR" }
+  },
+  {
+    "id": "e0112026-1012-4000-8000-000000000002",
+    "photo": "mobile/src/assets/home-reference/bali.webp",
+    "caption": "Bali rotası için ilham: yeşilin içinden geçen yollar ve sakin keşif molaları. Aynı güne çok fazla durak koymadan, bir bölgeyi sindirerek gezmek nasıl olurdu? Birlikte rota fikirleri paylaşalım.",
+    "place": { "name": "Bali", "countryCode": "ID" }
+  },
+  {
+    "id": "e0112026-1012-4000-8000-000000000003",
+    "photo": "mobile/src/assets/destination-artwork/tokyo.webp",
+    "caption": "Tokyo için şehir keşfi fikri: bir mahalle seç, ara sokaklara zaman ayır ve günün sonunda sevdiğin durakları koleksiyonuna kaydet. Senin listende modern şehir manzaraları mı, küçük sokaklar mı öne çıkıyor?",
+    "place": { "name": "Tokyo", "countryCode": "JP" }
+  }
+]

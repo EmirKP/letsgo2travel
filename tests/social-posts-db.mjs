@@ -10,6 +10,7 @@ const val=async(db,sql,args=[])=>Object.values((await db.query(sql,args)).rows[0
 const get=(db,user,input={})=>val(db,'select read_travel_social($1,$2)',[user,input]);
 const put=(db,user,action,input)=>val(db,'select write_travel_social($1,$2,$3)',[user,action,input]);
 const create=(db,user=a,id=post,extra={})=>put(db,user,'create',{requestId:id,caption:'A seaside walk',visibility:'public',photoHash:'a'.repeat(64),place:null,...extra});
+const reserve=(db,user=a,id=post,extra={})=>val(db,'select reserve_travel_social_upload($1,$2)',[user,{requestId:id,caption:'A seaside walk',visibility:'public',photoHash:'a'.repeat(64),place:null,...extra}]);
 const publish=(db,id=post)=>db.query("update travel_social_posts set status='published' where id=$1",[id]);
 const follow=(db,user,target,active=true)=>val(db,'select set_community_profile_follow($1,$2,$3)',[user,`user:${target}`,active]);
 async function setup(){
@@ -35,6 +36,8 @@ async function setup(){
  set request.jwt.claim.role='service_role';`);
  await db.exec(read('supabase/migrations/20261010190000_community_public_profiles.sql'));
  await db.exec(read('supabase/migrations/20261011120000_travel_social_posts.sql'));
+ await db.exec(read('supabase/migrations/20261012100000_social_completion.sql'));
+ await db.exec(read('supabase/migrations/20261012120000_social_upload_admission.sql'));
  return db;
 }
 
@@ -49,6 +52,80 @@ test('photos start pending, publish into real feeds; follower-only access revoke
   await follow(db,b,a);await db.query('insert into community_user_blocks(user_id,blocked_user_id) values($1,$2)',[a,b]);
   assert.equal(await get(db,b,{postId:post}),null);assert.equal((await get(db,b,{feed:'following'})).items.length,0);
   await assert.rejects(put(db,b,'like',{postId:post,active:true}));await assert.rejects(put(db,b,'save',{postId:post,active:true,collectionId:post2}));
+ }finally{await db.close();}
+});
+
+test('upload admission bounds parallel fresh IDs and failed uploads across hours while preserving immutable retries',async()=>{
+ const db=await setup();try{
+  const ids=Array.from({length:25},(_,i)=>`50000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
+  const attempts=await Promise.allSettled(ids.map(id=>reserve(db,a,id)));
+  assert.equal(attempts.filter(row=>row.status==='fulfilled').length,10);
+  assert.ok(attempts.filter(row=>row.status==='rejected').every(row=>row.reason.code==='54000'));
+  assert.equal(await val(db,'select count(*) from travel_social_upload_reservations where user_id=$1',[a]),10);
+  const admitted=ids[attempts.findIndex(row=>row.status==='fulfilled')];
+  assert.equal((await reserve(db,a,admitted)).admitted,true,'same request resumes even at quota');
+  for(const patch of [{photoHash:'b'.repeat(64)},{caption:'Changed'},{visibility:'followers'},{place:{name:'Elsewhere'}}])
+   await assert.rejects(reserve(db,a,admitted,patch),error=>error.code==='23505');
+  await assert.rejects(reserve(db,b,admitted),error=>error.code==='23505');
+  await db.exec("update travel_social_upload_reservations set created_at=now()-interval '2 days'");
+  await assert.rejects(reserve(db,a,post2),error=>error.code==='54000','old unresolved slots cannot expire into unlimited orphan growth');
+  assert.equal((await reserve(db,a,admitted)).admitted,true);
+  await create(db,a,admitted);
+  assert.equal((await reserve(db,a,post2)).admitted,true,'committing the same bytes frees one unfinished slot');
+  assert.equal(await val(db,'select count(*) from travel_social_upload_reservations r where not exists(select 1 from travel_social_posts p where p.id=r.request_id)'),10);
+ }finally{await db.close();}
+});
+
+test('upload admission counts existing posts and reservations once and rejects missing profiles before reserving',async()=>{
+ const db=await setup();try{
+  await db.query("update profiles set username='' where id=$1",[b]);
+  await assert.rejects(reserve(db,b),error=>error.code==='22023');
+  assert.equal(await val(db,'select count(*) from travel_social_upload_reservations'),0);
+  for(let i=0;i<10;i++){
+   const id=`60000000-0000-4000-8000-${String(i).padStart(12,'0')}`;
+   if(i<5)await reserve(db,a,id);
+   await create(db,a,id);
+  }
+  assert.equal(await val(db,'select count(*) from travel_social_posts'),10);
+  await assert.rejects(reserve(db,a,post2),error=>error.code==='54000');
+  assert.equal(await val(db,'select count(*) from travel_social_upload_reservations'),5,'quota rejection creates no orphan admission');
+  await db.exec("set request.jwt.claim.role='authenticated'");
+  await assert.rejects(reserve(db,a,post2),error=>error.code==='42501');
+  await db.exec('set role authenticated');
+  await assert.rejects(db.query('select * from travel_social_upload_reservations'),error=>error.code==='42501');
+  await assert.rejects(reserve(db,a,post2),error=>error.code==='42501');
+  await db.exec('reset role');
+ }finally{await db.close();}
+});
+
+test('expired abandoned uploads recover only after fenced grace and confirmed cleanup; committed photos stay protected',async()=>{
+ const db=await setup();try{
+  const ids=Array.from({length:10},(_,i)=>`70000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
+  for(const id of ids)await reserve(db,a,id);
+  await db.exec("update travel_social_upload_reservations set created_at=now()-interval '2 days',expires_at=now()-interval '1 day'");
+  const prepare=()=>val(db,'select prepare_travel_social_upload_cleanup($1)',[a]);
+  const finish=owner=>val(db,'select finish_travel_social_upload_cleanup($1,$2)',[owner,ids]);
+  assert.deepEqual((await prepare()).requestIds,[],'expiry starts grace; removal cannot happen immediately');
+  assert.ok(await val(db,"select bool_and(cleanup_after>clock_timestamp()+interval '119 seconds') from travel_social_upload_reservations"));
+  await assert.rejects(create(db,a,ids[0]),error=>error.code==='P0010','an already-admitted delayed writer cannot commit after the fence');
+  await assert.rejects(reserve(db,a,ids[0]),error=>error.code==='P0010');
+  await finish(a);
+  assert.equal(await val(db,"select count(*) from travel_social_upload_reservations where state='cleaned'"),0,'early acknowledgement cannot release slots');
+  await assert.rejects(reserve(db,a,post),error=>error.code==='54000');
+  await db.exec("update travel_social_upload_reservations set cleanup_after=now()-interval '1 second'");
+  assert.equal((await prepare()).requestIds.length,10);
+  await assert.rejects(reserve(db,a,post),error=>error.code==='54000','a failed storage removal leaves quota occupied');
+  await finish(b);
+  assert.equal(await val(db,"select count(*) from travel_social_upload_reservations where state='cleaned'"),0,'a different owner cannot confirm cleanup');
+  await finish(a);
+  assert.equal((await reserve(db,a,post)).admitted,true,'new IDs work after expired lost drafts are reclaimed');
+  await assert.rejects(create(db,a,ids[0]),error=>error.code==='P0010','cleaned request tombstone also rejects delayed commit');
+  await assert.rejects(reserve(db,a,ids[0]),error=>error.code==='P0010','expired IDs can never reupload after deletion');
+  await create(db,a,post);
+  await db.query("update travel_social_upload_reservations set expires_at=now()-interval '1 day' where request_id=$1",[post]);
+  assert.deepEqual((await prepare()).requestIds,[],'an uncertain commit that succeeded is never selected for deletion');
+  assert.equal((await create(db,a,post)).id,post,'committed retries still return their post after reservation expiry');
+  assert.equal(await val(db,'select count(*) from travel_social_posts'),1);
  }finally{await db.close();}
 });
 
@@ -162,5 +239,48 @@ test('moderation hides only the canonical report target and resolves atomically;
   await db.exec("reset role; set request.jwt.claim.role='service_role'");
   await moderate(report,true);assert.equal(await val(db,'select status from travel_social_posts where id=$1',[post]),'hidden');
   const resolved=await val(db,'select resolved_at from travel_social_reports where id=$1',[report]);await moderate(report,false);assert.equal(await val(db,'select resolved_at::text from travel_social_reports where id=$1',[report]),(await db.query('select $1::timestamptz::text as value',[resolved])).rows[0].value);
+ }finally{await db.close();}
+});
+
+
+test('collection membership does not inherit following filter; own comment editing and deletion preserve replies without leaking removed text',async()=>{
+ const db=await setup();try{
+  await create(db);await publish(db);
+  const collection=await put(db,b,'collection-create',{name:'Saved'});
+  await put(db,b,'save',{postId:post,collectionId:collection.id,active:true});
+  assert.equal((await get(db,b,{feed:'following',collectionId:collection.id})).items.length,1);
+  await put(db,b,'comment',{postId:post,requestId:comment,body:'Original private text',status:'published'});
+  await put(db,c,'comment',{postId:post,requestId:reply,parentId:comment,body:'A reply',status:'published'});
+  await assert.rejects(put(db,c,'comment-edit',{postId:post,commentId:comment,body:'Hijacked',status:'published'}));
+  await assert.rejects(put(db,c,'comment-delete',{postId:post,commentId:comment}));
+  let data=await put(db,b,'comment-edit',{postId:post,commentId:comment,body:'Revised',status:'published'});
+  assert.equal(data.comments.items[0].body,'Revised');assert.ok(data.comments.items[0].editedAt);
+  data=await put(db,b,'comment-delete',{postId:post,commentId:comment});
+  assert.equal(data.post.commentCount,1);assert.equal(data.comments.items.length,2);assert.equal(data.comments.items[0].body,'');assert.equal(data.comments.items[0].isDeleted,true);
+  assert.equal((await get(db,c,{postId:post})).comments.items[1].body,'A reply');
+  assert.ok(!JSON.stringify(await get(db,a,{section:'notifications'})).includes(comment));
+  await assert.rejects(put(db,b,'comment-edit',{postId:post,commentId:comment,body:'Restore deleted',status:'published'}));
+  await assert.rejects(put(db,c,'comment',{postId:post,requestId:post2,parentId:comment,body:'Reply after delete',status:'published'}));
+  assert.equal((await put(db,b,'comment-delete',{postId:post,commentId:comment})).post.commentCount,1);
+ }finally{await db.close();}
+});
+
+test('inbox total unread spans pages, ignores inaccessible content and deep link loads the target comment page',async()=>{
+ const db=await setup();try{
+  await create(db);await publish(db);
+  const ids=[];
+  for(let i=0;i<25;i++){
+   const cid=`40000000-0000-4000-8000-${String(i).padStart(12,'0')}`;ids.push(cid);
+   await put(db,b,'comment',{postId:post,requestId:cid,body:`Comment ${i}`,status:'published'});
+  }
+  let inbox=await get(db,a,{section:'notifications'});assert.equal(inbox.items.length,20);assert.equal(inbox.nextOffset,20);assert.equal(inbox.unreadCount,25);
+  const older=await get(db,a,{section:'notifications',offset:20});assert.equal(older.items.length,5);assert.equal(older.nextOffset,null);assert.equal(older.unreadCount,25);
+  await put(db,a,'notifications-read',{id:older.items[0].id});assert.equal((await get(db,a,{section:'notifications'})).unreadCount,24);
+  const target=await get(db,a,{postId:post,commentId:ids[24]});assert.ok(target.comments.items.some(item=>item.id===ids[24]));assert.equal(target.comments.items.length,5);
+  await put(db,b,'comment-delete',{postId:post,commentId:ids[24]});assert.equal((await get(db,a,{section:'notifications'})).unreadCount,23);
+  await put(db,a,'notifications-read',{});assert.equal((await get(db,a,{section:'notifications'})).unreadCount,0);
+  await db.query('insert into community_user_blocks(user_id,blocked_user_id) values($1,$2)',[a,b]);
+  assert.equal((await get(db,a,{section:'notifications'})).items.length,0);
+  assert.equal(await get(db,a,{postId:post,commentId:ids[1]}),null);
  }finally{await db.close();}
 });

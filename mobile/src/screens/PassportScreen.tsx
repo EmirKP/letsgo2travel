@@ -1,14 +1,14 @@
-import { Suspense, lazy, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { COUNTRY_LIST, STATUS_LABEL, STATUS_ORDER } from "../data/countries";
+import { Suspense, lazy, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { COUNTRY_LIST } from "../data/countries";
 import passportIndex from "../data/passport-index.json";
-import { passportStatus, DESTINATION_INDEX, PASSPORTS, MFA_SOURCE, MFA_CHECKED } from "../../../lib/country-intelligence/passports";
+import { passportEntry, passportStayLabel, PASSPORTS, MFA_CHECKED, type EntryStatus } from "../../../lib/country-intelligence/passports";
 import { CountryPicker } from "../components/CountryPicker";
 import type { MapStatus } from "../components/PassportWorldMap";
 
 // Harita geometrisi (~135 KB) ana pakete girmesin diye tembel yüklenir;
 // ekran açılırken kısa bir yer tutucu görünür.
 const PassportWorldMap = lazy(() => import("../components/PassportWorldMap").then((mod) => ({ default: mod.PassportWorldMap })));
-import type { Country, VisaStatus } from "../types";
+import type { Country } from "../types";
 import { Icon } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { CountryAdvisory, CountryRiskBadge } from "../components/CountryAdvisory";
@@ -17,24 +17,29 @@ import { CountryFlag } from "../components/CountryFlag";
 import { alpha2FromAlpha3 } from "../data/countryIso";
 import { Sheet } from "../components/Sheet";
 import { openExternal } from "../lib/native";
-import { getVisaEntryRule } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { usePassportPreference } from "../hooks/usePassportPreference";
-import type { VerifiedVisaRule } from "../types";
 import "./profile-passport-polish.css";
 
 const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
 const INITIAL_ROW_COUNT = 40;
 
-const filters: Array<{ id: "all" | VisaStatus; label: string }> = [
+const filters: Array<{ id: "all" | EntryStatus; label: string }> = [
   { id: "all", label: "Tümü" },
   { id: "id_card", label: "Kimlikle" },
   { id: "free", label: "Vizesiz" },
   { id: "evisa", label: "e-Vize" },
   { id: "on_arrival", label: "Kapıda" },
   { id: "required", label: "Vize gerekli" },
-  { id: "unknown", label: "Bilinmiyor" },
+  { id: "eta", label: "Seyahat izni" },
+  { id: "restricted", label: "Kısıtlı giriş" },
+  { id: "unknown", label: "Doğrulama gerekli" },
 ];
+
+const ENTRY_LABELS: Record<EntryStatus, [string, string, string]> = {
+  id_card: ["Kimlikle", "ID card", "Letërnjoftim"], free: ["Vizesiz", "Visa-free", "Pa vizë"], evisa: ["e-Vize", "e-Visa", "e-Vizë"], on_arrival: ["Kapıda vize", "Visa on arrival", "Vizë në mbërritje"], required: ["Vize gerekli", "Visa required", "Kërkohet vizë"], eta: ["Seyahat izni (ETA)", "Travel authorisation (ETA)", "Autorizim udhëtimi (ETA)"], restricted: ["Kısıtlı giriş", "Restricted entry", "Hyrje e kufizuar"], unknown: ["Doğrulama gerekli", "Verification needed", "Nevojitet verifikim"], domestic: ["Kendi ülken", "Your own country", "Shteti yt"],
+};
+const ENTRY_ORDER: Record<EntryStatus, number> = { domestic: 0, id_card: 1, free: 2, eta: 3, evisa: 4, on_arrival: 5, required: 6, restricted: 7, unknown: 8 };
 
 // Doğrulanmış sınıfı olmayan ülke için veri UYDURULMAZ: "Bilinmiyor".
 
@@ -43,62 +48,42 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
   const { country: passport, type: passportType, setPreference } = usePassportPreference();
   const passportName = new Intl.DisplayNames([locale], { type: "region" }).of(passport) || passport;
   const passportOptions = useMemo(() => { const names = new Intl.DisplayNames([locale], { type: "region" }); return Object.keys(PASSPORTS).map(code => ({ code, name: names.of(code) || code })).sort((a,b) => a.name.localeCompare(b.name, locale)); }, [locale]);
-  const statusOf = useMemo(() => (alpha3: string): VisaStatus => {
-    return passportStatus(passport, passportType, alpha2FromAlpha3(alpha3));
-  }, [passport, passportType]);
+  const entryOf = useMemo(() => (alpha3: string) => passportEntry(passport, passportType, alpha2FromAlpha3(alpha3)), [passport, passportType]);
+  const statusOf = useMemo(() => (alpha3: string): EntryStatus => entryOf(alpha3).status, [entryOf]);
+  const labelOf = (status: EntryStatus) => copy(...ENTRY_LABELS[status]);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | VisaStatus>("all");
+  const [filter, setFilter] = useState<"all" | EntryStatus>("all");
   const [selected, setSelected] = useState<Country | null>(null);
-  const [verifiedRule, setVerifiedRule] = useState<VerifiedVisaRule | null>(null);
-  const [ruleLoading, setRuleLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_ROW_COUNT);
-  const ruleRequest = useRef(0);
   const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(() => COUNTRY_LIST
+    .filter(country => alpha2FromAlpha3(country.alpha3) !== passport)
     .filter((country) => `${country.name} ${countryName(country.alpha3, country.name)}`.toLocaleLowerCase(locale).includes(deferredQuery.toLocaleLowerCase(locale)))
     .filter((country) => filter === "all" || statusOf(country.alpha3) === filter)
     .sort((a, b) => {
-      const statusDiff = STATUS_ORDER[statusOf(a.alpha3)] - STATUS_ORDER[statusOf(b.alpha3)];
+      const statusDiff = ENTRY_ORDER[statusOf(a.alpha3)] - ENTRY_ORDER[statusOf(b.alpha3)];
       return statusDiff || countryName(a.alpha3, a.name).localeCompare(countryName(b.alpha3, b.name), locale);
-    }), [countryName, deferredQuery, filter, locale, statusOf]);
+    }), [countryName, deferredQuery, filter, locale, passport, statusOf]);
   const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
   const risks = useAdvisories(visibleRows.map(row => alpha2FromAlpha3(row.alpha3)));
 
-  useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter]);
+  useEffect(() => setVisibleCount(INITIAL_ROW_COUNT), [deferredQuery, filter, passport, passportType]);
 
   // Harita her ülke path'i için çalıştığından O(n) arama yerine sabit
   // zamanda üyelik kontrolü kullanılır; filtreleme sırasında ek yük oluşmaz.
   const highlightedAlpha3 = useMemo(() => new Set(rows.map((country) => country.alpha3)), [rows]);
 
-  const counts = useMemo(() => COUNTRY_LIST.reduce<Record<VisaStatus, number>>((acc, country) => {
+  const counts = useMemo(() => COUNTRY_LIST.reduce<Record<EntryStatus, number>>((acc, country) => {
     acc[statusOf(country.alpha3)] += 1;
     return acc;
-  }, { id_card: 0, free: 0, evisa: 0, on_arrival: 0, required: 0, unknown: 0 }), [statusOf]);
+  }, { id_card: 0, free: 0, evisa: 0, on_arrival: 0, required: 0, unknown: 0, eta: 0, restricted: 0, domestic: 0 }), [statusOf]);
 
-  const status = selected ? statusOf(selected.alpha3) : "unknown";
-  const openCountry = async (country: Country) => {
-    const requestId = ++ruleRequest.current;
-    setSelected(country);
-    setVerifiedRule(null);
-    if (passport !== "TR" || passportType !== "ordinary") { setRuleLoading(false); return; }
-    setRuleLoading(true);
-    try {
-      const rule = await getVisaEntryRule(country.name);
-      if (requestId === ruleRequest.current) setVerifiedRule(rule);
-    } catch {
-      // Statik sınıf listesi çevrimdışıyken de çalışır; resmî kaynak bağlantısı korunur.
-    } finally {
-      if (requestId === ruleRequest.current) setRuleLoading(false);
-    }
-  };
-
-  const closeCountry = () => {
-    ruleRequest.current += 1;
-    setSelected(null);
-    setVerifiedRule(null);
-    setRuleLoading(false);
-  };
+  const entry = selected ? entryOf(selected.alpha3) : null;
+  const status = entry?.status || "unknown";
+  const officialCount = COUNTRY_LIST.filter(country => entryOf(country.alpha3).provenance === "official" && statusOf(country.alpha3) !== "domestic").length;
+  const openCountry = (country: Country) => setSelected(country);
+  const closeCountry = () => setSelected(null);
 
   return (
     <div className="screen passport-screen passport-polished">
@@ -115,8 +100,10 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
         <div><span className="passport-stat-icon"><Icon name="globe" size={19}/></span><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
         <div><span className="passport-stat-icon"><Icon name="check" size={19}/></span><strong>{counts.id_card}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
       </div>
-      <p className="passport-data-note">{copy("*Tarihli ön bilgi; güncel giriş garantisi değildir.", "*Dated guidance, not a guarantee of current entry.")}</p>
-      <details className="passport-coverage"><summary><span>{copy("Veri kapsamı ve tarihi", "Coverage and data date")} · {passportIndex.asOf}</span><Icon name="chevron" size={16}/></summary><p>{passportType === "ordinary" ? copy("199 pasaport için tarihli keşif verisi; güncel resmî giriş izni değildir. ETA ve giriş kısıtlamaları bilinmiyor renginde gösterilir, ülke detayında açıklanır. Türkiye için kimlik kartıyla geçişte üç MFA kaydı ayrıca işlendi; ek koşullar ülke detayındadır.", "Dated discovery data for 199 passports, not current official entry clearance. ETA and entry restrictions use the unknown colour and are explained in details. Three Turkish ID-card entries from the MFA are separately included; see conditions in details.") : copy("Türkiye'nin özel pasaport türlerinde 13 destinasyon için tarihli MFA ön bilgisi var; diğerleri bilinmiyor. Kalış süresi ve seyahat amacı için resmî kaynağı kontrol et.", "For special Turkish passport types, dated MFA guidance covers 13 destinations; other entries are unknown. Check official duration and purpose conditions.")}</p>{passport === "TR" && <p>{copy("MFA ek kayıt kontrolü", "MFA supplement checked")}: {MFA_CHECKED}</p>}<button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Veri kaynağı", "Dataset source")}</button></details>
+      <p className="passport-data-note">{copy("Kısa turistik seyahatler · Koşullar ülke detayında", "Short tourist visits · See conditions in country details", "Vizita të shkurtra turistike · Kushtet në hollësitë e shtetit")}</p>
+      <details className="passport-coverage"><summary><span>{copy("Kaynak ve kapsam", "Sources and coverage", "Burimet dhe mbulimi")} · {officialCount} {copy("resmî kayıt", "official entries", "të dhëna zyrtare")}</span><Icon name="chevron" size={16}/></summary><p>{copy("Resmî kaynaklarla kontrol edilen eşleşmelerin tarihi", "Officially reviewed pairs checked on", "Kontrolli i të dhënave zyrtare")}: {MFA_CHECKED}. {copy("Diğer umuma mahsus pasaport kayıtları tarihli keşif verisidir", "Other ordinary-passport entries are dated discovery data", "Të dhënat e tjera të pasaportave të zakonshme janë orientuese")}: {passportIndex.asOf}.</p><p>{copy("Hususi, hizmet ve diplomatik türler birbirine kopyalanmaz. Resmî kaydı bulunmayan eşleşmeler için doğrulama gerekir; ETA, vize ve giriş kısıtlamaları ayrı gösterilir.", "Special, service and diplomatic rules are separate. Unreviewed pairs need verification; ETA, visas and entry restrictions are shown separately.", "Rregullat e pasaportave speciale, të shërbimit dhe diplomatike janë të ndara. Rastet pa të dhëna kërkojnë verifikim; ETA, vizat dhe kufizimet shfaqen veçmas.")}</p><button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Keşif veri kaynağı", "Discovery data source", "Burimi i të dhënave orientuese")}</button></details>
+      {passport !== "TR" && passportType !== "ordinary" && <p className="info-box">{copy("Bu ülkenin seçtiğin pasaport türü için doğrulanmış kapsamımız henüz yok. Umuma mahsus kurallarını bu türe uygulamıyoruz; konsolosluktan kontrol et.", "Reviewed coverage is not yet available for this country's selected passport type. Ordinary rules do not apply automatically; check with the consulate.", "Nuk kemi ende të dhëna të verifikuara për këtë lloj pasaporte. Rregullat e pasaportës së zakonshme nuk zbatohen automatikisht; kontakto konsullatën.")}</p>}
+
       </section>
 
       <section className="passport-discovery" aria-labelledby="passport-discovery-heading">
@@ -124,7 +111,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       <label className="sr-only" htmlFor="passport-country-search">{copy("Ülke ara", "Search country")}</label>
       <div className="search-input"><Icon name="search" size={18} /><input id="passport-country-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy("Ülke ara", "Search country")} /></div>
       <div className="chip-scroll passport-filters" role="group" aria-label={copy("Giriş durumuna göre filtrele", "Filter by entry status")}>
-        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{copy(item.label, ({ all: "All", id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[item.id], ({ all: "Të gjitha", id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[item.id])}</button>)}
+        {filters.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.id === "all" ? copy("Tümü", "All", "Të gjitha") : labelOf(item.id)}</button>)}
       </div>
       <p id="passport-map-help" className="passport-map-help">{passportName} · {copy("*Tarihli ön bilgi · Bayraklar yakınlaştırınca görünür.", "*Dated guidance · Zoom to reveal flags.")}</p>
 
@@ -147,8 +134,8 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       />
       </Suspense>
       <div className="passport-map-legend" role="list" aria-label={copy("Harita renk açıklaması", "Map colour legend")}>
-        {(["id_card", "free", "evisa", "on_arrival", "required"] as const).map((status) => (
-          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{copy(STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë" } as const)[status])}</span>
+        {(["id_card", "free", "eta", "evisa", "on_arrival", "required", "restricted"] as const).map((status) => (
+          <span key={status} role="listitem" className={`legend-chip legend-${status}`}>{labelOf(status)}</span>
         ))}
         <span role="listitem" className="legend-chip legend-unknown">{copy("Bilinmiyor", "Unknown")}</span>
       </div>
@@ -161,7 +148,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
           const country = COUNTRY_BY_ALPHA3.get(code);
           if (!country) return null;
           const entry = statusOf(code);
-          return <button type="button" key={code} onClick={() => void openCountry(country)}><CountryFlag code={alpha2FromAlpha3(code)} label={countryName(code, country.name)} /><strong>{countryName(code, country.name)}</strong><small className={`entry-${entry}`}>{copy(STATUS_LABEL[entry], ({ id_card:"ID card", free:"Visa-free", evisa:"e-Visa", on_arrival:"On arrival", required:"Visa required", unknown:"Unknown" } as const)[entry], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[entry])}</small></button>;
+          return <button type="button" key={code} onClick={() => void openCountry(country)}><CountryFlag code={alpha2FromAlpha3(code)} label={countryName(code, country.name)} /><strong>{countryName(code, country.name)}</strong><small className={`entry-${entry}`}>{labelOf(entry)}</small></button>;
         })}</div>
       </section>}
 
@@ -174,7 +161,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
             <button key={country.alpha3} className="country-row" onClick={() => void openCountry(country)}>
               <CountryFlag code={alpha2FromAlpha3(country.alpha3)} label={countryName(country.alpha3, country.name)} />
               <span><strong>{countryName(country.alpha3, country.name)}</strong><small>{country.alpha3}</small><CountryRiskBadge advisory={risks.find(row => row.code === alpha2FromAlpha3(country.alpha3))}/></span>
-              <em className={`status-pill status-${rowStatus}`}>{copy(STATUS_LABEL[rowStatus], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "On arrival", required: "Visa required", unknown: "Unknown" } as const)[rowStatus], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[rowStatus])}</em>
+              <em className={`status-pill status-${rowStatus}`}>{labelOf(rowStatus)}</em>
               <Icon name="chevron" size={17} />
             </button>
           );
@@ -186,19 +173,17 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
 
       <Sheet open={Boolean(selected)} title={selected ? countryName(selected.alpha3, selected.name) : copy("Ülke", "Country")} onClose={closeCountry}>
         {selected && <div className="country-detail">
-          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName}</small><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[status])}</strong></div></div>
-          {passportType === "ordinary" && <p className="passport-coverage">{copy("Veri seti tarihi", "Dataset date")}: {passportIndex.asOf}. {PASSPORTS[passport]?.[DESTINATION_INDEX.get(alpha2FromAlpha3(selected.alpha3)) ?? -1] === "t" ? copy("Elektronik seyahat izni (ETA) kaydı var; vizeyle aynı değildir. Seyahatten önce resmî başvuru koşulunu kontrol et.", "An electronic travel authorisation (ETA) is listed; it is not a visa. Check official requirements before travel.") : PASSPORTS[passport]?.[DESTINATION_INDEX.get(alpha2FromAlpha3(selected.alpha3)) ?? -1] === "n" ? copy("Bu tarihli kaynakta giriş kısıtlaması var. Güncel durumu konsolosluktan doğrulamadan seyahat planlama.", "This dated source lists an entry restriction. Verify the current situation with the consulate before planning travel.") : ""}</p>}
-          {passport === "TR" && status === "id_card" && <p className="info-box">{alpha2FromAlpha3(selected.alpha3) === "GE" ? copy("Gürcistan: yeni tip kimlik kartı; umuma mahsus/kimlikle girişte sağlık ve kaza sigortası koşulu vardır. Kapsamı, teminatı ve belge dilini MFA kaynağından doğrula.", "Georgia: new-style ID; health/accident insurance conditions apply to ordinary-passport/ID entry. Verify cover, amount and document language with the MFA.") : copy("Azerbaycan ve Ukrayna için kimlikle geçişte Türkiye’den seyahat koşulu vardır. Yeni tip kimlik ve güncel sınır/ulaşım durumunu ayrıca doğrula.", "ID entry to Azerbaijan and Ukraine includes travel-from-Turkey conditions. Verify new-style ID and current border/transport conditions.")}</p>}
-          {ruleLoading ? <div className="skeleton-list"><div /></div> : <div className="info-box"><Icon name="alert" size={20} /><p>{(locale === "tr" ? verifiedRule?.note : "") || (status === "unknown"
-            ? copy("Bu ülke için doğrulanmış giriş sınıfı verimiz yok; tahmin gösterilmez. Güncel koşulu resmî kaynaktan kontrol et.", "We have no verified entry classification for this country, so no guess is shown. Check an official source.")
-            : copy("Bu sınıf genel keşif içindir. Kalış süresi, pasaport geçerliliği, transit koşulları ve seyahat amacı sonucu değiştirebilir.", "This category is for general discovery. Stay length, passport validity, transit and travel purpose can change the result."))}</p></div>}
+          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName} · {passportType === "ordinary" ? copy("Umuma mahsus", "Ordinary", "E zakonshme") : passportType === "special" ? copy("Hususi", "Special", "Speciale") : passportType === "service" ? copy("Hizmet", "Service", "Shërbimi") : copy("Diplomatik", "Diplomatic", "Diplomatike")}</small><strong>{labelOf(status)}</strong></div></div>
+          <p className={`passport-source-badge source-${entry?.provenance}`}>{entry?.provenance === "official" ? copy("Resmî kaynak kontrol edildi", "Official source reviewed", "Burimi zyrtar u kontrollua") : entry?.provenance === "dated-index" ? copy("Tarihli ön bilgi · Resmî teyit gerekli", "Dated guidance · Official confirmation needed", "Të dhëna orientuese · Duhet konfirmim zyrtar") : copy("Bu eşleşme doğrulanmadı", "This pair has not been verified", "Ky kombinim nuk është verifikuar")}</p>
+          <div className="info-box"><Icon name="alert" size={20}/><p>{entry ? copy(...entry.note) : ""}</p></div>
           <CountryAdvisory code={alpha2FromAlpha3(selected.alpha3)} onOpenNews={code => { closeCountry(); onOpenCountryNews(code); }}/>
           <div className="detail-list">
             <div><span>{copy("Ülke kodu", "Country code")}</span><strong>{selected.alpha3}</strong></div>
-            <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{copy(verifiedRule?.label || STATUS_LABEL[status], ({ id_card: "ID card", free: "Visa-free", evisa: "e-Visa", on_arrival: "Visa on arrival", required: "Visa required", unknown: "Unknown" } as const)[status], ({ id_card: "Letërnjoftim", free: "Pa vizë", evisa: "e-Vizë", on_arrival: "Vizë në mbërritje", required: "Kërkohet vizë", unknown: "E panjohur" } as const)[status])}</strong></div>
-            <div><span>{copy("Son veri kontrolü", "Last checked")}</span><strong>{verifiedRule?.verifiedAt || copy("Resmî kaynaktan doğrula", "Verify officially")}</strong></div>
+            <div><span>{copy("Giriş sınıfı", "Entry category")}</span><strong>{labelOf(status)}</strong></div>
+            <div><span>{copy("Kalış sınırı", "Stay limit", "Kufiri i qëndrimit")}</span><strong>{passportStayLabel(entry?.stay || null, locale !== "tr")}</strong></div>
+            <div><span>{copy("Son veri kontrolü", "Last checked")}</span><strong>{entry?.checkedAt || copy("Resmî kaynaktan doğrula", "Verify officially")}</strong></div>
           </div>
-          <button className="primary-wide" onClick={() => void openExternal(verifiedRule?.sourceUrl || (passport === "TR" ? MFA_SOURCE : "https://www.iatatravelcentre.com/"))}><Icon name="external" size={18} /> {copy("Güncel giriş koşullarını doğrula", "Verify current entry requirements")}</button>
+          <button className="primary-wide" onClick={() => void openExternal(entry?.provenance === "official" ? entry.sourceUrl : "https://www.iatatravelcentre.com/")}><Icon name="external" size={18} /> {copy("Güncel giriş koşullarını doğrula", "Verify current entry requirements")}</button>
           <p className="legal-note">{copy("Koşullar değişebilir. Bilet almadan önce havayolu, konsolosluk ve Dışişleri Bakanlığı bilgisini birlikte doğrula.", "Rules can change. Cross-check the airline, consulate and Ministry information before booking.")}</p>
         </div>}
       </Sheet>

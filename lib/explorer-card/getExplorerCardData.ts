@@ -1,3 +1,6 @@
+import { countApprovedCountries, verifiedExplorerLevel } from "../leaderboard/verified";
+import { explorerCountryAliases } from "../leaderboard/countries";
+import { ISO_COUNTRIES } from "../countries/isoSource";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
@@ -114,7 +117,7 @@ export async function getExplorerCardData(
   siteUrl = "https://www.letsgo2travel.com.tr",
   fallbackIdentity?: ExplorerCardFallbackIdentity,
 ): Promise<ExplorerCardData> {
-  const [summaryResult, achievementsResult, preferencesResult] =
+  const [summaryResult, achievementsResult, preferencesResult, verificationResult] =
     await Promise.all([
       supabase
         .from("explorer_card_summary")
@@ -151,7 +154,21 @@ export async function getExplorerCardData(
         .select("show_name,show_ranking,show_country_list")
         .eq("user_id", userId)
         .maybeSingle(),
+      supabase.from("travel_verifications").select("country_code,country_name,status,verification_method").eq("user_id", userId).eq("status", "approved").eq("verification_method", "document"),
     ]);
+
+  if (verificationResult.error) throw new Error("Onaylı ziyaretler alınamadı; kaşif puanı gösterilemedi.");
+  const verifiedCount = countApprovedCountries(verificationResult.data || []);
+  const verifiedRows = verificationResult.data || [];
+  const applyVerifiedScore = (card: ExplorerCardData): ExplorerCardData => ({ ...card,
+    level: { key: verifiedCount >= 25 ? "world" : verifiedCount >= 10 ? "experienced" : verifiedCount >= 5 ? "traveler" : "new", label: verifiedExplorerLevel(verifiedCount), number: verifiedCount >= 25 ? 4 : verifiedCount >= 10 ? 3 : verifiedCount >= 5 ? 2 : 1 },
+    stats: { ...card.stats, verifiedCountries: verifiedCount, explorerPoints: verifiedCount * 10 },
+    documentedTraveler: verifiedCount > 0,
+    verifiedCountryNames: [...new Set(verifiedRows.filter(row => row.status === "approved" && row.verification_method === "document").map(row => explorerCountryAliases[String(row.country_code || "").trim().toUpperCase()]).filter(Boolean))].map(code => ISO_COUNTRIES.find(country => country.alpha3 === code)?.name || code),
+    achievements: [{ id: "first-verification", title: "İlk keşfini doğrula", detail: "Onaylanan farklı ülkeler sayılır", progress: Math.min(verifiedCount, 1), target: 1 }, { id: "world-traveller", title: "Dünya Gezgini", detail: "25 farklı ülke ziyaretini doğrula", progress: Math.min(verifiedCount, 25), target: 25 }],
+    // Legacy summary percentiles use a different ledger; do not export them as the new league rank.
+    privacy: { ...card.privacy, showRanking: false },
+  });
 
   if (summaryResult.error) {
     throw new Error(
@@ -184,16 +201,16 @@ export async function getExplorerCardData(
       );
     }
 
-    return fallbackCard(
+    return applyVerifiedScore(fallbackCard(
       userId,
       siteUrl,
       fallbackIdentity,
       preferences,
       achievements,
-    );
+    ));
   }
 
-  return {
+  return applyVerifiedScore({
     userId: summary.user_id,
     username: summary.username,
     displayName: summary.display_name,
@@ -227,5 +244,5 @@ export async function getExplorerCardData(
       showRanking: preferences?.show_ranking ?? true,
       showCountryList: preferences?.show_country_list ?? true,
     },
-  };
+  });
 }

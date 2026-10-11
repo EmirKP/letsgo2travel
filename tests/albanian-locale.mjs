@@ -24,6 +24,7 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
     createContext(value) { const context = { value }; context.Provider = { context }; return context; },
     useContext: context => context.value,
     useState: value => activeHost.useState(value),
+    useRef: value => activeHost.useMemo(() => ({ current: value }), []),
     useMemo: (fn, deps) => activeHost.useMemo(fn, deps),
     useEffect: (fn, deps) => activeHost.useEffect(fn, deps),
     useId: () => activeHost.useState(() => `field-${++nextId}`)[0],
@@ -250,6 +251,7 @@ test('Money currency labels, historical dates and input errors stay Albanian on 
     const quote = { base: 'EUR', quote: 'TRY', rate: 55.8, date: '2026-09-30', previousRate: 55.7, previousDate: '2026-09-29', changePercent: 0.18 };
     const app = fixture({ language: 'tr-TR', storage: new Map([['l2t-language-v1', 'sq']]), intl, imports: {
       '../lib/travelAssistant': { storedQuote: () => quote, loadQuote: async () => quote },
+      '../lib/deviceArea': { locateDeviceArea: async () => { throw Error('denied'); } },
       '../lib/native': { openExternal() { throw Error('No external navigation in locale tests'); } },
     } });
     const money = app.mount(app.load('mobile/src/components/TravelMoney.tsx').TravelMoney);

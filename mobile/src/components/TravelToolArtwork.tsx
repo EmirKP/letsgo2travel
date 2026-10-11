@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { TravelFeatureIcon } from "./TravelFeatureIcon";
 
-export type TravelToolArtworkKind = "explore" | "translate" | "money" | "saved" | "needs" | "transit" | "offline" | "guide" | "embassies" | "photo" | "safety" | "trips" | "globe" | "passport" | "tools" | "alerts" | "community" | "league" | "events" | "privacy" | "settings" | "support" | "flight";
+export type TravelToolArtworkKind = "explore" | "translate" | "money" | "saved" | "needs" | "transit" | "offline" | "guide" | "embassies" | "photo" | "safety" | "trips" | "globe" | "passport" | "tools" | "alerts" | "community" | "league" | "events" | "privacy" | "private-file" | "account-delete" | "settings" | "support" | "flight";
 
 /** Companion illustrations to the Home shortcuts, decorative inside labelled buttons. */
 export function TravelToolArtwork({ kind, size = 80, className = "" }: {
@@ -124,6 +124,33 @@ export function TravelToolArtwork({ kind, size = 80, className = "" }: {
       <rect x="27" y="33" width="26" height="22" rx="5" fill="#BB842F" transform="translate(1 2)"/><rect x="27" y="31" width="26" height="22" rx="5" fill={paint("gold")}/>
       <circle cx="40" cy="40" r="3" fill="#9E6929"/><path d="M40 41v5" stroke="#9E6929" strokeWidth="3" strokeLinecap="round"/>
       <path d="M31 36h4" stroke="#FFF1BE" strokeWidth="2" strokeLinecap="round"/>
+    </>}
+
+    {kind === "private-file" && <>
+      <g transform="rotate(-7 37 39)">
+        <path d="M19 10h29l14 14v39a6 6 0 0 1-6 6H19a6 6 0 0 1-6-6V16a6 6 0 0 1 6-6Z" fill="#4389B4" transform="translate(2 3)"/>
+        <path d="M19 8h29l14 14v39a6 6 0 0 1-6 6H19a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6Z" fill={paint("paper")}/>
+        <path d="M48 8v10a4 4 0 0 0 4 4h10" fill="#8DCCED"/>
+        <path d="M23 26h13m-13 9h25m-25 9h17" stroke="#64ACD5" strokeWidth="3" strokeLinecap="round"/>
+      </g>
+      <path d="M47 45v-7a8 8 0 0 1 16 0v7" stroke="#246C99" strokeWidth="5"/>
+      <rect x="41" y="42" width="28" height="24" rx="6" fill="#2E8293" transform="translate(1 3)"/>
+      <rect x="40" y="41" width="28" height="24" rx="6" fill={paint("mint")}/>
+      <circle cx="54" cy="51" r="3" fill="#236779"/><path d="M54 53v5" stroke="#236779" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M45 46h5" stroke="#F4FFF5" strokeWidth="2" strokeLinecap="round"/>
+    </>}
+
+    {kind === "account-delete" && <>
+      <circle cx="30" cy="26" r="14" fill="#1B5698" transform="translate(1 3)"/>
+      <circle cx="29" cy="24" r="14" fill={paint("blue")}/>
+      <path d="M8 60a22 22 0 0 1 44 0v6H8v-6Z" fill="#1B5698" transform="translate(1 3)"/>
+      <path d="M7 58a22 22 0 0 1 44 0v7H7v-7Z" fill={paint("blue")}/>
+      <path d="M15 50a15 15 0 0 1 10-7M20 20a9 9 0 0 1 7-5" stroke="#BDEAFF" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="m45 39 3 29h21l3-29" fill="#B87C32" transform="translate(1 2)"/>
+      <path d="m43 37 3 29h21l3-29" fill={paint("gold")}/>
+      <rect x="40" y="32" width="33" height="7" rx="3" fill="#F5BB59"/>
+      <path d="M50 32v-5h13v5" stroke="#CD933D" strokeWidth="3" strokeLinejoin="round"/>
+      <path d="m51 44 1 15m10-15-1 15" stroke="#FFF0BC" strokeWidth="3" strokeLinecap="round"/>
     </>}
 
     {kind === "settings" && <>

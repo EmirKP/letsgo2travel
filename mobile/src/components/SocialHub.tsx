@@ -10,6 +10,7 @@ import { Sheet } from "./Sheet";
 import { SocialComposer } from "./SocialComposer";
 import { SocialPhoto } from "./SocialPhoto";
 import { ForumTranslation } from "./ForumTranslation";
+import emptyTravelPhoto from "../assets/editorial/social-empty-camera.webp";
 import "./social.css";
 
 type SocialContext = {
@@ -18,7 +19,7 @@ type SocialContext = {
   onBlocked?: (userId: string) => void;
 };
 
-export function SocialHub(props: SocialContext & { revision?: number; initialPostId?: string; onIntentHandled?: () => void }) {
+export function SocialHub(props: SocialContext & { revision?: number; initialPostId?: string; initialCommentId?: string; onIntentHandled?: () => void }) {
   const { copy } = useI18n();
   const [feed, setFeed] = useState<"discover" | "following">("discover");
   const [compose, setCompose] = useState(false);
@@ -26,8 +27,9 @@ export function SocialHub(props: SocialContext & { revision?: number; initialPos
   const [collection, setCollection] = useState<SocialCollection | null>(null);
   const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState("");
+  const [requestedComment, setRequestedComment] = useState<string | undefined>();
   const [requestedPost, setRequestedPost] = useState<string | undefined>();
-  useEffect(() => { if (props.initialPostId) { setCollection(null); setFeed("discover"); setRequestedPost(props.initialPostId); } }, [props.initialPostId]);
+  useEffect(() => { if (props.initialPostId) { setCollection(null); setFeed("discover"); setRequestedPost(props.initialPostId); setRequestedComment(props.initialCommentId); } }, [props.initialPostId, props.initialCommentId]);
   return <div className="social-hub">
     <div className="social-hub-heading"><div><span className="social-eyebrow">{copy("GEZGİNLERDEN", "FROM TRAVELLERS", "NGA UDHËTARËT")}</span><h2>{copy("Yoldan hikâyeler", "Stories from the road", "Histori nga rruga")}</h2></div><button type="button" className="social-icon-button" aria-label={copy("Koleksiyonlarım", "My collections", "Koleksionet e mia")} onClick={() => props.userId && props.accessToken ? setCollections(true) : props.onOpenAccount()}><Icon name="bookmark" size={22}/></button></div>
     <button type="button" className="social-share-entry" onClick={() => props.userId && props.accessToken ? setCompose(true) : props.onOpenAccount()}><span><Icon name="camera" size={23}/></span><div><strong>{copy("Bir anını paylaş", "Share a moment", "Ndaj një çast")}</strong><small>{copy("Fotoğrafın, hikâyen, keşfettiğin yer", "Your photo, your story, your discovery", "Fotografia, historia dhe zbulimi yt")}</small></div><Icon name="plus" size={20}/></button>
@@ -37,9 +39,9 @@ export function SocialHub(props: SocialContext & { revision?: number; initialPos
     </div>
     {collection && <div className="social-collection-heading"><h3>{collection.name}</h3><button type="button" className="social-text-button" onClick={() => setCollection(null)}>{copy("Akışa dön", "Back to feed", "Kthehu te rrjedha")}</button></div>}
     {notice && <p className="social-notice" role="status">{notice}</p>}
-    {feed === "following" && !props.userId ? <SocialEmpty icon="users" title={copy("Gezginleri takip et", "Follow travellers", "Ndiq udhëtarët")} text={copy("Takip ettiğin kişilerin fotoğrafları burada görünür.", "Photos from people you follow appear here.", "Fotot e personave që ndjek shfaqen këtu.")}><button type="button" className="secondary-wide" onClick={props.onOpenAccount}>{copy("Giriş yap", "Sign in", "Hyr")}</button></SocialEmpty> : <SocialBrowser key={`${props.userId || "guest"}:${feed}:${collection?.id || "feed"}`} {...props} feed={feed} collectionId={collection?.id} revision={revision + (props.revision || 0)} initialPostId={feed === "discover" && !collection ? requestedPost : undefined} onIntentHandled={() => { setRequestedPost(undefined); props.onIntentHandled?.(); }} />}
+    {feed === "following" && !props.userId ? <SocialEmpty icon="users" title={copy("Gezginleri takip et", "Follow travellers", "Ndiq udhëtarët")} text={copy("Takip ettiğin kişilerin fotoğrafları burada görünür.", "Photos from people you follow appear here.", "Fotot e personave që ndjek shfaqen këtu.")}><button type="button" className="secondary-wide" onClick={props.onOpenAccount}>{copy("Giriş yap", "Sign in", "Hyr")}</button></SocialEmpty> : <SocialBrowser key={`${props.userId || "guest"}:${feed}:${collection?.id || "feed"}`} {...props} feed={feed} collectionId={collection?.id} revision={revision + (props.revision || 0)} initialPostId={feed === "discover" && !collection ? requestedPost : undefined} initialCommentId={requestedComment} onIntentHandled={() => { setRequestedPost(undefined); props.onIntentHandled?.(); }} />}
     {compose && props.userId && props.accessToken && <SocialComposer ownerId={props.userId} accessToken={props.accessToken} onClose={() => setCompose(false)} onPublished={() => { setCompose(false); setNotice(copy("Gönderin alındı. İnceleme durumunu profilinde görebilirsin.", "Post received. You can see its review status on your profile.", "Postimi u mor. Mund të shohësh gjendjen e shqyrtimit në profil.")); setRevision(value => value + 1); }}/>}
-    {collections && props.accessToken && <CollectionsSheet accessToken={props.accessToken} onClose={() => setCollections(false)} onSelect={value => { setCollection(value); setCollections(false); }}/>}
+    {collections && props.accessToken && <CollectionsSheet accessToken={props.accessToken} onClose={() => setCollections(false)} onSelect={value => { setFeed("discover"); setCollection(value); setCollections(false); }}/>}
   </div>;
 }
 
@@ -47,12 +49,13 @@ export function SocialGallery(props: SocialContext & { authorRef: string; revisi
   return <SocialBrowser key={`${props.authorRef}:${props.userId || "guest"}`} {...props} gallery />;
 }
 
-function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, authorRef, feed = "discover", collectionId, gallery = false, revision = 0, initialPostId, onIntentHandled }: SocialContext & { authorRef?: string; feed?: "discover" | "following"; collectionId?: string; gallery?: boolean; revision?: number; initialPostId?: string; onIntentHandled?: () => void }) {
+function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, authorRef, feed = "discover", collectionId, gallery = false, revision = 0, initialPostId, initialCommentId, onIntentHandled }: SocialContext & { authorRef?: string; feed?: "discover" | "following"; collectionId?: string; gallery?: boolean; revision?: number; initialPostId?: string; initialCommentId?: string; onIntentHandled?: () => void }) {
   const { copy } = useI18n();
   const [page, setPage] = useState<SocialPage>({ items: [], nextOffset: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [focusComment, setFocusComment] = useState<string | undefined>();
   const [detailId, setDetailId] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ post: SocialPost; until: string } | null>(null);
   const [restoring, setRestoring] = useState(false);
@@ -60,12 +63,12 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
   const more = useRef<AbortController | null>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; more.current?.abort(); }; }, []);
-  useEffect(() => { if (initialPostId) { setDetailId(initialPostId); onIntentHandled?.(); } }, [initialPostId]);
+  useEffect(() => { if (initialPostId) { setDetailId(initialPostId); setFocusComment(initialCommentId); onIntentHandled?.(); } }, [initialPostId, initialCommentId]);
   useEffect(() => {
     const controller = new AbortController();
     more.current?.abort(); more.current = null;
     setLoading(true); setError("");
-    void socialRead<SocialPage>({ feed, authorRef, collectionId, offset: 0 }, accessToken, controller.signal).then(data => {
+    void socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: 0 }, accessToken, controller.signal).then(data => {
       if (!controller.signal.aborted) setPage(data);
     }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setPage({ items: [], nextOffset: null }); setError(copy("Gönderiler yüklenemedi. Tekrar deneyebilirsin.", "Could not load posts. You can try again.", "Postimet nuk u ngarkuan. Mund të provosh sërish.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -80,7 +83,7 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
     const controller = new AbortController(); more.current = controller;
     setLoading(true); setError("");
     try {
-      const next = await socialRead<SocialPage>({ feed, authorRef, collectionId, offset: page.nextOffset }, accessToken, controller.signal);
+      const next = await socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: page.nextOffset }, accessToken, controller.signal);
       if (!controller.signal.aborted) setPage(previous => ({ items: mergeSocialItems(previous.items, next.items), nextOffset: next.nextOffset }));
     } catch { if (!controller.signal.aborted) setError(copy("Diğer gönderiler yüklenemedi.", "Could not load more posts.", "Postimet e tjera nuk u ngarkuan.")); }
     finally { if (more.current === controller) { more.current = null; if (alive.current) setLoading(false); } }
@@ -96,31 +99,31 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
     {loading && !page.items.length && <div className="social-loading" role="status"><span className="button-loader dark"/>{copy("Gönderiler yükleniyor…", "Loading posts…", "Duke ngarkuar postimet…")}</div>}
     {!loading && !error && !page.items.length && <SocialEmpty icon={gallery ? "camera" : "compass"} title={copy("Henüz gönderi yok", "No posts yet", "Ende nuk ka postime")} text={gallery ? copy("Bu gezginin fotoğrafları burada görünecek.", "This traveller's photos will appear here.", "Fotot e këtij udhëtari do të shfaqen këtu.") : collectionId ? copy("Beğendiğin gönderileri bu koleksiyona kaydet.", "Save posts you like to this collection.", "Ruaj postimet që pëlqen në këtë koleksion.") : feed === "following" ? copy("Gezgin profillerini takip ederek akışını oluştur.", "Follow traveller profiles to build your feed.", "Ndiq profile udhëtarësh për të krijuar rrjedhën tënde.") : copy("İlk seyahat fotoğrafını paylaşarak başla.", "Start by sharing your first travel photo.", "Fillo duke ndarë foton e parë të udhëtimit.")}/>}
     <div className={gallery ? "social-gallery" : "social-post-list"}>{page.items.map(post => gallery ? <div className="social-gallery-tile" key={post.id}>
-      <SocialPhoto photoUrl={post.photoUrl} accessToken={accessToken || ""} alt={post.caption || post.place?.name || copy("Gönderiyi aç", "Open post", "Hap postimin")} onOpen={() => setDetailId(post.id)}/>
+      <SocialPhoto photoUrl={post.photoUrl} accessToken={accessToken || ""} alt={post.caption || post.place?.name || copy("Gönderiyi aç", "Open post", "Hap postimin")} onOpen={() => { setFocusComment(undefined); setDetailId(post.id); }}/>
       {post.status !== "published" && <span className="social-gallery-status">{copy("İncelemede", "In review", "Në shqyrtim")}</span>}
     </div> : <article className="social-card" key={post.id}>
       <SocialAuthorButton post={post} onOpenProfile={onOpenProfile}/>
-      <SocialPhoto photoUrl={post.photoUrl} accessToken={accessToken || ""} alt={post.caption || post.place?.name || copy("Seyahat fotoğrafı", "Travel photo", "Foto udhëtimi")} onOpen={() => setDetailId(post.id)}/>
-      <div className="social-card-summary">{post.status === "pending" && <span className="social-muted">{copy("İncelemede · Yalnızca sen görüyorsun", "In review · Only visible to you", "Në shqyrtim · Vetëm ti e sheh")}</span>}<button type="button" className="social-card-engagement" onClick={() => setDetailId(post.id)}><Icon name="heart" size={21}/><span>{post.likeCount}</span><Icon name="message" size={21}/><span>{post.commentCount}</span><span className="sr-only">{copy("Gönderiyi ve yorumları aç", "Open post and comments", "Hap postimin dhe komentet")}</span></button>{post.caption && <p>{post.caption}</p>}{post.place && <button type="button" className="social-place" onClick={() => setDetailId(post.id)}><Icon name="map" size={15}/>{post.place.name}</button>}</div>
+      <SocialPhoto photoUrl={post.photoUrl} accessToken={accessToken || ""} alt={post.caption || post.place?.name || copy("Seyahat fotoğrafı", "Travel photo", "Foto udhëtimi")} onOpen={() => { setFocusComment(undefined); setDetailId(post.id); }}/>
+      <div className="social-card-summary">{post.status === "pending" && <span className="social-muted">{copy("İncelemede · Yalnızca sen görüyorsun", "In review · Only visible to you", "Në shqyrtim · Vetëm ti e sheh")}</span>}<button type="button" className="social-card-engagement" onClick={() => { setFocusComment(undefined); setDetailId(post.id); }}><Icon name="heart" size={21}/><span>{post.likeCount}</span><Icon name="message" size={21}/><span>{post.commentCount}</span><span className="sr-only">{copy("Gönderiyi ve yorumları aç", "Open post and comments", "Hap postimin dhe komentet")}</span></button>{post.caption && <p>{post.caption}</p>}{post.place && <button type="button" className="social-place" onClick={() => { setFocusComment(undefined); setDetailId(post.id); }}><Icon name="map" size={15}/>{post.place.name}</button>}</div>
     </article>)}</div>
     {error && <div className="social-error" role="alert"><p>{error}</p><button type="button" className="social-text-button" disabled={loading} onClick={() => setAttempt(value => value + 1)}>{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
     {page.nextOffset !== null && <button type="button" className="secondary-wide" disabled={loading} onClick={() => void loadMore()}>{copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
     {undo && <div className="social-undo" role="status"><span>{copy("Gönderi silindi", "Post deleted", "Postimi u fshi")}</span><button type="button" disabled={restoring} onClick={() => void restore()}>{copy("Geri al", "Undo", "Zhbëj")}</button></div>}
     {blocked && <p role="status" className="social-notice">{copy("Kullanıcı engellendi. Engellenenler bölümünden geri alabilirsin.", "User blocked. You can undo this in Blocked users.", "Përdoruesi u bllokua. Mund ta zhbësh te Përdoruesit e bllokuar.")}</p>}
-    {detailId && <SocialPostSheet key={`${detailId}:${userId || "guest"}`} postId={detailId} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={blockedId => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.author.userId !== blockedId) })); setDetailId(null); setBlocked(true); setAttempt(value => value + 1); onBlocked?.(blockedId); }} onClose={() => setDetailId(null)} onChanged={post => setPage(previous => ({ ...previous, items: previous.items.map(item => item.id === post.id ? post : item) }))} onDeleted={(post, until) => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.id !== post.id) })); setDetailId(null); setUndo({ post, until }); }}/>}
+    {detailId && <SocialPostSheet key={`${detailId}:${userId || "guest"}`} postId={detailId} focusCommentId={focusComment} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={blockedId => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.author.userId !== blockedId) })); setDetailId(null); setBlocked(true); setAttempt(value => value + 1); onBlocked?.(blockedId); }} onClose={() => { setDetailId(null); setFocusComment(undefined); }} onChanged={post => setPage(previous => ({ ...previous, items: previous.items.map(item => item.id === post.id ? post : item) }))} onDeleted={(post, until) => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.id !== post.id) })); setDetailId(null); setUndo({ post, until }); }}/>}
   </div>;
 }
 
 function SocialAuthorButton({ post, onOpenProfile }: { post: SocialPost; onOpenProfile: (key: string) => void }) {
   const { copy, dateLocale } = useI18n();
-  return <header className="social-author-row"><button type="button" onClick={() => onOpenProfile(post.author.key)}><CommunityAvatar username={post.author.username} avatarUrl={post.author.avatarUrl} size="medium"/><span><strong>@{post.author.username}</strong><small>{post.visibility === "followers" ? <><Icon name="lock" size={12}/>{copy("Takipçiler", "Followers", "Ndjekësit")} · </> : null}<time dateTime={post.createdAt}>{formatAppDate(new Date(post.createdAt), dateLocale, { day: "numeric", month: "short" })}</time></small></span></button></header>;
+  return <header className="social-author-row"><button type="button" onClick={() => onOpenProfile(post.author.key)}><CommunityAvatar username={post.author.username} avatarUrl={post.author.avatarUrl} size="medium"/><span><strong>@{post.author.username}</strong><small>{post.editorial && <>{copy("LetsGo2Travel seçkisi", "LetsGo2Travel editorial", "Përzgjedhje nga LetsGo2Travel")} · </>}{post.visibility === "followers" ? <><Icon name="lock" size={12}/>{copy("Takipçiler", "Followers", "Ndjekësit")} · </> : null}<time dateTime={post.createdAt}>{formatAppDate(new Date(post.createdAt), dateLocale, { day: "numeric", month: "short" })}</time></small></span></button></header>;
 }
 
 function SocialEmpty({ icon, title, text, children }: { icon: "camera" | "compass" | "users"; title: string; text: string; children?: React.ReactNode }) {
-  return <div className="social-empty"><span><Icon name={icon} size={31}/></span><h3>{title}</h3><p>{text}</p>{children}</div>;
+  return <div className="social-empty">{icon === "users" ? <span><Icon name={icon} size={31}/></span> : <img className="social-empty-art" src={emptyTravelPhoto} alt="" width={172} height={172}/>}<h3>{title}</h3><p>{text}</p>{children}</div>;
 }
 
-function SocialPostSheet({ postId, accessToken, userId, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, onClose, onChanged, onDeleted }: SocialContext & { postId: string; onClose: () => void; onChanged: (post: SocialPost) => void; onDeleted: (post: SocialPost, until: string) => void }) {
+function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, onClose, onChanged, onDeleted }: SocialContext & { postId: string; focusCommentId?: string; onClose: () => void; onChanged: (post: SocialPost) => void; onDeleted: (post: SocialPost, until: string) => void }) {
   const { copy, dateLocale } = useI18n();
   const [detail, setDetail] = useState<SocialDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,6 +132,11 @@ function SocialPostSheet({ postId, accessToken, userId, onOpenAccount, onOpenPro
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState<SocialComment | null>(null);
   const [body, setBody] = useState("");
+  const [editing, setEditing] = useState<SocialComment | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [deleteComment, setDeleteComment] = useState<SocialComment | null>(null);
+  const focusedComment = useRef<HTMLElement | null>(null);
+  const focusedOnce = useRef(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [report, setReport] = useState<SocialComment | "post" | null>(null);
@@ -141,9 +149,15 @@ function SocialPostSheet({ postId, accessToken, userId, onOpenAccount, onOpenPro
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError("");
-    void socialRead<SocialDetail>({ postId }, accessToken, controller.signal).then(data => { if (!controller.signal.aborted) setDetail(data); }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setDetail(null); setError(copy("Gönderi açılamadı. Silinmiş veya görünürlüğü değişmiş olabilir.", "Could not open this post. It may have been removed or its visibility changed.", "Postimi nuk u hap. Mund të jetë hequr ose dukshmëria të ketë ndryshuar.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    void socialRead<SocialDetail>({ postId, commentId: focusCommentId }, accessToken, controller.signal).then(data => { if (!controller.signal.aborted) setDetail(data); }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setDetail(null); setError(copy("Gönderi açılamadı. Silinmiş veya görünürlüğü değişmiş olabilir.", "Could not open this post. It may have been removed or its visibility changed.", "Postimi nuk u hap. Mund të jetë hequr ose dukshmëria të ketë ndryshuar.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [postId, accessToken, attempt, copy]);
+  }, [postId, focusCommentId, accessToken, attempt, copy]);
+  useEffect(() => {
+    if (detail && focusedComment.current && !focusedOnce.current) {
+      focusedOnce.current = true;
+      focusedComment.current.scrollIntoView({block:"center",behavior:"auto"}); focusedComment.current.focus({preventScroll:true});
+    }
+  }, [detail]);
   const authenticated = () => { if (userId && accessToken) return true; onOpenAccount(); return false; };
   const updatePost = (post: SocialPost) => { setDetail(previous => previous ? { ...previous, post } : previous); onChanged(post); };
   const perform = async (action: () => Promise<void>) => {
@@ -169,6 +183,12 @@ function SocialPostSheet({ postId, accessToken, userId, onOpenAccount, onOpenPro
     setDetail(previous => previous ? { post: { ...previous.post, commentCount: previous.post.commentCount + (previous.comments.items.some(item => item.id === comment.id) ? 0 : 1) }, comments: { ...previous.comments, items: mergeSocialItems(previous.comments.items, [comment]) } } : previous);
     onChanged({ ...detail.post, commentCount: detail.post.commentCount + 1 });
     setBody(""); setReply(null); commentId.current = createId(); lastComment.current = "";
+  });
+  const changeComment = (action: "comment-edit" | "comment-delete", comment: SocialComment) => void perform(async () => {
+    const updated = await socialWrite<SocialDetail>(action, {postId,commentId:comment.id,...(action === "comment-edit" ? {body:editBody.trim()} : {})}, accessToken!);
+    if (!alive.current) return;
+    setDetail(updated); onChanged(updated.post); setEditing(null); setDeleteComment(null);
+    if (reply?.id === comment.id) setReply(null);
   });
   const remove = () => void perform(async () => {
     if (!detail) return;
@@ -199,7 +219,17 @@ function SocialPostSheet({ postId, accessToken, userId, onOpenAccount, onOpenPro
         {deleteConfirm && <div className="social-confirm"><p>{copy("Gönderi silinsin mi? Ardından 30 saniye içinde geri alabilirsin.", "Delete this post? You can undo within 30 seconds.", "Ta fshish postimin? Mund ta zhbësh brenda 30 sekondave.")}</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setDeleteConfirm(false)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="secondary-button" disabled={busy} onClick={remove}>{copy("Sil", "Delete", "Fshi")}</button></div></div>}
         {detail.post.status === "published" && <><section className="social-comments" aria-label={copy("Yorumlar", "Comments", "Komentet")}><h3>{copy("Yorumlar", "Comments", "Komentet")}</h3>
           {!detail.comments.items.length && <p className="social-muted">{copy("İlk yorumu sen yaz.", "Write the first comment.", "Shkruaj komentin e parë.")}</p>}
-          {detail.comments.items.map(comment => <article className={`social-comment${comment.parentId ? " is-reply" : ""}`} key={comment.id}><button type="button" className="social-comment-author" onClick={() => { onClose(); onOpenProfile(comment.author.key); }}><CommunityAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} size="small"/><strong>@{comment.author.username}</strong></button><ForumTranslation text={comment.body} accessToken={accessToken || ""} onSignIn={onOpenAccount}><p>{comment.body}</p></ForumTranslation>{comment.status !== "published" && <small className="social-muted">{copy("İncelemede", "In review", "Në shqyrtim")}</small>}<footer><time dateTime={comment.createdAt}>{formatAppDate(new Date(comment.createdAt), dateLocale, { day: "numeric", month: "short" })}</time><button type="button" disabled={comment.status !== "published"} onClick={() => { if (authenticated()) { setReply(comment); input.current?.focus(); } }}>{copy("Yanıtla", "Reply", "Përgjigju")}</button>{comment.author.userId !== userId && <button type="button" aria-label={copy("Yorumu bildir", "Report comment", "Raporto komentin")} onClick={() => { if (authenticated()) setReport(comment); }}><Icon name="flag" size={14}/></button>}</footer></article>)}
+          {detail.comments.items.map(comment => <article className={`social-comment${comment.parentId ? " is-reply" : ""}${comment.id === focusCommentId ? " is-notification-target" : ""}`} key={comment.id} tabIndex={comment.id === focusCommentId ? -1 : undefined} ref={comment.id === focusCommentId ? focusedComment : undefined}>
+            <button type="button" className="social-comment-author" onClick={() => { onClose(); onOpenProfile(comment.author.key); }}><CommunityAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} size="small"/><strong>@{comment.author.username}</strong></button>
+            {comment.isDeleted ? <p className="social-muted">{copy("Bu yorum silindi.", "This comment was deleted.", "Ky koment u fshi.")}</p> : <ForumTranslation text={comment.body} accessToken={accessToken || ""} onSignIn={onOpenAccount}><p>{comment.body}</p></ForumTranslation>}
+            {!comment.isDeleted && comment.status !== "published" && <small className="social-muted">{copy("İncelemede", "In review", "Në shqyrtim")}</small>}
+            <footer><time dateTime={comment.createdAt}>{formatAppDate(new Date(comment.createdAt), dateLocale, { day: "numeric", month: "short" })}</time>{comment.editedAt && !comment.isDeleted && <span>{copy("Düzenlendi", "Edited", "Redaktuar")}</span>}
+            {!comment.isDeleted && <><button type="button" disabled={busy || comment.status !== "published"} onClick={() => { if (authenticated()) { setReply(comment); input.current?.focus(); } }}>{copy("Yanıtla", "Reply", "Përgjigju")}</button>
+              {comment.isOwn ? <><button type="button" disabled={busy} onClick={() => { setEditing(comment); setEditBody(comment.body); setDeleteComment(null); }}>{copy("Düzenle", "Edit", "Redakto")}</button><button type="button" disabled={busy} onClick={() => { setDeleteComment(comment); setEditing(null); }}>{copy("Sil", "Delete", "Fshi")}</button></> : <button type="button" aria-label={copy("Yorumu bildir", "Report comment", "Raporto komentin")} onClick={() => { if (authenticated()) setReport(comment); }}><Icon name="flag" size={14}/></button>}</>}
+            </footer>
+            {editing?.id === comment.id && <form className="social-comment-form" onSubmit={event => {event.preventDefault();changeComment("comment-edit",comment);}}><label>{copy("Yorumu düzenle", "Edit comment", "Redakto komentin")}<textarea value={editBody} onChange={event => setEditBody(event.target.value)} maxLength={2000} disabled={busy}/></label><div className="social-comment-edit-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => setEditing(null)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="submit" className="primary-button" disabled={busy || !editBody.trim()}>{copy("Kaydet", "Save changes", "Ruaj ndryshimet")}</button></div></form>}
+            {deleteComment?.id === comment.id && <div className="social-confirm"><p>{copy("Yorumun silinsin mi? Yanıtlar kalır, yorum metnin kaldırılır.", "Delete your comment? Replies stay, but your comment text is removed.", "Ta fshish komentin? Përgjigjet mbeten, por teksti yt hiqet.")}</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setDeleteComment(null)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="secondary-button" disabled={busy} onClick={() => changeComment("comment-delete",comment)}>{copy("Yorumu sil", "Delete comment", "Fshi komentin")}</button></div></div>}
+          </article>)}
           {detail.comments.nextOffset !== null && <button type="button" className="secondary-wide" disabled={busy} onClick={() => void loadMore()}>{copy("Diğer yorumlar", "More comments", "Më shumë komente")}</button>}
         </section>
         {userId && accessToken ? <form className="social-comment-form" onSubmit={event => { event.preventDefault(); sendComment(); }}>{reply && <div className="social-reply-target"><span>{copy(`@${reply.author.username} için yanıt`, `Replying to @${reply.author.username}`, `Përgjigje për @${reply.author.username}`)}</span><button type="button" aria-label={copy("Yanıtı iptal et", "Cancel reply", "Anulo përgjigjen")} onClick={() => setReply(null)}><Icon name="close" size={16}/></button></div>}<label>{copy("Yorumun", "Your comment", "Komenti yt")}<textarea ref={input} rows={2} value={body} maxLength={2000} disabled={busy} onChange={event => setBody(event.target.value)} placeholder={copy("Bir yorum yaz…", "Write a comment…", "Shkruaj një koment…")}/></label><button type="submit" className="primary-wide" disabled={busy || !body.trim()}>{copy("Gönder", "Send", "Dërgo")}</button></form> : <button type="button" className="secondary-wide" onClick={onOpenAccount}>{copy("Yorum yazmak için giriş yap", "Sign in to comment", "Hyr për të komentuar")}</button>}</>}
@@ -270,7 +300,9 @@ function ReportSheet({ accessToken, postId, commentId, onClose, onReported, onBl
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const submit = async () => {
-    if (pending.current) return; pending.current = true; setBusy(true); setError("");
+    if (pending.current) return;
+    if (reason === "other" && details.trim().length < 5) { setError(copy("Lütfen en az 5 karakterlik bir açıklama yaz.", "Please enter at least 5 characters of detail.", "Shkruaj të paktën 5 karaktere sqarimi.")); return; }
+    pending.current = true; setBusy(true); setError("");
     try { await socialWrite("report", { postId, commentId, reason, details: details.trim() }, accessToken); if (alive.current) onReported(); }
     catch { if (alive.current) setError(copy("Bildirim gönderilemedi. Tekrar dene.", "Could not send report. Try again.", "Raportimi nuk u dërgua. Provo sërish.")); }
     finally { pending.current = false; if (alive.current) setBusy(false); }
@@ -281,7 +313,7 @@ function ReportSheet({ accessToken, postId, commentId, onClose, onReported, onBl
     catch { if (alive.current) setError(copy("Kullanıcı engellenemedi. Tekrar dene.", "Could not block this user. Try again.", "Përdoruesi nuk u bllokua. Provo sërish.")); }
     finally { pending.current = false; if (alive.current) setBusy(false); }
   };
-  return <Sheet open title={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")} onClose={onClose} dismissible={!busy} className="social-sheet"><form className="social-report" onSubmit={event => { event.preventDefault(); void submit(); }}><label>{copy("Bildirme nedeni", "Report reason", "Arsyeja e raportimit")}<select value={reason} disabled={busy} onChange={event => setReason(event.target.value)}><option value="spam">Spam</option><option value="harassment">{copy("Taciz veya zorbalık", "Harassment or bullying", "Ngacmim ose bullizëm")}</option><option value="inappropriate">{copy("Uygunsuz içerik", "Inappropriate content", "Përmbajtje e papërshtatshme")}</option><option value="other">{copy("Diğer", "Other", "Tjetër")}</option></select></label><label>{copy("Açıklama · isteğe bağlı", "Details · optional", "Hollësi · opsionale")}<textarea value={details} maxLength={1000} disabled={busy} onChange={event => setDetails(event.target.value)}/></label><button type="submit" className="primary-wide" disabled={busy}>{copy("Bildir", "Report", "Raporto")}</button></form>
+  return <Sheet open title={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")} onClose={onClose} dismissible={!busy} className="social-sheet"><form className="social-report" onSubmit={event => { event.preventDefault(); void submit(); }}><label>{copy("Bildirme nedeni", "Report reason", "Arsyeja e raportimit")}<select value={reason} disabled={busy} onChange={event => setReason(event.target.value)}><option value="spam">Spam</option><option value="harassment">{copy("Taciz veya zorbalık", "Harassment or bullying", "Ngacmim ose bullizëm")}</option><option value="inappropriate">{copy("Uygunsuz içerik", "Inappropriate content", "Përmbajtje e papërshtatshme")}</option><option value="other">{copy("Diğer", "Other", "Tjetër")}</option></select></label><label>{reason === "other" ? copy("Açıklama · zorunlu, en az 5 karakter", "Details · required, at least 5 characters", "Hollësi · të detyrueshme, të paktën 5 karaktere") : copy("Açıklama · isteğe bağlı", "Details · optional", "Hollësi · opsionale")}<textarea required={reason === "other"} minLength={reason === "other" ? 5 : undefined} value={details} maxLength={1000} disabled={busy} onChange={event => setDetails(event.target.value)}/></label><button type="submit" className="primary-wide" disabled={busy}>{copy("Bildir", "Report", "Raporto")}</button></form>
     <div className="social-block-action">{blockConfirm ? <div className="social-confirm"><p>{copy("Bu kullanıcının gönderileri ve yorumları gizlenecek, karşılıklı takipler kaldırılacak. Engellenenler bölümünden engeli kaldırabilirsin.", "This user's posts and comments will be hidden and mutual follows removed. You can unblock them in Blocked users.", "Postimet dhe komentet do të fshihen nga pamja dhe ndjekjet e ndërsjella do të hiqen. Mund ta zhbllokosh te Përdoruesit e bllokuar.")}</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setBlockConfirm(false)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="secondary-button" disabled={busy} onClick={() => void block()}>{copy("Engelle", "Block", "Blloko")}</button></div></div> : <button type="button" className="secondary-wide" disabled={busy} onClick={() => setBlockConfirm(true)}><Icon name="shield" size={18}/>{copy("Kullanıcıyı engelle", "Block user", "Blloko përdoruesin")}</button>}{error && <p className="social-error" role="alert">{error}</p>}</div>
   </Sheet>;
 }

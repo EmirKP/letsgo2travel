@@ -13,7 +13,7 @@ type WorldPath = { id: string; name: string; d: string; x: number | null; y: num
 
 type TouchPoint = { x: number; y: number };
 
-export type MapStatus = VisaStatus | "unknown";
+export type MapStatus = VisaStatus | "unknown" | "eta" | "restricted" | "domestic";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = MAP_MAX_SCALE;
@@ -24,6 +24,9 @@ const STATUS_FILL: Record<MapStatus, string> = {
   on_arrival: "var(--passport-map-on-arrival, #DCA936)",
   required: "var(--passport-map-required, #D76472)",
   unknown: "var(--passport-map-unknown, #D6DCE5)",
+  eta: "var(--passport-map-eta, #b394ed)",
+  restricted: "var(--passport-map-restricted, #713b4b)",
+  domestic: "var(--passport-map-domestic, #f1f5f9)",
 };
 const PINNED_FLAGS = new Set(["USA", "CAN", "BRA", "ARG", "GBR", "FRA", "DEU", "TUR", "RUS", "CHN", "IND", "JPN", "AUS", "ZAF", "EGY", "SAU", "ARE", "IDN", "XKK"]);
 

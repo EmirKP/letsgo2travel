@@ -1,5 +1,6 @@
 "use client";
 
+import { countApprovedCountries, verifiedExplorerLevel } from "@/lib/leaderboard/verified";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -138,7 +139,7 @@ export default function ProfilPage() {
   const userRankIndex = leaderboard.findIndex(l => l.username === userName);
   const userRank = userRankIndex !== -1 ? userRankIndex + 1 : "-";
   
-  const verifiedCount = verifications.filter(v => v.status === 'approved').length;
+  const verifiedCount = countApprovedCountries(verifications);
 
   return (
     <div className={`l2t-page ${styles.page}`}>
@@ -176,7 +177,7 @@ export default function ProfilPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", borderRadius: "12px", background: "rgba(245, 158, 11, 0.05)", color: "#F59E0B", fontWeight: "700", fontSize: "0.9rem" }}>
               <Award size={18} />
-              {visited.length < 3 ? "Evde Oturan" : visited.length < 10 ? "Gezgin Çırak" : "Evliya Çelebi"}
+              {verifiedExplorerLevel(verifiedCount)}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", borderRadius: "12px", background: "rgba(20, 118, 242, 0.05)", color: "var(--l2t-blue)", fontWeight: "700", fontSize: "0.9rem" }}>
               <Trophy size={18} />
@@ -232,7 +233,7 @@ export default function ProfilPage() {
                       <Globe2 color="var(--l2t-blue)" size={28} /> Seyahat Haritam
                     </h2>
                     <p style={{ color: "var(--l2t-soft)", fontSize: "1rem", margin: 0, maxWidth: "500px", lineHeight: "1.5" }}>
-                      Gittiğin ülkelerin üzerine tıkla. Gezdiğin ve gitmek istediğin yerleri haritada işaretle, doğrulanmış kaşifler arasına katıl!
+                      Gezdiğin ve gitmek istediğin ülkeleri haritanda işaretle. Lig puanı için ziyaret belgenin onaylanması gerekir.
                     </p>
                   </div>
                   <div className={styles.mapSummary}>
@@ -345,7 +346,7 @@ export default function ProfilPage() {
                     <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: isVisited ? "none" : "2px solid #cbd5e1", background: isVisited ? "var(--l2t-blue)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {isVisited && <CheckCircle size={16} color="#fff" />}
                     </div>
-                    Gezdim (Kaşifler Ligi Puanı)
+                    Gezdim (kişisel haritam)
                   </div>
                   <input type="checkbox" checked={isVisited} onChange={() => toggleVisit(selectedCountry.id)} style={{ display: "none" }} />
                 </label>

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { countApprovedCountries } from "../../../lib/leaderboard/verified";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { ProfilePhoto } from "../components/ProfilePhoto";
+import { AppearancePicker } from "../components/AppearancePicker";
+import { TextSizePicker } from "../components/TextSizePicker";
 import { NotificationPreferences } from "../components/NotificationPreferences";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet } from "../components/CommunitySafetySheet";
@@ -178,10 +181,10 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const routes = useMemo(() => getSavedRoutePlans(ownerId), [ownerId, tick]);
   const rawName = displayName(user);
   const name = !user && rawName === "Misafir Kaşif" ? copy("Misafir Kaşif", "Guest Explorer") : rawName;
-  const level = explorerLevel(visited.length);
+  const approvedCount = countApprovedCountries(verifications);
+  const level = explorerLevel(approvedCount);
   const localizedLevel = level === "Dünya Gezgini" ? copy(level, "World Traveller") : level === "Balkan Kaşifi" ? copy(level, "Balkan Explorer") : level === "Rota Meraklısı" ? copy(level, "Route Enthusiast") : copy(level, "New Explorer");
-  const progress = Math.min(100, Math.max(0, Math.round((visited.length / 25) * 100)));
-  const approvedCount = verifications.filter((item) => item.status === "approved").length;
+  const progress = Math.min(100, Math.max(0, Math.round((approvedCount / 25) * 100)));
   const verificationStatusText = verificationLoading
     ? copy("Doğrulamalar yükleniyor…", "Loading verifications…", "Duke ngarkuar verifikimet…")
     : verificationError ? copy("Doğrulama durumu alınamadı", "Verification status unavailable", "Statusi i verifikimit nuk është i disponueshëm") : "";
@@ -329,7 +332,8 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     <section className="explorer-card">
       <div className="explorer-card-head"><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={48} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
       <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
-      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{visited.length >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - visited.length)} ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - visited.length)} countries to World Traveller`, `Edhe ${Math.max(0, 25 - visited.length)} shtete për Eksplorues të Botës`)}</small></div>
+      <p className="explorer-verification-note">{verificationStatusText || copy(`${approvedCount} doğrulanmış ülke · ${approvedCount * 10} lig puanı`, `${approvedCount} verified countries · ${approvedCount * 10} league points`, `${approvedCount} shtete të verifikuara · ${approvedCount * 10} pikë lige`)}</p>
+      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{approvedCount >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - approvedCount)} doğrulanmış ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - approvedCount)} verified countries to World Traveller`, `Edhe ${Math.max(0, 25 - approvedCount)} shtete për Eksplorues të Botës`)}</small></div>
     </section>
 
     <section className="profile-section">
@@ -364,6 +368,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
         )}
       </div>
       </details>
+      <details className="profile-preference-group"><summary><span className="profile-feature-artwork"><TravelToolArtwork kind="settings" size={48}/></span><span><strong>{copy("Görünüm", "Appearance", "Pamja")}</strong><small>{copy("Tema ve yazı boyutu", "Theme and text size", "Tema dhe madhësia e tekstit")}</small></span><Icon name="chevron" size={18}/></summary><div className="profile-appearance-settings"><AppearancePicker/><TextSizePicker/></div></details>
       {user && accessToken && <details className="profile-preference-group"><summary><span className="profile-feature-artwork"><TravelToolArtwork kind="alerts" size={48}/></span><span><strong>{copy("Bildirim tercihleri","Notification preferences","Preferencat e njoftimeve")}</strong><small>{copy("Yorum, yanıt, takipçi ve fiyat alarmları","Comments, replies, followers and price alerts","Komente, përgjigje, ndjekës dhe çmime")}</small></span><Icon name="chevron" size={18}/></summary><NotificationPreferences key={user.id} accessToken={accessToken}/></details>}
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="privacy" size={56}/></span><span><strong>{copy("Gizlilik ve topluluk", "Privacy & community")}</strong><small>{copy("Görünürlük, engellenenler ve veri hakların", "Visibility, blocked users and your data rights")}</small></span><Icon name="chevron" size={18}/></summary>
