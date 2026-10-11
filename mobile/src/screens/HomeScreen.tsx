@@ -99,6 +99,11 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const labelDate = (value: string) => formatAppDate(new Date(value + "T12:00:00"), dateLocale, { day: "numeric", month: "short" });
   const tools = appTools(locale);
   const features = shortcuts.views.flatMap(id => { const tool = tools.find(item => item.id === id); return tool ? [tool] : []; });
+  const compactShortcutLabels: Record<string, string> = {
+    route: copy("Rota", "Route", "Itinerar"), explore: copy("Ülkeler", "Explore", "Shtete"),
+    passport: copy("Vize", "Visa", "Viza"), trips: copy("Seyahat", "Trips", "Udhëtime"),
+    companion: copy("Araçlar", "Tools", "Mjete"),
+  };
   return <div className="screen home-screen reference-home">
     <section className="rh-hero" aria-labelledby="rh-title">
       <img className="rh-hero-photo" src={santorini} alt="" fetchPriority="high" width={1448} height={1086}/>
@@ -108,7 +113,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     </section>
     <div className="rh-content">
       <div className="rh-shortcuts-heading"><h2>{copy("Kısayollarım", "My shortcuts", "Shkurtoret e mia")}</h2><button type="button" onClick={() => setEditingShortcuts(true)}><Icon name="settings" size={16}/>{copy("Düzenle", "Edit", "Ndrysho")}</button></div>
-      <nav className="rh-features" style={{ "--shortcut-count": features.length } as CSSProperties} aria-label={copy("Seyahatini planla", "Plan your journey", "Planifiko udhëtimin")}>{features.map(feature => <button key={feature.id} type="button" onClick={() => feature.tool && onOpenTool ? onOpenTool(feature.tool) : onNavigate(feature.view)}><TravelToolArtwork kind={feature.icon} size={68}/><strong>{feature.label}</strong><small>{feature.text}</small></button>)}</nav>
+      <nav className="rh-features" style={{ "--shortcut-count": features.length } as CSSProperties} aria-label={copy("Seyahatini planla", "Plan your journey", "Planifiko udhëtimin")}>{features.map(feature => <button key={feature.id} type="button" aria-label={`${feature.label} — ${feature.text}`} onClick={() => feature.tool && onOpenTool ? onOpenTool(feature.tool) : onNavigate(feature.view)}><TravelToolArtwork kind={feature.icon} size={68}/><strong><span className="rh-shortcut-full">{feature.label}</span><span className="rh-shortcut-compact">{compactShortcutLabels[feature.id] || feature.label}</span></strong><small>{feature.text}</small></button>)}</nav>
       <section className={`rh-personal-banner${nextTrip ? " rh-has-trip" : ""}`} aria-labelledby="rh-personal-title" aria-busy={loading}><img src={coastal} alt="" width={1600} height={533} loading="lazy"/><div className="rh-personal-copy"><p className="rh-eyebrow">{copy(nextTrip ? "SIRADAKİ SEYAHATİN" : "SANA ÖZEL", nextTrip ? "YOUR NEXT TRIP" : "JUST FOR YOU", nextTrip ? "UDHËTIMI YT I RADHËS" : "VETËM PËR TY")}</p><h2 id="rh-personal-title">{nextTrip ? tripTitle : <>{copy("Bir Sonraki Seyahatini", "Ready to Plan")}<br/>{copy("Planlamaya Hazır mısın?", "Your Next Adventure?")}</>}</h2>
         {nextTrip && step ? <><p>{labelDate(nextTrip.startDate)} – {labelDate(nextTrip.endDate)}{step.stage === "preparing" && step.total > 0 ? ` · ${step.completed}/${step.total} ${copy("hazırlık tamam", "tasks ready")}` : ""}</p><button type="button" className="rh-yellow-button" onClick={() => step.stage === "travelling" ? openSaved("places") : openTrip()}>{step.stage === "travelling" ? copy("Bugünün Yerleri", "Today's Places") : step.stage === "wrap-up" ? copy("Seyahati Tamamla", "Finish Trip") : copy("Seyahatimi Aç", "Open My Trip")}<Arrow/></button></> : <><p>{copy("Kişisel öneriler, rotalar ve daha fazlası", "Personal ideas, routes and more")}<br/>{copy("seni bekliyor.", "are waiting for you.")}</p><button type="button" className="rh-yellow-button" onClick={() => onNavigate("route")}>{copy("Hemen Başla", "Get Started")}<Arrow/></button></>}
       </div><p className="rh-banner-handwritten" aria-hidden="true">{copy("İyi yolculuklar", "Happy travels")}<br/><span>{copy("her zaman…", "always…")}</span></p></section>
