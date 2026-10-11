@@ -1,0 +1,45 @@
+LetsGo2Travel — TestFlight 1.4.1 (68)
+
+Kaynak ve paket
+- Dal: feature/travel-companion-polish-20260927.
+- Paket kaynağı: 733bf2642a29563cc9ab0bf418adc6c321a3d657.
+- Codemagic: 6acb3c4e546ce6236ced6fe8 (#21).
+- İş akışı: letsgo2travel-ios-testflight.
+- Sonuç: finished; süre 6 dakika 6 saniye.
+- Sürüm: 1.4.1 (68), tr.com.letsgo2travel.app.
+- Apple upload: 11 Ekim 2026 11:02:48 Europe/Istanbul.
+- Sonuç: UPLOAD SUCCEEDED with no errors.
+- Apple delivery/build ID: 6b863e37-d0d4-4cb5-a7de-0c191f17c22a.
+
+Dağıtım doğrulaması — 11 Ekim 2026 14:24 Europe/Istanbul
+- iOS Builds listesinde build 68, Ready to Submit, 3 invitations.
+- Paket ayrıntısında LetsGo2Travel İç Test, Internal, 3 testers.
+- Türkçe What to Test notları kaydedildi; Saved durumu görüldü.
+- Mevcut iç test grubuna erişim doğrulandı. App Store veya dış beta
+  incelemesi başlatılmadı; fiziksel cihaz kurulumu denenmedi.
+
+Kapsam
+- Resmî @letsgo2travel_app hesabı için sunucu tarafından doğrulanan mavi tik.
+- Forum varsayılan sekmesi, fotoğraflı gönderiler, topluluk etkileşimleri,
+  koleksiyonlar, çeviri ve bildirim akışları.
+- Alarm silme/geri alma ve ağ kesintisi güvenilirliği.
+- Para Merkezi, ülke maliyetleri, konuma göre ilk para birimi seçimi.
+- Pasaport verisi tutarlılığı, kaynak/tarih/koşul gösterimi.
+- Kaşifler Ligi'nde yalnızca onaylı ülke ziyaretlerinin puanlanması.
+- Tema geçişi, kısayol düzenleme, profil boşlukları ve yazı boyutu.
+
+Kontroller
+- Yerel tam npm run test:release başarılı; cloud yayın kontrolleri başarılı.
+- iOS ve Android gömülü arayüz varlıkları paket kaynağında eşitlenmişti.
+- Canlı resmî hesap migration'ı: 20261012140000_official_community_account.sql.
+- Ana API dağıtımı: dpl_Qs1ehfpCNcCG7MjX9YAj2ztmzK2v.
+- Uygulama kaynağı cd3a7dda830d8f17a9c83170b061105b7951df69;
+  bu TestFlight paketinde native eşitleme commit'i 733bf264 kullanıldı.
+- Pasaport kontrolü teknik tutarlılığı doğrular; tüm ülke kurallarının
+  resmî olarak doğrulandığı anlamına gelmez. Bilinmeyenler işaretlidir.
+
+Codemagic
+https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6acb3c4e546ce6236ced6fe8?open-setting=build-overview
+
+Apple
+https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/6b863e37-d0d4-4cb5-a7de-0c191f17c22a
