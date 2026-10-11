@@ -5,7 +5,7 @@ import { serializeQuestionSummary } from "@/lib/community/serializers";
 import { countryCodeFromForumSlug, forumCountrySlugsForCodes } from "@/lib/community/forum-sync";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { communityPhotoTopics } from "@/lib/community/photos";
-import { communityAuthorAvatars } from "@/lib/community/profiles";
+import { communityAuthorAvatars, communityOfficialAuthors } from "@/lib/community/profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +83,11 @@ export async function GET(request: Request) {
     }
 
     const photoTopics = await communityPhotoTopics(supabase, questions || []);
-    const avatars = await communityAuthorAvatars(supabase, questions.map(item => item.author_id), viewer.userId);
+    const authorIds = questions.map(item => item.author_id);
+    const [avatars, officialAuthors] = await Promise.all([
+      communityAuthorAvatars(supabase, authorIds, viewer.userId),
+      communityOfficialAuthors(supabase, authorIds, viewer.userId),
+    ]);
     const data = (questions || []).map((item) => serializeQuestionSummary(
       {
         id: item.id,
@@ -98,6 +102,7 @@ export async function GET(request: Request) {
         is_paywalled: item.is_paywalled,
         status: item.status,
         avatarUrl: item.author_id ? avatars.get(item.author_id) : null,
+        isOfficial: item.author_id ? officialAuthors.has(item.author_id) : false,
       },
       item.author_name,
       answerCounts.get(item.id) || 0,

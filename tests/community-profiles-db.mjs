@@ -12,7 +12,7 @@ async function setup() {
  create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  create function auth.role() returns text language sql stable as $$select current_setting('request.jwt.claim.role',true)$$;
- create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',deleted_at timestamptz);
+ create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}',deleted_at timestamptz);
  create table profiles(id uuid primary key references auth.users(id) on delete cascade,username text,email text,visited_countries text[]);
  insert into auth.users(id) values('${a}'),('${b}'),('${c}');
  insert into profiles values('${a}','alice','private@example.com',array['FR']),('${b}','bob','secret@example.com',array['DE']),('${c}','cara','other@example.com',array['TR']);
@@ -33,6 +33,7 @@ async function setup() {
  await db.exec(read('supabase/seeds/community-starter-replies-20261010.sql'));
  await db.exec(read('supabase/seeds/community-starter-names-20261010.sql'));
  await db.exec(migration);
+ await db.exec(read('supabase/migrations/20261012140000_official_community_account.sql'));
  await db.exec(`insert into forum_topics(id,author_id,author_name,title,content,status,country_slug) values('${topic}','${b}','bob','Real topic','Public body','published','almanya');
  insert into forum_replies(id,topic_id,user_id,author_name,content,status,created_at) values
  ('30000000-0000-4000-8000-000000000001','${topic}','${c}','cara','Reply 1','published','2026-09-01'),

@@ -12,6 +12,7 @@ import { SocialHub } from "../components/SocialHub";
 import { ForumTranslation } from "../components/ForumTranslation";
 import type { SocialPlace } from "../lib/social";
 import { CommunityAvatar } from "../components/CommunityAvatar";
+import { OfficialBadge } from "../components/OfficialBadge";
 import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3 } from "../data/countryIso";
@@ -50,6 +51,7 @@ type CommunityAnswer = {
   username: string;
   authorId: string | null;
   isStarter?: boolean;
+  isOfficial?: boolean;
   profileKey?: string | null;
   avatarUrl?: string | null;
 };
@@ -435,7 +437,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
   const authorButton = (item: CommunityAnswer | CommunityQuestion) => {
     const key = communityProfileKey(item);
-    const content = <><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl}/><strong>@{item.username}</strong></>;
+    const content = <><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl}/><strong>@{item.username}<OfficialBadge isOfficial={item.isOfficial} /></strong></>;
     return key ? <button type="button" className="community-author-button" aria-haspopup="dialog"
       onClick={() => setProfileKey(key)}
       aria-label={copy(`@${item.username} profilini aç`, `Open @${item.username}'s profile`, `Hap profilin e @${item.username}`)}
@@ -457,12 +459,12 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     const accountId = user.id;
     const key = `user:${accountId}`;
     try {
-      const response = await requestJson<{ profile?: { key: string; userId: string | null; username: string; avatarUrl: string | null } }>(`/api/country-community/profiles/${encodeURIComponent(key)}?section=posts&offset=0`, {
+      const response = await requestJson<{ profile?: { key: string; userId: string | null; username: string; avatarUrl: string | null; isOfficial?: boolean } }>(`/api/country-community/profiles/${encodeURIComponent(key)}?section=posts&offset=0`, {
         headers: { Authorization: `Bearer ${accessToken}` }, timeoutMs: 15_000,
       });
       const identity = response.profile;
       if (!active.current || generation !== profileRefreshGeneration.current || identity?.key !== key || identity.userId !== accountId) return;
-      const updated = { username: identity.username, profileKey: key, avatarUrl: identity.avatarUrl };
+      const updated = { username: identity.username, profileKey: key, avatarUrl: identity.avatarUrl, isOfficial: identity.isOfficial === true };
       // Refresh author metadata only. The current discussion, paged answers,
       // reply draft and any in-flight reply submission remain intact.
       setDetail(previous => previous ? { ...previous,

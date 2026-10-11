@@ -8,6 +8,7 @@ import {
 import { useI18n } from "../lib/i18n";
 import { formatAppDate } from "../lib/localeFormatting";
 import { CommunityAvatar } from "./CommunityAvatar";
+import { OfficialBadge } from "./OfficialBadge";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { SocialGallery } from "./SocialHub";
@@ -211,8 +212,8 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
               <span className="community-profile-postcard" aria-hidden="true" />
               <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
             </div>
-            <h2><span>@</span>{profile.username}</h2>
-            <p className="community-profile-role">{copy("Gezgin", "Traveller", "Udhëtar")}</p>
+            <h2><span>@</span>{profile.username}<OfficialBadge isOfficial={profile.isOfficial} /></h2>
+            <p className="community-profile-role">{profile.isOfficial ? copy("Resmî uygulama hesabı", "Official application account", "Llogaria zyrtare e aplikacionit") : copy("Gezgin", "Traveller", "Udhëtar")}</p>
           </div>
           <div className="community-profile-stats">
             <button type="button" aria-pressed={!gallery && section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
@@ -263,7 +264,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         </div>
       </div> : <div className="community-profile-empty"><Icon name={section === "followers" || section === "following" ? "users" : "message"} size={28} /><p>{empty}</p></div>)}
       <div className="community-profile-items">{page?.items.map((item: CommunityProfileItem) => "key" in item
-        ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}</strong><Icon name="chevron" size={18} /></button>
+        ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}<OfficialBadge isOfficial={item.isOfficial} /></strong><Icon name="chevron" size={18} /></button>
         : <article className="community-profile-post" key={profileItemKey(item)}>
           <span className="community-profile-post-meta"><span><Icon name={"questionId" in item ? "message" : "book"} size={15} />{"questionId" in item ? copy("Cevap", "Answer", "Përgjigje") : copy("Paylaşım", "Post", "Postim")}</span><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
           <ForumTranslation text={`${"questionTitle" in item ? item.questionTitle : item.title}\n\n${item.body}`} accessToken={accessToken || ""} onSignIn={onOpenAccount}><div className="community-profile-post-copy"><strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p></div></ForumTranslation><button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>

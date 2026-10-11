@@ -15,12 +15,13 @@ export type CommunityProfile = {
   postCount: number;
   answerCount: number;
   isStarter: boolean;
+  isOfficial?: boolean;
   showAvatar?: boolean;
   safetyTarget?: CommunitySafetyTarget | null;
 };
 export type CommunityProfilePost = { id: string; title: string; body: string; countryCode: string; createdAt: string };
 export type CommunityProfileAnswer = { id: string; questionId: string; questionTitle: string; body: string; createdAt: string };
-export type CommunityProfilePerson = { key: string; userId: string | null; username: string; avatarUrl: string | null };
+export type CommunityProfilePerson = { key: string; userId: string | null; username: string; avatarUrl: string | null; isOfficial?: boolean };
 export type CommunityProfileItem = CommunityProfilePost | CommunityProfileAnswer | CommunityProfilePerson;
 export type CommunityProfilePage = { profile: CommunityProfile; items: CommunityProfileItem[]; nextOffset: number | null };
 

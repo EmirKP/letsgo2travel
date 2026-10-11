@@ -35,6 +35,15 @@ export async function communityAuthorAvatars(db: SupabaseClient, userIds: Array<
   return signedCommunityAvatars(db, data.map(row => ({ userId: row.user_id, avatarPath: row.avatar_path })));
 }
 
+/** Badges come from service-managed account metadata, never a name or editable profile. */
+export async function communityOfficialAuthors(db: SupabaseClient, userIds: Array<string | null | undefined>, viewerId: string | null) {
+  const ids = [...new Set(userIds.filter((id): id is string => typeof id === "string" && COMMUNITY_UUID.test(id)))].slice(0, 250);
+  if (!ids.length) return new Set<string>();
+  const { data, error } = await db.rpc("community_official_authors", { p_users: ids, p_viewer: viewerId });
+  if (error || !Array.isArray(data)) return new Set<string>();
+  return new Set<string>(data.filter(row => typeof row.user_id === "string" && ids.includes(row.user_id)).map(row => row.user_id));
+}
+
 export async function publicCommunityProfile(db: SupabaseClient, input: unknown, section: string) {
   const result = record(input);
   const profile = record(result.profile);
@@ -42,7 +51,8 @@ export async function publicCommunityProfile(db: SupabaseClient, input: unknown,
   const items = Array.isArray(result.items) ? result.items.map(record) : [];
   const avatars = await signedCommunityAvatars(db, [profile, ...items].map(row => ({ userId: row.userId, avatarPath: row.avatarPath })));
   const identity = (row: Row) => ({ key: text(row.key, 80), userId: typeof row.userId === "string" && COMMUNITY_UUID.test(row.userId) ? row.userId : null,
-    username: text(row.username, 80), avatarUrl: typeof row.userId === "string" ? avatars.get(row.userId) || null : null });
+    username: text(row.username, 80), avatarUrl: typeof row.userId === "string" ? avatars.get(row.userId) || null : null,
+    isOfficial: typeof row.userId === "string" && COMMUNITY_UUID.test(row.userId) && row.isOfficial === true });
   const safety = record(profile.safetyTarget);
   return {
     profile: {

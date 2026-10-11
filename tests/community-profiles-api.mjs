@@ -46,6 +46,19 @@ test('avatar errors leave usable profiles; malformed and oversized PATCH bodies 
  assert.deepEqual(copy(await patch({bio:' Hello ',showAvatar:false})),{bio:'Hello',show_avatar:false});
  assert.equal(await patch({bio:'x'.repeat(301)}),null);assert.equal(await patch({showAvatar:'true'}),null);assert.equal(await patch({userId:b,bio:'Hijack'}),null);assert.equal(await patch({bio:'\u0000'}),null);
  assert.equal(await patch({bio:'x'.repeat(3000)}),null);assert.deepEqual(copy(await patch({showAvatar:true})),{show_avatar:true});
+ assert.equal(await patch({isOfficial:true}),null);assert.equal(await patch({bio:'Official',official_account:true}),null);
+});
+
+test('public badges require a strict server boolean and actual account; author lookup fails closed',async()=>{
+ const db={rpc:async(name,args)=>{assert.equal(name,'community_official_authors');assert.deepEqual(copy(args),{p_users:[a,b],p_viewer:b});return{data:[{user_id:a},{user_id:'outside-request'}]};}};
+ assert.deepEqual([...await profiles.communityOfficialAuthors(db,[a,a,null,'invalid',b],b)],[a]);
+ assert.equal((await profiles.communityOfficialAuthors({rpc:async()=>({error:{code:'offline'}})},[a],null)).size,0);
+ const data=await profiles.publicCommunityProfile({}, {profile:{key:`user:${a}`,userId:a,isOfficial:true},items:[{key:`user:${b}`,userId:b,isOfficial:'true'},{key:'starter:duru.kurt',isOfficial:true}]},'followers');
+ assert.equal(data.profile.isOfficial,true);assert.equal(data.items[0].isOfficial,false);assert.equal(data.items[1].isOfficial,false);
+ assert.equal(serializers.serializeAnswer({authorId:a,isOfficial:true},'official').isOfficial,true);
+ assert.equal(serializers.serializeAnswer({authorId:null,isOfficial:true},'official').isOfficial,false);
+ assert.equal(serializers.serializeQuestionSummary({authorId:a,isOfficial:'true'},'official',0).isOfficial,false);
+ assert.equal(serializers.serializeQuestionDetail({authorId:a,isOfficial:true},'official',[]).isOfficial,true);
 });
 
 function routeHarness(path,{userId=a,data=null,rpcError=null}={}){

@@ -17,7 +17,7 @@ async function setup(){
  const db=new PGlite();
  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create function auth.role() returns text language sql stable as $$select current_setting('request.jwt.claim.role',true)$$;
- create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',deleted_at timestamptz);
+ create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}',deleted_at timestamptz);
  create table profiles(id uuid primary key references auth.users(id) on delete cascade,username text);
  insert into auth.users(id) values('${a}'),('${b}'),('${c}'); insert into profiles values('${a}','alice'),('${b}','bob'),('${c}','cara');
  create table forum_topics(id uuid primary key,slug text,title text,content text,author_id uuid,author_name text,country_slug text,category text,status text,is_paywalled boolean default false,created_at timestamptz default now(),seed_key text);
@@ -38,8 +38,68 @@ async function setup(){
  await db.exec(read('supabase/migrations/20261011120000_travel_social_posts.sql'));
  await db.exec(read('supabase/migrations/20261012100000_social_completion.sql'));
  await db.exec(read('supabase/migrations/20261012120000_social_upload_admission.sql'));
+ await db.exec(read('supabase/migrations/20261012140000_official_community_account.sql'));
  return db;
 }
+
+test('official account migration awards only the authorized identity; all public author surfaces carry its badge',async()=>{
+ const db=await setup();try{
+  const official='4cb721f0-d84a-4a0e-9f83-b3e05b67ae88';
+  await db.query("insert into auth.users(id,raw_app_meta_data) values($1,$2)",[official,{editorial_account:true,provider:'email',preserved:'value'}]);
+  await db.query('insert into profiles values($1,$2)',[official,'letsgo2travel_app']);
+  await db.exec(read('supabase/migrations/20261012140000_official_community_account.sql'));
+  const metadata=await val(db,'select raw_app_meta_data from auth.users where id=$1',[official]);
+  assert.deepEqual(metadata,{editorial_account:true,official_account:true,provider:'email',preserved:'value'});
+  assert.equal(await val(db,'select community_account_is_official($1)',[a]),false);
+  assert.equal(await val(db,'select community_account_is_official(null)'),false);
+  await follow(db,a,official);
+  const profile=await val(db,"select get_community_profile($1,$2,'posts',0)",[`user:${official}`,a]);assert.equal(profile.profile.isOfficial,true);
+  const following=await val(db,"select get_community_profile($1,$2,'following',0)",[`user:${a}`,a]);assert.equal(following.items[0].isOfficial,true);
+  assert.deepEqual((await db.query('select * from community_official_authors($1,$2)',[[official,a],a])).rows,[{user_id:official}]);
+  assert.equal((await db.query('select * from community_official_authors($1,$2)',[Array(251).fill(official),a])).rows.length,0);
+  await create(db,official);await publish(db);
+  assert.equal((await get(db,a)).items[0].author.isOfficial,true);
+  const added=await put(db,official,'comment',{postId:post,requestId:comment,body:'Official comment',status:'published'});assert.equal(added.author.isOfficial,true);
+  assert.equal((await get(db,a,{postId:post})).comments.items[0].author.isOfficial,true);
+  await follow(db,official,a);assert.equal((await get(db,a,{section:'notifications'})).items.find(n=>n.kind==='follow').author.isOfficial,true);
+  await db.query('insert into community_user_blocks(user_id,blocked_user_id) values($1,$2)',[a,official]);
+  assert.equal((await db.query('select * from community_official_authors($1,$2)',[[official],a])).rows.length,0);
+  assert.equal(await val(db,'select social_author_json($1,$2)',[official,a]),null);
+ }finally{await db.close();}
+});
+
+test('editable metadata and names cannot self-award the official badge or modify its service authority',async()=>{
+ const db=await setup();try{
+  await db.exec('grant select on auth.users to authenticated; grant update(raw_user_meta_data) on auth.users to authenticated; grant select,update(username) on profiles to authenticated; set role authenticated;');
+  await db.query('update auth.users set raw_user_meta_data=$1 where id=$2',[{official_account:true,editorial_account:true,isOfficial:true,verified:true},a]);
+  await db.query('update profiles set username=$1 where id=$2',['letsgo2travel_app',a]);
+  await assert.rejects(db.query('update auth.users set raw_app_meta_data=$1 where id=$2',[{official_account:true,editorial_account:true},a]),error=>error.code==='42501');
+  await assert.rejects(db.query('select community_account_is_official($1)',[a]),error=>error.code==='42501');
+  await assert.rejects(db.query('select * from community_official_authors($1,null)',[[a]]),error=>error.code==='42501');
+  await assert.rejects(db.query('select social_author_json($1,null)',[a]),error=>error.code==='42501');
+  await db.exec('reset role');
+  assert.equal(await val(db,'select community_account_is_official($1)',[a]),false);
+  assert.equal((await val(db,'select social_author_json($1,null)',[a])).isOfficial,false);
+  for(const metadata of [{official_account:'true',editorial_account:true},{official_account:true,editorial_account:'true'},{official_account:true},{editorial_account:true}]){
+   await db.query('update auth.users set raw_app_meta_data=$1 where id=$2',[metadata,a]);
+   assert.equal(await val(db,'select community_account_is_official($1)',[a]),false);
+  }
+  await db.query('update auth.users set raw_app_meta_data=$1 where id=$2',[{official_account:true,editorial_account:true},a]);
+  assert.equal(await val(db,'select community_account_is_official($1)',[a]),true);
+  await db.query('update auth.users set deleted_at=now() where id=$1',[a]);assert.equal(await val(db,'select community_account_is_official($1)',[a]),false);
+ }finally{await db.close();}
+});
+
+test('migration rejects a mismatching authorized account identity without awarding it',async()=>{
+ const db=await setup();try{
+  const official='4cb721f0-d84a-4a0e-9f83-b3e05b67ae88';
+  await db.query("insert into auth.users(id,raw_app_meta_data) values($1,'{\"editorial_account\":true}')",[official]);
+  await db.query('insert into profiles values($1,$2)',[official,'different.account']);
+  await assert.rejects(db.exec(read('supabase/migrations/20261012140000_official_community_account.sql')),/identity mismatch/);
+  await db.exec('rollback');
+  assert.equal(await val(db,'select community_account_is_official($1)',[official]),false);
+ }finally{await db.close();}
+});
 
 test('photos start pending, publish into real feeds; follower-only access revokes on unfollow and block, including media',async()=>{
  const db=await setup();try{

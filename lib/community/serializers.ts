@@ -38,6 +38,7 @@ export type PublicAnswer = {
   createdAt: string;
   username: string;
   isStarter: boolean;
+  isOfficial: boolean;
   profileKey: string | null;
   avatarUrl: string | null;
 };
@@ -54,6 +55,7 @@ export type PublicQuestionSummary = {
   answerCount: number;
   photoUrl: string | null;
   isStarter: boolean;
+  isOfficial: boolean;
   profileKey: string | null;
   avatarUrl: string | null;
 };
@@ -72,6 +74,7 @@ export function serializeAnswer(row: Unknown, username: string | null | undefine
     isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-reply-20261010-\d{2}-\d{2}$/.test(row.seed_key),
     profileKey: communityProfileKey(row, username, "answer"),
     avatarUrl: avatarUrl(row),
+    isOfficial: publicAuthorId(row.authorId) !== null && row.isOfficial === true,
   };
 }
 
@@ -94,6 +97,7 @@ export function serializeQuestionSummary(
     isStarter: row.authorId === null && typeof row.seed_key === "string" && /^starter-20260930-\d{2}$/.test(row.seed_key),
     profileKey: communityProfileKey(row, username, "question"),
     avatarUrl: avatarUrl(row),
+    isOfficial: publicAuthorId(row.authorId) !== null && row.isOfficial === true,
   };
 }
 
@@ -116,6 +120,7 @@ export function serializeQuestionDetail(
     isStarter: summary.isStarter,
     profileKey: summary.profileKey,
     avatarUrl: summary.avatarUrl,
+    isOfficial: summary.isOfficial,
     answers,
   };
 }

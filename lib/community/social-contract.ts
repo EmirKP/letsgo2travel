@@ -1,7 +1,7 @@
 /** JSON contract shared by mobile, moderation and the authenticated social API. */
 export type SocialVisibility = "public" | "followers";
 export type SocialPlace = { name: string; countryCode?: string; lat?: number; lng?: number };
-export type SocialAuthor = { key: string; userId: string; username: string; avatarUrl: string | null };
+export type SocialAuthor = { key: string; userId: string; username: string; avatarUrl: string | null; isOfficial: boolean };
 export type SocialPost = {
   id: string; author: SocialAuthor; caption: string; visibility: SocialVisibility;
   place: SocialPlace | null; photoUrl: string; createdAt: string;

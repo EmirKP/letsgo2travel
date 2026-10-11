@@ -93,6 +93,7 @@ function harness(initial = {}) {
     '../components/SocialHub': { SocialHub: 'SocialHub' },
     '../components/ForumTranslation': { ForumTranslation: 'ForumTranslation' },
     '../components/CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' },
+    '../components/OfficialBadge': { OfficialBadge: 'OfficialBadge' },
     '../components/CommunitySafetySheet': { CommunityBlocksSheet: 'CommunityBlocksSheet', CommunitySafetySheet: 'CommunitySafetySheet' }, '../components/SupportSheet': { SupportSheet: 'SupportSheet' },
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
     '../lib/communityPreferences': preferences, '../lib/community': community,

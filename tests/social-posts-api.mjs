@@ -35,9 +35,10 @@ test('social parser validates precise positions, privacy, Unicode lengths, comme
 
 test('avatar hydration strips storage paths and signs only consented owned paths',async()=>{
  const paths=[];const db={storage:{from:bucket=>({createSignedUrls:async input=>{assert.equal(bucket,'profile-avatars');paths.push(...input);return{data:input.map(path=>({path,signedUrl:'https://example.com/valid.jpg'}))};}})}};
- const input={items:[{author:{key:`user:${a}`,userId:a,username:'alice',avatarPath:`${a}/${id}.jpg`}},{author:{key:`user:${b}`,userId:b,username:'bob',avatarPath:`${a}/${id}.jpg`}}]};
+ const input={items:[{author:{key:`user:${a}`,userId:a,username:'alice',isOfficial:true,avatarPath:`${a}/${id}.jpg`}},{author:{key:`user:${b}`,userId:b,username:'bob',isOfficial:'true',avatarPath:`${a}/${id}.jpg`}}]};
  const data=await social.hydrateSocialData(db,input);assert.equal(data.items[0].author.avatarUrl,'https://example.com/valid.jpg');assert.equal(data.items[1].author.avatarUrl,null);
  assert.ok(!JSON.stringify(data).includes('avatarPath'));assert.deepEqual(paths,[`${a}/${id}.jpg`]);
+ assert.equal(data.items[0].author.isOfficial,true);assert.equal(data.items[1].author.isOfficial,false);
 });
 
 function harness({user=a,result={items:[],nextOffset:null},rpcError=null,admissionError=null,cleanupIds=[],cleanupError=null,removeError=null,finishError=null,existing=null,uploadError=null,bucketPublic=false,storedPhoto='jpeg'}={}){

@@ -12,6 +12,7 @@ export type CommunityQuestion = {
   answerCount: number;
   photoUrl?: string | null;
   isStarter?: boolean;
+  isOfficial?: boolean;
   profileKey?: string | null;
   avatarUrl?: string | null;
 };
@@ -49,6 +50,7 @@ export function normalizeCommunityQuestion(value: unknown): CommunityQuestion | 
     authorId: communityText(item.authorId, 80) || null,
     answerCount: communityCount(item.answerCount ?? item.answer_count),
     isStarter: item.isStarter === true,
+    isOfficial: item.isOfficial === true,
     profileKey: communityText(item.profileKey, 120) || null,
     avatarUrl: typeof item.avatarUrl === "string" ? item.avatarUrl : null,
     // Only the authenticated media endpoint may supply a post photo.

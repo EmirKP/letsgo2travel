@@ -104,7 +104,10 @@ export async function hydrateSocialData(db: SupabaseClient, input: unknown): Pro
     if (!value || typeof value !== "object") return value;
     const row = socialRecord(value);
     const result = Object.fromEntries(Object.entries(row).filter(([key]) => key !== "avatarPath").map(([key, item]) => [key, clean(item)]));
-    if (typeof row.userId === "string" && row.key) result.avatarUrl = urls.get(row.userId) || null;
+    if (typeof row.userId === "string" && row.key) {
+      result.avatarUrl = urls.get(row.userId) || null;
+      result.isOfficial = socialUuid(row.userId) && row.isOfficial === true;
+    }
     return result;
   };
   return clean(input);

@@ -5,6 +5,7 @@ import { createId } from "../lib/id";
 import { ApiError } from "../lib/api";
 import { mergeSocialItems, socialRead, socialWrite, type SocialCollection, type SocialComment, type SocialDetail, type SocialPage, type SocialPlace, type SocialPost } from "../lib/social";
 import { CommunityAvatar } from "./CommunityAvatar";
+import { OfficialBadge } from "./OfficialBadge";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { SocialComposer } from "./SocialComposer";
@@ -116,7 +117,7 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
 
 function SocialAuthorButton({ post, onOpenProfile }: { post: SocialPost; onOpenProfile: (key: string) => void }) {
   const { copy, dateLocale } = useI18n();
-  return <header className="social-author-row"><button type="button" onClick={() => onOpenProfile(post.author.key)}><CommunityAvatar username={post.author.username} avatarUrl={post.author.avatarUrl} size="medium"/><span><strong>@{post.author.username}</strong><small>{post.editorial && <>{copy("LetsGo2Travel seçkisi", "LetsGo2Travel editorial", "Përzgjedhje nga LetsGo2Travel")} · </>}{post.visibility === "followers" ? <><Icon name="lock" size={12}/>{copy("Takipçiler", "Followers", "Ndjekësit")} · </> : null}<time dateTime={post.createdAt}>{formatAppDate(new Date(post.createdAt), dateLocale, { day: "numeric", month: "short" })}</time></small></span></button></header>;
+  return <header className="social-author-row"><button type="button" onClick={() => onOpenProfile(post.author.key)}><CommunityAvatar username={post.author.username} avatarUrl={post.author.avatarUrl} size="medium"/><span><strong>@{post.author.username}<OfficialBadge isOfficial={post.author.isOfficial} /></strong><small>{post.editorial && <>{copy("LetsGo2Travel seçkisi", "LetsGo2Travel editorial", "Përzgjedhje nga LetsGo2Travel")} · </>}{post.visibility === "followers" ? <><Icon name="lock" size={12}/>{copy("Takipçiler", "Followers", "Ndjekësit")} · </> : null}<time dateTime={post.createdAt}>{formatAppDate(new Date(post.createdAt), dateLocale, { day: "numeric", month: "short" })}</time></small></span></button></header>;
 }
 
 function SocialEmpty({ icon, title, text, children }: { icon: "camera" | "compass" | "users"; title: string; text: string; children?: React.ReactNode }) {
@@ -220,7 +221,7 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
         {detail.post.status === "published" && <><section className="social-comments" aria-label={copy("Yorumlar", "Comments", "Komentet")}><h3>{copy("Yorumlar", "Comments", "Komentet")}</h3>
           {!detail.comments.items.length && <p className="social-muted">{copy("İlk yorumu sen yaz.", "Write the first comment.", "Shkruaj komentin e parë.")}</p>}
           {detail.comments.items.map(comment => <article className={`social-comment${comment.parentId ? " is-reply" : ""}${comment.id === focusCommentId ? " is-notification-target" : ""}`} key={comment.id} tabIndex={comment.id === focusCommentId ? -1 : undefined} ref={comment.id === focusCommentId ? focusedComment : undefined}>
-            <button type="button" className="social-comment-author" onClick={() => { onClose(); onOpenProfile(comment.author.key); }}><CommunityAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} size="small"/><strong>@{comment.author.username}</strong></button>
+            <button type="button" className="social-comment-author" onClick={() => { onClose(); onOpenProfile(comment.author.key); }}><CommunityAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} size="small"/><strong>@{comment.author.username}<OfficialBadge isOfficial={comment.author.isOfficial} /></strong></button>
             {comment.isDeleted ? <p className="social-muted">{copy("Bu yorum silindi.", "This comment was deleted.", "Ky koment u fshi.")}</p> : <ForumTranslation text={comment.body} accessToken={accessToken || ""} onSignIn={onOpenAccount}><p>{comment.body}</p></ForumTranslation>}
             {!comment.isDeleted && comment.status !== "published" && <small className="social-muted">{copy("İncelemede", "In review", "Në shqyrtim")}</small>}
             <footer><time dateTime={comment.createdAt}>{formatAppDate(new Date(comment.createdAt), dateLocale, { day: "numeric", month: "short" })}</time>{comment.editedAt && !comment.isDeleted && <span>{copy("Düzenlendi", "Edited", "Redaktuar")}</span>}

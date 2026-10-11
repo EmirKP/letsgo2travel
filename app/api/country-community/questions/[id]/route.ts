@@ -9,7 +9,7 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { communityPhotoTopics } from "@/lib/community/photos";
-import { communityAuthorAvatars } from "@/lib/community/profiles";
+import { communityAuthorAvatars, communityOfficialAuthors } from "@/lib/community/profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +102,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const photoTopics = await communityPhotoTopics(supabase, [question]);
-    const avatars = await communityAuthorAvatars(supabase, [question.author_id, ...(answers || []).map(answer => answer.user_id)], viewer.userId);
+    const authorIds = [question.author_id, ...(answers || []).map(answer => answer.user_id)];
+    const [avatars, officialAuthors] = await Promise.all([
+      communityAuthorAvatars(supabase, authorIds, viewer.userId),
+      communityOfficialAuthors(supabase, authorIds, viewer.userId),
+    ]);
     const parentProfileKey = communityProfileKey({ ...question, authorId: question.author_id }, question.author_name, "question");
     const serialized = serializeQuestionDetail(
       {
@@ -118,6 +122,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         is_paywalled: question.is_paywalled,
         status: question.status,
         avatarUrl: avatars.get(question.author_id),
+        isOfficial: officialAuthors.has(question.author_id),
       },
       question.author_name,
       (answers || []).map((answer) => serializeAnswer({
@@ -129,6 +134,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         topic_id: question.id,
         parentProfileKey,
         avatarUrl: avatars.get(answer.user_id),
+        isOfficial: officialAuthors.has(answer.user_id),
       }, answer.author_name)),
     );
     const totalAnswerCount = Math.max(Number(count) || 0, serialized.answers.length);

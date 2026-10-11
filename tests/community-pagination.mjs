@@ -39,9 +39,18 @@ function dbFixture(topics,replies=[]){
  return {db,setLocked:v=>locked=v,setUnlocked:v=>unlocked=v,setFail:v=>fail=v};
 }
 function routes(fixture,viewer={ok:true,userId:id,hiddenUserIds:[blocked]}){
- const imports={'next/server':next,'@/lib/community/viewer':{communityViewer:async()=>viewer},'@/lib/community/safety':safety,'@/lib/community/serializers':serializers,'@/lib/community/forum-sync':sync,'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>fixture.db},'@/lib/community/photos':{communityPhotoTopics:async()=>new Set()},'@/lib/community/profiles':{communityAuthorAvatars:async()=>new Map()}};
+ const imports={'next/server':next,'@/lib/community/viewer':{communityViewer:async()=>viewer},'@/lib/community/safety':safety,'@/lib/community/serializers':serializers,'@/lib/community/forum-sync':sync,'@/lib/supabaseAdmin':{getSupabaseAdmin:()=>fixture.db},'@/lib/community/photos':{communityPhotoTopics:async()=>new Set()},'@/lib/community/profiles':{communityAuthorAvatars:async()=>new Map(),communityOfficialAuthors:async()=>new Set([id])}};
  return {feed:load('app/api/country-community/feed/route.ts',imports),detail:load('app/api/country-community/questions/[id]/route.ts',imports)};
 }
+
+test('forum feed and detail propagate authoritative official badges to question and reply authors',async()=>{
+ const parent={...topic(99),id,author_id:id};
+ const replies=[{id:'reply-1',topic_id:id,user_id:id,author_name:'official',content:'Reply',status:'published',created_at:'2026-09-30T12:00:00Z'}];
+ const {feed,detail}=routes(dbFixture([parent],replies));
+ assert.equal((await feed.GET(new Request('https://test'))).body.data[0].isOfficial,true);
+ const result=await detail.GET(new Request('https://test'),{params:Promise.resolve({id})});
+ assert.equal(result.body.data.isOfficial,true);assert.equal(result.body.data.answers[0].isOfficial,true);
+});
 test('Country feed filters before its page boundary, includes legacy aliases and has no duplicate adjacent pages',async()=>{
  const all=Array.from({length:45},(_,i)=>topic(i));all.push(...Array.from({length:43},(_,i)=>topic(100+i,'turkiye')),{...topic(999,'turkiye'),author_id:blocked},{...topic(998,'turkiye'),status:'pending'});
  const fixture=dbFixture(all),{feed}=routes(fixture);

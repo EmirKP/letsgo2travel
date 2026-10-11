@@ -52,7 +52,7 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
     '../lib/api': { ApiError }, '../lib/communityProfiles': profiles,
     '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale }) },
     '../lib/localeFormatting': localeFormatting,
-    './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
+    './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './OfficialBadge': { OfficialBadge: 'OfficialBadge' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
     './SocialHub': { SocialGallery: 'SocialGallery' }, './SocialComposer': { SocialComposer: 'SocialComposer' },
     './ForumTranslation': { ForumTranslation: 'ForumTranslation' },
   }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });

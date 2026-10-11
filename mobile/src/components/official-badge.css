@@ -1,0 +1,2 @@
+.official-account-badge { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-start: .3em; flex: none; vertical-align: -.17em; color: #1685f8; }
+:root[data-theme="dark"] .official-account-badge { color: #389cff; }
