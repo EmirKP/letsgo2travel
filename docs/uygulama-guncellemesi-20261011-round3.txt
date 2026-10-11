@@ -1,0 +1,95 @@
+11 Ekim 2026 — İlk kullanım ve profil düzenlemeleri
+
+Kaynak ve paket
+- Dal: feature/travel-companion-polish-20260927.
+- Kaynak: 1045ef01fba03ba1e091cd107343d34b5fb7e07a.
+- Mobil web/iOS/Android varlıkları: 1fc61a7f56d1beedae0933d28d307b5a8684b117.
+- Gömülü release.json kaynak bilgisi: 1045ef01fba0.
+- Yerel sürüm 1.4.1, manifest ve native build 27 olarak korundu. Bu yerel
+  numara mevcut TestFlight build 68'in yerine geçmez; yeni paket gönderilmedi.
+
+Tamamlanan altı düzenleme
+1. Ana sayfadaki kısayolların dar ekranda sıkışması giderildi. Kartlar ekran
+   genişliği, seçili araç sayısı ve büyük yazı tercihine göre satırlara ayrılıyor;
+   başlıkların kelime ortasından kopması ve gereksiz yüksek kartlar düzeltildi.
+2. Topluluk profilinin içeriği alt menüdeki normal Profil ekranına taşındı.
+   Tek kimlik başlığı altında takipçi/takip edilen, Gönderiler, Forum ve Cevaplar
+   doğrudan açılıyor. Fotoğraf paylaşma, içerikten asıl sohbete gitme, başka
+   profilleri görüntüleme, takip, şikayet ve engelleme akışları korunuyor.
+   Topluluk ekranındaki ayrı "Topluluk profilim" düğmesi kaldırıldı. Kişisel
+   seyahat istatistikleri, hesap ve yönetici ayarları yerinde kaldı.
+3. Para Merkezi tutar alanı belirgin bir giriş kutusu oldu. Dokunma alanı,
+   odak çerçevesi, hata görünümü ve ondalık klavye davranışı iyileştirildi.
+4. Resmî hesabın mavi tikinin boyutu ve metin hizası düzeltildi. Rozetin
+   resmî hesaba ait olup olmadığı mevcut sunucu doğrulamasına bağlı kalıyor;
+   bu değişiklik yeni kullanıcılara doğrulama veya Kaşifler Ligi puanı vermez.
+5. Forum ve sosyal içerik çevirisi seçili uygulama diline göre otomatikleşti.
+   Görünen içerikler Türkçe, İngilizce veya Arnavutça için çevriliyor; ayrı
+   hedef dil düğmeleri kaldırıldı. Yükleme durumu gösteriliyor, çeviri
+   başarısızsa asıl metnin gösterildiği açıklanıyor. Düzenleme/şikayet işlemleri
+   kaynak metni kullanmaya devam ediyor. İstekler gruplanıyor, eşzamanlılık ve
+   kota sınırları uygulanıyor; hesap/dil değişimindeki eski sonuçlar ayıklanıyor.
+   Oturum açmamış okuyucular da sunucuda sınırlandırılan çeviriyi kullanabiliyor.
+6. Dört adımlı ilk kullanım eklendi: dil, seyahat amacı, ilgi alanları ve kısa
+   kullanım rehberi. Geri/atla seçenekleri var; bitirildiğinde seçilen amaca
+   veya ana sayfaya geçiliyor. İlgi alanları rota planlayıcısına başlangıç
+   tercihi olarak aktarılıyor, kullanıcının mevcut plan düzenlemeleri korunuyor.
+
+Doğrulama
+- Tam npm run test:release başarılı. Yeni profil, otomatik çeviri ve ilk
+  kullanım regresyonları yayın kontrol listesine eklendi.
+- İlk kullanım/planlama/Arnavutça kontrollerinin son eklenen testi içeren
+  tekrarında 50/50 test geçti.
+- Next üretim derlemesi ve mobil ESLint başarılı.
+- npm run mobile:prepare:all başarılı. Ardından ayrı iOS ve Android doktor
+  kontrolleri yeniden çalıştırıldı: ikisi de çıkış kodu 0.
+- iOS kontrolünde uyarı yok. Android'de mevcut yerel google-services.json
+  eksikliği uyarısı var; Android imzalı paket ve gerçek FCM teslimi denenmedi.
+- mobile-dist içindeki 417 dosyanın tamamı hem iOS hem Android kopyasıyla
+  SHA-256 düzeyinde eşleşiyor. Platformlardaki ek dosyalar yalnız beklenen
+  Cordova köprü dosyaları. Windows eşitlemesinin ürettiği Swift paket yolu
+  ters eğik çizgileri mevcut doğru / biçimine döndürüldü.
+- Yerel tarayıcıda ana sayfa/kısayollar, profil, Para Merkezi ve ilk kullanım
+  akışı görsel olarak kontrol edildi. Bu kayıt fiziksel cihaz testi değildir.
+
+Canlı sunucu ve veritabanı
+- Ana proje dağıtımı: dpl_GiDoPEzgmKaJbyYUbSYUfERJ4iGA.
+- Dağıtım adresi:
+  https://letsgo2travel-19tqhl7zp-emirkaanpolat34-9211s-projects.vercel.app
+- Üretime yükseltme tamamlandı; www.letsgo2travel.com.tr bu dağıtıma bağlı.
+- 20261012160000_guest_community_translation.sql canlıya uygulandı ve
+  migration kaydına işlendi. guest_forum_translation_usage için RLS açık.
+  consume_guest_forum_translation_quota(text) çalıştırma yetkisi anon ve
+  authenticated rollerinde kapalı, service_role için açık olarak doğrulandı.
+- Üretime yükseltmeden önce yedi canlı API kontrolü geçti: Türkçe, İngilizce
+  ve Arnavutça için üç dil kontrolü ile dört giriş/kimlik doğrulama kontrolü.
+  Gerçek çeviri çıktıları ve aynı dildeki metnin korunması doğrulandı.
+  Geçersiz kimlik bilgisi, misafir erişimi
+  gibi ele alınarak yetki denetiminden kaçırılamıyor.
+- Üretime yükseltmeden sonra oturum açık yerel yeni arayüzden üretim API'sine
+  giden uçtan uca akış kontrol edildi. Uygulama dili Arnavutça seçilip resmî
+  hesabın Tokyo gönderisi açıldığında açıklamanın tamamı kendiliğinden
+  Arnavutçaya çevrildi; içerik içinde çeviri veya hedef dil düğmesi yoktu.
+  Bu kontrol fiziksel cihazdaki mevcut TestFlight arayüzünde yapılmadı.
+
+TestFlight ve kalan sınırlar
+- Bu turda Codemagic işi başlatılmadı ve TestFlight'a build 69 gönderilmedi.
+- Mevcut TestFlight 1.4.1 (68) ve iç test grubu değişmedi. Bu altı yeni arayüz
+  düzenlemesi mevcut build 68'e sonradan eklenmiş değildir.
+- Yeni arayüz mobil web/iOS/Android varlıklarına hazırlandı; yeni imzalı
+  iOS/Android paket üretimi ve fiziksel cihaz doğrulaması ayrı yayın adımıdır.
+
+Yerel kanıt dosyaları
+Temel klasör: C:/Users/emirk/Documents/Codex/2026-09-26/i/outputs/
+- ux-round3-release-tests.log
+- ux-round3-root-build.log
+- ux-round3-onboarding-tests.log
+- ux-round3-ios-doctor.log
+- ux-round3-android-doctor.log
+- ux-round3-deploy.log ve ux-round3-promote.log
+- ux-round3-shortcuts.png ve ux-round3-profile.png
+- ux-round3-automatic-albanian.png
+
+Bu not yalnız bu turun sonuçlarını kaydeder; önceki yayın ve TestFlight
+kayıtları tarihsel kayıt olarak değiştirilmedi. Kimlik bilgisi, kişisel hesap
+iletişim bilgisi veya özel kullanıcı içeriği bu belgeye eklenmedi.
