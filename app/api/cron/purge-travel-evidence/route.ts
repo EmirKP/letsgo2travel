@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   if (expireError) return NextResponse.json({ error: "Başvurular kapatılamadı; belgeler korundu." }, { status: 500 });
   const { data: expired, error: lookupError } = await supabase
     .from("travel_verifications")
-    .select("id,status,evidence_path")
+    .select("id,status,evidence_path,evidence_bucket")
     .in("status", ["approved", "rejected"])
     .not("evidence_path", "is", null)
     .order("evidence_expires_at", { ascending: true })
@@ -42,6 +42,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, purged: 0, checkedAt: now });
   }
 
-  const results = await Promise.all(expired.map(item => cleanupReviewedEvidence(supabase, { id: item.id, status: item.status, evidencePath: item.evidence_path })));
+  const results = await Promise.all(expired.map(item => cleanupReviewedEvidence(supabase, { id: item.id, status: item.status, evidencePath: item.evidence_path, evidenceBucket: item.evidence_bucket })));
   return NextResponse.json({ success: results.every(Boolean), purged: results.filter(Boolean).length, retryPending: results.filter(result => !result).length, checkedAt: now });
 }

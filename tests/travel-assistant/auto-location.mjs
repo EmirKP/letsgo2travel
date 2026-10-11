@@ -13,13 +13,13 @@ const places=load('lib/travel-assistant/places.ts');
 const centers=load('mobile/src/lib/travelAreas.ts');
 function locationHarness(mode='normal'){
  let now=1000,next=0;const timers=new Map(),calls=[];
- const api=load('mobile/src/lib/travelAssistant.ts',{'./api':{requestJson:async()=>{}},'./config':{config:{}},'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{createPlacesLoader:()=>{},validateQuote:()=>null}},
+ const api=load('mobile/src/lib/travelAssistant.ts',{'./api':{requestJson:async()=>{}},'./config':{config:{}},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{createPlacesLoader:()=>{},validateQuote:()=>null}},
   {Date:{now:()=>now},navigator:mode==='missing'?{}:{geolocation:{getCurrentPosition(success,error,options){if(mode==='throw')throw Error('provider');calls.push({success,error,options});}}},setTimeout:(fn,delay)=>{const id=++next;timers.set(id,{fn,until:now+delay});return id;},clearTimeout:id=>timers.delete(id)});
  return{api,calls,timers,tick(ms){now+=ms;for(const [id,t] of [...timers])if(t.until<=now){timers.delete(id);t.fn();}}};
 }
 
 test('country lookup resolves TR/AL/GB/NO and coastal Istanbul without guessing countries in open ocean or invalid coordinates',async()=>{
- const api=load('mobile/src/lib/deviceArea.ts',{'d3-geo':{geoBounds,geoContains},'./travelAssistant':{locateForTravel:async()=>({latitude:41.01,longitude:28.98})},'../../../lib/travel-assistant/places':places,'./travelAreas':centers,'../data/locationCountries.json':{default:JSON.parse(readFileSync('mobile/src/data/locationCountries.json','utf8'))}});
+ const api=load('mobile/src/lib/deviceArea.ts',{'d3-geo':{geoBounds,geoContains},'./travelAssistant':{locateForTravel:async()=>({latitude:41.01,longitude:28.98})},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'./travelAreas':centers,'../data/locationCountries.json':{default:JSON.parse(readFileSync('mobile/src/data/locationCountries.json','utf8'))}});
  for(const [latitude,longitude,expected] of [[39.93,32.85,'TR'],[41.01,28.98,'TR'],[41.33,19.82,'AL'],[51.51,-.13,'GB'],[59.91,10.75,'NO'],[30,-30,''],[0,0,''],[91,0,''],[0,181,''],[NaN,0,'']])assert.equal(await api.countryAt({latitude,longitude}),expected,`${latitude},${longitude}`);
  assert.equal((await api.locateDeviceArea()).city,'İstanbul');
 });
@@ -56,7 +56,7 @@ function offlineHarness(){
   useEffect(fn,deps){const i=cursor++;if(!slots[i]){slots[i]={deps};effects.push(fn);}},
  };
  const offline={readOfflineMaps:()=>[],hasUnreadableOfflineMaps:()=>false,saveOfflineMap:()=>{throw Error('Unexpected automatic save');}};
- const api=load('mobile/src/components/TravelOfflineMap.tsx',{'react':react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},leaflet:{default:{}},'../lib/localeFormatting':{formatAppDate:()=>''},'../../../lib/travel-assistant/places':places,'../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},'../hooks/useCurrentTime':{useCurrentTime:()=>1000},'../lib/config':{config:{}},'../lib/api':{requestJson:async()=>{requests++;},ApiError:class extends Error{}},'../lib/travelAssistant':{locateForTravel:()=>location},'../lib/offlineMaps':offline,'../../../lib/travel-assistant/offline-map':{validateOfflinePack:()=>null},'./Sheet':{Sheet:'Sheet'},'../lib/native':{openExternal:()=>{}},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},'../lib/travelAreas':centers},{AbortController});
+ const api=load('mobile/src/components/TravelOfflineMap.tsx',{'react':react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},leaflet:{default:{}},'../lib/localeFormatting':{formatAppDate:()=>''},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},'../hooks/useCurrentTime':{useCurrentTime:()=>1000},'../lib/config':{config:{}},'../lib/api':{requestJson:async()=>{requests++;},ApiError:class extends Error{}},'../lib/travelAssistant':{locateForTravel:()=>location},'../lib/offlineMaps':offline,'../../../lib/travel-assistant/offline-map':{validateOfflinePack:()=>null},'./Sheet':{Sheet:'Sheet'},'../lib/native':{openExternal:()=>{}},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},'../lib/travelAreas':centers},{AbortController});
  return{render(){cursor=0;const view=api.TravelOfflineMap();effects.splice(0).forEach(fn=>fn());return view;},resolve,get requests(){return requests;}};
 }
 test('offline map only preselects GPS; never downloads automatically and late GPS cannot override manual area',async()=>{
@@ -80,7 +80,7 @@ const sharedImports={
 test('manual nearby area selection interrupts a pending GPS request and prevents an old automatic network search',async()=>{
  let finish;const pending=new Promise(done=>{finish=done;});const calls=[];const h=hooks();
  const api=load('mobile/src/components/TravelNearby.tsx',{...sharedImports,react:h.react,
-  '../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{validatePlaces:data=>data},
+  '../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{validatePlaces:data=>data},
   '../lib/travelAssistant':{locateForTravel:()=>pending,loadPlaces:async center=>{calls.push(center);return{places:[]};},directionsUrl:()=>''},
   '../lib/savedPlaces':{readSavedPlaces:()=>({items:[]}),subscribeSavedPlaces:()=>()=>{}},'./Sheet':{Sheet:'Sheet'},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},
  });

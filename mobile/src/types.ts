@@ -10,6 +10,8 @@ export type Country = {
 };
 
 export type PlannerInput = import("../../lib/planner-preferences").PlannerPreferences & {
+  passportCountry?: string;
+  passportType?: string;
   mode?: "discover" | "fixed";
   destination?: { code: string; name: string; country: string; countryCode: string };
   dayCount?: number;

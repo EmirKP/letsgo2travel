@@ -413,7 +413,8 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const countryCodes = load('data/countryCodes.ts', { './countries': countries });
   const profileCountries = load('lib/profileCountries.ts', { '../data/countries': countries, '../data/countryCodes': countryCodes });
   const profileSync = profileFixture.sync || load('lib/profileSync.ts');
-  const routes = load('data/routes.ts');
+  const passport = load('../../lib/planner-passport.ts', { './country-intelligence/passports': load('../../lib/country-intelligence/passports.ts', { '../../mobile/src/data/passport-index.json': { default: JSON.parse(readFileSync(new URL('../mobile/src/data/passport-index.json', import.meta.url), 'utf8')) }, './passport-reviewed': load('../../lib/country-intelligence/passport-reviewed.ts') }) });
+  const routes = load('data/routes.ts', { '../../../lib/planner-passport': passport });
   const home = load('data/homeDestinations.ts', { './routes': routes });
   const artworkSource = readFileSync(new URL('../mobile/src/data/artwork.ts', import.meta.url), 'utf8');
   const artwork = load('data/artwork.ts', Object.fromEntries(

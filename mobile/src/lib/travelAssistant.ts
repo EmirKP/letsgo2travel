@@ -3,6 +3,7 @@ import { config } from './config';
 import { coarseLocation, coordinates } from '../../../lib/travel-assistant/places';
 import type { Coordinates, FxQuote } from '../../../lib/travel-assistant/types';
 import { createPlacesLoader, validateQuote } from '../../../lib/travel-assistant/responses';
+import { identityQuote } from '../../../lib/travel-assistant/money';
 
 let locationRequest: Promise<Coordinates> | null = null;
 let lastLocation: { center: Coordinates; until: number } | null = null;
@@ -53,6 +54,8 @@ export function storedQuote(base: string, quote: string) {
 }
 const quoteRequests = new Map<string, Promise<FxQuote>>();
 export function loadQuote(base: string, quote: string): Promise<FxQuote> {
+  const identity = identityQuote(base, quote);
+  if (identity) return Promise.resolve(identity);
   const pair = `${base}:${quote}`;
   const running = quoteRequests.get(pair);
   if (running) return running;

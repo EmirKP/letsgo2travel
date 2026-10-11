@@ -10,6 +10,7 @@ import { CommunityPostPhoto } from "../components/CommunityPostPhoto";
 import { CommunityProfileSheet } from "../components/CommunityProfileSheet";
 import { SocialHub } from "../components/SocialHub";
 import { ForumTranslation } from "../components/ForumTranslation";
+import { createId } from "../lib/id";
 import type { SocialPlace } from "../lib/social";
 import { CommunityAvatar } from "../components/CommunityAvatar";
 import { OfficialBadge } from "../components/OfficialBadge";
@@ -212,6 +213,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [answerPosting, setAnswerPosting] = useState(false);
   const answerInput = useRef<HTMLTextAreaElement>(null);
   const answerPending = useRef(false);
+  const answerOperation = useRef<{ questionId: string; body: string; requestId: string } | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
   const [blocksOpen, setBlocksOpen] = useState(false);
@@ -505,14 +507,19 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     if (body.length < 3) return onNotice(copy("Cevap en az 3 karakter olmalı.", "Your answer must be at least 3 characters."));
     if (answerPending.current) return;
     const generation = detailGeneration.current;
+    if (answerOperation.current?.questionId !== detail.id || answerOperation.current.body !== body) {
+      answerOperation.current = { questionId: detail.id, body, requestId: createId() };
+    }
+    const operation = answerOperation.current;
     answerPending.current = true;
     setAnswerPosting(true);
     try {
       const result = await requestJson<{ moderation?: { action?: string } }>("/api/country-community/answers", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { countryCode: detail.countryCode, questionId: detail.id, body },
+        body: { countryCode: detail.countryCode, questionId: detail.id, body, requestId: operation.requestId },
       });
+      if (answerOperation.current === operation) answerOperation.current = null;
       if (!active.current) return;
       // Even if the sheet closed while sending, this account's feed must
       // reflect the saved reply. A late response must never reopen the sheet.

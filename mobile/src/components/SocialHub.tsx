@@ -147,11 +147,15 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
   const commentId = useRef(createId());
   const lastComment = useRef("");
   const input = useRef<HTMLTextAreaElement>(null);
+  const paging = useRef<AbortController | null>(null);
+  const readGeneration = useRef(0);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
+    readGeneration.current++;
+    if (paging.current) { paging.current.abort(); paging.current = null; writing.current = false; setBusy(false); }
     const controller = new AbortController(); setLoading(true); setError("");
     void socialRead<SocialDetail>({ postId, commentId: focusCommentId }, accessToken, controller.signal).then(data => { if (!controller.signal.aborted) setDetail(data); }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setDetail(null); setError(copy("Gönderi açılamadı. Silinmiş veya görünürlüğü değişmiş olabilir.", "Could not open this post. It may have been removed or its visibility changed.", "Postimi nuk u hap. Mund të jetë hequr ose dukshmëria të ketë ndryshuar.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
+    return () => { controller.abort(); paging.current?.abort(); };
   }, [postId, focusCommentId, accessToken, attempt, copy]);
   useEffect(() => {
     if (detail && focusedComment.current && !focusedOnce.current) {
@@ -188,7 +192,8 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
   const changeComment = (action: "comment-edit" | "comment-delete", comment: SocialComment) => void perform(async () => {
     const updated = await socialWrite<SocialDetail>(action, {postId,commentId:comment.id,...(action === "comment-edit" ? {body:editBody.trim()} : {})}, accessToken!);
     if (!alive.current) return;
-    setDetail(updated); onChanged(updated.post); setEditing(null); setDeleteComment(null);
+    setDetail(previous => previous ? { post: updated.post, comments: { ...previous.comments, items: mergeSocialItems(previous.comments.items, updated.comments.items) } } : updated);
+    onChanged(updated.post); setEditing(null); setDeleteComment(null);
     if (reply?.id === comment.id) setReply(null);
   });
   const remove = () => void perform(async () => {
@@ -196,14 +201,21 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
     const result = await socialWrite<{ undoUntil: string }>("delete", { postId }, accessToken!);
     if (alive.current) onDeleted(detail.post, result.undoUntil);
   });
-  const loadMore = async () => {
-    if (!detail || detail.comments.nextOffset === null || writing.current) return;
+  const loadMore = async (earlier = false) => {
+    const offset = earlier ? detail?.comments.previousOffset : detail?.comments.nextOffset;
+    if (!detail || offset == null || loading || writing.current) return;
+    const generation = readGeneration.current;
+    const controller = new AbortController(); paging.current = controller;
     writing.current = true; setBusy(true); setError("");
     try {
-      const result = await socialRead<SocialDetail>({ postId, offset: detail.comments.nextOffset }, accessToken);
-      if (alive.current) setDetail(previous => previous ? { ...previous, comments: { ...result.comments, items: mergeSocialItems(previous.comments.items, result.comments.items) } } : previous);
-    } catch { if (alive.current) setError(copy("Yorumlar yüklenemedi.", "Could not load comments.", "Komentet nuk u ngarkuan.")); }
-    finally { writing.current = false; if (alive.current) setBusy(false); }
+      const result = await socialRead<SocialDetail>({ postId, offset }, accessToken, controller.signal);
+      if (alive.current && !controller.signal.aborted && generation === readGeneration.current) setDetail(previous => previous ? { ...previous, comments: {
+        ...previous.comments,
+        ...(earlier ? { previousOffset: result.comments.previousOffset ?? null } : { nextOffset: result.comments.nextOffset }),
+        items: mergeSocialItems(previous.comments.items, result.comments.items).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
+      } } : previous);
+    } catch { if (alive.current && !controller.signal.aborted && generation === readGeneration.current) setError(copy("Yorumlar yüklenemedi.", "Could not load comments.", "Komentet nuk u ngarkuan.")); }
+    finally { if (paging.current === controller) { paging.current = null; writing.current = false; if (alive.current) setBusy(false); } }
   };
   return <Sheet open title={copy("Gönderi", "Post", "Postimi")} size="large" onClose={onClose} className="social-sheet">
     <div className="social-detail">
@@ -219,6 +231,7 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
         <div className="social-post-options">{detail.post.isOwn ? <button type="button" className="social-text-button" disabled={busy} onClick={() => setDeleteConfirm(value => !value)}><Icon name="trash" size={16}/>{copy("Gönderiyi sil", "Delete post", "Fshi postimin")}</button> : <button type="button" className="social-text-button" onClick={() => { if (authenticated()) setReport("post"); }}><Icon name="flag" size={16}/>{copy("Bildir", "Report", "Raporto")}</button>}</div>
         {deleteConfirm && <div className="social-confirm"><p>{copy("Gönderi silinsin mi? Ardından 30 saniye içinde geri alabilirsin.", "Delete this post? You can undo within 30 seconds.", "Ta fshish postimin? Mund ta zhbësh brenda 30 sekondave.")}</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setDeleteConfirm(false)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="secondary-button" disabled={busy} onClick={remove}>{copy("Sil", "Delete", "Fshi")}</button></div></div>}
         {detail.post.status === "published" && <><section className="social-comments" aria-label={copy("Yorumlar", "Comments", "Komentet")}><h3>{copy("Yorumlar", "Comments", "Komentet")}</h3>
+          {detail.comments.previousOffset != null && <button type="button" className="secondary-wide" disabled={busy || loading} onClick={() => void loadMore(true)}>{copy("Önceki yorumlar", "Earlier comments", "Komentet e mëparshme")}</button>}
           {!detail.comments.items.length && <p className="social-muted">{copy("İlk yorumu sen yaz.", "Write the first comment.", "Shkruaj komentin e parë.")}</p>}
           {detail.comments.items.map(comment => <article className={`social-comment${comment.parentId ? " is-reply" : ""}${comment.id === focusCommentId ? " is-notification-target" : ""}`} key={comment.id} tabIndex={comment.id === focusCommentId ? -1 : undefined} ref={comment.id === focusCommentId ? focusedComment : undefined}>
             <button type="button" className="social-comment-author" onClick={() => { onClose(); onOpenProfile(comment.author.key); }}><CommunityAvatar username={comment.author.username} avatarUrl={comment.author.avatarUrl} size="small"/><strong>@{comment.author.username}<OfficialBadge isOfficial={comment.author.isOfficial} /></strong></button>

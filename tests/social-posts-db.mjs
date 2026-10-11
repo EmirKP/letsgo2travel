@@ -22,6 +22,7 @@ async function setup(){
  insert into auth.users(id) values('${a}'),('${b}'),('${c}'); insert into profiles values('${a}','alice'),('${b}','bob'),('${c}','cara');
  create table forum_topics(id uuid primary key,slug text,title text,content text,author_id uuid,author_name text,country_slug text,category text,status text,is_paywalled boolean default false,created_at timestamptz default now(),seed_key text);
  create table forum_replies(id uuid primary key,topic_id uuid,user_id uuid,author_name text,content text,created_at timestamptz default now(),status text,seed_key text);
+ create table user_points_log(user_id uuid,action_type text,points integer,country_code text,related_id uuid);
  create table community_user_blocks(user_id uuid references auth.users(id) on delete cascade,blocked_user_id uuid references auth.users(id) on delete cascade,blocked_name text,primary key(user_id,blocked_user_id));
  create function public.community_users_blocked(a uuid,b uuid) returns boolean language sql as $$select exists(select 1 from public.community_user_blocks where user_id=a and blocked_user_id=b or user_id=b and blocked_user_id=a)$$;
  create function public.has_forum_topic_unlock(t uuid,u uuid) returns boolean language sql as $$select false$$;
@@ -39,8 +40,44 @@ async function setup(){
  await db.exec(read('supabase/migrations/20261012100000_social_completion.sql'));
  await db.exec(read('supabase/migrations/20261012120000_social_upload_admission.sql'));
  await db.exec(read('supabase/migrations/20261012140000_official_community_account.sql'));
+ await db.exec(read('supabase/migrations/20261012170000_community_recovery.sql'));
  return db;
 }
+
+test('answer operation receipts atomically deduplicate retries, reject changed intents and survive deleted replies',async()=>{
+ const db=await setup();try{
+  const topic='90000000-0000-4000-8000-000000000001',otherTopic='90000000-0000-4000-8000-000000000002';
+  await db.query("insert into forum_topics(id,status) values($1,'published'),($2,'published')",[topic,otherTopic]);
+  const once=(user=a,request=comment,body='Original answer',target=topic,status='published')=>val(db,'select create_community_answer_once($1,$2,$3,$4,$5,$6,$7)',[user,request,target,body,'Traveller',status,'ZZ']);
+  const first=await once(),retry=await once();assert.equal(retry.id,first.id);
+  const simultaneous=await Promise.all([once(),once()]);assert.ok(simultaneous.every(value=>value.id===first.id));
+  assert.equal(await val(db,'select count(*)::int from forum_replies'),1);assert.equal(await val(db,'select count(*)::int from user_points_log'),1);
+  await assert.rejects(once(a,comment,'Changed answer'),e=>e.code==='23505');await assert.rejects(once(a,comment,'Original answer',otherTopic),e=>e.code==='23505');
+  assert.notEqual((await once(b)).id,first.id,'Operation identity is scoped to the authenticated account');
+  const pending=await once(a,reply,'Review this answer',topic,'pending');assert.equal(pending.status,'pending');assert.equal(await val(db,'select count(*)::int from user_points_log'),2);
+  await db.query("update forum_replies set status='hidden' where id=$1",[first.id]);assert.equal((await once()).status,'hidden','Retry cannot unhide a moderated answer');
+  await db.query('delete from forum_replies where id=$1',[first.id]);await assert.rejects(once(),e=>e.code==='P0002');
+  await db.exec("set request.jwt.claim.role='authenticated'; set role authenticated;");
+  await assert.rejects(once(),e=>e.code==='42501');await assert.rejects(db.query('select * from community_answer_requests'),e=>e.code==='42501');
+ }finally{await db.close();}
+});
+
+test('social notification pages expose earlier cursors and comment edits return their own page',async()=>{
+ const db=await setup();try{
+  await create(db);await publish(db);
+  await db.query(`insert into travel_social_comments(id,post_id,user_id,body,status,created_at)
+   select ('30000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,$1,$2,'Comment '||n,'published',now()+n*interval '1 second' from generate_series(1,65)n`,[post,a]);
+  const focus='30000000-0000-4000-8000-000000000050';
+  const focused=(await get(db,b,{postId:post,commentId:focus})).comments;
+  assert.equal(focused.previousOffset,20);assert.equal(focused.nextOffset,60);assert.equal(focused.items[0].body,'Comment 41');
+  const earlier=(await get(db,b,{postId:post,offset:focused.previousOffset})).comments;
+  assert.equal(earlier.previousOffset,0);assert.equal(earlier.nextOffset,40);
+  assert.equal((await get(db,b,{postId:post,offset:0})).comments.previousOffset,null);
+  const edited=await put(db,a,'comment-edit',{postId:post,commentId:focus,body:'Updated fifty',status:'published'});
+  assert.equal(edited.comments.previousOffset,20);assert.ok(edited.comments.items.some(item=>item.id===focus&&item.body==='Updated fifty'));
+  const deleted=await put(db,a,'comment-delete',{postId:post,commentId:focus});assert.ok(deleted.comments.items.some(item=>item.id===focus&&item.isDeleted));
+ }finally{await db.close();}
+});
 
 test('official account migration awards only the authorized identity; all public author surfaces carry its badge',async()=>{
  const db=await setup();try{

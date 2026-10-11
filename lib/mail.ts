@@ -11,6 +11,8 @@ export interface SendMailResult {
   success: boolean;
   error?: string;
   providerId?: string;
+  /** Request may have reached the provider despite losing its acknowledgement. */
+  deliveryUncertain?: boolean;
 }
 
 function escapeHtml(value: unknown) {
@@ -72,13 +74,14 @@ export async function sendMail(params: SendMailParams): Promise<SendMailResult> 
 
     if (!res.ok) {
       console.error("Resend API error:", res.status);
-      return { success: false, error: data.message || data.error || "Failed to send email" };
+      return { success: false, error: data.message || data.error || "Failed to send email", deliveryUncertain: res.status >= 500 };
     }
 
+    if (typeof data.id !== "string" || !data.id) return { success: false, error: "E-posta sağlayıcısı teslim kimliğini döndürmedi.", deliveryUncertain: true };
     return { success: true, providerId: data.id };
   } catch (error) {
     console.error("Failed to send email:", error instanceof Error ? error.name : "unknown");
-    return { success: false, error: error instanceof Error ? error.message : "Network error" };
+    return { success: false, error: error instanceof Error ? error.message : "Network error", deliveryUncertain: true };
   }
 }
 

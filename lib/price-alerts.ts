@@ -51,13 +51,42 @@ export function verifyAlertToken(params: {
   expiresAt?: string | null;
 }) {
   if (!params.plainToken || !params.storedHash) return false;
-  if (params.expiresAt && new Date(params.expiresAt) < new Date()) return false;
+  if (params.expiresAt && (!Number.isFinite(Date.parse(params.expiresAt)) || Date.parse(params.expiresAt) <= Date.now())) return false;
 
   const incoming = Buffer.from(hashAlertToken(params.plainToken), "hex");
   const stored = Buffer.from(params.storedHash, "hex");
 
   if (incoming.length !== stored.length) return false;
   return crypto.timingSafeEqual(incoming, stored);
+}
+
+type AlertUnsubscribeCapability = { alertId: string; departureDate: string; storedHash?: string | null; expiresAt?: string | null };
+
+/** Cancel-only capability: cannot authenticate PATCH or disclose another alert.
+ * Bound to the existing management-token generation, so rotation revokes both
+ * links. Its cancel-only lifetime ends after the trip, independently of the
+ * original management token (which may expire before a distant departure). */
+export function createAlertUnsubscribeToken(params: AlertUnsubscribeCapability, secret = process.env.CRON_SECRET || "") {
+  if (!secret || !params.alertId || (params.storedHash != null && !/^[a-f0-9]{64}$/i.test(params.storedHash))) return null;
+  const departure = /^\d{4}-\d{2}-\d{2}$/.test(params.departureDate) ? Date.parse(`${params.departureDate}T00:00:00Z`) : NaN;
+  if (!Number.isFinite(departure) || new Date(departure).toISOString().slice(0, 10) !== params.departureDate || departure + 2 * 86400000 <= Date.now()) return null;
+  const payload = JSON.stringify(["price-alert-cancel-v1", params.alertId, params.storedHash?.toLowerCase() || null, params.expiresAt || null, params.departureDate]);
+  return `cancel-v1.${crypto.createHmac("sha256", secret).update(payload).digest("base64url")}`;
+}
+
+export function verifyAlertUnsubscribeToken(params: AlertUnsubscribeCapability & { plainToken: string }, secret = process.env.CRON_SECRET || "") {
+  if (params.plainToken.startsWith("cancel-v1.")) {
+    const expected = createAlertUnsubscribeToken(params, secret);
+    if (!expected || params.plainToken.length !== expected.length) return false;
+    const incoming = Buffer.from(params.plainToken), expectedBytes = Buffer.from(expected);
+    return incoming.length === expectedBytes.length && crypto.timingSafeEqual(incoming, expectedBytes);
+  }
+  return verifyAlertToken(params);
+}
+
+/** Stable across workers/claims/retries; a different alert or event gets a new key. */
+export function alertEmailIdempotencyKey(alertId: string, eventKey: string) {
+  return `price-drop/${crypto.createHash("sha256").update(JSON.stringify([alertId, eventKey])).digest("hex")}`;
 }
 
 export function getAlertStatus(alert: {

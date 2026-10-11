@@ -18,7 +18,7 @@ export async function GET(
 
     const { data: verification, error } = await supabase
       .from("travel_verifications")
-      .select("evidence_path,evidence_type")
+      .select("evidence_path,evidence_type,evidence_bucket")
       .eq("id", id)
       .eq("status", "pending")
       .single();
@@ -28,7 +28,7 @@ export async function GET(
     }
 
     const { data, error: signedUrlError } = await supabase.storage
-      .from("travel-evidence")
+      .from(verification.evidence_bucket === "travel-proofs" ? "travel-proofs" : "travel-evidence")
       .createSignedUrl(verification.evidence_path, 300); // 5 minutes
 
     if (signedUrlError || !data) {

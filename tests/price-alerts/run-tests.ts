@@ -12,12 +12,16 @@ import {
   classifyPushFailure,
   resolveAlertDeliveryState,
   shouldNotifyForPrice,
+  hashAlertToken,
+  alertEmailIdempotencyKey,
+  verifyAlertUnsubscribeToken,
 } from "../../lib/price-alerts";
 import { disablePushDevices, sendPushToUser } from "../../lib/push";
 import { runPriceAlertCheck, settleAlertNotification } from "../../lib/price-alert-cron";
 
 type Row = Record<string, any>;
 const DEPARTURE_DATE = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+process.env.CRON_SECRET = "alert-test-only-signing-secret";
 
 // ---------------------------------------------------------------------
 // Mock Supabase: cron ve push katmanının kullandığı zincirleri destekler.
@@ -32,19 +36,30 @@ class MockSupabase {
   };
 
   private claimSeq = 0;
+  fault: ((table: string, operation: string, payload?: Row) => string | null) | null = null;
 
   from(table: string) {
     const self = this;
-    const state: { filters: Array<(r: Row) => boolean>; op: string; payload?: Row; limit?: number } = { filters: [], op: "select" };
+    const state: { filters: Array<(r: Row) => boolean>; op: string; payload?: Row; limit?: number; orders: Array<[string, any]> } = { filters: [], op: "select", orders: [] };
 
     const builder: any = {
       select(_cols?: string, opts?: { count?: string; head?: boolean }) {
         if (opts?.count === "exact") state.op = "count";
         return builder;
       },
-      order() { return builder; },
+      order(column: string, options: any = {}) { state.orders.push([column, options]); return builder; },
       limit(value: number) { state.limit=value; return builder; },
       or(expr: string) {
+        if (expr.startsWith("and(or(next_retry_at")) {
+          const due = /next_retry_at\.lte\.([^,)]+)/.exec(expr)![1], stale = /last_attempt_at\.lt\.([^,)]+)/.exec(expr)![1];
+          state.filters.push(row => (row.next_retry_at == null || row.next_retry_at <= due) && (row.last_attempt_at == null || row.last_attempt_at < stale));
+          return builder;
+        }
+        if (/^(next_retry_at|last_attempt_at)\.is\.null,/.test(expr)) {
+          const [, column, operator, value] = /^(\w+)\.is\.null,\w+\.(lte|lt)\.(.+)$/.exec(expr)!;
+          state.filters.push(r => r[column] == null || (operator === "lte" ? r[column] <= value : r[column] < value));
+          return builder;
+        }
         if (expr.startsWith("and(or(notify_email")) {
           const checkedBefore = /last_checked_at\.lt\.([^,)]+)/.exec(expr)?.[1];
           const snapshotBefore = /created_at\.lte\.([^,)]+)/.exec(expr)?.[1];
@@ -77,12 +92,14 @@ class MockSupabase {
         return builder;
       },
       lt(col: string, value: any) {
-        state.filters.push((r) => Number(r[col]) < Number(value));
+        state.filters.push((r) => r[col] < value);
         return builder;
       },
       update(payload: Row) { state.op = "update"; state.payload = payload; return builder; },
       insert(payload: Row) { state.op = "insert"; state.payload = payload; return builder; },
       then(resolve: (v: any) => void) {
+        const failure = self.fault?.(table, state.op, state.payload);
+        if (failure) return resolve({ data: null, error: { message: failure } });
         const rows = self.tables[table] || [];
         if (state.op === "insert") {
           const row: Row = { id: `${table}-${rows.length + 1}`, ...state.payload };
@@ -95,6 +112,15 @@ class MockSupabase {
           return resolve({ data: row, error: null });
         }
         const matched = rows.filter((r) => state.filters.every((f) => f(r)));
+        matched.sort((a, b) => {
+          for (const [column, options] of state.orders) {
+            if (a[column] == null && b[column] == null) continue;
+            if (a[column] == null) return options.nullsFirst ? -1 : 1;
+            if (b[column] == null) return options.nullsFirst ? 1 : -1;
+            if (a[column] !== b[column]) return (a[column] < b[column] ? -1 : 1) * (options.ascending === false ? -1 : 1);
+          }
+          return 0;
+        });
         if (state.op === "count") {
           return resolve({ data: null, error: null, count: matched.length });
         }
@@ -102,7 +128,7 @@ class MockSupabase {
           for (const r of matched) Object.assign(r, state.payload);
           return resolve({ data: matched, error: null });
         }
-        return resolve({ data: state.limit === undefined ? matched : matched.slice(0,state.limit), error: null });
+        return resolve({ data: (state.limit === undefined ? matched : matched.slice(0,state.limit)).map(row => ({ ...row })), error: null });
       },
     };
     return builder;
@@ -145,6 +171,7 @@ class MockSupabase {
     if (!existing) {
       rows.push({
         id: `fpan-${rows.length + 1}`,
+        created_at: new Date(nowMs).toISOString(),
         alert_id: params.p_alert_id,
         channel: params.p_channel,
         event_key: params.p_event_key,
@@ -182,6 +209,8 @@ function makeAlert(overrides: Row = {}): Row {
     id: `alert-${Math.random().toString(36).slice(2, 8)}`,
     user_id: "user-1",
     email: "test-alarm@example.com",
+    manage_token_hash: hashAlertToken("original-token"),
+    manage_token_expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
     origin_code: "IST",
     origin_label: "İstanbul",
     destination_code: "LHR",
@@ -405,6 +434,8 @@ test("cron: taze 'pending' baska cron tarafindan alinamaz; suresi gecen alinir",
   await runCron(db, { sendMail: mailSpy, sendPush: pushOk });
   assert.equal(mailCalls, 0, "taze pending devralinmamali");
   // suresi gecmis pending
+  db.tables.flight_price_alert_notifications[0].error_message = "delivery_outcome_unknown:provider_request_started";
+  db.tables.flight_price_alert_notifications[0].created_at = new Date(Date.now() - 3600 * 1000).toISOString();
   db.tables.flight_price_alert_notifications[0].last_attempt_at = new Date(Date.now() - 3600 * 1000).toISOString();
   await runCron(db, { sendMail: mailSpy, sendPush: pushOk });
   assert.equal(mailCalls, 1, "suresi gecen pending devralinmali");
@@ -740,6 +771,7 @@ test("v3: eski worker yeni claim'in 'sent' sonucunu EZEMEZ (fencing token)", asy
   const row = db.tables.flight_price_alert_notifications[0];
 
   // Claim stale hale gelir (A cevap vermiyor)
+  row.error_message = "delivery_outcome_unknown:provider_request_started";
   row.last_attempt_at = new Date(Date.now() - 3600 * 1000).toISOString();
 
   // Cron B devralir ve BASARIYLA gonderir (retry kuyrugu yolu)
@@ -845,6 +877,7 @@ test("v3: transient-failed push kaydi da saglayici yapilandirilinca retry kuyrug
   assert.equal(row.status, "failed");
 
   // FCM geldi: retry kuyrugundan gonderilir
+  row.next_retry_at = new Date(0).toISOString(); // deferred retry is now due
   const result = await runCron(db, { sendMail: mailOk, sendPush: pushSpy, pushConfig: () => ({ apns: true, fcm: true }) });
   assert.equal(pushCalls, 1);
   assert.equal(row.status, "sent");
@@ -1039,6 +1072,183 @@ test("v6: daily bounded batches drain beyond 80 and include same-day creation wi
   const last=await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps});assert.equal(last.processedAlerts,25);
   assert.equal((await runPriceAlertCheck({checkedBefore:cutoff,limit:80,deps})).processedAlerts,0);
   assert.equal(emails,185);assert.equal(db.tables.flight_price_alerts.find(r=>r.id==="after-snapshot")?.last_checked_at,null);
+});
+
+function queuedEmail(db: MockSupabase, alert: Row, overrides: Row = {}) {
+  const row = { id: `queued-${alert.id}`, alert_id: alert.id, channel: "email", event_key: `${DEPARTURE_DATE}:2500:TRY`,
+    status: "failed", attempt_count: 1, last_attempt_at: new Date(Date.now() - 3600e3).toISOString(),
+    created_at: new Date(Date.now() - 3600e3).toISOString(), failure_kind: "transient", next_retry_at: new Date(0).toISOString(),
+    claim_token: "old", event_price: 2500, event_currency: "TRY", error_message: "delivery_not_accepted:provider_rejected", ...overrides };
+  db.tables.flight_price_alert_notifications.push(row); return row;
+}
+
+test("v7: transient retry lookup failure defers without losing the event or consuming an attempt", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() });
+  db.tables.flight_price_alerts.push(alert); const row = queuedEmail(db, alert);
+  let fail = true, emails = 0;
+  db.fault = (table, op) => table === "flight_price_alerts" && op === "select" && fail ? (fail = false, "temporary read error") : null;
+  const sendMail = async () => { emails++; return mailOk(); };
+  const first = await runCron(db, { sendMail });
+  assert.equal(row.failure_kind, "transient"); assert.equal(row.attempt_count, 1);
+  assert.equal(emails, 0); assert.equal(first.retryProcessed, 0);
+  assert.ok(Date.parse(row.next_retry_at) > Date.now());
+  row.next_retry_at = new Date(0).toISOString();
+  await runCron(db, { sendMail }); assert.equal(emails, 1); assert.equal(row.status, "sent");
+});
+
+test("v7: truly absent alert retires its retry; failed queue reads surface instead of reporting success", async () => {
+  const db = new MockSupabase(); const row = queuedEmail(db, makeAlert());
+  await runCron(db, { sendMail: mailOk }); assert.equal(row.failure_kind, "permanent"); assert.equal(row.error_message, "alert_missing");
+  db.fault = table => table === "flight_price_alert_notifications" ? "queue offline" : null;
+  await assert.rejects(runCron(db, { sendMail: mailOk }), /kuyruğu okunamadı/);
+});
+
+test("v7: eligible retries behind 145 muted and 120 not-yet-due events are delivered", async () => {
+  const db = new MockSupabase(); db.tables.community_notification_preferences = [{ user_id: "muted", price_alert_email: false }];
+  for (let i = 0; i < 145; i++) {
+    const alert = makeAlert({ id: `muted-${i}`, user_id: "muted", last_notified_at: new Date().toISOString() });
+    db.tables.flight_price_alerts.push(alert); queuedEmail(db, alert);
+  }
+  for (let i = 0; i < 120; i++) queuedEmail(db, makeAlert({ id: `future-${i}` }), { next_retry_at: new Date(Date.now() + 86400e3).toISOString() });
+  const alert = makeAlert({ id: "eligible", user_id: "allowed", last_notified_at: new Date().toISOString() });
+  db.tables.flight_price_alerts.push(alert); const row = queuedEmail(db, alert);
+  let emails = 0; const result = await runCron(db, { sendMail: async () => { emails++; return mailOk(); } });
+  assert.equal(emails, 1); assert.equal(row.status, "sent"); assert.equal(result.retryProcessed, 1);
+  assert.ok(db.tables.flight_price_alert_notifications.filter(n => n.alert_id.startsWith("muted-")).every(n => n.attempt_count === 1 && Date.parse(n.next_retry_at) > Date.now()));
+});
+
+test("v7: pending deferral is fenced against a concurrent claim", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() });
+  db.tables.flight_price_alerts.push(alert); const row = queuedEmail(db, alert, { status: "pending" });
+  let once = true;
+  db.fault = (table, op, payload) => {
+    if (table === "flight_price_alert_notifications" && op === "update" && payload?.next_retry_at && once) {
+      once = false; Object.assign(row, { claim_token: "new-worker", attempt_count: 2, next_retry_at: null, last_attempt_at: new Date().toISOString() });
+    }
+    return null;
+  };
+  await runCron(db, { isEmailConfigured: () => false });
+  assert.equal(row.claim_token, "new-worker"); assert.equal(row.next_retry_at, null); assert.equal(row.attempt_count, 2);
+});
+
+test("v7: lost settlement retries one stable provider key and never counts unpersisted success", async () => {
+  const db = new MockSupabase(), alert = makeAlert(); db.tables.flight_price_alerts.push(alert);
+  const provider = new Map<string, string>(), requests: Row[] = []; let fail = true;
+  db.fault = (table, op, payload) => table === "flight_price_alert_notifications" && op === "update" && payload?.status === "sent" && fail ? "settlement offline" : null;
+  const sendMail = async (mail: Row) => {
+    requests.push(mail); const existing = provider.get(mail.idempotencyKey);
+    if (existing) assert.equal(existing, mail.html, "retry payload must be identical");
+    provider.set(mail.idempotencyKey, mail.html); return mailOk();
+  };
+  await assert.rejects(runCron(db, { sendMail }), /teslim sonucu kaydedilemedi/);
+  const row = db.tables.flight_price_alert_notifications[0];
+  assert.equal(row.status, "pending"); assert.equal(alert.last_notified_at, null);
+  assert.match(row.error_message, /^delivery_outcome_unknown:/);
+  fail = false; row.last_attempt_at = new Date(Date.now() - 3600e3).toISOString();
+  await runCron(db, { sendMail });
+  assert.equal(requests.length, 2); assert.equal(provider.size, 1); assert.equal(row.status, "sent");
+  assert.equal(requests[0].idempotencyKey, alertEmailIdempotencyKey(alert.id, row.event_key));
+  assert.notEqual(alertEmailIdempotencyKey("other", row.event_key), requests[0].idempotencyKey);
+  assert.notEqual(alertEmailIdempotencyKey(alert.id, `${DEPARTURE_DATE}:2400:TRY`), requests[0].idempotencyKey);
+});
+
+test("v7: durable provider receipt reconciles settlement after 24h without resending", async () => {
+  const db = new MockSupabase(), alert = makeAlert(); db.tables.flight_price_alerts.push(alert);
+  let emails = 0, fail = true;
+  db.fault = (table, op, payload) => table === "flight_price_alert_notifications" && op === "update" && payload?.status === "sent" && fail ? "settlement offline" : null;
+  const sendMail = async (mail: Row) => {
+    emails++; db.tables.mail_delivery_logs.push({ reference_type: mail.referenceType, reference_id: mail.referenceId, status: "sent", provider_id: "accepted-1" });
+    return { success: true, providerId: "accepted-1" };
+  };
+  await assert.rejects(runCron(db, { sendMail }));
+  const row = db.tables.flight_price_alert_notifications[0];
+  row.created_at = row.last_attempt_at = new Date(Date.now() - 48 * 3600e3).toISOString(); fail = false;
+  await runCron(db, { sendMail }); assert.equal(emails, 1); assert.equal(row.status, "sent"); assert.equal(row.provider_id, "accepted-1");
+});
+
+test("v7: uncertain delivery beyond provider dedupe window stops; known rejection can safely retry", async () => {
+  for (const uncertain of [true, false]) {
+    const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() }); db.tables.flight_price_alerts.push(alert);
+    const row = queuedEmail(db, alert, { created_at: new Date(Date.now() - 48 * 3600e3).toISOString(), error_message: uncertain ? "delivery_outcome_unknown:timeout" : "delivery_not_accepted:provider rejected" });
+    let emails = 0; await runCron(db, { sendMail: async () => { emails++; return mailOk(); } });
+    assert.equal(emails, uncertain ? 0 : 1);
+    if (uncertain) { assert.equal(row.failure_kind, "permanent"); assert.match(row.error_message, /^delivery_unconfirmed:/); }
+    else assert.equal(row.status, "sent");
+  }
+});
+
+test("v7: failed receipt reads and send-intent writes never call the email provider", async () => {
+  for (const stage of ["receipt", "intent"]) {
+    const db = new MockSupabase(), alert = makeAlert(); db.tables.flight_price_alerts.push(alert);
+    db.fault = (table, op, payload) => ((stage === "receipt" && table === "mail_delivery_logs") || (stage === "intent" && table === "flight_price_alert_notifications" && op === "update" && payload?.error_message?.startsWith("delivery_outcome_unknown:"))) ? "offline" : null;
+    let emails = 0; await assert.rejects(runCron(db, { sendMail: async () => { emails++; return mailOk(); } })); assert.equal(emails, 0);
+  }
+});
+
+test("v7: guest drop email contains a valid alert-specific cancel capability", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ user_id: null }); db.tables.flight_price_alerts.push(alert);
+  let html = "";
+  await runCron(db, { sendMail: async (mail: Row) => { html = mail.html; return mailOk(); } });
+  const link = /href="([^"]+)"[^>]*>Bu alarmı kapat/.exec(html)?.[1]; assert.ok(link);
+  const url = new URL(link!); assert.equal(url.pathname, `/api/flight-alerts/${alert.id}/unsubscribe`);
+  const token = url.searchParams.get("token")!;
+  assert.ok(verifyAlertUnsubscribeToken({ alertId: alert.id, departureDate: alert.departure_date, storedHash: alert.manage_token_hash, expiresAt: alert.manage_token_expires_at, plainToken: token }));
+  assert.equal(verifyAlertUnsubscribeToken({ alertId: "someone-else", departureDate: alert.departure_date, storedHash: alert.manage_token_hash, expiresAt: alert.manage_token_expires_at, plainToken: token }), false);
+});
+
+test("v7: the last provider attempt reconciles its durable receipt without a fourth send", async () => {
+  for (const receipt of [true, false]) {
+    const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() }); db.tables.flight_price_alerts.push(alert);
+    const row = queuedEmail(db, alert, { attempt_count: 3, status: "pending", error_message: "delivery_outcome_unknown:timeout" });
+    if (receipt) db.tables.mail_delivery_logs.push({ reference_type: "flight_price_alert_notification", reference_id: row.id, status: "sent", provider_id: "final-receipt" });
+    let requests = 0; const result = await runCron(db, { sendMail: async () => { requests++; return mailOk(); } });
+    assert.equal(requests, 0); assert.equal(row.attempt_count, 3); assert.equal(result.retryProcessed, 1);
+    assert.equal(row.status, receipt ? "sent" : "failed");
+    if (!receipt) { assert.equal(row.failure_kind, "permanent"); assert.match(row.error_message, /delivery_unconfirmed/); }
+  }
+});
+
+test("v7: active guest alerts still deliver after old management expiry and with legacy null hashes", async () => {
+  for (const hash of [hashAlertToken("expired-original"), null]) {
+    const db = new MockSupabase(), alert = makeAlert({ user_id: null, manage_token_hash: hash, manage_token_expires_at: new Date(0).toISOString() });
+    db.tables.flight_price_alerts.push(alert); let requests = 0;
+    await runCron(db, { sendMail: async (mail: Row) => { requests++; assert.match(mail.html, /unsubscribe\?token=cancel-v1/); return mailOk(); } });
+    assert.equal(requests, 1); assert.equal(alert.manage_token_expires_at, new Date(0).toISOString());
+  }
+});
+
+test("v7: ambiguous send followed by a known rejection cannot erase uncertainty and resend after 24h", async () => {
+  for (const rejection of ["429 rate limit", "409 idempotency conflict"]) {
+    const db = new MockSupabase(), alert = makeAlert(); db.tables.flight_price_alerts.push(alert);
+    let requests = 0;
+    const sendMail = async () => { requests++; return requests === 1
+      ? { success: false, error: "acknowledgement lost", deliveryUncertain: true }
+      : { success: false, error: rejection, deliveryUncertain: false }; };
+    await runCron(db, { sendMail }); const row = db.tables.flight_price_alert_notifications[0];
+    assert.match(row.error_message, /^delivery_outcome_unknown:/);
+    row.next_retry_at = new Date(0).toISOString(); await runCron(db, { sendMail });
+    assert.equal(requests, 2); assert.match(row.error_message, /^delivery_outcome_unknown:/);
+    row.next_retry_at = new Date(0).toISOString(); row.created_at = new Date(Date.now() - 48 * 3600e3).toISOString();
+    await runCron(db, { sendMail });
+    assert.equal(requests, 2); assert.equal(row.failure_kind, "permanent"); assert.match(row.error_message, /^delivery_unconfirmed:/);
+  }
+});
+
+test("v7: legacy pending without a provider key or intent marker is never resent under a new key", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() }); db.tables.flight_price_alerts.push(alert);
+  const row = queuedEmail(db, alert, { status: "pending", error_message: null });
+  // Alert-wide legacy receipt cannot prove which price event was accepted.
+  db.tables.mail_delivery_logs.push({ reference_type: "flight_price_alert", reference_id: alert.id, status: "sent", provider_id: "legacy-accepted" });
+  let requests = 0;
+  await runCron(db, { sendMail: async () => { requests++; return mailOk(); } });
+  assert.equal(requests, 0); assert.equal(row.failure_kind, "permanent"); assert.match(row.error_message, /^delivery_unconfirmed:/);
+});
+
+test("v7: legacy failed timeout cannot masquerade as a confirmed provider rejection", async () => {
+  const db = new MockSupabase(), alert = makeAlert({ last_notified_at: new Date().toISOString() }); db.tables.flight_price_alerts.push(alert);
+  const row = queuedEmail(db, alert, { error_message: "Network error" }); let requests = 0;
+  await runCron(db, { sendMail: async () => { requests++; return mailOk(); } });
+  assert.equal(requests, 0); assert.equal(row.failure_kind, "permanent"); assert.match(row.error_message, /^delivery_unconfirmed:/);
 });
 
 // ------------------------------ runner -------------------------------

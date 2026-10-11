@@ -1,3 +1,4 @@
+import { normalizePlannerPassport, plannerEntry } from "../../../lib/planner-passport";
 import type { PlannerInput, RoutePlan, RouteSuggestion } from "../types";
 
 type CatalogRoute = RouteSuggestion & {
@@ -13,7 +14,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
     country: "Azerbaycan",
     cityOrRegion: "Bakü",
     destinationCode: "GYD",
-    why: "Kimlikle giriş, kısa uçuş ve yürünebilir merkez sayesinde ilk yurt dışı seyahatinde rahat bir başlangıç sunar.",
+    why: "Yürünebilir merkez ve sahil yürüyüşleri sayesinde ilk yurt dışı seyahatinde rahat bir başlangıç sunar.",
     visaStatus: "Kimlikle",
     estimatedBudget: "Ekonomik–orta",
     idealDuration: "3–4 gün",
@@ -28,7 +29,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
       "2. Gün: Haydar Aliyev Merkezi, Ateşgah ve Yanardağ.",
       "3. Gün: Nizami Caddesi, yerel mutfak ve serbest zaman.",
     ],
-    warnings: ["Kimlikle giriş koşullarını seyahat öncesinde resmî kaynaklardan doğrula."],
+    warnings: ["Pasaportuna uygun giriş koşullarını seyahat öncesinde resmî kaynaklardan doğrula."],
     budgetTier: 1,
     tags: ["şehir", "kültür", "yeme-içme", "ilk seyahat"],
     visaEase: "easy",
@@ -39,7 +40,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
     country: "Gürcistan",
     cityOrRegion: "Tiflis",
     destinationCode: "TBS",
-    why: "Kimlikle giriş, güçlü mutfak kültürü ve uygun şehir içi maliyetleriyle kısa kaçamaklar için dengeli bir seçenektir.",
+    why: "Güçlü mutfak kültürü ve uygun şehir içi maliyetleriyle kısa kaçamaklar için dengeli bir seçenektir.",
     visaStatus: "Kimlikle",
     estimatedBudget: "Ekonomik",
     idealDuration: "3–5 gün",
@@ -65,7 +66,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
     country: "Bosna Hersek",
     cityOrRegion: "Saraybosna",
     destinationCode: "SJJ",
-    why: "Vizesiz giriş, tanıdık mutfak ve tarih–doğa dengesiyle bütçe dostu bir Balkan rotasıdır.",
+    why: "Tanıdık mutfak ve tarih–doğa dengesiyle bütçe dostu bir Balkan rotasıdır.",
     visaStatus: "Vizesiz",
     estimatedBudget: "Ekonomik–orta",
     idealDuration: "4–5 gün",
@@ -92,7 +93,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
     country: "Sırbistan",
     cityOrRegion: "Belgrad",
     destinationCode: "BEG",
-    why: "Vizesiz giriş, hareketli şehir hayatı ve kolay ulaşım seçenekleriyle arkadaş grupları için güçlü bir rotadır.",
+    why: "Hareketli şehir hayatı ve kolay ulaşım seçenekleriyle arkadaş grupları için güçlü bir rotadır.",
     visaStatus: "Vizesiz",
     estimatedBudget: "Orta",
     idealDuration: "3–4 gün",
@@ -118,7 +119,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
     country: "Arnavutluk",
     cityOrRegion: "Tiran",
     destinationCode: "TIA",
-    why: "Vizesiz giriş ve uygun sahil seçenekleriyle yaz tatilini şehir keşfiyle birleştirmek isteyenlere uygundur.",
+    why: "Uygun sahil seçenekleriyle yaz tatilini şehir keşfiyle birleştirmek isteyenlere uygundur.",
     visaStatus: "Vizesiz",
     estimatedBudget: "Ekonomik–orta",
     idealDuration: "5–7 gün",
@@ -160,7 +161,7 @@ const ROUTE_CATALOG: CatalogRoute[] = [
       "3. Gün: Trevi, Pantheon, Navona ve Trastevere.",
       "4. Gün: Villa Borghese ve serbest keşif.",
     ],
-    warnings: ["Schengen başvurusu ve yoğun sezon rezervasyonları için erken plan yap."],
+    warnings: ["Pasaportuna göre giriş koşullarını kontrol et; yoğun sezon rezervasyonlarını erken planla."],
     budgetTier: 3,
     tags: ["tarih", "sanat", "yeme-içme", "şehir"],
     visaEase: "visa",
@@ -227,16 +228,16 @@ const ROUTE_CATALOG: CatalogRoute[] = [
 const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
   GYD: {
     name: "Baku", country: "Azerbaijan", cityOrRegion: "Baku",
-    why: "ID-card entry, a short flight and a walkable centre make this a comfortable first international trip.",
+    why: "A walkable centre and coastal walks make this a comfortable first international trip.",
     visaStatus: "Entry with Turkish ID card", estimatedBudget: "Economy–mid-range", idealDuration: "3–4 days",
     bestFor: "First-time international travellers and city explorers", difficulty: "Easy", transportEase: "Easy",
     safetyNote: "Standard city precautions are generally appropriate in central areas.",
     dailyPlan: ["Day 1: Old City, Maiden Tower and the waterfront.", "Day 2: Heydar Aliyev Centre, Ateshgah and Yanar Dag.", "Day 3: Nizami Street, local food and free time."],
-    warnings: ["Confirm current Turkish ID-card entry rules with official sources before travel."],
+    warnings: ["Confirm entry rules for your passport with official sources before travel."],
   },
   TBS: {
     name: "Tbilisi", country: "Georgia", cityOrRegion: "Tbilisi",
-    why: "ID-card entry, a strong food culture and affordable local costs make it a balanced short break.",
+    why: "A strong food culture and affordable local costs make it a balanced short break.",
     visaStatus: "Entry with Turkish ID card", estimatedBudget: "Economy", idealDuration: "3–5 days",
     bestFor: "Food, culture and affordable travel", difficulty: "Easy", transportEase: "Easy",
     safetyNote: "Use normal city precautions and take extra care in quiet streets late at night.",
@@ -245,7 +246,7 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
   },
   SJJ: {
     name: "Sarajevo", country: "Bosnia and Herzegovina", cityOrRegion: "Sarajevo",
-    why: "Visa-free entry and a good balance of history, nature and familiar food make this an affordable Balkan route.",
+    why: "A good balance of history, nature and familiar food make this an affordable Balkan route.",
     visaStatus: "Visa-free", estimatedBudget: "Economy–mid-range", idealDuration: "4–5 days",
     bestFor: "History, nature and Balkan food", difficulty: "Easy", transportEase: "Moderate",
     safetyNote: "The centre is generally easy to explore; stay on marked paths in rural areas.",
@@ -254,7 +255,7 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
   },
   BEG: {
     name: "Belgrade", country: "Serbia", cityOrRegion: "Belgrade",
-    why: "Visa-free entry, lively city life and straightforward transport make it a strong choice for groups of friends.",
+    why: "Lively city life and straightforward transport make it a strong choice for groups of friends.",
     visaStatus: "Visa-free", estimatedBudget: "Mid-range", idealDuration: "3–4 days",
     bestFor: "Nightlife, city breaks and groups of friends", difficulty: "Easy", transportEase: "Easy",
     safetyNote: "Keep an eye on personal belongings in crowded places.",
@@ -263,7 +264,7 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
   },
   TIA: {
     name: "Tirana & Ksamil", country: "Albania", cityOrRegion: "Tirana",
-    why: "Visa-free entry and affordable coastal options suit travellers who want to combine a summer break with city discovery.",
+    why: "Affordable coastal options suit travellers who want to combine a summer break with city discovery.",
     visaStatus: "Visa-free", estimatedBudget: "Economy–mid-range", idealDuration: "5–7 days",
     bestFor: "Coast, nature and an affordable summer trip", difficulty: "Moderate", transportEase: "Moderate",
     safetyNote: "Arrange coastal transfers ahead and use licensed transport.",
@@ -277,7 +278,7 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
     bestFor: "History, art and food", difficulty: "Moderate", transportEase: "Easy",
     safetyNote: "Be alert to pickpocketing around busy tourist areas.",
     dailyPlan: ["Day 1: Colosseum, Roman Forum and Monti.", "Day 2: Vatican, Castel Sant'Angelo and Prati.", "Day 3: Trevi, Pantheon, Navona and Trastevere.", "Day 4: Villa Borghese and free exploration."],
-    warnings: ["Plan Schengen applications and high-season bookings early."],
+    warnings: ["Check entry rules for your passport and plan high-season bookings early."],
   },
   DXB: {
     name: "Dubai", country: "United Arab Emirates", cityOrRegion: "Dubai",
@@ -300,12 +301,12 @@ const ROUTE_EN: Record<string, Partial<RouteSuggestion>> = {
 };
 
 const ROUTE_SQ: Record<string, Partial<RouteSuggestion>> = {
-  GYD: { name: "Baku", country: "Azerbajxhan", cityOrRegion: "Baku", why: "Një pushim i shkurtër mes qytetit të vjetër dhe bregdetit, me shumë mundësi për shëtitje.", visaStatus: "Hyrje me letërnjoftim turk", estimatedBudget: "Ekonomik–mesatar", idealDuration: "3–4 ditë", bestFor: "Udhëtimi i parë jashtë vendit dhe eksplorimi urban", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Mbaj masat e zakonshme të kujdesit në qytet.", dailyPlan: ["Dita 1: Qyteti i vjetër, Kulla e Vajzës dhe shëtitorja buzë detit.", "Dita 2: Qendra Heydar Aliyev, Ateshgah dhe Yanar Dag.", "Dita 3: Rruga Nizami, ushqimi lokal dhe kohë e lirë."], warnings: ["Verifiko kushtet aktuale të hyrjes me letërnjoftim turk në burime zyrtare para udhëtimit."] },
+  GYD: { name: "Baku", country: "Azerbajxhan", cityOrRegion: "Baku", why: "Një pushim i shkurtër mes qytetit të vjetër dhe bregdetit, me shumë mundësi për shëtitje.", visaStatus: "Hyrje me letërnjoftim turk", estimatedBudget: "Ekonomik–mesatar", idealDuration: "3–4 ditë", bestFor: "Udhëtimi i parë jashtë vendit dhe eksplorimi urban", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Mbaj masat e zakonshme të kujdesit në qytet.", dailyPlan: ["Dita 1: Qyteti i vjetër, Kulla e Vajzës dhe shëtitorja buzë detit.", "Dita 2: Qendra Heydar Aliyev, Ateshgah dhe Yanar Dag.", "Dita 3: Rruga Nizami, ushqimi lokal dhe kohë e lirë."], warnings: ["Verifiko kushtet aktuale të hyrjes për pasaportën tënde në burime zyrtare para udhëtimit."] },
   TBS: { name: "Tbilisi", country: "Gjeorgji", cityOrRegion: "Tbilisi", why: "Kultura e pasur e ushqimit dhe kostot lokale ofrojnë një pushim të shkurtër të ekuilibruar.", visaStatus: "Hyrje me letërnjoftim turk", estimatedBudget: "Ekonomik", idealDuration: "3–5 ditë", bestFor: "Ushqim, kulturë dhe udhëtim ekonomik", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Trego kujdesin e zakonshëm në qytet dhe më shumë vëmendje në rrugët e qeta natën.", dailyPlan: ["Dita 1: Tbilisi i vjetër, Ura e Paqes dhe Narikala.", "Dita 2: Rustaveli, muzetë dhe kuzhina gjeorgjiane.", "Dita 3: Ekskursion ditor në Mtskheta ose Kazbegi."], warnings: ["Moti në mal ndryshon shpejt; merr veshje me shtresa."] },
   SJJ: { name: "Sarajevë", country: "Bosnjë dhe Hercegovinë", cityOrRegion: "Sarajevë", why: "Një ndërthurje e historisë, natyrës dhe kuzhinës ballkanike për një udhëtim të përballueshëm.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Ekonomik–mesatar", idealDuration: "4–5 ditë", bestFor: "Histori, natyrë dhe kuzhinë ballkanike", difficulty: "I lehtë", transportEase: "Mesatar", safetyNote: "Qendra eksplorohet lehtë; në zonat rurale qëndro në shtigjet e shënuara.", dailyPlan: ["Dita 1: Baščaršija, Sebilj dhe Ura Latine.", "Dita 2: Tuneli i Shpresës dhe pikat panoramike të qytetit.", "Dita 3: Ekskursion në Mostar dhe Blagaj.", "Dita 4: Tregu lokal dhe një përfundim i qetë."], warnings: ["Kontrollo paraprakisht oraret e transportit për udhëtimin në Mostar."] },
   BEG: { name: "Beograd", country: "Serbi", cityOrRegion: "Beograd", why: "Jeta e gjallë urbane dhe transporti i thjeshtë e bëjnë një mundësi të mirë për grupe miqsh.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Mesatar", idealDuration: "3–4 ditë", bestFor: "Jetë nate, pushime urbane dhe miq", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Kujdesu për sendet personale në vendet e mbushura me njerëz.", dailyPlan: ["Dita 1: Kalemegdan dhe Knez Mihailova.", "Dita 2: Shën Sava, Zemun dhe brigjet e lumit.", "Dita 3: Muzeu Nikola Tesla dhe restorantet lokale."], warnings: ["Përdor taksi të licencuara ose aplikacione të besueshme natën."] },
   TIA: { name: "Tiranë dhe Ksamil", country: "Shqipëri", cityOrRegion: "Tiranë", why: "Një ndërthurje e qytetit dhe bregdetit për ata që duan pushime verore me eksplorim.", visaStatus: "Pa vizë për pasaportën turke", estimatedBudget: "Ekonomik–mesatar", idealDuration: "5–7 ditë", bestFor: "Bregdet, natyrë dhe pushime verore", difficulty: "Mesatar", transportEase: "Mesatar", safetyNote: "Organizo paraprakisht transfertat bregdetare dhe përdor transport të licencuar.", dailyPlan: ["Dita 1: Qendra e Tiranës dhe Bunk'Art.", "Dita 2: Berat ose Gjirokastër.", "Ditët 3–5: Sarandë dhe plazhet e Ksamilit."], warnings: ["Akomodimet bregdetare mbushen shpejt në verë; planifiko rezervimin herët."] },
-  FCO: { name: "Romë", country: "Itali", cityOrRegion: "Romë", why: "Një qytet plot art, histori dhe ushqim për një program të pasur udhëtimi.", visaStatus: "Kërkohet vizë Shengen për pasaportën turke", estimatedBudget: "Mesatar–premium", idealDuration: "4–5 ditë", bestFor: "Histori, art dhe ushqim", difficulty: "Mesatar", transportEase: "I lehtë", safetyNote: "Kujdes nga vjedhjet e xhepave në zonat turistike të ngarkuara.", dailyPlan: ["Dita 1: Koloseu, Forumi Romak dhe Monti.", "Dita 2: Vatikani, Castel Sant'Angelo dhe Prati.", "Dita 3: Trevi, Panteoni, Navona dhe Trastevere.", "Dita 4: Villa Borghese dhe eksplorim i lirë."], warnings: ["Planifiko herët aplikimin për Shengen dhe rezervimet në sezonin e ngarkuar."] },
+  FCO: { name: "Romë", country: "Itali", cityOrRegion: "Romë", why: "Një qytet plot art, histori dhe ushqim për një program të pasur udhëtimi.", visaStatus: "Kërkohet vizë Shengen për pasaportën turke", estimatedBudget: "Mesatar–premium", idealDuration: "4–5 ditë", bestFor: "Histori, art dhe ushqim", difficulty: "Mesatar", transportEase: "I lehtë", safetyNote: "Kujdes nga vjedhjet e xhepave në zonat turistike të ngarkuara.", dailyPlan: ["Dita 1: Koloseu, Forumi Romak dhe Monti.", "Dita 2: Vatikani, Castel Sant'Angelo dhe Prati.", "Dita 3: Trevi, Panteoni, Navona dhe Trastevere.", "Dita 4: Villa Borghese dhe eksplorim i lirë."], warnings: ["Kontrollo kushtet e hyrjes për pasaportën tënde dhe planifiko herët rezervimet në sezonin e ngarkuar."] },
   DXB: { name: "Dubai", country: "Emiratet e Bashkuara Arabe", cityOrRegion: "Dubai", why: "Përvoja moderne urbane, blerje dhe transport i organizuar për ata që vlerësojnë komoditetin.", visaStatus: "Kontrollo rregullat aktuale të vizës/e-vizës", estimatedBudget: "Premium", idealDuration: "4–6 ditë", bestFor: "Komoditet, blerje dhe përvoja urbane", difficulty: "I lehtë", transportEase: "I lehtë", safetyNote: "Respekto ligjet lokale dhe rregullat e sjelljes në publik.", dailyPlan: ["Dita 1: Downtown, Dubai Mall dhe zona e Burj Khalifa.", "Dita 2: Marina, JBR dhe Palm Jumeirah.", "Dita 3: Dubai i vjetër, Deira dhe safari në shkretëtirë.", "Dita 4: Muze, plazh ose ekskursion në Abu Dhabi."], warnings: ["Temperaturat gjatë ditës mund të jenë shumë të larta në verë."] },
   BKK: { name: "Bangkok", country: "Tajlandë", cityOrRegion: "Bangkok", why: "Një udhëtim i larmishëm me ushqim rruge, kulturë dhe mundësi për të bashkuar qytetin me ishujt.", visaStatus: "Kontrollo rregullat aktuale të përjashtimit nga viza", estimatedBudget: "Mesatar", idealDuration: "7–10 ditë", bestFor: "Udhëtime të largëta, ushqim dhe kulturë", difficulty: "Mesatar", transportEase: "Mesatar", safetyNote: "Përdor aplikacione ose agjenci zyrtare për taksi dhe ekskursione.", dailyPlan: ["Ditët 1–2: Tempujt e Bangkokut, lumi dhe tregjet e natës.", "Dita 3: Ekskursion ditor në Ayutthaya.", "Ditët 4–7: Shto Phuket, Krabi ose Koh Samui."], warnings: ["Kontrollo sezonin e shirave dhe rregullat e bagazheve për fluturimet e brendshme."] },
 };
@@ -335,10 +336,12 @@ function scoreRoute(route: CatalogRoute, input: PlannerInput) {
   score -= Math.abs(route.budgetTier - requestedTier) * 12;
 
   const visaPreference = input.visa.toLocaleLowerCase("tr-TR");
-  if ((visaPreference.includes("vizesiz") || visaPreference.includes("kolay")) && route.visaEase === "easy") {
+  const status = plannerEntry(normalizePlannerPassport(input), route.country).verifiedEntryStatus;
+  const easy = status === "visa_free" || status === "identity_card" || status === "e_visa" || status === "visa_on_arrival";
+  if ((visaPreference.includes("vizesiz") || visaPreference.includes("kolay")) && easy) {
     score += 15;
   }
-  if ((visaPreference.includes("vizesiz") || visaPreference.includes("kolay")) && route.visaEase === "visa") {
+  if ((visaPreference.includes("vizesiz") || visaPreference.includes("kolay")) && !easy) {
     score -= 18;
   }
 
@@ -356,7 +359,7 @@ export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" | "s
   const routes = [...ROUTE_CATALOG]
     .sort((a, b) => scoreRoute(b, input) - scoreRoute(a, input))
     .slice(0, 3)
-    .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => presentRoute(route, locale));
+    .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => ({ ...presentRoute(route, locale), ...plannerEntry(normalizePlannerPassport(input), route.country, locale) }));
 
   return {
     summary: locale === "sq" ? "Kemi marrë parasysh buxhetin, kushtet e hyrjes dhe stilin tënd të udhëtimit. Kontrollo rregullat zyrtare më të fundit të hyrjes përpara se të vendosësh." : locale === "en"

@@ -1,8 +1,8 @@
-import { requestJson } from "./api";
+import { ApiError, requestJson } from "./api";
 import type { AppLocale } from "./locale";
 
 type Input = { text: string; title?: string; accessToken: string; locale: AppLocale };
-export type CommunityTranslationResult = { status: "ready"; text: string; title?: string } | { status: "failed" };
+export type CommunityTranslationResult = { status: "ready"; text: string; title?: string } | { status: "failed"; retryAt?: number; retryOnReconnect?: boolean };
 type Listener = (result: CommunityTranslationResult) => void;
 type Job = { key: string; input: Input; listeners: Set<Listener>; state: "queued" | "running" | "complete"; result?: CommunityTranslationResult; expires: number };
 type Batch = { jobs: Job[]; controller: AbortController; generation: number };
@@ -36,6 +36,9 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
   function finish(job: Job, result: CommunityTranslationResult) {
     job.state = "complete"; job.result = result; job.expires = now() + (result.status === "ready" ? 600_000 : 60_000);
     for (const listener of job.listeners) listener(result);
+    // Mounted rows keep their own result. They must not pin completed cache
+    // entries forever as more pages are appended to the discussion.
+    job.listeners.clear();
   }
   function schedule() {
     if (timer || active.size >= 2) return;
@@ -68,30 +71,32 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
           return { status: "ready" as const, text: row.translation.trim(), ...(job.input.title !== undefined ? { title: (row.title as string).trim() } : {}) };
         });
         selected.forEach((job, index) => finish(job, results[index]));
-      }).catch(() => {
+      }).catch(error => {
         if (batch.generation !== generation || batch.controller.signal.aborted) return;
-        selected.forEach(job => finish(job, { status: "failed" }));
+        const status = error instanceof ApiError ? error.status : 0;
+        const retryable = status === 0 || status === 408 || status === 429 || status >= 500;
+        selected.forEach(job => finish(job, { status: "failed", ...(retryable ? { retryAt: now() + 60_000, retryOnReconnect: status === 0 } : {}) }));
       }).finally(() => {
         active.delete(batch); prune(); schedule();
       });
     }
   }
   return {
-    subscribe(input: Input, listener: Listener) {
+    subscribe(input: Input, listener: Listener, retry = false) {
       if (token !== input.accessToken) reset(input.accessToken);
       const normalized = { ...input, text: input.text.trim(), ...(input.title === undefined ? {} : { title: input.title.trim() }) };
       if (!normalized.text || normalized.text.length + (normalized.title?.length || 0) > MAX_CHARS) { listener({ status: "failed" }); return () => {}; }
       prune();
       const key = JSON.stringify([input.locale, normalized.title || "", normalized.text]);
       let job = jobs.get(key);
-      if (job?.state === "complete" && job.expires <= now()) { jobs.delete(key); job = undefined; }
+      if (job?.state === "complete" && (job.expires <= now() || retry && job.result?.status === "failed" && job.result.retryAt !== undefined)) { jobs.delete(key); job = undefined; }
       if (!job) {
-        if (jobs.size >= 200) { listener({ status: "failed" }); return () => {}; }
+        if (jobs.size >= 200) { listener({ status: "failed", retryAt: now() + 60_000 }); return () => {}; }
         job = { key, input: normalized, listeners: new Set(), state: "queued", expires: 0 }; jobs.set(key, job);
       }
       const current = job;
-      current.listeners.add(listener);
-      if (current.result) listener(current.result); else schedule();
+      if (current.result) listener(current.result);
+      else { current.listeners.add(listener); schedule(); }
       return () => {
         current.listeners.delete(listener);
         if (!current.listeners.size && current.state === "queued" && jobs.get(key) === current) jobs.delete(key);

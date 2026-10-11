@@ -1,5 +1,11 @@
 import type { FxQuote } from './types';
 export const CURRENCIES = ['TRY','EUR','USD','GBP','AED','JPY','CHF','CAD','AUD','THB','GEL','BAM','RSD','ALL','AZN','PLN','CZK','HUF','SEK','NOK','DKK','KRW','CNY','INR','BRL','SAR','SGD','HKD','NZD','ZAR'];
+/** A unit converted to itself never needs a provider or a cached market rate. */
+export function identityQuote(base: string, quote: string, now = Date.now()): FxQuote | null {
+  if (base !== quote || !CURRENCIES.includes(base)) return null;
+  const fetchedAt = new Date(now).toISOString();
+  return { base, quote, rate: 1, date: fetchedAt.slice(0, 10), fetchedAt, previousRate: null, previousDate: null, changePercent: null, sourceUrl: '' };
+}
 export function parseAmount(input: string): number | null {
   const s = input.trim();
   if (!/^\d{1,10}([.,]\d{1,4})?$/.test(s)) return null;

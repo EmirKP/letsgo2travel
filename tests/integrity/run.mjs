@@ -140,13 +140,13 @@ await test("stopping sync at sign-out blocks an earlier account response from re
   assert.equal(journal.readJournal("u").entries.length,1);
 });
 
-function reviewFixture({rpcFailure=false,removeFailure=false,missing=false}={}) {
-  const calls=[];
-  const chain={select(){return this;},eq(){return this;},in(){return this;},update(){calls.push("clear-path");return this;},maybeSingle:async()=>({data:{id:"55555555-5555-4555-8555-555555555555",status:"pending",evidence_path:"proof.jpg"},error:null}),then(resolve){resolve({error:null});}};
-  const client={from:()=>chain,storage:{from:()=>({createSignedUrl:async()=>({error:missing?{message:"not found"}:null}),remove:async()=>{calls.push("remove");return {error:removeFailure?{message:"unavailable",status:503}:null};}})},rpc:async()=>{calls.push("commit");return rpcFailure?{error:{message:"DB failure"}}:{data:{id:"55555555-5555-4555-8555-555555555555",status:"approved",evidencePath:"proof.jpg"}};}};
+function reviewFixture({rpcFailure=false,removeFailure=false,missing=false,bucket="travel-evidence"}={}) {
+  const calls=[],storageCalls=[],updates=[];
+  const chain={select(){return this;},eq(){return this;},in(){return this;},update(value){updates.push(value);calls.push("clear-path");return this;},maybeSingle:async()=>({data:{id:"55555555-5555-4555-8555-555555555555",status:"pending",evidence_path:"proof.jpg",evidence_bucket:bucket},error:null}),then(resolve){resolve({error:null});}};
+  const client={from:()=>chain,storage:{from:bucket=>({createSignedUrl:async()=>{storageCalls.push({bucket,action:"preview"});return {error:missing?{message:"not found"}:null};},remove:async paths=>{storageCalls.push({bucket,action:"remove",paths:plain(paths)});calls.push("remove");return {error:removeFailure?{message:"unavailable",status:503}:null};}})},rpc:async()=>{calls.push("commit");return rpcFailure?{error:{message:"DB failure"}}:{data:{id:"55555555-5555-4555-8555-555555555555",status:"approved",evidencePath:"proof.jpg"}};}};
   const helper=modules({"next/server":{NextResponse:{json:(data,options)=>Response.json(data,options)}},"./supabaseAdmin":{getSupabaseAdmin:()=>client},"./admin-auth":{adminPrincipalFromRequest:async()=>({subject:"11111111-1111-4111-8111-111111111111",role:"admin"})}})("lib/verification-review.ts");
   const run=(action="approve")=>helper.reviewVerification(new Request("https://example.test/review",{method:"POST",body:JSON.stringify({adminNote:"Reviewed"})}),"55555555-5555-4555-8555-555555555555",action);
-  return {calls,helper,client,run};
+  return {calls,storageCalls,updates,helper,client,run};
 }
 await test("API never deletes proof when the approval transaction fails",async()=>{
   const fixture=reviewFixture({rpcFailure:true});assert.equal((await fixture.run()).status,500);assert.deepEqual(fixture.calls,["commit"]);
@@ -159,6 +159,55 @@ await test("API commits before deleting evidence; failed storage cleanup remains
 await test("missing evidence blocks approval but does not prevent rejection",async()=>{
   const missing=reviewFixture({missing:true});assert.equal((await missing.run()).status,422);assert.equal(missing.calls.length,0);
   assert.equal((await missing.run("reject")).status,200);
+});
+
+await test("review preview and cleanup preserve each private evidence bucket and clear both legacy and new paths",async()=>{
+  for(const bucket of ["travel-evidence","travel-proofs"]){
+    const fixture=reviewFixture({bucket});assert.equal((await fixture.run()).status,200);
+    assert.deepEqual(fixture.storageCalls,[{bucket,action:"preview"},{bucket,action:"remove",paths:["proof.jpg"]}]);
+    assert.equal(fixture.updates[0].evidence_path,null);assert.equal(fixture.updates[0].proof_file_path,null);assert.ok(Date.parse(fixture.updates[0].proof_deleted_at));
+    const failed=reviewFixture({bucket,removeFailure:true});assert.equal((await failed.run()).status,200);assert.equal(failed.updates.length,0,"Failed deletion retains the paths for retry");
+  }
+});
+
+await test("account erasure groups modern and legacy proof objects and stops on either bucket failure",async()=>{
+  const user={id:"11111111-1111-4111-8111-111111111111",user_metadata:{}};
+  const run=async(failureBucket)=>{
+    const removals=[],tables=[];
+    const client={storage:{from:bucket=>({remove:async paths=>{removals.push({bucket,paths:plain(paths)});return {error:bucket===failureBucket?{message:"unavailable"}:null};}})},from(table){
+      tables.push(table);
+      const query={select(){return query;},eq(){return query;},not(){return query;},in(){return query;},delete(){return query;},update(){return query;},then(resolve){resolve({data:table==="travel_verifications"?[
+        {evidence_path:"owner/current.pdf",evidence_bucket:"travel-evidence"},
+        {evidence_path:"owner/legacy.pdf",evidence_bucket:"travel-proofs"},
+      ]:[],error:null});}};return query;
+    }};
+    const helper=modules({"./profile-photo":{ownedAvatarPath:()=>false},"./community/photos":{removeCommunityAccountPhotos:async()=>{}},"./community/social":{removeSocialAccountPhotos:async()=>{}}})("lib/account-deletion-cleanup.ts");
+    if(failureBucket){await assert.rejects(helper.cleanAccountData(client,user),error=>error instanceof helper.AccountCleanupError);assert.ok(!tables.includes("forum_replies"),"No anonymization after failed evidence cleanup");}
+    else await helper.cleanAccountData(client,user);
+    return removals;
+  };
+  assert.deepEqual(await run(),[{bucket:"travel-evidence",paths:["owner/current.pdf"]},{bucket:"travel-proofs",paths:["owner/legacy.pdf"]}]);
+  assert.equal((await run("travel-evidence")).length,1);assert.equal((await run("travel-proofs")).length,2);
+});
+
+await test("verification repair closes legacy direct-write grants without allowing a forged cross-owner evidence path",async()=>{
+  const policyDb=new PGlite();try{
+    await policyDb.exec(`create role anon;create role authenticated;create role service_role;create schema auth;
+      create table auth.users(id uuid primary key);
+      create function auth.uid() returns uuid language sql as $$select current_setting('request.jwt.claim.sub')::uuid$$;
+      create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);`);
+    const schema=read("supabase_updates.sql");
+    await policyDb.exec(schema.slice(schema.indexOf("CREATE TABLE IF NOT EXISTS public.travel_verifications"),schema.indexOf("-- Tablo zaten var")));
+    await policyDb.exec(schema.slice(schema.indexOf("-- RLS (Row Level Security) ayarları travel_verifications"),schema.indexOf("-- Cache yenileme")));
+    await policyDb.exec("grant usage on schema public,auth to authenticated;grant select,insert,update,delete on travel_verifications to authenticated;");
+    await policyDb.exec(read("supabase/migrations/20261012190000_verification_upload_contract.sql"));
+    const user="11111111-1111-4111-8111-111111111111";await policyDb.query("insert into auth.users values($1)",[user]);
+    await policyDb.exec(`set request.jwt.claim.sub='${user}';set role authenticated;`);
+    await assert.rejects(policyDb.query("insert into travel_verifications(user_id,country_code,verification_method,proof_file_path,evidence_path,evidence_bucket) values($1,'AL','document',$2,'other/private.pdf','travel-proofs')",[user,`${user}/own.pdf`]),error=>error.code==="42501");
+    await assert.rejects(policyDb.query("update travel_verifications set evidence_path='other/private.pdf'"),error=>error.code==="42501");
+    await assert.rejects(policyDb.query("delete from travel_verifications"),error=>error.code==="42501");
+    assert.equal((await policyDb.query("select * from travel_verifications")).rows.length,0,"Own-record read contract remains available");
+  }finally{await policyDb.close();}
 });
 
 // Real PostgreSQL execution (WASM), not SQL text matching. Use the actual

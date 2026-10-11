@@ -13,14 +13,17 @@ function hookHost(){
  return{react,render(fn){for(let i=0;i<20;i++){cursor=0;dirty=false;effects=[];tree=fn();effects.forEach(f=>f());if(!dirty)return tree;}throw Error('render loop');},dispose(){slots.forEach(s=>s?.cleanup?.());}};
 }
 function harness({locale='en',accessToken='token',viewport=false}={}){
- let host,key,tree;const subscriptions=[],observers=[];let opened=0;
+ let host,key,tree;const subscriptions=[],observers=[],timers=new Map(),events=new Map();let opened=0,time=0,timerId=0;
+ const navigator={onLine:true};
+ const window={setTimeout(fn,ms){timers.set(++timerId,{fn,at:time+ms});return timerId;},clearTimeout(id){timers.delete(id);},addEventListener(name,fn){if(!events.has(name))events.set(name,new Set());events.get(name).add(fn);},removeEventListener(name,fn){events.get(name)?.delete(fn);}};
+ class Clock extends Date {static now(){return time;}}
  const react=Object.fromEntries(['useState','useRef','useEffect'].map(name=>[name,(...args)=>host.react[name](...args)]));
- const imports={react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/i18n':{useI18n:()=>({locale,copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?sq:en})},'../lib/communityTranslation':{communityTranslationQueue:{subscribe(input,listener){const entry={input,listener,cancelled:false};subscriptions.push(entry);return()=>entry.cancelled=true;}}}};
+ const imports={react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/i18n':{useI18n:()=>({locale,copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?sq:en})},'../lib/communityTranslation':{communityTranslationQueue:{subscribe(input,listener,retry){const entry={input,listener,retry,cancelled:false};subscriptions.push(entry);return()=>entry.cancelled=true;}}}};
  const result={exports:{}};const source=ts.transpileModule(readFileSync('mobile/src/components/ForumTranslation.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  class Observer{constructor(callback){this.callback=callback;observers.push(this);}observe(){this.observed=true;}disconnect(){this.disconnected=true;}}
- vm.runInNewContext(`(function(require,module,exports){${source}\n})`,viewport?{IntersectionObserver:Observer}:{})(name=>{if(name.endsWith('.css'))return{};assert.ok(imports[name],name);return imports[name];},result,result.exports);
+ vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{window,navigator,Date:Clock,...(viewport?{IntersectionObserver:Observer}:{})})(name=>{if(name.endsWith('.css'))return{};assert.ok(imports[name],name);return imports[name];},result,result.exports);
  let props={text:'Merhaba gezgin',title:'Yeni soru',accessToken,children:(display,title)=>jsx('button',{onClick:()=>opened++,children:[jsx('h3',{children:title}),jsx('p',{children:display})]})};
- const h={subscriptions,observers,get tree(){return tree;},get opened(){return opened;},render(next={}){props={...props,...next};const outer=result.exports.ForumTranslation(props);if(!host||key!==outer.key){host?.dispose();host=hookHost();key=outer.key;}tree=host.render(()=>outer.type(outer.props));return tree;},locale(next){locale=next;return h.render();},resolve(index,result){subscriptions[index].listener(result);return h.render();},dispose(){host.dispose();}};
+ const h={subscriptions,observers,get tree(){return tree;},get opened(){return opened;},render(next={}){props={...props,...next};const outer=result.exports.ForumTranslation(props);if(!host||key!==outer.key){host?.dispose();host=hookHost();key=outer.key;}tree=host.render(()=>outer.type(outer.props));return tree;},locale(next){locale=next;return h.render();},resolve(index,result){subscriptions[index].listener(result);return h.render();},advance(ms){time+=ms;for(const[id,timer]of timers)if(timer.at<=time){timers.delete(id);timer.fn();}return h.render();},online(){navigator.onLine=true;for(const fn of events.get('online')||[])fn();return h.render();},dispose(){host.dispose();}};
  h.render();return h;
 }
 test('visible community text translates automatically into app language without controls and preserves clickable title/body layout',()=>{
@@ -35,8 +38,30 @@ test('viewport gate defers provider work for off-screen rows and cleans observat
  const h=harness({viewport:true});try{
   assert.equal(h.subscriptions.length,0);assert.equal(h.observers[0].observed,true);
   h.observers[0].callback([{isIntersecting:false}]);h.render();assert.equal(h.subscriptions.length,0);
-  h.observers[0].callback([{isIntersecting:true}]);h.render();assert.equal(h.subscriptions.length,1);assert.equal(h.observers[0].disconnected,true);
+  h.observers[0].callback([{isIntersecting:true}]);h.render();assert.equal(h.subscriptions.length,1);assert.equal(h.observers[0].disconnected,undefined);
+  h.observers[0].callback([{isIntersecting:false}]);h.render();assert.equal(h.subscriptions[0].cancelled,true);
  }finally{h.dispose();}assert.equal(h.subscriptions[0].cancelled,true);
+});
+
+test('temporary failures recover on reconnect or backoff with a strict two-retry cap and no extra controls',()=>{
+ const h=harness();try{
+  h.resolve(0,{status:'failed',retryAt:60000,retryOnReconnect:true});h.online();assert.equal(h.subscriptions.length,2);assert.equal(h.subscriptions[1].retry,true);
+  h.advance(1000);h.online();assert.equal(h.subscriptions.length,2,'A pending retry is never aborted/replaced by the previous failure timer');
+  h.resolve(1,{status:'failed',retryAt:60000,retryOnReconnect:false});h.online();assert.equal(h.subscriptions.length,2);
+  h.advance(60051);assert.equal(h.subscriptions.length,3);h.resolve(2,{status:'failed',retryAt:120100,retryOnReconnect:true});h.online();h.advance(120000);assert.equal(h.subscriptions.length,3);
+  assert.match(text(h.tree),/original text/);
+ }finally{h.dispose();}
+ const success=harness();try{success.resolve(0,{status:'failed',retryAt:60000});success.advance(60051);success.resolve(1,{status:'ready',text:'Recovered',title:'Recovered title'});assert.match(text(success.tree),/Recovered titleRecovered/);assert.doesNotMatch(text(success.tree),/unavailable/);}finally{success.dispose();}
+});
+
+test('retry waits offscreen and account/language changes cancel timers and ignore late results',()=>{
+ const h=harness({viewport:true});try{
+  h.observers[0].callback([{isIntersecting:true}]);h.render();h.resolve(0,{status:'failed',retryAt:60000,retryOnReconnect:true});
+  h.observers[0].callback([{isIntersecting:false}]);h.render();h.advance(61000);h.online();assert.equal(h.subscriptions.length,1);
+  h.observers[0].callback([{isIntersecting:true}]);h.render();h.resolve(1,{status:'failed',retryAt:61000});h.advance(51);assert.equal(h.subscriptions.length,3);
+  h.render({accessToken:'OTHER'});h.resolve(2,{status:'ready',text:'Old account',title:'Private'});assert.doesNotMatch(text(h.tree),/Old account/);h.advance(120000);assert.equal(h.subscriptions.length,3);
+  h.locale('sq');assert.match(text(h.tree),/ngarkohet/);
+ }finally{h.dispose();}
 });
 test('language/session/text changes clear previous display immediately and unsubscribe obsolete work',()=>{
  const h=harness();try{

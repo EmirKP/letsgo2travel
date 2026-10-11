@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CURRENCIES, parseAmount } from '../../../lib/travel-assistant/money';
+import { CURRENCIES, identityQuote, parseAmount } from '../../../lib/travel-assistant/money';
 import type { FxQuote } from '../../../lib/travel-assistant/types';
 import { storedQuote, loadQuote } from '../lib/travelAssistant';
 import { locateDeviceArea } from '../lib/deviceArea';
@@ -47,13 +47,15 @@ export function TravelMoney() {
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer); }, []);
   useEffect(() => {
     let alive = true;
+    if (identityQuote(base, quote)) { setValue(null); setStatus('online'); return; }
     const saved = storedQuote(base, quote);
     setValue(saved); setStatus('loading');
     void loadQuote(base,quote).then(v => { if (alive) { setValue(v); setStatus('online'); } })
       .catch(() => { if (alive) { setValue(saved); setStatus(saved ? 'saved' : 'missing'); } });
     return () => { alive = false; };
   }, [base,quote,retry]);
-  const current = value?.base === base && value.quote === quote ? value : null;
+  const identity = identityQuote(base, quote, now);
+  const current = identity || (value?.base === base && value.quote === quote ? value : null);
   const old = !current || now - Date.parse(current.date) > 7 * 86400000 || Date.parse(current.date) > now;
   const number = parseAmount(amount);
   const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 4 });
@@ -78,8 +80,8 @@ export function TravelMoney() {
     </div>
     <section className="tm-board" aria-label={copy('Seçili kur', 'Selected exchange rate')}>
       <div className="tm-board-top">
-        <span className="tm-reference-label"><Icon name="clock" size={14}/>{old && current ? copy('KAYITLI REFERANS', 'SAVED REFERENCE') : copy('GÜNLÜK REFERANS', 'DAILY REFERENCE')}</span>
-        <button type="button" className="tm-refresh" disabled={status === 'loading'} onClick={() => setRetry(count => count + 1)} aria-label={copy('Kuru yenile', 'Refresh rate')}><Icon name="refresh" size={18}/></button>
+        <span className="tm-reference-label"><Icon name="clock" size={14}/>{identity ? copy('AYNI PARA BİRİMİ', 'SAME CURRENCY', 'E NJËJTA MONEDHË') : old && current ? copy('KAYITLI REFERANS', 'SAVED REFERENCE') : copy('GÜNLÜK REFERANS', 'DAILY REFERENCE')}</span>
+        {!identity && <button type="button" className="tm-refresh" disabled={status === 'loading'} onClick={() => setRetry(count => count + 1)} aria-label={copy('Kuru yenile', 'Refresh rate')}><Icon name="refresh" size={18}/></button>}
       </div>
       <div className="tm-pair"><strong>{base}<span>/</span>{quote}</strong><span>{currencyName(base)} → {currencyName(quote)}</span></div>
       <div className="tm-rate-line">
@@ -87,7 +89,7 @@ export function TravelMoney() {
         {hasComparison && <span className={`tm-movement is-${direction}`} aria-label={`${movementLabel}: ${changeText}`}><MovementArrow direction={direction}/><span><strong>{changeText}</strong><small>{movementLabel}</small></span></span>}
       </div>
       <div className="tm-rate-context" aria-live="polite">
-        {current && <span><Icon name="calendar" size={14}/>{copy('Kur tarihi', 'Rate date')}: {dateText(current.date)}</span>}
+        {identity ? <span>{copy('İnternet veya kur bilgisi gerekmez.', 'No connection or exchange rate is needed.', 'Nuk nevojitet lidhje ose kurs këmbimi.')}</span> : current && <span><Icon name="calendar" size={14}/>{copy('Kur tarihi', 'Rate date')}: {dateText(current.date)}</span>}
         {status === 'loading' && <span>{copy('Kur güncelleniyor…', 'Updating rate…')}</span>}
         {status === 'saved' && <span className="tm-saved-status"><Icon name="offline" size={14}/>{copy('Güncellenemedi · son kayıt', 'Update unavailable · saved rate', 'Përditësimi mungon · kursi i ruajtur')}</span>}
         {status === 'missing' && <span>{copy('Kur şu an alınamıyor. Yenileyerek tekrar dene.', 'The rate is unavailable. Refresh to try again.')}</span>}
@@ -111,13 +113,13 @@ export function TravelMoney() {
       {number === null && <p id="tm-amount-error" className="tm-form-message" role="alert">{copy('Sıfır veya pozitif bir tutar gir; binlik ayırıcı kullanma.', 'Enter zero or a positive amount without thousands separators.')}</p>}
       <div className="tm-swap-divider"><button type="button" className="tm-swap" onClick={() => choosePair({ base: quote, quote: base })} aria-label={copy('Para birimlerini değiştir', 'Swap currencies')}><Icon name="swap" size={20}/></button></div>
       <div className="tm-conversion" aria-live="polite">
-        <span>{copy('Yaklaşık karşılığı', 'Approximate value')}</span>
-        <div className="tm-result-line"><strong>{conversion !== null ? `≈ ${nf.format(conversion)}` : '—'}</strong><label className="tm-currency-choice"><span>{copy('Hedef para', 'To')}</span><select aria-label={copy('Hedef para', 'To')} value={quote} onChange={event => choosePair({ base, quote: event.target.value })}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select></label></div>
+        <span>{identity ? copy('Karşılığı', 'Value', 'Vlera') : copy('Yaklaşık karşılığı', 'Approximate value')}</span>
+        <div className="tm-result-line"><strong>{conversion !== null ? `${identity ? '=' : '≈'} ${nf.format(conversion)}` : '—'}</strong><label className="tm-currency-choice"><span>{copy('Hedef para', 'To')}</span><select aria-label={copy('Hedef para', 'To')} value={quote} onChange={event => choosePair({ base, quote: event.target.value })}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select></label></div>
         <span>{currencyName(quote)}</span>
-        {conversion !== null && number !== null && <span className="tm-result-reference">{nf.format(number)} {base} · {copy('referans kurla', 'at the reference rate')}</span>}
+        {conversion !== null && number !== null && <span className="tm-result-reference">{nf.format(number)} {base} · {identity ? copy('aynı para birimi', 'same currency', 'e njëjta monedhë') : copy('referans kurla', 'at the reference rate')}</span>}
         {old && status !== 'loading' && <p role="status">{copy('Son 7 güne ait kullanılabilir kur yok. Güncel dönüşüm hesaplanmıyor.', 'No usable rate from the last seven days. A current conversion cannot be calculated.')}</p>}
       </div>
     </section>
-    <aside className="tm-source-note"><Icon name="info" size={18}/><div><p>{copy('Günlük yayımlanan referans kurlarıdır; anlık alış/satış fiyatı değildir. Banka ve döviz bürosu komisyonları dahil değildir.', 'Published daily reference rates, not real-time buy/sell prices. Bank and exchange-office fees are excluded.')}</p><button type="button" onClick={() => void openExternal('https://frankfurter.dev/')}>{copy('Kur kaynağı: Frankfurter', 'Rate source: Frankfurter')}<Icon name="external" size={13}/></button></div></aside>
+    {!identity && <aside className="tm-source-note"><Icon name="info" size={18}/><div><p>{copy('Günlük yayımlanan referans kurlarıdır; anlık alış/satış fiyatı değildir. Banka ve döviz bürosu komisyonları dahil değildir.', 'Published daily reference rates, not real-time buy/sell prices. Bank and exchange-office fees are excluded.')}</p><button type="button" onClick={() => void openExternal('https://frankfurter.dev/')}>{copy('Kur kaynağı: Frankfurter', 'Rate source: Frankfurter')}<Icon name="external" size={13}/></button></div></aside>}
   </section>;
 }

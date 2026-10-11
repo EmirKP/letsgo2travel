@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+class ApiError extends Error { constructor(status){super('Request failed');this.status=status;} }
 function harness(){
  const timers=new Map(),requests=[];let timerId=0,time=0;
  const result={exports:{}};
  const code=ts.transpileModule(readFileSync('mobile/src/lib/communityTranslation.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{AbortController,Date,Map,Set,setTimeout(fn){timers.set(++timerId,fn);return timerId;},clearTimeout(id){timers.delete(id);}})(name=>{assert.equal(name,'./api');return{requestJson(){throw Error('default queue unused');}};},result,result.exports);
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{AbortController,Date,Map,Set,setTimeout(fn){timers.set(++timerId,fn);return timerId;},clearTimeout(id){timers.delete(id);}})(name=>{assert.equal(name,'./api');return{ApiError,requestJson(){throw Error('default queue unused');}};},result,result.exports);
  const queue=result.exports.createCommunityTranslationQueue((items,locale,token,signal)=>new Promise((resolve,reject)=>requests.push({items,locale,token,signal,resolve,reject})),()=>time);
  return{queue,requests,flush(){const pending=[...timers.values()];timers.clear();pending.forEach(fn=>fn());},advance(ms){time+=ms;},resolve(i){const req=requests[i];req.resolve({targetLanguage:req.locale,translations:req.items.map(item=>({id:item.id,translation:`translated ${item.text}`,...(item.title?{title:`translated ${item.title}`}:{})}))});},input(text='Merhaba',locale='en',token='token'){return{text,locale,accessToken:token};}};
 }
@@ -50,4 +51,26 @@ test('late old-session cleanup cannot delete the new session queued job with ide
  const current=h.queue.subscribe(h.input('Same','en','new-token'),value=>updated=value);
  old();h.flush();assert.equal(h.requests.length,1);assert.equal(h.requests[0].token,'new-token');
  h.resolve(0);await tick();assert.equal(updated.text,'translated Same');current();h.queue.clear();
+});
+
+test('completed mounted rows release cache pins so appended discussion items keep translating beyond 200',async()=>{
+ const h=harness(),results=[],stops=[];let resolved=0;
+ for(let page=0;page<12;page++){
+  for(let i=0;i<20;i++){const index=page*20+i;stops.push(h.queue.subscribe(h.input(`Reply ${index}`),value=>results[index]=value));}
+  h.flush();
+  while(results.filter(Boolean).length<(page+1)*20){while(resolved<h.requests.length)h.resolve(resolved++);await tick();h.flush();}
+ }
+ assert.equal(results.length,240);assert.ok(results.every(value=>value.status==='ready'));
+ // No row has unmounted. The already rendered text remains in its listener's state.
+ assert.equal(results[0].text,'translated Reply 0');stops.forEach(stop=>stop());h.queue.clear();
+});
+
+test('reconnect retries share work, while invalid sessions cannot be forced into another request',async()=>{
+ const h=harness();let failed,recovered;
+ const old=h.queue.subscribe(h.input(),value=>failed=value);h.flush();h.requests[0].reject(new ApiError(0));await tick();
+ assert.equal(failed.retryOnReconnect,true);assert.equal(failed.retryAt,60000);
+ const one=h.queue.subscribe(h.input(),value=>recovered=value,true),two=h.queue.subscribe(h.input(),()=>{},true);h.flush();assert.equal(h.requests.length,2);
+ h.resolve(1);await tick();assert.equal(recovered.status,'ready');old();one();two();
+ const auth=h.queue.subscribe(h.input('Private'),value=>failed=value);h.flush();h.requests[2].reject(new ApiError(401));await tick();
+ assert.equal(failed.retryAt,undefined);h.queue.subscribe(h.input('Private'),()=>{},true);h.flush();assert.equal(h.requests.length,3);auth();h.queue.clear();
 });

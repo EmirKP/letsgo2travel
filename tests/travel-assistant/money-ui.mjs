@@ -211,6 +211,7 @@ function fxLoader(request, assistant = 'https://assistant.example') {
   const imports = {
     './api': { requestJson: async (url, options) => { calls.push({ url, options }); return request(url); } },
     './config': { config: { apiBaseUrl: 'https://main.example', travelAssistantApiBaseUrl: assistant } },
+    '../../../lib/travel-assistant/money': money,
     '../../../lib/travel-assistant/places': require('../../lib/travel-assistant/places.ts'),
     '../../../lib/travel-assistant/responses': require('../../lib/travel-assistant/responses.ts'),
   };
@@ -238,4 +239,32 @@ test('FX rejects malformed, wrong-pair and stale host data before fallback; fail
   await assert.rejects(app.loadQuote('EUR', 'TRY'), /offline/);
   assert.equal(app.storedQuote('EUR', 'TRY').rate, 44);
   failing = false; assert.equal((await app.loadQuote('EUR', 'TRY')).rate, 44); assert.equal(app.calls.length, 3);
+});
+
+
+test('Same currency converts immediately offline without cache, provider calls or fabricated attribution', async () => {
+  const app = mount({ initialPair: { base: 'EUR', quote: 'EUR' }, loader: () => Promise.reject(Error('offline')) });
+  try {
+    await app.settle(); assert.equal(app.calls.length, 0);
+    assert.match(text(app.tree), /SAME CURRENCY/); assert.doesNotMatch(text(app.tree), /Frankfurter|No usable rate|Updating rate/);
+    assert.equal(namedButton(app.tree, 'Refresh rate'), undefined);
+    for (const [amount, expected] of [['2.5', '= 2.5'], ['0', '= 0']]) {
+      find(app.tree, node => node.type === 'input').props.onChange({ target: { value: amount } }); app.render();
+      assert.match(text(byClass(app.tree, 'tm-conversion')), new RegExp(expected.replace('.', '\\.')));
+    }
+    find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'To').props.onChange({ target: { value: 'TRY' } });
+    await app.settle(); assert.deepEqual(app.calls, [['EUR', 'TRY']]); await app.settle();
+    assert.match(text(app.tree), /rate is unavailable/);
+  } finally { app.dispose(); }
+});
+
+test('Shared FX loader returns identity 1 for every supported currency without network or storage', async () => {
+  const app = fxLoader(() => { throw Error('must not request a rate'); });
+  for (const currency of money.CURRENCIES) {
+    const result = await app.loadQuote(currency, currency);
+    assert.equal(result.rate, 1); assert.equal(result.base, currency); assert.equal(result.quote, currency);
+    assert.equal(result.sourceUrl, ''); assert.equal(result.changePercent, null);
+  }
+  assert.equal(app.calls.length, 0); assert.equal(app.values.size, 0);
+  assert.equal(money.identityQuote('XXX', 'XXX'), null);
 });

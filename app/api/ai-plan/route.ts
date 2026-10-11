@@ -6,15 +6,15 @@ import { findAirportByIata } from "@/lib/airport-search";
 import { fixedDestinationStarter, routeMatchesDestination, validPlanDays, type PlanDestination, type PlanLocale } from "@/lib/route-planner";
 import { normalizePlannerPreferences, plannerPreferenceInstructions, starterPreferenceNote, validTravelParty } from "@/lib/planner-preferences";
 import {
-  resolveVerifiedVisaRule,
-  verifiedDestinationCatalog,
   visaRuleMatchesPreference,
 } from "@/lib/visa-entry-rules";
+
+import { normalizePlannerPassport, validPlannerPassport, plannerEntry, plannerPassportLabel } from "@/lib/planner-passport";
 
 export const maxDuration = 45;
 
 const AI_REQUEST_TIMEOUT_MS = 18_000;
-const PLAN_CACHE_VERSION = "family-tier-v5-2026-10-04";
+const PLAN_CACHE_VERSION = "passport-v6-2026-10-11";
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 type PlannerInput = ReturnType<typeof normalizeInput>;
@@ -29,7 +29,7 @@ type AiRouteData = {
   visaNote: string;
   visaSourceUrl: string;
   visaVerifiedAt: string | null;
-  verifiedEntryStatus: ReturnType<typeof resolveVerifiedVisaRule>["status"];
+  verifiedEntryStatus: ReturnType<typeof plannerEntry>["verifiedEntryStatus"];
   estimatedBudget: string;
   idealDuration: string;
   bestFor: string;
@@ -71,7 +71,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   saraybosna: {
     name: "Saraybosna",
     country: "Bosna-Hersek",
-    why: "Vizesiz giriş, yürüyerek keşfedilebilen merkez ve bütçe dostu seçenekleriyle güçlü bir kısa rota.",
+    why: "Yürüyerek keşfedilebilen merkez ve bütçe dostu seçenekleriyle güçlü bir kısa rota.",
     bestFor: "İlk yurt dışı deneyimi ve kültür gezisi",
     transportEase: "Kolay",
     safetyNote: "Turistik ve kalabalık alanlarda standart kişisel güvenlik önlemlerini al.",
@@ -84,7 +84,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   uskup: {
     name: "Üsküp",
     country: "Kuzey Makedonya",
-    why: "Vizesiz giriş, kısa uçuş ve merkezde kolay ulaşım sayesinde hafta sonu için uygulanabilir bir Balkan rotası.",
+    why: "Kısa şehir molası ve merkezde kolay ulaşım sayesinde hafta sonu için uygulanabilir bir Balkan rotası.",
     bestFor: "Kısa kaçamak ve Balkan kültürü",
     transportEase: "Kolay",
     safetyNote: "Gece geç saatlerde tenha bölgeler yerine merkezi ulaşım noktalarını tercih et.",
@@ -97,7 +97,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   belgrad: {
     name: "Belgrad",
     country: "Sırbistan",
-    why: "Vizesiz giriş, canlı şehir hayatı ve güçlü toplu taşıma ağıyla arkadaş grupları için dengeli bir seçenek.",
+    why: "Canlı şehir hayatı ve güçlü toplu taşıma ağıyla arkadaş grupları için dengeli bir seçenek.",
     bestFor: "Şehir hayatı, gastronomi ve arkadaşlarla gezi",
     transportEase: "Kolay",
     safetyNote: "Kalabalık ulaşım araçlarında çanta ve telefon güvenliğine dikkat et.",
@@ -110,8 +110,8 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   baku: {
     name: "Bakü",
     country: "Azerbaycan",
-    why: "Türkiye'den doğrudan seyahatte kimlik kartı kolaylığı ve kısa uçuş süresiyle pratik bir ilk yurt dışı rotası.",
-    bestFor: "Kimlikle seyahat ve şehir gezisi",
+    why: "Kompakt merkez ve sahil yürüyüşleriyle pratik bir şehir rotası.",
+    bestFor: "Şehir gezisi ve sahil yürüyüşleri",
     transportEase: "Kolay",
     safetyNote: "Resmî taksileri veya uygulama üzerinden çağrılan araçları tercih et.",
     dailyPlan: [
@@ -123,7 +123,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   tiflis: {
     name: "Tiflis",
     country: "Gürcistan",
-    why: "Kimlik kartıyla giriş, uygun şehir içi seçenekleri ve güçlü gastronomi rotasıyla kolay planlanabilir.",
+    why: "Uygun şehir içi seçenekleri ve güçlü gastronomi rotasıyla kolay planlanabilir.",
     bestFor: "Ekonomik keşif ve gastronomi",
     transportEase: "Kolay",
     safetyNote: "Seyahat tarihlerini kapsayan zorunlu sağlık ve kaza sigortasını girişte sunmaya hazır tut.",
@@ -136,7 +136,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   kisinev: {
     name: "Kişinev",
     country: "Moldova",
-    why: "Kimlik kartıyla seyahat seçeneği ve sakin şehir temposuyla kısa, düşük yoğunluklu bir rota sunar.",
+    why: "Sakin şehir temposuyla kısa, düşük yoğunluklu bir rota sunar.",
     bestFor: "Sakin hafta sonu ve ilk yurt dışı deneyimi",
     transportEase: "Orta",
     safetyNote: "Transdinyester bölgesine yönelik güncel resmî seyahat uyarılarını ayrıca kontrol et.",
@@ -175,7 +175,7 @@ const fallbackProfiles: Record<string, FallbackProfile> = {
   tiran: {
     name: "Tiran",
     country: "Arnavutluk",
-    why: "Vizesiz giriş ve sahil bağlantıları sayesinde yaz veya şehir tatili için esnek bir başlangıç noktasıdır.",
+    why: "Sahil bağlantıları sayesinde yaz veya şehir tatili için esnek bir başlangıç noktasıdır.",
     bestFor: "Yaz tatili ve Balkan keşfi",
     transportEase: "Orta",
     safetyNote: "Sahil transferlerinde lisanslı işletme ve doğrulanmış rezervasyon kullan.",
@@ -209,6 +209,7 @@ function normalizeInput(body: unknown) {
     visa: String(record.visa || "Belirtilmedi").slice(0, 60),
     locale,
     ...normalizePlannerPreferences(record),
+    ...normalizePlannerPassport(record),
   };
 }
 
@@ -279,48 +280,30 @@ function score(value: unknown, fallback: number, max = 10) {
   return Math.max(0, Math.min(max, Math.round(numeric)));
 }
 
-function normalizeRoute(value: unknown, locale: PlanLocale = "tr"): AiRouteData | null {
+function normalizeRoute(value: unknown, input: PlannerInput): AiRouteData | null {
+  const { locale } = input;
   const copy = (tr: string, en: string, sq: string) => locale === "tr" ? tr : locale === "sq" ? sq : en;
   const route = asRecord(value);
   const name = cleanText(route.name, "", 80);
-  const country = cleanText(route.country, "", 80);
+  const airport = typeof route.destinationCode === "string" ? findAirportByIata(route.destinationCode) : null;
+  const country = airport ? new Intl.DisplayNames([locale], { type: "region" }).of(airport.countryCode) || airport.country : cleanText(route.country, "", 80);
   if (!name || !country) return null;
 
-  const verifiedRule = resolveVerifiedVisaRule({
-    name,
-    country: typeof route.destinationCode === "string" ? findAirportByIata(route.destinationCode)?.country || country : country,
-    cityOrRegion: route.cityOrRegion,
-  });
+  const entry = plannerEntry(input, airport?.countryCode || country, locale);
   const scores = asRecord(route.scores);
   const cta = asRecord(route.cta);
   const warnings = cleanStringArray(route.warnings, [], 5);
   if (!warnings.some((warning) => /giriş|entry|visa/i.test(warning))) {
-    warnings.push(copy("Giriş kuralını bilet almadan önce T.C. Dışişleri Bakanlığı kaynağından yeniden doğrula.", "Reconfirm the entry rule with the official Turkish Ministry of Foreign Affairs source before booking.", "Verifiko kushtet e hyrjes në burimin zyrtar të Ministrisë së Jashtme të Turqisë përpara rezervimit."));
+    warnings.push(copy("Seçili pasaportun için giriş kuralını bilet almadan önce resmî kaynaktan yeniden doğrula.", "Reconfirm the entry rule for your selected passport with an official source before booking.", "Verifiko kushtet e hyrjes për pasaportën e zgjedhur me burimin zyrtar përpara rezervimit."));
   }
-
-  const verifiedLabel = locale === "sq" ? ({ identity_card: "Hyrje me letërnjoftim turk", visa_free: "Pa vizë", e_visa: "Kërkohet e-vizë", visa_on_arrival: "Vizë në mbërritje", visa_required: "Kërkohet vizë", unknown: "Verifiko me burim zyrtar" } as const)[verifiedRule.status] : locale === "en" ? ({
-    identity_card: "Entry with Turkish ID card",
-    visa_free: "Visa-free",
-    e_visa: "e-Visa required",
-    visa_on_arrival: "Visa on arrival",
-    visa_required: verifiedRule.label.toLocaleLowerCase("tr-TR").includes("schengen") ? "Schengen visa required" : "Visa required",
-    unknown: "Verify with an official source",
-  } as const)[verifiedRule.status] : verifiedRule.label;
-  const verifiedNote = locale === "sq" ? "Klasifikimi është për pasaportën e zakonshme turke. Kushtet varen nga pasaporta, qëllimi dhe kohëzgjatja. Verifiko rregullin aktual me burimin zyrtar përpara rezervimit." : locale === "en"
-    ? "Entry conditions can depend on passport validity, travel purpose and length of stay. Verify the current rule with the linked official source before booking."
-    : verifiedRule.note;
 
   return {
     name,
-    country: verifiedRule.status === "unknown" || locale !== "tr" ? country : verifiedRule.country,
+    country,
     cityOrRegion: cleanText(route.cityOrRegion, name, 100),
     destinationCode: typeof route.destinationCode === "string" && /^[A-Z]{3}$/.test(route.destinationCode) ? route.destinationCode : undefined,
     why: cleanText(route.why, copy("Seçimlerinle uyumlu bir rota seçeneği.", "A route that matches your choices.", "Një rrugë që përputhet me zgjedhjet e tua."), 600),
-    visaStatus: verifiedLabel,
-    visaNote: verifiedNote,
-    visaSourceUrl: verifiedRule.sourceUrl,
-    visaVerifiedAt: verifiedRule.verifiedAt,
-    verifiedEntryStatus: verifiedRule.status,
+    ...entry,
     estimatedBudget: cleanText(route.estimatedBudget, copy("Seçilen tarihler için ayrıca hesaplanmalı", "Estimate separately for your dates", "Llogarite veçmas për datat e tua"), 120),
     idealDuration: cleanText(route.idealDuration, copy("3 gün", "3 days", "3 ditë"), 80),
     bestFor: cleanText(route.bestFor, copy("Şehir keşfi", "City discovery", "Eksplorim urban"), 180),
@@ -330,7 +313,7 @@ function normalizeRoute(value: unknown, locale: PlanLocale = "tr"): AiRouteData 
     safetyNote: cleanText(route.safetyNote, copy("Güncel resmî seyahat uyarılarını kontrol et.", "Check current official travel advice.", "Kontrollo këshillat zyrtare aktuale të udhëtimit."), 500),
     scores: {
       budget: score(scores.budget, 8),
-      visaEase: score(scores.visaEase, verifiedRule.status === "visa_required" ? 4 : 9),
+      visaEase: entry.verifiedEntryStatus === "unknown" ? 0 : entry.verifiedEntryStatus === "visa_required" ? 4 : 9,
       firstTime: score(scores.firstTime, 8),
       transport: score(scores.transport, 8),
       overall: score(scores.overall, 85, 100),
@@ -357,7 +340,7 @@ function fallbackRoute(profile: FallbackProfile, input: PlannerInput): AiRouteDa
     warnings: [
       "Uçak bileti ücreti bu tahmine dahil değildir; konaklama tutarlarını tarihler için yeniden kontrol et.",
     ],
-  }, input.locale)!;
+  }, input)!;
 }
 
 function fallbackKeys(input: PlannerInput) {
@@ -373,27 +356,33 @@ function fallbackKeys(input: PlannerInput) {
   return ["saraybosna", "tiflis", "roma"];
 }
 
-function buildFallbackPlan(input: PlannerInput): AiPlanData {
+function buildUnfilteredFallbackPlan(input: PlannerInput): AiPlanData {
   if (input.mode === "fixed" && input.destination) {
     const starter = fixedDestinationStarter({ ...input, dayCount: input.dayCount || 3 }, input.locale);
-    return { summary: starter.summary, routes: starter.routes.map(route => normalizeRoute(route, input.locale)!) };
+    return { summary: starter.summary, routes: starter.routes.map(route => normalizeRoute(route, input)!) };
   }
   if (input.locale === "sq" || input.dayCount || input.party.children > 0) {
     const codes: Record<string, string> = { baku: "GYD", tiflis: "TBS", kisinev: "RMO", tiran: "TIA", saraybosna: "SJJ", uskup: "SKP", belgrad: "BEG", roma: "FCO", budapeste: "BUD" };
-    return { summary: input.locale === "sq" ? "Tre plane fillestare të redaktueshme. Nuk janë krijuar rishtazi nga AI; kontrollo kushtet aktuale të hyrjes para udhëtimit." : input.locale === "en" ? "Three editable starter outlines for your travel level and group. Check current entry conditions before travelling." : "Seyahat seviyene ve grubuna göre üç düzenlenebilir başlangıç taslağı. Seyahatten önce güncel giriş koşullarını doğrula.", routes: fallbackKeys(input).map(key => {
+    return { summary: input.locale === "sq" ? "Plane fillestare të redaktueshme. Nuk janë krijuar rishtazi nga AI; kontrollo kushtet aktuale të hyrjes para udhëtimit." : input.locale === "en" ? "Editable starter outlines for your travel level and group. Check current entry conditions before travelling." : "Seyahat seviyene ve grubuna göre düzenlenebilir başlangıç taslağı. Seyahatten önce güncel giriş koşullarını doğrula.", routes: fallbackKeys(input).map(key => {
       const airport = findAirportByIata(codes[key]);
       const profile = fallbackProfiles[key];
       const destination = { code: codes[key], name: airport?.city || profile.name, country: airport ? new Intl.DisplayNames([input.locale], { type: "region" }).of(airport.countryCode) || profile.country : profile.country, countryCode: airport?.countryCode || "" };
       const starter = fixedDestinationStarter({ ...input, destination, dayCount: input.dayCount || Math.min(14, Math.max(1, parseInt(input.days, 10) || 3)) }, input.locale);
-      return normalizeRoute(starter.routes[0], input.locale)!;
+      return normalizeRoute(starter.routes[0], input)!;
     }) };
   }
   return {
     summary: input.locale === "en"
-      ? "We prepared three practical starter routes using verified entry-rule classifications."
-      : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan üç uygulanabilir başlangıç rotası hazırladık.",
+      ? "We prepared starter routes for your choices. Review the entry conditions shown for your passport."
+      : "Seçimlerine göre başlangıç rotaları hazırladık. Pasaportuna göre gösterilen giriş koşullarını kontrol et.",
     routes: fallbackKeys(input).map((key) => fallbackRoute(fallbackProfiles[key], input)),
   };
+}
+
+function buildFallbackPlan(input: PlannerInput): AiPlanData {
+  const plan = buildUnfilteredFallbackPlan(input);
+  if (input.mode === "fixed") return plan;
+  return { ...plan, routes: plan.routes.filter(route => visaRuleMatchesPreference(route.verifiedEntryStatus, input.visa)) };
 }
 
 function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
@@ -402,13 +391,13 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   if (input.mode === "fixed" && input.destination) {
     // Reject unrelated model output; never rename an unrelated itinerary to the user's city.
     const raw = rawRoutes.find(route => routeMatchesDestination(asRecord(route), input.destination!));
-    const normalized = raw ? normalizeRoute({ ...asRecord(raw), name: input.destination.name, country: input.destination.country, cityOrRegion: input.destination.name, destinationCode: input.destination.code }, input.locale) : null;
+    const normalized = raw ? normalizeRoute({ ...asRecord(raw), name: input.destination.name, country: input.destination.country, cityOrRegion: input.destination.name, destinationCode: input.destination.code }, input) : null;
     if (!normalized || !Array.isArray(asRecord(raw).dailyPlan) || normalized.dailyPlan.length !== input.dayCount) return buildFallbackPlan(input);
     normalized.idealDuration = input.locale === "sq" ? `${input.dayCount} ditë` : input.locale === "en" ? `${input.dayCount} days` : `${input.dayCount} gün`;
     return { summary: cleanText(plan.summary, `${input.origin} → ${input.destination.name}`, 500), routes: [normalized] };
   }
   const normalizedRoutes = rawRoutes
-    .map((route) => normalizeRoute(route, input.locale))
+    .map((route) => normalizeRoute(route, input))
     .filter((route): route is AiRouteData => Boolean(route))
     .map(route => input.dayCount ? { ...route, idealDuration: input.locale === "sq" ? `${input.dayCount} ditë` : input.locale === "en" ? `${input.dayCount} days` : `${input.dayCount} gün` } : route);
   const preferenceIsRestricted = input.visa.toLocaleLowerCase("tr-TR").includes("kimlikle")
@@ -428,7 +417,7 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
   return {
     summary: cleanText(
       plan.summary,
-      input.locale === "sq" ? "Përgatitëm itinerare duke përdorur klasifikimet e verifikuara të kushteve të hyrjes." : input.locale === "en" ? "We prepared route options using verified entry-rule classifications." : "Seçimlerine göre doğrulanmış giriş kuralları kullanılan rota seçenekleri hazırladık.",
+      input.locale === "sq" ? "Përgatitëm itinerare sipas zgjedhjeve të tua. Kontrollo kushtet e hyrjes për pasaportën tënde." : input.locale === "en" ? "We prepared route options for your choices. Review the entry conditions shown for your passport." : "Seçimlerine göre rota seçenekleri hazırladık. Pasaportuna göre gösterilen giriş koşullarını kontrol et.",
       500,
     ),
     routes,
@@ -483,6 +472,7 @@ export async function POST(req: Request) {
     if (input.mode === "fixed" && (!input.destination || !input.dayCount || input.origin === "Belirtilmedi")) {
       return NextResponse.json({ error: input.locale === "tr" ? "Çıkış şehri, geçerli bir hedef ve 1–14 gün seç." : input.locale === "sq" ? "Zgjidh qytetin e nisjes, një destinacion të vlefshëm dhe 1–14 ditë." : "Choose a departure city, a valid destination and 1–14 days." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
     }
+    if (!validPlannerPassport(input)) return NextResponse.json({ error: input.locale === "tr" ? "Geçerli bir pasaport ülkesi ve türü seç." : input.locale === "sq" ? "Zgjidh shtetin dhe llojin e vlefshëm të pasaportës." : "Choose a valid passport country and type." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
     const hash = requestHash(input);
     const cached = await getCachedPlan(hash);
     if (cached) {
@@ -504,13 +494,13 @@ export async function POST(req: Request) {
     const modelName = !configuredModel || configuredModel === "gemini-3.5-flash"
       ? "gemini-3.6-flash"
       : configuredModel;
-    const destinationCatalog = verifiedDestinationCatalog(input.visa);
+    const destinationCatalog = Object.values(fallbackProfiles).map(profile => ({ name: profile.name, country: profile.country, entry: plannerEntry(input!, profile.country, input!.locale).visaStatus }));
 
     const prompt = `
-      Sen profesyonel bir seyahat rota danışmanısın. ${input.mode === "fixed" ? `Kullanıcının seçtiği tek hedef için tam 1 rota hazırla: ${JSON.stringify(input.destination)}. name ve cityOrRegion değerlerini aynen ${JSON.stringify(input.destination?.name)} yaz. Alternatif destinasyon önermek veya başka bir şehre geçmek yasak. Bu hedef için tam ${input.dayCount} günlük plan hazırla, dailyPlan dizisinde her gün için tek öğe olsun. Gidiş/dönüş günlerini de bu süreye dahil et.` : `Kullanıcının seçimlerine göre tam 3 farklı rota oluştur. Yalnızca şu doğrulanabilir rota havuzundan seçim yap: ${destinationCatalog}.`}
+      Sen profesyonel bir seyahat rota danışmanısın. ${input.mode === "fixed" ? `Kullanıcının seçtiği tek hedef için tam 1 rota hazırla: ${JSON.stringify(input.destination)}. name ve cityOrRegion değerlerini aynen ${JSON.stringify(input.destination?.name)} yaz. Alternatif destinasyon önermek veya başka bir şehre geçmek yasak. Bu hedef için tam ${input.dayCount} günlük plan hazırla, dailyPlan dizisinde her gün için tek öğe olsun. Gidiş/dönüş günlerini de bu süreye dahil et.` : `Kullanıcının seçimlerine göre tam 3 farklı rota oluştur. Yalnızca şu doğrulanabilir rota havuzundan seçim yap: ${JSON.stringify(destinationCatalog)}.`}
       ${input.locale === "en" ? "Açıklamalar, plan, uyarılar ve tüm kullanıcıya gösterilen metinler tamamen İngilizce olmalı." : input.locale === "sq" ? "Tüm açıklamalar, planlar, uyarılar ve kullanıcıya görünen metinler doğal Arnavutça (Shqip) olmalı." : "Tüm kullanıcıya gösterilen metinleri Türkçe yaz."}
       Vize veya kimlikle giriş bilgisini tahmin etme. visaStatus alanına yalnızca "Sistem doğrulayacak" yaz;
-      sunucu bu alanı T.C. Dışişleri Bakanlığı verisiyle değiştirecek.
+      sunucu bu alanı seçili pasaport ve hedef ülke için ortak resmî giriş kurallarıyla değiştirecek. Diğer alanlarda da giriş hakkı tahmin etme veya vizesiz iddiası yazma.
       Canlı fiyat, garanti giriş, kesin güvenlik veya kesin uygunluk iddiasında bulunma.
 
       Kullanıcı seçimleri:
@@ -522,6 +512,7 @@ export async function POST(req: Request) {
       - Kiminle: ${input.who}
       - Tempo: ${input.tempo}
       - Seyahat tipi: ${input.vibe.length > 0 ? input.vibe.join(", ") : "Belirtilmedi"}
+      - Pasaport: ${plannerPassportLabel(input, input.locale)} (${input.passportCountry}/${input.passportType})
       - Giriş tercihi: ${input.visa}
       - Tercihlere uyarlama: ${plannerPreferenceInstructions(input)}
       ${input.dayCount ? `Her rota için tam ${input.dayCount} günlük plan oluştur; dailyPlan dizisinde her gün için bir öğe olmalı.` : ""}

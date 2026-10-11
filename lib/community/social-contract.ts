@@ -15,7 +15,7 @@ export type SocialComment = {
   isDeleted?: boolean; editedAt?: string | null;
 };
 export type SocialPage<T> = { items: T[]; nextOffset: number | null };
-export type SocialDetail = { post: SocialPost; comments: SocialPage<SocialComment> };
+export type SocialDetail = { post: SocialPost; comments: SocialPage<SocialComment> & { previousOffset?: number | null } };
 export type SocialCollection = { id: string; name: string; postCount: number };
 export type SocialNotificationPreferences = { comments: boolean; replies: boolean; follows: boolean; price_alert_email: boolean; price_alert_push: boolean };
 export const SOCIAL_UNDO_SECONDS = 30;

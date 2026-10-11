@@ -313,3 +313,65 @@ test('City prices retain country identity and support only verified airport muni
   assert.equal(routeCosts.routeCityBenchmark({ name: 'Roma', cityOrRegion: 'Roma', destinationCode: 'FCO', country: 'Italy' }).code, 'IT');
   assert.equal(routeCosts.routeCityBenchmark({ name: 'Tiranë', destinationCode: 'TIA', country: 'Shqipëri' }).code, 'AL');
 });
+
+
+test('Planner entry rules use nationality and all supported passport types; omitted legacy input remains Turkish ordinary', async () => {
+  const route = api();
+  const body = { ...input, destination: { code: 'FCO' }, locale: 'en' };
+  const cases = [[{}, 'visa_required', 'Türkiye · Ordinary'], [{ passportCountry: 'TR', passportType: 'special' }, 'visa_free', 'Türkiye · Special'], [{ passportCountry: 'TR', passportType: 'service' }, 'visa_free', 'Türkiye · Service'], [{ passportCountry: 'TR', passportType: 'diplomatic' }, 'visa_free', 'Türkiye · Diplomatic'], [{ passportCountry: 'DE', passportType: 'ordinary' }, 'visa_free', 'Germany · Ordinary'], [{ passportCountry: 'DE', passportType: 'special' }, 'unknown', 'Germany · Special']];
+  for (const [passport, expected, context] of cases) {
+    const response = await route.POST(request({ ...body, ...passport })); assert.equal(response.status, 200);
+    const result = (await response.json()).data.routes[0];
+    assert.equal(result.verifiedEntryStatus, expected); assert.ok(result.visaNote.startsWith(context), result.visaNote);
+    if (expected === 'unknown') { assert.equal(result.visaVerifiedAt, null); assert.doesNotMatch(result.visaStatus, /Visa-free/); }
+    else assert.equal(result.visaVerifiedAt, '2026-10-11');
+  }
+});
+
+test('Explicit invalid passport input is rejected instead of silently granting the legacy Turkish rule', async () => {
+  const route = api();
+  for (const fields of [{ passportCountry: '???' }, { passportCountry: null }, { passportType: 'official' }, { passportType: null }]) {
+    assert.equal((await route.POST(request({ ...input, ...fields }))).status, 400);
+  }
+});
+
+test('Fresh and cached AI routes replace claimed visa-free status with the same canonical selected-passport rule', async () => {
+  const city = load('lib/airport-search.ts').findAirportByIata('FCO').city;
+  const generated = { summary: 'Your route', routes: [{ name: city, country: 'Italy', visaStatus: 'Visa-free guaranteed', verifiedEntryStatus: 'visa_free', visaNote: 'Fabricated', visaSourceUrl: 'https://invalid.example', dailyPlan: ['1', '2', '3', '4'], scores: { overall: 80, visaEase: 10 } }] };
+  for (const options of [{ enabled: true, generated }, { cached: generated }]) {
+    const route = api(options);
+    const result = await (await route.POST(request({ ...input, destination: { code: 'FCO' }, passportCountry: 'DE', passportType: 'special', locale: 'en' }))).json();
+    assert.equal(result.data.routes[0].verifiedEntryStatus, 'unknown'); assert.equal(result.data.routes[0].scores.visaEase, 0);
+    assert.doesNotMatch(result.data.routes[0].visaNote, /Fabricated|Turkish|turke/); assert.equal(result.data.routes[0].visaVerifiedAt, null);
+    if (options.enabled) assert.match(route.prompts[0], /Germany · Special \(DE\/special\)/);
+  }
+});
+
+test('Dated non-Turkish discovery data remains unverified and cannot bypass strict visa-free filtering', async () => {
+  const entry = load('lib/planner-passport.ts');
+  const dated = entry.plannerEntry({ passportCountry: 'DE', passportType: 'ordinary' }, 'Serbia', 'en');
+  assert.equal(dated.verifiedEntryStatus, 'unknown'); assert.equal(dated.visaVerifiedAt, null); assert.match(dated.visaNote, /dated discovery data/);
+  const route = api();
+  const result = await (await route.POST(request({ ...input, mode: 'discover', passportCountry: 'DE', passportType: 'special', visa: 'Sadece vizesiz' }))).json();
+  assert.equal(result.data.routes.length, 0, 'Unknown fallback routes must not be reinserted as visa-free alternatives');
+});
+
+
+test('Local starter routes use canonical passport rules in all languages and never retain generic visa-free claims', () => {
+  const routes = load('mobile/src/data/routes.ts');
+  const rules = load('lib/planner-passport.ts');
+  for (const locale of ['tr', 'en', 'sq']) {
+    const plan = routes.createFallbackPlan({ ...input, mode: 'discover', passportCountry: 'DE', passportType: 'special' }, locale);
+    for (const route of plan.routes) {
+      assert.equal(route.verifiedEntryStatus, 'unknown'); assert.equal(route.visaVerifiedAt, null);
+      assert.doesNotMatch(route.why, /Visa-free|ID-card entry|Vizesiz giriş|Kimlikle giriş/);
+    }
+    for (const [airport, country] of [['SJJ', 'BA'], ['FCO', 'IT'], ['GYD', 'AZ'], ['TBS', 'GE'], ['BEG', 'RS'], ['TIA', 'AL'], ['DXB', 'AE'], ['BKK', 'TH']]) {
+      const localRoute = routes.routeByDestinationCode(airport, locale);
+      assert.equal(rules.plannerCountryCode(localRoute.country), country, `${locale}: ${localRoute.country}`);
+    }
+    const bosnia = routes.routeByDestinationCode('SJJ', locale);
+    assert.equal(rules.plannerCountryCode(bosnia.country), 'BA');
+    assert.equal(rules.plannerEntry({ passportCountry: 'TR', passportType: 'ordinary' }, bosnia.country, locale).verifiedEntryStatus, 'visa_free');
+  }
+});

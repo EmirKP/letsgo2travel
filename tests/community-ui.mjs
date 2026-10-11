@@ -76,7 +76,7 @@ const rows = [
 function harness(initial = {}) {
   let host, ownerKey, tree, locale = initial.locale || 'en', failStorage = false, focused = '';
   const requests = [], photoPreparations = [], frames = [], notices = [], navigation = [], searches = [], values = new Map();
-  let accountOpened = 0;
+  let accountOpened = 0, operationIds = 0;
   const window = { localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => { if (failStorage) throw Error('Storage full'); values.set(key, value); } }, requestAnimationFrame: fn => frames.push(fn) };
   const document = { getElementById: id => nodes(tree).some(node => node.props?.id === id) ? { focus: () => { focused = id; } } : null };
   const requestJson = (path, options = {}) => { const wait = deferred(); requests.push({ path, options, ...wait }); return wait.promise; };
@@ -98,6 +98,7 @@ function harness(initial = {}) {
     '../data/countries': countries, '../data/countryIso': countryIso, '../data/communityDiscovery': discovery,
     '../lib/communityPreferences': preferences, '../lib/community': community,
     '../lib/communityPhoto': { prepareCommunityPhoto },
+    '../lib/id': { createId: () => `10000000-0000-4000-8000-${String(++operationIds).padStart(12,'0')}` },
     '../lib/api': { ApiError, requestJson }, '../lib/native': { openExternal: async () => true },
     '../lib/i18n': { useI18n: () => i18n[locale] },
   }, { window, document });
@@ -568,7 +569,7 @@ test('A country starter with no auth account remains visible, reportable and rep
     h.click('Send answer');
     assert.equal(h.requests.at(-1).path, '/api/country-community/answers');
     assert.equal(h.requests.at(-1).options.headers.Authorization, 'Bearer TOKEN_A');
-    assert.deepEqual(JSON.parse(JSON.stringify(h.requests.at(-1).options.body)), { countryCode: 'TR', questionId: 'starter', body: 'A ferry and bus combination could work.' });
+    assert.deepEqual(JSON.parse(JSON.stringify(h.requests.at(-1).options.body)), { countryCode: 'TR', questionId: 'starter', body: 'A ferry and bus combination could work.', requestId: '10000000-0000-4000-8000-000000000001' });
     h.requests.at(-1).resolve({ moderation: { action: 'pending' } }); await h.settle();
     assert.equal(h.notices.at(-1), 'Your answer was sent for review.');
   } finally { h.dispose(); }
@@ -660,6 +661,28 @@ test('A reply finishing after detail closes refreshes its real feed count withou
     assert.ok(h.requests.findLast(request => request.path.startsWith('/api/country-community/feed') && !request.done));
     assert.equal(h.requests.filter(request => request.path === '/api/country-community/questions/jp').length, 1);
   } finally { h.dispose(); }
+});
+
+test('answer retry preserves operation identity after a lost response, rotates for edited intent and isolates accounts',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async()=>{h.click('Open question: Tokyo train advice');h.requests.at(-1).resolve({data:{...rows[2],answers:[]}});await h.settle();};
+ const type=value=>h.change('textarea',props=>props.id==='community-answer-body',value);
+ const writes=()=>h.requests.filter(request=>request.path==='/api/country-community/answers');
+ try{
+  await h.feed();await open();type('Original answer');h.click('Send answer');const first=writes().at(-1);
+  first.reject(new Error('Response lost after server commit'));await h.settle();h.click('Send answer');const retry=writes().at(-1);
+  assert.equal(retry.options.body.requestId,first.options.body.requestId);assert.equal(writes().length,2,'The busy guard alone does not cover a sequential retry');
+  retry.reject(new Error('Still offline'));await h.settle();type('Changed answer');h.click('Send answer');const changed=writes().at(-1);
+  assert.notEqual(changed.options.body.requestId,first.options.body.requestId);
+  h.render({user:{id:'account-b'},accessToken:'TOKEN_B'});await h.feed();await open();type('Changed answer');h.click('Send answer');const other=writes().at(-1);
+  assert.notEqual(other.options.body.requestId,changed.options.body.requestId);assert.equal(other.options.headers.Authorization,'Bearer TOKEN_B');
+  changed.resolve({moderation:{action:'visible'}});let view=await h.settle();assert.equal(find(view,'textarea',props=>props.id==='community-answer-body').props.value,'Changed answer','Old-account completion cannot clear the current draft');
+  other.resolve({moderation:{action:'pending_review'}});view=await h.settle();assert.equal(find(view,'textarea',props=>props.id==='community-answer-body').props.value,'');
+  type('Changed answer');h.click('Send answer');const fresh=writes().at(-1);assert.notEqual(fresh.options.body.requestId,other.options.body.requestId,'A confirmed new submission receives a fresh ID');
+  fresh.reject(new Error('Offline'));view=await h.settle();find(view,'Sheet',props=>props.title==='Question details').props.onClose();h.render();
+  h.click('Open question: Rome museum tickets');h.requests.at(-1).resolve({data:{...rows[3],answers:[]}});await h.settle();type('Changed answer');h.click('Send answer');
+  assert.notEqual(writes().at(-1).options.body.requestId,fresh.options.body.requestId,'The same text in another discussion is a different operation');
+ }finally{h.dispose();}
 });
 
 test('Author photos and names open profiles for accounts and starter personas, preserve drafts and isolate account changes', async () => {

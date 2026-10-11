@@ -24,18 +24,20 @@ export async function cleanAccountData(supabase: SupabaseClient, user: User) {
 
   const { data: evidenceRows, error: evidenceLookupError } = await supabase
     .from("travel_verifications")
-    .select("evidence_path")
+    .select("evidence_path,evidence_bucket")
     .eq("user_id", targetUserId)
     .not("evidence_path", "is", null);
   if (evidenceLookupError) {
     throw new AccountCleanupError("Özel belgeler kontrol edilemedi; hesap silinmedi.", 500);
   }
 
-  const evidencePaths = (evidenceRows || [])
-    .map((row) => typeof row.evidence_path === "string" ? row.evidence_path : "")
-    .filter(Boolean);
-  if (evidencePaths.length) {
-    const { error: removeError } = await supabase.storage.from("travel-evidence").remove(evidencePaths);
+  for (const bucket of ["travel-evidence", "travel-proofs"]) {
+    const evidencePaths = (evidenceRows || [])
+      .filter((row) => (row.evidence_bucket === "travel-proofs" ? "travel-proofs" : "travel-evidence") === bucket)
+      .map((row) => typeof row.evidence_path === "string" ? row.evidence_path : "")
+      .filter(Boolean);
+    if (!evidencePaths.length) continue;
+    const { error: removeError } = await supabase.storage.from(bucket).remove(evidencePaths);
     if (removeError) {
       throw new AccountCleanupError("Özel belgeler silinemedi; hesap güvenli biçimde beklemede bırakıldı.", 500);
     }

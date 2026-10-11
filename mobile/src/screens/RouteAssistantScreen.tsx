@@ -3,13 +3,16 @@ import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
+import { RouteWeather } from "../components/RouteWeather";
+import { usePassportPreference } from "../hooks/usePassportPreference";
+import { normalizePlannerPassport, plannerEntry, plannerPassportLabel } from "../../../lib/planner-passport";
 import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
 import { RequestFailure } from "../components/RequestFailure";
 import { normalizePlannerPreferences, validTravelParty, type TravelTier } from "../../../lib/planner-preferences";
 import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
 import { createFallbackPlan, routeByDestinationCode } from "../data/routes";
-import { generateRoutePlan, getWeather } from "../lib/api";
+import { generateRoutePlan } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
@@ -21,7 +24,7 @@ import { matchingSavedRoute, newSavedRoute } from "../lib/savedRouteIdentity";
 import { getSupabaseDataErrorMessage } from "../lib/supabaseData";
 import { useI18n } from "../lib/i18n";
 import { editPlanStops, fixedDestinationStarter, routeMatchesDestination } from "../../../lib/route-planner";
-import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId, WeatherSummary } from "../types";
+import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId } from "../types";
 import "./route-planning-clarity.css";
 import "./travel-flow-polish.css";
 import "./planner-family-budget.css";
@@ -61,6 +64,8 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   placeName?: string;
 }) {
   const { copy, locale } = useI18n();
+  const passport = usePassportPreference();
+  const selectedPassport = { passportCountry: passport.country, passportType: passport.type };
   const [form, setForm] = useState<PlannerInput>(() => withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
   const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
@@ -72,12 +77,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const [loading, setLoading] = useState(false);
   const [generationError, setGenerationError] = useState("");
   const seededSummary = routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you.");
-  const [plan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
-  const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput(surpriseRoute ? { ...INITIAL, dayCount: undefined, days: surpriseRoute.idealDuration } : INITIAL));
+  const [rawPlan, setPlan] = useState<RoutePlan | null>(surpriseRoute ? { summary: seededSummary, routes: [surpriseRoute] } : null);
+  const [planInput, setPlanInput] = useState<PlannerInput>(() => snapshotPlannerInput({ ...(surpriseRoute ? { ...INITIAL, dayCount: undefined, days: surpriseRoute.idealDuration } : INITIAL), ...selectedPassport }));
   const [source, setSource] = useState<"ai" | "local" | "surprise" | "explore">(surpriseRoute ? routeSeedKind : "local");
   const [expanded, setExpanded] = useState<string>(surpriseRoute?.name || "");
-  const [weather, setWeather] = useState<Record<string, WeatherSummary>>({});
-  const [weatherLoading, setWeatherLoading] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [savedRoutes, setSavedRoutes] = useState(() => getSavedRoutePlans(ownerId));
   const [saveLocation, setSaveLocation] = useState<"device" | "account" | "pending">("device");
@@ -91,6 +94,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const saving = useRef(false);
   const generating = useRef(false);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
+  const plan = useMemo(() => rawPlan ? { ...rawPlan, routes: rawPlan.routes.map(route => ({ ...route, ...plannerEntry(normalizePlannerPassport(planInput), route.country, locale) })) } : null, [rawPlan, planInput, locale]);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
   const planTierLabel = planInput.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : planInput.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar");
   const savedRoute = plan ? matchingSavedRoute(savedRoutes, plan, planInput) : undefined;
@@ -136,7 +140,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     if (!surpriseRoute || appliedSeed.current === surpriseRoute) return;
     appliedSeed.current = surpriseRoute;
     setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
-    setPlanInput(snapshotPlannerInput({ ...form, dayCount: undefined, days: surpriseRoute.idealDuration }));
+    setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: surpriseRoute.idealDuration }));
     setSource(routeSeedKind);
     setExpanded(surpriseRoute.name);
     setAlternativesOpen(false);
@@ -189,13 +193,13 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       return;
     }
     generating.current = true;
-    const requestInput = snapshotPlannerInput({ ...form, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
+    const requestInput = snapshotPlannerInput({ ...form, ...selectedPassport, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
     const starter = () => {
       if (requestInput.mode === "fixed" && requestInput.destination) return fixedDestinationStarter(requestInput, locale);
       const fallback = createFallbackPlan(requestInput, locale);
       return { ...fallback, routes: fallback.routes.map(route => {
         const tailored = fixedDestinationStarter({ ...requestInput, destination: { code: route.destinationCode || "", name: route.name, country: route.country, countryCode: "" } }, locale).routes[0];
-        return { ...route, dailyPlan: tailored.dailyPlan, idealDuration: tailored.idealDuration, estimatedBudget: tailored.estimatedBudget, scores: tailored.scores };
+        return { ...route, why: tailored.why, dailyPlan: tailored.dailyPlan, idealDuration: tailored.idealDuration, estimatedBudget: tailored.estimatedBudget, scores: tailored.scores };
       }) };
     };
     setLoading(true);
@@ -281,20 +285,6 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     }
   };
 
-  const loadWeather = async (route: RouteSuggestion) => {
-    setWeatherLoading(route.name);
-    try {
-      const result = await getWeather(route.cityOrRegion || route.name, locale);
-      setWeather((current) => ({ ...current, [route.name]: result }));
-    } catch (error) {
-      onNotice(locale === "tr" && error instanceof Error && error.message
-        ? error.message
-        : copy("Hava durumu alınamadı.", "Weather data is unavailable."));
-    } finally {
-      setWeatherLoading("");
-    }
-  };
-
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
@@ -350,6 +340,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
             <label>{copy("Konaklama", "Stay")}<select value={form.accommodation} onChange={event => setForm({ ...form, accommodation: event.target.value })}><option>Hostel</option><option value="Otel">{copy("Otel","Hotel")}</option><option value="Apart / ev">{copy("Apart / ev","Apartment / home")}</option><option value="Fark etmez">{copy("Fark etmez","Any")}</option></select></label>
             <label>{copy("Tempo", "Pace")}<select value={form.tempo} onChange={event => setForm({ ...form, tempo: event.target.value })}>{["Rahat","Dengeli","Yoğun"].map((value,index) => <option key={value} value={value}>{copy(value,["Easy","Balanced","Busy"][index])}</option>)}</select></label>
           </div>
+          <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}><Icon name="passport" size={18}/>{plannerPassportLabel(selectedPassport, locale)}<Icon name="chevron" size={16}/></button>
           <label>{copy("Giriş tercihi", "Entry preference")}<select value={form.visa} onChange={event => setForm({ ...form, visa: event.target.value })}>{["Vizesiz veya kolay giriş","Vize olabilir","Fark etmez"].map((value,index) => <option key={value} value={value}>{copy(value,["Visa-free / easy","Visa is okay","Any"][index])}</option>)}</select></label>
           <fieldset className="vibe-fieldset" data-planner-field="interests" aria-invalid={!!errors.interests}><legend>{copy("İlgi alanların · 1–4 seçim", "Your interests · choose 1–4")}</legend>{errors.interests && <p className="planner-field-error" role="alert">{errors.interests}</p>}<p className="planner-interest-count" role="status">{copy(`${form.vibe.length}/4 seçildi`, `${form.vibe.length}/4 selected`)}</p><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} disabled={form.vibe.length >= 4 && !form.vibe.includes(vibe)} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div><p className="planner-hint">{copy("Bir ilgi alanını değiştirmek için önce seçimini kaldır.", "Remove a selected interest before choosing another.")}</p>{interestNotice && <p className="planner-interest-notice" role="status">{interestNotice}</p>}</fieldset>
           <button type="button" className="secondary-wide" onClick={() => selectPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
@@ -362,7 +353,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         <div className="planner-photo-grid">{(plannerTab === "ready" ? ["SJJ","FCO","BKK","TBS","DXB","BEG"] : ["SJJ","FCO","BKK"]).map(code => {
           const route = routeByDestinationCode(code, locale);
           if (!route) return null;
-          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, dayCount: undefined, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
+          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
         })}</div>
       </section>
       </div>
@@ -379,7 +370,6 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         <div className="route-result-list">
           {plan.routes.map((route, index) => {
             const open = expanded === route.name;
-            const currentWeather = weather[route.name];
             const triggerId = `route-result-trigger-${index}`;
             const panelId = `route-result-panel-${index}`;
             return <article className={`route-result ${open ? "open" : ""}`} key={`${route.name}-${index}`}>
@@ -397,7 +387,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
                   <div><Icon name="passport" size={17} /><span>{copy("Giriş", "Entry")}<strong>{route.visaStatus}</strong></span></div>
                 </div>
                 <RouteBudgetAnalysis route={route} input={planInput} onCurrency={currency => setPlanInput(current => ({ ...current, currency, activityBudgetPerPersonDay: undefined }))} onActivityBudget={value => setPlanInput(current => ({ ...current, activityBudgetPerPersonDay: value }))}/>
-                {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? ` · Son kontrol: ${route.visaVerifiedAt}` : ""}</p></div>}
+                {route.visaNote && <div className="info-box"><Icon name="passport" size={19} /><p>{route.visaNote}{route.visaVerifiedAt ? copy(` · Son kontrol: ${route.visaVerifiedAt}`, ` · Checked: ${route.visaVerifiedAt}`, ` · Kontrolluar: ${route.visaVerifiedAt}`) : ""}</p></div>}
                 {route.visaSourceUrl && <button className="secondary-wide" onClick={() => void openExternal(route.visaSourceUrl!)}><Icon name="external" size={17} /> {copy("Resmî giriş kaynağını aç", "Open official entry source")}</button>}
                 <div className="daily-plan"><div className="planner-itinerary-heading"><h3>{copy("Günlük planın", "Your daily plan", "Plani yt ditor")}</h3><button type="button" className="planner-edit-link" disabled={saveBusy} onClick={() => { setEditingRoute(index); setEditStops([...route.dailyPlan]); setNewStop(""); setEditError(""); }}>{copy("Düzenle", "Edit", "Redakto")}</button></div>{editingRoute === index ? <div className="planner-stop-editor">
                   <p>{copy("Durakları düzenle, ekle veya sırala. Gün numaralarını metinde de güncelleyebilirsin.", "Edit, add or reorder stops. You can also update day numbers in the text.", "Redakto, shto ose rendit ndalesat. Mund të ndryshosh edhe numrat e ditëve në tekst.")}</p>
@@ -406,7 +396,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
                   {editError && <p role="alert">{editError}</p>}<div className="planner-editor-footer"><button type="button" className="secondary-wide" onClick={() => setEditingRoute(null)}>{copy("Vazgeç", "Cancel", "Anulo")}</button><button type="button" className="primary-wide" onClick={applyStopEdits}>{copy("Değişiklikleri uygula", "Apply changes", "Zbato ndryshimet")}</button></div>
                 </div> : route.dailyPlan.map((day, stopIndex) => <div key={stopIndex}><Icon name="check" size={15} /><span>{day}</span></div>)}</div>
                 {route.warnings.length > 0 && <div className="warning-list">{route.warnings.map((warning) => <div key={warning}><Icon name="alert" size={16} /><span>{warning}</span></div>)}</div>}
-                {currentWeather ? <div className="weather-card"><Icon name={currentWeather.weatherCode <= 2 ? "sun" : "cloud"} size={25} /><div><small>{currentWeather.place}</small><strong>{currentWeather.temperature}° · {currentWeather.description}</strong><span>{copy("Bugün", "Today")} {currentWeather.min}° / {currentWeather.max}° · {copy("Rüzgâr", "Wind")} {currentWeather.windSpeed} km/h</span></div></div> : <button className="secondary-wide" disabled={weatherLoading === route.name} onClick={() => void loadWeather(route)}>{weatherLoading === route.name ? <span className="button-loader dark" /> : <Icon name="cloud" size={18} />} {copy("Güncel havayı göster", "Show current weather")}</button>}
+                <RouteWeather place={route.cityOrRegion || route.name}/>
               </>}</div>
             </article>;
           })}

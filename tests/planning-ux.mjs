@@ -14,6 +14,8 @@ function load(path, imports = {}, environment = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../components/RouteWeather') return { RouteWeather: 'RouteWeather' };
+    if (name === '../../../lib/planner-passport') return load('lib/planner-passport.ts', { './country-intelligence/passports': load('lib/country-intelligence/passports.ts', { '../../mobile/src/data/passport-index.json': { default: JSON.parse(readFileSync('mobile/src/data/passport-index.json', 'utf8')) }, './passport-reviewed': load('lib/country-intelligence/passport-reviewed.ts') }) });
     if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
     if (name === './accountCollections') return load('mobile/src/lib/accountCollections.ts', {'./id': load('mobile/src/lib/id.ts')}, environment);
     if (name === '../lib/localeFormatting') return localeFormatting;
@@ -209,12 +211,13 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [] } = {}) {
+function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' } } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
     '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../hooks/usePassportPreference': { usePassportPreference: () => passport },
     '../components/RequestFailure': { RequestFailure: 'RequestFailure' },
     ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
@@ -749,4 +752,28 @@ test('Country costs recover FX failure, recalculate duration and party, sort bot
     find(tree, 'label', p => text(p.children).startsWith('Days')).props.children[1].props.onChange({ target: { value: '' } }); tree = host.render();
     assert.match(text(tree), /Enter whole numbers/); assert.match(total(rows(tree)[0]), /—/);
   } finally { host.dispose(); }
+});
+
+
+test('Planner sends the current passport choice, snapshots it for a saved plan, and classifies local results with the same rules', async () => {
+  const passport = { country: 'DE', type: 'special' };
+  const h = plannerHarness({ seeded: false, passport });
+  try {
+    let view = h.host.render();
+    const field = find(view, 'AirportField', props => !props.initialQuery);
+    field.props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul', country: 'Türkiye', countryCode: 'TR' });
+    view = h.host.render();
+    await button(view, 'Create Route').props.onClick(); await tick(); view = h.host.render();
+    assert.equal(h.generated[0].passportCountry, 'DE'); assert.equal(h.generated[0].passportType, 'special');
+    assert.match(text(view), /Germany · Special/); assert.match(text(view), /Entry conditions need verification/);
+    passport.country = 'TR'; passport.type = 'special';
+    view = h.host.render();
+    await button(view, 'Create Route').props.onClick(); await tick(); view = h.host.render();
+    assert.equal(h.generated[1].passportCountry, 'TR'); assert.equal(h.generated[1].passportType, 'special');
+    assert.match(text(view), /Visa-free/); assert.doesNotMatch(text(view), /Germany · Special/);
+    const save = find(view, 'button', props => /Save 2 suggestions/.test(text(props.children)));
+    await save.props.onClick(); await tick();
+    assert.equal(h.saves[0].input.passportType, 'special'); assert.equal(h.saves[0].input.passportCountry, 'TR');
+    assert.equal(h.saves[0].plan.routes[0].verifiedEntryStatus, 'visa_free');
+  } finally { h.host.dispose(); }
 });

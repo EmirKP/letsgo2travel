@@ -23,6 +23,10 @@ export async function POST(request: Request) {
     const countryCode = String(payload.countryCode || "").trim().toUpperCase();
     const questionId = String(payload.questionId || "").trim();
     const body = String(payload.body || "").trim();
+    const requestId = payload.requestId;
+    if (requestId !== undefined && (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))) {
+      return NextResponse.json({ error: "Geçersiz gönderim kimliği." }, { status: 400 });
+    }
     if (!/^[A-Z]{2}$/.test(countryCode) || !/^[0-9a-f-]{36}$/i.test(questionId) || body.length < 3 || body.length > 4000) {
       return NextResponse.json({ error: "Ülke, soru veya cevap geçersiz." }, { status: 400 });
     }
@@ -58,6 +62,20 @@ export async function POST(request: Request) {
       || "Gezgin",
     ).replace(/\s+/g, " ").trim().slice(0, 80);
 
+    if (requestId) {
+      // The reply, operation receipt and existing contribution log commit in
+      // one transaction. A timeout retry cannot create another reply or award.
+      const { data, error } = await supabase.rpc("create_community_answer_once", {
+        p_user: user.id, p_request: requestId, p_topic: questionId, p_body: body,
+        p_author_name: authorName, p_status: forumStatusFromModeration(moderation.action), p_country: countryCode,
+      });
+      if (error || !data?.id) {
+        return NextResponse.json({ error: error?.code === "23505" ? "Bu gönderim kimliği başka bir cevap için kullanılmış." : "Cevap kaydedilemedi." }, { status: error?.code === "23505" ? 409 : error?.code === "P0002" ? 410 : 500 });
+      }
+      return NextResponse.json({ data: { id: data.id }, moderation: { ...moderation, action: data.status === "published" ? "visible" : "pending_review" } });
+    }
+
+    // Installed clients without an operation ID retain their existing contract.
     const { data, error } = await supabase.from("forum_replies").insert({
       topic_id: questionId,
       user_id: user.id,

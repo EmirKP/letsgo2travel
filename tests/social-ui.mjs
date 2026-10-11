@@ -148,6 +148,35 @@ test('post likes only change after server success and fast taps send one mutatio
   h.dispose();
 });
 
+test('notification detail loads earlier comments without losing later pages and rejects stale paging responses',async()=>{
+ const h=harness('SocialPostSheet',{postId:uuid(1),focusCommentId:uuid(50)});
+ const comments=(from,to)=>Array.from({length:to-from+1},(_,i)=>({...sampleComment(from+i),body:`Comment ${from+i}`}));
+ try{
+  await h.resolve(0,{post:samplePost(),comments:{items:comments(41,60),previousOffset:20,nextOffset:60}});
+  h.click('Earlier comments');assert.match(h.requests[1].path,/offset=20/);await h.reject(1);assert.match(text(h.tree),/Comment 50/);assert.ok(button(h.tree,'Earlier comments'));
+  h.click('Earlier comments');await h.resolve(2,{post:samplePost(),comments:{items:comments(21,40),previousOffset:0,nextOffset:40}});
+  assert.equal(nodes(h.tree).filter(n=>n.type==='article').length,40);h.click('More comments');assert.match(h.requests[3].path,/offset=60/);
+  await h.resolve(3,{post:samplePost(),comments:{items:comments(61,65),previousOffset:40,nextOffset:null}});
+  h.click('Earlier comments');assert.match(h.requests[4].path,/offset=0/);await h.resolve(4,{post:samplePost(),comments:{items:comments(1,20),previousOffset:null,nextOffset:20}});
+  assert.equal(nodes(h.tree).filter(n=>n.type==='article').length,65);assert.equal(button(h.tree,'Earlier comments'),undefined);assert.equal(button(h.tree,'More comments'),undefined);
+  h.render({accessToken:'REFRESHED'});await h.resolve(5,{post:samplePost(),comments:{items:comments(41,60),previousOffset:20,nextOffset:60}});
+  h.click('Earlier comments');const obsolete=h.requests[6];h.render({accessToken:'NEW_TOKEN'});assert.equal(obsolete.options.signal.aborted,true);
+  await h.resolve(7,{post:samplePost(),comments:{items:comments(41,60),previousOffset:20,nextOffset:60}});await h.resolve(6,{post:samplePost(),comments:{items:comments(21,40),previousOffset:0,nextOffset:40}});
+  assert.equal(nodes(h.tree).filter(n=>n.type==='article').length,20);assert.doesNotMatch(text(h.tree),/Comment 21/);
+ }finally{h.dispose();}
+});
+
+test('appended feed keeps more than 200 caption rows mounted for the bounded translation cache',async()=>{
+ const h=harness('SocialBrowser');try{
+  for(let page=0;page<11;page++){
+   if(page)h.click('Show more');
+   await h.resolve(page,{items:Array.from({length:20},(_,i)=>samplePost(page*20+i+1)),nextOffset:page===10?null:(page+1)*20});
+  }
+  assert.equal(nodes(h.tree).filter(n=>n.type==='ForumTranslation').length,220);
+  assert.match(text(h.tree),/My trip 1/);assert.match(text(h.tree),/My trip 220/);
+ }finally{h.dispose();}
+});
+
 test('failed comments retain body and retry ID, post place passes real structured location', async () => {
   const h = harness('SocialPostSheet', { postId: uuid(1) });
   await h.resolve(0, { post: samplePost(), comments: { items: [], nextOffset: null } });

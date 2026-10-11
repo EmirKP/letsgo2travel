@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         country_code: countryCode,
         country_name: countryInfo.name,
-        verification_type: 'document', // for backward compatibility with old code
+        verification_method: 'document',
         evidence_path: filePath,
         evidence_type: file.type,
         evidence_expires_at: evidenceExpiresAt,
