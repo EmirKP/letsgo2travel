@@ -8,6 +8,7 @@ import {
 import { useI18n } from "../lib/i18n";
 import { formatAppDate } from "../lib/localeFormatting";
 import { CommunityAvatar } from "./CommunityAvatar";
+import { CommunityBlocksSheet, CommunitySafetySheet } from "./CommunitySafetySheet";
 import { OfficialBadge } from "./OfficialBadge";
 import { Icon } from "./Icon";
 import { Sheet } from "./Sheet";
@@ -38,6 +39,27 @@ export function CommunityProfileSheet(props: ProfileSheetProps) {
   return <ProfileNavigation key={`${props.profileKey}:${props.userId || "guest"}`} {...props} profileKey={props.profileKey} />;
 }
 
+type InlineProfileProps = Omit<ProfileSheetProps, "onClose" | "profileKey"> & { profileKey: string; revision?: number };
+
+export function CommunityProfileInline(props: InlineProfileProps) {
+  return <InlineProfileNavigation key={`${props.profileKey}:${props.userId || "guest"}`} {...props} />;
+}
+
+function InlineProfileNavigation(props: InlineProfileProps) {
+  const [openedProfile, setOpenedProfile] = useState<string | null>(null);
+  const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
+  const [blocksOpen, setBlocksOpen] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const refresh = () => { setRevision(value => value + 1); props.onFollowChanged?.(); };
+  const blocked = (id: string) => { setSafetyTarget(null); setOpenedProfile(null); refresh(); props.onBlocked?.(id); };
+  return <div className="community-profile profile-community-inline">
+    <ProfileContent key={props.profileKey} {...props} inline externalRevision={revision + (props.revision || 0)} onClose={() => {}} onOpenProfile={key => { if (key !== props.profileKey) setOpenedProfile(key); }} onBlocked={blocked} />
+    {openedProfile && <CommunityProfileSheet {...props} profileKey={openedProfile} onClose={() => setOpenedProfile(null)} onOpenQuestion={id => { setOpenedProfile(null); props.onOpenQuestion(id); }} onFollowChanged={refresh} onBlocked={blocked} onSafety={target => props.userId && props.accessToken ? setSafetyTarget(target) : props.onOpenAccount()} />}
+    {safetyTarget && props.userId && props.accessToken && <CommunitySafetySheet target={safetyTarget} userId={props.userId} accessToken={props.accessToken} onClose={() => setSafetyTarget(null)} onBlocked={blocked} onManageBlocks={() => { setSafetyTarget(null); setOpenedProfile(null); setBlocksOpen(true); }} />}
+    {blocksOpen && props.accessToken && <CommunityBlocksSheet accessToken={props.accessToken} onClose={() => setBlocksOpen(false)} onChanged={refresh} />}
+  </div>;
+}
+
 function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
   const { copy } = useI18n();
   const [history, setHistory] = useState([props.profileKey]);
@@ -54,7 +76,7 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
 
 type SectionState = Pick<CommunityProfilePage, "items" | "nextOffset">;
 
-function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void }) {
+function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked, inline = false, externalRevision = 0 }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void; inline?: boolean; externalRevision?: number }) {
   const { copy, dateLocale } = useI18n();
   const id = useId();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
@@ -113,7 +135,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       }
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [profileKey, section, accessToken, revision]);
+  }, [profileKey, section, accessToken, revision, externalRevision]);
 
   const loadMore = async () => {
     const nextOffset = pages[section]?.nextOffset;
@@ -207,14 +229,14 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
     {profile && <>
       <div className="community-profile-hero">
         <div className="community-profile-overview">
-          <div className="community-profile-identity">
+          {inline ? <div className="profile-community-name"><strong>@{profile.username}<OfficialBadge isOfficial={profile.isOfficial} /></strong></div> : <div className="community-profile-identity">
             <div className="community-profile-avatar-scene">
               <span className="community-profile-postcard" aria-hidden="true" />
               <CommunityAvatar username={profile.username} avatarUrl={profile.avatarUrl} size="large" />
             </div>
             <h2><span>@</span>{profile.username}<OfficialBadge isOfficial={profile.isOfficial} /></h2>
             <p className="community-profile-role">{profile.isOfficial ? copy("Resmî uygulama hesabı", "Official application account", "Llogaria zyrtare e aplikacionit") : copy("Gezgin", "Traveller", "Udhëtar")}</p>
-          </div>
+          </div>}
           <div className="community-profile-stats">
             <button type="button" aria-pressed={!gallery && section === "followers"} onClick={() => switchSection("followers")}><strong>{profile.followerCount.toLocaleString(dateLocale)}</strong><span>{copy("Takipçi", "Followers", "Ndjekës")}</span></button>
             <button type="button" aria-pressed={!gallery && section === "following"} onClick={() => switchSection("following")}><strong>{profile.followingCount.toLocaleString(dateLocale)}</strong><span>{copy("Takip edilen", "Following", "Të ndjekur")}</span></button>
@@ -244,7 +266,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         {tabs.map((tab, index) => <button id={`${id}-${tab}`} key={tab} type="button" role="tab" aria-selected={activeSection === tab} aria-controls={`${id}-content`} tabIndex={activeSection === tab || (index === 0 && !tabs.some(value => value === activeSection)) ? 0 : -1} onKeyDown={event => moveTab(event, index)} onClick={() => switchSection(tab)}>{tab === "gallery" ? copy("Gönderiler", "Posts", "Postimet") : tab === "posts" ? copy("Forum", "Forum", "Forumi") : copy("Cevaplar", "Answers", "Përgjigjet")}{tab !== "gallery" && <span>{tab === "posts" ? profile.postCount : profile.answerCount}</span>}</button>)}
       </div>
     </>}
-    {gallery && profile ? <section id={`${id}-content`} className="community-profile-content" role="tabpanel" aria-labelledby={`${id}-gallery`}><SocialGallery authorRef={profileKey} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={onBlocked} revision={socialRevision + revision}/></section> : <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
+    {gallery && profile ? <section id={`${id}-content`} className="community-profile-content" role="tabpanel" aria-labelledby={`${id}-gallery`}><SocialGallery authorRef={profileKey} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={onBlocked} revision={socialRevision + revision + externalRevision}/></section> : <section id={`${id}-content`} className="community-profile-content" aria-label={title} role={section === "posts" || section === "answers" ? "tabpanel" : "region"} aria-labelledby={section === "posts" || section === "answers" ? `${id}-${section}` : undefined} aria-busy={loading || loadingMore}>
       {profile && (section === "followers" || section === "following") && <h3>{title}</h3>}
       {loading && !page && <div className="community-profile-empty" role="status"><Icon name="user" size={28} /><p>{copy("Profil yükleniyor…", "Loading profile…", "Po ngarkohet profili…")}</p></div>}
       {!loading && !failure && page?.items.length === 0 && (section === "posts" ? <div className="community-profile-empty community-profile-empty-posts">
@@ -267,7 +289,7 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}<OfficialBadge isOfficial={item.isOfficial} /></strong><Icon name="chevron" size={18} /></button>
         : <article className="community-profile-post" key={profileItemKey(item)}>
           <span className="community-profile-post-meta"><span><Icon name={"questionId" in item ? "message" : "book"} size={15} />{"questionId" in item ? copy("Cevap", "Answer", "Përgjigje") : copy("Paylaşım", "Post", "Postim")}</span><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
-          <ForumTranslation text={`${"questionTitle" in item ? item.questionTitle : item.title}\n\n${item.body}`} accessToken={accessToken || ""} onSignIn={onOpenAccount}><div className="community-profile-post-copy"><strong>{"questionTitle" in item ? item.questionTitle : item.title}</strong><p>{item.body}</p></div></ForumTranslation><button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>
+          <ForumTranslation text={item.body} title={"questionTitle" in item ? item.questionTitle : item.title} accessToken={accessToken || ""}>{(display, displayTitle) => <div className="community-profile-post-copy"><strong>{displayTitle}</strong><p>{display}</p></div>}</ForumTranslation><button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>
         </article>)}</div>
       {failure?.section === section && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
       {page?.nextOffset != null && !failure?.more && <button className="community-profile-more" type="button" disabled={loading || loadingMore} onClick={() => void loadMore()}>{loadingMore ? copy("Yükleniyor…", "Loading…", "Po ngarkohet…") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}

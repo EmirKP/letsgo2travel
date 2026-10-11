@@ -209,7 +209,7 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en' } = {}) {
+function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [] } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
@@ -220,6 +220,7 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
     '../lib/api': { generateRoutePlan: async input => { generated.push(input); if (generationFailure) throw generationFailure; if (generationResponse !== undefined) return generationResponse; return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
+    '../lib/onboardingPreferences': load('mobile/src/lib/onboardingPreferences.ts', {}, {window:{localStorage:{getItem:()=>JSON.stringify({interests:welcomeInterests})}}}),
     '../lib/routeSync': { syncRoutePlan: async () => { if (syncFails) throw Error('offline'); } },
     '../lib/routeOutbox': { readRouteOutbox: () => syncFails && saves.length ? { [saves[0].id]: { kind: 'save', pending: true } } : {} },
     '../lib/storage': { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
@@ -229,6 +230,20 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
   return { host, saves, navigations, notices, generated, fixtureWindow, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
+
+test('Welcome interests prefill a fresh planner and never overwrite its later edits',()=>{
+  const h=plannerHarness({seeded:false,welcomeInterests:['Doğa','Kültür']});
+  try{
+    let view=h.host.render();
+    button(view,'Preferences').props.onClick();view=h.host.render();
+    assert.equal(button(view,'Nature').props['aria-pressed'],true);
+    assert.equal(button(view,'Culture').props['aria-pressed'],true);
+    assert.equal(button(view,'City').props['aria-pressed'],false);
+    button(view,'Nature').props.onClick();view=h.host.render();
+    assert.equal(button(view,'Nature').props['aria-pressed'],false);
+    assert.equal(button(h.host.render(),'Nature').props['aria-pressed'],false);
+  }finally{h.host.dispose();}
+});
 
 test('A discovered route is actionable first and saving it needs no origin or destination regeneration', async () => {
   const h = plannerHarness();

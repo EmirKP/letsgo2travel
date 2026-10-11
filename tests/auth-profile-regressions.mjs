@@ -44,6 +44,7 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
   '../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
   '../components/NotificationPreferences':{NotificationPreferences:'NotificationPreferences'},
+  '../components/CommunityProfileSheet':{CommunityProfileInline:'CommunityProfileInline'},
   '../components/AppearancePicker':{AppearancePicker:'AppearancePicker'}, '../components/TextSizePicker':{TextSizePicker:'TextSizePicker'},
   '../../../lib/leaderboard/verified':load('lib/leaderboard/verified.ts',{'./countries':load('lib/leaderboard/countries.ts',{'../countries/isoSource':{ISO_COUNTRIES:countries.ISO_3166}})}),
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
@@ -61,6 +62,20 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
 }
 const base={id:'a',username:'user_a',visitedCountries:[],wishlistCountries:[],optInLeaderboard:false};
 const tr=countries.COUNTRY_LIST.find(c=>c.alpha3==='TUR');
+
+test('normal Profile embeds the current community account while retaining travel and account controls',()=>{
+ const h=profileHarness();
+ const open=[];let view=h.render({onOpenCommunityQuestion:id=>open.push(id)});
+ const inline=nodes(view).find(node=>node.type==='CommunityProfileInline');
+ assert.ok(inline);assert.equal(inline.props.profileKey,'user:a');assert.equal(inline.props.userId,'a');assert.equal(inline.props.accessToken,'token-a');
+ inline.props.onOpenQuestion('forum-thread');assert.deepEqual(open,['forum-thread']);
+ assert.ok(nodes(view).some(node=>node.type==='ProfilePhoto'));
+ assert.ok(text(view).includes('Countries I\'ve visited'));assert.ok(text(view).includes('Preferences & privacy'));
+ view=h.render({user:null,ownerId:null,accessToken:''});
+ assert.equal(nodes(view).some(node=>node.type==='CommunityProfileInline'),false);
+ assert.match(text(view),/Keep your memories here/);
+ h.h.dispose();
+});
 
 test('Returning to the app fetches current account countries instead of retaining another device\'s deleted visit',async()=>{
  const h=profileHarness();h.reads[0].resolve({...base,visitedCountries:['TUR']});await tick();h.render();

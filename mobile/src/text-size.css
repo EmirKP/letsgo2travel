@@ -22,7 +22,7 @@ html[data-text-size="large"] .rh-hero :is(.rh-hero-copy, .rh-search, .rh-city-ch
 html[data-text-size="large"] .rh-handwritten { display: none; }
 html[data-text-size="large"] .rh-hero-copy { margin: 0; }
 html[data-text-size="large"] .rh-search { min-height: 64px; height: auto; }
-html[data-text-size="large"] .rh-features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-text-size="large"] .rh-features { grid-template-columns: repeat(min(var(--shortcut-count, 5), 3), minmax(0, 1fr)); }
 html[data-text-size="large"] .rh-features > button { height: auto; min-height: 132px; }
 html[data-text-size="large"] .rh-city-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 html[data-text-size="large"] .rh-city-chips > button { flex: 1 1 78px; }
@@ -30,4 +30,7 @@ html[data-text-size="large"] .rh-section-heading { flex-wrap: wrap; gap: 8px; }
 @media (max-width: 540px) {
   html[data-text-size="large"] :is(.ta-tool-grid, .profile-hub-grid, .saved-route-grid) { grid-template-columns: minmax(0, 1fr); }
   html[data-text-size="large"] .rh-personal-banner { min-height: 280px; height: auto; }
+}
+@media (max-width: 420px) {
+  html[data-text-size="large"] .rh-features { grid-template-columns: repeat(min(var(--shortcut-count, 5), 2), minmax(0, 1fr)); }
 }

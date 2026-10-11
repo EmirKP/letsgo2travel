@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { PGlite } from '@electric-sql/pglite';
+import { createHmac } from 'node:crypto';
 
 function moduleAt(filename, imports, globals={}) {
   const code=ts.transpileModule(readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -14,16 +15,19 @@ function moduleAt(filename, imports, globals={}) {
 function harness(overrides={}) {
   const state={auth:true,quota:true,quotaError:null,response:JSON.stringify({translation:'Përshëndetje!'}),providerError:false,hang:false,...overrides};
   const calls={provider:[],auth:0,quota:[],headers:[]};
-  const env={GEMINI_API_KEY:'NOT_A_REAL_KEY',GEMINI_MODEL:'configured-model',...overrides.env};
+  const env={GEMINI_API_KEY:'NOT_A_REAL_KEY',GEMINI_MODEL:'configured-model',SUPABASE_SERVICE_ROLE_KEY:'NOT_A_REAL_SECRET',...overrides.env};
+  const db={rpc:(name,args)=>{calls.quota.push({name,args});return {abortSignal:async()=>({data:state.quota,error:state.quotaError})};}};
   const helper=moduleAt('lib/community/translation.ts',{});
   const route=moduleAt('app/api/country-community/translate/route.ts',{
     '@google/genai':{GoogleGenAI:class {models={generateContent:async input=>{calls.provider.push(input);if(state.hang)return new Promise(()=>{});if(state.providerError)throw Error('private provider detail');return {text:state.response};}}}},
-    '@/lib/authenticated-user':{requireAuthenticatedUser:async()=>{calls.auth++;return state.auth?{ok:true,user:{id:'owner'},supabase:{rpc:(name,args)=>{calls.quota.push({name,args});return {abortSignal:async()=>({data:state.quota,error:state.quotaError})};}}}:{ok:false,response:Response.json({error:'login'},{status:401})};}},
+    'node:crypto':{createHmac},
+    '@/lib/supabaseAdmin':{getSupabaseAdmin:()=>state.noDatabase?null:db},
+    '@/lib/authenticated-user':{requireAuthenticatedUser:async()=>{calls.auth++;return state.auth?{ok:true,user:{id:'owner'},supabase:db}:{ok:false,response:Response.json({error:'login'},{status:401})};}},
     '@/lib/community/safety':{COMMUNITY_PRIVATE_HEADERS:{'Cache-Control':'private, no-store',Vary:'Authorization'}},
     '@/lib/community/translation':helper,
     '@/lib/travel-assistant/http':moduleAt('lib/travel-assistant/http.ts',{}),
   },{process:{env},AbortSignal:{timeout:ms=>state.hang&&ms===20000?AbortSignal.timeout(5):AbortSignal.timeout(ms)}});
-  const request=(body,headers={})=>new Request('https://example.test/api/country-community/translate',{method:'POST',headers,body:JSON.stringify(body)});
+  const request=(body,headers={},guest=false)=>new Request('https://example.test/api/country-community/translate',{method:'POST',headers:{...(!guest?{Authorization:'Bearer token'}:{}),...headers},body:JSON.stringify(body)});
   return {state,calls,env,route,helper,request};
 }
 
@@ -70,6 +74,46 @@ test('An SDK that ignores abort still has a route deadline; original text is nev
   const h=harness({hang:true});const keepAlive=setTimeout(()=>{},100);try{
     const result=await h.route.POST(h.request({text:'Merhaba',targetLanguage:'en'}));assert.equal(result.status,504);assert.deepEqual(await result.json(),{code:'translation-timeout'});
   }finally{clearTimeout(keepAlive);}
+});
+
+test('Automatic batches translate each title/body with exact IDs and bounded total text; invalid result maps fail closed',async()=>{
+ const items=[{id:'0',text:'Merhaba',title:'Yeni soru'},{id:'1',text:'İyi yolculuklar'}];
+ const h=harness({response:JSON.stringify({translations:[{id:'1',translation:'Safe travels'},{id:'0',translation:'Hello',title:'New question'}]})});
+ const result=await h.route.POST(h.request({items,targetLanguage:'en'}));assert.equal(result.status,200);
+ assert.deepEqual((await result.json()).translations,[{id:'0',translation:'Hello',title:'New question'},{id:'1',translation:'Safe travels'}]);
+ assert.deepEqual(JSON.parse(h.calls.provider[0].contents).items,items);assert.equal(h.calls.quota.length,1);
+ for(const invalid of [[...items,{id:'1',text:'duplicate'}],Array.from({length:7},(_,i)=>({id:String(i),text:'a'})),[{id:'0',text:'x'.repeat(5000)},{id:'1',text:'y'.repeat(4000)}]]){
+  const bad=harness();assert.equal((await bad.route.POST(bad.request({items:invalid,targetLanguage:'en'}))).status,400);assert.equal(bad.calls.provider.length,0);
+ }
+ for(const translations of [[{id:'0',translation:'Hello'},{id:'1',translation:'Bye'}],[{id:'0',translation:'Hello',title:'Title'},{id:'0',translation:'Duplicate'}],[{id:'0',translation:'Hello',title:'Title'}]]){
+  const bad=harness({response:JSON.stringify({translations})});assert.equal((await bad.route.POST(bad.request({items,targetLanguage:'en'}))).status,502);
+ }
+});
+
+test('Guest reads use bounded salted network quota, while a rejected supplied session never downgrades to guest',async()=>{
+ const batch={items:[{id:'0',text:'Merhaba'}],targetLanguage:'en'};
+ const h=harness({response:JSON.stringify({translations:[{id:'0',translation:'Hello'}]})});assert.equal((await h.route.POST(h.request(batch,{'x-vercel-forwarded-for':'192.0.2.12'},true))).status,200);
+ assert.equal(h.calls.auth,0);assert.equal(h.calls.quota[0].name,'consume_guest_forum_translation_quota');assert.match(h.calls.quota[0].args.p_actor,/^[a-f0-9]{64}$/);assert.ok(!h.calls.quota[0].args.p_actor.includes('192.0.2.12'));
+ for(const config of [{env:{SUPABASE_SERVICE_ROLE_KEY:undefined}},{noDatabase:true},{quota:false}]){
+  const bad=harness(config);const response=await bad.route.POST(bad.request(batch,{},true));assert.ok([429,503].includes(response.status));assert.equal(bad.calls.provider.length,0);
+ }
+ const denied=harness({auth:false});assert.equal((await denied.route.POST(denied.request({text:'Merhaba',targetLanguage:'en'}))).status,401);assert.equal(denied.calls.quota.length,0);
+ const legacy=harness();assert.equal((await legacy.route.POST(legacy.request({text:'Merhaba',targetLanguage:'en'},{},true))).status,401);assert.equal(legacy.calls.quota.length,0);assert.equal(legacy.calls.provider.length,0);
+});
+
+test('Guest quota is atomic, service-only, bounded per minute/day and removes old salted counters',async()=>{
+ const db=new PGlite();try{
+  await db.exec('create role anon; create role authenticated; create role service_role;');
+  await db.exec(readFileSync('supabase/migrations/20261012160000_guest_community_translation.sql','utf8'));
+  const consume=()=>db.query('select consume_guest_forum_translation_quota($1) as ok',['a'.repeat(64)]);
+  assert.equal((await Promise.all(Array.from({length:10},consume))).filter(r=>r.rows[0].ok).length,4);
+  await db.exec("update guest_forum_translation_usage set minute=now()-interval '2 minutes',daily_count=59");
+  assert.equal((await consume()).rows[0].ok,true);assert.equal((await consume()).rows[0].ok,false);
+  await db.exec("update guest_forum_translation_usage set day=current_date-8");assert.equal((await consume()).rows[0].ok,true);
+  assert.equal((await db.query('select count(*)::int as n from guest_forum_translation_usage')).rows[0].n,1);
+  for(const role of ['anon','authenticated'])assert.equal((await db.query("select has_function_privilege($1,'consume_guest_forum_translation_quota(text)','execute') as allowed",[role])).rows[0].allowed,false);
+  assert.equal((await db.query("select consume_guest_forum_translation_quota('raw-address') as ok")).rows[0].ok,false);
+ }finally{await db.close();}
 });
 
 test('Real database quota is atomic, caps minute/day, resets windows and is service-only',async()=>{

@@ -1,6 +1,46 @@
 export const FORUM_TRANSLATION_LANGUAGES = ["tr", "en", "sq"] as const;
 export type ForumTranslationLanguage = typeof FORUM_TRANSLATION_LANGUAGES[number];
 export const FORUM_TRANSLATION_MAX_TEXT = 8_000;
+export type ForumTranslationItem = { id: string; text: string; title?: string };
+
+/** Legacy single text stays compatible with installed clients; new clients batch visible rows. */
+export function parseForumTranslationRequest(input: unknown) {
+  const legacy = parseForumTranslation(input);
+  if (legacy) return { items: [{ id: "0", text: legacy.text }], targetLanguage: legacy.targetLanguage, legacy: true };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const { items, targetLanguage } = input as Record<string, unknown>;
+  if (!Array.isArray(items) || !items.length || items.length > 6 || !FORUM_TRANSLATION_LANGUAGES.includes(targetLanguage as ForumTranslationLanguage)) return null;
+  const parsed: ForumTranslationItem[] = [];
+  let length = 0;
+  for (const item of items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const { id, text, title } = item as Record<string, unknown>;
+    const source = parseForumTranslation({ text, targetLanguage });
+    if (!source || typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,40}$/.test(id) || parsed.some(row => row.id === id)) return null;
+    if (title !== undefined && (typeof title !== "string" || !title.trim() || title.length > 300 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(title))) return null;
+    length += source.text.length + (typeof title === "string" ? title.length : 0);
+    if (length > FORUM_TRANSLATION_MAX_TEXT) return null;
+    parsed.push({ id, text: source.text, ...(typeof title === "string" ? { title: title.trim() } : {}) });
+  }
+  return { items: parsed, targetLanguage: targetLanguage as ForumTranslationLanguage, legacy: false };
+}
+
+export function parseForumTranslationBatchResult(input: unknown, items: ForumTranslationItem[]) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const { translations } = input as Record<string, unknown>;
+  if (!Array.isArray(translations) || translations.length !== items.length) return null;
+  const parsed: Array<{ id: string; translation: string; title?: string }> = [];
+  for (const item of items) {
+    const matches = translations.filter(row => row && typeof row === "object" && row.id === item.id);
+    if (matches.length !== 1) return null;
+    const row = matches[0];
+    const translation = parseForumTranslationResult(row);
+    const title = item.title === undefined ? undefined : parseForumTranslationResult({ translation: row.title });
+    if (!translation || item.title !== undefined && !title) return null;
+    parsed.push({ id: item.id, translation, ...(title ? { title } : {}) });
+  }
+  return parsed;
+}
 
 export function parseForumTranslation(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;

@@ -13,6 +13,7 @@ import { generateRoutePlan, getWeather } from "../lib/api";
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
+import { withWelcomeInterests } from "../lib/onboardingPreferences";
 import { syncRoutePlan } from "../lib/routeSync";
 import { readRouteOutbox } from "../lib/routeOutbox";
 import { getSavedRoutePlans, saveRoutePlan } from "../lib/storage";
@@ -60,7 +61,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   placeName?: string;
 }) {
   const { copy, locale } = useI18n();
-  const [form, setForm] = useState<PlannerInput>(()=>placeName?{...INITIAL,mode:'fixed'}:INITIAL);
+  const [form, setForm] = useState<PlannerInput>(() => withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
   const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
   const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
   const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(null);

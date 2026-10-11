@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const jsx = (type, props, key) => ({ type, props, key });
+const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 class ApiError extends Error { constructor(message, status = 0, code = '') { super(message); this.status = status; this.code = code; } }

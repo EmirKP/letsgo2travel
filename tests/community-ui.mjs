@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const jsx = (type, props, key) => ({ type, props, key });
+const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 class ApiError extends Error {
   constructor(message, status = 0) { super(message); this.status = status; }
 }
@@ -143,6 +143,24 @@ test('Five community tabs support arrow wrap, Home/End and one keyboard focus ta
       assert.equal(panel.props.id, `community-panel-${id}`); assert.equal(panel.props['aria-labelledby'], `community-tab-${id}`);
     }
     assert.ok(h.requests.every(request => request.path.startsWith('/api/country-community/feed')), 'Tab browsing only requests community data');
+  } finally { h.dispose(); }
+});
+
+test('a Profile discussion intent opens the genuine topic once and community has no separate own-profile shortcut', async () => {
+  let handled = 0;
+  const h = harness({ user: { id: 'me' }, accessToken: 'token', initialQuestionId: 'profile-topic', onQuestionIntentHandled: () => handled++ });
+  try {
+    let view = h.render();
+    assert.equal(button(view, 'My community profile'), undefined);
+    assert.equal(handled, 1);
+    const detail = h.requests.filter(request => request.path === '/api/country-community/questions/profile-topic');
+    assert.equal(detail.length, 1);
+    assert.equal(detail[0].options.headers.Authorization, 'Bearer token');
+    detail[0].resolve({ data: { ...question('profile-topic', 'AL', 'From my profile'), answers: [] } });
+    view = await h.settle();
+    assert.match(text(view), /From my profile/);
+    h.render({ onQuestionIntentHandled: () => handled++ });
+    assert.equal(handled, 1, 'Unrelated parent rerenders cannot reopen/reset the discussion');
   } finally { h.dispose(); }
 });
 

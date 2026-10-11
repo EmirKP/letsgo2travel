@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const jsx = (type, props, key) => ({ type, props, key });
+const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function deferred() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 class ApiError extends Error { constructor(message, status) { super(message); this.status = status; } }
@@ -38,7 +38,7 @@ function hookHost() {
 }
 const sample = (key = 'starter:selin.kaplan', overrides = {}) => ({ key, userId: key.startsWith('user:') ? key.slice(5) : null, username: key.slice(key.indexOf(':') + 1), avatarUrl: null, bio: '', isOwn: false, isFollowing: false, followerCount: 0, followingCount: 0, postCount: 1, answerCount: 2, isStarter: key.startsWith('starter:'), ...overrides });
 const post = id => ({ id, title: `Topic ${id}`, body: `Advice ${id}`, countryCode: 'TR', createdAt: '2026-10-01T10:00:00Z' });
-function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
+function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl, inline = false } = {}) {
   let activeHost, navHost, contentHost, navKey, contentKey, tree, navigation;
   const requests = [], calls = { account: 0, follow: 0, profile: 0, questions: [], focused: [] };
   const requestJson = (path, options = {}) => { const waiting = deferred(); requests.push({ path, options, ...waiting }); return waiting.promise; };
@@ -53,6 +53,7 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
     '../lib/i18n': { useI18n: () => ({ copy: (_, en) => en, dateLocale }) },
     '../lib/localeFormatting': localeFormatting,
     './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './OfficialBadge': { OfficialBadge: 'OfficialBadge' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
+    './CommunitySafetySheet': { CommunitySafetySheet: 'CommunitySafetySheet', CommunityBlocksSheet: 'CommunityBlocksSheet' },
     './SocialHub': { SocialGallery: 'SocialGallery' }, './SocialComposer': { SocialComposer: 'SocialComposer' },
     './ForumTranslation': { ForumTranslation: 'ForumTranslation' },
   }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });
@@ -61,7 +62,7 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
     requests, calls, profiles,
     render(next = {}) {
       props = { ...props, ...next };
-      const outer = source.CommunityProfileSheet(props);
+      const outer = inline ? source.CommunityProfileInline(props) : source.CommunityProfileSheet(props);
       if (!outer) { navHost?.dispose(); contentHost?.dispose(); navHost = contentHost = null; tree = null; return tree; }
       if (!navHost || navKey !== outer.key) { navHost?.dispose(); contentHost?.dispose(); navHost = hookHost(); contentHost = null; navKey = outer.key; }
       activeHost = navHost;
@@ -81,6 +82,66 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl } = {}) {
   };
   h.render(); return h;
 }
+
+test('inline account profile displays followers and posts directly without duplicating identity or self-follow', async () => {
+  const h = harness({ profileKey: 'user:me' }, { inline: true });
+  await h.resolve(0, { profile: sample('user:me', { isOwn: true, followerCount: 5, followingCount: 3 }), items: [post('mine')], nextOffset: null });
+  assert.equal(find(h.navigation, 'Sheet'), undefined);
+  assert.equal(find(h.tree, 'CommunityAvatar'), undefined, 'The existing account header remains the only avatar');
+  assert.equal(button(h.tree, 'Follow'), undefined);
+  assert.ok(button(h.tree, '5Followers'));
+  assert.ok(button(h.tree, '3Following'));
+  assert.equal(find(h.tree, 'SocialGallery').props.authorRef, 'user:me');
+  h.click('Share a post');
+  const composer = find(h.tree, 'SocialComposer');
+  assert.equal(composer.props.ownerId, 'me');
+  const before = find(h.tree, 'SocialGallery').props.revision;
+  composer.props.onPublished(); h.render();
+  assert.equal(find(h.tree, 'SocialComposer'), undefined);
+  assert.equal(find(h.tree, 'SocialGallery').props.revision, before + 1);
+  h.click('Answers2');
+  await h.resolve(1, { profile: sample('user:me', { isOwn: true }), items: [{ id: 'answer', questionId: 'thread', questionTitle: 'My thread', body: 'My answer', createdAt: '2026-10-01' }], nextOffset: null });
+  h.click('View discussion');
+  assert.deepEqual(h.calls.questions, ['thread']);
+  h.dispose();
+});
+
+test('inline follower navigation refreshes authoritative counts and changes account without leaking private drafts', async () => {
+  const h = harness({ profileKey: 'user:me' }, { inline: true });
+  await h.resolve(0, { profile: sample('user:me', { isOwn: true, followerCount: 1 }), items: [], nextOffset: null });
+  h.click('1Followers');
+  await h.resolve(1, { profile: sample('user:me', { isOwn: true, followerCount: 1 }), items: [{ key: 'user:friend', userId: 'friend', username: 'friend', avatarUrl: null }], nextOffset: null });
+  h.click('@friend');
+  const publicProfile = nodes(h.navigation).find(node => typeof node.type === 'function' && node.type.name === 'CommunityProfileSheet');
+  assert.equal(publicProfile.props.profileKey, 'user:friend');
+  publicProfile.props.onFollowChanged(); h.render();
+  assert.match(h.requests.at(-1).path, /user%3Ame.*section=followers/);
+  const pending = h.requests.at(-1);
+  h.render({ profileKey: 'user:other', userId: 'other', accessToken: 'other-token' });
+  assert.equal(pending.options.signal.aborted, true);
+  assert.equal(find(h.tree, 'SocialGallery'), undefined);
+  assert.equal(nodes(h.navigation).some(node => node.props?.profileKey === 'user:friend'), false);
+  await h.resolve(h.requests.length - 1, { profile: sample('user:other', { isOwn: true }), items: [], nextOffset: null });
+  assert.equal(find(h.tree, 'SocialGallery').props.authorRef, 'user:other');
+  h.dispose();
+});
+
+test('profiles opened from the normal Profile retain reporting and blocking, then refresh the own list', async () => {
+  const h = harness({ profileKey: 'user:me' }, { inline: true });
+  await h.resolve(0, { profile: sample('user:me', { isOwn: true }), items: [], nextOffset: null });
+  find(h.tree, 'SocialGallery').props.onOpenProfile('user:other'); h.render();
+  const publicProfile = nodes(h.navigation).find(node => typeof node.type === 'function' && node.type.name === 'CommunityProfileSheet');
+  const target = { targetType: 'question', targetId: 'reported-post', authorId: 'other', username: 'Other' };
+  publicProfile.props.onSafety(target); h.render();
+  const safety = find(h.navigation, 'CommunitySafetySheet');
+  assert.deepEqual(safety.props.target, target);
+  assert.equal(safety.props.userId, 'me');
+  safety.props.onBlocked('other'); h.render();
+  assert.equal(find(h.navigation, 'CommunitySafetySheet'), undefined);
+  assert.equal(nodes(h.navigation).some(node => node.props?.profileKey === 'user:other'), false);
+  assert.equal(h.requests.length, 2, 'Blocking refreshes own counters/list from the server');
+  h.dispose();
+});
 
 test('profile dates retain the selected language, including Albanian on limited WebViews', async () => {
   function LimitedDateTimeFormat(locale, options) {

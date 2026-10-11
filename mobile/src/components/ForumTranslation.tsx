@@ -1,78 +1,41 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ApiError, requestJson } from "../lib/api";
+import { communityTranslationQueue, type CommunityTranslationResult } from "../lib/communityTranslation";
 import { useI18n } from "../lib/i18n";
-import type { AppLocale } from "../lib/locale";
 import "./forum-translation.css";
 
-type ForumTranslationProps = { text: string; accessToken: string; onSignIn?: () => void; children?: ReactNode };
+type ForumTranslationProps = {
+  text: string; title?: string; accessToken: string;
+  children?: (displayText: string, displayTitle?: string) => ReactNode;
+};
 
 export function ForumTranslation(props: ForumTranslationProps) {
   const { locale } = useI18n();
-  // Reset private translation state on text or session changes, and abort the
-  // previous request on unmount. Nothing is persisted across accounts.
-  return <TranslationText key={`${locale}\u0000${props.text}\u0000${props.accessToken}`} {...props} />;
+  return <TranslationText key={`${locale}\u0000${props.title || ""}\u0000${props.text}\u0000${props.accessToken}`} {...props} />;
 }
 
-function TranslationText({ text, accessToken, onSignIn, children }: ForumTranslationProps) {
+function TranslationText({ text, title, accessToken, children }: ForumTranslationProps) {
   const { copy, locale } = useI18n();
-  const [target, setTarget] = useState<AppLocale>(locale);
-  const [translated, setTranslated] = useState("");
+  const element = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const controller = useRef<AbortController | null>(null);
-  const cache = useRef(new Map<AppLocale, string>());
-  const generation = useRef(0);
-  useEffect(() => () => { generation.current++; controller.current?.abort(); }, []);
-
-  async function translate() {
-    if (visible) { setVisible(false); return; }
-    if (!accessToken) {
-      if (onSignIn) onSignIn();
-      else setError(copy("Çeviri için giriş yap.", "Sign in to translate.", "Hyr për të përkthyer."));
-      return;
-    }
-    if (controller.current) return;
-    setError("");
-    const cached = cache.current.get(target);
-    if (cached) { setTranslated(cached); setVisible(true); return; }
-    const current = ++generation.current;
-    const abort = new AbortController(); controller.current = abort; setBusy(true);
-    try {
-      const result = await requestJson<{ translation: string; targetLanguage: AppLocale }>("/api/country-community/translate", {
-        method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: { text, targetLanguage: target },
-        signal: abort.signal, timeoutMs: 32_000,
-      });
-      if (generation.current !== current) return;
-      if (!result.translation?.trim() || result.targetLanguage !== target) throw new Error("invalid-translation");
-      cache.current.set(target, result.translation);
-      setTranslated(result.translation); setVisible(true);
-    } catch (requestError) {
-      if (generation.current !== current || abort.signal.aborted) return;
-      setError(requestError instanceof ApiError && requestError.status === 429
-        ? copy("Çeviri sınırına ulaştın. Bir süre sonra tekrar dene.", "Translation limit reached. Try again later.", "U arrit kufiri i përkthimeve. Provo sërish më vonë.")
-        : requestError instanceof ApiError && requestError.status === 401
-          ? copy("Oturumun sona erdi. Çeviri için yeniden giriş yap.", "Your session expired. Sign in again to translate.", "Sesioni ka skaduar. Hyr sërish për të përkthyer.")
-          : copy("Çeviri şu an yüklenemedi. Orijinal metni okuyabilir veya tekrar deneyebilirsin.", "Translation is unavailable. Read the original or try again.", "Përkthimi nuk është i disponueshëm. Lexo origjinalin ose provo sërish."));
-    } finally {
-      if (generation.current === current) { controller.current = null; setBusy(false); }
-    }
-  }
-
-  return <div className="forum-translation">
-    {visible ? <p className="forum-translation-text" lang={target}>{translated}</p> : children || <p>{text}</p>}
-    {Boolean(text.trim()) && <div className="forum-translation-controls">
-      <button type="button" disabled={busy} onClick={event => { event.stopPropagation(); void translate(); }}>
-        {busy ? copy("Çevriliyor…", "Translating…", "Duke përkthyer…") : visible ? copy("Orijinali göster", "Show original", "Shfaq origjinalin") : copy("Çevir", "Translate", "Përkthe")}
-      </button>
-      <select aria-label={copy("Çeviri dili", "Translation language", "Gjuha e përkthimit")} value={target} onClick={event => event.stopPropagation()} onChange={event => {
-        generation.current++; controller.current?.abort(); controller.current = null;
-        setTarget(event.target.value as AppLocale); setVisible(false); setBusy(false); setError("");
-      }}>
-        <option value="tr">Türkçe</option><option value="en">English</option><option value="sq">Shqip</option>
-      </select>
-      {visible && <span>{copy("Otomatik çeviri", "Automatic translation", "Përkthim automatik")}</span>}
-    </div>}
-    {error && <p className="forum-translation-error" role="alert">{error}</p>}
+  const [result, setResult] = useState<CommunityTranslationResult | null>(null);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setVisible(true); observer.disconnect(); }
+    }, { rootMargin: "120px 0px" });
+    if (element.current) observer.observe(element.current);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!visible) return;
+    return communityTranslationQueue.subscribe({ text, title, accessToken, locale }, setResult);
+  }, [text, title, accessToken, locale, visible]);
+  const ready = result?.status === "ready";
+  const display = ready ? result.text : text;
+  const displayTitle = ready ? result.title : title;
+  return <div ref={element} className="forum-translation" lang={ready ? locale : undefined} aria-busy={!result}>
+    {result ? children ? children(display, displayTitle) : <p className="forum-translation-text">{display}</p>
+      : <p className="forum-translation-loading">{copy("İçerik yükleniyor…", "Loading content…", "Përmbajtja po ngarkohet…")}</p>}
+    {result?.status === "failed" && <span className="forum-translation-fallback">{copy("Çeviri yüklenemedi; özgün metin gösteriliyor.", "Translation unavailable; showing the original text.", "Përkthimi nuk u ngarkua; po shfaqet teksti origjinal.")}</span>}
   </div>;
 }

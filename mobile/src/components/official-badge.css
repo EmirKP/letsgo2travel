@@ -1,2 +1,4 @@
-.official-account-badge { display: inline-block; width: 1.1em; height: 1.1em; margin-inline-start: .3em; flex: none; vertical-align: -.17em; color: #1685f8; }
+.official-account-badge { display: inline-block; width: 1em; height: 1em; margin-inline-start: .3em; flex: none; vertical-align: -.125em; color: #1685f8; }
+/* Keep inline badges centred on the text even inside global icon-button rules. */
+.editorial-app :is(button, strong, h2, h3, span) > .official-account-badge { width: 1em; height: 1em; min-width: 1em; margin-block: 0; vertical-align: -.125em; align-self: center; position: static; transform: none; }
 :root[data-theme="dark"] .official-account-badge { color: #389cff; }

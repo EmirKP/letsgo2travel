@@ -125,8 +125,9 @@
 .editorial-app .screen .tm-exchange-input, .editorial-app .screen .tm-conversion { padding: 16px; border: 1px solid var(--theme-border, #dce7f5); border-radius: 18px; background: var(--theme-soft, #f5f8fd); }
 .editorial-app .screen .tm-amount-field { margin: 8px 0 3px; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .editorial-app .screen .tm-amount-field:focus-within { box-shadow: none; }
-.editorial-app .screen .tm-amount-field input { min-height: 50px; font-size: 30px; line-height: 1.25; border-radius: 6px; }
-.editorial-app .screen .tm-amount-field input:focus-visible { outline: 2px solid var(--theme-link, #0066ff); outline-offset: 2px; }
+.editorial-app .screen .tm-amount-field input { min-height: 58px; padding: 10px 12px; border: 1.5px solid var(--theme-border, #b9cce5); border-radius: 12px; background: var(--theme-surface, #fff); font-size: 28px; line-height: 1.25; caret-color: var(--theme-link, #0066ff); }
+.editorial-app .screen .tm-amount-field input:focus { border-color: var(--theme-link, #0066ff); outline: 2px solid var(--theme-link, #0066ff); outline-offset: 2px; }
+.editorial-app .screen .tm-amount-field input[aria-invalid="true"] { border-color: var(--theme-danger, #b42c41); }
 .editorial-app .screen .tm-currency-choice { flex: 0 0 93px; display: grid; gap: 3px; min-width: 0; }
 .editorial-app .screen .tm-currency-choice > span { color: var(--theme-muted, #62778f); font-size: 9px; text-align: center; }
 .editorial-app .screen .tm-currency-choice select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 6px 8px 10px; border: 1px solid var(--theme-border, #dce7f5); border-radius: 12px; background: var(--theme-surface, #fff); color: var(--theme-ink, #153654); font: inherit; font-size: 15px; font-weight: 750; }

@@ -544,6 +544,18 @@ test('Account changes remount both retained Explore and Profile while token rota
   auth.accessToken = 'token-b-rotated'; view = render();assert.equal(boundary().key, 'user-b');
 });
 
+test('Profile opens the exact forum discussion and consumes the intent once', () => {
+  const { render, auth, screen } = appHarness({ initialView: 'profile', locale: 'en' });
+  auth.user = { id: 'a' }; auth.accessToken = 'token-a'; let view = render();
+  const profile = screen(view, 'ProfileScreen');
+  assert.equal(typeof profile.props.onAddSocialPlace, 'function');
+  profile.props.onOpenCommunityQuestion('question-from-profile'); view = render();
+  const community = screen(view, 'CommunityScreen');
+  assert.equal(community.props.initialQuestionId, 'question-from-profile');
+  community.props.onQuestionIntentHandled(); view = render();
+  assert.equal(screen(view, 'CommunityScreen').props.initialQuestionId, undefined);
+});
+
 for(const refresh of ['token rotation','Activity return'])for(const succeeds of [true,false])test(`Explore ${refresh} waits for a favourite to ${succeeds?'save':'roll back'} before reading the account`,async()=>{
  const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
  const tick=()=>new Promise(resolve=>setImmediate(resolve));

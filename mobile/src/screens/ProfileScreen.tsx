@@ -3,6 +3,7 @@ import { countApprovedCountries } from "../../../lib/leaderboard/verified";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { ProfilePhoto } from "../components/ProfilePhoto";
+import { CommunityProfileInline } from "../components/CommunityProfileSheet";
 import { AppearancePicker } from "../components/AppearancePicker";
 import { TextSizePicker } from "../components/TextSizePicker";
 import { NotificationPreferences } from "../components/NotificationPreferences";
@@ -35,10 +36,12 @@ import {
 } from "../lib/storage";
 import type { AuthUser, FavoriteDestination, MobilePreferences, TravelVerification, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
+import type { SocialPlace } from "../lib/social";
 import profileCover from "../assets/reference/coastal-traveler.webp";
 import "./reference-community-profile.css";
 import "./profile-passport-polish.css";
 import "./profile-feature-artwork.css";
+import "./profile-community.css";
 
 function displayName(user: AuthUser | null) {
   if (!user) return "Misafir Kaşif";
@@ -56,7 +59,7 @@ function profileIdsForDestinations(original: string[], destinations: FavoriteDes
   return profileIdsForAlpha3(original, destinations.map(country => country.alpha3));
 }
 
-export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice }: {
+export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice, onOpenCommunityQuestion, onAddSocialPlace }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -66,9 +69,12 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   onOpenRelease: () => void;
   onOpenOnboarding: () => void;
   onNotice: (message: string) => void;
+  onOpenCommunityQuestion: (id: string) => void;
+  onAddSocialPlace?: (place: SocialPlace) => void;
 }) {
   const { copy, countryName, locale } = useI18n();
   const [tick, setTick] = useState(0);
+  const identityRef = useRef<HTMLElement>(null);
   const [visitedOpen, setVisitedOpen] = useState(false);
   const [blocksOpen, setBlocksOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
@@ -321,13 +327,26 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
 
   return <div className="screen profile-screen reference-profile profile-polished">
     <div className="profile-cover" aria-hidden="true"><img src={profileCover} alt="" width={1200} height={800}/><span><small>{copy("SENİN YOLCULUĞUN", "YOUR JOURNEY")}</small>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
-    <section className="profile-hero">
+    <section className="profile-hero" ref={identityRef}>
       <div className="profile-identity">
         <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={onNotice}/>
         <div><small>{user ? approvedCount > 0 ? copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER") : copy("HESAP AÇIK", "SIGNED IN") : copy("MİSAFİR MODU", "GUEST MODE")}</small><h1>{name}</h1><p>{user?.email || copy("Kayıtlarını bu cihazda güvenle saklıyorsun.", "Your saved items are kept safely on this device.")}</p></div>
       </div>
       <button className="profile-account-action" onClick={onOpenAccount} aria-label={user ? copy("Hesabı yönet", "Manage account") : copy("Giriş yap", "Sign in")}><Icon name={user ? "settings" : "user"} size={18} /><span>{user ? copy("Hesap", "Account") : copy("Giriş yap", "Sign in")}</span></button>
     </section>
+
+    {user && accessToken ? <CommunityProfileInline
+      profileKey={`user:${user.id}`} userId={user.id} accessToken={accessToken}
+      revision={profileReload} onOpenAccount={onOpenAccount}
+      onOpenQuestion={onOpenCommunityQuestion} onAddPlace={onAddSocialPlace}
+      onEditProfile={() => {
+        const photo = identityRef.current?.querySelector<HTMLButtonElement>(".profile-photo");
+        photo?.focus(); photo?.click();
+      }}
+    /> : <section className="profile-community-signin">
+      <Icon name="camera" size={25}/><div><h2>{copy("Anılarını burada biriktir", "Keep your memories here", "Ruaj kujtimet e tua këtu")}</h2><p>{copy("Gönderilerini paylaş, gezginleri takip et ve sohbetlere katıl.", "Share posts, follow travellers and join conversations.", "Ndaj postime, ndiq udhëtarë dhe bashkohu në biseda.")}</p></div>
+      <button type="button" className="secondary-wide" onClick={onOpenAccount}>{copy("Giriş yap", "Sign in", "Hyr")}</button>
+    </section>}
 
     <section className="explorer-card">
       <div className="explorer-card-head"><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={48} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
@@ -389,7 +408,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
       </details>
     </section>
 
-    {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked."))} />}
+    {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { setProfileReload(value => value + 1); onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked.")); }} />}
     <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />
 
     {visitedOpen && <Sheet open title={copy("Ziyaret ettiğim ülkeler", "Countries I've visited")} onClose={() => setVisitedOpen(false)} size="large">
