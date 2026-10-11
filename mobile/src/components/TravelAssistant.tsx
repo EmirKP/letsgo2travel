@@ -81,6 +81,7 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotic
     return () => { active = false; };
   }, [tool,locationRetry]);
   const heading = useRef<HTMLHeadingElement>(null);
+  const toolHeader = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const now = useCurrentTime();
   const options = COUNTRY_LIST.map(c => ({code:alpha2FromAlpha3(c.alpha3),name:countryName(c.alpha3,c.name)})).filter(c => c.code);
@@ -93,13 +94,16 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotic
   const searchResults = (Object.keys(labels) as Tool[]).filter(t => normalizeSearchText([...labels[t],...descriptions[t],labelFor(t),descriptionFor(t),keywords[t]].join(' ')).includes(search));
   const chooseTool = (next: Tool|null) => {
     setTool(next);
-    window.requestAnimationFrame(() => heading.current?.focus());
+    window.requestAnimationFrame(() => {
+      (toolHeader.current || heading.current)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      heading.current?.focus({ preventScroll: true });
+    });
   };
   const toolButton = (t: Tool) => <button type="button" key={t} onClick={() => chooseTool(t)} className="ta-tool-card">
     <span className="ta-tool-icon"><TravelToolArtwork kind={t}/></span><span><strong>{labelFor(t)}</strong><small>{descriptionFor(t)}</small></span><Icon name="chevron" size={16}/>
   </button>;
   return <div className="travel-assistant">
-    {tool ? <div className="ta-tool-header">
+    {tool ? <div ref={toolHeader} className="ta-tool-header">
       <button type="button" onClick={() => chooseTool(null)}><Icon name="back" size={18}/>{copy('Tüm araçlar','All tools')}</button>
       <h2 ref={heading} tabIndex={-1}>{labelFor(tool)}</h2>
     </div> : <>

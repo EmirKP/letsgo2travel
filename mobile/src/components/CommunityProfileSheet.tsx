@@ -15,6 +15,7 @@ import { Sheet } from "./Sheet";
 import { SocialGallery } from "./SocialHub";
 import { SocialComposer } from "./SocialComposer";
 import { ForumTranslation } from "./ForumTranslation";
+import { CommunityPostPhoto } from "./CommunityPostPhoto";
 import type { SocialPlace } from "../lib/social";
 import "./community-profile.css";
 
@@ -289,7 +290,14 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
         ? <button type="button" className="community-profile-person" key={profileItemKey(item)} onClick={() => onOpenProfile(item.key)}><CommunityAvatar username={item.username} avatarUrl={item.avatarUrl} size="medium" /><strong>@{item.username}<OfficialBadge isOfficial={item.isOfficial} /></strong><Icon name="chevron" size={18} /></button>
         : <article className="community-profile-post" key={profileItemKey(item)}>
           <span className="community-profile-post-meta"><span><Icon name={"questionId" in item ? "message" : "book"} size={15} />{"questionId" in item ? copy("Cevap", "Answer", "Përgjigje") : copy("Paylaşım", "Post", "Postim")}</span><time dateTime={item.createdAt}>{date(item.createdAt)}</time></span>
-          <ForumTranslation text={item.body} title={"questionTitle" in item ? item.questionTitle : item.title} accessToken={accessToken || ""}>{(display, displayTitle) => <div className="community-profile-post-copy"><strong>{displayTitle}</strong><p>{display}</p></div>}</ForumTranslation><button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>
+          {!("questionId" in item) && item.photoUrl && <CommunityPostPhoto photoUrl={item.photoUrl} accessToken={accessToken || ""} alt={item.title}/>}
+          <ForumTranslation text={item.body} title={"questionTitle" in item ? item.questionTitle : item.title} accessToken={accessToken || ""}>{(display, displayTitle) => <div className="community-profile-post-copy"><strong>{displayTitle}</strong><p>{display}</p></div>}</ForumTranslation>
+          {!("questionId" in item) && item.status && item.status !== "published"
+            ? <p className="community-profile-notice" role="status">{item.status === "rejected" ? copy("Reddedildi · Bu paylaşım yayımlanmadı.", "Rejected · This post was not published.", "U refuzua · Ky postim nuk u publikua.")
+              : item.status === "hidden" ? copy("Gizlendi · Bu paylaşım artık yayında değil.", "Hidden · This post is no longer published.", "U fsheh · Ky postim nuk është më i publikuar.")
+                : item.status === "closed" ? copy("Kapatıldı · Bu sohbet artık açık değil.", "Closed · This discussion is no longer open.", "U mbyll · Kjo bisedë nuk është më e hapur.")
+                  : copy("İncelemede · Şimdilik yalnızca sen görebilirsin.", "In review · Only you can see this for now.", "Në shqyrtim · Për momentin vetëm ti mund ta shohësh.")}</p>
+            : <button type="button" className="community-profile-post-cta" onClick={() => onOpenQuestion("questionId" in item ? item.questionId : item.id)}>{copy("Sohbeti görüntüle", "View discussion", "Shiko bisedën")}<Icon name="chevron" size={16} /></button>}
         </article>)}</div>
       {failure?.section === section && <div className="community-profile-error" role="alert"><p>{failure.unavailable ? copy("Bu profil şu anda görüntülenemiyor.", "This profile is currently unavailable.", "Ky profil nuk është i disponueshëm tani.") : copy("Bağlantı kurulamadı. Tekrar deneyebilirsin.", "Could not connect. You can try again.", "Nuk u krijua lidhja. Mund të provosh sërish.")}</p><button type="button" disabled={loading || loadingMore} onClick={() => failure.more ? void loadMore() : setRevision(value => value + 1)}><Icon name="refresh" size={17} />{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
       {page?.nextOffset != null && !failure?.more && <button className="community-profile-more" type="button" disabled={loading || loadingMore} onClick={() => void loadMore()}>{loadingMore ? copy("Yükleniyor…", "Loading…", "Po ngarkohet…") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}

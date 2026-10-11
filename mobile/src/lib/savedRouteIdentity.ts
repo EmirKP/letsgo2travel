@@ -14,7 +14,10 @@ export function matchingSavedRoute(routes: SavedRoutePlan[], plan: RoutePlan, in
   return routes.find(route => comparable({ input: route.input, plan: route.plan }) === content);
 }
 
-function comparable(value: unknown): string {
-  return JSON.stringify(value, (_key, current) => current && typeof current === "object" && !Array.isArray(current)
+function comparable({ input, plan }: { input: PlannerInput; plan: RoutePlan }): string {
+  // Entry labels are rendered in the current language. They do not create a
+  // new itinerary; keep the classification/source and all user edits instead.
+  const routes = plan.routes.map(({ visaStatus: _label, visaNote: _note, ...route }) => route);
+  return JSON.stringify({ input, plan: { ...plan, routes } }, (_key, current) => current && typeof current === "object" && !Array.isArray(current)
     ? Object.fromEntries(Object.keys(current).sort().map(key => [key, current[key]])) : current);
 }

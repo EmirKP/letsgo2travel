@@ -116,12 +116,17 @@ export async function POST(request: Request) {
       timezone?: unknown;
       current?: { temperature_2m?: unknown; apparent_temperature?: unknown; precipitation?: unknown; weather_code?: unknown; time?: unknown };
     };
-    const temperature = Number(payload.current?.temperature_2m);
-    const apparentTemperature = Number(payload.current?.apparent_temperature);
-    const precipitation = Number(payload.current?.precipitation);
-    const weatherCode = Number(payload.current?.weather_code);
-    const localTime = String(payload.current?.time || "");
-    if (![temperature, apparentTemperature, precipitation, weatherCode].every(Number.isFinite) || !localTime) throw new Error("weather_shape");
+    const temperature = payload.current?.temperature_2m;
+    const apparentTemperature = payload.current?.apparent_temperature;
+    const precipitation = payload.current?.precipitation;
+    const weatherCode = payload.current?.weather_code;
+    const localTime = payload.current?.time;
+    const finiteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+    // Missing observations must not become a fabricated 0°C / clear forecast.
+    // In particular, Number(null), Number("") and Number(false) all return zero.
+    if (!finiteNumber(temperature) || !finiteNumber(apparentTemperature)
+      || !finiteNumber(precipitation) || !finiteNumber(weatherCode)
+      || typeof localTime !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(localTime)) throw new Error("weather_shape");
     return NextResponse.json({ data: {
       weather: {
         temperature: Math.round(temperature),

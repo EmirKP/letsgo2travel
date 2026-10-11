@@ -32,7 +32,7 @@ const searchText = load('mobile/src/lib/searchText.ts', {});
 // are replaced. Refs attach during a simulated commit, before animation frames.
 function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [], locate = async () => {throw Error('unavailable');} } = {}) {
   const slots = [], frames = [], selectedCountries = [], phrases = [], effects = [];
-  let cursor = 0, locale = initialLocale, view, focused, oldRefs = [], signIns = 0;
+  let cursor = 0, locale = initialLocale, view, focused, focusOptions, scrolled, scrollOptions, oldRefs = [], signIns = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { slots[i].value = typeof next === 'function' ? next(slots[i].value) : next; }]; },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
@@ -65,7 +65,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     render(next = {}) {
       props = { ...props, ...next }; cursor = 0; view = api.TravelAssistant(props);
       oldRefs.forEach(ref => { ref.current = null; }); oldRefs = [];
-      nodes(view).forEach(node => { if (node.props?.ref && typeof node.props.ref === 'object') { const ref = node.props.ref; oldRefs.push(ref); ref.current = { focus: () => { focused = node; } }; } });
+      nodes(view).forEach(node => { if (node.props?.ref && typeof node.props.ref === 'object') { const ref = node.props.ref; oldRefs.push(ref); ref.current = { focus: options => { focused = node; focusOptions = options; }, scrollIntoView: options => { scrolled = node; scrollOptions = options; } }; } });
       frames.splice(0).forEach(fn => fn());
       effects.splice(0).forEach(fn=>fn());
       return view;
@@ -74,7 +74,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     search(query) { find(view, 'input', props => props.type === 'search').props.onChange({ target: { value: query } }); return h.render(); },
     expand() { const control = find(view, 'button', props => props['aria-controls'] === 'ta-other-tools'); if (!control.props['aria-expanded']) { control.props.onClick(); h.render(); } return view; },
     language(next) { locale = next; return h.render(); },
-    focused: () => focused, selectedCountries, phrases, signIns: () => signIns,
+    focused: () => focused, focusOptions: () => focusOptions, scrolled: () => scrolled, scrollOptions: () => scrollOptions, selectedCountries, phrases, signIns: () => signIns,
   };
   h.render(); return h;
 }
@@ -151,8 +151,14 @@ test('Opening and leaving a result focus its heading and preserve the previous s
   h.search('translate'); h.choose('Translate');
   assert.equal(h.focused().type, 'h2'); assert.equal(text(h.focused()), 'Translate');
   assert.equal(h.focused().props.tabIndex, -1);
+  assert.equal(h.scrolled().props.className, 'ta-tool-header');
+  assert.ok(button(h.scrolled(), 'All tools'), 'Scroll the back control into view along with the title');
+  assert.equal(h.scrollOptions().block, 'start');
+  assert.equal(h.scrollOptions().behavior, 'auto');
+  assert.equal(h.focusOptions().preventScroll, true, 'Heading focus must not scroll the back control behind the fixed header');
   const restored = h.choose('All tools');
   assert.equal(text(h.focused()), 'What do you need?');
+  assert.equal(h.scrolled(), h.focused(), 'Returning to the directory restores its heading');
   assert.equal(find(restored, 'input').props.value, 'translate');
   assert.deepEqual(cardLabels(restored), ['Translate']);
   const cleared = h.choose('Clear search');
@@ -186,6 +192,7 @@ test('Explicit country selections follow the user between phrases, assistant and
   const slots = []; let cursor = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = value; }]; },
+    useRef(initial) { const i = cursor++; return slots[i] ||= { current: initial }; },
     useMemo: factory => factory(), useEffect: () => {}, lazy: () => 'TravelAssistant', Suspense: 'Suspense',
   };
   const profile = code => ({ code, languageTr: 'Test', languageEn: 'Test', phrases: [], etiquette: [] });

@@ -19,7 +19,7 @@ export type CommunityProfile = {
   showAvatar?: boolean;
   safetyTarget?: CommunitySafetyTarget | null;
 };
-export type CommunityProfilePost = { id: string; title: string; body: string; countryCode: string; createdAt: string };
+export type CommunityProfilePost = { id: string; title: string; body: string; countryCode: string; createdAt: string; status?: "published" | "pending" | "hidden" | "rejected" | "closed"; photoUrl?: string | null };
 export type CommunityProfileAnswer = { id: string; questionId: string; questionTitle: string; body: string; createdAt: string };
 export type CommunityProfilePerson = { key: string; userId: string | null; username: string; avatarUrl: string | null; isOfficial?: boolean };
 export type CommunityProfileItem = CommunityProfilePost | CommunityProfileAnswer | CommunityProfilePerson;

@@ -93,6 +93,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const plannerModes = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
   const generating = useRef(false);
+  const generationVersion = useRef(0);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
   const plan = useMemo(() => rawPlan ? { ...rawPlan, routes: rawPlan.routes.map(route => ({ ...route, ...plannerEntry(normalizePlannerPassport(planInput), route.country, locale) })) } : null, [rawPlan, planInput, locale]);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
@@ -134,11 +135,22 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     });
   }
 
+  function supersedeGeneration() {
+    // A newly chosen route owns the screen even if its previous request is
+    // still in flight. Allow a new request without the old one clearing it.
+    generationVersion.current += 1;
+    generating.current = false;
+    setLoading(false);
+    setGenerationError("");
+    setEditingRoute(null);
+  }
+
   useEffect(() => {
     // Activity reactivates effects on tab return. Apply a chosen route only
     // once so returning does not discard edits, save state or expanded days.
     if (!surpriseRoute || appliedSeed.current === surpriseRoute) return;
     appliedSeed.current = surpriseRoute;
+    supersedeGeneration();
     setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
     setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: surpriseRoute.idealDuration }));
     setSource(routeSeedKind);
@@ -193,6 +205,8 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       return;
     }
     generating.current = true;
+    const requestVersion = ++generationVersion.current;
+    const isCurrentRequest = () => requestVersion === generationVersion.current;
     const requestInput = snapshotPlannerInput({ ...form, ...selectedPassport, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
     const starter = () => {
       if (requestInput.mode === "fixed" && requestInput.destination) return fixedDestinationStarter(requestInput, locale);
@@ -206,6 +220,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     setGenerationError("");
     try {
       const response = await generateRoutePlan(requestInput, locale);
+      if (!isCurrentRequest()) return;
       const routes = response.data?.routes;
       // A provider fallback or an unusable response is not a successful refresh.
       // Keep both applied edits and the open editor until a real replacement arrives.
@@ -219,6 +234,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       setEditingRoute(null);
       await hapticSuccess();
     } catch {
+      if (!isCurrentRequest()) return;
       // A failed refresh must never replace a route the user already edited.
       if (!plan) {
         const fallback = starter();
@@ -231,8 +247,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         ? copy("Yeni rota önerisi alınamadı. Mevcut planın ve seçimlerin korundu.", "Couldn't fetch a new route. Your current plan and choices are unchanged.", "Nuk u mor një itinerar i ri. Plani aktual dhe zgjedhjet e tua janë ruajtur.")
         : copy("Yeni rota önerisi alınamadı. Seçimlerinle bir başlangıç taslağı hazırladık; yeni öneri için tekrar deneyebilirsin.", "Couldn't fetch a new route. We prepared a starter outline using your choices; try again for a new suggestion.", "Nuk u mor një itinerar i ri. Përgatitëm një plan fillestar sipas zgjedhjeve të tua; provo sërish për një sugjerim të ri."));
     } finally {
-      setLoading(false);
-      generating.current = false;
+      if (isCurrentRequest()) {
+        setLoading(false);
+        generating.current = false;
+      }
     }
   };
 
@@ -242,8 +260,8 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       return;
     }
     const routeIndex = editingRoute;
+    supersedeGeneration();
     setPlan(current => current ? { ...current, routes: current.routes.map((route, index) => index === routeIndex ? { ...route, dailyPlan: editStops.map(stop => stop.trim()) } : route) } : current);
-    setEditingRoute(null);
     onNotice(copy("Plan güncellendi. Saklamak için planı kaydet.", "Plan updated. Save it to keep your changes.", "Plani u përditësua. Ruaje për të mbajtur ndryshimet."));
   };
 
@@ -353,7 +371,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         <div className="planner-photo-grid">{(plannerTab === "ready" ? ["SJJ","FCO","BKK","TBS","DXB","BEG"] : ["SJJ","FCO","BKK"]).map(code => {
           const route = routeByDestinationCode(code, locale);
           if (!route) return null;
-          return <button type="button" key={code} onClick={() => { setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
+          return <button type="button" key={code} onClick={() => { supersedeGeneration(); setPlan({ summary: copy("Kaydedebilir veya tercihlerinle yeni öneriler alabilirsin.", "Save this route or get new ideas with your preferences."), routes:[route] }); setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: route.idealDuration })); setSource("explore"); setExpanded(route.name); setAlternativesOpen(false); requestAnimationFrame(() => { selectedHeading.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); selectedHeading.current?.focus({ preventScroll: true }); }); }}><img src={destinationArtwork(code)} alt="" loading="lazy" width="180" height="150" /><span><strong>{route.name}</strong><small>{route.idealDuration}</small></span></button>;
         })}</div>
       </section>
       </div>

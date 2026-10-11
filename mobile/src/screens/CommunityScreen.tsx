@@ -214,6 +214,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const answerInput = useRef<HTMLTextAreaElement>(null);
   const answerPending = useRef(false);
   const answerOperation = useRef<{ questionId: string; body: string; requestId: string } | null>(null);
+  const questionOperation = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
   const [blocksOpen, setBlocksOpen] = useState(false);
@@ -586,15 +587,19 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     if (questionTitle.trim().length < 5) return onNotice(copy("Başlık en az 5 karakter olmalı.", "The title must be at least 5 characters."));
     if (questionBody.trim().length < 10) return onNotice(copy("Açıklama en az 10 karakter olmalı.", "The description must be at least 10 characters."));
     if (postPending.current || photoPreparing) return;
+    const fingerprint = JSON.stringify([countryCode, questionTitle.trim(), questionBody.trim(), questionPhoto]);
+    if (questionOperation.current?.fingerprint !== fingerprint) questionOperation.current = { fingerprint, requestId: createId() };
+    const operation = questionOperation.current;
     postPending.current = true;
     setPosting(true);
     try {
-      const result = await requestJson<{ moderation?: { action?: string } }>(questionPhoto ? "/api/country-community/photo-posts" : "/api/country-community/questions", {
+      const result = await requestJson<{ data?: { status?: string }; moderation?: { action?: string } }>(questionPhoto ? "/api/country-community/photo-posts" : "/api/country-community/questions", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { countryCode, title: questionTitle.trim(), body: questionBody.trim(), category: "general", ...(questionPhoto ? { photo: questionPhoto } : {}) },
+        body: { countryCode, title: questionTitle.trim(), body: questionBody.trim(), category: "general", requestId: operation.requestId, ...(questionPhoto ? { photo: questionPhoto } : {}) },
         timeoutMs: 30_000,
       });
+      if (questionOperation.current === operation) questionOperation.current = null;
       if (!active.current) return;
       setQuestionOpen(false);
       setCountryCode("");
@@ -603,7 +608,9 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
       setQuestionPhoto("");
       setPhotoError("");
       if (result.moderation?.action === "visible") await loadFeed();
-      onNotice(result.moderation?.action === "visible" ? copy("Paylaşımın toplulukta yayınlandı.", "Your post is live in the community.") : copy("Paylaşımın incelemeye alındı.", "Your post was sent for review."));
+      onNotice(result.data?.status === "rejected" ? copy("Bu paylaşım reddedildi. Durumunu profilinin Forum bölümünde görebilirsin.", "This post was rejected. You can see its status in the Forum section of your profile.", "Ky postim u refuzua. Gjendjen e tij mund ta shohësh te Forumi në profil.")
+        : result.data?.status === "hidden" || result.data?.status === "closed" ? copy("Bu paylaşım artık yayında değil. Durumunu profilinin Forum bölümünde görebilirsin.", "This post is no longer published. You can see its status in the Forum section of your profile.", "Ky postim nuk është më i publikuar. Gjendjen e tij mund ta shohësh te Forumi në profil.")
+          : result.moderation?.action === "visible" ? copy("Paylaşımın toplulukta yayınlandı.", "Your post is live in the community.") : copy("Paylaşımın incelemeye alındı.", "Your post was sent for review."));
     } catch (requestError) {
       if (!active.current) return;
       onNotice(questionPhoto && requestError instanceof ApiError && requestError.status === 404

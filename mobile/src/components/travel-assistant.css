@@ -6,6 +6,7 @@
 .ta-directory-title{font-size:23px;line-height:1.25;margin:6px 0 8px;letter-spacing:-.5px}
 .ta-inline-status{display:flex;align-items:flex-start;gap:8px}.ta-inline-status>svg{flex-shrink:0;margin-top:2px}
 .ta-directory-title:focus,.ta-tool-header h2:focus{outline:none}
+.ta-tool-header{scroll-margin-top:calc(100px + env(safe-area-inset-top))}
 .ta-emergency-shortcut{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;margin:16px 0;padding:12px 14px;border:1px solid var(--theme-border, #ecc6c4);border-radius:14px;background:var(--theme-danger-bg, #fff5f3);color:var(--theme-danger, #812e2d);text-align:left;font:inherit}
 .ta-emergency-shortcut span{display:grid;gap:3px;flex:1;min-width:0}.ta-emergency-shortcut strong{font-size:15px}.ta-emergency-shortcut small{font-size:12px;line-height:1.45}.ta-emergency-shortcut svg{flex-shrink:0}
 .ta-tool-search{display:flex;align-items:center;gap:10px;padding:0 12px;border:1px solid var(--theme-border, #cbd8e8);border-radius:12px;min-height:48px;background:var(--theme-surface, #fff);margin-bottom:16px;color:var(--theme-muted, #52677e)}.ta-tool-search input{width:100%;min-width:0;min-height:48px;background:transparent;border:0;font:inherit;font-size:16px;color:var(--theme-ink, #142b43)}.ta-tool-search input:focus{outline:none}.ta-tool-search:focus-within{outline:3px solid #e5b52e;outline-offset:2px}.ta-tool-search button{display:grid;place-items:center;flex-shrink:0;min-width:44px;min-height:44px;border:0;background:transparent;color:var(--theme-ink, #142b43)}

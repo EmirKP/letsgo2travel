@@ -55,7 +55,7 @@ function harness(initial = {}, { dateLocale = 'en-GB', intl = Intl, inline = fal
     './CommunityAvatar': { CommunityAvatar: 'CommunityAvatar' }, './OfficialBadge': { OfficialBadge: 'OfficialBadge' }, './Icon': { Icon: 'Icon' }, './Sheet': { Sheet: 'Sheet' },
     './CommunitySafetySheet': { CommunitySafetySheet: 'CommunitySafetySheet', CommunityBlocksSheet: 'CommunityBlocksSheet' },
     './SocialHub': { SocialGallery: 'SocialGallery' }, './SocialComposer': { SocialComposer: 'SocialComposer' },
-    './ForumTranslation': { ForumTranslation: 'ForumTranslation' },
+    './ForumTranslation': { ForumTranslation: 'ForumTranslation' }, './CommunityPostPhoto': { CommunityPostPhoto: 'CommunityPostPhoto' },
   }, { window: { addEventListener() {}, removeEventListener() {} }, document: { getElementById: id => ({ focus() { calls.focused.push(id); } }) } });
   let props = { profileKey: 'starter:selin.kaplan', userId: 'me', accessToken: 'token', onClose() {}, onOpenAccount: () => calls.account++, onEditProfile() {}, onFollowChanged: () => calls.follow++, onProfileChanged: () => calls.profile++, onOpenQuestion: id => calls.questions.push(id), ...initial };
   const h = {
@@ -335,4 +335,15 @@ test('an unavailable profile clears previously displayed identity and content, u
   await h.resolve(2, { profile: sample(), items: [], nextOffset: null });
   assert.ok(find(h.tree, 'CommunityAvatar'));
   h.dispose();
+});
+
+
+test('own unpublished forum photos show distinct status and no broken public discussion link',async()=>{
+ const h=harness({profileKey:'user:me'});try{
+  const items=['pending','hidden','rejected','closed','published'].map((status,i)=>({...post(String(i)),status,photoUrl:`/api/country-community/questions/${i}/photo`}));
+  await h.resolve(0,{profile:sample('user:me',{isOwn:true,postCount:5}),items,nextOffset:null});h.click('Forum5');
+  for(const status of ['In review','Hidden','Rejected','Closed'])assert.ok(text(h.tree).includes(status));
+  assert.equal(nodes(h.tree).filter(n=>n.type==='CommunityPostPhoto').length,5);assert.ok(nodes(h.tree).filter(n=>n.type==='CommunityPostPhoto').every(n=>n.props.accessToken==='token'));
+  assert.equal(nodes(h.tree).filter(n=>n.type==='button'&&text(n)==='View discussion').length,1);h.click('View discussion');assert.deepEqual(h.calls.questions,['4']);
+ }finally{h.dispose();}
 });

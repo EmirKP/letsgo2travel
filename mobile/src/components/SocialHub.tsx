@@ -149,12 +149,14 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
   const input = useRef<HTMLTextAreaElement>(null);
   const paging = useRef<AbortController | null>(null);
   const readGeneration = useRef(0);
+  const mutationVersion = useRef(0);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
     readGeneration.current++;
     if (paging.current) { paging.current.abort(); paging.current = null; writing.current = false; setBusy(false); }
     const controller = new AbortController(); setLoading(true); setError("");
-    void socialRead<SocialDetail>({ postId, commentId: focusCommentId }, accessToken, controller.signal).then(data => { if (!controller.signal.aborted) setDetail(data); }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setDetail(null); setError(copy("Gönderi açılamadı. Silinmiş veya görünürlüğü değişmiş olabilir.", "Could not open this post. It may have been removed or its visibility changed.", "Postimi nuk u hap. Mund të jetë hequr ose dukshmëria të ketë ndryshuar.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    const version = mutationVersion.current;
+    void socialRead<SocialDetail>({ postId, commentId: focusCommentId }, accessToken, controller.signal).then(data => { if (!controller.signal.aborted && version === mutationVersion.current && !writing.current) setDetail(data); }).catch(failure => { if (!controller.signal.aborted && version === mutationVersion.current && !writing.current) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setDetail(null); setError(copy("Gönderi açılamadı. Silinmiş veya görünürlüğü değişmiş olabilir.", "Could not open this post. It may have been removed or its visibility changed.", "Postimi nuk u hap. Mund të jetë hequr ose dukshmëria të ketë ndryshuar.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); paging.current?.abort(); };
   }, [postId, focusCommentId, accessToken, attempt, copy]);
   useEffect(() => {
@@ -164,13 +166,14 @@ function SocialPostSheet({ postId, focusCommentId, accessToken, userId, onOpenAc
     }
   }, [detail]);
   const authenticated = () => { if (userId && accessToken) return true; onOpenAccount(); return false; };
-  const updatePost = (post: SocialPost) => { setDetail(previous => previous ? { ...previous, post } : previous); onChanged(post); };
+  const updatePost = (post: SocialPost) => { ++mutationVersion.current; setDetail(previous => previous ? { ...previous, post } : previous); onChanged(post); };
   const perform = async (action: () => Promise<void>) => {
     if (writing.current || !authenticated()) return;
+    ++mutationVersion.current;
     writing.current = true; setBusy(true); setError("");
     try { await action(); }
     catch { if (alive.current) setError(copy("İşlem tamamlanamadı. Bağlantını kontrol edip tekrar dene.", "Could not complete the action. Check your connection and retry.", "Veprimi nuk u krye. Kontrollo lidhjen dhe provo sërish.")); }
-    finally { writing.current = false; if (alive.current) setBusy(false); }
+    finally { ++mutationVersion.current; writing.current = false; if (alive.current) setBusy(false); }
   };
   const like = () => void perform(async () => {
     if (!detail) return;

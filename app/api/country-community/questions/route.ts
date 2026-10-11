@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { moderateUserText } from "@/lib/community/moderation";
 import {
   createForumTopicSlug,
@@ -8,10 +8,17 @@ import {
   forumStatusFromModeration,
 } from "@/lib/community/forum-sync";
 import { requireAuthenticatedUser } from "@/lib/authenticated-user";
-import { COMMUNITY_PHOTO_BUCKET, communityPhotoStorageReady, MAX_COMMUNITY_POST_REQUEST_BYTES, prepareCommunityPhoto } from "@/lib/community/photos";
-import { COMMUNITY_PRIVATE_HEADERS } from "@/lib/community/safety";
+import { COMMUNITY_PHOTO_BUCKET, communityPhotoStorageReady, MAX_COMMUNITY_PHOTO_BYTES, MAX_COMMUNITY_POST_REQUEST_BYTES, prepareCommunityPhoto } from "@/lib/community/photos";
+import { COMMUNITY_PRIVATE_HEADERS, COMMUNITY_UUID } from "@/lib/community/safety";
 
 export const runtime = "nodejs";
+
+const submissionError = (code?: string) => NextResponse.json({ error: code === "23505"
+  ? "Bu gönderim farklı bilgilerle kullanılmış. Paylaşımını yeniden düzenleyip dene."
+  : code === "P0002" ? "Bu paylaşım kaldırılmış. Aynı gönderim tekrar oluşturulamaz."
+    : "Paylaşım kaydedilemedi. Taslağını değiştirmeden tekrar deneyebilirsin." }, {
+  status: code === "23505" ? 409 : code === "P0002" ? 410 : 503, headers: COMMUNITY_PRIVATE_HEADERS,
+});
 
 export async function POST(request: Request) {
   try {
@@ -45,6 +52,9 @@ export async function POST(request: Request) {
     const title = String(payload.title || "").replace(/\s+/g, " ").trim();
     const body = String(payload.body || "").trim();
     const category = String(payload.category || "general").trim().toLowerCase();
+    if (payload.requestId !== undefined && (typeof payload.requestId !== "string" || !COMMUNITY_UUID.test(payload.requestId))) {
+      return NextResponse.json({ error: "Geçersiz gönderim kimliği." }, { status: 400 });
+    }
     if (!/^[A-Z]{2}$/.test(countryCode) || title.length < 5 || title.length > 160 || body.length < 10 || body.length > 4000) {
       return NextResponse.json({ error: "Ülke, başlık veya açıklama geçersiz." }, { status: 400 });
     }
@@ -59,6 +69,52 @@ export async function POST(request: Request) {
     // Text moderation does not inspect images. Photos enter the existing human
     // moderation queue before any public feed or photo endpoint can expose them.
     if (photo && moderation.action === "visible") moderation.action = "pending_review";
+    const authorName = String(
+      user.user_metadata?.full_name || user.user_metadata?.username || user.email?.split("@")[0] || "Gezgin",
+    ).replace(/\s+/g, " ").trim().slice(0, 80);
+
+    // New clients bind retries to one authenticated intent. Reserve the topic ID
+    // before uploading, then commit the topic and photo metadata in one transaction.
+    if (payload.requestId !== undefined) {
+      const requestId = payload.requestId.toLowerCase();
+      const photoHash = photo ? createHash("sha256").update(photo).digest("hex") : null;
+      const payloadHash = createHash("sha256").update(JSON.stringify([countryCode, title, body, category, photoHash])).digest("hex");
+      const { data: reserved, error: reserveError } = await supabase.rpc("reserve_community_question", {
+        p_user: user.id, p_request: requestId, p_payload_hash: payloadHash, p_photo_hash: photoHash,
+      });
+      if (reserveError) return submissionError(reserveError.code);
+      if (!reserved || !COMMUNITY_UUID.test(String(reserved.id)) || typeof reserved.committed !== "boolean") return submissionError();
+      const id = String(reserved.id);
+      const successful = (status: unknown) => typeof status === "string" && ["published", "pending", "hidden", "rejected", "closed"].includes(status)
+        ? NextResponse.json({ data: { id, status }, moderation: { ...moderation,
+          action: status === "published" ? "visible" : "pending_review" } }, { headers: COMMUNITY_PRIVATE_HEADERS }) : submissionError();
+      if (reserved.committed) return successful(reserved.status);
+      if (photo) {
+        if (!await communityPhotoStorageReady(supabase)) return submissionError();
+        const storage = supabase.storage.from(COMMUNITY_PHOTO_BUCKET);
+        const path = `${user.id}/${id}.jpg`;
+        const { error: uploadError } = await storage.upload(path, photo, { contentType: "image/jpeg", upsert: false });
+        if (uploadError) {
+          const previous = await storage.download(path);
+          if (previous.error || !previous.data || previous.data.size > MAX_COMMUNITY_PHOTO_BYTES) return submissionError();
+          const previousHash = createHash("sha256").update(Buffer.from(await previous.data.arrayBuffer())).digest("hex");
+          if (previousHash !== photoHash) return submissionError("23505");
+        }
+      }
+      const { data: committed, error: commitError } = await supabase.rpc("complete_community_question", {
+        p_user: user.id, p_request: requestId, p_payload_hash: payloadHash,
+        p_title: title, p_body: body, p_category: forumCategoryFromCommunityCategory(category),
+        p_country_slug: forumCountrySlugFromCode(countryCode), p_author_name: authorName,
+        p_status: forumStatusFromModeration(moderation.action), p_slug: createForumTopicSlug(title, id),
+      });
+      // A failed response may follow a successful commit. Never remove an object
+      // here: the next retry verifies it; account erasure also removes orphans.
+      if (commitError) return submissionError(commitError.code);
+      if (!committed || committed.id !== id || typeof committed.status !== "string") return submissionError();
+      return successful(committed.status);
+    }
+
+    // Installed clients without requestId keep their original creation contract.
     const id = randomUUID();
     const photoPath = photo ? `${user.id}/${id}.jpg` : null;
     if (photo && photoPath) {
@@ -67,13 +123,6 @@ export async function POST(request: Request) {
         .upload(photoPath, photo, { contentType: "image/jpeg", upsert: false });
       if (uploadError) return NextResponse.json({ error: "Fotoğraf yüklenemedi." }, { status: 503 });
     }
-    const authorName = String(
-      user.user_metadata?.full_name
-      || user.user_metadata?.username
-      || user.email?.split("@")[0]
-      || "Gezgin",
-    ).replace(/\s+/g, " ").trim().slice(0, 80);
-
     const { error } = await supabase.from("forum_topics").insert({
       id,
       slug: createForumTopicSlug(title, id),

@@ -789,3 +789,18 @@ test('Saving a community profile refreshes author photos without resetting the d
     assert.equal(h.requests.filter(request => request.path === '/api/country-community/questions/jp').length, 1, 'Profile edits must not reopen and reset the discussion');
   } finally { h.dispose(); }
 });
+
+
+test('question retry preserves operation identity until country, body, title or photo changes and success resets it',async()=>{
+ const h=harness(account);try{
+  await h.feed([]);composeDraft(h);h.click('Post to community');const original=h.requests.at(-1).options.body.requestId;assert.ok(original);
+  h.requests.at(-1).reject(new Error('response lost'));await h.settle();h.click('Post to community');assert.equal(h.requests.at(-1).options.body.requestId,original);
+  const fingerprints=[original];
+  for(const edit of [()=>h.change('input',p=>p.maxLength===160,'Rome evening experience'),()=>h.change('textarea',p=>p.placeholder==='Write your experience or question here…','Another quiet morning walk through Rome.'),()=>{find(h.render(),'CountryPicker').props.onChange('AL');h.render();},async()=>{h.selectPhoto({name:'photo.jpg'});h.photoPreparations.at(-1).resolve('data:image/jpeg;base64,cGhvdG8=');await h.settle();}]){
+   h.requests.at(-1).reject(new Error('response lost'));await h.settle();await edit();h.click('Post to community');fingerprints.push(h.requests.at(-1).options.body.requestId);
+  }
+  assert.equal(new Set(fingerprints).size,5);
+  h.requests.at(-1).resolve({data:{status:'rejected'},moderation:{action:'pending_review'}});await h.settle();assert.match(h.notices.at(-1),/rejected/);
+  composeDraft(h);h.click('Post to community');assert.ok(!fingerprints.includes(h.requests.at(-1).options.body.requestId));
+ }finally{h.dispose();}
+});

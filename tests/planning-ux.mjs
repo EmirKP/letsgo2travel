@@ -230,9 +230,162 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
   }, {window: fixtureWindow});
   host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '' });
-  return { host, saves, navigations, notices, generated, fixtureWindow, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
+  return { host, saves, navigations, notices, generated, fixtureWindow, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
+
+function deferredGeneration() {
+  let resolve, reject;
+  const promise = new Promise((success, failure) => { resolve = success; reject = failure; });
+  return { promise, resolve, reject };
+}
+
+for (const choice of ['discovery', 'ready route']) for (const outcome of ['success', 'failure', 'fallback']) test(`A newer ${choice} and its open editor survive an obsolete generation ${outcome}`, async () => {
+  const h = plannerHarness({ seeded: false }), oldRequest = deferredGeneration();
+  try {
+    h.respondGeneration(oldRequest.promise);
+    find(h.host.render(), 'AirportField').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport' });
+    button(h.host.render(), 'Create Route').props.onClick(); await tick();
+    assert.equal(h.generated.length, 1);
+    let view;
+    if (choice === 'discovery') view = h.host.render({ surpriseRoute: { ...route, name: 'Paris', country: 'France', destinationCode: 'CDG', dailyPlan: ['Paris walk'] }, routeSeedKind: 'explore' });
+    else {
+      const grid = find(h.host.render(), 'div', props => props.className === 'planner-photo-grid');
+      find(grid, 'button').props.onClick();
+      view = h.host.render();
+    }
+    const chosen = JSON.parse(JSON.stringify(find(view, 'RouteBudgetAnalysis').props));
+    assert.equal(chosen.route.destinationCode, choice === 'discovery' ? 'CDG' : 'SJJ');
+    assert.equal(button(view, 'Create Route').props.disabled, false, 'Selecting a new route releases the old loading state');
+    button(view, 'Edit').props.onClick();
+    find(find(h.host.render(), 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.onChange({ target: { value: 'Unapplied edit for the new route' } });
+    if (outcome === 'failure') oldRequest.reject(new TypeError('Old request failed'));
+    else oldRequest.resolve(outcome === 'fallback' ? { success: false, isFallback: true, data: { summary: 'Old fallback', routes: [route] } } : { data: { summary: 'Old response', routes: [route] } });
+    await tick(); view = h.host.render();
+    assert.deepEqual(JSON.parse(JSON.stringify(find(view, 'RouteBudgetAnalysis').props)), chosen);
+    assert.equal(find(find(view, 'label', props => text(props.children).startsWith('New stop')), 'textarea').props.value, 'Unapplied edit for the new route');
+    assert.equal(find(view, 'RequestFailure'), undefined, 'An obsolete error must not attach a retry banner to the new selection');
+    assert.equal(button(view, 'Create Route').props.disabled, false);
+  } finally { h.host.dispose(); }
+});
+
+for (const outcome of ['success', 'failure', 'fallback']) test(`Applied stop edits survive a pending generation ${outcome} and allow a fresh request`, async () => {
+  const h = plannerHarness(), oldRequest = deferredGeneration();
+  try {
+    const originalInput = JSON.parse(JSON.stringify(find(h.host.render(), 'RouteBudgetAnalysis').props.input));
+    button(h.host.render(), 'Find other route ideas').props.onClick();
+    find(h.host.render(), 'AirportField').props.onChange({ city: 'Istanbul', name: 'Istanbul Airport' });
+    h.respondGeneration(oldRequest.promise);
+    button(h.host.render(), 'Create Route').props.onClick(); await tick();
+    button(h.host.render(), 'Edit').props.onClick();
+    find(find(h.host.render(), 'label', props => text(props.children).startsWith('Stop 1')), 'textarea').props.onChange({ target: { value: 'Keep my manually selected museum stop' } });
+    button(h.host.render(), 'Apply changes').props.onClick();
+    const edited = JSON.parse(JSON.stringify(find(h.host.render(), 'RouteBudgetAnalysis').props));
+    assert.equal(edited.route.dailyPlan[0], 'Keep my manually selected museum stop');
+    assert.deepEqual(edited.input, originalInput);
+    if (outcome === 'failure') oldRequest.reject(new TypeError('Obsolete request failed'));
+    else oldRequest.resolve(outcome === 'fallback' ? { success: false, isFallback: true, data: { summary: 'Old fallback', routes: [route] } } : { data: { summary: 'Old response', routes: [route] } });
+    await tick();
+    let view = h.host.render();
+    assert.deepEqual(JSON.parse(JSON.stringify(find(view, 'RouteBudgetAnalysis').props)), edited);
+    assert.equal(find(view, 'RequestFailure'), undefined);
+    assert.equal(button(view, 'Create Route').props.disabled, false);
+    h.respondGeneration({ data: { summary: 'Requested after editing', routes: [{ ...route, dailyPlan: ['New explicitly requested itinerary'] }] } });
+    button(view, 'Create Route').props.onClick(); await tick();
+    view = h.host.render();
+    assert.equal(h.generated.length, 2);
+    assert.equal(find(view, 'RouteBudgetAnalysis').props.route.dailyPlan[0], 'New explicitly requested itinerary');
+    assert.equal(button(view, 'Create Route').props.disabled, false);
+  } finally { h.host.dispose(); }
+});
+
+test('Opening and cancelling stop edits leaves the pending generation active', async () => {
+  const h = plannerHarness(), request = deferredGeneration();
+  try {
+    button(h.host.render(), 'Find other route ideas').props.onClick();
+    find(h.host.render(), 'AirportField').props.onChange({ city: 'Istanbul', name: 'Istanbul Airport' });
+    h.respondGeneration(request.promise);
+    button(h.host.render(), 'Create Route').props.onClick(); await tick();
+    button(h.host.render(), 'Edit').props.onClick();
+    find(find(h.host.render(), 'label', props => text(props.children).startsWith('Stop 1')), 'textarea').props.onChange({ target: { value: 'Discarded edit' } });
+    button(h.host.render(), 'Cancel').props.onClick();
+    assert.equal(button(h.host.render(), 'Building').props.disabled, true);
+    request.resolve({ data: { summary: 'Still wanted', routes: [{ ...route, dailyPlan: ['Requested itinerary'] }] } }); await tick();
+    assert.equal(find(h.host.render(), 'RouteBudgetAnalysis').props.route.dailyPlan[0], 'Requested itinerary');
+  } finally { h.host.dispose(); }
+});
+
+test('An obsolete response cannot unlock or replace a newer in-flight generation', async () => {
+  const h = plannerHarness({ seeded: false }), oldRequest = deferredGeneration(), currentRequest = deferredGeneration();
+  try {
+    h.respondGeneration(oldRequest.promise);
+    find(h.host.render(), 'AirportField').props.onChange({ city: 'Istanbul', name: 'Istanbul Airport' });
+    button(h.host.render(), 'Create Route').props.onClick(); await tick();
+    h.host.render({ surpriseRoute: { ...route, name: 'Paris', destinationCode: 'CDG' }, routeSeedKind: 'explore' });
+    button(h.host.render(), 'Find other route ideas').props.onClick();
+    h.respondGeneration(currentRequest.promise);
+    button(h.host.render(), 'Create Route').props.onClick(); await tick();
+    oldRequest.resolve({ data: { summary: 'Obsolete', routes: [route] } }); await tick();
+    let view = h.host.render();
+    assert.equal(text(find(selected(view), 'h2')), 'Paris');
+    assert.equal(button(view, 'Building').props.disabled, true);
+    button(view, 'Building').props.onClick(); await tick();
+    assert.equal(h.generated.length, 2, 'Old finally must not release the new request lock');
+    currentRequest.resolve({ data: { summary: 'Latest generation', routes: [{ ...route, name: 'Bodrum' }] } }); await tick();
+    view = h.host.render();
+    assert.equal(find(view, 'RouteBudgetAnalysis').props.route.name, 'Bodrum');
+    assert.match(text(view), /Latest generation/);
+    assert.equal(button(view, 'Create Route').props.disabled, false);
+  } finally { h.host.dispose(); }
+});
+
+test('Changing language preserves saved identity while itinerary edits still create an independent saved plan', async () => {
+  const h = plannerHarness();
+  try {
+    button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
+    const originalId = h.saves[0].id;
+    for (const [locale, label] of [['tr', 'Kaydedildi'], ['sq', 'Saved'], ['en', 'Saved']]) {
+      h.setLocale(locale);
+      const save = button(h.host.render(), label);
+      assert.ok(save, `${locale} retains the saved state`);
+      save.props.onClick(); await tick();
+      assert.equal(h.saves.length, 1, 'Translated entry labels cannot create a duplicate');
+      assert.equal(h.saves[0].id, originalId);
+    }
+    button(h.host.render(), 'Edit').props.onClick();
+    find(find(h.host.render(), 'label', props => text(props.children).startsWith('Stop 1')), 'textarea').props.onChange({ target: { value: 'A genuinely different first stop' } });
+    button(h.host.render(), 'Apply changes').props.onClick();
+    button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
+    assert.equal(h.saves.length, 2);
+    assert.notEqual(h.saves[1].id, originalId);
+    assert.equal(h.saves[1].plan.routes[0].dailyPlan[0], 'A genuinely different first stop');
+  } finally { h.host.dispose(); }
+});
+
+test('Saved matching retains stop ordering, traveller inputs and verified entry facts independently of translated labels', () => {
+  const identity = load('mobile/src/lib/savedRouteIdentity.ts', { './id': { createId: () => 'comparison-fixture' } });
+  const input = { origin: 'Istanbul', vibe: ['Kültür'], passportCountry: 'TR', passportType: 'ordinary', currency: 'EUR', party: { adults: 1, children: 0, childAges: [] } };
+  const plan = { summary: 'My itinerary', routes: [{ ...route, dailyPlan: ['First', 'Second'], verifiedEntryStatus: 'visa_required', visaSourceUrl: 'https://example.invalid/official', visaVerifiedAt: '2026-10-01' }] };
+  const saved = identity.newSavedRoute(plan, input);
+  const changed = () => JSON.parse(JSON.stringify({ input, plan }));
+  const translated = changed(); translated.plan.routes[0].visaStatus = 'Vize gerekli'; translated.plan.routes[0].visaNote = 'Türkçe açıklama';
+  assert.equal(identity.matchingSavedRoute([saved], translated.plan, translated.input)?.id, saved.id);
+  for (const edit of [
+    item => item.plan.routes[0].dailyPlan.reverse(),
+    item => item.plan.routes[0].dailyPlan.push('Third'),
+    item => { item.plan.routes[0].country = 'France'; },
+    item => { item.plan.routes[0].verifiedEntryStatus = 'visa_free'; },
+    item => { item.plan.routes[0].visaSourceUrl = 'https://example.invalid/new-source'; },
+    item => { item.plan.routes[0].visaVerifiedAt = '2026-10-02'; },
+    item => { item.input.party.adults = 2; },
+    item => { item.input.currency = 'TRY'; },
+    item => { item.input.passportType = 'special'; },
+    item => { item.input.passportCountry = 'DE'; },
+  ]) {
+    const next = changed(); edit(next);
+    assert.equal(identity.matchingSavedRoute([saved], next.plan, next.input), undefined);
+  }
+});
 
 test('Welcome interests prefill a fresh planner and never overwrite its later edits',()=>{
   const h=plannerHarness({seeded:false,welcomeInterests:['Doğa','Kültür']});

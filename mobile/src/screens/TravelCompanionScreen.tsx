@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { PageHero } from "../components/PageHero";
@@ -19,6 +19,13 @@ import "../components/feature-entry-artwork.css";
 const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
 
 type CompanionTab = "assistant" | "now" | "phrases" | "etiquette";
+type NowState = {
+  key: string;
+  loading: boolean;
+  location: { latitude: number; longitude: number } | null;
+  result: TravelNowResult | null;
+  error: string;
+};
 
 const SPEECH_LANG: Record<string, string> = {
   XK: "sq-AL", AL: "sq-AL", BA: "bs-BA", RS: "sr-RS", DE: "de-DE", IT: "it-IT", FR: "fr-FR",
@@ -43,10 +50,19 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
   const [countryCode, setCountryCode] = useState(() => readTravelCountry() || "XK");
   const [budget, setBudget] = useState<"free" | "low" | "flexible">("low");
   const [interest, setInterest] = useState<"culture" | "food" | "outdoors" | "calm">("culture");
-  const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [result, setResult] = useState<TravelNowResult | null>(null);
-  const [error, setError] = useState("");
+  const nowKey = `${tab}:${budget}:${interest}:${locale}`;
+  const [nowState, setNowState] = useState<NowState>({ key: "", loading: false, location: null, result: null, error: "" });
+  const activeNowRequest = useRef<{ key: string } | null>(null);
+  // Key the visible state as well as fencing callbacks: even the first render
+  // after a selection/language change cannot show the previous recommendation.
+  const { loading, location, result, error } = nowState.key === nowKey
+    ? nowState : { loading: false, location: null, result: null, error: "" };
+  useEffect(() => {
+    // Leaving the section or changing its inputs also abandons a pending GPS
+    // callback, so it cannot launch a weather request for the old selection.
+    setNowState({ key: nowKey, loading: false, location: null, result: null, error: "" });
+    return () => { activeNowRequest.current = null; };
+  }, [nowKey]);
   const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
   const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
     const code = alpha2FromAlpha3(country.alpha3);
@@ -100,38 +116,46 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
   })[value];
   const tabArtwork = (value: CompanionTab) => ({ assistant: "explore", now: "explore", phrases: "translate", etiquette: "guide" } as const)[value];
 
-  const locate = async () => {
-    if (loading) return;
+  const locate = () => {
+    if (activeNowRequest.current?.key === nowKey) return;
+    const request = { key: nowKey };
+    activeNowRequest.current = request;
+    const current = () => activeNowRequest.current === request;
+    const fail = (message: string) => {
+      if (!current()) return;
+      activeNowRequest.current = null;
+      setNowState({ key: nowKey, loading: false, location: null, result: null, error: message });
+    };
     if (!navigator.geolocation) {
-      setError(copy("Bu cihaz konum paylaşımını desteklemiyor.", "This device does not support location sharing."));
+      fail(copy("Bu cihaz konum paylaşımını desteklemiyor.", "This device does not support location sharing."));
       return;
     }
-    setLoading(true);
-    setError("");
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      // Hava ve yakındaki arama için hassas GPS gerekmez. Cihazdan çıktığı
-      // anda ~1 km düzeyine yuvarlayarak yalnız yaklaşık konumla devam et.
-      const coordinates = {
-        latitude: Math.round(position.coords.latitude * 100) / 100,
-        longitude: Math.round(position.coords.longitude * 100) / 100,
-      };
-      setLocation(coordinates);
-      try {
-        const response = await getTravelNow({ ...coordinates, budget, interest, locale });
-        setResult(response.data);
-      } catch {
-        setResult(null);
-        setError(copy("Anlık öneri hazırlanamadı. İnternet bağlantını kontrol et.", "Your live suggestion could not be prepared. Check your connection."));
-      } finally {
-        setLoading(false);
-      }
-    }, (geolocationError) => {
-      setLoading(false);
-      setResult(null);
-      setError(geolocationError.code === 1
-        ? copy("Konum izni verilmedi. Ayarlardan yalnızca uygulamayı kullanırken izin verebilirsin.", "Location permission was denied. You can allow it only while using the app in Settings.")
-        : copy("Konumun belirlenemedi. Açık bir alanda tekrar dene.", "Your location could not be determined. Try again in an open area."));
-    }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 10 * 60 * 1000 });
+    setNowState({ key: nowKey, loading: true, location: null, result: null, error: "" });
+    try {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        if (!current()) return;
+        // Hava ve yakındaki arama için hassas GPS gerekmez. Cihazdan çıktığı
+        // anda ~1 km düzeyine yuvarlayarak yalnız yaklaşık konumla devam et.
+        const coordinates = {
+          latitude: Math.round(position.coords.latitude * 100) / 100,
+          longitude: Math.round(position.coords.longitude * 100) / 100,
+        };
+        try {
+          const response = await getTravelNow({ ...coordinates, budget, interest, locale });
+          if (!current()) return;
+          activeNowRequest.current = null;
+          setNowState({ key: nowKey, loading: false, location: coordinates, result: response.data, error: "" });
+        } catch {
+          fail(copy("Anlık öneri hazırlanamadı. İnternet bağlantını kontrol et.", "Your live suggestion could not be prepared. Check your connection."));
+        }
+      }, (geolocationError) => {
+        fail(geolocationError.code === 1
+          ? copy("Konum izni verilmedi. Ayarlardan yalnızca uygulamayı kullanırken izin verebilirsin.", "Location permission was denied. You can allow it only while using the app in Settings.")
+          : copy("Konumun belirlenemedi. Açık bir alanda tekrar dene.", "Your location could not be determined. Try again in an open area."));
+      }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 10 * 60 * 1000 });
+    } catch {
+      fail(copy("Konumun belirlenemedi. Açık bir alanda tekrar dene.", "Your location could not be determined. Try again in an open area."));
+    }
   };
 
   const openMap = (query: string) => {

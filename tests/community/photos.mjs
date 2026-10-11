@@ -101,7 +101,7 @@ function fixture(overrides = {}) {
     '@/lib/authenticated-user': { requireAuthenticatedUser: async () => state.authenticated
       ? { ok: true, supabase: db, user: { id: owner, user_metadata: { full_name: 'Test traveler' } } }
       : { ok: false, response: Response.json({ error: 'Sign in' }, { status: 401 }) } },
-    '@/lib/community/viewer': { communityViewer: async () => ({ ok: true, userId: other, hiddenUserIds: state.hidden }) },
+    '@/lib/community/viewer': { communityViewer: async () => ({ ok: true, userId: state.viewerId === undefined ? other : state.viewerId, hiddenUserIds: state.hidden }) },
     '@/lib/admin-auth': { requireAdmin: async () => state.admin ? null : Response.json({ error: 'No access' }, { status: 401 }) },
     '@/lib/supabaseAdmin': { getSupabaseAdmin: () => db },
     '@/lib/community/forum-sync': {
@@ -294,4 +294,19 @@ test('topic cleanup deletes only its private photo and preserves metadata until 
   await photos.removeCommunityTopicPhotos(f.db, [topicId]);
   assert.equal(f.state.objects.size, 1); assert.ok(f.state.objects.has(`${other}/${topicId}.jpg`));
   assert.equal(f.state.rows.forum_topic_photos.length, 1);
+});
+
+
+test('unpublished forum photos allow their authenticated owner only; blocked viewers and deleted rows stay inaccessible',async()=>{
+ for(const status of ['pending','hidden','rejected','closed']){
+  for(const viewerId of [owner,other,null]){
+   const f=fixture({viewerId});addPhoto(f,status);const response=await f.route(photoRoute).GET(new Request('https://example.test/photo'),params);
+   assert.equal(response.status,viewerId===owner?200:404,`${status}/${viewerId}`);
+   if(viewerId!==owner)assert.ok(!f.state.events.includes('download'));
+  }
+ }
+ const deleted=fixture({viewerId:owner});addPhoto(deleted);deleted.state.rows.forum_topics=[];
+ assert.equal((await deleted.route(photoRoute).GET(new Request('https://example.test/photo'),params)).status,404);
+ const blocked=fixture({viewerId:other,hidden:[owner]});addPhoto(blocked);
+ assert.equal((await blocked.route(photoRoute).GET(new Request('https://example.test/photo'),params)).status,404);
 });

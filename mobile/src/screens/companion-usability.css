@@ -32,7 +32,7 @@
 /* The four main tools remain in the existing directory; search and tool
    selection still use the same state and lazy component boundaries. */
 .companion-screen .travel-assistant { --ta-blue: #0066ff; padding: 0; }
-.editorial-app .companion-screen .ta-directory-title { margin: 0 0 6px; color: var(--companion-ink); font-size: 23px; line-height: 1.25; letter-spacing: -.6px; scroll-margin-top: 110px; }
+.editorial-app .companion-screen .ta-directory-title { margin: 0 0 6px; color: var(--companion-ink); font-size: 23px; line-height: 1.25; letter-spacing: -.6px; scroll-margin-top: calc(110px + env(safe-area-inset-top)); }
 .editorial-app .companion-screen .ta-intro { margin: 0; font-size: 13px; line-height: 1.5; color: var(--theme-muted, #52647e); }
 .companion-screen .ta-emergency-shortcut { min-height: 54px; margin: 14px 0 12px; padding: 10px 13px; gap: 10px; border-color: var(--theme-danger, #f0d4d0); border-radius: 15px; background: var(--theme-danger-bg, #fff8f6); color: var(--theme-danger, #87352d); }
 .companion-screen .ta-emergency-shortcut strong { font-size: 14px; }

@@ -63,7 +63,9 @@ export async function publicCommunityProfile(db: SupabaseClient, input: unknown,
       safetyTarget: (safety.targetType === "question" || safety.targetType === "answer") && typeof safety.targetId === "string" && COMMUNITY_UUID.test(safety.targetId)
         ? { targetType: safety.targetType, targetId: safety.targetId, authorId: identity(profile).userId, username: text(profile.username, 80) } : null,
     },
-    items: section === "posts" ? items.map(row => ({ id: text(row.id, 80), title: text(row.title, 300), body: text(row.body, 10_000), countryCode: countryCodeFromForumSlug(text(row.countrySlug, 100)), createdAt: text(row.createdAt, 40) }))
+    items: section === "posts" ? items.filter(row => row.status === undefined || row.status === "published" || profile.isOwn === true).map(row => ({ id: text(row.id, 80), title: text(row.title, 300), body: text(row.body, 10_000), countryCode: countryCodeFromForumSlug(text(row.countrySlug, 100)), createdAt: text(row.createdAt, 40),
+      status: ["pending", "hidden", "rejected", "closed"].includes(String(row.status)) ? row.status as string : "published",
+      photoUrl: row.hasPhoto === true && typeof row.id === "string" && COMMUNITY_UUID.test(row.id) ? `/api/country-community/questions/${row.id}/photo` : null }))
       : section === "answers" ? items.map(row => ({ id: text(row.id, 80), questionId: text(row.questionId, 80), questionTitle: text(row.questionTitle, 300), body: text(row.body, 10_000), createdAt: text(row.createdAt, 40) }))
         : items.filter(row => validCommunityProfileKey(row.key)).map(identity),
     nextOffset: typeof result.nextOffset === "number" && Number.isSafeInteger(result.nextOffset) && result.nextOffset >= 0 ? result.nextOffset : null,

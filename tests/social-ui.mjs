@@ -275,3 +275,28 @@ test('own comment edit preserves failed text and deletes only after confirmation
   find(report.tree,'textarea').props.onChange({target:{value:'Clear reason'}});report.render();find(report.tree,'form').props.onSubmit({preventDefault(){}});report.render();assert.equal(report.requests.length,1);
  }finally{report.dispose();}
 });
+
+
+test('stale post GET success and errors cannot erase a newly successful comment after token refresh',async()=>{
+ for(const failure of [false,true]){
+  const h=harness('SocialPostSheet',{postId:uuid(1)});try{
+   await h.resolve(0,{post:samplePost(),comments:{items:[],nextOffset:null}});
+   h.render({accessToken:'REFRESHED'});
+   find(h.tree,'textarea').props.onChange({target:{value:'Beautiful!'}});h.render();find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
+   await h.resolve(2,sampleComment());assert.match(text(h.tree),/Beautiful!/);assert.equal(find(h.tree,'textarea').props.value,'');
+   if(failure){h.requests[1].reject(new ApiError('gone',404));await tick();h.render();}else await h.resolve(1,{post:samplePost(),comments:{items:[],nextOffset:null}});
+   assert.match(text(h.tree),/Beautiful!/);assert.doesNotMatch(text(h.tree),/Could not open this post/);
+   h.render({accessToken:'FRESH'});await h.resolve(3,{post:samplePost(),comments:{items:[sampleComment(),sampleComment(3)],nextOffset:null}});
+   assert.equal(nodes(h.tree).filter(n=>n.type==='article').length,2,'A genuinely newer refresh remains usable');
+  }finally{h.dispose();}
+ }
+});
+
+test('GET started during a write cannot overwrite that write after it completes',async()=>{
+ const h=harness('SocialPostSheet',{postId:uuid(1)});try{
+  await h.resolve(0,{post:samplePost(),comments:{items:[],nextOffset:null}});
+  find(h.tree,'textarea').props.onChange({target:{value:'Beautiful!'}});h.render();find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
+  h.render({accessToken:'REFRESHED'});await h.resolve(1,sampleComment());await h.resolve(2,{post:samplePost(),comments:{items:[],nextOffset:null}});
+  assert.match(text(h.tree),/Beautiful!/);
+ }finally{h.dispose();}
+});

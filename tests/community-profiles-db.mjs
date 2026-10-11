@@ -34,6 +34,9 @@ async function setup() {
  await db.exec(read('supabase/seeds/community-starter-names-20261010.sql'));
  await db.exec(migration);
  await db.exec(read('supabase/migrations/20261012140000_official_community_account.sql'));
+ const photos=read('supabase/migrations/20260928150000_community_post_photos.sql');
+ await db.exec(photos.slice(photos.indexOf('create table'),photos.indexOf('-- Only service routes')));
+ await db.exec(read('supabase/migrations/20261012193000_forum_submission_recovery.sql'));
  await db.exec(`insert into forum_topics(id,author_id,author_name,title,content,status,country_slug) values('${topic}','${b}','bob','Real topic','Public body','published','almanya');
  insert into forum_replies(id,topic_id,user_id,author_name,content,status,created_at) values
  ('30000000-0000-4000-8000-000000000001','${topic}','${c}','cara','Reply 1','published','2026-09-01'),
@@ -118,5 +121,68 @@ test('service-only boundaries, account cascade cleanup, stable pagination and mi
   await db.exec(migration);
   await db.exec("set role authenticated; set request.jwt.claim.role='authenticated'");
   await assert.rejects(db.query('select get_community_profile($1,null,\'posts\',0)',[`user:${b}`]));await assert.rejects(db.query('select set_community_profile_follow($1,$2,true)',[c,`user:${b}`]));await assert.rejects(db.query('select * from community_profile_follows'));await assert.rejects(db.query('select * from community_profile_bios'));
+ }finally{await db.close();}
+});
+
+
+const requestId='40000000-0000-4000-8000-000000000001', hash='a'.repeat(64), photoHash='b'.repeat(64);
+const reserve=(db,user=a,request=requestId,payload=hash,photo=null)=>value(db,'select reserve_community_question($1,$2,$3,$4)',[user,request,payload,photo]);
+const complete=(db,user=a,request=requestId,payload=hash)=>value(db,'select complete_community_question($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[user,request,payload,'A useful trip','An original travel account','General',null,'alice','published',`submission-${user}-${request}`]);
+
+test('current migration atomically deduplicates question retries, binds intent/account and never resurrects deletion',async()=>{
+ const db=await setup();try{
+  const [first,retry]=await Promise.all([reserve(db),reserve(db)]);assert.equal(first.id,retry.id);assert.equal(first.committed,false);
+  await assert.rejects(reserve(db,a,requestId,'c'.repeat(64)),e=>e.code==='23505');
+  await assert.rejects(reserve(db,a,requestId,hash,photoHash),e=>e.code==='23505');
+  const [written,repeated]=await Promise.all([complete(db),complete(db)]);assert.equal(written.id,first.id);assert.deepEqual(repeated,written);
+  assert.equal(await value(db,'select count(*) from forum_topics where id=$1',[first.id]),1);
+  assert.equal((await reserve(db)).committed,true);
+  const other=await reserve(db,b);assert.notEqual(other.id,first.id);assert.equal(other.committed,false);
+  await db.query("update forum_topics set status='rejected' where id=$1",[first.id]);assert.equal((await reserve(db)).status,'rejected');assert.equal((await complete(db)).status,'rejected');
+  await db.query('delete from forum_topics where id=$1',[first.id]);await assert.rejects(reserve(db),e=>e.code==='P0002');await assert.rejects(complete(db),e=>e.code==='P0002');
+  assert.equal(await value(db,'select count(*) from forum_topics where id=$1',[first.id]),0);
+  await db.query('delete from auth.users where id=$1',[a]);assert.equal(await value(db,'select count(*) from community_question_requests where user_id=$1',[a]),0);
+ }finally{await db.close();}
+});
+
+test('photo finalization is atomic, forces review, and resumes after a metadata failure without a partial topic',async()=>{
+ const db=await setup();try{
+  const reserved=await reserve(db,a,requestId,hash,photoHash);
+  await db.exec(`create function fail_photo() returns trigger language plpgsql as $$begin raise exception 'test outage'; end$$;create trigger test_fail_photo before insert on forum_topic_photos for each row execute function fail_photo();`);
+  await assert.rejects(complete(db));assert.equal(await value(db,'select count(*) from forum_topics where id=$1',[reserved.id]),0);
+  assert.equal((await reserve(db,a,requestId,hash,photoHash)).committed,false);
+  await db.exec('drop trigger test_fail_photo on forum_topic_photos');const done=await complete(db);assert.equal(done.status,'pending');
+  assert.deepEqual(await complete(db),done);assert.equal(await value(db,'select count(*) from forum_topic_photos where topic_id=$1',[reserved.id]),1);
+  assert.equal(await value(db,'select storage_path from forum_topic_photos where topic_id=$1',[reserved.id]),`${a}/${reserved.id}.jpg`);
+ }finally{await db.close();}
+});
+
+test('unpublished photos/statuses are visible only in their owner profile; public counts and following feed exclude them',async()=>{
+ const db=await setup();try{
+  const ids=[];
+  for(const [i,status] of ['pending','hidden','rejected','closed'].entries()){
+   const request=`40000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`;
+   const item=await reserve(db,a,request,hash,photoHash);await complete(db,a,request);ids.push(item.id);
+   await db.query('update forum_topics set status=$1 where id=$2',[status,item.id]);
+  }
+  const own=await profile(db,`user:${a}`,a);assert.equal(own.profile.postCount,4);assert.deepEqual(own.items.map(x=>x.status).sort(),['closed','hidden','pending','rejected']);assert.ok(own.items.every(x=>x.hasPhoto));
+  for(const viewer of [null,b,c]){const publicView=await profile(db,`user:${a}`,viewer);assert.equal(publicView.items.length,0);assert.equal(publicView.profile.postCount,0);}
+  await follow(db,b,`user:${a}`);assert.equal((await db.query('select * from get_community_following_feed($1)',[b])).rows.length,0);
+  await db.query("update forum_topics set status='published' where id=$1",[ids[0]]);assert.equal((await profile(db,`user:${a}`,b)).items[0].hasPhoto,true);
+  await db.query('insert into community_user_blocks values($1,$2)',[a,b]);assert.equal(await profile(db,`user:${a}`,b),null);
+  await db.query('delete from forum_topics where id=$1',[ids[1]]);assert.equal((await profile(db,`user:${a}`,a)).profile.postCount,3);
+ }finally{await db.close();}
+});
+
+test('receipt table and both mutation functions deny browser roles even with forged actor arguments',async()=>{
+ const db=await setup();try{
+  for(const role of ['anon','authenticated']){
+   await db.exec(`set role ${role};set request.jwt.claim.role='${role}'`);
+   await assert.rejects(reserve(db),e=>e.code==='42501');await assert.rejects(complete(db),e=>e.code==='42501');
+   await assert.rejects(db.query('select * from community_question_requests'),e=>e.code==='42501');
+   await assert.rejects(db.query('insert into community_question_requests(user_id,request_id,payload_hash) values($1,$2,$3)',[a,requestId,hash]),e=>e.code==='42501');
+   await db.exec('reset role');
+  }
+  await assert.rejects(reserve(db),e=>e.code==='42501');
  }finally{await db.close();}
 });

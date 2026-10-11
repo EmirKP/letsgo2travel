@@ -94,3 +94,11 @@ test('public bio rejects illegal/profane text without mutation and accepts ordin
  assert.equal((await patch('Vize süreçleri ve aquarium gezileri hakkında deneyim paylaşırım.')).status,200);
  assert.equal(calls.length,1);
 });
+
+
+test('owner posts retain review statuses and protected media routes without exposing storage paths to public viewers',async()=>{
+ const rows=['pending','hidden','rejected','closed','published'].map((status,i)=>({id:i%2?a:b,title:'Photo',body:'Private original',status,hasPhoto:true,storage_path:'secret/path'}));
+ const own=await profiles.publicCommunityProfile({}, {profile:{key:`user:${a}`,userId:a,isOwn:true},items:rows},'posts');
+ assert.equal(own.items.length,5);assert.deepEqual(own.items.map(x=>x.status),rows.map(x=>x.status));assert.ok(own.items.every(x=>x.photoUrl.startsWith('/api/country-community/questions/')));assert.ok(!JSON.stringify(own).includes('secret/path'));
+ const other=await profiles.publicCommunityProfile({}, {profile:{key:`user:${a}`,userId:a,isOwn:false},items:rows},'posts');assert.equal(other.items.length,1);assert.equal(other.items[0].status,'published');
+});
