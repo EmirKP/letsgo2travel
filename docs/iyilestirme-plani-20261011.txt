@@ -29,7 +29,7 @@ Kullanıcı 20 maddelik listenin uygulanmasını onayladı. Bu tur önceki sür�
 Uygulama durumu
 20 maddenin kod değişiklikleri tamamlandı. Üç veritabanı değişikliği ayrı
 işlemlerle ve migration kaydıyla canlıya uygulandı: 20261011170000,
-20261012100000, 20261012120000. Sunucu yayını sonrasında sonuç eklenecek.
+20261012100000, 20261012120000. Sunucu yayını 11 Ekim 2026 tarihinde tamamlandı.
 
 Kullanıcının açık seçimiyle LetsGo2Travel uygulama hesabı oluşturuldu:
 @letsgo2travel_app. Mevcut uygulama iletişim adresi kullanıldı; parola,
@@ -67,3 +67,17 @@ PNG çıktı: C:/Users/emirk/.codex/generated_images/01a0de1a-7713-7561-8967-222
 Uygulama varlığı: mobile/src/assets/editorial/social-empty-camera.webp
 440x440, yaklaşık 33 KB. Gizlilik ve hesap silme simgeleri mevcut SVG
 çizim sisteminde birbirinden farklı biçimlerle düzenlendi.
+
+Canlı yayın sonucu
+- Kaynak commit: 5e608829417e91803ea20ad8f253b4b1e5dc7902.
+- Mobil varlık commit: 92ea7f414d74132e23901b44b1b4673450978750.
+- Üretim dağıtımı: dpl_UdBZSfNNM9JZRVGg72GcbkJJgF8K (READY).
+  https://www.letsgo2travel.com.tr ana alan adı bu sürüme geçirildi.
+- Üretim API kontrolü: üç uygulama gönderisi, üç profil resmi, JPEG fotoğraf
+  erişimi, onaylı belge temelli lig cevabı ve pasaport sayfası başarılı.
+  Alarm ve yönetici tanı uçları kimliksiz isteği 401 ile reddediyor.
+- Canlı Workflow kuyruk → işleyici → sonuç akışı testi healthy:true döndü.
+  Spec 8, Workflow Core 5.2.0, Node 24.21.0. Kontrol gerçek fiyat taraması,
+  e-posta veya telefon bildirimi çalıştırmadan yapıldı. Günlük tarama mevcut
+  zamanlamasını korur ve tüm uygun kayıtları sınırlı partilerle sürdürür.
+- Güncel çalışma zamanı bağımlılıklarında npm audit: 0 açık.
