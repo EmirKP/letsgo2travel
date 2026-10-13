@@ -268,8 +268,17 @@ test('Home personal shortcuts open exact tools and its unified search preserves 
  load('mobile/src/lib/homeShortcuts.ts').saveHomeShortcuts(null, ['tool:translate', 'tool:money', 'cockpit']);
  const { HomeScreen } = load('mobile/src/screens/HomeScreen.tsx');
  let tree = h.start(HomeScreen, { user: null, onNavigate: view => calls.push(view), onOpenTool: tool => calls.push(tool), onOpenGlobalSearch: query => calls.push(`global:${query}`), onSearchDestination: query => calls.push(`city:${query}`), onOpenCommunity() {}, onBuildRoute() {} });
- const nav = find(tree, 'nav'); assert.deepEqual(nodes(nav).filter(node => node.type === 'button').map(node => text(find(node, 'strong'))), ['Translate', 'Money', 'Travel Cockpit']);
- for (const button of nodes(nav).filter(node => node.type === 'button')) button.props.onClick();
+ const nav = find(tree, 'nav'), shortcuts = nodes(nav).filter(node => node.type === 'button');
+ const labels = ['Translate', 'Money', 'Travel Cockpit'];
+ for (const className of ['rh-shortcut-full', 'rh-shortcut-compact']) {
+  assert.deepEqual(shortcuts.map(node => text(find(node, 'span', props => props.className === className))), labels, 'Custom tools keep their own name at either screen width');
+ }
+ for (const [index, button] of shortcuts.entries()) {
+  const caption = text(find(button, 'small'));
+  assert.ok(caption);
+  assert.equal(button.props['aria-label'], `${labels[index]} — ${caption}`);
+  button.props.onClick();
+ }
  assert.deepEqual(calls.splice(0), ['translate', 'money', 'cockpit']);
  find(tree, 'input', props => props.id === 'home-destination-search').props.onChange({ target: { value: '  currency  ' } }); tree = h.render();
  find(tree, 'form').props.onSubmit({ preventDefault() {} }); assert.deepEqual(calls.splice(0), ['global:currency']);

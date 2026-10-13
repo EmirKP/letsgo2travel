@@ -127,9 +127,18 @@ test('Home guest CTA and five translated shortcuts open their real destinations 
       button(personalBanner(view),locale==='en'?'Get Started':'Hemen Başla').props.onClick();
       const nav=find(view,'nav',props=>props['aria-label']===(locale==='en'?'Plan your journey':'Seyahatini planla'));
       const labels=locale==='en'?['Build a Route','Explore Countries','Passport & Visa','My Trips','All Tools']:['Rota Oluştur','Ülke Keşfet','Pasaport & Vize','Seyahatlerim','Tüm Araçlar'];
-      for (const label of labels) {
-        const shortcut=find(nav,'button',props=>text(find({props},'strong'))===label);
-        assert.ok(shortcut,`Missing translated shortcut: ${label}`);shortcut.props.onClick();
+      const compactLabels=locale==='en'?['Route','Explore','Visa','Trips','Tools']:['Rota','Ülkeler','Vize','Seyahat','Araçlar'];
+      assert.equal(nodes(nav).filter(node=>node.type==='button').length,5);
+      for (const [index,label] of labels.entries()) {
+        // The responsive title contains both labels; its accessible name stays complete.
+        const shortcut=find(nav,'button',props=>props['aria-label']?.startsWith(`${label} — `));
+        assert.ok(shortcut,`Missing translated shortcut: ${label}`);
+        assert.equal(text(find(shortcut,'span',props=>props.className==='rh-shortcut-full')),label);
+        assert.equal(text(find(shortcut,'span',props=>props.className==='rh-shortcut-compact')),compactLabels[index]);
+        const caption=text(find(shortcut,'small'));
+        assert.ok(caption,`Missing shortcut description: ${label}`);
+        assert.equal(shortcut.props['aria-label'],`${label} — ${caption}`);
+        shortcut.props.onClick();
       }
       assert.deepEqual(opened,['route','route','explore','passport','trips','companion']);
       button(view,locale==='en'?'Join the Community':'Topluluğa Katıl').props.onClick();
