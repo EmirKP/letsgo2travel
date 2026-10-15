@@ -1,0 +1,47 @@
+LetsGo2Travel TestFlight release — 15 October 2026
+
+Source
+- Commit: 6dcf0d084da618d3438160e3df4565d573c6d74c
+- Branch: feature/travel-companion-polish-20260927
+- Codemagic build: 6ad128d03ffd2c7f0ad3b304
+- Workflow: letsgo2travel-ios-testflight
+- Codemagic source checkout confirmed the exact commit.
+- Local mobile:prepare:all/doctor passed; root and mobile npm audit: 0 vulnerabilities.
+- Codemagic full release requirement checks completed successfully.
+
+Backend (completed)
+- Main production: https://www.letsgo2travel.com.tr
+- Deployment: dpl_C8jonUx5Aro2fsFqtsvSwBU9RbE2
+- Exact release commit staged, checked and promoted.
+- Existing Maps credentials and journey model configured server-side for production.
+- Real AI: 2 days, 11 stops, HTTP200; same operation replay returned the identical result.
+- Concurrent Apple walking routes both HTTP200.
+- Public-host validation, origin-restricted Maps token, city search and discovery passed.
+- Evidence: outputs/testflight-backend-smoke-20261015.json.
+- Existing public travel-assistant staging service left unchanged; new journey clients
+  use the main API.
+
+iOS upload and internal group verification
+- Apple assigned 1.4.1 (72); previous uploaded build was 71.
+- Xcode signed IPA build completed successfully in 1 minute 13 seconds.
+- Codemagic completed successfully, including publishing.
+- Apple confirmed UPLOAD SUCCEEDED with no errors at 2026-10-15 19:33:07 UTC
+  (22:33:07 Europe/Istanbul).
+- Apple delivery/build ID: 58e0cd60-48c5-4dc2-9787-eaa02d482f67.
+- Apple processing completed; build 72 lists Ready to Submit and the existing
+  LetsGo2Travel Ic Test internal group (3 testers). The group is also confirmed
+  on the build details page.
+- Turkish What to Test notes saved for the new build.
+- TestFlight access verified; actual installation/testing on the user's phone
+  has not been observed. No App Store or external beta review was submitted.
+- Apple: https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/58e0cd60-48c5-4dc2-9787-eaa02d482f67
+- Codemagic: https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6ad128d03ffd2c7f0ad3b304
+- Screenshot: outputs/testflight-72-ready-20261015.png.
+
+What to Test
+Yeni rota akışı: Önce gideceğin şehri seç, kısa soruları yanıtla ve AI ile günlük
+planını oluştur. Apple Haritalar üzerinde günler arasında geçişi, yürüyüş yollarını,
+durak eklemeyi, ziyaret süresi/not düzenlemeyi ve geri almayı dene. Planı hesabına
+kaydet; uygulamayı kapatıp yeniden açarak düzenlemelerin korunduğunu kontrol et.
+Yavaş bağlantıda tekrar denemeyi, açılış hızını ve Türkçe/İngilizce/Arnavutça dil
+geçişlerini de test edebilirsin.
