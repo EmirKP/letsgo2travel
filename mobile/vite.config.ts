@@ -15,9 +15,21 @@ const releaseManifest = JSON.parse(
 const commitId = resolveMobileSourceIdentity(rootDir);
 const artifactIdentity = { ...releaseManifest, sourceCommit:commitId, builtAt:new Date().toISOString(), updateId:"unified-20260908" };
 
+function mapsDevApiOrigin(value: string | undefined) {
+  const raw = value?.trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      && url.origin === raw) return url.origin;
+  } catch { /* Report the setting name only; never echo environment values. */ }
+  throw new Error("L2T_MAPS_DEV_API_URL must be a canonical HTTP loopback origin.");
+}
+
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, rootDir, "");
   const publicConfig = resolveMobilePublicConfig(env, { production: command === "build" });
+  const mapsDevApiUrl = command === "serve" ? mapsDevApiOrigin(env.L2T_MAPS_DEV_API_URL) : "";
   // Only the public-data assistant endpoints can use a separate test host.
   // Browser development keeps them same-origin through this dedicated proxy.
   const travelProxyPrefix = "/__travel-assistant";
@@ -67,6 +79,30 @@ export default defineConfig(({ mode, command }) => {
       allowedHosts: ["terminal.local"],
       port: 5173,
       proxy: {
+        // Only the map-planner endpoints use the local development server.
+        // Existing assistant tools and account APIs retain their configured hosts.
+        ...(mapsDevApiUrl ? {
+          "^/api/maps/token(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+          "^/api/travel-assistant/journey-route(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+          "^/api/travel-assistant/discover(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+          "^/api/travel-assistant/journey-plan(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+          "^/api/travel-assistant/journey-search(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+        } : {}),
         ...(publicConfig.travelAssistantApiBaseUrl ? {
           [travelProxyPrefix]: {
             target: publicConfig.travelAssistantApiBaseUrl,

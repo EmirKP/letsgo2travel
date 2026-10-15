@@ -44,7 +44,9 @@ async function flush(owner: string, token: string, active: () => boolean) {
           const { route } = current;
           await upsertUserTrip(owner, {
             title: route.plan.routes.map(item => item.name).join(" · ").slice(0, 160),
-            destination: route.plan.routes.map(item => item.country).join(" · ").slice(0, 160),
+            // Map itineraries know their city without necessarily having a
+            // country. Keep that genuine label valid for the shared trip RPC.
+            destination: route.plan.routes.map(item => item.country?.trim() || item.cityOrRegion?.trim() || item.name).join(" · ").slice(0, 160),
             mobileKind: "route_plan", clientKey: id,
             tripData: { input: route.input, plan: route.plan, source: "mobile", saved_at: route.createdAt },
           }, token);

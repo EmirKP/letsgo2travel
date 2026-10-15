@@ -1,4 +1,5 @@
 import type { PlannerInput, RouteSuggestion, SavedRoutePlan } from "../types";
+import { validateMapJourney } from "./mapJourney";
 
 export type RouteCockpitIntent = {
   kind: "saved-route";
@@ -22,7 +23,11 @@ export function validateRouteCockpitIntent(value: unknown): value is RouteCockpi
     || !text(intent.sourceSavedAt, 40) || !Number.isFinite(Date.parse(intent.sourceSavedAt))
     || !Number.isInteger(intent.routeIndex) || intent.routeIndex < 0 || intent.routeIndex > 29) return false;
   const route = intent.route;
-  if (!route || !text(route.name, 240) || !text(route.country, 240) || !Array.isArray(route.dailyPlan)
+  const mapJourney = route?.mapJourney;
+  if (mapJourney !== undefined && (!validateMapJourney(mapJourney) || mapJourney.id !== intent.sourceRouteId || mapJourney.dayCount !== route.dailyPlan?.length)) return false;
+  // A geocoded map plan may not have a verified country. The Cockpit form
+  // collects it explicitly; only validated structured plans may omit it.
+  if (!route || !text(route.name, 240) || !(text(route.country, 240) || mapJourney !== undefined && route.country === '') || !Array.isArray(route.dailyPlan)
     || route.dailyPlan.length < 1 || route.dailyPlan.length > 30 || route.dailyPlan.some(day => !text(day, 600))) return false;
   for (const key of ["cityOrRegion", "destinationCode", "why", "visaStatus", "visaNote", "visaSourceUrl", "estimatedBudget", "idealDuration", "bestFor", "difficulty", "transportEase", "safetyNote"] as const) {
     if (route[key] !== undefined && (typeof route[key] !== "string" || route[key].length > 3000)) return false;

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Sheet } from "../components/Sheet";
+import { LazyOverlay } from "../components/LazyOverlay";
 import { AirportField } from "../components/AirportField";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
@@ -28,9 +30,11 @@ import type { PlannerInput, RoutePlan, RouteSuggestion, ViewId } from "../types"
 import "./route-planning-clarity.css";
 import "./travel-flow-polish.css";
 import "./planner-family-budget.css";
+import "../components/map-journey-planner.css";
 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 const VIBES = ["Şehir", "Kültür", "Yeme-içme", "Deniz", "Doğa", "Gece hayatı", "Alışveriş", "Macera"];
+const MapJourneyPlanner = lazy(() => import("../components/MapJourneyPlanner").then(module => ({ default: module.MapJourneyPlanner })));
 
 const INITIAL: PlannerInput = {
   origin: "",
@@ -64,6 +68,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   placeName?: string;
 }) {
   const { copy, locale } = useI18n();
+  const [mapPlannerOpen, setMapPlannerOpen] = useState(false);
   const passport = usePassportPreference();
   const selectedPassport = { passportCountry: passport.country, passportType: passport.type };
   const [form, setForm] = useState<PlannerInput>(() => withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
@@ -306,6 +311,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {selectedRoute && <section className="planner-selected-route" aria-label={copy("Seçili rota", "Selected route")}>
         <span className="planner-selection-eyebrow">{copy("SEÇİLİ ROTAN", "YOUR SELECTED ROUTE")}</span>
@@ -329,7 +335,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         {plannerTab === "plan" ? <>
           <div className="planner-form-intro"><span><TravelToolArtwork kind="explore" size={56}/></span><div><h2>{copy("Rotanı sen seç, birlikte planlayalım", "Your destination, your plan", "Destinacioni yt, plani yt")}</h2><p>{placeName?copy(`${placeName} için önce bulunduğu şehri seç. Planı kaydettikten sonra gönderiden istediğin güne ekleyebilirsin.`,`Choose the city for ${placeName}. After saving your plan, add the place to your chosen day from the post.`,`Zgjidh qytetin për ${placeName}. Pasi ta ruash planin, shtoje vendin te dita e zgjedhur nga postimi.`):copy("Hedefin belli olabilir; istersen yeni yerler de önerebiliriz.", "Choose your destination or discover somewhere new.", "Zgjidh destinacionin tënd ose zbulo një vend të ri.")}</p></div></div>
           <div className="planner-target-modes" role="group" aria-label={copy("Rota seçimi", "Destination choice", "Zgjedhja e destinacionit")}>
-            <button type="button" disabled={loading} aria-pressed={form.mode === "fixed"} onClick={() => setForm(current => ({ ...current, mode: "fixed", dayCount: current.dayCount || 3 }))}><Icon name="map" size={19}/><span>{copy("Gideceğim yer belli", "I know where to go", "E di ku do të shkoj")}<small>{copy("Sen seç, AI planlasın", "You choose, AI plans", "Ti zgjedh, AI planifikon")}</small></span></button>
+            <button type="button" disabled={loading} aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}><Icon name="map" size={19}/><span>{copy("Haritada planla", "Plan on the map", "Planifiko në hartë")}<small>{copy("Şehrini seç, AI planlasın", "Choose your city, let AI plan", "Zgjidh qytetin, AI planifikon")}</small></span></button>
             <button type="button" disabled={loading} aria-pressed={form.mode !== "fixed"} onClick={() => setForm(current => ({ ...current, mode: "discover" }))}><Icon name="compass" size={19}/><span>{copy("Bana yer öner", "Suggest a destination", "Më sugjero një destinacion")}<small>{copy("Yeni rotalar keşfet", "Discover new routes", "Zbulo rrugë të reja")}</small></span></button>
           </div>
           <div data-planner-field="origin"><AirportField label={copy("Nereden?", "From?", "Nga?")} placeholder={copy("Şehir veya havalimanı", "City or airport", "Qyteti ose aeroporti")} value={originAirport} required error={errors.origin} onChange={(airport) => { setOriginAirport(airport); setForm(current => ({ ...current, origin: airport ? airport.city || airport.name : "" })); }} /></div>

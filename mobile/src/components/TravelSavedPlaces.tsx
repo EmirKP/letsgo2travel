@@ -1,6 +1,6 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { useEffect, useId, useState } from 'react';
-import { CATEGORY_LABELS, NEEDS, TOURING } from '../../../lib/travel-assistant/places';
+import { CATEGORY_LABELS, NEEDS, TOURING, DISCOVERY } from '../../../lib/travel-assistant/places';
 import { useI18n } from '../lib/i18n';
 import { openExternal } from '../lib/native';
 import { directionsUrl } from '../lib/travelAssistant';
@@ -87,7 +87,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
     </div>}
     {view === 'saved' && state.items.length > 0 && <div className="tsp-filters">
       <label>{copy('Yer veya not ara', 'Search places or notes')}<input type="search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={copy('Müze, kahve molası…', 'Museum, coffee break…')}/></label>
-      <label>{copy('Kategori', 'Category')}<select value={category} onChange={event => setCategory(event.target.value)}><option value="">{copy('Tüm kategoriler', 'All categories')}</option>{[...NEEDS, ...TOURING].map(key => <option key={key} value={key}>{CATEGORY_LABELS[key][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}</option>)}</select></label>
+      <label>{copy('Kategori', 'Category')}<select value={category} onChange={event => setCategory(event.target.value)}><option value="">{copy('Tüm kategoriler', 'All categories')}</option>{[...NEEDS, ...TOURING, ...DISCOVERY].map(key => <option key={key} value={key}>{CATEGORY_LABELS[key][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}</option>)}</select></label>
     </div>}
     {view === 'day' && <p className="ta-muted">{copy(
       `Kaydettiğin yerlerden ${MAX_DAY_STOPS} durağa kadar seç, oklarla ziyaret sırasını ayarla. Bu kişisel bir sıralamadır; yol süresi hesaplamaz veya rotayı eniyilemez. Sıralaman sen değiştirene kadar kalır.`,

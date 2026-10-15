@@ -1,0 +1,64 @@
+LetsGo2Travel optimization verification — 2026-10-15
+
+Implemented
+- AI requests now retain an owner-bound operation ID across uncertain failures.
+  The server atomically stores a validated result with quota finalization, so an
+  explicit retry can recover that result without another generation charge.
+  Legacy callers remain supported. Recovery expires after 24 hours.
+- Applied 20261015100000_journey_plan_recovery.sql to the linked Supabase project.
+  Verified service-only recovery access and no anonymous table reads/client writes.
+- Walking routes use two bounded workers, prioritize the selected day, preserve
+  valid cached days, and publish each completed day independently.
+- Apple transport has bounded FIFO admission while retaining two actual upstream
+  connections, shared rate limits, cancellation and original request deadlines.
+- AI place candidates scale with duration/pace; strict route validation remains.
+- Web/native map selection updates existing markers instead of rebuilding all.
+- Partial place-search failures retain healthy results with an explicit notice.
+- Startup uses a lightweight poster and removes the mandatory video wait.
+- Albanian translations load on demand with loading/failure/retry handling.
+- Cloud route sync accepts a genuine city label when a map plan has no country.
+
+Measured build result
+- Initial i18n chunk: 199.90 KB / 70.79 KB gzip -> 39.91 KB / 13.65 KB gzip.
+- Albanian is a separate deferred chunk and is not module-preloaded by index.html.
+- These figures describe the i18n chunk, not total application speed.
+- Production build still warns about large lazy chunks, including location country
+  geometry; this is not evidence of an equivalent initial-download cost.
+
+Automated verification
+- Full npm run test:release completed successfully: 1,113 TAP tests passed.
+- Startup tests also passed separately (the release runner entry was added after
+  that full run started).
+- After final changes, 56 focused recovery, map, startup and Apple routing tests
+  passed: node --test tests/travel-assistant/apple-journey-routing.mjs
+  tests/map-journey.mjs tests/mobile-startup.mjs tests/journey-plan-quota.mjs
+  tests/journey-plan-client.mjs
+- Additional focused agent checks covered candidate validation, native map
+  contracts, map UI, Albanian locale and travel readiness.
+- Next production build, root TypeScript, mobile lint, final mobile production
+  build and git diff --check passed.
+- Logs: outputs/optimization-*-20261015.log.
+
+Live browser verification (390 x 844, then viewport override reset)
+- Paris typed search -> city selection -> two days -> couple -> economical budget
+  -> balanced pace -> standard walking -> culture/food -> personal note -> AI.
+- Second/final live generation: HTTP 200, about 21.4 seconds, 11 real places.
+- Both day route requests succeeded (about 4.5 / 4.6 seconds).
+- Day 1: 1.0 km / 15 minutes walking. Day 2: 1.5 km / 21 minutes walking.
+- Apple map rendered streets, numbered markers and walking polylines.
+- Changed first visit to 75 minutes and edited its note; save/reload/reopen kept
+  both changes and all 11 stops.
+- Place discovery returned 22 food/drink results. Added Cafe Bogato to day 2,
+  observed recalculated routing, then Undo restored the original 11-stop plan.
+- Final Save visibly confirmed "Plan hesabina kaydedildi." (Turkish UI).
+- Library confirmed Paris and the previously pending Kyoto/Roma plans saved to
+  the account after the city-label sync fix.
+- Language switch to Albanian, reload persistence and return to Turkish passed.
+- Evidence: outputs/optimization-paris-20261015.png.
+
+Limits
+- Windows browser testing does not establish physical iPhone FPS, memory use or
+  native iOS compilation. Swift changes have contract tests, not an Xcode run.
+- External AI/Apple services can still be unavailable; guarded recovery/error
+  paths are covered, but universal zero-failure behavior is not claimed.
+- No new TestFlight build or deployment was started in this task.

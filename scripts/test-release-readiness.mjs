@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 
 const checks = [
+  ["--test", "tests/travel-assistant/apple-journey-places.mjs", "tests/travel-assistant/journey-plan.mjs", "tests/journey-plan-quota.mjs", "tests/journey-setup-survey.mjs", "tests/journey-plan-client.mjs"],
+  ["--test", "tests/mapkit-token.mjs"],
+  ["--test", "tests/travel-assistant/apple-journey-routing.mjs", "tests/travel-assistant/apple-walking-client.mjs"],
+  ["--test", "tests/map-journey.mjs", "tests/journey-map.mjs", "tests/apple-journey-map.mjs", "tests/native-journey-map.mjs", "tests/apple-journey-map-native-contract.mjs", "tests/map-journey-ui.mjs", "tests/cockpit-map-journey-ui.mjs", "tests/travel-assistant/journey-services.mjs"],
   ["--test", "tests/eslint-root-dirs.mjs"],
   ["--test", "tests/travel-assistant/run.mjs"],
   ["--test", "tests/travel-assistant/money-ui.mjs"],
@@ -53,6 +57,7 @@ const checks = [
   ["--test", "tests/web-saved-plan.mjs"],
   ["--test", "tests/route-costs-customization.mjs"],
   ["--test", "tests/albanian-locale.mjs"],
+  ["--test", "tests/mobile-startup.mjs"],
   ["--test", "tests/events-featured.mjs"],
   ["--test", "tests/flight-lookup.mjs"],
   ["--test", "tests/flight-lookup-db.mjs"],

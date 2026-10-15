@@ -7,9 +7,22 @@ export const CATEGORY_LABELS: Record<PointCategory, [string, string, string]> = 
   statue: ['Heykel', 'Statue', 'Statujë'], monument: ['Anıt', 'Monument', 'Monument'], historic: ['Tarihi yapı', 'Historic site', 'Vend historik'],
   stadium: ['Stadyum', 'Stadium', 'Stadium'], palace: ['Saray', 'Palace', 'Pallat'], square: ['Meydan', 'Square', 'Shesh'],
   viewpoint: ['Seyir noktası', 'Viewpoint', 'Pikë panoramike'], attraction: ['Turistik nokta', 'Attraction', 'Atraksion turistik'],
+  cafe: ['Kafe', 'Cafe', 'Kafene'], bakery: ['Fırın', 'Bakery', 'Furrë buke'], restaurant: ['Restoran', 'Restaurant', 'Restorant'],
+  sweets: ['Tatlıcı', 'Sweets', 'Ëmbëltore'], boutique: ['Butik', 'Boutique', 'Butik'], craft: ['El sanatları', 'Crafts', 'Artizanat'],
+  gift: ['Hediyelik', 'Gifts', 'Dhurata'], market: ['Pazar ve market', 'Markets', 'Tregje'], store: ['Mağaza', 'Store', 'Dyqan'], park: ['Park', 'Park', 'Park'], garden: ['Bahçe', 'Garden', 'Kopsht'],
 };
+// Discovery categories are separate from the existing emergency/touring modes.
+export const DISCOVERY: PointCategory[] = ['cafe', 'bakery', 'restaurant', 'sweets', 'boutique', 'craft', 'gift', 'market', 'store', 'park', 'garden'];
 export const NEEDS: PointCategory[] = ['hospital', 'pharmacy', 'police', 'atm', 'exchange', 'toilets', 'wifi', 'embassy'];
 export const TOURING: PointCategory[] = ['museum', 'statue', 'monument', 'historic', 'stadium', 'palace', 'square', 'viewpoint', 'attraction'];
+/** A saved POI must retain its exact provider identity and public source link. */
+export function validJourneyPlaceSource(id: unknown, sourceUrl: unknown): id is string {
+  if (typeof id !== 'string' || typeof sourceUrl !== 'string') return false;
+  if (/^(node|way|relation)\/[1-9]\d*$/.test(id) && id.length <= 64 && Number.isSafeInteger(Number(id.split('/')[1]))) {
+    return sourceUrl === `https://www.openstreetmap.org/${id}`;
+  }
+  return /^apple\/[A-Za-z0-9_-]{1,120}$/.test(id) && sourceUrl === `https://maps.apple.com/place?place-id=${id.slice(6)}`;
+}
 export function coordinates(value: unknown): Coordinates | null {
   if (!value || typeof value !== 'object') return null;
   const { latitude, longitude } = value as Coordinates;
@@ -30,6 +43,83 @@ export function safeWebsite(value: unknown): string | null {
     const u = new URL(value);
     return u.protocol === 'https:' && !u.username && !u.password && !u.port && u.hostname.includes('.') && !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(u.hostname) ? u.href : null;
   } catch { return null; }
+}
+
+const photoText = (value: unknown, max: number): value is string => typeof value === 'string' && value.length > 0 && value.length <= max
+  && [...value].every(character => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127 && character !== '<' && character !== '>');
+const rasterName = (value: string): string | null => photoText(value, 240) && value === value.trim()
+  && !/[\\/?#%|:"<>]/.test(value) && !value.startsWith('.') && /\.(jpe?g|png|webp)$/i.test(value)
+  ? value.replace(/_/g, ' ') : null;
+function photoUrl(value: unknown): URL | null {
+  if (!photoText(value, 2000) || value !== value.trim()) return null;
+  try {
+    const u = new URL(value);
+    return u.protocol === 'https:' && !u.username && !u.password && !u.port && !u.hash ? u : null;
+  } catch { return null; }
+}
+function uploadPhoto(value: unknown): { url: string; file: string } | null {
+  const u = photoUrl(value);
+  if (!u || !['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(u.hostname)) return null;
+  // Current Commons imageinfo URLs include these fixed campaign parameters.
+  // Drop only this known set; arbitrary queries never reach a map renderer.
+  if (u.search) {
+    const allowed: Record<string, string[]> = { utm_source: ['commons.wikimedia.org'], utm_campaign: ['imageinfo'], utm_content: ['thumbnail', 'original'] };
+    let parameterCount = 0;
+    u.searchParams.forEach(() => { parameterCount++; });
+    if (parameterCount !== 3 || Object.entries(allowed).some(([name, values]) => u.searchParams.getAll(name).length !== 1 || !values.includes(u.searchParams.get(name)!))) return null;
+    u.search = '';
+  }
+  try {
+    const path = decodeURIComponent(u.pathname).split('/');
+    const thumb = path[3] === 'thumb', offset = thumb ? 4 : 3;
+    if (u.hostname === 'thumb.wikimedia.org' && !thumb || path[1] !== 'wikipedia' || path[2] !== 'commons' || path.length !== (thumb ? 8 : 6)
+      || !/^[a-f0-9]$/.test(path[offset]) || !/^[a-f0-9]{2}$/.test(path[offset + 1])
+      || path[offset + 1][0] !== path[offset]) return null;
+    const file = rasterName(path[offset + 2]);
+    if (!file) return null;
+    if (thumb) {
+      const match = path[7].match(/^([1-9]\d{0,2})px-(.+)$/);
+      if (!match || Number(match[1]) > 640 || rasterName(match[2]) !== file) return null;
+    }
+    return { url: u.href, file };
+  } catch { return null; }
+}
+/** A Commons raster file explicitly identified by its OSM tag, never a search or category. */
+export function commonsPhotoFile(value: unknown): string | null {
+  if (!photoText(value, 2000)) return null;
+  if (value.startsWith('File:')) return rasterName(value.slice(5));
+  const uploaded = uploadPhoto(value);
+  if (uploaded) return uploaded.file;
+  const u = photoUrl(value);
+  if (!u || u.hostname !== 'commons.wikimedia.org' || (u.search && !/^\?width=[1-9]\d{0,3}$/.test(u.search))) return null;
+  try {
+    const path = decodeURIComponent(u.pathname);
+    const prefix = path.startsWith('/wiki/File:') ? '/wiki/File:' : path.startsWith('/wiki/Special:FilePath/') ? '/wiki/Special:FilePath/' : null;
+    return prefix ? rasterName(path.slice(prefix.length)) : null;
+  } catch { return null; }
+}
+/** Render only actual Commons raster/thumbnail URLs returned by imageinfo. */
+export function safeJourneyPhotoUrl(value: unknown): string | null { return uploadPhoto(value)?.url || null; }
+export function journeyPhotoLicense(value: unknown): { label: string; url: string } | null {
+  const u = photoUrl(value);
+  if (!u || u.hostname !== 'creativecommons.org' || u.search) return null;
+  if (!u.pathname.endsWith('/')) u.pathname += '/';
+  const match = u.pathname.match(/^\/licenses\/(by|by-sa)\/(1\.0|2\.0|2\.5|3\.0|4\.0)\/$/);
+  if (match) return { label: `CC ${match[1].toUpperCase()} ${match[2]}`, url: u.href };
+  if (u.pathname === '/publicdomain/zero/1.0/') return { label: 'CC0 1.0', url: u.href };
+  if (u.pathname === '/publicdomain/mark/1.0/') return { label: 'Public domain', url: u.href };
+  return null;
+}
+/** Optional photo metadata is an all-or-nothing snapshot; old places remain valid. */
+export function validJourneyPhoto(value: {
+  imageUrl?: unknown; imageSourceUrl?: unknown; imageAttribution?: unknown; imageLicenseLabel?: unknown; imageLicenseUrl?: unknown;
+}): boolean {
+  const fields = [value.imageUrl, value.imageSourceUrl, value.imageAttribution, value.imageLicenseLabel, value.imageLicenseUrl];
+  if (fields.every(field => field === undefined)) return true;
+  const image = uploadPhoto(value.imageUrl), license = journeyPhotoLicense(value.imageLicenseUrl);
+  return Boolean(image && license && value.imageUrl === image.url && value.imageLicenseUrl === license.url && value.imageLicenseLabel === license.label
+    && value.imageSourceUrl === `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(image.file.replace(/ /g, '_'))}`
+    && photoText(value.imageAttribution, 800) && value.imageAttribution.trim());
 }
 const clean = (v: unknown, max = 180) => typeof v === 'string' ? v.replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, max) : '';
 function category(t: Record<string, string>): PointCategory | null {

@@ -9,6 +9,7 @@ export type PublicConfig = {
   sourceCommit: string;
   updateId: string;
   appleAuthEnabled: boolean;
+  appleMapsToken: string;
 };
 declare const __L2T_CONFIG__: PublicConfig | undefined;
 
@@ -27,6 +28,7 @@ export const config: PublicConfig = {
   sourceCommit: injected?.sourceCommit || "unknown",
   updateId: injected?.updateId || "unknown",
   appleAuthEnabled: injected?.appleAuthEnabled !== false,
+  appleMapsToken: injected?.appleMapsToken || "",
 };
 
 export const releaseId = `${config.appVersion}-${config.buildNumber}`;

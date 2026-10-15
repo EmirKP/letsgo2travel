@@ -58,5 +58,16 @@ export function resolveMobilePublicConfig(env, { production = true } = {}) {
   if (appleAuth && appleAuth !== "true" && appleAuth !== "false") {
     fail("VITE_APPLE_AUTH_ENABLED", "true veya false olmalı.");
   }
-  return { apiBaseUrl, travelAssistantApiBaseUrl, supabaseUrl, supabaseAnonKey, supportEmail, appleAuthEnabled: appleAuth !== "false" };
+  const appleMapsToken = first(env, "VITE_APPLE_MAPS_TOKEN");
+  if (appleMapsToken) {
+    try {
+      const parts = appleMapsToken.split(".");
+      const header = JSON.parse(Buffer.from(parts[0] || "", "base64url").toString("utf8"));
+      const claims = JSON.parse(Buffer.from(parts[1] || "", "base64url").toString("utf8"));
+      if (parts.length !== 3 || !parts.every(part => /^[A-Za-z0-9_-]+$/.test(part))
+        || header.alg !== "ES256" || claims.scope !== "mapkit_js" || typeof claims.origin !== "string"
+        || !claims.origin.split(',').every(value=>/^\*?\.?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i.test(value.trim()))) throw new Error();
+    } catch { fail("VITE_APPLE_MAPS_TOKEN", "yalnız alan adıyla sınırlanmış MapKit JS tokenı olabilir; özel anahtar veya Server API tokenı kullanılamaz."); }
+  }
+  return { apiBaseUrl, travelAssistantApiBaseUrl, supabaseUrl, supabaseAnonKey, supportEmail, appleAuthEnabled: appleAuth !== "false", appleMapsToken };
 }

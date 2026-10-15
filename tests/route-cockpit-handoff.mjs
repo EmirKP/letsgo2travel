@@ -42,6 +42,25 @@ test('Route handoff rejects absent alternatives, malformed render fields, excess
   for (const change of [{route:{...route,dailyPlan:[]}}, {route:{...route,why:{bad:'object'}}}, {route:{...route,dailyPlan:Array(31).fill('stop')}}, {dates:{startDate:'2026-02-30',endDate:'2026-03-02'}}, {dates:{startDate:'2026-10-05',endDate:'2026-10-04'}}]) assert.equal(routes.validateRouteCockpitIntent({...value,...change}),false);
   assert.equal(routes.validateRouteCockpitIntent({...value,dates:{startDate:'2026-10-05',endDate:'2026-10-05'}}),true);
 });
+
+test('Structured map handoff retains stop coordinates, sources and fixed time without guessing a country', () => {
+  const model = load('mobile/src/lib/mapJourney.ts');
+  let journey = model.createMapJourney({ city: 'Roma', center: { latitude: 41.9, longitude: 12.5 }, dayCount: 3 });
+  journey = model.addJourneyStop(journey, { id: 'node/123', latitude: 41.9, longitude: 12.5, name: 'A shop', category: 'boutique',
+    hours: null, description: null, free: null, accessible: null, website: null, representedCountry: null,
+    sourceUrl: 'https://www.openstreetmap.org/node/123', fetchedAt: new Date().toISOString() }, 2, { fixedTime: '14:30', note: 'A gift' });
+  const source = model.mapJourneyToSavedRoute(journey);
+  const intent = routes.createRouteCockpitIntent(source, 0, 'account-a');
+  assert.ok(intent); assert.equal(intent.route.country, '');
+  assert.deepEqual(plain(intent.route.mapJourney), plain(journey));
+  assert.equal(intent.route.mapJourney.stops[0].fixedTime, '14:30');
+  source.plan.routes[0].mapJourney.stops[0].note = 'Later library edit';
+  assert.equal(intent.route.mapJourney.stops[0].note, 'A gift');
+  assert.equal(routes.validateRouteCockpitIntent({ ...intent, route: { ...intent.route, mapJourney: undefined } }), false);
+  assert.equal(routes.validateRouteCockpitIntent({ ...intent, route: { ...intent.route, mapJourney: { ...journey, version: 2 } } }), false);
+  assert.equal(routes.validateRouteCockpitIntent({ ...intent, sourceRouteId: 'some-other-route' }), false);
+  assert.equal(routes.validateRouteCockpitIntent({ ...intent, route: { ...intent.route, dailyPlan: ['Only one day'] } }), false);
+});
 test('Country cost handoff preserves dated component calculation, odd-party rooms, source and actual usable quote',()=>{
   const quote={base:'GBP',quote:'TRY',date:'2026-09-30',rate:60};
   const intent=budgets.createBudgetCockpitIntent(benchmark,5,3,'TRY',quote,'account-a','Saraybosna',Date.parse('2026-10-01T10:00:00Z'));

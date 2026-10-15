@@ -67,7 +67,7 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
         return;
       }
       if (event.key !== "Tab" || !sheetRef.current) return;
-      const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]"));
+      const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]")).filter(element => element.getClientRects().length > 0);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

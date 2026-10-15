@@ -9,7 +9,8 @@ require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'C
 const zones = require('../lib/zoned-time.ts');
 const budgetMath = require('../lib/country-intelligence/trip-budget.ts');
 const budgets = load('mobile/src/lib/budgetCockpitIntent.ts', { '../../../lib/country-intelligence/trip-budget': budgetMath, '../../../lib/country-intelligence/city-benchmarks': require('../lib/country-intelligence/city-benchmarks.ts') });
-const routeValidator = load('mobile/src/lib/routeCockpitIntent.ts', {});
+const mapJourney = load('mobile/src/lib/mapJourney.ts', { '../../../lib/travel-assistant/places': require('../lib/travel-assistant/places.ts'), './id': load('mobile/src/lib/id.ts', {}) });
+const routeValidator = load('mobile/src/lib/routeCockpitIntent.ts', { './mapJourney': mapJourney });
 const data = load('lib/cockpit/web-data.ts', { '../../mobile/src/lib/routeCockpitIntent': routeValidator, '../../mobile/src/lib/budgetCockpitIntent': budgets, '../airport-time-zones': require('../lib/airport-time-zones.ts'), '../zoned-time': zones });
 const dates = load('mobile/src/lib/dates.ts', {});
 const locale = load('mobile/src/lib/locale.ts', { './locales/sq': { SQ_MESSAGES: {} } });
@@ -35,7 +36,7 @@ function clientFixture() {
 const jsx = (type, props) => ({ type, props });
 function load(file, imports, globals = {}) {
   const loaded = { exports: {} };
-  const source = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const source = ts.transpileModule(readFileSync(file, 'utf8'), { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Error, AbortController, setTimeout, clearTimeout, process: { env: {} }, console: { error() {} }, ...globals })(name => {
     if (name in imports) return imports[name];
     if (name.endsWith('.css')) return { default: new Proxy({}, { get: (_, key) => key }) };

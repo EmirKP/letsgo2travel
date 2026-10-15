@@ -8,4 +8,5 @@ export function resolveMobilePublicConfig(
   supabaseAnonKey: string;
   supportEmail: string;
   appleAuthEnabled: boolean;
+  appleMapsToken: string;
 };

@@ -27,6 +27,7 @@ export type PlannerInput = import("../../lib/planner-preferences").PlannerPrefer
 };
 
 export type RouteSuggestion = {
+  mapJourney?: import("./lib/mapJourney").MapJourney;
   name: string;
   country: string;
   cityOrRegion: string;

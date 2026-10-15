@@ -914,15 +914,13 @@ test("Build 16: etkinlik radarı Kosova, tarih, öne çıkan sanatçı ve mobil 
   assert.ok(screen.includes("reconcileEventReminders") && screen.includes("cancelEventReminder"), "tarih/durum değişiklikleri cihaz hatırlatmalarına yansıtılmalı");
 });
 
-test("Build 17: açılış videosu hafif, sessiz ve güvenli geri dönüşlüdür", () => {
+test("mobil açılış: marka posteri ilk kareden sonra kısa ve güvenli biçimde kapanır", () => {
   const component = readFileSync("mobile/src/components/AnimatedSplash.tsx", "utf8");
   const styles = readFileSync("mobile/src/App.css", "utf8");
-  const video = statSync("mobile/src/assets/launch-travel.mp4");
   const poster = statSync("mobile/src/assets/launch-travel-poster.webp");
-  assert.ok(video.size > 100_000 && video.size < 750_000, "açılış videosu mobil için makul boyutta olmalı");
   assert.ok(poster.size > 1_000 && poster.size < 100_000, "video posteri hafif olmalı");
-  assert.ok(component.includes("autoPlay") && component.includes("muted") && component.includes("playsInline"), "video mobilde otomatik, sessiz ve tam ekran içinde oynamalı");
-  assert.ok(component.includes("onEnded={beginExit}") && component.includes("onError={beginExit}") && component.includes("4_400"), "video bitince, hata verince veya takılınca açılış kapanmalı");
+  assert.ok(!component.includes('launch-travel.mp4') && component.includes('src={launchPoster}'), "açılışta video indirme veya çözme işi yerine hafif marka posteri kullanılmalı");
+  assert.ok(component.includes("requestAnimationFrame") && component.includes("cancelAnimationFrame"), "ilk kare sonrası açılış kapanmalı ve bekleyen işler temizlenmeli");
   assert.ok(component.includes("prefers-reduced-motion") && styles.includes(".animated-splash-media") && styles.includes("object-fit: cover"), "azaltılmış hareket ve dikey ekran yerleşimi korunmalı");
 });
 

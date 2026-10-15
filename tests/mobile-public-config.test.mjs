@@ -73,8 +73,9 @@ const fixture = {
 };
 
 test("public config: only explicit public fields are returned", () => {
-  const config = resolveMobilePublicConfig({ ...fixture, SUPABASE_SERVICE_ROLE_KEY: "PRIVATE_CANARY", VITE_UNEXPECTED_TOKEN: "PRIVATE_CANARY" });
-  assert.deepEqual(Object.keys(config).sort(), ["apiBaseUrl", "travelAssistantApiBaseUrl", "appleAuthEnabled", "supabaseAnonKey", "supabaseUrl", "supportEmail"].sort());
+  const config = resolveMobilePublicConfig({ ...fixture, SUPABASE_SERVICE_ROLE_KEY: "PRIVATE_CANARY", VITE_UNEXPECTED_TOKEN: "PRIVATE_CANARY",
+    APPLE_MAPS_TEAM_ID: "PRIVATE_CANARY", APPLE_MAPS_KEY_ID: "PRIVATE_CANARY", APPLE_MAPS_PRIVATE_KEY: "PRIVATE_CANARY", APPLE_MAPS_ALLOWED_ORIGINS: "PRIVATE_CANARY" });
+  assert.deepEqual(Object.keys(config).sort(), ["apiBaseUrl", "travelAssistantApiBaseUrl", "appleAuthEnabled", "appleMapsToken", "supabaseAnonKey", "supabaseUrl", "supportEmail"].sort());
   assert.equal(config.apiBaseUrl, "https://www.letsgo2travel.com.tr");
   assert.equal(config.travelAssistantApiBaseUrl, "");
   assert.equal(config.supportEmail, "hello@letsgo2travel.com.tr");
@@ -174,6 +175,7 @@ const controlled = {
   NODE_ENV: "production",
   VITE_API_BASE_URL: "https://www.letsgo2travel.com.tr",
   VITE_TRAVEL_ASSISTANT_API_BASE_URL: "",
+  L2T_MAPS_DEV_API_URL: "",
   VITE_SUPABASE_URL: fixture.NEXT_PUBLIC_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: publicKey,
   VITE_SUPPORT_EMAIL: "hello@letsgo2travel.com.tr",
@@ -235,6 +237,73 @@ test("actual Vite config: assistant host uses a dedicated dev proxy without movi
     const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
     assert.equal(JSON.parse(serve.define.__L2T_CONFIG__).travelAssistantApiBaseUrl, "");
     assert.equal("/__travel-assistant" in serve.server.proxy, false);
+  });
+});
+
+test("actual Vite config: local Maps proxy redirects only five planner endpoints and stays out of release clients", async () => {
+  const paths = ["/api/maps/token", "/api/travel-assistant/journey-route", "/api/travel-assistant/discover", "/api/travel-assistant/journey-search", "/api/travel-assistant/journey-plan"];
+  const keys = paths.map(path => `^${path}(?:\\?|$)`);
+  await withEnv({ L2T_MAPS_DEV_API_URL: "http://127.0.0.1:3000" }, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    for (const [index, key] of keys.entries()) {
+      assert.equal(serve.server.proxy[key].target, "http://127.0.0.1:3000");
+      assert.ok(Object.keys(serve.server.proxy).indexOf(key) < Object.keys(serve.server.proxy).indexOf("/api"));
+      const matches = new RegExp(key);
+      assert.equal(matches.test(paths[index]), true);
+      assert.equal(matches.test(`${paths[index]}?check=1`), true);
+      for (const path of ["/api/profile", "/api/travel-assistant/places", "/api/travel-assistant/emergency", "/api/travel-assistant/rates",
+        "/api/maps/tokens", "/api/maps/token/other", "/api/maps/token-malicious", "/api/travel-assistant/journey-routes",
+        "/api/travel-assistant/journey-route/other", "/api/travel-assistant/journey-route-malicious", "/__travel-assistant/api/travel-assistant/journey-route",
+        "/api/travel-assistant/discovery", "/api/travel-assistant/discover/other", "/api/travel-assistant/journey-search/other",
+        "/api/travel-assistant/journey-search-malicious", "/api/travel-assistant/journey-plans", "/api/travel-assistant/journey-plan/other",
+        "/api/travel-assistant/journey-plan-malicious", "/__travel-assistant/api/travel-assistant/journey-plan", ...paths.filter(other => other !== paths[index])]) {
+        assert.equal(matches.test(path), false, path);
+      }
+    }
+    assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
+    assert.equal(serve.env.L2T_MAPS_DEV_API_URL, undefined);
+    assert.equal(serve.define.__L2T_CONFIG__.includes("127.0.0.1:3000"), false);
+    const release = await resolveConfig({ configFile, logLevel: "silent" }, "build", "production");
+    for (const key of keys) assert.equal(key in release.server.proxy, false);
+    assert.equal(release.env.L2T_MAPS_DEV_API_URL, undefined);
+    assert.equal(release.define.__L2T_CONFIG__.includes("127.0.0.1:3000"), false);
+    assert.equal(JSON.parse(release.define.__L2T_CONFIG__).apiBaseUrl, controlled.VITE_API_BASE_URL);
+  });
+  await withEnv({}, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    for (const key of keys) assert.equal(key in serve.server.proxy, false);
+    assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
+  });
+  await withEnv({ L2T_MAPS_DEV_API_URL: "http://127.0.0.1:3000", VITE_TRAVEL_ASSISTANT_API_BASE_URL: "https://assistant.example.com" }, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    for (const key of keys) assert.equal(serve.server.proxy[key].target, "http://127.0.0.1:3000");
+    assert.equal(serve.server.proxy["/__travel-assistant"].target, "https://assistant.example.com");
+    assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
+  });
+});
+
+test("actual Vite config: Maps dev target accepts canonical loopback only without disclosing invalid values", async () => {
+  const key = "^/api/maps/token(?:\\?|$)";
+  for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+    await withEnv({ L2T_MAPS_DEV_API_URL: `http://${host}:3000` }, async () => {
+      const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+      assert.equal(serve.server.proxy[key].target, `http://${host}:3000`);
+    });
+  }
+  for (const value of ["https://127.0.0.1:3000", "http://localhost.evil.example:3000", "http://example.com", "http://127.0.0.1:3000/", "http://user:PRIVATE_CANARY@localhost:3000", "http://localhost:3000/path", "http://localhost:3000?q=PRIVATE_CANARY", "http://localhost:3000#PRIVATE_CANARY", "http://2130706433:3000"]) {
+    await withEnv({ L2T_MAPS_DEV_API_URL: value }, async () => {
+      await assert.rejects(resolveConfig({ configFile, logLevel: "silent" }, "serve", "development"), error => {
+        assert.match(error.message, /L2T_MAPS_DEV_API_URL/);
+        assert.equal(error.message.includes(value), false);
+        assert.equal(error.message.includes("PRIVATE_CANARY"), false);
+        return true;
+      });
+    });
+  }
+  await withEnv({ L2T_MAPS_DEV_API_URL: "INVALID_DEV_ONLY_CANARY" }, async () => {
+    const release = await resolveConfig({ configFile, logLevel: "silent" }, "build", "production");
+    assert.equal(key in release.server.proxy, false);
+    assert.equal(release.define.__L2T_CONFIG__.includes("INVALID_DEV_ONLY_CANARY"), false);
   });
 });
 
@@ -313,4 +382,15 @@ test("CI config check: accepts public fixtures, rejects secret fixtures without 
   assert.equal(fail.status, 1);
   assert.match(fail.stderr, /SUPABASE_ANON_KEY/);
   assert.equal((fail.stdout + fail.stderr).includes(secret), false);
+});
+
+
+test("public config: only domain-bound MapKit JS tokens enter the client; private/server/unrestricted inputs fail without leaking", () => {
+  const encode = claims => [Buffer.from(JSON.stringify({alg:'ES256',typ:'JWT'})).toString('base64url'), Buffer.from(JSON.stringify(claims)).toString('base64url'), 'NONFUNCTIONAL_TEST'].join('.');
+  const token = encode({scope:'mapkit_js',origin:'www.example.com'});
+  assert.equal(resolveMobilePublicConfig({...fixture,VITE_APPLE_MAPS_TOKEN:token}).appleMapsToken, token);
+  assert.equal(resolveMobilePublicConfig(fixture).appleMapsToken,'');
+  for(const value of ['-----BEGIN PRIVATE KEY-----', encode({scope:'server_api',origin:'www.example.com'}), encode({scope:'mapkit_js server_api',origin:'www.example.com'}), encode({scope:'mapkit_js'}), encode({scope:'mapkit_js',origin:'*'})]) {
+    assert.throws(()=>resolveMobilePublicConfig({...fixture,VITE_APPLE_MAPS_TOKEN:value}),error=>error.message.includes('VITE_APPLE_MAPS_TOKEN')&&!error.message.includes(value));
+  }
 });

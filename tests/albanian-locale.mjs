@@ -9,7 +9,7 @@ import ts from 'typescript';
 // the dialog shell and browser storage are supplied by this in-memory fixture.
 // No application locale/translation functions are replaced.
 const compiled = new Map();
-function fixture({ language = 'sq-AL', storage = new Map(), readError = false, writeError = false, intl = Intl, imports = {} } = {}) {
+function fixture({ language = 'sq-AL', storage = new Map(), readError = false, writeError = false, intl = Intl, imports = {}, beforeImport = async () => {} } = {}) {
   let activeHost, nextId = 0;
   const document = { documentElement: { lang: '', dir: '' } };
   const localStorage = {
@@ -26,11 +26,13 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
     useState: value => activeHost.useState(value),
     useRef: value => activeHost.useMemo(() => ({ current: value }), []),
     useMemo: (fn, deps) => activeHost.useMemo(fn, deps),
+    useCallback: (fn, deps) => activeHost.useMemo(() => fn, deps),
     useEffect: (fn, deps) => activeHost.useEffect(fn, deps),
     useId: () => activeHost.useState(() => `field-${++nextId}`)[0],
   };
   const context = vm.createContext({ document, navigator: { language }, window: { localStorage, setInterval: () => 1, clearInterval() {} }, Intl: intl, Date, console });
   const cache = new Map();
+  const asyncImports = [];
   const load = filename => {
     let full = path.resolve(filename);
     if (!existsSync(full)) full = ['.ts', '.tsx', '.json'].map(ext => full + ext).find(existsSync) || full;
@@ -41,6 +43,14 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
     if (full.endsWith('.json')) return (loaded.exports = JSON.parse(readFileSync(full, 'utf8')));
     if (!compiled.has(full)) compiled.set(full, ts.transpileModule(readFileSync(full, 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+      // Keep async import a separate host operation so download delay/failure
+      // can be exercised without replacing locale or provider functions.
+      transformers: { before: [context => source => {
+        const visit = node => ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
+          ? ts.factory.updateCallExpression(node, ts.factory.createIdentifier('importModule'), node.typeArguments, node.arguments)
+          : ts.visitEachChild(node, visit, context);
+        return ts.visitNode(source, visit);
+      }] },
     }).outputText);
     const resolve = name => {
       if (Object.hasOwn(imports, name)) return imports[name];
@@ -51,7 +61,8 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
       if (name.startsWith('.')) return load(path.resolve(path.dirname(full), name));
       throw Error(`Unexpected dependency ${name}`);
     };
-    vm.runInContext(`(function(require,module,exports){${compiled.get(full)}\n})`, context, { filename: full })(resolve, loaded, loaded.exports);
+    const importModule = async name => { asyncImports.push(name); await beforeImport(name); return resolve(name); };
+    vm.runInContext(`(function(require,importModule,module,exports){${compiled.get(full)}\n})`, context, { filename: full })(resolve, importModule, loaded, loaded.exports);
     return loaded.exports;
   };
   const same = (a, b) => a && b && a.length === b.length && a.every((item, i) => Object.is(item, b[i]));
@@ -83,14 +94,108 @@ function fixture({ language = 'sq-AL', storage = new Map(), readError = false, w
     host.render(); return host;
   }
   const i18n = load('mobile/src/lib/i18n.tsx');
-  const provider = mount(i18n.I18nProvider, { children: null });
-  return { load, mount, provider, i18n, storage, document, value: () => provider.render().props.value };
+  const provider = mount(i18n.I18nProvider, { children: 'app-ui' });
+  return { load, mount, provider, i18n, storage, document, asyncImports, loadedFiles: () => [...cache.keys()], value: () => provider.render().props.value };
+}
+const tick = () => new Promise(resolve => setImmediate(resolve));
+async function readyFixture(options) {
+  const app = fixture(options);
+  await tick();
+  app.value();
+  return app;
 }
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
 const text = tree => Array.isArray(tree) ? tree.map(text).join('') : typeof tree === 'string' || typeof tree === 'number' ? String(tree) : tree?.props ? text(tree.props.children) : '';
 const find = (tree, type, predicate = () => true) => nodes(tree).find(node => node.type === type && predicate(node.props));
+const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 
-test('Provider chooses a supported stored language first, then the device language, then English', () => {
+test('Turkish and English startup do not download or evaluate the Albanian message catalog', async () => {
+  for (const language of ['tr-TR', 'en-GB']) {
+    const app = await readyFixture({ language });
+    assert.deepEqual(app.asyncImports, []);
+    assert.ok(!app.loadedFiles().some(file => /locales[\\/]sq(?:-part\d)?\.ts$/.test(file)));
+    assert.equal(app.provider.render().props.children, 'app-ui');
+  }
+});
+
+test('Saved Albanian waits for its catalog without showing English or replacing the preference', async () => {
+  const wait = deferred();
+  const storage = new Map([['l2t-language-v1', 'sq']]);
+  const app = fixture({ language: 'en-GB', storage, beforeImport: () => wait.promise });
+  assert.equal(app.value().locale, 'sq');
+  assert.equal(app.value().pendingLocale, 'sq');
+  assert.equal(find(app.provider.render(), 'main').props.lang, 'sq');
+  assert.match(text(app.provider.render()), /Duke ngarkuar gjuhën/);
+  assert.equal(storage.get('l2t-language-v1'), 'sq');
+  wait.resolve(); await tick();
+  assert.equal(app.value().copy('Kaydet', 'Save'), 'Ruaj');
+  assert.equal(app.provider.render().props.children, 'app-ui');
+  assert.equal(app.document.documentElement.lang, 'sq');
+});
+
+test('A late Albanian download cannot override a newer language choice or remount an existing screen', async () => {
+  const wait = deferred();
+  const app = await readyFixture({ language: 'tr-TR', beforeImport: () => wait.promise });
+  const previousCopy = app.value().copy;
+  const selecting = app.value().setLocale('sq');
+  assert.equal(app.value().locale, 'tr');
+  assert.equal(app.value().pendingLocale, 'sq');
+  assert.equal(app.value().copy, previousCopy, 'Loading state must not restart effects that depend on the active translation callback');
+  assert.equal(app.provider.render().props.children, 'app-ui');
+  assert.equal(app.storage.get('l2t-language-v1'), 'sq', 'The requested language survives closing the app during loading');
+  await app.value().setLocale('en');
+  wait.resolve(); assert.equal(await selecting, false);
+  assert.equal(app.value().locale, 'en');
+  assert.equal(app.value().copy('Kaydet', 'Save'), 'Save');
+  assert.equal(app.storage.get('l2t-language-v1'), 'en');
+  assert.equal(app.document.documentElement.lang, 'en');
+});
+
+test('Rapid sq/tr/sq selections share one download and commit only the latest selection', async () => {
+  const wait = deferred();
+  const app = await readyFixture({ language: 'en-GB', beforeImport: () => wait.promise });
+  const first = app.value().setLocale('sq');
+  await app.value().setLocale('tr');
+  const latest = app.value().setLocale('sq');
+  assert.deepEqual(app.asyncImports, ['./locales/sq']);
+  wait.resolve();
+  assert.equal(await first, false); assert.equal(await latest, true);
+  assert.equal(app.value().locale, 'sq');
+  assert.equal(app.value().copy('Kaydet', 'Save'), 'Ruaj');
+  assert.equal(app.value().pendingLocale, null);
+});
+
+test('A failed catalog download keeps the current UI usable and retries on the next selection', async () => {
+  let attempts = 0;
+  const app = await readyFixture({ language: 'tr-TR', beforeImport: async () => { if (++attempts === 1) throw Error('Offline'); } });
+  assert.equal(await app.value().setLocale('sq'), false);
+  assert.equal(app.value().locale, 'tr'); assert.equal(app.value().failedLocale, 'sq');
+  assert.equal(app.provider.render().props.children, 'app-ui');
+  assert.equal(await app.value().setLocale('sq'), true);
+  assert.equal(attempts, 2); assert.equal(app.value().failedLocale, null);
+  assert.equal(app.value().copy('Kaydet', 'Save'), 'Ruaj');
+});
+
+test('An initial Albanian download failure offers recovery without silently rewriting the saved choice', async () => {
+  const app = await readyFixture({ storage: new Map([['l2t-language-v1', 'sq']]), beforeImport: async () => { throw Error('Offline'); } });
+  const tree = app.provider.render();
+  assert.ok(find(tree, 'p', props => props.role === 'alert'));
+  assert.equal(app.storage.get('l2t-language-v1'), 'sq');
+  find(tree, 'button', props => props.lang === 'en').props.onClick();
+  assert.equal(app.value().locale, 'en');
+  assert.equal(app.provider.render().props.children, 'app-ui');
+  assert.equal(app.storage.get('l2t-language-v1'), 'en');
+});
+
+test('A disposed provider ignores its pending language request', async () => {
+  const wait = deferred();
+  const app = await readyFixture({ language: 'en-GB', beforeImport: () => wait.promise });
+  const selecting = app.value().setLocale('sq');
+  app.provider.dispose(); wait.resolve();
+  assert.equal(await selecting, false);
+});
+
+test('Provider chooses a supported stored language first, then the device language, then English', async () => {
   const scenarios = [
     { language: 'tr-TR', stored: 'sq', expected: 'sq' },
     { language: 'sq-XK', stored: 'en', expected: 'en' },
@@ -101,7 +206,7 @@ test('Provider chooses a supported stored language first, then the device langua
   ];
   for (const scenario of scenarios) {
     const storage = new Map(scenario.stored ? [['l2t-language-v1', scenario.stored]] : []);
-    const app = fixture({ ...scenario, storage });
+    const app = await readyFixture({ ...scenario, storage });
     assert.equal(app.value().locale, scenario.expected);
     assert.equal(app.i18n.localeFromStorage(), scenario.expected);
     assert.equal(app.document.documentElement.lang, scenario.expected);
@@ -110,27 +215,27 @@ test('Provider chooses a supported stored language first, then the device langua
   }
 });
 
-test('Changing to Albanian persists across a fresh provider and updates document language immediately', () => {
-  const storage = new Map(); const app = fixture({ language: 'tr-TR', storage });
-  app.value().setLocale('sq');
+test('Changing to Albanian persists across a fresh provider and updates document language when ready', async () => {
+  const storage = new Map(); const app = await readyFixture({ language: 'tr-TR', storage });
+  await app.value().setLocale('sq');
   assert.equal(app.value().locale, 'sq'); assert.equal(app.document.documentElement.lang, 'sq');
   assert.equal(storage.get('l2t-language-v1'), 'sq');
-  const reloaded = fixture({ language: 'en-GB', storage });
+  const reloaded = await readyFixture({ language: 'en-GB', storage });
   assert.equal(reloaded.value().locale, 'sq'); assert.equal(reloaded.value().dateLocale, 'sq-AL');
   reloaded.value().setLocale('unsupported');
   assert.equal(reloaded.value().locale, 'sq'); assert.equal(storage.get('l2t-language-v1'), 'sq');
 });
 
-test('Storage write failure keeps the chosen language usable for this session', () => {
-  const app = fixture({ language: 'tr-TR', writeError: true });
-  app.value().setLocale('sq');
+test('Storage write failure keeps the chosen language usable for this session', async () => {
+  const app = await readyFixture({ language: 'tr-TR', writeError: true });
+  await app.value().setLocale('sq');
   assert.equal(app.value().locale, 'sq'); assert.equal(app.document.documentElement.lang, 'sq');
   assert.equal(app.value().copy('Kaydet', 'Save'), 'Ruaj');
   assert.equal(app.storage.size, 0);
 });
 
-test('Language picker exposes all three languages, selects Albanian and closes its dialog', () => {
-  const app = fixture({ language: 'tr-TR' });
+test('Language picker exposes all three languages, selects Albanian and closes its dialog', async () => {
+  const app = await readyFixture({ language: 'tr-TR' });
   const { LanguagePicker } = app.load('mobile/src/components/LanguagePicker.tsx');
   const picker = app.mount(LanguagePicker);
   find(picker.render(), 'button', props => props.className === 'language-toggle').props.onClick();
@@ -138,7 +243,7 @@ test('Language picker exposes all three languages, selects Albanian and closes i
   const options = nodes(tree).filter(node => node.type === 'button' && node.props.lang);
   assert.deepEqual(options.map(node => node.props.lang), ['tr', 'en', 'sq']);
   assert.deepEqual(options.map(node => text(node.props.children)), ['TürkçeTR', 'EnglishEN', 'ShqipSQ']);
-  options[2].props.onClick(); app.value(); tree = picker.render();
+  await options[2].props.onClick(); app.value(); tree = picker.render();
   assert.equal(find(tree, 'Sheet').props.open, false);
   assert.equal(find(tree, 'Sheet').props.title, 'Zgjidh gjuhën');
   assert.equal(find(tree, 'button', props => props.lang === 'sq').props['aria-pressed'], true);
@@ -146,8 +251,8 @@ test('Language picker exposes all three languages, selects Albanian and closes i
   assert.equal(app.storage.get('l2t-language-v1'), 'sq');
 });
 
-test('Flags use bundled Turkish and British SVGs and diagonally layered Kosovo/Albania artwork', () => {
-  const app = fixture(); const { LanguageFlag } = app.load('mobile/src/components/LanguagePicker.tsx');
+test('Flags use bundled Turkish and British SVGs and diagonally layered Kosovo/Albania artwork', async () => {
+  const app = await readyFixture(); const { LanguageFlag } = app.load('mobile/src/components/LanguagePicker.tsx');
   for (const [locale, expected] of [['tr', ['tr']], ['en', ['gb']], ['sq', ['xk', 'al']]]) {
     const tree = LanguageFlag({ locale }); const images = nodes(tree).filter(node => node.type === 'img');
     assert.equal(tree.props['aria-hidden'], 'true');
@@ -163,8 +268,8 @@ test('Flags use bundled Turkish and British SVGs and diagonally layered Kosovo/A
   assert.match(css, /\.language-flag-sq \.language-flag-al\s*\{\s*clip-path:\s*polygon\(100% 0, 100% 100%, 0 100%\)/);
 });
 
-test('Country names and input search use Albanian while unknown source text stays unchanged', () => {
-  const app = fixture(); const i18n = app.value();
+test('Country names and input search use Albanian while unknown source text stays unchanged', async () => {
+  const app = await readyFixture(); const i18n = app.value();
   assert.equal(i18n.countryName('ALB', 'Albania'), 'Shqipëri');
   assert.equal(i18n.countryName('XKK', 'Kosovo'), 'Kosova');
   assert.equal(i18n.countryName('UNKNOWN', 'Source country label'), 'Source country label');
@@ -190,8 +295,8 @@ test('Country names and input search use Albanian while unknown source text stay
   assert.deepEqual(changes, ['AL']); assert.equal(find(picker.render(), 'Sheet').props.open, false);
 });
 
-test('Date input displays Albanian dates and rejects invalid dates with localized accessible errors', () => {
-  const app = fixture(); const changes = [];
+test('Date input displays Albanian dates and rejects invalid dates with localized accessible errors', async () => {
+  const app = await readyFixture(); const changes = [];
   const field = app.mount(app.load('mobile/src/components/DateTimeField.tsx').DateTimeField, {
     type: 'date', label: 'Nisja', value: '2026-09-30', min: '2026-09-01', max: '2026-10-31', required: true, onChange: value => changes.push(value),
   });
@@ -218,8 +323,8 @@ function withoutAlbanianIntl() {
   return { DateTimeFormat, DisplayNames, NumberFormat: Intl.NumberFormat };
 }
 
-test('Bundled Albanian dates, all 30 currencies and 250 countries survive an Intl runtime that falls back to Turkish', () => {
-  const app = fixture({ intl: withoutAlbanianIntl() });
+test('Bundled Albanian dates, all 30 currencies and 250 countries survive an Intl runtime that falls back to Turkish', async () => {
+  const app = await readyFixture({ intl: withoutAlbanianIntl() });
   const { formatAppDate, appCurrencyName, appRegionName } = app.load('mobile/src/lib/localeFormatting.ts');
   assert.equal(app.value().countryName('ALB', 'Albania'), 'Shqipëri');
   assert.equal(app.value().countryName('XKK', 'Kosovo'), 'Kosova');
@@ -249,7 +354,7 @@ test('Bundled Albanian dates, all 30 currencies and 250 countries survive an Int
 test('Money currency labels, historical dates and input errors stay Albanian on reload with limited Intl data', async () => {
   for (const intl of [Intl, withoutAlbanianIntl()]) {
     const quote = { base: 'EUR', quote: 'TRY', rate: 55.8, date: '2026-09-30', previousRate: 55.7, previousDate: '2026-09-29', changePercent: 0.18 };
-    const app = fixture({ language: 'tr-TR', storage: new Map([['l2t-language-v1', 'sq']]), intl, imports: {
+    const app = await readyFixture({ language: 'tr-TR', storage: new Map([['l2t-language-v1', 'sq']]), intl, imports: {
       '../lib/travelAssistant': { storedQuote: () => quote, loadQuote: async () => quote },
       '../lib/deviceArea': { locateDeviceArea: async () => { throw Error('denied'); } },
       '../lib/native': { openExternal() { throw Error('No external navigation in locale tests'); } },
@@ -267,8 +372,8 @@ test('Money currency labels, historical dates and input errors stay Albanian on 
   }
 });
 
-test('Community, saved plans, Cockpit, alerts and notification dates accept full sq-AL tags on limited Intl runtimes', () => {
-  const app = fixture({ intl: withoutAlbanianIntl() });
+test('Community, saved plans, Cockpit, alerts and notification dates accept full sq-AL tags on limited Intl runtimes', async () => {
+  const app = await readyFixture({ intl: withoutAlbanianIntl() });
   const { formatAppDate } = app.load('mobile/src/lib/localeFormatting.ts');
   const cases = [
     ['mobile/src/screens/CommunityScreen.tsx', 'formatQuestionDate', '30 sht 2026'],
@@ -300,8 +405,8 @@ test('Community, saved plans, Cockpit, alerts and notification dates accept full
   assert.equal(formatAppDate(sample, 'en-GB', timestampOptions), sample.toLocaleString('en-GB'), 'Stored/download timestamps keep their time component');
 });
 
-test('Event labels keep venue calendar days, exact timezones and date-only uncertainty with Albanian formatting', () => {
-  const app = fixture({ intl: withoutAlbanianIntl() });
+test('Event labels keep venue calendar days, exact timezones and date-only uncertainty with Albanian formatting', async () => {
+  const app = await readyFixture({ intl: withoutAlbanianIntl() });
   const { formatAppDate } = app.load('mobile/src/lib/localeFormatting.ts');
   const { eventDateLabel, eventTimeLabel, eventLocalDate } = app.load('lib/event-time.ts');
   const event = { startsAt: '2026-10-01T00:30:00Z', localDate: '2026-09-30', timeZone: 'America/New_York', timePrecision: 'exact' };
@@ -339,8 +444,8 @@ test('Mobile visible dates use the fallback formatter while machine timezone and
   assert.match(readFileSync('mobile/src/lib/dates.ts', 'utf8'), /new Intl\.DateTimeFormat\("en-CA"/);
 });
 
-test('Every static copy() interface message without an explicit third translation is covered by the Albanian catalog', t => {
-  const app = fixture(); const { SQ_MESSAGES } = app.load('mobile/src/lib/locales/sq.ts');
+test('Every static copy() interface message without an explicit third translation is covered by the Albanian catalog', async t => {
+  const app = await readyFixture(); const { SQ_MESSAGES } = app.load('mobile/src/lib/locales/sq.ts');
   const keys = new Set(), missing = []; let explicit = 0;
   function walk(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {

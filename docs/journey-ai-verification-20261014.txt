@@ -1,0 +1,92 @@
+LetsGo2Travel destination-first AI journey planning — 2026-10-14
+
+Scope: local implementation; no deployment or TestFlight build started in this turn.
+
+Flow
+- Map planner opens a four-step survey: resolved destination, duration/date,
+  party/budget/pace/walking, interests and optional requests. TR/EN/SQ supported.
+- The main authenticated API generates a daily itinerary from real, server-fetched
+  Apple places. AI may select only those IDs; requested available interests must
+  be represented. Suggested visits and actual Apple walking legs remain distinct.
+- Generated plans retain survey preferences, daily explanations and place reasons
+  through the existing saved-route system. Edits mark the original AI explanation.
+- Generation cancellation, account/locale changes and old map/discovery responses
+  are fenced. City switching immediately updates area-search coordinates.
+
+Configuration
+- Existing Apple Maps and Gemini credentials are server-only in ignored .env.local.
+- Model is scoped with GEMINI_JOURNEY_MODEL; no client secrets were introduced.
+- Service-only migrations 20261014150000 and 20261014170000 are applied and ledger
+  verified on the existing Supabase project. Guests have 3 successful daily plans,
+  accounts 10. Failed reservations release the allowance; immutable attempt caps
+  remain 12/30 per actor, 2/minute, 200/day and 10/minute globally. UUID receipts
+  fence late/duplicate completion. Existing attempt counters were not reset.
+  Only trusted Vercel headers partition guest buckets; other hosts share unknown.
+- /journey-plan uses the main API, not the public-data-only staging export.
+
+Verification
+- Full existing release runner passed: 1071 tests, zero failures.
+- Later focused suite passed: 80 tests; final regression suite passed: 59 tests.
+  These overlap and must not be added together as a unique-test count.
+- Production Next and mobile builds, mobile lint, root TypeScript checks passed.
+- Real Apple search/discovery checked for Kyoto, Istanbul and Tirana. Istanbul
+  culture, food, shopping, nature and essentials returned real provider places.
+- Browser checked at 390x844: survey navigation, worldwide city search, entry
+  controls, loading, failure/retry and preservation of failed-request preferences.
+- Native Swift build was not run on this Windows host.
+
+Live AI investigation and correction
+- Prior configured models returned capacity errors/timeouts. A minimal real probe
+  of gemini-2.5-flash succeeded in689ms; GEMINI_JOURNEY_MODEL now selects it locally.
+- Actual itinerary exposed a second issue: Gemini HTTP400 rejected the large nested
+  schema as too many serving states. Provider grammar now contains simple types;
+  server validation still enforces exact real POI IDs, days, lengths and pacing.
+- A completed500/502/503 OR rejected itinerary can use one shared second attempt
+  after300ms inside the same40second AI/50second overall deadline. A correction
+  uses the original verified catalog/preferences plus static enum-based guidance;
+  rejected model text is never inserted into the next prompt. Total calls remain
+  at most2 across both failure types. Abort/quota/access/timeout never retry.
+  SDK hidden retries remain disabled. All original validation bounds remain.
+- Failure diagnostics contain only stage/code/status, no prompts or identities.
+- Final focused suite passed62 tests including schema-capacity and infeasible
+  light-walking preflight regressions; root TypeScript and targeted lint passed.
+  Existing broad results above belong
+  to the prior turn; the full release suite was not needlessly repeated.
+
+Successful live browser verification (390x844, actual providers)
+- Searched Kyoto and selected the real Apple city result;2days, couple, economical,
+  balanced walking trip, culture+food and custom meal/walking wishes.
+- Main API returned HTTP200 in13.0s with12 real stops in2days and Turkish reasons.
+- Both Apple walking endpoints returned200: day1 1.1km/15minutes, day2 1.7km/23minutes.
+- Apple map displayed real street geometry and numbered stops.
+- Edited Cafe Kocsi from45 to50minutes and changed its note; applied successfully.
+- Saved successfully to device. UI explicitly reported pending account sync;
+  remote account sync is not claimed verified.
+- Closed the editor, reloaded the page, reopened Kyoto from2 saved plans, and
+  verified all12 stops plus the50minute Cafe Kocsi visit and edited note persisted.
+  The preexisting Rome plan remains present and unchanged.
+- Live read-only quota check:3 failed reservations,1 succeeded,0 active; all7
+  attempts retained. Failure refund does not bypass abuse/global limits.
+
+Evidence: outputs/journey-ai-release.log, outputs/journey-ai-final-focused.log,
+outputs/journey-ai-last-regressions.log, outputs/journey-ai-server-build.log,
+outputs/journey-ai-final-mobile-build.log, outputs/journey-survey-mobile-20261014.png,
+outputs/apple-worldwide-api-live-20261014.json.
+Current live screenshot: outputs/journey-ai-kyoto-map-20261014.png.
+Reopened plan screenshot: outputs/journey-ai-kyoto-reopened-20261014.png.
+Final targeted evidence: outputs/journey-ai-repair-tests-20261014.log.
+
+Follow-up intermittent output rejection
+- Later real requests:502/16.3s, then200/14.7s, then502/13.6s. Both502s had
+  generation code plan_failed and no provider status. Those older logs cannot
+  identify the exact validation clause; no claim is made about a specific clause.
+- Validator now returns deterministic failure enums. Logs contain only enums,
+  stage/status and attempt count, never model text or user preferences.
+- Added explicit text limits to generation requirements and bounded automatic
+  output correction. Provider grammar remains small to avoid serving-state errors.
+- The user's failed form was no longer open when inspected. No extra live AI
+  request was made merely to consume another remaining successful-plan allowance.
+- Follow-up verification passed32 backend/quota/client tests, TypeScript and core
+  lint. Evidence: outputs/journey-output-repair-20261014.log. Automatic repair is
+  verified with controlled failed responses, not claimed as a new live replay of
+  the user's lost response.

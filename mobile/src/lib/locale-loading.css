@@ -1,0 +1,6 @@
+.locale-startup { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px; text-align: center; color: var(--theme-ink, #172b42); background: var(--theme-page, #fff); }
+.locale-startup-brand { font-size: 30px; letter-spacing: -.04em; }
+.locale-startup-brand span { color: #0877b8; }
+.locale-startup p { max-width: 360px; margin: 0; line-height: 1.5; }
+.locale-startup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.locale-startup-actions button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--theme-border, #dbe4ed); border-radius: 12px; color: var(--theme-ink, #172b42); background: var(--theme-surface, #fff); font: inherit; }

@@ -1,5 +1,6 @@
-import { coordinates, NEEDS, TOURING, safeWebsite } from '../../../lib/travel-assistant/places';
+import { coordinates, NEEDS, TOURING, DISCOVERY, safeWebsite, validJourneyPhoto, validJourneyPlaceSource } from '../../../lib/travel-assistant/places';
 import type { Place } from '../../../lib/travel-assistant/types';
+import type { JourneyPlace } from './mapJourney';
 import { COLLECTION_CHANGE, collectionKey, queueCollectionChange, readCollection, resetCollectionCache, type CollectionDocument, type CollectionOperation } from './accountCollections';
 
 export const SAVED_PLACES_KEY = 'l2t:assistant:saved-places:v1';
@@ -8,9 +9,9 @@ export const MAX_DAY_STOPS = 12;
 export const MAX_PLACE_NOTE = 280;
 const MAX_STORAGE_CHARS = 256_000;
 const CHANGE_EVENT = 'l2t:saved-places-changed';
-const categories = new Set([...NEEDS, ...TOURING]);
+const categories = new Set([...NEEDS, ...TOURING, ...DISCOVERY]);
 
-export type SavedPlace = { place: Place; savedAt: string; note: string };
+export type SavedPlace = { place: JourneyPlace; savedAt: string; note: string };
 type SavedPlacesDocument = { version: 1; items: SavedPlace[]; dayIds: string[] };
 export type SavedPlacesState = {
   items: SavedPlace[];
@@ -37,20 +38,25 @@ const nullableBool = (value: unknown) => value === null || typeof value === 'boo
 
 // Keep the provider's snapshot and source date. Saved places deliberately do not
 // expire: the UI identifies them as snapshots, never as current service status.
-function validatePlace(raw: unknown): Place | null {
+function validatePlace(raw: unknown): JourneyPlace | null {
   if (!raw || typeof raw !== 'object') return null;
-  const p = raw as Place;
+  const p = raw as JourneyPlace;
   const point = coordinates(p);
   if (!point || !categories.has(p.category)
-    || !text(p.id, 64) || !/^(node|way|relation)\/[1-9]\d*$/.test(p.id)
-    || p.sourceUrl !== `https://www.openstreetmap.org/${p.id}`
+    || !validJourneyPlaceSource(p.id, p.sourceUrl)
     || !text(p.name, 180) || !nullableText(p.description, 500) || !nullableText(p.hours, 180)
     || !nullableBool(p.free) || !nullableBool(p.accessible) || !validDate(p.fetchedAt)
     || !(p.website === null || text(p.website, 1000) && safeWebsite(p.website))
-    || !(p.representedCountry === null || typeof p.representedCountry === 'string' && /^[A-Z]{2}$/.test(p.representedCountry))) return null;
+    || !(p.representedCountry === null || typeof p.representedCountry === 'string' && /^[A-Z]{2}$/.test(p.representedCountry))
+    || !(p.group === undefined || ['food', 'shopping', 'culture', 'nature', 'essentials'].includes(p.group))
+    || !(p.kind === undefined || text(p.kind, 60)) || !(p.address === undefined || nullableText(p.address, 500)) || !validJourneyPhoto(p)) return null;
   return { ...point, id: p.id, category: p.category, name: p.name, description: p.description,
     hours: p.hours, free: p.free, accessible: p.accessible, website: p.website,
-    representedCountry: p.representedCountry, sourceUrl: p.sourceUrl, fetchedAt: p.fetchedAt };
+    representedCountry: p.representedCountry, sourceUrl: p.sourceUrl, fetchedAt: p.fetchedAt,
+    ...(p.group === undefined ? {} : { group: p.group }), ...(p.kind === undefined ? {} : { kind: p.kind }),
+    ...(p.address === undefined ? {} : { address: p.address }),
+    ...(p.imageUrl === undefined ? {} : { imageUrl: p.imageUrl, imageSourceUrl: p.imageSourceUrl,
+      imageAttribution: p.imageAttribution, imageLicenseLabel: p.imageLicenseLabel, imageLicenseUrl: p.imageLicenseUrl }) };
 }
 
 function validateDocument(raw: unknown): SavedPlacesDocument | null {

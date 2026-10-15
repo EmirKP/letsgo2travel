@@ -10,16 +10,19 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const english = { copy: (_tr, en) => en, locale: 'en', dateLocale: 'en-GB' };
 let reducedMotion = false;
 function load(path, imports = {}, environment = {}) {
-  const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name === '../components/RouteWeather') return { RouteWeather: 'RouteWeather' };
+    if (name === '../components/Sheet') return { Sheet: 'Sheet' };
+    if (name === '../components/LazyOverlay') return { LazyOverlay: 'LazyOverlay' };
     if (name === '../../../lib/planner-passport') return load('lib/planner-passport.ts', { './country-intelligence/passports': load('lib/country-intelligence/passports.ts', { '../../mobile/src/data/passport-index.json': { default: JSON.parse(readFileSync('mobile/src/data/passport-index.json', 'utf8')) }, './passport-reviewed': load('lib/country-intelligence/passport-reviewed.ts') }) });
     if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
     if (name === './accountCollections') return load('mobile/src/lib/accountCollections.ts', {'./id': load('mobile/src/lib/id.ts')}, environment);
     if (name === '../lib/localeFormatting') return localeFormatting;
     if (name === '../lib/routeCockpitIntent') return load('mobile/src/lib/routeCockpitIntent.ts');
+    if (name === './mapJourney') return load('mobile/src/lib/mapJourney.ts', { '../../../lib/travel-assistant/places': load('lib/travel-assistant/places.ts'), './id': load('mobile/src/lib/id.ts') });
     if (name === '../lib/savedRouteIdentity') return load('mobile/src/lib/savedRouteIdentity.ts', {'./id': load('mobile/src/lib/id.ts')});
     if (name === '../../../lib/planner-preferences' || name === './planner-preferences') return load('lib/planner-preferences.ts');
     if (name === '../components/RouteBudgetAnalysis') return { RouteBudgetAnalysis: 'RouteBudgetAnalysis' };
@@ -220,7 +223,7 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' } } = {}) {
+function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' }, placeName = '' } = {}) {
   const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
   let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
@@ -238,7 +241,7 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../lib/storage': { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
   }, {window: fixtureWindow});
-  host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '' });
+  host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '', placeName });
   return { host, saves, navigations, notices, generated, fixtureWindow, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
@@ -530,12 +533,11 @@ test('Fallback, invalid, empty and wrong-destination responses retain applied ed
     { label: 'wrong fixed destination', fixed: true, response: { data: { summary: 'Wrong target', routes: [{ ...route, name: 'Bodrum', cityOrRegion: 'Bodrum', destinationCode: 'BJV' }] } } },
   ];
   for (const failure of failures) {
-    const h = plannerHarness({ seeded: false });
+    const h = plannerHarness({ seeded: false, placeName: failure.fixed ? 'Rome' : '' });
     try {
       const view = () => h.host.render();
       find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
       if (failure.fixed) {
-        find(view(), 'button', props => text(props.children).startsWith('I know where to go')).props.onClick();
         find(view(), 'AirportField', props => props.label === 'To?').props.onChange({ iata: 'FCO', city: 'Rome', name: 'Rome Airport', country: 'Italy', countryCode: 'IT' });
         h.respondGeneration({ data: { summary: 'Original fixed plan', routes: [route] } });
       }
@@ -592,10 +594,9 @@ test('Choosing a ready route records its displayed duration without rewriting al
 });
 
 test('Fixed-target mode requires a destination, preserves it on a mismatched response, and saves itinerary edits', async () => {
-  const h = plannerHarness({ seeded: false });
+  const h = plannerHarness({ seeded: false, placeName: 'Bodrum' });
   try {
     const view = () => h.host.render();
-    find(view(), 'button', props => text(props.children).startsWith('I know where to go')).props.onClick();
     find(view(), 'AirportField', props => props.label === 'From?').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport', country: 'Türkiye', countryCode: 'TR' });
     assert.equal(button(view(), 'Create Route').props.disabled, false);
     button(view(), 'Create Route').props.onClick();

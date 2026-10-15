@@ -1,19 +1,19 @@
 #root { min-height: 100vh; min-height: 100dvh; }
 .app-shell { min-height: 100vh; min-height: 100dvh; padding-bottom: calc(96px + env(safe-area-inset-bottom)); background: var(--theme-page, #fff); }
-.animated-splash { position: fixed; inset: 0; z-index: 300; min-height: 100vh; min-height: 100dvh; padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; isolation: isolate; overflow: hidden; color: #fff; background: #2352c4; opacity: 1; transition: opacity .36s ease,transform .36s ease; }
+.animated-splash { position: fixed; inset: 0; z-index: 300; min-height: 100vh; min-height: 100dvh; padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom); display: flex; flex-direction: column; align-items: center; justify-content: flex-end; isolation: isolate; overflow: hidden; color: #fff; background: #2352c4; opacity: 1; transition: opacity .18s ease,transform .18s ease; }
 .animated-splash.leaving { opacity: 0; transform: scale(1.012); }
 .animated-splash-media { position: absolute; z-index: -3; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; background: #2352c4; }
 .animated-splash-scrim { position: absolute; z-index: -2; inset: 0; background: linear-gradient(180deg,rgba(35,82,196,.02) 0%,transparent 50%,rgba(24,59,145,.12) 67%,rgba(24,59,145,.9) 92%,#183b91 100%); pointer-events: none; }
 .animated-splash-static { position: absolute; z-index: -1; left: 50%; top: 45%; width: clamp(112px,33vw,154px); aspect-ratio: 1; border-radius: 29%; object-fit: cover; box-shadow: 0 24px 65px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.17); transform: translate(-50%,-50%); }
-.animated-splash-copy { width: 100%; padding-bottom: max(34px,calc(env(safe-area-inset-bottom) + 22px)); display: grid; justify-items: center; text-align: center; filter: drop-shadow(0 4px 14px rgba(0,0,0,.28)); animation: splash-copy-in .65s .16s ease-out both; }
+.animated-splash-copy { width: 100%; padding-bottom: max(34px,calc(env(safe-area-inset-bottom) + 22px)); display: grid; justify-items: center; text-align: center; filter: drop-shadow(0 4px 14px rgba(0,0,0,.28)); }
 .animated-splash-brand { font-size: clamp(28px,8vw,38px); font-weight: 900; letter-spacing: -.06em; }
 .animated-splash-brand strong { margin: 0 2px; color: var(--gold); font-size: 1.28em; line-height: 0; }
 .animated-splash-copy p { margin: 5px 0 0; color: rgba(255,255,255,.76); font-size: clamp(11px,3.2vw,14px); font-weight: 650; letter-spacing: .015em; }
 .animated-splash-line { position: relative; width: min(45vw,178px); height: 3px; margin-top: 17px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.16); }
-.animated-splash-line::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg,var(--gold),#ffe7a4); transform: scaleX(0); transform-origin: left; animation: splash-progress 3.45s .18s cubic-bezier(.18,.76,.25,1) both; }
-@keyframes splash-copy-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes splash-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.animated-splash-line::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg,var(--gold),#ffe7a4); }
 @media (prefers-reduced-motion: reduce) {
+  .animated-splash { transition: none; }
+  .animated-splash.leaving { transform: none; }
   .animated-splash-copy,.animated-splash-line::after { animation: none; }
   .animated-splash-line::after { transform: scaleX(1); }
 }

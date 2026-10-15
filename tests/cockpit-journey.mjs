@@ -89,6 +89,19 @@ test('Journey storage enforces ownership, protects concurrent changes, and casca
     await db.exec('reset role');
     const saved = (await db.query('select route_snapshot from trip_journey_details')).rows[0].route_snapshot;
     assert.equal(saved.route.name, 'Changed copy');
+    const model = harness().load('mobile/src/lib/mapJourney.ts');
+    const map = model.createMapJourney({ city: 'Roma', center: { latitude: 41.9, longitude: 12.5 }, dayCount: 3 });
+    const source = model.mapJourneyToSavedRoute(map);
+    const structured = harness().load('mobile/src/lib/routeCockpitIntent.ts').createRouteCockpitIntent(source, 0, owner);
+    structured.dates = intent().dates;
+    await db.exec('set role authenticated'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [owner]);
+    await db.query('update trip_journey_details set route_snapshot=$1 where trip_id=$2', [JSON.stringify(structured), tripId]);
+    const roundTrip = (await db.query('select route_snapshot from trip_journey_details')).rows[0].route_snapshot;
+    assert.equal(roundTrip.route.country, '', 'Unknown country must remain empty; the trip form collects it');
+    assert.deepEqual(roundTrip.route.mapJourney, JSON.parse(JSON.stringify(map)));
+    await db.query("select set_config('request.jwt.claim.sub',$1,false)", [other]);
+    assert.equal((await db.query('select route_snapshot from trip_journey_details')).rows.length, 0);
+    await db.exec('reset role');
     await db.query('delete from trips where id=$1', [tripId]);
     assert.equal((await db.query('select * from trip_journey_details')).rows.length, 0);
   } finally { await db.close(); }
