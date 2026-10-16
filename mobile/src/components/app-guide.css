@@ -1,0 +1,10 @@
+.sheet:has(>.app-guide-card) { position:relative; }
+.app-guide-card { z-index:140; padding:15px; border:1px solid var(--theme-border,#c9dcf1); border-radius:20px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173657); box-shadow:0 12px 36px #092b5133; text-align:left; font-size:13px; line-height:1.5; }
+.app-guide-heading { display:flex; gap:8px; align-items:center; font-size:14px; }
+.app-guide-heading svg { flex:none; color:var(--theme-link,#0875e7); }
+.app-guide-card p { margin:8px 0 12px; color:var(--theme-muted,#62718a); }
+.app-guide-actions { display:flex; justify-content:space-between; gap:8px; }
+.app-guide-actions button { min-height:40px; border:0; border-radius:12px; padding:8px 12px; background:transparent; color:inherit; font-size:12px; font-weight:700; }
+.app-guide-actions .app-guide-next { display:flex; align-items:center; gap:7px; color:#102744; background:#ffdf20; }
+.app-guide-target { outline:3px solid #2e91ee!important; outline-offset:4px; }
+.app-guide-actions button:focus-visible { outline:3px solid var(--theme-link,#0875e7); outline-offset:2px; }

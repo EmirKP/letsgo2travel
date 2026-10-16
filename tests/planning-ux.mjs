@@ -246,6 +246,38 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
 
+test('New route entry opens the map survey directly and explicit reopen preserves the alternative planner draft', () => {
+  const h = plannerHarness({ seeded: false });
+  try {
+    let view = h.host.render();
+    assert.ok(find(view, 'Sheet', props => props.title === 'Plan on the map'));
+    assert.equal(find(view, 'div', props => props.id === 'planner-alternative-options').props.hidden, true);
+    find(view, 'Sheet').props.onClose();
+    view = h.host.render();
+    assert.equal(find(view, 'Sheet'), undefined);
+    button(view, 'Help me choose a destination').props.onClick();
+    view = h.host.render();
+    assert.equal(find(view, 'div', props => props.id === 'planner-alternative-options').props.hidden, false);
+    find(view, 'AirportField').props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul Airport' });
+    view = h.host.render({ mapRequestId: 1 });
+    assert.ok(find(view, 'Sheet', props => props.title === 'Plan on the map'));
+    find(view, 'Sheet').props.onClose();
+    view = h.host.render({ mapRequestId: 1 });
+    assert.equal(find(view, 'Sheet'), undefined, 'Ordinary rerenders cannot reopen a dismissed survey');
+    assert.equal(find(view, 'AirportField').props.value.city, 'Istanbul');
+  } finally { h.host.dispose(); }
+});
+
+test('Selecting a ready destination closes the new-route overlay and keeps that destination actionable', () => {
+  const h = plannerHarness({ seeded: false });
+  try {
+    const view = h.host.render({ surpriseRoute: route, routeSeedKind: 'explore' });
+    assert.equal(find(view, 'Sheet'), undefined);
+    assert.ok(selected(view));
+    assert.ok(button(view, 'Save this plan'));
+  } finally { h.host.dispose(); }
+});
+
 function deferredGeneration() {
   let resolve, reject;
   const promise = new Promise((success, failure) => { resolve = success; reject = failure; });

@@ -12,7 +12,7 @@ const selectors: Record<JourneyDiscoveryGroup, string[]> = {
   food: ['[amenity~"^(cafe|restaurant|fast_food|ice_cream)$"]', '[shop~"^(bakery|pastry|confectionery|chocolate)$"]'],
   shopping: ['[shop~"^(boutique|clothes|craft|gift|souvenir|supermarket|convenience|variety_store)$"]', '[craft~"^(pottery|jeweller|handicraft)$"]', '[amenity=marketplace]'],
   culture: ['[tourism~"^(museum|attraction)$"]', '[historic~"^(monument|memorial|castle|ruins|archaeological_site|palace)$"]', '[artwork_type=statue]', '[place=square]'],
-  nature: ['[leisure~"^(park|garden|nature_reserve)$"]', '[tourism=viewpoint]'],
+  nature: ['[leisure~"^(park|garden|nature_reserve)$"]', '[tourism=viewpoint]', '[natural=beach]'],
   essentials: ['[amenity~"^(hospital|pharmacy|police|atm|bureau_de_change|toilets)$"]', '[internet_access=wlan]'],
 };
 const clean = (value: unknown, max = 180): string => typeof value === 'string'
@@ -50,6 +50,7 @@ function discoveryKind(tags: Record<string, unknown>, group: JourneyDiscoveryGro
     if (amenity === 'marketplace' || ['supermarket', 'convenience', 'variety_store'].includes(String(shop))) return 'market';
   }
   if (group === 'nature') {
+    if (tags.natural === 'beach') return 'beach';
     if (leisure === 'garden') return 'garden';
     if (leisure === 'park' || leisure === 'nature_reserve') return 'park';
     if (tourism === 'viewpoint') return 'viewpoint';

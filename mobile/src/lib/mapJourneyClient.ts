@@ -83,7 +83,7 @@ const recent = (value: unknown, age: number, now = Date.now()): value is string 
 const categories = new Set([...NEEDS, ...TOURING, ...DISCOVERY]);
 const discoveryCategories: Record<DiscoveryGroup, readonly string[]> = {
   food: ['cafe', 'bakery', 'restaurant', 'sweets'], shopping: ['boutique', 'craft', 'gift', 'market', 'store'],
-  nature: ['park', 'garden', 'viewpoint'], culture: TOURING, essentials: NEEDS,
+  nature: ['park', 'garden', 'viewpoint', 'beach', 'hiking'], culture: TOURING, essentials: NEEDS,
 };
 const validGroup = (value: unknown): value is DiscoveryGroup => typeof value === 'string' && Object.prototype.hasOwnProperty.call(discoveryCategories, value);
 const osmId = (value: unknown): value is string => text(value, 64) && /^(node|way|relation)\/[1-9]\d*$/.test(value)
@@ -208,7 +208,7 @@ export async function searchJourneyArea(query: string, signal?: AbortSignal, loc
 
 export async function discoverJourneyPlaces(center:Coordinates, category:DiscoveryGroup, signal?:AbortSignal) {
   if (!coordinates(center) || !validGroup(category)) throw new Error('invalid-area');
-  const result = await requestJson<unknown>('/api/travel-assistant/discover', {method:'POST',body:{...center,category},signal,timeoutMs:32000});
+  const result = await requestJson<unknown>('/api/travel-assistant/discover', {method:'POST',body:{...center,category,placeCategoryVersion:2},signal,timeoutMs:32000});
   return validateDiscoveryResponse(result, center, category);
 }
 export async function loadWalkingRoute(stops:Coordinates[], signal?:AbortSignal) {

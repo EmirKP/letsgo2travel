@@ -2,6 +2,7 @@ import { ApiError, requestJson } from "./api";
 import { config } from "./config";
 import { validateBudgetCockpitIntent, type BudgetCockpitIntent } from "./budgetCockpitIntent";
 import { validateRouteCockpitIntent, type RouteCockpitIntent } from "./routeCockpitIntent";
+import { decodeStoredMapJourney, encodeStoredMapJourney } from "./mapJourney";
 
 export type CockpitJourneyIntent = RouteCockpitIntent | BudgetCockpitIntent;
 export type CockpitJourneyDetails = { tripId: string; ownerId: string; route: RouteCockpitIntent | null; budget: BudgetCockpitIntent | null; updatedAt: string };
@@ -24,7 +25,11 @@ function parse(row: Row, owner: string, tripId: string): CockpitJourneyDetails {
   if (!row || row.owner_id !== owner || row.trip_id !== tripId || !Number.isFinite(Date.parse(row.updated_at))
     || row.route_snapshot !== null && (!validateRouteCockpitIntent(row.route_snapshot) || row.route_snapshot.ownerId !== owner)
     || row.budget_snapshot !== null && (!validateBudgetCockpitIntent(row.budget_snapshot) || row.budget_snapshot.ownerId !== owner)) throw new ApiError("Invalid saved journey", 502);
-  return { tripId, ownerId: owner, route: row.route_snapshot as RouteCockpitIntent | null, budget: row.budget_snapshot as BudgetCockpitIntent | null, updatedAt: row.updated_at };
+  const route = row.route_snapshot as RouteCockpitIntent | null;
+  const mapJourney = route?.route.mapJourney;
+  const decoded = mapJourney ? decodeStoredMapJourney(mapJourney) : null;
+  if (mapJourney && !decoded) throw new ApiError("Invalid saved journey", 502);
+  return { tripId, ownerId: owner, route: route && decoded ? { ...route, route: { ...route.route, mapJourney: decoded } } : route, budget: row.budget_snapshot as BudgetCockpitIntent | null, updatedAt: row.updated_at };
 }
 export async function readCockpitJourney(owner: string, tripId: string, token: string, signal?: AbortSignal) {
   const rows = await requestJson<Row[]>(url(owner, tripId), { headers: headers(token), signal });
@@ -34,12 +39,15 @@ export async function readCockpitJourney(owner: string, tripId: string, token: s
 export async function saveCockpitJourney(owner: string, tripId: string, token: string, intent: CockpitJourneyIntent, previous: CockpitJourneyDetails | null) {
   if (!validJourneyIntent(intent, owner) || intent.kind === "saved-route" && !intent.dates
     || previous && (previous.ownerId !== owner || previous.tripId !== tripId || !Number.isFinite(Date.parse(previous.updatedAt)))) throw new ApiError("Invalid journey", 400);
+  const storedIntent = intent.kind === "saved-route" && intent.route.mapJourney
+    ? { ...intent, route: { ...intent.route, mapJourney: encodeStoredMapJourney(intent.route.mapJourney) } } : intent;
+  if (!validJourneyIntent(storedIntent, owner)) throw new ApiError("Invalid journey", 400);
   const column = intent.kind === "saved-route" ? "route_snapshot" : "budget_snapshot";
   let rows: Row[];
   try {
     rows = await requestJson<Row[]>(url(owner, tripId, previous?.updatedAt), {
       method: previous ? "PATCH" : "POST", headers: headers(token),
-      body: { ...(!previous ? { trip_id: tripId, owner_id: owner } : {}), [column]: intent },
+      body: { ...(!previous ? { trip_id: tripId, owner_id: owner } : {}), [column]: storedIntent },
     });
   } catch (error) {
     // PostgREST may return a serialization/deadlock SQLSTATE as 500. Expose the

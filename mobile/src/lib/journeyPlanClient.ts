@@ -13,7 +13,7 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{1
 async function recoveryOperation(input: JourneyPlanRequest, token: string, ownerId: string | null) {
   // Persist only an opaque operation ID and digest, never tokens or travel notes.
   const canonical = JSON.stringify([input.destination.name,input.destination.latitude,input.destination.longitude,input.destination.sourceUrl ?? null,
-    input.dayCount,input.startDate ?? null,input.locale,input.party,input.budget,input.pace,input.walking,input.interests,input.notes]);
+    input.dayCount,input.startDate ?? null,input.firstDayStartTime ?? null,input.locale,input.party,input.budget,input.pace,input.walking,input.interests,input.notes,input.placeCategoryVersion ?? null]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2,'0')).join('');
   const storageKey = token && !ownerId ? null : `l2t.mobile.journey-operation.v1.${encodeURIComponent(ownerId || 'guest')}`;
@@ -51,6 +51,7 @@ export function validateJourneyPlanResponse(raw:unknown, request:JourneyPlanRequ
   const expectedDate=request.startDate || null;
   if (!center || center.latitude!==request.destination.latitude || center.longitude!==request.destination.longitude
     || destination.name!==request.destination.name || destination.sourceUrl!==request.destination.sourceUrl || value.dayCount!==request.dayCount || value.startDate!==expectedDate
+    || (value.firstDayStartTime ?? null)!==(request.firstDayStartTime || null)
     || value.locale!==request.locale || value.generatedBy!=='ai' || !Array.isArray(value.days) || value.days.length!==request.dayCount) throw new Error('invalid-plan');
   const prefs=record(value.preferences);
   for(const key of ['party','budget','pace','walking','notes'] as const) if(prefs[key]!==request[key])throw new Error('plan-mismatch');
@@ -75,16 +76,17 @@ export function validateJourneyPlanResponse(raw:unknown, request:JourneyPlanRequ
 }
 
 export async function generateJourneyPlan(input:JourneyPlanRequest, accessToken:string, signal:AbortSignal, ownerId:string|null=null):Promise<JourneyPlanResult> {
-  const operation=await recoveryOperation(input,accessToken,ownerId);
+  const request:JourneyPlanRequest={...input,placeCategoryVersion:2};
+  const operation=await recoveryOperation(request,accessToken,ownerId);
   const deadline=Date.now()+55_000;
   for (;;) {
     signal.throwIfAborted();
     try {
       const raw=await requestJson<unknown>('/api/travel-assistant/journey-plan',{
-        method:'POST',body:input,headers:{...(accessToken?{Authorization:`Bearer ${accessToken}`}:{ }), 'Idempotency-Key':operation.id},
+        method:'POST',body:request,headers:{...(accessToken?{Authorization:`Bearer ${accessToken}`}:{ }), 'Idempotency-Key':operation.id},
         signal,timeoutMs:Math.max(1,deadline-Date.now()),
       });
-      const result=validateJourneyPlanResponse(raw,input);operation.clear();return result;
+      const result=validateJourneyPlanResponse(raw,request);operation.clear();return result;
     } catch(error) {
       const code=record(error).code;
       if(code==='plan_expired'||code==='plan_conflict')operation.clear();
@@ -98,7 +100,7 @@ export async function generateJourneyPlan(input:JourneyPlanRequest, accessToken:
 
 export function journeyFromAiPlan(result:JourneyPlanResult):MapJourney {
   let journey=createMapJourney({city:result.destination.name,center:result.destination,dayCount:result.dayCount,
-    startDate:result.startDate,pace:result.preferences.pace,interests:result.preferences.interests});
+    startDate:result.startDate,firstDayStartTime:result.firstDayStartTime,pace:result.preferences.pace,interests:result.preferences.interests});
   for(const day of result.days)for(const stop of day.stops) {
     journey=addJourneyStop(journey,stop.place,day.day,{durationMinutes:stop.durationMinutes,note:stop.reason,sourceUrl:stop.place.sourceUrl});
   }

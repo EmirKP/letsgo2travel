@@ -7,6 +7,7 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, moduleTypes: { '**': 'cjs' }, compilerOptions: { module: 'CommonJS', moduleResolution: 'node' } });
 const model = require('../mobile/src/lib/mapJourney.ts');
+const build72 = require('./fixtures/map-journey-build72.ts');
 function place(number = 1, overrides = {}) {
   return { id: `node/${number}`, name: `Rome place ${number}`, category: 'boutique', group: 'shopping', kind: 'boutique',
     latitude: 41.9 + number / 10000, longitude: 12.5 + number / 10000, hours: null, address: 'Rome', website: null,
@@ -14,6 +15,16 @@ function place(number = 1, overrides = {}) {
     sourceUrl: `https://www.openstreetmap.org/node/${number}`, fetchedAt: new Date().toISOString(), ...overrides };
 }
 function create(overrides = {}) { return model.createMapJourney({ city: 'Roma', center: { latitude: 41.9028, longitude: 12.4964 }, dayCount: 3, startDate: '2026-10-13', ...overrides }); }
+function expandedJourney() {
+  let journey = create({ dayCount: 2, firstDayStartTime: '14:30', interests: ['city', 'sea', 'adventure', 'food'] });
+  journey = model.addJourneyStop(journey, place(91, { name: 'Actual beach', category: 'beach', kind: 'beach', group: 'nature' }), 1, { fixedTime: '15:30', note: 'Keep my note' });
+  journey = model.addJourneyStop(journey, place(92, { name: 'Actual trail', category: 'hiking', kind: 'hiking', group: 'nature' }), 2);
+  journey.planning = { preferences: { party: 'solo', budget: 'moderate', pace: 'balanced', walking: 'standard', interests: [...journey.interests], notes: 'Coast and trails' },
+    locale: 'en', summary: 'A coastal itinerary', limitations: [], fetchedAt: journey.createdAt, attribution: 'OpenStreetMap', generatedBy: 'ai',
+    days: [{ day: 1, theme: 'Coast', explanation: 'Sea views' }, { day: 2, theme: 'Nature', explanation: 'Walking outdoors' }] };
+  assert.equal(model.validateMapJourney(journey), true);
+  return journey;
+}
 function leg(from, to, overrides = {}) { return { fromId: from.id, toId: to.id, mode: 'walking', durationMinutes: 12, sourceUrl: 'https://openrouteservice.org/', fetchedAt: new Date().toISOString(), ...overrides }; }
 function harness() {
   const data = new Map(); let failRead = false, failWrite = false;
@@ -176,6 +187,76 @@ test('Saved route integration preserves legacy records; account writes are queue
   assert.equal(h.storage.readMapJourneys('accounta').items.length, 0);
 });
 
+test('New coastal plans remain readable beside existing plans in the frozen build72 library, without changing account scope', () => {
+  const h = harness(), owner = 'account-a';
+  const existing = model.addJourneyStop(create(), place(), 2), expanded = expandedJourney(), original = structuredClone(expanded);
+  const rawIncompatible = model.mapJourneyToSavedRoute(expanded);
+  rawIncompatible.plan.routes[0].mapJourney = expanded;
+  assert.equal(build72.validateMapJourney(expanded), false);
+  assert.throws(() => build72.inspectSavedRoutes([model.mapJourneyToSavedRoute(existing), rawIncompatible]), /corrupt/,
+    'One incompatible map really does reject the old reader’s whole map library');
+  h.storage.saveMapJourney(existing, owner);
+  h.storage.saveMapJourney(expanded, owner);
+  const stored = JSON.parse(h.data.get(`l2t.mobile.saved-routes.v1.user-${owner}`));
+  const queued = JSON.parse(h.data.get(`l2t.mobile.route-outbox.v1.${owner}`));
+  assert.doesNotThrow(() => build72.inspectSavedRoutes(stored));
+  assert.doesNotThrow(() => build72.inspectSavedRoutes(Object.values(queued).map(entry => entry.route)));
+  assert.equal(stored.length, 2);
+  assert.equal(stored[0].id, expanded.id);
+  assert.equal(stored[0].createdAt, expanded.createdAt);
+  assert.equal(stored[0].plan.routes[0].mapJourney.firstDayStartTime, '14:30');
+  assert.deepEqual(h.storage.readMapJourneys(owner).items, [expanded, existing]);
+  assert.deepEqual(h.storage.readMapJourneys('account-b'), { items: [], error: null });
+  assert.deepEqual(expanded, original, 'Serialization cannot alter the current editor');
+  assert.deepEqual(model.encodeStoredMapJourney(stored[0].plan.routes[0].mapJourney), stored[0].plan.routes[0].mapJourney, 'Repeated storage boundaries preserve exact optional detail');
+});
+
+test('Old-client edits retain precise new categories while stale metadata cannot restore removed stops or replaced preferences', () => {
+  const original = expandedJourney(), stored = model.encodeStoredMapJourney(original);
+  stored.stops[0].note = 'Edited by the older app';
+  stored.updatedAt = '2026-10-16T12:00:00.000Z';
+  const reopened = model.decodeStoredMapJourney(stored);
+  assert.equal(reopened.stops[0].place.category, 'beach');
+  assert.equal(reopened.stops[0].note, 'Edited by the older app');
+  assert.equal(reopened.updatedAt, stored.updatedAt);
+  assert.equal(reopened.id, original.id);
+  assert.equal(reopened.createdAt, original.createdAt);
+  assert.deepEqual(reopened.planning.preferences.interests, original.planning.preferences.interests);
+  stored.stops.splice(1, 1);
+  stored.stops[0].place = place(99, { category: 'attraction', kind: 'attraction', group: 'culture' });
+  stored.planning.preferences.interests = ['food'];
+  assert.equal(build72.validateMapJourney(stored), true);
+  const afterOldEdit = model.decodeStoredMapJourney(stored);
+  assert.equal(afterOldEdit.stops.length, 1);
+  assert.equal(afterOldEdit.stops[0].place.id, 'node/99');
+  assert.equal(afterOldEdit.stops[0].place.category, 'attraction');
+  assert.deepEqual(afterOldEdit.planning.preferences.interests, ['food']);
+  assert.equal(model.decodeStoredMapJourney({ ...stored, stops: [{ ...stored.stops[0], place: { ...stored.stops[0].place, category: 'museum' } }] }).stops[0].place.category, 'museum');
+  assert.deepEqual(model.decodeStoredMapJourney(model.encodeStoredMapJourney(afterOldEdit)), afterOldEdit);
+});
+
+test('Malformed optional saved detail cannot invent categories, preferences, or bypass source and coordinate validation', () => {
+  const original = model.encodeStoredMapJourney(expandedJourney());
+  const base = structuredClone(original); delete base.storageDetails;
+  const edits = [
+    detail => { detail.version = 99; },
+    detail => { detail.places[0].category = 'invented'; },
+    detail => { detail.places[0].fallback = 'park'; },
+    detail => { detail.places.push({ ...detail.places[0] }); },
+    detail => { detail.interests.selected = ['sea', 'unknown']; },
+    detail => { detail.interests.fallback = ['food']; },
+  ];
+  for (const edit of edits) {
+    const malformed = structuredClone(original); edit(malformed.storageDetails);
+    assert.equal(build72.validateMapJourney(malformed), true, 'Optional metadata is ignored by the installed build');
+    assert.deepEqual(model.decodeStoredMapJourney(malformed), base, 'Invalid metadata leaves the valid canonical plan readable');
+  }
+  for (const mutation of [j => { j.stops[0].place.sourceUrl = 'javascript:alert(1)'; }, j => { j.stops[0].place.latitude = 100; }, j => { j.version = 2; }]) {
+    const invalid = structuredClone(original); mutation(invalid);
+    assert.equal(model.decodeStoredMapJourney(invalid), null);
+  }
+});
+
 test('Map save passes the real account service validation and round-trips without dropping shop or reservation data', async () => {
   const h = harness(); let remote = []; const sent = [];
   const owner = '10000000-0000-4000-8000-000000000001';
@@ -306,4 +387,37 @@ test('Unsafe URLs, invalid coordinates, duplicated identities and unsupported ve
     value => { value.stops[0].place.sourceUrl = 'https://phishing.invalid'; }, value => { value.stops[0].order = 2; },
     value => { value.startDate = '2026-02-31'; }, value => { value.dayCount = 0; },
   ]) { const broken = structuredClone(j); mutate(broken); assert.equal(model.validateMapJourney(broken), false); }
+});
+
+
+test('Restaurant and café visits already supply a meal or rest, without adjacent automatic breaks', () => {
+  let journey = create({ firstDayStartTime: '11:00' });
+  journey = model.addJourneyStop(journey, place(201), 1, { durationMinutes: 60 });
+  journey = model.addJourneyStop(journey, place(202, { category: 'restaurant', group: 'food' }), 1, { durationMinutes: 90 });
+  journey = model.addJourneyStop(journey, place(203), 1, { durationMinutes: 60 });
+  const schedule = model.scheduleJourneyDay(journey, 1);
+  assert.equal(schedule.breaks.length, 0, 'The restaurant supplies lunch; no extra break immediately before or after it');
+  assert.equal(schedule.stops[2].startMinutes, 13 * 60 + 30);
+  const cafe = model.updateJourneyStop(journey, journey.stops[1].id, { durationMinutes: 30 });
+  cafe.stops[1].place.category = 'cafe';
+  assert.equal(model.scheduleJourneyDay(cafe, 1).breaks.length, 0);
+  let ordinary = create();
+  for (let index = 1; index <= 4; index++) ordinary = model.addJourneyStop(ordinary, place(index), 1, { durationMinutes: 90 });
+  assert.ok(model.scheduleJourneyDay(ordinary, 1).breaks.some(item => item.kind === 'meal'), 'Meals remain reserved when there is no actual food stop');
+});
+
+test('Chosen first-day time survives save/reopen, later days start at nine, and earlier reservations remain flagged', () => {
+  const h = harness();
+  let journey = create({ firstDayStartTime: '15:30' });
+  journey = model.addJourneyStop(journey, place(211), 1);
+  journey = model.addJourneyStop(journey, place(212), 2);
+  assert.equal(model.scheduleJourneyDay(journey, 1).stops[0].startMinutes, 15 * 60 + 30);
+  assert.equal(model.scheduleJourneyDay(journey, 2).stops[0].startMinutes, 9 * 60);
+  h.storage.saveMapJourney(journey);
+  assert.equal(h.storage.readMapJourneys().items[0].firstDayStartTime, '15:30');
+  const conflict = model.updateJourneyStop(journey, journey.stops[0].id, { fixedTime: '10:00' });
+  assert.ok(model.scheduleJourneyDay(conflict, 1).issues.includes('reservation-conflict'));
+  assert.ok(model.scheduleJourneyDay(conflict, 1).issues.includes('outside-day'));
+  for (const invalid of ['24:00', '22:01', '9:30', 930, true]) assert.throws(() => create({ firstDayStartTime: invalid }));
+  assert.equal(model.scheduleJourneyDay(model.addJourneyStop(create(), place(213), 1), 1).stops[0].startMinutes, 540);
 });

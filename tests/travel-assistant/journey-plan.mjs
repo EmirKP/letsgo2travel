@@ -441,3 +441,59 @@ test('SQL quota is atomic, separate for guests/accounts, globally capped and ina
     await db.exec("update public.journey_plan_usage set day = (now() at time zone 'UTC')::date - 1, minute = now() - interval '2 minutes'"); assert.equal(await consume(actor, true), true);
   } finally { await db.close(); }
 });
+
+
+test('First-day start is validated and narrows the AI visit budget without shortening later days', async () => {
+  const { core } = fixture();
+  for (const invalid of ['24:00', '22:01', '9:00', 900, {}]) assert.equal(core.parseJourneyPlanRequest({ ...input, firstDayStartTime: invalid }), null);
+  const late = { ...input, firstDayStartTime: '16:00' };
+  assert.equal(core.parseJourneyPlanRequest(late).firstDayStartTime, '16:00');
+  assert.equal(core.journeyDayVisitBudget(late, 1), 75);
+  assert.equal(core.journeyDayVisitBudget(late, 2), 360);
+  assert.equal(core.inspectJourneyPlanOutput(plan(), late, candidates).issue, 'day_visit_limit');
+  const app = fixture({ ai: call => {
+    const prefs = JSON.parse(call.contents).preferences;
+    assert.equal(prefs.firstDayStartTime, '16:00');
+    const output = plan(); output.days[0].stops.forEach(stop => { stop.durationMinutes = 30; });
+    return { text: JSON.stringify(output) };
+  } });
+  const result = await app.api.POST(request(late));
+  assert.equal(result.status, 200); assert.equal((await result.json()).firstDayStartTime, '16:00');
+});
+
+test('Expanded travel interests retain their meaning while sharing bounded verified discovery groups', () => {
+  const { core } = fixture();
+  for (const interest of ['city', 'sea', 'adventure']) assert.ok(core.parseJourneyPlanRequest({ ...input, interests: [interest] }));
+  assert.equal(core.parseJourneyPlanRequest({ ...input, interests: ['city', 'sea', 'adventure', 'nature', 'food'] }), null);
+  const seaside = { ...candidates[2], name: 'Verified seaside viewpoint', kind: 'viewpoint' };
+  const picked = core.selectJourneyPlanCandidates({ ...input, interests: ['sea'] }, [candidates[2], seaside]);
+  assert.equal(picked.length, 1); assert.equal(picked[0].name, seaside.name);
+  assert.equal(core.selectJourneyPlanCandidates({ ...input, interests: ['sea'] }, [candidates[2]]).length, 0, 'An ordinary inland park never masquerades as sea coverage');
+});
+
+
+test('Legacy plan clients never receive new POI categories; version two opts in before AI selection', async () => {
+  const extra = [
+    { ...venue(5, 'nature'), category: 'beach', kind: 'beach' },
+    { ...venue(6, 'nature'), category: 'hiking', kind: 'hiking' },
+  ];
+  const discover = group => ({ places: [...candidates, ...extra].filter(place => place.group === group), fetchedAt: new Date().toISOString(), attribution: 'Apple Maps' });
+  for (const categoryVersion of [undefined, 2]) {
+    const app = fixture({ discover, ai: call => {
+      const selected = JSON.parse(call.contents).verifiedCandidates;
+      assert.equal(selected.some(place => place.kind === 'beach'), categoryVersion === 2);
+      assert.equal(selected.some(place => place.kind === 'hiking'), categoryVersion === 2);
+      const output = plan();
+      if (categoryVersion === 2) output.days[1].stops.forEach((stop, index) => { stop.placeId = extra[index].id; });
+      return { text: JSON.stringify(output) };
+    } });
+    const response = await app.api.POST(request({ ...input, ...(categoryVersion ? { placeCategoryVersion: categoryVersion } : {}) }));
+    assert.equal(response.status, 200);
+    const result = await response.json(), categories = result.days.flatMap(day => day.stops.map(stop => stop.place.category));
+    assert.deepEqual(categories, categoryVersion ? ['museum', 'museum', 'beach', 'hiking'] : ['museum', 'museum', 'park', 'park']);
+    if (!categoryVersion) assert.deepEqual(clone(app.core.parseJourneyPlanRequest(input)), input, 'The exact old parsed shape keeps old request hashes stable');
+  }
+  const app = fixture();
+  for (const invalid of [null, 1, 3, '2', true, {}]) assert.equal((await app.api.POST(request({ ...input, placeCategoryVersion: invalid }))).status, 400);
+  assert.equal(app.calls.search, 0); assert.equal(app.calls.ai.length, 0);
+});

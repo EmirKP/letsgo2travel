@@ -12,7 +12,7 @@ export type GuideCard = Evidence & {
   country: string; category: 'water' | 'tax-free' | 'hours' | 'law' | 'culture';
   title: Text & { sq?: string }; text: Text & { sq?: string }; status?: 'drinkable' | 'regional' | 'avoid'; validUntil?: string;
 };
-export type PointCategory = 'hospital' | 'pharmacy' | 'police' | 'atm' | 'exchange' | 'toilets' | 'wifi' | 'embassy' | 'museum' | 'statue' | 'monument' | 'historic' | 'stadium' | 'palace' | 'square' | 'viewpoint' | 'attraction' | 'cafe' | 'bakery' | 'restaurant' | 'sweets' | 'boutique' | 'craft' | 'gift' | 'market' | 'store' | 'park' | 'garden';
+export type PointCategory = 'hospital' | 'pharmacy' | 'police' | 'atm' | 'exchange' | 'toilets' | 'wifi' | 'embassy' | 'museum' | 'statue' | 'monument' | 'historic' | 'stadium' | 'palace' | 'square' | 'viewpoint' | 'attraction' | 'cafe' | 'bakery' | 'restaurant' | 'sweets' | 'boutique' | 'craft' | 'gift' | 'market' | 'store' | 'park' | 'garden' | 'beach' | 'hiking';
 export type MapMode = 'needs' | 'explore';
 export type Coordinates = { latitude: number; longitude: number };
 export type Place = Coordinates & {

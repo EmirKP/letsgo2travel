@@ -133,7 +133,7 @@ test('Generation forwards the exact survey, current bearer and cancellation sign
   const api = client(async (path, options) => { calls.push({ path, options }); return response(); });
   const result = await api.generateJourneyPlan(request, 'current-session', controller.signal); assert.equal(result.generatedBy, 'ai');
   assert.equal(calls.length, 1); assert.equal(calls[0].path, '/api/travel-assistant/journey-plan'); assert.equal(calls[0].options.method, 'POST');
-  assert.equal(calls[0].options.body, request); assert.equal(calls[0].options.signal, controller.signal); assert.ok(calls[0].options.timeoutMs<=55_000 && calls[0].options.timeoutMs>54_000);
+  assert.deepEqual(clone(calls[0].options.body), { ...request, placeCategoryVersion: 2 }); assert.equal(calls[0].options.signal, controller.signal); assert.ok(calls[0].options.timeoutMs<=55_000 && calls[0].options.timeoutMs>54_000);
   assert.equal(calls[0].options.headers.Authorization, 'Bearer current-session');
   await api.generateJourneyPlan(request, '', controller.signal); assert.equal('Authorization' in calls[1].options.headers, false);
   let attempts = 0; const failure = new Error('plan_limit');
@@ -164,4 +164,18 @@ test('Confirmed pending generation polls the same operation, while cancellation 
   assert.equal((await api.generateJourneyPlan(request,'',signal)).generatedBy,'ai');assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);
   const controller=new AbortController();let calls=0;
   await assert.rejects(client(async()=>{calls++;controller.abort();throw Object.assign(Error('pending'),{code:'plan_pending'});}).generateJourneyPlan(request,'',controller.signal));assert.equal(calls,1);
+});
+
+
+test('First-day start and expanded interests are checked against the request and persist in the saved schedule', () => {
+  const api = client(), input = { ...request, firstDayStartTime: '15:30', interests: ['city', 'sea', 'adventure', 'nature'] };
+  const result = { ...response(input), firstDayStartTime: input.firstDayStartTime };
+  assert.equal(api.validateJourneyPlanResponse(result, input), result);
+  assert.throws(() => api.validateJourneyPlanResponse({ ...result, firstDayStartTime: '09:00' }, input));
+  assert.throws(() => api.validateJourneyPlanResponse(response(input), input));
+  const journey = api.journeyFromAiPlan(result);
+  assert.equal(journey.firstDayStartTime, '15:30');
+  assert.deepEqual([...journey.planning.preferences.interests], input.interests);
+  assert.equal(model.scheduleJourneyDay(journey, 1).stops[0].startMinutes, 930);
+  assert.equal(model.mapJourneyFromSavedRoute(model.mapJourneyToSavedRoute(journey)).firstDayStartTime, '15:30');
 });

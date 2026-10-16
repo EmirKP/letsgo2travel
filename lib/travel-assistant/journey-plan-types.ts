@@ -1,7 +1,7 @@
 import type { JourneyDiscoveryPlace } from './journey-types';
 
 export type JourneyPlanLocale = 'tr' | 'en' | 'sq';
-export type JourneyPlanInterest = 'culture' | 'food' | 'shopping' | 'nature';
+export type JourneyPlanInterest = 'city' | 'culture' | 'food' | 'shopping' | 'nature' | 'sea' | 'adventure';
 export type JourneyPlanDestination = { name: string; latitude: number; longitude: number; sourceUrl?: string };
 export type JourneyPlanPreferences = {
   party: 'solo' | 'couple' | 'friends' | 'family';
@@ -12,14 +12,16 @@ export type JourneyPlanPreferences = {
   notes: string;
 };
 export type JourneyPlanRequest = JourneyPlanPreferences & {
-  destination: JourneyPlanDestination; dayCount: number; startDate?: string | null; locale: JourneyPlanLocale;
+  /** Opt in to beach/hiking POIs. Omitted by legacy native clients. */
+  placeCategoryVersion?: 2;
+  destination: JourneyPlanDestination; dayCount: number; startDate?: string | null; firstDayStartTime?: string | null; locale: JourneyPlanLocale;
 };
 export type JourneyPlanDay = {
   day: number; theme: string; explanation: string;
   stops: { place: JourneyDiscoveryPlace; reason: string; durationMinutes: number }[];
 };
 export type JourneyPlanResult = {
-  destination: JourneyPlanDestination; dayCount: number; startDate: string | null;
+  destination: JourneyPlanDestination; dayCount: number; startDate: string | null; firstDayStartTime?: string | null;
   preferences: JourneyPlanPreferences; locale: JourneyPlanLocale; summary: string; days: JourneyPlanDay[];
   generatedBy: 'ai'; fetchedAt: string; attribution: string; limitations: string[];
 };

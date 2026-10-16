@@ -22,7 +22,7 @@ function load(path, imports = {}, environment = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const module = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, {
-    Date, Intl, URL, AbortController, requestAnimationFrame: fn => fn(), window:{addEventListener(){},removeEventListener(){}}, ...environment,
+    Error, Date, Intl, URL, AbortController, setTimeout, clearTimeout, requestAnimationFrame: fn => fn(), window:{addEventListener(){},removeEventListener(){}}, ...environment,
   })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name.endsWith('.css')) return {};
@@ -60,7 +60,7 @@ function journey() {
 const response = places => ({ places, center: { latitude: 41.9, longitude: 12.5 }, radius: 2500, limited: false, stale: false, fetchedAt: new Date().toISOString(), attribution: 'OpenStreetMap' });
 const route = (stops, seconds = 300) => ({ profile: 'foot-walking', geometry: { type: 'LineString', coordinates: stops.map(p => [p.longitude, p.latitude]) }, legs: stops.slice(1).map(() => ({ distanceMeters: 400, durationSeconds: seconds })), distanceMeters: 400 * (stops.length - 1), durationSeconds: seconds * (stops.length - 1), fetchedAt: new Date().toISOString(), sourceUrl: 'https://openrouteservice.org/', attribution: 'OpenRouteService' });
 const generated = request => ({
-  destination: request.destination, dayCount: request.dayCount, startDate: request.startDate || null,
+  destination: request.destination, dayCount: request.dayCount, startDate: request.startDate || null, firstDayStartTime: request.firstDayStartTime || null,
   preferences: Object.fromEntries(['party', 'budget', 'pace', 'walking', 'interests', 'notes'].map(key => [key, request[key]])),
   locale: request.locale, summary: `A personal itinerary for ${request.destination.name}.`,
   generatedBy: 'ai', fetchedAt: new Date().toISOString(), attribution: 'Apple Maps', limitations: ['Check visiting hours before travelling.'],
@@ -79,11 +79,17 @@ function fixture(options = {}) {
     useMemo(fn, dependencies) { const i = active.cursor++; if (!active.slots[i] || changed(active.slots[i].dependencies, dependencies)) active.slots[i] = { value: fn(), dependencies }; return active.slots[i].value; },
     useEffect(fn, dependencies) { const fiber = active, i = fiber.cursor++, old = fiber.slots[i]; if (!old || changed(old.dependencies, dependencies)) { fiber.slots[i] = { ...old, dependencies }; effects.push(() => { old?.cleanup?.(); fiber.slots[i].cleanup = fn(); }); } },
   };
-  const calls = { discovery: [], gps: 0, saved: [], synced: [], notices: [], route: [], generation: [] };
+  const calls = { draftClears: [], discovery: [], gps: 0, saved: [], synced: [], notices: [], route: [], generation: [] };
   let locale = options.locale || 'en';
   let savedItems = options.savedItems || [];
+  const localStorageData = new Map();
+  const localStorage = { getItem:key=>localStorageData.get(key)??null, setItem:(key,value)=>localStorageData.set(key,value), removeItem:key=>localStorageData.delete(key) };
+  const draftLib = load('mobile/src/lib/journeySurveyDraft.ts', {}, {window:{localStorage}});
+  const suggestions = load('mobile/src/lib/journeyAreaSuggestions.ts', {'./mapJourneyClient':client, './searchText':searchText, './travelAreas':areas});
   const survey = load('mobile/src/components/JourneySetupSurvey.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, './Icon': { Icon: 'Icon' },
+    './WelcomeArtwork': {WelcomeArtwork:'WelcomeArtwork'}, '../lib/journeySurveyDraft':draftLib, '../lib/journeyAreaSuggestions':suggestions,
+    '../lib/onboardingPreferences': {readWelcomePreferences:()=>({interests:options.welcomeInterests || ['Kültür','Yeme-içme']})},
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) },
     '../lib/mapJourneyClient': { ...client, searchJourneyArea: options.search || (async query => client.knownJourneyArea(query) ? [client.knownJourneyArea(query)] : []) },
   });
@@ -101,7 +107,8 @@ function fixture(options = {}) {
       readMapJourneys: () => ({ items: savedItems, error: null }),
       saveMapJourney: (...args) => { calls.saved.push(args); const result = options.save ? options.save(...args) : { journey: args[0], status: args[1] ? 'queued' : 'device' }; savedItems = [result.journey]; return result; },
     },
-    '../lib/mapJourney': model,
+    '../lib/mapJourney': model, '../lib/id': {createId:()=>`fixture-copy-${++nextId}`},
+    '../lib/journeySurveyDraft':{...draftLib,clearJourneySurveyDraft:(...args)=>{calls.draftClears.push(args);return draftLib.clearJourneySurveyDraft(...args);}},
     '../lib/mapJourneyClient': {
       ...client,
       searchJourneyArea: options.search || (async query => client.knownJourneyArea(query) ? [client.knownJourneyArea(query)] : []),
@@ -109,7 +116,7 @@ function fixture(options = {}) {
       loadWalkingRoute: (...args) => { calls.route.push(args); return options.route ? options.route(...args) : Promise.reject(Object.assign(Error('Unavailable'), { code: 'routing_unavailable' })); },
     },
   }).MapJourneyPlanner;
-  root = Main; props = { ownerId: options.ownerId ?? null, accessToken: options.token || '', initialCity: 'Roma', initialJourney: options.initialJourney, onNotice: value => calls.notices.push(value) };
+  root = Main; props = { ownerId: options.ownerId ?? null, accessToken: options.token || '', initialCity: 'Roma', initialJourney: options.initialJourney, onUpdateTrip: options.updateTrip, onNotice: value => calls.notices.push(value) };
   function resolve(node, path, visited) {
     if (Array.isArray(node)) return node.map((child, index) => resolve(child, `${path}/${child?.key ?? index}`, visited));
     if (!node || typeof node !== 'object') return node;
@@ -121,7 +128,7 @@ function fixture(options = {}) {
       fiber.cursor = 0; active = fiber;
       return resolve(node.type(node.props), `${key}/render`, visited);
     }
-    if (node.props?.ref && !node.props.ref.current) node.props.ref.current = { focus() {}, scrollTop: 0, scrollIntoView() {}, clientHeight: 800, getBoundingClientRect(){return {top:0,left:0,right:390,bottom:800,width:390,height:800};}, querySelector(){return null;}, querySelectorAll(){return [];} };
+    if (node.props?.ref && !node.props.ref.current) node.props.ref.current = { focus() {}, closest: () => null, scrollTop: 0, scrollIntoView() {}, clientHeight: 800, getBoundingClientRect(){return {top:0,left:0,right:390,bottom:800,width:390,height:800};}, querySelector(){return null;}, querySelectorAll(){return [];} };
     return { ...node, props: { ...node.props, children: resolve(node.props?.children, `${path}/children`, visited) } };
   }
   const app = {
@@ -182,18 +189,20 @@ test('Opening the planner asks for a destination without requesting GPS or provi
     assert.match(text(app.tree), /Where would you like to go/);
     assert.equal(app.map,undefined);assert.equal(app.calls.gps,0);assert.equal(app.calls.generation.length,0);assert.equal(app.calls.discovery.length,0);
     app.click('Tokyo');app.submit();
-    app.input('How many days?','2');app.input('Start date','2027-04-15');app.submit();
+    app.input('How many days?','2');app.click('Specific dates');app.input('Start date','2027-04-15');app.input('Start exploring at','14:30');app.submit();
     app.choice('jsv-party','family');app.choice('jsv-budget','economical');app.choice('jsv-pace','relaxed');app.choice('jsv-walking','light');app.submit();
     app.interest('nature');app.input('Anything else you would like?','Quiet mornings and a sunset view.','textarea');
     app.click('Create my AI itinerary');await tick();app.render();
     assert.equal(app.calls.generation.length,1);
+    assert.deepEqual(app.calls.draftClears,[['traveller-a','new']]);
     const [request,token]=app.calls.generation[0];
-    assert.deepEqual(clone(request),{destination:clone(client.knownJourneyArea('Tokyo')),dayCount:2,startDate:'2027-04-15',party:'family',budget:'economical',pace:'relaxed',walking:'light',interests:['culture','food','nature'],notes:'Quiet mornings and a sunset view.',locale:'en'});
+    assert.deepEqual(clone(request),{destination:clone(client.knownJourneyArea('Tokyo')),dayCount:2,startDate:'2027-04-15',firstDayStartTime:'14:30',party:'family',budget:'economical',pace:'relaxed',walking:'light',interests:['culture','food','nature'],notes:'Quiet mornings and a sunset view.',locale:'en'});
     assert.equal(token,'fixture-token');assert.equal(app.map.center.latitude,35.68);assert.equal(app.map.stops.length,4);
     assert.match(text(app.tree),/Explore Tokyo: day 1|Nearby places with time for a break/);
     assert.equal(app.calls.saved.length,0,'Generation is a draft until Save is explicitly chosen');
     app.click('Save');await tick();app.render();
     assert.equal(app.calls.saved[0][0].planning.preferences.walking,'light');
+    assert.equal(app.calls.saved[0][0].firstDayStartTime,'14:30');
     assert.equal(app.calls.saved[0][0].stops[0].note,'Start with a cultural stop.');
   }finally{app.dispose();}
 });
@@ -243,7 +252,7 @@ test('A failed AI replacement preserves the existing plan and survey choices; ex
     assert.deepEqual(clone(app.calls.generation[1][0]),clone(app.calls.generation[0][0]));
     assert.equal(app.map.center.latitude,48.86);assert.equal(app.map.stops.length,4);
     app.click('Change my preferences');
-    assert.equal(field(app.tree,'Destination city').props.value,'Paris');
+    assert.equal(field(app.tree,'Destination').props.value,'Paris');
     app.submit();assert.equal(field(app.tree,'How many days?').props.value,'2');app.submit();
     assert.equal(find(app.tree,'input',p=>p.name==='jsv-party'&&p.value==='friends').props.checked,true);
   }finally{app.dispose();}
@@ -286,7 +295,7 @@ test('Account switches and unmount abort AI work; the previous account cannot po
     pending.resolve(generated(old));await tick();app.render();
     assert.equal(app.map,undefined);assert.match(text(app.tree),/Where would you like to go/);
     assert.doesNotMatch(text(app.tree),/Private family preferences|Tokyo place/);
-    assert.equal(field(app.tree,'Destination city').props.value,'Roma');
+    assert.equal(field(app.tree,'Destination').props.value,'Roma');
   }finally{app.dispose();}
   const hanging=deferred();const departed=fixture({generate:()=>hanging.promise});
   departed.submit();departed.submit();departed.submit();departed.submit();
@@ -635,7 +644,7 @@ test('An immediate area search uses a newly generated or opened Kyoto center bef
       app.click('Create or open another plan');
       if(mode==='saved')app.click('Kyoto2 days');
       else{
-        app.input('Destination city','Kyoto');app.click('Search');await tick();app.render();app.click('Kyoto');
+        app.input('Destination','Kyoto');await new Promise(resolve=>setTimeout(resolve,320));await tick();app.render();app.click('Kyoto');
         app.submit();app.input('How many days?','2');app.submit();app.submit();app.submit();await tick();app.render();
       }
       assert.equal(app.map.center.latitude,kyoto.latitude);
@@ -804,4 +813,45 @@ test('Map opens with a compact dock, its expand button receives taps, and the vi
   assert.equal(button(app.tree,'Expand or collapse itinerary panel').props['aria-expanded'],false);
   await app.click('Close map');assert.equal(closed,1);
   app.dispose();
+});
+
+
+test('A trip map updates explicitly without writing a library copy, while copying remains an independent action', async () => {
+  const writes = [], initial = journey(), app = fixture({ownerId:'trip-owner',initialJourney:initial,updateTrip:async value=>writes.push(value)});
+  try {
+    app.click('Update this trip'); await tick(); app.render();
+    assert.equal(writes.length,1); assert.equal(writes[0].id,initial.id); assert.equal(app.calls.saved.length,0);
+    assert.match(text(app.tree),/Your trip was updated/);
+    assert.ok(nodes(app.tree).find(item=>item.props?.['data-guide']==='journey-saved'));
+    app.click('Save a copy to my plans'); await tick(); app.render();
+    assert.equal(writes.length,1); assert.equal(app.calls.saved.length,1); assert.notEqual(app.calls.saved[0][0].id,initial.id);
+    assert.equal(app.map.stops.length,initial.stops.length);
+    app.click('Update this trip'); await tick(); app.render();
+    assert.equal(writes[1].id,initial.id,'Saving a copy never changes the trip editor target');
+  } finally {app.dispose();}
+});
+
+test('Failed trip update leaves edits open and shows no saved confirmation', async () => {
+  const app = fixture({ownerId:'trip-failure',initialJourney:journey(),updateTrip:async()=>{throw Error('Retry this trip update');}});
+  try {
+    app.click('Update this trip'); await tick(); app.render();
+    assert.match(text(app.tree),/Retry this trip update/);
+    assert.equal(nodes(app.tree).some(item=>item.props?.['data-guide']==='journey-saved'),false);
+    assert.equal(app.calls.saved.length,0); assert.equal(app.map.stops.length,3);
+  } finally {app.dispose();}
+});
+
+test('Opening the canonical saved snapshot restores its genuine beach category before map display and editing', async () => {
+  let initial = model.createMapJourney({city:'Coast',center:{latitude:41.9,longitude:12.5},dayCount:1,firstDayStartTime:'14:30',interests:['sea']});
+  initial = model.addJourneyStop(initial,place(999,'Actual beach','beach',{group:'nature',kind:'beach'}),1);
+  const stored = model.mapJourneyToSavedRoute(initial).plan.routes[0].mapJourney;
+  assert.equal(stored.stops[0].place.category,'attraction');
+  const app = fixture({initialJourney:stored});
+  try {
+    assert.equal(app.map.stops[0].category,'beach');
+    app.click('Save'); await tick(); app.render();
+    assert.equal(app.calls.saved[0][0].stops[0].place.category,'beach');
+    assert.equal(app.calls.saved[0][0].firstDayStartTime,'14:30');
+    assert.equal(stored.stops[0].place.category,'attraction');
+  } finally { app.dispose(); }
 });

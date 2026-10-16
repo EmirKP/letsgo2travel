@@ -179,3 +179,15 @@ test('Apple search uses the shared server-only signed transport and rejected acc
   assert.equal(new URL(calls[3].url).searchParams.get('q'), 'Kyoto & Osaka');
   assert.doesNotMatch(JSON.stringify(result), /signature|PRIVATE KEY/);
 });
+
+
+test('Nature discovery retains verified Apple beach and hiking categories and their source identities', async () => {
+  const h = harness(params => ({ results: params.get('q') === 'parks' ? [row('PARK', 'Park')] : [row('BEACH', 'Beach'), row('TRAIL', 'Hiking')] }));
+  const result = await h.apple.discoverAppleJourneyPlaces(center, 'nature');
+  assert.equal(h.calls.length, 2);
+  assert.ok(h.calls.every(call => call.params.get('includePoiCategories').includes('Beach') && call.params.get('includePoiCategories').includes('Hiking')));
+  assert.deepEqual([...result.places.map(place => place.category)].sort(), ['beach', 'hiking', 'park']);
+  const validated = client().validateDiscoveryResponse(result, center, 'nature');
+  assert.equal(validated.places.length, 3);
+  assert.equal(validated.places.find(place => place.category === 'beach').sourceUrl, 'https://maps.apple.com/place?place-id=BEACH');
+});

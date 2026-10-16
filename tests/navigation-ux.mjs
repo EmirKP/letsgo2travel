@@ -27,7 +27,7 @@ function notificationBadge(view) {
   return nodes(headerButton(view, 'bell')).find(node => node.props?.className === 'notification-badge');
 }
 
-function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true } = {}) {
+function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, pendingWelcome = null } = {}) {
   // Run the real App event handlers. Native services and effects are excluded;
   // React state/ref slots and JSX keys let this catch an accidental remount.
   const slots = []; let cursor = 0;
@@ -46,7 +46,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
       slots[index] = { deps };
       // Execute only the native status-bar effects with their real dependencies.
       // The rest of App's lifecycle would require unrelated native services.
-      if (changed && nativeStatus && effect.toString().includes('"StatusBar"')) effect();
+      if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")))) effect();
     },
     lazy: loader => `Lazy:${loader.toString()}`, Suspense: 'Suspense', Activity: 'Activity',
   };
@@ -54,7 +54,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const theme = { resolved: 'light', preference: 'system' };
   const savedByOwner = new Map();
   const storage = {
-    getMobilePreferences: () => ({ inAppNotifications }), getGuestDataSummary: () => ({ total: 0 }), hasCompletedOnboarding: () => true, hasSeenRelease: () => releaseSeen, markReleaseSeen: id => calls.releaseSeen.push(id),
+    getMobilePreferences: () => ({ inAppNotifications }), getGuestDataSummary: () => ({ total: 0 }), hasCompletedOnboarding: () => onboardingDone, completeOnboarding: () => { onboardingDone = true; }, hasSeenRelease: () => releaseSeen, markReleaseSeen: id => calls.releaseSeen.push(id),
     getSavedRoutePlans: owner => savedByOwner.get(owner || 'guest') || [],
     saveRoutePlan: (item, owner) => savedByOwner.set(owner || 'guest', [item, ...storage.getSavedRoutePlans(owner).filter(saved => saved.id !== item.id)]),
     deleteRoutePlan: (id, owner) => savedByOwner.set(owner || 'guest', storage.getSavedRoutePlans(owner).filter(saved => saved.id !== id)),
@@ -62,7 +62,14 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const inspirationModule = { exports: {} };
   const inspirationCode = ts.transpileModule(readFileSync(new URL('../mobile/src/lib/inspirationRoutes.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${inspirationCode}\n})`, { Date })(name => name === './storage' ? storage : { createId: () => 'fixture-generation' }, inspirationModule, inspirationModule.exports);
+  const guideStore = new Map();
+  const guideStorage = { getItem: key => guideStore.get(key) || null, setItem: (key,value) => guideStore.set(key,value), removeItem: key => guideStore.delete(key) };
+  const guideModule = { exports: {} };
+  const guideCode = ts.transpileModule(readFileSync('mobile/src/lib/appGuide.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${guideCode}\n})`,{window:{localStorage:guideStorage,sessionStorage:guideStorage}})(()=>({}),guideModule,guideModule.exports);
+  if (pendingWelcome) guideModule.exports.rememberWelcomeDestination(pendingWelcome);
   const imports = {
+    './lib/appGuide': guideModule.exports,
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'react-dom': { createPortal: value => value },
     './hooks/useAuth': { useAuth: () => auth },
@@ -99,7 +106,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const bottomButton = (view, label) => nodes(nodes(view).find(node => node.type === 'nav' && node.props.className === 'bottom-nav')).find(node => node.type === 'button' && text(node.props.children) === label);
   const screen = (view, name) => nodes(view).find(node => typeof node.type === 'string' && (node.type === name || (node.type.startsWith('Lazy:') && node.type.includes(name))));
   const plannerPane = view => nodes(view).find(node => node.type === 'NavigationPane' && planner(node));
-  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner };
+  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner, guide: guideModule.exports };
 }
 
 test('Planner preserves its draft across menu reselect and home shortcut round trips without duplicate history', () => {
@@ -578,4 +585,35 @@ for(const refresh of ['token rotation','Activity return'])for(const succeeds of 
  assert.equal(h.favorites.some(item=>item.alpha3===saved),succeeds);
  if(succeeds)assert.ok(h.profileWrites[0][1].wishlistCountries.every(id=>h.profileWrites[1][1].wishlistCountries.includes(id)),'The next full wishlist write preserves the first successful save');
  h.dispose();
+});
+
+
+test('Explicit route entries reopen the survey while seeded routes and ordinary back retain their own flow',()=>{
+  const h=appHarness({initialView:'home'});let view=h.render();
+  h.screen(view,'HomeScreen').props.onNavigate('route');view=h.render();assert.equal(h.planner(view).props.mapRequestId,1);
+  h.bottomButton(view,'Planlar').props.onClick();view=h.render();h.screen(view,'PlansScreen').props.onNavigate('route');view=h.render();assert.equal(h.planner(view).props.mapRequestId,2);
+  h.bottomButton(view,'Keşfet').props.onClick();view=h.render();
+  const seed={id:'rome',destinationCode:'FCO'};h.screen(view,'HomeScreen').props.onBuildRoute(seed);view=h.render();
+  assert.equal(h.planner(view).props.mapRequestId,2);assert.equal(h.planner(view).props.surpriseRoute,seed);
+});
+
+test('First-use sign-in hands off to the existing account sheet and resumes the selected intent after auth',()=>{
+  const h=appHarness({initialView:'home',onboardingDone:false,runWelcomeEffects:true});let view=h.render();
+  const setup=h.screen(view,'Onboarding');assert.equal(setup.props.signedIn,false);setup.props.onComplete('route');view=h.render();
+  assert.equal(h.screen(view,'Onboarding'),undefined);assert.ok(h.screen(view,'AccountSheet'));assert.equal(h.guide.readWelcomeDestination(),'route');
+  assert.equal(h.calls.history.length,0,'Login is presented before destination navigation');
+  h.auth.user={id:'new-member',user_metadata:{full_name:'Test Traveller'}};view=h.render();view=h.render();
+  assert.ok(h.screen(view,'AccountSheet'),'Incomplete signup remains in the real profile completion flow');
+  h.auth.user={id:'new-member',user_metadata:{full_name:'Test Traveller',username:'test_traveller'}};view=h.render();view=h.render();
+  assert.equal(h.screen(view,'AccountSheet'),undefined);assert.equal(h.guide.readWelcomeDestination(),null);assert.ok(h.planner(view));
+  assert.equal(h.guide.readGuideProgress().active,true);
+});
+
+test('A returned auth redirect retains the destination and guest dismissal also keeps setup preferences',()=>{
+  const h=appHarness({initialView:'home',pendingWelcome:'companion'});let view=h.render();
+  assert.ok(h.screen(view,'AccountSheet'));h.screen(view,'AccountSheet').props.onClose();view=h.render();
+  assert.ok(h.screen(view,'TravelCompanionScreen'));assert.equal(h.guide.readWelcomeDestination(),null);assert.equal(h.guide.readGuideProgress().active,true);
+  h.bottomButton(view,'Profil').props.onClick();view=h.render();h.screen(view,'ProfileScreen').props.onOpenOnboarding();view=h.render();
+  assert.equal(h.screen(view,'Onboarding'),undefined,'Reopening the tour does not rerun preference questions');
+  assert.ok(h.planner(view));assert.equal(h.screen(view,'AppGuide').props.active,true);
 });

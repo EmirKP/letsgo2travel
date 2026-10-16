@@ -58,7 +58,7 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '' }: {
+export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
   surpriseRoute?: RouteSuggestion | null;
@@ -66,9 +66,18 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   ownerId?: string | null;
   accessToken: string;
   placeName?: string;
+  mapRequestId?: number;
 }) {
   const { copy, locale } = useI18n();
-  const [mapPlannerOpen, setMapPlannerOpen] = useState(false);
+  const [mapPlannerOpen, setMapPlannerOpen] = useState(!surpriseRoute);
+  const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const appliedMapRequest = useRef(mapRequestId);
+
+  useEffect(() => {
+    if (appliedMapRequest.current === mapRequestId) return;
+    appliedMapRequest.current = mapRequestId;
+    if (mapRequestId > 0) setMapPlannerOpen(true);
+  }, [mapRequestId]);
   const passport = usePassportPreference();
   const selectedPassport = { passportCountry: passport.country, passportType: passport.type };
   const [form, setForm] = useState<PlannerInput>(() => withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
@@ -155,6 +164,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     // once so returning does not discard edits, save state or expanded days.
     if (!surpriseRoute || appliedSeed.current === surpriseRoute) return;
     appliedSeed.current = surpriseRoute;
+    setMapPlannerOpen(false);
     supersedeGeneration();
     setPlan({ summary: routeSeedKind === "explore" ? copy("Keşfettiğin rota için ayrıntılı plan.", "A detailed plan for the route you discovered.") : copy("Sana sürpriz olarak seçtiğimiz rota.", "The surprise route we picked for you."), routes: [surpriseRoute] });
     setPlanInput(snapshotPlannerInput({ ...form, ...selectedPassport, dayCount: undefined, days: surpriseRoute.idealDuration }));
@@ -313,6 +323,16 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
       {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
+      {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
+        <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>
+          <TravelToolArtwork kind="explore" size={60}/><span><strong>{copy("Rotamı planla", "Plan my itinerary", "Planifiko itinerarin tim")}</strong><small>{copy("Gideceğin yeri seç; gün gün planını haritada oluştur.", "Choose a destination and plan each day on the map.", "Zgjidh destinacionin dhe planifiko çdo ditë në hartë.")}</small></span><Icon name="chevron" size={20}/>
+        </button>
+        <div className="planner-start-options">
+          <button type="button" aria-expanded={discoveryOpen && plannerTab !== "ready"} onClick={() => { setDiscoveryOpen(true); selectPlannerTab("plan"); }}>{copy("Nereye gideceğime karar vermedim", "Help me choose a destination", "Më ndihmo të zgjedh destinacionin")}</button>
+          <button type="button" aria-expanded={discoveryOpen && plannerTab === "ready"} onClick={() => { setDiscoveryOpen(true); selectPlannerTab("ready"); }}>{copy("Hazır rotalara göz at", "Browse ready itineraries", "Shfleto itinerare të gatshme")}</button>
+        </div>
+      </section>}
+
       {selectedRoute && <section className="planner-selected-route" aria-label={copy("Seçili rota", "Selected route")}>
         <span className="planner-selection-eyebrow">{copy("SEÇİLİ ROTAN", "YOUR SELECTED ROUTE")}</span>
         <h2 ref={selectedHeading} tabIndex={-1}>{selectedRoute.name}</h2>
@@ -327,7 +347,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
         {alternativesOpen && <p className="planner-alternatives-note">{copy("Aşağıdaki tercihler yeni destinasyonlar önerir; seçili şehri düzenlemez. Yeni öneri oluşturmak bu ekrandaki planı değiştirir; önce kaydedebilirsin.", "The preferences below suggest new destinations; they do not edit your selected city. Generating new suggestions replaces the plan on this screen, so you can save it first.")}</p>}
       </section>}
 
-      <div id="planner-alternative-options" hidden={!!selectedRoute && !alternativesOpen}>
+      <div id="planner-alternative-options" hidden={selectedRoute ? !alternativesOpen : !discoveryOpen}>
       <div ref={plannerModes} className="editorial-segments planner-modes" role="group" aria-label={copy("Planlama bölümleri", "Planning sections")}>
         {(["plan", "ready", "preferences"] as const).map((tab, index) => <button type="button" key={tab} aria-pressed={plannerTab === tab} onClick={() => selectPlannerTab(tab)}>{[copy("Rota Planı", "Route Plan"), copy("Hazır Rotalar", "Ready Routes"), copy("Tercihlerim", "Preferences")][index]}</button>)}
       </div>

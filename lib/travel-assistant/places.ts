@@ -7,12 +7,13 @@ export const CATEGORY_LABELS: Record<PointCategory, [string, string, string]> = 
   statue: ['Heykel', 'Statue', 'Statujë'], monument: ['Anıt', 'Monument', 'Monument'], historic: ['Tarihi yapı', 'Historic site', 'Vend historik'],
   stadium: ['Stadyum', 'Stadium', 'Stadium'], palace: ['Saray', 'Palace', 'Pallat'], square: ['Meydan', 'Square', 'Shesh'],
   viewpoint: ['Seyir noktası', 'Viewpoint', 'Pikë panoramike'], attraction: ['Turistik nokta', 'Attraction', 'Atraksion turistik'],
+  beach: ['Plaj', 'Beach', 'Plazh'], hiking: ['Yürüyüş parkuru', 'Hiking trail', 'Shteg ecjeje'],
   cafe: ['Kafe', 'Cafe', 'Kafene'], bakery: ['Fırın', 'Bakery', 'Furrë buke'], restaurant: ['Restoran', 'Restaurant', 'Restorant'],
   sweets: ['Tatlıcı', 'Sweets', 'Ëmbëltore'], boutique: ['Butik', 'Boutique', 'Butik'], craft: ['El sanatları', 'Crafts', 'Artizanat'],
   gift: ['Hediyelik', 'Gifts', 'Dhurata'], market: ['Pazar ve market', 'Markets', 'Tregje'], store: ['Mağaza', 'Store', 'Dyqan'], park: ['Park', 'Park', 'Park'], garden: ['Bahçe', 'Garden', 'Kopsht'],
 };
 // Discovery categories are separate from the existing emergency/touring modes.
-export const DISCOVERY: PointCategory[] = ['cafe', 'bakery', 'restaurant', 'sweets', 'boutique', 'craft', 'gift', 'market', 'store', 'park', 'garden'];
+export const DISCOVERY: PointCategory[] = ['cafe', 'bakery', 'restaurant', 'sweets', 'boutique', 'craft', 'gift', 'market', 'store', 'park', 'garden', 'beach', 'hiking'];
 export const NEEDS: PointCategory[] = ['hospital', 'pharmacy', 'police', 'atm', 'exchange', 'toilets', 'wifi', 'embassy'];
 export const TOURING: PointCategory[] = ['museum', 'statue', 'monument', 'historic', 'stadium', 'palace', 'square', 'viewpoint', 'attraction'];
 /** A saved POI must retain its exact provider identity and public source link. */

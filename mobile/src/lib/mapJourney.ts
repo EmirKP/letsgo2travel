@@ -16,7 +16,7 @@ export type JourneyPlanning = Pick<JourneyPlanResult, 'preferences' | 'locale' |
 };
 export type MapJourney = {
   version: 1; id: string; title: string; city: string; center: Coordinates; dayCount: number;
-  startDate: string | null; pace: JourneyPace; interests: string[]; stops: JourneyStop[];
+  startDate: string | null; firstDayStartTime?: string | null; pace: JourneyPace; interests: string[]; stops: JourneyStop[];
   accommodation: (Coordinates & { name: string }) | null; budgetNote: string;
   createdAt: string; updatedAt: string; planning?: JourneyPlanning;
 };
@@ -69,6 +69,7 @@ export function validateMapJourney(value: unknown): value is MapJourney {
   const j = value as MapJourney;
   if (j.version !== 1 || !id(j.id) || !text(j.title, 160) || !j.title.trim() || !text(j.city, 160) || !j.city.trim()
     || !finitePoint(j.center) || !Number.isInteger(j.dayCount) || j.dayCount < 1 || j.dayCount > 14
+    || !(j.firstDayStartTime == null || typeof j.firstDayStartTime === 'string' && timeMinutes(j.firstDayStartTime) !== null && timeMinutes(j.firstDayStartTime)! <= 22 * 60)
     || !(j.startDate === null || dayDate(j.startDate)) || !['relaxed', 'balanced', 'busy'].includes(j.pace)
     || !Array.isArray(j.interests) || j.interests.length > 12 || j.interests.some(i => !text(i, 80))
     || !Array.isArray(j.stops) || j.stops.length > MAX_JOURNEY_STOPS || !iso(j.createdAt) || !iso(j.updatedAt)
@@ -98,11 +99,72 @@ export function validateJourneyPlanning(value: unknown, dayCount:number): value 
     && ['economical','moderate','comfortable'].includes(prefs.budget)
     && ['relaxed','balanced','busy'].includes(prefs.pace) && ['light','standard'].includes(prefs.walking)
     && text(prefs.notes,1000) && Array.isArray(prefs.interests) && prefs.interests.length>=1 && prefs.interests.length<=4
-    && new Set(prefs.interests).size===prefs.interests.length && prefs.interests.every(item=>['culture','food','shopping','nature'].includes(item))
+    && new Set(prefs.interests).size===prefs.interests.length && prefs.interests.every(item=>['city','culture','food','shopping','nature','sea','adventure'].includes(item))
     && Array.isArray(p.limitations) && p.limitations.length<=8 && p.limitations.every(item=>text(item,500))
     && Array.isArray(p.days) && p.days.length===dayCount && p.days.every((day,index)=>day&&day.day===index+1&&text(day.theme,120)&&text(day.explanation,800));
 }
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+type StoredJourneyDetails = {
+  version: 1;
+  places: Array<{ stopId: string; placeId: string; category: 'beach' | 'hiking'; fallback: 'attraction' }>;
+  interests?: { selected: JourneyPlanning['preferences']['interests']; fallback: JourneyPlanning['preferences']['interests'] };
+};
+const legacyInterests = (interests: JourneyPlanning['preferences']['interests']) => [...new Set(interests.map(interest => interest === 'city' ? 'culture' : interest === 'sea' || interest === 'adventure' ? 'nature' : interest))];
+const sameInterests = (left: string[], right: string[]) => left.length === right.length && left.every((item, index) => item === right[index]);
+function validStoredDetails(value: unknown): value is StoredJourneyDetails {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const details = value as StoredJourneyDetails;
+  if (details.version !== 1 || !Array.isArray(details.places) || details.places.length > MAX_JOURNEY_STOPS
+    || new Set(details.places.map(place => place?.stopId)).size !== details.places.length
+    || details.places.some(place => !place || !id(place.stopId) || !id(place.placeId) || place.fallback !== 'attraction' || !['beach', 'hiking'].includes(place.category))) return false;
+  if (details.interests !== undefined) {
+    const { selected, fallback } = details.interests || {};
+    if (!Array.isArray(selected) || selected.length < 1 || selected.length > 4 || new Set(selected).size !== selected.length
+      || selected.some(interest => !['city', 'culture', 'food', 'shopping', 'nature', 'sea', 'adventure'].includes(interest))
+      || !Array.isArray(fallback) || !sameInterests(legacyInterests(selected), fallback)) return false;
+  }
+  return true;
+}
+/** Decode optional detail only against an unchanged, independently valid base document. */
+export function decodeStoredMapJourney(value: unknown): MapJourney | null {
+  if (!validateMapJourney(value)) return null;
+  const journey = copy(value) as MapJourney & { storageDetails?: unknown };
+  const details = journey.storageDetails;
+  delete journey.storageDetails;
+  if (!validStoredDetails(details)) return journey;
+  for (const detail of details.places) {
+    const stop = journey.stops.find(item => item.id === detail.stopId && item.place.id === detail.placeId);
+    // Older versions can remove or replace stops. Metadata must never undo that edit.
+    if (stop?.place.category === detail.fallback) stop.place.category = detail.category;
+  }
+  if (details.interests && journey.planning && sameInterests(journey.planning.preferences.interests, details.interests.fallback)) {
+    journey.planning.preferences.interests = [...details.interests.selected];
+  }
+  return validateMapJourney(journey) ? journey : null;
+}
+/** Keep v1's validated fields readable by installed clients; exact new values are optional metadata. */
+export function encodeStoredMapJourney(value: MapJourney): MapJourney {
+  const journey = decodeStoredMapJourney(value);
+  if (!journey) throw new Error('invalid');
+  const details: StoredJourneyDetails = { version: 1, places: [] };
+  for (const stop of journey.stops) {
+    if (stop.place.category === 'beach' || stop.place.category === 'hiking') {
+      details.places.push({ stopId: stop.id, placeId: stop.place.id, category: stop.place.category, fallback: 'attraction' });
+      stop.place.category = 'attraction';
+    }
+  }
+  if (journey.planning) {
+    const selected = journey.planning.preferences.interests;
+    const fallback = legacyInterests(selected);
+    if (!sameInterests(selected, fallback)) {
+      details.interests = { selected: [...selected], fallback };
+      journey.planning.preferences.interests = fallback;
+    }
+  }
+  const stored: MapJourney & { storageDetails?: StoredJourneyDetails } = journey;
+  if (details.places.length || details.interests) stored.storageDetails = details;
+  return checked(stored);
+}
 function checked(journey: MapJourney) { if (!validateMapJourney(journey)) throw new Error('invalid'); return journey; }
 function changed(journey: MapJourney, stops: JourneyStop[]): MapJourney {
   const result = { ...journey, stops, ...(journey.planning ? {planning:{...journey.planning,edited:true}} : {}), updatedAt: new Date().toISOString() };
@@ -111,11 +173,12 @@ function changed(journey: MapJourney, stops: JourneyStop[]): MapJourney {
 }
 export function createMapJourney(options: {
   city: string; center: Coordinates; dayCount: number; pace?: JourneyPace; interests?: string[];
-  startDate?: string | null; title?: string; accommodation?: MapJourney['accommodation']; budgetNote?: string;
+  startDate?: string | null; firstDayStartTime?: string | null; title?: string; accommodation?: MapJourney['accommodation']; budgetNote?: string;
 }): MapJourney {
   const now = new Date().toISOString();
   return checked({ version: 1, id: `journey-${createId()}`, title: options.title?.trim() || options.city.trim(), city: options.city.trim(),
     center: copy(options.center), dayCount: options.dayCount, startDate: options.startDate || null, pace: options.pace || 'balanced',
+    ...(options.firstDayStartTime ? { firstDayStartTime: options.firstDayStartTime } : {}),
     interests: [...(options.interests || [])], accommodation: copy(options.accommodation || null), budgetNote: options.budgetNote || '',
     stops: [], createdAt: now, updatedAt: now });
 }
@@ -281,8 +344,10 @@ export function scheduleJourneyDay(journey: MapJourney, day: number, legs: Journ
   checked(journey);
   if (!Number.isInteger(day) || day < 1 || day > journey.dayCount) throw new Error('invalid');
   const ordered = journeyDayStops(journey, day), result: JourneySchedule = { stops: [], breaks: [], issues: [] };
-  let clock = 9 * 60, lowerBound = clock, uncertain = false, meal = false;
-  const end = journey.pace === 'relaxed' ? 17 * 60 : journey.pace === 'busy' ? 21 * 60 : 19 * 60;
+  const startsAt = day === 1 && journey.firstDayStartTime ? timeMinutes(journey.firstDayStartTime)! : 9 * 60;
+  let clock = startsAt, lowerBound = clock, uncertain = false, meal = startsAt >= 15 * 60, activeVisits = 0;
+  const normalEnd = journey.pace === 'relaxed' ? 17 * 60 : journey.pace === 'busy' ? 21 * 60 : 19 * 60;
+  const end = Math.min(24 * 60, Math.max(normalEnd, startsAt + 2 * 60));
   const date = journey.startDate ? new Date(Date.parse(journey.startDate) + (day - 1) * 86400000).toISOString().slice(0, 10) : null;
   ordered.forEach((stop, index) => {
     const issues: ScheduleIssue[] = [];
@@ -304,17 +369,26 @@ export function scheduleJourneyDay(journey: MapJourney, day: number, legs: Journ
       else issues.push('closed');
     }
     const startMinutes = clock, endMinutes = clock + stop.durationMinutes;
-    if (startMinutes < 9 * 60 || endMinutes > end) issues.push('outside-day');
+    if (startMinutes < startsAt || endMinutes > end) issues.push('outside-day');
     result.stops.push({ stopId: stop.id, startMinutes, endMinutes, travelMinutes, timing: uncertain ? 'provisional' : 'confirmed', issues });
     // A conflict never makes the next reservation look reachable by travelling back in time.
     lowerBound = Math.max(lowerBound, startMinutes) + stop.durationMinutes;
     clock = Math.max(endMinutes, lowerBound);
-    if (index < ordered.length - 1 && (!meal && clock >= 12 * 60 || (index + 1) % 2 === 0)) {
+    // A restaurant visit already includes the meal; a seated cafe/food visit
+    // also provides rest. Do not charge a second break before or after it.
+    const foodVisit = stop.place.group === 'food' || ['restaurant', 'cafe', 'bakery', 'sweets'].includes(stop.place.category);
+    const mealVisit = stop.place.category === 'restaurant' && stop.durationMinutes >= 30 && endMinutes >= 11 * 60;
+    const next = ordered[index + 1];
+    const nextIsFood = next && (next.place.group === 'food' || ['restaurant', 'cafe', 'bakery', 'sweets'].includes(next.place.category));
+    if (mealVisit) meal = true;
+    activeVisits = foodVisit && stop.durationMinutes >= 15 ? 0 : activeVisits + 1;
+    if (next && !foodVisit && !nextIsFood && (!meal && clock >= 12 * 60 || activeVisits >= 2)) {
       const kind = !meal && clock >= 12 * 60 ? 'meal' : 'rest';
       const durationMinutes = kind === 'meal' ? 45 : journey.pace === 'relaxed' ? 20 : journey.pace === 'busy' ? 10 : 15;
       result.breaks.push({ afterStopId: stop.id, startMinutes: clock, durationMinutes, kind });
       clock += durationMinutes; lowerBound += durationMinutes;
       if (kind === 'meal') meal = true;
+      activeVisits = 0;
     }
   });
   result.issues = [...new Set(result.stops.flatMap(stop => stop.issues))];
@@ -322,7 +396,7 @@ export function scheduleJourneyDay(journey: MapJourney, day: number, legs: Journ
 }
 export function mapJourneyFromSavedRoute(saved: SavedRoutePlan): MapJourney | null {
   const journey = saved.plan?.routes?.find(route => route.mapJourney)?.mapJourney;
-  return validateMapJourney(journey) ? copy(journey) : null;
+  return decodeStoredMapJourney(journey);
 }
 export function mapJourneyToSavedRoute(journey: MapJourney, locale: 'tr' | 'en' | 'sq' = 'tr', previous?: SavedRoutePlan): SavedRoutePlan {
   checked(journey);
@@ -338,5 +412,5 @@ export function mapJourneyToSavedRoute(journey: MapJourney, locale: 'tr' | 'en' 
       why: journey.planning&&!journey.planning.edited ? journey.planning.summary : label('Haritada düzenlediğin günlük program.', 'Your editable daily map itinerary.', 'Programi yt ditor i redaktueshëm në hartë.'),
       visaStatus: 'unknown', estimatedBudget: '', idealDuration: `${journey.dayCount} ${label('gün', 'days', 'ditë')}`,
       bestFor: '', difficulty: '', firstTimeFriendly: false, transportEase: '', safetyNote: '', scores: { budget: 0, visaEase: 0, firstTime: 0, transport: 0, overall: 0 },
-      dailyPlan, warnings: [], mapJourney: copy(journey) }] } };
+      dailyPlan, warnings: [], mapJourney: encodeStoredMapJourney(journey) }] } };
 }

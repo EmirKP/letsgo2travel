@@ -52,6 +52,51 @@ test('Invalid or cross-account saved snapshots fail visibly rather than being sh
   await assert.rejects(() => api.readCockpitJourney(owner, tripId, 'SESSION'), error => error.status === 502);
 });
 
+test('Cockpit persists build72-readable snapshots and restores precise new details without changing owner, budget or compare-and-swap version', async () => {
+  const h = harness(), api = h.load('mobile/src/lib/cockpitJourney.ts'), model = h.load('mobile/src/lib/mapJourney.ts');
+  const old = h.load('tests/fixtures/map-journey-build72.ts'), handoff = h.load('mobile/src/lib/routeCockpitIntent.ts');
+  const budgetApi = h.load('mobile/src/lib/budgetCockpitIntent.ts');
+  const benchmark = h.load('lib/country-intelligence/city-benchmarks.ts').CITY_BENCHMARKS[0];
+  const budget = budgetApi.createBudgetCockpitIntent(benchmark, 2, 1, 'GBP', null, owner);
+  assert.equal(budgetApi.validateBudgetCockpitIntent(budget), true);
+  let journey = model.createMapJourney({ city: 'Coastal town', center: { latitude: 41.9, longitude: 12.5 }, dayCount: 2, firstDayStartTime: '14:30', interests: ['sea', 'adventure'] });
+  journey = model.addJourneyStop(journey, { id: 'node/901', name: 'Real coast', latitude: 41.9, longitude: 12.5, category: 'beach', group: 'nature', kind: 'beach',
+    description: null, hours: null, free: null, accessible: null, website: null, representedCountry: null, fetchedAt: journey.createdAt, sourceUrl: 'https://www.openstreetmap.org/node/901' }, 1);
+  journey.planning = { preferences: { party: 'solo', budget: 'moderate', pace: 'balanced', walking: 'standard', interests: ['sea', 'adventure'], notes: '' },
+    locale: 'en', summary: 'Real coastal places', limitations: [], fetchedAt: journey.createdAt, attribution: 'OpenStreetMap', generatedBy: 'ai',
+    days: [{ day: 1, theme: 'Coast', explanation: 'Beach visit' }, { day: 2, theme: 'Trail', explanation: 'Outdoor visit' }] };
+  const selected = handoff.createRouteCockpitIntent(model.mapJourneyToSavedRoute(journey), 0, owner);
+  selected.dates = intent().dates;
+  selected.route.mapJourney = journey; // Runtime callers are allowed to pass the decoded editor value.
+  assert.equal(old.validateRouteCockpitIntent(selected), false);
+  const initialRow = { ...row(), budget_snapshot: budget };
+  h.reply([initialRow]);
+  const previous = await api.readCockpitJourney(owner, tripId, 'SESSION');
+  const encoded = { ...selected, route: { ...selected.route, mapJourney: model.encodeStoredMapJourney(journey) } };
+  const nextRow = { ...initialRow, route_snapshot: encoded, updated_at: '2026-10-16T12:00:00.000Z' };
+  h.reply([nextRow]);
+  const updated = await api.saveCockpitJourney(owner, tripId, 'SESSION', selected, previous);
+  const write = h.calls[1];
+  assert.equal(write.options.method, 'PATCH');
+  assert.equal(new URL(write.url).searchParams.get('owner_id'), `eq.${owner}`);
+  assert.equal(new URL(write.url).searchParams.get('trip_id'), `eq.${tripId}`);
+  assert.equal(new URL(write.url).searchParams.get('updated_at'), `eq.${previous.updatedAt}`);
+  assert.equal(write.options.body.budget_snapshot, undefined);
+  assert.equal(old.validateRouteCockpitIntent(write.options.body.route_snapshot), true);
+  assert.equal(write.options.body.route_snapshot.sourceRouteId, journey.id);
+  assert.equal(write.options.body.route_snapshot.ownerId, owner);
+  assert.deepEqual(JSON.parse(JSON.stringify(updated.route.route.mapJourney)), JSON.parse(JSON.stringify(journey)));
+  assert.deepEqual(JSON.parse(JSON.stringify(updated.budget)), JSON.parse(JSON.stringify(budget)));
+  assert.equal(updated.updatedAt, nextRow.updated_at);
+  assert.equal(selected.route.mapJourney.stops[0].place.category, 'beach', 'The caller keeps its decoded editor');
+  const reread = await api.readCockpitJourney(owner, tripId, 'SESSION');
+  assert.deepEqual(reread, updated);
+  await assert.rejects(() => api.saveCockpitJourney(other, tripId, 'SESSION', selected, updated), error => error.status === 400);
+  assert.equal(h.calls.length, 3);
+  h.reply([]);
+  await assert.rejects(() => api.saveCockpitJourney(owner, tripId, 'SESSION', selected, updated), error => error.status === 409);
+});
+
 test('Manual trip edits preserve airport-local times and managed edits cannot alter provider identity', () => {
   const h = harness(), api = h.load('mobile/src/lib/cockpitEdit.ts');
   const trip = { id: tripId, destinationCountry: 'Türkiye', destinationCode: 'TR', destinationCity: 'Bodrum', startDate: '2026-09-01', endDate: '2026-09-05',

@@ -166,7 +166,7 @@ test('Dense-city discovery avoids broad building/artwork scans and splits dateli
   assert.doesNotMatch(model.discoveryQuery(center, 'essentials'), /\^name/);
   const dateline = model.discoveryQuery({ latitude: -18, longitude: 180 }, 'nature');
   const boxes = [...dateline.matchAll(/nwr\(([-\d.,]+)\)/g)].map(match => match[1].split(',').map(Number));
-  assert.equal(boxes.length, 4);
+  assert.equal(boxes.length, 6);
   for (const [south, west, north, east] of boxes) { assert.ok(south < north); assert.ok(west <= east); assert.ok(east - west < 1); }
   assert.ok(boxes.some(box => box[1] === -180)); assert.ok(boxes.some(box => box[3] === 180));
 });
@@ -401,4 +401,41 @@ test('Around-route coverage respects provider rounding, duplicate cells and the 
   assert.throws(() => model.discoveryCentersForRoute([{ latitude: NaN, longitude: 12 }], center));
   assert.throws(() => model.discoveryCentersForRoute([], { latitude: 0, longitude: 999 }));
   assert.throws(() => model.discoveryCentersForRoute(Array.from({ length: 121 }, () => center), center));
+});
+
+
+test('OSM beach tags become genuine coastal stops without treating ordinary parks as beaches', () => {
+  const model = discovery();
+  assert.match(model.discoveryQuery(center, 'nature'), /natural=beach/);
+  const found = model.normalizeDiscovery({ elements: [row(501, { natural: 'beach', name: 'Coastal beach' }), row(502, { leisure: 'park' })] }, center, 'nature', stamp);
+  assert.deepEqual([...found.map(place => place.category)], ['beach', 'park']);
+  assert.equal(found[0].sourceUrl, 'https://www.openstreetmap.org/node/501');
+});
+
+
+test('Discovery capability isolates legacy and new POI responses without mutating the shared provider result', async () => {
+  const now = new Date().toISOString();
+  const existing = discovery().normalizeDiscovery({ elements: [row(601, { leisure: 'park' }), row(602, { natural: 'beach' })] }, center, 'nature', now);
+  const shared = { places: existing, center, fetchedAt: now, radius: 3000, limited: false, attribution: '© OpenStreetMap contributors' };
+  let providerCalls = 0;
+  const api = load('app/api/travel-assistant/discover/route.ts', { '@/lib/travel-assistant/http': http, '@/lib/travel-assistant/places': places,
+    '@/lib/travel-assistant/journey-discovery': { DISCOVERY_GROUPS: ['nature'], discoverJourneyPlaces: async () => { providerCalls++; return shared; } } });
+  const invoke = body => api.POST(new Request('https://app.test/discover', { method: 'POST', body: JSON.stringify({ ...center, category: 'nature', ...body }) }));
+  const old = await (await invoke({})).json();
+  assert.deepEqual(old.places.map(place => place.category), ['park']); assert.equal(old.limited, true);
+  const fresh = await (await invoke({placeCategoryVersion: 2})).json();
+  assert.deepEqual(fresh.places.map(place => place.category), ['park', 'beach']); assert.equal(fresh.limited, false);
+  assert.equal(shared.places.length, 2, 'Legacy filtering cannot poison the shared provider cache');
+  assert.deepEqual((await (await invoke({})).json()).places.map(place => place.category), ['park']);
+  const count = providerCalls;
+  for (const invalid of [null, 1, 3, '2', true, []]) assert.equal((await invoke({placeCategoryVersion: invalid})).status, 400);
+  assert.equal(providerCalls, count);
+});
+
+test('New mobile discovery explicitly opts into beach and hiking categories', async () => {
+  const calls = [], now = new Date().toISOString();
+  const found = discovery().normalizeDiscovery({ elements: [row(701, { natural: 'beach' })] }, center, 'nature', now);
+  const mobile = client(async (_path, options) => { calls.push(options); return { places: found, center, fetchedAt: now, radius: 3000, limited: false, attribution: '© OpenStreetMap contributors' }; });
+  const result = await mobile.discoverJourneyPlaces(center, 'nature');
+  assert.equal(calls[0].body.placeCategoryVersion, 2); assert.equal(result.places[0].category, 'beach');
 });
