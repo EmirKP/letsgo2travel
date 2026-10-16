@@ -1,0 +1,54 @@
+LetsGo2Travel TestFlight release - 16 October 2026 - build 74
+
+Source and checks
+- Commit: 9f19f1b7cfc3e505735300461e88effa05246053
+- Branch: feature/travel-companion-polish-20260927
+- Codemagic build: 6ad1f55f7550aed8108f39a4
+- Workflow: letsgo2travel-ios-testflight
+- Exact source checkout confirmed in Codemagic.
+- Local release suite: 96 stages / 1,563 checks passed before the final narrow
+  quota and timezone patches; final patches passed 31 translation and 52
+  event/trip checks. Final lint, TypeScript and production builds passed.
+- Codemagic full release requirement check passed in 2 minutes 26 seconds.
+- Dependency audits, public configuration, mobile sync and signing passed.
+
+Backend
+- Main production deployment: dpl_DJKGnPzoou3Sc4oimLn6zHQrFx8u
+- Exact source commit staged with production configuration and skip-domain.
+- After 7/7 non-generative smoke checks, this same deployment was promoted.
+- www.letsgo2travel.com.tr and apex alias confirmed the deployment.
+- Public-domain smoke repeated successfully: input validation, authentication,
+  Maps token origin restrictions and Apple destination search.
+- No Google generation used by release smoke; free daily provider quota was
+  already exhausted during earlier live QA. No billing/model/quota changes.
+- Existing isolated public-data TestFlight backend was unchanged.
+- Evidence: outputs/testflight74-backend-smoke-20261016.json and
+  outputs/testflight74-backend-public-smoke-20261016.json.
+
+iOS upload
+- Version: 1.4.1 (74), increased automatically from Apple build 73.
+- Signed IPA build passed in 1 minute 1 second.
+- Apple confirmed UPLOAD SUCCEEDED with no errors at 2026-10-16 10:05:17 UTC.
+- Delivery/build ID: 76e93a76-436c-4e98-a6d5-672c099c50a4.
+- Codemagic: https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6ad1f55f7550aed8108f39a4
+- Apple processing completed: Ready to Submit, with the existing
+  LetsGo2Travel İç Test internal group and 3 tester invitations already attached.
+- Internal tester access was verified in Apple; installation on the user's
+  physical phone has not been observed.
+- Apple: https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/76e93a76-436c-4e98-a6d5-672c099c50a4
+- Turkish What to Test notes cover keyboard, map layout, unsaved changes,
+  search suggestions, Event Radar, the 12-tip guide and date/language flows.
+- Screenshot: outputs/testflight-74-ready-20261016.png.
+- No App Store review or external beta review submitted.
+
+Changes included
+- iOS keyboard visibility and map/panel layout fixes.
+- Twelve contextual guide tips and prominent Event Radar access.
+- Live Home search suggestions for destinations and app features.
+- Unsaved map change protection and saved route localization.
+- Correct trip/day program and event-to-trip context with local dates.
+- Translation deduplication, structured output and provider Retry-After recovery.
+
+Known validation boundary
+- Physical iPhone keyboard/native-map behavior requires this TestFlight build.
+- Google daily free quota can delay automatic translation until provider reset.
