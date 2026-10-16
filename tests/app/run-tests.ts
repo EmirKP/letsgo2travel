@@ -870,13 +870,13 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   assert.ok(vite.includes('readFileSync(path.join(rootDir, "release-manifest.json")'), "Vite sürümü tek manifestten okumalı");
   assert.ok(vite.includes('fileName: "release.json"'), "paket kendi sürüm kanıtını içermeli");
   assert.ok(capacitor.includes('loggingBehavior: "none"'), "yayın bridge logları kapalı olmalı");
-  assert.ok(capacitor.includes("zoomEnabled: true"), "native WebView kullanıcının yakınlaştırmasını desteklemeli");
+  assert.ok(capacitor.includes("zoomEnabled: false"), "native uygulama ekranı pinch ile küçülüp boşluk bırakmamalı");
   const viewport = /<meta\s+name="viewport"\s+content="([^"]+)"/.exec(mobileIndex)?.[1];
   assert.ok(viewport, "mobil görünüm alanı tanımlanmalı");
   const viewportSettings = new Map(viewport.split(",").map(setting => setting.trim().toLowerCase().split("=").map(part => part.trim()) as [string, string]));
   assert.equal(viewportSettings.get("width"), "device-width", "cihaz genişliği korunmalı");
-  assert.ok(!viewportSettings.has("maximum-scale"), "kullanıcının yakınlaştırmasına üst sınır konmamalı");
-  assert.ok(!["no", "0"].includes(viewportSettings.get("user-scalable") || ""), "mobil sayfa yakınlaştırması engellenmemeli");
+  assert.ok(!viewportSettings.has("maximum-scale"), "normal web tarayıcısında erişilebilir yakınlaştırmaya üst sınır konmamalı");
+  assert.ok(!["no", "0"].includes(viewportSettings.get("user-scalable") || ""), "native ekran kilidi normal web tarayıcısının yakınlaştırmasını engellememeli");
   assert.ok(doctor.includes("packagedRelease?.appVersion === expectedAppVersion"), "doktor paket sürümünü kaynakla karşılaştırmalı");
   assert.ok(doctor.includes('iosConfig.loggingBehavior === "none"'), "doktor iOS üretilmiş log ayarını doğrulamalı");
   assert.ok(doctor.includes('androidConfig?.loggingBehavior === "none"'), "doktor Android üretilmiş log ayarını doğrulamalı");
