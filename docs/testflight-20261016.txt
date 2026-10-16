@@ -29,13 +29,19 @@ iOS upload
 - Apple confirmed UPLOAD SUCCEEDED with no errors at 2026-10-16 08:33:29 UTC.
 - Delivery/build ID: 38465cc5-1bdf-4b0d-8e8b-c3937f893726.
 - Codemagic: https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6ad1dfe67550aed8108f337e
-- Apple processing/internal group verification pending renewed browser sign-in.
+- Apple processing completed; build 73 is Ready to Submit and assigned to the
+  existing LetsGo2Travel İç Test internal group with 3 testers/invitations.
+- Internal tester access verified in App Store Connect; installation on the
+  user's physical phone has not been observed.
+- Apple: https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios/38465cc5-1bdf-4b0d-8e8b-c3937f893726
+- Screenshot: outputs/testflight-73-ready-20261016.png.
 - No App Store or external beta review submitted.
 
-What to Test (prepared)
+What to Test (saved in Turkish)
 İlk kurulumda dil ve tema seçimini, renkli ilgi alanlarını ve giriş ekranını dene.
 Şehir, ilçe veya mahalle yazarak öneriden seçim yap. Gün sayısını ve ilk gün
 başlangıç saatini seçip AI rotası oluştur. Anketi kapatıp yeniden açarak
 seçimlerinin korunduğunu, haritada durak düzenlemeyi, kaydetmeyi ve mevcut
 seyahati güncellemeyi kontrol et. Profil'den Uygulamayı tanı ile kısa öğreticiyi
-yeniden açabilirsin.
+yeniden açabilirsin. Türkçe, İngilizce ve Arnavutça dil geçişlerini; açık, koyu
+ve sistem temasını da test et.
