@@ -1,0 +1,41 @@
+LetsGo2Travel TestFlight release - 16 October 2026
+
+Source and checks
+- Commit: bfb0770b49ae0fdcceef6818140504978f9c82d0
+- Branch: feature/travel-companion-polish-20260927
+- Codemagic build: 6ad1dfe67550aed8108f337e
+- Workflow: letsgo2travel-ios-testflight
+- Codemagic source checkout confirmed the exact commit.
+- Local full release suite: 1,161 tests passed; release requirement checks completed.
+- Mobile lint/build, root build, mobile:prepare:all/doctor passed.
+- Root and mobile dependency audits: 0 vulnerabilities.
+- Codemagic release requirement step passed in 2 minutes 15 seconds.
+
+Backend
+- Production: https://www.letsgo2travel.com.tr
+- Deployment: dpl_2QHu1DJLkZaDvdvJ18JUKCLhV9C4
+- Exact release commit staged with production configuration, tested and promoted.
+- Production domain alias confirms this deployment.
+- Real guest AI plan: HTTP200, 2 days, 6 stops, first day 14:00; sea/nature/adventure preferences retained.
+- Same operation replay returned an identical result without another generation.
+- Apple district search, new and legacy discovery, invalid capability/time validation passed.
+- Public domain Apple search and Maps token checks passed.
+- No database migration or credential changes required.
+- Evidence: outputs/testflight-backend-smoke-20261016.json.
+
+iOS upload
+- Version: 1.4.1 (73), automatically increased from Apple build 72.
+- Signed IPA build passed in 1 minute 1 second.
+- Apple confirmed UPLOAD SUCCEEDED with no errors at 2026-10-16 08:33:29 UTC.
+- Delivery/build ID: 38465cc5-1bdf-4b0d-8e8b-c3937f893726.
+- Codemagic: https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6ad1dfe67550aed8108f337e
+- Apple processing/internal group verification pending renewed browser sign-in.
+- No App Store or external beta review submitted.
+
+What to Test (prepared)
+İlk kurulumda dil ve tema seçimini, renkli ilgi alanlarını ve giriş ekranını dene.
+Şehir, ilçe veya mahalle yazarak öneriden seçim yap. Gün sayısını ve ilk gün
+başlangıç saatini seçip AI rotası oluştur. Anketi kapatıp yeniden açarak
+seçimlerinin korunduğunu, haritada durak düzenlemeyi, kaydetmeyi ve mevcut
+seyahati güncellemeyi kontrol et. Profil'den Uygulamayı tanı ile kısa öğreticiyi
+yeniden açabilirsin.
