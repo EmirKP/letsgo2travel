@@ -1,0 +1,44 @@
+LetsGo2Travel TestFlight release - 16 October 2026 - build 75
+
+Source and validation
+- Commit: 6a10a0341771e9af186f3cbcfefaab0b99eb26bb
+- Branch: feature/travel-companion-polish-20260927
+- Scope: native WebView page zoom disabled; Home search wrapper participates
+  in normal layout, including large-text mode, to prevent heading overlap.
+- Map zoom and the app's Normal/Large text preference remain independent.
+- Local targeted checks: 139 app checks + 29 text/native-map checks passed.
+- Local mobile production build, iOS/Android sync and package doctor passed.
+- Responsive Home verified at 320px and 390px with normal and large text.
+- Codemagic fetched the exact source commit, passed dependency audits and the
+  full release requirement suite (2m 30s), and rebuilt the iOS package.
+- Signed IPA build passed in 1m 5s.
+
+Delivery
+- Codemagic build: 6ad21f967550aed8108f4676
+- Workflow: letsgo2travel-ios-testflight
+- Version: 1.4.1 (75); Apple previous build 74, Codemagic build 75.
+- Apple upload: UPLOAD SUCCEEDED with no errors.
+- Upload log timestamp: 2026-10-16 13:05:33 UTC (16:05:33 Europe/Istanbul).
+- Delivery UUID: 4d26509e-fcfb-4e9e-848c-66d160961b1e.
+- Apple Build Uploads shows version 1.4.1, build 75, status Complete.
+- Existing LetsGo2Travel Ic Test internal group: 3 testers.
+- The user's tester row shows Installed 1.4.1 (75), Oct 16, 2026 at 4:08 PM.
+  This confirms delivery to the tester; physical pinch/layout behavior has not
+  been observed on the user's phone by the agent.
+- App Store Connect intermittently failed its build-list/detail queries and
+  displayed zero builds even while the tester record confirmed installation.
+  New What to Test notes could not be saved in this run.
+- No backend/environment/billing changes and no App Store or external beta
+  review submission.
+
+Links and evidence
+- Codemagic: https://codemagic.io/app/6a74ee8453cdaf155d4e575a/build/6ad21f967550aed8108f4676
+- TestFlight: https://appstoreconnect.apple.com/teams/dead4bf9-0d23-4d53-99c8-b08a81b3f89a/apps/6798807237/testflight/ios
+- outputs/testflight75-upload-20261016.txt
+- outputs/zoom-home-mobile-prepare-20261016.log
+- outputs/home-overlap-fixed-20261016.png
+
+Phone test focus
+- Pinch the Home UI: the app should stay at device width without blue gaps.
+- Verify Home heading, search box, live suggestions and city buttons do not overlap.
+- Verify map pinch zoom still works and Profile > Appearance > Large text works.
