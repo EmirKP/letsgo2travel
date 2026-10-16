@@ -21,13 +21,14 @@ import "./daily-journey.css";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
-export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onNavigate, onNotice }: {
+export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onCreateEventTrip, onNavigate, onNotice }: {
   focusEventId?: string;
   onFocusHandled?: () => void;
   ownerId?: string | null;
   accessToken?: string;
   onOpenAccount: () => void;
   onOpenSaved?: () => void;
+  onCreateEventTrip?: (event: TravelEvent) => void;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
@@ -383,8 +384,8 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
               const compatible = Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate);
               const alreadyAdded = trip.checklistItems.some((item) => item.kind === "event" && item.eventId === tripEvent.id);
               return <button type="button" key={trip.id} disabled={Boolean(tripPickerBusy) || !compatible} onClick={() => void attachToTrip(trip)}><span><Icon name={alreadyAdded ? "check" : compatible ? "suitcase" : "calendar"} size={18} /></span><div><strong>{[trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ") || trip.flightNumber || copy("Seyahat", "Trip")}</strong><small>{formatAppDate(new Date(`${trip.startDate}T12:00:00`), dateLocale, { day: "2-digit", month: "short", year: "numeric" })} – {formatAppDate(new Date(`${trip.endDate}T12:00:00`), dateLocale, { day: "2-digit", month: "short", year: "numeric" })}</small><em>{alreadyAdded ? copy("Zaten eklendi", "Already added") : compatible ? copy("Tarih uygun", "Date matches") : copy("Etkinlik tarihi bu seyahatin dışında", "Event date is outside this trip")}</em></div><Icon name="chevron" size={16} /></button>;
-            })}</div>{!hasCompatibleTrip && <button className="secondary-wide event-trip-create" type="button" onClick={() => { setTripEvent(null); onNavigate("cockpit"); }}><Icon name="plus" size={16} /> {copy("Tarihleri uygun seyahat oluştur", "Create a trip with matching dates")}</button>}</>
-              : <div className="empty-state"><span><Icon name="suitcase" size={27} /></span><strong>{copy("Uygun seyahat bulunamadı", "No suitable trip found")}</strong><p>{copy("Önce tarihleri bu etkinliği kapsayan bir seyahat oluştur.", "Create a trip whose dates cover this event first.")}</p><button className="primary-button" type="button" onClick={() => { setTripEvent(null); onNavigate("cockpit"); }}><Icon name="plus" size={16} /> {copy("Seyahat oluştur", "Create trip")}</button></div>}
+            })}</div>{!hasCompatibleTrip && <button className="secondary-wide event-trip-create" type="button" onClick={() => { if (tripEvent && onCreateEventTrip) { onCreateEventTrip(tripEvent); setTripEvent(null); } }}><Icon name="plus" size={16} /> {copy("Tarihleri uygun seyahat oluştur", "Create a trip with matching dates")}</button>}</>
+              : <div className="empty-state"><span><Icon name="suitcase" size={27} /></span><strong>{copy("Uygun seyahat bulunamadı", "No suitable trip found")}</strong><p>{copy("Önce tarihleri bu etkinliği kapsayan bir seyahat oluştur.", "Create a trip whose dates cover this event first.")}</p><button className="primary-button" type="button" onClick={() => { if (tripEvent && onCreateEventTrip) { onCreateEventTrip(tripEvent); setTripEvent(null); } }}><Icon name="plus" size={16} /> {copy("Seyahat oluştur", "Create trip")}</button></div>}
       </div>}
     </Sheet>
   </div>;

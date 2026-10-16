@@ -26,6 +26,8 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../lib/savedRouteIdentity') return load('mobile/src/lib/savedRouteIdentity.ts', {'./id': load('mobile/src/lib/id.ts')});
     if (name === '../../../lib/planner-preferences' || name === './planner-preferences') return load('lib/planner-preferences.ts');
     if (name === '../components/RouteBudgetAnalysis') return { RouteBudgetAnalysis: 'RouteBudgetAnalysis' };
+    if (name === '../components/RouteTranslation') return { RouteTranslation: 'RouteTranslation' };
+    if (name === '../lib/savedRouteDisplay') return load('mobile/src/lib/savedRouteDisplay.ts');
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, testModule, testModule.exports);
@@ -60,6 +62,12 @@ const search = load('mobile/src/lib/searchText.ts');
 const homeJourney = load('mobile/src/lib/homeJourney.ts');
 const routeCatalog = load('mobile/src/data/routes.ts');
 const homeData = load('mobile/src/data/homeDestinations.ts', { './routes': routeCatalog });
+const appSearch = load('mobile/src/lib/globalSearch.ts', {
+  '../data/countries': { ISO_3166: JSON.parse(readFileSync('mobile/src/data/iso3166.json', 'utf8')) },
+  '../data/discovery': load('mobile/src/data/discovery.ts'),
+  '../data/homeDestinations': homeData, './localeFormatting': localeFormatting,
+  './searchText': search, './appTools': load('mobile/src/lib/appTools.ts'),
+});
 const homeAssets = Object.fromEntries([
   '../assets/home-reference/santorini-hero.webp', '../assets/home-reference/coastal-banner.webp',
   '../assets/home-reference/cappadocia.webp', '../assets/home-reference/bali.webp',
@@ -68,11 +76,12 @@ const homeAssets = Object.fromEntries([
 function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error('Guest Home must not request account trips'); } } = {}) {
   return load('mobile/src/screens/HomeScreen.tsx', {
     ...common(host), ...homeAssets,
-    '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en) => locale === 'tr' ? tr : en }) },
+    '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) },
     '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     '../components/HomeShortcutPicker': { HomeShortcutPicker: 'HomeShortcutPicker' },
     '../hooks/useHomeShortcuts': { useHomeShortcuts: () => ({ views: ['route', 'explore', 'passport', 'trips', 'companion'], save: () => true }) },
     '../lib/appTools': load('mobile/src/lib/appTools.ts'),
+    '../lib/globalSearch': appSearch,
     '../components/BrandMark': { BrandMark: 'BrandMark' },
     '../data/homeDestinations': homeData, '../lib/supabaseData': { listCockpitTrips },
     '../lib/dates': { localIsoDate: () => '2026-09-28' }, '../lib/homeJourney': homeJourney,
@@ -162,6 +171,34 @@ test('Home restores the submitted search and forwards trimmed typed queries and 
     button(view,'Rome').props.onClick();button(view,'Bali').props.onClick();
     assert.equal(prevented,1);assert.deepEqual(queries,['Roma','Roma','Bali']);
   } finally {host.dispose();}
+});
+
+test('Home suggests real Event Radar, Istanbul and currency destinations while typing, with keyboard and touch selection', () => {
+  for (const locale of ['tr', 'en', 'sq']) {
+    const host=hooks(), destinations=[], views=[], tools=[], countries=[], all=[];
+    try {
+      let view=host.start(loadHome(host,{locale}),{...guestHomeProps,onNavigate:value=>views.push(value),onOpenTool:value=>tools.push(value),onSearchDestination:value=>destinations.push(value),onOpenCountry:value=>countries.push(value),onOpenGlobalSearch:value=>all.push(value)});
+      const type=value=>{find(view,'input',props=>props.type==='search').props.onChange({target:{value}});view=host.render();};
+      const options=()=>nodes(view).filter(node=>node.props?.role==='option');
+      type('Etki');const event=options().find(node=>text(node).includes(locale==='tr'?'Etkinlik Radarı':locale==='sq'?'Radar aktivitetesh':'Event Radar'));assert.ok(event);event.props.onClick();view=host.render();assert.deepEqual(views,['events']);assert.equal(find(view,'input').props['aria-expanded'],false);
+      type('İst');const city=options().find(node=>/İstanbul|Istanbul|Stamboll/.test(text(node)));assert.ok(city,'Plain-prefix and Turkish I must find Istanbul');city.props.onClick();view=host.render();assert.equal(destinations.length,1);assert.match(destinations[0],/İstanbul|Istanbul|Stamboll/);
+      type('Döviz');let prevented=0;find(view,'input').props.onKeyDown({key:'ArrowDown',preventDefault(){prevented++;}});view=host.render();assert.equal(find(view,'input').props['aria-activedescendant'],'home-search-option-0');find(view,'form').props.onSubmit({preventDefault(){prevented++;}});view=host.render();assert.deepEqual(tools,['money']);assert.equal(prevented,2);
+      type('Albania');const country=options().find(node=>/AL$/.test(text(node)));assert.ok(country);country.props.onClick();view=host.render();assert.deepEqual(countries,['ALB']);
+      type('no-match-9987');assert.equal(options().length,0);assert.ok(find(view,'p',props=>props.role==='status'));find(view,'form').props.onSubmit({preventDefault(){}});assert.deepEqual(all,['no-match-9987']);
+      type('Etki');find(view,'input').props.onKeyDown({key:'Escape',preventDefault(){}});view=host.render();assert.equal(find(view,'input').props['aria-expanded'],false);assert.equal(options().length,0);
+    }finally{host.dispose();}
+  }
+});
+
+test('Home Event Radar is directly discoverable and the current itinerary CTA carries its exact trip instead of generic saved places', async () => {
+  const host=hooks(), opened=[], views=[];
+  try {
+    const trip={id:'active-map-trip',status:'active',startDate:'2026-09-27',endDate:'2026-09-30',destinationCity:'Istanbul',checklistItems:[]};
+    host.start(loadHome(host,{listCockpitTrips:async()=>[trip]}),{...guestHomeProps,user:{id:'a'},ownerId:'a',accessToken:'fixture',onNavigate:value=>views.push(value),onOpenTrip:(...args)=>opened.push(args),onOpenSaved(){throw Error('Today cannot open generic bookmarks');}});
+    await tick();const view=host.render();
+    find(view,'button',props=>props['data-guide']==='home-events').props.onClick();assert.deepEqual(views,['events']);
+    button(personalBanner(view),"Today's Itinerary").props.onClick();assert.deepEqual(opened,[['active-map-trip','today']]);
+  }finally{host.dispose();}
 });
 
 test('Home opens and saves each real destination independently with matching artwork and accurate saved state', () => {

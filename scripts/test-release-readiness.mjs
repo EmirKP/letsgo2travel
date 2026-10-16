@@ -51,7 +51,7 @@ const checks = [
   ["--test", "tests/community-starter-replies.mjs"],
   ["--test", "tests/community-pagination.mjs"],
   ["--test", "tests/admin-community-upgrade.mjs"],
-  ["--test", "tests/planning-ux.mjs"],
+  ["--test", "tests/planning-ux.mjs", "tests/saved-route-locale.mjs"],
   ["--test", "tests/route-weather.mjs"],
   ["--test", "tests/route-cockpit-handoff.mjs"],
   ["--test", "tests/web-saved-plan.mjs"],

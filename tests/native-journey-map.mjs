@@ -15,17 +15,23 @@ const stops = [{ id: 'node/1', name: 'Museum', latitude: 41.9, longitude: 12.5, 
 function fixture(options = {}) {
   let currentFiber, theme = 'light', nextId = 0, nextFrame = 0, nextTimer = 0, nativeState = null, highestGeneration = -1;
   const deadlines = new Map(), retired = new Set();
-  const calls = [], subscriptions = [], observers = [], frames = new Map(), themeListeners = new Set();
+  const calls = [], subscriptions = [], observers = [], mutations = [], frames = new Map(), themeListeners = new Set();
   const instances = [];
   const events = () => ({ listeners: new Map(), addEventListener(name, fn) { const items = this.listeners.get(name) ?? new Set(); items.add(fn); this.listeners.set(name, items); }, removeEventListener(name, fn) { this.listeners.get(name)?.delete(fn); }, emit(name) { for (const fn of this.listeners.get(name) ?? []) fn(); } });
   const rect = (x, y, width, height) => ({ left: x, top: y, right: x + width, bottom: y + height, width, height });
   const element = box => ({ box, getBoundingClientRect() { return this.box; } });
   const panel = element(rect(0, 450, 400, 350));
   const topbar = element(rect(12, 12, 376, 44)), days = element(rect(12, 66, 376, 44)), search = element(rect(100, 130, 200, 44));
-  const workspace = { querySelector: () => panel, querySelectorAll: () => [topbar, days, search] };
-  const canvas = { ...element(rect(0, 0, 400, 800)), closest: () => workspace };
+  const exit = element(rect(12, 12, 44, 44)), title = element(rect(62, 12, 180, 44)), save = element(rect(300, 12, 88, 44));
+  let confirmation = null;
+  const guide = {...element(rect(28,150,332,265)),closest:()=>null,style:{display:'block',visibility:'visible'}};
+  let guideVisible = false;
+  const sheet = {querySelectorAll: selector => selector === ':scope > .app-guide-card' && guideVisible ? [guide] : []};
+  const workspace = { querySelector: selector => selector === '.mj-close-confirm' ? confirmation : selector === '.mj-panel' ? panel : null,
+    querySelectorAll: selector => selector.includes('.mj-topbar > *') ? [exit, title, save, days, search] : [topbar, days, search] };
+  const canvas = { ...element(rect(0, 0, 400, 800)), closest: selector => selector === '.sheet[role="dialog"]' ? sheet : workspace };
   const document = { ...events(), visibilityState: 'visible', documentElement: { clientWidth: 400 } };
-  const window = { ...events(), innerWidth: 400, visualViewport: { ...events(), offsetLeft: 0, offsetTop: 0, width: 400 }, getComputedStyle: () => ({ borderTopLeftRadius: '20px' }),
+  const window = { ...events(), innerWidth: 400, visualViewport: { ...events(), offsetLeft: 0, offsetTop: 0, width: 400 }, getComputedStyle: element => ({ borderTopLeftRadius: '20px',...element.style }),
     requestAnimationFrame(fn) { const id = ++nextFrame; frames.set(id, fn); return id; }, cancelAnimationFrame(id) { frames.delete(id); },
     setTimeout(fn) { const id = ++nextTimer; deadlines.set(id, fn); return id; }, clearTimeout(id) { deadlines.delete(id); } };
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));
@@ -40,10 +46,11 @@ function fixture(options = {}) {
     async update(payload) { calls.push({ method: 'update', payload: clone(payload) }); if (options.update) await options.update(payload); assert.equal(nativeState?.sessionId, payload.sessionId, 'Update must belong to the actual native session'); nativeState = clone(payload); return { applied: true }; },
     async hide(payload) { calls.push({ method: 'hide', payload: clone(payload) }); if (options.hide) await options.hide(payload); retired.add(payload.sessionId); if (nativeState?.sessionId === payload.sessionId && nativeState.ownerId === payload.ownerId) nativeState = null; return { applied: true }; },
   };
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const source = ts.transpileModule(readFileSync('mobile/src/components/NativeJourneyMap.tsx', 'utf8'), { fileName: 'NativeJourneyMap.tsx', compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window, document,
     ResizeObserver: class { constructor(callback) { this.callback = callback; this.elements = new Set(); observers.push(this); } observe(value) { this.elements.add(value); } unobserve(value) { this.elements.delete(value); } disconnect() { this.disconnected = true; this.elements.clear(); } },
+    MutationObserver: class { constructor(callback) {this.callback=callback;mutations.push(this);} observe(target,options){this.target=target;this.options=options;} disconnect(){this.disconnected=true;} },
   })(name => {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
@@ -56,13 +63,15 @@ function fixture(options = {}) {
     if (name === '../lib/theme') return { getThemeSnapshot: () => ({ resolved: theme }), subscribeTheme: fn => { themeListeners.add(fn); return () => themeListeners.delete(fn); } };
     if (name.endsWith('.css')) return {};
     throw Error(`Unknown fixture import: ${name}`);
-  }, module, module.exports);
+  }, fixtureModule, fixtureModule.exports);
   const h = {
-    calls, subscriptions, observers, document, window, canvas, panel, search, topbar, days,
+    calls, subscriptions, observers, mutations, document, window, canvas, panel, search, topbar, days, guide, sheet,
+    showGuide(value=true) {guideVisible=value;mutations.forEach(observer=>{if(!observer.disconnected)observer.callback();});},
+    confirm() { confirmation = element(rect(0, 0, 400, 800)); },
     get state() { return nativeState; },
     mount(extra = {}) {
       const fiber = { slots: [], cursor: 0, effects: [], dirty: false, mounted: true, props: { center: { latitude: 41.9, longitude: 12.5 }, stops, labels, contentInsets: { top: 120, left: 0, right: 0, bottom: 350 }, onSelectPlace() {}, ...extra }, tree: null,
-        render(next = {}) { if (!this.mounted) return; this.props = { ...this.props, ...next }; for (let i = 0; i < 10; i++) { currentFiber = this; this.cursor = 0; this.effects = []; this.dirty = false; this.tree = module.exports.NativeJourneyMap(this.props); for (const node of nodes(this.tree)) if (node.props.ref) node.props.ref.current = canvas; this.effects.forEach(fn => fn()); if (!this.dirty) return; } throw Error('Unbounded render'); },
+        render(next = {}) { if (!this.mounted) return; this.props = { ...this.props, ...next }; for (let i = 0; i < 10; i++) { currentFiber = fiber; this.cursor = 0; this.effects = []; this.dirty = false; this.tree = fixtureModule.exports.NativeJourneyMap(this.props); for (const node of nodes(this.tree)) if (node.props.ref) node.props.ref.current = canvas; this.effects.forEach(fn => fn()); if (!this.dirty) return; } throw Error('Unbounded render'); },
         unmount() { this.mounted = false; this.slots.forEach(slot => slot.cleanup?.()); },
       };
       instances.push(fiber); fiber.render(); return fiber;
@@ -79,8 +88,9 @@ test('Native frame stops above the mobile panel, leaves HTML holes and sends act
   const h = fixture(), routes = [{ id: 'real', day: 1, coordinates: [[41.9, 12.5], [41.9005, 12.504], [41.91, 12.51]] }];
   h.mount({ routes }); await h.flush();
   assert.equal(h.calls.filter(call => call.method === 'show').length, 1);
-  assert.equal(h.state.frame.height, 450); assert.equal(h.state.contentInsets.bottom, 0);
-  assert.equal(h.state.occlusions.length, 3); assert.equal(h.state.showSearchArea, false);
+  assert.equal(h.state.frame.height, 450); assert.equal(h.state.contentInsets.bottom, 84);
+  assert.equal(h.state.occlusions.length, 5); assert.equal(h.state.showSearchArea, false);
+  assert.ok(!h.state.occlusions.some(hole => hole.width === 376 && hole.y === 12), 'Transparent header gaps must remain native map, not pale WebView rectangles');
   assert.deepEqual(h.state.routes, routes); assert.equal(h.state.stops[0].label, 'Day 1, stop 1: Museum');
   assert.equal(h.state.labels.cluster, 'Show {count} places');
   assert.ok(h.observers[0].elements.has(h.panel));
@@ -94,7 +104,7 @@ test('Narrow desktop panel becomes a tap-through hole and viewport offsets use o
   h.panel.box = { left: 700, top: 150, width: 280, height: 600, right: 980, bottom: 750 };
   h.mount({ contentInsets: { top: 100, left: 0, right: 300, bottom: 0 } }); await h.flush();
   assert.equal(h.state.frame.height, 800); assert.equal(h.state.frame.y, -20);
-  assert.equal(h.state.occlusions.length, 4); assert.equal(h.state.occlusions[3].y, 130);
+  assert.equal(h.state.occlusions.length, 6); assert.equal(h.state.occlusions[5].y, 130);
   assert.equal(h.state.contentInsets.right, 300);
 });
 
@@ -193,4 +203,30 @@ test('All 750 unique places from three route discovery areas reach the native re
   assert.equal(h.state.discoveredPlaces.length, 750);
   assert.equal(h.state.discoveredPlaces[749].imageUrl, discoveredPlaces[749].imageUrl);
   assert.equal(h.state.discoveredPlaces[749].label, 'Discover Place 749');
+});
+
+test('Unsaved-change confirmation masks the entire native surface so the dialog remains visible and tappable',async()=>{
+  const h=fixture(),app=h.mount();await h.flush();
+  h.confirm();app.render();await h.flush();
+  assert.equal(h.state.occlusions.length,1);
+  assert.equal(h.state.occlusions[0].width,400);assert.equal(h.state.occlusions[0].height,800);
+  app.unmount();await h.flush();
+});
+
+test('A visible guide card in this sheet remains above native MapKit and follows independent move, resize and removal',async()=>{
+  const h=fixture(),app=h.mount();await h.flush();
+  const ordinary=clone(h.state.occlusions);
+  assert.equal(h.mutations[0].target,h.sheet,'Observe the editor sheet, never the entire document');
+  assert.equal(h.mutations[0].options.subtree,true);
+  h.showGuide();await h.flush();
+  assert.equal(h.state.occlusions.length,ordinary.length+1);
+  assert.deepEqual(h.state.occlusions[0],{x:28,y:150,width:332,height:265,radius:20});
+  assert.ok(h.observers[0].elements.has(h.guide));
+  h.guide.box.top=180;h.guide.box.bottom=445;h.mutations[0].callback();await h.flush();
+  assert.equal(h.state.occlusions[0].y,180,'An absolutely-positioned lesson moves without resizing its parent');
+  h.guide.box.height=210;h.observers[0].callback();await h.flush();assert.equal(h.state.occlusions[0].height,210);
+  h.guide.style.visibility='hidden';h.mutations[0].callback();await h.flush();assert.deepEqual(h.state.occlusions,ordinary);
+  h.guide.style.visibility='visible';h.showGuide(false);await h.flush();
+  assert.deepEqual(h.state.occlusions,ordinary);assert.ok(!h.observers[0].elements.has(h.guide));
+  app.unmount();await h.flush();assert.ok(h.mutations.every(observer=>observer.disconnected));
 });

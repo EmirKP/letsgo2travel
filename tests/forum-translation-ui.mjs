@@ -23,7 +23,7 @@ function harness({locale='en',accessToken='token',viewport=false}={}){
  class Observer{constructor(callback){this.callback=callback;observers.push(this);}observe(){this.observed=true;}disconnect(){this.disconnected=true;}}
  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{window,navigator,Date:Clock,...(viewport?{IntersectionObserver:Observer}:{})})(name=>{if(name.endsWith('.css'))return{};assert.ok(imports[name],name);return imports[name];},result,result.exports);
  let props={text:'Merhaba gezgin',title:'Yeni soru',accessToken,children:(display,title)=>jsx('button',{onClick:()=>opened++,children:[jsx('h3',{children:title}),jsx('p',{children:display})]})};
- const h={subscriptions,observers,get tree(){return tree;},get opened(){return opened;},render(next={}){props={...props,...next};const outer=result.exports.ForumTranslation(props);if(!host||key!==outer.key){host?.dispose();host=hookHost();key=outer.key;}tree=host.render(()=>outer.type(outer.props));return tree;},locale(next){locale=next;return h.render();},resolve(index,result){subscriptions[index].listener(result);return h.render();},advance(ms){time+=ms;for(const[id,timer]of timers)if(timer.at<=time){timers.delete(id);timer.fn();}return h.render();},online(){navigator.onLine=true;for(const fn of events.get('online')||[])fn();return h.render();},dispose(){host.dispose();}};
+ const h={subscriptions,observers,get tree(){return tree;},get opened(){return opened;},render(next={}){props={...props,...next};const outer=result.exports.ForumTranslation(props);if(typeof outer.type!=='function'){host?.dispose();host=undefined;tree=outer;return tree;}if(!host||key!==outer.key){host?.dispose();host=hookHost();key=outer.key;}tree=host.render(()=>outer.type(outer.props));return tree;},locale(next){locale=next;return h.render();},resolve(index,result){subscriptions[index].listener(result);return h.render();},advance(ms){time+=ms;for(const[id,timer]of timers)if(timer.at<=time){timers.delete(id);timer.fn();}return h.render();},online(){navigator.onLine=true;for(const fn of events.get('online')||[])fn();return h.render();},dispose(){host?.dispose();}};
  h.render();return h;
 }
 test('visible community text translates automatically into app language without controls and preserves clickable title/body layout',()=>{
@@ -74,5 +74,16 @@ test('guests translate automatically; a failed translation plainly falls back to
  const h=harness({accessToken:''});try{
   assert.equal(h.subscriptions.length,1);assert.equal(h.subscriptions[0].input.accessToken,'');h.resolve(0,{status:'failed'});
   assert.match(text(h.tree),/Merhaba gezgin/);assert.match(text(h.tree),/Translation unavailable; showing the original text/);assert.equal(h.tree.props.lang,undefined);assert.equal(nodes(h.tree).some(n=>n.type==='select'),false);
+ }finally{h.dispose();}
+});
+
+test('known route source locale renders immediately and changing app locale translates only display text',()=>{
+ const h=harness({locale:'tr',viewport:true});try{
+  h.render({sourceLocale:'tr',inline:true,children:undefined});assert.equal(h.subscriptions.length,0);assert.match(text(h.tree),/Merhaba gezgin/);
+  h.locale('en');h.observers.at(-1).callback([{isIntersecting:true}]);h.render();assert.equal(h.subscriptions.length,1);
+  assert.equal(h.tree.type,'span');assert.equal(nodes(h.tree).some(node=>node.type==='div'||node.type==='p'),false);
+  h.resolve(0,{status:'ready',text:'Hello traveller',title:'New question'});assert.match(text(h.tree),/Hello traveller/);
+  h.locale('tr');assert.match(text(h.tree),/Merhaba gezgin/);assert.equal(h.subscriptions[0].cancelled,true);assert.equal(h.subscriptions.length,1);
+  h.locale('sq');h.observers.at(-1).callback([{isIntersecting:true}]);h.render();assert.equal(h.subscriptions[1].input.locale,'sq');assert.equal(h.subscriptions[1].input.text,'Merhaba gezgin');
  }finally{h.dispose();}
 });

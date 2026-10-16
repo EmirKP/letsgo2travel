@@ -42,7 +42,8 @@ function fixture(detail = snapshot(), saveResult) {
   const language = { copy: (_tr, en) => en, dateLocale: 'en-GB', locale: 'en' };
   const api = { readCockpitJourney: () => new Promise(resolve => reads.push(resolve)), saveCockpitJourney: async (...args) => { saves.push(args); return saveResult ? saveResult(...args) : { ...detail, route: args[3], updatedAt: new Date(Date.parse(detail.updatedAt)+saves.length).toISOString() }; },
     validJourneyIntent: (intent, owner) => handoff.validateRouteCockpitIntent(intent) && intent.ownerId === owner };
-  const imports = { react: host.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, './Icon': { Icon: 'Icon' },
+  const imports = { './TodayTripProgram': { TodayTripProgram: 'TodayTripProgram' }, react: host.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, './Icon': { Icon: 'Icon' },
+    './RouteTranslation': { RouteTranslation: 'RouteTranslation' }, '../lib/savedRouteDisplay': require('../mobile/src/lib/savedRouteDisplay.ts'),
     './Sheet': { Sheet: 'Sheet' }, './LazyOverlay': { LazyOverlay: 'LazyOverlay' }, '../lib/id': { createId: () => 'new-map-copy' },
     '../lib/routeCockpitIntent': handoff, '../lib/mapJourney': model, '../lib/api': { ApiError: class ApiError extends Error {} }, '../lib/cockpitJourney': api,
     '../lib/i18n': { useI18n: () => language } };
@@ -55,7 +56,7 @@ function fixture(detail = snapshot(), saveResult) {
   const trip = { id: 'trip-a', startDate: '2026-10-13', endDate: '2026-10-15', destinationCity: 'Roma', destinationCountry: 'Italy' };
   host.start(loaded.exports.CockpitJourneySection, { ownerId: 'owner-a', accessToken: 'token-a', trips: [trip], selectedTrip: trip,
     onSelectTrip() {}, onCreateTrip() {}, onHandled() { handled++; } });
-  return { host, reads, saves, detail, handled: () => handled };
+  return { host, reads, saves, detail, handled: () => handled, language: locale => { language.locale = locale; language.copy = (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en; language.dateLocale = locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB'; return host.render(); } };
 }
 
 test('Cockpit opens the exact trip snapshot for an explicit version-checked update, retaining a separate copy option', async () => {
@@ -171,5 +172,69 @@ test('A pending token-refresh read cannot overwrite a newly updated trip', async
     const tree = h.host.render(); find(tree, 'Sheet').props.onClose();
     button(h.host.render(), 'Open on map').props.onClick();
     assert.equal(find(h.host.render(), 'MapJourneyPlanner').props.initialJourney.stops[0].note, 'Latest edit');
+  } finally { h.host.close(); }
+});
+
+
+test('Today itinerary shows only the selected trip day and its dated events, never generic bookmarks', () => {
+  const host = hooks();
+  const source = ts.transpileModule(readFileSync('mobile/src/components/TodayTripProgram.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const loaded = { exports: {} };
+  const imports = { react: host.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../lib/dates': { localIsoDate: () => '2026-10-14', isCalendarDate: value => /^\d{4}-\d{2}-\d{2}$/.test(value) },
+    '../../../lib/event-time': require('../lib/event-time.ts'),
+    '../lib/i18n': { useI18n: () => ({ copy: (_tr, en) => en }) }, './RouteTranslation': { RouteTranslation: 'RouteTranslation' },
+    '../lib/savedRouteDisplay': { savedRouteDisplay: route => route } };
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date })(name => { if (imports[name]) return imports[name]; throw Error(name); }, loaded, loaded.exports);
+  let handled = 0;
+  const trip = { id: 'trip-a', destinationCity: 'Roma', startDate: '2026-10-13', endDate: '2026-10-15', checklistItems: [
+    { id: 'a', kind: 'event', label: 'Tomorrow concert', eventLocalDate: '2026-10-15' },
+    { id: 'b', kind: 'event', label: 'Today festival', eventLocalDate: '2026-10-14' },
+    { id: 'c', kind: 'event', label: 'Legacy midnight concert today', eventStartsAt: '2026-10-13T22:30:00Z', eventTimeZone: 'Europe/Istanbul', eventTimePrecision: 'exact' },
+    { id: 'd', kind: 'event', label: 'Legacy midnight concert tomorrow', eventStartsAt: '2026-10-14T22:30:00Z', eventTimeZone: 'Europe/Istanbul', eventTimePrecision: 'exact' }] };
+  const details = { route: { route: { dailyPlan: ['First day walk', 'Second day museum', 'Third day coast'] } } };
+  let tree = host.start(loaded.exports.TodayTripProgram, { trip, details, ready: false, requestedTripId: 'trip-a', onHandled: () => handled++ });
+  assert.equal(handled, 0);
+  tree = host.render({ ready: true });
+  assert.equal(handled, 1); assert.match(text(tree), /Today festival/); assert.doesNotMatch(text(tree), /Tomorrow concert/);
+  assert.match(text(tree), /Legacy midnight concert today/); assert.doesNotMatch(text(tree), /Legacy midnight concert tomorrow/);
+  // Text can be wrapped by the display-only translation component.
+  assert.ok(JSON.stringify(tree).includes('Second day museum'));
+  assert.ok(!JSON.stringify(tree).includes('First day walk'));
+  tree = host.render({ details: { route: { ...details.route, dates: { startDate: '2026-10-14', endDate: '2026-10-15' } } } });
+  assert.ok(JSON.stringify(tree).includes('First day walk'));
+  assert.ok(!JSON.stringify(tree).includes('Second day museum'));
+  tree = host.render({ details: null, trip: { ...trip, checklistItems: [] } });
+  assert.match(text(tree), /no saved itinerary for today/);
+  host.close();
+});
+
+test('Attached map day labels and descriptions follow locale without writing or replacing the saved map snapshot', async () => {
+  const h = fixture();
+  const original = JSON.stringify(h.detail);
+  try {
+    h.reads[0](h.detail); await tick();
+    let tree = h.host.render();
+    assert.match(text(tree), /Day 2: 14:00 Shop/);
+    assert.ok(nodes(tree).some(node => node.type === 'RouteTranslation' && node.props.text === 'Your editable daily map itinerary.' && node.props.sourceLocale === 'en'));
+    h.language('sq'); h.reads.at(-1)(h.detail); await tick(); tree = h.host.render();
+    assert.match(text(tree), /Dita 2: 14:00 Shop/);
+    assert.doesNotMatch(text(tree), /2\. Gün/);
+    assert.ok(nodes(tree).some(node => node.type === 'RouteTranslation' && node.props.text === 'Programi yt ditor i redaktueshëm në hartë.' && node.props.sourceLocale === 'sq'));
+    assert.equal(h.saves.length, 0); assert.equal(JSON.stringify(h.detail), original);
+    button(tree, 'Hap në hartë').props.onClick();
+    assert.equal(find(h.host.render(), 'MapJourneyPlanner').props.initialJourney.stops[0].note, 'Keep this');
+  } finally { h.host.close(); }
+});
+
+test('Attached legacy route title, description and every day use display-only translation with the signed-in session', async () => {
+  const detail = snapshot(); delete detail.route.route.mapJourney;
+  detail.route.route.name = 'Roma kültür gezisi'; detail.route.route.why = 'Müzelere yakın bir rota.'; detail.route.route.dailyPlan = ['İlk gün müze', 'İkinci gün park'];
+  const h = fixture(detail), original = JSON.stringify(detail);
+  try {
+    h.reads[0](detail); await tick();
+    const translations = nodes(h.host.render()).filter(node => node.type === 'RouteTranslation');
+    assert.deepEqual(translations.map(node => node.props.text), ['Roma kültür gezisi', 'Müzelere yakın bir rota.', 'İlk gün müze', 'İkinci gün park']);
+    assert.ok(translations.every(node => node.props.accessToken === 'token-a'));
+    assert.equal(h.saves.length, 0); assert.equal(JSON.stringify(detail), original);
   } finally { h.host.close(); }
 });

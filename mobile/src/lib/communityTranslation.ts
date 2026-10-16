@@ -16,13 +16,14 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
   let token: string | undefined;
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let cooldownUntil = 0;
 
   function reset(nextToken: string) {
     generation++; token = nextToken;
     if (timer) clearTimeout(timer);
     timer = undefined;
     for (const batch of active) batch.controller.abort();
-    active.clear(); jobs.clear();
+    active.clear(); jobs.clear(); cooldownUntil = 0;
   }
   function prune() {
     for (const [key, job] of jobs) if (!job.listeners.size && job.state === "complete" && job.expires <= now()) jobs.delete(key);
@@ -41,10 +42,13 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
     job.listeners.clear();
   }
   function schedule() {
-    if (timer || active.size >= 2) return;
-    timer = setTimeout(() => { timer = undefined; drain(); }, 40);
+    if (timer || active.size >= 2 || ![...jobs.values()].some(job => job.state === "queued" && job.listeners.size)) return;
+    // A short coalescing window lets adjacent cards enter one request. Quota
+    // cooldown is shared by the whole queue, not independently by every row.
+    timer = setTimeout(() => { timer = undefined; drain(); }, Math.max(160, cooldownUntil - now()));
   }
   function drain() {
+    if (cooldownUntil > now()) { schedule(); return; }
     while (active.size < 2) {
       const first = [...jobs.values()].find(job => job.state === "queued" && job.listeners.size);
       if (!first) return;
@@ -75,7 +79,13 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
         if (batch.generation !== generation || batch.controller.signal.aborted) return;
         const status = error instanceof ApiError ? error.status : 0;
         const retryable = status === 0 || status === 408 || status === 429 || status >= 500;
-        selected.forEach(job => finish(job, { status: "failed", ...(retryable ? { retryAt: now() + 60_000, retryOnReconnect: status === 0 } : {}) }));
+        const suppliedDelay = error instanceof ApiError && error.payload && typeof error.payload === "object"
+          ? (error.payload as { retryAfterSeconds?: unknown }).retryAfterSeconds : undefined;
+        const quotaDelay = typeof suppliedDelay === "number" && Number.isFinite(suppliedDelay) && suppliedDelay >= 1 && suppliedDelay <= 86_400
+          ? Math.ceil(suppliedDelay) * 1_000 : 60_000;
+        const delay = status === 429 ? quotaDelay : 5_000;
+        if (status === 429) cooldownUntil = Math.max(cooldownUntil, now() + delay);
+        selected.forEach(job => finish(job, { status: "failed", ...(retryable ? { retryAt: now() + delay, retryOnReconnect: status === 0 } : {}) }));
       }).finally(() => {
         active.delete(batch); prune(); schedule();
       });
@@ -100,10 +110,9 @@ export function createCommunityTranslationQueue(request: RequestBatch, now = Dat
       return () => {
         current.listeners.delete(listener);
         if (!current.listeners.size && current.state === "queued" && jobs.get(key) === current) jobs.delete(key);
-        for (const batch of active) if (batch.jobs.every(item => !item.listeners.size)) {
-          batch.controller.abort(); active.delete(batch);
-          batch.jobs.forEach(item => { if (jobs.get(item.key) === item) jobs.delete(item.key); });
-        }
+        // Once a bounded request has started, finish it into the session cache.
+        // Scrolling away used to abort it after quota was already spent, then
+        // start it again on return. Account reset still aborts/fences all work.
         schedule();
       };
     },

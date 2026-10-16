@@ -27,16 +27,16 @@ function fixture({ reducedMotion = false } = {}) {
     useEffect(fn) { effect = fn; },
   };
   const jsx = (type, props) => ({ type, props });
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window })(name => {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
     if (name === '../lib/i18n') return { useI18n: () => ({ copy: (_tr, en) => en }) };
     if (name.endsWith('.webp')) return { default: name };
     throw Error(`Unexpected startup dependency: ${name}`);
-  }, module, module.exports);
+  }, fixtureModule, fixtureModule.exports);
   const onFinish = () => { finishCount++; };
-  const render = () => { cursor = 0; return module.exports.AnimatedSplash({ onFinish }); };
+  const render = () => { cursor = 0; return fixtureModule.exports.AnimatedSplash({ onFinish }); };
   render(); let cleanup = effect();
   return {
     render,

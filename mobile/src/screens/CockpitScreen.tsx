@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
+import { eventDateLabel, eventTimeLabel, eventLocalDate } from "../../../lib/event-time";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { onAccountResume } from "../lib/accountResume";
 import { AirportField } from "../components/AirportField";
@@ -16,6 +16,7 @@ import { CockpitTicketImport } from "../components/CockpitTicketImport";
 import { CockpitTripEditor } from "../components/CockpitTripEditor";
 import { CockpitJourneySection } from "../components/CockpitJourneySection";
 import { validJourneyIntent, type CockpitJourneyIntent } from "../lib/cockpitJourney";
+import { validEventTripIntent, travelEventChecklistItem, type EventTripIntent } from "../lib/eventTripIntent";
 import { journeyCountry } from "../lib/journeyCountry";
 import { activeFlightExpiry, canSaveFlightSelection, parseFlightMatch, type FlightSelection } from "../lib/flightSelection";
 import { flightSelectionDeadline } from "../../../lib/flight-progress";
@@ -56,6 +57,10 @@ type CockpitScreenProps = {
   accessToken: string;
   /** Derin bağlantı/bildirimden gelen kayıt: liste yüklenince otomatik seçilir. */
   focusTripId?: string;
+  todayTripId?: string;
+  onTodayHandled?: () => void;
+  eventIntent?: EventTripIntent | null;
+  onEventHandled?: () => void;
   onFocusHandled?: () => void;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
@@ -229,7 +234,7 @@ type CockpitSessionSnapshot = {
   userId: string;
 };
 
-export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice, journeyIntent, onJourneyHandled }: CockpitScreenProps) {
+export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice, journeyIntent, onJourneyHandled, todayTripId, onTodayHandled, eventIntent, onEventHandled }: CockpitScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const pastDepartureMessage = copy(
     "Planlanan kalkış saati geçti ve devam eden uçuş bilgisi doğrulanamadı. Biletindeki bilgilerle elle devam edebilirsin.",
@@ -266,6 +271,9 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   const [editConflict, setEditConflict] = useState(false);
   const loadGeneration = useRef(0);
   const pendingCreate = useRef<CockpitSessionSnapshot | null>(null);
+  const preparedEvent = useRef<EventTripIntent | null>(null);
+  const eventForm = useRef<HTMLFormElement>(null);
+  const focusedEvent = useRef<EventTripIntent | null>(null);
   const reminderReset = useRef<Promise<void>>(Promise.resolve());
   const userId = user?.id || "";
   const sessionRef = useRef<CockpitSessionSnapshot>({
@@ -299,7 +307,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setTrips([]);
       setSelectedTripId("");
       setForm(EMPTY_FORM);
-      pendingCreate.current = null;
+      pendingCreate.current = null; preparedEvent.current = null;
       setManualFlight(false);
       setMatchedFlight(null);
       setEditTicket(true);
@@ -319,6 +327,26 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       reminderReset.current = syncFlightReminders([]);
     }
   }, [accessToken, userId]);
+
+  useEffect(() => {
+    if (!validEventTripIntent(eventIntent, userId) || preparedEvent.current === eventIntent) return;
+    preparedEvent.current = eventIntent;
+    const event = eventIntent.event;
+    const countryAlpha3 = alpha3FromAlpha2(event.countryCode);
+    const country = COUNTRY_LIST.find(item => item.alpha3 === countryAlpha3);
+    const date = eventLocalDate(event);
+    setForm({ ...EMPTY_FORM, mode: "other", countryAlpha3,
+      destinationCode: event.countryCode, destinationCountry: country ? countryName(countryAlpha3, country.name) : "",
+      destinationCity: event.city, startDate: date, endDate: date });
+    setFormOpen(true); setMatchedFlight(null); setManualFlight(false); setError("");
+  }, [eventIntent, userId, countryName]);
+
+  useEffect(() => {
+    if (!formOpen || !validEventTripIntent(eventIntent, userId) || focusedEvent.current === eventIntent) return;
+    focusedEvent.current = eventIntent;
+    eventForm.current?.focus({ preventScroll: true });
+    eventForm.current?.scrollIntoView({ block: "start", behavior: "auto" });
+  }, [formOpen, eventIntent, userId]);
 
   useEffect(() => () => {
     // Ekran başka bir sekmeye geçildiği için kaldırılırsa sunucu isteğini iptal
@@ -497,6 +525,13 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       return;
     }
 
+    const attachedEvent = validEventTripIntent(eventIntent, session.userId) ? eventIntent.event : null;
+    if (attachedEvent) {
+      const date = eventLocalDate(attachedEvent);
+      if (date < form.startDate || date > form.endDate || form.destinationCode !== attachedEvent.countryCode) {
+        setError(copy("Seyahat tarihleri ve ülkesi seçtiğin etkinliği kapsamalı. Bilgileri düzelt veya etkinliği kaldır.", "The trip dates and country must include the selected event. Update them or remove the event.", "Datat dhe shteti duhet të përfshijnë aktivitetin. Ndryshoji ose hiqe aktivitetin.")); return;
+      }
+    }
     pendingCreate.current = session;
     setBusy("create");
     setError("");
@@ -524,7 +559,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         destinationIata: form.mode === "flight" ? form.airport?.iata || "" : "",
         airline: form.mode === "flight" ? form.airline.trim() : "",
         flightNumber: form.mode === "flight" ? normalizeFlightNumber(form.flightNumber) : "",
-        checklistItems: defaultChecklist(locale),
+        checklistItems: [...defaultChecklist(locale), ...(attachedEvent ? [travelEventChecklistItem(attachedEvent)] : [])],
       }, session.accessToken);
       if (!isCurrentSession(session)) return;
       const next = [...trips, created].sort((left, right) => left.startDate.localeCompare(right.startDate));
@@ -535,6 +570,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setMatchedFlight(null);
       setManualFlight(false);
       setFormOpen(false);
+      if (attachedEvent) onEventHandled?.();
       onNotice(copy("Seyahatin kokpite eklendi.", "Your trip was added to the cockpit."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
@@ -761,6 +797,19 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     window.requestAnimationFrame(() => document.getElementById("cockpit-trip-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
+  const changeTripMode = (mode: TripForm["mode"]) => {
+    if (form.mode === mode || busy || pendingCreate.current) return;
+    // Event context is independent of the transport choice. Flight receipts,
+    // airports and times are cleared so an old flight can never be resubmitted.
+    const common = validEventTripIntent(eventIntent, userId) ? {
+      countryAlpha3: form.countryAlpha3, destinationCountry: form.destinationCountry,
+      destinationCode: form.destinationCode, destinationCity: form.destinationCity,
+      startDate: form.startDate, endDate: form.endDate,
+    } : {};
+    setForm({ ...EMPTY_FORM, ...common, mode });
+    setMatchedFlight(null); setManualFlight(false); setError("");
+  };
+
   return <div className="screen cockpit-native-screen">
     <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
 
@@ -773,13 +822,14 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       </button>
     </div>
 
-    <CockpitJourneySection ownerId={userId} accessToken={accessToken} trips={trips} selectedTrip={selectedTrip} intent={journeyIntent} onSelectTrip={setSelectedTripId} onCreateTrip={prepareJourneyTrip} onHandled={() => onJourneyHandled?.()} onRefreshTrips={load}/>
+    <CockpitJourneySection todayTripId={todayTripId} onTodayHandled={onTodayHandled} ownerId={userId} accessToken={accessToken} trips={trips} selectedTrip={selectedTrip} intent={journeyIntent} onSelectTrip={setSelectedTripId} onCreateTrip={prepareJourneyTrip} onHandled={() => onJourneyHandled?.()} onRefreshTrips={load}/>
 
-    {formOpen && <form id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
+    {formOpen && <form ref={eventForm} tabIndex={-1} id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
+      {validEventTripIntent(eventIntent, userId) && <div className="info-box" role="status"><Icon name="calendar" size={20}/><div><strong>{eventIntent.event.title}</strong><p>{eventIntent.event.city} · {eventLocalDate(eventIntent.event)}</p>{eventIntent.event.status === "postponed" && <p>{copy("Etkinlik ertelenmiş. Yeni tarihini kaynağından doğrula.", "This event was postponed. Confirm the new date with its source.", "Aktiviteti është shtyrë. Konfirmo datën e re te burimi.")}</p>}<p>{copy("Bu etkinlik, seyahatinle birlikte kaydedilecek.", "This event will be saved with your trip.", "Ky aktivitet do të ruhet me udhëtimin.")}</p><button type="button" className="text-button" disabled={Boolean(busy)} onClick={() => { if (!busy && !pendingCreate.current) onEventHandled?.(); }}>{copy("Etkinliği kaldır", "Remove event", "Hiq aktivitetin")}</button></div></div>}
       <ol className="cockpit-journey-steps" aria-label={copy("Seyahat ekleme adımları", "Add a trip steps")}><li className={!matchedFlight && !manualFlight ? "current" : "done"}>1 · {copy("Uçuşunu bul", "Find your flight")}</li><li className={matchedFlight || manualFlight || form.mode === "other" ? "current" : ""}>2 · {copy("Doğrula ve tamamla", "Review and complete")}</li><li>3 · {copy("Yolculuğun hazır", "Your trip is ready")}</li></ol>
       <div className="cockpit-mode-tabs" role="group" aria-label={copy("Seyahat türü", "Trip type")}>
-        <button type="button" aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => { if (form.mode === "flight") return; setForm({ ...EMPTY_FORM, mode: "flight" }); setMatchedFlight(null); setManualFlight(false); }}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
-        <button type="button" aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => { if (form.mode === "other") return; setForm({ ...EMPTY_FORM, mode: "other" }); setMatchedFlight(null); setManualFlight(false); }}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
+        <button type="button" disabled={Boolean(busy)} aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => changeTripMode("flight")}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
+        <button type="button" disabled={Boolean(busy)} aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => changeTripMode("other")}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
       </div>
 
       {form.mode === "flight" && <CockpitTicketImport key={`ticket-${userId}`} disabled={Boolean(busy)} onConfirm={applyTicket}/>}

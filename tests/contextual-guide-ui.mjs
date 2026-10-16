@@ -8,10 +8,10 @@ const jsx=(type,props,key)=>({type,props,key});
 const nodes=value=>!value||typeof value!=='object'?[]:[value,...[value.props?.children].flat(Infinity).flatMap(nodes)];
 const text=value=>Array.isArray(value)?value.map(text).join(''):value?.props?text(value.props.children):typeof value==='string'?value:'';
 function load(file,imports,globals={}) {
-  const module={exports:{}};
+  const fixture={exports:{}};
   const source=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,globals)(name=>name.endsWith('.css')?{}:imports[name],module,module.exports);
-  return module.exports;
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,globals)(name=>name.endsWith('.css')?{}:imports[name],fixture,fixture.exports);
+  return fixture.exports;
 }
 function harness(view = 'home') {
   const slots=[];let cursor,dirty,effects,tree,active=true,paused=false,revision=0,frames=[];const observers=new Set(),windowEvents=new Map(),docEvents=new Map();
@@ -31,7 +31,7 @@ function harness(view = 'home') {
     mutate(){for(const observer of observers)observer.fn();const pending=frames;frames=[];pending.forEach(fn=>fn());return h.render();},
     target(guide,{inert=false,insideSheet=false,top=180}={}){const events=new Map(),classes=new Set(),attrs=new Map([['aria-describedby','existing-description']]);const t={guide,inert,top,insideSheet,actions:0,classes,attrs,
       closest:selector=>selector.startsWith('[inert]')?(t.inert?{}:null):(t.insideSheet?sheet:null),getClientRects:()=>[{}],getBoundingClientRect:()=>({left:30,top:t.top,width:300,height:48,bottom:t.top+48}),classList:{add:v=>classes.add(v),remove:v=>classes.delete(v)},getAttribute:key=>attrs.get(key)||null,setAttribute:(key,v)=>attrs.set(key,v),removeAttribute:key=>attrs.delete(key),addEventListener:(key,fn)=>events.set(key,fn),removeEventListener:key=>events.delete(key),focus(){t.focused=true;},act(key){t.actions++;events.get(key)?.();}};targets.push(t);return t;},
-    click(label){const b=nodes(tree).find(n=>n.type==='button'&&text(n)===label);assert.ok(b,label);b.props.onClick();h.render();},pause(value){paused=value;return h.render();},reopen(){active=true;progress.saveGuideProgress({active:true,seen:[]});revision++;return h.render();},dispose(){slots.forEach(slot=>slot?.cleanup?.());},
+    click(label){const b=nodes(tree).find(n=>n.type==='button'&&(text(n)===label||n.props['aria-label']===label));assert.ok(b,label);assert.notEqual(b.props.disabled,true);b.props.onClick();h.render();},pause(value){paused=value;return h.render();},reopen(){active=true;progress.saveGuideProgress({active:true,seen:[]});revision++;return h.render();},dispose(){slots.forEach(slot=>slot?.cleanup?.());},
   };return h;
 }
 
@@ -70,4 +70,26 @@ test('Navigation lessons use real Plans and Tools buttons and retain progress wi
 
 test('Route lazy loading never flashes navigation lessons before its actual destination field exists',()=>{
   const h=harness('route');try{h.target('nav-plans',{top:760});h.target('nav-tools',{top:760});h.render();assert.equal(h.tree,null);h.target('journey-destination',{insideSheet:true});h.mutate();assert.match(text(h.tree),/Choose where to go/);}finally{h.dispose();}
+});
+
+test('Detailed Home lessons teach real search and Event Radar controls, support back, skip and restart without triggering navigation',()=>{
+  const h=harness();try{
+    const search=h.target('home-search'),route=h.target('home-route'),events=h.target('home-events');h.render();
+    assert.match(text(h.tree),/What are you looking for/);assert.match(text(h.tree),/Istanbul/);assert.match(text(h.tree),/currency/);
+    h.click('Got it');assert.match(text(h.tree),/Create your first route/);assert.equal(search.actions,0);assert.equal(route.actions,0);
+    h.click('Back');assert.match(text(h.tree),/What are you looking for/);h.click('Got it');assert.match(text(h.tree),/Create your first route/);
+    h.click('Skip');assert.match(text(h.tree),/Discover Event Radar/);assert.match(text(h.tree),/country, optional city and dates/);assert.equal(events.actions,0);
+    h.click('Restart guide');assert.match(text(h.tree),/What are you looking for/);assert.deepEqual([...h.progress.readGuideProgress().seen],[]);
+    search.act('input');h.render();assert.match(text(h.tree),/Create your first route/);assert.equal(search.actions,1);
+    h.click('Close tour');assert.equal(h.tree,null);assert.equal(events.classes.size,0);
+  }finally{h.dispose();}
+});
+
+test('Day and discovery lessons describe real map controls and wait for them without performing mutations',()=>{
+  const h=harness('route');try{
+    const days=h.target('journey-days',{insideSheet:true}),discover=h.target('journey-discover',{insideSheet:true,top:600});h.render();
+    assert.match(text(h.tree),/Review each day/);assert.match(text(h.tree),/Swipe/);h.click('Got it');
+    assert.match(text(h.tree),/Add a place to your route/);assert.match(text(h.tree),/Search this area/);assert.equal(days.actions,0);assert.equal(discover.actions,0);
+    h.click('Back');assert.match(text(h.tree),/Review each day/);
+  }finally{h.dispose();}
 });

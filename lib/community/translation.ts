@@ -59,6 +59,29 @@ export function parseForumTranslationResult(input: unknown) {
     ? translation.trim() : null;
 }
 
+/** Read only retry metadata from the SDK error. Never return provider messages,
+ * quota identities or the supplied forum content to clients or logs. */
+export function forumTranslationProviderRetryAfter(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const record = error as { status?: unknown; message?: unknown };
+  if (record.status !== 429) return null;
+  let seconds = 60;
+  if (typeof record.message === "string" && record.message.length <= 32_000) {
+    try {
+      const parsed = JSON.parse(record.message);
+      const details = parsed?.error?.details;
+      if (Array.isArray(details)) {
+        const retry = details.find(item => item && item["@type"] === "type.googleapis.com/google.rpc.RetryInfo");
+        if (typeof retry?.retryDelay === "string" && /^\d+(?:\.\d+)?s$/.test(retry.retryDelay)) {
+          const value = Number(retry.retryDelay.slice(0, -1));
+          if (Number.isFinite(value) && value > 0) seconds = Math.ceil(value);
+        }
+      }
+    } catch { /* Missing/malformed RetryInfo uses the conservative default. */ }
+  }
+  return Math.min(86_400, Math.max(1, seconds));
+}
+
 /** SDK/auth/database clients also receive deadlines. This outer bound ensures
  * a dependency that ignores its abort signal cannot keep the route open. */
 export async function translationWait<T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> {

@@ -6,12 +6,12 @@ import ts from 'typescript';
 import * as crypto from 'node:crypto';
 
 function load(file, imports = {}, globals = {}) {
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
     Error, Date, URL, URLSearchParams, Response, Request, Buffer, TextDecoder, AbortController, setTimeout, clearTimeout, ...globals,
-  })(name => { if (name in imports) return imports[name]; throw Error(`Missing ${name}`); }, module, module.exports);
-  return module.exports;
+  })(name => { if (name in imports) return imports[name]; throw Error(`Missing ${name}`); }, fixtureModule, fixtureModule.exports);
+  return fixtureModule.exports;
 }
 const clone = value => JSON.parse(JSON.stringify(value));
 const places = load('lib/travel-assistant/places.ts');

@@ -2,7 +2,7 @@ import type { WelcomeIntent } from './onboardingPreferences';
 
 const GUIDE_KEY = 'l2t.mobile.context-guide.v1';
 const AUTH_KEY = 'l2t.mobile.welcome-auth.v1';
-export const GUIDE_IDS = ['destination', 'edit', 'save', 'plans', 'tools'] as const;
+export const GUIDE_IDS = ['search', 'start', 'events', 'destination', 'days', 'edit', 'discover', 'save', 'plans', 'community', 'tools', 'profile'] as const;
 export type GuideId = typeof GUIDE_IDS[number];
 export type GuideProgress = { active: boolean; seen: GuideId[] };
 let sessionProgress: GuideProgress | undefined;

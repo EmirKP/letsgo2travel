@@ -10,6 +10,8 @@ export type JourneyPlace = Place & Partial<JourneyPhoto> & { group?: string; kin
 export type JourneyStop = {
   id: string; place: JourneyPlace; day: number; order: number; durationMinutes: number;
   note: string; fixedTime: string | null; priority: 'normal' | 'high'; sourceUrl: string | null;
+  /** Optional v1 metadata. Exact text guards edits made by older clients. */
+  noteOrigin?: { locale: JourneyPlanning['locale']; text: string };
 };
 export type JourneyPlanning = Pick<JourneyPlanResult, 'preferences' | 'locale' | 'summary' | 'limitations' | 'fetchedAt' | 'attribution' | 'generatedBy'> & {
   days: Array<{day:number;theme:string;explanation:string}>; edited?:boolean;
@@ -166,8 +168,22 @@ export function encodeStoredMapJourney(value: MapJourney): MapJourney {
   return checked(stored);
 }
 function checked(journey: MapJourney) { if (!validateMapJourney(journey)) throw new Error('invalid'); return journey; }
+export function journeyStopNoteLocale(journey: MapJourney, stop: JourneyStop): JourneyPlanning['locale'] | undefined {
+  const origin = stop.noteOrigin;
+  if (origin !== undefined) return origin && ['tr', 'en', 'sq'].includes(origin.locale) && origin.text === stop.note ? origin.locale : undefined;
+  return journey.planning && !journey.planning.edited ? journey.planning.locale : undefined;
+}
 function changed(journey: MapJourney, stops: JourneyStop[]): MapJourney {
-  const result = { ...journey, stops, ...(journey.planning ? {planning:{...journey.planning,edited:true}} : {}), updatedAt: new Date().toISOString() };
+  const originals = new Map(journey.stops.map(stop => [stop.id, stop]));
+  const nextStops = stops.map(stop => {
+    const original = originals.get(stop.id);
+    const locale = original?.note === stop.note ? journeyStopNoteLocale(journey, original) : undefined;
+    const next = { ...stop };
+    delete next.noteOrigin;
+    if (locale && stop.note) next.noteOrigin = { locale, text: stop.note };
+    return next;
+  });
+  const result = { ...journey, stops: nextStops, ...(journey.planning ? {planning:{...journey.planning,edited:true}} : {}), updatedAt: new Date().toISOString() };
   for (let day = 1; day <= journey.dayCount; day++) journeyDayStops(result, day).forEach((stop, order) => { stop.order = order; });
   return checked(result);
 }

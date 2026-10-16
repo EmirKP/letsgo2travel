@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-class ApiError extends Error { constructor(status){super('Request failed');this.status=status;} }
+class ApiError extends Error { constructor(status,payload=null){super('Request failed');this.status=status;this.payload=payload;} }
 function harness(){
  const timers=new Map(),requests=[];let timerId=0,time=0;
  const result={exports:{}};
@@ -29,10 +29,10 @@ test('batch character budget, text edits and target languages have independent c
  h.resolve(0);h.resolve(1);await tick();assert.equal(results[0].title,'translated Title');stops.forEach(stop=>stop());
  const stop=h.queue.subscribe(h.input('a'.repeat(5000),'sq'),()=>{});h.flush();assert.equal(h.requests[2].locale,'sq');stop();h.queue.clear();
 });
-test('unmount cancels queued work, shares still-needed batches, and account changes fence all old results',async()=>{
+test('unmount cancels queued work, already-started work remains bounded, and account changes fence all old results',async()=>{
  const h=harness(),received=[];
  const queued=h.queue.subscribe(h.input('Never visible again'),()=>received.push('queued'));queued();h.flush();assert.equal(h.requests.length,0);
- const one=h.queue.subscribe(h.input('Shared'),result=>received.push(result));const two=h.queue.subscribe(h.input('Shared'),result=>received.push(result));h.flush();one();assert.equal(h.requests[0].signal.aborted,false);two();assert.equal(h.requests[0].signal.aborted,true);
+ const one=h.queue.subscribe(h.input('Shared'),result=>received.push(result));const two=h.queue.subscribe(h.input('Shared'),result=>received.push(result));h.flush();one();assert.equal(h.requests[0].signal.aborted,false);two();assert.equal(h.requests[0].signal.aborted,false);
  const old=h.queue.subscribe(h.input('Private'),result=>received.push(result));h.flush();const next=h.queue.subscribe(h.input('Public','sq',''),result=>received.push(result));assert.equal(h.requests[1].signal.aborted,true);h.flush();
  h.resolve(1);h.resolve(2);await tick();assert.equal(received.length,1);assert.equal(received[0].text,'translated Public');old();next();h.queue.clear();
 });
@@ -68,9 +68,49 @@ test('completed mounted rows release cache pins so appended discussion items kee
 test('reconnect retries share work, while invalid sessions cannot be forced into another request',async()=>{
  const h=harness();let failed,recovered;
  const old=h.queue.subscribe(h.input(),value=>failed=value);h.flush();h.requests[0].reject(new ApiError(0));await tick();
- assert.equal(failed.retryOnReconnect,true);assert.equal(failed.retryAt,60000);
+ assert.equal(failed.retryOnReconnect,true);assert.equal(failed.retryAt,5000);
  const one=h.queue.subscribe(h.input(),value=>recovered=value,true),two=h.queue.subscribe(h.input(),()=>{},true);h.flush();assert.equal(h.requests.length,2);
  h.resolve(1);await tick();assert.equal(recovered.status,'ready');old();one();two();
  const auth=h.queue.subscribe(h.input('Private'),value=>failed=value);h.flush();h.requests[2].reject(new ApiError(401));await tick();
  assert.equal(failed.retryAt,undefined);h.queue.subscribe(h.input('Private'),()=>{},true);h.flush();assert.equal(h.requests.length,3);auth();h.queue.clear();
+});
+
+test('scrolling away and back reuses a paid in-flight translation and its completed session cache',async()=>{
+ const h=harness();let result;
+ const stop=h.queue.subscribe(h.input('A visible answer'),()=>assert.fail('unmounted row updated'));h.flush();stop();
+ assert.equal(h.requests[0].signal.aborted,false);
+ const back=h.queue.subscribe(h.input('A visible answer'),value=>result=value);h.flush();assert.equal(h.requests.length,1);
+ h.resolve(0);await tick();assert.equal(result.text,'translated A visible answer');back();
+ let cached;const again=h.queue.subscribe(h.input('A visible answer'),value=>cached=value);h.flush();
+ assert.equal(h.requests.length,1);assert.equal(cached.text,result.text);again();h.queue.clear();
+});
+
+test('a quota response pauses every queued row until the shared cooldown instead of sending more failing batches',async()=>{
+ const h=harness(),results=[],stops=[];
+ for(let i=0;i<19;i++)stops.push(h.queue.subscribe(h.input(`Reply ${i}`),value=>results[i]=value));
+ h.flush();assert.equal(h.requests.length,2);
+ h.requests[0].reject(new ApiError(429));h.resolve(1);await tick();h.flush();
+ assert.equal(h.requests.length,2);assert.equal(results[0].retryAt,60000);assert.equal(results[0].retryOnReconnect,false);
+ h.advance(59999);h.flush();assert.equal(h.requests.length,2);
+ h.advance(1);h.flush();assert.equal(h.requests.length,4);
+ h.resolve(2);h.resolve(3);await tick();assert.ok(results.slice(12).every(result=>result.status==='ready'));
+ stops.forEach(stop=>stop());h.queue.clear();
+});
+
+test('provider Retry-After delays all queued/retried rows and reconnect cannot force them to consume quota early',async()=>{
+ const h=harness();let result;
+ h.queue.subscribe(h.input('Reply'),value=>result=value);h.flush();
+ h.requests[0].reject(new ApiError(429,{retryAfterSeconds:90}));await tick();
+ assert.equal(result.retryAt,90000);assert.equal(result.retryOnReconnect,false);
+ h.queue.subscribe(h.input('Reply'),value=>result=value,true);
+ h.queue.subscribe(h.input('New reply'),()=>{});h.flush();assert.equal(h.requests.length,1);
+ h.advance(89999);h.flush();assert.equal(h.requests.length,1);
+ h.advance(1);h.flush();assert.equal(h.requests.length,2);assert.equal(h.requests[1].items.length,2);
+ h.resolve(1);await tick();assert.equal(result.status,'ready');h.queue.clear();
+ for(const retryAfterSeconds of [-1,0,'1',NaN,Infinity,86401]){
+  const malformed=harness();let fallback;
+  malformed.queue.subscribe(malformed.input(),value=>fallback=value);malformed.flush();
+  malformed.requests[0].reject(new ApiError(429,{retryAfterSeconds}));await tick();
+  assert.equal(fallback.retryAt,60000);malformed.queue.clear();
+ }
 });

@@ -20,15 +20,15 @@ const deferred = () => { let resolve, reject; const promise = new Promise((yes, 
 
 function load(path, imports = {}, environment = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, {
     Error, Date, Intl, URL, AbortController, setTimeout, clearTimeout, requestAnimationFrame: fn => fn(), window:{addEventListener(){},removeEventListener(){}}, ...environment,
   })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
-  }, module, module.exports);
-  return module.exports;
+  }, fixtureModule, fixtureModule.exports);
+  return fixtureModule.exports;
 }
 const placeData = load('lib/travel-assistant/places.ts');
 const areas = load('mobile/src/lib/travelAreas.ts');
@@ -87,6 +87,7 @@ function fixture(options = {}) {
   const draftLib = load('mobile/src/lib/journeySurveyDraft.ts', {}, {window:{localStorage}});
   const suggestions = load('mobile/src/lib/journeyAreaSuggestions.ts', {'./mapJourneyClient':client, './searchText':searchText, './travelAreas':areas});
   const survey = load('mobile/src/components/JourneySetupSurvey.tsx', {
+    '../lib/surveyKeyboard': {observeSurveyKeyboard:()=>()=>{}},
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, './Icon': { Icon: 'Icon' },
     './WelcomeArtwork': {WelcomeArtwork:'WelcomeArtwork'}, '../lib/journeySurveyDraft':draftLib, '../lib/journeyAreaSuggestions':suggestions,
     '../lib/onboardingPreferences': {readWelcomePreferences:()=>({interests:options.welcomeInterests || ['Kültür','Yeme-içme']})},
@@ -97,6 +98,7 @@ function fixture(options = {}) {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) },
     './Icon': { Icon: 'Icon' }, './JourneyMap': { JourneyMap: 'JourneyMap' }, './JourneySetupSurvey': survey,
+    './RouteTranslation': { RouteTranslation: ({text}) => text },
     '../lib/journeyPlanClient': { ...planClient, generateJourneyPlan: (...args) => { calls.generation.push(args); return options.generate ? options.generate(...args) : Promise.resolve(generated(args[0])); } },
     '../../../lib/travel-assistant/places': placeData, '../lib/travelAreas': areas,
     '../lib/travelAssistant': { locateForTravel: () => { calls.gps++; return options.gps ? options.gps() : Promise.reject(Error('denied')); }, directionsUrl: value => `https://maps.example/${value}` },
@@ -128,7 +130,7 @@ function fixture(options = {}) {
       fiber.cursor = 0; active = fiber;
       return resolve(node.type(node.props), `${key}/render`, visited);
     }
-    if (node.props?.ref && !node.props.ref.current) node.props.ref.current = { focus() {}, closest: () => null, scrollTop: 0, scrollIntoView() {}, clientHeight: 800, getBoundingClientRect(){return {top:0,left:0,right:390,bottom:800,width:390,height:800};}, querySelector(){return null;}, querySelectorAll(){return [];} };
+    if (node.props?.ref && !node.props.ref.current) node.props.ref.current = { focus() {}, closest: () => options.sheet || null, scrollTop: 0, scrollIntoView() {}, clientHeight: 800, getBoundingClientRect(){return {top:0,left:0,right:390,bottom:800,width:390,height:800};}, querySelector(){return null;}, querySelectorAll(){return [];} };
     return { ...node, props: { ...node.props, children: resolve(node.props?.children, `${path}/children`, visited) } };
   }
   const app = {
@@ -854,4 +856,78 @@ test('Opening the canonical saved snapshot restores its genuine beach category b
     assert.equal(app.calls.saved[0][0].firstDayStartTime,'14:30');
     assert.equal(stored.stops[0].place.category,'attraction');
   } finally { app.dispose(); }
+});
+
+test('Unsaved reorders cannot disappear through Close, sheet back or opening another saved route; staying retains edits', async () => {
+  const original=journey(), sheet=new EventTarget(); let closed=0;
+  const app=fixture({initialJourney:original,sheet,savedItems:[original]});
+  app.render({onClose:()=>closed++});
+  try {
+    app.click('Museum A: Move down');
+    assert.match(text(app.tree),/Unsaved changes/);
+    const edited=clone(app.map.stops);
+    const back=new Event('sheet:before-close',{cancelable:true});
+    assert.equal(sheet.dispatchEvent(back),false);
+    app.render(); assert.ok(find(app.tree,'div',p=>p.role==='alertdialog'));
+    assert.equal(closed,0); assert.equal(app.calls.saved.length,0);
+    app.click('Keep editing');assert.deepEqual(clone(app.map.stops),edited);
+    app.click('Close map');app.click('Continue without saving');
+    assert.equal(closed,1);assert.equal(app.calls.saved.length,0);
+    assert.equal(original.stops[0].place.name,'Museum A');
+    assert.deepEqual(clone(app.map.stops),clone(original.stops.map(stop=>({...stop.place,day:stop.day,order:stop.order+1}))));
+  } finally {app.dispose();}
+});
+
+test('Save-and-close confirms durable success; failed save keeps the exact edited plan and close prompt open', async () => {
+  for(const fails of [false,true]){
+    let closed=0;const app=fixture({initialJourney:journey(),save:fails?()=>{throw Error('quota');}:undefined});
+    app.render({onClose:()=>closed++});
+    try{
+      app.click('Museum A: Move down');const edited=clone(app.map.stops);
+      app.click('Close map');app.click('Save and continue');await tick();app.render();
+      assert.equal(app.calls.saved.length,1);assert.equal(closed,fails?0:1);
+      assert.deepEqual(clone(app.map.stops),edited);
+      if(fails){assert.ok(find(app.tree,'div',p=>p.role==='alertdialog'));assert.match(text(app.tree),/Plan could not save/);}
+      else {assert.ok(!find(app.tree,'div',p=>p.role==='alertdialog'));assert.doesNotMatch(text(app.tree),/Unsaved changes/);}
+    }finally{app.dispose();}
+  }
+});
+
+test('Saving a separate library copy does not mark the edited trip saved; failed trip updates remain guarded', async()=>{
+  let closed=0;const app=fixture({initialJourney:journey(),updateTrip:async()=>{throw Error('Update unavailable');}});
+  app.render({onClose:()=>closed++});
+  try{
+    app.click('Museum A: Move down');app.click('Save a copy to my plans');await tick();app.render();
+    app.click('Close map');assert.ok(find(app.tree,'div',p=>p.role==='alertdialog'));
+    app.click('Save and continue');await tick();app.render();
+    assert.equal(closed,0);assert.match(text(app.tree),/Update unavailable/);assert.equal(app.calls.saved.length,1);
+    app.click('Keep editing');assert.match(text(app.tree),/Unsaved changes/);
+  }finally{app.dispose();}
+});
+
+test('The explicit day picker reaches the last day even when its horizontal tab is offscreen',()=>{
+  const app=fixture({initialJourney:{...journey(),dayCount:14}});
+  try{
+    const picker=find(app.tree,'select',p=>p['aria-label']==='Choose day');assert.ok(picker);
+    assert.ok(find(picker,'option',p=>p.value===14));
+    picker.props.onChange({target:{value:'14'}});app.render();assert.equal(app.map.activeDay,14);assert.match(text(app.tree),/This day is empty/);
+  }finally{app.dispose();}
+});
+
+test('Every Sheet dismissal path honors its scoped cancellable editor event',()=>{
+  const effects=[],refs=[],keyHandlers=new Map();let registeredClose,closed=0;
+  const sheet=new EventTarget();Object.assign(sheet,{contains:()=>false,querySelector:()=>null,querySelectorAll:()=>[]});
+  const fakeDocument={activeElement:null,body:{classList:{add(){},remove(){}}},getElementById:()=>null};
+  const component=load('mobile/src/components/Sheet.tsx',{
+    react:{useEffect:fn=>effects.push(fn),useRef:value=>{const ref={current:value};refs.push(ref);return ref;},useState:value=>[value,()=>{}],useId:()=> 'sheet-title'},
+    'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node},'./Icon':{Icon:'Icon'},'../lib/i18n':{useI18n:()=>({copy:(_tr,en)=>en})},
+    '../lib/sheetStack':{isTopSheet:()=>true,registerSheet:(_token,close)=>{registeredClose=close;},unregisterSheet(){},subscribeSheetStack:()=>()=>{}},
+  },{document:fakeDocument,Event,HTMLElement:class{},window:{addEventListener:(name,fn)=>keyHandlers.set(name,fn),removeEventListener:name=>keyHandlers.delete(name),requestAnimationFrame:fn=>{fn();return 1;},cancelAnimationFrame(){}}}).Sheet;
+  const tree=component({open:true,title:'Map',onClose:()=>closed++,children:'Editor'});
+  refs[0].current=sheet;const cleanup=effects.map(fn=>fn());
+  const block=event=>event.preventDefault();sheet.addEventListener('sheet:before-close',block);
+  find(tree,'button').props.onClick();registeredClose();keyHandlers.get('keydown')({key:'Escape',preventDefault(){}});
+  tree.props.onMouseDown({currentTarget:sheet,target:sheet});assert.equal(closed,0);
+  sheet.removeEventListener('sheet:before-close',block);registeredClose();assert.equal(closed,1);
+  cleanup.forEach(fn=>fn?.());
 });

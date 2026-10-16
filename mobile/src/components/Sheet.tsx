@@ -48,7 +48,13 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
   const [topSheet, setTopSheet] = useState(open);
 
   useEffect(() => {
-    onCloseRef.current = () => { if (dismissible) onClose(); };
+    onCloseRef.current = () => {
+      if (!dismissible) return;
+      // Editors may explain unsaved changes before any dismissal path (including
+      // native Back) closes this exact sheet. Nested sheets stay scoped.
+      if (sheetRef.current && !sheetRef.current.dispatchEvent(new Event("sheet:before-close", { cancelable: true }))) return;
+      onClose();
+    };
   }, [onClose, dismissible]);
 
   useEffect(() => {
@@ -109,13 +115,13 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
   if (!open) return null;
   return createPortal(
     <div className="sheet-layer" role="presentation" style={{ zIndex: topSheet ? 131 : 130 }} inert={!topSheet || undefined} aria-hidden={!topSheet || undefined} onMouseDown={(event) => {
-      if (event.currentTarget === event.target && dismissible) onClose();
+      if (event.currentTarget === event.target) onCloseRef.current();
     }}>
       <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""} ${className}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="icon-button compact" disabled={!dismissible} onClick={onClose} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
+          <button className="icon-button compact" disabled={!dismissible} onClick={() => onCloseRef.current()} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
         </header>
         <div className="sheet-body">{children}</div>
       </section>

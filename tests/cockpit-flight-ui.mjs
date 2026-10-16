@@ -172,11 +172,11 @@ function cockpitHarness(initialTrips = [], missingAirportZone = "") {
   const document = { visibilityState: 'visible', addEventListener: on, removeEventListener: off, getElementById: () => null };
   const navigator = { onLine: true };
   const testModule = load('mobile/src/screens/CockpitScreen.tsx', {
-    react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': {},
+    react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': require('../lib/event-time.ts'),
     '../components/AirportField': { AirportField: 'AirportField' }, '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../components/DateTimeField': { DateTimeField: 'DateTimeField' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
     '../components/CockpitTripEditor': { CockpitTripEditor: 'CockpitTripEditor' }, '../components/Sheet': { Sheet: 'Sheet' }, '../lib/journeyCountry': journeyCountries,
-    '../components/CockpitJourneySection': { CockpitJourneySection: 'CockpitJourneySection' }, '../lib/cockpitJourney': { validJourneyIntent: (intent, owner) => intent?.ownerId === owner },
+    '../components/CockpitJourneySection': { CockpitJourneySection: 'CockpitJourneySection' }, '../lib/eventTripIntent': load('mobile/src/lib/eventTripIntent.ts', { '../../../lib/event-time': require('../lib/event-time.ts'), './dates': dates, './id': { createId: () => `event-${++id}` } }), '../lib/cockpitJourney': { validJourneyIntent: (intent, owner) => intent?.ownerId === owner },
     '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' }, '../components/CockpitTicketImport': { CockpitTicketImport: 'CockpitTicketImport' }, '../components/CockpitFlightDetails': { CockpitFlightDetails: 'CockpitFlightDetails' }, '../components/PageHero': { PageHero: 'PageHero' }, '../components/CockpitFlightLookup': { CockpitFlightLookup: 'CockpitFlightLookup' },
     '../data/countries': countryData,
     '../data/countryIso': countryIso,
@@ -780,4 +780,97 @@ test('Request cancellation aborts web transport and discards a native bridge res
     await assert.rejects(api.requestJson('/flight', { signal: controller.signal }), error => error.code === 'aborted');
     assert.equal(calls.length, 1);
   }
+});
+
+
+test('An event opens a prefilled no-flight form and is saved atomically with its trip; duplicate taps cannot duplicate it', async () => {
+  const h = cockpitHarness();
+  const event = { id: 'event-one', title: 'Istanbul festival', city: 'Istanbul', countryCode: 'TR', status: 'scheduled', startsAt: '2026-10-20T17:00:00Z', localDate: '2026-10-20', timeZone: 'Europe/Istanbul', timePrecision: 'exact', venue: 'Park', sourceUrl: 'https://example.com/event', ticketUrl: null };
+  let handled = 0;
+  try {
+    await tick();
+    let view = h.host.render({ eventIntent: { ownerId: 'test-user-a', event }, onEventHandled: () => handled++ });
+    assert.ok(tripForm(view));
+    assert.equal(find(view, 'CountryPicker').props.value, 'TUR');
+    assert.equal(dateField(view, 'Start').props.value, '2026-10-20');
+    assert.equal(dateField(view, 'When does your trip end?').props.value, '2026-10-20');
+    assert.ok(text(view).includes('This event will be saved with your trip.'));
+    const submit = tripForm(view).props.onSubmit;
+    const first = submit({ preventDefault() {} }); submit({ preventDefault() {} });
+    assert.equal(h.creates.length, 1);
+    const payload = h.creates[0].payload;
+    assert.equal(payload.destinationCity, 'Istanbul');
+    assert.equal(payload.checklistItems.filter(item => item.kind === 'event').length, 1);
+    assert.equal(payload.checklistItems.at(-1).eventId, event.id);
+    h.creates[0].resolve({ ...payload, id: 'created', userId: 'test-user-a', status: 'upcoming' });
+    await first;
+    assert.equal(handled, 1); assert.equal(tripForm(h.host.render()), undefined);
+  } finally { h.host.dispose(); }
+});
+
+test('Event handoff rejects another account and preserves event and form on a failed save', async () => {
+  const h = cockpitHarness();
+  const event = { id: 'event-two', title: 'Festival', city: 'Istanbul', countryCode: 'TR', status: 'scheduled', startsAt: '2026-10-20T17:00:00Z', localDate: '2026-10-20', sourceUrl: 'https://example.com/event' };
+  let handled = 0;
+  try {
+    await tick();
+    assert.equal(tripForm(h.host.render({ eventIntent: { ownerId: 'other', event } })), undefined);
+    let view = h.host.render({ eventIntent: { ownerId: 'test-user-a', event }, onEventHandled: () => handled++ });
+    const saving = tripForm(view).props.onSubmit({ preventDefault() {} });
+    h.creates[0].reject(new Error('offline')); await saving;
+    view = h.host.render(); assert.ok(tripForm(view)); assert.ok(text(view).includes('Festival')); assert.equal(handled, 0);
+    dateField(view, 'When does your trip end?').props.onChange('2026-10-19');
+    await tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
+    assert.equal(h.creates.length, 1);
+  } finally { h.host.dispose(); }
+});
+
+test('Event transport changes retain edited trip dates and destination while discarding flight data, and cannot alter a pending create', async () => {
+  const h = cockpitHarness();
+  const event = { id: 'event-mode', title: 'Festival', city: 'Istanbul', countryCode: 'TR', status: 'scheduled', startsAt: '2026-10-20T17:00:00Z', localDate: '2026-10-20', sourceUrl: 'https://example.com/event' };
+  let handled = 0;
+  try {
+    await tick();
+    let view = h.host.render({ eventIntent: { ownerId: 'test-user-a', event }, onEventHandled: () => handled++ });
+    dateField(view, 'Start').props.onChange('2026-10-19');
+    dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-21');
+    button(h.host.render(), 'Flight').props.onClick(); view = h.host.render();
+    assert.equal(lookup(view).props.date, '2026-10-19');
+    assert.equal(lookup(view).props.flightNumber, '');
+    lookup(view).props.onQueryChange('TK1985', '2026-10-19');
+    button(h.host.render(), 'No flight').props.onClick(); view = h.host.render();
+    assert.equal(find(view, 'CountryPicker').props.value, 'TUR');
+    assert.ok(find(view, 'input', props => props.value === 'Istanbul'));
+    assert.equal(dateField(view, 'Start').props.value, '2026-10-19');
+    assert.equal(dateField(view, 'When does your trip end?').props.value, '2026-10-21');
+    const remove = button(view, 'Remove event'), mode = button(view, 'Flight');
+    const saving = tripForm(view).props.onSubmit({ preventDefault() {} });
+    remove.props.onClick(); mode.props.onClick();
+    assert.equal(handled, 0, 'An old event handler cannot remove an event already being saved');
+    view = h.host.render(); assert.equal(button(view, 'Remove event').props.disabled, true); assert.equal(button(view, 'Flight').props.disabled, true);
+    assert.equal(h.creates[0].payload.flightNumber, '');
+    assert.equal(h.creates[0].payload.checklistItems.at(-1).eventId, 'event-mode');
+    h.creates[0].reject(new Error('offline')); await saving;
+    view = h.host.render(); assert.equal(button(view, 'Remove event').props.disabled, false);
+    button(view, 'Remove event').props.onClick(); assert.equal(handled, 1);
+  } finally { h.host.dispose(); }
+});
+
+test('Event trip creation persists the same destination-local date used by its form across UTC midnight', async () => {
+  const h = cockpitHarness();
+  const event = { id: 'midnight-event', title: 'Midnight Istanbul festival', city: 'Istanbul', countryCode: 'TR', status: 'scheduled', startsAt: '2026-10-19T22:30:00Z', timeZone: 'Europe/Istanbul', timePrecision: 'exact', sourceUrl: 'https://example.com/event' };
+  try {
+    await tick();
+    const view = h.host.render({ eventIntent: { ownerId: 'test-user-a', event } });
+    assert.equal(dateField(view, 'Start').props.value, '2026-10-20');
+    assert.equal(dateField(view, 'When does your trip end?').props.value, '2026-10-20');
+    const saving = tripForm(view).props.onSubmit({ preventDefault() {} });
+    assert.equal(h.creates.length, 1);
+    const payload = h.creates[0].payload, attached = payload.checklistItems.find(item => item.eventId === event.id);
+    assert.equal(attached.eventLocalDate, '2026-10-20');
+    assert.equal(attached.eventTimeZone, 'Europe/Istanbul');
+    assert.equal(attached.eventStartsAt, event.startsAt);
+    h.creates[0].resolve({ ...payload, id: 'midnight-trip', userId: 'test-user-a', status: 'upcoming' });
+    await saving;
+  } finally { h.host.dispose(); }
 });

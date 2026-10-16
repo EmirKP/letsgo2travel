@@ -23,9 +23,9 @@ function fixture(options = {}) {
   const timerApi = { setTimeout: (fn, ms) => { const id = ++timerId; timers.set(id, { fn, at: now + ms }); return id; }, clearTimeout: id => timers.delete(id) };
   const localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (options.storageFails) throw Error('quota'); storage.set(key, value); }, removeItem: key => storage.delete(key), key: i => [...storage.keys()][i], get length() { return storage.size; } };
   const load = (path, imports = {}) => {
-    const module = { exports: {} }, source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: { localStorage }, Date })(name => imports[name], module, module.exports);
-    return module.exports;
+    const fixtureModule = { exports: {} }, source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: { localStorage }, Date })(name => imports[name], fixtureModule, fixtureModule.exports);
+    return fixtureModule.exports;
   };
   const draftLib = load('mobile/src/lib/journeySurveyDraft.ts');
   const searchText = load('mobile/src/lib/searchText.ts');
@@ -41,11 +41,12 @@ function fixture(options = {}) {
     useRef(initial) { const i = active.cursor++; if (!active.slots[i]) active.slots[i] = { current: initial }; return active.slots[i]; },
     useEffect(fn, deps) { const fiber = active, i = fiber.cursor++, old = fiber.slots[i]; if (!old || changed(old.deps, deps)) { fiber.slots[i] = { ...old, deps }; effects.push(() => { old?.cleanup?.(); fiber.slots[i].cleanup = fn(); }); } },
   };
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const source = ts.transpileModule(readFileSync('mobile/src/components/JourneySetupSurvey.tsx', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   const imports = {
+    '../lib/surveyKeyboard': {observeSurveyKeyboard:()=>()=>{}},
     react, 'react/jsx-runtime': { jsx, jsxs: jsx }, './Icon': { Icon: 'Icon' }, './journey-setup-survey.css': {},
     './WelcomeArtwork': { WelcomeArtwork: 'WelcomeArtwork' }, '../lib/journeySurveyDraft': draftLib, '../lib/journeyAreaSuggestions': suggestions,
     '../lib/onboardingPreferences': { readWelcomePreferences: () => ({ interests: options.welcomeInterests ?? ['Kültür', 'Yeme-içme'] }) },
@@ -57,7 +58,7 @@ function fixture(options = {}) {
   };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, AbortController, ...timerApi })(name => {
     assert.ok(Object.hasOwn(imports, name), `Missing import ${name}`); return imports[name];
-  }, module, module.exports);
+  }, fixtureModule, fixtureModule.exports);
   function resolve(node, path = 'root') {
     if (Array.isArray(node)) return node.map((child, index) => resolve(child, `${path}/${child?.key ?? index}`));
     if (!node || typeof node !== 'object') return node;
@@ -80,7 +81,7 @@ function fixture(options = {}) {
       props = { ...props, ...next };
       for (let i = 0; i < 15; i++) {
         dirty = false; effects = []; visited = new Set();
-        output = resolve(jsx(module.exports.JourneySetupSurvey, props));
+        output = resolve(jsx(fixtureModule.exports.JourneySetupSurvey, props));
         for (const [key, fiber] of fibers) if (!visited.has(key)) { fiber.slots.forEach(slot => slot?.cleanup?.()); fibers.delete(key); }
         effects.forEach(fn => fn());
         if (!dirty) return output;
@@ -344,4 +345,25 @@ test('Changing accounts aborts an unfinished autocomplete and cannot reveal its 
     assert.doesNotMatch(text(app.tree), /Old account destination/);
     assert.equal(find(app.tree, 'input', p => p.id === 'jsv-city').props.value, '');
   } finally { app.dispose(); }
+});
+
+test('Animated mobile keyboard keeps the focused destination visible, frees suggestions, and cleans its viewport listeners',()=>{
+  const source=ts.transpileModule(readFileSync('mobile/src/lib/surveyKeyboard.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const events=()=>({listeners:new Map(),addEventListener(name,fn){this.listeners.set(name,fn);},removeEventListener(name){this.listeners.delete(name);}});
+  const viewport={...events(),height:800};let next=0;const frames=new Map();
+  const window={...events(),innerHeight:800,visualViewport:viewport,requestAnimationFrame:fn=>{frames.set(++next,fn);return next;},cancelAnimationFrame:id=>frames.delete(id)};
+  const scroller={scrollTop:0,getBoundingClientRect:()=>({top:100,bottom:360})};
+  const input={matches:()=>true,getBoundingClientRect:()=>({top:500-scroller.scrollTop,bottom:540-scroller.scrollTop})};
+  const document={activeElement:input};
+  const root={...events(),dataset:{},contains:element=>element===input,querySelector:()=>scroller};
+  const fixtureModule={exports:{}};vm.runInNewContext(`(function(module,exports){${source}\n})`,{window,document})(fixtureModule,fixtureModule.exports);
+  const cleanup=fixtureModule.exports.observeSurveyKeyboard(root);
+  const flush=()=>{const queued=[...frames.values()];frames.clear();queued.forEach(fn=>fn());};
+  flush();assert.equal(root.dataset.keyboard,'false');assert.equal(scroller.scrollTop,0);
+  viewport.height=400;viewport.listeners.get('resize')();flush();
+  assert.equal(root.dataset.keyboard,'true');assert.equal(scroller.scrollTop,384);
+  assert.ok(input.getBoundingClientRect().top>=100&&input.getBoundingClientRect().bottom<280);
+  document.activeElement=null;root.listeners.get('focusout')();flush();assert.equal(root.dataset.keyboard,'false');
+  viewport.listeners.get('resize')();cleanup();flush();
+  assert.equal(root.dataset.keyboard,undefined);assert.equal(viewport.listeners.size,0);assert.equal(root.listeners.size,0);assert.equal(window.listeners.size,0);
 });

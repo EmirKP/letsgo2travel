@@ -20,7 +20,7 @@ export type GlobalSearchResult = BaseResult & (
   | { kind: "saved-trip"; tripId: string }
 );
 export type GlobalSearchKind = GlobalSearchResult["kind"];
-type Entry = { result: GlobalSearchResult; terms: string };
+type Entry = { result: GlobalSearchResult; terms: string; names?: string[] };
 const locales: AppLocale[] = ["tr", "en", "sq"];
 const catalogs = new Map<AppLocale, Entry[]>();
 const clean = (value: unknown) => typeof value === "string" ? value : "";
@@ -30,6 +30,7 @@ function catalog(locale: AppLocale): Entry[] {
   if (cached) return cached;
   const countries: Entry[] = ISO_3166.map(country => ({
     result: { kind: "country", id: `country:${country.alpha3}`, countryCode: country.alpha3, title: appRegionName(country.alpha2, locale, country.name), subtitle: country.alpha2 },
+    names: [country.name, ...locales.map(language => appRegionName(country.alpha2, language, country.name))],
     terms: [country.name, country.alpha2, country.alpha3, ...locales.map(language => appRegionName(country.alpha2, language, country.name))].join(" "),
   }));
   const cities = new Map<string, Entry>();
@@ -37,6 +38,7 @@ function catalog(locale: AppLocale): Entry[] {
     const local = localizedDiscovery(destination, locale);
     cities.set(destination.code, {
       result: { kind: "city", id: `city:${destination.code}`, title: local.name, subtitle: local.country, query: local.name },
+      names: locales.map(language => localizedDiscovery(destination, language).name),
       terms: [destination.code, ...locales.flatMap(language => { const item = localizedDiscovery(destination, language); return [item.name, item.country]; })].join(" "),
     });
   }
@@ -47,14 +49,16 @@ function catalog(locale: AppLocale): Entry[] {
     if (existing) { existing.terms += ` ${aliases.join(" ")}`; continue; }
     cities.set(route.destinationCode, {
       result: { kind: "city", id: `city:${route.destinationCode}`, title: route.cityOrRegion, subtitle: route.country, query: route.cityOrRegion },
+      names: locales.flatMap(language => homeSearchDestinations(language).filter(item => item.destinationCode === route.destinationCode).map(item => item.cityOrRegion)),
       terms: [route.destinationCode, ...aliases].join(" "),
     });
   }
   const tools: Entry[] = appTools(locale).map(tool => ({
     result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: tool.tool, icon: tool.icon },
+    names: [...tool.title],
     terms: [...tool.title, ...tool.caption, tool.keywords].join(" "),
   }));
-  const entries = [...tools, ...countries, ...cities.values()].map(entry => ({ ...entry, terms: normalizeSearchText(entry.terms) }));
+  const entries = [...tools, ...countries, ...cities.values()].map(entry => ({ ...entry, terms: normalizeSearchText(entry.terms), names: entry.names?.map(normalizeSearchText) }));
   catalogs.set(locale, entries);
   return entries;
 }
@@ -97,7 +101,8 @@ export function searchApp(query: string, locale: AppLocale, savedRoutes: readonl
   const words = term.split(" ");
   const score = (entry: Entry) => {
     const title = normalizeSearchText(entry.result.title);
-    return title === term ? 0 : title.startsWith(term) ? 1 : title.includes(term) ? 2 : 3;
+    const names = entry.names || [title];
+    return names.some(name => name === term) ? 0 : names.some(name => name.startsWith(term)) ? 1 : names.some(name => name.includes(term)) ? 2 : 3;
   };
   const matches = [...catalog(locale), ...saved.values(), ...trips.values()]
     .filter(entry => (!kind || entry.result.kind === kind) && words.every(word => entry.terms.includes(word)))

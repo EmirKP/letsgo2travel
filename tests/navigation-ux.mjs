@@ -48,6 +48,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
       // The rest of App's lifecycle would require unrelated native services.
       if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")))) effect();
     },
+    useLayoutEffect(effect, deps) { return react.useEffect(effect, deps); },
     lazy: loader => `Lazy:${loader.toString()}`, Suspense: 'Suspense', Activity: 'Activity',
   };
   const auth = { user: null, accessToken: '' };

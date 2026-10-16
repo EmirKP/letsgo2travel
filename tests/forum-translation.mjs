@@ -19,14 +19,14 @@ function harness(overrides={}) {
   const db={rpc:(name,args)=>{calls.quota.push({name,args});return {abortSignal:async()=>({data:state.quota,error:state.quotaError})};}};
   const helper=moduleAt('lib/community/translation.ts',{});
   const route=moduleAt('app/api/country-community/translate/route.ts',{
-    '@google/genai':{GoogleGenAI:class {models={generateContent:async input=>{calls.provider.push(input);if(state.hang)return new Promise(()=>{});if(state.providerError)throw Error('private provider detail');return {text:state.response};}}}},
+    '@google/genai':{GoogleGenAI:class {models={generateContent:async input=>{calls.provider.push(input);if(state.hang)return new Promise(()=>{});if(state.providerError)throw typeof state.providerError==='object'?state.providerError:Error('private provider detail');return {text:state.response};}}}},
     'node:crypto':{createHmac},
     '@/lib/supabaseAdmin':{getSupabaseAdmin:()=>state.noDatabase?null:db},
     '@/lib/authenticated-user':{requireAuthenticatedUser:async()=>{calls.auth++;return state.auth?{ok:true,user:{id:'owner'},supabase:db}:{ok:false,response:Response.json({error:'login'},{status:401})};}},
     '@/lib/community/safety':{COMMUNITY_PRIVATE_HEADERS:{'Cache-Control':'private, no-store',Vary:'Authorization'}},
     '@/lib/community/translation':helper,
     '@/lib/travel-assistant/http':moduleAt('lib/travel-assistant/http.ts',{}),
-  },{process:{env},AbortSignal:{timeout:ms=>state.hang&&ms===20000?AbortSignal.timeout(5):AbortSignal.timeout(ms)}});
+  },{process:{env},Date:{now:()=>state.now??Date.now()},AbortSignal:{timeout:ms=>state.hang&&ms===20000?AbortSignal.timeout(5):AbortSignal.timeout(ms)}});
   const request=(body,headers={},guest=false)=>new Request('https://example.test/api/country-community/translate',{method:'POST',headers:{...(!guest?{Authorization:'Bearer token'}:{}),...headers},body:JSON.stringify(body)});
   return {state,calls,env,route,helper,request};
 }
@@ -90,6 +90,20 @@ test('Automatic batches translate each title/body with exact IDs and bounded tot
  }
 });
 
+test('forum generation constrains JSON and disables only supported unnecessary thinking, with no hidden SDK retries',async()=>{
+ const items=[{id:'0',text:'Müze önerir misin?',title:'Kadıköy gezisi'}];
+ for(const model of ['gemini-2.5-flash','another-configured-model']){
+  const h=harness({env:{GEMINI_TRANSLATION_MODEL:model},response:JSON.stringify({translations:[{id:'0',translation:'Can you recommend a museum?',title:'A trip to Kadıköy'}]})});
+  assert.equal((await h.route.POST(h.request({items,targetLanguage:'en'}))).status,200);
+  const config=h.calls.provider[0].config;
+  assert.equal(config.httpOptions.retryOptions.attempts,1);
+  assert.equal(config.thinkingConfig?.thinkingBudget,model==='gemini-2.5-flash'?0:undefined);
+  assert.equal(config.responseJsonSchema.properties.translations.minItems,1);
+  assert.ok(config.responseJsonSchema.properties.translations.items.required.includes('title'));
+  assert.equal(config.responseJsonSchema.properties.translations.items.properties.id.enum[0],'0');
+ }
+});
+
 test('Guest reads use bounded salted network quota, while a rejected supplied session never downgrades to guest',async()=>{
  const batch={items:[{id:'0',text:'Merhaba'}],targetLanguage:'en'};
  const h=harness({response:JSON.stringify({translations:[{id:'0',translation:'Hello'}]})});assert.equal((await h.route.POST(h.request(batch,{'x-vercel-forwarded-for':'192.0.2.12'},true))).status,200);
@@ -99,6 +113,35 @@ test('Guest reads use bounded salted network quota, while a rejected supplied se
  }
  const denied=harness({auth:false});assert.equal((await denied.route.POST(denied.request({text:'Merhaba',targetLanguage:'en'}))).status,401);assert.equal(denied.calls.quota.length,0);
  const legacy=harness();assert.equal((await legacy.route.POST(legacy.request({text:'Merhaba',targetLanguage:'en'},{},true))).status,401);assert.equal(legacy.calls.quota.length,0);assert.equal(legacy.calls.provider.length,0);
+});
+
+test('provider quota remains HTTP 429 with safe Retry-After; shared daily cooldown spends no further quota and recovers after its mocked reset',async()=>{
+ const providerError=Object.assign(Error(JSON.stringify({error:{code:429,message:'private provider project/quota data',details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'50995s'}]}})),{status:429});
+ const h=harness({providerError,now:1000});
+ const batch={items:[{id:'0',text:'Vadi gezisi'},{id:'1',text:'Köy gezisi'},{id:'2',text:'Fotoğraf molası'}],targetLanguage:'sq'};
+ const send=()=>h.route.POST(h.request(batch,{},true));
+ const response=await send();
+ assert.equal(response.status,429);assert.equal(response.headers.get('retry-after'),'50995');
+ assert.match(response.headers.get('cache-control'),/private, no-store/);
+ assert.deepEqual(await response.json(),{code:'translation-limit',retryAfterSeconds:50995});
+ assert.equal(h.calls.quota.length,1);assert.equal(h.calls.provider.length,1);
+ h.state.now+=1000;
+ const waiting=await send();assert.equal(waiting.status,429);assert.equal(waiting.headers.get('retry-after'),'50994');
+ assert.equal(h.calls.quota.length,1);assert.equal(h.calls.provider.length,1);
+ h.state.auth=false;
+ assert.equal((await h.route.POST(h.request(batch))).status,401,'Cooldown cannot bypass rejected supplied authentication');
+ h.state.now+=50994000;h.state.providerError=false;
+ h.state.response=JSON.stringify({translations:[{id:'0',translation:'Shëtitje në luginë'},{id:'1',translation:'Shëtitje në fshat'},{id:'2',translation:'Pushim për fotografi'}]});
+ assert.equal((await send()).status,200);assert.equal(h.calls.quota.length,2);assert.equal(h.calls.provider.length,2);
+});
+
+test('provider retry metadata is bounded, ignores unrelated fields, and never reclassifies a different failure',()=>{
+ const h=harness();
+ const error=(retryDelay)=>({status:429,message:JSON.stringify({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay}]}})});
+ for(const [value,expected] of [['0.2s',1],['14.1s',15],['999999s',86400],['bad',60],['-1s',60],[0,60]])assert.equal(h.helper.forumTranslationProviderRetryAfter(error(value)),expected);
+ assert.equal(h.helper.forumTranslationProviderRetryAfter({status:429,message:'opaque provider error'}),60);
+ assert.equal(h.helper.forumTranslationProviderRetryAfter({status:503,message:error('12s').message}),null);
+ assert.equal(h.helper.forumTranslationProviderRetryAfter(null),null);
 });
 
 test('Guest quota is atomic, service-only, bounded per minute/day and removes old salted counters',async()=>{

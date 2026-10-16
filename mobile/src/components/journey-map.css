@@ -4,3 +4,5 @@
 .journey-map-tile-error span{flex:1 1 160px}
 .journey-map-tile-error button{min-height:40px;padding:6px 12px;border:1px solid #b79d5c;border-radius:10px;background:#fff;color:#4c3810;font-family:inherit;font-weight:700;font-size:13px;line-height:1.4;cursor:pointer}
 .journey-map-tile-error button:focus-visible{outline:3px solid #0065f5;outline-offset:3px}
+/* Native MapKit sits above the WebView; its rounded holes expose these surfaces. */
+.journey-map-native,.journey-map-native .journey-map-canvas{background:var(--mj-bg,var(--theme-surface,#fff))}

@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
 import { HomeShortcutPicker } from "../components/HomeShortcutPicker";
@@ -10,6 +10,7 @@ import { homeDestinations } from "../data/homeDestinations";
 import { listCockpitTrips, type CockpitTrip } from "../lib/supabaseData";
 import { localIsoDate } from "../lib/dates";
 import { homeJourneyStep, nextHomeJourney } from "../lib/homeJourney";
+import { searchApp, type GlobalSearchResult } from "../lib/globalSearch";
 import santorini from "../assets/home-reference/santorini-hero.webp";
 import coastal from "../assets/home-reference/coastal-banner.webp";
 import cappadocia from "../assets/home-reference/cappadocia.webp";
@@ -61,13 +62,14 @@ function Landmark({ city }: { city: typeof cities[number] }) {
   </svg>;
 }
 
-export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTool, onOpenGlobalSearch, onOpenTrip, onOpenSaved, onOpenCommunity, onBuildRoute, onSearchDestination, initialSearchQuery, onToggleSaved, savedRouteIds = [] }: {
+export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigate, onOpenTool, onOpenGlobalSearch, onOpenCountry, onOpenTrip, onOpenCommunity, onBuildRoute, onSearchDestination, initialSearchQuery, onToggleSaved, savedRouteIds = [] }: {
   user: AuthUser | null; ownerId?: string | null; accessToken?: string; refreshToken?: number;
   onNavigate: (view: ViewId) => void; onOpenCommunity: (countryCode?: string) => void;
-  onOpenTrip?: (id: string) => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
+  onOpenTrip?: (id: string, section?: "today") => void; onOpenSaved?: (section: "routes" | "places" | "events") => void;
   onSurprise: (route: RouteSuggestion) => void; onBuildRoute: (route: RouteSuggestion) => void; onNotice: (message: string) => void;
   onSearchDestination?: (query: string) => void; onToggleSaved?: (route: RouteSuggestion) => void;
   onOpenGlobalSearch?: (query: string) => void; onOpenTool?: (tool: TravelAssistantTool) => void;
+  onOpenCountry?: (code: string) => void;
   initialSearchQuery?: string;
   savedRouteIds?: string[];
 }) {
@@ -75,6 +77,11 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const shortcuts = useHomeShortcuts(ownerId);
   const [editingShortcuts, setEditingShortcuts] = useState(false);
   const [query, setQuery] = useState(initialSearchQuery ?? "");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  // The public catalog is local and cached. Typing never starts an AI or account request.
+  const suggestions = useMemo(() => query.trim().length >= 2 ? searchApp(query, locale).slice(0, 6) : [], [query, locale]);
+  const showSuggestions = searchFocused && query.trim().length >= 2;
   const [trip, setTrip] = useState<{ owner: string; value: CockpitTrip } | null>(null);
   const [tripRequest, setTripRequest] = useState<{ owner: string; state: "ready" | "error" } | null>(null);
   const [retry, setRetry] = useState(0);
@@ -92,9 +99,19 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const loading = Boolean(ownerId && accessToken && tripRequest?.owner !== ownerId);
   const failed = Boolean(ownerId && tripRequest?.owner === ownerId && tripRequest.state === "error");
   const step = nextTrip ? homeJourneyStep(nextTrip, localIsoDate(0)) : null;
-  const openTrip = () => nextTrip && onOpenTrip ? onOpenTrip(nextTrip.id) : onNavigate("cockpit");
-  const openSaved = (section: "routes" | "places" | "events") => onOpenSaved ? onOpenSaved(section) : onNavigate("trips");
+  const openTrip = (section?: "today") => nextTrip && onOpenTrip ? onOpenTrip(nextTrip.id, section) : onNavigate("cockpit");
   const search = (value: string) => onSearchDestination ? onSearchDestination(value.trim()) : onNavigate("explore");
+  const selectSuggestion = (result: GlobalSearchResult) => {
+    setSearchFocused(false); setActiveSuggestion(-1); setQuery(result.title);
+    if (result.kind === "tool") { if (result.tool && onOpenTool) onOpenTool(result.tool); else onNavigate(result.view); }
+    else if (result.kind === "city") search(result.query);
+    else if (result.kind === "country") { if (onOpenCountry) onOpenCountry(result.countryCode); else search(result.title); }
+  };
+  const submitSearch = () => {
+    if (showSuggestions && activeSuggestion >= 0 && suggestions[activeSuggestion]) { selectSuggestion(suggestions[activeSuggestion]); return; }
+    setSearchFocused(false); setActiveSuggestion(-1);
+    if (onOpenGlobalSearch) onOpenGlobalSearch(query.trim()); else search(query);
+  };
   const tripTitle = nextTrip && ([nextTrip.destinationCity, nextTrip.destinationCountry].filter(Boolean).join(", ") || nextTrip.flightNumber || copy("Seyahatin", "Your trip"));
   const labelDate = (value: string) => formatAppDate(new Date(value + "T12:00:00"), dateLocale, { day: "numeric", month: "short" });
   const tools = appTools(locale);
@@ -108,14 +125,33 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
     <section className="rh-hero" aria-labelledby="rh-title">
       <img className="rh-hero-photo" src={santorini} alt="" fetchPriority="high" width={1448} height={1086}/>
       <div className="rh-hero-copy"><div><p className="rh-eyebrow">{copy("YENİ YERLER, YENİ HİKAYELER", "NEW PLACES, NEW STORIES")}</p><h1 id="rh-title">{copy("Sıradaki", "Where’s Your")}<br/>{copy("Hikayen", "Next")} <span>{copy("Nerede?", "Story?")}</span></h1><p className="rh-hero-subtitle">{copy("Dünya seni bekliyor. Hayal et, planla, keşfet!", "The world is waiting. Dream, plan, explore!")}</p></div><p className="rh-handwritten" aria-hidden="true">{copy("Keşfet", "Explore")}<br/><span>{copy("Planla", "Plan")}</span><br/><span>{copy("Yaşa", "Live")}</span></p></div>
-      <form className="rh-search" role="search" onSubmit={event => { event.preventDefault(); if (onOpenGlobalSearch) onOpenGlobalSearch(query.trim()); else search(query); }}><Icon name="search" size={28}/><label className="sr-only" htmlFor="home-destination-search">{onOpenGlobalSearch ? copy("Ülke, şehir, araç, kayıtlı rota veya seyahat ara", "Search countries, cities, tools, saved routes or trips", "Kërko shtete, qytete, mjete, itinerare ose udhëtime të ruajtura") : copy("Nereye gitmek istersin?", "Where would you like to go?", "Ku dëshiron të shkosh?")}</label><input id="home-destination-search" type="search" maxLength={120} enterKeyHint="search" autoComplete="off" placeholder={onOpenGlobalSearch ? copy("Ülke, şehir, araç, seyahat…", "Country, city, tool, trip…", "Shtet, qytet, mjet, udhëtim…") : copy("Nereye gitmek istersin?", "Where would you like to go?", "Ku dëshiron të shkosh?")} value={query} onChange={event => setQuery(event.target.value)}/><button type="submit" aria-label={onOpenGlobalSearch ? copy("Uygulamada ara", "Search the app", "Kërko në aplikacion") : copy("Destinasyon ara", "Search destinations", "Kërko destinacione")}><Icon name="search" size={28}/></button></form>
+      <div className="rh-search-shell" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setSearchFocused(false); setActiveSuggestion(-1); } }}>
+        <form className="rh-search" role="search" onSubmit={event => { event.preventDefault(); submitSearch(); }}>
+          <Icon name="search" size={28}/><label className="sr-only" htmlFor="home-destination-search">{copy("Ülke, şehir, araç, kayıtlı rota veya seyahat ara", "Search countries, cities, tools, saved routes or trips", "Kërko shtete, qytete, mjete, itinerare ose udhëtime të ruajtura")}</label>
+          <input id="home-destination-search" data-guide="home-search" type="search" role="combobox" aria-autocomplete="list" aria-expanded={showSuggestions} aria-controls={showSuggestions ? "home-search-options" : undefined} aria-activedescendant={showSuggestions && activeSuggestion >= 0 && suggestions[activeSuggestion] ? `home-search-option-${activeSuggestion}` : undefined} maxLength={120} enterKeyHint="search" autoComplete="off" placeholder={copy("Şehir, etkinlik, döviz…", "City, events, currency…", "Qytet, aktivitete, monedha…")} value={query} onFocus={() => setSearchFocused(true)} onChange={event => { setQuery(event.target.value); setSearchFocused(true); setActiveSuggestion(-1); }} onKeyDown={event => {
+            if (event.key === "Escape") { event.preventDefault(); setSearchFocused(false); setActiveSuggestion(-1); }
+            else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && suggestions.length) { event.preventDefault(); setSearchFocused(true); setActiveSuggestion(index => event.key === "ArrowDown" ? (index + 1) % suggestions.length : (index <= 0 ? suggestions.length - 1 : index - 1)); }
+          }}/>
+          <button type="submit" aria-label={onOpenGlobalSearch ? copy("Uygulamada ara", "Search the app", "Kërko në aplikacion") : copy("Destinasyon ara", "Search destinations", "Kërko destinacione")}><Icon name="search" size={28}/></button>
+        </form>
+        {showSuggestions && <div className="rh-search-suggestions">
+          <ul id="home-search-options" role="listbox" aria-label={copy("Arama önerileri", "Search suggestions", "Sugjerime kërkimi")}>
+            {suggestions.map((result, index) => <li key={result.id} id={`home-search-option-${index}`} role="option" aria-selected={activeSuggestion === index} onMouseDown={event => event.preventDefault()} onClick={() => selectSuggestion(result)}>
+              <span className="rh-suggestion-art" aria-hidden="true"><TravelToolArtwork kind={result.kind === "tool" ? result.icon : "globe"} size={36}/></span><span><strong>{result.title}</strong><small>{result.subtitle}</small></span><Icon name="chevron" size={18}/>
+            </li>)}
+          </ul>
+          {!suggestions.length && <p role="status">{copy("Bu yazıyla eşleşen öneri yok. Bir şehir veya araç adı dene.", "No matching suggestion. Try a city or tool name.", "Nuk ka sugjerim. Provo emrin e një qyteti ose mjeti.")}</p>}
+          {onOpenGlobalSearch && <button type="button" className="rh-search-all" onClick={() => { setSearchFocused(false); onOpenGlobalSearch(query.trim()); }}>{copy("Tüm sonuçları ve kayıtlarımı ara", "Search all results and my saved items", "Kërko të gjitha rezultatet dhe ruajtjet e mia")}<Arrow/></button>}
+        </div>}
+      </div>
       <div className="rh-city-chips" aria-label={copy("Hızlı keşfet", "Quick discoveries")}>{cities.map(city => <button key={city} type="button" onClick={() => search(city)}><Landmark city={city}/><span>{city === "Roma" ? copy("Roma", "Rome") : city}</span></button>)}</div>
     </section>
     <div className="rh-content">
       <div className="rh-shortcuts-heading"><h2>{copy("Kısayollarım", "My shortcuts", "Shkurtoret e mia")}</h2><button type="button" onClick={() => setEditingShortcuts(true)}><Icon name="settings" size={16}/>{copy("Düzenle", "Edit", "Ndrysho")}</button></div>
-      <nav className="rh-features" style={{ "--shortcut-count": features.length } as CSSProperties} aria-label={copy("Seyahatini planla", "Plan your journey", "Planifiko udhëtimin")}>{features.map(feature => <button key={feature.id} type="button" aria-label={`${feature.label} — ${feature.text}`} onClick={() => feature.tool && onOpenTool ? onOpenTool(feature.tool) : onNavigate(feature.view)}><TravelToolArtwork kind={feature.icon} size={68}/><strong><span className="rh-shortcut-full">{feature.label}</span><span className="rh-shortcut-compact">{compactShortcutLabels[feature.id] || feature.label}</span></strong><small>{feature.text}</small></button>)}</nav>
+      <nav className="rh-features" style={{ "--shortcut-count": features.length } as CSSProperties} aria-label={copy("Seyahatini planla", "Plan your journey", "Planifiko udhëtimin")}>{features.map(feature => <button key={feature.id} data-guide={feature.id === "route" ? "home-route" : undefined} type="button" aria-label={`${feature.label} — ${feature.text}`} onClick={() => feature.tool && onOpenTool ? onOpenTool(feature.tool) : onNavigate(feature.view)}><TravelToolArtwork kind={feature.icon} size={68}/><strong><span className="rh-shortcut-full">{feature.label}</span><span className="rh-shortcut-compact">{compactShortcutLabels[feature.id] || feature.label}</span></strong><small>{feature.text}</small></button>)}</nav>
+      <button type="button" data-guide="home-events" className="rh-event-radar" onClick={() => onNavigate("events")}><TravelToolArtwork kind="events" size={58}/><span><strong>{copy("Etkinlik Radarı", "Event Radar", "Radar aktivitetesh")}</strong><small>{copy("Gideceğin yerde ne var? Konser, festival ve etkinlikleri bul.", "What's on where you're going? Find concerts, festivals and events.", "Çfarë ka atje ku po shkon? Gjej koncerte, festivale dhe aktivitete.")}</small><span>{copy("Etkinlikleri keşfet", "Explore events", "Eksploro aktivitetet")} →</span></span><Icon name="chevron" size={22}/></button>
       <section className={`rh-personal-banner${nextTrip ? " rh-has-trip" : ""}`} aria-labelledby="rh-personal-title" aria-busy={loading}><img src={coastal} alt="" width={1600} height={533} loading="lazy"/><div className="rh-personal-copy"><p className="rh-eyebrow">{copy(nextTrip ? "SIRADAKİ SEYAHATİN" : "SANA ÖZEL", nextTrip ? "YOUR NEXT TRIP" : "JUST FOR YOU", nextTrip ? "UDHËTIMI YT I RADHËS" : "VETËM PËR TY")}</p><h2 id="rh-personal-title">{nextTrip ? tripTitle : <>{copy("Bir Sonraki Seyahatini", "Ready to Plan")}<br/>{copy("Planlamaya Hazır mısın?", "Your Next Adventure?")}</>}</h2>
-        {nextTrip && step ? <><p>{labelDate(nextTrip.startDate)} – {labelDate(nextTrip.endDate)}{step.stage === "preparing" && step.total > 0 ? ` · ${step.completed}/${step.total} ${copy("hazırlık tamam", "tasks ready")}` : ""}</p><button type="button" className="rh-yellow-button" onClick={() => step.stage === "travelling" ? openSaved("places") : openTrip()}>{step.stage === "travelling" ? copy("Bugünün Yerleri", "Today's Places") : step.stage === "wrap-up" ? copy("Seyahati Tamamla", "Finish Trip") : copy("Seyahatimi Aç", "Open My Trip")}<Arrow/></button></> : <><p>{copy("Kişisel öneriler, rotalar ve daha fazlası", "Personal ideas, routes and more")}<br/>{copy("seni bekliyor.", "are waiting for you.")}</p><button type="button" className="rh-yellow-button" onClick={() => onNavigate("route")}>{copy("Hemen Başla", "Get Started")}<Arrow/></button></>}
+        {nextTrip && step ? <><p>{labelDate(nextTrip.startDate)} – {labelDate(nextTrip.endDate)}{step.stage === "preparing" && step.total > 0 ? ` · ${step.completed}/${step.total} ${copy("hazırlık tamam", "tasks ready")}` : ""}</p><button type="button" className="rh-yellow-button" onClick={() => openTrip(step.stage === "travelling" ? "today" : undefined)}>{step.stage === "travelling" ? copy("Bugünün Programı", "Today's Itinerary", "Programi i sotëm") : step.stage === "wrap-up" ? copy("Seyahati Tamamla", "Finish Trip") : copy("Seyahatimi Aç", "Open My Trip")}<Arrow/></button></> : <><p>{copy("Kişisel öneriler, rotalar ve daha fazlası", "Personal ideas, routes and more")}<br/>{copy("seni bekliyor.", "are waiting for you.")}</p><button type="button" className="rh-yellow-button" onClick={() => onNavigate("route")}>{copy("Hemen Başla", "Get Started")}<Arrow/></button></>}
       </div><p className="rh-banner-handwritten" aria-hidden="true">{copy("İyi yolculuklar", "Happy travels")}<br/><span>{copy("her zaman…", "always…")}</span></p></section>
       {loading && <p className="rh-trip-feedback" role="status">{copy("Seyahatin hazırlanıyor…", "Getting your trip ready…")}</p>}
       {failed && <div className="rh-trip-feedback" role="status"><span>{copy(nextTrip ? "Seyahat bilgileri yenilenemedi." : "Kayıtlı seyahatin şu an yüklenemedi.", "Your trip details couldn't be refreshed.")}</span><button type="button" onClick={() => { setTripRequest(null); setRetry(value => value + 1); }}>{copy("Yeniden dene", "Try again")}</button></div>}

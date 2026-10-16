@@ -7,6 +7,7 @@ import { readWelcomePreferences } from '../lib/onboardingPreferences';
 import { journeyInterestsFromWelcome, readJourneySurveyDraft, saveJourneySurveyDraft, type JourneyInterest, type JourneySurveyDraft } from '../lib/journeySurveyDraft';
 import { localJourneyAreaSuggestions, mergeJourneyAreaSuggestions } from '../lib/journeyAreaSuggestions';
 import './journey-setup-survey.css';
+import { observeSurveyKeyboard } from '../lib/surveyKeyboard';
 
 export type JourneySurveyValues = {
   area: JourneyArea;
@@ -86,6 +87,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
   const [activeResult, setActiveResult] = useState(-1);
   const [fieldError, setFieldError] = useState<FieldError>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const shell = useRef<HTMLElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const cityInput = useRef<HTMLInputElement>(null);
   const daysInput = useRef<HTMLInputElement>(null);
@@ -99,6 +101,10 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
   const sequence = useRef(0);
   const submitted = useRef(false);
   const currentStep = useRef(step);
+
+  useEffect(() => {
+    if (shell.current && typeof document !== 'undefined') return observeSurveyKeyboard(shell.current);
+  }, []);
 
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
@@ -210,6 +216,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
     setArea(next);
     setQuery(next.name);
     setFieldError(null);
+    cityInput.current?.blur?.();
   }
   function retrySearch() {
     if (query.trim().length < 3) { setFieldError('query'); cityInput.current?.focus(); return; }
@@ -244,7 +251,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
   }
   function changeDay(value: string) { setDayText(value); setFieldError(null); }
 
-  return <section className="jsv-shell" aria-label={copy('Sana özel rota', 'Your personal itinerary', 'Itinerari yt personal')} aria-busy={busy}>
+  return <section ref={shell} className="jsv-shell" aria-label={copy('Sana özel rota', 'Your personal itinerary', 'Itinerari yt personal')} aria-busy={busy}>
     <div className="jsv-topline"><span><Icon name="sparkles" size={16} />{copy('SANA ÖZEL ROTA', 'YOUR PERSONAL ITINERARY', 'ITINERARI YT PERSONAL')}</span><span>{copy(`${step + 1} / 4 adım`, `Step ${step + 1} of 4`, `Hapi ${step + 1} nga 4`)}</span></div>
     <ol className="jsv-progress" aria-label={copy('Planlama adımları', 'Planning steps', 'Hapat e planifikimit')}>
       {steps.map((name, index) => <li key={index} className={index <= step ? 'is-reached' : ''} aria-current={index === step ? 'step' : undefined}><span aria-hidden="true" /><span>{name}</span></li>)}

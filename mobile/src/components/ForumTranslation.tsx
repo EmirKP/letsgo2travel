@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { communityTranslationQueue, type CommunityTranslationResult } from "../lib/communityTranslation";
 import { useI18n } from "../lib/i18n";
+import type { AppLocale } from "../lib/locale";
 import "./forum-translation.css";
 
 type ForumTranslationProps = {
   text: string; title?: string; accessToken: string;
+  sourceLocale?: AppLocale; inline?: boolean;
   children?: (displayText: string, displayTitle?: string) => ReactNode;
 };
 
 export function ForumTranslation(props: ForumTranslationProps) {
   const { locale } = useI18n();
+  if (props.sourceLocale === locale) return <>{props.children ? props.children(props.text, props.title) : props.text}</>;
   return <TranslationText key={`${locale}\u0000${props.title || ""}\u0000${props.text}\u0000${props.accessToken}`} {...props} />;
 }
 
-function TranslationText({ text, title, accessToken, children }: ForumTranslationProps) {
+function TranslationText({ text, title, accessToken, children, inline }: ForumTranslationProps) {
   const { copy, locale } = useI18n();
-  const element = useRef<HTMLDivElement | null>(null);
+  const element = useRef<HTMLDivElement & HTMLSpanElement | null>(null);
   const [visible, setVisible] = useState(false);
   const [result, setResult] = useState<CommunityTranslationResult | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -54,11 +57,13 @@ function TranslationText({ text, title, accessToken, children }: ForumTranslatio
     return () => { window.clearTimeout(timer); window.removeEventListener("online", online); };
   }, [visible, result, attempt, retrying]);
   const ready = result?.status === "ready";
+  const Container = inline ? "span" : "div";
+  const Text = inline ? "span" : "p";
   const display = ready ? result.text : text;
   const displayTitle = ready ? result.title : title;
-  return <div ref={element} className="forum-translation" lang={ready ? locale : undefined} aria-busy={!result || retrying}>
-    {result ? children ? children(display, displayTitle) : <p className="forum-translation-text">{display}</p>
-      : <p className="forum-translation-loading">{copy("İçerik yükleniyor…", "Loading content…", "Përmbajtja po ngarkohet…")}</p>}
+  return <Container ref={element} className="forum-translation" lang={ready ? locale : undefined} aria-busy={!result || retrying}>
+    {result ? children ? children(display, displayTitle) : <Text className="forum-translation-text">{display}</Text>
+      : <Text className="forum-translation-loading">{copy("İçerik yükleniyor…", "Loading content…", "Përmbajtja po ngarkohet…")}</Text>}
     {result?.status === "failed" && <span className="forum-translation-fallback">{copy("Çeviri yüklenemedi; özgün metin gösteriliyor.", "Translation unavailable; showing the original text.", "Përkthimi nuk u ngarkua; po shfaqet teksti origjinal.")}</span>}
-  </div>;
+  </Container>;
 }

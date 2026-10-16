@@ -53,7 +53,18 @@ function measuredLayout(canvas: HTMLElement, props: JourneyMapProps) {
   const intersects = (a: Rectangle, b: Rectangle) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
   const shortened = !!panelRect && panelRect.width > frame.width * 0.7 && intersects(frame, panelRect);
   if (shortened && panelRect) frame.height = Math.max(0, Math.min(frame.height, panelRect.y - frame.y));
-  const elements = workspace ? Array.from(workspace.querySelectorAll('.mj-topbar,.mj-day-tabs,.mj-area-search')) : [];
+  // Only opaque controls become holes. Cutting out the transparent toolbar as
+  // one rectangle exposes the WebView's pale placeholder between its buttons.
+  const confirmation = workspace?.querySelector('.mj-close-confirm');
+  const elements = confirmation ? [confirmation] : workspace ? Array.from(workspace.querySelectorAll('.mj-topbar > *,.mj-day-tabs,.mj-area-search')) : [];
+  // The guide is portalled alongside .sheet-body, not inside the workspace.
+  // Mask only this editor sheet's visible card, never a nested/other sheet's tip.
+  const sheet = canvas.closest('.sheet[role="dialog"]');
+  const guides = confirmation ? [] : Array.from(sheet?.querySelectorAll(':scope > .app-guide-card') || []).filter(element => {
+    const style = window.getComputedStyle(element);
+    return !element.closest('[inert], [aria-hidden="true"]') && style.display !== 'none' && style.visibility !== 'hidden';
+  });
+  elements.unshift(...guides);
   if (panel && !shortened) elements.push(panel);
   const occlusions = elements.flatMap(element => {
     const rect = measure(element);
@@ -68,7 +79,9 @@ function measuredLayout(canvas: HTMLElement, props: JourneyMapProps) {
     // The mobile panel has already been removed from the native frame. Applying
     // its bottom padding again would push every route into the top toolbar.
     contentInsets: { top: inset(props.contentInsets?.top), right: inset(props.contentInsets?.right),
-      bottom: shortened ? 0 : parentBottom, left: inset(props.contentInsets?.left) },
+      // The panel is already removed from the native frame. Reserve just the
+      // floating search button and Apple's attribution, not the whole panel.
+      bottom: shortened ? 84 : parentBottom, left: inset(props.contentInsets?.left) },
     observed: [canvas, ...(workspace ? [workspace] : []), ...elements, ...(panel ? [panel] : [])],
   };
 }
@@ -131,6 +144,11 @@ export function NativeJourneyMap(props: JourneyMapProps) {
       void serialize(hide).catch(() => {});
     };
     const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => requestUpdate()) : null;
+    // AppGuide can mount or move independently of this React subtree. Observe
+    // its containing sheet so the native hit-test holes follow every lesson.
+    const sheet = canvas.current?.closest('.sheet[role="dialog"]');
+    const overlays = typeof MutationObserver !== 'undefined' ? new MutationObserver(() => requestUpdate()) : null;
+    if (sheet) overlays?.observe(sheet, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden', 'aria-hidden', 'inert'] });
     const observe = (elements: Element[]) => {
       const next = new Set(elements);
       for (const element of observed) if (!next.has(element)) { resize?.unobserve(element); observed.delete(element); }
@@ -218,6 +236,7 @@ export function NativeJourneyMap(props: JourneyMapProps) {
       schedule.current = () => {};
       window.cancelAnimationFrame(animationFrame);
       resize?.disconnect();
+      overlays?.disconnect();
       unsubscribeTheme();
       window.removeEventListener('resize', requestUpdate);
       window.removeEventListener('scroll', requestUpdate, true);
@@ -231,7 +250,7 @@ export function NativeJourneyMap(props: JourneyMapProps) {
 
   useEffect(() => { schedule.current(); });
 
-  return <div className="journey-map-shell">
+  return <div className="journey-map-shell journey-map-native">
     <div className="journey-map-canvas" ref={canvas} role="region" aria-label={props.labels.map} />
     {visible && status !== 'ready' && <div className="journey-map-tile-error" role="status"
       style={{ top: Math.max(12, inset(props.contentInsets?.top) + 12), right: 12 }}>

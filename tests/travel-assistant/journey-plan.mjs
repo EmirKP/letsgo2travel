@@ -32,6 +32,7 @@ function fixture(options = {}) {
   const calls = { search: 0, discovery: [], ai: [], quota: [], finalizations: [], warnings: [], auth: 0 };
   const core = load('lib/travel-assistant/journey-plan.ts', {
     './places': places,
+    './journey-plan-labels': load('lib/travel-assistant/journey-plan-labels.ts'),
     './journey-search': { searchJourneyPlaces: async (query, locale) => { calls.search++; assert.equal(query, input.destination.name); assert.ok(['tr', 'en', 'sq'].includes(locale)); return options.search?.() ?? { places: [input.destination] }; } },
     './journey-discovery': { discoverJourneyPlaces: async (_center, group) => { calls.discovery.push(group); return options.discover?.(group) ?? { places: candidates.filter(place => place.group === group), fetchedAt: new Date().toISOString(), attribution: 'Apple Maps' }; } },
     '@google/genai': { GoogleGenAI: class { models = { generateContent: async value => { calls.ai.push(value); return options.ai?.(value) ?? { text: JSON.stringify(plan()) }; } }; } },
@@ -65,6 +66,8 @@ test('Personalized plan uses only verified server places and sends all wishes as
   const call = app.calls.ai[0]; assert.equal(call.model, 'configured-test-model'); assert.equal(call.config.responseMimeType, 'application/json');
   assert.equal(call.config.httpOptions.retryOptions.attempts, 1); assert.match(call.config.systemInstruction, /Turkish/); assert.match(call.config.systemInstruction, /untrusted data/);
   assert.ok(!call.config.systemInstruction.includes(input.notes)); assert.equal(JSON.parse(call.contents).preferences.notes, input.notes);
+  assert.match(call.config.systemInstruction, /never emit internal preference keys/);
+  assert.deepEqual(JSON.parse(call.contents).interestLabels, { culture: 'kültür', nature: 'doğa' });
   assert.equal(app.calls.quota[0].name, 'reserve_journey_plan_quota'); assert.equal(app.calls.quota[0].args.p_guest, true); assert.match(app.calls.quota[0].args.p_actor, /^[a-f0-9]{64}$/);
   assert.equal(app.calls.finalizations[0].args.p_request, app.calls.quota[0].args.p_request); assert.equal(app.calls.finalizations[0].args.p_success, true);
 });

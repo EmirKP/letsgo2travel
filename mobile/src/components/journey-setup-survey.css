@@ -29,3 +29,10 @@
 @media(min-width:700px){.jsv-scroll{padding:12px 24px 25px}.jsv-card{padding:24px}.jsv-interests>div{grid-template-columns:repeat(2,minmax(0,1fr))}.jsv-interests label{min-height:86px}.jsv-interests strong{font-size:13px}.jsv-choices legend{font-size:14px}.jsv-choice{font-size:13px}}
 @media(max-width:359px){.jsv-scroll{padding-inline:10px}.jsv-card{padding:17px 13px}.jsv-topline,.jsv-progress{padding-inline:15px}.jsv-heading h3{font-size:22px}.jsv-completed button{padding:11px 13px}.jsv-artwork{width:39px;min-width:39px}.jsv-artwork svg{width:42px;height:42px}.jsv-interests label{gap:3px}.jsv-interests strong{font-size:10px}.jsv-choice{font-size:10px}.jsv-footer{padding-inline:13px}.jsv-primary{font-size:12px!important}}
 [data-theme="dark"] .jsv-shell,html.dark .jsv-shell{background:radial-gradient(ellipse at 20% 30%,#203f6d55,transparent 60%),#101b2a}[data-theme="dark"] .jsv-card,html.dark .jsv-card{border-color:#34475e}[data-theme="dark"] .jsv-clear,html.dark .jsv-clear{background:#34475e}[data-theme="dark"] .jsv-primary,html.dark .jsv-primary{background:#ffdf2d;color:#142035;border-color:#ffdf2d;box-shadow:none}
+/* The iOS keyboard owns the lower viewport: let the text and suggestions use it. */
+.jsv-shell[data-keyboard=true] .jsv-topline,.jsv-shell[data-keyboard=true] .jsv-progress,.jsv-shell[data-keyboard=true] .jsv-completed,.jsv-shell[data-keyboard=true] .jsv-heading,.jsv-shell[data-keyboard=true] .jsv-footer{display:none}
+.jsv-shell[data-keyboard=true] .jsv-scroll{padding-top:8px;padding-bottom:18px;scroll-padding-block:12px 80px}
+.jsv-shell[data-keyboard=true] .jsv-card{padding:14px;border-radius:19px}
+.jsv-shell[data-keyboard=true] .jsv-examples,.jsv-shell[data-keyboard=true] .jsv-saved{display:none}
+.jsv-shell[data-keyboard=true] .jsv-search{scroll-margin-block:16px}
+.jsv-shell[data-keyboard=true] .jsv-results{margin-bottom:18px}

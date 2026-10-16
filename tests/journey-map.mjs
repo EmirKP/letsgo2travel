@@ -10,16 +10,16 @@ const source=ts.transpileModule(readFileSync('mobile/src/components/JourneyMap.t
 
 test('iOS opens native Apple Maps while web and Android use genuine Apple MapKit JS with unchanged itinerary callbacks',()=>{
   for(const platform of ['ios','android','web']){
-    const native=()=>null,web=()=>null,module={exports:{}};
+    const native=()=>null,web=()=>null,fixtureModule={exports:{}};
     vm.runInNewContext(`(function(require,module,exports){${source}\n})`)(name=>{
       if(name==='../lib/capacitor')return {isIOSNative:()=>platform==='ios'};
       if(name==='./NativeJourneyMap')return {NativeJourneyMap:native};
       if(name==='./AppleJourneyMap')return {AppleJourneyMap:web};
       if(name==='react/jsx-runtime')return {jsx:(type,props)=>({type,props})};
       throw Error(`Unexpected dependency ${name}`);
-    },module,module.exports);
+    },fixtureModule,fixtureModule.exports);
     const props={ownerId:'owner-a',stops:[],center:{latitude:41,longitude:29},onSelectPlace(){},onSearchArea(){}};
-    const result=module.exports.JourneyMap(props);
+    const result=fixtureModule.exports.JourneyMap(props);
     assert.equal(result.type,platform==='ios'?native:web);
     assert.equal(result.props.onSelectPlace,props.onSelectPlace);
     assert.equal(result.props.onSearchArea,props.onSearchArea);

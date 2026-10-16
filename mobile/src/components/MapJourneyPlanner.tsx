@@ -14,9 +14,10 @@ import { syncSavedRoutes } from '../lib/routeSync';
 import { clearJourneySurveyDraft } from '../lib/journeySurveyDraft';
 import { createId } from '../lib/id';
 import { readMapJourneys, saveMapJourney } from '../lib/mapJourneyStorage';
-import { addJourneyStop, moveJourneyStop, reorderJourneyStop, removeJourneyStop, updateJourneyStop, optimizeJourney, journeyDayStops, scheduleJourneyDay, formatJourneyTime, validateMapJourney, decodeStoredMapJourney, type MapJourney, type JourneyPlace, type JourneyLeg, type JourneyStop, type ScheduleIssue } from '../lib/mapJourney';
+import { addJourneyStop, moveJourneyStop, reorderJourneyStop, removeJourneyStop, updateJourneyStop, optimizeJourney, journeyDayStops, journeyStopNoteLocale, scheduleJourneyDay, formatJourneyTime, validateMapJourney, decodeStoredMapJourney, type MapJourney, type JourneyPlace, type JourneyLeg, type JourneyStop, type ScheduleIssue } from '../lib/mapJourney';
 import { discoverJourneyPlaces, discoveryCentersForRoute, knownJourneyArea, loadWalkingRoute, type DiscoveryGroup, type WalkingRoute, type DiscoveryResponse } from '../lib/mapJourneyClient';
 import './map-journey-planner.css';
+import { RouteTranslation } from './RouteTranslation';
 
 type Props = { ownerId?: string | null; accessToken: string; initialCity?: string; initialJourney?: MapJourney; onNotice:(message:string)=>void; onClose?:()=>void; onUpdateTrip?:(journey:MapJourney)=>Promise<void> };
 const groups: DiscoveryGroup[] = ['culture','food','shopping','nature','essentials'];
@@ -68,6 +69,14 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
   const [routeRetry,setRouteRetry] = useState(0);
   const [saveStatus,setSaveStatus] = useState('');
   const [saveBusy,setSaveBusy] = useState(false);
+  const [confirmClose,setConfirmClose] = useState(false);
+  const [closeError,setCloseError] = useState('');
+  const [baseline,setBaseline] = useState<MapJourney|null>(()=>decodeStoredMapJourney(initialJourney));
+  const baselineRef = useRef(baseline);
+  const dirty = useMemo(()=>!!journey && JSON.stringify(journey) !== JSON.stringify(baseline),[journey,baseline]);
+  const editorRoot = useRef<HTMLDivElement>(null);
+  const pendingAction = useRef<(()=>void)|null>(null);
+  const stayButton = useRef<HTMLButtonElement>(null);
   const viewport = useRef<Coordinates>(mapCenter);
   const alive = useRef(true);
   const operation = useRef(0);
@@ -83,8 +92,11 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
     const root=workspace.current;if(step!=='map'||!root)return;
     const measure=()=>{
       const box=root.getBoundingClientRect();if(!box.width||!box.height)return;
+      const toolbar=root.querySelector('.mj-topbar')?.getBoundingClientRect();
+      if(toolbar)root.style?.setProperty('--mj-toolbar-bottom',`${toolbar.bottom-box.top+10}px`);
       const tabs=root.querySelector('.mj-day-tabs')?.getBoundingClientRect();
       const panel=root.querySelector('.mj-panel')?.getBoundingClientRect();
+      if(panel)root.style?.setProperty('--mj-panel-size',`${panel.height}px`);
       const widePanel=Boolean(panel&&panel.width>box.width*.7);
       const next={top:Math.max(12,Math.round((tabs?.bottom??box.top)-box.top+12)),right:12,
         bottom:widePanel&&panel?Math.max(12,Math.round(box.bottom-panel.top+12)):24,
@@ -93,12 +105,28 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
     };
     measure();
     const observer=typeof ResizeObserver==='function'?new ResizeObserver(measure):null;
-    observer?.observe(root);root.querySelectorAll('.mj-day-tabs,.mj-panel').forEach(element=>observer?.observe(element));
+    observer?.observe(root);root.querySelectorAll('.mj-topbar,.mj-day-tabs,.mj-panel').forEach(element=>observer?.observe(element));
     window.addEventListener('resize',measure);
     return()=>{observer?.disconnect();window.removeEventListener('resize',measure);};
   },[step,panelHeight]);
 
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;operation.current++;request.current?.abort();};},[]);
+  useEffect(()=>{
+    const sheet=(step==='map'?workspace.current:editorRoot.current)?.closest('.sheet');
+    const beforeClose=(event:Event)=>{
+      if(event.target!==sheet||!dirty)return;
+      event.preventDefault();pendingAction.current=onClose || null;setCloseError('');setConfirmClose(true);
+    };
+    sheet?.addEventListener('sheet:before-close',beforeClose);
+    return()=>sheet?.removeEventListener('sheet:before-close',beforeClose);
+  },[dirty,onClose,step]);
+  useEffect(()=>{if(confirmClose)stayButton.current?.focus({preventScroll:true});},[confirmClose]);
+  useEffect(()=>{
+    if(!dirty)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
+    window.addEventListener('beforeunload',warn);
+    return()=>window.removeEventListener('beforeunload',warn);
+  },[dirty]);
   useEffect(()=>{if(journey&&!onUpdateTrip) drafts.set(owner,journey);savedCurrent.current=journey;},[journey,owner,onUpdateTrip]);
   useEffect(()=>subscribeSavedPlaces(()=>setBookmarks(readSavedPlaces(ownerId)),ownerId),[ownerId]);
   useEffect(()=>{if(step!=='map'){operation.current++;request.current?.abort();setBusy(false);}},[step]);
@@ -169,12 +197,25 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
   const walkingDistance=(walkingMeters/1000).toLocaleString(locale==='sq'?'sq-AL':locale==='tr'?'tr-TR':'en-GB',{maximumFractionDigits:1,minimumFractionDigits:1});
   const walkingSource=[...new Set(visibleRoutes.map(([,route])=>route.attribution))].join(' · ');
 
-  function openJourney(next:MapJourney) {
+  function openJourney(next:MapJourney,saved=false) {
     operation.current++;request.current?.abort();setBusy(false);
     viewport.current=next.center;
     setJourney(next);setUndo(null);setStep('map');setMapCenter(next.center);setActiveDay(1);
     setSelectedId(null);setFound([]);setSearchMeta('');setKind('');setTab('plan');
     setNotice('');setError('');setSaveStatus('');setPanelHeight(16);
+    if(saved){baselineRef.current=next;setBaseline(next);}
+  }
+
+  function guard(action:()=>void) {
+    if(!dirty){action();return;}
+    pendingAction.current=action;setCloseError('');setConfirmClose(true);
+  }
+  function finishClose(discard=false) {
+    if(discard){
+      if(!onUpdateTrip){if(baselineRef.current)drafts.set(owner,baselineRef.current);else drafts.delete(owner);}
+      setJourney(baselineRef.current);setUndo(null);
+    }
+    const action=pendingAction.current;pendingAction.current=null;setConfirmClose(false);action?.();
   }
 
   function begin() {request.current?.abort();const controller=new AbortController();request.current=controller;const id=++operation.current;setBusy(true);setError('');return {controller,id};}
@@ -233,22 +274,25 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
     }catch{if(current(id))setError(mode==='nearby'?copy('Konum alınamadı veya mekân servisine ulaşılamadı. Haritayı taşıyıp Bu bölgede ara ile devam edebilirsin.','Location or places are unavailable. Move the map and use Search this area.','Vendndodhja ose vendet nuk janë të disponueshme. Lëviz hartën dhe kërko në këtë zonë.'):copy('Mekân servisine ulaşılamadı. Planın korundu; tekrar deneyebilirsin.','Places service unavailable. Your plan is safe; try again.','Shërbimi i vendeve nuk është i disponueshëm. Plani u ruajt; provo përsëri.'));}
     finally{if(current(id))setBusy(false);}
   }
-  async function save(asCopy=false) {
-    if(!journey||saving.current)return;saving.current=true;setSaveBusy(true);setError('');setSaveStatus('');
+  async function save(asCopy=false):Promise<boolean> {
+    if(!journey||saving.current)return false;saving.current=true;setSaveBusy(true);setError('');setSaveStatus('');setCloseError('');
     const original=journey;
     const snapshot=asCopy?{...journey,id:`journey-${createId()}`,createdAt:new Date().toISOString()}:journey;
     try {
       if(onUpdateTrip && initialJourney?.id===journey.id && !asCopy){
         await onUpdateTrip(snapshot);
+        if(!asCopy){baselineRef.current=snapshot;setBaseline(snapshot);}
         if(alive.current && savedCurrent.current===original){const message=copy('Seyahatin güncellendi.','Your trip was updated.','Udhëtimi u përditësua.');setSaveStatus(message);onNotice(message);}
-        return;
+        return true;
       }
       const result=saveMapJourney(snapshot,ownerId,locale);setSavedJourneys(readMapJourneys(ownerId));
+      if(!asCopy){baselineRef.current=result.journey;setBaseline(result.journey);}
       if(!asCopy&&result.journey.id!==snapshot.id){setJourney(result.journey);savedCurrent.current=result.journey;setUndo(previous=>previous?{...previous,id:result.journey.id}:null);}
       let message=ownerId?copy('Cihazda kayıtlı; hesaba eşitleme bekliyor.','Saved on this device; waiting to sync.','Ruajtur në pajisje; në pritje të sinkronizimit.'):copy('Kaydedildi. Planlar → Rotalar bölümünden yeniden açabilirsin.','Saved. Reopen under Plans → Routes.','U ruajt. Hape sërish te Planet → Itineraret.');
       if(ownerId&&accessToken){try{await syncSavedRoutes(ownerId,accessToken,()=>alive.current);message=copy('Plan hesabına kaydedildi.','Plan saved to your account.','Plani u ruajt në llogarinë tënde.');}catch{/* The durable existing outbox retries. */}}
       if(alive.current&&(savedCurrent.current===original||savedCurrent.current===result.journey)){setSaveStatus(message);onNotice(message);}
-    }catch(failure){if(alive.current)setError(onUpdateTrip&&!asCopy&&failure instanceof Error?failure.message:copy('Plan kaydedilemedi. Mevcut planın açık; cihaz depolamasını kontrol et ve tekrar dene.','Plan could not save. It remains open; check device storage and retry.','Plani nuk u ruajt. Mbetet i hapur; kontrollo hapësirën dhe provo përsëri.'));}
+      return true;
+    }catch(failure){if(alive.current){const message=onUpdateTrip&&!asCopy&&failure instanceof Error?failure.message:copy('Plan kaydedilemedi. Mevcut planın açık; cihaz depolamasını kontrol et ve tekrar dene.','Plan could not save. It remains open; check device storage and retry.','Plani nuk u ruajt. Mbetet i hapur; kontrollo hapësirën dhe provo përsëri.');setError(message);setCloseError(message);}return false;}
     finally{saving.current=false;if(alive.current)setSaveBusy(false);}
   }
   const selectPlace=(id:string,day?:number)=>{setSelectedId(id);if(day)setActiveDay(day);setPanelHeight(58);requestAnimationFrame(()=>selectedCard.current?.scrollIntoView({block:'nearest'}));};
@@ -260,24 +304,34 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
     'outside-day':copy('Bu durak günün süresini aşıyor.','This stop exceeds the day’s time budget.','Kjo ndalesë tejkalon kohën e ditës.'),
   }[issue]);
 
-  if(step!=='map')return <div className="mj-survey-shell">
+  const closePrompt=confirmClose&&<div className="mj-close-confirm" role="alertdialog" aria-modal="true" aria-labelledby="mj-close-title" aria-describedby="mj-close-description" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setConfirmClose(false);pendingAction.current=null;}if(event.key==='Tab'){const buttons=Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));const first=buttons[0],last=buttons.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}}}><section>
+    <h3 id="mj-close-title">{copy('Değişikliklerini kaydedelim mi?','Save your changes?','T’i ruajmë ndryshimet?')}</h3>
+    <p id="mj-close-description">{copy('Rotandaki son değişiklikler henüz kaydedilmedi.','Your latest itinerary changes have not been saved.','Ndryshimet e fundit të itinerarit nuk janë ruajtur.')}</p>
+    {closeError&&<p className="mj-error" role="alert">{closeError}</p>}
+    <button className="mj-primary" disabled={saveBusy} onClick={()=>{void save().then(saved=>{if(saved&&alive.current&&savedCurrent.current&&JSON.stringify(savedCurrent.current)===JSON.stringify(baselineRef.current))finishClose();});}}>{saveBusy?copy('Kaydediliyor…','Saving…','Duke ruajtur…'):copy('Kaydet ve devam et','Save and continue','Ruaj dhe vazhdo')}</button>
+    <button ref={stayButton} disabled={saveBusy} onClick={()=>{setConfirmClose(false);pendingAction.current=null;}}>{copy('Düzenlemeye devam et','Keep editing','Vazhdo ndryshimin')}</button>
+    <button disabled={saveBusy} className="mj-discard" onClick={()=>finishClose(true)}>{copy('Değişiklikleri kaydetmeden devam et','Continue without saving','Vazhdo pa ruajtur')}</button>
+  </section></div>;
+
+  if(step!=='map')return <div ref={editorRoot} className="mj-survey-shell">
     {savedJourneys.error&&<p className="mj-error" role="alert">{copy('Kayıtlı planlar okunamadı. Mevcut kayıtların değiştirilmedi.','Saved plans could not be read. Existing records were preserved.','Planet e ruajtura nuk u lexuan. Të dhënat ekzistuese u ruajtën.')}</p>}
     {journey&&<button className="mj-resume" disabled={generating} onClick={()=>{setStep('map');setGenerationError('');}}>{copy('Açık planıma dön','Return to my open plan','Kthehu te plani i hapur')} · {journey.city}</button>}
     <JourneySetupSurvey ownerId={ownerId || null} draftScope={surveyScope} initialCity={initialCity} initialValues={surveyValues} busy={generating} error={generationError}
       savedPlans={savedJourneys.items.map(item=>({id:item.id,city:item.city,dayCount:item.dayCount}))}
-      onOpenSaved={id=>{const saved=savedJourneys.items.find(item=>item.id===id);if(saved){cancelGeneration();openJourney(saved);}}}
+      onOpenSaved={id=>{const saved=savedJourneys.items.find(item=>item.id===id);if(saved)guard(()=>{cancelGeneration();openJourney(saved,true);});}}
       onGenerate={values=>void generate(values)} onCancel={cancelGeneration}/>
+    {closePrompt}
   </div>;
 
   if(!journey)return null;
   return <div className="mj-workspace" ref={workspace} style={{'--mj-panel-height':panelHeight<=20?'88px':`${panelHeight}%`} as CSSProperties}>
-    <div className="mj-topbar">{onClose&&<button className="mj-exit" data-autofocus aria-label={copy('Haritayı kapat','Close map','Mbyll hartën')} onClick={onClose}><Icon name="back" size={21}/></button>}<div><small>{journey.dayCount} {copy('gün','days','ditë')} · {journey.stops.length} {copy('durak','stops','ndalesa')}</small><strong>{journey.city}</strong></div><button disabled={!undo} aria-label={copy('Son değişikliği geri al','Undo last change','Zhbëj ndryshimin e fundit')} onClick={()=>{if(undo){setJourney(undo);setUndo(null);setSaveStatus('');setSelectedId(null);}}}><Icon name="back" size={18}/>{copy('Geri al','Undo','Zhbëj')}</button><button data-guide="journey-save" className="mj-save" disabled={saveBusy} onClick={()=>void save()}>{saveBusy?copy('Kaydediliyor…','Saving…','Duke ruajtur…'):onUpdateTrip&&initialJourney?.id===journey.id?copy('Bu seyahati güncelle','Update this trip','Përditëso këtë udhëtim'):copy('Kaydet','Save','Ruaj')}</button></div>
-    <div className="mj-day-tabs" aria-label={copy('Plan günleri','Plan days','Ditët e planit')}><button aria-pressed={activeDay===null} onClick={()=>{setActiveDay(null);setSelectedId(null);}}>{copy('Genel','Overview','Përmbledhje')}</button>{daysArray.map(day=><button key={day} aria-pressed={activeDay===day} onClick={()=>{setActiveDay(day);setSelectedId(null);}}><i style={{background:dayColors[(day-1)%dayColors.length]}}/>{dayName(day)}</button>)}</div>
-    <div className="mj-map-stage"><JourneyMap ownerId={ownerId} contentInsets={mapInsets} onSearchArea={()=>void discover('area')} searchEnabled={!busy} searchAreaLabel={copy('Bu bölgede ara','Search this area','Kërko në këtë zonë')} center={mapCenter} stops={journey.stops.map(stop=>({...stop.place,id:stop.place.id,day:stop.day,order:stop.order+1}))} discoveredPlaces={displayed} routes={mapRoutes} activeDay={activeDay} selectedPlaceId={selectedId} onViewportChange={value=>{viewport.current=value.center;}} onSelectPlace={point=>selectPlace(point.id,journey.stops.find(stop=>stop.place.id===point.id)?.day)} labels={{map:copy('Program ve çevredeki mekânlar haritası','Itinerary and nearby places map','Harta e programit dhe vendeve përreth'),zoomIn:copy('Yakınlaş','Zoom in','Zmadho'),zoomOut:copy('Uzaklaş','Zoom out','Zvogëlo'),tilesUnavailable:copy('Harita yüklenemedi. Aşağıdaki listeyi kullanabilirsin.','Map unavailable. Use the list below.','Harta nuk u ngarkua. Përdor listën më poshtë.'),retryTiles:copy('Haritayı tekrar yükle','Retry map','Provo hartën sërish'),stop:(order,day,name)=>`${dayName(day)}, ${order}: ${name}`,place:name=>name,cluster:count=>copy(`${count} mekânı göster`,`Show ${count} places`,`Shfaq ${count} vende`)}}/>
+    <div className="mj-topbar" inert={confirmClose || undefined}>{onClose&&<button className="mj-exit" data-autofocus aria-label={copy('Haritayı kapat','Close map','Mbyll hartën')} onClick={()=>guard(onClose)}><Icon name="back" size={21}/></button>}<div className="mj-title"><small>{journey.dayCount} {copy('gün','days','ditë')} · {journey.stops.length} {copy('durak','stops','ndalesa')}</small><strong title={journey.city}>{journey.city}</strong>{dirty&&<span className="mj-unsaved">{copy('Kaydedilmemiş değişiklikler','Unsaved changes','Ndryshime të paruajtura')}</span>}</div><button className="mj-undo" disabled={!undo} title={copy('Son değişikliği geri al','Undo last change','Zhbëj ndryshimin e fundit')} aria-label={copy('Son değişikliği geri al','Undo last change','Zhbëj ndryshimin e fundit')} onClick={()=>{if(undo){setJourney(undo);setUndo(null);setSaveStatus('');setSelectedId(null);}}}><Icon name="back" size={18}/></button><button data-guide="journey-save" className="mj-save" disabled={saveBusy} onClick={()=>void save()}>{saveBusy?copy('Kaydediliyor…','Saving…','Duke ruajtur…'):onUpdateTrip&&initialJourney?.id===journey.id?copy('Bu seyahati güncelle','Update this trip','Përditëso këtë udhëtim'):copy('Kaydet','Save','Ruaj')}</button></div>
+    <div className="mj-day-tabs" inert={confirmClose || undefined} data-guide="journey-days" aria-label={copy('Plan günleri','Plan days','Ditët e planit')}><div className="mj-day-scroll"><button aria-pressed={activeDay===null} onClick={()=>{setActiveDay(null);setSelectedId(null);}}>{copy('Genel','Overview','Përmbledhje')}</button>{daysArray.map(day=><button key={day} aria-pressed={activeDay===day} onClick={()=>{setActiveDay(day);setSelectedId(null);}}><i style={{background:dayColors[(day-1)%dayColors.length]}}/>{dayName(day)}</button>)}</div><label className="mj-day-picker"><span>{copy('Gün seç','Choose day','Zgjidh ditën')}</span><select aria-label={copy('Gün seç','Choose day','Zgjidh ditën')} value={activeDay??'all'} onChange={event=>{setActiveDay(event.target.value==='all'?null:Number(event.target.value));setSelectedId(null);}}><option value="all">{copy('Tüm günler','All days','Të gjitha ditët')}</option>{daysArray.map(day=><option key={day} value={day}>{dayName(day)} / {journey.dayCount}</option>)}</select></label></div>
+    <div className="mj-map-stage" inert={confirmClose || undefined}><JourneyMap ownerId={ownerId} contentInsets={mapInsets} onSearchArea={()=>void discover('area')} searchEnabled={!busy} searchAreaLabel={copy('Bu bölgede ara','Search this area','Kërko në këtë zonë')} center={mapCenter} stops={journey.stops.map(stop=>({...stop.place,id:stop.place.id,day:stop.day,order:stop.order+1}))} discoveredPlaces={displayed} routes={mapRoutes} activeDay={activeDay} selectedPlaceId={selectedId} onViewportChange={value=>{viewport.current=value.center;}} onSelectPlace={point=>selectPlace(point.id,journey.stops.find(stop=>stop.place.id===point.id)?.day)} labels={{map:copy('Program ve çevredeki mekânlar haritası','Itinerary and nearby places map','Harta e programit dhe vendeve përreth'),zoomIn:copy('Yakınlaş','Zoom in','Zmadho'),zoomOut:copy('Uzaklaş','Zoom out','Zvogëlo'),tilesUnavailable:copy('Harita yüklenemedi. Aşağıdaki listeyi kullanabilirsin.','Map unavailable. Use the list below.','Harta nuk u ngarkua. Përdor listën më poshtë.'),retryTiles:copy('Haritayı tekrar yükle','Retry map','Provo hartën sërish'),stop:(order,day,name)=>`${dayName(day)}, ${order}: ${name}`,place:name=>name,cluster:count=>copy(`${count} mekânı göster`,`Show ${count} places`,`Shfaq ${count} vende`)}}/>
       <button className="mj-area-search" disabled={busy} onClick={()=>void discover('area')}>{busy?copy('Aranıyor…','Searching…','Duke kërkuar…'):copy('Bu bölgede ara','Search this area','Kërko në këtë zonë')}</button>
       <section className={`mj-panel ${panelHeight<=20?'is-collapsed':''}`} style={{height:panelHeight<=20?'88px':`${panelHeight}%`}} aria-label={copy('Günlük program paneli','Daily itinerary panel','Paneli i programit ditor')}>
         <div className="mj-drag" onPointerDown={e=>{drag.current={y:e.clientY,height:panelHeight,boxHeight:workspace.current?.clientHeight||600};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(drag.current)setPanelHeight(Math.max(16,Math.min(86,drag.current.height+(drag.current.y-e.clientY)/drag.current.boxHeight*100)));}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}><span/><button onPointerDown={event=>event.stopPropagation()} aria-expanded={panelHeight>20} aria-label={copy('Program panelini büyüt veya küçült','Expand or collapse itinerary panel','Zgjero ose zvogëlo panelin')} onClick={()=>setPanelHeight(value=>value>20?16:62)}><Icon name="chevron" size={16}/></button></div>
-        <div className="mj-panel-tabs"><button aria-pressed={tab==='plan'} onClick={()=>{setTab('plan');setPanelHeight(49);}}>{copy('Programım','My itinerary','Programi im')}</button><button aria-pressed={tab==='discover'} onClick={()=>{setTab('discover');setPanelHeight(49);}}>{copy('Mekânları keşfet','Discover places','Zbulo vende')}</button></div>
+        <div className="mj-panel-tabs"><button aria-pressed={tab==='plan'} onClick={()=>{setTab('plan');setPanelHeight(49);}}>{copy('Programım','My itinerary','Programi im')}</button><button data-guide="journey-discover" aria-pressed={tab==='discover'} onClick={()=>{setTab('discover');setPanelHeight(49);}}>{copy('Mekânları keşfet','Discover places','Zbulo vende')}</button></div>
         <div className="mj-panel-scroll">
           {error&&<p className="mj-error" role="alert">{error}</p>}{notice&&<p className="mj-notice" role="status">{notice}</p>}{saveStatus&&<p data-guide="journey-saved" className="mj-saved-status" role="status">{saveStatus}</p>}
           {selectedPlace&&<article ref={selectedCard} className="mj-place-detail"><button className="mj-detail-close" aria-label={copy('Mekân ayrıntısını kapat','Close place details','Mbyll hollësitë')} onClick={()=>setSelectedId(null)}>×</button><small>{label(selectedPlace)}</small><h3>{selectedPlace.name||label(selectedPlace)}</h3>{selectedPlace.imageUrl&&selectedPlace.imageSourceUrl&&selectedPlace.imageLicenseUrl&&<figure className="mj-place-photo"><img src={selectedPlace.imageUrl} alt={selectedPlace.name} referrerPolicy="no-referrer" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/><figcaption>{selectedPlace.imageAttribution} · <button onClick={()=>void openExternal(selectedPlace.imageSourceUrl!)}>{copy('Fotoğraf kaynağı','Photo source','Burimi i fotos')}</button> · <button onClick={()=>void openExternal(selectedPlace.imageLicenseUrl!)}>{selectedPlace.imageLicenseLabel}</button></figcaption></figure>}{selectedPlace.address&&<p>{selectedPlace.address}</p>}{selectedPlace.hours?<p>{copy('Kayıtlı çalışma saatleri','Listed opening hours','Orari i regjistruar')}: {selectedPlace.hours}</p>:<p>{copy('Çalışma saatleri paylaşılmamış.','Opening hours not provided.','Orari nuk është dhënë.')}</p>}<small>{`${selectedPlace.id.startsWith('apple/')?'Apple Maps':'OpenStreetMap'} · ${copy('Canlı açık/kapalı bilgisi değildir.','Not live open/closed status.','Jo gjendje hapur/mbyllur drejtpërdrejt.')}`}</small><div className="mj-action-row"><button onClick={()=>{try{saveTravelPlace(selectedPlace,ownerId);setBookmarks(readSavedPlaces(ownerId));setNotice(copy('Mekân Kaydedilenler’e eklendi.','Place added to Saved.','Vendi u shtua te Të ruajturat.'));}catch{setError(copy('Mekân kaydedilemedi.','Place could not be saved.','Vendi nuk u ruajt.'));}}}>{bookmarks.items.some(item=>item.place.id===selectedPlace.id)?copy('Kaydedildi','Saved','Ruajtur'):copy('Kaydet','Save','Ruaj')}</button><button onClick={()=>void openExternal(directionsUrl(`${selectedPlace.latitude},${selectedPlace.longitude}`))}>{copy('Yol tarifi','Directions','Udhëzime')}</button><button onClick={()=>void openExternal(selectedPlace.sourceUrl)}>{copy('Kaynak','Source','Burimi')}</button></div>
@@ -292,22 +346,23 @@ function JourneyEditor({ownerId,accessToken,initialCity,initialJourney,onNotice,
           </>:<>
             {journey.planning&&<section className="mj-ai-summary" aria-label={copy('Sana özel plan','Your personal itinerary','Itinerari yt personal')}>
               <span>{copy('SANA ÖZEL ROTA','PLANNED FOR YOU','PLANIFIKUAR PËR TY')}</span>
-              <strong>{activeDay&&!journey.planning.edited?journey.planning.days.find(day=>day.day===activeDay)?.theme:copy('Seyahatinin fikri','The idea behind your trip','Ideja e udhëtimit tënd')}</strong>
-              <p>{activeDay&&!journey.planning.edited?journey.planning.days.find(day=>day.day===activeDay)?.explanation:journey.planning.summary}</p>
+              <strong>{activeDay&&!journey.planning.edited?<RouteTranslation text={journey.planning.days.find(day=>day.day===activeDay)?.theme||''} sourceLocale={journey.planning?.locale} accessToken={accessToken}/>:copy('Seyahatinin fikri','The idea behind your trip','Ideja e udhëtimit tënd')}</strong>
+              <p><RouteTranslation text={(activeDay&&!journey.planning.edited?journey.planning.days.find(day=>day.day===activeDay)?.explanation:journey.planning.summary)||''} sourceLocale={journey.planning?.locale} accessToken={accessToken}/></p>
               {journey.planning.edited&&<small>{copy('Planı düzenledin. Bu açıklama ilk AI önerisine aittir.','You edited this plan. This explanation describes the original AI suggestion.','E ndryshove planin. Ky shpjegim i përket sugjerimit fillestar të AI.')}</small>}
-              {journey.planning.limitations.length>0&&<details><summary>{copy('Gitmeden önce','Before you go','Para nisjes')}</summary>{journey.planning.limitations.map((item,index)=><p key={index}>{item}</p>)}</details>}
+              {journey.planning.limitations.length>0&&<details><summary>{copy('Gitmeden önce','Before you go','Para nisjes')}</summary>{journey.planning.limitations.map((item,index)=><p key={index}><RouteTranslation text={item} sourceLocale={journey.planning?.locale} accessToken={accessToken}/></p>)}</details>}
               <button onClick={()=>{setSurveyScope(journey.id);setSurveyValues({area:{...journey.center,name:journey.city},dayCount:journey.dayCount,startDate:journey.startDate,firstDayStartTime:journey.firstDayStartTime,...journey.planning!.preferences});setStep('setup');setGenerationError('');}}>{copy('Tercihlerimi değiştir','Change my preferences','Ndrysho preferencat')}</button>
             </section>}
             <div className="mj-plan-actions"><strong>{activeDay?dayName(activeDay):copy('Tüm günler','All days','Të gjitha ditët')}</strong><button onClick={()=>{safeChange(()=>optimizeJourney(journey,activeDay||undefined,legs));setNotice(copy('Yakınlık ve mevcut yol sürelerine göre düzenlendi. Sabit saatler ve öncelikler korundu.','Arranged using proximity and available travel times. Fixed times and priorities are preserved.','U rregullua sipas afërsisë dhe kohëve të disponueshme. Orët fikse dhe përparësitë ruhen.'));}}>{copy('Rotayı iyileştir','Improve route','Përmirëso itinerarin')}</button></div>
             {visibleRoutes.length>0&&<div className="mj-walking-summary" role="status"><strong>{walkingDistance} km · {Math.ceil(walkingSeconds/60)} {copy('dk yürüme','min walk','min ecje')}</strong><small>{visibleRoutes.length<eligibleDays.length?copy('Hesaplanan günler · ','Calculated days · ','Ditët e llogaritura · '):''}{walkingSource}</small></div>}
             <p className="mj-route-status" role="status">{!eligibleDays.length?copy('Yürüyüş rotasını görmek için aynı güne en az iki mekân ekle.','Add at least two places to the same day to see a walking route.','Shto të paktën dy vende në të njëjtën ditë për të parë rrugën në këmbë.'):routeStatus==='loading'?copy('Yürüme yolları kontrol ediliyor…','Checking walking routes…','Duke kontrolluar rrugët në këmbë…'):routeStatus==='unavailable'&&visibleRoutes.length<eligibleDays.length?copy('Bazı yürüme güzergâhları hesaplanamadı. Eksik yollar ve süreleri gösterilmiyor; ilgili program saatleri yaklaşık.','Some walking routes are unavailable. Missing paths and travel times are omitted; affected itinerary times are provisional.','Disa rrugë në këmbë nuk u llogaritën. Rrugët dhe kohët që mungojnë nuk shfaqen; oraret përkatëse janë të përafërta.'):copy('Yürüme süresine ziyaretler ve molalar dahil değil.','Walking time excludes visits and breaks.','Koha e ecjes nuk përfshin vizitat dhe pushimet.')}</p>
             {routeStatus==='unavailable'&&visibleRoutes.length<eligibleDays.length&&<button className="mj-text-button" onClick={()=>setRouteRetry(value=>value+1)}>{copy('Yolu tekrar hesapla','Retry walking route','Provo rrugën sërish')}</button>}
-            {(activeDay?[activeDay]:daysArray).map(day=>{const stops=journeyDayStops(journey,day);const schedule=scheduleJourneyDay(journey,day,legs);return <div key={day} className="mj-day-list">{activeDay===null&&<h4 style={{color:dayColors[(day-1)%dayColors.length]}}>{dayName(day)}</h4>}{!stops.length&&<p className="mj-empty">{copy('Bu gün boş. Keşfettiğin bir mekânı ekle.','This day is empty. Add a place you discover.','Kjo ditë është bosh. Shto një vend të zbuluar.')}</p>}{stops.map((stop,index)=>{const timing=schedule.stops.find(s=>s.stopId===stop.id);return <article key={stop.id} className={`mj-stop ${selectedId===stop.place.id?'selected':''}`}><button className="mj-stop-main" data-guide="journey-edit" onClick={()=>selectPlace(stop.place.id,day)}><span className="mj-stop-number" style={{background:dayColors[(day-1)%dayColors.length]}}>{index+1}</span><span><small>{timing?`${timing.timing==='provisional'?'≈ ':''}${formatJourneyTime(timing.startMinutes)}`:''} · {stop.durationMinutes} {copy('dk','min','min')}{stop.fixedTime?` · ${copy('Sabit saat','Fixed time','Orë fikse')}`:''}</small><strong>{stop.place.name||label(stop.place)}</strong><small>{label(stop.place)}</small>{stop.note&&<small className="mj-stop-reason">{stop.note}</small>}</span><Icon name="chevron" size={16}/></button>{timing&&timing.travelMinutes!==null&&index>0&&<p className="mj-travel-time">↗ {Math.ceil(timing.travelMinutes)} {copy('dk yürüme','min walk','min ecje')} · {routes[day]?.sourceUrl==='https://maps.apple.com/'?'Apple Maps':'OpenRouteService'}</p>}{timing?.issues.filter(issue=>issue!=='hours-unknown'&&issue!=='travel-unknown').map(issue=><p className="mj-warning" key={issue}>{issueLabel(issue)}</p>)}<div className="mj-stop-actions"><button aria-label={`${stop.place.name}: ${copy('Yukarı taşı','Move up','Lëviz lart')}`} disabled={index===0} onClick={()=>safeChange(()=>reorderJourneyStop(journey,stop.id,-1))}>↑</button><button aria-label={`${stop.place.name}: ${copy('Aşağı taşı','Move down','Lëviz poshtë')}`} disabled={index===stops.length-1} onClick={()=>safeChange(()=>reorderJourneyStop(journey,stop.id,1))}>↓</button><button data-guide="journey-edit" onClick={()=>selectPlace(stop.place.id,day)}>{copy('Düzenle / başka güne taşı','Edit / move to another day','Ndrysho / lëviz në ditë tjetër')}</button></div>{schedule.breaks.filter(rest=>rest.afterStopId===stop.id).map((rest,i)=><p key={i} className="mj-break">☕ {rest.durationMinutes} {copy('dk','min','min')} · {rest.kind==='meal'?copy('Yemek molası','Meal break','Pushim për ushqim'):copy('Dinlenme','Rest','Pushim')}</p>)}</article>;})}</div>;})}
+            {(activeDay?[activeDay]:daysArray).map(day=>{const stops=journeyDayStops(journey,day);const schedule=scheduleJourneyDay(journey,day,legs);return <div key={day} className="mj-day-list">{activeDay===null&&<h4 style={{color:dayColors[(day-1)%dayColors.length]}}>{dayName(day)}</h4>}{!stops.length&&<p className="mj-empty">{copy('Bu gün boş. Keşfettiğin bir mekânı ekle.','This day is empty. Add a place you discover.','Kjo ditë është bosh. Shto një vend të zbuluar.')}</p>}{stops.map((stop,index)=>{const timing=schedule.stops.find(s=>s.stopId===stop.id);return <article key={stop.id} className={`mj-stop ${selectedId===stop.place.id?'selected':''}`}><button className="mj-stop-main" data-guide="journey-edit" onClick={()=>selectPlace(stop.place.id,day)}><span className="mj-stop-number" style={{background:dayColors[(day-1)%dayColors.length]}}>{index+1}</span><span><small>{timing?`${timing.timing==='provisional'?'≈ ':''}${formatJourneyTime(timing.startMinutes)}`:''} · {stop.durationMinutes} {copy('dk','min','min')}{stop.fixedTime?` · ${copy('Sabit saat','Fixed time','Orë fikse')}`:''}</small><strong>{stop.place.name||label(stop.place)}</strong><small>{label(stop.place)}</small>{stop.note&&<small className="mj-stop-reason"><RouteTranslation text={stop.note} sourceLocale={journeyStopNoteLocale(journey, stop)} accessToken={accessToken}/></small>}</span><Icon name="chevron" size={16}/></button>{timing&&timing.travelMinutes!==null&&index>0&&<p className="mj-travel-time">↗ {Math.ceil(timing.travelMinutes)} {copy('dk yürüme','min walk','min ecje')} · {routes[day]?.sourceUrl==='https://maps.apple.com/'?'Apple Maps':'OpenRouteService'}</p>}{timing?.issues.filter(issue=>issue!=='hours-unknown'&&issue!=='travel-unknown').map(issue=><p className="mj-warning" key={issue}>{issueLabel(issue)}</p>)}<div className="mj-stop-actions"><button aria-label={`${stop.place.name}: ${copy('Yukarı taşı','Move up','Lëviz lart')}`} disabled={index===0} onClick={()=>safeChange(()=>reorderJourneyStop(journey,stop.id,-1))}>↑</button><button aria-label={`${stop.place.name}: ${copy('Aşağı taşı','Move down','Lëviz poshtë')}`} disabled={index===stops.length-1} onClick={()=>safeChange(()=>reorderJourneyStop(journey,stop.id,1))}>↓</button><button data-guide="journey-edit" onClick={()=>selectPlace(stop.place.id,day)}>{copy('Düzenle / başka güne taşı','Edit / move to another day','Ndrysho / lëviz në ditë tjetër')}</button></div>{schedule.breaks.filter(rest=>rest.afterStopId===stop.id).map((rest,i)=><p key={i} className="mj-break">☕ {rest.durationMinutes} {copy('dk','min','min')} · {rest.kind==='meal'?copy('Yemek molası','Meal break','Pushim për ushqim'):copy('Dinlenme','Rest','Pushim')}</p>)}</article>;})}</div>;})}
             <button className="mj-add-stop" onClick={()=>void discover('route')}>＋ {copy('Yeni mekân ekle','Add a place','Shto një vend')}</button>{onUpdateTrip&&initialJourney?.id===journey.id&&<button className="mj-text-button" disabled={saveBusy} onClick={()=>void save(true)}>{copy('Planlarıma kopya kaydet','Save a copy to my plans','Ruaj një kopje te planet')}</button>}<button className="mj-text-button" onClick={()=>{setStep('setup');setSurveyScope('new');setSurveyValues(undefined);setGenerationError('');setSavedJourneys(readMapJourneys(ownerId));}}>{copy('Başka bir plan oluştur veya aç','Create or open another plan','Krijo ose hap një plan tjetër')}</button>
           </>}
         </div>
       </section>
     </div>
+    {closePrompt}
   </div>;
 }
 

@@ -57,6 +57,16 @@ const DRAFTS: DestinationDraft[] = [
 // https://business.nyctourism.com/press-media/press-releases/nyc-company-invites-visitors-to-see-manhattan-like-a-new-yorker
 const SEARCH_DRAFTS: DestinationDraft[] = [
   {
+    code: "IST", name: ["İstanbul", "Istanbul"], country: ["Türkiye", "Türkiye"], days: 3,
+    why: ["Tarihi yarımada, Beyoğlu ve Kadıköy için ayrı günler ayırarak kendi ilgi alanlarına göre düzenleyebileceğin bir başlangıç planı.", "An editable starting plan with separate days for the historic peninsula, Beyoğlu and Kadıköy."],
+    bestFor: ["Şehir keşfi, kültür ve sahil yürüyüşleri", "City exploring, culture and waterfront walks"],
+    dailyPlan: [
+      ["1. Gün: Sultanahmet çevresini keşfet; ziyaret etmek istediğin yerlerin giriş ve rezervasyon koşullarını kontrol et.", "2. Gün: Galata ve Beyoğlu çevresine zaman ayır; yürüyüş ve mola sürelerini kendi tempona göre ayarla.", "3. Gün: Kadıköy ve Moda çevresini keşfet; ulaşım ve dönüş için esnek zaman bırak."],
+      ["Day 1: Explore Sultanahmet and check entry and booking requirements for places you want to visit.", "Day 2: Allow time for Galata and Beyoğlu, adapting walks and breaks to your pace.", "Day 3: Explore Kadıköy and Moda; leave flexible time for transport and your return."],
+    ],
+    visaSourceUrl: "https://www.mfa.gov.tr/visa-information-for-foreigners.en.mfa",
+  },
+  {
     code: "CDG", name: ["Paris", "Paris"], country: ["Fransa", "France"], days: 3,
     why: ["Seine kıyısı, müze çevresi ve Montmartre'ı ayrı günlere ayırarak düzenleyebileceğin bir şehir rotası.", "A city route you can adapt with separate days for the Seine, the museum district and Montmartre."],
     bestFor: ["Şehir yürüyüşleri, sanat ve mimari", "City walks, art and architecture"],
@@ -79,6 +89,7 @@ const SEARCH_DRAFTS: DestinationDraft[] = [
 ];
 
 const DRAFTS_SQ: Record<string, { name: string; country: string; why: string; bestFor: string; dailyPlan: string[] }> = {
+  IST: { name: 'Stamboll', country: 'Turqia', why: 'Një plan fillestar i ndryshueshëm me ditë të veçanta për gadishullin historik, Beyoğlu dhe Kadıköy.', bestFor: 'Eksplorim qyteti, kulturë dhe shëtitje buzë ujit', dailyPlan: ['Dita 1: Eksploro Sultanahmetin dhe kontrollo kushtet e hyrjes e rezervimit për vendet që dëshiron të vizitosh.', 'Dita 2: Lër kohë për Galatën dhe Beyoğlun; përshtat ecjen dhe pushimet me ritmin tënd.', 'Dita 3: Eksploro Kadıköyn dhe Modën; lër kohë të lirë për transportin dhe kthimin.'] },
   JTR: { name: 'Santorini', country: 'Greqia', why: 'Një itinerar fillestar që mund ta përshtatësh me pamje nga kaldera, fshatra ishullorë dhe pushime buzë detit.', bestFor: 'Eksplorim ishulli, peizazhe dhe fotografi', dailyPlan: ['Dita 1: Eksploro Firën dhe lër kohë për një shëtitje me pamje nga kaldera.', 'Dita 2: Planifiko një vizitë të qetë në rrugicat e Oias dhe rrethinat e saj.', 'Dita 3: Zgjidh një ndalesë buzë detit sipas motit dhe transportit; lër kohë të lirë për kthimin.'] },
   NAV: { name: 'Kapadokia', country: 'Turqia', why: 'Një itinerar që nis rreth Göremes dhe përshtatet me ritmin tënd mes luginave dhe qytezave pranë.', bestFor: 'Natyrë, kulturë vendase dhe fotografi', dailyPlan: ['Dita 1: Kushtoji një ditë Göremes dhe muzeut në natyrë.', 'Dita 2: Vizito Uçhisarin dhe zgjidh një shëtitje të shkurtër në luginë, sipas kushteve.', 'Dita 3: Eksploro Avanosin dhe përfshi kohën e transferimit për kthimin.'] },
   DPS: { name: 'Bali', country: 'Indonezia', why: 'Një itinerar ishullor që mund ta personalizosh duke i kushtuar ditë të veçanta Ubudit dhe bregdetit të Sanurit.', bestFor: 'Jetë ishullore, kulturë dhe bregdet', dailyPlan: ['Dita 1: Sistemo akomodimin dhe lër kohë për transferimin e pushimin.', 'Dita 2: Eksploro qendrën e Ubudit dhe vendet kulturore që të interesojnë.', 'Dita 3: Lër një ditë fleksibël për peizazhet dhe fshatrat rreth Ubudit.', 'Dita 4: Kalo kohë në bregdetin e Sanurit sipas ritmit tënd.', 'Dita 5: Kohë e lirë dhe kthim; lër mjaft kohë për transferimin në aeroport.'] },
@@ -113,7 +124,7 @@ function buildDraft(draft: DestinationDraft, locale: Locale): RouteSuggestion {
   const sq = locale === 'sq' ? DRAFTS_SQ[draft.code] : undefined;
   return {
     name: sq?.name || draft.name[index], country: sq?.country || draft.country[index], cityOrRegion: sq?.name || draft.name[index], destinationCode: draft.code,
-    why: sq?.why || draft.why[index], ...entryFields(locale, draft.visaSourceUrl, draft.code === "NAV"),
+    why: sq?.why || draft.why[index], ...entryFields(locale, draft.visaSourceUrl, draft.code === "NAV" || draft.code === "IST"),
     ...draftMetadata(locale), idealDuration: `${draft.days} ${locale === 'sq' ? 'ditë' : locale === "en" ? "days" : "gün"}`,
     bestFor: sq?.bestFor || draft.bestFor[index], difficulty: locale === 'sq' ? 'Përshtate me ritmin tënd' : locale === "en" ? "Adapt to your pace" : "Tempona göre düzenle", firstTimeFriendly: false,
     transportEase: locale === 'sq' ? 'Planifiko transferimet lokale' : locale === "en" ? "Plan local transfers" : "Yerel transferleri planla",

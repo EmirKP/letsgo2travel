@@ -12,12 +12,12 @@ const pem = key => key.export({ type: 'pkcs8', format: 'pem' });
 const site = 'https://app.example.test';
 function load(path, imports, context) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL, Buffer, Error, Response, Request, ...context })(name => {
     if (name in imports) return imports[name];
     throw Error(`Unexpected fixture import: ${name}`);
-  }, module, module.exports);
-  return module.exports;
+  }, fixtureModule, fixtureModule.exports);
+  return fixtureModule.exports;
 }
 function harness(overrides = {}) {
   let now = 1_800_000_000_000, signs = 0, keyReads = 0;

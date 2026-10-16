@@ -292,7 +292,7 @@ test('Map save passes the real account service validation and round-trips withou
     throw Error(`Unexpected service import ${name}`);
   }, serviceModule, serviceModule.exports);
   const source = ts.transpileModule(readFileSync(new URL('../mobile/src/lib/routeSync.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const load = name => {
     if (name === './storage') return require('../mobile/src/lib/storage.ts');
     if (name === './routeOutbox') return require('../mobile/src/lib/routeOutbox.ts');
@@ -300,15 +300,15 @@ test('Map save passes the real account service validation and round-trips withou
     if (name === './supabaseData') return serviceModule.exports;
     throw Error(`Unexpected import ${name}`);
   };
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: globalThis.window, setTimeout, clearTimeout, console })(load, module, module.exports);
-  await module.exports.syncSavedRoutes(owner, 'session-token');
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: globalThis.window, setTimeout, clearTimeout, console })(load, fixtureModule, fixtureModule.exports);
+  await fixtureModule.exports.syncSavedRoutes(owner, 'session-token');
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].p_trip_data.plan.routes[0].mapJourney, j);
   assert.equal(JSON.parse(h.data.get(`l2t.mobile.route-outbox.v1.${owner}`))[j.id].pending, false);
   h.data.delete(`l2t.mobile.saved-routes.v1.user-${owner}`); h.data.delete(`l2t.mobile.route-outbox.v1.${owner}`);
-  await module.exports.syncSavedRoutes(owner, 'session-token');
+  await fixtureModule.exports.syncSavedRoutes(owner, 'session-token');
   assert.deepEqual(h.storage.readMapJourneys(owner).items, [j]);
-  await module.exports.syncSavedRoutes(other, 'session-token');
+  await fixtureModule.exports.syncSavedRoutes(other, 'session-token');
   assert.equal(h.storage.readMapJourneys(other).items.length, 0);
   assert.deepEqual(JSON.parse(h.data.get(`l2t.mobile.saved-routes.v1.user-${other}`) || '[]'), []);
   assert.deepEqual(h.storage.readMapJourneys(owner).items, [j]);
@@ -340,7 +340,7 @@ test('Re-saving a deleted account journey creates a new nested identity without 
 });
 
 test('Discovery shops save in existing bookmarks with address and group; malformed optional metadata is rejected', () => {
-  const h = harness(); const api = require('../mobile/src/lib/savedPlaces.ts');
+  harness(); const api = require('../mobile/src/lib/savedPlaces.ts');
   api.saveTravelPlace(place(), 'owner');
   assert.equal(api.readSavedPlaces('owner').items[0].place.address, 'Rome');
   assert.equal(api.readSavedPlaces('owner').items[0].place.group, 'shopping');
@@ -420,4 +420,27 @@ test('Chosen first-day time survives save/reopen, later days start at nine, and 
   assert.ok(model.scheduleJourneyDay(conflict, 1).issues.includes('outside-day'));
   for (const invalid of ['24:00', '22:01', '9:30', 930, true]) assert.throws(() => create({ firstDayStartTime: invalid }));
   assert.equal(model.scheduleJourneyDay(model.addJourneyStop(create(), place(213), 1), 1).stops[0].startMinutes, 540);
+});
+
+test('reorder, duration and day changes preserve exact AI note language across save/reopen without trusting manually edited notes', () => {
+  const h = harness();
+  let journey = expandedJourney();
+  const id = journey.stops[0].id;
+  journey = model.moveJourneyStop(journey, journey.stops[1].id, 1);
+  journey = model.reorderJourneyStop(journey, id, 1);
+  journey = model.updateJourneyStop(journey, id, { durationMinutes: 75, note: 'Keep my note' });
+  assert.equal(journey.planning.edited, true);
+  assert.equal(model.journeyStopNoteLocale(journey, journey.stops.find(stop => stop.id === id)), 'en');
+  h.storage.saveMapJourney(journey);
+  const reopened = h.storage.readMapJourneys().items[0];
+  const savedStop = reopened.stops.find(stop => stop.id === id);
+  assert.equal(model.journeyStopNoteLocale(reopened, savedStop), 'en');
+  assert.equal(build72.validateMapJourney(model.encodeStoredMapJourney(reopened)), true, 'Optional metadata must remain readable by installed v1 builds');
+  const edited = model.updateJourneyStop(reopened, id, { note: 'Artık Türkçe yazdığım kişisel not' });
+  assert.equal(model.journeyStopNoteLocale(edited, edited.stops.find(stop => stop.id === id)), undefined);
+  assert.equal(edited.stops.find(stop => stop.id === id).noteOrigin, undefined);
+  const olderClient = structuredClone(reopened);
+  olderClient.stops.find(stop => stop.id === id).note = 'Older client changed this text';
+  assert.equal(model.journeyStopNoteLocale(olderClient, olderClient.stops.find(stop => stop.id === id)), undefined, 'Unchanged metadata cannot mislabel text edited by an older client');
+  assert.equal(model.journeyStopNoteLocale(reopened, savedStop), 'en', 'Editing a copy never mutates the saved record');
 });

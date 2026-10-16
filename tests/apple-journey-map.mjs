@@ -59,11 +59,11 @@ function loaderFixture(existing) {
   const scripts = [], timers = new Map(); let timerId = 0;
   const window = existing ? { mapkit: existing } : {};
   const document = { head: { appendChild(script) { scripts.push(script); } }, createElement() { return { attrs: {}, setAttribute(key, value) { this.attrs[key] = value; }, remove() { this.removed = true; } }; } };
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(`(function(module,exports){${loaderSource}\n})`, {
     window, document, setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; }, clearTimeout(id) { timers.delete(id); },
-  })(module, module.exports);
-  return { ...module.exports, scripts, window, timers,
+  })(fixtureModule, fixtureModule.exports);
+  return { ...fixtureModule.exports, scripts, window, timers,
     ready(kit, index = scripts.length - 1) { window.mapkit = kit; window[scripts[index].attrs['data-callback']](); },
     expire() { const active = [...timers.values()]; timers.clear(); active.forEach(callback => callback()); },
   };
@@ -168,7 +168,7 @@ const tokenBody = token => ({ token, expiresAt: new Date(JSON.parse(Buffer.from(
 const tokenResponse = (body = tokenBody(jwt()), status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 function authorizationFixture(options = {}) {
   let now = authorizationNow * 1000, timerId = 0;
-  const timers = new Map(), calls = [], module = { exports: {} };
+  const timers = new Map(), calls = [], fixtureModule = { exports: {} };
   const location = new URL(options.origin ?? 'http://127.0.0.1:5173');
   const config = { apiBaseUrl: 'https://www.letsgo2travel.com.tr', appleMapsToken: '', ...options.config };
   class AppleMapKitError extends Error { constructor(code) { super(code); this.code = code; } }
@@ -182,8 +182,8 @@ function authorizationFixture(options = {}) {
     if (name === './config') return { config };
     if (name === './appleMapKit') return { AppleMapKitError };
     throw Error(`Unexpected authorization import ${name}`);
-  }, module, module.exports);
-  return { ...module.exports, window, config, calls, timers,
+  }, fixtureModule, fixtureModule.exports);
+  return { ...fixtureModule.exports, window, config, calls, timers,
     advance(seconds) { now += seconds * 1000; },
     expire() { const active = [...timers.values()]; timers.clear(); active.forEach(callback => callback()); },
   };
@@ -269,7 +269,7 @@ function componentFixture(extra = {}, load) {
     useEffect(fn, dependencies) { const index = cursor++, old = slots[index]; if (!old || changed(old.dependencies, dependencies)) { slots[index] = { ...old, dependencies }; effects.push(() => { old?.cleanup?.(); slots[index].cleanup = fn(); }); } },
   };
   react.useLayoutEffect = react.useEffect;
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   class AppleMapKitError extends Error { constructor(code) { super(code); this.code = code; } }
   const document = { createElement(tag) { return { tag, style: {}, attributes: {}, children: [], setAttribute(key, value) { this.attributes[key] = value; }, appendChild(child) { child.parent = this; this.children.push(child); }, remove() { this.removed = true; if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); } }; } };
   vm.runInNewContext(`(function(require,module,exports){${componentSource}\n})`, {
@@ -286,14 +286,14 @@ function componentFixture(extra = {}, load) {
     if (name === '../../../lib/travel-assistant/places') return placesModule.exports;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected map import ${name}`);
-  }, module, module.exports);
+  }, fixtureModule, fixtureModule.exports);
   const app = {
     kit, loadCalls, observers,
     render(next = {}) {
       if (disposed) return tree;
       props = { ...props, ...next };
       for (let i = 0; i < 20; i++) {
-        cursor = 0; dirty = false; effects = []; tree = module.exports.AppleJourneyMap(props);
+        cursor = 0; dirty = false; effects = []; tree = fixtureModule.exports.AppleJourneyMap(props);
         for (const node of nodes(tree)) if (node.props?.ref && !node.props.ref.current) node.props.ref.current = { clientWidth: 800, clientHeight: 800 };
         effects.forEach(fn => fn()); if (!dirty) return tree;
       }

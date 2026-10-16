@@ -5,15 +5,15 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 function load(path, imports = {}) {
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const source = ts.transpileModule(readFileSync(path, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Error, Date, URL })(name => {
     if (name in imports) return imports[name];
     throw Error(`Unexpected import: ${name}`);
-  }, module, module.exports);
-  return module.exports;
+  }, fixtureModule, fixtureModule.exports);
+  return fixtureModule.exports;
 }
 const places = load('lib/travel-assistant/places.ts');
 const client = requestJson => load('mobile/src/lib/mapJourneyClient.ts', {

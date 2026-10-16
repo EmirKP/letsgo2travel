@@ -1030,7 +1030,8 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
     assert.ok(source.includes("<DateTimeField"), `${name} ortak tarih alanını kullanmalı`);
   }
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
-  assert.ok(home.includes("listCockpitTrips(ownerId, accessToken)") && home.includes("nextHomeJourney(items") && home.includes("homeJourneyStep(nextTrip") && home.includes('onOpenTrip(nextTrip.id)'), "ana sayfa kullanıcıya ait sıradaki seyahati, hazırlık adımını ve doğru seyahat ayrıntısını bağlamalı");
+  assert.ok(home.includes("listCockpitTrips(ownerId, accessToken)") && home.includes("nextHomeJourney(items") && home.includes("homeJourneyStep(nextTrip") && home.includes('onOpenTrip(nextTrip.id, section)'), "ana sayfa kullanıcıya ait sıradaki seyahati, hazırlık adımını ve doğru seyahat ayrıntısını bağlamalı");
+  assert.ok(home.includes('openTrip(step.stage === "travelling" ? "today" : undefined)') && !home.includes('openSaved("places")'), "bugünün programı genel kaydedilenler yerine tam seyahatin güncel programını açmalı; davranış planning-ux testinde çalıştırılır");
   // Both translations and the guest CTA callback are executed in planning-ux.mjs.
   assert.ok(home.includes('onClick={() => onNavigate("route")}') && home.includes('copy("Hemen Başla", "Get Started")'), "seyahati olmayan kullanıcı doğrudan rota planlamayı açabilmeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
@@ -1449,13 +1450,14 @@ test("Build 22: ortak seyahat davet, yetki, oylama ve masraf akışı güvenlidi
 test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyahat araçları tek merkezde bulunur", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
+  const appTools = readFileSync("mobile/src/lib/appTools.ts", "utf8");
   const trips = readFileSync("mobile/src/screens/PlansScreen.tsx", "utf8");
   const cockpit = readFileSync("mobile/src/screens/CockpitScreen.tsx", "utf8");
   const tools = readFileSync("mobile/src/components/JourneyToolsHub.tsx", "utf8");
   const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
   const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
-  assert.ok(home.includes('onNavigate("trips")') && trips.includes('chooseSection("travel")') && trips.includes("Ortak planlar ve araçlar"), "ana sayfa Kaydedilenler üzerinden ortak planlar bölümüne görünür erişim sunmalı");
+  assert.ok(home.includes('onNavigate(feature.view)') && appTools.includes('view: "trips", group: "plan", title: ["Seyahatlerim"') && trips.includes('chooseSection("travel")') && trips.includes("Ortak planlar ve araçlar"), "ana sayfanın gerçek Seyahatlerim kısayolu Planlar üzerinden ortak planlara erişim sunmalı; kısayol planning-ux testinde çalıştırılır");
   assert.ok(trips.includes('<details className="daily-featured-disclosure" open={sharedToolsOpen}') && trips.includes("setSharedToolsOpen(event.currentTarget.open)") && trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak planlar açılabilir seyahat bölümünde bulunmalı, Kokpit'e gizlenmemeli");
   assert.ok(trips.includes('if (inviteCode || initialTool) setLibraryTab("travel")') && trips.includes("if (inviteCode) setSharedToolsOpen(true)"), "davet bağlantısı ortak planlar bölümünü kendiliğinden açmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
