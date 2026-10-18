@@ -3,7 +3,6 @@ import { locateDeviceArea } from '../lib/deviceArea';
 import { GUIDE_CARDS } from '../../../lib/travel-assistant/guides';
 import { COUNTRY_LIST } from '../data/countries';
 import { alpha2FromAlpha3 } from '../data/countryIso';
-import { usePassportPreference } from '../hooks/usePassportPreference';
 import { useI18n } from '../lib/i18n';
 import { CountryPicker } from './CountryPicker';
 import { readTravelCountry, selectTravelCountry } from '../lib/travelSelection';
@@ -59,8 +58,8 @@ const keywords: Record<Tool,string> = {
   offline:'internetsiz çevrimdışı cevrimdisi indir download offline',
 };
 export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotice,accessToken,onSignIn,ownerId}:{initialCountry?:string;initialTool?:TravelAssistantTool;onPhrases:(country:string)=>void;onNotice:(message:string)=>void;accessToken:string;onSignIn:()=>void;ownerId?:string|null}) {
-  const { copy,locale,countryName } = useI18n(); const passport = usePassportPreference();
-  const [country,setCountry] = useState(() => initialCountry || readTravelCountry()); const [citizenship,setCitizenship] = useState(passport.country);
+  const { copy,locale,countryName } = useI18n();
+  const [country,setCountry] = useState(() => initialCountry || readTravelCountry()); const [citizenship,setCitizenship] = useState('');
   const [tool,setTool] = useState<Tool|null>(initialTool || null);
   const [query,setQuery] = useState('');
   const [showAll,setShowAll] = useState(false);
@@ -110,7 +109,7 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onNotic
       <h2 className="ta-directory-title" ref={heading} tabIndex={-1}>{copy('Neye ihtiyacın var?','What do you need?')}</h2>
       <p className="ta-intro">{copy('Bir araç seç; yalnız gereken bilgileri soralım.','Choose a tool. We’ll ask only for what it needs.')}</p>
       <button type="button" className="ta-emergency-shortcut" onClick={() => chooseTool('safety')}><TravelToolArtwork kind="safety" size={56}/><span><strong>{copy('Acil yardım','Emergency help')}</strong><small>{copy('Acil numaralar ve yakınındaki yardım','Emergency numbers and nearby help')}</small></span><Icon name="chevron" size={16}/></button>
-      <label className="ta-tool-search"><Icon name="search" size={19}/><span className="sr-only">{copy('Araç ara','Search tools')}</span><input ref={searchInput} type="search" aria-label={copy('Araç ara','Search tools')} value={query} onChange={e => setQuery(e.target.value)} placeholder={copy('Örn. eczane, çeviri, harita','e.g. pharmacy, translation, map')}/>{query && <button type="button" aria-label={copy('Aramayı temizle','Clear search')} onClick={() => {setQuery('');searchInput.current?.focus();}}><Icon name="close" size={18}/></button>}</label>
+      <label className="ta-tool-search"><Icon name="search" size={19}/><span className="sr-only">{copy('Araç ara','Search tools')}</span><input data-guide="tool-search" ref={searchInput} type="search" aria-label={copy('Araç ara','Search tools')} value={query} onChange={e => setQuery(e.target.value)} placeholder={copy('Örn. eczane, çeviri, harita','e.g. pharmacy, translation, map')}/>{query && <button type="button" aria-label={copy('Aramayı temizle','Clear search')} onClick={() => {setQuery('');searchInput.current?.focus();}}><Icon name="close" size={18}/></button>}</label>
       <nav aria-label={copy('Seyahat Asistanı araçları','Travel assistant tools')}>
         {search ? <><p className="ta-muted" role="status">{searchResults.length} {copy('araç bulundu','tools found')}</p><div className="ta-tool-grid">{searchResults.map(toolButton)}</div>{!searchResults.length && <p className="ta-empty">{copy('Başka bir kelime dene veya aramayı temizleyerek tüm araçları gör.','Try another word or clear the search to see all tools.')}</p>}</> : <>
           <div className="ta-tool-grid">{quickTools.map(toolButton)}</div>

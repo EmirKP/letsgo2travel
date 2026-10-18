@@ -208,7 +208,7 @@ export async function searchJourneyArea(query: string, signal?: AbortSignal, loc
 
 export async function discoverJourneyPlaces(center:Coordinates, category:DiscoveryGroup, signal?:AbortSignal) {
   if (!coordinates(center) || !validGroup(category)) throw new Error('invalid-area');
-  const result = await requestJson<unknown>('/api/travel-assistant/discover', {method:'POST',body:{...center,category,placeCategoryVersion:2},signal,timeoutMs:32000});
+  const result = await requestJson<unknown>('/api/travel-assistant/discover', {method:'POST',body:{...center,category,placeCategoryVersion:3},signal,timeoutMs:32000});
   return validateDiscoveryResponse(result, center, category);
 }
 export async function loadWalkingRoute(stops:Coordinates[], signal?:AbortSignal) {

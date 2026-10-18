@@ -6,3 +6,5 @@
 .journey-map-tile-error button:focus-visible{outline:3px solid #0065f5;outline-offset:3px}
 /* Native MapKit sits above the WebView; its rounded holes expose these surfaces. */
 .journey-map-native,.journey-map-native .journey-map-canvas{background:var(--mj-bg,var(--theme-surface,#fff))}
+.journey-marker-label{position:absolute;left:50%;top:calc(100% + 7px);transform:translateX(-50%);width:max-content;max-width:210px;padding:6px 9px;border:1px solid var(--theme-border,#ccd5e2);border-radius:9px;background:var(--theme-surface,#fff);color:var(--theme-ink,#132641);box-shadow:0 2px 8px #14243b24;font:700 12px/1.35 system-ui,sans-serif;text-align:center;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
+.journey-marker>span>svg{width:16px;height:16px}

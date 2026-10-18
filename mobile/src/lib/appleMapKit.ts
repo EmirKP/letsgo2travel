@@ -7,11 +7,21 @@ export interface AppleAnnotation {
   title: string;
   accessibilityLabel: string;
   glyphText?: string;
-  color?: string;
   selected?: boolean;
   clusteringIdentifier?: string | null;
   displayPriority?: number;
   memberAnnotations?: AppleAnnotation[];
+}
+export interface AppleAnnotationOptions {
+  title: string;
+  accessibilityLabel: string;
+  animates: boolean;
+  draggable: boolean;
+  calloutEnabled: boolean;
+  selected: boolean;
+  enabled: boolean;
+  clusteringIdentifier: string | null;
+  displayPriority: number;
 }
 export interface AppleMapEvent { status?: string; annotation?: AppleAnnotation }
 export type AppleMapListener = (event: AppleMapEvent) => void;
@@ -20,6 +30,7 @@ export interface AppleEvents {
   removeEventListener(type: string, listener: AppleMapListener): void;
 }
 export interface AppleMap extends AppleEvents {
+  colorScheme: string;
   center: AppleCoordinate;
   region: AppleRegion;
   padding: ApplePadding;
@@ -41,11 +52,11 @@ export interface AppleMapKit extends AppleEvents {
   CoordinateRegion: new (center: AppleCoordinate, span: AppleRegion['span']) => AppleRegion;
   Padding: new (top: number, right: number, bottom: number, left: number) => ApplePadding;
   MarkerAnnotation: new (coordinate: AppleCoordinate, options: Record<string, unknown>) => AppleAnnotation;
-  Annotation: new (coordinate: AppleCoordinate, factory: () => HTMLElement, options: Record<string, unknown>) => AppleAnnotation;
+  Annotation: new (coordinate: AppleCoordinate, factory: () => HTMLElement, options: AppleAnnotationOptions) => AppleAnnotation;
   PolylineOverlay: new (coordinates: AppleCoordinate[], options: Record<string, unknown>) => object;
   Style: new (options: Record<string, unknown>) => object;
   MapType: { MutedStandard: string };
-  ColorScheme: { Adaptive: string };
+  ColorScheme: { Adaptive: string; Dark: string; Light: string };
   FeatureVisibility: { Hidden: string };
 }
 

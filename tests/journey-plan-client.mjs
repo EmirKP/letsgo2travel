@@ -131,17 +131,35 @@ test('Editing an AI itinerary preserves its original explanation and preferences
 test('Generation forwards the exact survey, current bearer and cancellation signal once with a bounded request timeout', async () => {
   const calls = [], controller = new AbortController();
   const api = client(async (path, options) => { calls.push({ path, options }); return response(); });
-  const result = await api.generateJourneyPlan(request, 'current-session', controller.signal); assert.equal(result.generatedBy, 'ai');
+  const result = await api.generateJourneyPlan(request, 'current-session', controller.signal,'owner'); assert.equal(result.generatedBy, 'ai');
   assert.equal(calls.length, 1); assert.equal(calls[0].path, '/api/travel-assistant/journey-plan'); assert.equal(calls[0].options.method, 'POST');
   assert.deepEqual(clone(calls[0].options.body), { ...request, placeCategoryVersion: 2 }); assert.equal(calls[0].options.signal, controller.signal); assert.ok(calls[0].options.timeoutMs<=55_000 && calls[0].options.timeoutMs>54_000);
   assert.equal(calls[0].options.headers.Authorization, 'Bearer current-session');
-  await api.generateJourneyPlan(request, '', controller.signal); assert.equal('Authorization' in calls[1].options.headers, false);
+  await assert.rejects(api.generateJourneyPlan(request, '', controller.signal,'owner'),{code:'plan_sign_in'});
+  await assert.rejects(api.generateJourneyPlan(request, 'session', controller.signal),{code:'plan_sign_in'});assert.equal(calls.length,1);
   let attempts = 0; const failure = new Error('plan_limit');
-  await assert.rejects(client(async () => { attempts++; throw failure; }).generateJourneyPlan(request, '', controller.signal), error => error === failure);
+  await assert.rejects(client(async () => { attempts++; throw failure; }).generateJourneyPlan(request, 'session', controller.signal,'owner'), error => error === failure);
   assert.equal(attempts, 1); assert.equal(request.notes, 'Çocuklarla sakin bir gezi ve bol mola.');
 });
 
-test('Lost response keeps a durable owner-scoped operation across reload and token rotation; success and edits rotate it', async()=>{
+test('Daily provider capacity and future service errors propagate once without polling, preserving the operation for a deliberate retry', async () => {
+  for (const code of ['plan_daily_capacity', 'plan_busy', 'future_service_error']) {
+    const values = new Map(), calls = [], signal = new AbortController().signal;
+    const localStorage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+    const failure = Object.assign(Error('Service unavailable'), { status: 503, code });
+    const api = client(async (_path, options) => { calls.push(options); throw failure; }, { localStorage });
+    await assert.rejects(api.generateJourneyPlan(request, 'current-token', signal, 'capacity-owner'), error => error === failure);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 1); assert.equal(values.size, 1);
+    const recovered = client(async (_path, options) => { calls.push(options); return response(); }, { localStorage });
+    const result = await recovered.generateJourneyPlan(request, 'rotated-token', signal, 'capacity-owner');
+    assert.equal(result.generatedBy, 'ai'); assert.equal(calls.length, 2);
+    assert.equal(calls[1].headers['Idempotency-Key'], calls[0].headers['Idempotency-Key']);
+    assert.equal(values.size, 1); assert.equal(request.notes, 'Çocuklarla sakin bir gezi ve bol mola.');
+  }
+});
+
+test('Lost response keeps a durable owner-scoped operation across reload and token rotation; success retains recovery and edits rotate it', async()=>{
   const values=new Map(),ids=[];
   const localStorage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
   const signal=new AbortController().signal;
@@ -150,8 +168,8 @@ test('Lost response keeps a durable owner-scoped operation across reload and tok
   await assert.rejects(client(offline,{localStorage}).generateJourneyPlan(request,'rotated-token',signal,'owner-a'));assert.equal(ids[0],ids[1]);
   const recovered=response();recovered.fetchedAt=new Date(Date.now()-60*60_000).toISOString();
   const api=client(async(_path,options)=>{ids.push(options.headers['Idempotency-Key']);return recovered;},{localStorage});
-  assert.equal((await api.generateJourneyPlan(request,'new-token',signal,'owner-a')).fetchedAt,recovered.fetchedAt);assert.equal(ids[2],ids[0]);assert.equal(values.size,0);
-  await api.generateJourneyPlan(request,'new-token',signal,'owner-a');assert.notEqual(ids[3],ids[0]);
+  assert.equal((await api.generateJourneyPlan(request,'new-token',signal,'owner-a')).fetchedAt,recovered.fetchedAt);assert.equal(ids[2],ids[0]);assert.equal(values.size,1);
+  await api.generateJourneyPlan(request,'new-token',signal,'owner-a');assert.equal(ids[3],ids[0]);
   const failed=client(offline,{localStorage});await assert.rejects(failed.generateJourneyPlan(request,'token-a',signal,'owner-a'));
   await assert.rejects(failed.generateJourneyPlan({...request,notes:'Different wishes'},'token-a',signal,'owner-a'));assert.notEqual(ids.at(-1),ids.at(-2));
   await assert.rejects(failed.generateJourneyPlan(request,'token-b',signal,'owner-b'));assert.notEqual(ids.at(-1),ids[4]);
@@ -161,9 +179,9 @@ test('Lost response keeps a durable owner-scoped operation across reload and tok
 test('Confirmed pending generation polls the same operation, while cancellation and transport errors do not resubmit blindly', async()=>{
   const ids=[];let count=0;const signal=new AbortController().signal;
   const api=client(async(_path,options)=>{ids.push(options.headers['Idempotency-Key']);if(++count===1)throw Object.assign(Error('pending'),{code:'plan_pending'});return response();},{setTimeout:fn=>setTimeout(fn,0)});
-  assert.equal((await api.generateJourneyPlan(request,'',signal)).generatedBy,'ai');assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);
+  assert.equal((await api.generateJourneyPlan(request,'token',signal,'owner')).generatedBy,'ai');assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);
   const controller=new AbortController();let calls=0;
-  await assert.rejects(client(async()=>{calls++;controller.abort();throw Object.assign(Error('pending'),{code:'plan_pending'});}).generateJourneyPlan(request,'',controller.signal));assert.equal(calls,1);
+  await assert.rejects(client(async()=>{calls++;controller.abort();throw Object.assign(Error('pending'),{code:'plan_pending'});}).generateJourneyPlan(request,'token',controller.signal,'owner'));assert.equal(calls,1);
 });
 
 
@@ -178,4 +196,81 @@ test('First-day start and expanded interests are checked against the request and
   assert.deepEqual([...journey.planning.preferences.interests], input.interests);
   assert.equal(model.scheduleJourneyDay(journey, 1).stops[0].startMinutes, 930);
   assert.equal(model.mapJourneyFromSavedRoute(model.mapJourneyToSavedRoute(journey)).firstDayStartTime, '15:30');
+});
+
+test('Allowance reads use the current bearer without generating a route and reject forged counts or reset times', async()=>{
+  const reset=new Date();reset.setUTCHours(24,0,0,0);
+  const valid={limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'};
+  const calls=[],signal=new AbortController().signal,api=client(async(...args)=>{calls.push(args);return valid;});
+  assert.deepEqual(clone(await api.loadJourneyPlanQuota('rotated-token',signal)),valid);
+  assert.equal(calls[0][0],'/api/travel-assistant/journey-plan');assert.equal(calls[0][1].headers.Authorization,'Bearer rotated-token');
+  assert.equal(calls[0][1].signal,signal);assert.equal(calls[0][1].method,undefined);assert.equal(calls[0][1].timeoutMs,8000);
+  await assert.rejects(api.loadJourneyPlanQuota('',signal),{code:'plan_sign_in'});assert.equal(calls.length,1);
+  for(const changes of [{limit:2},{used:'0'},{used:1},{pending:true},{remaining:2},{timeZone:'Europe/Istanbul'},{resetAt:'invalid'},{resetAt:new Date(Date.now()+3600_000).toISOString()},{resetAt:'2020-01-01T00:00:00Z'}])assert.throws(()=>api.validateJourneyPlanQuota({...valid,...changes}),/invalid-plan-quota/);
+  assert.equal(api.validateJourneyPlanQuota({...valid,pending:true,remaining:0}).used,0);
+  assert.equal(api.validateJourneyPlanQuota({...valid,used:1,remaining:0}).remaining,0);
+});
+
+test('Successful map response retains exact owner-scoped recovery across reload, while edits and other accounts cannot reuse it',async()=>{
+  const values=new Map(),ids=[],localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  const transport=async(_path,options)=>{ids.push(options.headers['Idempotency-Key']);return response();};
+  await client(transport,{localStorage}).generateJourneyPlan(request,'token-a',new AbortController().signal,'owner-a');
+  const reopened=client(transport,{localStorage});
+  assert.equal(reopened.hasPendingJourneyPlan('owner-a'),true);
+  assert.equal(await reopened.hasJourneyPlanRecovery(request,'owner-a'),true);
+  assert.equal(await reopened.hasJourneyPlanRecovery({...request,notes:'Edited'},'owner-a'),false);
+  assert.equal(await reopened.hasJourneyPlanRecovery(request,'owner-b'),false);
+  await reopened.generateJourneyPlan(request,'token-rotated',new AbortController().signal,'owner-a');assert.equal(ids[1],ids[0]);
+});
+
+function legacyClient(fetch,localStorage) {
+  const source=ts.transpileModule(readFileSync('mobile/src/lib/api.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const result={exports:{}},imports={'./capacitor':{isNativePlatform:()=>false},'./config':{config:{apiBaseUrl:'https://fixture.test'}},'./i18n':{localeFromStorage:()=> 'en'}};
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Error,Date,Intl,JSON,URL,AbortController,DOMException,crypto:webcrypto,TextEncoder,Uint8Array,fetch,setTimeout,clearTimeout,window:{localStorage,setTimeout,clearTimeout}})(name=>{assert.ok(name in imports,name);return imports[name];},result,result.exports);
+  return result.exports;
+}
+const legacyInput={origin:'Istanbul',days:'3 gün',dayCount:3,month:'Ekim',budget:'Orta',accommodation:'Otel',who:'Tek başıma',tempo:'Dengeli',vibe:['Kültür'],visa:'Fark etmez'};
+test('Legacy planner authenticates before transport and retains successful or uncertain idempotent recovery without storing tokens',async()=>{
+  const values=new Map(),calls=[],localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  let fail=true;
+  const transport=async(url,options)=>{calls.push({url,options});if(fail)throw Error('lost response');return Response.json({success:true,data:{routes:[{name:'Rome',country:'Italy'}]}});};
+  const api=legacyClient(transport,localStorage);
+  await assert.rejects(api.generateRoutePlan(legacyInput,'en'),{code:'plan_sign_in'});assert.equal(calls.length,0);
+  const account={ownerId:'account-a',accessToken:'first-token',signal:new AbortController().signal};
+  await assert.rejects(api.generateRoutePlan(legacyInput,'en',account));assert.equal(calls.length,1);
+  fail=false;const fresh=legacyClient(transport,localStorage);
+  assert.equal(await fresh.hasRoutePlanRecovery(legacyInput,'en','account-a'),true);
+  assert.equal(await fresh.hasRoutePlanRecovery({...legacyInput,dayCount:4},'en','account-a'),false);
+  assert.equal(await fresh.hasRoutePlanRecovery(legacyInput,'en','account-b'),false);
+  const result=await fresh.generateRoutePlan(legacyInput,'en',{...account,accessToken:'rotated-token'});assert.equal(result.data.routes[0].name,'Rome');
+  assert.equal(calls[1].options.headers.Authorization,'Bearer rotated-token');assert.equal(calls[1].options.headers['Idempotency-Key'],calls[0].options.headers['Idempotency-Key']);
+  const afterSuccess=legacyClient(transport,localStorage);await afterSuccess.generateRoutePlan(legacyInput,'en',account);
+  assert.equal(calls[2].options.headers['Idempotency-Key'],calls[0].options.headers['Idempotency-Key']);
+  for(const stored of values.values())assert.doesNotMatch(stored,/first-token|rotated-token|Istanbul/);
+});
+
+test('Legacy planner malformed response keeps recovery and a changed request receives a distinct operation',async()=>{
+  const values=new Map(),ids=[],localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  const api=legacyClient(async(_url,options)=>{ids.push(options.headers['Idempotency-Key']);return Response.json({success:true,data:null});},localStorage);
+  const account={ownerId:'account-a',accessToken:'token'};
+  assert.equal((await api.generateRoutePlan(legacyInput,'en',account)).data,null);
+  assert.equal(api.hasPendingRoutePlan('account-a'),true);
+  await api.generateRoutePlan({...legacyInput,dayCount:4},'en',account);assert.notEqual(ids[0],ids[1]);
+});
+
+test('Legacy sign-in draft is claimed by one owner across remounts, recovery drafts isolate owners, and failed removal cannot replay private inputs',()=>{
+  const values=new Map();let removalFails=false;
+  const localStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>{if(removalFails)throw Error('blocked');values.delete(k);}};
+  function drafts(){
+    const output={exports:{}},source=ts.transpileModule(readFileSync('mobile/src/lib/plannerSignInDraft.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+    vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,JSON,window:{localStorage}})(()=>({validTravelParty:()=>true}),output,output.exports);return output.exports;
+  }
+  const value={form:legacyInput,origin:null,destination:null},api=drafts();
+  assert.equal(api.preparePlannerSignInDraft(value),true);assert.equal(api.takePlannerSignInDraft(null),null);
+  assert.deepEqual(clone(drafts().takePlannerSignInDraft('owner-a')),value);assert.equal(drafts().takePlannerSignInDraft('owner-b'),null);
+  assert.deepEqual(clone(drafts().takePlannerSignInDraft('owner-a')),value,'The committed owner can resume after another component remount');
+  api.savePlannerRecoveryDraft('owner-a',value);assert.equal(drafts().readPlannerRecoveryDraft('owner-b'),null);
+  assert.deepEqual(clone(drafts().readPlannerRecoveryDraft('owner-a')),value);
+  assert.equal(api.clearPlannerRecoveryDraft('owner-a'),true);assert.equal(drafts().readPlannerRecoveryDraft('owner-a'),null);
+  api.preparePlannerSignInDraft(value);removalFails=true;assert.equal(drafts().takePlannerSignInDraft('owner-a'),null);
 });

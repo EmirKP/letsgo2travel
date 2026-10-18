@@ -98,6 +98,10 @@ export default defineConfig(({ mode, command }) => {
             target: mapsDevApiUrl,
             changeOrigin: true,
           },
+          "^/api/travel-assistant/journey-photos(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
           "^/api/travel-assistant/journey-search(?:\\?|$)": {
             target: mapsDevApiUrl,
             changeOrigin: true,

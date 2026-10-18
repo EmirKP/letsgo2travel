@@ -3,11 +3,11 @@ import type { PlanLocale } from './route-planner';
 
 export type PlannerPassport = { passportCountry: string; passportType: string };
 const TYPES = ['ordinary', 'special', 'service', 'diplomatic'];
-/** Older mobile clients omit both fields. Explicit invalid values must not become Turkish passports. */
+/** Omitted choices remain unknown, including plans saved by older clients. */
 export function normalizePlannerPassport(value: Record<string, unknown>): PlannerPassport {
   return {
-    passportCountry: value.passportCountry === undefined ? 'TR' : typeof value.passportCountry === 'string' ? value.passportCountry.trim().toUpperCase() : '',
-    passportType: value.passportType === undefined ? 'ordinary' : typeof value.passportType === 'string' ? value.passportType : '',
+    passportCountry: typeof value.passportCountry === 'string' ? value.passportCountry.trim().toUpperCase() : '',
+    passportType: typeof value.passportType === 'string' ? value.passportType : '',
   };
 }
 export function validPlannerPassport(value: PlannerPassport) {
@@ -30,7 +30,8 @@ export function plannerCountryCode(country: string): string {
 }
 export function plannerPassportLabel(passport: PlannerPassport, locale: PlanLocale) {
   const copy = (tr: string, en: string, sq: string) => locale === 'tr' ? tr : locale === 'sq' ? sq : en;
-  const country = validPlannerPassport(passport) ? new Intl.DisplayNames([locale], { type: 'region' }).of(passport.passportCountry) : copy('Belirsiz ülke', 'Unknown nationality', 'Shtet i panjohur');
+  if (!validPlannerPassport(passport)) return copy('Pasaport seçilmedi', 'Passport not selected', 'Pasaporta nuk është zgjedhur');
+  const country = new Intl.DisplayNames([locale], { type: 'region' }).of(passport.passportCountry);
   const names = [copy('Umuma mahsus', 'Ordinary', 'E zakonshme'), copy('Hususi', 'Special', 'Speciale'), copy('Hizmet', 'Service', 'Shërbimi'), copy('Diplomatik', 'Diplomatic', 'Diplomatike')];
   return `${country} · ${names[TYPES.indexOf(passport.passportType)] || copy('Belirsiz tür', 'Unknown type', 'Lloj i panjohur')}`;
 }

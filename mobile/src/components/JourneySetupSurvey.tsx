@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useI18n } from '../lib/i18n';
 import { knownJourneyArea, searchJourneyArea, type JourneyArea } from '../lib/mapJourneyClient';
 import { Icon, type IconName } from './Icon';
@@ -27,8 +27,13 @@ type Props = {
   draftScope?: string;
   initialCity?: string;
   initialValues?: JourneySurveyValues;
+  initialDraft?: JourneySurveyDraft;
   busy?: boolean;
   error?: string;
+  allowance?: ReactNode;
+  generationDisabled?: boolean;
+  generationLabel?: string;
+  onSignIn?: (values:JourneySurveyValues) => void;
   onGenerate: (values: JourneySurveyValues) => void;
   /** Cancels generation without discarding the answers. The enclosing sheet owns closing. */
   onCancel?: () => void;
@@ -63,10 +68,10 @@ export function JourneySetupSurvey(props: Props) {
   return <SurveyForm key={JSON.stringify([props.ownerId ?? null, props.draftScope || 'new'])} {...props} />;
 }
 
-function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', initialValues, busy = false, error = '', onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
+function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', initialValues, initialDraft, busy = false, error = '', allowance, generationDisabled=false, generationLabel, onSignIn, onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
   const { copy, locale } = useI18n();
   const [restored] = useState(() => readJourneySurveyDraft(ownerId, draftScope));
-  const draft = restored.draft;
+  const draft = restored.draft || initialDraft;
   const [step, setStep] = useState(draft?.step ?? 0);
   const [query, setQuery] = useState(draft?.query ?? initialValues?.area.name ?? initialCity);
   const [area, setArea] = useState<JourneyArea | null>(() => draft ? draft.area : initialValues?.area || knownJourneyArea(initialCity));
@@ -240,9 +245,12 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
     if (!interests.length) { fail('interests'); return; }
     if (notes.length > 1000) { fail('notes'); return; }
     if (!area) { currentStep.current = 0; setStep(0); setFieldError('destination'); return; }
+    if(generationDisabled)return;
+    const values={ area, dayCount, startDate: dateMode === 'specific' ? startDate : null, ...(firstDayStartTime ? { firstDayStartTime } : {}), party, budget, pace, walking, interests: [...interests], notes: notes.trim() };
+    if(onSignIn){onSignIn(values);return;}
     submitted.current = true;
     setFieldError(null);
-    onGenerate({ area, dayCount, startDate: dateMode === 'specific' ? startDate : null, ...(firstDayStartTime ? { firstDayStartTime } : {}), party, budget, pace, walking, interests: [...interests], notes: notes.trim() });
+    onGenerate(values);
   }
 
   function goToStep(next: number) {
@@ -258,6 +266,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
     </ol>
     <form className="jsv-form" noValidate onSubmit={advance}>
       <div className="jsv-scroll" ref={scroll}>
+        {allowance}
         {step > 0 && <div className="jsv-completed">
           <button type="button" disabled={busy} onClick={() => goToStep(0)}><span>{steps[0]}</span><strong>{area?.name}<small>{area?.address && area.address !== area.name ? area.address : copy('Değiştir', 'Edit', 'Ndrysho')}</small></strong><Icon name="chevron" size={16} /></button>
           {step > 1 && <button type="button" disabled={busy} onClick={() => goToStep(1)}><span>{steps[1]}</span><strong>{copy(`${dayText} gün`, `${dayText} days`, `${dayText} ditë`)}<small>{dateMode === 'specific' ? startDate : copy('Tarihlerim esnek', 'Flexible dates', 'Data fleksibël')}{firstDayStartTime ? ` · ${copy('İlk gün', 'First day', 'Dita e parë')} ${firstDayStartTime}` : ''}</small></strong><Icon name="chevron" size={16} /></button>}
@@ -351,7 +360,7 @@ function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', init
       <footer className="jsv-footer">
         {busy ? onCancel && <button type="button" className="jsv-cancel" onClick={() => { submitted.current = false; onCancel(); }}>{copy('Durdur ve tercihleri düzenle', 'Stop and edit my choices', 'Ndalo dhe ndrysho zgjedhjet')}</button> : <>
           {step > 0 && <button type="button" className="jsv-back" onClick={() => { if (submitted.current || currentStep.current !== step) return; setFieldError(null); currentStep.current = step - 1; setStep(step - 1); }}><Icon name="back" size={19} /><span>{copy('Geri', 'Back', 'Prapa')}</span></button>}
-          <button type="submit" className="jsv-primary">{step === 3 && <Icon name="sparkles" size={19} />}<span>{step === 3 ? copy('AI rotamı oluştur', 'Create my AI itinerary', 'Krijo itinerarin me AI') : copy('Devam et', 'Continue', 'Vazhdo')}</span>{step < 3 && <Icon name="chevron" size={19} />}</button>
+          <button type="submit" className="jsv-primary" disabled={step===3&&generationDisabled}>{step === 3 && <Icon name="sparkles" size={19} />}<span>{step === 3 ? generationLabel || copy('AI rotamı oluştur', 'Create my AI itinerary', 'Krijo itinerarin me AI') : copy('Devam et', 'Continue', 'Vazhdo')}</span>{step < 3 && <Icon name="chevron" size={19} />}</button>
         </>}
         {step === 3 && !busy && <small>{copy('Yürüyüş süreleri yalnız yolda geçen süredir; ziyaret ve molalar ayrıdır.', 'Walking times cover travel only; visits and breaks are separate.', 'Koha e ecjes përfshin vetëm rrugën; vizitat dhe pushimet janë veçmas.')}</small>}
       </footer>

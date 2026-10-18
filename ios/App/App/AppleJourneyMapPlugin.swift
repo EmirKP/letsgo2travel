@@ -442,8 +442,11 @@ public final class AppleJourneyMapPlugin: CAPPlugin, CAPBridgedPlugin, MKMapView
 private final class JourneyPhotoAnnotationView: MKAnnotationView {
     private let photo = UIImageView()
     private let symbol = UIImageView(image: UIImage(systemName: "mappin"))
+    private let categoryBadge = UIImageView()
     private let number = UILabel()
+    private let placeLabel = UILabel()
     private var boundURL: String?
+    private var isStop = false
     override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
         super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
         setup()
@@ -467,7 +470,24 @@ private final class JourneyPhotoAnnotationView: MKAnnotationView {
         number.font = .systemFont(ofSize: 11, weight: .bold)
         number.textColor = .white
         number.textAlignment = .center
-        addSubview(photo); addSubview(symbol); addSubview(number)
+        categoryBadge.frame = CGRect(x: 34, y: 36, width: 22, height: 22)
+        categoryBadge.contentMode = .scaleAspectFit
+        categoryBadge.tintColor = .white
+        categoryBadge.backgroundColor = .darkGray
+        categoryBadge.layer.cornerRadius = 7
+        categoryBadge.layer.borderWidth = 2
+        categoryBadge.layer.borderColor = UIColor.white.cgColor
+        categoryBadge.clipsToBounds = true
+        placeLabel.frame = CGRect(x: -77, y: 64, width: 210, height: 44)
+        placeLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        placeLabel.textAlignment = .center
+        placeLabel.numberOfLines = 2
+        placeLabel.backgroundColor = .secondarySystemBackground
+        placeLabel.textColor = .label
+        placeLabel.layer.cornerRadius = 9
+        placeLabel.clipsToBounds = true
+        placeLabel.isUserInteractionEnabled = false
+        addSubview(photo); addSubview(symbol); addSubview(number); addSubview(categoryBadge); addSubview(placeLabel)
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.22
         layer.shadowRadius = 4
@@ -476,22 +496,41 @@ private final class JourneyPhotoAnnotationView: MKAnnotationView {
     }
     func configure(_ point: JourneyMapPoint, selected: Bool, image: UIImage?) {
         boundURL = point.imageUrl?.absoluteString
+        isStop = point.kind == "stop"
         photo.image = image
         photo.backgroundColor = point.kind == "stop" ? dayColor(point.day) : .systemIndigo
         photo.layer.borderColor = (selected ? UIColor.systemYellow : UIColor.white).cgColor
-        symbol.isHidden = image != nil
+        photo.layer.cornerRadius = isStop || image != nil ? 24 : 14
+        symbol.image = UIImage(systemName: point.categorySymbol) ?? UIImage(systemName: "mappin")
+        categoryBadge.image = symbol.image
+        categoryBadge.isHidden = isStop || image == nil
+        symbol.isHidden = image != nil || point.kind == "stop"
         number.text = String(point.order)
         number.backgroundColor = dayColor(point.day)
         number.isHidden = point.kind != "stop"
+        arrangeNumber(hasPhoto: image != nil)
+        placeLabel.text = point.name.isEmpty ? point.categoryLabel : "\(point.name) · \(point.categoryLabel)"
+        placeLabel.isHidden = !selected
+        layer.shadowPath = UIBezierPath(roundedRect: photo.frame, cornerRadius: photo.layer.cornerRadius).cgPath
+    }
+    private func arrangeNumber(hasPhoto: Bool) {
+        number.frame = hasPhoto ? CGRect(x: 33, y: 36, width: 22, height: 22) : CGRect(x: 9, y: 9, width: 38, height: 38)
+        number.font = .systemFont(ofSize: hasPhoto ? 11 : 20, weight: .bold)
+        number.layer.cornerRadius = hasPhoto ? 11 : 19
+        number.layer.borderWidth = hasPhoto ? 2 : 0
     }
     func applyImage(_ image: UIImage, url: String) {
         guard boundURL == url else { return }
         photo.image = image
+        photo.layer.cornerRadius = 24
         symbol.isHidden = true
+        categoryBadge.isHidden = isStop
+        arrangeNumber(hasPhoto: true)
     }
     override func prepareForReuse() {
         super.prepareForReuse()
         boundURL = nil; photo.image = nil; symbol.isHidden = false; number.isHidden = true
+        categoryBadge.isHidden = true; placeLabel.isHidden = true; placeLabel.text = nil
     }
 }
 
@@ -613,6 +652,7 @@ private struct JourneyMapPoint {
     let coordinate: CLLocationCoordinate2D
     let day: Int, order: Int
     let imageUrl: URL?
+    let categorySymbol: String, categoryLabel: String
     init?(_ object: [String: Any], kind: String) {
         guard let id = mapText(object["id"], limit: 200), let name = mapText(object["name"], limit: 300, empty: true),
               let coordinate = mapCoordinate(object) else { return nil }
@@ -624,9 +664,13 @@ private struct JourneyMapPoint {
         self.id = id; self.name = name; self.label = label; self.kind = kind
         self.coordinate = coordinate; self.day = day; self.order = order
         imageUrl = journeyMapPhotoURL(object["imageUrl"])
+        let allowedSymbols = ["mappin", "building.columns.fill", "building.2.fill", "fork.knife", "cup.and.saucer.fill", "bag.fill", "leaf.fill", "umbrella.fill", "binoculars.fill", "cross.case.fill", "pills.fill", "shield.fill", "banknote.fill", "building.columns", "tram.fill", "figure.stand", "wifi"]
+        let requestedSymbol = object["categorySymbol"] as? String ?? "mappin"
+        categorySymbol = allowedSymbols.contains(requestedSymbol) ? requestedSymbol : "mappin"
+        categoryLabel = mapText(object["categoryLabel"], limit: 80) ?? name
     }
     var cameraKey: String { "\(id)|\(day)|\(coordinate.latitude)|\(coordinate.longitude)" }
-    var key: String { "\(cameraKey)|\(order)|\(name)|\(label)|\(kind)|\(imageUrl?.absoluteString ?? "")" }
+    var key: String { "\(cameraKey)|\(order)|\(name)|\(label)|\(kind)|\(categorySymbol)|\(categoryLabel)|\(imageUrl?.absoluteString ?? "")" }
 }
 private struct JourneyMapRoute {
     let id: String, day: Int, coordinates: [CLLocationCoordinate2D]

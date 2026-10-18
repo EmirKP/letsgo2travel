@@ -10,23 +10,53 @@ type Operation = { id: string; fingerprint: string; createdAt: number };
 const operations = new Map<string, Operation>();
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
-async function recoveryOperation(input: JourneyPlanRequest, token: string, ownerId: string | null) {
+export type JourneyPlanQuota = { limit: 1; used: 0 | 1; remaining: 0 | 1; pending: boolean; resetAt: string; timeZone: 'UTC' };
+export function validateJourneyPlanQuota(raw: unknown): JourneyPlanQuota {
+  const value = record(raw), reset = typeof value.resetAt === 'string' ? new Date(value.resetAt) : null;
+  const remaining = value.pending === true || value.used === 1 ? 0 : 1;
+  if(value.limit !== 1 || ![0,1].includes(Number(value.used)) || typeof value.used !== 'number'
+    || value.remaining !== remaining || typeof value.pending !== 'boolean' || value.timeZone !== 'UTC'
+    || !reset || !Number.isFinite(reset.getTime()) || reset.getTime() <= Date.now() || reset.getTime() > Date.now() + 25*3600_000
+    || reset.getUTCHours() !== 0 || reset.getUTCMinutes() !== 0 || reset.getUTCSeconds() !== 0 || reset.getUTCMilliseconds() !== 0) throw Error('invalid-plan-quota');
+  return {limit:1,used:value.used as 0|1,remaining:remaining as 0|1,pending:value.pending,resetAt:reset.toISOString(),timeZone:'UTC'};
+}
+export async function loadJourneyPlanQuota(accessToken: string, signal: AbortSignal): Promise<JourneyPlanQuota> {
+  if(!accessToken)throw Object.assign(Error('plan_sign_in'),{code:'plan_sign_in'});
+  return validateJourneyPlanQuota(await requestJson<unknown>('/api/travel-assistant/journey-plan',{
+    headers:{Authorization:`Bearer ${accessToken}`},signal,timeoutMs:8000,
+  }));
+}
+const operationStorageKey = (ownerId: string) => `l2t.mobile.journey-operation.v1.${encodeURIComponent(ownerId)}`;
+const usableOperation = (value: unknown, fingerprint?: string): value is Operation => {
+  const row=record(value), age=Date.now()-Number(row.createdAt);
+  return typeof row.id==='string' && uuid.test(row.id) && typeof row.fingerprint==='string' && /^[a-f0-9]{64}$/.test(row.fingerprint)
+    && (fingerprint === undefined || row.fingerprint===fingerprint) && age>=0 && age<recoveryTtl;
+};
+function savedOperation(ownerId:string) {
+  try { const saved:unknown=JSON.parse(localStorage.getItem(operationStorageKey(ownerId)) || 'null'); return usableOperation(saved)?saved:null; } catch { return null; }
+}
+export function hasPendingJourneyPlan(ownerId:string|null|undefined) {
+  if(!ownerId)return false;
+  const prefix=`${operationStorageKey(ownerId)}:`;
+  return Boolean(savedOperation(ownerId)) || [...operations].some(([key,value])=>key.startsWith(prefix)&&usableOperation(value));
+}
+async function operationFingerprint(input: JourneyPlanRequest) {
   // Persist only an opaque operation ID and digest, never tokens or travel notes.
   const canonical = JSON.stringify([input.destination.name,input.destination.latitude,input.destination.longitude,input.destination.sourceUrl ?? null,
     input.dayCount,input.startDate ?? null,input.firstDayStartTime ?? null,input.locale,input.party,input.budget,input.pace,input.walking,input.interests,input.notes,input.placeCategoryVersion ?? null]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
-  const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2,'0')).join('');
-  const storageKey = token && !ownerId ? null : `l2t.mobile.journey-operation.v1.${encodeURIComponent(ownerId || 'guest')}`;
-  const key = `${storageKey || token}:${fingerprint}`;
-  const usable = (value: unknown): value is Operation => {
-    const row=record(value), age=Date.now()-Number(row.createdAt);
-    return typeof row.id==='string' && uuid.test(row.id) && row.fingerprint===fingerprint && age>=0 && age<recoveryTtl;
-  };
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2,'0')).join('');
+}
+export async function hasJourneyPlanRecovery(input:JourneyPlanRequest,ownerId:string) {
+  const fingerprint=await operationFingerprint({...input,placeCategoryVersion:2});
+  return usableOperation(operations.get(`${operationStorageKey(ownerId)}:${fingerprint}`),fingerprint) || usableOperation(savedOperation(ownerId),fingerprint);
+}
+async function recoveryOperation(input: JourneyPlanRequest, ownerId: string) {
+  const fingerprint=await operationFingerprint(input);
+  const storageKey=operationStorageKey(ownerId), key=`${storageKey}:${fingerprint}`;
   let operation = operations.get(key);
-  if (!usable(operation) && storageKey) {
-    try { const saved: unknown = JSON.parse(localStorage.getItem(storageKey) || 'null'); if(usable(saved))operation=saved; } catch { /* Private mode still supports same-session retries. */ }
-  }
-  if (!usable(operation)) operation={id:crypto.randomUUID(),fingerprint,createdAt:Date.now()};
+  if (!usableOperation(operation,fingerprint)) { const saved=savedOperation(ownerId);if(usableOperation(saved,fingerprint))operation=saved; }
+  if (!usableOperation(operation,fingerprint)) operation={id:crypto.randomUUID(),fingerprint,createdAt:Date.now()};
   operations.set(key,operation);
   if(operations.size>32)operations.delete(operations.keys().next().value!);
   if(storageKey)try{localStorage.setItem(storageKey,JSON.stringify(operation));}catch{ /* Memory remains usable. */ }
@@ -76,8 +106,9 @@ export function validateJourneyPlanResponse(raw:unknown, request:JourneyPlanRequ
 }
 
 export async function generateJourneyPlan(input:JourneyPlanRequest, accessToken:string, signal:AbortSignal, ownerId:string|null=null):Promise<JourneyPlanResult> {
+  if(!ownerId || !accessToken)throw Object.assign(Error('plan_sign_in'),{code:'plan_sign_in'});
   const request:JourneyPlanRequest={...input,placeCategoryVersion:2};
-  const operation=await recoveryOperation(request,accessToken,ownerId);
+  const operation=await recoveryOperation(request,ownerId);
   const deadline=Date.now()+55_000;
   for (;;) {
     signal.throwIfAborted();
@@ -86,7 +117,9 @@ export async function generateJourneyPlan(input:JourneyPlanRequest, accessToken:
         method:'POST',body:request,headers:{...(accessToken?{Authorization:`Bearer ${accessToken}`}:{ }), 'Idempotency-Key':operation.id},
         signal,timeoutMs:Math.max(1,deadline-Date.now()),
       });
-      const result=validateJourneyPlanResponse(raw,request);operation.clear();return result;
+      // Keep the receipt after success: reloading an unsaved result must recover
+      // the same itinerary even after today's allowance has been consumed.
+      return validateJourneyPlanResponse(raw,request);
     } catch(error) {
       const code=record(error).code;
       if(code==='plan_expired'||code==='plan_conflict')operation.clear();

@@ -98,7 +98,7 @@ const KULLANIM_SARTLARI: LegalDocument = {
 const GIZLILIK_POLITIKASI: LegalDocument = {
   slug: "gizlilik-politikasi",
   title: "Gizlilik Politikası",
-  updatedAt: "Eylül 2026",
+  updatedAt: "18 Ekim 2026",
   sections: [
     {
       blocks: [
@@ -156,7 +156,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
       heading: "4. Üçüncü Taraf Hizmetler",
       blocks: [
         { type: "p", text: "Platform; sunucu barındırma için Vercel, hesap ve veri depolama için Supabase, uygulamanın işlem e-postaları için Resend ve iOS bildirimlerinin iletimi için Apple hizmetlerinden yararlanır." },
-        { type: "p", text: "Yapay zekâ ile rota üretimi etkin olduğunda, rota formundaki seyahat tercihleri öneri oluşturulması için Google Gemini hizmetine gönderilir. Fotoğraftan rehber etkin olduğunda, ayrıca onayladığın görsel konum metaverileri çıkarılarak Google Gemini hizmetine iletilir. Görsel ve analiz yanıtı uygulama hesabına veya veritabanına kaydedilmez; sağlayıcının kendi işleme ve saklama koşulları geçerlidir. Günlük analiz kotası için hesap kimliği ve kullanım sayısı tutulur. İki günden eski kota kayıtları sonraki kullanımda, hesaba bağlı kota kayıtları ise hesap silindiğinde temizlenir. Çevrimdışı çeviri metni cihazda işlenir; ilk dil paketi indirmesi internet gerektirir. Açıkça indirdiğin sokak haritası bölgesi cihazında saklanır ve uygulamadan silinebilir. Toplu taşıma aramalarında seçtiğin duraklar Transport for London hizmetine iletilir. Hava durumu isteğinde yaklaşık konum Open-Meteo hizmetine iletilir. Bu sağlayıcıların işlemleri ve saklama koşulları kendi hizmet koşulları ve gizlilik politikalarına da tabidir." },
+        { type: "p", text: "Yapay zekâ ile rota üretimi etkin olduğunda, rota formundaki seyahat tercihleri ve seçilen yere ilişkin mekân bilgileri öneri oluşturulması için Groq hizmetine gönderilir. Hesap başına günlük rota hakkı sunucuda takip edilir; başarısız rota üretimi günlük başarılı rota hakkını tüketmez. Fotoğraftan rehber etkin olduğunda, ayrıca onayladığın görsel konum metaverileri çıkarılarak Google Gemini hizmetine iletilir. Görsel ve analiz yanıtı uygulama hesabına veya veritabanına kaydedilmez; sağlayıcının kendi işleme ve saklama koşulları geçerlidir. Günlük analiz kotası için hesap kimliği ve kullanım sayısı tutulur. İki günden eski kota kayıtları sonraki kullanımda, hesaba bağlı kota kayıtları ise hesap silindiğinde temizlenir. Çevrimdışı çeviri metni cihazda işlenir; ilk dil paketi indirmesi internet gerektirir. Açıkça indirdiğin sokak haritası bölgesi cihazında saklanır ve uygulamadan silinebilir. Toplu taşıma aramalarında seçtiğin duraklar Transport for London hizmetine iletilir. Hava durumu isteğinde yaklaşık konum Open-Meteo hizmetine iletilir. Bu sağlayıcıların işlemleri ve saklama koşulları kendi hizmet koşulları ve gizlilik politikalarına da tabidir." },
         { type: "p", text: "Harita, rezervasyon veya seyahat ortağı bağlantısını açtığınızda ilgili hizmetin sayfasına geçersiniz. Bu hizmetlerde paylaştığınız bilgilere ilgili sağlayıcının politikası uygulanır. Web sitesindeki seyahat ortağı yönlendirmeleri tıklama ve teknik işlem kayıtları oluşturabilir." },
         { type: "p", text: "Mevcut mobil uygulama reklam kimliğiyle uygulamalar arası hedefli reklam takibi yapmaz. Bildirim ve Live Activity tanımlayıcıları, bildirimi ilgili cihaz ve seyahatle eşleştirmek için kullanılır." },
       ],
@@ -164,6 +164,7 @@ const GIZLILIK_POLITIKASI: LegalDocument = {
     {
       heading: "5. Veri Güvenliği",
       blocks: [
+        { type: "p", text: "Bağlantı kesildiğinde aynı rotayı yeniden alabilmeniz için AI rota sonucu hesabınıza özel bir kurtarma kaydıyla 24 saat erişilebilir tutulur. Süresi dolan sonuçlar sonraki rota başlatma işleminde temizlenir; işlem kimlikleri süre bitiminden yedi gün sonra, günlük kullanım kayıtları ise yedi günden eski olduğunda aynı temizlik sırasında kaldırılır. Bu hesaba bağlı kayıtlar hesap silindiğinde de silinir. Açıkça kaydettiğiniz seyahat planları bu geçici kurtarma kaydından ayrıdır." },
         { type: "p", text: "LetsGo2Travel; yetkisiz erişimi, veri kaybını ve kötüye kullanımı önlemek amacıyla teknik ve idari güvenlik önlemleri uygular." },
         { type: "p", text: "Ancak internet üzerinden yapılan hiçbir veri iletiminin tamamen risksiz olduğu garanti edilemez." },
       ],

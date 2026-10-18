@@ -4,20 +4,30 @@ import { translateCopy, type AppLocale } from './locale';
 
 const COUNTRY_KEY = "l2t:passport-country";
 const TYPE_KEY = "l2t:passport-type";
+const PREFERENCE_KEY = "l2t:passport-preference.v1";
 export const PASSPORT_CHANGE = "l2t:passport-change";
 export const PASSPORT_TYPES = ["ordinary", "special", "service", "diplomatic"] as const;
+export type PassportPreference = { country: string; type: string };
+export function hasPassportPreference(value: PassportPreference) {
+  return Object.hasOwn(PASSPORTS, value.country) && (PASSPORT_TYPES as readonly string[]).includes(value.type);
+}
 export function readPassportPreference() {
   try {
-    const country = window.localStorage.getItem(COUNTRY_KEY) || "TR";
-    const type = window.localStorage.getItem(TYPE_KEY) || "ordinary";
-    return { country: Object.hasOwn(PASSPORTS, country) ? country : "TR", type: (PASSPORT_TYPES as readonly string[]).includes(type) ? type : "ordinary" };
-  } catch { return { country: "TR", type: "ordinary" }; }
+    const raw = window.localStorage.getItem(PREFERENCE_KEY);
+    const value = raw === null
+      ? { country: window.localStorage.getItem(COUNTRY_KEY), type: window.localStorage.getItem(TYPE_KEY) }
+      : JSON.parse(raw);
+    if (value && typeof value.country === 'string' && typeof value.type === 'string' && hasPassportPreference(value)) return { country: value.country, type: value.type };
+  } catch { /* Missing or unreadable choices never imply a passport. */ }
+  return { country: "", type: "" };
 }
 export function savePassportPreference(country: string, type: string) {
-  if (!Object.hasOwn(PASSPORTS, country) || !(PASSPORT_TYPES as readonly string[]).includes(type)) return;
-  window.localStorage.setItem(COUNTRY_KEY, country);
-  window.localStorage.setItem(TYPE_KEY, type);
+  if (!hasPassportPreference({ country, type }) && (country !== '' || type !== '')) return false;
+  // One atomic write prevents a failed second write pairing a new country with an old type.
+  try { window.localStorage.setItem(PREFERENCE_KEY, JSON.stringify({ country, type })); }
+  catch { return false; }
   window.dispatchEvent(new CustomEvent(PASSPORT_CHANGE));
+  return true;
 }
 const LABELS: Record<VisaStatus, [string, string]> = {
   free: ["Vizesiz", "Visa-free"], id_card: ["Kimlikle", "ID card"], required: ["Vize gerekli", "Visa required"],

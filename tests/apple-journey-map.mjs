@@ -11,6 +11,8 @@ const authorizationSource = compile('mobile/src/lib/appleMapAuthorization.ts');
 const componentSource = compile('mobile/src/components/AppleJourneyMap.tsx');
 const placesModule = { exports: {} };
 vm.runInNewContext(`(function(module,exports){${compile('lib/travel-assistant/places.ts')}\n})`, { URL })(placesModule, placesModule.exports);
+const categoryModule = { exports: {} };
+vm.runInNewContext(`(function(require,module,exports){${compile('mobile/src/components/journeyMapCategory.ts')}\n})`)(() => placesModule.exports, categoryModule, categoryModule.exports);
 const json = value => JSON.parse(JSON.stringify(value));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
@@ -31,15 +33,19 @@ function mapKit() {
   kit.CoordinateRegion = class { constructor(center, span) { Object.assign(this, { center, span }); } };
   kit.Padding = class { constructor(top, right, bottom, left) { Object.assign(this, { top, right, bottom, left }); } };
   kit.MarkerAnnotation = class { constructor(coordinate, options) { Object.assign(this, options, { coordinate, options }); } };
-  kit.Annotation = class { constructor(coordinate, factory, options) { Object.assign(this, options, { coordinate, options, element: factory() }); } };
+  kit.Annotation = class { constructor(coordinate, factory, options) {
+    const allowed = new Set(['title', 'accessibilityLabel', 'animates', 'draggable', 'calloutEnabled', 'selected', 'enabled', 'clusteringIdentifier', 'displayPriority']);
+    for (const key of Object.keys(options)) assert.ok(allowed.has(key), `Unsupported custom Annotation option: ${key}`);
+    Object.assign(this, options, { coordinate, options, element: factory() });
+  } };
   kit.PolylineOverlay = class { constructor(coordinates, options) { Object.assign(this, { coordinates, options }); } };
   kit.Style = class { constructor(options) { Object.assign(this, options); } };
   kit.MapType = { MutedStandard: 'mutedStandard' };
-  kit.ColorScheme = { Adaptive: 'adaptive' };
+  kit.ColorScheme = { Adaptive: 'adaptive', Dark: 'dark', Light: 'light' };
   kit.FeatureVisibility = { Hidden: 'hidden' };
   kit.Map = class extends Events {
     calls = []; annotations = []; overlays = []; destroyed = false;
-    constructor(element, options) { super(); Object.assign(this, { element, options, region: options.region }); kit.maps.push(this); }
+    constructor(element, options) { super(); Object.assign(this, { element, options, region: options.region, colorScheme: options.colorScheme }); kit.maps.push(this); }
     get center() { return this.region.center; }
     set selectedAnnotation(value) { this.selected = value; if (value) this.fire('select', { annotation: value }); }
     get selectedAnnotation() { return this.selected; }
@@ -261,6 +267,8 @@ const nodes = tree => tree && typeof tree === 'object' ? [tree, ...[tree.props?.
 function componentFixture(extra = {}, load) {
   const kit = mapKit(), slots = []; let props = { center: { latitude: 41, longitude: 29 }, stops, labels, onSelectPlace() {}, ...extra };
   let cursor = 0, effects = [], dirty = false, tree, disposed = false, locale = 'en';
+  let theme = { preference: 'system', resolved: 'light' };
+  const themeListeners = new Set();
   const loadCalls = [], observers = [];
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));
   const react = {
@@ -271,7 +279,10 @@ function componentFixture(extra = {}, load) {
   react.useLayoutEffect = react.useEffect;
   const fixtureModule = { exports: {} };
   class AppleMapKitError extends Error { constructor(code) { super(code); this.code = code; } }
-  const document = { createElement(tag) { return { tag, style: {}, attributes: {}, children: [], setAttribute(key, value) { this.attributes[key] = value; }, appendChild(child) { child.parent = this; this.children.push(child); }, remove() { this.removed = true; if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); } }; } };
+  const document = { createElement(tag) { return { tag, style: {}, attributes: {}, children: [], setAttribute(key, value) { this.attributes[key] = value; }, appendChild(child) { child.parent = this; this.children.push(child); },
+    querySelector(selector) { return this.children.find(child => selector.startsWith('.') ? child.className === selector.slice(1) : child.tag === selector); },
+    cloneNode() { const copy = document.createElement(this.tag); Object.assign(copy.attributes, this.attributes); this.children.forEach(child => copy.appendChild(child.cloneNode())); return copy; },
+    remove() { this.removed = true; if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); } }; }, createElementNS(_ns, tag) { return this.createElement(tag); } };
   vm.runInNewContext(`(function(require,module,exports){${componentSource}\n})`, {
     URL, document,
     ResizeObserver: class { constructor(callback) { this.callback = callback; observers.push(this); } observe() {} disconnect() { this.disconnected = true; } },
@@ -281,14 +292,16 @@ function componentFixture(extra = {}, load) {
     if (name === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
     if (name === '../lib/config') return { config: { appleMapsToken: 'public-token' } };
     if (name === '../lib/i18n') return { useI18n: () => ({ locale, copy: (tr, en, sq) => ({ tr, en, sq })[locale] }) };
+    if (name === '../lib/theme') return { getThemeSnapshot: () => theme, subscribeTheme: listener => { themeListeners.add(listener); return () => themeListeners.delete(listener); } };
     if (name === '../lib/appleMapKit') return { AppleMapKitError, subscribeAppleMapAuthorizationErrors: () => () => {}, loadAppleMapKit: (...args) => { loadCalls.push(args); return load ? load(kit, AppleMapKitError) : Promise.resolve(kit); } };
     if (name === '../lib/appleMapAuthorization') return { getJourneyMapAuthorization: async () => 'public-token', invalidateJourneyMapAuthorization() {} };
     if (name === '../../../lib/travel-assistant/places') return placesModule.exports;
+    if (name === './journeyMapCategory') return categoryModule.exports;
     if (name.endsWith('.css')) return {};
     throw Error(`Unexpected map import ${name}`);
   }, fixtureModule, fixtureModule.exports);
   const app = {
-    kit, loadCalls, observers,
+    kit, loadCalls, observers, themeListeners,
     render(next = {}) {
       if (disposed) return tree;
       props = { ...props, ...next };
@@ -302,6 +315,7 @@ function componentFixture(extra = {}, load) {
     async flush() { await tick(); this.render(); await tick(); return this.render(); },
     get map() { return kit.maps.at(-1); }, get tree() { return tree; },
     language(value) { locale = value; this.render(); },
+    theme(resolved, preference = resolved) { theme = { preference, resolved }; [...themeListeners].forEach(listener => listener()); },
     dispose() { disposed = true; slots.forEach(slot => slot?.cleanup?.()); },
   };
   app.render(); return app;
@@ -319,9 +333,9 @@ test('Genuine Apple map uses muted basemap, numbered day colors and accessible n
     assert.equal(m.options.showsUserLocation, false);
     assert.deepEqual(json(m.padding), { top: 140, right: 12, bottom: 200, left: 12 });
     assert.equal(m.annotations.length, 5);
-    assert.deepEqual(json(m.annotations.slice(0, 3).map(pin => pin.glyphText)), ['1', '2', '1']);
-    assert.equal(m.annotations[0].color, m.annotations[1].color);
-    assert.notEqual(m.annotations[0].color, m.annotations[2].color);
+    assert.deepEqual(json(m.annotations.slice(0, 3).map(pin => pin.element.textContent)), ['1', '2', '1']);
+    assert.equal(m.annotations[0].element.style.background, m.annotations[1].element.style.background);
+    assert.notEqual(m.annotations[0].element.style.background, m.annotations[2].element.style.background);
     assert.equal(m.annotations[1].accessibilityLabel, 'Day 1, stop 2: Museum');
     assert.equal(m.annotations[0].clusteringIdentifier, null);
     assert.equal(m.annotations[3].clusteringIdentifier, 'journey-discovery');
@@ -335,7 +349,40 @@ test('Genuine Apple map uses muted basemap, numbered day colors and accessible n
     assert.equal(m.selectedAnnotation.title, 'Cafe'); assert.equal(m.selectedAnnotation.clusteringIdentifier, null);
     assert.equal(chosen.length, 1, 'Programmatic selected-pin synchronization must not emit a user selection');
     app.render({ activeDay: 2 });
-    assert.deepEqual(json(m.annotations.filter(pin => pin.glyphText !== '•').map(pin => pin.title)), ['Park']);
+    assert.deepEqual(json(m.annotations.filter(pin => /^\d+$/.test(pin.element.textContent)).map(pin => pin.title)), ['Park']);
+  } finally { app.dispose(); }
+});
+
+test('Discovery categories have distinct shapes, translated names and a visible selection label without changing route numbers or camera', async () => {
+  const kinds = ['museum', 'restaurant', 'cafe', 'atm', 'bank', 'transit'];
+  const discoveredPlaces = kinds.map((category, index) => ({ id: `category-${category}`, category, name: `Place ${category}`, latitude: 41 + index / 1000, longitude: 29 }));
+  const app = componentFixture({ discoveredPlaces });
+  try {
+    await app.flush();
+    const pins = app.map.annotations.slice(3), paths = pins.map(pin => pin.element.querySelector('svg').children[0].attributes.d);
+    assert.equal(new Set(paths).size, kinds.length, 'Categories must be distinguishable without perceiving marker color');
+    for (const pin of pins) {
+      assert.equal(pin.clusteringIdentifier, 'journey-discovery');
+      assert.equal(pin.element.style.width, '44px');
+      assert.equal(pin.element.style.borderRadius, '14px');
+      assert.equal(pin.element.querySelector('.journey-marker-label').style.display, 'none');
+    }
+    assert.match(pins[5].accessibilityLabel, /Metro and public transport/);
+    app.render({ selectedPlaceId: 'category-transit' });
+    assert.equal(pins[5].element.querySelector('.journey-marker-label').style.display, 'block');
+    assert.match(pins[5].element.querySelector('.journey-marker-label').textContent, /Place transit · Metro/);
+    assert.equal(pins[5].clusteringIdentifier, null);
+    const cameraCount = app.map.calls.length;
+    app.language('tr');
+    const translated = app.map.annotations.at(-1);
+    assert.match(translated.accessibilityLabel, /Metro ve toplu taşıma/);
+    assert.equal(app.map.calls.length, cameraCount, 'Translation refresh cannot move a selected or manually panned map');
+    app.render({ selectedPlaceId: null });
+    assert.equal(translated.element.querySelector('.journey-marker-label').style.display, 'none');
+    assert.equal(translated.clusteringIdentifier, 'journey-discovery');
+    assert.deepEqual(json(app.map.annotations.slice(0, 3).map(pin => pin.element.textContent)), ['1', '2', '1']);
+    const unknown = categoryModule.exports.journeyMapCategory('__proto__', 'sq');
+    assert.equal(unknown.symbol, 'mappin'); assert.equal(unknown.label, 'Vend');
   } finally { app.dispose(); }
 });
 
@@ -363,6 +410,32 @@ test('Apple camera preserves manual pans, responds to explicit center/day/select
   } finally { app.dispose(); }
   assert.equal(app.map.destroyed, true); assert.equal(app.map.listenerCount, 0);
   assert.equal(app.kit.listenerCount, 0); assert.equal(app.observers[0].disconnected, true);
+});
+
+test('Apple basemap follows resolved app appearance before loading and on live changes without resetting the map or selection', async () => {
+  const app = componentFixture({ selectedPlaceId: 'museum' });
+  app.theme('dark');
+  try {
+    await app.flush();
+    const m = app.map;
+    assert.equal(m.options.colorScheme, 'dark', 'manual app theme overrides a light operating system');
+    assert.equal(m.colorScheme, 'dark');
+    m.setCenterAnimated({ latitude: 42, longitude: 30 }, false);
+    const calls = m.calls.length, pins = m.annotations, selected = m.selectedAnnotation;
+    app.theme('light');
+    assert.equal(m.colorScheme, 'light');
+    app.theme('dark', 'system');
+    assert.equal(m.colorScheme, 'dark', 'system preference uses the app-resolved appearance');
+    assert.equal(app.kit.maps.length, 1);
+    assert.equal(app.loadCalls.length, 1);
+    assert.equal(m.calls.length, calls);
+    assert.equal(m.annotations, pins);
+    assert.equal(m.selectedAnnotation, selected);
+    assert.deepEqual(json(m.center), { latitude: 42, longitude: 30 });
+  } finally { app.dispose(); }
+  assert.equal(app.themeListeners.size, 0);
+  app.theme('light');
+  assert.equal(app.map.colorScheme, 'dark', 'unmounted maps receive no theme updates');
 });
 
 test('Apple route overlays contain only supplied complete geometry, filter active days and unwrap date-line paths', async () => {
@@ -409,8 +482,8 @@ test('Apple photo annotations use verified raster URLs, retain day numbers and f
     const image = pins[0].element.children.find(child => child.tag === 'img');
     assert.equal(image.src, photo);
     assert.equal(image.referrerPolicy, 'no-referrer');
-    assert.equal(pins[1].element, undefined, 'Unverified image host falls back to native numbered marker');
-    assert.equal(pins[2].element, undefined, 'An unsafe URL is never assigned to an image');
+    assert.equal(pins[1].element.children.some(child => child.tag === 'img'), false, 'Unverified image host falls back to the numbered marker');
+    assert.equal(pins[2].element.children.some(child => child.tag === 'img'), false, 'An unsafe URL is never assigned to an image');
     image.onerror();
     assert.equal(image.removed, true); assert.equal(pins[0].element.textContent, '1');
     app.render({ selectedPlaceId: 'palace' });
@@ -443,11 +516,11 @@ test('Selection reuses annotation objects and photo elements while updating only
     assert.equal(original[1].displayPriority, 750);
     assert.match(photoElement.style.border, /#ffffff/);
     assert.equal(original[2].selected, true);
-    assert.equal(original[2].color, '#0065f5');
+    assert.equal(original[2].element.style.background, '#0065f5');
     app.render({ selectedPlaceId: null });
     assert.equal(m.selectedAnnotation, null);
     assert.equal(original[2].selected, false);
-    assert.equal(original[2].color, '#536579');
+    assert.equal(original[2].element.style.background, '#536579');
     assert.equal(m.annotations, original);
   } finally { app.dispose(); }
 });

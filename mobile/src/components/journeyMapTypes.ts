@@ -1,8 +1,12 @@
+import type { PointCategory } from '../../../lib/travel-assistant/types';
+
 export interface JourneyMapPoint {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
+  /** Provider category; missing legacy categories use a neutral place pin. */
+  category?: PointCategory;
   /** A source-verified photo of this exact place, when available. */
   imageUrl?: string;
 }

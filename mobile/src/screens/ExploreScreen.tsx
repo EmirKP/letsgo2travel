@@ -28,6 +28,7 @@ import type { RouteSuggestion, ViewId } from "../types";
 import { usePassportPreference } from "../hooks/usePassportPreference";
 import { preferredEntry } from "../lib/passportPreference";
 import passportIndex from "../data/passport-index.json";
+import { plannerPassportLabel } from "../../../lib/planner-passport";
 import "./explore-reference.css";
 import "../components/feature-entry-artwork.css";
 
@@ -230,7 +231,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
       warnings: [copy("Giriş koşullarını ve rezervasyonlarını seyahatten önce resmî kaynaklardan doğrula.", "Verify entry requirements and bookings with official sources before travel.")],
     };
     setSelectedDestination(null);
-    onBuildRoute({ ...route, visaStatus: entryFor(destination).label, visaNote: copy(`Seçili pasaport: ${preference.country} (${preference.type}). Keşif verisi: ${passportIndex.asOf}; güncel koşulları resmî kaynaktan doğrula.`, `Selected passport: ${preference.country} (${preference.type}). Discovery data: ${passportIndex.asOf}; verify current official entry rules.`, `Pasaporta e zgjedhur: ${preference.country} (${preference.type}). Të dhënat e zbulimit: ${passportIndex.asOf}; verifiko kushtet aktuale të hyrjes në burimet zyrtare.`), visaVerifiedAt: null, visaSourceUrl: undefined, verifiedEntryStatus: undefined });
+    onBuildRoute({ ...route, visaStatus: entryFor(destination).label, visaNote: !preference.country || !preference.type ? copy("Pasaport seçilmedi; seyahatten önce giriş koşullarını doğrula.", "Passport not selected; verify entry conditions before travelling.", "Pasaporta nuk është zgjedhur; verifiko kushtet e hyrjes përpara udhëtimit.") : copy(`Seçili pasaport: ${preference.country} (${preference.type}). Keşif verisi: ${passportIndex.asOf}; güncel koşulları resmî kaynaktan doğrula.`, `Selected passport: ${preference.country} (${preference.type}). Discovery data: ${passportIndex.asOf}; verify current official entry rules.`, `Pasaporta e zgjedhur: ${preference.country} (${preference.type}). Të dhënat e zbulimit: ${passportIndex.asOf}; verifiko kushtet aktuale të hyrjes në burimet zyrtare.`), visaVerifiedAt: null, visaSourceUrl: undefined, verifiedEntryStatus: undefined });
   };
 
   return <div className="screen explore-screen">
@@ -258,7 +259,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
     <section className="section-block" id="explore-search-results">
       <div className="section-heading"><div><span>{copy("İLHAM PANOSU", "INSPIRATION")}</span><h2>{search ? copy("Arama sonuçları", "Search results") : copy("Sana göre rotalar", "Routes for you")}</h2></div><small className="favorite-count"><Icon name="heart" size={14} /> {favorites.length}</small></div>
       {search && <p role="status">{copy(`“${query.trim()}” için ${destinations.length + searchRoutes.length} hazır rota bulundu.`, `${destinations.length + searchRoutes.length} ready-made routes found for “${query.trim()}”.`, `U gjetën ${destinations.length + searchRoutes.length} itinerare të gatshme për “${query.trim()}”.`)}</p>}
-      <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{copy("Pasaporta göre", "For passport")}: {new Intl.DisplayNames([locale], { type: "region" }).of(preference.country)} · {copy(({ordinary:"Umuma mahsus", special:"Hususi", service:"Hizmet", diplomatic:"Diplomatik"} as Record<string,string>)[preference.type], preference.type, ({ordinary:"E zakonshme", special:"E posaçme", service:"E shërbimit", diplomatic:"Diplomatike"} as Record<string,string>)[preference.type])} · {copy("Değiştir", "Change")}</button>
+      <button type="button" className="secondary-wide" onClick={() => onNavigate("passport")}>{plannerPassportLabel({ passportCountry: preference.country, passportType: preference.type }, locale)} · {copy("Değiştir", "Change", "Ndrysho")}</button>
       {!search && <div className="chip-scroll explore-filter" role="group" aria-label={copy("Rotaları kategoriye göre filtrele", "Filter routes by category")}>
         {categories.map((item) => <button type="button" key={item} className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => setCategory(item)}>{copy(item, ({ "Tümü": "All", "Vizesiz": "Visa-free", "Şehir": "City", "Deniz": "Coast", "Uzak rota": "Long-haul" } as const)[item], ({ "Tümü": "Të gjitha", "Vizesiz": "Pa vizë", "Şehir": "Qytet", "Deniz": "Bregdet", "Uzak rota": "Destinacione të largëta" } as const)[item])}</button>)}
       </div>}

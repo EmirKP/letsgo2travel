@@ -104,14 +104,25 @@ test('Antimeridian discovery uses the exact coarse location instead of a wraparo
   assert.equal(h.calls[0].params.has('searchRegion'), false);
 });
 
-test('Essentials searches its five real service categories separately and bounds their combined result within one deadline', async () => {
+test('Essentials includes banks and transit with bounded searches and one shared deadline', async () => {
   let index = 0;
   const h = harness(params => ({ results: Array.from({ length: 100 }, () => row(`I${++index}`, params.get('q') === 'pharmacy' ? 'Pharmacy' : 'Hospital')) }));
   const result = await h.apple.discoverAppleJourneyPlaces(center, 'essentials');
-  assert.deepEqual(h.calls.map(call => call.params.get('q')), ['pharmacy', 'hospital', 'police', 'ATM', 'restrooms']);
+  assert.deepEqual(h.calls.map(call => call.params.get('q')), ['pharmacy', 'hospital', 'police', 'banks and ATMs', 'public transport stations', 'restrooms']);
+  assert.ok(h.calls.every(call => call.params.get('includePoiCategories').includes('Bank') && call.params.get('includePoiCategories').includes('PublicTransport')));
   assert.equal(new Set(h.calls.map(call => call.deadline)).size, 1);
   assert.equal(result.places.length, 250); assert.equal(result.limited, true);
   assert.equal(client().validateDiscoveryResponse(result, center, 'essentials').places.length, 250);
+});
+
+test('Apple banks and public transport retain their actual categories and cannot appear in unrelated discovery groups', () => {
+  const h = harness(), raw = { results: [row('BANK', 'Bank'), row('METRO', 'PublicTransport'), row('ATM', 'ATM')] }, fetchedAt = new Date().toISOString();
+  const found = h.apple.normalizeAppleJourneyDiscovery(raw, center, 'essentials', fetchedAt);
+  assert.deepEqual([...found.map(place => place.category)], ['bank', 'transit', 'atm']);
+  assert.deepEqual([...found.map(place => place.id)], ['apple/BANK', 'apple/METRO', 'apple/ATM']);
+  assert.equal(h.apple.normalizeAppleJourneyDiscovery(raw, center, 'culture', new Date().toISOString()).length, 0);
+  const response = { places: found, center, fetchedAt, radius: 3000, limited: false, attribution: 'Apple Maps' };
+  assert.equal(client().validateDiscoveryResponse(response, center, 'essentials').places.length, 3);
 });
 
 test('Duplicate searches share work, concurrent requests are bounded and failed second category never caches a partial discovery', async () => {

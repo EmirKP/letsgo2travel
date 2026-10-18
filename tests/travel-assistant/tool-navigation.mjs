@@ -135,7 +135,7 @@ test('Country-dependent tools share an explicit destination and keep citizenship
   assert.deepEqual(h.selectedCountries, ['GB']);
   find(view, 'TravelSafety').props.onOpen('embassies'); view = h.render();
   assert.equal(find(view, 'EmbassyCards').props.country, 'GB');
-  assert.equal(find(view, 'EmbassyCards').props.citizenship, 'TR');
+  assert.equal(find(view, 'EmbassyCards').props.citizenship, '', 'A travel passport does not silently set citizenship');
   find(view, 'CountryPicker', props => props.label === 'Your citizenship').props.onChange('GB');
   assert.equal(find(h.render(), 'EmbassyCards').props.citizenship, 'GB');
   assert.deepEqual(h.selectedCountries, ['GB'], 'Citizenship changes do not overwrite the destination');

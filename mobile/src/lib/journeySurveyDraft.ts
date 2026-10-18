@@ -9,6 +9,16 @@ export type JourneySurveyDraft = {
   pace: 'relaxed' | 'balanced' | 'busy'; walking: 'light' | 'standard'; interests: JourneyInterest[]; notes: string;
 };
 const PREFIX = 'l2t.journey-survey.v1:';
+const SIGN_IN_KEY = 'l2t.journey-survey-sign-in.v1';
+const CLAIM_PREFIX='l2t.journey-survey-sign-in-claim.v1:';
+type ClaimedSurvey={createdAt:number;scope:string;draft:JourneySurveyDraft};
+const claimedSurveys=new Map<string,ClaimedSurvey>();
+const RECOVERY_SCOPE_PREFIX = 'l2t.journey-survey-recovery.v1:';
+type RecoverySurvey={scope:string;createdAt:number;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq'};
+const recoveryScopes = new Map<string,RecoverySurvey>();
+type SignInDraft = { createdAt:number; draft:JourneySurveyDraft };
+let signInDraft:SignInDraft|null=null;
+let signInDraftStored=false;
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length <= max
   && [...value].every(character => character.charCodeAt(0) >= 32 || character === '\n' || character === '\r' || character === '\t');
 const oneOf = (value: unknown, values: readonly string[]) => typeof value === 'string' && values.includes(value);
@@ -60,6 +70,22 @@ export function saveJourneySurveyDraft(ownerId: string | null, draft: JourneySur
     return true;
   } catch { return false; }
 }
+/** The last submitted scope allows exact-input receipt recovery after reload. */
+export function rememberJourneyRecoveryScope(ownerId:string,scope:string,draft:JourneySurveyDraft,locale:'tr'|'en'|'sq') {
+  try { key(ownerId,scope); } catch { return; }
+  if(!valid(draft)||!['tr','en','sq'].includes(locale))return;
+  const value={scope,createdAt:Date.now(),draft:JSON.parse(JSON.stringify(draft)) as JourneySurveyDraft,locale};recoveryScopes.set(ownerId,value);
+  try { window.localStorage.setItem(`${RECOVERY_SCOPE_PREFIX}${encodeURIComponent(ownerId)}`,JSON.stringify(value)); } catch { /* Session recovery remains available. */ }
+}
+export function readJourneyRecoveryDraft(ownerId:string|null|undefined):{scope:string;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq'}|null {
+  if(!ownerId)return null;
+  try {
+    const raw=recoveryScopes.get(ownerId)||JSON.parse(window.localStorage.getItem(`${RECOVERY_SCOPE_PREFIX}${encodeURIComponent(ownerId)}`)||'null');
+    if(!raw||!valid(raw.draft)||!['tr','en','sq'].includes(raw.locale)||!Number.isFinite(raw.createdAt)||Date.now()-raw.createdAt<0||Date.now()-raw.createdAt>=24*3600_000)return null;
+    // Restore into a new editable scope; later edits cannot mutate the submitted snapshot.
+    return {scope:`recovery:${Date.now()}:${Math.random().toString(36).slice(2,10)}`,draft:JSON.parse(JSON.stringify(raw.draft)) as JourneySurveyDraft,locale:raw.locale};
+  } catch {return null;}
+}
 /** Clear only after a confirmed plan result. Unreadable/future drafts are never silently erased. */
 export function clearJourneySurveyDraft(ownerId: string | null, scope = 'new'): boolean {
   try {
@@ -67,6 +93,47 @@ export function clearJourneySurveyDraft(ownerId: string | null, scope = 'new'): 
     window.localStorage.removeItem(key(ownerId, scope));
     return true;
   } catch { return false; }
+}
+/** Only an explicit guest sign-in action carries these answers into one account. */
+export function prepareJourneySurveySignIn(draft:JourneySurveyDraft) {
+  if(!valid(draft))return false;
+  signInDraft={createdAt:Date.now(),draft};
+  signInDraftStored=false;
+  try { window.localStorage.setItem(SIGN_IN_KEY,JSON.stringify(signInDraft));signInDraftStored=true; } catch { /* Same-session handoff still works. */ }
+  return true;
+}
+export function takeJourneySurveySignIn(ownerId:string):{scope:string;draft:JourneySurveyDraft}|null {
+  try {key(ownerId,'new');}catch{return null;}
+  let value:unknown=signInDraft;
+  let stored=signInDraftStored;
+  try { const raw=window.localStorage.getItem(SIGN_IN_KEY);stored=raw!==null;if(!value&&raw&&raw.length<=12000)value=JSON.parse(raw); } catch { /* Keep only a memory handoff that was never persisted. */ }
+  signInDraft=null;
+  signInDraftStored=false;
+  if(!value){
+    try {
+      const claimed=claimedSurveys.get(ownerId)||JSON.parse(window.localStorage.getItem(`${CLAIM_PREFIX}${encodeURIComponent(ownerId)}`)||'null');
+      if(claimed&&typeof claimed.scope==='string'&&Number.isFinite(claimed.createdAt)&&Date.now()-claimed.createdAt>=0&&Date.now()-claimed.createdAt<=30*60_000&&valid(claimed.draft))return {scope:claimed.scope,draft:claimed.draft};
+    }catch{/* A missing claim is simply not resumable. */}
+    return null;
+  }
+  if(stored){
+    try { window.localStorage.removeItem(SIGN_IN_KEY);if(window.localStorage.getItem(SIGN_IN_KEY)!==null)return null; }
+    catch { return null; } // Never replay private answers into another account after a failed consume.
+  }
+  if(!value||typeof value!=='object')return null;
+  const item=value as Record<string,unknown>,age=Date.now()-Number(item.createdAt);
+  if(!Number.isFinite(age)||age<0||age>30*60_000||!valid(item.draft))return null;
+  const scope=`sign-in:${Date.now()}:${Math.random().toString(36).slice(2,10)}`;
+  try { key(ownerId,scope); } catch { return null; }
+  saveJourneySurveyDraft(ownerId,item.draft,scope);
+  const claimed={createdAt:Number(item.createdAt),scope,draft:item.draft};
+  claimedSurveys.set(ownerId,claimed);
+  try{window.localStorage.setItem(`${CLAIM_PREFIX}${encodeURIComponent(ownerId)}`,JSON.stringify(claimed));}catch{/* Same-session remount remains safe. */}
+  return {scope,draft:item.draft};
+}
+export function clearJourneySignInClaim(ownerId:string) {
+  claimedSurveys.delete(ownerId);
+  try{window.localStorage.removeItem(`${CLAIM_PREFIX}${encodeURIComponent(ownerId)}`);}catch{/* The owner-scoped claim expires; it cannot transfer to another account. */}
 }
 /** Explicit account deletion removes only this owner's drafts, including unreadable data. */
 export function clearOwnerJourneySurveyDrafts(ownerId: string): boolean {
@@ -79,6 +146,10 @@ export function clearOwnerJourneySurveyDrafts(ownerId: string): boolean {
       if (candidate?.startsWith(prefix)) keys.push(candidate);
     }
     for (const candidate of keys) storage.removeItem(candidate);
+    recoveryScopes.delete(ownerId);
+    storage.removeItem(`${RECOVERY_SCOPE_PREFIX}${encodeURIComponent(ownerId)}`);
+    claimedSurveys.delete(ownerId);
+    storage.removeItem(`${CLAIM_PREFIX}${encodeURIComponent(ownerId)}`);
     return true;
   } catch { return false; }
 }

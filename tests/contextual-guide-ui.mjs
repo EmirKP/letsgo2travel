@@ -75,10 +75,10 @@ test('Route lazy loading never flashes navigation lessons before its actual dest
 test('Detailed Home lessons teach real search and Event Radar controls, support back, skip and restart without triggering navigation',()=>{
   const h=harness();try{
     const search=h.target('home-search'),route=h.target('home-route'),events=h.target('home-events');h.render();
-    assert.match(text(h.tree),/What are you looking for/);assert.match(text(h.tree),/Istanbul/);assert.match(text(h.tree),/currency/);
+    assert.match(text(h.tree),/What are you looking for/);assert.doesNotMatch(text(h.tree),/Istanbul/);h.click('How do I do this?');assert.match(text(h.tree),/Istanbul/);assert.match(text(h.tree),/currency/);
     h.click('Got it');assert.match(text(h.tree),/Create your first route/);assert.equal(search.actions,0);assert.equal(route.actions,0);
     h.click('Back');assert.match(text(h.tree),/What are you looking for/);h.click('Got it');assert.match(text(h.tree),/Create your first route/);
-    h.click('Skip');assert.match(text(h.tree),/Discover Event Radar/);assert.match(text(h.tree),/country, optional city and dates/);assert.equal(events.actions,0);
+    h.click('Skip');assert.match(text(h.tree),/Discover Event Radar/);h.click('How do I do this?');assert.match(text(h.tree),/country, optional city and dates/);assert.equal(events.actions,0);
     h.click('Restart guide');assert.match(text(h.tree),/What are you looking for/);assert.deepEqual([...h.progress.readGuideProgress().seen],[]);
     search.act('input');h.render();assert.match(text(h.tree),/Create your first route/);assert.equal(search.actions,1);
     h.click('Close tour');assert.equal(h.tree,null);assert.equal(events.classes.size,0);
@@ -88,8 +88,23 @@ test('Detailed Home lessons teach real search and Event Radar controls, support 
 test('Day and discovery lessons describe real map controls and wait for them without performing mutations',()=>{
   const h=harness('route');try{
     const days=h.target('journey-days',{insideSheet:true}),discover=h.target('journey-discover',{insideSheet:true,top:600});h.render();
-    assert.match(text(h.tree),/Review each day/);assert.match(text(h.tree),/Swipe/);h.click('Got it');
-    assert.match(text(h.tree),/Add a place to your route/);assert.match(text(h.tree),/Search this area/);assert.equal(days.actions,0);assert.equal(discover.actions,0);
+    assert.match(text(h.tree),/Review each day/);h.click('How do I do this?');assert.match(text(h.tree),/Swipe/);h.click('Got it');
+    assert.match(text(h.tree),/Add a place to your route/);h.click('How do I do this?');assert.match(text(h.tree),/Search this area/);assert.equal(days.actions,0);assert.equal(discover.actions,0);
     h.click('Back');assert.match(text(h.tree),/Review each day/);
   }finally{h.dispose();}
+});
+
+
+test('Event, saved-plan and tools lessons wait for real controls and never run a search or mutate a plan',()=>{
+  for(const [view,guide,label,event] of [['events','event-search','Find events for your dates','click'],['trips','saved-library','Find your saved plan','click'],['companion','tool-search','Find the tool you need','input']]) {
+    const h=harness(view);try{h.target('nav-plans',{top:760});h.render();assert.equal(h.tree,null);const control=h.target(guide);h.mutate();assert.ok(text(h.tree).includes(label));assert.equal(control.actions,0);h.click('Skip');assert.equal(control.actions,0);assert.equal(h.tree,null);h.reopen();control.act(event);h.render();assert.equal(control.actions,1);assert.equal(h.tree,null);}finally{h.dispose();}
+  }
+});
+
+test('Guide menu gives four genuine destinations and dismisses without navigation or resetting preferences',()=>{
+  const chosen=[];let closed=0;
+  const {GuideMenu}=load('mobile/src/components/GuideMenu.tsx',{'react/jsx-runtime':{jsx,jsxs:jsx},'./Sheet':{Sheet:'Sheet'},'./Icon':{Icon:'Icon'},'./TravelToolArtwork':{TravelToolArtwork:'Artwork'},'../lib/i18n':{useI18n:()=>({copy:(tr,en)=>en})}});
+  const tree=GuideMenu({open:true,onClose:()=>closed++,onChoose:value=>chosen.push(value)});
+  assert.deepEqual(chosen,[]);tree.props.onClose();assert.equal(closed,1);assert.deepEqual(chosen,[]);
+  const buttons=nodes(tree).filter(n=>n.type==='button');assert.equal(buttons.length,4);buttons.forEach(b=>b.props.onClick());assert.deepEqual(chosen,['route','events','trips','companion']);
 });

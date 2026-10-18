@@ -7,6 +7,7 @@ import { openExternal } from "../lib/native";
 import { clearPersonalTravelCards } from "../lib/personalTravelCards";
 import { clearCommunityFollows } from "../lib/communityPreferences";
 import { clearOwnerJourneySurveyDrafts } from "../lib/journeySurveyDraft";
+import { clearPlannerRecoveryDraft } from "../lib/plannerSignInDraft";
 import { Icon } from "./Icon";
 import { SupportSheet } from "./SupportSheet";
 import "./account-deletion.css";
@@ -16,7 +17,8 @@ function clearAccountDeviceData(ownerId: string): boolean {
   const cardsCleared = clearPersonalTravelCards(ownerId);
   const followsCleared = clearCommunityFollows(ownerId);
   const draftsCleared = clearOwnerJourneySurveyDrafts(ownerId);
-  return cardsCleared && followsCleared && draftsCleared;
+  const plannerDraftCleared = clearPlannerRecoveryDraft(ownerId);
+  return cardsCleared && followsCleared && draftsCleared && plannerDraftCleared;
 }
 
 export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange }: {

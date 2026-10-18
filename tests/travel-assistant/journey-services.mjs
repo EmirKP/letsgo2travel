@@ -428,7 +428,7 @@ test('Discovery capability isolates legacy and new POI responses without mutatin
   assert.equal(shared.places.length, 2, 'Legacy filtering cannot poison the shared provider cache');
   assert.deepEqual((await (await invoke({})).json()).places.map(place => place.category), ['park']);
   const count = providerCalls;
-  for (const invalid of [null, 1, 3, '2', true, []]) assert.equal((await invoke({placeCategoryVersion: invalid})).status, 400);
+  for (const invalid of [null, 1, 4, '2', true, []]) assert.equal((await invoke({placeCategoryVersion: invalid})).status, 400);
   assert.equal(providerCalls, count);
 });
 
@@ -437,5 +437,24 @@ test('New mobile discovery explicitly opts into beach and hiking categories', as
   const found = discovery().normalizeDiscovery({ elements: [row(701, { natural: 'beach' })] }, center, 'nature', now);
   const mobile = client(async (_path, options) => { calls.push(options); return { places: found, center, fetchedAt: now, radius: 3000, limited: false, attribution: '© OpenStreetMap contributors' }; });
   const result = await mobile.discoverJourneyPlaces(center, 'nature');
-  assert.equal(calls[0].body.placeCategoryVersion, 2); assert.equal(result.places[0].category, 'beach');
+  assert.equal(calls[0].body.placeCategoryVersion, 3); assert.equal(result.places[0].category, 'beach');
+});
+
+test('Journey essentials include genuine banks and transit stops while older client categories remain intact', async () => {
+  const model = discovery();
+  const elements = [row(801, { amenity: 'bank' }), row(802, { railway: 'subway_entrance' }), row(803, { highway: 'bus_stop' }), row(804, { amenity: 'atm' }), row(805, { railway: 'rail' })];
+  const found = model.normalizeDiscovery({ elements }, center, 'essentials', stamp);
+  assert.deepEqual([...found.map(place => place.category)], ['bank', 'transit', 'transit', 'atm']);
+  assert.deepEqual([...places.normalizePlaces({ elements }, 'needs', stamp).map(place => place.category)], ['atm'], 'Existing nearby clients never receive a category they cannot parse');
+  assert.match(model.discoveryQuery(center, 'essentials'), /subway_entrance/);
+  assert.match(model.discoveryQuery(center, 'essentials'), /out center tags 250/);
+  const shared = { places: found, center, fetchedAt: stamp, radius: 3000, limited: false, attribution: '© OpenStreetMap contributors' };
+  const api = load('app/api/travel-assistant/discover/route.ts', { '@/lib/travel-assistant/http': http, '@/lib/travel-assistant/places': places,
+    '@/lib/travel-assistant/journey-discovery': { DISCOVERY_GROUPS: ['essentials'], discoverJourneyPlaces: async () => shared } });
+  const invoke = async version => (await api.POST(new Request('https://app.test/discover', { method: 'POST', body: JSON.stringify({ ...center, category: 'essentials', ...(version ? { placeCategoryVersion: version } : {}) }) }))).json();
+  for (const version of [undefined, 2]) {
+    const old = await invoke(version); assert.deepEqual(old.places.map(place => place.category), ['atm']); assert.equal(old.limited, true);
+  }
+  const current = await invoke(3); assert.equal(current.places.length, 4); assert.equal(current.limited, false);
+  assert.equal(shared.places.length, 4, 'Capability filtering must not poison another client’s shared cache');
 });

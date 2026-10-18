@@ -2,14 +2,14 @@ import { commonsPhotoFile, journeyPhotoLicense, safeJourneyPhotoUrl, validJourne
 import { providerJson } from './journey-routing';
 import type { JourneyDiscoveryPlace, JourneyPhoto } from './journey-types';
 
-// Only enrich files explicitly attached to the OSM record. imageinfo supplies
-// actual thumbnail URLs and the author/license; never infer them from a name.
+// Only enrich explicit OSM or coordinate-confirmed article file references.
+// imageinfo supplies actual thumbnails and author/license; never infer a URL.
 // https://www.mediawiki.org/wiki/API:Imageinfo
 // https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia
 const MAX_PHOTOS = 12;
 const DEADLINE = 2000;
 const cache = new Map<string, { until: number; photo: JourneyPhoto | null }>();
-let active: { files: Set<string>; result: Promise<Map<string, JourneyPhoto>> } | null = null;
+let active: { files: Set<string>; width: number; result: Promise<Map<string, JourneyPhoto>> } | null = null;
 let cooldown = 0, nextStart = 0, windowStart = 0, starts = 0;
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const key = (file: string) => file[0].toUpperCase() + file.slice(1).replace(/_/g, ' ');
@@ -58,13 +58,13 @@ export function normalizeCommonsPhotos(raw: unknown, requestedFiles: string[]): 
   }
   return result;
 }
-function startBatch(files: string[]): Promise<Map<string, JourneyPhoto>> {
+function startBatch(files: string[], width: 160 | 640): Promise<Map<string, JourneyPhoto>> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const url = new URL('https://commons.wikimedia.org/w/api.php');
   url.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', prop: 'imageinfo',
     titles: files.map(file => `File:${file}`).join('|'), iilimit: '1',
-    iiprop: 'url|mime|thumbmime|mediatype|extmetadata', iiurlwidth: '160', iiurlheight: '160',
+    iiprop: 'url|mime|thumbmime|mediatype|extmetadata', iiurlwidth: String(width), iiurlheight: String(width === 640 ? 480 : 160),
     iiextmetadatalanguage: 'en', iiextmetadatafilter: 'Artist|Attribution|LicenseShortName|LicenseUrl', maxlag: '5' }).toString();
   const work = (async () => {
     const response = await fetch(url, { signal: controller.signal, redirect: 'error', cache: 'no-store',
@@ -80,14 +80,14 @@ function startBatch(files: string[]): Promise<Map<string, JourneyPhoto>> {
     timer = setTimeout(() => { controller.abort(); reject(new Error('Photo metadata timeout')); }, DEADLINE);
   });
   const result = Promise.race([work, deadline]).then(photos => {
-    for (const file of files) remember(file, photos.get(file) || null);
+    for (const file of files) remember(`${width}:${file}`, photos.get(file) || null);
     return photos;
   }).catch(() => {
     cooldown = Math.max(cooldown, Date.now() + 5000);
-    for (const file of files) remember(file, null);
+    for (const file of files) remember(`${width}:${file}`, null);
     return new Map<string, JourneyPhoto>();
   }).finally(() => { if (timer !== undefined) clearTimeout(timer); });
-  const batch = { files: new Set(files), result };
+  const batch = { files: new Set(files), width, result };
   active = batch;
   // A transport ignoring abort must not release a slot for unlimited requests.
   void work.finally(() => { if (active === batch) active = null; }).catch(() => {});
@@ -109,20 +109,26 @@ export async function enrichJourneyPhotos(places: JourneyDiscoveryPlace[], raw: 
     if (file) references.set(place.id, key(file));
     if (references.size === MAX_PHOTOS) break;
   }
-  const files = [...new Set(references.values())];
-  if (!files.length) return places;
+  const photos = await loadJourneyPhotoFiles([...new Set(references.values())]);
+  return places.map(place => { const file = references.get(place.id), photo = file ? photos.get(file) : undefined; return photo ? { ...place, ...photo } : place; });
+}
+
+/** Only explicit, validated file identities reach Commons; never a free-text image search. */
+export async function loadJourneyPhotoFiles(requested: string[], width: 160 | 640 = 160): Promise<Map<string, JourneyPhoto>> {
+  const files = [...new Set(requested.flatMap(file => { const valid = commonsPhotoFile(`File:${file}`); return valid ? [key(valid)] : []; }))].slice(0, MAX_PHOTOS);
+  if (!files.length) return new Map();
   const photos = new Map<string, JourneyPhoto>(), unknown: string[] = [];
   for (const file of files) {
-    const hit = cache.get(file);
+    const hit = cache.get(`${width}:${file}`);
     if (hit && hit.until > Date.now()) { if (hit.photo) photos.set(file, hit.photo); }
     else unknown.push(file);
   }
   let result: Map<string, JourneyPhoto> | null = null;
-  if (active && unknown.some(file => active?.files.has(file))) result = await active.result;
+  if (active && active.width === width && unknown.some(file => active?.files.has(file))) result = await active.result;
   else if (unknown.length && !active && Date.now() >= cooldown && Date.now() >= nextStart) {
     if (Date.now() - windowStart >= 60_000) { windowStart = Date.now(); starts = 0; }
-    if (starts < 6) { starts++; nextStart = Date.now() + 1000; result = await startBatch(unknown); }
+    if (starts < 6) { starts++; nextStart = Date.now() + 1000; result = await startBatch(unknown, width); }
   }
   if (result) for (const file of files) { const photo = result.get(file); if (photo) photos.set(file, photo); }
-  return places.map(place => { const file = references.get(place.id), photo = file ? photos.get(file) : undefined; return photo ? { ...place, ...photo } : place; });
+  return photos;
 }

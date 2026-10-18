@@ -27,6 +27,7 @@ function host(){
   const slots=[];let cursor,dirty,effects;
   return {react:{
     useState(initial){const i=cursor++;if(!slots[i])slots[i]={value:typeof initial==='function'?initial():initial};return [slots[i].value,next=>{const value=typeof next==='function'?next(slots[i].value):next;if(!Object.is(value,slots[i].value)){slots[i].value=value;dirty=true;}}];},
+    useMemo(fn){return fn();},
     useRef(initial){const i=cursor++;if(!slots[i])slots[i]={current:initial};return slots[i];},
     useEffect(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((value,j)=>!Object.is(value,old.deps[j]))){slots[i]={...old,deps};effects.push(()=>{old?.cleanup?.();slots[i].cleanup=fn();});}},
   },render(fn,attach){for(let i=0;i<20;i++){cursor=0;dirty=false;effects=[];const tree=fn();attach?.(tree);effects.forEach(effect=>effect());if(!dirty)return tree;}throw Error('Render loop');},dispose(){slots.forEach(slot=>slot?.cleanup?.());}};
@@ -34,13 +35,15 @@ function host(){
 function harness({store=storage(),initialLocale='en'}={}){
   const hooks=host(),completed=[],listeners=new Map(),doc={activeElement:null};let locale=initialLocale,tree,buttons=[],theme='system';
   const prefs=load('mobile/src/lib/onboardingPreferences.ts',{}, {window:{localStorage:store}});
+  const passports={PASSPORTS:{TR:'',DE:'',AL:''},passportStatus:()=> 'unknown'};
+  const passportPreference=load('mobile/src/lib/passportPreference.ts',{'../../../lib/country-intelligence/passports':passports,'./locale':{translateCopy:()=>''}}, {window:{localStorage:store,dispatchEvent(){}},CustomEvent:class{}});
   const root={querySelectorAll:()=>buttons,addEventListener:(event,fn)=>listeners.set(event,fn),removeEventListener:event=>listeners.delete(event)};
   const heading={focus(){doc.activeElement=heading;}};
   const {Onboarding}=load('mobile/src/components/Onboarding.tsx',{
-    react:hooks.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Icon':{Icon:'Icon'},'./WelcomeArtwork':{WelcomeArtwork:'WelcomeArtwork'},'./TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},'../lib/useTheme':{useTheme:()=>({preference:theme,setPreference:value=>{theme=value;store.setItem('l2t-theme',value);}})},'./BrandMark':{BrandMark:'BrandMark'},'./LanguagePicker':{LanguageFlag:'LanguageFlag'},'../lib/locale':{APP_LOCALES:['tr','en','sq']},'../lib/onboardingPreferences':prefs,
+    react:hooks.react,'react/jsx-runtime':{jsx,jsxs:jsx},'./Icon':{Icon:'Icon'},'./WelcomeArtwork':{WelcomeArtwork:'WelcomeArtwork'},'./TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},'../lib/useTheme':{useTheme:()=>({preference:theme,setPreference:value=>{theme=value;store.setItem('l2t-theme',value);}})},'./BrandMark':{BrandMark:'BrandMark'},'./LanguagePicker':{LanguageFlag:'LanguageFlag'},'../lib/locale':{APP_LOCALES:['tr','en','sq']},'../lib/onboardingPreferences':prefs,'./CountryPicker':{CountryPicker:'CountryPicker'},'../../../lib/country-intelligence/passports':passports,'../lib/passportPreference':passportPreference,
     '../lib/i18n':{useI18n:()=>({locale,setLocale:value=>{locale=value;store.setItem('l2t-language-v1',value);},copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?sq:en})},
   },{document:doc});
-  const h={prefs,completed,store,doc,listeners,get buttons(){return buttons;},get tree(){return tree;},render(){tree=hooks.render(()=>Onboarding({onComplete:destination=>completed.push(destination)}),value=>{
+  const h={prefs,passportPreference,completed,store,doc,listeners,get buttons(){return buttons;},get tree(){return tree;},render(){tree=hooks.render(()=>Onboarding({onComplete:destination=>completed.push(destination)}),value=>{
     value.props.ref.current=root;
     nodes(value).find(node=>node.type==='h1').props.ref.current=heading;
     byClass(value,'welcome-body').props.ref.current={scrollTop:0};
@@ -70,6 +73,7 @@ test('Guest setup ends at real sign-in handoff and preserves intent and interest
     byClass(h.tree,'welcome-intent-list').props.children.find(node=>node.key==='route').props.onClick();h.render();
     h.click('Continue');h.click('Culture');h.click('Nature');
     assert.doesNotMatch(text(h.tree),/Your first step is ready|departure city/);
+    h.click('Continue');assert.match(text(h.tree),/Which passport will you travel with/);
     const finish=button(h.tree,'Sign in or create account');finish.props.onClick();finish.props.onClick();
     assert.deepEqual(h.completed,['route']);
     const fresh=load('mobile/src/lib/onboardingPreferences.ts',{}, {window:{localStorage:h.store}});
@@ -84,7 +88,7 @@ test('Theme cannot be silently skipped, optional intent and interests remain opt
     assert.match(text(h.tree),/Choose your appearance/,'A fast double tap cannot skip the theme question');assert.equal(button(h.tree,'Skip this step'),undefined);
     const back=button(h.tree,'Back');back.props.onClick();back.props.onClick();h.render();assert.match(text(h.tree),/Choose your language/);
     h.click('Continue');h.click('Continue');const skip=button(h.tree,'Skip this step');for(let i=0;i<6;i++)skip.props.onClick();h.render();
-    assert.match(text(h.tree),/What do you love on a trip/);h.click('Sign in or create account');
+    assert.match(text(h.tree),/What do you love on a trip/);h.click('Continue');h.click('Skip this step');
     assert.deepEqual(h.completed,['explore']);assert.deepEqual(JSON.parse(JSON.stringify(h.prefs.readWelcomePreferences())),{intent:null,interests:[]});
   }finally{h.dispose();}
 });
@@ -95,7 +99,7 @@ test('Interests cap at four and a removed choice frees a slot without losing oth
     for(const label of ['City','Culture','Food','Coast'])h.click(label);
     assert.equal(button(h.tree,'Nature').props.disabled,true);assert.match(text(h.tree),/4\/4 selected/);
     h.click('City');h.click('Nature');assert.equal(button(h.tree,'Culture').props['aria-pressed'],true);assert.equal(button(h.tree,'City').props.disabled,true);
-    h.click('Sign in or create account');
+    h.click('Continue');h.click('Sign in or create account');
     assert.deepEqual(JSON.parse(JSON.stringify(h.prefs.readWelcomePreferences().interests)),['Kültür','Yeme-içme','Deniz','Doğa']);
   }finally{h.dispose();}
 });
@@ -122,7 +126,7 @@ test('Corrupt preferences and blocked storage cannot break setup or mutate defau
   prefs.saveWelcomePreferences({intent:'companion',interests:['Deniz']});
   const input={vibe:['Şehir'],origin:'IST',destination:{code:'FCO'},mode:'fixed'};
   const next=prefs.withWelcomeInterests(input);assert.equal(next.vibe[0],'Deniz');assert.equal(input.vibe[0],'Şehir');assert.equal(next.destination,input.destination);
-  const h=harness({store:blocked});try{h.click('Continue');h.click('Continue');h.click('Skip this step');h.click('Sign in or create account');assert.equal(h.completed.length,1);}finally{h.dispose();}
+  const h=harness({store:blocked});try{h.click('Continue');h.click('Continue');h.click('Skip this step');h.click('Continue');h.click('Sign in or create account');assert.equal(h.completed.length,1);}finally{h.dispose();}
 });
 
 test('Existing onboarding completion survives the redesign and fresh installations complete under the same key',()=>{
@@ -173,4 +177,55 @@ test('Contextual guide stores bounded progress, can be reopened and survives blo
   api.saveGuideProgress({active:true,seen:[]});assert.equal(api.readGuideProgress().seen.length,0);
   const blocked=load('mobile/src/lib/appGuide.ts',{}, {window:{localStorage:{getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}},sessionStorage:{getItem(){throw Error('blocked');}}}});
   assert.equal(blocked.readWelcomeDestination(),null);blocked.saveGuideProgress({active:true,seen:['save']});assert.equal(blocked.readGuideProgress().seen[0],'save');
+});
+
+
+test('Optional passport asks for both fields and persists the selected travel document before sign-in',()=>{
+  const h=harness();try{
+    for(let i=0;i<4;i++)h.click('Continue');
+    assert.match(text(h.tree),/Which passport will you travel with/);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.passportPreference.readPassportPreference())),{country:'',type:''});
+    nodes(h.tree).find(n=>n.type==='CountryPicker').props.onChange('TR');h.render();
+    assert.equal(button(h.tree,'Sign in or create account').props.disabled,true);
+    nodes(h.tree).find(n=>n.type==='select').props.onChange({target:{value:'special'}});h.render();
+    h.click('Sign in or create account');
+    assert.deepEqual(JSON.parse(JSON.stringify(h.passportPreference.readPassportPreference())),{country:'TR',type:'special'});
+    assert.equal(h.completed.length,1);
+  }finally{h.dispose();}
+});
+
+test('Skipping an unfinished passport choice preserves a saved document and never invents nationality',()=>{
+  const store=storage({'l2t:passport-country':'TR','l2t:passport-type':'special'});
+  const h=harness({store});try{
+    for(let i=0;i<4;i++)h.click('Continue');
+    assert.equal(nodes(h.tree).find(n=>n.type==='select').props.value,'special');
+    nodes(h.tree).find(n=>n.type==='CountryPicker').props.onChange('DE');h.render();
+    h.click('Skip this step');
+    assert.deepEqual(JSON.parse(JSON.stringify(h.passportPreference.readPassportPreference())),{country:'TR',type:'special'});
+    assert.equal(store.getItem('l2t:passport-preference.v1'),null);
+  }finally{h.dispose();}
+});
+
+test('Passport storage failure keeps setup open with an explicit skip path and preserves the previous document',()=>{
+  const store=storage({'l2t:passport-country':'AL','l2t:passport-type':'ordinary'}),h=harness({store});
+  try{
+    for(let i=0;i<4;i++)h.click('Continue');
+    nodes(h.tree).find(n=>n.type==='CountryPicker').props.onChange('TR');h.render();
+    store.setItem=()=>{throw Error('quota');};
+    h.click('Sign in or create account');
+    assert.equal(h.completed.length,0);assert.match(text(h.tree),/could not be saved/);
+    assert.equal(h.passportPreference.readPassportPreference().country,'AL');
+    h.click('Skip this step');assert.equal(h.completed.length,1);
+  }finally{h.dispose();}
+});
+
+test('Passport question and field labels follow Turkish and Albanian without changing existing completion storage',()=>{
+  for(const [locale,next,heading] of [['tr','Devam et','Hangi pasaportla'],['sq','Vazhdo','Me cilën pasaportë']]){
+    const h=harness({initialLocale:locale});try{
+      for(let i=0;i<4;i++)h.click(next);
+      assert.ok(text(h.tree).includes(heading));
+      assert.ok(nodes(h.tree).find(n=>n.type==='CountryPicker').props.label);
+      assert.equal(nodes(h.tree).find(n=>n.type==='select').props.value,'');
+    }finally{h.dispose();}
+  }
 });

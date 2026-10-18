@@ -429,13 +429,58 @@ function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" | "sq" = "tr"): R
   };
 }
 
-export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr") {
-  const response = await requestJson<{ success: boolean; data: unknown; isFallback?: boolean }>("/api/ai-plan", {
-    method: "POST",
-    body: { ...input, locale },
-    timeoutMs: 60_000,
-  });
-  return { ...response, data: sanitizeRoutePlan(response.data, locale) };
+type PlannerReceipt={id:string;fingerprint:string;createdAt:number};
+const plannerReceipts=new Map<string,PlannerReceipt>();
+const plannerReceiptKey=(ownerId:string)=>`l2t.mobile.ai-plan-operation.v1.${encodeURIComponent(ownerId)}`;
+const validPlannerReceipt=(value:unknown):value is PlannerReceipt=>{
+  const row=value as PlannerReceipt|null,age=Date.now()-Number(row?.createdAt);
+  return !!row&&typeof row.id==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(row.id)
+    &&typeof row.fingerprint==='string'&&/^[a-f0-9]{64}$/.test(row.fingerprint)&&age>=0&&age<24*3600_000;
+};
+function readPlannerReceipt(ownerId:string) {
+  const memory=plannerReceipts.get(ownerId);if(validPlannerReceipt(memory))return memory;
+  try{const saved:unknown=JSON.parse(window.localStorage.getItem(plannerReceiptKey(ownerId))||'null');return validPlannerReceipt(saved)?saved:null;}catch{return null;}
+}
+export const hasPendingRoutePlan=(ownerId:string|null|undefined)=>!!ownerId&&!!readPlannerReceipt(ownerId);
+async function plannerFingerprint(input:PlannerInput,locale:string) {
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({...input,locale})));
+  return Array.from(new Uint8Array(bytes),value=>value.toString(16).padStart(2,'0')).join('');
+}
+export async function hasRoutePlanRecovery(input:PlannerInput,locale:string,ownerId:string) {
+  return readPlannerReceipt(ownerId)?.fingerprint===await plannerFingerprint(input,locale);
+}
+export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr", account?:{ownerId:string;accessToken:string;signal?:AbortSignal}) {
+  if(!account?.ownerId||!account.accessToken)throw new ApiError(apiCopy('Giriş yapıp devam et.','Sign in to continue.','Hyr dhe vazhdo.'),401,'plan_sign_in');
+  const fingerprint=await plannerFingerprint(input,locale),saved=readPlannerReceipt(account.ownerId);
+  const receipt=saved?.fingerprint===fingerprint?saved:{id:crypto.randomUUID(),fingerprint,createdAt:Date.now()};
+  plannerReceipts.set(account.ownerId,receipt);if(plannerReceipts.size>32)plannerReceipts.delete(plannerReceipts.keys().next().value!);
+  try{window.localStorage.setItem(plannerReceiptKey(account.ownerId),JSON.stringify(receipt));}catch{/* Same-session retries remain safe. */}
+  const clear=()=>{
+    if(plannerReceipts.get(account.ownerId)?.id===receipt.id)plannerReceipts.delete(account.ownerId);
+    try{if(JSON.parse(window.localStorage.getItem(plannerReceiptKey(account.ownerId))||'null')?.id===receipt.id)window.localStorage.removeItem(plannerReceiptKey(account.ownerId));}catch{/* Never reset unrelated records. */}
+  };
+  const deadline=Date.now()+60_000;
+  for(;;){
+    account.signal?.throwIfAborted();
+    try{
+      const response=await requestJson<{success:boolean;data:unknown;isFallback?:boolean}>("/api/ai-plan",{
+        method:'POST',body:{...input,locale},headers:{Authorization:`Bearer ${account.accessToken}`,'Idempotency-Key':receipt.id},signal:account.signal,timeoutMs:Math.max(1,deadline-Date.now()),
+      });
+      const data=sanitizeRoutePlan(response.data,locale);
+      // Success keeps its receipt for 24 hours so an unsaved result can be
+      // recovered after reload without spending another daily allowance.
+      return {...response,data};
+    }catch(error){
+      const code=error instanceof ApiError?error.code:'';
+      if(code==='plan_expired'||code==='plan_conflict')clear();
+      if(code!=='plan_pending'||Date.now()+1500>=deadline)throw error;
+      await new Promise<void>((resolve,reject)=>{
+        const cleanup=()=>{clearTimeout(timer);account.signal?.removeEventListener('abort',abort);};
+        const abort=()=>{cleanup();reject(account.signal?.reason);};
+        const timer=setTimeout(()=>{cleanup();resolve();},1500);account.signal?.addEventListener('abort',abort,{once:true});if(account.signal?.aborted)abort();
+      });
+    }
+  }
 }
 
 export async function checkApiHealth() {

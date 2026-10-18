@@ -19,7 +19,7 @@ func journeyMapPhotoURL(_ raw: Any?) -> URL? {
         guard let separator = path[7].range(of: "px-") else { return nil }
         let widthText = String(path[7][..<separator.lowerBound])
         guard widthText.range(of: "^[1-9][0-9]{0,2}$", options: .regularExpression) != nil,
-              let width = Int(widthText), width <= 640, journeyRasterName(String(path[7][separator.upperBound...])) == file else { return nil }
+              let width = Int(widthText), (width <= 640 || width == 960), journeyRasterName(String(path[7][separator.upperBound...])) == file else { return nil }
     }
     return parts.url
 }

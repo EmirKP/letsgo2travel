@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, Wallet, Plane, CheckCircle2, ChevronRight, Users, MapPin,
@@ -10,6 +10,7 @@ import Link from "next/link";
 import Image from "next/image";
 import PlaneLoader from "../components/PlaneLoader";
 import AiDestinationCard from "../components/AiDestinationCard";
+import { supabase } from "@/lib/supabase-client";
 
 // Types
 export interface AiRouteResult {
@@ -50,6 +51,27 @@ export interface AiPlanResponse {
 }
 
 type Step = "welcome" | "origin" | "time" | "budget" | "who" | "vibe" | "loading" | "result" | "error";
+type PlannerAnswers = { origin: string; days: string; month: string; budget: string; accommodation: string; who: string; tempo: string; vibe: string[]; visa: string };
+type WebPlanRecovery = { owner: string; id: string; fingerprint: string; createdAt: number; answers: PlannerAnswers };
+const operationStorageKey = (owner: string) => "l2t.web.ai-route-operation.v1." + encodeURIComponent(owner);
+function readWebPlanRecovery(owner: string): WebPlanRecovery | null {
+  for (const suffix of [".completed", ""]) {
+    try {
+      const text = sessionStorage.getItem(operationStorageKey(owner) + suffix);
+      if (!text || text.length > 12000) continue;
+      const saved = JSON.parse(text), value = saved?.answers;
+      if (!saved || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(saved.id)
+        || !/^[a-f0-9]{64}$/.test(saved.fingerprint) || !Number.isFinite(saved.createdAt)
+        || Date.now() - saved.createdAt < 0 || Date.now() - saved.createdAt >= 86400000 || !value || typeof value !== "object"
+        || ["origin", "days", "month", "budget", "accommodation", "who", "tempo", "visa"].some(key => typeof value[key] !== "string" || value[key].length > 300)
+        || !Array.isArray(value.vibe) || value.vibe.length > 20 || value.vibe.some((item: unknown) => typeof item !== "string" || item.length > 100)) continue;
+      const answers: PlannerAnswers = { origin: value.origin, days: value.days, month: value.month, budget: value.budget,
+        accommodation: value.accommodation, who: value.who, tempo: value.tempo, vibe: value.vibe, visa: value.visa };
+      return { owner, id: saved.id, fingerprint: saved.fingerprint, createdAt: saved.createdAt, answers };
+    } catch { /* Corrupt, expired and unavailable local receipts are optional. */ }
+  }
+  return null;
+}
 
 export default function AIPlannerPage() {
   const [step, setStep] = useState<Step>("welcome");
@@ -69,9 +91,37 @@ export default function AIPlannerPage() {
   const [result, setResult] = useState<AiPlanResponse | null>(null);
   const [isFallback, setIsFallback] = useState(false);
   const [lastPromptStr, setLastPromptStr] = useState("");
-  const [cooldown, setCooldown] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<AiRouteResult | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [planError, setPlanError] = useState("");
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [recovery, setRecovery] = useState<WebPlanRecovery | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const ownerRef = useRef<string | null>(null);
+  const authRevisionRef = useRef(0);
+  const resultOwnerRef = useRef<string | null>(null);
+  const operationRef = useRef<{ owner: string; id: string; fingerprint: string; createdAt: number } | null>(null);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const owner = session?.user.id || null;
+      // Initial session delivery can race the first getSession call. Establish
+      // that baseline without cancelling a matching preset request; its result
+      // still has to match this owner before any provider request begins.
+      if (event === "INITIAL_SESSION" && ownerRef.current === null && owner !== null) { ownerRef.current = owner; setRecovery(readWebPlanRecovery(owner)); return; }
+      if (ownerRef.current !== owner || event === "SIGNED_OUT" || event === "INITIAL_SESSION" && owner === null) {
+        authRevisionRef.current++;
+        requestRef.current?.abort();
+        requestRef.current = null;
+        resultOwnerRef.current = null; operationRef.current = null;
+        setResult(null); setSelectedRoute(null); setLastPromptStr("");
+        setPlanError(""); setIsRefreshing(false); setStep("welcome");
+        setRecovery(owner ? readWebPlanRecovery(owner) : null);
+      }
+      ownerRef.current = owner;
+    });
+    return () => { requestRef.current?.abort(); requestRef.current = null; data.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -131,174 +181,86 @@ export default function AIPlannerPage() {
     });
   };
 
-  async function generatePlan(finalAnswers: typeof answers) {
-    const promptStr = JSON.stringify(finalAnswers);
-    
-    // Cooldown & cache check
-    if (cooldown) {
-      setStep("result");
-      return;
-    }
-    if (result && promptStr === lastPromptStr) {
-      setStep("result");
-      return;
-    }
-
-    setCooldown(true);
-    setTimeout(() => setCooldown(false), 3000); // 3 sec cooldown to prevent spam
-    setLastPromptStr(promptStr);
-    setIsFallback(false);
-
-    const controller = new AbortController();
-    // Sunucu kendi yapay zekâ isteğini 18 saniyede güvenli yedeğe düşürür.
-    // Tarayıcı süresi daha uzun tutulur; soğuk başlangıçta çalışan yanıtı erken kesmez.
-    const timeoutId = window.setTimeout(() => controller.abort(), 40_000);
-
+  async function generatePlan(finalAnswers: typeof answers, recovering?: WebPlanRecovery) {
+    if (requestRef.current) return;
+    const controller = new AbortController(); requestRef.current = controller;
+    const authRevision = authRevisionRef.current;
+    let requestOwner: string | null = null;
+    const current = () => requestRef.current === controller && authRevisionRef.current === authRevision
+      && (requestOwner === null || ownerRef.current === requestOwner);
+    const active = () => {
+      if (!current()) return false;
+      if (controller.signal.aborted) throw Object.assign(new Error("request_timeout"), { name: "AbortError" });
+      return true;
+    };
+    const timeoutId = window.setTimeout(() => controller.abort(), 55_000);
+    let destinationStep: Step = "error";
+    let operationKey = "";
+    setPlanError(""); setNeedsSignIn(false);
     try {
-      const startTime = Date.now();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!active()) return;
+      if (!session) { setNeedsSignIn(true); throw new Error("Günde 1 ücretsiz AI rotası oluşturmak için hesabına giriş yap. Seçimlerin bu ekranda korunuyor."); }
+      if (ownerRef.current !== null && ownerRef.current !== session.user.id) { destinationStep = "welcome"; return; }
+      requestOwner = session.user.id; ownerRef.current = session.user.id;
+      setRecovery(readWebPlanRecovery(session.user.id));
+      const promptStr = JSON.stringify(finalAnswers);
+      if (result && resultOwnerRef.current === session.user.id && !isFallback && promptStr === lastPromptStr) { destinationStep = "result"; return; }
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(promptStr));
+      if (!active()) return;
+      const fingerprint = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+      operationKey = operationStorageKey(session.user.id);
+      let operation = { id: crypto.randomUUID() as string, fingerprint, createdAt: Date.now() };
+      if (operationRef.current?.owner === session.user.id && operationRef.current.fingerprint === fingerprint
+        && Date.now() - operationRef.current.createdAt < 86400000) operation = operationRef.current;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(operationKey) || "null");
+        if (saved && saved.fingerprint === fingerprint && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(saved.id)
+          && Number.isFinite(saved.createdAt) && Date.now() - saved.createdAt >= 0 && Date.now() - saved.createdAt < 86400000) operation = saved;
+      } catch { /* A single request remains possible when storage is unavailable. */ }
+      if (recovering?.owner === session.user.id && recovering.fingerprint === fingerprint && Date.now() - recovering.createdAt >= 0
+        && Date.now() - recovering.createdAt < 86400000) operation = recovering;
+      const submitted = { id: operation.id, fingerprint, createdAt: operation.createdAt, answers: finalAnswers };
+      const serializedSubmission = JSON.stringify(submitted);
+      try { if (serializedSubmission.length <= 12000) sessionStorage.setItem(operationKey, serializedSubmission); } catch { /* The in-memory request remains usable. */ }
+      operationRef.current = { ...operation, owner: session.user.id };
       const response = await fetch("/api/ai-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: promptStr,
-        signal: controller.signal,
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token, "Idempotency-Key": operation.id },
+        body: promptStr, signal: controller.signal,
       });
-      
+      if (!active()) return;
       const data = await response.json();
-
+      if (!active()) return;
       if (!response.ok) {
-        throw new Error(data.error || `Plan servisi HTTP ${response.status} döndürdü.`);
+        if (response.status === 401) setNeedsSignIn(true);
+        if (data.code === "plan_expired" || data.code === "plan_conflict") { operationRef.current = null; try { sessionStorage.removeItem(operationKey); } catch { /* No storage reset. */ } }
+        const reset = typeof data.quota?.resetAt === "string" ? new Date(data.quota.resetAt) : null;
+        const resetText = reset && Number.isFinite(reset.getTime()) ? reset.toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "bir sonraki günlük yenilenmede";
+        throw new Error(data.code === "plan_limit" ? "Bugünkü rota hakkını kullandın. Yeni hakkın: " + resetText + ". Mevcut planlarını düzenleyebilirsin."
+          : data.code === "plan_pending" ? "Rotan hâlâ hazırlanıyor. Biraz bekleyip aynı seçimlerle tekrar dene."
+          : data.code === "plan_request_too_large" ? "Bu rota isteği ücretsiz işlem kapasitesini aşıyor. Gün sayısını veya notlarını azaltıp tekrar dene. Seçimlerin ve önceki planın korundu; günlük hakkın kullanılmadı."
+          : response.status === 401 ? "Devam etmek için hesabına giriş yap. Seçimlerin korundu."
+          : "Rota şu an oluşturulamadı. Seçimlerin ve önceki planın korundu; aynı seçimlerle tekrar deneyebilirsin.");
       }
-      
-      // Zorunlu 2 saniye loading beklemesi (Premium hissiyat)
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 2500) {
-        await new Promise(resolve => setTimeout(resolve, 2500 - elapsed));
+      if (!data?.success || !data.data || !Array.isArray(data.data.routes) || !data.data.routes.length) throw new Error("Plan yanıtı doğrulanamadı. Seçimlerin korundu; tekrar deneyebilirsin.");
+      setResult(data.data); setIsFallback(data.isFallback === true); setLastPromptStr(promptStr);
+      // Keep the receipt identity for its existing 24-hour window. Reloading
+      // can recover this server result without spending a second allowance.
+      resultOwnerRef.current = session.user.id;
+      if (data.isFallback !== true) {
+        try { if (serializedSubmission.length <= 12000) sessionStorage.setItem(operationKey + ".completed", serializedSubmission); } catch { /* Keep the visible result even if storage is blocked. */ }
+        setRecovery({ ...submitted, owner: session.user.id });
       }
-
-      if (data && data.success && data.data) {
-        setResult(data.data);
-        setIsFallback(data.isFallback || false);
-      } else {
-        throw new Error(data.error || "Bilinmeyen API hatası");
-      }
+      setSelectedRoute(null); destinationStep = "result";
     } catch (error) {
-      console.error("Plan generation error:", error);
-      // Generate client-side fallback just in case the server fails to return its own fallback
-      setResult(getFallbackData(finalAnswers));
-      setIsFallback(true);
+      if (!current()) return;
+      setPlanError(error instanceof Error && error.name !== "AbortError" ? error.message : "İstek zamanında tamamlanamadı. Aynı seçimlerle tekrar dene; varsa hazırlanmış rotan geri alınır.");
+      destinationStep = result ? "result" : "error";
     } finally {
       window.clearTimeout(timeoutId);
-      setSelectedRoute(null);
-      setStep("result");
-      setIsRefreshing(false);
+      if (current()) { requestRef.current = null; setStep(destinationStep); setIsRefreshing(false); }
     }
   }
-
-  const getFallbackData = (fallbackAnswers: typeof answers): AiPlanResponse => {
-    const identityOnly = fallbackAnswers.visa.toLocaleLowerCase("tr-TR").includes("kimlikle");
-    const sourceUrl = "https://www.mfa.gov.tr/turk-vatandaslarinin-tabi-oldugu-vize-uygulamalari.tr.mfa";
-    const baseRoute = {
-      estimatedBudget: fallbackAnswers.budget
-        ? `Hedef bütçe: ${fallbackAnswers.budget}`
-        : "Seçilen tarihler için ayrıca hesaplanmalı",
-      idealDuration: fallbackAnswers.days || "3 gün",
-      difficulty: "Kolay",
-      firstTimeFriendly: true,
-      transportEase: "Kolay",
-      scores: { budget: 8, visaEase: 9, firstTime: 9, transport: 8, overall: 88 },
-      warnings: [
-        "Fiyatlar canlı değildir; uçuş ve konaklama tutarlarını tarihler için yeniden kontrol et.",
-        "Giriş kurallarını bilet almadan önce resmî kaynaktan yeniden doğrula.",
-      ],
-      cta: {
-        guideText: "Rehberi gör",
-        forumText: "Forumda soru sor",
-      },
-      visaSourceUrl: sourceUrl,
-      visaVerifiedAt: "2026-08-05",
-    };
-    const identityRoutes: AiRouteResult[] = [
-      {
-        ...baseRoute,
-        name: "Bakü",
-        country: "Azerbaycan",
-        cityOrRegion: "Bakü",
-        why: "Türkiye'den doğrudan seyahatte kimlik kartı kolaylığı ve kısa uçuş süresiyle pratik bir rota.",
-        visaStatus: "Kimlikle giriş",
-        visaNote: "Turistik amaçla Türkiye'den doğrudan girişte yeni tip T.C. kimlik kartı kullanılabilir.",
-        bestFor: "Kimlikle seyahat ve şehir gezisi",
-        safetyNote: "Resmî taksileri veya uygulama üzerinden çağrılan araçları tercih et.",
-        dailyPlan: ["1. Gün: İçerişehir ve sahil", "2. Gün: Haydar Aliyev Merkezi", "3. Gün: Nizami Caddesi ve dönüş"],
-      },
-      {
-        ...baseRoute,
-        name: "Tiflis",
-        country: "Gürcistan",
-        cityOrRegion: "Tiflis",
-        why: "Kimlik kartıyla giriş ve güçlü gastronomi rotasıyla kolay planlanabilir bir şehir kaçamağı.",
-        visaStatus: "Kimlikle giriş",
-        visaNote: "Yeni tip T.C. kimlik kartıyla giriş mümkündür; 1 Ocak 2026'dan beri seyahat sigortası zorunludur.",
-        bestFor: "Ekonomik keşif ve gastronomi",
-        safetyNote: "Seyahat tarihlerini kapsayan zorunlu sağlık ve kaza sigortasını hazır tut.",
-        dailyPlan: ["1. Gün: Eski Tiflis", "2. Gün: Narikala ve Rustaveli", "3. Gün: Yerel pazar ve dönüş"],
-      },
-      {
-        ...baseRoute,
-        name: "Kişinev",
-        country: "Moldova",
-        cityOrRegion: "Kişinev",
-        why: "Kimlik kartıyla seyahat seçeneği ve sakin şehir temposuyla kısa bir rota sunar.",
-        visaStatus: "Kimlikle giriş",
-        visaNote: "Yeni tip T.C. kimlik kartıyla seyahat mümkündür; taşıyıcının belge koşullarını da kontrol et.",
-        bestFor: "Sakin hafta sonu ve ilk yurt dışı",
-        safetyNote: "Güncel bölgesel seyahat uyarılarını ayrıca kontrol et.",
-        dailyPlan: ["1. Gün: Şehir merkezi", "2. Gün: Müze ve gastronomi", "3. Gün: Parklar ve dönüş"],
-      },
-    ];
-    const visaFreeRoutes: AiRouteResult[] = [
-      {
-        ...baseRoute,
-        name: "Saraybosna",
-        country: "Bosna-Hersek",
-        cityOrRegion: "Saraybosna",
-        why: "Vizesiz giriş, yürüyerek keşfedilebilen merkez ve kültürel zenginliğiyle güçlü bir başlangıç rotası.",
-        visaStatus: "Vizesiz",
-        visaNote: "T.C. umuma mahsus pasaport hamilleri 180 gün içinde 90 güne kadar vizeden muaftır; pasaport gerekir.",
-        bestFor: "İlk yurt dışı ve kültür gezisi",
-        safetyNote: "Kalabalık turistik alanlarda standart kişisel güvenlik önlemlerini al.",
-        dailyPlan: ["1. Gün: Başçarşı ve Latin Köprüsü", "2. Gün: Umut Tüneli", "3. Gün: Vrelo Bosne ve dönüş"],
-      },
-      {
-        ...baseRoute,
-        name: "Üsküp",
-        country: "Kuzey Makedonya",
-        cityOrRegion: "Üsküp",
-        why: "Vizesiz giriş ve kısa uçuş süresi sayesinde hafta sonu için uygulanabilir bir Balkan rotası.",
-        visaStatus: "Vizesiz",
-        visaNote: "T.C. umuma mahsus pasaport hamilleri 90 güne kadar vizeden muaftır; pasaport gerekir.",
-        bestFor: "Kısa kaçamak ve Balkan kültürü",
-        safetyNote: "Gece geç saatlerde merkezi ulaşım noktalarını tercih et.",
-        dailyPlan: ["1. Gün: Taş Köprü ve Eski Çarşı", "2. Gün: Matka Kanyonu", "3. Gün: Vodno ve dönüş"],
-      },
-      {
-        ...baseRoute,
-        name: "Belgrad",
-        country: "Sırbistan",
-        cityOrRegion: "Belgrad",
-        why: "Vizesiz giriş ve güçlü toplu taşıma ağıyla arkadaş grupları için dengeli bir seçenek.",
-        visaStatus: "Vizesiz",
-        visaNote: "T.C. umuma mahsus pasaport hamilleri kısa turistik seyahatlerde vizeden muaftır; pasaport gerekir.",
-        bestFor: "Şehir hayatı ve arkadaşlarla gezi",
-        safetyNote: "Kalabalık ulaşım araçlarında çanta ve telefon güvenliğine dikkat et.",
-        dailyPlan: ["1. Gün: Knez Mihailova", "2. Gün: Zemun", "3. Gün: Aziz Sava ve dönüş"],
-      },
-    ];
-
-    return {
-      summary: "Bağlantı geciktiği için doğrulanmış giriş kuralları kullanılan güvenli yedek rotaları gösteriyoruz.",
-      routes: identityOnly ? identityRoutes : visaFreeRoutes,
-    };
-  };
 
   const quickStarts = [
     { label: "İlk kez yurt dışına çıkacağım", detail: "Kolay ve güvenli başlangıç", data: { origin: "İstanbul", days: "3 gün", month: "Fark etmez", budget: "15.000 TL altı", accommodation: "Orta seviye", who: "Arkadaşlarla", tempo: "Rahat gezi", vibe: ["İlk kez yurt dışı", "Güvenli aile rotası"], visa: "Sadece vizesiz" } },
@@ -708,7 +670,7 @@ export default function AIPlannerPage() {
             onClick={() => {
               setIsRefreshing(true);
               // Force cooldown bypass and reset for refresh
-              setCooldown(false);
+
               setLastPromptStr("");
               generatePlan(answers);
             }} 
@@ -736,6 +698,16 @@ export default function AIPlannerPage() {
   return (
     <div className="l2t-page l2t-route-v27">
       <div className="l2t-wrap l2t-route-v27-stage">
+        <p>Hesabınla günde 1 ücretsiz AI rotası oluşturabilirsin. Mevcut rotaları açmak ve elle düzenlemek bu hakkı kullanmaz.</p>
+        {recovery && <button className="l2t-btn l2t-btn-outline" disabled={step === "loading"} onClick={() => {
+          setAnswers(recovery.answers); setStep("loading"); void generatePlan(recovery.answers, recovery);
+        }}>Önceki rotamı geri aç — günlük hakkımı kullanmadan</button>}
+        {planError && <div role="alert" className="l2t-route-v27-step-head" style={{ padding: 20, display: "grid", gap: 12 }}>
+          <p>{planError}</p>
+          {needsSignIn && <Link href="/auth/login?next=%2Frota-asistani" target="_blank" rel="noopener noreferrer">Giriş yap — ardından bu ekrana dön</Link>}
+          <button className="l2t-btn" onClick={() => { setStep("loading"); void generatePlan(answers); }}>Aynı seçimlerle tekrar dene</button>
+          <button className="l2t-btn l2t-btn-outline" onClick={() => { setPlanError(""); setStep("origin"); }}>Seçimlerimi düzenle</button>
+        </div>}
         <AnimatePresence mode="wait">
           {step === "welcome" && renderWelcome()}
           {step === "origin" && renderOrigin()}

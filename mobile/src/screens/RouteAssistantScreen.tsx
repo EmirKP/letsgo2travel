@@ -1,3 +1,4 @@
+import { formatAppDate } from '../lib/localeFormatting';
 import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "../components/Sheet";
 import { LazyOverlay } from "../components/LazyOverlay";
@@ -14,7 +15,9 @@ import { normalizePlannerPreferences, validTravelParty, type TravelTier } from "
 import { destinationArtwork } from "../data/artwork";
 import type { AirportOption } from "../lib/airports";
 import { createFallbackPlan, routeByDestinationCode } from "../data/routes";
-import { generateRoutePlan } from "../lib/api";
+import { generateRoutePlan, hasPendingRoutePlan, hasRoutePlanRecovery } from "../lib/api";
+import { loadJourneyPlanQuota, type JourneyPlanQuota } from '../lib/journeyPlanClient';
+import { preparePlannerSignInDraft, takePlannerSignInDraft, readPlannerRecoveryDraft, savePlannerRecoveryDraft, type PlannerRecoveryDraft } from '../lib/plannerSignInDraft';
 import { hapticSuccess } from "../lib/native";
 import { openExternal } from "../lib/native";
 import { snapshotPlannerInput } from "../lib/plannerState";
@@ -58,9 +61,10 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
+export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
+  onOpenAccount?: () => void;
   surpriseRoute?: RouteSuggestion | null;
   routeSeedKind?: "surprise" | "explore";
   ownerId?: string | null;
@@ -69,8 +73,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   mapRequestId?: number;
 }) {
   const { copy, locale } = useI18n();
-  const [mapPlannerOpen, setMapPlannerOpen] = useState(!surpriseRoute);
-  const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const [signInDraft]=useState(()=>!surpriseRoute&&hasPendingRoutePlan(ownerId)?readPlannerRecoveryDraft(ownerId):null);
+  const signInHandled=useRef<string|null>(null);
+  const [mapPlannerOpen, setMapPlannerOpen] = useState(!surpriseRoute&&!signInDraft);
+  const [discoveryOpen, setDiscoveryOpen] = useState(!!signInDraft);
   const appliedMapRequest = useRef(mapRequestId);
 
   useEffect(() => {
@@ -80,10 +86,16 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   }, [mapRequestId]);
   const passport = usePassportPreference();
   const selectedPassport = { passportCountry: passport.country, passportType: passport.type };
-  const [form, setForm] = useState<PlannerInput>(() => withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
+  const [form, setForm] = useState<PlannerInput>(() => signInDraft?.form || withWelcomeInterests(placeName ? { ...INITIAL, mode: "fixed" } : INITIAL));
   const [plannerTab, setPlannerTab] = useState<"plan" | "ready" | "preferences">("plan");
-  const [originAirport, setOriginAirport] = useState<AirportOption | null>(null);
-  const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(null);
+  const [originAirport, setOriginAirport] = useState<AirportOption | null>(signInDraft?.origin || null);
+  const [destinationAirport, setDestinationAirport] = useState<AirportOption | null>(signInDraft?.destination || null);
+  useEffect(()=>{
+    if(!ownerId||signInHandled.current===ownerId)return;
+    signInHandled.current=ownerId;
+    const pending=takePlannerSignInDraft(ownerId);
+    if(pending){setForm(snapshotPlannerInput(pending.form));setOriginAirport(pending.origin);setDestinationAirport(pending.destination);setMapPlannerOpen(false);setDiscoveryOpen(true);}
+  },[ownerId]);
   const [editingRoute, setEditingRoute] = useState<number | null>(null);
   const [editStops, setEditStops] = useState<string[]>([]);
   const [newStop, setNewStop] = useState("");
@@ -108,6 +120,25 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   const saving = useRef(false);
   const generating = useRef(false);
   const generationVersion = useRef(0);
+  const generationAbort=useRef<AbortController|null>(null);
+  const quotaIdentity=ownerId&&accessToken?`${ownerId}:${accessToken}`:'';
+  const [quotaRefresh,setQuotaRefresh]=useState(0);
+  const [allowance,setAllowance]=useState<{identity:string;state:'loading'|'ready'|'error'|'sign-in';data?:JourneyPlanQuota}>({identity:quotaIdentity,state:'loading'});
+  const quota=allowance.identity===quotaIdentity&&allowance.state==='ready'&&allowance.data?allowance.data:null;
+  const needsSignIn=!quotaIdentity||allowance.identity===quotaIdentity&&allowance.state==='sign-in';
+  const canRecover=hasPendingRoutePlan(ownerId);
+  useEffect(()=>{
+    generationVersion.current++;generationAbort.current?.abort();generating.current=false;setLoading(false);
+    return()=>{generationVersion.current++;generationAbort.current?.abort();};
+  },[ownerId,accessToken,locale]);
+  useEffect(()=>{
+    if(mapPlannerOpen||!quotaIdentity)return;
+    let current=true;const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
+    setAllowance({identity:quotaIdentity,state:'loading'});
+    void loadJourneyPlanQuota(accessToken,controller.signal).then(data=>{if(current){setAllowance({identity:quotaIdentity,state:'ready',data});timer=setTimeout(()=>{if(current)setQuotaRefresh(value=>value+1);},Math.max(1,Date.parse(data.resetAt)-Date.now()+500));}})
+      .catch(error=>{if(current)setAllowance({identity:quotaIdentity,state:['plan_sign_in','unauthorized'].includes(String(error?.code))?'sign-in':'error'});});
+    return()=>{current=false;controller.abort();if(timer)clearTimeout(timer);};
+  },[quotaIdentity,accessToken,mapPlannerOpen,quotaRefresh]);
   const appliedSeed = useRef<RouteSuggestion | null>(null);
   const plan = useMemo(() => rawPlan ? { ...rawPlan, routes: rawPlan.routes.map(route => ({ ...route, ...plannerEntry(normalizePlannerPassport(planInput), route.country, locale) })) } : null, [rawPlan, planInput, locale]);
   const selectedRoute = (source === "explore" || source === "surprise") && plan?.routes.length === 1 ? plan.routes[0] : null;
@@ -153,6 +184,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     // A newly chosen route owns the screen even if its previous request is
     // still in flight. Allow a new request without the old one clearing it.
     generationVersion.current += 1;
+    generationAbort.current?.abort();
     generating.current = false;
     setLoading(false);
     setGenerationError("");
@@ -205,11 +237,11 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     setForm((current) => ({ ...current, vibe: exists ? current.vibe.filter((item) => item !== vibe) : [...current.vibe, vibe] }));
   };
 
-  const generate = async () => {
+  const generate = async (recovery?:PlannerRecoveryDraft) => {
     if (generating.current) return;
     setSubmitted(true);
     const firstMissing = Object.keys(validation)[0];
-    if (firstMissing) {
+    if (firstMissing&&!recovery) {
       setPlannerTab(firstMissing === "interests" ? "preferences" : "plan");
       requestAnimationFrame(() => {
         const field = formFields.current?.querySelector<HTMLElement>(`[data-planner-field="${firstMissing}"]`);
@@ -219,10 +251,16 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       });
       return;
     }
+    if(needsSignIn){
+      if(!ownerId)preparePlannerSignInDraft({form:snapshotPlannerInput(form),origin:originAirport,destination:destinationAirport});
+      onOpenAccount?.();return;
+    }
     generating.current = true;
+    const controller=new AbortController();generationAbort.current=controller;
     const requestVersion = ++generationVersion.current;
     const isCurrentRequest = () => requestVersion === generationVersion.current;
-    const requestInput = snapshotPlannerInput({ ...form, ...selectedPassport, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
+    const requestLocale=recovery?.locale||locale;
+    const requestInput = recovery?snapshotPlannerInput(recovery.form):snapshotPlannerInput({ ...form, ...selectedPassport, days: `${form.dayCount} gün`, ...(form.mode !== "fixed" ? { destination: undefined } : {}) });
     const starter = () => {
       if (requestInput.mode === "fixed" && requestInput.destination) return fixedDestinationStarter(requestInput, locale);
       const fallback = createFallbackPlan(requestInput, locale);
@@ -234,7 +272,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
     setLoading(true);
     setGenerationError("");
     try {
-      const response = await generateRoutePlan(requestInput, locale);
+      if((!quota||quota.remaining===0)&&!await hasRoutePlanRecovery(requestInput,requestLocale,ownerId!))throw Object.assign(Error('allowance'),{code:quota?'plan_limit':'plan_quota_unavailable'});
+      if(!isCurrentRequest()||controller.signal.aborted)return;
+      savePlannerRecoveryDraft(ownerId!,{form:requestInput,origin:recovery?.origin??originAirport,destination:recovery?.destination??destinationAirport,locale:requestLocale});
+      const response = await generateRoutePlan(requestInput, requestLocale,{ownerId:ownerId!,accessToken,signal:controller.signal});
       if (!isCurrentRequest()) return;
       const routes = response.data?.routes;
       // A provider fallback or an unusable response is not a successful refresh.
@@ -248,8 +289,18 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       setExpanded(routes[0]?.name || "");
       setEditingRoute(null);
       await hapticSuccess();
-    } catch {
+    } catch (failure) {
       if (!isCurrentRequest()) return;
+      const code=failure&&typeof failure==='object'&&'code' in failure?String(failure.code):'';
+      if(['plan_limit','plan_sign_in','unauthorized','plan_quota_unavailable','plan_pending','plan_request_too_large'].includes(code)){
+        if(code==='plan_sign_in'||code==='unauthorized')setAllowance({identity:quotaIdentity,state:'sign-in'});
+        setGenerationError(code==='plan_limit'?copy('Bugünkü AI rota hakkın kullanılamıyor. Yenilenme zamanını aşağıda görebilirsin. Mevcut planını ücretsiz düzenleyip kaydedebilirsin.','Today’s AI itinerary allowance is unavailable. See the reset time below. You can edit and save your existing plan for free.','E drejta e sotme për itinerar me AI nuk është e disponueshme. Shiko kohën e rinovimit më poshtë. Planin ekzistues mund ta ndryshosh dhe ruash falas.')
+          :code==='plan_request_too_large'?copy('Bu plan mevcut ücretsiz işlem kapasitesini aşıyor. Gün sayısını kısaltıp tekrar dene. Tercihlerin ve önceki planın korundu; günlük hakkın kullanılmadı.','This plan exceeds the current free processing capacity. Shorten the trip and retry. Your preferences and previous plan are kept; your daily allowance was not used.','Ky plan tejkalon kapacitetin aktual falas. Shkurto udhëtimin dhe provo sërish. Preferencat dhe plani i mëparshëm ruhen; e drejta ditore nuk u përdor.')
+          :code==='plan_pending'?copy('Önceki isteğin hâlâ işleniyor. Aynı seçimlerle tekrar kontrol edebilirsin; ikinci bir hak kullanılmaz.','Your previous request is still processing. Check again with the same choices; no second allowance is used.','Kërkesa e mëparshme po përpunohet. Kontrollo sërish me të njëjtat zgjedhje; nuk përdoret një e drejtë e dytë.')
+          :code==='plan_quota_unavailable'?copy('Günlük hakkın doğrulanamadı. Seçimlerin korundu; hakkını yenileyip tekrar dene.','Your daily allowance could not be checked. Your choices are kept; refresh the allowance and retry.','E drejta ditore nuk u verifikua. Zgjedhjet ruhen; rifresko të drejtën dhe provo sërish.')
+          :copy('Hesabına tekrar giriş yap. Planın ve seçimlerin korundu.','Sign in again. Your plan and choices are kept.','Hyr sërish. Plani dhe zgjedhjet ruhen.'));
+        return;
+      }
       // A failed refresh must never replace a route the user already edited.
       if (!plan) {
         const fallback = starter();
@@ -265,6 +316,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
       if (isCurrentRequest()) {
         setLoading(false);
         generating.current = false;
+        generationAbort.current=null;setQuotaRefresh(value=>value+1);
       }
     }
   };
@@ -321,7 +373,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
-      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
         <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>
@@ -389,7 +441,19 @@ export function RouteAssistantScreen({ onNotice, onNavigate, surpriseRoute, rout
           <fieldset className="vibe-fieldset" data-planner-field="interests" aria-invalid={!!errors.interests}><legend>{copy("İlgi alanların · 1–4 seçim", "Your interests · choose 1–4")}</legend>{errors.interests && <p className="planner-field-error" role="alert">{errors.interests}</p>}<p className="planner-interest-count" role="status">{copy(`${form.vibe.length}/4 seçildi`, `${form.vibe.length}/4 selected`)}</p><div className="choice-grid">{VIBES.map((vibe,index) => <button type="button" key={vibe} disabled={form.vibe.length >= 4 && !form.vibe.includes(vibe)} className={form.vibe.includes(vibe) ? "active" : ""} aria-pressed={form.vibe.includes(vibe)} onClick={() => toggleVibe(vibe)}>{copy(vibe,["City","Culture","Food","Coast","Nature","Nightlife","Shopping","Adventure"][index])}</button>)}</div><p className="planner-hint">{copy("Bir ilgi alanını değiştirmek için önce seçimini kaldır.", "Remove a selected interest before choosing another.")}</p>{interestNotice && <p className="planner-interest-notice" role="status">{interestNotice}</p>}</fieldset>
           <button type="button" className="secondary-wide" onClick={() => selectPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
         </>}
-        <button type="button" className="primary-wide" disabled={loading} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
+        <aside className="planner-allowance" aria-live="polite">
+          <strong>{needsSignIn?copy('Her hesap için günde 1 yeni AI rota','1 new AI itinerary per account each day','1 itinerar i ri me AI në ditë për çdo llogari')
+            :quota?quota.pending?copy('Önceki isteğin hâlâ işleniyor','Your previous request is still processing','Kërkesa e mëparshme po përpunohet')
+            :quota.remaining?copy('Bugün 1 yeni AI rota hakkın var','1 new AI itinerary available today','Sot ke 1 itinerar të ri me AI')
+            :copy('Bugünkü AI rota hakkını kullandın','Today’s AI itinerary allowance is used','E drejta e sotme për itinerar me AI është përdorur')
+            :allowance.state==='error'?copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')
+            :copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')}</strong>
+          {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{formatAppDate(new Date(quota.resetAt),locale==='tr'?'tr-TR':locale==='sq'?'sq-AL':'en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</time></p>}
+          <p>{copy('Haritalı planlama ve bu bölüm aynı günlük hakkı kullanır. Yalnız başarıyla hazırlanan yeni AI rota hakkından düşer; mevcut planları elle düzenlemek ve kaydetmek ücretsizdir.','Map planning and this section share the daily allowance. Only a successfully created new AI itinerary uses it; manually editing and saving existing plans is free.','Planifikimi në hartë dhe kjo pjesë ndajnë të njëjtën të drejtë ditore. Vetëm një itinerar i ri me AI i krijuar me sukses e përdor; ndryshimi manual dhe ruajtja e planeve ekzistuese janë falas.')}</p>
+          {!needsSignIn&&canRecover&&readPlannerRecoveryDraft(ownerId)&&<button type="button" disabled={loading} onClick={()=>{const previous=readPlannerRecoveryDraft(ownerId);if(previous){setForm(snapshotPlannerInput(previous.form));setOriginAirport(previous.origin);setDestinationAirport(previous.destination);void generate(previous);}}}>{copy('Önceki isteğimin sonucunu getir','Recover my previous result','Rikthe rezultatin e mëparshëm')}</button>}
+          {!needsSignIn&&allowance.state!=='loading'&&<button type="button" disabled={loading} onClick={()=>setQuotaRefresh(value=>value+1)}>{copy('Hakkımı kontrol et','Refresh allowance','Rifresko të drejtën')}</button>}
+        </aside>
+        <button type="button" className="primary-wide" disabled={loading||!needsSignIn&&!canRecover&&(!quota||quota.remaining===0)} onClick={() => void generate()}>{loading ? <span className="button-loader" /> : null}{loading ? copy("Hazırlanıyor", "Building") : needsSignIn?copy('Giriş yap ve devam et','Sign in to continue','Hyr dhe vazhdo'):canRecover&&(!quota||quota.remaining===0)?copy('Önceki rotayı / sonucu aç','Open previous itinerary / result','Hap itinerarin / rezultatin e mëparshëm'):copy("Rota Oluştur", "Create Route")}<Icon name="chevron" size={18} /></button>
         {!form.origin && <p className="planner-hint">{copy("Başlamak için çıkış şehrini seç.", "Choose your departure city to begin.")}</p>}
       </section>}
       <section className="planner-inspiration">

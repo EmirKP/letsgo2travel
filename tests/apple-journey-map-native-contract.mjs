@@ -85,6 +85,7 @@ test('Native photo circles only load bounded verified Commons rasters and preser
   assert.match(photos, /parts\.host != "thumb\.wikimedia\.org" \|\| thumb/);
   assert.match(photos, /parts\.query == nil, parts\.fragment == nil/);
   assert.match(photos, /width <= 640/);
+  assert.match(photos, /width <= 640 \|\| width == 960/, 'Native thumbnails accept the exact Commons standard tier returned for 640px requests');
   assert.match(photos, /URLSessionConfiguration\.ephemeral/);
   assert.match(photos, /pending\.count < 96/);
   assert.match(photos, /tasks\.count < 4/);
@@ -106,6 +107,16 @@ test('Selection updates only affected native views and explicitly clears a remov
   assert.doesNotMatch(selection, /removeAnnotations\(annotations\)|addAnnotations\(annotations\)|JourneyMapAnnotation\(/);
   assert.match(selection, /map\.removeAnnotation\(annotation\)[\s\S]*map\.addAnnotation\(annotation\)/);
   assert.match(native, /for selected in map\.selectedAnnotations \{ map\.deselectAnnotation\(selected, animated: false\) \}/);
+});
+
+test('Native category glyphs use a fixed symbol allowlist, preserve photo badges and show only the selected place label', () => {
+  assert.match(native, /allowedSymbols\.contains\(requestedSymbol\) \? requestedSymbol : "mappin"/);
+  assert.match(native, /symbol\.image = UIImage\(systemName: point\.categorySymbol\)/);
+  assert.match(native, /categoryBadge\.isHidden = isStop \|\| image == nil/);
+  assert.match(native, /placeLabel\.isHidden = !selected/);
+  assert.match(native, /placeLabel\.numberOfLines = 2/);
+  assert.match(native, /number\.font = \.systemFont\(ofSize: hasPhoto \? 11 : 20/);
+  assert.match(native, /categorySymbol\).*categoryLabel/);
 });
 
 test('Native lifecycle hides the map behind system screens and tears down delegates/content on navigation', () => {

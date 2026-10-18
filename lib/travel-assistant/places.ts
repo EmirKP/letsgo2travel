@@ -2,7 +2,7 @@ import type { Coordinates, MapMode, Place, PointCategory } from './types';
 
 export const CATEGORY_LABELS: Record<PointCategory, [string, string, string]> = {
   hospital: ['Hastane', 'Hospital', 'Spital'], pharmacy: ['Eczane', 'Pharmacy', 'Farmaci'], police: ['Polis', 'Police', 'Polici'],
-  atm: ['ATM', 'ATM', 'Bankomat'], exchange: ['Döviz bürosu', 'Currency exchange', 'Këmbim valutor'], toilets: ['Tuvalet', 'Toilets', 'Tualete'],
+  atm: ['ATM', 'ATM', 'Bankomat'], bank: ['Banka', 'Bank', 'Bankë'], transit: ['Metro ve toplu taşıma', 'Metro and public transport', 'Metro dhe transport publik'], exchange: ['Döviz bürosu', 'Currency exchange', 'Këmbim valutor'], toilets: ['Tuvalet', 'Toilets', 'Tualete'],
   wifi: ['Wi-Fi', 'Wi-Fi', 'Wi-Fi'], embassy: ['Temsilcilik', 'Diplomatic mission', 'Përfaqësi diplomatike'], museum: ['Müze', 'Museum', 'Muze'],
   statue: ['Heykel', 'Statue', 'Statujë'], monument: ['Anıt', 'Monument', 'Monument'], historic: ['Tarihi yapı', 'Historic site', 'Vend historik'],
   stadium: ['Stadyum', 'Stadium', 'Stadium'], palace: ['Saray', 'Palace', 'Pallat'], square: ['Meydan', 'Square', 'Shesh'],
@@ -14,7 +14,7 @@ export const CATEGORY_LABELS: Record<PointCategory, [string, string, string]> = 
 };
 // Discovery categories are separate from the existing emergency/touring modes.
 export const DISCOVERY: PointCategory[] = ['cafe', 'bakery', 'restaurant', 'sweets', 'boutique', 'craft', 'gift', 'market', 'store', 'park', 'garden', 'beach', 'hiking'];
-export const NEEDS: PointCategory[] = ['hospital', 'pharmacy', 'police', 'atm', 'exchange', 'toilets', 'wifi', 'embassy'];
+export const NEEDS: PointCategory[] = ['hospital', 'pharmacy', 'police', 'atm', 'bank', 'transit', 'exchange', 'toilets', 'wifi', 'embassy'];
 export const TOURING: PointCategory[] = ['museum', 'statue', 'monument', 'historic', 'stadium', 'palace', 'square', 'viewpoint', 'attraction'];
 /** A saved POI must retain its exact provider identity and public source link. */
 export function validJourneyPlaceSource(id: unknown, sourceUrl: unknown): id is string {
@@ -80,7 +80,9 @@ function uploadPhoto(value: unknown): { url: string; file: string } | null {
     if (!file) return null;
     if (thumb) {
       const match = path[7].match(/^([1-9]\d{0,2})px-(.+)$/);
-      if (!match || Number(match[1]) > 640 || rasterName(match[2]) !== file) return null;
+      // Commons rounds a requested 640px image up to its standard 960px
+      // thumbnail tier. Accept that exact tier, not arbitrary large originals.
+      if (!match || (Number(match[1]) > 640 && Number(match[1]) !== 960) || rasterName(match[2]) !== file) return null;
     }
     return { url: u.href, file };
   } catch { return null; }
@@ -125,7 +127,9 @@ export function validJourneyPhoto(value: {
 const clean = (v: unknown, max = 180) => typeof v === 'string' ? v.replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, max) : '';
 function category(t: Record<string, string>): PointCategory | null {
   if (t.diplomatic || t.amenity === 'embassy' || t.office === 'diplomatic') return 'embassy';
-  if (['hospital','pharmacy','police','atm','toilets'].includes(t.amenity)) return t.amenity as PointCategory;
+  if (['hospital','pharmacy','police','atm','bank','toilets'].includes(t.amenity)) return t.amenity as PointCategory;
+  if (t.amenity === 'bus_station' || ['station', 'halt', 'subway_entrance', 'tram_stop'].includes(t.railway)
+    || t.public_transport === 'station' || t.highway === 'bus_stop') return 'transit';
   if (t.amenity === 'bureau_de_change') return 'exchange';
   if (t.castle_type === 'palace' || t.historic === 'palace') return 'palace';
   if (t.artwork_type === 'statue' || t.memorial === 'statue') return 'statue';
@@ -137,7 +141,7 @@ function category(t: Record<string, string>): PointCategory | null {
   if (t.internet_access === 'wlan') return 'wifi';
   return null;
 }
-export function normalizePlaces(raw: unknown, mode: MapMode, fetchedAt: string): Place[] {
+export function normalizePlaces(raw: unknown, mode: MapMode, fetchedAt: string, includeMobility = false): Place[] {
   const elements = (raw as { elements?: unknown[] })?.elements;
   if (!Array.isArray(elements)) throw new Error('Invalid places response');
   const seen = new Set<string>();
@@ -146,6 +150,7 @@ export function normalizePlaces(raw: unknown, mode: MapMode, fetchedAt: string):
     const e = value as { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string,string> };
     const t = e.tags || {};
     const kind = category(t);
+    if (!includeMobility && (kind === 'bank' || kind === 'transit')) return [];
     const point = coordinates({ latitude: e.lat ?? e.center?.lat, longitude: e.lon ?? e.center?.lon });
     if (!kind || !(mode === 'needs' ? NEEDS : TOURING).includes(kind) || !point || !['node','way','relation'].includes(e.type) || !Number.isSafeInteger(e.id) || e.id <= 0) return [];
     const id = `${e.type}/${e.id}`;

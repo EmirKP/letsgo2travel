@@ -12,6 +12,11 @@ const CHANGE_EVENT = 'l2t:saved-places-changed';
 const categories = new Set([...NEEDS, ...TOURING, ...DISCOVERY]);
 
 export type SavedPlace = { place: JourneyPlace; savedAt: string; note: string };
+// Installed readers reject unknown base categories. Keep these two additions in
+// optional, identity-bound metadata so the bookmark remains readable on them.
+type StoredSavedPlace = SavedPlace & {
+  journeyCategory?: { version: 1; placeId: string; category: 'bank' | 'transit'; fallback: 'attraction' };
+};
 type SavedPlacesDocument = { version: 1; items: SavedPlace[]; dayIds: string[] };
 export type SavedPlacesState = {
   items: SavedPlace[];
@@ -73,10 +78,22 @@ function validateDocument(raw: unknown): SavedPlacesDocument | null {
     const place = validatePlace(item.place);
     if (!place || ids.has(place.id)) return null;
     ids.add(place.id);
-    items.push({ place, savedAt: item.savedAt, note: item.note });
+    const detail = (item as StoredSavedPlace).journeyCategory;
+    const category = detail?.version === 1 && detail.placeId === place.id && detail.fallback === 'attraction'
+      && place.category === detail.fallback && (detail.category === 'bank' || detail.category === 'transit')
+      ? detail.category : place.category;
+    items.push({ place: { ...place, category }, savedAt: item.savedAt, note: item.note });
   }
   if (new Set(data.dayIds).size !== data.dayIds.length || data.dayIds.some(id => !ids.has(id))) return null;
   return { version: 1, items, dayIds: [...data.dayIds] };
+}
+
+function encodeSavedPlace(item: SavedPlace): StoredSavedPlace {
+  const category = item.place.category;
+  return category === 'bank' || category === 'transit'
+    ? { ...item, place: { ...item.place, category: 'attraction' },
+      journeyCategory: { version: 1, placeId: item.place.id, category, fallback: 'attraction' } }
+    : item;
 }
 
 export function validateAccountPlaces(document: CollectionDocument) {
@@ -89,7 +106,8 @@ export function readSavedPlaces(ownerId?: string | null): SavedPlacesState {
     try {
       const value = readCollection(ownerId, 'saved_places');
       if (!validateAccountPlaces(value.document)) return { items: [], dayIds: [], error: 'corrupt' };
-      return { items: (Object.values(value.document.items) as SavedPlace[]).sort((a,b) => b.savedAt.localeCompare(a.savedAt)), dayIds: value.document.dayIds, error: null, pending: value.pending.length };
+      const checked = validateDocument({ version: 1, items: Object.values(value.document.items), dayIds: value.document.dayIds })!;
+      return { items: checked.items.sort((a,b) => b.savedAt.localeCompare(a.savedAt)), dayIds: checked.dayIds, error: null, pending: value.pending.length };
     } catch { return { items: [], dayIds: [], error: 'corrupt' }; }
   }
   let raw: string | null;
@@ -118,7 +136,7 @@ function notify() {
 function persist(document: SavedPlacesDocument): SavedPlacesState {
   const checked = validateDocument(document);
   if (!checked) throw new Error('invalid');
-  const raw = JSON.stringify(checked);
+  const raw = JSON.stringify({ ...checked, items: checked.items.map(encodeSavedPlace) });
   if (raw.length > MAX_STORAGE_CHARS) throw new Error('full');
   // A single setItem is atomic. Never delete the old list to free space first.
   try { localStorage.setItem(SAVED_PLACES_KEY, raw); }
@@ -135,7 +153,7 @@ export function saveTravelPlace(place: Place, ownerId?: string | null): SavedPla
   if (doc.items.some(item => item.place.id === checked.id)) return { items: doc.items, dayIds: doc.dayIds, error: null };
   if (doc.items.length >= MAX_SAVED_PLACES) throw new Error('full');
   const item = { place: checked, savedAt: new Date().toISOString(), note: '' };
-  if (ownerId) return accountEdit(ownerId, { action: 'add', key: checked.id, value: item });
+  if (ownerId) return accountEdit(ownerId, { action: 'add', key: checked.id, value: encodeSavedPlace(item) });
   doc.items.unshift(item);
   return persist(doc);
 }

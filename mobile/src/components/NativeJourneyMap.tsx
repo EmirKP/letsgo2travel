@@ -3,7 +3,8 @@ import { addPluginListener, isIOSNative, plugin } from '../lib/capacitor';
 import { createId } from '../lib/id';
 import { useI18n } from '../lib/i18n';
 import { getThemeSnapshot, subscribeTheme } from '../lib/theme';
-import type { JourneyMapProps, JourneyMapViewport } from './journeyMapTypes';
+import type { JourneyMapPoint, JourneyMapProps, JourneyMapViewport } from './journeyMapTypes';
+import { journeyMapCategory } from './journeyMapCategory';
 import './journey-map.css';
 
 // All mounted editors share one native surface. An earlier delayed show must
@@ -88,7 +89,9 @@ function measuredLayout(canvas: HTMLElement, props: JourneyMapProps) {
 
 /** Real on-device MapKit; this component never starts discovery, routing or GPS. */
 export function NativeJourneyMap(props: JourneyMapProps) {
-  const { copy } = useI18n();
+  const { copy, locale } = useI18n();
+  const language = useRef(locale);
+  useLayoutEffect(() => { language.current = locale; });
   const canvas = useRef<HTMLDivElement>(null);
   const current = useRef(props);
   useLayoutEffect(() => { current.current = props; });
@@ -166,10 +169,14 @@ export function NativeJourneyMap(props: JourneyMapProps) {
         const layout = measuredLayout(canvas.current, latest);
         observe(layout.observed);
         const cluster = latest.labels.cluster(0).replace('0', '{count}');
+        const annotated = <T extends JourneyMapPoint>(point: T, label: string) => {
+          const category = journeyMapCategory(point.category, language.current);
+          return { ...point, label: `${label}${point.category ? ` · ${category.label}` : ''}`, categorySymbol: category.symbol, categoryLabel: category.label };
+        };
         const payload = {
           ...identity, frame: layout.frame, occlusions: layout.occlusions, contentInsets: layout.contentInsets,
-          center: latest.center, stops: latest.stops.map(stop => ({ ...stop, label: latest.labels.stop(stop.order, stop.day, stop.name) })),
-          discoveredPlaces: (latest.discoveredPlaces ?? []).map(point => ({ ...point, label: latest.labels.place(point.name) })),
+          center: latest.center, stops: latest.stops.map(stop => annotated(stop, latest.labels.stop(stop.order, stop.day, stop.name || journeyMapCategory(stop.category, language.current).label))),
+          discoveredPlaces: (latest.discoveredPlaces ?? []).map(point => annotated(point, latest.labels.place(point.name || journeyMapCategory(point.category, language.current).label))),
           routes: latest.routes ?? [], activeDay: latest.activeDay ?? null, selectedPlaceId: latest.selectedPlaceId ?? null,
           theme: getThemeSnapshot().resolved, searchEnabled: latest.searchEnabled !== false, showSearchArea: false,
           labels: { map: latest.labels.map, zoomIn: latest.labels.zoomIn, zoomOut: latest.labels.zoomOut,

@@ -291,7 +291,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
       {focusedEvent && <div className="form-card"><h3>{focusedEvent.title}</h3><p>{focusedEvent.city} · {focusedEvent.venue}</p><p>{eventDateLabel(focusedEvent, dateLocale, undefined, formatAppDate)} · {eventTimeLabel(focusedEvent, dateLocale, formatAppDate)}</p><p>{focusedEvent.description}</p><button className="primary-wide" onClick={() => void openExternal(focusedEvent.ticketUrl || focusedEvent.sourceUrl)}>{copy("Kaynağı aç", "Open source")}</button></div>}
     </Sheet>
     <header className="daily-page-heading"><span>{copy("TAKVİMİNE BİR AN EKLE", "MAKE TIME FOR SOMETHING GOOD")}</span><h1>{copy("Oradayken ne var?", "What's on while you're there?")}</h1><p>{copy("Yerini ve tarihlerini seç; kaçırmak istemediklerini kaydet.", "Choose your place and dates. Save what you don't want to miss.")}</p></header>
-    <button type="button" className="daily-event-saved" onClick={() => onOpenSaved ? onOpenSaved() : onNavigate("trips")}><Icon name="bookmark" size={20}/><span>{copy("Kayıtlı etkinliklerim", "My saved events")}<small>{copy(`${savedIds.size} etkinlik`, `${savedIds.size} events`, `${savedIds.size} aktivitete`)}</small></span><Icon name="chevron" size={18}/></button>
+    <button type="button" className="daily-event-saved" data-guide="event-saved" onClick={() => onOpenSaved ? onOpenSaved() : onNavigate("trips")}><Icon name="bookmark" size={20}/><span>{copy("Kayıtlı etkinliklerim", "My saved events")}<small>{copy(`${savedIds.size} etkinlik`, `${savedIds.size} events`, `${savedIds.size} aktivitete`)}</small></span><Icon name="chevron" size={18}/></button>
 
           <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
         {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} disabled={loading} onClick={() => { setCategory(item); void search(item); }}>{categoryLabel(item)}</button>)}
@@ -324,7 +324,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
       {countryCode && !cityPlaceCode && !citiesLoading && !citiesError && <p className="event-city-scope"><Icon name="info" size={14} /> {copy("Tüm şehirler seçiliyken ülke genelindeki sonuçlar aranır; canlı kapsam sağlayıcıya göre değişebilir.", "With all cities selected, results are searched countrywide; live coverage can vary by provider.")}</p>}
       {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
 
-      <button className="primary-wide" disabled={loading || !startDate || !endDate} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
+      <button data-guide="event-search" className="primary-wide" disabled={loading || !startDate || !endDate} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
     </section>
 
     </details>

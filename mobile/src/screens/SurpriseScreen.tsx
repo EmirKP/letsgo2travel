@@ -5,6 +5,8 @@ import { destinationArtwork } from "../data/artwork";
 import { randomRouteFor, routeByDestinationCode } from "../data/routes";
 import { useI18n } from "../lib/i18n";
 import { hapticSuccess } from "../lib/native";
+import { usePassportPreference } from "../hooks/usePassportPreference";
+import { plannerEntry, plannerPassportLabel } from "../../../lib/planner-passport";
 import type { RouteSuggestion } from "../types";
 
 type Budget = "economy" | "balanced" | "premium";
@@ -18,9 +20,13 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
   onNotice: (message: string) => void;
 }) {
   const { copy, locale } = useI18n();
-  const [route, setRoute] = useState<RouteSuggestion | null>(() => initialRoute || null);
+  const passport = usePassportPreference();
+  const selectedPassport = { passportCountry: passport.country, passportType: passport.type };
+  const [rawRoute, setRoute] = useState<RouteSuggestion | null>(() => initialRoute || null);
+  const route = rawRoute ? { ...rawRoute, ...plannerEntry(selectedPassport, rawRoute.country, locale) } : null;
   const [budget, setBudget] = useState<Budget>("balanced");
   const [entry, setEntry] = useState<Entry>("easy");
+  const effectiveEntry = passport.country && passport.type ? entry : "all";
   const [pace, setPace] = useState<Pace>("balanced");
   const [spinning, setSpinning] = useState(false);
   const timer = useRef<number | null>(null);
@@ -43,7 +49,12 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
     if (spinning) return;
     setSpinning(true);
     timer.current = window.setTimeout(() => {
-      const next = randomRouteFor({ budget, entry, pace }, locale);
+      const next = randomRouteFor({ budget, entry: effectiveEntry, pace, ...selectedPassport }, locale);
+      if (!next) {
+        setSpinning(false); timer.current = null;
+        onNotice(copy("Bu seçimlere uygun doğrulanmış rota bulunamadı. Giriş tercihini veya diğer seçimlerini değiştir.", "No verified route matches these choices. Change your entry preference or other choices.", "Nuk u gjet itinerar i verifikuar për këto zgjedhje. Ndrysho preferencën e hyrjes ose zgjedhjet e tjera."));
+        return;
+      }
       setRoute(next);
       onSelect(next);
       setSpinning(false);
@@ -58,9 +69,11 @@ export function SurpriseScreen({ initialRoute, onSelect, onBuildRoute, onNotice 
   return <div className="screen surprise-screen surprise-v14">
     <PageHero scene="journey" title={copy("Beni Şaşırt", "Surprise Me")} subtitle={copy("Tercihlerini seç. Sıradaki rotanı birlikte bulalım.", "Choose your preferences. Find your next journey.")} />
 
+    <p className="info-box">{plannerPassportLabel(selectedPassport, locale)}{!passport.country && <> · {copy("Girişe göre öneri için Profil → Pasaport tercihim bölümünden seçim yapabilirsin.", "For entry-based suggestions, choose a document in Profile → My passport preference.", "Për sugjerime sipas hyrjes, zgjidh dokumentin te Profili → Preferenca ime e pasaportës.")}</>}</p>
+
     <section className="surprise-preferences" aria-label={copy("Sürpriz rota tercihleri", "Surprise route preferences")}>
       <fieldset><legend><b>1</b><span><strong>{copy("Bütçe", "Budget")}</strong><small>{copy("Bu gezi ne kadar rahat olsun?", "How flexible should the spend be?")}</small></span></legend><div>{choice("economy", budget, setBudget, "Ekonomik", "Economy", "Ekonomik")}{choice("balanced", budget, setBudget, "Dengeli", "Balanced", "I ekuilibruar")}{choice("premium", budget, setBudget, "Rahat", "Premium", "Premium")}</div></fieldset>
-      <fieldset><legend><b>2</b><span><strong>{copy("Giriş kolaylığı", "Entry preference")}</strong><small>{copy("Vize kolaylığı önceliğin mi?", "Is easy entry a priority?")}</small></span></legend><div>{choice("easy", entry, setEntry, "Kolay giriş", "Easy entry", "Hyrje e lehtë")}{choice("all", entry, setEntry, "Fark etmez", "Any", "Pa preferencë")}</div></fieldset>
+      <fieldset><legend><b>2</b><span><strong>{copy("Giriş kolaylığı", "Entry preference")}</strong><small>{copy("Vize kolaylığı önceliğin mi?", "Is easy entry a priority?")}</small></span></legend><div>{passport.country && passport.type && choice("easy", effectiveEntry, setEntry, "Kolay giriş", "Easy entry", "Hyrje e lehtë")}{choice("all", effectiveEntry, setEntry, "Fark etmez", "Any", "Pa preferencë")}</div></fieldset>
       <fieldset><legend><b>3</b><span><strong>{copy("Tempo", "Pace")}</strong><small>{copy("Nasıl bir deneyim istiyorsun?", "What kind of experience do you want?")}</small></span></legend><div>{choice("easy", pace, setPace, "Sakin", "Easy", "I qetë")}{choice("balanced", pace, setPace, "Dengeli", "Balanced", "I ekuilibruar")}{choice("adventure", pace, setPace, "Macera", "Adventure", "Aventurë")}</div></fieldset>
       <button className={`surprise-main-action ${spinning ? "loading" : ""}`} type="button" onClick={surpriseMe} disabled={spinning}>{spinning ? <span className="button-loader" /> : <Icon name="sparkles" size={20} />}<span><strong>{spinning ? copy("Rotan seçiliyor…", "Picking your route…") : copy("Beni şaşırt", "Surprise me")}</strong><small>{copy("Tercihlerime uygun bir rota bul", "Find a route that fits my choices")}</small></span></button>
     </section>

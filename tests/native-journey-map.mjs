@@ -4,6 +4,14 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
+function loadCategory(path, imports = {}) {
+  const output = { exports: {} };
+  const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL })(name => imports[name], output, output.exports);
+  return output.exports;
+}
+const categories = loadCategory('mobile/src/components/journeyMapCategory.ts', { '../../../lib/travel-assistant/places': loadCategory('lib/travel-assistant/places.ts') });
+
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -59,6 +67,7 @@ function fixture(options = {}) {
       async addPluginListener(plugin, event, callback) { const listener = { plugin, event, callback, removed: false, async remove() { this.removed = true; } }; subscriptions.push(listener); if (options.listener) await options.listener(plugin, event); return listener; },
     };
     if (name === '../lib/id') return { createId: () => `session-${++nextId}` };
+    if (name === './journeyMapCategory') return categories;
     if (name === '../lib/i18n') return { useI18n: () => ({ copy: (_tr, en) => en }) };
     if (name === '../lib/theme') return { getThemeSnapshot: () => ({ resolved: theme }), subscribeTheme: fn => { themeListeners.add(fn); return () => themeListeners.delete(fn); } };
     if (name.endsWith('.css')) return {};
@@ -96,6 +105,18 @@ test('Native frame stops above the mobile panel, leaves HTML holes and sends act
   assert.ok(h.observers[0].elements.has(h.panel));
   h.panel.box.top = 280; h.observers[0].callback(); await h.flush();
   assert.equal(h.state.frame.height, 280); assert.equal(h.calls.at(-1).method, 'update');
+});
+
+test('Native payload carries canonical category symbols and accessible labels while retaining real stop order and source fields', async () => {
+  const h = fixture();
+  const discoveredPlaces = ['museum', 'restaurant', 'cafe', 'atm', 'bank', 'transit'].map((category, i) => ({ id: `category-${i}`, category, name: `Real ${category}`, latitude: 41.9, longitude: 12.5 }));
+  const app = h.mount({ stops: [{ ...stops[0], category: 'museum', order: 4 }], discoveredPlaces }); await h.flush();
+  assert.equal(new Set(h.state.discoveredPlaces.map(point => point.categorySymbol)).size, 6);
+  assert.equal(h.state.discoveredPlaces[5].categorySymbol, 'tram.fill');
+  assert.equal(h.state.discoveredPlaces[5].categoryLabel, 'Metro and public transport');
+  assert.match(h.state.discoveredPlaces[5].label, /Real transit · Metro and public transport/);
+  assert.equal(h.state.stops[0].order, 4); assert.match(h.state.stops[0].label, /Day 1, stop 4: Museum · Museum/);
+  app.unmount(); await h.flush();
 });
 
 test('Narrow desktop panel becomes a tap-through hole and viewport offsets use one CSS coordinate space', async () => {

@@ -50,11 +50,11 @@ const categories: Record<JourneyDiscoveryGroup, Record<string, PointCategory>> =
   culture: { Museum: 'museum', Landmark: 'attraction', Castle: 'historic', Fortress: 'historic', NationalMonument: 'monument',
     ReligiousSite: 'attraction', Planetarium: 'attraction', Theater: 'attraction', Stadium: 'stadium' },
   nature: { Park: 'park', NationalPark: 'park', Beach: 'beach', Hiking: 'hiking' },
-  essentials: { Hospital: 'hospital', Pharmacy: 'pharmacy', Police: 'police', ATM: 'atm', Restroom: 'toilets' },
+  essentials: { Hospital: 'hospital', Pharmacy: 'pharmacy', Police: 'police', ATM: 'atm', Bank: 'bank', PublicTransport: 'transit', Restroom: 'toilets' },
 };
 const queries: Record<JourneyDiscoveryGroup, readonly string[]> = {
   food: ['restaurants', 'cafes and bakeries'], shopping: ['shopping'], culture: ['museums', 'landmarks and attractions'],
-  nature: ['parks', 'beaches and hiking trails'], essentials: ['pharmacy', 'hospital', 'police', 'ATM', 'restrooms'],
+  nature: ['parks', 'beaches and hiking trails'], essentials: ['pharmacy', 'hospital', 'police', 'banks and ATMs', 'public transport stations', 'restrooms'],
 };
 export function normalizeAppleJourneyDiscovery(raw: unknown, center: Coordinates, group: JourneyDiscoveryGroup, fetchedAt: string): JourneyDiscoveryPlace[] {
   if (!coordinates(center) || !Object.prototype.hasOwnProperty.call(categories, group)) throw unavailable();

@@ -379,19 +379,22 @@ export function randomRouteFor(preferences: {
   budget: "economy" | "balanced" | "premium";
   entry: "easy" | "all";
   pace: "easy" | "balanced" | "adventure";
-}, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
+  passportCountry?: string;
+  passportType?: string;
+}, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion | null {
   const budgetMap = { economy: 1, balanced: 2, premium: 3 } as const;
   const candidates = ROUTE_CATALOG.filter((route) => {
-    if (preferences.entry === "easy" && route.visaEase !== "easy") return false;
+    const entry = plannerEntry(normalizePlannerPassport(preferences), route.country, locale).verifiedEntryStatus;
+    if (preferences.entry === "easy" && !["visa_free", "identity_card", "e_visa", "visa_on_arrival"].includes(entry)) return false;
     if (Math.abs(route.budgetTier - budgetMap[preferences.budget]) > 1) return false;
     if (preferences.pace === "easy" && route.difficulty !== "Kolay") return false;
     if (preferences.pace === "adventure" && route.firstTimeFriendly && route.difficulty === "Kolay") return false;
     return true;
   });
-  const pool = candidates.length ? candidates : ROUTE_CATALOG;
-  const route = pool[Math.floor(Math.random() * pool.length)];
+  if (!candidates.length) return null;
+  const route = candidates[Math.floor(Math.random() * candidates.length)];
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
-  return presentRoute(suggestion, locale);
+  return { ...presentRoute(suggestion, locale), ...plannerEntry(normalizePlannerPassport(preferences), route.country, locale) };
 }
 
 export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion | null {

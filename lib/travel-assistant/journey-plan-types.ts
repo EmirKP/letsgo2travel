@@ -25,5 +25,5 @@ export type JourneyPlanResult = {
   preferences: JourneyPlanPreferences; locale: JourneyPlanLocale; summary: string; days: JourneyPlanDay[];
   generatedBy: 'ai'; fetchedAt: string; attribution: string; limitations: string[];
 };
-export type JourneyPlanErrorCode = 'plan_invalid' | 'plan_unavailable' | 'plan_limit' | 'plan_destination_unavailable'
+export type JourneyPlanErrorCode = 'plan_invalid' | 'plan_unavailable' | 'plan_busy' | 'plan_daily_capacity' | 'plan_request_too_large' | 'plan_limit' | 'plan_destination_unavailable'
   | 'plan_places_unavailable' | 'plan_insufficient_places' | 'plan_failed' | 'plan_timeout';

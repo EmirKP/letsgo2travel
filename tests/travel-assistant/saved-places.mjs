@@ -11,6 +11,12 @@ const places = require('../../lib/travel-assistant/places.ts');
 const source = ts.transpileModule(readFileSync(new URL('../../mobile/src/lib/savedPlaces.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const legacySource = ts.transpileModule(readFileSync(new URL('../fixtures/saved-places-build75.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const collectionSource = ts.transpileModule(readFileSync(new URL('../../mobile/src/lib/accountCollections.ts', import.meta.url), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
 const plain = value => JSON.parse(JSON.stringify(value));
 const place = (id = 1, overrides = {}) => ({
   id: `node/${id}`, category: 'museum', latitude: 52.52, longitude: 13.4, name: `Museum ${id}`,
@@ -18,8 +24,7 @@ const place = (id = 1, overrides = {}) => ({
   website: 'https://museum.example.org/visit', representedCountry: null,
   sourceUrl: `https://www.openstreetmap.org/node/${id}`, fetchedAt: '2025-01-01T12:00:00.000Z', ...overrides,
 });
-function harness() {
-  const storage = new Map();
+function harness(moduleSource = source, storage = new Map()) {
   const state = { writes: 0, failRead: false, failWrite: false };
   const window = new EventTarget();
   const localStorage = {
@@ -27,9 +32,15 @@ function harness() {
     setItem: (key, value) => { if (state.failWrite) throw Error('quota'); storage.set(key, value); state.writes++; },
     removeItem: key => { if (state.failWrite) throw Error('disabled'); storage.delete(key); state.writes++; },
   };
+  window.localStorage = localStorage;
+  class CustomEvent extends Event { constructor(name, options = {}) { super(name); this.detail = options.detail; } }
+  const context = { Date, URL, localStorage, window, Event, CustomEvent };
+  const collections = { exports: {} };
+  let operation = 0;
+  vm.runInNewContext(`(function(require,module,exports){${collectionSource}\n})`, context)(() => ({ createId: () => `operation-${++operation}` }), collections, collections.exports);
   const out = { exports: {} };
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, URL, localStorage, window, Event })(() => places, out, out.exports);
-  return { api: out.exports, storage, state, window };
+  vm.runInNewContext(`(function(require,module,exports){${moduleSource}\n})`, context)(name => name === './accountCollections' ? collections.exports : places, out, out.exports);
+  return { api: out.exports, storage, state, window, collections: collections.exports };
 }
 
 test('Reading saved places has no persistence side effects and keeps old snapshots offline', () => {
@@ -149,4 +160,66 @@ test('Subscriptions update same-window saves, other-window changes and account c
   h.window.dispatchEvent(Object.assign(new Event('storage'), { key: null })); assert.equal(calls, 3);
   h.api.resetSavedPlaces(); assert.equal(calls, 4);
   unsubscribe(); h.api.saveTravelPlace(place()); assert.equal(calls, 4);
+});
+
+test('Bank and transit bookmarks keep old readers usable while preserving exact current categories and account retries', () => {
+  for (const owner of [undefined, 'traveller-one']) {
+    const h = harness();
+    const legacy = harness(legacySource, h.storage);
+    const bank = place(2, { category: 'bank', name: 'Local bank' });
+    const transit = place(3, { category: 'transit', name: 'Metro station' });
+    h.api.saveTravelPlace(place(), owner);
+    h.api.saveTravelPlace(bank, owner);
+    h.api.saveTravelPlace(transit, owner);
+    h.api.updateTravelPlaceNote('node/2', 'Keep this note', owner);
+    h.api.setTravelDayStop('node/3', true, owner);
+    const before = h.state.writes;
+    assert.deepEqual(plain(h.api.readSavedPlaces(owner).items.find(item => item.place.id === bank.id).place), bank);
+    assert.deepEqual(plain(h.api.readSavedPlaces(owner).items.find(item => item.place.id === transit.id).place), transit);
+    assert.equal(h.state.writes, before, 'decoding never silently rewrites storage');
+    assert.equal(bank.category, 'bank', 'encoding never mutates the live place');
+    const old = legacy.api.readSavedPlaces(owner);
+    assert.equal(old.error, null);
+    assert.equal(old.items.length, 3);
+    assert.equal(old.items.find(item => item.place.id === bank.id).place.category, 'attraction');
+    assert.equal(old.items.find(item => item.place.id === bank.id).note, 'Keep this note');
+    assert.deepEqual(plain(old.dayIds), ['node/3']);
+    if (owner) {
+      const envelope = h.collections.readCollection(owner, 'saved_places');
+      const add = envelope.pending.find(op => op.action === 'add' && op.key === bank.id);
+      assert.equal(add.value.place.category, 'attraction', 'the retry queue also uses compatible snapshots');
+      assert.equal(legacy.api.validateAccountPlaces(envelope.document), true);
+      legacy.api.updateTravelPlaceNote(bank.id, 'Edited on an installed version', owner);
+      assert.equal(h.api.readSavedPlaces(owner).items.find(item => item.place.id === bank.id).place.category, 'bank');
+    } else {
+      legacy.api.updateTravelPlaceNote(bank.id, 'Edited on an installed version');
+      assert.equal(h.api.readSavedPlaces().error, null, 'an older guest rewrite remains valid even if it omits optional detail');
+    }
+    assert.equal(h.api.readSavedPlaces(owner).items.find(item => item.place.id === bank.id).note, 'Edited on an installed version');
+    legacy.api.deleteTravelPlace(transit.id, owner);
+    assert.equal(h.api.readSavedPlaces(owner).items.some(item => item.place.id === transit.id), false, 'optional details cannot resurrect a deleted bookmark');
+    assert.deepEqual(plain(h.api.readSavedPlaces(owner).dayIds), []);
+  }
+});
+
+test('Optional bookmark category detail is bounded to the exact base category, identity and supported version', () => {
+  const h = harness();
+  h.api.saveTravelPlace(place(1, { category: 'bank' }));
+  const original = JSON.parse(h.storage.get(h.api.SAVED_PLACES_KEY));
+  assert.equal(original.items[0].place.category, 'attraction');
+  for (const detail of [null, {}, { version: 1, placeId: 'node/99', category: 'bank', fallback: 'attraction' },
+    { version: 2, placeId: 'node/1', category: 'bank', fallback: 'attraction' },
+    { version: 1, placeId: 'node/1', category: 'forged', fallback: 'attraction' }]) {
+    const invalid = plain(original);
+    invalid.items[0].journeyCategory = detail;
+    h.storage.set(h.api.SAVED_PLACES_KEY, JSON.stringify(invalid));
+    assert.equal(h.api.readSavedPlaces().error, null);
+    assert.equal(h.api.readSavedPlaces().items[0].place.category, 'attraction');
+  }
+  original.items[0].place.category = 'museum';
+  h.storage.set(h.api.SAVED_PLACES_KEY, JSON.stringify(original));
+  assert.equal(h.api.readSavedPlaces().items[0].place.category, 'museum', 'old-client replacement takes precedence');
+  const unencoded = harness(legacySource);
+  unencoded.storage.set(unencoded.api.SAVED_PLACES_KEY, JSON.stringify({ version: 1, items: [{ place: place(1, { category: 'bank' }), savedAt: '2026-10-18T10:00:00.000Z', note: '' }], dayIds: [] }));
+  assert.equal(unencoded.api.readSavedPlaces().error, 'corrupt', 'the frozen reader demonstrates why raw new categories are incompatible');
 });

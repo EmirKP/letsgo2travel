@@ -3,9 +3,9 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createHmac, randomUUID } from 'node:crypto';
-import { isIP } from 'node:net';
 import ts from 'typescript';
 import { PGlite } from '@electric-sql/pglite';
+import { countTokens } from 'gpt-tokenizer/model/gpt-oss-20b';
 
 function load(path, imports = {}, globals = {}) {
   const output = { exports: {} };
@@ -31,22 +31,33 @@ const plan = () => ({ summary: 'Aile için sakin ve molalı bir plan.', days: [
 function fixture(options = {}) {
   const calls = { search: 0, discovery: [], ai: [], quota: [], finalizations: [], warnings: [], auth: 0 };
   const core = load('lib/travel-assistant/journey-plan.ts', {
+    './journey-plan-groq': load('lib/travel-assistant/journey-plan-groq.ts', {
+      'gpt-tokenizer/model/gpt-oss-20b': { countTokens }, './journey-plan-labels': load('lib/travel-assistant/journey-plan-labels.ts'),
+    }),
     './places': places,
     './journey-plan-labels': load('lib/travel-assistant/journey-plan-labels.ts'),
     './journey-search': { searchJourneyPlaces: async (query, locale) => { calls.search++; assert.equal(query, input.destination.name); assert.ok(['tr', 'en', 'sq'].includes(locale)); return options.search?.() ?? { places: [input.destination] }; } },
     './journey-discovery': { discoverJourneyPlaces: async (_center, group) => { calls.discovery.push(group); return options.discover?.(group) ?? { places: candidates.filter(place => place.group === group), fetchedAt: new Date().toISOString(), attribution: 'Apple Maps' }; } },
     '@google/genai': { GoogleGenAI: class { models = { generateContent: async value => { calls.ai.push(value); return options.ai?.(value) ?? { text: JSON.stringify(plan()) }; } }; } },
-  }, { console: { warn: (...args) => calls.warnings.push(args) },
+  }, { console: { warn: (...args) => calls.warnings.push(args) }, ...(options.timers || {}),
     process: { env: options.noModel ? {} : { GEMINI_MODEL: 'configured-test-model', GEMINI_API_KEY: 'nonfunctional-fixture' } } });
-  const admin = { rpc: (name, args) => { (name === 'finish_journey_plan_quota' ? calls.finalizations : calls.quota).push({ name, args }); const result = Promise.resolve(name === 'finish_journey_plan_quota' ? { error: null, data: true } : options.quota ?? { error: null, data: true }); result.abortSignal = () => result; return result; } };
+  const quota = { limit: 1, used: 0, remaining: 1, pending: false, resetAt: '2026-11-02T00:00:00Z', timeZone: 'UTC' };
+  const admin = { rpc: (name, args) => {
+    (name === 'complete_ai_route_operation' ? calls.finalizations : calls.quota).push({ name, args });
+    const value = name === 'complete_ai_route_operation' ? { error: null, data: { ok: true, quota: { ...quota, used: args.p_result ? 1 : 0, remaining: args.p_result ? 0 : 1 } } }
+      : options.quota ?? { error: null, data: { state: 'acquired', quota } };
+    const result = Promise.resolve(value); result.abortSignal = () => result; return result;
+  } };
+  const quotaHelper = load('lib/ai-route-quota.ts', { 'node:crypto': { createHmac, randomUUID }, './travel-assistant/journey-plan': core,
+    './authenticated-user': { requireAuthenticatedUser: async () => { calls.auth++; return options.auth ?? (options.noAdmin
+      ? { ok: false, response: Response.json({ error: 'unavailable' }, { status: 503 }) } : { ok: true, user: { id: 'genuine-user' }, supabase: admin }); } },
+  }, { process: { env: { SUPABASE_SERVICE_ROLE_KEY: 'test-only-salt' } } });
   const api = load('app/api/travel-assistant/journey-plan/route.ts', {
-    'node:crypto': { createHmac, randomUUID }, 'node:net': { isIP }, '@/lib/travel-assistant/http': http, '@/lib/travel-assistant/journey-plan': core,
-    '@/lib/supabaseAdmin': { getSupabaseAdmin: () => options.noAdmin ? null : admin },
-    '@/lib/authenticated-user': { requireAuthenticatedUser: async () => { calls.auth++; return options.auth ?? { ok: true, user: { id: 'genuine-user' }, supabase: admin }; } },
-  }, { process: { env: { SUPABASE_SERVICE_ROLE_KEY: 'test-only-salt', ...(options.vercel ? { VERCEL: '1' } : {}) } } });
+    '@/lib/ai-route-quota': quotaHelper, '@/lib/travel-assistant/http': http, '@/lib/travel-assistant/journey-plan': core,
+  }, { console: { warn: (...args) => calls.warnings.push(args) } });
   return { core, api, calls };
 }
-const request = (body = input, headers = {}) => new Request('http://local/api/travel-assistant/journey-plan', { method: 'POST', headers, body: JSON.stringify(body) });
+const request = (body = input, headers = {}) => new Request('http://local/api/travel-assistant/journey-plan', { method: 'POST', headers: { Authorization: 'Bearer current', ...headers }, body: JSON.stringify(body) });
 
 test('Survey contract validates exact dates, bounded notes and every choice without accepting client supplied places', () => {
   const { core } = fixture(); assert.deepEqual(clone(core.parseJourneyPlanRequest(input)), input);
@@ -68,8 +79,8 @@ test('Personalized plan uses only verified server places and sends all wishes as
   assert.ok(!call.config.systemInstruction.includes(input.notes)); assert.equal(JSON.parse(call.contents).preferences.notes, input.notes);
   assert.match(call.config.systemInstruction, /never emit internal preference keys/);
   assert.deepEqual(JSON.parse(call.contents).interestLabels, { culture: 'kültür', nature: 'doğa' });
-  assert.equal(app.calls.quota[0].name, 'reserve_journey_plan_quota'); assert.equal(app.calls.quota[0].args.p_guest, true); assert.match(app.calls.quota[0].args.p_actor, /^[a-f0-9]{64}$/);
-  assert.equal(app.calls.finalizations[0].args.p_request, app.calls.quota[0].args.p_request); assert.equal(app.calls.finalizations[0].args.p_success, true);
+  assert.equal(app.calls.quota[0].name, 'begin_ai_route_operation'); assert.equal(app.calls.quota[0].args.p_owner, 'genuine-user');
+  assert.equal(app.calls.finalizations[0].args.p_operation, app.calls.quota[0].args.p_operation); assert.ok(app.calls.finalizations[0].args.p_result);
 });
 
 test('Dense destinations keep the provider grammar small while strict output validation retains verified place IDs', async () => {
@@ -83,16 +94,23 @@ test('Dense destinations keep the provider grammar small while strict output val
   let expected;
   const provider = value => {
     const schema = JSON.stringify(value.config.responseJsonSchema);
-    if (Buffer.byteLength(schema) > 2500 || /"(?:enum|maxItems)"\s*:/.test(schema)) {
+    if (Buffer.byteLength(schema) > 2500 || /"maxItems"\s*:/.test(schema)) {
       throw Object.assign(new Error('Schema exceeds provider serving-state limit'), { status: 400 });
     }
     const selected = JSON.parse(value.contents).verifiedCandidates;
     assert.equal(selected.length, 24);
+    assert.deepEqual(clone(value.config.responseJsonSchema.properties.days.items.properties.stops.items.properties.placeId.enum), selected.map(place => place.id));
+    assert.ok(selected.every(place => /^p[1-9]\d{0,2}$/.test(place.id)));
     expected = plan();
     for (const [index, group] of input.interests.entries()) {
       expected.days[index].stops.forEach((stop, position) => { stop.placeId = selected.filter(place => place.group === group)[position].id; });
     }
-    return { text: JSON.stringify(expected) };
+    const output = JSON.stringify(expected);
+    expected.days.forEach(day => day.stops.forEach(stop => {
+      const selectedPlace = selected.find(place => place.id === stop.placeId);
+      stop.placeId = dense.find(place => place.name === selectedPlace.name).id;
+    }));
+    return { text: output };
   };
   const app = fixture({ discover, ai: provider }); const response = await app.api.POST(request());
   assert.equal(response.status, 200); assert.equal(app.calls.ai.length, 1);
@@ -126,6 +144,9 @@ test('Candidate budgets scale with trip length and pace, balancing interests and
     discover: group => ({ places: dense.filter(place => place.group === group), fetchedAt: new Date().toISOString(), attribution: 'Apple Maps' }),
     ai: value => {
       const selected = JSON.parse(value.contents).verifiedCandidates;
+      assert.equal(selected.length, 160);
+      assert.ok(Buffer.byteLength(JSON.stringify(value.config.responseJsonSchema)) < 2500, 'Even the longest trip has a compact provider grammar');
+      assert.equal(value.config.responseJsonSchema.properties.days.items.properties.stops.items.properties.placeId.enum.length, 160);
       const used = new Set();
       const balanced = interests.flatMap(group => selected.filter(place => place.group === group).slice(0, 7));
       return { text: JSON.stringify({ summary: 'Fourteen days with distinct nearby stops.', days: Array.from({ length: 14 }, (_, day) => ({
@@ -140,6 +161,34 @@ test('Candidate budgets scale with trip length and pace, balancing interests and
   const result = await app.core.createJourneyPlan(options, new AbortController().signal);
   assert.equal(result.days.length, 14); assert.equal(app.calls.ai.length, 1);
   assert.equal(new Set(result.days.flatMap(day => day.stops.map(stop => stop.place.id))).size, 28);
+});
+
+test('Short model references bind only to their exact verified record and reject near matches or duplicate canonical aliases', async () => {
+  const referenced = (call, change = () => {}) => {
+    const selected = JSON.parse(call.contents).verifiedCandidates, output = plan();
+    output.days.forEach(day => day.stops.forEach(stop => {
+      const canonical = candidates.find(place => place.id === stop.placeId);
+      stop.placeId = selected.find(place => place.name === canonical.name).id;
+      // Model-supplied identity, location and photo fields never become venue data.
+      stop.place = { ...canonical, name: 'Forged name', latitude: 0, photo: { url: 'https://evil.test/photo.jpg' } };
+    }));
+    change(output, selected);
+    return { text: JSON.stringify(output) };
+  };
+  const app = fixture({ ai: call => referenced(call) });
+  const response = await app.api.POST(request()); assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.deepEqual(result.days.flatMap(day => day.stops.map(stop => stop.place)), candidates);
+  assert.equal(app.calls.ai.length, 1);
+  for (const invalid of ['p999', 'P1', 'p01', 'p1 ', 'Real venue 1']) {
+    const rejected = fixture({ ai: call => referenced(call, output => { output.days[0].stops[0].placeId = invalid; }) });
+    assert.equal((await rejected.api.POST(request())).status, 502);
+    assert.equal(rejected.calls.ai.length, 2);
+    assert.equal(rejected.calls.warnings.find(([event]) => event === 'journey_plan_generation_failed')[1].issue, 'unknown_place');
+  }
+  const duplicate = fixture({ ai: call => referenced(call, output => { output.days[1].stops[0].placeId = candidates[0].id; }) });
+  assert.equal((await duplicate.api.POST(request())).status, 502);
+  assert.equal(duplicate.calls.warnings.find(([event]) => event === 'journey_plan_generation_failed')[1].issue, 'duplicate_place');
 });
 
 test('Shortlisting preserves the feasible off-center cluster for every requested interest, even when it appears last', async () => {
@@ -157,7 +206,7 @@ test('Shortlisting preserves the feasible off-center cluster for every requested
     ai: value => {
       const selected = JSON.parse(value.contents).verifiedCandidates;
       assert.equal(selected.length, 16);
-      for (const place of cluster) assert.ok(selected.some(candidate => candidate.id === place.id));
+      for (const place of cluster) assert.ok(selected.some(candidate => candidate.name === place.name && candidate.latitude === place.latitude && candidate.longitude === place.longitude));
       return { text: JSON.stringify(output) };
     } });
   const result = await app.core.createJourneyPlan(options, new AbortController().signal);
@@ -267,7 +316,7 @@ test('One light-walking day rejects separated interest groups before AI while a 
   });
   const impossible = scenario(0.027); const rejected = await impossible.api.POST(request(options));
   assert.equal(rejected.status, 503); assert.deepEqual(await rejected.json(), { code: 'plan_insufficient_places' });
-  assert.equal(impossible.calls.ai.length, 0); assert.equal(impossible.calls.finalizations[0].args.p_success, false);
+  assert.equal(impossible.calls.ai.length, 0); assert.equal(impossible.calls.finalizations[0].args.p_result, null);
   const feasible = scenario(0.005); const accepted = await feasible.api.POST(request(options));
   assert.equal(accepted.status, 200); assert.equal(feasible.calls.ai.length, 1);
   assert.deepEqual((await accepted.json()).days[0].stops.map(stop => stop.place.group), ['culture', 'nature']);
@@ -276,25 +325,21 @@ test('One light-walking day rejects separated interest groups before AI while a 
 test('Invalid supplied sessions never downgrade to guests; denied or missing quota/model fails before provider work', async () => {
   const invalid = fixture({ auth: { ok: false, response: Response.json({ error: 'invalid' }, { status: 401 }) } });
   assert.equal((await invalid.api.POST(request(input, { Authorization: 'Bearer wrong' }))).status, 401); assert.equal(invalid.calls.quota.length, 0); assert.equal(invalid.calls.search, 0);
-  for (const [options, status] of [[{ quota: { data: false, error: null } }, 429], [{ quota: { data: null, error: { message: 'secret-schema' } } }, 503], [{ noModel: true }, 503], [{ noAdmin: true }, 503]]) {
+  for (const [options, status] of [[{ quota: { data: { state: 'limit', quota: { limit: 1, used: 1, remaining: 0, pending: false, resetAt: '2026-11-02T00:00:00Z', timeZone: 'UTC' } }, error: null } }, 429], [{ quota: { data: null, error: { message: 'secret-schema' } } }, 503], [{ noModel: true }, 503], [{ noAdmin: true }, 503]]) {
     const app = fixture(options); assert.equal((await app.api.POST(request())).status, status); assert.equal(app.calls.search, 0); assert.equal(app.calls.ai.length, 0);
   }
-  const signed = fixture(); assert.equal((await signed.api.POST(request(input, { Authorization: 'Bearer current' }))).status, 200); assert.equal(signed.calls.quota[0].args.p_guest, false);
+  const signed = fixture(); assert.equal((await signed.api.POST(request(input, { Authorization: 'Bearer current' }))).status, 200); assert.equal(signed.calls.quota[0].args.p_owner, 'genuine-user');
 });
 
-test('Guest quota ignores spoofed headers outside Vercel and only trusts a valid normalized Vercel client IP', async () => {
-  const local = fixture();
-  for (const headers of [{}, { 'x-real-ip': '192.0.2.1' }, { 'x-vercel-forwarded-for': '192.0.2.2', 'x-real-ip': '192.0.2.3' }]) assert.equal((await local.api.POST(request(input, headers))).status, 200);
-  assert.equal(new Set(local.calls.quota.map(call => call.args.p_actor)).size, 1);
-  const hosted = fixture({ vercel: true });
-  const addresses = ['192.0.2.1', '::ffff:192.0.2.1', '2001:DB8:0:0:0:0:0:1', '2001:db8::1', '192.0.2.2'];
-  for (const address of addresses) assert.equal((await hosted.api.POST(request(input, { 'x-vercel-forwarded-for': address, 'x-real-ip': '203.0.113.99' }))).status, 200);
-  const actors = hosted.calls.quota.map(call => call.args.p_actor); assert.equal(actors[0], actors[1]); assert.equal(actors[2], actors[3]); assert.notEqual(actors[0], actors[4]);
-  for (const headers of [{}, { 'x-real-ip': '192.0.2.1' }, { 'x-vercel-forwarded-for': 'not-an-ip' }, { 'x-vercel-forwarded-for': '192.0.2.1, 192.0.2.2' }, { 'x-vercel-forwarded-for': 'fe80::1%eth0' }]) await hosted.api.POST(request(input, headers));
-  const unknown = hosted.calls.quota.slice(addresses.length).map(call => call.args.p_actor); assert.equal(new Set(unknown).size, 1); assert.equal(unknown[0], local.calls.quota[0].args.p_actor);
-  const signed = fixture({ vercel: true });
-  for (const address of ['192.0.2.1', '192.0.2.2']) await signed.api.POST(request(input, { Authorization: 'Bearer current', 'x-vercel-forwarded-for': address }));
-  assert.equal(signed.calls.quota[0].args.p_actor, signed.calls.quota[1].args.p_actor); assert.notEqual(signed.calls.quota[0].args.p_actor, unknown[0]);
+test('Guests cannot generate through spoofed network headers and account allowance follows verified identity', async () => {
+  const app = fixture();
+  for (const headers of [{}, { 'x-real-ip': '192.0.2.1' }, { 'x-vercel-forwarded-for': '192.0.2.2' }]) {
+    const response = await app.api.POST(request(input, { ...headers, Authorization: '' }));
+    assert.equal(response.status, 401); assert.deepEqual(await response.json(), { code: 'plan_sign_in' });
+  }
+  assert.equal(app.calls.auth, 0); assert.equal(app.calls.quota.length, 0); assert.equal(app.calls.search, 0);
+  for (const address of ['192.0.2.1', '192.0.2.2']) assert.equal((await app.api.POST(request(input, { 'x-vercel-forwarded-for': address }))).status, 200);
+  assert.deepEqual(app.calls.quota.map(call => call.args.p_owner), ['genuine-user', 'genuine-user']);
 });
 
 test('AI failures and malicious model commands remain failures, while user notes stay ordinary bounded travel data', async () => {
@@ -316,11 +361,74 @@ test('Cancellation fences a late destination response and late AI result without
   while (!second.calls.ai.length) await new Promise(resolve => setTimeout(resolve, 1)); c.abort(); await assert.rejects(generated, /plan_timeout/); finish({ text: JSON.stringify(plan()) });
 });
 
-test('Provider capacity, access and quota failures become unavailable without leaking diagnostics or being labelled bad itinerary data', async () => {
-  for (const [status, expectedStatus, expectedCode] of [[503, 503, 'plan_unavailable'], [429, 503, 'plan_unavailable'], [403, 503, 'plan_unavailable'], [504, 504, 'plan_timeout']]) {
+test('Provider request denials are recoverable busy responses without claiming a user quota limit or leaking provider diagnostics', async () => {
+  for (const [status, expectedStatus, expectedCode] of [[503, 503, 'plan_unavailable'], [429, 503, 'plan_busy'], [402, 503, 'plan_unavailable'], [403, 503, 'plan_unavailable'], [504, 504, 'plan_timeout']]) {
     const app = fixture({ ai: () => { throw Object.assign(new Error('private-provider-message'), { status }); } });
     const result = await app.api.POST(request()); assert.equal(result.status, expectedStatus); assert.deepEqual(await result.json(), { code: expectedCode });
     assert.equal(app.calls.ai.length, status === 503 ? 2 : 1);
+    assert.equal(result.headers.get('retry-after'), status === 429 ? '60' : null);
+    assert.equal(app.calls.finalizations[0].args.p_result, null);
+  }
+});
+
+test('Provider capacity diagnostics accept only bounded structured quota windows and RetryInfo, never message claims or private details', () => {
+  const { core } = fixture();
+  const violation = (quotaId, extra = {}) => ({ quotaId, quotaMetric: 'generativelanguage.googleapis.com/generate_content_requests',
+    subject: 'private-project', description: 'private-key-and-message', quotaDimensions: { project: 'private-project', model: 'private-model' }, ...extra });
+  const quota = (...violations) => ({ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations });
+  const retry = retryDelay => ({ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay });
+  const provider = details => ({ status: 429, message: JSON.stringify({ error: { status: 'RESOURCE_EXHAUSTED', message: 'private-key-and-message', details } }) });
+  const unknown = { limitWindow: 'unknown', retryAfterSeconds: null };
+  for (const [details, expected] of [
+    [[quota(violation('GenerateRequestsPerMinutePerProjectPerModel-FreeTier')), retry('42.01s')], { limitWindow: 'minute', retryAfterSeconds: 43 }],
+    [[quota(violation('GenerateContentInputTokensPerModelPerMinute-PaidTier'))], { limitWindow: 'minute', retryAfterSeconds: null }],
+    [[quota(violation('GenerateRequestsPerDayPerProjectPerModel'))], { limitWindow: 'day', retryAfterSeconds: null }],
+    [[quota(violation('GenerateContentInputTokensPerModelPerDay-FreeTier')), retry('21s')], { limitWindow: 'day', retryAfterSeconds: 21 }],
+    [[quota(violation('GenerateRequestsPerMinutePerProjectPerModel'), violation('GenerateRequestsPerDayPerProjectPerModel'))], { limitWindow: 'day', retryAfterSeconds: null }],
+    [[quota(violation('GenerateRequestsPerDayPerProjectPerModel'), violation('GenerateRequestsPerMinutePerProjectPerModel'))], { limitWindow: 'day', retryAfterSeconds: null }],
+    [[quota(violation('GenerateRequestsPerMinutePerProjectPerModel'), violation('NewProviderDailyQuota')), retry('1s')], { limitWindow: 'unknown', retryAfterSeconds: 1 }],
+    [[quota(violation('GenerateRequestsPerDayPerProjectPerModel'), violation('NewProviderDailyQuota'))], { limitWindow: 'day', retryAfterSeconds: null }],
+    [[quota(violation('GenerateRequestsPerMinutePerProjectPerModel')), { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: 'bad' }], unknown],
+    [[retry('0s')], { limitWindow: 'unknown', retryAfterSeconds: 1 }],
+    [[retry('9999999999s')], { limitWindow: 'unknown', retryAfterSeconds: 86400 }],
+    [[retry('2s'), retry('50s')], { limitWindow: 'unknown', retryAfterSeconds: 50 }],
+    [[retry('-1s'), retry('1e6s'), retry(60), retry('Infinitys'), retry('1.1234567890s')], unknown],
+    [[quota(violation('private-id-PerDay')), { message: 'daily quota exceeded' }], unknown],
+    [[quota(violation('GenerateRequestsPerDayPerProjectPerModel', { quotaMetric: 'unrelated.example/metric' }))], unknown],
+    [[{ '@type': 'QuotaFailure', violations: [violation('GenerateRequestsPerDayPerProjectPerModel')] }], unknown],
+    [[quota(...Array.from({ length: 33 }, () => violation('GenerateRequestsPerDayPerProjectPerModel')))], unknown],
+    [Array.from({ length: 17 }, () => retry('12s')), unknown],
+    [[null, false, [], { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: 'bad' }], unknown],
+  ]) {
+    const actual = core.journeyPlanProviderDiagnostics(provider(details));
+    assert.deepEqual(clone(actual), expected);
+    assert.doesNotMatch(JSON.stringify(actual), /private-|quotaId|quotaMetric|RESOURCE_EXHAUSTED/);
+  }
+  for (const message of ['', 'daily quota exhausted, try tomorrow', 'RESOURCE_EXHAUSTED', 'not JSON', '{}', '[]', 'null', 'x'.repeat(32_001)]) {
+    assert.deepEqual(clone(core.journeyPlanProviderDiagnostics({ status: 429, message })), unknown);
+  }
+  for (const error of [null, {}, { status: 503, message: provider([retry('21s')]).message }, { status: '429' }]) assert.equal(core.journeyPlanProviderDiagnostics(error), null);
+});
+
+test('Structured provider 429 diagnostics stay server-only, honor RetryInfo, and never manufacture a daily reset or retry paid work', async () => {
+  for (const [quotaId, retryDelay, expectedWindow, expectedHeader] of [
+    ['GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '42.01s', 'minute', '43'],
+    ['GenerateRequestsPerDayPerProjectPerModel-FreeTier', undefined, 'day', null],
+    ['GenerateRequestsPerDayPerProjectPerModel-FreeTier', '300s', 'day', '300'],
+    ['unknown-private-id', undefined, 'unknown', '60'],
+  ]) {
+    const details = [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId,
+      quotaMetric: 'generativelanguage.googleapis.com/generate_content_requests', subject: 'private-project', description: 'private-key' }] },
+    ...(retryDelay ? [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay }] : [])];
+    const error = Object.assign(new Error(JSON.stringify({ error: { message: 'private-provider-message', details } })), { status: 429 });
+    const app = fixture({ ai: () => { throw error; } });
+    const result = await app.api.POST(request());
+    assert.equal(result.status, 503); assert.deepEqual(await result.json(), { code: expectedWindow === 'day' ? 'plan_daily_capacity' : 'plan_busy' });
+    assert.equal(result.headers.get('retry-after'), expectedHeader);
+    const diagnostics = app.calls.warnings.find(([event]) => event === 'journey_plan_generation_failed')[1].providerCapacity;
+    assert.deepEqual(clone(diagnostics), { limitWindow: expectedWindow, retryAfterSeconds: retryDelay ? Number(expectedHeader) : null });
+    assert.doesNotMatch(JSON.stringify(app.calls.warnings), /private-|quotaId|quotaMetric|GenerateRequests|generativelanguage/);
+    assert.equal(app.calls.ai.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(app.calls.finalizations[0].args.p_result, null);
   }
 });
 
@@ -332,10 +440,83 @@ test('One transient failure retries successfully, but access, quota and timeout 
     const app = fixture({ ai: () => { throw Object.assign(new Error('busy'), { status }); } });
     assert.equal((await app.api.POST(request())).status, 503); assert.equal(app.calls.ai.length, 2);
   }
-  for (const status of [400, 401, 403, 404, 408, 429, 504]) {
+  for (const status of [400, 401, 402, 403, 404, 408, 429, 504]) {
     const app = fixture({ ai: () => { throw Object.assign(new Error('private-provider-message'), { status }); } });
     assert.notEqual((await app.api.POST(request())).status, 200); assert.equal(app.calls.ai.length, 1);
     assert.ok(!JSON.stringify(app.calls.warnings).includes('private-provider-message'));
+  }
+});
+
+const minuteCapacityError = (delay = '1s', ids = ['GenerateRequestsPerMinutePerProjectPerModel']) => Object.assign(new Error(JSON.stringify({ error: {
+  message: 'private-provider-message', details: [
+    { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: ids.map(quotaId => ({ quotaId, quotaMetric: 'generativelanguage.googleapis.com/generate_content_requests' })) },
+    ...(delay === undefined ? [] : [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: delay }]),
+  ],
+} })), { status: 429 });
+
+test('A confirmed short minute limit waits for RetryInfo then recovers within one reservation and the original AI deadline', async () => {
+  let firstCallAt, nextCallAt;
+  const app = fixture({ ai: () => {
+    if (!firstCallAt) { firstCallAt = performance.now(); throw minuteCapacityError('1s'); }
+    nextCallAt = performance.now(); return { text: JSON.stringify(plan()) };
+  } });
+  const response = await app.api.POST(request());
+  assert.equal(response.status, 200); assert.equal(app.calls.ai.length, 2);
+  assert.ok(nextCallAt - firstCallAt >= 990, 'No immediate retry before the provider minimum wait (allow timer precision)');
+  assert.equal(app.calls.ai[0].config.abortSignal, app.calls.ai[1].config.abortSignal);
+  assert.equal(app.calls.quota.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(Boolean(app.calls.finalizations[0].args.p_result), true);
+  assert.deepEqual(clone(app.calls.warnings.filter(([event]) => event === 'journey_plan_capacity_retry')), [['journey_plan_capacity_retry', { delaySeconds: 1, attempt: 1 }]]);
+  assert.doesNotMatch(JSON.stringify(app.calls.warnings), /private-|GenerateRequests|generativelanguage/);
+});
+
+test('Minute waits round up to the provider delay, cap eligibility at eight seconds, and cancellation fences a late timer', async () => {
+  let timer, cleared = 0, attempts = 0;
+  const app = fixture({ timers: { setTimeout: (callback, delay) => { timer = { callback, delay }; return 1; }, clearTimeout: () => { cleared++; } } });
+  const pending = app.core.journeyPlanTransientRetry(async () => { if (++attempts === 1) throw minuteCapacityError('7.9s'); return 'ready'; }, new AbortController().signal);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 1); assert.equal(timer.delay, 8000);
+  timer.callback(); assert.equal(await pending, 'ready'); assert.equal(attempts, 2); assert.equal(cleared, 1);
+
+  attempts = 0; const controller = new AbortController();
+  const cancelled = app.core.journeyPlanTransientRetry(async () => { attempts++; throw minuteCapacityError('2s'); }, controller.signal);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(timer.delay, 2000); controller.abort(); await assert.rejects(cancelled, /plan_timeout/);
+  timer.callback(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(attempts, 1, 'An expired deadline cannot start a later paid call even if a cleared timer fires');
+});
+
+test('Daily, mixed, unknown, absent and long quota retry metadata never trigger automatic provider work', async () => {
+  for (const [error, expectedCode] of [
+    [minuteCapacityError('8.001s'), 'plan_busy'], [minuteCapacityError('60s'), 'plan_busy'], [minuteCapacityError('invalid'), 'plan_busy'], [minuteCapacityError(null), 'plan_busy'],
+    [minuteCapacityError('1s', []), 'plan_busy'], [minuteCapacityError('1s', ['unknown']), 'plan_busy'],
+    [minuteCapacityError('1s', ['GenerateRequestsPerDayPerProjectPerModel']), 'plan_daily_capacity'],
+    [minuteCapacityError('1s', ['GenerateRequestsPerMinutePerProjectPerModel', 'GenerateRequestsPerDayPerProjectPerModel']), 'plan_daily_capacity'],
+    [minuteCapacityError('1s', ['GenerateRequestsPerMinutePerProjectPerModel', 'NewProviderDailyQuota']), 'plan_busy'],
+    [Object.assign(new Error(JSON.stringify({ error: { details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel', quotaMetric: 'generativelanguage.googleapis.com/generate_content_requests' }] }] } })), { status: 429 }), 'plan_busy'],
+  ]) {
+    const app = fixture({ ai: () => { throw error; } });
+    const response = await app.api.POST(request()); assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { code: expectedCode }); assert.equal(app.calls.ai.length, 1);
+    assert.equal(app.calls.finalizations[0].args.p_result, null);
+    assert.equal(app.calls.warnings.some(([event]) => event === 'journey_plan_capacity_retry'), false);
+  }
+});
+
+test('Brief minute recovery, output repair and transient failures share exactly the same two-call budget', async () => {
+  const minute = () => { throw minuteCapacityError('0s'); };
+  const invalid = () => ({ text: 'not JSON' });
+  const transient = () => { throw Object.assign(new Error('private-provider-message'), { status: 503 }); };
+  for (const [sequence, code] of [
+    [[minute, minute], 'plan_busy'], [[minute, invalid], 'plan_failed'], [[invalid, minute], 'plan_busy'],
+    [[transient, minute], 'plan_busy'], [[minute, transient], 'plan_unavailable'],
+  ]) {
+    let count = 0;
+    const app = fixture({ ai: () => { assert.ok(count < 2, 'There is no third paid call'); return sequence[count++](); } });
+    const response = await app.api.POST(request()); assert.deepEqual(await response.json(), { code });
+    assert.equal(app.calls.ai.length, 2); assert.equal(app.calls.quota.length, 1);
+    assert.equal(app.calls.ai[0].config.abortSignal, app.calls.ai[1].config.abortSignal);
+    assert.equal(app.calls.finalizations.length, 1); assert.equal(app.calls.finalizations[0].args.p_result, null);
+    assert.equal(app.calls.warnings.filter(([event]) => event === 'journey_plan_capacity_retry').length, sequence[0] === minute ? 1 : 0);
   }
 });
 
@@ -359,23 +540,25 @@ test('One fresh generation repairs empty, malformed, oversized or rejected outpu
     assert.equal(second.config.systemInstruction, first.config.systemInstruction);
     assert.doesNotMatch(JSON.stringify(second), /private-unverified-place|private-rejected-output|private-malformed-output/);
     assert.ok(!second.config.systemInstruction.includes(input.notes));
-    assert.equal(app.calls.quota.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(app.calls.finalizations[0].args.p_success, true);
+    assert.equal(app.calls.quota.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(Boolean(app.calls.finalizations[0].args.p_result), true);
   }
 });
 
 test('Output repair and transient recovery share a maximum of two provider calls', async () => {
   const transient = () => { throw Object.assign(new Error('private-provider-message'), { status: 503 }); };
+  const busy = () => { throw Object.assign(new Error('private-provider-message'), { status: 429 }); };
   const invalid = () => ({ text: 'private-rejected-output' });
   for (const [sequence, status, code] of [
     [[invalid, invalid], 502, 'plan_failed'],
     [[transient, invalid], 502, 'plan_failed'],
     [[invalid, transient], 503, 'plan_unavailable'],
+    [[invalid, busy], 503, 'plan_busy'],
   ]) {
     let attempts = 0;
     const app = fixture({ ai: () => { assert.ok(attempts < sequence.length, 'A third provider call must never start'); return sequence[attempts++](); } });
     const response = await app.api.POST(request()); assert.equal(response.status, status); assert.deepEqual(await response.json(), { code });
     assert.equal(app.calls.ai.length, 2); assert.equal(app.calls.ai[0].config.abortSignal, app.calls.ai[1].config.abortSignal);
-    assert.equal(app.calls.quota.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(app.calls.finalizations[0].args.p_success, false);
+    assert.equal(app.calls.quota.length, 1); assert.equal(app.calls.finalizations.length, 1); assert.equal(app.calls.finalizations[0].args.p_result, null);
   }
 });
 

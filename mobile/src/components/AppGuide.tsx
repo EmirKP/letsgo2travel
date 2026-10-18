@@ -10,11 +10,15 @@ const targets: Array<{ id: GuideId; selector: string }> = [
   { id: 'search', selector: '[data-guide="home-search"]' },
   { id: 'start', selector: '[data-guide="home-route"]' },
   { id: 'events', selector: '[data-guide="home-events"]' },
+  { id: 'eventSearch', selector: '[data-guide="event-search"]' },
+  { id: 'eventSaved', selector: '[data-guide="event-saved"]' },
   { id: 'destination', selector: '[data-guide="journey-destination"]' },
   { id: 'days', selector: '[data-guide="journey-days"]' },
   { id: 'edit', selector: '[data-guide="journey-edit"]' },
   { id: 'discover', selector: '[data-guide="journey-discover"]' },
   { id: 'save', selector: '[data-guide="journey-save"]' },
+  { id: 'library', selector: '[data-guide="saved-library"]' },
+  { id: 'toolSearch', selector: '[data-guide="tool-search"]' },
   { id: 'plans', selector: '[data-guide="nav-plans"]' },
   { id: 'community', selector: '[data-guide="nav-community"]' },
   { id: 'tools', selector: '[data-guide="nav-tools"]' },
@@ -29,6 +33,8 @@ export function AppGuide({ active, revision, paused, view, onStop }: { active: b
   const [review, setReview] = useState<GuideId | null>(null);
   const [cardHeight, setCardHeight] = useState(310);
   const [card, setCard] = useState<HTMLElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { setExpanded(false); }, [anchor?.id, revision]);
   useEffect(() => { setSeen(readGuideProgress().seen); setReview(null); }, [revision]);
   useEffect(() => {
     if (!card) return;
@@ -49,7 +55,7 @@ export function AppGuide({ active, revision, paused, view, onStop }: { active: b
       for (const item of targets) {
         // Keep navigation help out of a route's lazy-loading interval. The
         // destination/edit/save lesson appears only when its real control exists.
-        if (view === 'route' && ['plans', 'tools', 'community', 'profile'].includes(item.id)) continue;
+        if (['route', 'events', 'trips', 'companion'].includes(view) && ['plans', 'tools', 'community', 'profile'].includes(item.id)) continue;
         const target = Array.from(document.querySelectorAll<HTMLElement>(item.selector)).find(element => {
           if (element.closest('[inert], [aria-hidden="true"]') || !element.getClientRects().length) return false;
           const rect = element.getBoundingClientRect();
@@ -95,7 +101,7 @@ export function AppGuide({ active, revision, paused, view, onStop }: { active: b
     const previousDescription = target.getAttribute('aria-describedby');
     target.setAttribute('aria-describedby', [previousDescription, 'app-guide-description'].filter(Boolean).join(' '));
     const action = () => acknowledge(id);
-    const event = id === 'destination' || id === 'search' ? 'input' : 'click';
+    const event = id === 'destination' || id === 'search' || id === 'toolSearch' ? 'input' : 'click';
     target.addEventListener(event, action, { once: true });
     return () => {
       target.classList.remove('app-guide-target'); target.removeEventListener(event, action);
@@ -105,11 +111,15 @@ export function AppGuide({ active, revision, paused, view, onStop }: { active: b
 
   if (!active || paused || !anchor) return null;
   const content: Record<GuideId, { title: string; text: string; steps?: string[] }> = {
+    eventSearch: { title: copy('Tarihine uygun etkinlikleri bul', 'Find events for your dates', 'Gjej aktivitete për datat e tua'), text: copy('Yukarıdan ülke ve tarih seç, ardından “Etkinlikleri bul”a dokun. Şehir seçmek isteğe bağlı.', 'Choose a country and dates above, then tap Find events. Choosing a city is optional.', 'Zgjidh shtetin dhe datat më sipër, pastaj prek Gjej aktivitete. Qyteti është sipas dëshirës.') },
+    eventSaved: { title: copy('Kaydettiğin etkinliklere dön', 'Return to your saved events', 'Kthehu tek aktivitetet e ruajtura'), text: copy('Beğendiğin etkinlikte Kaydet’e dokun. Kaydın oluştuğunda buradan veya Planlar’dan yeniden açabilirsin.', 'Tap Save on an event you like. Once saved, reopen it here or in Plans.', 'Prek Ruaj te aktiviteti që të pëlqen. Pasi të ruhet, hape këtu ose te Planet.') },
+    library: { title: copy('Kaydını bul ve devam et', 'Find your saved plan', 'Gjej planin tënd të ruajtur'), text: copy('Rotalar’ı seç, bir planı aç. Haritada aç ve düzenle ile aynı rotayı değiştirebilirsin. Henüz kaydın yoksa Yeni rota ile başla.', 'Choose Routes, then open a plan. Open and edit on map lets you change the same route. If you have no saved plans, start with New route.', 'Zgjidh Itineraret dhe hap një plan. Hap dhe ndrysho në hartë të lejon ta ndryshosh. Pa plane të ruajtura, fillo me Itinerar i ri.') },
+    toolSearch: { title: copy('İhtiyacını yaz, aracı aç', 'Find the tool you need', 'Gjej mjetin që të duhet'), text: copy('“Eczane”, “çeviri” veya “döviz” yaz. Çıkan araca dokun; yer gereken araçlarda gideceğin ülkeyi seçebilirsin.', 'Type “pharmacy”, “translation” or “currency”, then tap a tool. Select your destination country when a tool needs it.', 'Shkruaj “farmaci”, “përkthim” ose “monedha”, pastaj prek mjetin. Zgjidh shtetin kur nevojitet.') },
     search: { title: copy('Ne arıyorsun?', 'What are you looking for?', 'Çfarë po kërkon?'), text: copy('Şehirleri ve uygulamadaki özellikleri buradan bulabilirsin.', 'Find destinations and app features from this search box.', 'Gjej destinacione dhe veçori nga kjo fushë kërkimi.'), steps: [copy('“İst” yaz; İstanbul önerisine dokun.', 'Type “Ist”, then tap the Istanbul suggestion.', 'Shkruaj “Ist” dhe prek sugjerimin Stamboll.'), copy('“Etkinlik” veya “döviz” yaz; çıkan aracı doğrudan aç.', 'Type “events” or “currency” to open that tool directly.', 'Shkruaj “aktivitete” ose “monedha” për ta hapur mjetin.') ] },
     start: { title: copy('İlk rotanı oluştur', 'Create your first route', 'Krijo itinerarin tënd të parë'), text: copy('Rota’ya dokun; kısa sorularla sana uygun günlük program hazırlayalım.', 'Tap Route to build a daily itinerary with a few short questions.', 'Prek Itinerar për të krijuar një program ditor me disa pyetje.'), steps: [copy('Gideceğin yeri, gün sayısını ve gezi tercihlerini seç.', 'Choose your destination, number of days and travel preferences.', 'Zgjidh destinacionin, numrin e ditëve dhe preferencat.'), copy('Rotan hazır olduğunda durakları haritada düzenleyip kaydet.', 'When your route is ready, adjust its stops on the map and save it.', 'Kur itinerari të jetë gati, ndrysho ndalesat në hartë dhe ruaje.')] },
     events: { title: copy('Etkinlik Radarı’nı keşfet', 'Discover Event Radar', 'Zbulo Radarin e aktiviteteve'), text: copy('Seyahat tarihindeki konserleri, festivalleri ve diğer etkinlikleri burada ara.', 'Find concerts, festivals and other events during your trip.', 'Gjej koncerte, festivale dhe aktivitete gjatë udhëtimit.'), steps: [copy('Ülkeyi, istersen şehri ve tarih aralığını seç; “Etkinlikleri bul”a dokun.', 'Choose a country, optional city and dates, then tap Find events.', 'Zgjidh shtetin, qytetin sipas dëshirës dhe datat; prek Gjej aktivitete.'), copy('Bir etkinliği kaydet veya tarihleri uygun seyahatine ekle.', 'Save an event or add it to a trip with matching dates.', 'Ruaj një aktivitet ose shtoje në një udhëtim me data përkatëse.')] },
     destination: { title: copy('Gideceğin yeri seç', 'Choose where to go', 'Zgjidh ku do të shkosh'), text: copy('Bir şehir, ilçe veya mahalle yaz. Açılan öneriye dokun; sonra gününü ve tercihlerini seç.', 'Type a city, district or neighbourhood. Tap a suggestion, then choose your days and preferences.', 'Shkruaj qytet, zonë ose lagje. Prek një sugjerim, pastaj zgjidh ditët dhe preferencat.') },
-    days: { title: copy('Programını gün gün incele', 'Review each day', 'Shiko çdo ditë'), text: copy('Bir güne dokununca yalnız o günün durakları ve rotası görünür.', 'Tap a day to see its stops and route.', 'Prek një ditë për të parë ndalesat dhe itinerarin e saj.'), steps: [copy('Diğer günleri görmek için gün şeridini yana kaydır.', 'Swipe the day strip sideways to reach later days.', 'Rrëshqit shiritin anash për të parë ditët e tjera.'), copy('“Genel” tüm günleri gösterir. Alt paneli tutamacından büyütüp programı oku.', 'Overview shows all days. Expand the bottom panel with its handle to read the itinerary.', 'Përmbledhja tregon të gjitha ditët. Zmadho panelin nga doreza për të lexuar programin.')] },
+    days: { title: copy('Programını gün gün incele', 'Review each day', 'Shiko çdo ditë'), text: copy('Bir güne dokununca yalnız o günün durakları ve rotası görünür.', 'Tap a day to see its stops and route.', 'Prek një ditë për të parë ndalesat dhe itinerarin e saj.'), steps: [copy('Diğer günleri görmek için gün şeridini yana kaydır.', 'Swipe the day strip sideways to reach later days.', 'Rrëshqit shiritin anash për të parë ditët e tjera.'), copy('“Genel” tüm günleri gösterir. Alt paneli tutamacından büyütüp programı oku.', 'Overview shows all days. Expand the bottom panel with its handle to read the itinerary.', 'Përmbledhja tregon të gjitha ditët. Zmadho panelin nga doreza për të lexuar programin.'), copy('Numaralı işaretler rotandaki duraklardır. Diğer simgeler yakındaki yerlerin türünü gösterir; bir gruba dokunarak yakınlaş.', 'Numbered markers are your route stops. Other symbols show nearby place types; tap a group to zoom in.', 'Shenjat me numra janë ndalesat e tua. Simbolet e tjera tregojnë llojet e vendeve pranë; prek një grup për t’u afruar.')] },
     edit: { title: copy('Rotanı kendine göre düzenle', 'Make the route yours', 'Përshtate itinerarin'), text: copy('Bir durağa dokunarak süresini ve notunu değiştir. Haritadan yeni yerler de ekleyebilirsin.', 'Tap a stop to change its duration and note. You can add more places from the map.', 'Prek një ndalesë për të ndryshuar kohëzgjatjen dhe shënimin. Mund të shtosh vende nga harta.') },
     discover: { title: copy('Rotana yeni bir yer ekle', 'Add a place to your route', 'Shto një vend në itinerar'), text: copy('“Mekânları keşfet” bölümünde haritadaki yerleri incele.', 'Use Discover places to explore places on the map.', 'Përdor Zbulo vende për të parë vendet në hartë.'), steps: [copy('Haritayı istediğin bölgeye taşı, ardından “Bu bölgede ara”ya dokun.', 'Move the map to your area, then tap Search this area.', 'Lëviz hartën te zona e dëshiruar dhe prek Kërko në këtë zonë.'), copy('Bir yeri aç, eklemek istediğin günü seç ve programına ekle.', 'Open a place, choose the day and add it to your itinerary.', 'Hap një vend, zgjidh ditën dhe shtoje në program.')] },
     save: { title: copy('Rotanı kaydet', 'Save your route', 'Ruaj itinerarin'), text: copy('Bu düğme planını saklar. Kaydettiğinde Planlar bölümünden tekrar açabilirsin.', 'This button keeps your plan. Once saved, reopen it from Plans.', 'Ky buton ruan planin. Pasi ta ruash, hape përsëri te Planet.') },
@@ -123,7 +133,7 @@ export function AppGuide({ active, revision, paused, view, onStop }: { active: b
     <div className="app-guide-meta"><span>{copy(`${seen.length}/${GUIDE_IDS.length} ipucu keşfedildi`, `${seen.length}/${GUIDE_IDS.length} tips explored`, `${seen.length}/${GUIDE_IDS.length} këshilla të eksploruara`)}</span><button type="button" onClick={onStop} aria-label={copy('Turu kapat', 'Close tour', 'Mbyll udhëzuesin')}><Icon name="close" size={17}/></button></div>
     <div className="app-guide-heading"><Icon name="sparkles" size={19}/><strong>{tip.title}</strong></div>
     <p id="app-guide-description">{tip.text}</p>
-    {tip.steps && <ol>{tip.steps.map(step => <li key={step}>{step}</li>)}</ol>}
+    {tip.steps && <><button className="app-guide-details" type="button" aria-expanded={expanded} aria-controls="app-guide-steps" onClick={() => setExpanded(value => !value)}>{copy('Nasıl yaparım?', 'How do I do this?', 'Si ta bëj?')}<Icon name="chevron" size={14}/></button>{expanded && <ol id="app-guide-steps">{tip.steps.map(step => <li key={step}>{step}</li>)}</ol>}</>}
     <div className="app-guide-actions"><button type="button" disabled={!anchor.previous} onClick={() => anchor.previous && setReview(anchor.previous)}>{copy('Geri', 'Back', 'Prapa')}</button><button type="button" onClick={() => acknowledge(anchor.id)}>{copy('Atla', 'Skip', 'Kalo')}</button><button type="button" className="app-guide-next" onClick={() => { acknowledge(anchor.id); anchor.target.focus({ preventScroll: true }); }}>{copy('Anladım', 'Got it', 'E kuptova')}<Icon name="check" size={16}/></button></div>
     <button className="app-guide-restart" type="button" onClick={() => { setReview(null); setSeen([]); saveGuideProgress({ active: true, seen: [] }); }}>{copy('Rehberi baştan başlat', 'Restart guide', 'Rifillo udhëzuesin')}</button>
   </aside>, anchor.host);

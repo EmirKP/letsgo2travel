@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '../lib/i18n';
+import { getThemeSnapshot, subscribeTheme } from '../lib/theme';
 import { AppleMapKitError, loadAppleMapKit, subscribeAppleMapAuthorizationErrors } from '../lib/appleMapKit';
 import { getJourneyMapAuthorization, invalidateJourneyMapAuthorization } from '../lib/appleMapAuthorization';
-import type { AppleAnnotation, AppleCoordinate, AppleMap, AppleMapKit, AppleMapListener, ApplePadding } from '../lib/appleMapKit';
+import type { AppleAnnotation, AppleAnnotationOptions, AppleCoordinate, AppleMap, AppleMapKit, AppleMapListener, ApplePadding } from '../lib/appleMapKit';
 import type { JourneyMapPoint, JourneyMapProps, JourneyMapViewport } from './journeyMapTypes';
 import { safeJourneyPhotoUrl } from '../../../lib/travel-assistant/places';
+import { journeyMapCategory } from './journeyMapCategory';
 import './journey-map.css';
 
 const DAY_COLORS = ['#175fe6', '#b6419b', '#008271', '#b86100', '#744ac2', '#b73d42', '#1276a1'];
@@ -19,24 +21,46 @@ type AnnotationEntry = { point: JourneyMapPoint; kind: 'stop' | 'discovered'; se
 function stylePhotoSelection(pin: HTMLElement, selected: boolean) {
   pin.style.border = `3px solid ${selected ? '#0864f1' : '#ffffff'}`;
   pin.style.boxShadow = selected ? '0 0 0 3px #ffdc30,0 4px 12px #172e5040' : '0 4px 12px #172e5040';
+  const label = pin.querySelector<HTMLElement>('.journey-marker-label');
+  if (label) label.style.display = selected ? 'block' : 'none';
 }
-function photoPin(url: string, color: string, order: number | undefined, selected: boolean) {
+function photoPin(url: string | null, color: string, order: number | undefined, selected: boolean, point: JourneyMapPoint, locale: string) {
+  const category = journeyMapCategory(point.category, locale);
+  const size = url ? 56 : 44;
   const pin = document.createElement('div');
-  Object.assign(pin.style, { position: 'relative', width: '56px', height: '56px', borderRadius: '50%', border: `3px solid ${selected ? '#0864f1' : '#ffffff'}`,
+  Object.assign(pin.style, { position: 'relative', width: `${size}px`, height: `${size}px`, borderRadius: order === undefined && !url ? '14px' : '50%', border: `3px solid ${selected ? '#0864f1' : '#ffffff'}`,
     background: color, color: '#ffffff', boxSizing: 'border-box', boxShadow: selected ? '0 0 0 3px #ffdc30,0 4px 12px #172e5040' : '0 4px 12px #172e5040',
     display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 18px/1 system-ui,sans-serif' });
-  pin.textContent = order === undefined ? '•' : String(order);
+  pin.className = 'journey-marker';
+  if (order !== undefined) pin.textContent = String(order);
+  else {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [name, value] of Object.entries({ viewBox: '0 0 24 24', width: '24', height: '24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })) svg.setAttribute(name, value);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', category.path);
+    svg.appendChild(path); pin.appendChild(svg);
+  }
   pin.setAttribute('aria-hidden', 'true');
-  const image = document.createElement('img');
-  image.alt = ''; image.src = url; image.referrerPolicy = 'no-referrer'; image.draggable = false;
-  Object.assign(image.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' });
-  image.onerror = () => { image.remove(); };
-  pin.appendChild(image);
-  if (order !== undefined) {
-    const badge = document.createElement('span'); badge.textContent = String(order);
+  if (url) {
+    const image = document.createElement('img');
+    image.alt = ''; image.src = url; image.referrerPolicy = 'no-referrer'; image.draggable = false;
+    Object.assign(image.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' });
+    image.onerror = () => { image.remove(); };
+    pin.appendChild(image);
+    const badge = document.createElement('span');
+    if (order !== undefined) badge.textContent = String(order);
+    else {
+      // Keep the category visible even when a verified place photo is available.
+      const icon = pin.querySelector('svg')?.cloneNode(true);
+      if (icon) badge.appendChild(icon);
+    }
     Object.assign(badge.style, { position: 'absolute', top: '-9px', right: '-9px', minWidth: '23px', height: '23px', padding: '0 4px', border: '2px solid #ffffff', borderRadius: '12px', boxSizing: 'border-box', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 11px/1 system-ui,sans-serif' });
     pin.appendChild(badge);
   }
+  const label = document.createElement('span');
+  label.className = 'journey-marker-label';
+  label.textContent = `${point.name || category.label}${point.name ? ` · ${category.label}` : ''}`;
+  label.style.display = selected ? 'block' : 'none';
+  pin.appendChild(label);
   return pin;
 }
 function region(kit: AppleMapKit, point: AppleCoordinate, span: number) {
@@ -91,6 +115,11 @@ export function AppleJourneyMap(props: JourneyMapProps) {
     setReady(0);
     if (attempt > 0) invalidateJourneyMapAuthorization();
     const unsubscribeAuthorization = subscribeAppleMapAuthorizationErrors(failure => { if (!disposed) setError(failure.code); });
+    const unsubscribeTheme = subscribeTheme(() => {
+      if (!disposed && instance && namespace) {
+        instance.colorScheme = getThemeSnapshot().resolved === 'dark' ? namespace.ColorScheme.Dark : namespace.ColorScheme.Light;
+      }
+    });
     void loadAppleMapKit(getJourneyMapAuthorization, locale, attempt > 0).then(loaded => {
       if (disposed || !host.current) return;
       namespace = loaded;
@@ -98,7 +127,7 @@ export function AppleJourneyMap(props: JourneyMapProps) {
       instance = new loaded.Map(host.current, {
         region: region(loaded, initial, valid(current.current.center) ? 0.08 : 120),
         mapType: loaded.MapType.MutedStandard,
-        colorScheme: loaded.ColorScheme.Adaptive,
+        colorScheme: getThemeSnapshot().resolved === 'dark' ? loaded.ColorScheme.Dark : loaded.ColorScheme.Light,
         tintColor: '#0864f1',
         showsMapTypeControl: false, showsZoomControl: true,
         showsCompass: loaded.FeatureVisibility.Hidden, showsScale: loaded.FeatureVisibility.Hidden,
@@ -159,6 +188,7 @@ export function AppleJourneyMap(props: JourneyMapProps) {
     return () => {
       disposed = true;
       unsubscribeAuthorization();
+      unsubscribeTheme();
       observer?.disconnect();
       if (instance) {
         if (report) instance.removeEventListener('region-change-end', report);
@@ -189,8 +219,9 @@ export function AppleJourneyMap(props: JourneyMapProps) {
     const nextPadding = JSON.stringify(padding);
     if (paddingKey.current !== nextPadding) { paddingKey.current = nextPadding; m.padding = new api.Padding(padding.top, padding.right, padding.bottom, padding.left); }
     const nextAnnotations = JSON.stringify([
-      stops.map(stop => [stop.id, stop.latitude, stop.longitude, stop.day, stop.order, stop.imageUrl, props.labels.stop(stop.order, stop.day, stop.name)]),
-      places.map(place => [place.id, place.latitude, place.longitude, place.imageUrl, props.labels.place(place.name)]),
+      locale,
+      stops.map(stop => [stop.id, stop.latitude, stop.longitude, stop.day, stop.order, stop.category, stop.imageUrl, props.labels.stop(stop.order, stop.day, stop.name)]),
+      places.map(place => [place.id, place.latitude, place.longitude, place.category, place.imageUrl, props.labels.place(place.name)]),
     ]);
     syncing.current = true;
     try {
@@ -203,31 +234,27 @@ export function AppleJourneyMap(props: JourneyMapProps) {
         for (const point of [...stops, ...places]) {
           const stop = stopById.get(point.id);
           let selected = point.id === nextSelectedId;
-          const label = stop ? props.labels.stop(stop.order, stop.day, point.name) : props.labels.place(point.name);
-          const color = stop ? dayColor(stop.day) : selected ? '#0065f5' : '#536579';
-          const options = {
-            title: point.name, accessibilityLabel: label, animates: false, draggable: false,
+          const category = journeyMapCategory(point.category, locale);
+          const name = point.name || category.label;
+          const label = `${stop ? props.labels.stop(stop.order, stop.day, name) : props.labels.place(name)}${point.category ? ` · ${category.label}` : ''}`;
+          const options: AppleAnnotationOptions = {
+            title: name, accessibilityLabel: label, animates: false, draggable: false,
             calloutEnabled: false, selected, enabled: true,
             clusteringIdentifier: stop || selected ? null : 'journey-discovery',
-            color,
-            glyphText: stop ? String(stop.order) : '•', glyphColor: '#ffffff',
-            titleVisibility: api.FeatureVisibility.Hidden, subtitleVisibility: api.FeatureVisibility.Hidden,
             displayPriority: stop || selected ? 1000 : 750,
           };
           const photo = safeJourneyPhotoUrl(point.imageUrl);
           let pin: HTMLElement | undefined;
-          const marker = photo ? new api.Annotation(coordinate(api, point), () => {
-            pin = photoPin(photo, stop ? dayColor(stop.day) : selected ? '#0065f5' : '#536579', stop?.order, selected);
+          const marker = new api.Annotation(coordinate(api, point), () => {
+            pin = photoPin(photo, stop ? dayColor(stop.day) : selected ? '#0065f5' : '#536579', stop?.order, selected, point, locale);
             return pin;
-          }, options)
-            : new api.MarkerAnnotation(coordinate(api, point), options);
+          }, options);
           nextEntries.set(marker, { point, kind: stop ? 'stop' : 'discovered', select(value) {
             selected = value;
             marker.selected = value;
-            marker.color = stop ? dayColor(stop.day) : value ? '#0065f5' : '#536579';
             marker.clusteringIdentifier = stop || value ? null : 'journey-discovery';
             marker.displayPriority = stop || value ? 1000 : 750;
-            if (pin) { stylePhotoSelection(pin, value); pin.style.background = marker.color; }
+            if (pin) { stylePhotoSelection(pin, value); pin.style.background = stop ? dayColor(stop.day) : value ? '#0065f5' : '#536579'; }
           } });
         }
         entries.current = nextEntries;
@@ -274,7 +301,7 @@ export function AppleJourneyMap(props: JourneyMapProps) {
       selection.current = selectedKey;
       if (selected) m.setCenterAnimated(coordinate(api, selected), false);
     }
-  }, [props, ready, sizeRevision]);
+  }, [props, ready, sizeRevision, locale]);
 
   const message = error === 'missing_configuration'
     ? copy('Apple Haritalar henüz kullanıma hazır değil. Seyahat planını listeden düzenleyebilirsin.', 'Apple Maps is not set up yet. You can still edit your itinerary in the list.', 'Apple Maps nuk është konfiguruar ende. Mund ta ndryshosh itinerarin në listë.')

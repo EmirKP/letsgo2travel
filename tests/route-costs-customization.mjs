@@ -5,11 +5,12 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { webcrypto } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 function modules(overrides = {}, globals = {}) {
   const cache = new Map();
-  const context = vm.createContext({ Request, Response, Headers, AbortController, Date, Intl, console, setTimeout, clearTimeout, process: { env: {} }, ...globals });
+  const context = vm.createContext({ Request, Response, Headers, AbortSignal, AbortController, Date, Intl, console, crypto: webcrypto, TextEncoder, setTimeout, clearTimeout, process: { env: {} }, ...globals });
   const load = filename => {
     let full = path.resolve(filename); if (!existsSync(full)) full += '.ts';
     if (cache.has(full)) return cache.get(full).exports;
@@ -96,6 +97,16 @@ function api({ generated, fail = false, enabled = false, cached } = {}) {
   const cacheDb = cached ? { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { output_json: cached } }) }) }) }) } : null;
   const runtime = modules({
     '@/lib/supabaseAdmin': { getSupabaseAdmin: () => cacheDb },
+    // Quota/auth behavior is covered against actual SQL in ai-route-quota.mjs;
+    // these cases exercise existing destination, passport and fallback rules.
+    '@/lib/ai-route-quota': {
+      requireAiRouteAccount: async () => ({ user: { id: 'verified-fixture' } }),
+      aiRouteOperation: () => ({ begin: async () => ({ state: 'acquired' }), complete: async () => ({ limit: 1, used: 1, remaining: 0 }), release: async () => {}, reserveProviderAttempt: async () => {} }),
+      aiRouteReply: body => Response.json(body), aiRouteErrorReply: () => Response.json({ code: 'plan_unavailable' }, { status: 503 }),
+    },
+    '@/lib/travel-assistant/journey-plan-groq': { groqJourneyModel: () => null, generateBoundedGroqJourneyJson: () => assert.fail('Gemini fixture must not call Groq') },
+    '@/lib/travel-assistant/journey-plan': { journeyPlanProviderError: () => ({ code: 'plan_failed' }), journeyPlanWait: async value => value },
+    '@/lib/travel-assistant/http': { boundedJson: async request => request.json() },
     '@google/genai': { GoogleGenAI: class { models = { generateContent: async request => { prompts.push(request.contents); if (fail) throw Error('offline'); return { text: JSON.stringify(generated) }; } }; } },
   }, { process: { env: enabled ? { AI_PLAN_ENABLED: 'true', GEMINI_API_KEY: 'TEST_ONLY' } : {} } });
   return { ...runtime('app/api/ai-plan/route.ts'), prompts, airports: runtime('lib/airport-search.ts') };
@@ -144,7 +155,7 @@ test('Rejected cached fixed plans are marked as starter outlines rather than AI-
 });
 
 test('Discovery replies without a summary retain Albanian UI language', async () => {
-  const route = api({ enabled: true, generated: { routes: [{ name: 'Bodrum', country: 'Türkiye', scores: { overall: 80 } }] } });
+  const route = api({ enabled: true, generated: { routes: ['Bodrum', 'Istanbul', 'Ankara'].map(name => ({ name, country: 'Türkiye', scores: { overall: 80 } })) } });
   const result = await (await route.POST(request({ ...input, mode: 'discover', destination: undefined, dayCount: undefined, locale: 'sq' }))).json();
   assert.match(result.data.summary, /^Përgatitëm itinerare/);
 });
@@ -171,7 +182,7 @@ test('Albanian HTTP requests and incomplete AI replies keep Albanian copy across
       return Response.json(result.data, { status: result.status });
     } });
     const client = runtime('mobile/src/lib/api.ts');
-    const response = await client.generateRoutePlan(input, 'sq');
+    const response = await client.generateRoutePlan(input, 'sq', { ownerId: 'fixture-account', accessToken: 'fixture-token' });
     assert.equal(calls[0].headers['Accept-Language'], 'sq');
     assert.equal(response.data.routes[0].visaStatus, 'Verifiko para udhëtimit');
     assert.equal(response.data.routes[0].estimatedBudget, 'Ndryshon sipas datave');
@@ -315,10 +326,10 @@ test('City prices retain country identity and support only verified airport muni
 });
 
 
-test('Planner entry rules use nationality and all supported passport types; omitted legacy input remains Turkish ordinary', async () => {
+test('Planner entry rules use the selected document and all supported types; omitted or skipped choices remain unknown', async () => {
   const route = api();
   const body = { ...input, destination: { code: 'FCO' }, locale: 'en' };
-  const cases = [[{}, 'visa_required', 'Türkiye · Ordinary'], [{ passportCountry: 'TR', passportType: 'special' }, 'visa_free', 'Türkiye · Special'], [{ passportCountry: 'TR', passportType: 'service' }, 'visa_free', 'Türkiye · Service'], [{ passportCountry: 'TR', passportType: 'diplomatic' }, 'visa_free', 'Türkiye · Diplomatic'], [{ passportCountry: 'DE', passportType: 'ordinary' }, 'visa_free', 'Germany · Ordinary'], [{ passportCountry: 'DE', passportType: 'special' }, 'unknown', 'Germany · Special']];
+  const cases = [[{}, 'unknown', 'Passport not selected'], [{passportCountry:'',passportType:''}, 'unknown', 'Passport not selected'], [{ passportCountry:'TR',passportType:'ordinary'}, 'visa_required', 'Türkiye · Ordinary'], [{ passportCountry: 'TR', passportType: 'special' }, 'visa_free', 'Türkiye · Special'], [{ passportCountry: 'TR', passportType: 'service' }, 'visa_free', 'Türkiye · Service'], [{ passportCountry: 'TR', passportType: 'diplomatic' }, 'visa_free', 'Türkiye · Diplomatic'], [{ passportCountry: 'DE', passportType: 'ordinary' }, 'visa_free', 'Germany · Ordinary'], [{ passportCountry: 'DE', passportType: 'special' }, 'unknown', 'Germany · Special']];
   for (const [passport, expected, context] of cases) {
     const response = await route.POST(request({ ...body, ...passport })); assert.equal(response.status, 200);
     const result = (await response.json()).data.routes[0];
@@ -330,7 +341,7 @@ test('Planner entry rules use nationality and all supported passport types; omit
 
 test('Explicit invalid passport input is rejected instead of silently granting the legacy Turkish rule', async () => {
   const route = api();
-  for (const fields of [{ passportCountry: '???' }, { passportCountry: null }, { passportType: 'official' }, { passportType: null }]) {
+  for (const fields of [{ passportCountry: '???' }, { passportCountry: null }, { passportType: 'official' }, { passportType: null }, {passportCountry:'TR',passportType:''}, {passportCountry:'',passportType:'ordinary'}]) {
     assert.equal((await route.POST(request({ ...input, ...fields }))).status, 400);
   }
 });
@@ -373,5 +384,20 @@ test('Local starter routes use canonical passport rules in all languages and nev
     const bosnia = routes.routeByDestinationCode('SJJ', locale);
     assert.equal(rules.plannerCountryCode(bosnia.country), 'BA');
     assert.equal(rules.plannerEntry({ passportCountry: 'TR', passportType: 'ordinary' }, bosnia.country, locale).verifiedEntryStatus, 'visa_free');
+  }
+});
+
+
+test('Surprise easy-entry picks use the selected passport and never fall back to static Turkish eligibility',()=>{
+  const routes=load('mobile/src/data/routes.ts');
+  const base={budget:'balanced',pace:'easy',entry:'easy'};
+  for(const passport of [{},{passportCountry:'',passportType:''},{passportCountry:'DE',passportType:'special'}]){
+    assert.equal(routes.randomRouteFor({...base,...passport},'en'),null);
+  }
+  for(const locale of ['tr','en','sq']){
+    const picked=routes.randomRouteFor({...base,passportCountry:'TR',passportType:'ordinary'},locale);
+    assert.ok(picked);assert.ok(['visa_free','identity_card','e_visa','visa_on_arrival'].includes(picked.verifiedEntryStatus));
+    const unfiltered=routes.randomRouteFor({...base,entry:'all'},locale);
+    assert.equal(unfiltered.verifiedEntryStatus,'unknown');assert.equal(unfiltered.visaVerifiedAt,null);
   }
 });

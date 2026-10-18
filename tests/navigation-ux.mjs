@@ -453,10 +453,10 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,
     '../lib/accountResume': { onAccountResume: () => () => {} },
     '../lib/profileSync': profileSync,
-    '../data/artwork': artwork, '../data/routes': routes,
+    '../data/artwork': artwork, '../data/routes': routes, '../../../lib/planner-passport': passport,
     '../data/homeDestinations': home, '../lib/searchText': search,
     '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, toggleFavoriteDestination: destination => { favorites = favorites.some(item => item.alpha3 === destination.alpha3) ? favorites.filter(item => item.alpha3 !== destination.alpha3) : [...favorites, { ...destination, createdAt: '2026-10-10' }]; return favorites; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: profileFixture.read || (async () => profileFixture.remote), updateUserProfile: (...args) => { profileWrites.push(args); return profileFixture.write?.(...args); }, getSupabaseDataErrorMessage: (_, fallback) => fallback },
-    '../lib/i18n': { useI18n: () => i18n }, '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR', type: 'ordinary' }) },
+    '../lib/i18n': { useI18n: () => i18n }, '../hooks/usePassportPreference': { usePassportPreference: () => (profileFixture.passport || { country: 'TR', type: 'ordinary' }) },
     '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify current entry rules', visaFree: true }) }, '../data/passport-index.json': {},
   };
   const listeners = { addEventListener() {}, removeEventListener() {} };
@@ -616,5 +616,16 @@ test('A returned auth redirect retains the destination and guest dismissal also 
   assert.ok(h.screen(view,'TravelCompanionScreen'));assert.equal(h.guide.readWelcomeDestination(),null);assert.equal(h.guide.readGuideProgress().active,true);
   h.bottomButton(view,'Profil').props.onClick();view=h.render();h.screen(view,'ProfileScreen').props.onOpenOnboarding();view=h.render();
   assert.equal(h.screen(view,'Onboarding'),undefined,'Reopening the tour does not rerun preference questions');
-  assert.ok(h.planner(view));assert.equal(h.screen(view,'AppGuide').props.active,true);
+  assert.equal(h.screen(view,'GuideMenu').props.open,true);assert.equal(h.screen(view,'AppGuide').props.paused,true);
+  h.screen(view,'GuideMenu').props.onChoose('events');view=h.render();
+  assert.ok(h.screen(view,'EventsScreen'));assert.equal(h.screen(view,'GuideMenu').props.open,false);assert.equal(h.screen(view,'AppGuide').props.active,true);
+});
+
+
+test('Explore remains usable without a selected passport and opens real passport settings without claiming eligibility',()=>{
+  const h=exploreHarness('', 'en', {passport:{country:'',type:''}});
+  const view=h.render();
+  assert.match(text(view),/Passport not selected/);
+  const control=nodes(view).find(n=>n.type==='button' && /Passport not selected/.test(text(n.props.children)));
+  control.props.onClick();assert.deepEqual(h.calls.navigated,['passport']);
 });

@@ -7,7 +7,7 @@ function subscribe(listener: () => void) {
 }
 function snapshot() { const value = readPassportPreference(); return `${value.country}:${value.type}`; }
 export function usePassportPreference() {
-  const value = useSyncExternalStore(subscribe, snapshot, () => "TR:ordinary");
+  const value = useSyncExternalStore(subscribe, snapshot, () => ":");
   const [country, type] = value.split(":");
   return { country, type, setPreference: savePassportPreference };
 }

@@ -83,7 +83,7 @@ const { AccountDeletionRequestSummary } = loadSource("mobile/src/components/Acco
   "../lib/native": {}, "./Icon": {}, "./SupportSheet": {}, "./account-deletion.css": {},
   "../lib/personalTravelCards": {},
   "../lib/communityPreferences": {},
-  "../lib/journeySurveyDraft": {},
+  "../lib/journeySurveyDraft": {}, "../lib/plannerSignInDraft": {},
 });
 const summary = (request) => renderToStaticMarkup(React.createElement(AccountDeletionRequestSummary, { request, email: "fixture@example.com" }));
 await test("pending summary shows server submission, 30-day deadline and result email", () => {
@@ -130,6 +130,7 @@ function deletionPanel({ failRequest=false, failCleanup=false, failFollows=false
     '../lib/accountDeletion':{...helpers,getAccountDeletionRequest:async()=>null,getAppleDeletionStatus:async()=>({required:false,status:'not_required'}),submitAccountDeletionRequest:async()=>{submitted++;if(failRequest)throw Error('offline');return {...fixture,status:responseStatus};}},
     '../lib/i18n':{useI18n:()=>i18n},'../lib/personalTravelCards':{clearPersonalTravelCards:owner=>{cleared.push(owner);return !failCleanup;}},
     '../lib/communityPreferences':{clearCommunityFollows:owner=>{followsCleared.push(owner);return !failFollows;}},
+    '../lib/plannerSignInDraft':{clearPlannerRecoveryDraft:()=>true},
     '../lib/journeySurveyDraft':{clearOwnerJourneySurveyDrafts:owner=>{draftsCleared.push(owner);return !failDrafts;}},
     '../lib/native':{},'./Icon':{Icon:'Icon'},'./SupportSheet':{SupportSheet:'SupportSheet'},'./account-deletion.css':{},
   });

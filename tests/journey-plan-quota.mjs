@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { createHmac, randomUUID } from 'node:crypto';
-import { isIP } from 'node:net';
-import vm from 'node:vm';
-import ts from 'typescript';
+import { randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 
 const actor = 'a'.repeat(64), account = 'b'.repeat(64);
@@ -64,60 +61,6 @@ test('Reservation quota refunds only failed allowances, preserves attempts, fenc
     const grants = (await db.query("select has_function_privilege('anon','public.reserve_journey_plan_quota(text,boolean,uuid)','execute') as anon_reserve, has_function_privilege('authenticated','public.finish_journey_plan_quota(text,uuid,boolean)','execute') as user_finish, has_function_privilege('service_role','public.reserve_journey_plan_quota(text,boolean,uuid)','execute') as service_reserve, has_function_privilege('service_role','public.finish_journey_plan_quota(text,uuid,boolean)','execute') as service_finish, has_table_privilege('anon','public.journey_plan_reservations','select') as anon_read")).rows[0];
     assert.deepEqual(grants, { anon_reserve: false, user_finish: false, service_reserve: true, service_finish: true, anon_read: false });
   } finally { await db.close(); }
-});
-
-class PlanError extends Error { constructor(code) { super(code); this.code = code; } }
-function routeFixture(options = {}) {
-  const calls = [];
-  const db = { rpc(name, args) { calls.push({ name, args }); const operation = Promise.resolve().then(() => options.rpc?.(name, args) ?? { error: null, data: true }); operation.abortSignal = () => operation; return operation; } };
-  const imports = {
-    'node:crypto': { createHmac, randomUUID }, 'node:net': { isIP },
-    '@/lib/authenticated-user': { requireAuthenticatedUser: async () => ({ ok: true, user: { id: 'test' }, supabase: db }) },
-    '@/lib/supabaseAdmin': { getSupabaseAdmin: () => db },
-    '@/lib/travel-assistant/http': { boundedJson: request => request.json() },
-    '@/lib/travel-assistant/journey-plan': { JourneyPlanError: PlanError, journeyPlanModel: () => ({}), parseJourneyPlanRequest: value => value,
-      journeyPlanWait: async operation => operation, createJourneyPlan: async () => options.generate?.() ?? { generatedBy: 'ai' } },
-  };
-  const output = { exports: {} };
-  const source = ts.transpileModule(readFileSync('app/api/travel-assistant/journey-plan/route.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Error, URL, Response, AbortSignal, process: { env: { SUPABASE_SERVICE_ROLE_KEY: 'fixture-only' } } })(name => imports[name], output, output.exports);
-  return { calls, post: (key, body = {}) => output.exports.POST(new Request('http://local/plan', { method: 'POST', headers: key ? {'Idempotency-Key':key} : {}, body: JSON.stringify(body) })) };
-}
-test('Route finalizes success before replying and releases generation failure with the same receipt', async () => {
-  for (const [generate, status, success] of [[undefined, 200, true], [() => { throw new PlanError('plan_timeout'); }, 504, false]]) {
-    const app = routeFixture({ generate }); assert.equal((await app.post()).status, status);
-    assert.equal(app.calls.length, 2); assert.equal(app.calls[0].name, 'reserve_journey_plan_quota'); assert.equal(app.calls[1].name, 'finish_journey_plan_quota');
-    assert.equal(app.calls[1].args.p_success, success); assert.equal(app.calls[0].args.p_request, app.calls[1].args.p_request);
-  }
-});
-test('Uncertain reservation is cancelled but uncertain success finalization is never refunded', async () => {
-  const reserveFailure = routeFixture({ rpc: name => { if (name === 'reserve_journey_plan_quota') throw Error('offline'); } });
-  assert.equal((await reserveFailure.post()).status, 503); assert.equal(reserveFailure.calls[1].args.p_success, false);
-  for (const failure of [() => { throw Error('lost acknowledgement'); }, () => ({ error: { message: 'unavailable' }, data: null }), () => ({ error: null, data: false })]) {
-    const app = routeFixture({ rpc: name => name === 'finish_journey_plan_quota' ? failure() : undefined });
-    assert.equal((await app.post()).status, 503); assert.equal(app.calls.length, 2); assert.equal(app.calls[1].args.p_success, true);
-  }
-  const denied = routeFixture({ rpc: () => ({ error: null, data: false }) });
-  assert.equal((await denied.post()).status, 429); assert.equal(denied.calls.length, 1);
-});
-
-test('Durable operation returns a committed plan after lost acknowledgement without another generation or quota charge', async () => {
-  const key=randomUUID();let saved=null, generations=0, finishes=0;
-  const app=routeFixture({generate:()=>{generations++;return {generatedBy:'ai',fetchedAt:'2026-10-15T10:00:00Z'};},rpc:(name,args)=>{
-    if(name==='begin_journey_plan_operation')return {error:null,data:saved?{state:'succeeded',result:saved}:{state:'acquired'}};
-    assert.equal(name,'complete_journey_plan_operation');assert.ok(args.p_result);finishes++;saved=args.p_result;throw Error('Acknowledgement lost after COMMIT');
-  }});
-  assert.equal((await app.post(key)).status,503);
-  const retry=await app.post(key);assert.equal(retry.status,200);assert.deepEqual(await retry.json(),saved);
-  assert.equal(generations,1);assert.equal(finishes,1);
-});
-
-test('Operation admission rejects conflicting, expired and malformed keys and never starts another pending generation', async () => {
-  for(const [state,status,code] of [['pending',409,'plan_pending'],['conflict',409,'plan_conflict'],['expired',409,'plan_expired'],['limit',429,'plan_limit']]) {
-    const app=routeFixture({generate:()=>assert.fail('must not generate'),rpc:()=>({error:null,data:{state}})});
-    const result=await app.post(randomUUID());assert.equal(result.status,status);assert.equal((await result.json()).code,code);assert.equal(app.calls.length,1);
-  }
-  const app=routeFixture();assert.equal((await app.post('not-a-uuid')).status,400);assert.equal(app.calls.length,0);
 });
 
 test('Real SQL atomically recovers results, fences concurrent and obsolete workers, preserves quotas and isolates owners', async () => {

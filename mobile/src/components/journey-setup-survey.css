@@ -36,3 +36,4 @@
 .jsv-shell[data-keyboard=true] .jsv-examples,.jsv-shell[data-keyboard=true] .jsv-saved{display:none}
 .jsv-shell[data-keyboard=true] .jsv-search{scroll-margin-block:16px}
 .jsv-shell[data-keyboard=true] .jsv-results{margin-bottom:18px}
+.jsv-allowance{padding:13px 15px;margin:0 0 14px;border:1px solid var(--jsv-line);border-radius:16px;background:var(--jsv-bg);color:var(--jsv-ink);font-size:12px;line-height:1.5}.jsv-allowance strong{font-size:13px}.jsv-allowance p{margin:5px 0 0;color:var(--jsv-muted)}.jsv-allowance time{font-weight:650;color:var(--jsv-ink)}.jsv-allowance button{min-height:40px;margin-top:4px}.jsv-primary:disabled{opacity:.55;cursor:default}.jsv-shell[data-keyboard=true] .jsv-allowance{display:none}

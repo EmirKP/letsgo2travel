@@ -235,6 +235,28 @@ test('Old-client edits retain precise new categories while stale metadata cannot
   assert.deepEqual(model.decodeStoredMapJourney(model.encodeStoredMapJourney(afterOldEdit)), afterOldEdit);
 });
 
+test('Saved bank and transit stops remain readable by installed readers and restore their exact category after old-client edits', () => {
+  const h = harness(), owner = 'map-category-owner';
+  const existing = model.addJourneyStop(create(), place(850), 1);
+  let journey = model.addJourneyStop(create(), place(851, { category: 'bank', kind: 'bank', group: 'essentials', name: 'Actual bank' }), 1);
+  journey = model.addJourneyStop(journey, place(852, { category: 'transit', kind: 'transit', group: 'essentials', name: 'Actual metro stop' }), 2);
+  assert.equal(build72.validateMapJourney(journey), false, 'Raw new categories would invalidate the installed reader');
+  h.storage.saveMapJourney(existing, owner); h.storage.saveMapJourney(journey, owner);
+  const saved = JSON.parse(h.data.get(`l2t.mobile.saved-routes.v1.user-${owner}`));
+  const queued = JSON.parse(h.data.get(`l2t.mobile.route-outbox.v1.${owner}`));
+  assert.doesNotThrow(() => build72.inspectSavedRoutes(saved));
+  assert.doesNotThrow(() => build72.inspectSavedRoutes(Object.values(queued).map(item => item.route)));
+  assert.deepEqual(h.storage.readMapJourneys(owner).items, [journey, existing]);
+  const stored = model.encodeStoredMapJourney(journey);
+  assert.deepEqual(stored.stops.map(stop => stop.place.category), ['attraction', 'attraction']);
+  stored.stops[0].durationMinutes = 35;
+  assert.equal(model.decodeStoredMapJourney(stored).stops[0].durationMinutes, 35);
+  assert.deepEqual(model.decodeStoredMapJourney(stored).stops.map(stop => stop.place.category), ['bank', 'transit']);
+  stored.stops.splice(1, 1);
+  assert.equal(model.decodeStoredMapJourney(stored).stops.length, 1, 'New optional metadata cannot restore a deleted station');
+  assert.equal(journey.stops[0].place.category, 'bank', 'Encoding never mutates the open map');
+});
+
 test('Malformed optional saved detail cannot invent categories, preferences, or bypass source and coordinate validation', () => {
   const original = model.encodeStoredMapJourney(expandedJourney());
   const base = structuredClone(original); delete base.storageDetails;

@@ -19,6 +19,7 @@ import { Sheet } from "../components/Sheet";
 import { openExternal } from "../lib/native";
 import { useI18n } from "../lib/i18n";
 import { usePassportPreference } from "../hooks/usePassportPreference";
+import { hasPassportPreference } from "../lib/passportPreference";
 import "./profile-passport-polish.css";
 
 const COUNTRY_BY_ALPHA3 = new Map(COUNTRY_LIST.map((country) => [country.alpha3, country]));
@@ -46,7 +47,12 @@ const ENTRY_ORDER: Record<EntryStatus, number> = { domestic: 0, id_card: 1, free
 export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code: string) => void }) {
   const { copy, countryName, locale } = useI18n();
   const { country: passport, type: passportType, setPreference } = usePassportPreference();
-  const passportName = new Intl.DisplayNames([locale], { type: "region" }).of(passport) || passport;
+  const passportSelected = hasPassportPreference({ country: passport, type: passportType });
+  const [draftCountry, setDraftCountry] = useState(passport);
+  const [draftType, setDraftType] = useState(passportType);
+  const [preferenceError, setPreferenceError] = useState(false);
+  useEffect(() => { setDraftCountry(passport); setDraftType(passportType); }, [passport, passportType]);
+  const passportName = passportSelected ? new Intl.DisplayNames([locale], { type: "region" }).of(passport) || passport : copy("Pasaport seçilmedi", "Passport not selected", "Pasaporta nuk është zgjedhur");
   const passportOptions = useMemo(() => { const names = new Intl.DisplayNames([locale], { type: "region" }); return Object.keys(PASSPORTS).map(code => ({ code, name: names.of(code) || code })).sort((a,b) => a.name.localeCompare(b.name, locale)); }, [locale]);
   const entryOf = useMemo(() => (alpha3: string) => passportEntry(passport, passportType, alpha2FromAlpha3(alpha3)), [passport, passportType]);
   const statusOf = useMemo(() => (alpha3: string): EntryStatus => entryOf(alpha3).status, [entryOf]);
@@ -84,6 +90,10 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
   const officialCount = COUNTRY_LIST.filter(country => entryOf(country.alpha3).provenance === "official" && statusOf(country.alpha3) !== "domestic").length;
   const openCountry = (country: Country) => setSelected(country);
   const closeCountry = () => setSelected(null);
+  const choosePassport = (country: string, type: string) => {
+    setDraftCountry(country); setDraftType(type); setPreferenceError(false); closeCountry(); setFilter("all");
+    if (hasPassportPreference({ country, type })) setPreferenceError(!setPreference(country, type));
+  };
 
   return (
     <div className="screen passport-screen passport-polished">
@@ -92,17 +102,20 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
       <section className="passport-overview-card" aria-labelledby="passport-choice-heading">
       <div className="passport-identity"><div className="passport-book" aria-hidden="true"><span>LetsGo<span>2</span>Travel</span><Icon name="globe" size={36}/><i/><Icon name="passport" size={16}/></div><div><span className="passport-eyebrow">{copy("DÜNYAYA AÇILAN KAPIN", "YOUR GATEWAY TO THE WORLD", "PORTA JOTE DREJT BOTËS")}</span><h2 id="passport-choice-heading">{copy("Pasaportun", "Your passport")}</h2><p>{copy("Ülkelerin giriş koşullarını buna göre gösterelim.", "See entry guidance for your passport.")}</p></div></div>
       <div className="passport-selection">
-        <CountryPicker value={passport} options={passportOptions} label={copy("Pasaport ülkesi", "Passport country")} placeholder={copy("Ülke seç", "Choose country")} onChange={code => { closeCountry(); setPreference(code, passportType); setFilter("all"); }}/>
-        <label>{copy("Pasaport türü", "Passport type")}<select value={passportType} onChange={event => { closeCountry(); setPreference(passport, event.target.value); setFilter("all"); }}><option value="ordinary">{copy("Umuma mahsus", "Ordinary")}</option><option value="special">{copy("Hususi", "Special")}</option><option value="service">{copy("Hizmet", "Service")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic")}</option></select></label>
+        <CountryPicker value={draftCountry} options={passportOptions} label={copy("Pasaportu düzenleyen ülke", "Passport issuing country", "Shteti që lëshon pasaportën")} placeholder={copy("Ülke seç", "Choose country", "Zgjidh shtetin")} onChange={code => choosePassport(code, draftType)}/>
+        <label>{copy("Pasaport türü", "Passport type", "Lloji i pasaportës")}<select value={draftType} onChange={event => choosePassport(draftCountry, event.target.value)}><option value="" disabled>{copy("Tür seç", "Choose type", "Zgjidh llojin")}</option><option value="ordinary">{copy("Umuma mahsus", "Ordinary", "E zakonshme")}</option><option value="special">{copy("Hususi", "Special", "Speciale")}</option><option value="service">{copy("Hizmet", "Service", "Shërbimi")}</option><option value="diplomatic">{copy("Diplomatik", "Diplomatic", "Diplomatike")}</option></select></label>
       </div>
+      {!passportSelected && <p className="info-box" role="status">{copy("Giriş koşullarını kişiselleştirmek için pasaport ülkesi ve türünü seç. Seçene kadar bir pasaport veya vizesiz giriş hakkı varsaymıyoruz.", "Choose your passport country and type for personalized entry guidance. Until then, we do not assume a passport or visa-free eligibility.", "Zgjidh shtetin dhe llojin e pasaportës për udhëzime hyrjeje. Deri atëherë nuk supozojmë pasaportë ose të drejtë hyrjeje pa vizë.")}</p>}
+      {preferenceError && <p className="info-box error" role="alert">{copy("Tercih kaydedilemedi; aşağıdaki bilgiler önceki pasaportuna ait. Tekrar seçim yaparak dene.", "Your choice could not be saved; guidance below still uses your previous passport. Select again to retry.", "Zgjedhja nuk u ruajt; udhëzimet më poshtë përdorin pasaportën e mëparshme. Zgjidhe sërish për të provuar.")}</p>}
+      {passportSelected && <button type="button" className="ci-text-button" onClick={() => { if (setPreference('', '')) { setDraftCountry(''); setDraftType(''); setPreferenceError(false); closeCountry(); setFilter('all'); } else setPreferenceError(true); }}>{copy("Pasaport tercihimi kaldır", "Clear passport preference", "Hiq preferencën e pasaportës")}</button>}
       <div className="passport-stats">
-        <div><span className="passport-stat-icon"><Icon name="passport" size={19}/></span><strong>{counts.free}</strong><span>{copy("Vizesiz*", "Visa-free*")}</span></div>
-        <div><span className="passport-stat-icon"><Icon name="globe" size={19}/></span><strong>{counts.evisa + counts.on_arrival}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
-        <div><span className="passport-stat-icon"><Icon name="check" size={19}/></span><strong>{counts.id_card}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="passport" size={19}/></span><strong>{passportSelected ? counts.free : '—'}</strong><span>{copy("Vizesiz*", "Visa-free*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="globe" size={19}/></span><strong>{passportSelected ? counts.evisa + counts.on_arrival : '—'}</strong><span>{copy("e-Vize / kapıda*", "e-Visa / arrival*")}</span></div>
+        <div><span className="passport-stat-icon"><Icon name="check" size={19}/></span><strong>{passportSelected ? counts.id_card : '—'}</strong><span>{copy("Kimlikle*", "ID card*")}</span></div>
       </div>
       <p className="passport-data-note">{copy("Kısa turistik seyahatler · Koşullar ülke detayında", "Short tourist visits · See conditions in country details", "Vizita të shkurtra turistike · Kushtet në hollësitë e shtetit")}</p>
       <details className="passport-coverage"><summary><span>{copy("Kaynak ve kapsam", "Sources and coverage", "Burimet dhe mbulimi")} · {officialCount} {copy("resmî kayıt", "official entries", "të dhëna zyrtare")}</span><Icon name="chevron" size={16}/></summary><p>{copy("Resmî kaynaklarla kontrol edilen eşleşmelerin tarihi", "Officially reviewed pairs checked on", "Kontrolli i të dhënave zyrtare")}: {MFA_CHECKED}. {copy("Diğer umuma mahsus pasaport kayıtları tarihli keşif verisidir", "Other ordinary-passport entries are dated discovery data", "Të dhënat e tjera të pasaportave të zakonshme janë orientuese")}: {passportIndex.asOf}.</p><p>{copy("Hususi, hizmet ve diplomatik türler birbirine kopyalanmaz. Resmî kaydı bulunmayan eşleşmeler için doğrulama gerekir; ETA, vize ve giriş kısıtlamaları ayrı gösterilir.", "Special, service and diplomatic rules are separate. Unreviewed pairs need verification; ETA, visas and entry restrictions are shown separately.", "Rregullat e pasaportave speciale, të shërbimit dhe diplomatike janë të ndara. Rastet pa të dhëna kërkojnë verifikim; ETA, vizat dhe kufizimet shfaqen veçmas.")}</p><button className="ci-text-button" onClick={() => void openExternal(passportIndex.source)}>{copy("Keşif veri kaynağı", "Discovery data source", "Burimi i të dhënave orientuese")}</button></details>
-      {passport !== "TR" && passportType !== "ordinary" && <p className="info-box">{copy("Bu ülkenin seçtiğin pasaport türü için doğrulanmış kapsamımız henüz yok. Umuma mahsus kurallarını bu türe uygulamıyoruz; konsolosluktan kontrol et.", "Reviewed coverage is not yet available for this country's selected passport type. Ordinary rules do not apply automatically; check with the consulate.", "Nuk kemi ende të dhëna të verifikuara për këtë lloj pasaporte. Rregullat e pasaportës së zakonshme nuk zbatohen automatikisht; kontakto konsullatën.")}</p>}
+      {passportSelected && passport !== "TR" && passportType !== "ordinary" && <p className="info-box">{copy("Bu ülkenin seçtiğin pasaport türü için doğrulanmış kapsamımız henüz yok. Umuma mahsus kurallarını bu türe uygulamıyoruz; konsolosluktan kontrol et.", "Reviewed coverage is not yet available for this country's selected passport type. Ordinary rules do not apply automatically; check with the consulate.", "Nuk kemi ende të dhëna të verifikuara për këtë lloj pasaporte. Rregullat e pasaportës së zakonshme nuk zbatohen automatikisht; kontakto konsullatën.")}</p>}
 
       </section>
 
@@ -173,7 +186,7 @@ export function PassportScreen({ onOpenCountryNews }: { onOpenCountryNews: (code
 
       <Sheet open={Boolean(selected)} title={selected ? countryName(selected.alpha3, selected.name) : copy("Ülke", "Country")} onClose={closeCountry}>
         {selected && <div className="country-detail">
-          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName} · {passportType === "ordinary" ? copy("Umuma mahsus", "Ordinary", "E zakonshme") : passportType === "special" ? copy("Hususi", "Special", "Speciale") : passportType === "service" ? copy("Hizmet", "Service", "Shërbimi") : copy("Diplomatik", "Diplomatic", "Diplomatike")}</small><strong>{labelOf(status)}</strong></div></div>
+          <div className={`detail-status status-${status}`}><Icon name={status === "required" ? "lock" : "passport"} size={25} /><div><small>{passportName}{passportSelected && <> · {passportType === "ordinary" ? copy("Umuma mahsus", "Ordinary", "E zakonshme") : passportType === "special" ? copy("Hususi", "Special", "Speciale") : passportType === "service" ? copy("Hizmet", "Service", "Shërbimi") : copy("Diplomatik", "Diplomatic", "Diplomatike")}</>}</small><strong>{labelOf(status)}</strong></div></div>
           <p className={`passport-source-badge source-${entry?.provenance}`}>{entry?.provenance === "official" ? copy("Resmî kaynak kontrol edildi", "Official source reviewed", "Burimi zyrtar u kontrollua") : entry?.provenance === "dated-index" ? copy("Tarihli ön bilgi · Resmî teyit gerekli", "Dated guidance · Official confirmation needed", "Të dhëna orientuese · Duhet konfirmim zyrtar") : copy("Bu eşleşme doğrulanmadı", "This pair has not been verified", "Ky kombinim nuk është verifikuar")}</p>
           <div className="info-box"><Icon name="alert" size={20}/><p>{entry ? copy(...entry.note) : ""}</p></div>
           <CountryAdvisory code={alpha2FromAlpha3(selected.alpha3)} onOpenNews={code => { closeCountry(); onOpenCountryNews(code); }}/>

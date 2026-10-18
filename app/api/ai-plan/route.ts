@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { aiRouteErrorReply, aiRouteOperation, aiRouteReply, requireAiRouteAccount } from "@/lib/ai-route-quota";
+import { generateBoundedGroqJourneyJson, groqJourneyModel } from "@/lib/travel-assistant/journey-plan-groq";
+import { journeyPlanProviderError, journeyPlanWait } from "@/lib/travel-assistant/journey-plan";
+import { boundedJson } from "@/lib/travel-assistant/http";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { findAirportByIata } from "@/lib/airport-search";
 import { fixedDestinationStarter, routeMatchesDestination, validPlanDays, type PlanDestination, type PlanLocale } from "@/lib/route-planner";
@@ -14,8 +18,7 @@ import { normalizePlannerPassport, validPlannerPassport, plannerEntry, plannerPa
 export const maxDuration = 45;
 
 const AI_REQUEST_TIMEOUT_MS = 18_000;
-const PLAN_CACHE_VERSION = "passport-v6-2026-10-11";
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const PLAN_CACHE_VERSION = "passport-v8-complete-ai-2026-10-18";
 
 type PlannerInput = ReturnType<typeof normalizeInput>;
 
@@ -407,7 +410,9 @@ function finalizePlan(value: unknown, input: PlannerInput): AiPlanData {
     : normalizedRoutes;
 
   const routes: AiRouteData[] = [];
-  for (const route of [...acceptedRoutes, ...buildFallbackPlan(input).routes]) {
+  // An AI result must stand on its own. Filling missing suggestions with local
+  // starters would falsely label those as generated and spend a daily allowance.
+  for (const route of acceptedRoutes) {
     const key = `${route.country}:${route.name}`.toLocaleLowerCase("tr-TR");
     if (routes.some((existing) => `${existing.country}:${existing.name}`.toLocaleLowerCase("tr-TR") === key)) continue;
     routes.push(route);
@@ -447,24 +452,12 @@ function expectedDailyPlans(value: unknown, input: PlannerInput) {
 
 export async function POST(req: Request) {
   let input: PlannerInput | null = null;
+  let operation: ReturnType<typeof aiRouteOperation> | undefined;
+  const signal = AbortSignal.any([req.signal, AbortSignal.timeout(40_000)]);
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown-ip";
-    const now = Date.now();
-    const rateLimitInfo = rateLimitMap.get(ip);
-
-    if (rateLimitInfo && now < rateLimitInfo.resetTime) {
-      if (rateLimitInfo.count >= 5) {
-        return NextResponse.json(
-          { error: "Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin." },
-          { status: 429, headers: { "Cache-Control": "private, no-store, max-age=0" } },
-        );
-      }
-      rateLimitInfo.count++;
-    } else {
-      rateLimitMap.set(ip, { count: 1, resetTime: now + 60_000 });
-    }
-
-    const rawInput = asRecord(await req.json().catch(() => ({})));
+    let rawInput: Record<string, unknown>;
+    try { rawInput = asRecord(await journeyPlanWait(boundedJson(req, 16_000), AbortSignal.any([signal, AbortSignal.timeout(3000)]))); }
+    catch (error) { return aiRouteReply({ code: 'plan_invalid' }, error instanceof Error && error.message === 'too-large' ? 413 : 400); }
     input = normalizeInput(rawInput);
     if ((rawInput.party !== undefined && !validTravelParty(rawInput.party)) || (rawInput.dayCount !== undefined && !validPlanDays(rawInput.dayCount))) {
       return NextResponse.json({ error: input.locale === "tr" ? "Gün, yetişkin, çocuk sayısı ve çocuk yaşlarını kontrol et." : input.locale === "sq" ? "Kontrollo ditët, numrin e të rriturve e fëmijëve dhe moshat." : "Check duration, adult and child counts, and child ages." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
@@ -472,24 +465,32 @@ export async function POST(req: Request) {
     if (input.mode === "fixed" && (!input.destination || !input.dayCount || input.origin === "Belirtilmedi")) {
       return NextResponse.json({ error: input.locale === "tr" ? "Çıkış şehri, geçerli bir hedef ve 1–14 gün seç." : input.locale === "sq" ? "Zgjidh qytetin e nisjes, një destinacion të vlefshëm dhe 1–14 ditë." : "Choose a departure city, a valid destination and 1–14 days." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
     }
-    if (!validPlannerPassport(input)) return NextResponse.json({ error: input.locale === "tr" ? "Geçerli bir pasaport ülkesi ve türü seç." : input.locale === "sq" ? "Zgjidh shtetin dhe llojin e vlefshëm të pasaportës." : "Choose a valid passport country and type." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
+    const passportOmitted = (rawInput.passportCountry === undefined || rawInput.passportCountry === '') && (rawInput.passportType === undefined || rawInput.passportType === '');
+    if (!passportOmitted && !validPlannerPassport(input)) return NextResponse.json({ error: input.locale === "tr" ? "Geçerli bir pasaport ülkesi ve türü seç." : input.locale === "sq" ? "Zgjidh shtetin dhe llojin e vlefshëm të pasaportës." : "Choose a valid passport country and type." }, { status: 400, headers: { "Cache-Control": "private, no-store" } });
+    const aiEnabled = process.env.AI_PLAN_ENABLED === "true";
     const hash = requestHash(input);
-    const cached = await getCachedPlan(hash);
+    const cached = await journeyPlanWait(getCachedPlan(hash), AbortSignal.any([signal, AbortSignal.timeout(3000)]));
+    // Local starter outlines remain free and are always explicitly labelled.
+    if (!aiEnabled && !cached) return fallbackResponse(input);
+    const account = await requireAiRouteAccount(req, signal);
+    operation = aiRouteOperation(account, req, input, 'suggestions');
+    const admitted = await operation.begin(signal);
+    if (admitted.state === 'succeeded') return aiRouteReply({ ...admitted.result, quota: admitted.quota });
     if (cached) {
       if (!expectedDailyPlans(cached, input)) return fallbackResponse(input);
       const finalizedCache = finalizePlan(cached, input);
+      if (finalizedCache.routes.length !== (input.mode === 'fixed' ? 1 : 3)) return fallbackResponse(input);
       if (input.mode === "fixed" && finalizedCache.routes[0]?.scores.overall === 0) return fallbackResponse(input);
-      return NextResponse.json(
-        { success: true, data: finalizedCache, isFallback: false, cached: true },
-        { headers: { "Cache-Control": "private, no-store, max-age=0" } },
-      );
+      const result = { success: true, data: finalizedCache, isFallback: false, cached: true };
+      signal.throwIfAborted();
+      return aiRouteReply({ ...result, quota: await operation.complete(result) });
     }
 
-    const aiEnabled = process.env.AI_PLAN_ENABLED === "true";
+    const provider = process.env.JOURNEY_AI_PROVIDER?.trim();
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!aiEnabled || !apiKey) return fallbackResponse(input);
+    const groq = provider === 'groq';
+    if (groq ? !groqJourneyModel() : (!apiKey || !!provider && provider !== 'gemini')) return fallbackResponse(input);
 
-    const genAI = new GoogleGenAI({ apiKey });
     const configuredModel = process.env.GEMINI_MODEL?.trim();
     const modelName = !configuredModel || configuredModel === "gemini-3.5-flash"
       ? "gemini-3.6-flash"
@@ -544,15 +545,18 @@ export async function POST(req: Request) {
       }
     `;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+    const providerSignal = AbortSignal.any([signal, AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS)]);
     let textResult = "";
     try {
-      const response = await genAI.models.generateContent({
+      if (groq) {
+        textResult = await generateBoundedGroqJourneyJson({ prompt, signal: providerSignal, maxOutputTokens: 4000, reserveProviderAttempt: operation.reserveProviderAttempt });
+      } else {
+      await operation.reserveProviderAttempt(7500, providerSignal);
+      const response = await new GoogleGenAI({ apiKey: apiKey! }).models.generateContent({
         model: modelName,
         contents: prompt,
         config: {
-          abortSignal: controller.signal,
+          abortSignal: providerSignal,
           httpOptions: { timeout: AI_REQUEST_TIMEOUT_MS },
           responseMimeType: "application/json",
           temperature: 0.45,
@@ -560,11 +564,12 @@ export async function POST(req: Request) {
         },
       });
       textResult = (response.text || "").trim();
+      }
     } catch (error) {
-      console.error("AI plan request failed or timed out:", error instanceof Error ? error.message : "unknown error");
+      const mapped = journeyPlanProviderError(error, providerSignal.aborted);
+      if (mapped.code === 'plan_busy' || mapped.code === 'plan_daily_capacity' || mapped.code === 'plan_request_too_large') throw mapped;
+      console.warn("ai_suggestions_generation_failed", { code: mapped.code });
       return fallbackResponse(input);
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     if (!textResult) return fallbackResponse(input);
@@ -582,14 +587,14 @@ export async function POST(req: Request) {
     if (finalizedPlan.routes.length !== (input.mode === "fixed" ? 1 : 3)) return fallbackResponse(input);
     if (input.mode === "fixed" && finalizedPlan.routes[0]?.scores.overall === 0) return fallbackResponse(input);
 
-    await saveCachedPlan(hash, input, finalizedPlan);
-    return NextResponse.json(
-      { success: true, data: finalizedPlan, isFallback: false, cached: false },
-      { headers: { "Cache-Control": "private, no-store, max-age=0" } },
-    );
+    const result = { success: true, data: finalizedPlan, isFallback: false, cached: false };
+    const quota = await operation.complete(result);
+    try { await journeyPlanWait(saveCachedPlan(hash, input, finalizedPlan), AbortSignal.timeout(1500)); }
+    catch { /* Successful private receipt already persists; shared cache is optional. */ }
+    return aiRouteReply({ ...result, quota });
   } catch (error: unknown) {
-    console.error("AI Route Error:", error instanceof Error ? error.message : "unknown error");
+    console.warn("ai_suggestions_request_failed");
     if (input?.mode === "fixed" && !input.destination) return NextResponse.json({ error: "Invalid destination" }, { status: 400 });
-    return fallbackResponse(input || normalizeInput({}));
-  }
+    return aiRouteErrorReply(error);
+  } finally { await operation?.release(); }
 }

@@ -228,6 +228,30 @@ await test("passport: country and type persist; unknown visa status is never vis
   passport.savePassportPreference("INVALID", "bad"); assert.equal(passport.readPassportPreference().type, "special");
 });
 
+await test("passport: fresh, damaged and partially stored choices remain unknown while explicit legacy documents survive", () => {
+  const io = browser(), passport = modules({}, io)("mobile/src/lib/passportPreference.ts");
+  assert.deepEqual(plain(passport.readPassportPreference()), {country:"",type:""});
+  io.localStorage.setItem("l2t:passport-country", "TR");
+  assert.equal(passport.readPassportPreference().country, "");
+  io.localStorage.setItem("l2t:passport-type", "special");
+  assert.deepEqual(plain(passport.readPassportPreference()), {country:"TR",type:"special"});
+  io.localStorage.setItem("l2t:passport-preference.v1", "{bad");
+  assert.equal(passport.readPassportPreference().country, "", "Corrupt current data must not revive an old legacy choice");
+  assert.equal(passport.preferredEntry(passport.readPassportPreference(), "DE", "en").visaFree, false);
+});
+await test("passport: failed atomic writes preserve previous document and emit no change; clear remains unknown after reload", () => {
+  const io=browser(), passport=modules({},io)("mobile/src/lib/passportPreference.ts");let changes=0;
+  io.window.addEventListener(passport.PASSPORT_CHANGE,()=>{changes++;});
+  assert.equal(passport.savePassportPreference("TR","special"),true);
+  const write=io.localStorage.setItem;io.localStorage.setItem=()=>{throw Error("quota");};
+  assert.equal(passport.savePassportPreference("DE","ordinary"),false);
+  assert.deepEqual(plain(passport.readPassportPreference()),{country:"TR",type:"special"});assert.equal(changes,1);
+  io.localStorage.setItem=write;
+  assert.equal(passport.savePassportPreference("",""),true);
+  const fresh=modules({},io)("mobile/src/lib/passportPreference.ts");
+  assert.deepEqual(plain(fresh.readPassportPreference()),{country:"",type:""});assert.equal(changes,2);
+});
+
 const event = (extra = {}) => ({ id: "event1", title: "Concert", city: "New York", startsAt: "2026-09-12T02:00:00Z", localDate: "2026-09-11", timeZone: "America/New_York", timePrecision: "exact", status: "scheduled", updatedAt: "2026-09-10T10:00:00Z", ...extra });
 const search = { countryCode: "US", startDate: "2026-09-10", endDate: "2026-09-30", limit: 20 };
 await test("events: refreshing old saved entries preserves the newly confirmed time metadata", () => {

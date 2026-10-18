@@ -17,6 +17,7 @@ const field = (tree, name, type = 'input') => {
   return label.props.htmlFor ? find(tree, type, props => props.id === label.props.htmlFor) : find(label, type);
 };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
+const quotaValue=(changes={})=>{const reset=new Date();reset.setUTCHours(24,0,0,0);return {limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC',...changes};};
 
 function load(path, imports = {}, environment = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -74,15 +75,15 @@ function fixture(options = {}) {
   const fibers = new Map();
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));
   const react = {
-    useState(initial) { const fiber = active, i = fiber.cursor++; if (!fiber.slots[i]) fiber.slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [fiber.slots[i].value, next => { const value = typeof next === 'function' ? next(fiber.slots[i].value) : next; if (!Object.is(value, fiber.slots[i].value)) { fiber.slots[i].value = value; dirty = true; } }]; },
+    useState(initial) { const fiber = active, i = fiber.cursor++; if (!fiber.slots[i]) { if(options.strict&&typeof initial==='function')initial(); fiber.slots[i] = { value: typeof initial === 'function' ? initial() : initial }; } return [fiber.slots[i].value, next => { const value = typeof next === 'function' ? next(fiber.slots[i].value) : next; if (!Object.is(value, fiber.slots[i].value)) { fiber.slots[i].value = value; dirty = true; } }]; },
     useRef(initial) { const i = active.cursor++; if (!active.slots[i]) active.slots[i] = { current: initial }; return active.slots[i]; },
     useMemo(fn, dependencies) { const i = active.cursor++; if (!active.slots[i] || changed(active.slots[i].dependencies, dependencies)) active.slots[i] = { value: fn(), dependencies }; return active.slots[i].value; },
-    useEffect(fn, dependencies) { const fiber = active, i = fiber.cursor++, old = fiber.slots[i]; if (!old || changed(old.dependencies, dependencies)) { fiber.slots[i] = { ...old, dependencies }; effects.push(() => { old?.cleanup?.(); fiber.slots[i].cleanup = fn(); }); } },
+    useEffect(fn, dependencies) { const fiber = active, i = fiber.cursor++, old = fiber.slots[i]; if (!old || changed(old.dependencies, dependencies)) { fiber.slots[i] = { ...old, dependencies }; effects.push(() => { old?.cleanup?.(); fiber.slots[i].cleanup = fn(); if(options.strict&&!old){fiber.slots[i].cleanup?.();fiber.slots[i].cleanup=fn();} }); } },
   };
-  const calls = { draftClears: [], discovery: [], gps: 0, saved: [], synced: [], notices: [], route: [], generation: [] };
+  const calls = { draftClears: [], discovery: [], gps: 0, saved: [], synced: [], notices: [], route: [], generation: [], photos: [], placeSaves: [], quota:[], signIn:0 };
   let locale = options.locale || 'en';
   let savedItems = options.savedItems || [];
-  const localStorageData = new Map();
+  const localStorageData = options.storage || new Map();
   const localStorage = { getItem:key=>localStorageData.get(key)??null, setItem:(key,value)=>localStorageData.set(key,value), removeItem:key=>localStorageData.delete(key) };
   const draftLib = load('mobile/src/lib/journeySurveyDraft.ts', {}, {window:{localStorage}});
   const suggestions = load('mobile/src/lib/journeyAreaSuggestions.ts', {'./mapJourneyClient':client, './searchText':searchText, './travelAreas':areas});
@@ -97,13 +98,18 @@ function fixture(options = {}) {
   const Main = load('mobile/src/components/MapJourneyPlanner.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) },
+    '../lib/localeFormatting':{formatAppDate:(date,locale,options)=>new Intl.DateTimeFormat(locale,options).format(date)},
     './Icon': { Icon: 'Icon' }, './JourneyMap': { JourneyMap: 'JourneyMap' }, './JourneySetupSurvey': survey,
     './RouteTranslation': { RouteTranslation: ({text}) => text },
-    '../lib/journeyPlanClient': { ...planClient, generateJourneyPlan: (...args) => { calls.generation.push(args); return options.generate ? options.generate(...args) : Promise.resolve(generated(args[0])); } },
+    './JourneyPlacePhoto': {JourneyPlacePhoto:'JourneyPlacePhoto'},
+    '../lib/journeyPhotoClient': {journeyPhotoKey:place=>JSON.stringify([place.id,place.name,place.latitude,place.longitude,place.sourceUrl]),loadJourneyPhotos:(...args)=>{calls.photos.push(args);return options.photos?options.photos(...args):Promise.resolve(new Map());}},
+    '../lib/journeyPlanClient': { ...planClient, hasPendingJourneyPlan:()=>!!options.recovery,hasJourneyPlanRecovery:async (...args)=>typeof options.recovery==='function'?options.recovery(...args):!!options.recovery,
+      loadJourneyPlanQuota:(...args)=>{calls.quota.push(args);if(options.quota)return options.quota(...args);const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};},
+      generateJourneyPlan: (...args) => { calls.generation.push(args); return options.generate ? options.generate(...args) : Promise.resolve(generated(args[0])); } },
     '../../../lib/travel-assistant/places': placeData, '../lib/travelAreas': areas,
     '../lib/travelAssistant': { locateForTravel: () => { calls.gps++; return options.gps ? options.gps() : Promise.reject(Error('denied')); }, directionsUrl: value => `https://maps.example/${value}` },
     '../lib/native': { openExternal: async () => true },
-    '../lib/savedPlaces': { readSavedPlaces: () => ({ items: options.bookmarks || [], dayIds: [], error: null }), subscribeSavedPlaces: () => () => {}, saveTravelPlace() {} },
+    '../lib/savedPlaces': { readSavedPlaces: () => ({ items: options.bookmarks || [], dayIds: [], error: null }), subscribeSavedPlaces: () => () => {}, saveTravelPlace(...args) {calls.placeSaves.push(args);} },
     '../lib/routeSync': { syncSavedRoutes: async (...args) => { calls.synced.push(args); return options.sync ? options.sync(...args) : undefined; } },
     '../lib/mapJourneyStorage': {
       readMapJourneys: () => ({ items: savedItems, error: null }),
@@ -118,7 +124,7 @@ function fixture(options = {}) {
       loadWalkingRoute: (...args) => { calls.route.push(args); return options.route ? options.route(...args) : Promise.reject(Object.assign(Error('Unavailable'), { code: 'routing_unavailable' })); },
     },
   }).MapJourneyPlanner;
-  root = Main; props = { ownerId: options.ownerId ?? null, accessToken: options.token || '', initialCity: 'Roma', initialJourney: options.initialJourney, onUpdateTrip: options.updateTrip, onNotice: value => calls.notices.push(value) };
+  root = Main; props = { ownerId: Object.hasOwn(options,'ownerId')?options.ownerId:'fixture-owner', accessToken: Object.hasOwn(options,'token')?options.token:'fixture-token', initialCity: 'Roma', initialJourney: options.initialJourney, onUpdateTrip: options.updateTrip,onOpenAccount:()=>calls.signIn++, onNotice: value => calls.notices.push(value) };
   function resolve(node, path, visited) {
     if (Array.isArray(node)) return node.map((child, index) => resolve(child, `${path}/${child?.key ?? index}`, visited));
     if (!node || typeof node !== 'object') return node;
@@ -185,6 +191,46 @@ test('Map and day list share selected place identity, and moving the selected st
   } finally { app.dispose(); }
 });
 
+test('Optional venue photos enrich the active map and cards without delaying editing, changing the plan or marking it dirty', async () => {
+  const waiting = deferred(), original = journey();
+  const app = fixture({ initialJourney: original, photos: () => waiting.promise });
+  const metadata = {imageUrl:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Museum.jpg/640px-Museum.jpg',imageSourceUrl:'https://commons.wikimedia.org/wiki/File:Museum.jpg',imageAttribution:'Photographer',imageLicenseLabel:'CC BY-SA 4.0',imageLicenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/'};
+  const photoKey = p=>JSON.stringify([p.id,p.name,p.latitude,p.longitude,p.sourceUrl]);
+  try {
+    assert.ok(app.map, 'Map is already usable while photo lookup is unfinished');
+    assert.deepEqual(clone(app.calls.photos[0][0].map(p=>p.id)), ['node/1','node/2']);
+    assert.doesNotMatch(text(app.tree), /Unsaved changes/);
+    waiting.resolve(new Map([[photoKey(original.stops[0].place),metadata]]));await tick();app.render();
+    assert.equal(app.map.stops.find(p=>p.id==='node/1').imageUrl,metadata.imageUrl);
+    assert.equal(find(app.tree,'JourneyPlacePhoto',p=>p.compact&&p.place.id==='node/1').props.place.imageAttribution,'Photographer');
+    assert.doesNotMatch(text(app.tree), /Unsaved changes/);assert.equal(original.stops[0].place.imageUrl,undefined);
+    app.click('Save');await tick();app.render();
+    assert.deepEqual(clone(app.calls.saved[0][0].stops),clone(original.stops));
+  } finally {app.dispose();}
+});
+
+test('An abandoned photo response cannot populate a different account or reopen a departed map', async () => {
+  const waiting = deferred(), original = journey();const app=fixture({initialJourney:original,ownerId:'photo-owner-a',photos:()=>waiting.promise});
+  try {
+    app.render({ownerId:'photo-owner-b',initialJourney:undefined});assert.equal(app.map,undefined);
+    const p=original.stops[0].place;
+    waiting.resolve(new Map([[JSON.stringify([p.id,p.name,p.latitude,p.longitude,p.sourceUrl]),{imageUrl:'old-owner-photo'}]]));await tick();app.render();
+    assert.equal(app.map,undefined);assert.equal(app.calls.saved.length,0);
+  } finally {app.dispose();}
+});
+
+test('Saving or adding a photo-enriched discovered place keeps the original provider snapshot compatible with stored trips', async()=>{
+  const metadata={imageUrl:'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Museum.jpg/960px-Museum.jpg',imageSourceUrl:'https://commons.wikimedia.org/wiki/File:Museum.jpg',imageAttribution:'Photographer',imageLicenseLabel:'CC BY-SA 4.0',imageLicenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/'};
+  const app=fixture({initialJourney:journey(),photos:async requested=>new Map(requested.map(p=>[JSON.stringify([p.id,p.name,p.latitude,p.longitude,p.sourceUrl]),metadata]))});
+  try {
+    app.click('＋ Add a place');await tick();app.render();app.map.onSelectPlace(app.map.discoveredPlaces[0]);app.render();await tick();app.render();
+    const detail=find(app.tree,'article',p=>p.className==='mj-place-detail');assert.equal(find(detail,'JourneyPlacePhoto').props.place.imageUrl,metadata.imageUrl);
+    button(detail,'Save').props.onClick();app.render();assert.equal(app.calls.placeSaves[0][0].imageUrl,undefined);
+    app.click('Add to my plan');app.click('Save');await tick();app.render();
+    const added=app.calls.saved[0][0].stops.find(stop=>stop.place.id==='node/11');assert.ok(added);assert.equal(added.place.imageUrl,undefined);
+  }finally{app.dispose();}
+});
+
 test('Opening the planner asks for a destination without requesting GPS or providers, and all survey preferences reach actual generation', async () => {
   const app = fixture({ ownerId:'traveller-a',token:'fixture-token' });
   try {
@@ -196,7 +242,7 @@ test('Opening the planner asks for a destination without requesting GPS or provi
     app.interest('nature');app.input('Anything else you would like?','Quiet mornings and a sunset view.','textarea');
     app.click('Create my AI itinerary');await tick();app.render();
     assert.equal(app.calls.generation.length,1);
-    assert.deepEqual(app.calls.draftClears,[['traveller-a','new']]);
+    assert.deepEqual(app.calls.draftClears,[],'Keep exact survey input for recovery before the user saves');
     const [request,token]=app.calls.generation[0];
     assert.deepEqual(clone(request),{destination:clone(client.knownJourneyArea('Tokyo')),dayCount:2,startDate:'2027-04-15',firstDayStartTime:'14:30',party:'family',budget:'economical',pace:'relaxed',walking:'light',interests:['culture','food','nature'],notes:'Quiet mornings and a sunset view.',locale:'en'});
     assert.equal(token,'fixture-token');assert.equal(app.map.center.latitude,35.68);assert.equal(app.map.stops.length,4);
@@ -207,6 +253,90 @@ test('Opening the planner asks for a destination without requesting GPS or provi
     assert.equal(app.calls.saved[0][0].firstDayStartTime,'14:30');
     assert.equal(app.calls.saved[0][0].stops[0].note,'Start with a cultural stop.');
   }finally{app.dispose();}
+});
+
+test('Guest AI creation opens real sign-in and the next account receives the exact survey once without an automatic paid request',async()=>{
+  const app=fixture({ownerId:null,token:'',strict:true});
+  try{
+    assert.equal(app.calls.quota.length,0);app.click('Tokyo');app.submit();app.input('How many days?','2');app.submit();app.submit();
+    app.input('Anything else you would like?','Quiet mornings','textarea');app.click('Sign in to continue');
+    assert.equal(app.calls.signIn,1);assert.equal(app.calls.generation.length,0);
+    app.render({ownerId:'signed-owner',accessToken:'signed-token'});
+    assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'Quiet mornings');
+    assert.equal(app.calls.generation.length,0);assert.equal(app.calls.quota.length,2);
+    app.click('Create my AI itinerary');await tick();app.render();
+    assert.equal(app.calls.generation[0][0].destination.name,'Tokyo');assert.equal(app.calls.generation[0][0].notes,'Quiet mornings');
+    app.render({ownerId:'different-owner',accessToken:'other-token'});assert.equal(app.map,undefined);assert.doesNotMatch(text(app.tree),/Quiet mornings/);
+  }finally{app.dispose();}
+});
+
+test('The signed-in owner can resume a claimed guest survey after a second committed remount; another account cannot',()=>{
+  const storage=new Map(),guest=fixture({ownerId:null,token:'',storage,strict:true});
+  try{guest.click('Tokyo');guest.submit();guest.submit();guest.submit();guest.input('Anything else you would like?','Persist across committed remount','textarea');guest.click('Sign in to continue');}finally{guest.dispose();}
+  for(let mount=0;mount<2;mount++){
+    const signed=fixture({ownerId:'same-claim-owner',token:'signed-token',storage,strict:true});
+    try{assert.equal(field(signed.tree,'Anything else you would like?','textarea').props.value,'Persist across committed remount');assert.equal(signed.calls.generation.length,0);}finally{signed.dispose();}
+  }
+  const other=fixture({ownerId:'other-claim-owner',token:'other-token',storage,strict:true});
+  try{assert.doesNotMatch(text(other.tree),/Persist across committed remount/);assert.match(text(other.tree),/Where would you like to go/);}finally{other.dispose();}
+});
+
+test('Used allowance disables a new AI plan but existing itineraries still open, edit and save without quota requests',async()=>{
+  const app=fixture({quota:async()=>quotaValue({used:1,remaining:0})});
+  try{
+    await tick();app.render();app.submit();app.submit();app.submit();
+    assert.equal(button(app.tree,'Create my AI itinerary').props.disabled,true);app.submit();assert.equal(app.calls.generation.length,0);
+    assert.match(text(app.tree),/allowance is used/);assert.ok(find(app.tree,'time').props.dateTime);
+  }finally{app.dispose();}
+  const saved=fixture({initialJourney:journey(),quota:async()=>{throw Error('Should never request allowance for saved plan');}});
+  try{saved.click('Save');await tick();saved.render();assert.equal(saved.calls.saved.length,1);assert.equal(saved.calls.quota.length,0);assert.equal(saved.calls.generation.length,0);}finally{saved.dispose();}
+});
+
+test('Rotated tokens discard stale quota replies and generation results without replacing the current account plan',async()=>{
+  const old=deferred(),current=deferred(),calls=[];
+  const app=fixture({token:'old',quota:(token,signal)=>{calls.push({token,signal});return token==='old'?old.promise:current.promise;}});
+  try{
+    app.render({accessToken:'rotated'});assert.equal(calls[0].signal.aborted,true);
+    current.resolve(quotaValue({used:1,remaining:0}));await tick();app.render();
+    old.resolve(quotaValue());await tick();app.render();assert.match(text(app.tree),/allowance is used/);assert.doesNotMatch(text(app.tree),/1 new AI itinerary available today/);
+    app.render({ownerId:'another',accessToken:'another'});assert.doesNotMatch(text(app.frames[0]),/allowance is used/);
+  }finally{app.dispose();}
+});
+
+test('Quota exhaustion still permits exact receipt recovery but rejects an edited intent before another POST',async()=>{
+  let expected='same notes';const app=fixture({quota:async()=>quotaValue({used:1,remaining:0}),recovery:input=>input.notes===expected});
+  try{
+    await tick();app.render();app.submit();app.submit();app.submit();app.input('Anything else you would like?','changed notes','textarea');
+    app.click('Open previous itinerary / result');await tick();app.render();assert.equal(app.calls.generation.length,0);assert.match(text(app.tree),/allowance is currently unavailable/);
+    app.input('Anything else you would like?',expected,'textarea');app.click('Open previous itinerary / result');await tick();app.render();
+    assert.equal(app.calls.generation.length,1);assert.ok(app.map);
+  }finally{app.dispose();}
+});
+
+test('Immutable submitted answers survive later edits and reload; restoring them recovers the original request language',async()=>{
+  const storage=new Map();let used=false;
+  const settings={ownerId:'recovery-owner',storage,recovery:input=>input.notes==='Original wishes',quota:async()=>quotaValue(used?{used:1,remaining:0}:{})};
+  const app=fixture(settings);
+  try{
+    await tick();app.render();app.click('Tokyo');app.submit();app.submit();app.submit();app.input('Anything else you would like?','Original wishes','textarea');app.submit();await tick();app.render();
+    used=true;app.click('Change my preferences');await tick();app.render();app.submit();app.submit();app.submit();app.input('Anything else you would like?','Edited after success','textarea');
+    app.click('Restore previous choices');assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'Original wishes');
+    app.input('Anything else you would like?','Another unsent edit','textarea');
+  }finally{app.dispose();}
+  const reopened=fixture({...settings,locale:'tr'});
+  try{
+    await tick();reopened.render();
+    assert.ok(nodes(reopened.tree).find(node=>node.type==='textarea'&&node.props.value==='Original wishes'));
+    reopened.submit();await tick();reopened.render();assert.equal(reopened.calls.generation.length,1);
+    assert.equal(reopened.calls.generation[0][0].notes,'Original wishes');assert.equal(reopened.calls.generation[0][0].locale,'en');assert.ok(reopened.map);
+  }finally{reopened.dispose();}
+});
+
+test('An oversized free-capacity request retains preferences and tells all three locales that allowance was not spent',async()=>{
+  for(const [locale,expected] of [['en',/daily allowance was not used/],['tr',/günlük hakkın kullanılmadı/],['sq',/e drejta ditore nuk u përdor/]]){
+    const app=fixture({locale,generate:async()=>{throw Object.assign(Error('too large'),{code:'plan_request_too_large'});}});
+    try{app.submit();app.submit();app.submit();app.submit();await tick();app.render();assert.match(text(app.tree),expected);assert.equal(app.map,undefined);assert.equal(app.calls.generation.length,1);}finally{app.dispose();}
+  }
 });
 
 test('Cancelling generation allows a different city, fences its late result, and preserves the newer generated plan', async () => {
@@ -264,6 +394,48 @@ test('A failed AI replacement preserves the existing plan and survey choices; ex
     failed.click('Return to my open plan · Roma');failed.click('Save');await tick();failed.render();
     assert.deepEqual(clone(failed.calls.saved[0][0]),before,'The retained plan is still editable and saveable after generation fails');
   }finally{failed.dispose();}
+});
+
+test('Provider busy and unknown service errors preserve the open plan and survey without automatic retries or false quota claims', async () => {
+  for (const code of ['plan_busy', 'future_service_error']) {
+    const initial = journey(), before = clone(initial);
+    const app = fixture({ initialJourney: initial, generate: async () => { throw Object.assign(Error('private-provider-message'), { code }); } });
+    try {
+      app.click('Create or open another plan'); app.click('Paris'); app.submit(); app.submit(); app.submit();
+      app.input('Anything else you would like?', 'A quiet museum morning.', 'textarea'); app.submit();
+      await tick(); app.render(); await tick(); app.render();
+      assert.match(text(app.tree), code === 'plan_busy' ? /cannot accept another request right now/ : /Your itinerary could not be prepared/);
+      assert.doesNotMatch(text(app.tree), /reached the planning limit|private-provider-message/);
+      assert.equal(field(app.tree, 'Anything else you would like?', 'textarea').props.value, 'A quiet museum morning.');
+      assert.equal(app.calls.generation.length, 1); assert.equal(app.calls.saved.length, 0);
+      assert.deepEqual(clone(initial), before);
+      app.click('Return to my open plan · Roma');
+      assert.equal(app.map.stops.length, before.stops.length);
+    } finally { app.dispose(); }
+  }
+});
+
+test('Daily provider capacity explains service availability in every locale without blaming the user or promising a reset', async () => {
+  const messages = {
+    tr: 'AI rota servisi günlük kapasite sınırı nedeniyle şu anda yeni plan oluşturamıyor. Tercihlerin ve önceki planın korundu.',
+    en: 'The AI planning service cannot create new plans because its daily capacity limit has been reached. Your preferences and previous plan are kept.',
+    sq: 'Shërbimi AI nuk mund të krijojë plane të reja për shkak të kufirit të kapacitetit ditor. Preferencat dhe plani i mëparshëm ruhen.',
+  };
+  for (const [locale, expected] of Object.entries(messages)) {
+    const initial = journey(), before = clone(initial);
+    const app = fixture({ initialJourney: initial, generate: async () => { throw Object.assign(Error('private-provider-message'), { code: 'plan_daily_capacity' }); } });
+    try {
+      app.click('Create or open another plan'); app.click('Paris'); app.submit(); app.submit(); app.submit();
+      app.input('Anything else you would like?', 'A quiet museum morning.', 'textarea'); app.locale(locale); app.submit();
+      await tick(); app.render();
+      assert.equal(text(find(app.tree, 'p', props => props.role === 'alert')), expected);
+      assert.equal(find(app.tree, 'textarea').props.value, 'A quiet museum morning.');
+      assert.equal(app.calls.generation.length, 1); assert.equal(app.calls.saved.length, 0);
+      assert.deepEqual(clone(initial), before);
+      app.locale('en'); app.click('Return to my open plan · Roma');
+      assert.equal(app.map.stops.length, before.stops.length);
+    } finally { app.dispose(); }
+  }
 });
 
 test('Locale and token changes cancel old AI work, preserve answers, and reject old success or failure before a fresh retry', async () => {

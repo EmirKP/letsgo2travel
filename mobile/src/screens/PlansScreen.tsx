@@ -15,6 +15,7 @@ import { PersonalTravelCards } from "../components/PersonalTravelCards";
 import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
 import { RouteTranslation } from "../components/RouteTranslation";
 import { savedRouteDisplay } from "../lib/savedRouteDisplay";
+import { normalizePlannerPassport, plannerEntry } from "../../../lib/planner-passport";
 import { readSavedPlaces, subscribeSavedPlaces } from "../lib/savedPlaces";
 import { deleteUserTrip, getSupabaseDataErrorMessage, listUserTrips, type UserTripData } from "../lib/supabaseData";
 import { onAccountResume } from "../lib/accountResume";
@@ -87,10 +88,11 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ initialTool, initialSection, initialRouteId, onInitialRouteHandled, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
+export function TripsScreen({ initialTool, initialSection, guideRequest = 0, initialRouteId, onInitialRouteHandled, onOpenDestination, onOpenEvent, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
   onPrepareCockpit?: (intent: RouteCockpitIntent) => void;
   initialTool?: "airport";
   initialSection?: LibrarySection;
+  guideRequest?: number;
   initialRouteId?: string;
   onInitialRouteHandled?: () => void;
   onOpenDestination: (code: string) => void;
@@ -109,6 +111,11 @@ export function TripsScreen({ initialTool, initialSection, initialRouteId, onIni
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [libraryTab, setLibraryTab] = useState<LibrarySection>(inviteCode || initialTool ? "travel" : initialSection || "all");
   const [query, setQuery] = useState("");
+  const lastGuideRequest = useRef(0);
+  useEffect(() => {
+    if (guideRequest && guideRequest !== lastGuideRequest.current) { setLibraryTab("all"); setQuery(""); }
+    lastGuideRequest.current = guideRequest;
+  }, [guideRequest]);
   const lastInitialSection = useRef(initialSection);
   useEffect(() => {
     if (initialSection && initialSection !== lastInitialSection.current) { setLibraryTab(initialSection); setQuery(""); }
@@ -265,7 +272,7 @@ export function TripsScreen({ initialTool, initialSection, initialRouteId, onIni
           <div className="plans-category-grid">{categories.map(item => {
             const pendingCount = item.id === "routes" && cloudLoading;
             const unavailableCount = item.id === "places" && Boolean(savedPlaces.error);
-            return <button type="button" className="plans-category" data-section={item.id} key={item.id} onClick={() => chooseSection(item.id)}>
+            return <button type="button" className="plans-category" data-guide={item.id === "routes" ? "saved-library" : undefined} data-section={item.id} key={item.id} onClick={() => chooseSection(item.id)}>
               <span className="plans-category-picture" aria-hidden="true"><span className="plans-category-icon"><TravelToolArtwork kind={item.icon} size={72}/></span></span>
               <span className="plans-category-copy"><span className="plans-category-title"><strong>{item.title}</strong><span className="plans-category-count" aria-label={pendingCount ? copy("Kayıtlar yükleniyor", "Loading saved items") : unavailableCount ? copy("Liste okunamadı", "The list couldn't be read") : copy(`${item.count} kayıt`, `${item.count} saved`)}>{pendingCount ? "…" : unavailableCount ? "!" : item.count}</span></span><small>{item.note}</small>
                 {item.id === "places" && <em>{savedPlaces.error ? copy("Listeyi kontrol et", "Check your list") : ownerId ? (savedPlaces.pending ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesabındaki yerler", "Places in your account", "Vendet në llogarinë tënde")) : copy(`${item.count} yer · Bu cihazda`, `${item.count} ${item.count === 1 ? "place" : "places"} · On this device`)}</em>}
@@ -347,7 +354,7 @@ export function TripsScreen({ initialTool, initialSection, initialRouteId, onIni
       </div>}
 
       <DeleteConfirmation pending={pendingDelete} account={Boolean(ownerId)} onCancel={() => setPendingDelete(null)} onConfirm={confirmDelete} />
-      {mapJourney && <LazyOverlay title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} loadingMessage={copy('Harita hazırlanıyor…','Preparing map…','Duke përgatitur hartën…')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }}><Sheet open title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }} size="large" className="mj-sheet"><MapJourneyPlanner onClose={() => { setMapJourney(null); setSelectedPlan(null); }} initialJourney={mapJourney} ownerId={ownerId} accessToken={accessToken} onNotice={onNotice}/></Sheet></LazyOverlay>}
+      {mapJourney && <LazyOverlay title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} loadingMessage={copy('Harita hazırlanıyor…','Preparing map…','Duke përgatitur hartën…')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }}><Sheet open title={copy('Haritada planla','Plan on the map','Planifiko në hartë')} onClose={() => { setMapJourney(null); setSelectedPlan(null); }} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => { setMapJourney(null); setSelectedPlan(null); }} initialJourney={mapJourney} ownerId={ownerId} accessToken={accessToken} onNotice={onNotice}/></Sheet></LazyOverlay>}
       <PlanDetail selected={mapJourney ? null : selectedPlan} accessToken={accessToken} onOpenMap={setMapJourney} onClose={() => setSelectedPlan(null)} onPrepareCockpit={onPrepareCockpit ? (index) => {
         if (!ownerId || !user || user.id !== ownerId || !accessToken) { onOpenAccount(); return; }
         if (!selectedPlan) return;
@@ -395,7 +402,10 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
 
 function PlanDetail({ selected, accessToken, onClose, onPrepareCockpit, onOpenMap }: { selected: SelectedPlan | null; accessToken: string; onClose: () => void; onPrepareCockpit?: (index: number) => void; onOpenMap?: (journey: MapJourney) => void }) {
   const { copy, dateLocale, locale } = useI18n();
-  const displayRoutes = selected?.plan.routes.map(route => savedRouteDisplay(route, locale)) || [];
+  const displayRoutes = selected?.plan.routes.map(route => {
+    const display = savedRouteDisplay(route, locale);
+    return route.mapJourney ? display : { ...display, ...plannerEntry(normalizePlannerPassport(selected.input || {}), route.country, locale) };
+  }) || [];
   const tierLabel = selected?.input?.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : selected?.input?.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar");
   return <Sheet open={Boolean(selected)} title={copy("Rota planın", "Your route plan")} onClose={onClose} size="large">
     {selected && <div className="saved-plan-detail">

@@ -13,7 +13,7 @@ const selectors: Record<JourneyDiscoveryGroup, string[]> = {
   shopping: ['[shop~"^(boutique|clothes|craft|gift|souvenir|supermarket|convenience|variety_store)$"]', '[craft~"^(pottery|jeweller|handicraft)$"]', '[amenity=marketplace]'],
   culture: ['[tourism~"^(museum|attraction)$"]', '[historic~"^(monument|memorial|castle|ruins|archaeological_site|palace)$"]', '[artwork_type=statue]', '[place=square]'],
   nature: ['[leisure~"^(park|garden|nature_reserve)$"]', '[tourism=viewpoint]', '[natural=beach]'],
-  essentials: ['[amenity~"^(hospital|pharmacy|police|atm|bureau_de_change|toilets)$"]', '[internet_access=wlan]'],
+  essentials: ['[amenity~"^(hospital|pharmacy|police|atm|bank|bus_station|bureau_de_change|toilets)$"]', '[railway~"^(station|halt|subway_entrance|tram_stop)$"]', '[public_transport=station]', '[highway=bus_stop]', '[internet_access=wlan]'],
 };
 const clean = (value: unknown, max = 180): string => typeof value === 'string'
   ? value.replace(/<[^>]*>/g, ' ').replace(/[<>\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -70,7 +70,7 @@ export function normalizeDiscovery(raw: unknown, center: Coordinates, group: Jou
     if (found.has(id)) return [];
     let kind = discoveryKind(tags, group);
     if (group === 'culture' || group === 'essentials') {
-      const traditional = normalizePlaces({ elements: [row] }, group === 'culture' ? 'explore' : 'needs', fetchedAt)[0];
+      const traditional = normalizePlaces({ elements: [row] }, group === 'culture' ? 'explore' : 'needs', fetchedAt, true)[0];
       kind = traditional?.category ?? null;
     }
     if (!kind) return [];
@@ -94,7 +94,7 @@ const cachedDiscovery = unstable_cache(async (latitude: number, longitude: numbe
   const fetchedAt = new Date().toISOString();
   return { places: await enrichJourneyPhotos(normalizeDiscovery(raw, center, group, fetchedAt), raw), center, radius: 3000,
     fetchedAt, limited: raw.elements.length >= 250, attribution: '© OpenStreetMap contributors' };
-}, ['journey-discovery-v3'], { revalidate: 3600 });
+}, ['journey-discovery-v4'], { revalidate: 3600 });
 
 export async function discoverJourneyPlaces(center: Coordinates, group: JourneyDiscoveryGroup): Promise<JourneyDiscoveryResult> {
   if (!coordinates(center) || !DISCOVERY_GROUPS.includes(group)) throw new Error('Invalid discovery');

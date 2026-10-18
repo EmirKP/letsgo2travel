@@ -108,7 +108,7 @@ export function validateJourneyPlanning(value: unknown, dayCount:number): value 
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 type StoredJourneyDetails = {
   version: 1;
-  places: Array<{ stopId: string; placeId: string; category: 'beach' | 'hiking'; fallback: 'attraction' }>;
+  places: Array<{ stopId: string; placeId: string; category: 'beach' | 'hiking' | 'bank' | 'transit'; fallback: 'attraction' }>;
   interests?: { selected: JourneyPlanning['preferences']['interests']; fallback: JourneyPlanning['preferences']['interests'] };
 };
 const legacyInterests = (interests: JourneyPlanning['preferences']['interests']) => [...new Set(interests.map(interest => interest === 'city' ? 'culture' : interest === 'sea' || interest === 'adventure' ? 'nature' : interest))];
@@ -118,7 +118,7 @@ function validStoredDetails(value: unknown): value is StoredJourneyDetails {
   const details = value as StoredJourneyDetails;
   if (details.version !== 1 || !Array.isArray(details.places) || details.places.length > MAX_JOURNEY_STOPS
     || new Set(details.places.map(place => place?.stopId)).size !== details.places.length
-    || details.places.some(place => !place || !id(place.stopId) || !id(place.placeId) || place.fallback !== 'attraction' || !['beach', 'hiking'].includes(place.category))) return false;
+    || details.places.some(place => !place || !id(place.stopId) || !id(place.placeId) || place.fallback !== 'attraction' || !['beach', 'hiking', 'bank', 'transit'].includes(place.category))) return false;
   if (details.interests !== undefined) {
     const { selected, fallback } = details.interests || {};
     if (!Array.isArray(selected) || selected.length < 1 || selected.length > 4 || new Set(selected).size !== selected.length
@@ -150,7 +150,7 @@ export function encodeStoredMapJourney(value: MapJourney): MapJourney {
   if (!journey) throw new Error('invalid');
   const details: StoredJourneyDetails = { version: 1, places: [] };
   for (const stop of journey.stops) {
-    if (stop.place.category === 'beach' || stop.place.category === 'hiking') {
+    if (stop.place.category === 'beach' || stop.place.category === 'hiking' || stop.place.category === 'bank' || stop.place.category === 'transit') {
       details.places.push({ stopId: stop.id, placeId: stop.place.id, category: stop.place.category, fallback: 'attraction' });
       stop.place.category = 'attraction';
     }

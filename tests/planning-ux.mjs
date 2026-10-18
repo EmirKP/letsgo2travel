@@ -12,7 +12,7 @@ let reducedMotion = false;
 function load(path, imports = {}, environment = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const testModule = { exports: {} };
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date, Intl, URL, Event, AbortController,setTimeout,clearTimeout, requestAnimationFrame: fn => fn(), window: { addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: reducedMotion }) }, ...environment })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name === '../components/RouteWeather') return { RouteWeather: 'RouteWeather' };
     if (name === '../components/Sheet') return { Sheet: 'Sheet' };
@@ -36,16 +36,16 @@ function load(path, imports = {}, environment = {}) {
 const localeFormatting = load('mobile/src/lib/localeFormatting.ts', {
   './locales/sq-regions': load('mobile/src/lib/locales/sq-regions.ts'),
 });
-function hooks() {
+function hooks(strict=false) {
   const slots = []; let cursor = 0, dirty = false, effects = [], component, props;
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));
   const memoHook = (fn, deps) => { const i = cursor++; if (!slots[i] || changed(slots[i].deps, deps)) slots[i] = { value: fn(), deps }; return slots[i].value; };
   return {
     react: {
-      useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { const value = typeof next === 'function' ? next(slots[i].value) : next; if (!Object.is(value, slots[i].value)) { slots[i].value = value; dirty = true; } }]; },
+      useState(initial) { const i = cursor++; if (!slots[i]) {if(strict&&typeof initial==='function')initial();slots[i] = { value: typeof initial === 'function' ? initial() : initial };} return [slots[i].value, next => { const value = typeof next === 'function' ? next(slots[i].value) : next; if (!Object.is(value, slots[i].value)) { slots[i].value = value; dirty = true; } }]; },
       useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
       useMemo: memoHook, useCallback: (fn, deps) => memoHook(() => fn, deps),
-      useEffect(fn, deps) { const i = cursor++, old = slots[i]; if (!old || changed(old.deps, deps)) { slots[i] = { ...old, deps }; effects.push(() => { old?.cleanup?.(); slots[i].cleanup = fn(); }); } },
+      useEffect(fn, deps) { const i = cursor++, old = slots[i]; if (!old || changed(old.deps, deps)) { slots[i] = { ...old, deps }; effects.push(() => { old?.cleanup?.(); slots[i].cleanup = fn();if(strict&&!old){slots[i].cleanup?.();slots[i].cleanup=fn();} }); } },
       lazy: () => 'LazyComponent', Suspense: 'Suspense',
     },
     start(fn, initial) { component = fn; props = initial; return this.render(); },
@@ -260,8 +260,9 @@ test('Country picker finds plain-keyboard names and metadata, preserves selectio
 const route = { name: 'Rome', country: 'Italy', destinationCode: 'FCO', cityOrRegion: 'Rome', why: 'A sample visit', visaStatus: 'Check entry rules', estimatedBudget: 'Balanced', idealDuration: '4 days', bestFor: 'Culture', transportEase: 'Public transport', scores: { overall: 82 }, dailyPlan: ['Day 1: City walk'], warnings: [] };
 const snapshots = load('mobile/src/lib/plannerState.ts');
 const destinationPlans = load('lib/route-planner.ts');
-function plannerHarness({ seeded = true, account = false, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' }, placeName = '' } = {}) {
-  const host = hooks(), saves = [], navigations = [], notices = [], generated = [];
+function plannerHarness({ seeded = true, account = true, syncFails = false, storageFails = false, locale = 'en', welcomeInterests = [], passport = { country: 'TR', type: 'ordinary' }, placeName = '',keepMapOpen=false,quota:quotaOption,recovery=false,strict=false,handoff=null } = {}) {
+  const host = hooks(strict), saves = [], navigations = [], notices = [], generated = [], signIns=[];
+  let previousDraft=null,pendingHandoff=handoff;
   let generationFailure = null, generationResponse;
   const fixtureWindow = new EventTarget(); Object.assign(fixtureWindow, {matchMedia: () => ({matches: reducedMotion})});
   const { RouteAssistantScreen } = load('mobile/src/screens/RouteAssistantScreen.tsx', {
@@ -270,7 +271,9 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../components/RequestFailure': { RequestFailure: 'RequestFailure' },
     ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
-    '../lib/api': { generateRoutePlan: async input => { generated.push(input); if (generationFailure) throw generationFailure; if (generationResponse !== undefined) return generationResponse; return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
+    '../lib/api': {hasPendingRoutePlan:()=>!!recovery,hasRoutePlanRecovery:async(...args)=>typeof recovery==='function'?recovery(...args):recovery, generateRoutePlan: async input => { generated.push(input); if (generationFailure) throw generationFailure; if (generationResponse !== undefined) return generationResponse; return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
+    '../lib/journeyPlanClient':{loadJourneyPlanQuota:()=>{if(quotaOption)return quotaOption();const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};}},
+    '../lib/plannerSignInDraft':{preparePlannerSignInDraft:value=>{pendingHandoff=value;return true;},takePlannerSignInDraft:()=>{const value=pendingHandoff;pendingHandoff=null;return value;},readPlannerRecoveryDraft:()=>previousDraft,savePlannerRecoveryDraft:(_owner,value)=>{previousDraft=JSON.parse(JSON.stringify(value));}},
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
     '../lib/onboardingPreferences': load('mobile/src/lib/onboardingPreferences.ts', {}, {window:{localStorage:{getItem:()=>JSON.stringify({interests:welcomeInterests})}}}),
     '../lib/routeSync': { syncRoutePlan: async () => { if (syncFails) throw Error('offline'); } },
@@ -278,13 +281,36 @@ function plannerHarness({ seeded = true, account = false, syncFails = false, sto
     '../lib/storage': { getSavedRoutePlans: () => [...saves], saveRoutePlan: value => { if (storageFails) throw Error('quota'); saves.push(value); return [...saves].reverse(); } },
     '../lib/supabaseData': { getSupabaseDataErrorMessage: (_error, fallback) => fallback },
   }, {window: fixtureWindow});
-  host.start(RouteAssistantScreen, { onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '', placeName });
-  return { host, saves, navigations, notices, generated, fixtureWindow, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
+  host.start(RouteAssistantScreen, { onOpenAccount:()=>signIns.push(true), onNotice: message => notices.push(message), onNavigate: view => navigations.push(view), surpriseRoute: seeded ? route : null, routeSeedKind: 'explore', ownerId: account ? 'fixture-owner' : null, accessToken: account ? 'UNIT_TEST_ONLY' : '', placeName });
+  if(!seeded&&!keepMapOpen){find(host.render(),'Sheet')?.props.onClose();host.render();}
+  return { host, saves, navigations, notices, generated, fixtureWindow, signIns, getHandoff:()=>pendingHandoff, setLocale: value => { locale = value; }, failGeneration: error => { generationFailure = error; }, respondGeneration: response => { generationFailure = null; generationResponse = response; } };
 }
 const selected = tree => find(tree, 'section', props => props['aria-label'] === 'Selected route');
 
+test('Legacy guest AI creation opens sign-in with its form, and StrictMode handoff preserves the chosen departure',async()=>{
+  const guest=plannerHarness({seeded:false,account:false});let handoff;
+  try{
+    find(guest.host.render(),'AirportField').props.onChange({iata:'IST',city:'Istanbul',name:'Istanbul Airport',country:'Türkiye',countryCode:'TR'});
+    button(guest.host.render(),'Sign in to continue').props.onClick();await tick();
+    assert.equal(guest.generated.length,0);assert.equal(guest.signIns.length,1);handoff=guest.getHandoff();assert.equal(handoff.form.origin,'Istanbul');
+  }finally{guest.host.dispose();}
+  const signed=plannerHarness({seeded:false,handoff,strict:true,keepMapOpen:true});
+  try{assert.equal(find(signed.host.render(),'AirportField').props.value.city,'Istanbul');assert.equal(signed.generated.length,0);assert.equal(find(signed.host.render(),'Sheet'),undefined);}finally{signed.host.dispose();}
+});
+
+test('Legacy quota and capacity failures never create a false starter success or replace the previous plan',async()=>{
+  for(const code of ['plan_limit','plan_quota_unavailable','plan_sign_in','plan_request_too_large']){
+    const h=plannerHarness({seeded:false});
+    try{
+      find(h.host.render(),'AirportField').props.onChange({city:'Istanbul',name:'Istanbul Airport'});
+      h.failGeneration(Object.assign(Error('service'),{code}));button(h.host.render(),'Create Route').props.onClick();await tick();
+      assert.equal(h.generated.length,1);assert.equal(find(h.host.render(),'RouteBudgetAnalysis'),undefined);assert.doesNotMatch(text(h.host.render()),/starter outline/);
+    }finally{h.host.dispose();}
+  }
+});
+
 test('New route entry opens the map survey directly and explicit reopen preserves the alternative planner draft', () => {
-  const h = plannerHarness({ seeded: false });
+  const h = plannerHarness({ seeded: false,keepMapOpen:true });
   try {
     let view = h.host.render();
     assert.ok(find(view, 'Sheet', props => props.title === 'Plan on the map'));
@@ -306,7 +332,7 @@ test('New route entry opens the map survey directly and explicit reopen preserve
 });
 
 test('Selecting a ready destination closes the new-route overlay and keeps that destination actionable', () => {
-  const h = plannerHarness({ seeded: false });
+  const h = plannerHarness({ seeded: false,keepMapOpen:true });
   try {
     const view = h.host.render({ surpriseRoute: route, routeSeedKind: 'explore' });
     assert.equal(find(view, 'Sheet'), undefined);
@@ -483,7 +509,7 @@ test('Welcome interests prefill a fresh planner and never overwrite its later ed
 });
 
 test('A discovered route is actionable first and saving it needs no origin or destination regeneration', async () => {
-  const h = plannerHarness();
+  const h = plannerHarness({account:false});
   try {
     let view = h.host.render();
     assert.equal(text(find(selected(view), 'h2')), 'Rome');
@@ -1008,4 +1034,57 @@ test('Planner sends the current passport choice, snapshots it for a saved plan, 
     assert.equal(h.saves[0].input.passportType, 'special'); assert.equal(h.saves[0].input.passportCountry, 'TR');
     assert.equal(h.saves[0].plan.routes[0].verifiedEntryStatus, 'visa_free');
   } finally { h.host.dispose(); }
+});
+
+test('Skipping passport setup still allows planning and saves unknown entry conditions without a Turkish default', async () => {
+  const h = plannerHarness({ seeded: false, passport: { country: '', type: '' } });
+  try {
+    let view = h.host.render();
+    find(view, 'AirportField', props => !props.initialQuery).props.onChange({ iata: 'IST', city: 'Istanbul', name: 'Istanbul', country: 'Türkiye', countryCode: 'TR' });
+    view = h.host.render();
+    await button(view, 'Create Route').props.onClick(); await tick(); view = h.host.render();
+    assert.equal(h.generated[0].passportCountry, ''); assert.equal(h.generated[0].passportType, '');
+    assert.match(text(view), /Passport not selected/); assert.match(text(view), /Entry conditions need verification/);
+    assert.doesNotMatch(text(view), /Türkiye · Ordinary/);
+    await find(view, 'button', props => /Save 2 suggestions/.test(text(props.children))).props.onClick(); await tick();
+    assert.equal(h.saves[0].input.passportCountry, '');
+    assert.ok(h.saves[0].plan.routes.every(route => route.verifiedEntryStatus === 'unknown'));
+  } finally { h.host.dispose(); }
+});
+
+
+test('Only a new explicit Plans guide request resets a retained category and query; saved data and later user navigation persist',()=>{
+  const host=hooks();
+  const saved=[{id:'guide-saved-route',createdAt:'2026-10-18T08:00:00Z',input:{days:'3 days'},plan:{summary:'My plan',routes:[{...route,visaStatus:'Visa-free guaranteed',visaNote:'Legacy passport assumption'}]}}];
+  const before=JSON.stringify(saved);
+  const {TripsScreen}=load('mobile/src/screens/PlansScreen.tsx',{
+    ...common(host),'../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},'../../../lib/event-time':{},'../components/Icon':{Icon:'Icon'},'../components/CountryFlag':{},'../components/Sheet':{Sheet:'Sheet'},'../components/TripCollaborationHub':{},'../components/TravelSavedPlaces':{},'../components/PersonalTravelCards':{},
+    '../lib/savedPlaces':{readSavedPlaces:()=>({items:[],dayIds:[],error:null}),subscribeSavedPlaces:()=>()=>{}},'../data/countryIso':{},'../data/artwork':{destinationArtwork:()=>''},'../data/discovery':{DISCOVERY_DESTINATIONS:[]},
+    '../lib/storage':{getSavedRoutePlans:()=>saved,getFavoriteDestinations:()=>[],getSavedTravelEvents:()=>[]},'../lib/supabaseData':{},'../lib/native':{},'../lib/routeOutbox':{readRouteOutbox:()=>({})},'../lib/routeSync':{},'../lib/eventReminders':{},'../lib/searchText':search,
+  });
+  try{
+    host.start(TripsScreen,{initialSection:'routes',guideRequest:0,user:null,accessToken:'',onNavigate(){},onNotice(){},onOpenAccount(){},onOpenDestination(){}});
+    find(host.render(),'input',p=>p.type==='search').props.onChange({target:{value:'saved query'}});
+    assert.equal(find(host.render(),'input',p=>p.type==='search').props.value,'saved query');
+    assert.equal(find(host.render({guideRequest:0}),'input',p=>p.type==='search').props.value,'saved query','Ordinary retained returns keep the filter');
+    let view=host.render({guideRequest:1});
+    const entry=find(view,'button',p=>p['data-guide']==='saved-library');assert.ok(entry,'Guide target exists on overview');
+    assert.equal(find(view,'input',p=>p.type==='search'),undefined);
+    entry.props.onClick();view=host.render();
+    assert.equal(find(view,'input',p=>p.type==='search').props.value,'','Explicit guide entry clears only the old query');
+    find(view,'input',p=>p.type==='search').props.onChange({target:{value:'Rome'}});
+    assert.equal(find(host.render({guideRequest:1}),'input',p=>p.type==='search').props.value,'Rome','The same guide token cannot undo later user choices');
+    view=host.render({guideRequest:2});assert.ok(find(view,'button',p=>p['data-guide']==='saved-library'));
+    find(view,'button',p=>p['data-guide']==='saved-library').props.onClick();
+    button(host.render(),'Open plan').props.onClick();
+    const detail=nodes(host.render()).find(n=>typeof n.type==='function' && n.type.name==='PlanDetail');
+    const detailView=detail.type(detail.props);
+    assert.match(text(detailView),/Entry conditions need verification/);
+    assert.doesNotMatch(text(detailView),/Visa-free guaranteed/);
+    const note=find(detailView,'RouteTranslation',p=>p.text?.startsWith('Passport not selected'));
+    assert.ok(note,'A legacy save with no document snapshot cannot keep its old inferred passport claim');
+    const known=detail.type({...detail.props,selected:{...detail.props.selected,input:{passportCountry:'TR',passportType:'special'}}});
+    assert.match(text(known),/Visa-free/,'An explicitly saved valid passport still controls its entry guidance');
+    assert.equal(JSON.stringify(saved),before,'Guide navigation and passport display never rewrite saved records');
+  }finally{host.dispose();}
 });
