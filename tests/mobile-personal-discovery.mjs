@@ -284,3 +284,73 @@ test('Home personal shortcuts open exact tools and its unified search preserves 
  find(tree, 'form').props.onSubmit({ preventDefault() {} }); assert.deepEqual(calls.splice(0), ['global:currency']);
  find(tree, 'button', props => text(props.children) === 'Paris').props.onClick(); assert.deepEqual(calls, ['city:Paris']); h.dispose();
 });
+
+function categorySheet(locale, initial = {}, trips = null) {
+ const h = hooks(), d = device(), requests = [], calls = [];
+ const load = loader(d.globals, { ...shared(locale), react: h.react, '../lib/storage': { getSavedRoutePlans: () => [] }, '../lib/supabaseData': { listCockpitTrips: (...args) => trips || new Promise((resolve, reject) => requests.push({ args, resolve, reject })) } });
+ const { GlobalSearchSheet } = load('mobile/src/components/GlobalSearchSheet.tsx');
+ const tree = h.start(GlobalSearchSheet, { open: true, initialQuery: 'etkinlik', onClose: () => calls.push('close'), onOpenTrip: id => calls.push(id), onOpenSavedRoute: id => calls.push(id), onOpenCountry: id => calls.push(id), onSearchDestination: query => calls.push(`city:${query}`), onOpenTool: tool => calls.push(tool), onNavigate: view => calls.push(view), ...initial });
+ return { h, requests, calls, tree };
+}
+const pick = (tree, label) => find(tree, 'button', props => text(props.children) === label);
+const widenLabels = { tr: ['Şehirler', 'Tüm kategorilerde ara', 'Bu kategoride sonuç yok. Diğer kategorilerde sonuçlar var.'], en: ['Cities', 'Search all categories', 'No results in this category. There are results in other categories.'], sq: ['Qytetet', 'Kërko në të gjitha kategoritë', 'Nuk ka rezultate në këtë kategori. Ka rezultate në kategori të tjera.'] };
+
+test('Empty category offers search in all categories, keeps the word and stays on the same screen', () => {
+ const { h, calls } = categorySheet('tr');
+ let tree = pick(h.render(), 'Şehirler'); assert.equal(find(h.render(), 'button', props => props.className === 'global-search-widen'), undefined, 'Not shown while the category has not been chosen');
+ tree.props.onClick(); tree = h.render();
+ assert.match(text(tree), /Bu kategoride sonuç yok\. Diğer kategorilerde sonuçlar var\./);
+ const widen = find(tree, 'button', props => props.className === 'global-search-widen'); assert.equal(text(widen.props.children), 'Tüm kategorilerde ara');
+ widen.props.onClick(); tree = h.render();
+ assert.equal(find(tree, 'input').props.value, 'etkinlik', 'Only the category filter is removed');
+ assert.equal(find(tree, 'button', props => props.className === 'global-search-widen'), undefined);
+ assert.equal(find(tree, 'button', props => text(props.children) === 'Tümü').props['aria-pressed'], true);
+ assert.deepEqual(calls, [], 'No automatic navigation or close');
+ find(tree, 'button', props => text(props.children).startsWith('Etkinlik Radarı')).props.onClick();
+ assert.deepEqual(calls, ['close', 'events']); h.dispose();
+});
+
+test('Category recovery text is localized in Turkish, English and Albanian', () => {
+ for (const [locale, [category, button, note]] of Object.entries(widenLabels)) {
+  const { h } = categorySheet(locale, { initialQuery: locale === 'sq' ? 'radar' : locale === 'en' ? 'event' : 'etkinlik' });
+  pick(h.render(), category).props.onClick(); const tree = h.render();
+  assert.ok(text(tree).includes(note), locale); assert.equal(text(find(tree, 'button', props => props.className === 'global-search-widen').props.children), button, locale); h.dispose();
+ }
+});
+
+test('Recovery is hidden for empty input, no matches anywhere and when the category has results', () => {
+ for (const [query, filter] of [['', 'city'], ['   ', 'city'], ['an unsupported imaginary place', 'city'], ['Paris', 'city']]) {
+  const { h } = categorySheet('en', { initialQuery: query }); pick(h.render(), 'Cities').props.onClick();
+  assert.equal(find(h.render(), 'button', props => props.className === 'global-search-widen'), undefined, `${filter}:${query}`); h.dispose();
+ }
+});
+
+test('Saved-trip loading, failure and sign-in states are not treated as an empty category', async () => {
+ const hidden = tree => assert.equal(find(tree, 'button', props => props.className === 'global-search-widen'), undefined);
+ let { h, requests } = categorySheet('en', { ownerId: 'a', accessToken: 'token-a', initialQuery: 'Paris' });
+ pick(h.render(), 'Saved trips').props.onClick(); let tree = h.render(); assert.match(text(tree), /Loading your saved trips/); hidden(tree);
+ requests[0].reject(Error('offline')); await settle(); tree = h.render(); assert.match(text(tree), /could not be loaded/); hidden(tree);
+ pick(tree, 'Try again').props.onClick(); h.render(); requests[1].resolve([]); await settle(); tree = h.render();
+ assert.match(text(tree), /There are results in other categories/, 'A loaded account with no matching trip does offer all categories');
+ h.dispose();
+ ({ h } = categorySheet('en', { initialQuery: 'Paris' })); pick(h.render(), 'Saved trips').props.onClick(); tree = h.render();
+ assert.match(text(tree), /Sign in to search your saved trips/); hidden(tree); h.dispose();
+});
+
+test('Another account trips never create a recovery option', async () => {
+ const { h, requests } = categorySheet('en', { ownerId: 'b', accessToken: 'token-b', initialQuery: 'Private' });
+ requests[0].resolve([trip('foreign', 'a', 'Private Alpha Harbor')]); await settle();
+ pick(h.render(), 'Saved trips').props.onClick(); const tree = h.render();
+ assert.equal(find(tree, 'button', props => props.className === 'global-search-widen'), undefined); assert.doesNotMatch(text(tree), /Private Alpha Harbor/); h.dispose();
+});
+
+test('Albanian hero slogan stays short and the sheet shows one clear control', () => {
+ const read = file => readFileSync(file, 'utf8');
+ assert.match(read('mobile/src/lib/locales/sq-part2.ts'), /"Live": "Jeto",/);
+ assert.match(read('mobile/src/screens/reference-home.css'), /html\[lang="sq"\] \.editorial-app \.reference-home \.rh-handwritten \{ width: 36%/);
+ assert.doesNotMatch(read('mobile/src/screens/reference-home.css'), /overflow-x:\s*hidden/, 'The overflow is fixed, not hidden');
+ assert.match(read('mobile/src/components/global-search.css'), /input::-webkit-search-cancel-button[^{]*\{[^}]*display: none/);
+ const { h } = categorySheet('tr', { initialQuery: 'Paris' }); const tree = h.render();
+ assert.equal(nodes(find(tree, 'div', props => props.className === 'global-search-field')).filter(node => node.type === 'button').length, 1);
+ h.dispose();
+});

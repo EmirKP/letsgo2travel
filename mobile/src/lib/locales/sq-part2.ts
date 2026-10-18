@@ -273,7 +273,7 @@ export const SQ_PART2: Record<string, string> = {
   "Level not specified": "Niveli nuk është përcaktuar",
   "List view": "Pamje si listë",
   "Listed hours": "Orari i publikuar",
-  "Live": "Drejtpërdrejt",
+  "Live": "Jeto",
   "Live event coverage is currently limited for this country. Verified editorial listings are being shown.": "Mbulimi i ngjarjeve në kohë reale për këtë shtet është aktualisht i kufizuar. Shfaqen përzgjedhje të verifikuara të redaksisë.",
   "Live management for web and app": "Menaxhim i drejtpërdrejtë për uebin dhe aplikacionin",
   "Loading cities…": "Duke ngarkuar qytetet…",
