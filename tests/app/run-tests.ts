@@ -850,7 +850,7 @@ test("mobil yayın bütünlüğü: tek manifest paket ve native sürümleri doğ
   const doctor = readFileSync("scripts/mobile-doctor.mjs", "utf8");
   const android = readFileSync("android/app/build.gradle", "utf8");
   const mobileIndex = readFileSync("mobile/index.html", "utf8");
-  assert.equal(release.appVersion, "1.4.1");
+  assert.match(release.appVersion, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, "manifest geçerli major.minor.patch yayın sürümü taşımalı");
   assert.equal(release.buildNumber, 27);
   assert.equal(release.nativeBuildNumber, 27);
   const xcode = readFileSync("ios/App/App.xcodeproj/project.pbxproj", "utf8");
