@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { validateIosPrivacyManifest } from "./ios-privacy.mjs";
+import { missingPackagedArtwork } from "./packaged-artwork.mjs";
 
 const root = process.cwd();
 const errors = [];
@@ -181,10 +182,13 @@ if (mobileIndex) {
   if (staleEntryAssets.length) errors.push(`Mobil paket eski hash'li giriş varlıkları içeriyor: ${staleEntryAssets.join(", ")}`);
   else ok.push("mobil paket eski hash'li giriş varlığı içermiyor");
 
-  const packagedArtwork = (await filesBelow("mobile-dist/assets"))
-    .filter((asset) => destinationArtworkFiles.some((file) => asset.includes(`${file.slice(0, -5)}-`) && asset.endsWith(".webp")));
-  if (packagedArtwork.length === destinationArtworkFiles.length) ok.push("optimize rota görselleri mobil pakete dahil");
-  else errors.push(`Mobil pakette ${destinationArtworkFiles.length - packagedArtwork.length} optimize rota görseli eksik; mobile:build çalıştır.`);
+  const missingArtwork = await missingPackagedArtwork(
+    destinationArtworkFiles.map(file => path.posix.join("mobile/src/assets/destination-artwork", file)),
+    await filesBelow("mobile-dist/assets"),
+    read,
+  );
+  if (!missingArtwork.length) ok.push("optimize rota görselleri mobil pakete dahil");
+  else errors.push(`Mobil pakette ${missingArtwork.length} optimize rota görseli eksik veya kaynakla eşleşmiyor (${missingArtwork.map(file => path.posix.basename(file)).join(", ")}); mobile:build çalıştır.`);
 }
 
 await checkOptimizedDestinationArtwork();

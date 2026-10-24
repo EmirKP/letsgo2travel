@@ -4,6 +4,7 @@ import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 import { PGlite } from "@electric-sql/pglite";
+import { missingPackagedArtwork } from "../../scripts/packaged-artwork.mjs";
 
 process.on("uncaughtException",error=>{ console.error("Integrity test failed:",error.message,"position:",error.position || "",error.where || ""); process.exit(1); });
 let passed=0;
@@ -31,6 +32,51 @@ function storage() {
 const plain=value=>JSON.parse(JSON.stringify(value));
 const microtasks=async()=>{for(let i=0;i<200;i++) await Promise.resolve();};
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
+
+function packagedArtworkFixture() {
+  const names=["baku","bangkok","belgrade","dubai","rome","sarajevo","tbilisi","tirana","tokyo"];
+  const sourceFiles=names.map(name=>`source/${name}.webp`);
+  const assetFiles=names.map((name,index)=>`assets/${name}-HASH${index}.webp`);
+  const files=new Map();
+  names.forEach((name,index)=>{
+    const bytes=Buffer.from(`RIFF\0\0\0\0WEBP route artwork ${name}`);
+    files.set(sourceFiles[index],bytes);files.set(assetFiles[index],Buffer.from(bytes));
+  });
+  return {sourceFiles,assetFiles,files,check(){return missingPackagedArtwork(sourceFiles,assetFiles,async file=>files.get(file)??null);}};
+}
+
+await test("route artwork packaging accepts all nine exact identities plus an unrelated Tokyo-prefixed asset",async()=>{
+  const f=packagedArtworkFixture();
+  f.assetFiles.push("assets/tokyo-temple-v5-C8KZITsi.webp");
+  f.files.set(f.assetFiles.at(-1),Buffer.from("RIFF\0\0\0\0WEBP unrelated home image"));
+  assert.equal(f.assetFiles.length,10);
+  assert.deepEqual(await f.check(),[],"An extra home image must not produce a negative missing-artwork count");
+});
+
+await test("a same-prefix extra image cannot cover a missing original even when total asset counts match",async()=>{
+  const f=packagedArtworkFixture();
+  f.assetFiles[f.assetFiles.length-1]="assets/tokyo-temple-v5-C8KZITsi.webp";
+  f.files.set(f.assetFiles.at(-1),Buffer.from("RIFF\0\0\0\0WEBP different Tokyo photograph"));
+  assert.equal(f.assetFiles.length,f.sourceFiles.length);
+  assert.deepEqual(await f.check(),["source/tokyo.webp"]);
+});
+
+await test("a correctly named packaged route image with corrupt or substituted bytes still fails identity verification",async()=>{
+  const f=packagedArtworkFixture();
+  f.files.set("assets/rome-HASH4.webp",Buffer.from("RIFF\0\0\0\0WEBP damaged or wrong image"));
+  assert.deepEqual(await f.check(),["source/rome.webp"]);
+});
+
+await test("route artwork identity survives bundler renames and duplicate outputs but never accepts a missing or non-WebP asset",async()=>{
+  const f=packagedArtworkFixture(),original=f.assetFiles[0],renamed="assets/asset-with-new-vite-name.webp";
+  f.files.set(renamed,Buffer.from(f.files.get(original)));f.assetFiles[0]=renamed;
+  f.assetFiles.push("assets/duplicate-route.webp");f.files.set(f.assetFiles.at(-1),Buffer.from(f.files.get(original)));
+  assert.deepEqual(await f.check(),[]);
+  f.assetFiles.splice(0,1);f.assetFiles.pop();
+  f.assetFiles.push("assets/baku-HASH0.png");f.files.set(f.assetFiles.at(-1),f.files.get(original));
+  assert.deepEqual(await f.check(),["source/baku.webp"]);
+  assert.deepEqual(await missingPackagedArtwork(f.sourceFiles,[],async file=>f.files.get(file)),f.sourceFiles);
+});
 
 await test("raw codes, HTTPS links and app links resolve to the same invitation",()=>{
   const {parseTripInvite}=modules()("lib/trip-invite.ts");const token="A_valid-invite-token_123456789";
