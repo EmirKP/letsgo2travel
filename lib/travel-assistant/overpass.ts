@@ -4,14 +4,13 @@ let started = 0;
 let requests = 0;
 let cooldown = 0;
 let preferredProvider = '';
-const successfulDuration = new Map<string, number>();
 const unavailableUntil = new Map<string, number>();
 // Both instances permit any-project use. Do not fall back to the restricted
 // FOSSGIS service. Policy checked 2026-10-04:
 // https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances
 const PUBLIC_PROVIDERS = [
-  "https://overpass.private.coffee/api/interpreter",
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
 ];
 class ProviderError extends Error {
   constructor(message: string, readonly retryable = false, readonly pauseMs = 0, readonly code = 'invalid-response') { super(message); }
@@ -43,23 +42,17 @@ export async function queryOverpass(
       const remaining = deadline - Date.now();
       if (remaining <= 0 || requests >= 12) throw new Error("Map service busy");
       const endpoint = providers[index];
-      // Give the bounded query its declared execution time plus transport time.
-      // A 3s probe cancelled healthy 12s queries before they could finish. Keep
-      // at least 5s (or half a shorter total budget) for sequential failover.
-      const querySeconds = Math.min(20, Math.max(1, Number(query.match(/\[timeout:(\d+)\]/)?.[1] || 12)));
-      // Public providers can queue a healthy query before execution. Once a
-      // host has completed successfully, allow its observed latency plus a
-      // small margin instead of cutting every preferred host off at 13s.
-      const observedBudget = (successfulDuration.get(endpoint.href) || 0) + 2000;
+      // Queue time precedes Overpass's declared execution timeout. A real
+      // healthy response took 18.5s, so a cold host also needs the full first
+      // attempt budget. Retain 5s for failover, or half a short caller budget.
       const attemptTimeout = index < providers.length - 1
-        ? Math.max(1, Math.floor(Math.min(Math.max(querySeconds * 1000 + 1000, observedBudget), Math.max(remaining / 2, remaining - 5000))))
+        ? Math.max(1, Math.floor(Math.max(remaining / 2, remaining - 5000)))
         : remaining;
       const attemptStarted = Date.now();
       requests++;
       try {
         const value = await readProvider(endpoint, query, attemptTimeout);
         preferredProvider = endpoint.href;
-        successfulDuration.set(endpoint.href, Math.min(21000, Math.max(0, Date.now() - attemptStarted)));
         return value;
       } catch (error) {
         // Never log the query, coordinates, full configured URL or credentials.

@@ -18,7 +18,7 @@ function moduleFrom(path,imports={},globals={}) {
   return loaded.exports;
 }
 
-async function warmSlowProvider(duration=18000){
+async function providerFixture({preferFallback=false}={}){
   const state={now:100000,calls:[],timeouts:[],logs:[]};let reply;
   const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
     process:{env:{}},Date:class extends Date {static now(){return state.now;}},
@@ -27,52 +27,55 @@ async function warmSlowProvider(duration=18000){
     fetch:async(url,options)=>{
       state.calls.push(url.hostname);
       if(reply)return reply(url,options.signal.timeoutMs,state);
-      if(url.hostname==='overpass.private.coffee'){state.now+=500;return new Response('',{status:503});}
-      state.now+=duration;return Response.json({elements:[{id:7}]});
+      if(url.hostname==='maps.mail.ru'){state.now+=500;return new Response('',{status:503});}
+      state.now+=18500;return Response.json({elements:[{id:7}]});
     },
   });
-  assert.equal((await provider.queryOverpass('[timeout:12];warm bounded query')).elements[0].id,7);
-  assert.deepEqual(state.timeouts,[13000,25500],'The slow success must fit the real remaining fallback budget, not an impossible first-host deadline');
-  state.now+=61000;state.calls.length=0;state.timeouts.length=0;state.logs.length=0;
+  if(preferFallback){
+    assert.equal((await provider.queryOverpass('[timeout:12];warm bounded query')).elements[0].id,7);
+    assert.deepEqual(state.timeouts,[21000,25500],'An early primary failure leaves the remaining shared budget to establish a healthy fallback');
+    state.now+=61000;state.calls.length=0;state.timeouts.length=0;state.logs.length=0;
+  }
   return {provider,state,setReply:fn=>{reply=fn;}};
 }
 
-test('A proven slow provider receives its measured duration plus margin and completes without a needless failover',async()=>{
-  const {provider,state,setReply}=await warmSlowProvider();
-  setReply(async(_url,budget,clock)=>{assert.ok(budget>=18000);clock.now+=18000;return Response.json({elements:[{id:8}]});});
+test('A healthy fallback stays preferred after cooldown and receives the same bounded first-attempt window',async()=>{
+  const {provider,state,setReply}=await providerFixture({preferFallback:true});
+  setReply(async(_url,budget,clock)=>{assert.ok(budget>=18500);clock.now+=18500;return Response.json({elements:[{id:8}]});});
   const start=state.now;
   assert.equal((await provider.queryOverpass('[timeout:12];another bounded query')).elements[0].id,8);
-  assert.deepEqual(state.calls,['maps.mail.ru']);assert.deepEqual(state.timeouts,[20000]);
-  assert.equal(state.now-start,18000);assert.ok(state.timeouts[0]<=21000,'At least five seconds remain for another public provider');
+  assert.deepEqual(state.calls,['overpass.private.coffee']);assert.deepEqual(state.timeouts,[21000]);
+  assert.equal(state.now-start,18500);assert.ok(state.timeouts[0]<=21000,'At least five seconds remain for another public provider');
 });
 
-test('Adaptive timeouts still reserve sequential failover and never exceed a short caller budget or the 26s ceiling',async()=>{
-  for(const [budget,expected,duration=18000] of [[5000,[2500,2500]],[10000,[5000,5000]],[26000,[20000,6000]],[90000,[20000,6000]],[26000,[21000,5000],19000],[26000,[21000,5000],25000]]){
-    const {provider,state,setReply}=await warmSlowProvider(duration);
+test('Cold or preferred providers reserve sequential failover without exceeding a short caller budget or the 26s ceiling',async()=>{
+  for(const preferFallback of [false,true])for(const [budget,expected] of [[5000,[2500,2500]],[10000,[5000,5000]],[26000,[21000,5000]],[90000,[21000,5000]]]){
+    const {provider,state,setReply}=await providerFixture({preferFallback});
+    const first=preferFallback?'overpass.private.coffee':'maps.mail.ru',second=preferFallback?'maps.mail.ru':'overpass.private.coffee';
     setReply(async(url,timeout,clock)=>{
-      if(url.hostname==='maps.mail.ru'){clock.now+=timeout;throw Error('network timeout');}
+      if(url.hostname===first){clock.now+=timeout;throw Error('network timeout');}
       return Response.json({elements:[{id:9}]});
     });
     const start=state.now;
     assert.equal((await provider.queryOverpass('[timeout:12];bounded query',budget)).elements[0].id,9);
-    assert.deepEqual(state.calls,['maps.mail.ru','overpass.private.coffee']);assert.deepEqual(state.timeouts,expected);
+    assert.deepEqual(state.calls,[first,second]);assert.deepEqual(state.timeouts,expected);
     assert.equal(state.timeouts.reduce((sum,value)=>sum+value,0),Math.min(budget,26000));
     assert.ok(state.now-start<=Math.min(budget,26000));
   }
 });
 
-test('Learned provider latency never bypasses terminal denials or runtime memory guards, or exposes partial results',async()=>{
+test('The longer preferred-provider window never bypasses terminal denials or memory guards, or exposes partial results',async()=>{
   for(const failure of [
     {body:null,status:429,code:'http-429',message:/declined/},
     {body:{elements:[{id:999}],remark:'runtime error: The server is probably too busy. Rate limit exceeded.'},code:'runtime-declined',message:/declined/},
     {body:{elements:[{id:999}],remark:'runtime error: Query ran out of memory in recurse.'},code:'runtime-memory',message:/resource budget/},
     {body:{elements:[{id:999}],remark:'runtime error: Query timed out: memory limit exceeded.'},code:'runtime-memory',message:/resource budget/},
   ]){
-    const {provider,state,setReply}=await warmSlowProvider();
+    const {provider,state,setReply}=await providerFixture({preferFallback:true});
     setReply(async(_url,_budget,clock)=>{clock.now+=500;return failure.body?Response.json(failure.body):new Response('',{status:failure.status});});
     await assert.rejects(provider.queryOverpass('[timeout:12];private coordinates 41.12345,28.12345'),failure.message);
     await assert.rejects(provider.queryOverpass('retry'),/busy/);
-    assert.deepEqual(state.calls,['maps.mail.ru']);assert.deepEqual(state.timeouts,[20000]);
+    assert.deepEqual(state.calls,['overpass.private.coffee']);assert.deepEqual(state.timeouts,[21000]);
     assert.equal(state.logs.length,1);assert.equal(state.logs[0][1].code,failure.code);
     assert.doesNotMatch(JSON.stringify(state.logs),/41\.12345|28\.12345|private coordinates|timeout:12/);
   }
@@ -85,32 +88,32 @@ test('Map outages fail over once within one time budget and avoid the failed hos
     AbortSignal:{timeout:milliseconds=>{timeouts.push(milliseconds);return undefined;}},
     fetch:async(url,options)=>{
       calls.push({host:url.hostname,query:options.body.get('data')});
-      if(url.hostname==='overpass.private.coffee'){now+=13000;throw new Error('network timeout');}
+      if(url.hostname==='maps.mail.ru'){now+=21000;throw new Error('network timeout');}
       return Response.json({elements:[{type:'node',id:123}]});
     },
   });
   const first=await provider.queryOverpass('bounded query');
   assert.equal(first.elements[0].id,123);
-  assert.deepEqual(timeouts,[13000,13000]);
-  assert.deepEqual(calls.map(call=>call.host),['overpass.private.coffee','maps.mail.ru']);
+  assert.deepEqual(timeouts,[21000,5000]);
+  assert.deepEqual(calls.map(call=>call.host),['maps.mail.ru','overpass.private.coffee']);
   assert.ok(calls.every(call=>call.query==='bounded query'));
   await provider.queryOverpass('another bounded query');
-  assert.equal(calls.length,3); assert.equal(calls[2].host,'maps.mail.ru');
+  assert.equal(calls.length,3); assert.equal(calls[2].host,'overpass.private.coffee');
 });
 
-test('A healthy first map provider can finish after the former 3s deadline without an unnecessary second query',async()=>{
-  let now=100000,calls=0;const timeouts=[];
+test('A cold first mail.ru request can complete in 18.5 seconds without historical measurements or an unnecessary fallback',async()=>{
+  let now=100000;const calls=[],timeouts=[];
   const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
     process:{env:{}},Date:class extends Date {static now(){return now;}},
     AbortSignal:{timeout:ms=>{timeouts.push(ms);return undefined;}},
-    fetch:async()=>{calls++;now+=4500;return Response.json({elements:[{type:'node',id:5}]});},
+    fetch:async url=>{calls.push(url.hostname);const budget=timeouts.at(-1);if(budget<18500){now+=budget;throw Error('network timeout');}now+=18500;return Response.json({elements:[{type:'node',id:5}]});},
   });
   assert.equal((await provider.queryOverpass('[out:json][timeout:12];bounded query')).elements[0].id,5);
-  assert.equal(calls,1);assert.deepEqual(timeouts,[13000]);
+  assert.deepEqual(calls,['maps.mail.ru']);assert.deepEqual(timeouts,[21000]);assert.equal(now,118500);
 });
 
 test('Offline query budget and short caller deadlines preserve one bounded sequential failover budget',async()=>{
-  for(const [query,budget,expected] of [['[out:json][timeout:18];bounded offline query',26000,[19000,7000]],['[timeout:12];bounded query',5000,[2500,2500]]]){
+  for(const [query,budget,expected] of [['[out:json][timeout:18];bounded offline query',26000,[21000,5000]],['[timeout:12];bounded query',5000,[2500,2500]]]){
     let now=100000;const timeouts=[];
     const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
       process:{env:{}},Date:class extends Date {static now(){return now;}},
@@ -310,10 +313,10 @@ test('The last healthy provider stays preferred after the failed provider cooldo
   let now=100000; const calls=[];
   const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
     process:{env:{}}, Date:class extends Date {static now(){return now;}},
-    fetch:async url=>{calls.push(url.hostname); if(url.hostname==='overpass.private.coffee')throw new Error('down');return Response.json({elements:[]});},
+    fetch:async url=>{calls.push(url.hostname); if(url.hostname==='maps.mail.ru')throw new Error('down');return Response.json({elements:[]});},
   });
   await provider.queryOverpass('first'); now+=61000; await provider.queryOverpass('second');
-  assert.deepEqual(calls,['overpass.private.coffee','maps.mail.ru','maps.mail.ru']);
+  assert.deepEqual(calls,['maps.mail.ru','overpass.private.coffee','overpass.private.coffee']);
 });
 
 test('Map fallback cache is bounded, preserves source time, and expires instead of reviving old data',()=>{
@@ -374,7 +377,7 @@ test('Actual places and offline endpoints preserve only the same cached area dur
   }
 });
 
-test('The actual offline query leaves enough execution time for both permitted providers',async()=>{
+test('The actual offline query prioritises its healthy first provider while reserving a bounded five-second fallback',async()=>{
   let now=100000; const deadlines=[];
   const query=offlineMapQuery(center);
   const declared=Number(query.match(/\[timeout:(\d+)\]/)[1])*1000;
@@ -385,7 +388,7 @@ test('The actual offline query leaves enough execution time for both permitted p
   });
   assert.equal((await provider.queryOverpass(query,26000)).elements.length,raw.elements.length);
   assert.equal(deadlines.length,2);
-  assert.ok(deadlines.every(ms=>ms>=declared+1000));
+  assert.deepEqual(deadlines,[21000,5000]);assert.ok(deadlines[0]>=declared+1000);
   assert.equal(deadlines.reduce((sum,ms)=>sum+ms,0),26000);
 });
 
