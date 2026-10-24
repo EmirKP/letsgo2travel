@@ -3,7 +3,7 @@ import { useI18n } from "../lib/i18n";
 import { getSavedRoutePlans } from "../lib/storage";
 import { searchApp, type GlobalSearchKind, type GlobalSearchResult, type SearchableTrip } from "../lib/globalSearch";
 import { listCockpitTrips } from "../lib/supabaseData";
-import type { TravelAssistantTool } from "../lib/appTools";
+import type { JourneyToolId, TravelAssistantTool } from "../lib/appTools";
 import type { SavedRoutePlan, ViewId } from "../types";
 import { Sheet } from "./Sheet";
 import { Icon } from "./Icon";
@@ -12,10 +12,12 @@ import "./global-search.css";
 
 type TripSearchState = { owner: string; token: string; attempt: number; status: "loading" | "ready" | "error"; trips: SearchableTrip[] };
 
-export function GlobalSearchSheet({ open, onClose, ownerId, accessToken, initialQuery = "", onNavigate, onOpenTool, onOpenCountry, onSearchDestination, onOpenSavedRoute, onOpenTrip }: {
+export function GlobalSearchSheet({ open, onClose, ownerId, accessToken, initialQuery = "", onNavigate, onOpenTool, onOpenJourneyTool, onOpenGuide, onOpenCountry, onSearchDestination, onOpenSavedRoute, onOpenTrip }: {
   open: boolean; onClose: () => void; ownerId?: string | null; accessToken?: string; initialQuery?: string;
   onNavigate: (view: ViewId) => void;
   onOpenTool: (tool: TravelAssistantTool) => void;
+  onOpenJourneyTool?: (tool: JourneyToolId) => void;
+  onOpenGuide?: () => void;
   onOpenCountry: (alpha3: string) => void;
   onSearchDestination: (query: string) => void;
   onOpenSavedRoute: (id: string) => void;
@@ -76,7 +78,12 @@ export function GlobalSearchSheet({ open, onClose, ownerId, accessToken, initial
     }
     if (result.kind === "saved-trip" && !currentTrips?.trips.some(trip => trip.id === result.tripId)) return;
     onClose();
-    if (result.kind === "tool") { if (result.tool) onOpenTool(result.tool); else onNavigate(result.view); }
+    if (result.kind === "tool") {
+      if (result.guide && onOpenGuide) onOpenGuide();
+      else if (result.journeyTool && onOpenJourneyTool) onOpenJourneyTool(result.journeyTool);
+      else if (result.tool) onOpenTool(result.tool);
+      else onNavigate(result.view);
+    }
     else if (result.kind === "country") onOpenCountry(result.countryCode);
     else if (result.kind === "city") onSearchDestination(result.query);
     else if (result.kind === "saved-trip") onOpenTrip(result.tripId);

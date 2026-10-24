@@ -238,7 +238,7 @@ test('Trip deletion uses explicit in-app confirmation and submits only once with
     assert.equal(h.deletes.length, 1);assert.equal(h.deletes[0].tripId, base.id);assert.equal(h.deletes[0].version, base.updatedAt);
     assert.equal(sheet().props.dismissible, false);assert.equal(button(sheet(), 'Deleting…').props.disabled, true);
     h.deletes[0].resolve();await tick();
-    assert.equal(sheet().props.open, false);assert.ok(h.notices.some(value => /removed from your cockpit/.test(value)));
+    assert.equal(sheet().props.open, false);assert.ok(h.notices.some(value => /The trip was removed\./.test(value)));
     assert.ok(h.reminders.at(-1).some(trip => trip.id === base.id && trip.status === 'cancelled'));
   } finally { h.host.dispose(); }
 });
@@ -324,7 +324,7 @@ test('Successful overnight flight save is optional-PNR, single-submit, and clear
     assert.equal(lookup(reopened).props.date, '');
     assert.equal(find(reopened, 'section', props => props['aria-label'] === 'Flight summary'), undefined);
     assert.equal(find(reopened, 'AirportField'), undefined);
-    assert.equal(button(reopened, 'Add to cockpit'), undefined);
+    assert.equal(button(reopened, 'Add to My trips'), undefined);
   } finally { h.host.dispose(); }
 });
 
@@ -338,7 +338,7 @@ test('Active mode taps preserve a matched flight, while a changed lookup query c
     lookup(h.host.render()).props.onQueryChange('TK1986', '2026-09-28');
     const changed = h.host.render();
     assert.equal(find(changed, 'section', props => props['aria-label'] === 'Flight summary'), undefined);
-    assert.equal(button(changed, 'Add to cockpit'), undefined);
+    assert.equal(button(changed, 'Add to My trips'), undefined);
     lookup(changed).props.onManual();
     assert.ok(find(h.host.render(), 'AirportField'));
   } finally { h.host.dispose(); }
@@ -369,7 +369,7 @@ test('Trial selection previews attribution but cannot save or escape through man
   try {
     lookup(await h.open()).props.onSelect({ ...flight(), receipt: null, maySave: false }, 'trial');
     assert.equal(dateField(h.host.render(), 'When does your trip end?'), undefined);
-    assert.equal(button(h.host.render(), 'Add to cockpit'), undefined);
+    assert.equal(button(h.host.render(), 'Add to My trips'), undefined);
     assert.match(text(h.host.render()), /Flight lookup trial/);
     assert.equal(find(h.host.render(), 'CockpitFlightDetails').props.flight.source, 'AeroDataBox');
     await tripForm(h.host.render()).props.onSubmit({ preventDefault() {} });
@@ -428,7 +428,7 @@ test('Receipt expiry prevents a late save and data expiry clears a selected form
     dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-10');
     find(h.host.render(), 'input', props => props.placeholder === 'ABC123').props.onChange({ target: { value: 'USERPNR' } });
     let view = h.advance(600001);
-    assert.equal(button(view, 'Add to cockpit').props.disabled, true);
+    assert.equal(button(view, 'Add to My trips').props.disabled, true);
     await tripForm(view).props.onSubmit({ preventDefault() {} }); assert.equal(h.creates.length, 0);
     view = h.advance(5 * 86400000);
     assert.equal(find(view, 'section', props => props['aria-label'] === 'Flight summary'), undefined);
@@ -448,7 +448,7 @@ test('A preview whose departure passes cannot be saved and reports the specific 
     lookup(await h.open()).props.onSelect(selected);
     dateField(h.host.render(), 'When does your trip end?').props.onChange('2026-10-10');
     const view = h.advance(Date.parse(selected.departureAt) - now + 1);
-    assert.equal(button(view, 'Add to cockpit').props.disabled, true);
+    assert.equal(button(view, 'Add to My trips').props.disabled, true);
     await tripForm(view).props.onSubmit({ preventDefault() {} });
     assert.equal(h.creates.length, 0);
     assert.match(text(h.host.render()), /scheduled departure time has passed/);
@@ -520,7 +520,7 @@ test('Lookup explains unverified ongoing details and feature trial limits in Tur
       h.language(locale); h.host.render();
       let view = await h.enable(true, 'trial');
       const trialCopy = locale === 'tr' ? 'Uçuş arama denemesi:' : 'Flight lookup trial:';
-      const noSaveCopy = locale === 'tr' ? 'kokpite kaydedilemez' : 'cannot be saved to Cockpit';
+      const noSaveCopy = locale === 'tr' ? 'bu denemede seyahat kaydı oluşturulmaz' : 'without creating a saved trip';
       assert.ok(text(view).includes(trialCopy)); assert.ok(text(view).includes(noSaveCopy));
       assert.ok(!text(view).includes(locale === 'tr' ? 'Deneme uçuşu' : 'Trial flight preview'));
       button(view, locale === 'tr' ? 'Uçuş bilgilerini getir' : 'Find flight details').props.onClick();

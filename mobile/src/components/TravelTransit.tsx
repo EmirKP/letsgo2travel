@@ -21,16 +21,16 @@ import type {
 type TransitRegion = 'london' | 'norway';
 const endpoint = (city: TransitRegion = 'london') =>
   `${config.travelAssistantApiBaseUrl}/api/travel-assistant/transit?city=${city}&`;
-export function TravelTransit() {
+export function TravelTransit({ destinationCountry = '', destinationLabel = '' }: { destinationCountry?: string; destinationLabel?: string } = {}) {
   const { copy } = useI18n();
   const [mode, setMode] = useState<'world' | TransitRegion>('world');
   return <section className="ta-panel ta-form"><nav className="ta-transport-modes" aria-label={copy('Ulaşım kapsamı', 'Transport coverage', 'Mbulimi i transportit')}>
     <button type="button" aria-pressed={mode === 'world'} onClick={() => setMode('world')}>{copy('Tüm şehirler', 'All cities', 'Të gjitha qytetet')}</button>
     <button type="button" aria-pressed={mode === 'london'} onClick={() => setMode('london')}>{copy('Londra · TfL', 'London · TfL', 'Londër · TfL')}</button>
     <button type="button" aria-pressed={mode === 'norway'} onClick={() => setMode('norway')}>{copy('Norveç · Entur', 'Norway · Entur', 'Norvegji · Entur')}</button>
-  </nav>{mode === 'world' ? <WorldwideTransit/> : <RegionalTransit key={mode} city={mode}/>}</section>;
+  </nav>{mode === 'world' ? <WorldwideTransit destinationCountry={destinationCountry} destinationLabel={destinationLabel}/> : <RegionalTransit key={mode} city={mode}/>}</section>;
 }
-function WorldwideTransit() {
+function WorldwideTransit({ destinationCountry = '', destinationLabel = '' }: { destinationCountry?: string; destinationLabel?: string } = {}) {
   const { copy } = useI18n();
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -40,7 +40,7 @@ function WorldwideTransit() {
   useEffect(() => () => {generation.current++;}, []);
   const url = transitDirectionsUrl(origin, destination);
   const autoLocate = useEffectEvent(() => { void locate(); });
-  useEffect(() => { autoLocate(); }, []);
+  useEffect(() => { if (!destinationCountry) autoLocate(); }, [destinationCountry]);
   async function locate() {
     if (busy) return;
     const id = ++generation.current; setBusy(true); setError('');
@@ -49,6 +49,7 @@ function WorldwideTransit() {
     finally { if (id === generation.current) setBusy(false); }
   }
   return <div className="ta-transit-world"><h3>{copy('Nereden nereye?', 'Where are you going?', 'Nga dhe për ku?')}</h3>
+    {destinationCountry && <p className="ta-muted">{copy(`Yolculuk ülken: ${destinationLabel || destinationCountry}. Başlangıç ve varışı şehir adıyla birlikte yaz. Konumunu yalnız istersen kullanırız.`, `Travel country: ${destinationLabel || destinationCountry}. Include the city in your departure and arrival addresses. Your location is used only if you choose it.`, `Shteti i udhëtimit: ${destinationLabel || destinationCountry}. Përfshi qytetin në adresat e nisjes dhe mbërritjes. Vendndodhja përdoret vetëm nëse e zgjedh.`)}</p>}
     <p>{copy('Şehir, adres veya durak yaz. Toplu taşıma seçenekleri, aktarmalar ve güncel saatler Google Haritalar’da açılır.', 'Enter a city, address or station. Transit options, connections and current times open in Google Maps.', 'Shkruaj qytetin, adresën ose stacionin. Transporti, ndërrimet dhe oraret hapen në Google Maps.')}</p>
     <label>{copy('Başlangıç', 'From', 'Nisja')}<input value={origin} maxLength={200} placeholder={copy('Örn. Kadıköy, İstanbul', 'e.g. Kadıköy, Istanbul', 'P.sh. Sheshi Skënderbej, Tiranë')} onChange={e => {generation.current++;setBusy(false);setOrigin(e.target.value);setError('');}}/></label>
     <button type="button" className="secondary-wide" disabled={busy} onClick={() => void locate()}>{busy ? copy('Konum alınıyor…','Getting location…','Po merret vendndodhja…') : copy('Başlangıç için konumumu kullan', 'Use my location as departure', 'Përdor vendndodhjen si nisje')}</button>

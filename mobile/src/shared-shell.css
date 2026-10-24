@@ -66,3 +66,168 @@
 }
 .animated-splash-copy .animated-splash-brand { display: flex; align-items: baseline; justify-content: center; width: 100%; white-space: nowrap; font-family: 'Inter', system-ui, sans-serif; font-size: clamp(32px, 9vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.3; }
 .animated-splash-copy .animated-splash-brand strong { margin: 0; font-size: 1.18em; font-weight: 900; }
+
+/* The home composition owns its chrome. Other screens keep their existing
+   shared surfaces, dimensions and navigation behaviour. */
+.app-shell.editorial-app.shared-shell.view-home {
+  --header-sky: #079be0;
+}
+.app-shell.editorial-app.shared-shell.view-home .topbar.shared-topbar {
+  min-height: calc(clamp(78px, 12.7vw, 108px) + env(safe-area-inset-top));
+  padding: calc(12px + env(safe-area-inset-top)) max(clamp(12px, 3vw, 28px), env(safe-area-inset-right)) 12px max(clamp(12px, 3vw, 28px), env(safe-area-inset-left));
+  background: linear-gradient(110deg, #079de3 0%, #0798dc 100%);
+  border-bottom: 1px solid rgb(255 255 255 / 17%);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-brand-group {
+  flex: 1 1 auto;
+  margin-right: clamp(8px, 2vw, 20px);
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .brand-button {
+  flex: 0 1 390px;
+  width: min(100%, 390px);
+  min-height: 44px;
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .brand-logo {
+  max-height: 82px;
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-actions {
+  align-items: center;
+  gap: clamp(4px, 1.2vw, 10px);
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar :is(.icon-button, .language-toggle, .theme-toggle-header) {
+  display: grid;
+  place-items: center;
+  flex: 0 0 clamp(44px, 6.6vw, 56px);
+  width: clamp(44px, 6.6vw, 56px);
+  min-width: 44px;
+  height: clamp(44px, 6.6vw, 56px);
+  min-height: 44px;
+  padding: 0;
+  color: #fff;
+  border: 1px solid rgb(255 255 255 / 32%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 13%);
+  box-shadow: inset 0 1px 2px rgb(255 255 255 / 14%);
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .language-toggle {
+  border-radius: 16px;
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .language-flag {
+  width: clamp(29px, 4.1vw, 35px);
+  height: clamp(21px, 3vw, 25px);
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 15%);
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .icon-button svg {
+  width: clamp(22px, 3vw, 27px);
+  height: clamp(22px, 3vw, 27px);
+  stroke-width: 1.7;
+}
+.app-shell.editorial-app.shared-shell.view-home .shared-topbar .notification-badge {
+  top: -4px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 4px;
+  border: 2px solid #0799de;
+  background: #f0444f;
+  font-size: 10px;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav {
+  max-width: 850px;
+  min-height: calc(78px + env(safe-area-inset-bottom));
+  padding: 6px max(10px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  border: 1px solid #e7edf6;
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: rgb(255 255 255 / 98%);
+  box-shadow: 0 -3px 18px rgb(19 55 98 / 4%);
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button {
+  min-height: 62px;
+  padding: 1px 2px 8px;
+  gap: 2px;
+  border-radius: 12px;
+  color: #53607d;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button > span {
+  width: 36px;
+  height: 30px;
+  background: transparent;
+  color: inherit;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.65;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button small {
+  font-size: clamp(10px, 2.9vw, 14px);
+  line-height: 1.35;
+  font-weight: 500;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button.active {
+  color: #0066ff;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button.active > span {
+  background: transparent;
+  color: inherit;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button.active small {
+  font-weight: 750;
+}
+.app-shell.editorial-app.shared-shell.view-home .bottom-nav button.active::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: min(38px, 70%);
+  height: 3px;
+  border-radius: 5px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home {
+  --header-sky: #101e34;
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .topbar.shared-topbar {
+  background: #101e34;
+  border-bottom-color: #243b59;
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .shared-topbar :is(.icon-button, .language-toggle, .theme-toggle-header) {
+  border-color: #45607d;
+  background: rgb(128 170 223 / 9%);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 3%);
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .shared-topbar .notification-badge {
+  border-color: #101e34;
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .bottom-nav {
+  border-color: #2b405c;
+  background: rgb(19 34 55 / 98%);
+  box-shadow: 0 -4px 22px rgb(0 0 0 / 16%);
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .bottom-nav button {
+  color: #b7c5d9;
+}
+:root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .bottom-nav button.active {
+  color: #8dbbff;
+}
+@media (max-width: 359px) {
+  .app-shell.editorial-app.shared-shell.view-home .topbar.shared-topbar {
+    padding-inline: max(10px, env(safe-area-inset-left));
+  }
+  .app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-actions {
+    gap: 3px;
+  }
+  .app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-brand-group {
+    margin-right: 6px;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell.editorial-app.shared-shell.view-home .bottom-nav { background: #fff; }
+  :root[data-theme="dark"] .app-shell.editorial-app.shared-shell.view-home .bottom-nav { background: #132237; }
+}

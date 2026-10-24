@@ -237,14 +237,18 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
   return <div className="screen explore-screen">
     <PageHero scene="coast" title={copy("Rotaları keşfet", "Explore destinations")} subtitle={copy("Dünyanın bir yerinde, yeni hikâyen seni bekliyor.", "Your next story is waiting somewhere in the world.")} />
 
-    <label className="discovery-search"><Icon name="search" size={19}/><span className="sr-only">{copy("Hazır rotalarda şehir veya ülke ara", "Search cities or countries in ready-made routes")}</span><input ref={searchInput} type="search" aria-controls="explore-search-results" value={query} maxLength={120} placeholder={copy("Şehir veya ülke ara…", "Search a city or country…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" className="icon-button compact" style={{ minWidth: 44, minHeight: 44 }} onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={18}/></button>}</label>
+    <label className="discovery-search"><Icon name="search" size={19}/><span className="sr-only">{copy("Hazır rotalarda şehir veya ülke ara", "Search cities or countries in ready-made routes")}</span><input data-guide="explore-search" ref={searchInput} type="search" aria-controls="explore-search-results" value={query} maxLength={120} placeholder={copy("Şehir veya ülke ara…", "Search a city or country…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" className="icon-button compact" style={{ minWidth: 44, minHeight: 44 }} onClick={() => { setQuery(""); searchInput.current?.focus(); }} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={18}/></button>}</label>
 
-    {!search && <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools")}>
+    <section className="explore-actions" aria-label={copy("Keşif araçları", "Discovery tools", "Mjetet e zbulimit")}>
+      {!search && <>
       <button onClick={() => onNavigate("passport")}><span className="explore-feature-artwork"><TravelToolArtwork kind="passport" size={64} /></span><strong>{copy("Pasaport Gücü", "Passport Power")}</strong><small>{copy("Giriş durumları", "Entry rules")}</small></button>
       <button onClick={surprise}><span className="explore-feature-artwork"><TravelToolArtwork kind="explore" size={64} /></span><strong>{copy("Beni Şaşırt", "Surprise Me")}</strong><small>{copy("Akıllı rota", "Smart route")}</small></button>
       <button onClick={() => onNavigate("events")}><span className="explore-feature-artwork"><TravelToolArtwork kind="events" size={64} /></span><strong>{copy("Etkinlik Radarı", "Event Radar")}</strong><small>{copy("Konser ve festival", "Concerts & festivals")}</small></button>
       <button onClick={() => onNavigate("companion")}><span className="explore-feature-artwork"><TravelToolArtwork kind="tools" size={64} /></span><strong>{copy("Yol Yardımcısı", "Travel Companion")}</strong><small>{copy("Şimdi, dil, kurallar", "Now, phrases, rules")}</small></button>
-    </section>}
+      </>}
+      <button type="button" onClick={() => onNavigate("country-news")}><span className="explore-feature-artwork"><TravelToolArtwork kind="globe" size={64}/></span><strong>{copy("Ülke Gündemi", "Country Updates", "Lajme nga shtetet")}</strong><small>{copy("Haberler ve seyahat uyarıları", "News and travel advice", "Lajme dhe këshilla udhëtimi")}</small></button>
+      <button type="button" onClick={() => onNavigate("costs")}><span className="explore-feature-artwork"><TravelToolArtwork kind="money" size={64}/></span><strong>{copy("Ülke Maliyetleri", "Country Costs", "Kostot sipas shtetit")}</strong><small>{copy("Şehirlere göre bütçeni hazırla", "Plan your budget by city", "Planifiko buxhetin sipas qytetit")}</small></button>
+    </section>
 
     {!search && <section className="daily-discovery" style={{ backgroundImage: `linear-gradient(125deg,rgba(7,27,51,.92),rgba(7,27,51,.34)),url(${destinationArtwork(featured.code)})` }}>
       <div className="daily-discovery-copy">
@@ -274,7 +278,7 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
               <h3>{destination.name}</h3>
               <p>{destination.country}</p>
             </div>
-            <div className="discovery-body"><span>{destination.tag}</span><button onClick={() => openDetails(destination)} aria-label={copy(`${destination.name} ayrıntılarını aç`, `Open ${destination.name} details`, `Hap hollësitë për ${destination.name}`)}>{copy("İncele", "View")} <Icon name="chevron" size={15} /></button></div>
+            <div className="discovery-body"><span>{destination.tag}</span><button data-guide="explore-place" onClick={() => openDetails(destination)} aria-label={copy(`${destination.name} ayrıntılarını aç`, `Open ${destination.name} details`, `Hap hollësitë për ${destination.name}`)}>{copy("İncele", "View")} <Icon name="chevron" size={15} /></button></div>
           </article>;
         })}
         {searchRoutes.map(route => <article className="discovery-card" key={route.destinationCode}>
@@ -298,8 +302,9 @@ export function ExploreScreen({ initialDestinationCode, initialSearchQuery = "",
         <section className="destination-highlights"><small>{copy("ÖNE ÇIKANLAR", "HIGHLIGHTS")}</small><div>{selectedDestination.highlights.map((highlight) => <span key={highlight}><Icon name="check" size={14} />{highlight}</span>)}</div></section>
         <section className="destination-tip"><span><Icon name="sparkles" size={19} /></span><div><small>{copy("YEREL PLANLAMA NOTU", "LOCAL PLANNING NOTE")}</small><p>{selectedDestination.localTip}</p></div></section>
         <p className="destination-disclaimer"><Icon name="info" size={14} /> {copy("Giriş koşulları değişebilir; seyahatten önce resmî kaynağı doğrula.", "Entry rules can change; verify the official source before travel.")}</p>
+        <button type="button" data-guide="explore-back" className="secondary-wide" onClick={() => setSelectedDestination(null)}><Icon name="back" size={18}/>{copy("Keşfe dön", "Back to exploring", "Kthehu te eksplorimi")}</button>
         <div className="destination-detail-actions">
-          <button className="secondary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? copy("Favorilerden çıkar", "Remove favourite") : copy("Favoriye ekle", "Add favourite")}</button>
+          <button data-guide="explore-save" className="secondary-wide" disabled={Boolean(favoriteBusy)} aria-pressed={favorites.some((item) => item.alpha3 === selectedDestination.alpha3)} onClick={() => void toggleFavorite(selectedDestination)}><Icon name="heart" size={18} /> {favorites.some((item) => item.alpha3 === selectedDestination.alpha3) ? copy("Favorilerden çıkar", "Remove favourite") : copy("Favoriye ekle", "Add favourite")}</button>
           <button className="primary-wide" onClick={() => buildRoute(selectedDestination)}><Icon name="route" size={18} /> {copy("Bu rotayı planla", "Plan this route")}</button>
         </div>
       </div>}

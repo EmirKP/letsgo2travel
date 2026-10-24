@@ -10,19 +10,20 @@ type Operation = { id: string; fingerprint: string; createdAt: number };
 const operations = new Map<string, Operation>();
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
-export type JourneyPlanQuota = { limit: 1; used: 0 | 1; remaining: 0 | 1; pending: boolean; resetAt: string; timeZone: 'UTC' };
+export type JourneyPlanQuota = { limit: 1 | 3; used: number; remaining: number; pending: boolean; resetAt: string; timeZone: 'UTC' };
 export function validateJourneyPlanQuota(raw: unknown): JourneyPlanQuota {
   const value = record(raw), reset = typeof value.resetAt === 'string' ? new Date(value.resetAt) : null;
-  const remaining = value.pending === true || value.used === 1 ? 0 : 1;
-  if(value.limit !== 1 || ![0,1].includes(Number(value.used)) || typeof value.used !== 'number'
-    || value.remaining !== remaining || typeof value.pending !== 'boolean' || value.timeZone !== 'UTC'
+  const limit = value.limit, used = value.used;
+  if ((limit !== 1 && limit !== 3) || typeof used !== 'number' || !Number.isInteger(used) || used < 0 || used > limit) throw Error('invalid-plan-quota');
+  const remaining = value.pending === true ? 0 : limit - used;
+  if(value.remaining !== remaining || typeof value.pending !== 'boolean' || value.timeZone !== 'UTC'
     || !reset || !Number.isFinite(reset.getTime()) || reset.getTime() <= Date.now() || reset.getTime() > Date.now() + 25*3600_000
     || reset.getUTCHours() !== 0 || reset.getUTCMinutes() !== 0 || reset.getUTCSeconds() !== 0 || reset.getUTCMilliseconds() !== 0) throw Error('invalid-plan-quota');
-  return {limit:1,used:value.used as 0|1,remaining:remaining as 0|1,pending:value.pending,resetAt:reset.toISOString(),timeZone:'UTC'};
+  return {limit,used,remaining,pending:value.pending,resetAt:reset.toISOString(),timeZone:'UTC'};
 }
 export async function loadJourneyPlanQuota(accessToken: string, signal: AbortSignal): Promise<JourneyPlanQuota> {
   if(!accessToken)throw Object.assign(Error('plan_sign_in'),{code:'plan_sign_in'});
-  return validateJourneyPlanQuota(await requestJson<unknown>('/api/travel-assistant/journey-plan',{
+  return validateJourneyPlanQuota(await requestJson<unknown>('/api/travel-assistant/journey-plan?quotaVersion=2',{
     headers:{Authorization:`Bearer ${accessToken}`},signal,timeoutMs:8000,
   }));
 }
@@ -113,7 +114,7 @@ export async function generateJourneyPlan(input:JourneyPlanRequest, accessToken:
   for (;;) {
     signal.throwIfAborted();
     try {
-      const raw=await requestJson<unknown>('/api/travel-assistant/journey-plan',{
+      const raw=await requestJson<unknown>('/api/travel-assistant/journey-plan?quotaVersion=2',{
         method:'POST',body:request,headers:{...(accessToken?{Authorization:`Bearer ${accessToken}`}:{ }), 'Idempotency-Key':operation.id},
         signal,timeoutMs:Math.max(1,deadline-Date.now()),
       });

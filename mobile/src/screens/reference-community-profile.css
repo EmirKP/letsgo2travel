@@ -171,3 +171,5 @@
 .explorer-verification-note { margin: 12px 0 8px; font-size: .8rem; color: inherit; opacity: .9; }
 @media (max-width: 359px) { .league-milestones { padding: 14px; } .league-milestone-grid { grid-template-columns: 1fr; } }
 .profile-appearance-settings { padding: 14px 18px 20px; }
+
+.editorial-app .reference-profile .profile-notification-subheading { margin: 16px 16px 8px; color: var(--people-muted); font-size: 12px; line-height: 1.5; font-weight: 700; }

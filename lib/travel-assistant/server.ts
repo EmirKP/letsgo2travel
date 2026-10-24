@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { publicJson } from '../country-intelligence/fetch';
-import { coarseLocation, normalizePlaces, overpassQuery } from './places';
+import { coarseLocation, distanceKm, normalizePlaces, overpassQuery } from './places';
 import { makeQuote } from './money';
 import type { Coordinates, MapMode, PlacesResult } from './types';
 
@@ -11,13 +11,13 @@ const lastPlaces = createMapResultCache<PlacesResult>(value => value.fetchedAt);
 async function readProvider(center: Coordinates, mode: MapMode): Promise<PlacesResult> {
   const raw = await queryOverpass(overpassQuery(center, mode)) as { elements: unknown[] };
   const fetchedAt = new Date().toISOString();
-  return { places: normalizePlaces(raw, mode, fetchedAt), center, fetchedAt, limited: raw.elements.length >= 250, radius: 3000 };
+  return { places: normalizePlaces(raw, mode, fetchedAt).filter(place => distanceKm(center, place) <= 3.1), center, fetchedAt, limited: raw.elements.length >= 250, radius: 3000 };
 }
 
 // Persistent Next Data Cache: workers share cached cells on supported hosts.
 // Precision is ~1 km; exact device coordinates never enter this service.
 const cachedPlaces = unstable_cache(async (lat: number, lon: number, mode: MapMode) =>
-  readProvider({ latitude: lat, longitude: lon }, mode), ['travel-assistant-places-v1'], { revalidate: 3600 });
+  readProvider({ latitude: lat, longitude: lon }, mode), ['travel-assistant-places-v2'], { revalidate: 3600 });
 
 export async function getPlaces(center: Coordinates, mode: MapMode) {
   const c = coarseLocation(center);

@@ -24,3 +24,35 @@
 .guide-menu-lessons small { display:block; margin-top:5px; font-size:13px; line-height:1.5; color:var(--theme-muted,#62718a); }
 .guide-menu-lessons button:focus-visible,.app-guide-details:focus-visible { outline:3px solid var(--theme-link,#0875e7); outline-offset:3px; }
 .guide-menu .guide-menu-note { margin:20px 0 4px; font-size:12px; }
+.guide-menu-resume { margin-top:18px; }
+.app-guide-card .app-guide-task-note { font-size:11px; margin:8px 0; }
+.app-guide-offscreen { padding:12px 14px; }
+.app-guide-offscreen .app-guide-actions > button:first-child { display:none; }
+.app-guide-offscreen .app-guide-actions { justify-content:flex-end; flex-wrap:wrap; }
+.app-guide-minimized { display:flex; align-items:center; gap:8px; min-height:60px; padding:8px 12px; border-radius:16px; }
+.app-guide-minimized > span:first-child { flex:1; font-size:12px; color:var(--theme-muted,#62718a); }
+.app-guide-minimized > button { min-height:44px; border:0; padding:8px; border-radius:10px; background:transparent; color:var(--theme-link,#0875e7); font-size:12px; font-weight:700; }
+.app-guide-minimized > button:last-child { display:grid; place-items:center; min-width:44px; padding:8px; }
+.app-guide-minimized > button:focus-visible { outline:3px solid var(--theme-link,#0875e7); outline-offset:2px; }
+.guide-example { display:grid; gap:16px; color:var(--theme-ink,#173657); }
+.guide-example > h2 { margin:0; font-size:24px; line-height:1.25; }
+.guide-example > p { margin:0; color:var(--theme-muted,#62718a); line-height:1.6; }
+.guide-example .guide-example-label { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:14px; background:var(--theme-soft,#edf5ff); color:var(--theme-link,#0875e7); font-weight:700; font-size:13px; }
+.guide-example-label svg { flex:none; }
+.guide-example-checklist { display:grid; gap:10px; padding:0; margin:0; list-style:none; }
+.guide-example-checklist li { display:flex; align-items:center; gap:10px; font-size:14px; }
+.guide-example-checklist li > span { display:grid; place-items:center; flex:none; width:30px; height:30px; border-radius:50%; background:var(--theme-soft,#edf5ff); color:var(--theme-link,#0875e7); font-weight:800; }
+.guide-example-checklist .is-complete > span { color:#fff; background:#0875e7; }
+.guide-example-itinerary { padding:18px; border:1px solid var(--theme-border,#dce5ef); border-radius:20px; background:var(--theme-surface,#fff); }
+.guide-example-itinerary h3 { margin:0 0 14px; font-size:18px; }
+.guide-example-itinerary p { min-height:90px; margin:14px 0 0; line-height:1.7; }
+.guide-example-days { display:flex; gap:10px; }
+.guide-example-days button { flex:1; min-height:44px; padding:10px; border:1px solid var(--theme-border,#dce5ef); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173657); font-weight:700; }
+.guide-example-days button[aria-pressed=true] { color:var(--theme-link,#0875e7); background:var(--theme-soft,#edf5ff); border-color:var(--theme-link,#0875e7); }
+.guide-example-days button:focus-visible { outline:3px solid var(--theme-link,#0875e7); outline-offset:3px; }
+.guide-example .primary-wide:disabled { opacity:.5; cursor:default; }
+.guide-example .guide-example-error { padding:12px; border:1px solid var(--theme-border,#dce5ef); border-radius:12px; color:var(--theme-danger,#b42318); }
+.guide-example-saved { display:grid; gap:12px; }
+.guide-example-saved > p { display:flex; gap:8px; margin:0; line-height:1.6; }
+.guide-example-saved > p svg { flex:none; margin-top:4px; color:var(--theme-link,#0875e7); }
+.guide-example-own { margin-bottom:8px; }

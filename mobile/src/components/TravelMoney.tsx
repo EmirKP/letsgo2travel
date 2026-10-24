@@ -20,13 +20,19 @@ function MovementArrow({ direction }: { direction: 'up' | 'down' | 'flat' }) {
   </svg>;
 }
 
-export function TravelMoney() {
+export function TravelMoney({ initialBaseCurrency, destinationCountry = '' }: { initialBaseCurrency?: string; destinationCountry?: string } = {}) {
   const { copy, locale } = useI18n();
   const [initialPair] = useState(readMoneyPair);
-  const [pair, setPair] = useState<MoneyPair>(initialPair || { base: 'EUR', quote: 'TRY' });
+  const entryCurrency = typeof initialBaseCurrency === 'string' && CURRENCIES.includes(initialBaseCurrency) ? initialBaseCurrency : null;
+  // A guide handoff is local to this visit. It must not replace the saved pair
+  // or reapply after a user edits the converter.
+  const [pair, setPair] = useState<MoneyPair>(() => entryCurrency ? {
+    base: entryCurrency,
+    quote: initialPair && initialPair.quote !== entryCurrency ? initialPair.quote : entryCurrency === 'TRY' ? 'EUR' : 'TRY',
+  } : initialPair || { base: 'EUR', quote: 'TRY' });
   const { base, quote } = pair;
-  const manualChoice = useRef(!!initialPair);
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'auto' | 'manual' | 'unavailable'>(initialPair ? 'manual' : 'loading');
+  const manualChoice = useRef(!!(destinationCountry || entryCurrency || initialPair));
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'auto' | 'manual' | 'guide' | 'unavailable' | 'destination' | 'unsupported-destination'>(destinationCountry ? entryCurrency ? 'destination' : 'unsupported-destination' : entryCurrency ? 'guide' : initialPair ? 'manual' : 'loading');
   const [amount, setAmount] = useState('1');
   const choosePair = (next: MoneyPair) => { manualChoice.current = true; setLocationStatus('manual'); setPair(next); saveMoneyPair(next); };
   useEffect(() => {
@@ -104,7 +110,7 @@ export function TravelMoney() {
     </section>
     <section className="tm-converter" aria-labelledby="tm-converter-title">
       <div className="tm-section-heading"><span><Icon name="swap" size={20}/></span><h3 id="tm-converter-title">{copy('Ne kadar eder?', 'How much is it?')}</h3></div>
-      <p className="tm-location-note" aria-live="polite">{locationStatus === 'loading' ? copy('Konumuna göre para birimi belirleniyor…', 'Finding your local currency…', 'Po përcaktohet monedha vendore…') : locationStatus === 'auto' ? copy('Kaynak para konumuna göre seçildi. İstersen değiştirebilirsin.', 'Your local currency is selected. You can change it anytime.', 'U zgjodh monedha vendore. Mund ta ndryshosh.') : locationStatus === 'unavailable' ? copy('Konumdan para birimi belirlenemedi. Kaynak parayı seçebilirsin.', 'Your local currency could not be determined. Choose it below.', 'Monedha vendore nuk u përcaktua. Zgjidhe më poshtë.') : copy('Seçtiğin para birimleri hatırlanır.', 'Your currency choices are remembered.', 'Zgjedhjet e monedhave ruhen.')}</p>
+      <p className="tm-location-note" aria-live="polite">{locationStatus === 'destination' ? copy('Kaynak para yolculuk ülkenden seçildi. İstersen değiştirebilirsin; önceki kayıtlı seçimin korunur.', 'Source currency comes from your travel country. You can change it; your previous saved choice is preserved.', 'Monedha burimore vjen nga shteti i udhëtimit. Mund ta ndryshosh; zgjedhja e ruajtur më parë ruhet.') : locationStatus === 'unsupported-destination' ? copy('Yolculuk ülkenin para birimi bu çeviricide desteklenmiyor. Aşağıdaki çift önceki seçimin veya varsayılandır; istediğin para birimlerini seçebilirsin.', 'Your destination currency is not supported by this converter. The pair below is your previous choice or the default; choose the currencies you need.', 'Monedha e destinacionit nuk mbështetet nga ky konvertues. Çifti më poshtë është zgjedhja e mëparshme ose standarde; zgjidh monedhat që duhen.') : locationStatus === 'loading' ? copy('Konumuna göre para birimi belirleniyor…', 'Finding your local currency…', 'Po përcaktohet monedha vendore…') : locationStatus === 'guide' ? copy('Para birimi ülke rehberinden seçildi. İstersen değiştirebilirsin.', 'Currency selected from your country guide. You can change it below.', 'Monedha u zgjodh nga udhëzuesi i shtetit. Mund ta ndryshosh më poshtë.') : locationStatus === 'auto' ? copy('Kaynak para konumuna göre seçildi. İstersen değiştirebilirsin.', 'Your local currency is selected. You can change it anytime.', 'U zgjodh monedha vendore. Mund ta ndryshosh.') : locationStatus === 'unavailable' ? copy('Konumdan para birimi belirlenemedi. Kaynak parayı seçebilirsin.', 'Your local currency could not be determined. Choose it below.', 'Monedha vendore nuk u përcaktua. Zgjidhe më poshtë.') : copy('Seçtiğin para birimleri hatırlanır.', 'Your currency choices are remembered.', 'Zgjedhjet e monedhave ruhen.')}</p>
       <div className="tm-exchange-input">
       <label className="tm-amount-label" htmlFor="tm-amount">{copy('Çevirmek istediğin tutar', 'Amount to convert')}</label>
       <div className="tm-amount-field"><input id="tm-amount" type="text" inputMode="decimal" enterKeyHint="done" autoComplete="off" maxLength={24} placeholder="0" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={number === null} aria-describedby={number === null ? 'tm-amount-error' : undefined}/><label className="tm-currency-choice"><span>{copy('Kaynak para', 'From')}</span><select aria-label={copy('Kaynak para', 'From')} value={base} onChange={event => choosePair({ base: event.target.value, quote })}>{CURRENCIES.map(currency => <option key={currency}>{currency}</option>)}</select></label></div>

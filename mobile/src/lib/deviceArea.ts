@@ -9,6 +9,13 @@ let shapes: Promise<Array<{ feature: unknown; code: string; bounds: [[number, nu
 function countryShapes() {
   return shapes ||= import("../data/locationCountries.json").then(({ default: countries }) => countries.map(feature => ({ feature, code: feature.properties.code, bounds: geoBounds(feature) })));
 }
+/** On-device map framing only: never infer a search point from a whole country. */
+export async function countryMapBounds(country: string): Promise<[[number, number], [number, number]] | null> {
+  const shape = (await countryShapes()).find(item => item.code === country);
+  if (!shape) return null;
+  const [[west, south], [east, north]] = shape.bounds;
+  return [[Math.max(-85, south), west], [Math.min(85, north), east < west ? east + 360 : east]];
+}
 export async function countryAt(center: Coordinates): Promise<string> {
   if (!Number.isFinite(center.latitude) || !Number.isFinite(center.longitude) || Math.abs(center.latitude)>90 || Math.abs(center.longitude)>180) return "";
   const countries = await countryShapes();

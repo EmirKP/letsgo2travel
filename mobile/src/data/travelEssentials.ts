@@ -17,6 +17,8 @@ export type EtiquetteRule = {
   kind?: 'law' | 'culture';
   sourceUrl?: string;
   verifiedAt?: string;
+  reviewAfter?: string;
+  validUntil?: string;
 };
 
 export type TravelEssentialProfile = {
@@ -295,11 +297,15 @@ export function essentialProfile(code: string) {
   const profile = TRAVEL_ESSENTIALS.find((profile) => profile.code === code);
   if (!profile) return null;
   const replaced: Record<string,string[]> = { IT:['fountain'], ES:['beach'], TH:['monarchy'], AE:['photos','laws'] };
-  const verified: EtiquetteRule[] = GUIDE_CARDS.filter(c=>c.country===code && (c.category==='law'||c.category==='culture')).map(c=>({
-    id:`verified-${c.title.en}`, icon:c.category==='law'?'alert':'info', kind:c.category as 'law'|'culture',
-    tr:c.text.tr,en:c.text.en,sq:c.text.sq,sourceUrl:c.sourceUrl,verifiedAt:c.verifiedAt,
-  }));
+  const verified = verifiedLocalRules(code);
   return {...profile,etiquette:[...profile.etiquette.filter(r=>!(replaced[code]||[]).includes(r.id)),...verified]};
+}
+
+function verifiedLocalRules(code: string): EtiquetteRule[] {
+  return GUIDE_CARDS.filter(c=>c.country===code && (c.category==='law'||c.category==='culture')).map(c=>({
+    id:`verified-${c.title.en}`, icon:c.category==='law'?'alert':'info', kind:c.category as 'law'|'culture',
+    tr:c.text.tr,en:c.text.en,sq:c.text.sq,sourceUrl:c.sourceUrl,verifiedAt:c.verifiedAt,reviewAfter:c.reviewAfter,validUntil:c.validUntil,
+  }));
 }
 
 /**
@@ -317,9 +323,9 @@ export function fallbackEssentialProfile(code: string, name: string, flag: strin
     languageEn: "English emergency fallback",
     phrases: phrases(labels.map(([, , en]) => [en, ""])),
     etiquette: [
-      { id: "language", icon: "info", tr: "Bu ülke için yerel dil paketi hazırlanıyor; kartlardaki ifadeler şimdilik İngilizcedir.", en: "The local-language pack for this country is being prepared; these cards currently use English." },
       { id: "official", icon: "check", tr: "Giriş, sağlık ve yerel davranış kurallarını seyahatten önce resmî kaynaktan doğrula.", en: "Verify entry, health and local conduct rules with official sources before travel." },
       { id: "emergency", icon: "alert", tr: "Acil durum numarası ülkeye göre değişir; varıştan önce kaydet.", en: "Emergency numbers vary by country; save the correct number before arrival." },
+      ...verifiedLocalRules(code),
     ],
   };
 }

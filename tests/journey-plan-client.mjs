@@ -132,7 +132,7 @@ test('Generation forwards the exact survey, current bearer and cancellation sign
   const calls = [], controller = new AbortController();
   const api = client(async (path, options) => { calls.push({ path, options }); return response(); });
   const result = await api.generateJourneyPlan(request, 'current-session', controller.signal,'owner'); assert.equal(result.generatedBy, 'ai');
-  assert.equal(calls.length, 1); assert.equal(calls[0].path, '/api/travel-assistant/journey-plan'); assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls.length, 1); assert.equal(calls[0].path, '/api/travel-assistant/journey-plan?quotaVersion=2'); assert.equal(calls[0].options.method, 'POST');
   assert.deepEqual(clone(calls[0].options.body), { ...request, placeCategoryVersion: 2 }); assert.equal(calls[0].options.signal, controller.signal); assert.ok(calls[0].options.timeoutMs<=55_000 && calls[0].options.timeoutMs>54_000);
   assert.equal(calls[0].options.headers.Authorization, 'Bearer current-session');
   await assert.rejects(api.generateJourneyPlan(request, '', controller.signal,'owner'),{code:'plan_sign_in'});
@@ -200,15 +200,20 @@ test('First-day start and expanded interests are checked against the request and
 
 test('Allowance reads use the current bearer without generating a route and reject forged counts or reset times', async()=>{
   const reset=new Date();reset.setUTCHours(24,0,0,0);
-  const valid={limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'};
+  const valid={limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'};
   const calls=[],signal=new AbortController().signal,api=client(async(...args)=>{calls.push(args);return valid;});
   assert.deepEqual(clone(await api.loadJourneyPlanQuota('rotated-token',signal)),valid);
-  assert.equal(calls[0][0],'/api/travel-assistant/journey-plan');assert.equal(calls[0][1].headers.Authorization,'Bearer rotated-token');
+  assert.equal(calls[0][0],'/api/travel-assistant/journey-plan?quotaVersion=2');assert.equal(calls[0][1].headers.Authorization,'Bearer rotated-token');
   assert.equal(calls[0][1].signal,signal);assert.equal(calls[0][1].method,undefined);assert.equal(calls[0][1].timeoutMs,8000);
   await assert.rejects(api.loadJourneyPlanQuota('',signal),{code:'plan_sign_in'});assert.equal(calls.length,1);
-  for(const changes of [{limit:2},{used:'0'},{used:1},{pending:true},{remaining:2},{timeZone:'Europe/Istanbul'},{resetAt:'invalid'},{resetAt:new Date(Date.now()+3600_000).toISOString()},{resetAt:'2020-01-01T00:00:00Z'}])assert.throws(()=>api.validateJourneyPlanQuota({...valid,...changes}),/invalid-plan-quota/);
+  for(const changes of [{limit:2},{limit:4},{used:'0'},{used:-1},{used:4},{used:0.5},{used:NaN},{used:Infinity},{used:1},{pending:true},{remaining:2},{timeZone:'Europe/Istanbul'},{resetAt:'invalid'},{resetAt:new Date(Date.now()+3600_000).toISOString()},{resetAt:'2020-01-01T00:00:00Z'}])assert.throws(()=>api.validateJourneyPlanQuota({...valid,...changes}),/invalid-plan-quota/);
   assert.equal(api.validateJourneyPlanQuota({...valid,pending:true,remaining:0}).used,0);
-  assert.equal(api.validateJourneyPlanQuota({...valid,used:1,remaining:0}).remaining,0);
+  for (let used=0;used<=3;used++) {
+    assert.equal(api.validateJourneyPlanQuota({...valid,used,remaining:3-used}).remaining,3-used);
+    assert.equal(api.validateJourneyPlanQuota({...valid,used,remaining:0,pending:true}).remaining,0);
+  }
+  assert.equal(api.validateJourneyPlanQuota({...valid,limit:1,used:0,remaining:1}).limit,1,'A staged server rollout still accepts the previous allowance contract');
+  assert.equal(api.validateJourneyPlanQuota({...valid,limit:1,used:1,remaining:0}).remaining,0);
 });
 
 test('Successful map response retains exact owner-scoped recovery across reload, while edits and other accounts cannot reuse it',async()=>{

@@ -190,7 +190,7 @@ test('Offline download displays the newer retained pack after a late response an
   const pack=(time,points=[])=>offline.normalizeOfflineMap({elements:[street,...points]},center,new Date(time));
   const other=offline.normalizeOfflineMap({elements:[street]},{...center,latitude:41.02},new Date(now));
   let stored=JSON.stringify([pack(now-10800000),other]), writes=0;
-  const storage=load('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':offline},{Blob,localStorage:{
+  const storage=load('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':offline,'../../../lib/travel-assistant/places':places},{Blob,localStorage:{
     getItem:()=>stored,setItem:(_,value)=>{stored=value;writes++;},
   }});
   const hooks=[],requests=[];let index=0;
@@ -216,7 +216,10 @@ test('Offline download displays the newer retained pack after a late response an
   const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
   const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree?.props?text(tree.props.children):typeof tree==='string'?tree:'';
   const download=async()=>{
-    nodes(render()).find(node=>node.type==='button'&&node.props.children==='Download my current area').props.onClick();
+    nodes(render()).find(node=>node.type==='TravelAreaPicker').props.onChange(center);
+    const view=render();
+    const update=nodes(view).find(node=>node.type==='button'&&node.props.children==='Update selected area');
+    (update || nodes(view).find(node=>node.type==='button'&&node.props.children==='Download my current area')).props.onClick();
     await new Promise(setImmediate);
   };
 
@@ -244,4 +247,82 @@ test('Offline download displays the newer retained pack after a late response an
   assert.equal(writes,2);assert.equal(storage.readOfflineMaps()[0].downloadedAt,newest.downloadedAt);
   assert.equal(nodes(view).find(node=>node.type?.name==='OfflinePackExplorer').props.pack.places[0].name,'Updated pharmacy');
   assert.doesNotMatch(text(view),/A newer map of this area is already on your device/);
+});
+
+function offlineDownloadHarness({saved=[]}={}){
+  const places=load('lib/travel-assistant/places.ts',{});
+  const offline=load('lib/travel-assistant/offline-map.ts',{'./places':places});
+  const center={latitude:41.01,longitude:28.98};
+  const street={type:'way',id:1,tags:{highway:'residential',name:'Saved street'},geometry:[{lat:41.01,lon:28.98},{lat:41.011,lon:28.981}]};
+  const pack=(c=center)=>offline.normalizeOfflineMap({elements:[street]},c);
+  let stored=JSON.stringify(saved.map(value=>value===true?pack():value)),writes=0;
+  const storage=load('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':offline,'../../../lib/travel-assistant/places':places},{Blob,localStorage:{getItem:()=>stored,setItem:(_,value)=>{stored=value;writes++;}}});
+  let cursor=0; const hooks=[],requests=[];
+  const jsx=(type,props)=>({type,props});
+  const react={useState(initial){const i=cursor++;if(!(i in hooks))hooks[i]=typeof initial==='function'?initial():initial;return[hooks[i],value=>{hooks[i]=typeof value==='function'?value(hooks[i]):value;}];},useRef(initial){const i=cursor++;return hooks[i]||={current:initial};},useEffect(){}};
+  class ApiError extends Error {constructor(status){super('Map source unavailable');this.status=status;}}
+  const component=load('mobile/src/components/TravelOfflineMap.tsx',{
+    react,'react/jsx-runtime':{jsx,jsxs:jsx},'../lib/offlineMaps':storage,
+    '../../../lib/travel-assistant/offline-map':offline,'../../../lib/travel-assistant/places':places,
+    '../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},
+    '../lib/localeFormatting':{formatAppDate:date=>date.toISOString()},'../hooks/useCurrentTime':{useCurrentTime:()=>Date.now()},
+    '../lib/config':{config:{travelAssistantApiBaseUrl:'https://example.test'}},'../lib/travelAssistant':{locateForTravel:async()=>center},
+    '../lib/travelAreas':{TRAVEL_CENTRES:[]},'../lib/api':{ApiError,requestJson:(url,options)=>{const wait=deferred();requests.push({...wait,url,options});return wait.promise;}},
+    './Sheet':{Sheet:'Sheet'},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},
+  },{Blob});
+  const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];
+  const text=tree=>Array.isArray(tree)?tree.map(text).join(''):tree?.props?text(tree.props.children):typeof tree==='string'?tree:'';
+  const render=()=>{cursor=0;return component.TravelOfflineMap();};
+  return{center,pack,requests,ApiError,render,text,
+    select(c=center){nodes(render()).find(node=>node.type==='TravelAreaPicker').props.onChange(c);},
+    click(label){const node=nodes(render()).find(node=>node.type==='button'&&text(node)===label);assert.ok(node,`Missing button ${label}`);node.props.onClick();},
+    get stored(){return stored;},get writes(){return writes;},get saved(){return storage.readOfflineMaps();},
+  };
+}
+
+test('A verified local map opens without any network request; failed explicit update keeps it readable',async()=>{
+  const h=offlineDownloadHarness({saved:[true]}); h.select();
+  const before=h.stored;
+  h.click('Open saved map'); await new Promise(setImmediate);
+  assert.equal(h.requests.length,0); assert.equal(h.writes,0);
+  assert.match(h.text(h.render()),/already on your device/);
+  h.click('Update selected area'); assert.equal(h.requests.length,1);
+  h.requests[0].reject(new h.ApiError(503)); await new Promise(setImmediate);
+  assert.equal(h.stored,before); assert.equal(h.writes,0);
+  assert.match(h.text(h.render()),/The map source is busy/);
+  assert.match(h.text(h.render()),/Saved on device · Available offline/);
+});
+
+test('Opening an older saved area remains offline and shows its age instead of forcing a refresh',async()=>{
+  const sample=offlineDownloadHarness();
+  const old={...sample.pack(),downloadedAt:new Date(Date.now()-8*86400000).toISOString()};
+  const h=offlineDownloadHarness({saved:[old]});h.select();h.click('Open saved map');
+  await new Promise(setImmediate);
+  assert.equal(h.requests.length,0);assert.equal(h.writes,0);
+  assert.match(h.text(h.render()),/Pack is over 7 days old/);
+  assert.match(h.text(h.render()),/without internet/);
+});
+
+test('An invalid or wrong-area download is not saved, and retry keeps the manually selected area',async()=>{
+  const h=offlineDownloadHarness();h.select();h.click('Download selected area');
+  h.requests[0].resolve(h.pack({...h.center,latitude:41.02}));await new Promise(setImmediate);
+  assert.equal(h.saved.length,0);assert.equal(h.writes,0);
+  assert.doesNotMatch(h.text(h.render()),/Ready to open without internet/);
+  h.click('Retry the same area');assert.equal(h.requests.length,2);
+  assert.equal(h.requests[1].options.body.latitude,h.center.latitude);
+  assert.equal(h.requests[1].options.body.longitude,h.center.longitude);
+  h.requests[1].resolve(h.pack());await new Promise(setImmediate);
+  assert.equal(h.saved.length,1);assert.equal(h.writes,1);
+  assert.match(h.text(h.render()),/Ready to open without internet/);
+});
+
+test('Cancelling a map download fences a late response while a later retry can still succeed',async()=>{
+  const h=offlineDownloadHarness();h.select();h.click('Download selected area');
+  h.click('Cancel download');assert.equal(h.requests[0].options.signal.aborted,true);
+  assert.match(h.text(h.render()),/Download cancelled/);
+  h.click('Download selected area');assert.equal(h.requests.length,2);
+  h.requests[0].resolve(h.pack());await new Promise(setImmediate);
+  assert.equal(h.writes,0);assert.equal(h.saved.length,0);
+  h.requests[1].resolve(h.pack());await new Promise(setImmediate);
+  assert.equal(h.writes,1);assert.equal(h.saved.length,1);
 });

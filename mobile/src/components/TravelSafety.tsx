@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { emergencyContacts, dialUrl } from '../../../lib/travel-assistant/emergency';
+import { emergencyContacts, emergencyGuidance, dialUrl } from '../../../lib/travel-assistant/emergency';
 import { embassiesFor, MISSION_DIRECTORIES } from '../../../lib/travel-assistant/guides';
 import type { EmergencyCategory, Evidence } from '../../../lib/travel-assistant/types';
 import { useI18n } from '../lib/i18n';
@@ -32,6 +32,9 @@ export function TravelSafety({ country, onOpen, onNotice }: {
   const { copy, locale } = useI18n();
   const [sharing, setSharing] = useState(false);
   const contacts = emergencyContacts(country);
+  const guidance = emergencyGuidance(country);
+  const localizedNote = (note: {tr:string;en:string;sq?:string} | undefined) => note?.[locale === 'sq' && note.sq ? 'sq' : locale === 'tr' ? 'tr' : 'en'] || '';
+  const profileNote = localizedNote(guidance?.note);
   async function share() {
     setSharing(true);
     try {
@@ -45,13 +48,14 @@ export function TravelSafety({ country, onOpen, onNotice }: {
   }
   return <section className="ta-panel">
     <div className="ta-emergency-heading"><Icon name="shield" size={28}/><div><h3>{copy('Acil Mod', 'Emergency mode')}</h3><p>{copy('Resmî acil servis değiliz. Hayati tehlikede yerel acil hattı ara.', 'We are not an emergency service. Call local emergency services in immediate danger.')}</p></div></div>
-    {!contacts.length && <p role="status" className="ta-empty">{copy('Bu ülke için doğrulanmış numara henüz yok. Genel bir numara varsaymıyoruz; yerel resmî kaynağa başvur.', 'Verified numbers are not yet available for this country. No universal number is assumed; consult local official guidance.')}</p>}
-    {locale === "sq" && contacts.some(contact => contact.note) && <p className="ta-muted" lang="sq">Shënimet nga burimi zyrtar janë në anglisht.</p>}
-    <div className="ta-call-grid">{contacts.map(c => <article key={c.category}>
+    {(profileNote || !contacts.length) && <p role="status" className={contacts.length ? 'ta-warning' : 'ta-empty'}>{profileNote || copy('Bu ülke için doğrulanmış numara henüz yok. Genel bir numara varsaymıyoruz; yerel resmî kaynağa başvur.', 'Verified numbers are not yet available for this country. No universal number is assumed; consult local official guidance.')}</p>}
+    {locale === "sq" && ((guidance?.note && !guidance.note.sq) || contacts.some(contact => contact.note && !contact.note.sq)) && <p className="ta-muted" lang="sq">Shënimet nga burimi zyrtar janë në anglisht.</p>}
+    <div className="ta-call-grid">{contacts.map(c => <article key={`${c.country}-${c.category}-${c.number}`}>
       <a href={dialUrl(c.number) || undefined} aria-label={`${serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]} ${c.number}`}><span>{serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]}</span><strong>{c.number}</strong><small>{copy('Ara', 'Call')}</small></a>
-      {c.note && <small>{c.note[locale === 'tr' ? 'tr' : 'en']}</small>}
+      {localizedNote(c.note) && localizedNote(c.note) !== profileNote && <small>{localizedNote(c.note)}</small>}
     </article>)}</div>
     {contacts[0] && <EvidenceLine item={contacts[0]}/>}
+    {!contacts.length && guidance?.sources.map(source=><EvidenceLine key={source.url} item={{sourceUrl:source.url,verifiedAt:source.checkedAt}}/>)}
     <p className="ta-muted">{copy('Numaralar internetsiz görüntülenir; arama için telefon hizmeti gerekir.', 'Numbers can be viewed offline; calls require telephone service.')}</p>
     <div className="ta-actions"><button type="button" onClick={() => onOpen('needs')}>{copy('Yakın hastane, eczane ve polis', 'Nearby hospital, pharmacy and police')}</button><button type="button" onClick={() => onOpen('embassies')}>{copy('Konsolosluğum', 'My consulate')}</button><button type="button" onClick={() => onOpen('phrases')}>{copy('Acil durum ifadeleri', 'Emergency phrases')}</button></div>
     <p className="ta-muted">{copy('Paylaş dediğinde yaklaşık konum istenir. Konum geçmişi tutmayız; kime göndereceğini sen seçersin.', 'Sharing requests approximate location. We keep no location history; you choose the recipient.')}</p>

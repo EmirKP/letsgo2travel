@@ -15,7 +15,7 @@ import { TravelAreaPicker } from './TravelAreaPicker';
 const TravelPointMap = lazy(() => import('./TravelPointMap').then(m => ({default:m.TravelPointMap})));
 
 
-export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizenship:string;ownerId?:string|null}) {
+export function TravelNearby({mode,citizenship,ownerId,destinationCountry=''}: {mode:MapMode;citizenship:string;ownerId?:string|null;destinationCountry?:string}) {
   const { copy, locale } = useI18n();
   const [center,setCenter] = useState<Coordinates|null>(null);
   const [savedResult,setResult] = useState<PlacesResult|null>(null);
@@ -73,11 +73,11 @@ export function TravelNearby({mode,citizenship,ownerId}: {mode:MapMode;citizensh
     } finally { if(id === generation.current) setBusy(false); }
   }
   const autoSearch = useEffectEvent(() => { void search(); });
-  useEffect(() => { autoSearch(); }, []);
+  useEffect(() => { if (!destinationCountry) autoSearch(); }, [destinationCountry]);
   return <section className="ta-panel"><h3>{mode === 'needs' ? copy('Acil & İhtiyaç Haritası','Emergency & essentials map') : copy('Gezi & Tur Rehberi Haritası','Sightseeing map')}</h3>
-    <p className="ta-muted">{copy('Konum izninle yakınındaki yerler otomatik aranır. Yaklaşık konum (~1 km) kullanılır; konum geçmişi tutulmaz. İstersen başka bir bölge seçebilirsin.','With location permission, nearby places load automatically using approximate location (~1 km). No location history is kept. You can choose another area.','Me lejen tënde, vendet pranë kërkohen automatikisht me vendndodhjen e përafërt (~1 km). Nuk ruhet historik. Mund të zgjedhësh zonë tjetër.')}</p>
+    <p className="ta-muted">{destinationCountry ? copy('Yolculuk ülkende bir şehir veya haritada bölge seç; sonra seçili bölgede ara. Bulunduğun konumu yalnız “Konumumla yakınları bul” seçeneğinde kullanırız.', 'Choose a city or an area on your destination map, then search that area. Your current location is used only if you choose “Find places near me”.', 'Zgjidh qytetin ose zonën në hartën e destinacionit, pastaj kërko aty. Vendndodhja jote përdoret vetëm kur zgjedh “Gjej vende pranë meje”.') : copy('Konum izninle yakınındaki yerler otomatik aranır. Yaklaşık konum (~1 km) kullanılır; konum geçmişi tutulmaz. İstersen başka bir bölge seçebilirsin.','With location permission, nearby places load automatically using approximate location (~1 km). No location history is kept. You can choose another area.','Me lejen tënde, vendet pranë kërkohen automatikisht me vendndodhjen e përafërt (~1 km). Nuk ruhet historik. Mund të zgjedhësh zonë tjetër.')}</p>
     <button type="button" className="primary-wide" onClick={() => void search()} disabled={busy}>{busy ? copy('Yakınım aranıyor…','Searching nearby…') : copy('Konumumla yakınları bul','Find places near me')}</button>
-    <TravelAreaPicker value={area} onChange={point => {generation.current++;setBusy(false);setArea(point);setResult(null);setSelected(null);setError('');}}/>
+    <TravelAreaPicker country={destinationCountry} value={area} onChange={point => {generation.current++;setBusy(false);setArea(point);setResult(null);setSelected(null);setError('');}}/>
     <button type="button" className="secondary-wide" disabled={busy || !area} onClick={()=>area && void search(area)}>{copy('Seçili bölgede ara','Search selected area','Kërko në zonën e zgjedhur')}</button>
     {error && <p role="alert" className="ta-empty">{error}</p>}
     {busy && <p role="status" className="ta-tools-status">{copy('Bölgedeki kayıtlar yükleniyor…', 'Loading places in this area…', 'Po ngarkohen vendet në këtë zonë…')}</p>}

@@ -3,18 +3,31 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireAuthenticatedUser } from './authenticated-user';
 import { JourneyPlanError, journeyPlanWait } from './travel-assistant/journey-plan';
 
-export type AiRouteQuota = { limit: 1; used: 0 | 1; remaining: 0 | 1; pending: boolean; resetAt: string; timeZone: 'UTC' };
+export type AiRouteQuota = { limit: 1 | 3; used: number; remaining: number; pending: boolean; resetAt: string; timeZone: 'UTC' };
 type AiRouteAccount = { supabase: SupabaseClient; user: { id: string } };
 type Admission = { state: string; quota: AiRouteQuota; result?: Record<string, unknown>; retryAfterSeconds?: number };
 export class AiRouteQuotaError extends Error {
   constructor(readonly code: string, readonly status: number, readonly quota?: AiRouteQuota, readonly retryAfterSeconds?: number) { super(code); }
 }
-export function aiRouteReply(body: unknown, status = 200, headers: Record<string, string> = {}) {
-  return Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store', ...headers } });
+function clientQuota(quota: AiRouteQuota): AiRouteQuota {
+  // Shipped native clients validate the original 0/1 shape strictly. Their
+  // admission still uses the real database allowance; only the display adapts.
+  const used = quota.used >= quota.limit ? 1 : 0;
+  return { ...quota, limit: 1, used, remaining: quota.pending || used ? 0 : 1 };
+}
+export function aiRouteReply(body: unknown, status = 200, headers: Record<string, string> = {}, request?: Request) {
+  let output = body;
+  if (request && new URL(request.url).searchParams.get('quotaVersion') !== '2' && body && typeof body === 'object' && !Array.isArray(body)) {
+    const value = body as Record<string, unknown>;
+    if (value.limit === 1 || value.limit === 3) output = clientQuota(quotaValue(value));
+    else if (value.quota) output = { ...value, quota: clientQuota(quotaValue(value.quota)) };
+  }
+  return Response.json(output, { status, headers: { 'Cache-Control': 'private, no-store', ...headers } });
 }
 function quotaValue(value: unknown): AiRouteQuota {
   const q = value as Partial<AiRouteQuota> | null;
-  if (!q || q.limit !== 1 || (q.used !== 0 && q.used !== 1) || q.remaining !== (q.used === 1 || q.pending ? 0 : 1) || typeof q.pending !== 'boolean'
+  if (!q || (q.limit !== 1 && q.limit !== 3) || typeof q.used !== 'number' || !Number.isInteger(q.used) || q.used < 0 || q.used > q.limit
+    || q.remaining !== (q.pending ? 0 : q.limit - q.used) || typeof q.pending !== 'boolean'
     || q.timeZone !== 'UTC' || typeof q.resetAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T00:00:00Z$/.test(q.resetAt) || !Number.isFinite(Date.parse(q.resetAt))) {
     throw new JourneyPlanError('plan_unavailable');
   }
@@ -107,12 +120,12 @@ export function aiRouteOperation(account: AiRouteAccount, request: Request, inpu
     },
   };
 }
-export function aiRouteErrorReply(error: unknown) {
+export function aiRouteErrorReply(error: unknown, request?: Request) {
   if (error instanceof AiRouteQuotaError) return aiRouteReply({ code: error.code, ...(error.quota ? { quota: error.quota } : {}) }, error.status,
-    error.retryAfterSeconds ? { 'Retry-After': String(error.retryAfterSeconds) } : {});
+    error.retryAfterSeconds ? { 'Retry-After': String(error.retryAfterSeconds) } : {}, request);
   const code = error instanceof JourneyPlanError ? error.code : 'plan_unavailable';
   const capacity = error instanceof JourneyPlanError ? error.providerCapacity : undefined;
   const retryAfter = capacity?.retryAfterSeconds ?? (capacity?.limitWindow === 'day' ? null : 60);
   return aiRouteReply({ code }, code === 'plan_timeout' ? 504 : code === 'plan_failed' ? 502 : code === 'plan_request_too_large' ? 413 : code === 'plan_invalid' ? 400 : 503,
-    (code === 'plan_busy' || code === 'plan_daily_capacity') && retryAfter !== null ? { 'Retry-After': String(retryAfter) } : {});
+    (code === 'plan_busy' || code === 'plan_daily_capacity') && retryAfter !== null ? { 'Retry-After': String(retryAfter) } : {}, request);
 }

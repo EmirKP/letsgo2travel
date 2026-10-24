@@ -23,11 +23,14 @@ function headerButton(view, icon) {
   assert.ok(button, `The shared header exposes the ${icon} action`);
   return button;
 }
+function assertNoHeaderMenu(view) {
+  assert.equal(nodes(sharedHeader(view)).some(node => node.type === 'Icon' && node.props.name === 'menu'), false, 'Navigation no longer exposes a hamburger action');
+}
 function notificationBadge(view) {
   return nodes(headerButton(view, 'bell')).find(node => node.props?.className === 'notification-badge');
 }
 
-function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, pendingWelcome = null } = {}) {
+function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, runNavigationEffects = false, pendingWelcome = null } = {}) {
   // Run the real App event handlers. Native services and effects are excluded;
   // React state/ref slots and JSX keys let this catch an accidental remount.
   const slots = []; let cursor = 0;
@@ -46,7 +49,7 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
       slots[index] = { deps };
       // Execute only the native status-bar effects with their real dependencies.
       // The rest of App's lifecycle would require unrelated native services.
-      if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")))) effect();
+      if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")) || (runNavigationEffects && effect.toString().includes("previousRestoration")))) effect();
     },
     useLayoutEffect(effect, deps) { return react.useEffect(effect, deps); },
     lazy: loader => `Lazy:${loader.toString()}`, Suspense: 'Suspense', Activity: 'Activity',
@@ -68,9 +71,13 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const guideModule = { exports: {} };
   const guideCode = ts.transpileModule(readFileSync('mobile/src/lib/appGuide.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInNewContext(`(function(require,module,exports){${guideCode}\n})`,{window:{localStorage:guideStorage,sessionStorage:guideStorage}})(()=>({}),guideModule,guideModule.exports);
+  const welcomeModule = { exports: {} };
+  const welcomeCode = ts.transpileModule(readFileSync('mobile/src/lib/onboardingPreferences.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${welcomeCode}\n})`,{window:{localStorage:guideStorage}})(()=>({}),welcomeModule,welcomeModule.exports);
   if (pendingWelcome) guideModule.exports.rememberWelcomeDestination(pendingWelcome);
   const imports = {
     './lib/appGuide': guideModule.exports,
+    './lib/onboardingPreferences': welcomeModule.exports,
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'react-dom': { createPortal: value => value },
     './hooks/useAuth': { useAuth: () => auth },
@@ -93,7 +100,9 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   const output = { exports: {} };
+  const navigationListeners = new Map();
   const window = {
+      addEventListener: (event, fn) => navigationListeners.set(event, fn), removeEventListener: event => navigationListeners.delete(event),
       location: { href: `https://test.invalid/#${initialView}`, origin: 'https://test.invalid' },
       history: { pushState: (...args) => calls.history.push(args), replaceState: (...args) => calls.history.push(args) },
       scrollY: 0, matchMedia: () => ({ matches: true }), scrollTo: value => { calls.scroll.push(value); window.scrollY = value.top; }, requestAnimationFrame: fn => fn(),
@@ -107,24 +116,26 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   const bottomButton = (view, label) => nodes(nodes(view).find(node => node.type === 'nav' && node.props.className === 'bottom-nav')).find(node => node.type === 'button' && text(node.props.children) === label);
   const screen = (view, name) => nodes(view).find(node => typeof node.type === 'string' && (node.type === name || (node.type.startsWith('Lazy:') && node.type.includes(name))));
   const plannerPane = view => nodes(view).find(node => node.type === 'NavigationPane' && planner(node));
-  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner, guide: guideModule.exports };
+  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner, navigationListeners, guide: guideModule.exports, welcome: welcomeModule.exports };
 }
 
-test('Planner preserves its draft across menu reselect and home shortcut round trips without duplicate history', () => {
+test('Planner preserves its draft across repeated Plans selection and home shortcut round trips without duplicate history', () => {
   const { render, planner, bottomButton, screen, calls } = appHarness();
   let view = render();
   nodes(view).find(node => node.type === 'main').props.ref.current = { focus: () => calls.focus++ };
   const originalKey = planner(view).key;
   assert.ok(originalKey); assert.equal(typeof planner(view).props.onNavigate, 'function');
-  nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate('route'); view = render();
-  assert.equal(planner(view).key, originalKey, 'Reselecting the current planner must not remount the draft');
-  nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate('route'); view = render();
-  assert.equal(planner(view).key, originalKey, 'The menu must preserve the same active draft');
-  assert.equal(calls.history.length, 0); assert.equal(calls.focus, 2); assert.equal(calls.scroll.length, 2);
+  bottomButton(view, 'Planlar').props.onClick(); view = render();
+  assert.equal(planner(view).key, originalKey, 'Opening Plans must not remount the hidden draft');
+  bottomButton(view, 'Planlar').props.onClick(); view = render();
+  assert.equal(planner(view).key, originalKey, 'Reselecting the active tab preserves the draft');
+  assert.equal(calls.history.length, 1); assert.equal(calls.focus, 2); assert.equal(calls.scroll.length, 1);
   assert.ok(calls.scroll.every(value => value.top === 0 && value.behavior === 'auto'));
+  screen(view, 'PlansScreen').props.onNavigate('route'); view = render();
+  assert.equal(planner(view).key, originalKey, 'The real new-route entry reuses the retained planner');
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   screen(view, 'HomeScreen').props.onNavigate('route'); view = render();
-  assert.equal(calls.history.length, 2); assert.equal(planner(view).key, originalKey, 'Returning to Plan keeps the existing draft');
+  assert.equal(calls.history.length, 4); assert.equal(planner(view).key, originalKey, 'Returning to Plan keeps the existing draft');
   assert.equal(nodes(view).filter(node => node.type === 'Activity' && node.props.mode === 'visible').length, 1);
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   assert.equal(nodes(view).filter(node => node.type === 'Activity' && node.props.mode === 'visible').length, 0, 'Hidden drafts have no active effects');
@@ -142,7 +153,11 @@ test('New route seeds reset Plan scroll; ordinary tab returns preserve the exist
     assert.equal(plannerPane(view).props.restoreTop, 940, 'An ordinary return restores the prior form position');
     assert.equal(planner(view).key, draftKey);
     window.scrollY = 670;
-    nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate(source); view = render();
+    bottomButton(view, 'Keşfet').props.onClick(); view = render();
+    if (source !== 'home') {
+      screen(view, 'HomeScreen').props.onNavigate('explore'); view = render();
+      if (source === 'surprise') { screen(view, 'ExploreScreen').props.onSurprise({ id: 'surprise-preview', destinationCode: 'FCO' }); view = render(); }
+    }
     const seed = { id: `${source}-new-destination`, destinationCode: 'FCO' };
     screen(view, screenName).props.onBuildRoute(seed); view = render();
     assert.equal(plannerPane(view).props.restoreTop, 0, `${source}: new destination opens at the form heading`);
@@ -155,12 +170,74 @@ test('New route seeds reset Plan scroll; ordinary tab returns preserve the exist
 test('Saved events shortcut opens the events category and regular Saved tab returns to its overview', () => {
   const { render, screen, bottomButton } = appHarness();
   let view = render();
-  nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate('events'); view = render();
+  bottomButton(view, 'Keşfet').props.onClick(); view = render();
+  screen(view, 'HomeScreen').props.onNavigate('events'); view = render();
   screen(view, 'EventsScreen').props.onOpenSaved(); view = render();
   assert.equal(screen(view, 'PlansScreen').props.initialSection, 'events');
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
   bottomButton(view, 'Planlar').props.onClick(); view = render();
   assert.equal(screen(view, 'PlansScreen').props.initialSection, 'all');
+});
+
+test('Nearby event contexts create a fresh screen for each deliberate request and each account, but not token rotation',()=>{
+  const h=appHarness({initialView:'companion'});let view=h.render();
+  const context={countryCode:'FR',cityName:'Paris',startDate:'2026-10-20',endDate:'2026-10-27'};
+  h.screen(view,'TravelCompanionScreen').props.onOpenEvents(context);view=h.render();
+  const first=h.screen(view,'EventsScreen');assert.equal(first.props.initialContext,context);
+  h.bottomButton(view,'Araçlar').props.onClick();view=h.render();
+  h.screen(view,'TravelCompanionScreen').props.onOpenEvents(context);view=h.render();
+  const repeated=h.screen(view,'EventsScreen');assert.notEqual(repeated.key,first.key);
+  h.auth.user={id:'a'};h.auth.accessToken='token-a';view=h.render();
+  const accountA=h.screen(view,'EventsScreen');assert.notEqual(accountA.key,repeated.key);
+  h.auth.accessToken='token-a-rotated';view=h.render();assert.equal(h.screen(view,'EventsScreen').key,accountA.key);
+  h.auth.user={id:'b'};view=h.render();assert.notEqual(h.screen(view,'EventsScreen').key,accountA.key);
+});
+
+test('Home search, saved routes and the Plans tab clear an old airport-transfer intent before opening the requested destination',()=>{
+  for(const entry of ['search','routes','overview']){
+    const h=appHarness({initialView:'airports'});let view=h.render();
+    h.screen(view,'AirportGuideScreen').props.onOpenTransfer();view=h.render();
+    assert.equal(h.screen(view,'PlansScreen').props.initialTool,'airport');
+    if(entry==='search'){
+      h.bottomButton(view,'Keşfet').props.onClick();view=h.render();
+      h.screen(view,'HomeScreen').props.onOpenGlobalSearch();view=h.render();
+      h.screen(view,'GlobalSearchSheet').props.onOpenJourneyTool('journal');
+    }
+    else if(entry==='overview')h.bottomButton(view,'Planlar').props.onClick();
+    else{
+      h.screen(view,'PlansScreen').props.onNavigate('route');view=h.render();
+      h.planner(view).props.onOpenSavedRoutes();
+    }
+    view=h.render();const saved=h.screen(view,'PlansScreen');
+    assert.notEqual(saved.props.initialTool,'airport');
+    if(entry==='search'){assert.equal(saved.props.initialTool,'journal');assert.equal(saved.props.initialSection,'travel');}
+    else assert.equal(saved.props.initialSection,entry==='routes'?'routes':'all');
+  }
+});
+
+test('Example education opens independently without resetting the existing route draft or its place seed',()=>{
+  const h=appHarness();let view=h.render();const old=h.planner(view);
+  const draftKey=old.key,mapRequestId=old.props.mapRequestId,seed=old.props.surpriseRoute;
+  h.screen(view,'GuideMenu').props.onChoose('route','example');view=h.render();
+  assert.ok(h.screen(view,'RouteExampleLesson'));assert.equal(h.screen(view,'AppGuide').props.paused,true);
+  assert.equal(h.planner(view).key,draftKey);assert.equal(h.planner(view).props.mapRequestId,mapRequestId);assert.equal(h.planner(view).props.surpriseRoute,seed);
+  h.screen(view,'RouteExampleLesson').props.onClose();view=h.render();
+  assert.equal(h.screen(view,'RouteExampleLesson'),undefined);assert.equal(h.planner(view).key,draftKey);
+  assert.equal(h.planner(view).props.mapRequestId,mapRequestId);
+});
+
+test('Opening a saved example after leaving the journal opens the exact route instead of reopening the old tool',()=>{
+  const h=appHarness({initialView:'home'});let view=h.render();
+  h.screen(view,'HomeScreen').props.onOpenGlobalSearch();view=h.render();
+  h.screen(view,'GlobalSearchSheet').props.onOpenJourneyTool('journal');view=h.render();
+  h.screen(view,'GlobalSearchSheet').props.onClose();view=h.render();
+  assert.equal(h.screen(view,'PlansScreen').props.initialTool,'journal');
+  h.bottomButton(view,'Topluluk').props.onClick();view=h.render();
+  h.screen(view,'GuideMenu').props.onChoose('route','example');view=h.render();
+  h.screen(view,'RouteExampleLesson').props.onOpenSaved('saved-example-route');view=h.render();
+  const saved=h.screen(view,'PlansScreen');
+  assert.equal(saved.props.initialSection,'routes');assert.equal(saved.props.initialRouteId,'saved-example-route');assert.equal(saved.props.initialTool,undefined);
+  saved.props.onInitialRouteHandled();view=h.render();assert.equal(h.screen(view,'PlansScreen').props.initialRouteId,'');
 });
 
 test('Reference navigation has five translated roots and one shared header across root and detail screens', () => {
@@ -172,30 +249,33 @@ test('Reference navigation has five translated roots and one shared header acros
     assert.deepEqual(buttons.map(button => text(button)), labels);
     assert.deepEqual(buttons.map(button => nodes(button).find(node => node.type === 'Icon').props.name), ['home', 'calendar', 'users', 'suitcase', 'user']);
     assert.equal(headerButton(view, 'bell').props['aria-label'], locale === 'tr' ? 'Bildirimler' : 'Notifications');
-    assert.equal(headerButton(view, 'menu').props['aria-label'], locale === 'tr' ? 'Daha fazla' : 'More');
+    assertNoHeaderMenu(view);
     assert.equal(nodes(sharedHeader(view)).some(node => node.props?.className === 'topbar-back'), false, 'Home is a root screen');
     for (const label of labels.slice(1)) {
       bottomButton(view, label).props.onClick(); view = render();
       assert.equal(bottomButton(view, label).props['aria-current'], 'page');
       assert.ok(headerButton(view, 'bell'));
-      assert.ok(headerButton(view, 'menu'));
+      assertNoHeaderMenu(view);
       assert.equal(nodes(sharedHeader(view)).some(node => node.props?.className === 'topbar-back'), false, 'Root sections are not nested screens');
     }
     for (const detail of ['explore', 'route', 'passport', 'surprise', 'cockpit', 'alerts', 'events', 'phrases', 'admin', 'costs', 'airports', 'country-news']) {
-      nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate(detail); view = render();
-      assert.ok(headerButton(view, 'back'), `${detail} retains its back action in the shared header`);
-      assert.ok(headerButton(view, 'bell'));
-      assert.ok(headerButton(view, 'menu'));
-      const home = nodes(sharedHeader(view)).find(node => node.props?.className === 'brand-button');
+      const detailHarness = appHarness({ initialView: detail, locale });
+      let detailView = detailHarness.render();
+      assert.ok(headerButton(detailView, 'back'), `${detail} retains its back action in the shared header`);
+      assert.ok(headerButton(detailView, 'bell'));
+      assertNoHeaderMenu(detailView);
+      const detailTabs = nodes(nodes(detailView).find(node => node.type === 'nav' && node.props.className === 'bottom-nav')).filter(node => node.type === 'button');
+      assert.deepEqual(detailTabs.map(button => text(button)), labels, `${detail} retains all five root destinations`);
+      const home = nodes(sharedHeader(detailView)).find(node => node.props?.className === 'brand-button');
       assert.equal(home.props['aria-label'], locale === 'tr' ? 'LetsGo2Travel ana sayfa' : 'LetsGo2Travel home');
-      home.props.onClick(); view = render();
-      assert.equal(bottomButton(view, labels[0]).props['aria-current'], 'page', 'The shared brand always returns home');
+      home.props.onClick(); detailView = detailHarness.render();
+      assert.equal(detailHarness.bottomButton(detailView, labels[0]).props['aria-current'], 'page', 'The shared brand always returns home');
     }
   }
 });
 
 test('Native status-bar text and blue background remain stable across navigation without repeating setup', () => {
-  const { render, bottomButton, calls } = appHarness({ initialView: 'home', nativeStatus: true });
+  const { render, bottomButton, screen, calls } = appHarness({ initialView: 'home', nativeStatus: true });
   let view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK');
   assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
@@ -204,7 +284,7 @@ test('Native status-bar text and blue background remain stable across navigation
     assert.equal(calls.statusStyle.at(-1).style, 'DARK', `${label} retains readable white native status-bar text`);
     assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
   }
-  nodes(view).find(node => node.type === 'MenuSheet').props.onNavigate('events'); view = render();
+  screen(view, 'ProfileScreen').props.onNavigate('alerts'); view = render();
   assert.equal(calls.statusStyle.at(-1).style, 'DARK', 'Detail screens use the same native status text');
   assert.equal(calls.statusBackground.at(-1).color, '#0877b8');
   bottomButton(view, 'Keşfet').props.onClick(); view = render();
@@ -229,7 +309,7 @@ test('Native status-bar follows resolved appearance with white icons and no repe
   assert.equal(calls.statusOverlay.length, 1, 'A theme change must not disturb safe-area layout');
 });
 
-test('Community cold start connects the shared header to real notifications and menu while preserving account, events and search actions', () => {
+test('Community cold start connects the shared header to real notifications without a menu while preserving account, events and search actions', () => {
   const { render, screen, bottomButton, calls } = appHarness({ initialView: 'community', nativeStatus: true });
   let view = render();
   const component = name => nodes(view).find(node => node.type === name);
@@ -247,10 +327,7 @@ test('Community cold start connects the shared header to real notifications and 
   component('NotificationCenter').props.onClose(); view = render();
   assert.equal(component('NotificationCenter').props.open, false);
 
-  headerButton(view, 'menu').props.onClick(); view = render();
-  assert.equal(component('MenuSheet').props.open, true, 'The shared header opens the existing menu');
-  component('MenuSheet').props.onClose(); view = render();
-  assert.equal(component('MenuSheet').props.open, false);
+  assertNoHeaderMenu(view);
 
   screen(view, 'CommunityScreen').props.onNavigate('events'); view = render();
   assert.ok(screen(view, 'EventsScreen'), 'Events opens the existing real events screen');
@@ -361,7 +438,7 @@ test('Closing local account and release overlays preserves the planner tree and 
   assert.equal(calls.releaseSeen.length, 1, 'Closing release loading/error marks it seen via the normal close callback');
   assert.equal(nodes(view).some(node => node.type === 'LazyOverlay'), false);
   assert.equal(planner(view).key, draftKey);
-  nodes(view).find(node => node.type === 'MenuSheet').props.onOpenAccount(); view = render();
+  planner(view).props.onOpenAccount(); view = render();
   const account = nodes(view).find(node => node.type === 'LazyOverlay');
   assert.match(account.props.children.type, /AccountSheet/);
   account.props.onClose(); view = render();
@@ -628,4 +705,38 @@ test('Explore remains usable without a selected passport and opens real passport
   assert.match(text(view),/Passport not selected/);
   const control=nodes(view).find(n=>n.type==='button' && /Passport not selected/.test(text(n.props.children)));
   control.props.onClick();assert.deepEqual(h.calls.navigated,['passport']);
+});
+
+
+test('Shared screen navigation keeps its entry section selected and restores it on history navigation', () => {
+  const h = appHarness({ initialView: 'home', runNavigationEffects: true });
+  let view = h.render();
+  h.screen(view, 'HomeScreen').props.onNavigate('explore'); view = h.render();
+  h.screen(view, 'ExploreScreen').props.onNavigate('costs'); view = h.render();
+  assert.equal(h.bottomButton(view, 'Keşfet').props['aria-current'], 'page');
+  const costsState = h.calls.history.at(-1)[0]; assert.equal(costsState.tab, 'home');
+  h.bottomButton(view, 'Araçlar').props.onClick(); view = h.render();
+  h.screen(view, 'TravelCompanionScreen').props.onNavigate('costs'); view = h.render();
+  assert.equal(h.bottomButton(view, 'Araçlar').props['aria-current'], 'page');
+  h.navigationListeners.get('popstate')({ state: costsState }); view = h.render();
+  assert.equal(h.bottomButton(view, 'Keşfet').props['aria-current'], 'page');
+  h.bottomButton(view, 'Planlar').props.onClick(); view = h.render();
+  h.screen(view, 'PlansScreen').props.onNavigate('airports'); view = h.render();
+  assert.equal(h.bottomButton(view, 'Planlar').props['aria-current'], 'page');
+  h.bottomButton(view, 'Profil').props.onClick(); view = h.render();
+  h.screen(view, 'ProfileScreen').props.onNavigate('alerts'); view = h.render();
+  assert.equal(h.bottomButton(view, 'Profil').props['aria-current'], 'page');
+});
+
+test('Profile league and visited-country editor requests are explicit, consumed and repeatable', () => {
+  const h=appHarness({initialView:'profile'}); let view=h.render();
+  h.screen(view,'ProfileScreen').props.onOpenLeague(); view=h.render();
+  let community=h.screen(view,'CommunityScreen'); assert.ok(community.props.initialLeagueRequest>0);
+  community.props.onLeagueRequestHandled(); view=h.render(); assert.equal(h.screen(view,'CommunityScreen').props.initialLeagueRequest,0);
+  h.bottomButton(view,'Profil').props.onClick(); view=h.render();
+  h.screen(view,'ProfileScreen').props.onOpenLeague(); view=h.render(); assert.ok(h.screen(view,'CommunityScreen').props.initialLeagueRequest>0);
+  h.bottomButton(view,'Planlar').props.onClick(); view=h.render();
+  h.screen(view,'PlansScreen').props.onEditVisitedCountries(); view=h.render();
+  let profile=h.screen(view,'ProfileScreen'); assert.ok(profile.props.visitedCountriesRequest>0);
+  profile.props.onVisitedCountriesHandled(); view=h.render(); assert.equal(h.screen(view,'ProfileScreen').props.visitedCountriesRequest,0);
 });

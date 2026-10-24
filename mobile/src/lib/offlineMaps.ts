@@ -1,5 +1,7 @@
 import { validateOfflinePack } from "../../../lib/travel-assistant/offline-map";
 import type { OfflineMapPack } from "../../../lib/travel-assistant/offline-map";
+import { coarseLocation } from "../../../lib/travel-assistant/places";
+import type { Coordinates } from "../../../lib/travel-assistant/types";
 const KEY = "l2t:offline-street-maps:v1";
 export function readOfflineMaps(): OfflineMapPack[] {
   try {
@@ -14,6 +16,14 @@ export function readOfflineMaps(): OfflineMapPack[] {
     return [];
   }
 }
+/** Reuse a complete, recent local package without contacting a map provider. */
+export function reusableOfflineMap(center: Coordinates, packs: OfflineMapPack[], now = Date.now()): OfflineMapPack | null {
+  const c = coarseLocation(center);
+  const pack = packs.find(value => value.id === `${c.latitude}:${c.longitude}`);
+  if (!pack || pack.stale || !validateOfflinePack(pack)) return null;
+  const age = now - Date.parse(pack.downloadedAt);
+  return age >= -60_000 && age <= 7 * 86400000 ? pack : null;
+}
 function writablePacks(): OfflineMapPack[] {
   const raw = localStorage.getItem(KEY);
   if (!raw) return [];
@@ -22,6 +32,11 @@ function writablePacks(): OfflineMapPack[] {
     if (!Array.isArray(parsed) || parsed.length > 3 || parsed.some(p => !validateOfflinePack(p))) throw new Error('corrupt');
     return parsed;
   } catch { throw new Error('corrupt'); }
+}
+/** A preparation summary must distinguish no downloads from unreadable storage. */
+export function readOfflineMapStatus(): { status: 'ready'; count: number } | { status: 'unavailable'; count: null } {
+  try { return { status: 'ready', count: writablePacks().length }; }
+  catch { return { status: 'unavailable', count: null }; }
 }
 export function hasUnreadableOfflineMaps(): boolean {
   try { writablePacks(); return false; }

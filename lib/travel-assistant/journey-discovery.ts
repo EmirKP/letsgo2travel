@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache';
-import { coarseLocation, coordinates, distanceKm, normalizePlaces, safeWebsite } from './places';
+import { coarseLocation, coordinates, distanceKm, nearbyQueryBoxes, normalizePlaces, safeWebsite } from './places';
 import { queryOverpass } from './overpass';
 import { createMapResultCache } from './result-cache';
 import { enrichJourneyPhotos } from './journey-photos';
@@ -20,20 +20,14 @@ const clean = (value: unknown, max = 180): string => typeof value === 'string'
 export function discoveryQuery(center: Coordinates, group: JourneyDiscoveryGroup) {
   const valid = coordinates(center);
   if (!valid || !DISCOVERY_GROUPS.includes(group)) throw new Error('Invalid discovery query');
-  const c = coarseLocation(valid);
   // Bounding-box selection uses Overpass's spatial index. Repeated `around`
   // filters expanded way/relation geometries before this tiny POI response and
   // routinely exhausted the provider budget in dense historic city centres.
   // Keep the circular radius check in normalization; never expose box corners
   // as nearby results. Split antimeridian bounds instead of querying the globe.
-  const latDelta = 3 / 110.574, lonDelta = 3 / (111.32 * Math.cos(c.latitude * Math.PI / 180));
-  const south = Math.max(-85, c.latitude - latDelta), north = Math.min(85, c.latitude + latDelta);
-  const west = c.longitude - lonDelta, east = c.longitude + lonDelta;
-  const longitudeRanges = west < -180 ? [[west + 360, 180], [-180, east]]
-    : east > 180 ? [[west, 180], [-180, east - 360]] : [[west, east]];
-  const boxes = longitudeRanges.map(([left, right]) => [south, left, north, right].map(value => value.toFixed(5)).join(','));
+  const boxes = nearbyQueryBoxes(valid);
   const named = group === 'essentials' ? '' : '[~"^name(:en)?$"~"."]';
-  return `[out:json][timeout:12][maxsize:4000000];(${boxes.flatMap(box => selectors[group].map(selector => `nwr(${box})${selector}${named};`)).join('')});out center tags 250;`;
+  return `[out:json][timeout:12][maxsize:67108864];(${boxes.flatMap(box => selectors[group].map(selector => `nwr(${box})${selector}${named};`)).join('')});out center tags 250;`;
 }
 function discoveryKind(tags: Record<string, unknown>, group: JourneyDiscoveryGroup): PointCategory | null {
   const { amenity, shop, leisure, tourism, craft } = tags;
@@ -94,7 +88,7 @@ const cachedDiscovery = unstable_cache(async (latitude: number, longitude: numbe
   const fetchedAt = new Date().toISOString();
   return { places: await enrichJourneyPhotos(normalizeDiscovery(raw, center, group, fetchedAt), raw), center, radius: 3000,
     fetchedAt, limited: raw.elements.length >= 250, attribution: '© OpenStreetMap contributors' };
-}, ['journey-discovery-v4'], { revalidate: 3600 });
+}, ['journey-discovery-v5'], { revalidate: 3600 });
 
 export async function discoverJourneyPlaces(center: Coordinates, group: JourneyDiscoveryGroup): Promise<JourneyDiscoveryResult> {
   if (!coordinates(center) || !DISCOVERY_GROUPS.includes(group)) throw new Error('Invalid discovery');

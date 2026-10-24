@@ -35,8 +35,9 @@ const find = (tree, predicate) => nodes(tree).find(predicate);
 const byClass = (tree, name) => find(tree, node => node.props?.className?.split(' ').includes(name));
 const namedButton = (tree, name) => find(tree, node => node.type === 'button' && node.props['aria-label'] === name);
 
-function mount({ response = quote(), saved = null, loader, locale = 'en', initialPair = null, locate = () => Promise.reject(Error('denied')) } = {}) {
+function mount({ response = quote(), saved = null, loader, locale = 'en', initialPair = null, initialBaseCurrency, destinationCountry, locate = () => Promise.reject(Error('denied')) } = {}) {
   const slots = []; let cursor = 0, dirty = false, effects = [], tree;
+  let props = { initialBaseCurrency, destinationCountry };
   const calls = [], opened = [], choices = []; let locationCalls = 0;
   const react = {
     useRef(initial) { const index = cursor++; if (!slots[index]) slots[index] = { current: initial }; return slots[index]; },
@@ -73,9 +74,10 @@ function mount({ response = quote(), saved = null, loader, locale = 'en', initia
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
     Date: FixedDate, Intl, window: { setInterval: () => 1, clearInterval() {} },
   })(name => { if (!(name in imports)) throw Error(`Unexpected import ${name}`); return imports[name]; }, output, output.exports);
-  function render() {
+  function render(next = {}) {
+    props = { ...props, ...next };
     for (let pass = 0; pass < 20; pass++) {
-      cursor = 0; dirty = false; effects = []; tree = output.exports.TravelMoney();
+      cursor = 0; dirty = false; effects = []; tree = output.exports.TravelMoney(props);
       effects.forEach(effect => effect());
       if (!dirty) return tree;
     }
@@ -192,6 +194,54 @@ test('A saved manual choice suppresses GPS and late GPS never overwrites a manua
   resolveLocation({ country: 'TR' }); await app.settle();
   assert.deepEqual(app.calls.at(-1), ['CHF', 'TRY']); assert.equal(app.choices.at(-1).base, 'CHF');
   assert.match(text(app.tree), /choices are remembered/); app.dispose();
+});
+
+test('A validated guide currency opens the real converter without GPS or saving, and never reapplies over manual edits', async () => {
+  for (const [initialPair, expectedQuote] of [[null, 'TRY'], [{ base: 'USD', quote: 'GBP' }, 'GBP'], [{ base: 'USD', quote: 'JPY' }, 'TRY']]) {
+    const app = mount({ initialBaseCurrency: 'JPY', initialPair, locate: async () => { throw Error('Guide entry must not ask for location'); } });
+    await app.settle(); assert.equal(app.locationCalls, 0); assert.deepEqual(app.calls[0], ['JPY', expectedQuote]);
+    assert.match(text(byClass(app.tree, 'tm-location-note')), /selected from your country guide/);
+    assert.doesNotMatch(text(byClass(app.tree, 'tm-location-note')), /choices are remembered/);
+    assert.equal(find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.value, 'JPY');
+    assert.equal(find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'To').props.value, expectedQuote);
+    assert.equal(app.choices.length, 0, 'The guide handoff must not overwrite a saved manual pair');
+    app.render({ initialBaseCurrency: 'EUR' }); assert.equal(app.calls.length, 1, 'An unrelated rerender cannot reset the initial handoff');
+    find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.onChange({ target: { value: 'CHF' } });
+    await app.settle(); assert.deepEqual(app.calls.at(-1), ['CHF', expectedQuote]); assert.equal(app.choices.length, 1);
+    assert.match(text(byClass(app.tree, 'tm-location-note')), /choices are remembered/);
+    app.render({ initialBaseCurrency: 'JPY' });
+    assert.equal(find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.value, 'CHF');
+    assert.equal(app.locationCalls, 0); app.dispose();
+  }
+});
+
+test('Invalid guide currencies leave ordinary saved-pair and automatic-location behavior intact', async () => {
+  const saved = mount({ initialBaseCurrency: 'XXX', initialPair: { base: 'GBP', quote: 'USD' } });
+  await saved.settle(); assert.deepEqual(saved.calls[0], ['GBP', 'USD']); assert.equal(saved.locationCalls, 0); assert.equal(saved.choices.length, 0); saved.dispose();
+  const fresh = mount({ initialBaseCurrency: 'XXX', locate: async () => ({ country: 'GB' }) });
+  await fresh.settle(); assert.equal(fresh.locationCalls, 1); assert.deepEqual(fresh.calls.at(-1), ['GBP', 'TRY']); assert.equal(fresh.choices.length, 0); fresh.dispose();
+});
+
+test('A travel-country currency overrides only this visit, suppresses local GPS and preserves the saved manual pair', async () => {
+  const app = mount({ destinationCountry: 'JP', initialBaseCurrency: 'JPY', initialPair: { base: 'GBP', quote: 'USD' } });
+  try {
+    await app.settle();
+    assert.equal(app.locationCalls, 0); assert.deepEqual(app.calls[0], ['JPY', 'USD']);
+    assert.equal(app.choices.length, 0, 'Entering with destination context does not write manual preferences');
+    assert.match(text(byClass(app.tree, 'tm-location-note')), /travel country/);
+    find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.onChange({target:{value:'CHF'}});
+    await app.settle(); assert.deepEqual(app.calls.at(-1), ['CHF', 'USD']);
+    assert.equal(app.choices.length, 1, 'Only a deliberate converter edit saves a new preference');
+  } finally { app.dispose(); }
+});
+
+test('An unsupported destination never falls back to local GPS or mislabels an existing saved pair', async () => {
+  const app = mount({ destinationCountry: 'ID', initialPair: {base:'GBP',quote:'USD'} });
+  try {
+    await app.settle(); assert.equal(app.locationCalls, 0); assert.equal(app.choices.length, 0);
+    assert.deepEqual(app.calls[0], ['GBP', 'USD']);
+    assert.match(text(byClass(app.tree, 'tm-location-note')), /destination currency is not supported.*previous choice or the default/);
+  } finally { app.dispose(); }
 });
 
 test('Denied or unsupported device area leaves manual selection available without guessing', async () => {

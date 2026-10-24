@@ -46,7 +46,7 @@
 .plans-library .plans-tool-list > button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 91px; border: 0; padding: 15px 0; text-align: left; color: var(--theme-ink, #091832); background: transparent; }
 .plans-library .plans-tool-list > button + button { border-top: 1px solid var(--theme-border, #e8eff8); }
 .plans-library .plans-tool-icon { display: grid; place-items: center; width: 42px; height: 45px; flex: none; border-radius: 13px; background: var(--theme-soft, #f0f6ff); color: var(--theme-link, #0066ff); }
-.plans-library .plans-tool-list > button > span:nth-child(2) { display: grid; gap: 5px; flex: 1; }
+.plans-library .plans-tool-list > button > span:nth-child(2) { display: grid; gap: 5px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .plans-library .plans-tool-list strong { font-size: 14px; line-height: 1.35; font-weight: 700; }
 .plans-library .plans-tool-list small { color: var(--theme-muted, #62738a); font-size: 11px; line-height: 1.5; }
 .plans-library .plans-tool-list > button > svg { flex: none; color: var(--theme-link, #0066ff); }

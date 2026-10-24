@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 const require = createRequire(import.meta.url);
 require('ts-node').register({transpileOnly:true,compilerOptions:{module:'CommonJS',moduleResolution:'node'}});
-const {normalizeOfflineMap, validateOfflinePack} = require('../../lib/travel-assistant/offline-map.ts');
+const {normalizeOfflineMap, validateOfflinePack, offlineMapQuery} = require('../../lib/travel-assistant/offline-map.ts');
 const {transitDirectionsUrl} = require('../../lib/travel-assistant/transit.ts');
 const {createPlacesLoader} = require('../../lib/travel-assistant/responses.ts');
 const center = {latitude:41.01,longitude:28.98};
@@ -17,6 +17,66 @@ function moduleFrom(path,imports={},globals={}) {
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name],loaded,loaded.exports);
   return loaded.exports;
 }
+
+async function warmSlowProvider(duration=18000){
+  const state={now:100000,calls:[],timeouts:[],logs:[]};let reply;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{}},Date:class extends Date {static now(){return state.now;}},
+    console:{warn:(...args)=>state.logs.push(args)},
+    AbortSignal:{timeout:ms=>{state.timeouts.push(ms);return {timeoutMs:ms};}},
+    fetch:async(url,options)=>{
+      state.calls.push(url.hostname);
+      if(reply)return reply(url,options.signal.timeoutMs,state);
+      if(url.hostname==='overpass.private.coffee'){state.now+=500;return new Response('',{status:503});}
+      state.now+=duration;return Response.json({elements:[{id:7}]});
+    },
+  });
+  assert.equal((await provider.queryOverpass('[timeout:12];warm bounded query')).elements[0].id,7);
+  assert.deepEqual(state.timeouts,[13000,25500],'The slow success must fit the real remaining fallback budget, not an impossible first-host deadline');
+  state.now+=61000;state.calls.length=0;state.timeouts.length=0;state.logs.length=0;
+  return {provider,state,setReply:fn=>{reply=fn;}};
+}
+
+test('A proven slow provider receives its measured duration plus margin and completes without a needless failover',async()=>{
+  const {provider,state,setReply}=await warmSlowProvider();
+  setReply(async(_url,budget,clock)=>{assert.ok(budget>=18000);clock.now+=18000;return Response.json({elements:[{id:8}]});});
+  const start=state.now;
+  assert.equal((await provider.queryOverpass('[timeout:12];another bounded query')).elements[0].id,8);
+  assert.deepEqual(state.calls,['maps.mail.ru']);assert.deepEqual(state.timeouts,[20000]);
+  assert.equal(state.now-start,18000);assert.ok(state.timeouts[0]<=21000,'At least five seconds remain for another public provider');
+});
+
+test('Adaptive timeouts still reserve sequential failover and never exceed a short caller budget or the 26s ceiling',async()=>{
+  for(const [budget,expected,duration=18000] of [[5000,[2500,2500]],[10000,[5000,5000]],[26000,[20000,6000]],[90000,[20000,6000]],[26000,[21000,5000],19000],[26000,[21000,5000],25000]]){
+    const {provider,state,setReply}=await warmSlowProvider(duration);
+    setReply(async(url,timeout,clock)=>{
+      if(url.hostname==='maps.mail.ru'){clock.now+=timeout;throw Error('network timeout');}
+      return Response.json({elements:[{id:9}]});
+    });
+    const start=state.now;
+    assert.equal((await provider.queryOverpass('[timeout:12];bounded query',budget)).elements[0].id,9);
+    assert.deepEqual(state.calls,['maps.mail.ru','overpass.private.coffee']);assert.deepEqual(state.timeouts,expected);
+    assert.equal(state.timeouts.reduce((sum,value)=>sum+value,0),Math.min(budget,26000));
+    assert.ok(state.now-start<=Math.min(budget,26000));
+  }
+});
+
+test('Learned provider latency never bypasses terminal denials or runtime memory guards, or exposes partial results',async()=>{
+  for(const failure of [
+    {body:null,status:429,code:'http-429',message:/declined/},
+    {body:{elements:[{id:999}],remark:'runtime error: The server is probably too busy. Rate limit exceeded.'},code:'runtime-declined',message:/declined/},
+    {body:{elements:[{id:999}],remark:'runtime error: Query ran out of memory in recurse.'},code:'runtime-memory',message:/resource budget/},
+    {body:{elements:[{id:999}],remark:'runtime error: Query timed out: memory limit exceeded.'},code:'runtime-memory',message:/resource budget/},
+  ]){
+    const {provider,state,setReply}=await warmSlowProvider();
+    setReply(async(_url,_budget,clock)=>{clock.now+=500;return failure.body?Response.json(failure.body):new Response('',{status:failure.status});});
+    await assert.rejects(provider.queryOverpass('[timeout:12];private coordinates 41.12345,28.12345'),failure.message);
+    await assert.rejects(provider.queryOverpass('retry'),/busy/);
+    assert.deepEqual(state.calls,['maps.mail.ru']);assert.deepEqual(state.timeouts,[20000]);
+    assert.equal(state.logs.length,1);assert.equal(state.logs[0][1].code,failure.code);
+    assert.doesNotMatch(JSON.stringify(state.logs),/41\.12345|28\.12345|private coordinates|timeout:12/);
+  }
+});
 
 test('Map outages fail over once within one time budget and avoid the failed host for the next request',async()=>{
   const calls=[],timeouts=[]; let now=100000;
@@ -86,7 +146,9 @@ test('Configured provider runtime overload stays on the configured host',async()
 test('Oversized map bodies remain rejected even when response cancellation fails',async()=>{
   let calls=0,cancelled=0;
   const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {process:{env:{}},fetch:async()=>{calls++;return new Response(new ReadableStream({start(controller){controller.enqueue(new Uint8Array(4000001));},cancel(){cancelled++;return Promise.reject(new Error('cancel failure'));}}));}});
-  await assert.rejects(provider.queryOverpass('query'),/too large/);assert.equal(calls,1);assert.equal(cancelled,1);
+  const query=require('../../lib/travel-assistant/places.ts').overpassQuery(center,'needs');
+  assert.match(query,/\[maxsize:67108864\]/);
+  await assert.rejects(provider.queryOverpass(query),/too large/);assert.equal(calls,1);assert.equal(cancelled,1);
 });
 
 test('Longer provider budgets do not expand the shared worker request limit',async()=>{
@@ -309,5 +371,60 @@ test('Actual places and offline endpoints preserve only the same cached area dur
     // Next's cache can return an old successful value while provider revalidation fails.
     shared=first; const sharedStale=await request();assert.equal(sharedStale.stale,true);assert.equal(sharedStale[timestamp],first[timestamp]);
     now+=5*3600000;await assert.rejects(request());
+  }
+});
+
+test('The actual offline query leaves enough execution time for both permitted providers',async()=>{
+  let now=100000; const deadlines=[];
+  const query=offlineMapQuery(center);
+  const declared=Number(query.match(/\[timeout:(\d+)\]/)[1])*1000;
+  const provider=moduleFrom('lib/travel-assistant/overpass.ts',{}, {
+    process:{env:{}},Date:class extends Date {static now(){return now;}},
+    AbortSignal:{timeout:ms=>{deadlines.push(ms);return undefined;}},
+    fetch:async()=>{if(deadlines.length===1){now+=deadlines[0];throw new Error('network timeout');}return Response.json(raw);},
+  });
+  assert.equal((await provider.queryOverpass(query,26000)).elements.length,raw.elements.length);
+  assert.equal(deadlines.length,2);
+  assert.ok(deadlines.every(ms=>ms>=declared+1000));
+  assert.equal(deadlines.reduce((sum,ms)=>sum+ms,0),26000);
+});
+
+test('Local offline reuse requires a validated same-area recent package and never changes its source date',()=>{
+  const places=require('../../lib/travel-assistant/places.ts');
+  const storage=moduleFrom('mobile/src/lib/offlineMaps.ts',{
+    '../../../lib/travel-assistant/offline-map':{validateOfflinePack},'../../../lib/travel-assistant/places':places,
+  });
+  const now=Date.now(), pack=normalizeOfflineMap(raw,center,new Date(now-86400000));
+  assert.equal(storage.reusableOfflineMap({...center,latitude:41.011},[pack],now).downloadedAt,pack.downloadedAt);
+  assert.equal(storage.reusableOfflineMap({...center,latitude:41.02},[pack],now),null);
+  assert.equal(storage.reusableOfflineMap(center,[{...pack,stale:true}],now),null);
+  assert.equal(storage.reusableOfflineMap(center,[{...pack,roads:[]}],now),null);
+  assert.equal(storage.reusableOfflineMap(center,[pack],now+8*86400000),null);
+});
+
+test('Preparation map counts distinguish empty, valid, corrupt and blocked storage without modifying downloads',()=>{
+  let stored=null,blocked=false,writes=0;
+  const api=moduleFrom('mobile/src/lib/offlineMaps.ts',{'../../../lib/travel-assistant/offline-map':{validateOfflinePack}},{localStorage:{getItem(){if(blocked)throw Error('Storage blocked');return stored;},setItem(){writes++;}}});
+  assert.deepEqual({...api.readOfflineMapStatus()},{status:'ready',count:0});
+  stored=JSON.stringify([normalizeOfflineMap(raw,center)]);
+  assert.deepEqual({...api.readOfflineMapStatus()},{status:'ready',count:1});
+  const before=stored;blocked=true;
+  assert.deepEqual({...api.readOfflineMapStatus()},{status:'unavailable',count:null});assert.equal(stored,before);
+  blocked=false;stored='{corrupt';
+  assert.deepEqual({...api.readOfflineMapStatus()},{status:'unavailable',count:null});assert.equal(stored,'{corrupt');assert.equal(writes,0);
+});
+
+test('Offline API never sends an invalid or other-area shared cache entry as ready',async()=>{
+  const places=require('../../lib/travel-assistant/places.ts'), offline=require('../../lib/travel-assistant/offline-map.ts');
+  const cache=moduleFrom('lib/travel-assistant/result-cache.ts');
+  for(const cachedPack of [{...normalizeOfflineMap(raw,center),roads:[]},normalizeOfflineMap(raw,{...center,latitude:41.02})]){
+    const route=moduleFrom('app/api/travel-assistant/offline-map/route.ts',{
+      'next/cache':{unstable_cache:()=>async()=>cachedPack},
+      '@/lib/travel-assistant/places':places,'@/lib/travel-assistant/offline-map':offline,
+      '@/lib/travel-assistant/overpass':{},'@/lib/travel-assistant/http':require('../../lib/travel-assistant/http.ts'),
+      '@/lib/travel-assistant/result-cache':cache,
+    });
+    const result=await route.POST(new Request('https://local/offline',{method:'POST',body:JSON.stringify(center)}));
+    assert.equal(result.status,503);assert.equal((await result.json()).code,'map-unavailable');
   }
 });

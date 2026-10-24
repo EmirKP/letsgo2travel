@@ -859,7 +859,6 @@
   .route-meta-grid { grid-template-columns: 1fr; }
   .topbar { padding-left: max(8px,env(safe-area-inset-left)); padding-right: max(8px,env(safe-area-inset-right)); }
   .topbar-actions { gap: 4px; }
-  .mobile-menu-button { display: none; }
   .home-quick-grid { grid-template-columns: repeat(2,1fr); }
   .home-quick-grid button { min-height: 88px; }
   .discovery-grid { grid-template-columns: 1fr; }
@@ -960,7 +959,6 @@
 
 @media (max-width: 390px) {
   .form-grid.two { grid-template-columns: 1fr; }
-  .mobile-menu-button { display: grid; }
   .topbar-actions { gap: 2px; }
   .brand { font-size: 15px; }
   .brand strong { font-size: 21px; }

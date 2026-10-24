@@ -13,6 +13,7 @@ const nodes = tree => tree && typeof tree === 'object' ? [tree, ...[tree.props?.
 const text = tree => Array.isArray(tree) ? tree.map(text).join('') : typeof tree === 'string' || typeof tree === 'number' ? String(tree) : tree?.props ? text(tree.props.children) : '';
 const tick = () => new Promise(resolve => setTimeout(resolve, 2));
 const response = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+const quotaValue=(changes={})=>{const reset=new Date();reset.setUTCHours(24,0,0,0);return {limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC',...changes};};
 const result = { success: true, isFallback: false, data: { summary: 'Real result', routes: [{ name: 'Konya', country: 'Türkiye', dailyPlan: ['A real itinerary'], warnings: [], scores: {}, cta: {} }] } };
 function fixture({ session = { user: { id: 'owner-a' }, access_token: 'token-a' }, fetch = async () => response(200, result), stored = new Map(), getSession, digest,
   search = '?preset=ilk-kez-yurtdisi' } = {}) {
@@ -51,6 +52,7 @@ test('Web guests retain their choices and see sign-in without an AI request or i
   const view = fixture({ session: null });
   try {
     const tree = await view.settle(tree => text(tree).includes('hesabına giriş yap'));
+    assert.match(text(tree), /Günde 3 ücretsiz AI rotası/);
     assert.equal(view.calls.length, 0);
     assert.ok(nodes(tree).some(node => node.type === 'link' && node.props.href.startsWith('/auth/login')));
     assert.equal(nodes(tree).filter(node => node.type === 'route-card').length, 0);
@@ -62,7 +64,7 @@ test('Web failures and confirmed successes retain the same receipt identity for 
   const view = fixture({ fetch: async () => fail ? response(503, { code: 'plan_busy' }) : response(200, result) });
   try {
     await view.settle(tree => text(tree).includes('Rota şu an oluşturulamadı'));
-    const first = view.calls[0]; assert.equal(first.headers.Authorization, 'Bearer token-a'); assert.ok(first.headers['Idempotency-Key']);
+    const first = view.calls[0]; assert.equal(first.url,'/api/ai-plan?quotaVersion=2'); assert.equal(first.headers.Authorization, 'Bearer token-a'); assert.ok(first.headers['Idempotency-Key']);
     assert.equal(nodes(view.render()).filter(node => node.type === 'route-card').length, 0);
     fail = false; await view.retry(); await view.settle(tree => nodes(tree).some(node => node.type === 'route-card'));
     assert.equal(view.calls[1].headers['Idempotency-Key'], first.headers['Idempotency-Key']);
@@ -81,10 +83,54 @@ test('Web failures and confirmed successes retain the same receipt identity for 
 test('Web daily limit is visible with reset time and does not masquerade as a successful fallback', async () => {
   const view = fixture({ fetch: async () => response(429, { code: 'plan_limit', quota: { resetAt: '2026-10-19T00:00:00Z' } }) });
   try {
-    const tree = await view.settle(tree => text(tree).includes('Bugünkü rota hakkını kullandın'));
+    const tree = await view.settle(tree => text(tree).includes('Bugünkü rota haklarını kullandın'));
     assert.equal(nodes(tree).filter(node => node.type === 'route-card').length, 0);
-    assert.match(text(tree), /Yeni hakkın:/);
+    assert.match(text(tree), /Yeni hakların:/);
   } finally { view.dispose(); }
+});
+
+test('Web UI renders verified server remaining rights from 3 to 2 to 1 to 0 without assuming the old daily limit',async()=>{
+  for(const remaining of [3,2,1,0]){
+    const quota=quotaValue({used:3-remaining,remaining});
+    const view=fixture({fetch:async()=>remaining===3?response(503,{code:'plan_busy',quota}):response(200,{...result,quota})});
+    try{
+      const tree=await view.settle(tree=>text(tree).includes(`Bugün ${remaining}/3 yeni AI rota hakkın kaldı.`));
+      assert.equal(view.calls.length,1);assert.equal(view.calls[0].url,'/api/ai-plan?quotaVersion=2');
+      const status=nodes(tree).find(node=>node.props?.role==='status');assert.ok(status);
+      assert.equal(nodes(status).find(node=>node.type==='time').props.dateTime,quota.resetAt);
+    }finally{view.dispose();}
+  }
+  const legacy=fixture({fetch:async()=>response(200,{...result,quota:quotaValue({limit:1,used:0,remaining:1})})});
+  try{await legacy.settle(tree=>text(tree).includes('Bugün 1/1 yeni AI rota hakkın kaldı.'));}finally{legacy.dispose();}
+});
+
+test('Web failure keeps all three rights and a pending receipt never appears as used daily allowance',async()=>{
+  let attempt=0;const quota=quotaValue();
+  const view=fixture({fetch:async()=>++attempt===1?response(503,{code:'plan_busy',quota}):response(200,{...result,quota:quotaValue({used:1,remaining:2})})});
+  try{
+    await view.settle(tree=>text(tree).includes('Bugün 3/3 yeni AI rota hakkın kaldı.'));
+    const original=view.calls[0];await view.retry();
+    await view.settle(tree=>text(tree).includes('Bugün 2/3 yeni AI rota hakkın kaldı.'));
+    assert.equal(view.calls[1].headers['Idempotency-Key'],original.headers['Idempotency-Key']);assert.equal(view.calls[1].body,original.body);
+  }finally{view.dispose();}
+  const pending=fixture({fetch:async()=>response(409,{code:'plan_pending',quota:quotaValue({used:1,remaining:0,pending:true})})});
+  try{
+    const tree=await pending.settle(tree=>text(tree).includes('Önceki rota isteğin hâlâ işleniyor; ek hak kullanılmaz.'));
+    assert.doesNotMatch(text(tree),/Bugün 0\/3|Bugünkü rota haklarını kullandın/);assert.equal(nodes(tree).filter(node=>node.type==='route-card').length,0);
+  }finally{pending.dispose();}
+});
+
+test('Web quota snapshots are discarded on account changes and malformed snapshots never produce invented counters',async()=>{
+  const view=fixture({fetch:async()=>response(200,{...result,quota:quotaValue({used:1,remaining:2})})});
+  try{
+    await view.settle(tree=>text(tree).includes('Bugün 2/3'));
+    view.account({user:{id:'owner-b'},access_token:'token-b'});
+    assert.doesNotMatch(text(view.render()),/Bugün 2\/3/);
+  }finally{view.dispose();}
+  for(const quota of [quotaValue({limit:2}),quotaValue({remaining:1}),quotaValue({used:4,remaining:0}),quotaValue({resetAt:'2026-10-21T03:00:00Z'}),quotaValue({pending:true,remaining:3})]){
+    const invalid=fixture({fetch:async()=>response(200,{...result,quota})});
+    try{const tree=await invalid.settle(tree=>nodes(tree).some(node=>node.type==='route-card'));assert.doesNotMatch(text(tree),/yeni AI rota hakkın kaldı/);}finally{invalid.dispose();}
+  }
 });
 
 test('A web plan response from the previous account cannot enter the newly signed-in account', async () => {
@@ -93,8 +139,9 @@ test('A web plan response from the previous account cannot enter the newly signe
   try {
     await view.settle(() => view.calls.length === 1);
     view.account({ user: { id: 'owner-b' }, access_token: 'token-b' }); view.render();
-    resolve(response(200, result)); const tree = await view.settle();
+    resolve(response(200, {...result,quota:quotaValue({used:1,remaining:2})})); const tree = await view.settle();
     assert.equal(nodes(tree).filter(node => node.type === 'route-card').length, 0);
+    assert.doesNotMatch(text(tree),/Bugün 2\/3/);
   } finally { view.dispose(); }
 });
 
@@ -163,7 +210,7 @@ test('A completed web route retains its original submitted choices after another
     original = completed.calls[0];
   } finally { completed.dispose(); }
   const edited = fixture({ stored, search: '?preset=kimlikle-haftasonu', fetch: async () => response(429, { code: 'plan_limit' }) });
-  try { await edited.settle(tree => text(tree).includes('Bugünkü rota hakkını kullandın')); assert.notEqual(edited.calls[0].body, original.body); }
+  try { await edited.settle(tree => text(tree).includes('Bugünkü rota haklarını kullandın')); assert.notEqual(edited.calls[0].body, original.body); }
   finally { edited.dispose(); }
   const reload = fixture({ stored, search: '', fetch: async (_url, options) => {
     assert.equal(options.headers['Idempotency-Key'], original.headers['Idempotency-Key']); assert.equal(options.body, original.body);

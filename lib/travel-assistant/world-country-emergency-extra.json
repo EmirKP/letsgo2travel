@@ -1,0 +1,692 @@
+{
+  "AQ": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "Australian Antarctic Program / IAATO emergency planning",
+        "url": "https://iaato.org/system/files?file=2025-01%2FATCM26_ip069_e.pdf",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Australian Antarctic Program / station medical arrangements",
+        "url": "https://www.antarctica.gov.au/about-antarctica/people-in-antarctica/health/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Gemi kaptanına, sefer liderine veya istasyon görevlisine hemen haber ver. Yardım, seferin telsiz ve uydu iletişim planıyla koordine edilir; Antarktika geneli için tek bir kamu acil hattı doğrulanmadı.",
+      "en": "Immediately alert the ship master, expedition leader or station staff. Assistance is coordinated through the expedition radio and satellite plan; no single public emergency number was verified for all Antarctica.",
+      "sq": "Njofto menjëherë kapitenin, drejtuesin e ekspeditës ose personelin e stacionit. Ndihma bashkërendohet përmes planit radiofonik dhe satelitor të ekspeditës; nuk u verifikua një numër publik i vetëm për gjithë Antarktidën."
+    }
+  },
+  "AS": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "AS",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://www.hud.gov/states/american-samoa",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "U.S. HUD / American Samoa local help",
+        "url": "https://www.hud.gov/states/american-samoa",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "U.S. National Highway Traffic Safety Administration / territory 911 structures",
+        "url": "https://www.911.gov/assets/State-and-Territory-911-Authority-Structures-Aug-2020.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AX": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "AX",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://poliisi.fi/sv/-/25254610/112-ett-gemensamt-nodnummer-for-hela-eu",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Finnish Police / Åland Alarmcentralen and 112",
+        "url": "https://poliisi.fi/sv/-/25254610/112-ett-gemensamt-nodnummer-for-hela-eu",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BL": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "BL",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://travel.gc.ca/assistance/embassies-consulates/saint-barthelemy",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Government of Canada / Saint-Barthélemy local emergency services",
+        "url": "https://travel.gc.ca/assistance/embassies-consulates/saint-barthelemy",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Préfecture de Saint-Barthélemy et Saint-Martin / water safety, June 2025",
+        "url": "https://www.saint-barth-saint-martin.gouv.fr/contenu/telechargement/3361/22587/file/CP_s%C3%A9curit%C3%A9_baigande_24-06-2025.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BQ": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "BQ",
+        "category": "police",
+        "number": "911",
+        "sourceUrl": "https://english.politiecn.com/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Caribbean Netherlands Police Force / emergency contact",
+        "url": "https://english.politiecn.com/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Public Entity Bonaire / crisis information",
+        "url": "https://www.bonairecrisis.com/en/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "911, Bonaire, Saba ve Sint Eustatius polisinin acil numarasıdır. Ambulans numarası adaya göre değişebilir; bulunduğun adanın sağlık acil hattını ayrıca kontrol et.",
+      "en": "911 is the police emergency number for Bonaire, Saba and Sint Eustatius. Ambulance numbers can differ by island; check the medical emergency number for your island separately.",
+      "sq": "911 është numri urgjent i policisë për Bonaire, Saba dhe Sint Eustatius. Numrat e ambulancës mund të ndryshojnë sipas ishullit; kontrollo veçmas numrin mjekësor të ishullit ku je."
+    }
+  },
+  "BV": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "Norwegian Polar Institute / Bouvetøya safety",
+        "url": "https://npolar.no/en/regulations-bouvetoya-nature-reserve/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bouvet Adası’nda yerel kurtarma servisi yoktur. Acil durumda gemi kaptanına veya sefer liderine haber ver; seferin kendi kurtarma ve uydu/telsiz iletişim planını kullan.",
+      "en": "There is no local rescue service on Bouvet Island. In an emergency alert the ship master or expedition leader and use the expedition rescue and satellite/radio plan.",
+      "sq": "Në ishullin Bouvet nuk ka shërbim lokal shpëtimi. Në urgjencë njofto kapitenin ose drejtuesin e ekspeditës dhe përdor planin e shpëtimit dhe të komunikimit satelitor/radiofonik të ekspeditës."
+    }
+  },
+  "CC": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "CC",
+        "category": "general",
+        "number": "000",
+        "sourceUrl": "https://www.infrastructure.gov.au/territories-regions-cities/territories/indian_ocean/iot_bulletins/2020/iot-response-to-covid-19-coronavirus",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Australian Government / Indian Ocean Territories health and police contacts",
+        "url": "https://www.infrastructure.gov.au/territories-regions-cities/territories/indian_ocean/iot_bulletins/2020/iot-response-to-covid-19-coronavirus",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CK": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "CK",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://emci.gov.ck/contact/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Emergency Management Cook Islands / contact",
+        "url": "https://emci.gov.ck/contact/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Cook Islands Tourism / health and safety",
+        "url": "https://cookislands.travel/health-safety",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CX": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "CX",
+        "category": "general",
+        "number": "000",
+        "sourceUrl": "https://christmasislandnationalpark.gov.au/static/cdf95f16f14147cd5e86fd84faaef8c1/cinp-document-visitor-guide.pdf",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Parks Australia / Christmas Island visitor guide",
+        "url": "https://christmasislandnationalpark.gov.au/static/cdf95f16f14147cd5e86fd84faaef8c1/cinp-document-visitor-guide.pdf",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Australian Government / Indian Ocean Territories local emergency contacts",
+        "url": "https://www.infrastructure.gov.au/territories-regions-cities/territories/indian_ocean/iot_bulletins/2020/iot-response-to-covid-19-coronavirus",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FO": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "FO",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://politi.fo/en",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Faroe Islands Police / emergency alarm",
+        "url": "https://politi.fo/en",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GB": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "GB",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://www.gov.uk/guidance/999-and-112-the-uks-national-emergency-numbers",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "GB",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://www.gov.uk/guidance/999-and-112-the-uks-national-emergency-numbers",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "UK Government / national emergency numbers",
+        "url": "https://www.gov.uk/guidance/999-and-112-the-uks-national-emergency-numbers",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GG": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "GG",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://www.gcra.gg/sites/default/files/case-document/telecom-network-licensees-emergency-calls-call-for-information.pdf",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "GG",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://www.gcra.gg/sites/default/files/case-document/telecom-network-licensees-emergency-calls-call-for-information.pdf",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Guernsey Competition and Regulatory Authority / emergency call routing",
+        "url": "https://www.gcra.gg/sites/default/files/case-document/telecom-network-licensees-emergency-calls-call-for-information.pdf",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "States of Guernsey / safeguarding emergency instructions",
+        "url": "https://eforms.gov.gg/forms/showForm.asp?fm_fid=75&nc=F11V",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GL": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "GL",
+        "category": "police",
+        "number": "+299701448",
+        "sourceUrl": "https://politi.gl/en/en",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Greenland Police / alarm contact",
+        "url": "https://politi.gl/en/en",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu, Grönland polisinin yayımladığı tam acil telefon numarasıdır. Tıbbi yardım için bulunduğun yerin sağlık merkezinin acil iletişimini öğren; Danimarka’nın 112 hattını burada varsayma.",
+      "en": "This is the full emergency telephone number published by Greenland Police. For medical help obtain the local health centre emergency contact; do not assume Denmark’s 112 routing applies here.",
+      "sq": "Ky është numri i plotë urgjent i publikuar nga Policia e Grenlandës. Për ndihmë mjekësore merr kontaktin urgjent të qendrës shëndetësore lokale; mos supozo se drejtimi i thirrjeve 112 i Danimarkës vlen këtu."
+    }
+  },
+  "GU": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "GU",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://gpd.guam.gov/report-a-crime/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Guam Police Department / emergency calls",
+        "url": "https://gpd.guam.gov/report-a-crime/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Guam Homeland Security / comprehensive emergency management plan",
+        "url": "https://ghs.guam.gov/sites/default/files/a_basic_cemp_v8_12_13_16.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "HM": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "Australian Antarctic Program / Heard Island expedition logistics, 2025",
+        "url": "https://www.antarctica.gov.au/news/2025/australian-antarctic-program-heads-to-heard-island-for-the-first-time-in-decades/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Australian Antarctic Division / historical 2014–2024 management plan (context only)",
+        "url": "https://www.antarctica.gov.au/site/assets/files/61235/himi_management_plan_2014_2024.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu uzak adalarda acil yardım seferin gemisi ve iletişim planı üzerinden düzenlenir. Gemi kaptanına veya sefer liderine hemen haber ver; 000’ın adalarda yerel bir servise ulaşacağını varsayma.",
+      "en": "Emergency assistance for these remote islands is arranged through the expedition vessel and communications plan. Immediately alert the ship master or expedition leader; do not assume 000 reaches a local island service.",
+      "sq": "Ndihma urgjente për këta ishuj të largët organizohet përmes anijes dhe planit të komunikimit të ekspeditës. Njofto menjëherë kapitenin ose drejtuesin; mos supozo se 000 lidhet me një shërbim lokal në ishuj."
+    }
+  },
+  "IM": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "IM",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://www.gov.im/about-the-government/departments/home-affairs/communications-division/emergency-services-joint-control-room/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Isle of Man Government / Emergency Services Joint Control Room",
+        "url": "https://www.gov.im/about-the-government/departments/home-affairs/communications-division/emergency-services-joint-control-room/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JE": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "JE",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://www.gov.je/LifeEvents/MovingToJersey/WhenYouArrive/Pages/ContactEmergencyServices.aspx",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "JE",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://www.gov.je/LifeEvents/MovingToJersey/WhenYouArrive/Pages/ContactEmergencyServices.aspx",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Government of Jersey / contacting emergency services",
+        "url": "https://www.gov.je/LifeEvents/MovingToJersey/WhenYouArrive/Pages/ContactEmergencyServices.aspx",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MF": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "MF",
+        "category": "general",
+        "number": "112",
+        "sourceUrl": "https://travel.gc.ca/destinations/saint-martin",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Government of Canada / Saint Martin local emergency services",
+        "url": "https://travel.gc.ca/destinations/saint-martin",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Préfecture de Saint-Barthélemy et Saint-Martin / water safety, June 2025",
+        "url": "https://www.saint-barth-saint-martin.gouv.fr/contenu/telechargement/3361/22587/file/CP_s%C3%A9curit%C3%A9_baigande_24-06-2025.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MP": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "MP",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://dev.dps.gov.mp/misc/frequently-asked-questions",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "CNMI Department of Public Safety / emergency FAQ",
+        "url": "https://dev.dps.gov.mp/misc/frequently-asked-questions",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NF": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "NF",
+        "category": "general",
+        "number": "000",
+        "sourceUrl": "https://norfolkislandhealth.gov.nf/wp-content/uploads/2025/10/41-NIHRACS-community-update-9.10.25.pdf",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Norfolk Island Health and Residential Aged Care Service / community update, 9 October 2025",
+        "url": "https://norfolkislandhealth.gov.nf/wp-content/uploads/2025/10/41-NIHRACS-community-update-9.10.25.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NU": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "NU",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://gov.nu/notice-board",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Government of Niue / emergency notice board",
+        "url": "https://gov.nu/notice-board",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Niue Department of Health / visitor health leaflet",
+        "url": "https://www.niueisland.com/library/files/healthflyer.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PR": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "PR",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://www.911.pr.gov/sobre-nosotros",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Government of Puerto Rico / Bureau of Emergency Systems 9-1-1",
+        "url": "https://www.911.pr.gov/sobre-nosotros",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SJ": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "SJ",
+        "category": "police",
+        "number": "112",
+        "sourceUrl": "https://www.sysselmesteren.no/en/contact/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19",
+        "note": {
+          "tr": "112, Svalbard Valiliğinin yayımladığı polis acil numarasıdır. Jan Mayen’deki istasyon veya sefer için yerinde verilen acil telsiz/uydu iletişim planını kullan.",
+          "en": "112 is the police emergency number published by the Governor of Svalbard. For a station or expedition on Jan Mayen use the emergency radio/satellite plan supplied on site.",
+          "sq": "112 është numri urgjent i policisë i publikuar nga Guvernatori i Svalbardit. Për një stacion ose ekspeditë në Jan Mayen përdor planin radiofonik/satelitor urgjent të dhënë në vend."
+        }
+      }
+    ],
+    "sources": [
+      {
+        "label": "Governor of Svalbard / contact and emergency number",
+        "url": "https://www.sysselmesteren.no/en/contact/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "112, Svalbard Valiliğinin yayımladığı polis acil numarasıdır. Jan Mayen’deki istasyon veya sefer için yerinde verilen acil telsiz/uydu iletişim planını kullan.",
+      "en": "112 is the police emergency number published by the Governor of Svalbard. For a station or expedition on Jan Mayen use the emergency radio/satellite plan supplied on site.",
+      "sq": "112 është numri urgjent i policisë i publikuar nga Guvernatori i Svalbardit. Për një stacion ose ekspeditë në Jan Mayen përdor planin radiofonik/satelitor urgjent të dhënë në vend."
+    }
+  },
+  "TF": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "TAAF / official mission guide for southern districts, 2024",
+        "url": "https://taaf.fr/content/uploads/2024/06/Guide-hivernant-2024.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bulunduğun bölgenin istasyon görevlisine, doktoruna veya gemi kaptanına haber ver; yerel telsiz ve uydu acil planını kullan. TAAF’ın farklı bölgeleri için ortak bir kamu acil numarası doğrulanmadı.",
+      "en": "Alert the local station staff, doctor or ship master and use the local radio and satellite emergency plan. No common public emergency telephone number was verified across the different TAAF districts.",
+      "sq": "Njofto personelin e stacionit lokal, mjekun ose kapitenin dhe përdor planin lokal urgjent radiofonik e satelitor. Nuk u verifikua një numër publik i përbashkët për rajonet e ndryshme të TAAF-it."
+    }
+  },
+  "TK": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "Government of Tokelau / village emergency management planning",
+        "url": "https://www.tokelau.org.nz/site/tokelau/TK%20National%20DRR%20Plan%20DRAFT%20V7.pdf",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "GOV.UK / combined Cook Islands, Tokelau and Niue emergency guidance (scope conflict)",
+        "url": "https://www.gov.uk/foreign-travel-advice/cook-islands-tokelau-and-niue/getting-help",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "United Nations Pacific / staff resource book, 2024 (conflicting short code, not adopted)",
+        "url": "https://pacific.un.org/sites/default/files/2024-04/Resource%20Book%20about%20DV%20for%20UN%20Staff%20in%20the%20Pacific_FINAL.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Acil durumda bulunduğun atolün sağlık merkezi veya yerel polisinden yardım iste. Kamuya açık kaynaklardaki kısa numaralar tutarlı doğrulanamadı; konaklama görevlisinden ya da sefer sorumlusundan yerel acil iletişimi öğren.",
+      "en": "Seek help from the health centre or local police on your atoll. Public sources did not consistently verify one short emergency number; obtain the local emergency contact from your accommodation or expedition organiser.",
+      "sq": "Kërko ndihmë nga qendra shëndetësore ose policia lokale në atolin ku je. Burimet publike nuk verifikuan në mënyrë të njëtrajtshme një numër të shkurtër urgjent; merre kontaktin lokal nga akomodimi ose organizatori i ekspeditës."
+    }
+  },
+  "UM": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "U.S. Fish and Wildlife Service / Midway Atoll visitor access",
+        "url": "https://www.fws.gov/refuge/midway-atoll/visit-us",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu kod birden fazla uzak ABD adasını kapsar; acil iletişim adaya ve tesise göre değişir. Bulunduğun üs, istasyon, koruma alanı görevlisi veya gemi kaptanına haber ver. Tüm adalarda 911 kapsaması varsayılmaz.",
+      "en": "This code covers several remote U.S. islands; emergency arrangements depend on the island and facility. Alert the local base, station, refuge staff or ship master. 911 coverage is not assumed across all islands.",
+      "sq": "Ky kod përfshin disa ishuj të largët amerikanë; komunikimi urgjent varet nga ishulli dhe objekti. Njofto bazën, stacionin, personelin e rezervatit ose kapitenin. Nuk supozohet mbulim 911 në të gjithë ishujt."
+    }
+  },
+  "VA": {
+    "status": "local-assistance",
+    "contacts": [],
+    "sources": [
+      {
+        "label": "Vatican City Governorate / security and civil protection directorate",
+        "url": "https://www.vaticanstate.va/it/le-direzioni/direzione-dei-servizi-di-sicurezza-e-protezione-civile.html",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vatican City Governorate / medical provision for visitors, 2025",
+        "url": "https://vaticanstate.va/it/novita/1260-al-servizio-di-pellegrini-e-visitatori-del-giubileo.html",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "En yakın jandarma, güvenlik veya ziyaretçi hizmetleri görevlisine hemen haber ver; tıbbi yardım veya itfaiye için yerel ekip çağırmalarını iste. Kamuya açık bir acil kısa numara bu kaynaklarda doğrulanmadı.",
+      "en": "Immediately alert the nearest Gendarmerie, security or visitor-services staff and ask them to summon medical or fire assistance. These sources did not verify a public emergency short number.",
+      "sq": "Njofto menjëherë xhandarmërinë, sigurinë ose personelin e shërbimit të vizitorëve dhe kërko ndihmë mjekësore ose zjarrfikëse. Këto burime nuk verifikuan një numër të shkurtër publik urgjent."
+    }
+  },
+  "VC": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "VC",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://www.gov.uk/foreign-travel-advice/st-vincent-and-the-grenadines/getting-help",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "VC",
+        "category": "general",
+        "number": "999",
+        "sourceUrl": "https://www.gov.uk/foreign-travel-advice/st-vincent-and-the-grenadines/getting-help",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "VC",
+        "category": "ambulance",
+        "number": "911",
+        "sourceUrl": "https://www.gov.uk/foreign-travel-advice/st-vincent-and-the-grenadines/getting-help",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      },
+      {
+        "country": "VC",
+        "category": "police",
+        "number": "999",
+        "sourceUrl": "https://www.gov.uk/foreign-travel-advice/st-vincent-and-the-grenadines/getting-help",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "GOV.UK / St Vincent and the Grenadines emergency services",
+        "url": "https://www.gov.uk/foreign-travel-advice/st-vincent-and-the-grenadines/getting-help",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VI": {
+    "status": "available",
+    "contacts": [
+      {
+        "country": "VI",
+        "category": "general",
+        "number": "911",
+        "sourceUrl": "https://vitema.vi.gov/emergency-communication-center/",
+        "verifiedAt": "2026-10-21",
+        "reviewAfter": "2027-01-19"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Virgin Islands Territorial Emergency Management Agency / emergency communications",
+        "url": "https://vitema.vi.gov/emergency-communication-center/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  }
+}

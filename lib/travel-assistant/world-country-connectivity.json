@@ -1,0 +1,5891 @@
+{
+  "AD": {
+    "callingCodes": [
+      "+376"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000005",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000005",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AE": {
+    "callingCodes": [
+      "+971"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DC",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DC",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AF": {
+    "callingCodes": [
+      "+93"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000001",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000001",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AG": {
+    "callingCodes": [
+      "+1268"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000008",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000008",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AI": {
+    "callingCodes": [
+      "+1264"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000007",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000007",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AL": {
+    "callingCodes": [
+      "+355"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000002",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000002",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AM": {
+    "callingCodes": [
+      "+374"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AO": {
+    "callingCodes": [
+      "+244"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000006",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000006",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AQ": {
+    "callingCodes": [],
+    "status": "site-specific",
+    "planUrl": "https://www.itu.int/oth/t0202",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/t0202",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu bölge için tek bir ulusal arama kodu sunmuyoruz. Telefon ve bağlantı bilgilerini gideceğin ada, istasyon veya ziyaret düzenleyicisinden doğrula; genel mobil kapsama varsayma.",
+      "en": "No single national calling code is provided for this area. Confirm phone and connectivity details with the island, station or visit organiser; do not assume public mobile coverage.",
+      "sq": "Për këtë zonë nuk jepet një kod i vetëm kombëtar. Verifiko telefonin dhe lidhjen me ishullin, stacionin ose organizatorin; mos supozo mbulim publik celular."
+    }
+  },
+  "AR": {
+    "callingCodes": [
+      "+54"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000009",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000009",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AS": {
+    "callingCodes": [
+      "+1684"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000004",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000004",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AT": {
+    "callingCodes": [
+      "+43"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AU": {
+    "callingCodes": [
+      "+61"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AW": {
+    "callingCodes": [
+      "+297"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "AX": {
+    "callingCodes": [
+      "+35818"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000049",
+    "sources": [
+      {
+        "label": "ITU · shared numbering plan",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000049",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Gösterilen değer ortak plan içindeki bölgesel arama önekidir; bağımsız ülke kodu değildir. Gideceğin yerin tam numarasını doğrula.",
+      "en": "The displayed value is a regional dialling prefix within a shared plan, not a separate country calling code. Confirm the full number for your destination.",
+      "sq": "Vlera është prefiks rajonal brenda një plani të përbashkët, jo kod i veçantë shteti. Verifiko numrin e plotë të destinacionit."
+    }
+  },
+  "AZ": {
+    "callingCodes": [
+      "+994"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BA": {
+    "callingCodes": [
+      "+387"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BB": {
+    "callingCodes": [
+      "+1246"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000013",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000013",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BD": {
+    "callingCodes": [
+      "+880"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000012",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000012",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BE": {
+    "callingCodes": [
+      "+32"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000015",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000015",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.be/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BF": {
+    "callingCodes": [
+      "+226"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000021",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000021",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.bf/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BG": {
+    "callingCodes": [
+      "+359"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000020",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000020",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BH": {
+    "callingCodes": [
+      "+973"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000011",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000011",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BI": {
+    "callingCodes": [
+      "+257"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000022",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000022",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BJ": {
+    "callingCodes": [
+      "+229"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000017",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000017",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BL": {
+    "callingCodes": [
+      "+590"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "BM": {
+    "callingCodes": [
+      "+1441"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000018",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000018",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BN": {
+    "callingCodes": [
+      "+673"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BO": {
+    "callingCodes": [
+      "+591"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BQ": {
+    "callingCodes": [
+      "+599"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BR": {
+    "callingCodes": [
+      "+55"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BS": {
+    "callingCodes": [
+      "+1242"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000010",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000010",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BT": {
+    "callingCodes": [
+      "+975"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000019",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000019",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BV": {
+    "callingCodes": [],
+    "status": "site-specific",
+    "planUrl": "https://www.itu.int/oth/t0202",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/t0202",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu bölge için tek bir ulusal arama kodu sunmuyoruz. Telefon ve bağlantı bilgilerini gideceğin ada, istasyon veya ziyaret düzenleyicisinden doğrula; genel mobil kapsama varsayma.",
+      "en": "No single national calling code is provided for this area. Confirm phone and connectivity details with the island, station or visit organiser; do not assume public mobile coverage.",
+      "sq": "Për këtë zonë nuk jepet një kod i vetëm kombëtar. Verifiko telefonin dhe lidhjen me ishullin, stacionin ose organizatorin; mos supozo mbulim publik celular."
+    }
+  },
+  "BW": {
+    "callingCodes": [
+      "+267"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.co.bw/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BY": {
+    "callingCodes": [
+      "+375"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000014",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000014",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "BZ": {
+    "callingCodes": [
+      "+501"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000016",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000016",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CA": {
+    "callingCodes": [
+      "+1"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000025",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000025",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Rogers",
+        "url": "https://www.rogers.com/local/mobility"
+      },
+      {
+        "name": "Bell",
+        "url": "https://www.bell.ca/mobility"
+      },
+      {
+        "name": "TELUS",
+        "url": "https://www.telus.com/en/mobility"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Rogers",
+        "url": "https://www.rogers.com/local/mobility",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Bell",
+        "url": "https://www.bell.ca/mobility",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "TELUS",
+        "url": "https://www.telus.com/en/mobility",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CC": {
+    "callingCodes": [
+      "+61"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "CD": {
+    "callingCodes": [
+      "+243"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000037",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000037",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange-rdc.com/"
+      },
+      {
+        "name": "Vodacom",
+        "url": "https://www.vodacom.cd/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CF": {
+    "callingCodes": [
+      "+236"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000028",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000028",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "CG": {
+    "callingCodes": [
+      "+242"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CH": {
+    "callingCodes": [
+      "+41"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CI": {
+    "callingCodes": [
+      "+225"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000031",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000031",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.ci/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CK": {
+    "callingCodes": [
+      "+682"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CL": {
+    "callingCodes": [
+      "+56"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CM": {
+    "callingCodes": [
+      "+237"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000024",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000024",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.cm/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CN": {
+    "callingCodes": [
+      "+86"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CO": {
+    "callingCodes": [
+      "+57"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CR": {
+    "callingCodes": [
+      "+506"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000030",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000030",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CU": {
+    "callingCodes": [
+      "+53"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000033",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000033",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CV": {
+    "callingCodes": [
+      "+238"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000026",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000026",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "CW": {
+    "callingCodes": [
+      "+599"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F5",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F5",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CX": {
+    "callingCodes": [
+      "+61"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200000D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "CY": {
+    "callingCodes": [
+      "+357"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000034",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000034",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "CZ": {
+    "callingCodes": [
+      "+420"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000035",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000035",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodafone",
+        "url": "https://www.vodafone.cz/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DE": {
+    "callingCodes": [
+      "+49"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000051",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000051",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "DJ": {
+    "callingCodes": [
+      "+253"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "DK": {
+    "callingCodes": [
+      "+45"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000038",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000038",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "DM": {
+    "callingCodes": [
+      "+1767"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "DO": {
+    "callingCodes": [
+      "+1809",
+      "+1829",
+      "+1849"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "DZ": {
+    "callingCodes": [
+      "+213"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000003",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000003",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "EC": {
+    "callingCodes": [
+      "+593"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "EE": {
+    "callingCodes": [
+      "+372"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000043",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000043",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "EG": {
+    "callingCodes": [
+      "+20"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.eg/"
+      },
+      {
+        "name": "Vodafone",
+        "url": "https://web.vodafone.com.eg/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "EH": {
+    "callingCodes": [
+      "+2125288",
+      "+2125289"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000090",
+    "sources": [
+      {
+        "label": "ITU · shared numbering plan",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000090",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Gösterilen değer ortak plan içindeki bölgesel arama önekidir; bağımsız ülke kodu değildir. Gideceğin yerin tam numarasını doğrula.",
+      "en": "The displayed value is a regional dialling prefix within a shared plan, not a separate country calling code. Confirm the full number for your destination.",
+      "sq": "Vlera është prefiks rajonal brenda një plani të përbashkët, jo kod i veçantë shteti. Verifiko numrin e plotë të destinacionit."
+    }
+  },
+  "ER": {
+    "callingCodes": [
+      "+291"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000042",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000042",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "ES": {
+    "callingCodes": [
+      "+34"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C2",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C2",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Movistar",
+        "url": "https://www.movistar.es/tarifas-moviles/prepago/"
+      },
+      {
+        "name": "Orange",
+        "url": "https://www.orange.es/tarifas/movil/prepago"
+      },
+      {
+        "name": "Vodafone",
+        "url": "https://www.vodafone.es/c/particulares/es/productos-y-servicios/movil/prepago-y-recargas/tarifas-de-prepago/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Movistar",
+        "url": "https://www.movistar.es/tarifas-moviles/prepago/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Orange",
+        "url": "https://www.orange.es/tarifas/movil/prepago",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone",
+        "url": "https://www.vodafone.es/c/particulares/es/productos-y-servicios/movil/prepago-y-recargas/tarifas-de-prepago/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ET": {
+    "callingCodes": [
+      "+251"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000044",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000044",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Safaricom",
+        "url": "https://safaricom.et/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FI": {
+    "callingCodes": [
+      "+358"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000049",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000049",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "FJ": {
+    "callingCodes": [
+      "+679"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000048",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000048",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "FK": {
+    "callingCodes": [
+      "+500"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000046",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000046",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "FM": {
+    "callingCodes": [
+      "+691"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "FO": {
+    "callingCodes": [
+      "+298"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000047",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000047",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "FR": {
+    "callingCodes": [
+      "+33"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.fr/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GA": {
+    "callingCodes": [
+      "+241"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GB": {
+    "callingCodes": [
+      "+44"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GD": {
+    "callingCodes": [
+      "+1473"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000057",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000057",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GE": {
+    "callingCodes": [
+      "+995"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000050",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000050",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GF": {
+    "callingCodes": [
+      "+594"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GG": {
+    "callingCodes": [
+      "+44"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "GH": {
+    "callingCodes": [
+      "+233"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000052",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000052",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GI": {
+    "callingCodes": [
+      "+350"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000053",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000053",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GL": {
+    "callingCodes": [
+      "+299"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000056",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000056",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GM": {
+    "callingCodes": [
+      "+220"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GN": {
+    "callingCodes": [
+      "+224"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange-guinee.com/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GP": {
+    "callingCodes": [
+      "+590"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GQ": {
+    "callingCodes": [
+      "+240"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000041",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000041",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GR": {
+    "callingCodes": [
+      "+30"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000055",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000055",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GS": {
+    "callingCodes": [
+      "+500"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000046",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000046",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "+500 katalogda paylaşılan önektir; uzak adalarda halka açık mobil şebeke bulunduğunu göstermez. Gemi veya istasyonun telefon/uydu bağlantısını önceden doğrula.",
+      "en": "+500 is a shared catalogue prefix; it does not establish public mobile coverage on remote islands. Check the vessel or station phone/satellite arrangements before travel.",
+      "sq": "+500 është prefiks i përbashkët i katalogut; nuk provon mbulim publik celular në ishujt e largët. Verifiko paraprakisht lidhjen e anijes ose stacionit."
+    }
+  },
+  "GT": {
+    "callingCodes": [
+      "+502"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GU": {
+    "callingCodes": [
+      "+1671"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000059",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000059",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "GW": {
+    "callingCodes": [
+      "+245"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange-bissau.com/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GY": {
+    "callingCodes": [
+      "+592"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "HK": {
+    "callingCodes": [
+      "+852"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000060",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000060",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "HM": {
+    "callingCodes": [],
+    "status": "site-specific",
+    "planUrl": "https://www.itu.int/oth/t0202",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/t0202",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu bölge için tek bir ulusal arama kodu sunmuyoruz. Telefon ve bağlantı bilgilerini gideceğin ada, istasyon veya ziyaret düzenleyicisinden doğrula; genel mobil kapsama varsayma.",
+      "en": "No single national calling code is provided for this area. Confirm phone and connectivity details with the island, station or visit organiser; do not assume public mobile coverage.",
+      "sq": "Për këtë zonë nuk jepet një kod i vetëm kombëtar. Verifiko telefonin dhe lidhjen me ishullin, stacionin ose organizatorin; mos supozo mbulim publik celular."
+    }
+  },
+  "HN": {
+    "callingCodes": [
+      "+504"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "HR": {
+    "callingCodes": [
+      "+385"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000032",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000032",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "HT": {
+    "callingCodes": [
+      "+509"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200005E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "HU": {
+    "callingCodes": [
+      "+36"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000061",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000061",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "ID": {
+    "callingCodes": [
+      "+62"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000064",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000064",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Telkomsel",
+        "url": "https://www.telkomsel.com/support/faq/apa-itu-tourist-prepaid-card"
+      },
+      {
+        "name": "IM3",
+        "url": "https://im3shop.ioh.co.id/"
+      },
+      {
+        "name": "XL · AXIS · Smartfren",
+        "url": "https://www.xlsmart.co.id/id/tentang-xlsmart/media"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Telkomsel",
+        "url": "https://www.telkomsel.com/support/faq/apa-itu-tourist-prepaid-card",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "IM3",
+        "url": "https://im3shop.ioh.co.id/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "XL · AXIS · Smartfren",
+        "url": "https://www.xlsmart.co.id/id/tentang-xlsmart/media",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IE": {
+    "callingCodes": [
+      "+353"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000068",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000068",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodafone",
+        "url": "https://www.vodafone.ie/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IL": {
+    "callingCodes": [
+      "+972"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "IM": {
+    "callingCodes": [
+      "+44"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "IN": {
+    "callingCodes": [
+      "+91"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000063",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000063",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "IO": {
+    "callingCodes": [
+      "+246"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000039",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000039",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "IQ": {
+    "callingCodes": [
+      "+964"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000067",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000067",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "IR": {
+    "callingCodes": [
+      "+98"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000066",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000066",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "IS": {
+    "callingCodes": [
+      "+354"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000062",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000062",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "IT": {
+    "callingCodes": [
+      "+39"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "JE": {
+    "callingCodes": [
+      "+44"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "JM": {
+    "callingCodes": [
+      "+1876",
+      "+1658"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "JO": {
+    "callingCodes": [
+      "+962"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.jo/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JP": {
+    "callingCodes": [
+      "+81"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KE": {
+    "callingCodes": [
+      "+254"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000070",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000070",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Safaricom",
+        "url": "https://www.safaricom.co.ke/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KG": {
+    "callingCodes": [
+      "+996"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000074",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000074",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KH": {
+    "callingCodes": [
+      "+855"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000023",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000023",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KI": {
+    "callingCodes": [
+      "+686"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000071",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000071",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KM": {
+    "callingCodes": [
+      "+269"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200002D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KN": {
+    "callingCodes": [
+      "+1869"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B0",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B0",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KP": {
+    "callingCodes": [
+      "+850"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000036",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000036",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KR": {
+    "callingCodes": [
+      "+82"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000072",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000072",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KW": {
+    "callingCodes": [
+      "+965"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000073",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000073",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KY": {
+    "callingCodes": [
+      "+1345"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000027",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000027",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "KZ": {
+    "callingCodes": [
+      "+7"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LA": {
+    "callingCodes": [
+      "+856"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000075",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000075",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LB": {
+    "callingCodes": [
+      "+961"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000077",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000077",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LC": {
+    "callingCodes": [
+      "+1758"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LI": {
+    "callingCodes": [
+      "+423"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LK": {
+    "callingCodes": [
+      "+94"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C3",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C3",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LR": {
+    "callingCodes": [
+      "+231"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000079",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000079",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.com.lr/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LS": {
+    "callingCodes": [
+      "+266"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000078",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000078",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodacom",
+        "url": "https://www.vodacom.co.ls/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LT": {
+    "callingCodes": [
+      "+370"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LU": {
+    "callingCodes": [
+      "+352"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.lu/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LV": {
+    "callingCodes": [
+      "+371"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000076",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000076",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "LY": {
+    "callingCodes": [
+      "+218"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MA": {
+    "callingCodes": [
+      "+212"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000090",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000090",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.ma/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MC": {
+    "callingCodes": [
+      "+377"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MD": {
+    "callingCodes": [
+      "+373"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.md/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ME": {
+    "callingCodes": [
+      "+382"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DA",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DA",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MF": {
+    "callingCodes": [
+      "+590"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000058",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "MG": {
+    "callingCodes": [
+      "+261"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MH": {
+    "callingCodes": [
+      "+692"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000085",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000085",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MK": {
+    "callingCodes": [
+      "+389"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CE",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CE",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "ML": {
+    "callingCodes": [
+      "+223"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000083",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000083",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orangemali.com/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MM": {
+    "callingCodes": [
+      "+95"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000092",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000092",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MN": {
+    "callingCodes": [
+      "+976"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MO": {
+    "callingCodes": [
+      "+853"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200007E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MP": {
+    "callingCodes": [
+      "+1670"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EE",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EE",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MQ": {
+    "callingCodes": [
+      "+596"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000086",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000086",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MR": {
+    "callingCodes": [
+      "+222"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000087",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000087",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MS": {
+    "callingCodes": [
+      "+1664"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MT": {
+    "callingCodes": [
+      "+356"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000084",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000084",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MU": {
+    "callingCodes": [
+      "+230"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000088",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000088",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MV": {
+    "callingCodes": [
+      "+960"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000082",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000082",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MW": {
+    "callingCodes": [
+      "+265"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000080",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000080",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MX": {
+    "callingCodes": [
+      "+52"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200008A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MY": {
+    "callingCodes": [
+      "+60"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000081",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000081",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "MZ": {
+    "callingCodes": [
+      "+258"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000091",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000091",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodacom",
+        "url": "https://vm.co.mz/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NA": {
+    "callingCodes": [
+      "+264"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000093",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000093",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NC": {
+    "callingCodes": [
+      "+687"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000098",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000098",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NE": {
+    "callingCodes": [
+      "+227"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NF": {
+    "callingCodes": [
+      "+672"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NG": {
+    "callingCodes": [
+      "+234"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009C",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009C",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NI": {
+    "callingCodes": [
+      "+505"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009A",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009A",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NL": {
+    "callingCodes": [
+      "+31"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000096",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000096",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "KPN",
+        "url": "https://www.kpn.com/service/prepaid"
+      },
+      {
+        "name": "Odido",
+        "url": "https://www.odido.nl/mobiel-abonnement/prepaid-sim-only/bundels"
+      },
+      {
+        "name": "Vodafone",
+        "url": "https://www.vodafone.nl/abonnement/prepaid/en"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "KPN",
+        "url": "https://www.kpn.com/service/prepaid",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Odido",
+        "url": "https://www.odido.nl/mobiel-abonnement/prepaid-sim-only/bundels",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone",
+        "url": "https://www.vodafone.nl/abonnement/prepaid/en",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NO": {
+    "callingCodes": [
+      "+47"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NP": {
+    "callingCodes": [
+      "+977"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000095",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000095",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NR": {
+    "callingCodes": [
+      "+674"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000094",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000094",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NU": {
+    "callingCodes": [
+      "+683"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EC",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EC",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "NZ": {
+    "callingCodes": [
+      "+64"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000099",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000099",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "OM": {
+    "callingCodes": [
+      "+968"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PA": {
+    "callingCodes": [
+      "+507"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A3",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A3",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PE": {
+    "callingCodes": [
+      "+51"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A6",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A6",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PF": {
+    "callingCodes": [
+      "+689"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004D",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004D",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PG": {
+    "callingCodes": [
+      "+675"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A4",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A4",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PH": {
+    "callingCodes": [
+      "+63"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PK": {
+    "callingCodes": [
+      "+92"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PL": {
+    "callingCodes": [
+      "+48"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.pl/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PM": {
+    "callingCodes": [
+      "+508"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B2",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B2",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PN": {
+    "callingCodes": [
+      "+64"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000099",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000099",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "PR": {
+    "callingCodes": [
+      "+1787",
+      "+1939"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AA",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AA",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PS": {
+    "callingCodes": [
+      "+970"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000FF",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000FF",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PT": {
+    "callingCodes": [
+      "+351"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "MEO",
+        "url": "https://www.meo.pt/servicos/movel/cobertura"
+      },
+      {
+        "name": "NOS",
+        "url": "https://www.nos.pt/movel/tarifarios-movel/tarifarios-movel-pre-pagos"
+      },
+      {
+        "name": "Vodafone",
+        "url": "https://ajuda.vodafone.pt/tarifarios-pre-pagos"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "MEO",
+        "url": "https://www.meo.pt/servicos/movel/cobertura",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "NOS",
+        "url": "https://www.nos.pt/movel/tarifarios-movel/tarifarios-movel-pre-pagos",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone",
+        "url": "https://ajuda.vodafone.pt/tarifarios-pre-pagos",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PW": {
+    "callingCodes": [
+      "+680"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A2",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A2",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "PY": {
+    "callingCodes": [
+      "+595"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A5",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000A5",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "QA": {
+    "callingCodes": [
+      "+974"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AB",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AB",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "RE": {
+    "callingCodes": [
+      "+262"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "RO": {
+    "callingCodes": [
+      "+40"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AC",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AC",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.ro/"
+      },
+      {
+        "name": "Vodafone",
+        "url": "https://www.vodafone.ro/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RS": {
+    "callingCodes": [
+      "+381"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "RU": {
+    "callingCodes": [
+      "+7"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "RW": {
+    "callingCodes": [
+      "+250"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AE",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AE",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SA": {
+    "callingCodes": [
+      "+966"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SB": {
+    "callingCodes": [
+      "+677"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BF",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BF",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SC": {
+    "callingCodes": [
+      "+248"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BA",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BA",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SD": {
+    "callingCodes": [
+      "+249"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C4",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C4",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SE": {
+    "callingCodes": [
+      "+46"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SG": {
+    "callingCodes": [
+      "+65"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BC",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BC",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SH": {
+    "callingCodes": [
+      "+290"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AF",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000AF",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SI": {
+    "callingCodes": [
+      "+386"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BE",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BE",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SJ": {
+    "callingCodes": [
+      "+4779"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009E",
+    "sources": [
+      {
+        "label": "ITU · shared numbering plan",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200009E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Gösterilen değer ortak plan içindeki bölgesel arama önekidir; bağımsız ülke kodu değildir. Gideceğin yerin tam numarasını doğrula.",
+      "en": "The displayed value is a regional dialling prefix within a shared plan, not a separate country calling code. Confirm the full number for your destination.",
+      "sq": "Vlera është prefiks rajonal brenda një plani të përbashkët, jo kod i veçantë shteti. Verifiko numrin e plotë të destinacionit."
+    }
+  },
+  "SK": {
+    "callingCodes": [
+      "+421"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.sk/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SL": {
+    "callingCodes": [
+      "+232"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BB",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000BB",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.sl/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SM": {
+    "callingCodes": [
+      "+378"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B5",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B5",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SN": {
+    "callingCodes": [
+      "+221"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.sn/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SO": {
+    "callingCodes": [
+      "+252"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C0",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C0",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SR": {
+    "callingCodes": [
+      "+597"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C5",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C5",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SS": {
+    "callingCodes": [
+      "+211"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "ST": {
+    "callingCodes": [
+      "+239"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B6",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B6",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SV": {
+    "callingCodes": [
+      "+503"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003F",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200003F",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SX": {
+    "callingCodes": [
+      "+1721"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "SY": {
+    "callingCodes": [
+      "+963"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "SZ": {
+    "callingCodes": [
+      "+268"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C6",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C6",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TC": {
+    "callingCodes": [
+      "+1649"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "TD": {
+    "callingCodes": [
+      "+235"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000029",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T0202000029",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TF": {
+    "callingCodes": [
+      "+262"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "+262 katalogda paylaşılan arama planıdır; tüm Güney ve Antarktika istasyonlarına erişim veya halka açık mobil şebeke garantisi değildir. İstasyonun bağlantısını ayrıca doğrula.",
+      "en": "+262 is the shared catalogue numbering plan, not a guarantee of access or public mobile service at every Southern or Antarctic station. Check the particular station.",
+      "sq": "+262 është plani i përbashkët i katalogut, jo garanci për shërbim publik celular në çdo stacion jugor ose antarktik. Verifiko stacionin përkatës."
+    }
+  },
+  "TG": {
+    "callingCodes": [
+      "+228"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TH": {
+    "callingCodes": [
+      "+66"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TJ": {
+    "callingCodes": [
+      "+992"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CA",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CA",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TK": {
+    "callingCodes": [
+      "+690"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D2",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D2",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TL": {
+    "callingCodes": [
+      "+670"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D0",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D0",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TM": {
+    "callingCodes": [
+      "+993"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TN": {
+    "callingCodes": [
+      "+216"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D5",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D5",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Orange",
+        "url": "https://www.orange.tn/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Orange · official consumer-market directory",
+        "url": "https://www.orange.com/en/our-websites",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TO": {
+    "callingCodes": [
+      "+676"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D3",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D3",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TR": {
+    "callingCodes": [
+      "+90"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D6",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D6",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TT": {
+    "callingCodes": [
+      "+1868"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D4",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D4",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TV": {
+    "callingCodes": [
+      "+688"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000D9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TW": {
+    "callingCodes": [
+      "+886"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EB",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000EB",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "TZ": {
+    "callingCodes": [
+      "+255"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CB",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000CB",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodacom",
+        "url": "https://www.vodacom.co.tz/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UA": {
+    "callingCodes": [
+      "+380"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DB",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DB",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "UG": {
+    "callingCodes": [
+      "+256"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000F1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "UM": {
+    "callingCodes": [],
+    "status": "site-specific",
+    "planUrl": "https://www.itu.int/oth/t0202",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/t0202",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu bölge için tek bir ulusal arama kodu sunmuyoruz. Telefon ve bağlantı bilgilerini gideceğin ada, istasyon veya ziyaret düzenleyicisinden doğrula; genel mobil kapsama varsayma.",
+      "en": "No single national calling code is provided for this area. Confirm phone and connectivity details with the island, station or visit organiser; do not assume public mobile coverage.",
+      "sq": "Për këtë zonë nuk jepet një kod i vetëm kombëtar. Verifiko telefonin dhe lidhjen me ishullin, stacionin ose organizatorin; mos supozo mbulim publik celular."
+    }
+  },
+  "US": {
+    "callingCodes": [
+      "+1"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DE",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DE",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "UY": {
+    "callingCodes": [
+      "+598"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E0",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E0",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "UZ": {
+    "callingCodes": [
+      "+998"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VA": {
+    "callingCodes": [
+      "+3906698"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006B",
+    "sources": [
+      {
+        "label": "ITU · shared numbering plan",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200006B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Vatican · official contact numbers",
+        "url": "https://www.vatican.va/content/vatican/en/info.html",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Vatikan santral numaraları İtalya planındaki +39 06 698 önekini kullanır. Ayrılmış +379 kodunu aktif ziyaretçi arama kodu olarak göstermiyoruz.",
+      "en": "Vatican switchboard numbers use +39 06 698 within the Italian numbering plan. The reserved +379 code is not presented as an active visitor dialling code.",
+      "sq": "Numrat e centralit të Vatikanit përdorin +39 06 698 në planin italian. Kodi i rezervuar +379 nuk paraqitet si kod aktiv për vizitorët."
+    }
+  },
+  "VC": {
+    "callingCodes": [
+      "+1784"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B3",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B3",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VE": {
+    "callingCodes": [
+      "+58"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E3",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E3",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VG": {
+    "callingCodes": [
+      "+1284"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001E",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200001E",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VI": {
+    "callingCodes": [
+      "+1340"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DF",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000DF",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VN": {
+    "callingCodes": [
+      "+84"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E4",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E4",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "VU": {
+    "callingCodes": [
+      "+678"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E2",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E2",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "WF": {
+    "callingCodes": [
+      "+681"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E6",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E6",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "WS": {
+    "callingCodes": [
+      "+685"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B4",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000B4",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "XK": {
+    "callingCodes": [
+      "+383"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000FD",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000FD",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "YE": {
+    "callingCodes": [
+      "+967"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E7",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E7",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "YT": {
+    "callingCodes": [
+      "+262"
+    ],
+    "status": "shared-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T020200004B",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": [],
+    "note": {
+      "tr": "Bu numara öneki ortak bir numaralandırma planında yer alır. Arama kodu, mobil kapsama veya SIM satın alma uygunluğu anlamına gelmez.",
+      "en": "This dialling prefix belongs to a shared numbering plan. A calling code does not establish mobile coverage or eligibility to buy a SIM.",
+      "sq": "Ky prefiks përdor një plan të përbashkët numërimi. Kodi i thirrjes nuk provon mbulimin celular ose të drejtën për të blerë SIM."
+    }
+  },
+  "ZA": {
+    "callingCodes": [
+      "+27"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C1",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000C1",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [
+      {
+        "name": "Vodacom",
+        "url": "https://www.vodacom.co.za/"
+      }
+    ],
+    "operatorSources": [
+      {
+        "label": "Vodafone · official local consumer websites",
+        "url": "https://www.vodafone.com/our-company/where-we-operate",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ZM": {
+    "callingCodes": [
+      "+260"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E8",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E8",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  },
+  "ZW": {
+    "callingCodes": [
+      "+263"
+    ],
+    "status": "numbering-plan",
+    "planUrl": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E9",
+    "sources": [
+      {
+        "label": "ITU · National Numbering Plans",
+        "url": "https://www.itu.int/oth/default.aspx?lang=en&parent=T02020000E9",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "REST Countries · communication catalogue",
+        "url": "https://github.com/restcountries/restcountries/blob/master/src/main/resources/countriesV3.1.json",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "operators": [],
+    "operatorSources": []
+  }
+}

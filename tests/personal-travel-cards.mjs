@@ -9,8 +9,9 @@ function setup() {
   const storage = { getItem: key => data.get(key) ?? null, setItem: (key,value) => { if(blocked) throw Error('quota'); data.set(key,value); }, removeItem:key=>{if(blocked)throw Error('storage');data.delete(key);} };
   const output = { exports: {} };
   const code = ts.transpileModule(readFileSync('mobile/src/lib/personalTravelCards.ts','utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {localStorage:storage,window:new EventTarget(),Event,Date,Set})(name => name === './id' ? { createId:()=>`card-${++sequence}` } : {},output,output.exports);
-  return { api:output.exports, data, block:()=>{blocked=true;} };
+  const window = new EventTarget();
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {localStorage:storage,window,Event,Date,Set})(name => name === './id' ? { createId:()=>`card-${++sequence}` } : {},output,output.exports);
+  return { api:output.exports, data, window, block:()=>{blocked=true;} };
 }
 const draft = {title:'Rome weekend',hotelName:'My hotel',address:'Via Roma 10',reservationNote:'Check-in after 15:00',tripId:'trip-1'};
 
@@ -75,4 +76,159 @@ test('Account deletion clears only that owner and never guest or another account
   assert.equal(api.readPersonalTravelCards('b').items.length,1);assert.equal(api.readPersonalTravelCards().items.length,1);
   assert.equal(api.clearPersonalTravelCards(''),false);assert.equal(api.clearPersonalTravelCards('../b'),false);
   block();assert.equal(api.clearPersonalTravelCards('b'),false);assert.equal(api.readPersonalTravelCards('b').items.length,1);
+});
+
+const children = tree => [tree?.props?.children].flat(Infinity).filter(value => value != null);
+const nodes = tree => tree && typeof tree === 'object' ? [tree, ...children(tree).flatMap(nodes)] : [];
+const text = tree => Array.isArray(tree) ? tree.map(text).join('') : typeof tree === 'string' || typeof tree === 'number' ? String(tree) : tree?.props ? text(tree.props.children) : '';
+const find = (tree, type, predicate = () => true) => nodes(tree).find(node => node.type === type && predicate(node.props));
+
+function editor(locale = 'tr') {
+  const store = setup();
+  let slots = [], cursor = 0, pending = [], key, props = {};
+  const react = {
+    useState(initial) {
+      const position = cursor++;
+      if (!slots[position]) slots[position] = { value: typeof initial === 'function' ? initial() : initial };
+      return [slots[position].value, next => { slots[position].value = typeof next === 'function' ? next(slots[position].value) : next; }];
+    },
+    useId: () => 'personal-card',
+    useEffect(effect, deps) {
+      const position = cursor++, previous = slots[position];
+      if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) {
+        slots[position] = { deps };
+        pending.push(() => { previous?.cleanup?.(); slots[position].cleanup = effect(); });
+      }
+    },
+  };
+  const output = { exports: {} };
+  const compiled = ts.transpileModule(readFileSync('mobile/src/components/PersonalTravelCards.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const jsx = (type, props, key) => ({ type, props, key });
+  vm.runInNewContext(`(function(require,module,exports){${compiled}\n})`, { window: store.window, Date, Boolean }, { filename: 'PersonalTravelCards.tsx' })(name => ({
+    react,
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    './Icon': { Icon: 'Icon' },
+    './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../lib/personalTravelCards': store.api,
+    '../lib/i18n': { useI18n: () => ({ copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB' }) },
+    '../lib/localeFormatting': { formatAppDate: (date, locale, options) => new Intl.DateTimeFormat(locale, options).format(date) },
+    './personal-travel-cards.css': {},
+  })[name] ?? (() => { throw Error(`Unexpected import: ${name}`); })(), output, output.exports);
+  const dispose = () => slots.forEach(slot => slot.cleanup?.());
+  return {
+    ...store,
+    render(next) {
+      if (next) props = { ...props, ...next };
+      const child = output.exports.PersonalTravelCards(props);
+      if (child.key !== key) { dispose(); slots = []; key = child.key; }
+      cursor = 0; pending = [];
+      const view = child.type(child.props);
+      pending.forEach(effect => effect());
+      return view;
+    },
+    dispose,
+  };
+}
+
+const trips = [
+  { id: 'rome-may', title: 'Roma', startDate: '2027-05-03' },
+  { id: 'rome-june', title: 'Roma', startDate: '2027-06-14' },
+];
+const click = (view, label) => {
+  const button = find(view, 'button', props => text(props.children) === label);
+  assert.ok(button, `Missing button: ${label}`);
+  button.props.onClick();
+};
+const change = (view, suffix, value) => {
+  const field = nodes(view).find(node => node.props?.id === `personal-card-${suffix}`);
+  assert.ok(field, `Missing field: ${suffix}`);
+  field.props.onChange({ target: { value } });
+};
+const submit = view => find(view, 'form').props.onSubmit({ preventDefault() {} });
+
+test('A general card can link to an actual trip and change that link without duplicating its notes', () => {
+  const h = editor();
+  const original = h.api.savePersonalTravelCard('a', { ...draft, tripId: null }).items[0];
+  let view = h.render({ ownerId: 'a', trips });
+  assert.match(text(view), /Bir seyahate bağlı değil/);
+  click(view, 'Düzenle'); view = h.render();
+  const select = find(view, 'select');
+  assert.equal(select.props.value, '');
+  const options = nodes(select).filter(node => node.type === 'option');
+  assert.deepEqual(options.map(option => option.props.value), ['', 'rome-may', 'rome-june']);
+  assert.notEqual(text(options[1]), text(options[2]), 'Dates distinguish trips to the same city');
+  assert.equal(text(options[1]).includes('2027'), true);
+  change(view, 'trip', 'rome-may'); view = h.render(); submit(view); view = h.render();
+  let saved = h.api.readPersonalTravelCards('a').items;
+  assert.equal(saved.length, 1); assert.equal(saved[0].id, original.id);
+  assert.equal(saved[0].tripId, 'rome-may'); assert.equal(saved[0].address, draft.address);
+  assert.equal(saved[0].createdAt, original.createdAt); assert.match(text(view), /Roma/);
+  click(view, 'Düzenle'); view = h.render();
+  change(view, 'trip', 'rome-june'); submit(h.render());
+  saved = h.api.readPersonalTravelCards('a').items;
+  assert.equal(saved.length, 1); assert.equal(saved[0].tripId, 'rome-june');
+  h.dispose();
+});
+
+test('Cockpit cards default to the current trip, preserve trip filtering and remain saved after unlinking', () => {
+  const h = editor();
+  h.api.savePersonalTravelCard('a', { ...draft, title: 'Unrelated card', tripId: 'rome-june' });
+  let view = h.render({ ownerId: 'a', tripId: 'rome-may', trips });
+  assert.doesNotMatch(text(view), /Unrelated card/);
+  click(view, 'Kişisel kartımı oluştur'); view = h.render();
+  assert.equal(find(view, 'select').props.value, 'rome-may');
+  change(view, 'name', 'Current trip hotel'); change(view, 'hotel', 'Hotel in Rome');
+  submit(h.render()); view = h.render();
+  assert.match(text(view), /Current trip hotel/); assert.doesNotMatch(text(view), /Unrelated card/);
+  click(view, 'Düzenle'); view = h.render(); change(view, 'trip', '');
+  submit(h.render()); view = h.render();
+  assert.doesNotMatch(text(view), /Current trip hotel/);
+  assert.match(text(view), /Kart bu seyahatten ayrıldı/);
+  const saved = h.api.readPersonalTravelCards('a').items;
+  assert.equal(saved.length, 2); assert.equal(saved.find(card => card.title === 'Current trip hotel').tripId, null);
+  view = h.render({ tripId: undefined });
+  assert.match(text(view), /Current trip hotel/); assert.match(text(view), /Bir seyahate bağlı değil/);
+  assert.match(text(view), /Unrelated card/);
+  h.dispose();
+});
+
+test('Switching accounts or guest scope clears editor and undo state and never reassigns another owner card', () => {
+  const h = editor();
+  const card = h.api.savePersonalTravelCard('a', { ...draft, title: 'Private A', tripId: 'rome-may' }).items[0];
+  h.api.savePersonalTravelCard('b', { ...draft, title: 'Private B', tripId: null });
+  let view = h.render({ ownerId: 'a', trips });
+  click(view, 'Düzenle'); view = h.render(); change(view, 'trip', 'rome-june');
+  view = h.render({ ownerId: 'b', trips: [{ id: 'b-trip', title: 'Paris' }] });
+  assert.equal(find(view, 'form'), undefined); assert.doesNotMatch(text(view), /Private A/);
+  assert.match(text(view), /Private B/);
+  click(view, 'Düzenle'); view = h.render();
+  assert.deepEqual(nodes(find(view, 'select')).filter(node => node.type === 'option').map(node => node.props.value), ['', 'b-trip']);
+  assert.equal(h.api.readPersonalTravelCards('a').items[0].tripId, 'rome-may');
+  assert.equal(h.api.savePersonalTravelCard('b', { ...draft, tripId: 'b-trip' }, card.id).error, 'invalid');
+  view = h.render({ ownerId: 'a', trips }); click(view, 'Kartı kaldır'); view = h.render();
+  assert.match(text(view), /Geri al/);
+  view = h.render({ ownerId: null, trips: [] });
+  assert.equal(find(view, 'form'), undefined); assert.doesNotMatch(text(view), /Private A|Private B|Geri al/);
+  assert.equal(h.api.readPersonalTravelCards('a').items.length, 0);
+  assert.equal(h.api.readPersonalTravelCards('b').items.length, 1);
+  h.dispose();
+});
+
+test('An unavailable trip is not silently unlinked offline; editing, unlinking, remove and undo preserve the card', () => {
+  const h = editor();
+  const original = h.api.savePersonalTravelCard('a', { ...draft, tripId: 'old-trip' }).items[0];
+  let view = h.render({ ownerId: 'a', trips: [] });
+  assert.match(text(view), /Bağlı seyahat şu anda listede yok/);
+  click(view, 'Düzenle'); view = h.render();
+  assert.equal(find(view, 'select').props.value, 'old-trip');
+  assert.equal(find(view, 'option', props => props.value === 'old-trip') !== undefined, true);
+  change(view, 'note', 'New offline note'); submit(h.render()); view = h.render();
+  assert.equal(h.api.readPersonalTravelCards('a').items[0].tripId, 'old-trip');
+  click(view, 'Düzenle'); view = h.render(); change(view, 'trip', ''); submit(h.render()); view = h.render();
+  assert.equal(h.api.readPersonalTravelCards('a').items[0].tripId, null);
+  click(view, 'Kartı kaldır'); view = h.render(); click(view, 'Geri al'); h.render();
+  const restored = h.api.readPersonalTravelCards('a').items[0];
+  assert.equal(restored.id, original.id); assert.equal(restored.tripId, null);
+  assert.equal(restored.reservationNote, 'New offline note');
+  h.dispose();
 });

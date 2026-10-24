@@ -511,7 +511,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     }
     if (matchedFlight && !canSaveFlightSelection(matchedFlight)) {
       setError(matchedFlight.maySave ? copy("Uçuş seçiminin kayıt süresi doldu. Yeniden arayıp seç.", "This flight selection has expired. Search and select it again.")
-        : lookupMode === "trial" ? copy("Uçuş arama denemesi: sonuçlar görüntülenir, kokpite kaydedilemez.", "Flight lookup trial: results can be viewed but cannot be saved to Cockpit.")
+        : lookupMode === "trial" ? copy("Uçuş arama denemesi: sonuçları inceleyebilirsin; bu denemede seyahat kaydı oluşturulmaz.", "Flight lookup trial: view results without creating a saved trip.", "Provë kërkimi fluturimi: shiko rezultatet pa krijuar udhëtim të ruajtur.")
         : copy("Bu bilgi şu an yalnız görüntülenebilir. Yeniden ara veya biletinle devam et.", "These details are currently view-only. Search again or continue with your ticket."));
       return;
     }
@@ -571,7 +571,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setManualFlight(false);
       setFormOpen(false);
       if (attachedEvent) onEventHandled?.();
-      onNotice(copy("Seyahatin kokpite eklendi.", "Your trip was added to the cockpit."));
+      onNotice(copy("Seyahatin kaydedildi.", "Your trip was saved.", "Udhëtimi yt u ruajt."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       setError(getSupabaseDataErrorMessage(requestError, copy("Seyahat kaydedilemedi. Bilgileri kontrol edip tekrar dene.", "The trip could not be saved. Check the details and try again.")));
@@ -723,7 +723,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       syncRemindersForSession(session, [...next, { ...trip, status: "cancelled" }]);
       setSelectedTripId("");
       setDeleteTarget(null);
-      onNotice(copy("Seyahat kokpitten silindi.", "The trip was removed from your cockpit."));
+      onNotice(copy("Seyahat kaldırıldı.", "The trip was removed.", "Udhëtimi u hoq."));
     } catch (requestError) {
       if (!isCurrentSession(session)) return;
       const message = getSupabaseDataErrorMessage(requestError, copy("Seyahat silinemedi.", "The trip could not be deleted."));
@@ -777,10 +777,10 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
 
   if (!user || !accessToken) {
     return <div className="screen cockpit-native-screen">
-      <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
+      <PageHero scene="airport" title={copy("Seyahatlerim", "My trips", "Udhëtimet e mia")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
       <div className="login-required cockpit-auth-state">
         <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span>
-        <h2>{copy("Kokpitini açmak için giriş yap", "Sign in to open your cockpit")}</h2>
+        <h2>{copy("Seyahatlerini yönetmek için giriş yap", "Sign in to manage your trips", "Hyr për të menaxhuar udhëtimet e tua")}</h2>
         <p>{copy("Seyahat tarihlerin ve hazırlık listen yalnızca hesabına bağlı olarak saklanır.", "Your trip dates and checklist are stored securely with your account.")}</p>
         <button className="primary-wide" onClick={onOpenAccount}><Icon name="user" size={18} /> {copy("Giriş yap / hesap aç", "Sign in / create account")}</button>
       </div>
@@ -811,7 +811,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
   };
 
   return <div className="screen cockpit-native-screen">
-    <PageHero scene="airport" title={copy("Seyahat Kokpiti", "Travel Cockpit")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
+    <PageHero scene="airport" title={copy("Seyahatlerim", "My trips", "Udhëtimet e mia")} subtitle={copy("Kalkıştan varışa, yolculuğun elinin altında.", "Your journey at a glance, from takeoff to arrival.")} />
 
     <div className="cockpit-native-toolbar">
       <button className="primary-button" aria-expanded={formOpen} aria-controls="cockpit-trip-form" disabled={Boolean(busy) || loading} onClick={() => { setFormOpen((open) => !open); setError(""); }}>
@@ -853,7 +853,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       {form.mode === "flight" && matchedFlight && <section className="cockpit-flight-summary" aria-label={copy("Uçuş özeti", "Flight summary")}>
         <header><h3>{matchedFlight.flightNumber}</h3><span>{matchedFlight.airline}</span></header>
         <CockpitFlightDetails flight={matchedFlight} now={clock}/>
-        {!matchedFlight.maySave && <p role="status">{lookupMode === "trial" ? copy("Uçuş arama denemesi: sonuçlar görüntülenir, kokpite kaydedilemez.", "Flight lookup trial: results can be viewed but cannot be saved to Cockpit.")
+        {!matchedFlight.maySave && <p role="status">{lookupMode === "trial" ? copy("Uçuş arama denemesi: sonuçları inceleyebilirsin; bu denemede seyahat kaydı oluşturulmaz.", "Flight lookup trial: view results without creating a saved trip.", "Provë kërkimi fluturimi: shiko rezultatet pa krijuar udhëtim të ruajtur.")
           : copy("Bu sonuç yalnız görüntülenebilir; güncel bilgi için yeniden ara.", "This result is view-only; search again for current details.")}</p>}
         {matchedFlight.maySave && !canSaveFlightSelection(matchedFlight, clock) && <p role="status">{copy("Seçimin güncelliğini yeniden kontrol et; tekrar araman gerekiyor.", "Check this selection again; a new search is needed.")}</p>}
         <details className="cockpit-data-note"><summary>{copy("Bilgiler nasıl kullanılır?", "How are these details used?")}</summary><p>{copy("Bu ekran sürekli canlı takip yapmaz. Sağlayıcı bilgileri süreli saklanır. Cihaz bildirimleri yalnız izin verilen verilerle çalışır; PNR ve hazırlık listen korunur.", "This screen does not track flights continuously. Provider details are temporary. Device notifications only use permitted data; your PNR and checklist are kept.")}</p></details>
@@ -953,7 +953,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         </div></details>}
       </>}
       {(form.mode === "other" || manualFlight || matchedFlight?.maySave) && <button className="primary-wide cockpit-submit" disabled={busy === "create" || loading || Boolean(matchedFlight && !canSaveFlightSelection(matchedFlight, clock)) || (form.mode === "flight" && !manualFlight && !matchedFlight)} type="submit">
-        {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Kokpite ekle", "Add to cockpit")}
+        {busy === "create" ? <span className="button-loader" /> : <Icon name="plus" size={18} />} {busy === "create" ? copy("Kaydediliyor", "Saving") : copy("Seyahatlerime ekle", "Add to My trips", "Shto te Udhëtimet e mia")}
       </button>}
     </form>}
 
@@ -962,7 +962,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     {loading && !trips.length ? <div className="skeleton-list cockpit-native-loading" role="status" aria-label={copy("Seyahatler yükleniyor", "Loading trips")}><div /><div /><div /></div>
       : error && !trips.length ? null
       : !trips.length ? <div className="empty-state cockpit-native-empty">
-        <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span><strong>{copy("Henüz kokpit seyahatin yok", "No cockpit trips yet")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
+        <span className="cockpit-feature-artwork"><TravelToolArtwork kind="trips" size={72} /></span><strong>{copy("Henüz seyahat eklemedin", "No trips added yet", "Ende nuk ke shtuar udhëtime")}</strong><p>{copy("İlk seyahatini eklediğinde hazırlık listesi hesabında güvenle saklanır.", "Add your first trip and its checklist will be stored safely with your account.")}</p><button className="primary-button empty-state-action" onClick={() => { setFormOpen(true); setError(""); }}><Icon name="plus" size={17} /> {copy("İlk seyahatimi ekle", "Add my first trip")}</button>
       </div>
       : <>
         <div className="chip-scroll cockpit-trip-selector" role="group" aria-label={copy("Seyahat seçimi", "Choose trip")}>
@@ -1005,7 +1005,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
             </select>
           </label>
 
-          <PersonalTravelCards ownerId={user?.id} tripId={selectedTrip.id}/>
+          <PersonalTravelCards ownerId={user?.id} tripId={selectedTrip.id} trips={trips.map(trip => ({ id: trip.id, title: trip.destinationCity || trip.destinationCountry, startDate: trip.startDate }))}/>
           <button type="button" className="secondary-wide" disabled={Boolean(busy) || loading} onClick={() => { setEditError(""); setEditConflict(false); setEditingTrip(selectedTrip); }}><Icon name="settings" size={18}/>{copy("Seyahati düzenle", "Edit trip", "Ndrysho udhëtimin")}</button>
 
           {selectedTripEvents.length > 0 && <section className="cockpit-events-section">

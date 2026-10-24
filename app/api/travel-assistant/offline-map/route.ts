@@ -3,6 +3,7 @@ import { coordinates, coarseLocation } from "@/lib/travel-assistant/places";
 import {
   normalizeOfflineMap,
   offlineMapQuery,
+  validateOfflinePack,
 } from "@/lib/travel-assistant/offline-map";
 import { queryOverpass } from "@/lib/travel-assistant/overpass";
 import { boundedJson } from "@/lib/travel-assistant/http";
@@ -17,7 +18,7 @@ const cached = unstable_cache(
       c,
     );
   },
-  ["travel-offline-streets-v2"],
+  ["travel-offline-streets-v3"],
   { revalidate: 3600 },
 );
 const downloads = new Map<string, Promise<ReturnType<typeof normalizeOfflineMap>>>();
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
       if (downloads.size >= 8) throw new Error('busy');
       download = cached(c.latitude, c.longitude)
         .then(pack => {
+          // Validate shared-cache responses too, before remembering or sending
+          // anything that the client might label as an offline-ready package.
+          if (!validateOfflinePack(pack) || pack.id !== key) throw new Error('Invalid map pack');
           lastPacks.remember(key, pack);
           return lastPacks.read(key, true) ? pack : { ...pack, stale: true };
         })

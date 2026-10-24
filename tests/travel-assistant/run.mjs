@@ -7,7 +7,7 @@ import ts from 'typescript';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly:true, compilerOptions:{module:'CommonJS',moduleResolution:'node'} });
 const { emergencyContacts,dialUrl,EMERGENCY_CONTACTS } = require('../../lib/travel-assistant/emergency.ts');
-const { coordinates,coarseLocation,normalizePlaces,filterPlaces,overpassQuery,safeWebsite } = require('../../lib/travel-assistant/places.ts');
+const { coordinates,coarseLocation,distanceKm,nearbyQueryBoxes,normalizePlaces,filterPlaces,overpassQuery,safeWebsite } = require('../../lib/travel-assistant/places.ts');
 const { makeQuote,parseAmount } = require('../../lib/travel-assistant/money.ts');
 const { embassiesFor,GUIDE_CARDS,EMBASSIES } = require('../../lib/travel-assistant/guides.ts');
 const { evidenceStatus,dateStamp } = require('../../lib/travel-assistant/evidence.ts');
@@ -25,9 +25,45 @@ test('Coordinates reject coercion and query injection; provider only receives co
   assert.equal(coordinates({latitude:86,longitude:13}),null);
   assert.deepEqual(coarseLocation({latitude:52.512345,longitude:13.412345}),{latitude:52.51,longitude:13.41});
   const query=overpassQuery({latitude:52.512345,longitude:13.412345},'needs');
-  assert.ok(query.includes('around:3000,52.51,13.41'));
+  assert.doesNotMatch(query,/around:|52\.512345|13\.412345/);
+  assert.equal(query,overpassQuery({latitude:52.51,longitude:13.41},'needs'));
+  assert.deepEqual([...new Set([...query.matchAll(/nwr\(([-\d.,]+)\)/g)].map(match=>match[1]))],nearbyQueryBoxes({latitude:52.51,longitude:13.41}));
+  assert.match(query,/\[maxsize:67108864\]/);
   assert.ok(query.includes('out center tags 250'));
   assert.throws(()=>overpassQuery({latitude:52,longitude:13},'injected'));
+});
+test('Indexed nearby bounds stay coarse, split either side of the dateline and clamp both supported polar edges',()=>{
+  const destination=(point,km,bearing)=>{
+    const radians=Math.PI/180,angle=km/6371,heading=bearing*radians,lat=point.latitude*radians,lon=point.longitude*radians;
+    const latitude=Math.asin(Math.sin(lat)*Math.cos(angle)+Math.cos(lat)*Math.sin(angle)*Math.cos(heading));
+    const longitude=lon+Math.atan2(Math.sin(heading)*Math.sin(angle)*Math.cos(lat),Math.cos(angle)-Math.sin(lat)*Math.sin(latitude));
+    return {latitude:latitude/radians,longitude:((longitude/radians+540)%360)-180};
+  };
+  for(const point of [{latitude:52.512345,longitude:13.412345},{latitude:-18,longitude:179.999},{latitude:-18,longitude:-179.999},{latitude:85,longitude:0},{latitude:-85,longitude:0}]){
+    const coarse=coarseLocation(point),boxes=nearbyQueryBoxes(point).map(box=>box.split(',').map(Number));
+    assert.deepEqual(nearbyQueryBoxes(point),nearbyQueryBoxes(coarse));
+    assert.equal(boxes.length,Math.abs(coarse.longitude)===180?2:1);
+    for(const [south,west,north,east] of boxes){
+      assert.ok(south>=-85&&north<=85&&south<north);
+      assert.ok(west>=-180&&east<=180&&west<=east);
+      assert.ok(north-south<0.055&&east-west<0.62,'A local query must not expand into a continental or global scan');
+    }
+    assert.ok(boxes.some(([south,west,north,east])=>coarse.latitude>=south&&coarse.latitude<=north&&coarse.longitude>=west&&coarse.longitude<=east));
+    for(const bearing of [0,90,180,270]){
+      const nearby=destination(coarse,2.9,bearing);
+      if(Math.abs(nearby.latitude)>85)continue;
+      assert.ok(boxes.some(([south,west,north,east])=>nearby.latitude>=south&&nearby.latitude<=north&&nearby.longitude>=west&&nearby.longitude<=east),`The indexed frame covers a nearby point at bearing ${bearing}, even at a wrap or pole`);
+    }
+    if(Math.abs(coarse.longitude)===180){assert.ok(boxes.some(box=>box[1]===-180));assert.ok(boxes.some(box=>box[3]===180));}
+    if(coarse.latitude===85)assert.equal(boxes[0][2],85);
+    if(coarse.latitude===-85)assert.equal(boxes[0][0],-85);
+    for(const mode of ['needs','explore']){
+      const queryBoxes=[...new Set([...overpassQuery(point,mode).matchAll(/nwr\(([-\d.,]+)\)/g)].map(match=>match[1]))];
+      assert.deepEqual(queryBoxes,nearbyQueryBoxes(point));
+    }
+  }
+  assert.throws(()=>nearbyQueryBoxes({latitude:85.01,longitude:0}));
+  assert.throws(()=>nearbyQueryBoxes({latitude:0,longitude:'180);out;'}));
 });
 test('POI modes are separate, malformed and duplicate points rejected, missing attributes stay unknown',()=>{
   const raw={elements:[
@@ -161,7 +197,7 @@ test('Online and cached FX reject wrong pairs, invalid calendar dates and forged
   assert.ok(validateQuote({...q,quote:'EUR',rate:1,previousRate:null,previousDate:null,changePercent:null},'EUR','EUR',fixedNow));
 });
 
-function service(fetcher) {
+function service(fetcher,cache={unstable_cache:fn=>fn}) {
   const output={exports:{}};
   const source=ts.transpileModule(readFileSync(new URL('../../lib/travel-assistant/server.ts',import.meta.url),'utf8'),{
     compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
@@ -170,10 +206,37 @@ function service(fetcher) {
   const provider={exports:{}};
   const providerSource=ts.transpileModule(readFileSync(new URL('../../lib/travel-assistant/overpass.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInContext(`(function(module,exports){${providerSource}\n})`,context)(provider,provider.exports);
-  const localRequire=name=>name==='./overpass'?provider.exports:name==='next/cache'?{unstable_cache:fn=>fn}:name==='../country-intelligence/fetch'?{publicJson:async()=>null}:require(`../../lib/travel-assistant/${name.replace('./','')}.ts`);
+  const localRequire=name=>name==='./overpass'?provider.exports:name==='next/cache'?cache:name==='../country-intelligence/fetch'?{publicJson:async()=>null}:require(`../../lib/travel-assistant/${name.replace('./','')}.ts`);
   vm.runInContext(`(function(require,module,exports){${source}\n})`,context)(localRequire,output,output.exports);
   return output.exports;
 }
+test('Nearby server excludes indexed box corners and points beyond 3.1 km before caching either map mode',async()=>{
+  const center={latitude:41.9,longitude:12.49};
+  const [south,west,north,east]=nearbyQueryBoxes(center)[0].split(',').map(Number);
+  const corner={latitude:north,longitude:east};
+  assert.ok(distanceKm(center,corner)>3.1);
+  const pointNorth=km=>({latitude:center.latitude+km/6371*180/Math.PI,longitude:center.longitude});
+  for(const mode of ['needs','explore']){
+    let calls=0;
+    const points=[center,pointNorth(3.05),pointNorth(3.11),corner,{latitude:south,longitude:west}];
+    const backend=service(async()=>{calls++;return Response.json({elements:points.map((point,index)=>({type:'node',id:index+1,lat:point.latitude,lon:point.longitude,tags:mode==='needs'?{amenity:'pharmacy'}:{tourism:'museum'}}))});});
+    const result=await backend.getPlaces(center,mode);
+    assert.deepEqual(Array.from(result.places,place=>place.id),['node/1','node/2']);
+    assert.ok(result.places.every(place=>distanceKm(result.center,place)<=3.1));
+    assert.equal(result.radius,3000);assert.equal(result.limited,false);
+    assert.equal(await backend.getPlaces(center,mode),result);assert.equal(calls,1,'Cached results retain the same circularly filtered records');
+  }
+});
+test('Nearby cache revision does not revive legacy around-query snapshots',async()=>{
+  let calls=0;const keys=[];
+  const center={latitude:41.9,longitude:12.49},fetchedAt=new Date().toISOString();
+  const [, ,north,east]=nearbyQueryBoxes(center)[0].split(',').map(Number);
+  const legacy={places:normalizePlaces({elements:[{type:'node',id:99,lat:north,lon:east,tags:{amenity:'pharmacy'}}]},'needs',fetchedAt),center,fetchedAt,limited:false,radius:3000};
+  const backend=service(async()=>{calls++;return Response.json({elements:[]});},{unstable_cache:(fn,key)=>{keys.push(key);return key.includes('travel-assistant-places-v1')?async()=>legacy:fn;}});
+  const result=await backend.getPlaces(center,'needs');
+  assert.deepEqual(keys.map(key=>Array.from(key)),[['travel-assistant-places-v2']]);
+  assert.equal(calls,1);assert.equal(result.places.length,0);
+});
 test('Provider requests for the same coarse cell share one in-flight call',async()=>{
   let calls=0,release;
   const backend=service(async()=>{calls++;return new Promise(resolve=>{release=resolve;});});

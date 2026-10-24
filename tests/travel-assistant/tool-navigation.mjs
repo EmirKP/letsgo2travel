@@ -1,16 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
 
 const jsx = (type, props, key) => ({ type, props, key });
-function load(path, imports, globals = {}) {
-  const code = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+function load(path, imports = {}, globals = {}) {
+  const file = resolve(path);
+  if (file.endsWith('.json')) return { __esModule: true, default: JSON.parse(readFileSync(file, 'utf8')) };
+  const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const output = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name.endsWith('.css')) return {};
+    if (name.startsWith('.')) {
+      const base = resolve(dirname(file), name);
+      const target = [base, `${base}.ts`, `${base}.json`].find(existsSync);
+      assert.ok(target, `Resolvable local import: ${name}`);
+      return load(target);
+    }
     throw Error(`Unstubbed import: ${name}`);
   }, output, output.exports);
   return output.exports;
@@ -27,11 +36,17 @@ const find = (view, type, predicate = () => true) => nodes(view).find(node => no
 const button = (view, label) => find(view, 'button', props => props['aria-label'] === label || text(props.children).trim() === label || text(find({ props }, 'strong')) === label);
 const cardLabels = view => nodes(view).filter(node => node.type === 'button' && node.props.className === 'ta-tool-card').map(node => text(find(node, 'strong')));
 const searchText = load('mobile/src/lib/searchText.ts', {});
+const money = load('lib/travel-assistant/money.ts', {});
+const practical = load('lib/travel-assistant/country-practical.ts', {
+  '../country-intelligence/currencies': load('lib/country-intelligence/currencies.ts', {}),
+  '../country-intelligence/time-zones': load('lib/country-intelligence/time-zones.ts', {}),
+  './emergency': load('lib/travel-assistant/emergency.ts', {}),
+});
 
 // Run the real component and event closures. Only child tools and React's host
 // are replaced. Refs attach during a simulated commit, before animation frames.
 function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [], locate = async () => {throw Error('unavailable');} } = {}) {
-  const slots = [], frames = [], selectedCountries = [], phrases = [], effects = [];
+  const slots = [], frames = [], selectedCountries = [], phrases = [], localTips = [], effects = [];
   let cursor = 0, locale = initialLocale, view, focused, focusOptions, scrolled, scrollOptions, oldRefs = [], signIns = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { slots[i].value = typeof next === 'function' ? next(slots[i].value) : next; }]; },
@@ -51,8 +66,11 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR' }) },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en, countryName: (_, fallback) => fallback }) },
     './CountryPicker': { CountryPicker: 'CountryPicker' },
+    './CountryQuickFacts': { CountryQuickFacts: 'CountryQuickFacts' },
     '../lib/travelSelection': selection || { readTravelCountry: () => savedCountry, selectTravelCountry: code => selectedCountries.push(code) },
     '../lib/searchText': searchText,
+    '../../../lib/travel-assistant/country-practical': practical,
+    '../../../lib/travel-assistant/money': money,
     './TravelSafety': { TravelSafety: 'TravelSafety', EmbassyCards: 'EmbassyCards', EvidenceLine: 'EvidenceLine' },
     '../../../lib/travel-assistant/evidence': { evidenceStatus: () => 'current' },
     '../hooks/useCurrentTime': { useCurrentTime: () => Date.parse('2026-09-27T08:00:00Z') },
@@ -60,7 +78,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
   };
   const api = load('mobile/src/components/TravelAssistant.tsx', imports, { window: { requestAnimationFrame: fn => frames.push(fn) } });
-  let props = { initialCountry, onPhrases: country => phrases.push(country), onNotice: () => {}, accessToken: '', onSignIn: () => signIns++ };
+  let props = { initialCountry, onPhrases: country => phrases.push(country), onLocalTips: country => localTips.push(country), onNotice: () => {}, accessToken: '', onSignIn: () => signIns++ };
   const h = {
     render(next = {}) {
       props = { ...props, ...next }; cursor = 0; view = api.TravelAssistant(props);
@@ -74,7 +92,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     search(query) { find(view, 'input', props => props.type === 'search').props.onChange({ target: { value: query } }); return h.render(); },
     expand() { const control = find(view, 'button', props => props['aria-controls'] === 'ta-other-tools'); if (!control.props['aria-expanded']) { control.props.onClick(); h.render(); } return view; },
     language(next) { locale = next; return h.render(); },
-    focused: () => focused, focusOptions: () => focusOptions, scrolled: () => scrolled, scrollOptions: () => scrollOptions, selectedCountries, phrases, signIns: () => signIns,
+    focused: () => focused, focusOptions: () => focusOptions, scrolled: () => scrolled, scrollOptions: () => scrollOptions, selectedCountries, phrases, localTips, signIns: () => signIns,
   };
   h.render(); return h;
 }
@@ -87,13 +105,16 @@ test('Auto country never overrides a manual country or an abandoned tool; denied
  const denied=harness();denied.choose('Emergency help');await new Promise(setImmediate);assert.ok(text(denied.render()).includes('Location unavailable'));
  find(denied.render(),'CountryPicker').props.onChange('TR');assert.equal(find(denied.render(),'TravelSafety').props.country,'TR');
  let late;const leave=harness({locate:()=>new Promise(resolve=>{late=resolve;})});leave.choose('Emergency help');leave.choose('All tools');late({country:'TR'});await new Promise(setImmediate);
- assert.equal(find(leave.render(),'CountryPicker'),undefined);
+ const directory=leave.render();
+ assert.equal(find(directory,'CountryPicker',props=>props.label==='Travel country (optional)').props.value,'','An abandoned GPS result cannot populate the directory country');
+ assert.equal(find(directory,'TravelSafety'),undefined,'Returning to the directory must not reopen a country-dependent tool');
 });
 
 test('Four main tools and all remaining tools stay reachable without an unrelated country gate', () => {
   const h = harness();
   assert.deepEqual(cardLabels(h.render()), ['Sightseeing map', 'Translate', 'Money', 'Saved places']);
-  assert.equal(find(h.render(), 'CountryPicker'), undefined);
+  const optionalCountry=find(h.render(),'CountryPicker',props=>props.label==='Travel country (optional)');
+  assert.ok(optionalCountry);assert.equal(optionalCountry.props.value,'');assert.notEqual(optionalCountry.props.required,true);
   assert.equal(cardLabels(h.expand()).length, 10);
   for (const [label, component, mode] of [
     ['Sightseeing map', 'TravelNearby', 'explore'], ['Essentials map', 'TravelNearby', 'needs'],
@@ -109,7 +130,19 @@ test('Four main tools and all remaining tools stay reachable without an unrelate
   }
   assert.ok(button(h.render(), 'Emergency help'));
   assert.ok(button(h.render(), 'Consulate'));
-  assert.ok(button(h.render(), 'Before you go'));
+  assert.ok(button(h.render(), 'Country Guide'));
+});
+
+test('An optional directory country carries into country-dependent tools without gating independent tools or asking for GPS again',()=>{
+  let locations=0;
+  const h=harness({locate:async()=>{locations++;throw Error('Unexpected GPS request');}});
+  find(h.render(),'CountryPicker',props=>props.label==='Travel country (optional)').props.onChange('GB');h.render();
+  let view=h.choose('Money');assert.ok(find(view,'TravelMoney'));assert.equal(find(view,'CountryPicker'),undefined);
+  assert.equal(find(view,'TravelMoney').props.initialBaseCurrency,'GBP');
+  assert.equal(find(view,'TravelMoney').props.destinationCountry,'GB');
+  h.choose('All tools');assert.equal(find(h.render(),'CountryPicker',props=>props.label==='Travel country (optional)').props.value,'GB');
+  view=h.choose('Emergency help');assert.equal(find(view,'TravelSafety').props.country,'GB');
+  assert.deepEqual(h.selectedCountries,['GB']);assert.equal(locations,0);
 });
 
 test('Search handles either language, Turkish keyboard variants, and the example pharmacy query', () => {
@@ -139,11 +172,46 @@ test('Country-dependent tools share an explicit destination and keep citizenship
   find(view, 'CountryPicker', props => props.label === 'Your citizenship').props.onChange('GB');
   assert.equal(find(h.render(), 'EmbassyCards').props.citizenship, 'GB');
   assert.deepEqual(h.selectedCountries, ['GB'], 'Citizenship changes do not overwrite the destination');
-  h.choose('All tools'); h.expand(); view = h.choose('Before you go');
+  h.choose('All tools'); h.expand(); view = h.choose('Country Guide');
   assert.equal(find(view, 'CountryPicker').props.value, 'GB');
-  h.choose('Phrases and cultural guidance'); assert.deepEqual(h.phrases, ['GB']);
+  h.choose('Open useful phrases'); assert.deepEqual(h.phrases, ['GB']);
+  h.choose('Local tips and rules'); assert.deepEqual(h.localTips, ['GB']);
   const initial = harness({ initialCountry: 'TR', savedCountry: 'GB' });
   assert.equal(find(initial.choose('Emergency help'), 'TravelSafety').props.country, 'TR', 'Explicit destination overrides the saved preference');
+});
+
+test('Country Guide and directory Money share the destination currency and preserve manual converter storage', () => {
+  const h = harness({ initialCountry: 'JP' }); h.expand();
+  let view = h.choose('Country Guide'); assert.equal(find(view, 'CountryQuickFacts').props.country, 'JP');
+  find(view, 'CountryQuickFacts').props.onOpenMoney('JPY'); view = h.render();
+  assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'JPY');
+  assert.equal(find(h.render({ accessToken: 'ANOTHER_SESSION' }), 'TravelMoney').props.initialBaseCurrency, 'JPY', 'Unrelated parent updates preserve the handoff');
+  h.choose('All tools'); view = h.choose('Money'); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'JPY', 'The explicitly selected journey country also applies to directory entry');
+  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
+  find(view, 'CountryQuickFacts').props.onOpenMoney('GBP'); view = h.render(); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'GBP');
+  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('BG'); view = h.render();
+  find(view, 'CountryQuickFacts').props.onOpenMoney('EUR'); view = h.render(); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'EUR', 'Bulgaria uses the practical guide’s reviewed EUR record rather than the older cost catalogue');
+  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('ZZ'); view = h.render();
+  find(view, 'CountryQuickFacts').props.onOpenMoney(); view = h.render();
+  assert.equal(find(view, 'TravelMoney'), undefined, 'An absent currency never navigates to an unrelated saved pair');
+  assert.equal(find(view, 'CountryQuickFacts').props.country, 'ZZ');
+});
+
+test('Country-guide handoffs validate the actual currency argument, including a supported second currency', () => {
+  const h = harness({ initialCountry: 'PA' }); h.expand();
+  let view = h.choose('Country Guide');
+  assert.equal(practical.countryPracticalInfo('PA').currency.code, 'PAB');
+  assert.deepEqual(Array.from(practical.countryPracticalInfo('PA').currency.codes), ['PAB', 'USD']);
+  for (const unsupported of ['PAB', 'IDR', 'ZZZ', '', undefined]) {
+    find(view, 'CountryQuickFacts').props.onOpenMoney(unsupported); view = h.render();
+    assert.equal(find(view, 'TravelMoney'), undefined, `${unsupported}: no substitute converter currency`);
+    assert.equal(find(view, 'CountryQuickFacts').props.country, 'PA');
+  }
+  find(view, 'CountryQuickFacts').props.onOpenMoney('USD'); view = h.render();
+  assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'USD', 'Use the supported currency chosen by the guide rather than deriving the unsupported primary PAB');
+  h.choose('All tools'); view = h.choose('Money');
+  assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'USD', 'Directory entry carries the same supported destination currency');
+  assert.deepEqual(h.selectedCountries, [], 'Incoming context does not overwrite stored manual choices');
 });
 
 test('Opening and leaving a result focus its heading and preserve the previous search', () => {
@@ -151,7 +219,7 @@ test('Opening and leaving a result focus its heading and preserve the previous s
   h.search('translate'); h.choose('Translate');
   assert.equal(h.focused().type, 'h2'); assert.equal(text(h.focused()), 'Translate');
   assert.equal(h.focused().props.tabIndex, -1);
-  assert.equal(h.scrolled().props.className, 'ta-tool-header');
+  assert.ok(h.scrolled().props.className.split(' ').includes('ta-tool-header'));
   assert.ok(button(h.scrolled(), 'All tools'), 'Scroll the back control into view along with the title');
   assert.equal(h.scrollOptions().block, 'start');
   assert.equal(h.scrollOptions().behavior, 'auto');
@@ -206,11 +274,14 @@ test('Explicit country selections follow the user between phrases, assistant and
     '../lib/api': { getTravelNow: () => { throw Error('Country switching must not fetch live data'); } },
     '../lib/i18n': { useI18n: () => ({ locale: 'en', copy: (_, en) => en, countryName: (_, fallback) => fallback }) },
     '../lib/native': { openExternal: () => {} }, '../lib/travelSelection': selection,
+    '../lib/eventSearchContext': { nearbyEventContext:()=>{throw Error('Country switching must not start a nearby-event lookup');} },
     '../components/TravelSafety': { EvidenceLine: 'EvidenceLine' },
   });
   const render = () => { cursor = 0; return api.TravelCompanionScreen({ accessToken: '', onSignIn: () => {}, onNotice: () => {}, onNavigate: () => {} }); };
   let view = render();
   button(view, 'Useful phrases').props.onClick(); view = render();
+  assert.equal(find(view, 'CountryPicker').props.value, '', 'First entry never silently assigns Kosovo');
+  assert.match(text(view), /Choose your destination/);
   find(view, 'CountryPicker').props.onChange('GB'); view = render();
   assert.equal(find(view, 'CountryPicker').props.value, 'GB');
   assert.equal(selection.readTravelCountry(), 'GB', 'Phrase selection is available to the assistant');
@@ -227,21 +298,68 @@ test('Explicit country selections follow the user between phrases, assistant and
   button(view, 'Tools').props.onClick(); view = render();
   const reopened = harness({ selection });
   assert.equal(find(reopened.choose('Emergency help'), 'TravelSafety').props.country, 'GB', 'Local tips also update the remounted assistant');
+  find(view, 'TravelAssistant').props.onLocalTips('TR'); view = render();
+  assert.equal(view.props['data-section'], 'etiquette', 'The culture link reaches local advice rather than the phrase list');
+  assert.equal(find(view, 'CountryPicker').props.value, 'TR'); assert.equal(selection.readTravelCountry(), 'TR');
 });
 
 
 test('Guide cards use available Albanian text and mark English fallback only for untranslated cards', () => {
   const cards = [
     { country: 'TR', category: 'water', title: { tr: 'Başlık', en: 'English title', sq: 'Titull shqip' }, text: { tr: 'Metin', en: 'English body', sq: 'Tekst shqip' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
-    { country: 'GB', category: 'law', title: { tr: 'Kural', en: 'English fallback' }, text: { tr: 'Metin', en: 'Untranslated body' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
+    { country: 'GB', category: 'hours', title: { tr: 'Saatler', en: 'English fallback' }, text: { tr: 'Metin', en: 'Untranslated body' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
   ];
   const h = harness({ initialCountry: 'TR', locale: 'sq', guides: cards });
-  h.expand(); let view = h.choose('Before you go');
+  h.expand(); let view = h.choose('Country Guide');
   assert.match(text(view), /Titull shqip.*Tekst shqip/);
   assert.doesNotMatch(text(view), /English title|English body|Disa karta ende/);
   assert.equal(find(view, 'article').props.lang, 'sq');
   find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
   assert.match(text(view), /Disa karta ende/); assert.match(text(view), /English fallback.*Untranslated body/);
   assert.equal(find(view, 'article').props.lang, 'en');
-  view = h.language('tr'); assert.match(text(view), /Kural.*Metin/); assert.equal(find(view, 'article').props.lang, 'tr');
+  view = h.language('tr'); assert.match(text(view), /Saatler.*Metin/); assert.equal(find(view, 'article').props.lang, 'tr');
+});
+
+test('A selected destination reaches area tools and transit without fabricating a city point', () => {
+  const h = harness({ initialCountry: 'FR' }); h.expand();
+  for (const [label, component] of [['Sightseeing map', 'TravelNearby'], ['Essentials map', 'TravelNearby'], ['Transport', 'TravelTransit'], ['Offline map', 'TravelOfflineMap']]) {
+    const child = find(h.choose(label), component);
+    assert.equal(child.props.destinationCountry, 'FR');
+    assert.equal(child.props.initialArea, undefined, 'A country is never treated as a precise search point');
+    h.choose('All tools');
+  }
+  const h2 = harness({ initialCountry: 'GB' }); h2.expand();
+  assert.equal(find(h2.choose('Transport'), 'TravelTransit').props.destinationLabel, 'United Kingdom');
+  h2.choose('All tools');
+  h2.render({ initialCountry: 'TR' });
+  assert.equal(find(h2.choose('Transport'), 'TravelTransit').props.destinationCountry, 'TR', 'A new explicit destination reaches retained screens');
+});
+
+test('Country guide keeps the six-fact entry, has one phrase action and routes laws/culture to Local tips', () => {
+  const h = harness({ initialCountry: 'TR', guides: [
+    {country:'TR',category:'law',title:{tr:'Kanun',en:'Law'},text:{tr:'Kural',en:'Law advice'}},
+    {country:'TR',category:'culture',title:{tr:'Kültür',en:'Culture'},text:{tr:'Gelenek',en:'Culture advice'}},
+  ] }); h.expand();
+  let view = h.choose('Country Guide');
+  assert.equal(find(view, 'CountryQuickFacts').props.country, 'TR');
+  assert.equal(nodes(view).filter(node => node.type === 'button' && /Open useful phrases/.test(text(node))).length, 1);
+  assert.equal(find(view, 'article'), undefined, 'Law and culture are no longer duplicated below practical facts');
+  assert.doesNotMatch(text(view), /not ready|Phrases and cultural guidance|Law advice|Culture advice/);
+  h.choose('Local tips and rules'); assert.deepEqual(h.localTips, ['TR']); assert.deepEqual(h.phrases, []);
+  find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
+  h.choose('Local tips and rules'); assert.deepEqual(h.localTips, ['TR', 'GB']);
+  h.choose('Open useful phrases'); assert.deepEqual(h.phrases, ['GB']);
+});
+
+test('Moving local advice out of the country guide preserves it even without a local phrase pack', () => {
+  const guides = load('lib/travel-assistant/guides.ts', {});
+  const essentials = load('mobile/src/data/travelEssentials.ts', {'../../../lib/travel-assistant/guides':guides});
+  assert.equal(essentials.essentialProfile('TR'), null, 'Türkiye currently uses the emergency phrase fallback');
+  const profile=essentials.fallbackEssentialProfile('TR','Türkiye','TR');
+  const reviewed=guides.GUIDE_CARDS.filter(card=>card.country==='TR'&&(card.category==='law'||card.category==='culture'));
+  assert.ok(reviewed.length>0);
+  for(const rule of reviewed){
+    const entries=profile.etiquette.filter(item=>item.id===`verified-${rule.title.en}`);
+    assert.equal(entries.length,1);assert.equal(entries[0].en,rule.text.en);assert.equal(entries[0].sourceUrl,rule.sourceUrl);
+  }
 });

@@ -48,22 +48,32 @@ test('timeout fences late provider callbacks so a newer location cannot be overw
 const jsx=(type,props,key)=>({type,props,key});
 const nodes=value=>!value||typeof value!=='object'?[]:[value,...[value.props?.children].flat(Infinity).flatMap(nodes)];
 const node=(value,type)=>nodes(value).find(n=>n.type===type);
-function offlineHarness(){
- const slots=[],effects=[];let cursor=0,resolve,requests=0;const location=new Promise(done=>{resolve=done;});
+function offlineHarness(props={}){
+ const slots=[],effects=[];let cursor=0,resolve,requests=0,locations=0;const location=new Promise(done=>{resolve=done;});
  const react={
   useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],next=>{slots[i]=typeof next==='function'?next(slots[i]):next;}];},
   useRef(initial){const i=cursor++;return slots[i]||=( {current:initial});},useCallback:fn=>fn,useMemo:fn=>fn(),
   useEffect(fn,deps){const i=cursor++;if(!slots[i]){slots[i]={deps};effects.push(fn);}},
  };
  const offline={readOfflineMaps:()=>[],hasUnreadableOfflineMaps:()=>false,saveOfflineMap:()=>{throw Error('Unexpected automatic save');}};
- const api=load('mobile/src/components/TravelOfflineMap.tsx',{'react':react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},leaflet:{default:{}},'../lib/localeFormatting':{formatAppDate:()=>''},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},'../hooks/useCurrentTime':{useCurrentTime:()=>1000},'../lib/config':{config:{}},'../lib/api':{requestJson:async()=>{requests++;},ApiError:class extends Error{}},'../lib/travelAssistant':{locateForTravel:()=>location},'../lib/offlineMaps':offline,'../../../lib/travel-assistant/offline-map':{validateOfflinePack:()=>null},'./Sheet':{Sheet:'Sheet'},'../lib/native':{openExternal:()=>{}},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},'../lib/travelAreas':centers},{AbortController});
- return{render(){cursor=0;const view=api.TravelOfflineMap();effects.splice(0).forEach(fn=>fn());return view;},resolve,get requests(){return requests;}};
+ const api=load('mobile/src/components/TravelOfflineMap.tsx',{'react':react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},leaflet:{default:{}},'../lib/localeFormatting':{formatAppDate:()=>''},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en'})},'../hooks/useCurrentTime':{useCurrentTime:()=>1000},'../lib/config':{config:{}},'../lib/api':{requestJson:async()=>{requests++;},ApiError:class extends Error{}},'../lib/travelAssistant':{locateForTravel:()=>{locations++;return location;}},'../lib/offlineMaps':offline,'../../../lib/travel-assistant/offline-map':{validateOfflinePack:()=>null},'./Sheet':{Sheet:'Sheet'},'../lib/native':{openExternal:()=>{}},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},'../lib/travelAreas':centers},{AbortController});
+ return{render(){cursor=0;const view=api.TravelOfflineMap(props);effects.splice(0).forEach(fn=>fn());return view;},resolve,get requests(){return requests;},get locations(){return locations;}};
 }
 test('offline map only preselects GPS; never downloads automatically and late GPS cannot override manual area',async()=>{
  const h=offlineHarness();h.render();h.resolve({latitude:41.01,longitude:28.98});await new Promise(setImmediate);
  assert.deepEqual(plain(node(h.render(),'TravelAreaPicker').props.value),{latitude:41.01,longitude:28.98});assert.equal(h.requests,0);
  const manual=offlineHarness();node(manual.render(),'TravelAreaPicker').props.onChange({latitude:51.51,longitude:-.13});manual.resolve({latitude:41.01,longitude:28.98});await new Promise(setImmediate);
  assert.deepEqual(plain(node(manual.render(),'TravelAreaPicker').props.value),{latitude:51.51,longitude:-.13});assert.equal(manual.requests,0);
+});
+
+test('A selected country keeps offline maps on the destination and waits for an explicit area and download', () => {
+ const h=offlineHarness({destinationCountry:'FR'});let view=h.render();
+ assert.equal(h.locations,0);assert.equal(h.requests,0);assert.equal(node(view,'TravelAreaPicker').props.country,'FR');
+ assert.equal(node(view,'TravelAreaPicker').props.value,null,'No invented country-centre point is selected for a small-area download');
+ assert.equal(nodes(view).find(item=>item.type==='button'&&text(item)==='Download selected area').props.disabled,true);
+ node(view,'TravelAreaPicker').props.onChange({latitude:48.86,longitude:2.35});view=h.render();
+ assert.equal(h.locations,0);assert.equal(h.requests,0,'Area selection alone must never download');
+ assert.equal(nodes(view).find(item=>item.type==='button'&&text(item)==='Download selected area').props.disabled,false);
 });
 
 function hooks(){
@@ -97,4 +107,58 @@ test('transit location is a suggestion: a late fix cannot replace a typed depart
  const render=()=>h.render(()=>api.worldForTest());render();
  node(render(),'input').props.onChange({target:{value:'My hotel, London'}});finish({latitude:41.01,longitude:28.98});await new Promise(setImmediate);
  assert.equal(node(render(),'input').props.value,'My hotel, London');h.unmount();
+});
+
+test('A destination map waits for the selected area and requests GPS only through its explicit nearby action',async()=>{
+ let locations=0;const calls=[];const h=hooks();
+ const api=load('mobile/src/components/TravelNearby.tsx',{...sharedImports,react:h.react,
+  '../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{validatePlaces:data=>data},
+  '../lib/travelAssistant':{locateForTravel:async()=>{locations++;return{latitude:41.01,longitude:28.98};},loadPlaces:async center=>{calls.push(center);return{places:[]};},directionsUrl:()=>''},
+  '../lib/savedPlaces':{readSavedPlaces:()=>({items:[]}),subscribeSavedPlaces:()=>()=>{}},'./Sheet':{Sheet:'Sheet'},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},
+ });
+ const render=()=>h.render(()=>api.TravelNearby({mode:'explore',citizenship:'',destinationCountry:'FR'}));
+ let view=render();assert.equal(locations,0);assert.equal(calls.length,0);assert.equal(node(view,'TravelAreaPicker').props.country,'FR');
+ node(view,'TravelAreaPicker').props.onChange({latitude:48.86,longitude:2.35});view=render();
+ nodes(view).find(n=>n.type==='button'&&text(n)==='Search selected area').props.onClick();await new Promise(setImmediate);
+ assert.equal(locations,0);assert.deepEqual(plain(calls),[{latitude:48.86,longitude:2.35}]);
+ nodes(render()).find(n=>n.type==='button'&&text(n)==='Find places near me').props.onClick();await new Promise(setImmediate);
+ assert.equal(locations,1);assert.deepEqual(plain(calls.at(-1)),{latitude:41.01,longitude:28.98});h.unmount();
+});
+
+test('Destination transit stays empty until addresses are entered and location remains an explicit choice',async()=>{
+ let locations=0;const h=hooks();const opened=[];
+ const api=load('mobile/src/components/TravelTransit.tsx',{...sharedImports,react:h.react,'../lib/native':{openExternal:async url=>{opened.push(url);return true;}},'../lib/travelAssistant':{locateForTravel:async()=>{locations++;return{latitude:41.01,longitude:28.98};}},'../../../lib/travel-assistant/transit':{transitDirectionsUrl:(from,to)=>from&&to?`https://maps.example/${from}/${to}`:'',validateTransit:()=>null,validStopId:()=>false}}, {},'exports.worldForTest=WorldwideTransit;');
+ const render=()=>h.render(()=>api.worldForTest({destinationCountry:'FR',destinationLabel:'France'}));let view=render();
+ assert.equal(locations,0);assert.match(text(view),/Travel country: France/);
+ const fields=nodes(view).filter(n=>n.type==='input');assert.deepEqual(fields.map(n=>n.props.value),['','']);
+ fields[0].props.onChange({target:{value:'My hotel, Paris'}});fields[1].props.onChange({target:{value:'Louvre, Paris'}});view=render();
+ nodes(view).find(n=>n.type==='button'&&text(n)==='Open transit routes').props.onClick();await new Promise(setImmediate);
+ assert.equal(locations,0);assert.match(opened[0],/My hotel, Paris\/Louvre, Paris/);
+ nodes(view).find(n=>n.type==='button'&&text(n)==='Use my location as departure').props.onClick();await new Promise(setImmediate);
+ assert.equal(locations,1);assert.equal(node(render(),'input').props.value,'41.01,28.98');h.unmount();
+});
+
+test('Country area picker offers only matching city shortcuts and opens the destination map without selecting a point',()=>{
+ for(const country of ['FR','GB','ID']){
+  const h=hooks();let frames=0;
+  const api=load('mobile/src/components/TravelAreaPicker.tsx',{...sharedImports,react:h.react,leaflet:{default:{}},'../../../lib/travel-assistant/places':places,'../lib/travelAreas':centers,'../lib/deviceArea':{countryMapBounds:async()=>{frames++;return null;}}});
+  const changes=[];const tree=h.render(()=>api.TravelAreaPicker({value:null,country,onChange:point=>changes.push(point)}));
+  const options=nodes(tree).filter(n=>n.type==='option').map(text);
+  assert.ok(!options.includes('İstanbul'));
+  if(country==='FR')assert.ok(options.includes('Paris'));
+  if(country==='GB')assert.ok(options.includes('London'));
+  if(country==='ID')assert.equal(options.length,0,'Without curated cities the country map is still available');
+  assert.equal(node(tree,'button').props['aria-expanded'],true);assert.equal(changes.length,0);assert.equal(frames,0,'Rendering picker does not infer a search area');
+ }
+});
+
+test('Country map framing uses on-device boundaries, including dateline areas, and never requests location',async()=>{
+ let locations=0;
+ const api=load('mobile/src/lib/deviceArea.ts',{'d3-geo':{geoBounds,geoContains},'./travelAssistant':{locateForTravel:async()=>{locations++;throw Error('unexpected');}},'../../../lib/travel-assistant/places':places,'./travelAreas':centers,'../data/locationCountries.json':{default:JSON.parse(readFileSync('mobile/src/data/locationCountries.json','utf8'))}});
+ for(const code of ['FR','GB','ID','FJ']){
+  const bounds=await api.countryMapBounds(code);assert.ok(bounds);
+  assert.ok(bounds[0][0]<=bounds[1][0]);assert.ok(bounds[0][1]<=bounds[1][1]);
+  assert.ok(bounds[1][1]-bounds[0][1]<=360);
+ }
+ assert.equal(await api.countryMapBounds('ZZ'),null);assert.equal(locations,0);
 });

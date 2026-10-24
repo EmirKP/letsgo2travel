@@ -6,12 +6,15 @@ import { formatAppDate } from "../lib/localeFormatting";
 import { MAX_PERSONAL_CARDS, PERSONAL_TRAVEL_CARDS_EVENT, readPersonalTravelCards, removePersonalTravelCard, restorePersonalTravelCard, savePersonalTravelCard, type PersonalCardDraft, type PersonalTravelCard } from "../lib/personalTravelCards";
 import "./personal-travel-cards.css";
 
-export function PersonalTravelCards({ ownerId, tripId }: { ownerId?: string | null; tripId?: string }) {
+export type PersonalTravelCardTrip = { id: string; title: string; startDate?: string };
+type PersonalTravelCardsProps = { ownerId?: string | null; tripId?: string; trips?: readonly PersonalTravelCardTrip[] };
+
+export function PersonalTravelCards({ ownerId, tripId, trips = [] }: PersonalTravelCardsProps) {
   // Changing account also discards form/undo state before another account renders.
-  return <PersonalCardsEditor key={`${ownerId || "guest"}:${tripId || "all"}`} ownerId={ownerId} tripId={tripId}/>;
+  return <PersonalCardsEditor key={`${ownerId || "guest"}:${tripId || "all"}`} ownerId={ownerId} tripId={tripId} trips={trips}/>;
 }
 
-function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tripId?: string }) {
+function PersonalCardsEditor({ ownerId, tripId, trips = [] }: PersonalTravelCardsProps) {
   const { copy, dateLocale } = useI18n();
   const [stored, setStored] = useState(() => readPersonalTravelCards(ownerId));
   const [editing, setEditing] = useState<string | null>(null);
@@ -27,6 +30,15 @@ function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tri
     return () => { window.removeEventListener(PERSONAL_TRAVEL_CARDS_EVENT, reload); window.removeEventListener("storage", reload); };
   }, [ownerId]);
   const items = tripId ? stored.items.filter(item => item.tripId === tripId) : stored.items;
+  const tripOptions = tripId && !trips.some(trip => trip.id === tripId)
+    ? [{ id: tripId, title: copy("Bu seyahat", "This trip", "Ky udhëtim") }, ...trips]
+    : trips;
+  const tripLabel = (trip: PersonalTravelCardTrip) => {
+    const date = trip.startDate && /^\d{4}-\d{2}-\d{2}$/.test(trip.startDate) ? new Date(`${trip.startDate}T12:00:00`) : null;
+    return date && Number.isFinite(date.getTime())
+      ? `${trip.title} · ${formatAppDate(date, dateLocale, { day: "numeric", month: "short", year: "numeric" })}`
+      : trip.title;
+  };
   const start = (card?: PersonalTravelCard) => {
     setEditing(card?.id || "new");
     setDraft(card ? { title: card.title, hotelName: card.hotelName, address: card.address, reservationNote: card.reservationNote, tripId: card.tripId } : { title: "", hotelName: "", address: "", reservationNote: "", tripId: tripId || null });
@@ -39,7 +51,9 @@ function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tri
       setError(result.error === "limit" ? copy(`En fazla ${MAX_PERSONAL_CARDS} kart saklayabilirsin.`, `You can keep up to ${MAX_PERSONAL_CARDS} cards.`, `Mund të ruash deri në ${MAX_PERSONAL_CARDS} karta.`) : result.error === "invalid" ? copy("Bir başlık ve en az bir otel, adres veya not yaz.", "Add a title and at least one hotel, address or note.") : copy("Kart kaydedilemedi. Cihaz depolamasını kontrol et; yazdıkların formda duruyor.", "Could not save. Check device storage; your text is still in the form."));
       return;
     }
-    setStored(result); setEditing(null); setError(""); setMessage(copy("Kart bu cihaza kaydedildi. İnternetsiz de açabilirsin.", "Card saved on this device. You can open it offline."));
+    setStored(result); setEditing(null); setError(""); setMessage(tripId && draft.tripId !== tripId
+      ? copy("Kart bu seyahatten ayrıldı. Planlarındaki kişisel kartlarından açabilirsin.", "Card removed from this trip. You can open it in your personal cards under Plans.", "Karta u shkëput nga ky udhëtim. Mund ta hapësh te kartat personale në Planet.")
+      : copy("Kart bu cihaza kaydedildi. İnternetsiz de açabilirsin.", "Card saved on this device. You can open it offline.", "Karta u ruajt në këtë pajisje. Mund ta hapësh edhe pa internet."));
   };
   const remove = (card: PersonalTravelCard) => {
     const result = removePersonalTravelCard(ownerId, card.id);
@@ -62,12 +76,20 @@ function PersonalCardsEditor({ ownerId, tripId }: { ownerId?: string | null; tri
     {removed && <div className="ptc-undo" role="status"><span>{copy("Kart kaldırıldı.", "Card removed.")}</span><button type="button" onClick={undo}>{copy("Geri al", "Undo")}</button><button type="button" onClick={() => setRemoved(null)} aria-label={copy("Geri almayı kapat", "Dismiss undo")}><Icon name="close" size={17}/></button></div>}
     {editing ? <form className="ptc-form" onSubmit={save}>
       <label htmlFor={`${formId}-name`}>{copy("Kartın adı", "Card title")}<input id={`${formId}-name`} required maxLength={80} value={draft.title} placeholder={copy("Roma hafta sonu", "Rome weekend")} onChange={event => setDraft(value => ({ ...value, title: event.target.value }))}/></label>
+      <label htmlFor={`${formId}-trip`}>{copy("Bağlı seyahat", "Linked trip", "Udhëtimi i lidhur")}<select id={`${formId}-trip`} value={draft.tripId || ""} aria-describedby={`${formId}-trip-help`} onChange={event => setDraft(value => ({ ...value, tripId: event.target.value || null }))}>
+        <option value="">{copy("Bir seyahate bağlı değil", "Not linked to a trip", "Nuk është lidhur me një udhëtim")}</option>
+        {draft.tripId && !tripOptions.some(trip => trip.id === draft.tripId) && <option value={draft.tripId}>{copy("Kayıtlı seyahat (şu anda listede yok)", "Saved trip (currently unavailable)", "Udhëtim i ruajtur (aktualisht i padisponueshëm)")}</option>}
+        {tripOptions.map(trip => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}
+      </select><small id={`${formId}-trip-help`} className="ptc-trip-help">{copy("Seçtiğin seyahatin içinde de görünür. Bağlantıyı kaldırmak kartını silmez.", "It also appears inside the selected trip. Unlinking does not delete your card.", "Shfaqet edhe brenda udhëtimit të zgjedhur. Shkëputja nuk e fshin kartën.")}</small></label>
       <label htmlFor={`${formId}-hotel`}>{copy("Otel / konaklama", "Hotel / accommodation")}<input id={`${formId}-hotel`} maxLength={120} value={draft.hotelName} onChange={event => setDraft(value => ({ ...value, hotelName: event.target.value }))}/></label>
       <label htmlFor={`${formId}-address`}>{copy("Adres", "Address")}<textarea id={`${formId}-address`} rows={2} maxLength={400} value={draft.address} onChange={event => setDraft(value => ({ ...value, address: event.target.value }))}/></label>
       <label htmlFor={`${formId}-note`}>{copy("Rezervasyon ve diğer notlar", "Reservation and other notes")}<textarea id={`${formId}-note`} rows={3} maxLength={1000} value={draft.reservationNote} placeholder={copy("Giriş saati, rezervasyon numarası, buluşma noktası…", "Check-in time, booking reference, meeting point…")} onChange={event => setDraft(value => ({ ...value, reservationNote: event.target.value }))}/></label>
       <div className="ptc-form-actions"><button type="submit" disabled={Boolean(stored.error)}>{copy("Cihaza kaydet", "Save on this device")}</button><button type="button" onClick={() => { setEditing(null); setError(""); }}>{copy("Vazgeç", "Cancel")}</button></div>
     </form> : <>
-      {items.map(card => <article className="ptc-card" key={card.id}><header><h3>{card.title}</h3><button type="button" onClick={() => start(card)} aria-label={copy(`${card.title} kartını düzenle`, `Edit ${card.title}`, `Ndrysho ${card.title}`)}>{copy("Düzenle", "Edit")}</button></header><small className="ptc-updated">{copy("Son güncelleme:", "Last updated:", "Përditësimi i fundit:")} <time dateTime={card.updatedAt}>{formatAppDate(new Date(card.updatedAt), dateLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></small>{card.hotelName && <div><small>{copy("KONAKLAMA", "STAY")}</small><p>{card.hotelName}</p></div>}{card.address && <div><small>{copy("ADRES", "ADDRESS")}</small><p>{card.address}</p></div>}{card.reservationNote && <div><small>{copy("NOTUN", "YOUR NOTE")}</small><p>{card.reservationNote}</p></div>}<button type="button" className="ptc-remove" onClick={() => remove(card)} aria-label={copy(`${card.title} kartını kaldır`, `Remove ${card.title}`, `Hiq ${card.title}`)}><Icon name="trash" size={16}/>{copy("Kartı kaldır", "Remove card")}</button></article>)}
+      {items.map(card => {
+        const linkedTrip = tripOptions.find(trip => trip.id === card.tripId);
+        return <article className="ptc-card" key={card.id}><header><h3>{card.title}</h3><button type="button" onClick={() => start(card)} aria-label={copy(`${card.title} kartını düzenle`, `Edit ${card.title}`, `Ndrysho ${card.title}`)}>{copy("Düzenle", "Edit")}</button></header><p className="ptc-trip"><Icon name="calendar" size={15}/><span>{linkedTrip ? tripLabel(linkedTrip) : card.tripId ? copy("Bağlı seyahat şu anda listede yok", "Linked trip is currently unavailable", "Udhëtimi i lidhur është aktualisht i padisponueshëm") : copy("Bir seyahate bağlı değil", "Not linked to a trip", "Nuk është lidhur me një udhëtim")}</span></p><small className="ptc-updated">{copy("Son güncelleme:", "Last updated:", "Përditësimi i fundit:")} <time dateTime={card.updatedAt}>{formatAppDate(new Date(card.updatedAt), dateLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></small>{card.hotelName && <div><small>{copy("KONAKLAMA", "STAY")}</small><p>{card.hotelName}</p></div>}{card.address && <div><small>{copy("ADRES", "ADDRESS")}</small><p>{card.address}</p></div>}{card.reservationNote && <div><small>{copy("NOTUN", "YOUR NOTE")}</small><p>{card.reservationNote}</p></div>}<button type="button" className="ptc-remove" onClick={() => remove(card)} aria-label={copy(`${card.title} kartını kaldır`, `Remove ${card.title}`, `Hiq ${card.title}`)}><Icon name="trash" size={16}/>{copy("Kartı kaldır", "Remove card")}</button></article>;
+      })}
       <button type="button" className="ptc-add" disabled={Boolean(stored.error) || stored.items.length >= MAX_PERSONAL_CARDS} onClick={() => start()}><Icon name="plus" size={19}/>{items.length ? copy("Yeni kart ekle", "Add another card") : copy("Kişisel kartımı oluştur", "Create my personal card")}</button>
     </>}
   </section>;

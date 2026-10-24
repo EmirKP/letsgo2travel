@@ -61,9 +61,10 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
+export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
   onNotice: (message: string) => void;
   onNavigate: (view: ViewId) => void;
+  onOpenSavedRoutes?: () => void;
   onOpenAccount?: () => void;
   surpriseRoute?: RouteSuggestion | null;
   routeSeedKind?: "surprise" | "explore";
@@ -146,9 +147,9 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surp
   const savedRoute = plan ? matchingSavedRoute(savedRoutes, plan, planInput) : undefined;
   const planIsSaved = !!savedRoute;
   const saveLabel = planIsSaved ? copy("Kaydedildi", "Saved") : plan && plan.routes.length > 1 ? copy(`${plan.routes.length} öneriyi kaydet`, `Save ${plan.routes.length} suggestions`) : copy("Bu planı kaydet", "Save this plan");
-  const saveMessage = saveLocation === "account" ? copy("Hesabına kaydedildi. Kaydedilenler → Rotalar bölümünde bulabilirsin.", "Saved to your account. Find it under Saved → Routes.")
-    : saveLocation === "pending" ? copy("Bu cihazda kayıtlı; hesabına eşitleme bekliyor. Kaydedilenler → Rotalar bölümünde bulabilirsin.", "Saved on this device; waiting to sync to your account. Find it under Saved → Routes.")
-      : copy("Bu cihazda kayıtlı. Kaydedilenler → Rotalar bölümünden tekrar açabilirsin.", "Saved on this device. Open it again under Saved → Routes.");
+  const saveMessage = saveLocation === "account" ? copy("Hesabına kaydedildi. Planlar → Rotalarım bölümünde bulabilirsin.", "Saved to your account. Find it under Plans → My routes.", "U ruajt në llogarinë tënde. E gjen te Planet → Itineraret e mia.")
+    : saveLocation === "pending" ? copy("Bu cihazda kayıtlı; hesabına eşitleme bekliyor. Planlar → Rotalarım bölümünde bulabilirsin.", "Saved on this device; waiting to sync to your account. Find it under Plans → My routes.", "U ruajt në këtë pajisje; po pret sinkronizimin. E gjen te Planet → Itineraret e mia.")
+      : copy("Bu cihazda kayıtlı. Planlar → Rotalarım bölümünden tekrar açabilirsin.", "Saved on this device. Open it again under Plans → My routes.", "U ruajt në këtë pajisje. Hape përsëri te Planet → Itineraret e mia.");
 
   useEffect(() => {
     const refresh = () => {
@@ -363,7 +364,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surp
       let queued = false;
       try { queued = Boolean(ownerId && readRouteOutbox(ownerId)[clientKey]?.kind === "save"); } catch { /* Preserve unreadable storage. */ }
       if (localSaved) setSaveLocation(queued ? "pending" : "device");
-      onNotice(queued ? copy("Rota cihazda kayıtlı; bağlantı gelince hesabına eşitlenecek.", "Route saved on this device; it will sync when connected.") : localSaved ? copy("Rota cihazında kayıtlı; hesabına eşitlenemedi. Kaydedilenler'den tekrar açabilirsin.", "The route is saved on this device but could not sync. You can open it from Saved.") : getSupabaseDataErrorMessage(error, copy("Rota kaydedilemedi. Cihazda boş alan açıp tekrar dene.", "Route could not be saved. Free some device storage and retry.")));
+      onNotice(queued ? copy("Rota cihazda kayıtlı; bağlantı gelince hesabına eşitlenecek.", "Route saved on this device; it will sync when connected.") : localSaved ? copy("Rota cihazında kayıtlı; hesabına eşitlenemedi. Planlar → Rotalarım bölümünden tekrar açabilirsin.", "The route is saved on this device but could not sync. Open it from Plans → My routes.", "Itinerari u ruajt në këtë pajisje, por nuk u sinkronizua. Hape nga Planet → Itineraret e mia.") : getSupabaseDataErrorMessage(error, copy("Rota kaydedilemedi. Cihazda boş alan açıp tekrar dene.", "Route could not be saved. Free some device storage and retry.")));
     } finally {
       saving.current = false;
       setSaveBusy(false);
@@ -394,7 +395,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surp
           <button type="button" className="primary-wide" disabled={saveBusy} onClick={() => void save()}><Icon name={planIsSaved ? "check" : "bookmark"} size={18}/>{saveBusy ? copy("Kaydediliyor", "Saving") : saveLabel}</button>
           <button type="button" className="secondary-wide" onClick={focusResults}>{copy("Plan ayrıntılarını gör", "View plan details")}</button>
         </div>
-        {planIsSaved && <div className="planner-save-confirmation"><p role="status">{saveMessage}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("trips")}>{copy("Kaydedilenlere git", "Go to Saved")}<Icon name="chevron" size={17}/></button></div>}
+        {planIsSaved && <div className="planner-save-confirmation" data-guide="route-saved"><p role="status">{saveMessage}</p><button type="button" className="secondary-wide" onClick={() => onOpenSavedRoutes ? onOpenSavedRoutes() : onNavigate("trips")}>{copy("Rotalarıma git", "Go to My routes", "Shko te itineraret e mia")}<Icon name="chevron" size={17}/></button></div>}
         <button type="button" className="planner-alternatives-toggle" aria-expanded={alternativesOpen} aria-controls="planner-alternative-options" onClick={() => setAlternativesOpen(open => !open)}>{alternativesOpen ? copy("Diğer rota seçeneklerini gizle", "Hide other route options") : copy("Farklı rota önerileri bul", "Find other route ideas")}</button>
         {alternativesOpen && <p className="planner-alternatives-note">{copy("Aşağıdaki tercihler yeni destinasyonlar önerir; seçili şehri düzenlemez. Yeni öneri oluşturmak bu ekrandaki planı değiştirir; önce kaydedebilirsin.", "The preferences below suggest new destinations; they do not edit your selected city. Generating new suggestions replaces the plan on this screen, so you can save it first.")}</p>}
       </section>}
@@ -442,10 +443,10 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surp
           <button type="button" className="secondary-wide" onClick={() => selectPlannerTab("plan")}><Icon name="back" size={16} />{copy("Rota planına dön", "Back to route plan")}</button>
         </>}
         <aside className="planner-allowance" aria-live="polite">
-          <strong>{needsSignIn?copy('Her hesap için günde 1 yeni AI rota','1 new AI itinerary per account each day','1 itinerar i ri me AI në ditë për çdo llogari')
+          <strong>{needsSignIn?copy('Her hesap için günde 3 yeni AI rota','3 new AI itineraries per account each day','3 itinerare të reja me AI në ditë për çdo llogari')
             :quota?quota.pending?copy('Önceki isteğin hâlâ işleniyor','Your previous request is still processing','Kërkesa e mëparshme po përpunohet')
-            :quota.remaining?copy('Bugün 1 yeni AI rota hakkın var','1 new AI itinerary available today','Sot ke 1 itinerar të ri me AI')
-            :copy('Bugünkü AI rota hakkını kullandın','Today’s AI itinerary allowance is used','E drejta e sotme për itinerar me AI është përdorur')
+            :quota.remaining?copy(`Bugün ${quota.remaining} yeni AI rota hakkın var`,`${quota.remaining} new AI ${quota.remaining===1?'itinerary':'itineraries'} available today`,quota.remaining===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${quota.remaining} itinerare të reja me AI`)
+            :copy('Bugünkü AI rota haklarını kullandın (0 kaldı)','Today’s AI itinerary allowance is used (0 remaining)','E drejta e sotme për itinerar me AI është përdorur (0 të mbetura)')
             :allowance.state==='error'?copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')
             :copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')}</strong>
           {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{formatAppDate(new Date(quota.resetAt),locale==='tr'?'tr-TR':locale==='sq'?'sq-AL':'en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</time></p>}
@@ -472,7 +473,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenAccount, surp
           <div><span>{source === "surprise" ? copy("SÜRPRİZ ROTA", "SURPRISE ROUTE") : source === "explore" ? copy("SEÇTİĞİN ROTA", "YOUR ROUTE") : copy("SANA ÖZEL ÖNERİLER", "PERSONALISED PICKS")}</span><h2 ref={resultsHeading} tabIndex={-1}>{source === "explore" ? copy("Planlamaya hazır", "Ready to plan") : copy("Senin için seçtiklerimiz", "Picked for you")}</h2></div>
           {!selectedRoute && <button className="save-plan-button" disabled={saveBusy} onClick={() => void save()}>{saveBusy ? <span className="button-loader dark" /> : <Icon name={planIsSaved ? "check" : "bookmark"} size={17} />} {saveBusy ? copy("Kaydediliyor", "Saving") : saveLabel}</button>}
         </div>
-        {planIsSaved && !selectedRoute && <div className="planner-save-confirmation"><p role="status">{saveMessage}</p><button type="button" className="secondary-wide" onClick={() => onNavigate("trips")}>{copy("Kaydedilenlere git", "Go to Saved")}<Icon name="chevron" size={17}/></button></div>}
+        {planIsSaved && !selectedRoute && <div className="planner-save-confirmation" data-guide="route-saved"><p role="status">{saveMessage}</p><button type="button" className="secondary-wide" onClick={() => onOpenSavedRoutes ? onOpenSavedRoutes() : onNavigate("trips")}>{copy("Rotalarıma git", "Go to My routes", "Shko te itineraret e mia")}<Icon name="chevron" size={17}/></button></div>}
         <p className="plan-summary">{plan.summary}</p>
         {source === "local" && <p className="planner-target-note" role="status">{copy("Hazır başlangıç taslağı · AI tarafından yeni oluşturulmadı. Ayrıntıları düzenleyebilir veya yeniden deneyebilirsin.", "Starter outline · Not newly generated by AI. Edit the details or try again.", "Plan fillestar · Nuk është krijuar rishtazi nga AI. Redakto hollësitë ose provo sërish.")}</p>}
         <div className="route-result-list">

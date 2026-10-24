@@ -8,41 +8,43 @@ import { Icon } from './Icon';
 import './travel-tools-reliability.css';
 
 import { TRAVEL_CENTRES } from '../lib/travelAreas';
+import { countryMapBounds } from '../lib/deviceArea';
 
 
 /** Deliberate area selection: no location request or geocoding service required. */
-export function TravelAreaPicker({ value, onChange, disabled = false }: {
-  value: Coordinates | null; onChange: (point: Coordinates) => void; disabled?: boolean;
+export function TravelAreaPicker({ value, onChange, disabled = false, country = '' }: {
+  value: Coordinates | null; onChange: (point: Coordinates) => void; disabled?: boolean; country?: string;
 }) {
   const { copy } = useI18n();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(Boolean(country));
+  const centres = country ? TRAVEL_CENTRES.filter(city => city.country === country) : TRAVEL_CENTRES;
   const matching = TRAVEL_CENTRES.find(c => c.latitude === value?.latitude && c.longitude === value?.longitude);
   return <div className="ta-area-picker">
-    <label>{copy('Konum paylaşmadan bölge seç', 'Choose an area without sharing location', 'Zgjidh zonën pa ndarë vendndodhjen')}
+    {centres.length > 0 && <label>{copy('Konum paylaşmadan bölge seç', 'Choose an area without sharing location', 'Zgjidh zonën pa ndarë vendndodhjen')}
       <select disabled={disabled} value={matching?.name || ''} onChange={e => {
         const city = TRAVEL_CENTRES.find(c => c.name === e.target.value);
         if (city) onChange({ latitude: city.latitude, longitude: city.longitude });
       }}><option value="">{value ? copy('Haritada seçtiğin bölge', 'Area selected on map', 'Zona e zgjedhur në hartë') : copy('Şehir merkezi seç', 'Choose a city centre', 'Zgjidh qendrën e qytetit')}</option>
-        {TRAVEL_CENTRES.map(c => <option key={c.name}>{c.name}</option>)}
+        {centres.map(c => <option key={c.name}>{c.name}</option>)}
       </select>
-    </label>
+    </label>}
     <button type="button" className="secondary-wide" disabled={disabled} aria-expanded={expanded} onClick={() => setExpanded(v => !v)}><Icon name="map" size={18}/>{expanded ? copy('Bölge haritasını kapat', 'Close area map', 'Mbyll hartën e zonës') : copy('Başka bir bölgeyi haritada seç', 'Choose another area on the map', 'Zgjidh një zonë tjetër në hartë')}</button>
     {expanded && <>
       <p className="ta-muted">{copy('Haritayı kaydır, yakınlaştır ve istediğin merkeze dokun. Seçimin yaklaşık 1 km hassasiyetle kullanılır.', 'Move and zoom the map, then tap your centre. The selection is rounded to about 1 km.', 'Lëviz dhe zmadho hartën, pastaj prek qendrën. Zgjedhja rrumbullakohet në rreth 1 km.')}</p>
-      <AreaMap value={value} disabled={disabled} onChange={onChange}/>
+      <AreaMap value={value} country={country} disabled={disabled} onChange={onChange}/>
     </>}
     {value && <small role="status">{matching?.name || copy('Seçilen merkez', 'Selected centre', 'Qendra e zgjedhur')} · {value.latitude.toFixed(2)}, {value.longitude.toFixed(2)}</small>}
   </div>;
 }
 
-function AreaMap({ value, onChange, disabled }: { value: Coordinates | null; onChange: (value: Coordinates) => void; disabled: boolean }) {
+function AreaMap({ value, onChange, disabled, country }: { value: Coordinates | null; onChange: (value: Coordinates) => void; disabled: boolean; country: string }) {
   const { copy } = useI18n();
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const marker = useRef<L.CircleMarker | null>(null);
-  const state = useRef({ onChange, disabled });
+  const state = useRef({ onChange, disabled, value });
   const [failed, setFailed] = useState(false);
-  useEffect(() => { state.current = { onChange, disabled }; }, [onChange, disabled]);
+  useEffect(() => { state.current = { onChange, disabled, value }; }, [onChange, disabled, value]);
   useEffect(() => {
     if (!element.current) return;
     const m = L.map(element.current, { scrollWheelZoom: false, minZoom: 2, maxZoom: 17 }).setView(value ? [value.latitude, value.longitude] : [41.01, 28.98], value ? 12 : 4);
@@ -50,13 +52,24 @@ function AreaMap({ value, onChange, disabled }: { value: Coordinates | null; onC
     const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(m);
     tiles.on('tileerror', () => setFailed(true));
     m.on('click', (event: L.LeafletMouseEvent) => {
-      if (!state.current.disabled && Math.abs(event.latlng.lat) <= 85)
-        state.current.onChange(coarseLocation({ latitude: event.latlng.lat, longitude: ((event.latlng.lng + 180) % 360 + 360) % 360 - 180 }));
+      if (!state.current.disabled && Math.abs(event.latlng.lat) <= 85) {
+        const point = coarseLocation({ latitude: event.latlng.lat, longitude: ((event.latlng.lng + 180) % 360 + 360) % 360 - 180 });
+        state.current.value = point;
+        state.current.onChange(point);
+      }
     });
     const observer = new ResizeObserver(() => m.invalidateSize()); observer.observe(element.current);
     return () => { observer.disconnect(); m.remove(); map.current = null; marker.current = null; };
     // The map is initialized once; subsequent selections update its marker below.
   }, []);
+  useEffect(() => {
+    if (!country || state.current.value) return;
+    let active = true;
+    void countryMapBounds(country).then(bounds => {
+      if (active && bounds && !state.current.value) map.current?.fitBounds(bounds, { padding: [12, 12], maxZoom: 9, animate: false });
+    }).catch(() => { /* The world map remains selectable if country outlines are unavailable. */ });
+    return () => { active = false; };
+  }, [country]);
   useEffect(() => {
     const m = map.current; if (!m || !value) return;
     const point: L.LatLngExpression = [value.latitude, value.longitude];

@@ -17,6 +17,9 @@ function load(path, imports = {}, environment = {}) {
     if (name === '../components/RouteWeather') return { RouteWeather: 'RouteWeather' };
     if (name === '../components/Sheet') return { Sheet: 'Sheet' };
     if (name === '../components/LazyOverlay') return { LazyOverlay: 'LazyOverlay' };
+    if (name === '../components/TravelReadinessCard') return { TravelReadinessCard: 'TravelReadinessCard' };
+    if (name === '../lib/journeyTools') return { readSafetyTrips: () => [], saveSafetyTrips() {} };
+    if (name === '../lib/offlineMaps') return { readOfflineMapStatus: () => ({ status: 'ready', count: 0 }) };
     if (name === '../../../lib/planner-passport') return load('lib/planner-passport.ts', { './country-intelligence/passports': load('lib/country-intelligence/passports.ts', { '../../mobile/src/data/passport-index.json': { default: JSON.parse(readFileSync('mobile/src/data/passport-index.json', 'utf8')) }, './passport-reviewed': load('lib/country-intelligence/passport-reviewed.ts') }) });
     if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
     if (name === './accountCollections') return load('mobile/src/lib/accountCollections.ts', {'./id': load('mobile/src/lib/id.ts')}, environment);
@@ -69,9 +72,10 @@ const appSearch = load('mobile/src/lib/globalSearch.ts', {
   './searchText': search, './appTools': load('mobile/src/lib/appTools.ts'),
 });
 const homeAssets = Object.fromEntries([
-  '../assets/home-reference/santorini-hero.webp', '../assets/home-reference/coastal-banner.webp',
-  '../assets/home-reference/cappadocia.webp', '../assets/home-reference/bali.webp',
+  '../assets/home-reference/coastal-banner.webp', '../assets/home-reference/bali-beach-v5.webp',
   '../assets/home-reference/community-travelers.webp', '../assets/destination-artwork/rome.webp',
+  '../assets/home-reference/santorini-daylight-v3.webp', '../assets/home-reference/event-festival-v3.webp',
+  '../assets/home-reference/paris-eiffel-v3.webp', '../assets/home-reference/tokyo-temple-v5.webp',
 ].map(path => [path, { default: path }]));
 function loadHome(host, { locale = 'en', listCockpitTrips = () => { throw Error('Guest Home must not request account trips'); } } = {}) {
   return load('mobile/src/screens/HomeScreen.tsx', {
@@ -125,21 +129,21 @@ test('Home rejects an old account response and opens the precise current trip fr
     button(personalBanner(view),'Open My Trip').props.onClick();assert.deepEqual(opened,['trip-b']);
     assert.deepEqual(reads,[['a','FIXTURE'],['b','FIXTURE']], 'Home must use personal trip reads without opting into provider detail enrichment');
     host.render({ownerId:null,user:null,accessToken:''});
-    assert.doesNotMatch(text(personalBanner(host.render())),/Italy|Pack suitcase|tasks ready/);
-    assert.ok(button(personalBanner(host.render()),'Get Started'));
+    assert.equal(personalBanner(host.render()),undefined, 'Signing out removes the personal trip without replacing it with a generic promotional card');
   } finally {host.dispose();}
 });
 
-test('Home guest CTA and five translated shortcuts open their real destinations without account data', () => {
+test('Home omits the generic personal promotion and its five translated shortcuts open real destinations without account data', () => {
   for (const locale of ['en', 'tr']) {
     const host=hooks(), opened=[], communities=[];
     try {
       const HomeScreen=loadHome(host,{locale});
       const view=host.start(HomeScreen,{...guestHomeProps,onNavigate:value=>opened.push(value),onOpenCommunity:()=>communities.push('community')});
-      button(personalBanner(view),locale==='en'?'Get Started':'Hemen Başla').props.onClick();
+      assert.equal(personalBanner(view),undefined, 'A guest without a real trip does not get a fake personal recommendation');
+      assert.equal(find(view,'input',props=>props.type==='search').props.placeholder,locale==='en'?'Search cities, countries or tools':'Şehir, ülke veya araç ara');
       const nav=find(view,'nav',props=>props['aria-label']===(locale==='en'?'Plan your journey':'Seyahatini planla'));
-      const labels=locale==='en'?['Build a Route','Explore Countries','Passport & Visa','My Trips','All Tools']:['Rota Oluştur','Ülke Keşfet','Pasaport & Vize','Seyahatlerim','Tüm Araçlar'];
-      const compactLabels=locale==='en'?['Route','Explore','Visa','Trips','Tools']:['Rota','Ülkeler','Vize','Seyahat','Araçlar'];
+      const labels=locale==='en'?['Build a Route','Explore Countries','Passport & Visa','Plans','All Tools']:['Rota Oluştur','Ülke Keşfet','Pasaport & Vize','Planlar','Tüm Araçlar'];
+      const compactLabels=locale==='en'?['Route','Explore','Visa','Plans','Tools']:['Rota','Ülkeler','Vize','Planlar','Araçlar'];
       assert.equal(nodes(nav).filter(node=>node.type==='button').length,5);
       for (const [index,label] of labels.entries()) {
         // The responsive title contains both labels; its accessible name stays complete.
@@ -152,14 +156,28 @@ test('Home guest CTA and five translated shortcuts open their real destinations 
         assert.equal(shortcut.props['aria-label'],`${label} — ${caption}`);
         shortcut.props.onClick();
       }
-      assert.deepEqual(opened,['route','route','explore','passport','trips','companion']);
+      assert.deepEqual(opened,['route','explore','passport','trips','companion']);
       button(view,locale==='en'?'Join the Community':'Topluluğa Katıl').props.onClick();
       assert.deepEqual(communities,['community']);
     } finally {host.dispose();}
   }
 });
 
-test('Home restores the submitted search and forwards trimmed typed queries and visible city shortcuts', () => {
+test('Home keeps account trip loading and retry states without inventing a personal recommendation for an empty result', async () => {
+  const host=hooks(); let pending, reads=0;
+  const HomeScreen=loadHome(host,{listCockpitTrips:()=>{reads++;return new Promise((resolve,reject)=>{pending={resolve,reject};});}});
+  try {
+    let view=host.start(HomeScreen,{...guestHomeProps,user:{id:'a'},ownerId:'a',accessToken:'fixture'});
+    assert.match(text(view),/Getting your trip ready/);assert.equal(personalBanner(view),undefined);
+    pending.reject(Error('Temporarily unavailable'));await tick();view=host.render();
+    assert.match(text(view),/Your trip details couldn't be refreshed/);assert.equal(personalBanner(view),undefined);
+    button(view,'Try again').props.onClick();view=host.render();assert.equal(reads,2);assert.match(text(view),/Getting your trip ready/);
+    pending.resolve([]);await tick();view=host.render();
+    assert.equal(personalBanner(view),undefined);assert.doesNotMatch(text(view),/Getting your trip ready|couldn't be refreshed|Personal ideas|Get Started/);
+  } finally {host.dispose();}
+});
+
+test('Home restores the submitted search and forwards trimmed typed queries and visible destination shortcuts', () => {
   const host=hooks(), queries=[];
   try {
     host.start(loadHome(host),{...guestHomeProps,initialSearchQuery:'Bali',onSearchDestination:value=>queries.push(value)});
@@ -168,9 +186,42 @@ test('Home restores the submitted search and forwards trimmed typed queries and 
     assert.ok(find(view,'label',props=>props.htmlFor===field.props.id),'Search input has a visible or screen-reader label');
     field.props.onChange({target:{value:'  Roma  '}});view=host.render();
     let prevented=0;find(view,'form',props=>props.role==='search').props.onSubmit({preventDefault(){prevented++;}});
-    button(view,'Rome').props.onClick();button(view,'Bali').props.onClick();
+    find(view,'button',props=>props['aria-label']==='Rome').props.onClick();find(view,'button',props=>props['aria-label']==='Bali').props.onClick();
     assert.equal(prevented,1);assert.deepEqual(queries,['Roma','Roma','Bali']);
   } finally {host.dispose();}
+});
+
+test('Four photographed destination shortcuts retain clear localized names and exact search targets beside Event Radar', () => {
+  for (const [locale, discoveries, romeLabel, eventLabel] of [
+    ['tr', 'Hızlı keşfet', 'Roma', 'Etkinlik Radarı'],
+    ['en', 'Quick discoveries', 'Rome', 'Event Radar'],
+    ['sq', 'Zbulime të shpejta', 'Roma', 'Radar aktivitetesh'],
+  ]) {
+    const host = hooks(), searches = [], views = [];
+    try {
+      const view = host.start(loadHome(host, { locale }), { ...guestHomeProps, onSearchDestination: query => searches.push(query), onNavigate: target => views.push(target) });
+      const choices = find(view, 'nav', props => props['aria-label'] === discoveries);
+      assert.ok(choices, 'Photo destinations have their own labelled discovery group');
+      const cards = nodes(choices).filter(node => node.type === 'button');
+      assert.deepEqual(cards.map(card => card.props['aria-label']), ['Paris', 'Bali', 'Tokyo', romeLabel]);
+      for (const [index, filename] of ['paris-eiffel-v3.webp', 'bali-beach-v5.webp', 'tokyo-temple-v5.webp', 'rome.webp'].entries()) {
+        const image = find(cards[index], 'img');
+        assert.ok(image.props.src.endsWith(filename), 'Each discovery photo matches its destination');
+        assert.equal(image.props.alt, '', 'The visible destination text names the action without duplicate decorative photo text');
+        assert.equal(text(cards[index]), cards[index].props['aria-label'], 'Compact photo cards retain a single visible city name without a separate country caption');
+        cards[index].props.onClick();
+      }
+      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma']);
+      assert.deepEqual(views, [], 'Discovery shortcuts preserve destination-search navigation');
+      const radar = find(view, 'button', props => props['data-guide'] === 'home-events');
+      assert.ok(text(radar).includes(eventLabel));
+      assert.ok(find(radar, 'img').props.src.endsWith('event-festival-v3.webp'));
+      assert.equal(find(radar, 'img').props.alt, '');
+      radar.props.onClick();
+      assert.deepEqual(views, ['events']);
+      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma'], 'Event Radar must not turn into a destination search');
+    } finally { host.dispose(); }
+  }
 });
 
 test('Home suggests real Event Radar, Istanbul and currency destinations while typing, with keyboard and touch selection', () => {
@@ -201,33 +252,23 @@ test('Home Event Radar is directly discoverable and the current itinerary CTA ca
   }finally{host.dispose();}
 });
 
-test('Home opens and saves each real destination independently with matching artwork and accurate saved state', () => {
-  for (const locale of ['en','tr']) {
-    const host=hooks(), opened=[], saved=[];
+test('Home omits the removed Popular Routes block while four discoveries still search without saving or seeding a plan', () => {
+  for (const locale of ['tr', 'en', 'sq']) {
+    const host = hooks(), searches = [], writes = [];
     try {
-      let view=host.start(loadHome(host,{locale}),{...guestHomeProps,savedRouteIds:['NAV'],onBuildRoute:value=>opened.push(value),onToggleSaved:value=>saved.push(value)});
-      const expected=homeData.homeDestinations(locale);
-      assert.deepEqual(Array.from(expected,item=>item.destinationCode),['JTR','NAV','DPS','FCO']);
-      const images=['santorini-hero.webp','cappadocia.webp','bali.webp','rome.webp'];
-      for (const [index,route] of expected.entries()) {
-        const openLabel=locale==='en'?`Open ${route.cityOrRegion} route`:`${route.cityOrRegion} rotasını aç`;
-        const saveLabel=locale==='en'?`Save ${route.cityOrRegion} route`:`${route.cityOrRegion} rotasını kaydet`;
-        const card=find(view,'article',props=>Boolean(find({props},'button',item=>item['aria-label']===openLabel)));
-        assert.ok(card,`Missing route card: ${route.destinationCode}`);
-        assert.ok(find(card,'img').props.src.endsWith(images[index]),'The route photo must match its destination');
-        const favorite=find(card,'button',props=>props['aria-label']===saveLabel);
-        assert.equal(favorite.props['aria-pressed'],route.destinationCode==='NAV');
-        favorite.props.onClick();assert.equal(opened.length,index,'Saving must not open the planner');
-        find(card,'button',props=>props['aria-label']===openLabel).props.onClick();
-        assert.equal(opened[index],saved[index],'Open and save must receive the same card data');
-        assert.deepEqual(opened[index],route);assert.ok(route.dailyPlan.length>0);
-        assert.equal(route.verifiedEntryStatus,'unknown');
-      }
-      assert.equal(saved.length,4);assert.equal(opened.length,4);
-      view=host.render({savedRouteIds:['JTR']});
-      const pressed=nodes(view).filter(node=>node.type==='button'&&node.props['aria-pressed']===true);
-      assert.equal(pressed.length,1);assert.match(pressed[0].props['aria-label'],/Santorini/);
-    } finally {host.dispose();}
+      const view = host.start(loadHome(host, { locale }), { ...guestHomeProps, savedRouteIds: ['NAV'], onSearchDestination: query => searches.push(query), onBuildRoute: route => writes.push(['seed', route]), onToggleSaved: route => writes.push(['save', route]) });
+      assert.equal(find(view, 'section', props => props.className?.split(' ').includes('rh-popular')), undefined);
+      assert.equal(find(view, 'div', props => props.className === 'rh-destination-grid'), undefined);
+      assert.equal(nodes(view).some(node => node.type === 'h2' && /Popular Routes|Popüler Rotalar|Itinerare të njohura/.test(text(node))), false);
+      const discoveries = find(view, 'nav', props => props.className === 'rh-city-chips');
+      const choices = nodes(discoveries).filter(node => node.type === 'button');
+      assert.equal(choices.length, 4, 'The remaining four discoveries are not duplicated by another destination section');
+      choices.forEach(choice => choice.props.onClick());
+      assert.deepEqual(searches, ['Paris', 'Bali', 'Tokyo', 'Roma']);
+      assert.deepEqual(writes, [], 'Discovery navigation never implicitly saves or seeds a route');
+      assert.equal(personalBanner(view), undefined, 'Only an actual account trip gets the personal trip card');
+      assert.ok(find(view, 'button', props => props['data-guide'] === 'home-events'), 'The direct Event Radar entry remains available');
+    } finally { host.dispose(); }
   }
 });
 
@@ -272,7 +313,7 @@ function plannerHarness({ seeded = true, account = true, syncFails = false, stor
     ...common(host), '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en }) }, '../../../lib/route-planner': destinationPlans, '../components/AirportField': { AirportField: 'AirportField' }, '../components/Icon': { Icon: 'Icon' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../data/artwork': { destinationArtwork: code => code }, '../data/routes': { routeByDestinationCode: code => ({ ...route, destinationCode: code }), createFallbackPlan: () => ({ summary: 'Offline ideas', routes: [route] }) },
     '../lib/api': {hasPendingRoutePlan:()=>!!recovery,hasRoutePlanRecovery:async(...args)=>typeof recovery==='function'?recovery(...args):recovery, generateRoutePlan: async input => { generated.push(input); if (generationFailure) throw generationFailure; if (generationResponse !== undefined) return generationResponse; return { data: { summary: 'Your suggestions', routes: [route, { ...route, name: 'Paris', destinationCode: 'CDG' }] } }; } },
-    '../lib/journeyPlanClient':{loadJourneyPlanQuota:()=>{if(quotaOption)return quotaOption();const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};}},
+    '../lib/journeyPlanClient':{loadJourneyPlanQuota:()=>{if(quotaOption)return quotaOption();const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};}},
     '../lib/plannerSignInDraft':{preparePlannerSignInDraft:value=>{pendingHandoff=value;return true;},takePlannerSignInDraft:()=>{const value=pendingHandoff;pendingHandoff=null;return value;},readPlannerRecoveryDraft:()=>previousDraft,savePlannerRecoveryDraft:(_owner,value)=>{previousDraft=JSON.parse(JSON.stringify(value));}},
     '../lib/native': { hapticSuccess: async () => {}, openExternal: async () => {} }, '../lib/plannerState': snapshots,
     '../lib/onboardingPreferences': load('mobile/src/lib/onboardingPreferences.ts', {}, {window:{localStorage:{getItem:()=>JSON.stringify({interests:welcomeInterests})}}}),
@@ -307,6 +348,44 @@ test('Legacy quota and capacity failures never create a false starter success or
       assert.equal(h.generated.length,1);assert.equal(find(h.host.render(),'RouteBudgetAnalysis'),undefined);assert.doesNotMatch(text(h.host.render()),/starter outline/);
     }finally{h.host.dispose();}
   }
+});
+
+test('Alternative planner shows server remaining rights from 3 to 0 in every locale and keeps pending separate from exhaustion',async()=>{
+  for(const locale of ['tr','en','sq']){
+    const reset=new Date();reset.setUTCHours(24,0,0,0);
+    let quota={limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'};
+    const h=plannerHarness({seeded:false,locale,quota:async()=>quota});
+    const settle=async()=>{h.host.render();await tick();return h.host.render();};
+    const header=()=>text(find(find(h.host.render(),'aside',p=>p.className==='planner-allowance'),'strong'));
+    const refresh={tr:'Hakkımı kontrol et',en:'Refresh allowance',sq:'Rifresko të drejtën'}[locale];
+    const label=n=>locale==='tr'?`Bugün ${n} yeni AI rota hakkın var`:locale==='en'?`${n} new AI ${n===1?'itinerary':'itineraries'} available today`:n===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${n} itinerare të reja me AI`;
+    try{
+      await tick();assert.equal(header(),label(3));
+      for(const remaining of [2,1,0]){
+        quota={...quota,used:3-remaining,remaining};button(h.host.render(),refresh).props.onClick();await settle();
+        if(remaining)assert.equal(header(),label(remaining));else assert.match(header(),/0/);
+        assert.equal(find(h.host.render(),'time').props.dateTime,reset.toISOString());
+      }
+      assert.equal(button(h.host.render(),locale==='tr'?'Rota Oluştur':'Create Route').props.disabled,true);
+      quota={...quota,used:1,remaining:0,pending:true};button(h.host.render(),refresh).props.onClick();await settle();
+      assert.equal(header(),{tr:'Önceki isteğin hâlâ işleniyor',en:'Your previous request is still processing',sq:'Kërkesa e mëparshme po përpunohet'}[locale]);
+      quota={...quota,limit:1,used:0,remaining:1,pending:false};button(h.host.render(),refresh).props.onClick();await settle();assert.equal(header(),label(1));
+    }finally{h.host.dispose();}
+    const guest=plannerHarness({seeded:false,locale,account:false});
+    try{assert.match(text(guest.host.render()),locale==='tr'?/günde 3 yeni AI rota/:locale==='en'?/3 new AI itineraries per account each day/:/3 itinerare të reja me AI në ditë/);}finally{guest.host.dispose();}
+  }
+});
+
+test('A failed alternative AI attempt preserves all three rights and the departure draft until the server confirms a successful result',async()=>{
+  const reset=new Date();reset.setUTCHours(24,0,0,0);let used=0;
+  const h=plannerHarness({seeded:false,quota:async()=>({limit:3,used,remaining:3-used,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'})});
+  try{
+    await tick();find(h.host.render(),'AirportField').props.onChange({city:'Istanbul',name:'Istanbul Airport'});
+    h.failGeneration(Object.assign(Error('capacity'),{code:'plan_request_too_large'}));button(h.host.render(),'Create Route').props.onClick();await tick();h.host.render();await tick();
+    let view=h.host.render();assert.match(text(view),/3 new AI itineraries available today/);assert.equal(find(view,'AirportField').props.value.city,'Istanbul');assert.equal(find(view,'RouteBudgetAnalysis'),undefined);
+    used=1;h.respondGeneration({data:{summary:'Confirmed real result',routes:[route]}});button(view,'Create Route').props.onClick();await tick();h.host.render();await tick();view=h.host.render();
+    assert.match(text(view),/2 new AI itineraries available today/);assert.equal(h.generated.length,2);assert.ok(find(view,'RouteBudgetAnalysis'));
+  }finally{h.host.dispose();}
 });
 
 test('New route entry opens the map survey directly and explicit reopen preserves the alternative planner draft', () => {
@@ -520,7 +599,7 @@ test('A discovered route is actionable first and saving it needs no origin or de
     assert.equal(h.saves.length, 1); assert.equal(h.saves[0].plan.routes[0].name, 'Rome'); assert.equal(h.saves[0].input.origin, ''); assert.equal(h.generated.length, 0);
     assert.equal(h.saves[0].input.days, route.idealDuration, 'A seeded sample stores its own duration rather than the untouched form default');
     view = h.host.render(); assert.match(text(selected(view)), /Saved on this device/);
-    button(selected(view), 'Go to Saved').props.onClick(); assert.deepEqual(h.navigations, ['trips']);
+    button(selected(view), 'Go to My routes').props.onClick(); assert.deepEqual(h.navigations, ['trips']);
     button(view, 'Find other route ideas').props.onClick();
     view = h.host.render(); assert.equal(find(view, 'div', props => props.id === 'planner-alternative-options').props.hidden, false);
     assert.match(text(selected(view)), /do not edit your selected city/);
@@ -549,7 +628,7 @@ test('Save confirmation distinguishes successful account sync, offline queue, an
     try {
       button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
       const view = h.host.render();
-      if (settings.storageFails) { assert.equal(h.saves.length, 0); assert.equal(button(view, 'Go to Saved'), undefined); assert.match(h.notices[0], /could not be saved/); }
+      if (settings.storageFails) { assert.equal(h.saves.length, 0); assert.equal(button(view, 'Go to My routes'), undefined); assert.match(h.notices[0], /could not be saved/); }
       else if (settings.syncFails) { assert.match(text(selected(view)), /waiting to sync/); assert.doesNotMatch(text(selected(view)), /Saved to your account/); }
       else assert.match(text(selected(view)), /Saved to your account/);
     } finally { h.host.dispose(); }
@@ -582,7 +661,7 @@ test('Generated plans state the scope when one save stores multiple suggestions'
     save.props.onClick(); await tick();
     assert.equal(h.saves[0].plan.routes.length, 2);
     assert.equal(h.saves[0].input.days, h.generated[0].days, 'Generated plans retain the user preferences that produced them');
-    assert.ok(button(h.host.render(), 'Go to Saved'));
+    assert.ok(button(h.host.render(), 'Go to My routes'));
   } finally { h.host.dispose(); }
 });
 
@@ -845,7 +924,7 @@ test('Saved plan detail transfers the chosen route to Cockpit for its signed-in 
       assert.equal(budgetDetails[0].props.input, saved[0].input, 'Reopened cost analysis uses the saved preferences, not planner defaults');
       assert.equal(budgetDetails[0].props.input.currency, 'EUR'); assert.equal(budgetDetails[0].props.input.activityBudgetPerPersonDay, 5);
       const articles=nodes(detailView).filter(node=>node.type==='article');
-      button(articles[1],'Add this route to Cockpit').props.onClick();
+      button(articles[1],'Add this route to My trips').props.onClick();
       if (account) { assert.equal(intents.length,1);assert.equal(intents[0].route.name,'Bodrum');assert.equal(intents[0].routeIndex,1);assert.equal(intents[0].ownerId,'owner-a');assert.equal(intents[0].sourceRouteId,saved[0].id);assert.equal(login.length,0); }
       else {assert.equal(intents.length,0);assert.equal(login.length,1);}
     } finally {host.dispose();}
@@ -867,7 +946,7 @@ test('City budget detail sends its selected city, travellers and duration as a d
     const city=nodes(host.render()).find(node=>node.type==='button'&&node.props.className==='budget-city-row');
     const name=text(find(city,'strong'));city.props.onClick();
     const view=host.render();assert.match(text(view),/Estimate for 3 days · 3 travellers/);
-    button(view,'Add this estimate to Cockpit').props.onClick();
+    button(view,'Add this estimate to My trips').props.onClick();
     assert.equal(intents.length,1);const intent=intents[0];assert.equal(intent.city,name);assert.equal(intent.ownerId,'owner-a');assert.equal(intent.estimate.days,3);assert.equal(intent.estimate.people,3);assert.equal(intent.displayCurrency,'GBP');assert.equal(intent.displayTotal,intent.estimate.total);assert.equal(intent.sourceMonth,'2026-05');
   }finally{host.dispose();}
 });
@@ -1053,6 +1132,319 @@ test('Skipping passport setup still allows planning and saves unknown entry cond
 });
 
 
+function plansUXHarness({ saved = [], events = [], maps = { status: 'ready', count: 0 }, routesFail = false, eventsFail = false, list = async () => [], cockpitList = async () => [], cachedTrips = new Map(), initial = {}, locale = 'en' } = {}) {
+  const host = hooks(), signIns = [], requests = [], cockpitRequests = [], scopes = [], navigations = [];
+  const i18n = { locale, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en };
+  const { TripsScreen } = load('mobile/src/screens/PlansScreen.tsx', {
+    ...common(host), '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../lib/i18n': { useI18n: () => i18n },
+    '../../../lib/event-time': { eventDateLabel: () => '21', eventTimeLabel: () => '12:00' }, '../components/Icon': { Icon: 'Icon' }, '../components/CountryFlag': {}, '../components/Sheet': { Sheet: 'Sheet' },
+    '../components/TripCollaborationHub': { TripCollaborationHub: 'TripCollaborationHub' }, '../components/TravelSavedPlaces': {}, '../components/PersonalTravelCards': { PersonalTravelCards: 'PersonalTravelCards' },
+    '../lib/savedPlaces': { readSavedPlaces: () => ({ items: [], dayIds: [], error: null }), subscribeSavedPlaces: () => () => {} },
+    '../data/countryIso': {}, '../data/artwork': { destinationArtwork: () => '' }, '../data/discovery': { DISCOVERY_DESTINATIONS: [] },
+    '../lib/storage': { getSavedRoutePlans: owner => { scopes.push(['routes', owner]); if (routesFail) throw Error('corrupt'); return saved; }, getFavoriteDestinations: () => [], getSavedTravelEvents: owner => { scopes.push(['events', owner]); if (eventsFail) throw Error('corrupt'); return events; } },
+    '../lib/offlineMaps': { readOfflineMapStatus: () => maps },
+    '../lib/journeyTools': { readSafetyTrips: owner => cachedTrips.get(owner || 'guest') || [], saveSafetyTrips: (owner, items) => cachedTrips.set(owner || 'guest', items) },
+    '../lib/supabaseData': { listCockpitTrips: (...args) => { cockpitRequests.push(args); return cockpitList(...args); }, listUserTrips: (...args) => { requests.push(args); return list(...args); }, getSupabaseDataErrorMessage: (_error, fallback) => fallback },
+    '../lib/native': {}, '../lib/routeOutbox': { readRouteOutbox: () => ({}) }, '../lib/routeSync': {}, '../lib/eventReminders': {}, '../lib/searchText': search,
+  });
+  host.start(TripsScreen, { user: null, accessToken: '', onNavigate: view => navigations.push(view), onNotice() {}, onOpenAccount: () => signIns.push(true), onOpenDestination() {}, ...initial });
+  return { host, requests, cockpitRequests, cachedTrips, signIns, scopes, navigations };
+}
+
+test('Plans lists routes and events once while offline maps retain their actual status and destination', () => {
+  const offline = [], saved = [{ id: 'ready-route', createdAt: '2026-10-01T10:00:00Z', input: { days: '2 days' }, plan: { summary: 'Saved trip', routes: [{ ...route, name: 'Rome' }] } }];
+  const h = plansUXHarness({ saved, events: [{ id: 'saved-event', title: 'Concert', city: 'Rome', startsAt: '2026-10-21T12:00:00Z' }], maps: { status: 'ready', count: 2 }, initial: { ownerId: 'selected-owner', onOpenOfflineMap: () => offline.push('offline') } });
+  try {
+    const view = h.host.render(), card = find(view, 'TravelReadinessCard');
+    assert.deepEqual(JSON.parse(JSON.stringify(card.props.maps)), { count: 2, loading: false, unavailable: false });
+    assert.equal(card.props.routes, undefined); assert.equal(card.props.events, undefined);
+    assert.deepEqual(h.scopes, [['routes', 'selected-owner'], ['events', 'selected-owner']]);
+    const categories = nodes(view).filter(node => node.type === 'button' && node.props['data-section']);
+    assert.equal(categories.filter(node => node.props['data-section'] === 'routes').length, 1);
+    assert.equal(categories.filter(node => node.props['data-section'] === 'events').length, 1);
+    card.props.onMaps(); assert.deepEqual(offline, ['offline']);
+    categories.find(node => node.props['data-section'] === 'routes').props.onClick(); assert.equal(text(find(h.host.render(), 'h1')), 'My routes');
+    button(h.host.render(), 'All saved').props.onClick();
+    nodes(h.host.render()).find(node => node.props?.['data-section'] === 'events').props.onClick(); assert.equal(text(find(h.host.render(), 'h1')), 'My events');
+  } finally { h.host.dispose(); }
+});
+
+test('Plans preserves unreadable events and invalid map storage as unavailable, not empty', async () => {
+  const h = plansUXHarness({ eventsFail: true, maps: { status: 'unavailable', count: null }, list: async () => { throw Error('Unavailable'); }, initial: { user: { id: 'a' }, ownerId: 'a', accessToken: 'TEST' } });
+  try {
+    let view = h.host.render();
+    assert.deepEqual(JSON.parse(JSON.stringify(find(view, 'TravelReadinessCard').props.maps)), { count: null, loading: false, unavailable: true });
+    await tick(); view = h.host.render();
+    nodes(view).find(node => node.props?.['data-section'] === 'events').props.onClick(); view = h.host.render();
+    assert.match(text(view), /On-device records could not be checked/);
+    assert.doesNotMatch(text(view), /No saved events yet/);
+  } finally { h.host.dispose(); }
+});
+
+test('Offline map card distinguishes loading, unavailable and empty counts in three languages without claiming trip coverage', () => {
+  for (const locale of ['tr', 'en', 'sq']) {
+    const copy = (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en;
+    const { TravelReadinessCard } = load('mobile/src/components/TravelReadinessCard.tsx', { 'react/jsx-runtime': runtime, '../lib/i18n': { useI18n: () => ({ copy }) }, './Icon': { Icon: 'Icon' } });
+    const states = [ [{ count: null, loading: true }, copy('Yükleniyor', 'Loading', 'Po ngarkohet')], [{count:null,unavailable:true},copy('Kontrol edilemedi','Could not check','Nuk u kontrollua')], [{count:0},copy('Henüz kayıt yok','Nothing saved yet','Asgjë e ruajtur ende')] ];
+    for(const [maps, label] of states) {
+      const opens = [], view = TravelReadinessCard({ maps, onMaps: () => opens.push('maps') });
+      const buttons = nodes(view).filter(node => node.type === 'button');
+      assert.equal(buttons.length, 1); assert.match(text(buttons[0]), new RegExp(label));
+      assert.match(text(view), new RegExp(copy('Gideceğin bölgeyi ayrıca kontrol et','Check that they cover your destination','Kontrollo veçmas zonën ku do të shkosh')));
+      buttons[0].props.onClick(); assert.deepEqual(opens, ['maps']);
+    }
+  }
+});
+
+test('A failed cloud library is not an empty library; retry distinguishes loading from a confirmed empty response', async () => {
+  const pending = [], user = { id: 'owner-a' };
+  const h = plansUXHarness({ list: () => new Promise((resolve, reject) => pending.push({ resolve, reject })), initial: { user, ownerId: user.id, accessToken: 'TEST', initialSection: 'routes' } });
+  const empty = tree => nodes(tree).find(node => typeof node.type === 'function' && node.type.name === 'Empty');
+  try {
+    assert.equal(empty(h.host.render()), undefined);
+    pending[0].reject(Error('Network unavailable')); await tick();
+    let view = h.host.render();
+    assert.match(text(view), /Account items could not load/);
+    assert.equal(empty(view), undefined, 'A failed read cannot claim that the account has no routes');
+    button(view, 'Retry').props.onClick(); view = h.host.render();
+    assert.doesNotMatch(text(view), /Account items could not load/); assert.equal(empty(view), undefined);
+    pending[1].resolve([]); await tick(); view = h.host.render();
+    assert.equal(empty(view).props.title, 'No saved routes yet', 'Only a successful empty read shows the empty state');
+    assert.equal(empty(view).props.guide, 'saved-routes-empty', 'Only the confirmed empty read offers the lesson recovery anchor');
+    assert.equal(empty(view).type(empty(view).props).props['data-guide'], 'saved-routes-empty');
+    assert.deepEqual(h.requests, [['owner-a', 'TEST', 'route_plan'], ['owner-a', 'TEST', 'route_plan']]);
+  } finally { h.host.dispose(); }
+});
+
+test('Unreadable device routes do not expose the saved-lesson empty recovery anchor', () => {
+  const h = plansUXHarness({ routesFail: true, initial: { initialSection: 'routes' } });
+  try {
+    const view = h.host.render();
+    assert.match(text(view), /On-device records could not be checked/);
+    assert.equal(nodes(view).find(node => typeof node.type === 'function' && node.type.name === 'Empty'), undefined);
+    assert.equal(nodes(view).find(node => node.props?.['data-guide'] === 'saved-routes-empty'), undefined);
+  } finally { h.host.dispose(); }
+});
+
+test('A cloud failure preserves the usable device route while the overview marks account counts unavailable', async () => {
+  const saved = [{ id: 'local-rome', createdAt: '2026-10-01T10:00:00Z', input: { days: '2 days' }, plan: { summary: 'Rome on this device', routes: [{ ...route, name: 'Rome' }] } }];
+  const h = plansUXHarness({ saved, list: async () => { throw Error('Offline'); }, initial: { user: { id: 'owner-a' }, ownerId: 'owner-a', accessToken: 'TEST' } });
+  try {
+    await tick(); let view = h.host.render();
+    const routeCategory = find(view, 'button', p => p['data-section'] === 'routes');
+    assert.ok(find(routeCategory, 'span', p => p['aria-label'] === "The list couldn't be read"));
+    routeCategory.props.onClick(); view = h.host.render();
+    assert.match(text(view), /Account items could not load/);
+    assert.ok(button(view, 'Open plan')); assert.equal(saved.length, 1);
+  } finally { h.host.dispose(); }
+});
+
+test('Shared plans opens its own expanded section without first presenting a personal travel card', () => {
+  const h = plansUXHarness();
+  try {
+    button(h.host.render(), 'Shared plansPlan with friends and share expenses').props.onClick();
+    const view = h.host.render();
+    assert.equal(text(find(view, 'h1')), 'Shared plans');
+    assert.equal(find(view, 'PersonalTravelCards'), undefined);
+    const shared = find(view, 'details'); assert.equal(shared.props.open, true);
+    assert.match(text(shared), /Join the same trip with friends/);
+    find(shared, 'button', p => p.className?.includes('trips-collaboration-entry')).props.onClick();
+    assert.deepEqual(h.signIns, [true]);
+    assert.equal(nodes(view).filter(node => node.type === 'details').length, 1, 'Other tools do not precede or obscure the requested shared plans');
+  } finally { h.host.dispose(); }
+});
+
+test('An explicit tool request opens and reopens the requested journey tool without resetting its request identity', () => {
+  const h = plansUXHarness({ initial: { initialTool: 'journal', toolRequestId: 1 } });
+  try {
+    let view = h.host.render();
+    let hub = find(view, 'LazyComponent', p => p.initialTool === 'journal');
+    assert.equal(hub.props.toolRequestId, 1);
+    const tools = nodes(view).find(node => node.type === 'details' && text(node).includes('Other travel tools'));
+    tools.props.onToggle({ currentTarget: { open: false } }); view = h.host.render();
+    assert.equal(find(view, 'LazyComponent', p => p.initialTool === 'journal'), undefined);
+    view = h.host.render({ toolRequestId: 2 }); hub = find(view, 'LazyComponent', p => p.initialTool === 'journal');
+    assert.equal(hub.props.toolRequestId, 2);
+  } finally { h.host.dispose(); }
+});
+
+test('Country discovery exposes country updates and costs with precise navigation in all three languages', () => {
+  const labels = {
+    tr: ['Ülke Gündemi', 'Ülke Maliyetleri'],
+    en: ['Country Updates', 'Country Costs'],
+    sq: ['Lajme nga shtetet', 'Kostot sipas shtetit'],
+  };
+  for (const locale of ['tr', 'en', 'sq']) {
+    const host = hooks(), navigations = [];
+    const i18n = { locale, dateLocale: 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en };
+    const { ExploreScreen } = load('mobile/src/screens/ExploreScreen.tsx', {
+      ...common(host), '../lib/i18n': { useI18n: () => i18n },
+      '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+      '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
+      '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/artwork': { destinationArtwork: () => '' },
+      '../data/discovery': load('mobile/src/data/discovery.ts'), '../data/routes': { routeByDestinationCode: () => null }, '../data/homeDestinations': { homeSearchDestinations: () => [] },
+      '../data/countryCodes': {}, '../lib/profileCountries': {}, '../lib/profileSync': {}, '../lib/searchText': search,
+      '../lib/storage': { getFavoriteDestinations: () => [] }, '../lib/supabaseData': {},
+      '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: '', type: '' }) },
+      '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify entry conditions', visaFree: false }) },
+      '../data/passport-index.json': { default: { asOf: '2026-10-01' } },
+      '../../../lib/planner-passport': { plannerPassportLabel: () => 'Passport not selected' },
+    }, { document: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} } });
+    try {
+      host.start(ExploreScreen, { accessToken: '', onNavigate: view => navigations.push(view), onSurprise() {}, onBuildRoute() {}, onNotice() {} });
+      const actions = find(host.render(), 'section', props => props.className === 'explore-actions');
+      assert.ok(actions);
+      for (const label of labels[locale]) {
+        const entries = nodes(actions).filter(node => node.type === 'button' && text(find(node, 'strong')) === label);
+        assert.equal(entries.length, 1, `${locale}: one visible ${label} entry`);
+        entries[0].props.onClick();
+      }
+      assert.deepEqual(navigations, ['country-news', 'costs']);
+      assert.equal(nodes(actions).filter(node => node.type === 'button').length, 6, 'Existing discovery actions remain alongside the two relocated entries');
+      find(host.render(), 'input', props => props.type === 'search').props.onChange({ target: { value: 'Paris' } });
+      const searched = host.render();
+      const persistentActions = find(searched, 'section', props => props.className === 'explore-actions');
+      assert.equal(nodes(persistentActions).filter(node => node.type === 'button').length, 2, 'Country updates and costs stay visible with a retained destination query');
+      for (const label of labels[locale]) {
+        find(persistentActions, 'button', props => text(props.children).startsWith(label)).props.onClick();
+      }
+      assert.deepEqual(navigations, ['country-news', 'costs', 'country-news', 'costs']);
+      assert.equal(find(searched, 'input', props => props.type === 'search').props.value, 'Paris', 'Opening an auxiliary screen never clears the country search draft');
+    } finally { host.dispose(); }
+  }
+});
+
+test('Plans preparation exposes the airport guide with localized direct navigation for guests', () => {
+  const labels = { tr: 'Havalimanı Rehberi', en: 'Airport Guide', sq: 'Udhëzues aeroportesh' };
+  for (const locale of ['tr', 'en', 'sq']) {
+    const h = plansUXHarness({ locale });
+    try {
+      const list = find(h.host.render(), 'div', props => props.className === 'plans-tool-list');
+      const airport = find(list, 'button', props => text(props.children).startsWith(labels[locale]));
+      assert.ok(airport, `${locale}: airport guide is visible in the preparation list`);
+      airport.props.onClick();
+      assert.deepEqual(h.navigations, ['airports']);
+      assert.deepEqual(h.signIns, [], 'Opening the guide does not require sign-in');
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('The visible journal entry opens the exact expanded journey tool and every deliberate reopen has a new request', () => {
+  const labels = { tr: ['Seyahat günlüğüm', 'Tüm kayıtlar', 'Diğer seyahat araçları'], en: ['Travel journal', 'All saved', 'Other travel tools'], sq: ['Ditari im i udhëtimit', 'All saved', 'Other travel tools'] };
+  for (const locale of ['tr', 'en', 'sq']) {
+    const h = plansUXHarness({ locale });
+    try {
+      const open = () => {
+        const list = find(h.host.render(), 'div', props => props.className === 'plans-tool-list');
+        const entry = find(list, 'button', props => text(props.children).startsWith(labels[locale][0]));
+        assert.ok(entry, `${locale}: journal is directly visible`); entry.props.onClick();
+        return h.host.render();
+      };
+      let view = open();
+      const first = find(view, 'LazyComponent', props => props.initialTool === 'journal');
+      assert.ok(first, 'Journal opens instead of a generic tool overview');
+      assert.equal(find(view, 'header', props => props.className === 'plans-category-heading') !== undefined, true);
+      const expanded = find(view, 'details', props => text(props.children).includes(labels[locale][2]));
+      assert.equal(expanded.props.open, true);
+      assert.equal(find(view, 'LazyComponent', props => props.initialTool === 'journal').props.toolRequestId, first.props.toolRequestId, 'Ordinary renders retain the journal request identity');
+      assert.deepEqual(h.navigations, [], 'Local journal opening remains in Plans');
+      button(view, labels[locale][1]).props.onClick(); view = open();
+      const second = find(view, 'LazyComponent', props => props.initialTool === 'journal');
+      assert.notEqual(second.props.toolRequestId, first.props.toolRequestId);
+      assert.deepEqual(h.signIns, []);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A changed external tool or request overrides a local journal without stale reactivation', () => {
+  const h = plansUXHarness({ initial: { initialTool: 'airport', toolRequestId: 10 } });
+  const openLocal = () => {
+    button(h.host.render(), 'All saved').props.onClick();
+    const list = find(h.host.render(), 'div', props => props.className === 'plans-tool-list');
+    find(list, 'button', props => text(props.children).startsWith('Travel journal')).props.onClick();
+    return find(h.host.render(), 'LazyComponent', props => props.initialTool === 'journal');
+  };
+  try {
+    let local = openLocal(); assert.ok(local); assert.notEqual(local.props.toolRequestId, 10);
+    let view = h.host.render({ initialTool: 'map' });
+    let external = find(view, 'LazyComponent', props => props.initialTool === 'map');
+    assert.equal(external.props.toolRequestId, 10, 'A changed tool overrides local state even with the same external request ID');
+    assert.equal(find(view, 'LazyComponent', props => props.initialTool === 'journal'), undefined);
+    local = openLocal(); assert.ok(local);
+    view = h.host.render({ toolRequestId: 11 });
+    external = find(view, 'LazyComponent', props => props.initialTool === 'map');
+    assert.equal(external.props.toolRequestId, 11, 'A newer request for the same external tool also wins');
+    assert.equal(find(h.host.render(), 'LazyComponent', props => props.initialTool === 'map').props.toolRequestId, 11, 'The local journal does not reactivate on an ordinary render');
+    view = h.host.render({ initialTool: 'journal', toolRequestId: 12 });
+    assert.equal(find(view, 'LazyComponent', props => props.initialTool === 'journal').props.toolRequestId, 12, 'External journal requests retain their own identity too');
+  } finally { h.host.dispose(); }
+});
+
+test('Leaving a local journal for ordinary Plans sections never reopens it through the offline card', () => {
+  const h = plansUXHarness();
+  try {
+    const journalEntry = find(h.host.render(), 'button', props => text(props.children).startsWith('Travel journal'));
+    journalEntry.props.onClick();
+    assert.ok(find(h.host.render(), 'LazyComponent', props => props.initialTool === 'journal'));
+    button(h.host.render(), 'All saved').props.onClick();
+    const overview = h.host.render();
+    find(overview, 'button', props => text(props.children).startsWith('Personal cards & travel tools')).props.onClick();
+    const tools = find(h.host.render(), 'LazyComponent');
+    assert.ok(tools, 'The user still reaches their ordinary travel tools');
+    assert.equal(tools.props.initialTool, undefined, 'A general section is not another request to open the old journal');
+    assert.equal(tools.props.toolRequestId, 0);
+    const disclosure = find(h.host.render(), 'details', props => text(props.children).includes('Other travel tools'));
+    assert.equal(disclosure.props.open, true, 'Clearing the one-shot journal request does not reset deliberate disclosure state');
+  } finally { h.host.dispose(); }
+});
+
+test('New external Plans sections and guide requests invalidate a local journal before ordinary tool access', () => {
+  const cases = [
+    { name: 'new section', initial: {}, next: { initialSection: 'all', sectionRequestId: 1 } },
+    { name: 'same section with a fresh request', initial: { initialSection: 'all', sectionRequestId: 4 }, next: { sectionRequestId: 5 } },
+    { name: 'new guide entry', initial: { guideRequest: 2 }, next: { guideRequest: 3 } },
+  ];
+  for (const entry of cases) {
+    const h = plansUXHarness({ initial: entry.initial });
+    try {
+      find(h.host.render(), 'button', props => text(props.children).startsWith('Travel journal')).props.onClick();
+      let hub = find(h.host.render(), 'LazyComponent', props => props.initialTool === 'journal');
+      assert.ok(hub, entry.name);
+      assert.equal(find(h.host.render({ ...entry.initial }), 'LazyComponent', props => props.initialTool === 'journal').props.toolRequestId, hub.props.toolRequestId, 'The unchanged external context preserves the current local request');
+      const overview = h.host.render(entry.next);
+      find(overview, 'button', props => text(props.children).startsWith('Personal cards & travel tools')).props.onClick();
+      hub = find(h.host.render(), 'LazyComponent');
+      assert.ok(hub, entry.name);
+      assert.equal(hub.props.initialTool, undefined, `${entry.name}: a stale journal cannot reactivate`);
+      assert.equal(hub.props.toolRequestId, 0);
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('A fresh section request reopens the route list even when its initialSection prop is unchanged', () => {
+  const h = plansUXHarness({ initial: { initialSection: 'routes', sectionRequestId: 1 } });
+  try {
+    button(h.host.render(), 'All saved').props.onClick();
+    assert.equal(text(find(h.host.render(), 'h1')), 'Your Plans');
+    assert.equal(text(find(h.host.render({ sectionRequestId: 1 }), 'h1')), 'Your Plans', 'A retained render preserves deliberate user navigation');
+    assert.equal(text(find(h.host.render({ sectionRequestId: 2 }), 'h1')), 'My routes', 'The explicit repeat request reaches the exact list');
+  } finally { h.host.dispose(); }
+});
+
+test('The route save exit uses the exact route-library callback and explains its actual screen names', async () => {
+  const h = plannerHarness(), opened = [];
+  try {
+    h.host.render({ onOpenSavedRoutes: () => opened.push('routes') });
+    button(selected(h.host.render()), 'Save this plan').props.onClick(); await tick();
+    const view = h.host.render();
+    assert.match(text(view), /Plans → My routes/);
+    button(view, 'Go to My routes').props.onClick();
+    assert.deepEqual(opened, ['routes']); assert.deepEqual(h.navigations, []);
+    assert.equal(h.saves.length, 1);
+  } finally { h.host.dispose(); }
+});
+
 test('Only a new explicit Plans guide request resets a retained category and query; saved data and later user navigation persist',()=>{
   const host=hooks();
   const saved=[{id:'guide-saved-route',createdAt:'2026-10-18T08:00:00Z',input:{days:'3 days'},plan:{summary:'My plan',routes:[{...route,visaStatus:'Visa-free guaranteed',visaNote:'Legacy passport assumption'}]}}];
@@ -1087,4 +1479,38 @@ test('Only a new explicit Plans guide request resets a retained category and que
     assert.match(text(known),/Visa-free/,'An explicitly saved valid passport still controls its entry guidance');
     assert.equal(JSON.stringify(saved),before,'Guide navigation and passport display never rewrite saved records');
   }finally{host.dispose();}
+});
+
+
+test('Personal cards receive real trip choices, retain cached options on failure and ignore stale account responses', async () => {
+  const trip=(id,city)=>({id,destinationCity:city,destinationCountry:'France',destinationCode:'FR',startDate:'2026-11-01',endDate:'2026-11-04',status:'planned'});
+  const pending=[], cachedTrips=new Map([['a',[trip('a-cached','Paris')]],['b',[trip('b-cached','Lyon')]]]);
+  const h=plansUXHarness({ cachedTrips, list:async()=>[{id:'saved-route-not-a-trip',mobileKind:'route_plan'}], cockpitList:(...args)=>new Promise((resolve,reject)=>pending.push({args,resolve,reject})), initial:{user:{id:'a'},ownerId:'a',accessToken:'a-token',initialSection:'travel'} });
+  const cards=()=>find(h.host.render(),'PersonalTravelCards');
+  try{
+    assert.equal(cards().props.trips[0].id,'a-cached'); assert.equal(h.cockpitRequests[0][0],'a');
+    h.host.render({user:{id:'b'},ownerId:'b',accessToken:'b-token'});
+    assert.equal(cards().props.trips[0].id,'b-cached');
+    pending[0].resolve([trip('a-private','Secret')]); await tick();
+    assert.equal(cards().props.trips[0].id,'b-cached'); assert.equal(cachedTrips.get('a')[0].id,'a-cached');
+    pending[1].reject(Error('offline')); await tick(); assert.equal(cards().props.trips[0].id,'b-cached');
+    h.host.render({user:{id:'c'},ownerId:'c',accessToken:'c-token'});
+    pending[2].resolve([trip('c-live','Nice')]); await tick();
+    assert.deepEqual(JSON.parse(JSON.stringify(cards().props.trips)),[{id:'c-live',title:'Nice',startDate:'2026-11-01'}]);
+    h.host.render({user:null,ownerId:null,accessToken:''});
+    assert.deepEqual(Array.from(cards().props.trips),[]); assert.equal(pending.length,3);
+  }finally{h.host.dispose();}
+});
+
+
+test('A handled external tool does not reopen when the user later chooses the general personal cards section', () => {
+  const h=plansUXHarness({initial:{initialTool:'journal',toolRequestId:7}});
+  try{
+    let view=h.host.render();assert.equal(find(view,'LazyComponent',p=>p.initialTool==='journal').props.toolRequestId,7);
+    button(view,'All saved').props.onClick();view=h.host.render();
+    find(view,'button',p=>text(p.children).startsWith('Personal cards & travel tools')).props.onClick();view=h.host.render();
+    assert.ok(find(view,'PersonalTravelCards'));
+    assert.equal(find(view,'LazyComponent',p=>p.initialTool==='journal'),undefined);
+    view=h.host.render({toolRequestId:8});assert.equal(find(view,'LazyComponent',p=>p.initialTool==='journal').props.toolRequestId,8,'A new deliberate deep link still opens the tool');
+  }finally{h.host.dispose();}
 });

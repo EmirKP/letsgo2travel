@@ -4,6 +4,7 @@ let started = 0;
 let requests = 0;
 let cooldown = 0;
 let preferredProvider = '';
+const successfulDuration = new Map<string, number>();
 const unavailableUntil = new Map<string, number>();
 // Both instances permit any-project use. Do not fall back to the restricted
 // FOSSGIS service. Policy checked 2026-10-04:
@@ -46,14 +47,19 @@ export async function queryOverpass(
       // A 3s probe cancelled healthy 12s queries before they could finish. Keep
       // at least 5s (or half a shorter total budget) for sequential failover.
       const querySeconds = Math.min(20, Math.max(1, Number(query.match(/\[timeout:(\d+)\]/)?.[1] || 12)));
+      // Public providers can queue a healthy query before execution. Once a
+      // host has completed successfully, allow its observed latency plus a
+      // small margin instead of cutting every preferred host off at 13s.
+      const observedBudget = (successfulDuration.get(endpoint.href) || 0) + 2000;
       const attemptTimeout = index < providers.length - 1
-        ? Math.max(1, Math.floor(Math.min(querySeconds * 1000 + 1000, Math.max(remaining / 2, remaining - 5000))))
+        ? Math.max(1, Math.floor(Math.min(Math.max(querySeconds * 1000 + 1000, observedBudget), Math.max(remaining / 2, remaining - 5000))))
         : remaining;
       const attemptStarted = Date.now();
       requests++;
       try {
         const value = await readProvider(endpoint, query, attemptTimeout);
         preferredProvider = endpoint.href;
+        successfulDuration.set(endpoint.href, Math.min(21000, Math.max(0, Date.now() - attemptStarted)));
         return value;
       } catch (error) {
         // Never log the query, coordinates, full configured URL or credentials.
@@ -129,6 +135,9 @@ async function readProvider(endpoint: URL, query: string, timeout: number) {
       // execution errors, and never hop hosts to work around a denial/quota.
       if (/rate[ -]?limit|too many requests|quota|access denied|forbidden|not authori[sz]ed/i.test(remark)) {
         throw new ProviderError("Map request declined", false, 60000, 'runtime-declined');
+      }
+      if (/runtime error:/i.test(remark) && /(?:run |ran )?out of memory|memory limit/i.test(remark)) {
+        throw new ProviderError("Map query exceeded its resource budget", false, 0, 'runtime-memory');
       }
       if (/runtime error:/i.test(remark) && /query timed out|server is probably too busy|server is overloaded/i.test(remark)) {
         throw new ProviderError("Map runtime unavailable", true, 0, 'runtime-unavailable');

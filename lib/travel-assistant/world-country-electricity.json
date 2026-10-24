@@ -1,0 +1,5119 @@
+{
+  "AD": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/andorra/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AE": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/united-arab-emirates/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AF": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/afghanistan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AG": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110,
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/antigua-and-barbuda/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Voltaj veya frekans bölgeye/tesise göre değişebilir. Kayıtlı değerleri konaklamanla karşılaştır; adaptör voltaj dönüştürmez.",
+      "en": "Voltage or frequency may vary by area/property. Compare the listed values with your accommodation; a plug adapter does not convert voltage.",
+      "sq": "Tensioni ose frekuenca mund të ndryshojë sipas zonës/objektit. Krahaso vlerat me akomodimin; përshtatësi i prizës nuk ndryshon tensionin."
+    }
+  },
+  "AI": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/anguilla/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AL": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/albania/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AM": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/armenia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AO": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/angola/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AQ": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "U.S. Antarctic Program - living at research facilities",
+        "url": "https://www.usap.gov/USAPgov/travelAndDeployment/documents/ParticipantGuide-Chapter6.pdf",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "AR": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/argentina/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AS": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "F",
+      "I"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/american-samoa/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AT": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/austria/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AU": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/australia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AW": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "F"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/aruba/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AX": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "ElectricPlug.eu - Aland territory guide",
+        "url": "https://electricplug.eu/en/list-of-countries/aland-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "AZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/azerbaijan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BA": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bosnia-herzegovina/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BB": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      115
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/barbados/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BD": {
+    "status": "available",
+    "types": [
+      "A",
+      "C",
+      "D",
+      "G",
+      "K"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bangladesh/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BE": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/belgium/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BF": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/burkina-faso/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BG": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bulgaria/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BH": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bahrain/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BI": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/burundi/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BJ": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/benin/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BL": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-barthelemy/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BM": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bermuda/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BN": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/brunei/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BO": {
+    "status": "available",
+    "types": [
+      "A",
+      "C"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bolivia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BQ": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C",
+      "F"
+    ],
+    "voltage": [
+      110,
+      127,
+      220
+    ],
+    "frequency": [
+      50,
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First - Bonaire",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bonaire/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Electrical Safety First - Saba",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saba/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Electrical Safety First - Sint Eustatius",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sint-eustatius/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/bonaire/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Ada farkı var: Bonaire 127/220 V, 50 Hz; Saba ve Sint Eustatius 110 V, 60 Hz olarak listelenir. Konaklamanın prizini ve voltajını doğrula.",
+      "en": "Island systems differ: Bonaire is listed at 127/220 V, 50 Hz; Saba and Sint Eustatius at 110 V, 60 Hz. Confirm your accommodation’s socket and voltage.",
+      "sq": "Sistemet ndryshojnë sipas ishullit: Bonaire renditet me 127/220 V, 50 Hz; Saba dhe Sint Eustatius me 110 V, 60 Hz. Verifiko prizën dhe tensionin e akomodimit."
+    }
+  },
+  "BR": {
+    "status": "available",
+    "types": [
+      "C",
+      "N"
+    ],
+    "voltage": [
+      127,
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/brazil/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/brazil/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Voltaj veya frekans bölgeye/tesise göre değişebilir. Kayıtlı değerleri konaklamanla karşılaştır; adaptör voltaj dönüştürmez.",
+      "en": "Voltage or frequency may vary by area/property. Compare the listed values with your accommodation; a plug adapter does not convert voltage.",
+      "sq": "Tensioni ose frekuenca mund të ndryshojë sipas zonës/objektit. Krahaso vlerat me akomodimin; përshtatësi i prizës nuk ndryshon tensionin."
+    }
+  },
+  "BS": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bahamas/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BT": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/bhutan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BV": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "Norwegian Polar Institute - Bouvet nature reserve",
+        "url": "https://npolar.no/en/regulations-bouvetoya-nature-reserve/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "BW": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/botswana/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BY": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/belarus/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "BZ": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "G"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/belize/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CA": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/canada/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CC": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cocos-keeling-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CD": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/democratic-republic-of-congo/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CF": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/central-african-republic/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CG": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/peoples-republic-of-congo/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CH": {
+    "status": "available",
+    "types": [
+      "C",
+      "J"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/switzerland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CI": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ivory-coast/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CK": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cook-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CL": {
+    "status": "available",
+    "types": [
+      "C",
+      "L"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/chile/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CM": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cameroon/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CN": {
+    "status": "available",
+    "types": [
+      "A",
+      "C",
+      "I"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/china/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CO": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/colombia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CR": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/costa-rica/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CU": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C",
+      "L"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cuba/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CV": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cape-verde/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CW": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      127
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/curacao/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CX": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/christmas-island/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CY": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cyprus/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "CZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/czech-republic/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DE": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/germany/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DJ": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/djibouti/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DK": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "F",
+      "K"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/denmark/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DM": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/dominica/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DO": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/dominican-republic/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "DZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/algeria/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "EC": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ecuador/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "EE": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/estonia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "EG": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/egypt/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "EH": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/western-sahara/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ER": {
+    "status": "available",
+    "types": [
+      "C",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/eritrea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ES": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/spain/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ET": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "G"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ethiopia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FI": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/finland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FJ": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/fiji/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FK": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/falkland-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FM": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/micronesia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FO": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "F",
+      "K"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/faeroe-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "FR": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/france/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GA": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/gabon/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GB": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/united-kingdom/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GD": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/grenada/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GE": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/georgia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GF": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/french-guiana/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GG": {
+    "status": "available",
+    "types": [
+      "C",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guernsey/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GH": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ghana/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GI": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/gibraltar/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GL": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "F",
+      "K"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/greenland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GM": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/gambia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GN": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "K"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guinea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GP": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guadeloupe/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GQ": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/equatorial-guinea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GR": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/greece/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GS": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "South Georgia Government - visitor arrangements",
+        "url": "https://gov.gs/how-to-visit/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "GT": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guatemala/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GU": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guam/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GW": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guinea-bissau/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "GY": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      110,
+      120,
+      220
+    ],
+    "frequency": [
+      50,
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/guyana/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/guyana/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Voltaj veya frekans bölgeye/tesise göre değişebilir. Kayıtlı değerleri konaklamanla karşılaştır; adaptör voltaj dönüştürmez.",
+      "en": "Voltage or frequency may vary by area/property. Compare the listed values with your accommodation; a plug adapter does not convert voltage.",
+      "sq": "Tensioni ose frekuenca mund të ndryshojë sipas zonës/objektit. Krahaso vlerat me akomodimin; përshtatësi i prizës nuk ndryshon tensionin."
+    }
+  },
+  "HK": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/hong-kong/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "HM": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "Australian Antarctic Program - Heard Island",
+        "url": "https://www.antarctica.gov.au/antarctic-operations/stations-and-field-locations/heard-island/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "HN": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/honduras/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "HR": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/croatia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "HT": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/haiti/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "HU": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/hungary/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ID": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/indonesia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IE": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ireland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IL": {
+    "status": "available",
+    "types": [
+      "C",
+      "H"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/israel/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IM": {
+    "status": "available",
+    "types": [
+      "C",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/isle-of-man/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IN": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "M"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/india/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IO": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "UK Government - British Indian Ocean Territory guidance",
+        "url": "https://www.gov.uk/foreign-travel-advice/british-indian-ocean-territory",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "IQ": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/iraq/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IR": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/iran/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IS": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/iceland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "IT": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/italy/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JE": {
+    "status": "available",
+    "types": [
+      "C",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/jersey/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JM": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/jamaica/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JO": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "F",
+      "G",
+      "J"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/jordan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "JP": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      100
+    ],
+    "frequency": [
+      50,
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/japan/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "Japan National Tourism Organization",
+        "url": "https://www.japan.travel/en/plan/plug-and-electricity/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Doğu Japonya 50 Hz, batı Japonya 60 Hz kullanır. Yaygın iki pimli prizlerde topraklı üç pimli fişin uyacağını varsayma.",
+      "en": "Eastern Japan uses 50 Hz and western Japan 60 Hz. Do not assume a grounded three-pin plug fits the common two-pin outlets.",
+      "sq": "Japonia lindore përdor 50 Hz dhe ajo perëndimore 60 Hz. Mos supozo se një prizë me tre kunja dhe tokëzim përshtatet me prizat e zakonshme me dy kunja."
+    }
+  },
+  "KE": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kenya/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KG": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kyrgyzstan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KH": {
+    "status": "available",
+    "types": [
+      "A",
+      "C",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cambodia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KI": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kiribati/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KM": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/comoros/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KN": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-kitts-and-nevis/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KP": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/north-korea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KR": {
+    "status": "available",
+    "types": [
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/south-korea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KW": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kuwait/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KY": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/cayman-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "KZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kazakhstan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LA": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C",
+      "E",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/laos/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LB": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/lebanon/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LC": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-lucia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LI": {
+    "status": "available",
+    "types": [
+      "C",
+      "J"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/liechtenstein/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LK": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sri-lanka/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LR": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/liberia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LS": {
+    "status": "available",
+    "types": [
+      "M"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/lesotho/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LT": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/lithuania/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LU": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/luxembourg/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LV": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/latvia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "LY": {
+    "status": "available",
+    "types": [
+      "C",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/libya/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MA": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/morocco/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MC": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/monaco/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MD": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/moldova/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ME": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/montenegro/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MF": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-martin/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MG": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/madagascar/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MH": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/marshall-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MK": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/macedonia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ML": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mali/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MM": {
+    "status": "available",
+    "types": [
+      "A",
+      "C",
+      "D",
+      "G",
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/myanmar/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MN": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mongolia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MO": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/macau/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MP": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "StayOnline - International Power Guide",
+        "url": "https://www.stayonline.com/content/international-power-guide.asp",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MQ": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/martinique/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MR": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mauritania/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MS": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/montserrat/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MT": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/malta/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MU": {
+    "status": "available",
+    "types": [
+      "C",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mauritius/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MV": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "G",
+      "J",
+      "K",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/maldives/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MW": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/malawi/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MX": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mexico/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MY": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/malaysia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "MZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "M"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mozambique/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NA": {
+    "status": "available",
+    "types": [
+      "D",
+      "M"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/namibia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NC": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/new-caledonia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NE": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/niger/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NF": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/norfolk-island/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NG": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/nigeria/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NI": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/nicaragua/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NL": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/netherlands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NO": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/norway/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NP": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "M"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/nepal/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NR": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/nauru/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NU": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/niue/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "NZ": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/new-zealand/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "OM": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/oman/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PA": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/panama/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PE": {
+    "status": "available",
+    "types": [
+      "A",
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/peru/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PF": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220,
+      230
+    ],
+    "frequency": [
+      50,
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First - Tahiti",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tahiti/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/french-polynesia/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Tahiti kaynağı 220 V/50 Hz belirtir; bölge rehberi 230 V/60 Hz ve Marquesas Adaları için 50 Hz listeler. Ada ve konaklamanın elektrik değerini doğrula.",
+      "en": "The Tahiti source lists 220 V/50 Hz; the territory guide lists 230 V/60 Hz and 50 Hz for the Marquesas Islands. Confirm the electricity values for your island and property.",
+      "sq": "Burimi për Tahitin jep 220 V/50 Hz; udhëzuesi territorial jep 230 V/60 Hz dhe 50 Hz për ishujt Marquesas. Verifiko vlerat elektrike për ishullin dhe akomodimin."
+    }
+  },
+  "PG": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/papua-new-guinea/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PH": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/philippines/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PK": {
+    "status": "available",
+    "types": [
+      "C",
+      "D"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/pakistan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PL": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/poland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PM": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220,
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Saint-Pierre et Miquelon - tourism office",
+        "url": "https://www.tourisme-saint-pierre-et-miquelon.com/en/12-practical-tips.html",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/saint-pierre-and-miquelon/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Turizm ofisi 220 V, standartlar rehberi 230 V belirtir. Konaklamanın değerini doğrula.",
+      "en": "The tourism office lists 220 V and the standards guide 230 V. Confirm the supply at your accommodation.",
+      "sq": "Zyra e turizmit jep 220 V dhe udhëzuesi i standardeve 230 V. Verifiko furnizimin e akomodimit."
+    }
+  },
+  "PN": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/pitcairn-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PR": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/puerto-rico/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PS": {
+    "status": "available",
+    "types": [
+      "C",
+      "H"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/palestine/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PT": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/portugal/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PW": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/palau/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "PY": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/paraguay/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "QA": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/qatar/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RE": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/reunion/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RO": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/romania/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RS": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/serbia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RU": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/russia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "RW": {
+    "status": "available",
+    "types": [
+      "C",
+      "J"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/rwanda/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SA": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saudi-arabia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SB": {
+    "status": "available",
+    "types": [
+      "G",
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/solomon-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SC": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/seychelles/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SD": {
+    "status": "available",
+    "types": [
+      "C",
+      "D"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sudan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SE": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sweden/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SG": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/singapore/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SH": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-helena/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SI": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/slovenia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SJ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Global Plugs - Svalbard and Jan Mayen guide",
+        "url": "https://www.globalplugs.com/il/sj",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SK": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/slovakia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SL": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sierra-leone/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SM": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/san-marino/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SN": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E",
+      "K"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/senegal/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SO": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/somalia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SR": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C",
+      "F"
+    ],
+    "voltage": [
+      127
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/suriname/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SS": {
+    "status": "available",
+    "types": [
+      "C",
+      "D"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/south-sudan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ST": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sao-tome-and-principe/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SV": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/el-salvador/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SX": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/sint-maarten/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SY": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "L"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/syria/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "SZ": {
+    "status": "available",
+    "types": [
+      "M"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/swaziland/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TC": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/turks-and-caicos-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TD": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/chad/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TF": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "Terres australes et antarctiques francaises - territory guidance",
+        "url": "https://taaf.fr/collectivites/presentation-des-territoires/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "TG": {
+    "status": "available",
+    "types": [
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/togo/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TH": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C",
+      "O"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/thailand/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TJ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tajikistan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TK": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tokelau/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TL": {
+    "status": "available",
+    "types": [
+      "C",
+      "E",
+      "F",
+      "I"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/east-timor/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TM": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/turkmenistan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TN": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tunisia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TO": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tonga/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TR": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/turkey/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TT": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      115
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/trinidad-tobago/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TV": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tuvalu/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TW": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/taiwan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "TZ": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/tanzania/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UA": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/ukraine/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UG": {
+    "status": "available",
+    "types": [
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/uganda/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UM": {
+    "status": "unverified",
+    "types": [],
+    "voltage": [],
+    "frequency": [],
+    "sources": [
+      {
+        "label": "U.S. Fish and Wildlife Service - Pacific islands visitor arrangements",
+        "url": "https://www.fws.gov/national-monument/pacific-islands-heritage-marine",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Bu bölgenin tamamı için priz, voltaj ve frekans bağımsız olarak doğrulanmadı. Gemi, araştırma istasyonu veya sefer organizatöründen elektrik ve şarj koşullarını öğren. Bağlantı bölgesel ziyaret rehberidir; elektrik standardının doğrulaması değildir.",
+      "en": "Socket, voltage and frequency have not been independently verified for this whole territory. Ask your vessel, research station or expedition operator about power and charging. The link is regional visitor guidance, not electrical-standard verification.",
+      "sq": "Prizat, tensioni dhe frekuenca nuk janë verifikuar në mënyrë të pavarur për të gjithë territorin. Pyet anijen, stacionin kërkimor ose organizatorin për energjinë dhe karikimin. Lidhja është udhëzim vizitorësh, jo verifikim i standardit elektrik."
+    }
+  },
+  "US": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/united-states/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UY": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "L"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/uruguay/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "UZ": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/uzbekistan/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VA": {
+    "status": "available",
+    "types": [
+      "C",
+      "F",
+      "L"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/vatican-city/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VC": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "G"
+    ],
+    "voltage": [
+      110,
+      230
+    ],
+    "frequency": [
+      50,
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/saint-vincent-and-the-grenadines/",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/saint-vincent-and-the-grenadines/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Voltaj veya frekans bölgeye/tesise göre değişebilir. Kayıtlı değerleri konaklamanla karşılaştır; adaptör voltaj dönüştürmez.",
+      "en": "Voltage or frequency may vary by area/property. Compare the listed values with your accommodation; a plug adapter does not convert voltage.",
+      "sq": "Tensioni ose frekuenca mund të ndryshojë sipas zonës/objektit. Krahaso vlerat me akomodimin; përshtatësi i prizës nuk ndryshon tensionin."
+    }
+  },
+  "VE": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      120
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/venezuela/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VG": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/british-virgin-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VI": {
+    "status": "available",
+    "types": [
+      "A",
+      "B"
+    ],
+    "voltage": [
+      110
+    ],
+    "frequency": [
+      60
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/united-states-virgin-islands/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VN": {
+    "status": "available",
+    "types": [
+      "A",
+      "B",
+      "C"
+    ],
+    "voltage": [
+      220
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/vietnam/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "VU": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/vanuatu/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "WF": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      220,
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Wallis et Futuna - tourism office",
+        "url": "https://wallis-futuna.travel/en/what-to-see-do/useful-information",
+        "checkedAt": "2026-10-21"
+      },
+      {
+        "label": "World Standards",
+        "url": "https://www.worldstandards.eu/electricity/plug-voltage-by-country/wallis-and-futuna/",
+        "checkedAt": "2026-10-21"
+      }
+    ],
+    "note": {
+      "tr": "Turizm ofisi 220 V, standartlar rehberi 230 V belirtir. Konaklamanın değerini doğrula.",
+      "en": "The tourism office lists 220 V and the standards guide 230 V. Confirm the supply at your accommodation.",
+      "sq": "Zyra e turizmit jep 220 V dhe udhëzuesi i standardeve 230 V. Verifiko furnizimin e akomodimit."
+    }
+  },
+  "WS": {
+    "status": "available",
+    "types": [
+      "I"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/samoa/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "XK": {
+    "status": "available",
+    "types": [
+      "C",
+      "F"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/kosovo/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "YE": {
+    "status": "available",
+    "types": [
+      "A",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/yemen/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "YT": {
+    "status": "available",
+    "types": [
+      "C",
+      "E"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/mayotte/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ZA": {
+    "status": "available",
+    "types": [
+      "C",
+      "M",
+      "N"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/south-africa/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ZM": {
+    "status": "available",
+    "types": [
+      "C",
+      "D",
+      "G"
+    ],
+    "voltage": [
+      230
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/zambia/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  },
+  "ZW": {
+    "status": "available",
+    "types": [
+      "D",
+      "G"
+    ],
+    "voltage": [
+      240
+    ],
+    "frequency": [
+      50
+    ],
+    "sources": [
+      {
+        "label": "Electrical Safety First",
+        "url": "https://www.electricalsafetyfirst.org.uk/safety-advice/travel-advice/zimbabwe/",
+        "checkedAt": "2026-10-21"
+      }
+    ]
+  }
+}

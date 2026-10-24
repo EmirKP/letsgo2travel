@@ -9,7 +9,8 @@ import { TextSizePicker } from "../components/TextSizePicker";
 import { NotificationPreferences } from "../components/NotificationPreferences";
 import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet } from "../components/CommunitySafetySheet";
-import { LegalSheet } from "../components/LegalSheet";
+import { LegalSheet, type LegalSlug } from "../components/LegalSheet";
+import { SupportSheet } from "../components/SupportSheet";
 import { COUNTRY_LIST } from "../data/countries";
 import { profileIdsForAlpha3 } from "../data/countryCodes";
 import { alpha3FromAlpha2 } from "../data/countryIso";
@@ -59,11 +60,14 @@ function profileIdsForDestinations(original: string[], destinations: FavoriteDes
   return profileIdsForAlpha3(original, destinations.map(country => country.alpha3));
 }
 
-export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice, onOpenCommunityQuestion, onAddSocialPlace }: {
+export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCountriesRequest = 0, onVisitedCountriesHandled, onOpenLeague, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice, onOpenCommunityQuestion, onAddSocialPlace }: {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
   isAdmin: boolean;
+  visitedCountriesRequest?: number;
+  onVisitedCountriesHandled?: () => void;
+  onOpenLeague?: () => void;
   onOpenAccount: () => void;
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
@@ -76,8 +80,14 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const [tick, setTick] = useState(0);
   const identityRef = useRef<HTMLElement>(null);
   const [visitedOpen, setVisitedOpen] = useState(false);
+  useEffect(() => {
+    if (!visitedCountriesRequest) return;
+    setVisitedOpen(true);
+    onVisitedCountriesHandled?.();
+  }, [visitedCountriesRequest, onVisitedCountriesHandled]);
   const [blocksOpen, setBlocksOpen] = useState(false);
-  const [legalOpen, setLegalOpen] = useState(false);
+  const [legalSlug, setLegalSlug] = useState<LegalSlug | null>(null);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [visibleCountryCount, setVisibleCountryCount] = useState(60);
   const [preferences, setPreferences] = useState<MobilePreferences>(() => getMobilePreferences());
@@ -319,7 +329,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
   const shareCard = async () => {
     const shared = await shareContent({
       title: copy("LetsGo2Travel Kaşif Kartım", "My LetsGo2Travel Explorer Card"),
-      text: copy(`${name} · ${level}\n${visited.length} ülke ziyaret ettim, ${favorites.length} rotayı favoriledim.`, `${name} · ${localizedLevel}\nI visited ${visited.length} countries and saved ${favorites.length} routes.`, `${name} · ${localizedLevel}\nKam vizituar ${visited.length} shtete dhe kam ruajtur ${favorites.length} itinerare.`),
+      text: copy(`${name} · ${level}\n${visited.length} ülke ziyaret ettim, ${favorites.length} ülkeyi favoriledim.`, `${name} · ${localizedLevel}\nI visited ${visited.length} countries and saved ${favorites.length} countries.`, `${name} · ${localizedLevel}\nKam vizituar ${visited.length} shtete dhe kam ruajtur ${favorites.length} shtete.`),
       url: "https://www.letsgo2travel.com.tr",
     });
     onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
@@ -371,15 +381,16 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
     <section className="profile-section" aria-labelledby="profile-community-heading">
       <div className="section-heading"><div><h2 id="profile-community-heading">{copy("Toplulukta sen", "You in the community")}</h2></div></div>
       <div className="profile-action-list">
-        <button onClick={() => onNavigate("community")}><span className="profile-feature-artwork"><TravelToolArtwork kind="league" size={56} /></span><div><strong>{copy("Kaşifler Ligi", "Explorer League")}</strong><small>{copy("Gezgin sıralaması ve topluluk", "Traveller ranking and community")}</small></div><Icon name="chevron" size={16} /></button>
+        <button onClick={onOpenLeague || (() => onNavigate("community"))}><span className="profile-feature-artwork"><TravelToolArtwork kind="league" size={56} /></span><div><strong>{copy("Kaşifler Ligi", "Explorer League")}</strong><small>{copy("Gezgin sıralaması ve topluluk", "Traveller ranking and community")}</small></div><Icon name="chevron" size={16} /></button>
         <button onClick={() => user ? setVerificationOpen(true) : onOpenAccount()}><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={56} /></span><div><strong>{copy("Belgeli Gezgin", "Verified Traveller")}</strong><small>{user ? verificationStatusText || copy(`${approvedCount} onaylı · ${verifications.filter((item) => item.status === "pending").length} bekleyen`, `${approvedCount} approved · ${verifications.filter((item) => item.status === "pending").length} pending`, `${approvedCount} të miratuara · ${verifications.filter((item) => item.status === "pending").length} në pritje`) : copy("Giriş yaparak doğrulama durumunu gör", "Sign in to view verification status")}</small></div><Icon name="chevron" size={16} /></button>
       </div>
     </section>
 
     <section className="profile-section profile-settings" aria-labelledby="profile-settings-heading">
-      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS")}</span><h2 id="profile-settings-heading">{copy("Tercihler ve gizlilik", "Preferences & privacy")}</h2></div></div>
+      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS", "SIPAS TEJE")}</span><h2 id="profile-settings-heading">{copy("Tercihler ve gizlilik", "Preferences & privacy", "Preferencat dhe privatësia")}</h2></div></div>
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="alerts" size={56}/></span><span><strong>{copy("Bildirimler", "Notifications")}</strong><small>{copy("Uygulama içi ve telefon bildirimleri", "In-app and phone notifications")}</small></span><Icon name="chevron" size={18}/></summary>
+      <h3 className="profile-notification-subheading">{copy("Bu cihaz", "This device", "Kjo pajisje")}</h3>
       <div className="settings-card">
         <label><span><Icon name="bell" size={19} /><em><strong>{copy("Uygulama içi bildirimler", "In-app notifications")}</strong><small>{copy("Rota ve vize güncellemeleri", "Route and visa updates")}</small></em></span><input type="checkbox" checked={preferences.inAppNotifications} onChange={(event) => updatePreference("inAppNotifications", event.target.checked)} /></label>
         <button disabled={pushBusy || pushState === "unsupported"} onClick={() => void togglePushSetting()}><span><Icon name="bell" size={19} /><em><strong>{copy("Telefon bildirimleri", "Phone notifications")}</strong><small>{pushStateText}</small></em></span>{pushBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
@@ -387,30 +398,34 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, onOpenAccou
           <button disabled={testBusy} onClick={() => void sendTestPush()}><span><Icon name="sparkles" size={19} /><em><strong>{copy("Test bildirimi gönder", "Send test notification")}</strong><small>{copy("Bildirimlerin bu cihazda çalıştığını doğrula", "Check that notifications work on this device")}</small></em></span>{testBusy ? <span className="button-loader dark" /> : <Icon name="chevron" size={17} />}</button>
         )}
       </div>
+      {user && accessToken && <section className="profile-account-notifications" aria-labelledby="profile-account-notifications-title"><h3 className="profile-notification-subheading" id="profile-account-notifications-title">{copy("Hesabının bildirim türleri", "Your account notification types", "Llojet e njoftimeve të llogarisë")}</h3><NotificationPreferences key={user.id} accessToken={accessToken}/></section>}
       </details>
       <details className="profile-preference-group"><summary><span className="profile-feature-artwork"><TravelToolArtwork kind="settings" size={48}/></span><span><strong>{copy("Görünüm", "Appearance", "Pamja")}</strong><small>{copy("Tema ve yazı boyutu", "Theme and text size", "Tema dhe madhësia e tekstit")}</small></span><Icon name="chevron" size={18}/></summary><div className="profile-appearance-settings"><AppearancePicker/><TextSizePicker/></div></details>
-      {user && accessToken && <details className="profile-preference-group"><summary><span className="profile-feature-artwork"><TravelToolArtwork kind="alerts" size={48}/></span><span><strong>{copy("Bildirim tercihleri","Notification preferences","Preferencat e njoftimeve")}</strong><small>{copy("Yorum, yanıt, takipçi ve fiyat alarmları","Comments, replies, followers and price alerts","Komente, përgjigje, ndjekës dhe çmime")}</small></span><Icon name="chevron" size={18}/></summary><NotificationPreferences key={user.id} accessToken={accessToken}/></details>}
       <details className="profile-preference-group">
-        <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="privacy" size={56}/></span><span><strong>{copy("Gizlilik ve topluluk", "Privacy & community")}</strong><small>{copy("Görünürlük, engellenenler ve veri hakların", "Visibility, blocked users and your data rights")}</small></span><Icon name="chevron" size={18}/></summary>
+        <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="privacy" size={56}/></span><span><strong>{copy("Gizlilik ve hesap", "Privacy & account", "Privatësia dhe llogaria")}</strong><small>{copy("Görünürlük, veri hakları ve yasal metinler", "Visibility, data rights and legal documents", "Dukshmëria, të drejtat e të dhënave dhe dokumentet ligjore")}</small></span><Icon name="chevron" size={18}/></summary>
       <div className="settings-card">
         {user && <label><span><Icon name="users" size={19} /><em><strong>{copy("Kaşifler Ligi'nde görün", "Appear in Explorer League")}</strong><small>{copy("Yalnız güvenli profil özeti paylaşılır", "Only a safe profile summary is shared")}</small></em></span><input type="checkbox" checked={profile?.optInLeaderboard || false} disabled={!profile || profileLoading || profileError || Boolean(profileBusy)} onChange={(event) => void toggleLeaderboard(event.target.checked)} /></label>}
         <button onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><span><Icon name="unlock" size={19} /><em><strong>{copy("Engellenen kullanıcılar", "Blocked users")}</strong><small>{copy("Engellediğin kişileri gör ve engeli kaldır", "View and unblock people")}</small></em></span><Icon name="chevron" size={17} /></button>
-        <button onClick={() => setLegalOpen(true)}><span><Icon name="lock" size={19} /><em><strong>{copy("Gizlilik ve veri işlemleri", "Privacy & data use")}</strong><small>{copy("Veri hakların ve gizlilik politikası (uygulama içinde)", "Your data rights and privacy policy in the app")}</small></em></span><Icon name="chevron" size={17} /></button>
+        <button type="button" onClick={() => setLegalSlug("gizlilik-politikasi")}><span><Icon name="lock" size={19}/><em><strong>{copy("Gizlilik Politikası", "Privacy Policy", "Politika e privatësisë")}</strong><small>{copy("Veri kullanım bilgileri ve gizlilik hakların", "How data is used and your privacy rights", "Si përdoren të dhënat dhe të drejtat e privatësisë")}</small></em></span><Icon name="chevron" size={17}/></button>
+        <button type="button" onClick={() => setLegalSlug("kullanim-sartlari")}><span><Icon name="book" size={19}/><em><strong>{copy("Kullanım Şartları", "Terms of Use", "Kushtet e përdorimit")}</strong><small>{copy("Hizmet koşullarını uygulama içinde oku", "Read the service terms in the app", "Lexo kushtet e shërbimit në aplikacion")}</small></em></span><Icon name="chevron" size={17}/></button>
+        <button type="button" onClick={onOpenAccount}><span><Icon name="trash" size={19}/><em><strong>{copy("Hesap ve veri silme", "Account & data deletion", "Fshirja e llogarisë dhe të dhënave")}</strong><small>{copy("Hesap bölümünden uygulama içinde talep et", "Request it inside the account section", "Kërkoje nga seksioni i llogarisë në aplikacion")}</small></em></span><Icon name="chevron" size={17}/></button>
       </div>
       </details>
       <details className="profile-preference-group">
-        <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="settings" size={56}/></span><span><strong>{copy("Uygulama", "App")}</strong><small>{copy("Dokunma hissi, yenilikler ve kısa tur", "Touch feedback, updates and a quick tour")}</small></span><Icon name="chevron" size={18}/></summary>
+        <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="settings" size={56}/></span><span><strong>{copy("Uygulama ve yardım", "App & help", "Aplikacioni dhe ndihma")}</strong><small>{copy("Eğitim, destek ve uygulama ayarları", "Lessons, support and app settings", "Udhëzime, ndihmë dhe cilësimet e aplikacionit")}</small></span><Icon name="chevron" size={18}/></summary>
         <div className="settings-card">
+          <button type="button" onClick={onOpenOnboarding}><span><Icon name="compass" size={19}/><em><strong>{copy("Nasıl kullanılır?", "How to use the app", "Si përdoret aplikacioni?")}</strong><small>{copy("Gerçek düğmeler üzerinde kısa ipuçları", "Short tips on the real controls", "Këshilla të shkurtra mbi kontrollet reale")}</small></em></span><Icon name="chevron" size={17}/></button>
+          <button type="button" onClick={() => setSupportOpen(true)}><span><Icon name="message" size={19}/><em><strong>{copy("Destek ve sorun bildir", "Support & report a problem", "Ndihmë dhe raporto një problem")}</strong><small>{copy("Sorununu anlat, istersen ekran görüntüsü ekle", "Describe a problem and optionally add a screenshot", "Përshkruaj problemin dhe shto pamje ekrani nëse dëshiron")}</small></em></span><Icon name="chevron" size={17}/></button>
           <label><span><Icon name="sparkles" size={19} /><em><strong>{copy("Dokunma titreşimi", "Touch feedback")}</strong><small>{copy("Desteklenen cihazlarda hafif geri bildirim", "Gentle feedback on supported devices")}</small></em></span><input type="checkbox" checked={preferences.haptics} onChange={(event) => updatePreference("haptics", event.target.checked)} /></label>
           <button onClick={onOpenRelease}><span><Icon name="info" size={19} /><em><strong>{copy("Sürüm yenilikleri", "What's new")}</strong><small>{copy(`Build ${config.buildNumber} ile gelenleri gör`, `See what's included in Build ${config.buildNumber}`, `Shiko çfarë përfshin versioni ${config.buildNumber}`)}</small></em></span><Icon name="chevron" size={17} /></button>
-          <button onClick={onOpenOnboarding}><span><Icon name="compass" size={19} /><em><strong>{copy("Uygulamayı tanı", "Get to know the app", "Njihu me aplikacionin")}</strong><small>{copy("Gerçek düğmeler üzerinde kısa ipuçları", "Short tips on the real controls", "Këshilla të shkurtra mbi kontrollet reale")}</small></em></span><Icon name="chevron" size={17} /></button>
         </div>
       <p className="profile-version">LetsGo2Travel {nativeVersion?.version || config.appVersion} · Build {nativeVersion?.build || config.buildNumber}<br/>{config.updateId} · {config.sourceCommit}</p>
       </details>
     </section>
 
     {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { setProfileReload(value => value + 1); onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked.")); }} />}
-    <LegalSheet open={legalOpen} slug="gizlilik-politikasi" onClose={() => setLegalOpen(false)} />
+    {legalSlug && <LegalSheet open slug={legalSlug} onClose={() => setLegalSlug(null)} />}
+    {supportOpen && <SupportSheet key={ownerId || "guest"} open onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={ownerId} screen="profile" />}
 
     {visitedOpen && <Sheet open title={copy("Ziyaret ettiğim ülkeler", "Countries I've visited")} onClose={() => setVisitedOpen(false)} size="large">
       <label className="sr-only" htmlFor="visited-country-search">{copy("Ülke ara", "Search countries")}</label>

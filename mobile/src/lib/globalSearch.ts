@@ -3,7 +3,7 @@ import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { homeSearchDestinations } from "../data/homeDestinations";
 import { appRegionName, formatAppDate } from "./localeFormatting";
 import { normalizeSearchText } from "./searchText";
-import { appTools, type TravelAssistantTool } from "./appTools";
+import { searchableAppTools, type JourneyToolId, type TravelAssistantTool } from "./appTools";
 import type { AppLocale } from "./locale";
 import type { SavedRoutePlan, ViewId } from "../types";
 import type { TravelToolArtworkKind } from "../components/TravelToolArtwork";
@@ -15,7 +15,7 @@ type BaseResult = { id: string; title: string; subtitle: string };
 export type GlobalSearchResult = BaseResult & (
   | { kind: "country"; countryCode: string }
   | { kind: "city"; query: string }
-  | { kind: "tool"; view: ViewId; tool?: TravelAssistantTool; icon: TravelToolArtworkKind }
+  | { kind: "tool"; view: ViewId; tool?: TravelAssistantTool; journeyTool?: JourneyToolId; guide?: true; icon: TravelToolArtworkKind }
   | { kind: "saved-route"; routeId: string }
   | { kind: "saved-trip"; tripId: string }
 );
@@ -29,7 +29,7 @@ function catalog(locale: AppLocale): Entry[] {
   const cached = catalogs.get(locale);
   if (cached) return cached;
   const countries: Entry[] = ISO_3166.map(country => ({
-    result: { kind: "country", id: `country:${country.alpha3}`, countryCode: country.alpha3, title: appRegionName(country.alpha2, locale, country.name), subtitle: country.alpha2 },
+    result: { kind: "country", id: `country:${country.alpha3}`, countryCode: country.alpha3, title: appRegionName(country.alpha2, locale, country.name), subtitle: `${({ tr: "Ülke gündemi", en: "Country updates", sq: "Lajme nga shteti" })[locale]} · ${country.alpha2}` },
     names: [country.name, ...locales.map(language => appRegionName(country.alpha2, language, country.name))],
     terms: [country.name, country.alpha2, country.alpha3, ...locales.map(language => appRegionName(country.alpha2, language, country.name))].join(" "),
   }));
@@ -53,8 +53,8 @@ function catalog(locale: AppLocale): Entry[] {
       terms: [route.destinationCode, ...aliases].join(" "),
     });
   }
-  const tools: Entry[] = appTools(locale).map(tool => ({
-    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: tool.tool, icon: tool.icon },
+  const tools: Entry[] = searchableAppTools(locale).map(tool => ({
+    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: "tool" in tool ? tool.tool : undefined, journeyTool: "journeyTool" in tool ? tool.journeyTool : undefined, guide: "guide" in tool ? tool.guide : undefined, icon: tool.icon },
     names: [...tool.title],
     terms: [...tool.title, ...tool.caption, tool.keywords].join(" "),
   }));

@@ -1,4 +1,15 @@
 import type { EmergencyContact } from './types';
+import worldEmergencyRaw from './world-country-emergency.json';
+import worldEmergencyExtra from './world-country-emergency-extra.json';
+
+type EmergencyGuidance = {status:string;contacts:EmergencyContact[];note?:{tr:string;en:string;sq?:string};sources:{label:string;url:string;checkedAt:string}[]};
+const worldEmergency = {...worldEmergencyRaw.countries,...worldEmergencyExtra} as Record<string,EmergencyGuidance>;
+export function emergencyGuidance(country: string): EmergencyGuidance | null {
+  const code = typeof country === 'string' ? country.trim().toUpperCase() : '';
+  if (!Object.hasOwn(worldEmergency,code)) return null;
+  const entry = worldEmergency[code];
+  return {...entry,contacts:entry.contacts.map(item=>({...item,...(item.note ? {note:{...item.note}} : {})})),sources:entry.sources.map(source=>({...source})),...(entry.note ? {note:{...entry.note}} : {})};
+}
 
 // Individually checked official sources; see SOURCE-AUDIT-20260926.md.
 // Malaysia uses the current national 999 source instead of the older FCDO fire number.
@@ -180,7 +191,10 @@ export const EMERGENCY_CONTACTS: EmergencyContact[] = [
   {"country":"XK","category":"fire","number":"193","sourceUrl":"https://www.gov.uk/foreign-travel-advice/kosovo/getting-help","verifiedAt":"2026-09-26","reviewAfter":"2026-12-25","note":{"tr":"Cep telefonundan arama numarası.","en":"Number for calls from a mobile phone."}},
 ];
 export function emergencyContacts(country: string) {
-  return EMERGENCY_CONTACTS.filter(item => item.country === country.trim().toUpperCase());
+  const code = typeof country === 'string' ? country.trim().toUpperCase() : '';
+  const reviewed = EMERGENCY_CONTACTS.filter(item => item.country === code);
+  const rows = reviewed.length ? reviewed : emergencyGuidance(code)?.contacts || [];
+  return rows.map(item=>({...item,...(item.note ? {note:{...item.note}} : {})}));
 }
 export function dialUrl(number: string): string | null {
   const clean = number.replace(/[\s()-]/g, '');

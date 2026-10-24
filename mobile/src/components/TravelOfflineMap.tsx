@@ -1,7 +1,7 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
-import { CATEGORY_LABELS } from "../../../lib/travel-assistant/places";
+import { CATEGORY_LABELS, coarseLocation } from "../../../lib/travel-assistant/places";
 import "leaflet/dist/leaflet.css";
 import { useI18n } from "../lib/i18n";
 import { useCurrentTime } from "../hooks/useCurrentTime";
@@ -14,6 +14,7 @@ import {
   deleteOfflineMap,
   hasUnreadableOfflineMaps,
   resetOfflineMaps,
+  reusableOfflineMap,
 } from "../lib/offlineMaps";
 import { validateOfflinePack } from "../../../lib/travel-assistant/offline-map";
 import type { OfflineMapPack } from "../../../lib/travel-assistant/offline-map";
@@ -29,7 +30,7 @@ function packName(pack: OfflineMapPack) {
   const coordinates = `${pack.center.latitude.toFixed(2)}, ${pack.center.longitude.toFixed(2)}`;
   return known ? `${known.name} · ${coordinates}` : coordinates;
 }
-export function TravelOfflineMap() {
+export function TravelOfflineMap({ destinationCountry = '' }: { destinationCountry?: string } = {}) {
   const { copy, dateLocale } = useI18n();
   const now = useCurrentTime();
   const [packs, setPacks] = useState(readOfflineMaps);
@@ -38,15 +39,16 @@ export function TravelOfflineMap() {
   const [selected, setSelected] = useState("");
   const [area, setArea] = useState<Coordinates | null>(null);
   const areaChosen = useRef(false);
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'found' | 'failed' | 'manual'>('loading');
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'found' | 'failed' | 'manual'>(destinationCountry ? 'manual' : 'loading');
   useEffect(() => {
+    if (destinationCountry) return;
     let active = true;
     void locateForTravel().then(center => {
       if (!active || areaChosen.current) return;
       setArea(center); setLocationStatus('found');
     }).catch(() => { if (active && !areaChosen.current) setLocationStatus('failed'); });
     return () => { active = false; };
-  }, []);
+  }, [destinationCountry]);
   const downloadRef = useRef<AbortController | null>(null);
   useEffect(() => () => downloadRef.current?.abort(), []);
   const [busy, setBusy] = useState(false);
@@ -55,8 +57,15 @@ export function TravelOfflineMap() {
   const [pendingDelete, setPendingDelete] = useState<OfflineMapPack | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const pack = packs.find((p) => p.id === selected) || packs[0];
-  async function download(locate: boolean) {
-    if (busy) return;
+  const selectedArea = area ? coarseLocation(area) : null;
+  const savedArea = selectedArea ? packs.find(value => value.id === `${selectedArea.latitude}:${selectedArea.longitude}`) : undefined;
+  function openSavedMap(value: OfflineMapPack) {
+    setSelected(value.id);
+    setError('');
+    setDownloadStatus(copy("Bu bölge cihazında kayıtlı. Haritayı internet olmadan açabilirsin.", "This area is already on your device. You can open the map without internet.", "Kjo zonë është në pajisjen tënde. Hartën mund ta hapësh pa internet."));
+  }
+  async function download(locate: boolean, refresh = false) {
+    if (busy || downloadRef.current) return;
     const controller = new AbortController();
     downloadRef.current = controller;
     setBusy(true);
@@ -68,13 +77,24 @@ export function TravelOfflineMap() {
         : area;
       if (controller.signal.aborted) return;
       if (!center) throw new Error("area");
+      // Keep the exact attempted area selected so retry never reacquires GPS or
+      // silently downloads a different manual choice.
+      if (locate) { areaChosen.current = true; setArea(center); setLocationStatus('found'); }
+      const currentPacks = readOfflineMaps();
+      const reusable = !refresh ? reusableOfflineMap(center, currentPacks) : null;
+      if (reusable) {
+        setPacks(currentPacks);
+        openSavedMap(reusable);
+        return;
+      }
       const raw = await requestJson<unknown>(
         `${config.travelAssistantApiBaseUrl}/api/travel-assistant/offline-map`,
         { method: "POST", body: center, timeoutMs: 32000, signal: controller.signal },
       );
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || downloadRef.current !== controller) return;
       const value = validateOfflinePack(raw);
-      if (!value) throw new Error("invalid");
+      const expectedCenter = coarseLocation(center);
+      if (!value || value.id !== `${expectedCenter.latitude}:${expectedCenter.longitude}`) throw new Error("invalid");
       const saved = saveOfflineMap(value);
       setPacks(saved);
       setSelected(value.id);
@@ -84,6 +104,10 @@ export function TravelOfflineMap() {
           "A newer map of this area is already on your device. Your saved map was kept.",
           "Një hartë më e re e kësaj zone është tashmë në pajisjen tënde. Harta e ruajtur u mbajt.",
         ));
+      } else {
+        setDownloadStatus(value.stale
+          ? copy("Bu bölgenin son alınan haritası cihazına kaydedildi. Veri tarihini aşağıdan kontrol edebilirsin.", "The last retrieved map of this area was saved to your device. Check its data date below.", "Harta e fundit e kësaj zone u ruajt në pajisjen tënde. Kontrollo datën e të dhënave më poshtë.")
+          : copy("Harita cihazına kaydedildi. İnternetsiz açılmaya hazır.", "Map saved to your device. Ready to open without internet.", "Harta u ruajt në pajisjen tënde. Gati për t’u hapur pa internet."));
       }
     } catch (e) {
       if (controller.signal.aborted) return;
@@ -127,16 +151,18 @@ export function TravelOfflineMap() {
         )}
       </p>
       <p className="ta-muted" role="status">{locationStatus === 'loading' ? copy('Bulunduğun bölge seçiliyor… İstersen kendin değiştirebilirsin.', 'Selecting your current area… You can choose another area.', 'Po zgjidhet zona jote… Mund të zgjedhësh një zonë tjetër.') : locationStatus === 'found' ? copy('Bulunduğun bölge seçildi. Harita yalnız İndir düğmesine bastığında indirilir.', 'Your area is selected. The map downloads only when you tap Download.', 'Zona jote u zgjodh. Harta shkarkohet vetëm kur prek Shkarko.') : locationStatus === 'failed' ? copy('Konum alınamadı. Aşağıdan bölge seçebilirsin.', 'Location unavailable. Choose an area below.', 'Vendndodhja nuk u gjet. Zgjidh një zonë më poshtë.') : ''}</p>
-      <TravelAreaPicker value={area} onChange={center => {areaChosen.current=true;setLocationStatus('manual');setArea(center);}} disabled={busy}/>
+      {destinationCountry && !area && <p className="ta-muted">{copy('Yolculuk ülkendeki indireceğin bölgeyi haritada seç. Konumun otomatik kullanılmaz.', 'Choose the area to download on your destination map. Your location is not used automatically.', 'Zgjidh në hartën e destinacionit zonën për shkarkim. Vendndodhja jote nuk përdoret automatikisht.')}</p>}
+      <TravelAreaPicker country={destinationCountry} value={area} onChange={center => {areaChosen.current=true;setLocationStatus('manual');setArea(center);setError('');setDownloadStatus('');}} disabled={busy}/>
       <button
         className="primary-wide"
         disabled={busy || !area}
-        onClick={() => void download(false)}
+        onClick={() => savedArea ? openSavedMap(savedArea) : void download(false)}
       >
         {busy
           ? copy("İndiriliyor…", "Downloading…")
-          : copy("Seçili bölgeyi indir", "Download selected area")}
+          : savedArea ? copy("Kayıtlı haritayı aç", "Open saved map", "Hap hartën e ruajtur") : copy("Seçili bölgeyi indir", "Download selected area")}
       </button>
+      {savedArea && <button className="secondary-wide" type="button" disabled={busy} onClick={() => void download(false, true)}>{copy("Seçili haritayı güncelle", "Update selected area", "Përditëso hartën e zgjedhur")}</button>}
       <button
         className="secondary-wide"
         disabled={busy}
@@ -144,7 +170,7 @@ export function TravelOfflineMap() {
       >
         {copy("Bulunduğum bölgeyi indir", "Download my current area")}
       </button>
-      {busy && <div className="ta-tools-status" role="status"><p>{copy('Sokaklar ve noktalar indiriliyor. Mevcut paketlerin korunuyor.', 'Downloading streets and points. Your existing packs are preserved.', 'Po shkarkohen rrugët dhe pikat. Paketat ekzistuese ruhen.')}</p><button className="secondary-wide" type="button" onClick={() => {downloadRef.current?.abort();downloadRef.current = null;setBusy(false);}}>{copy('İndirmeyi iptal et', 'Cancel download', 'Anulo shkarkimin')}</button></div>}
+      {busy && <div className="ta-tools-status" role="status"><p>{copy('Sokaklar ve noktalar indiriliyor. Mevcut paketlerin korunuyor.', 'Downloading streets and points. Your existing packs are preserved.', 'Po shkarkohen rrugët dhe pikat. Paketat ekzistuese ruhen.')}</p><button className="secondary-wide" type="button" onClick={() => {downloadRef.current?.abort();downloadRef.current = null;setBusy(false);setDownloadStatus(copy('İndirme iptal edildi. Mevcut haritaların korunuyor.', 'Download cancelled. Your saved maps are preserved.', 'Shkarkimi u anulua. Hartat e ruajtura ruhen.'));}}>{copy('İndirmeyi iptal et', 'Cancel download', 'Anulo shkarkimin')}</button></div>}
       <p className="ta-muted">
         {copy(
           "Yalnız indirmeyi seçtiğin yaklaşık bölge cihazında saklanır. En fazla 3 paket; uygulama verilerini temizlemek paketleri siler.",
@@ -152,9 +178,7 @@ export function TravelOfflineMap() {
         )}
       </p>
       {error && (
-        <p className="ta-warning" role="alert">
-          {error}
-        </p>
+        <div className="ta-warning ta-offline-retry" role="alert"><p>{error}</p>{area && !unreadable && <button className="secondary-wide" type="button" disabled={busy} onClick={() => void download(false, true)}>{copy("Aynı bölgeyi yeniden dene", "Retry the same area", "Provo sërish të njëjtën zonë")}</button>}</div>
       )}
       {downloadStatus && <p className="ta-warning" role="status">{downloadStatus}</p>}
       {unreadable && <div className="ta-warning" role="alert"><p>{copy('Kayıtlı haritalardan biri okunamıyor. Okunabilen paketlerin aşağıda; diğer kayıtlar otomatik silinmedi. Harita verisini sıfırlayıp bölgeleri yeniden indirebilirsin.', 'A saved map cannot be read. Readable packs are below; other records were not automatically deleted. Reset map data to download your areas again.', 'Një hartë e ruajtur nuk lexohet. Paketat e lexueshme janë më poshtë; të tjerat nuk u fshinë automatikisht. Rivendos të dhënat e hartave për t’i shkarkuar zonat sërish.')}</p><button type="button" className="secondary-wide" disabled={busy} onClick={() => {setDeleteError('');setResetOpen(true);}}>{copy('Harita verisini sıfırla', 'Reset map data', 'Rivendos të dhënat e hartave')}</button></div>}
@@ -173,6 +197,7 @@ export function TravelOfflineMap() {
         <>
           <div className="ta-offline-summary">
             <strong>{packName(pack)}</strong>
+            <span className="ta-offline-ready">{copy("Cihazda kayıtlı · İnternetsiz açılabilir", "Saved on device · Available offline", "Ruajtur në pajisje · Hapet pa internet")}</span>
             <span>{copy(`${pack.roads.length} sokak · ${pack.places.length} nokta`, `${pack.roads.length} streets · ${pack.places.length} points`)} · {Math.max(1, Math.ceil(new Blob([JSON.stringify(pack)]).size / 1024))} KB</span>
             <span>{copy("İndirme alanı: merkezden yaklaşık 1,5 km", "Download area: about 1.5 km from center")}</span>
             <small>{copy("Veri alındı:", "Data retrieved:")} {formatAppDate(new Date(pack.downloadedAt), dateLocale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</small>

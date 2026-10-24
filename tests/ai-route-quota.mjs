@@ -10,16 +10,21 @@ import { PGlite } from '@electric-sql/pglite';
 
 const migration = 'supabase/migrations/20261018120000_account_ai_route_allowance.sql';
 const cutoverMigration = 'supabase/migrations/20261018120100_ai_route_allowance_cutover.sql';
+const threeRouteMigration = 'supabase/migrations/20261020120000_three_daily_ai_routes.sql';
 const migrations = ['20261014150000_journey_plan_quota', '20261014170000_journey_plan_reservations', '20261015100000_journey_plan_recovery'];
 const hash = 'a'.repeat(64);
 const require = createRequire(import.meta.url);
-async function database() {
+async function database({ latest = true } = {}) {
   const db = new PGlite();
   await db.exec('create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key);');
   for (const name of migrations) await db.exec(readFileSync(`supabase/migrations/${name}.sql`, 'utf8'));
   const user = randomUUID(), other = randomUUID();
   await db.query('insert into auth.users values($1),($2)', [user, other]);
   await db.exec(readFileSync(migration, 'utf8')); await db.exec(readFileSync(migration, 'utf8'));
+  if (latest) {
+    await db.exec(readFileSync(cutoverMigration, 'utf8'));
+    await db.exec(readFileSync(threeRouteMigration, 'utf8')); await db.exec(readFileSync(threeRouteMigration, 'utf8'));
+  }
   const rpc = async (name, args) => (await db.query(`select public.${name}(${Object.keys(args).map((key, i) => `${key} => $${i + 1}`).join(',')}) as result`, Object.values(args))).rows[0].result;
   return { db, user, other, rpc,
     begin: (owner = user, operation = randomUUID(), attempt = randomUUID(), kind = 'journey', requestHash = hash) => rpc('begin_ai_route_operation', { p_owner: owner, p_operation: operation, p_hash: requestHash, p_kind: kind, p_attempt: attempt }),
@@ -28,29 +33,51 @@ async function database() {
     minutes: () => db.exec("update public.ai_route_account_attempts set minute=now()-interval '2 minutes'") };
 }
 
-test('Real SQL shares one successful daily route across both endpoints, retries failures and replays lost success', async () => {
+test('Real SQL shares three successful daily routes across both endpoints, retries failures and replays without charging twice', async () => {
   const x = await database();
   try {
-    assert.deepEqual(await x.quota(), { limit: 1, used: 0, remaining: 1, pending: false, resetAt: `${new Date(Date.now()+86400000).toISOString().slice(0,10)}T00:00:00Z`, timeZone: 'UTC' });
+    assert.deepEqual(await x.quota(), { limit: 3, used: 0, remaining: 3, pending: false, resetAt: `${new Date(Date.now()+86400000).toISOString().slice(0,10)}T00:00:00Z`, timeZone: 'UTC' });
     const op = randomUUID(), first = randomUUID(), rival = randomUUID(), result = { generatedBy: 'ai', summary: 'Real complete plan' };
     const pair = await Promise.all([x.begin(x.user, op, first), x.begin(x.user, randomUUID(), rival, 'suggestions')]);
     assert.deepEqual(pair.map(row => row.state), ['acquired', 'pending']);
     assert.equal(pair[0].quota.remaining, 0); assert.equal(pair[0].quota.used, 0);
     assert.equal((await x.finish(x.user, op, first, null)).ok, true);
-    assert.equal((await x.quota()).remaining, 1);
+    assert.equal((await x.quota()).remaining, 3);
     const second = randomUUID(); assert.equal((await x.begin(x.user, op, second)).state, 'acquired');
     assert.equal((await x.finish(x.user, op, first, result)).ok, false, 'Old failed worker cannot commit a newer attempt');
     assert.equal((await x.finish(x.user, op, second, result)).ok, true);
+    assert.equal((await x.quota()).remaining, 2);
     assert.equal((await x.finish(x.user, op, second, result)).ok, true);
     assert.equal((await x.finish(x.user, op, second, null)).ok, false);
     assert.equal((await x.finish(x.user, op, second, { summary: 'changed' })).ok, false);
-    assert.equal((await x.begin(x.user, randomUUID(), randomUUID(), 'suggestions')).state, 'limit');
+    await x.minutes();
+    const secondOp = randomUUID(), secondAttempt = randomUUID(), secondResult = { suggestions: ['Real complete alternative'] };
+    assert.equal((await x.begin(x.user, secondOp, secondAttempt, 'suggestions')).state, 'acquired');
+    assert.equal((await x.finish(x.user, secondOp, secondAttempt, secondResult)).ok, true);
+    assert.equal((await x.quota()).remaining, 1);
+    await x.minutes();
+    const thirdOp = randomUUID(), thirdAttempt = randomUUID();
+    const failedThird = randomUUID();
+    assert.equal((await x.begin(x.user, thirdOp, failedThird)).state, 'acquired');
+    assert.equal((await x.finish(x.user, thirdOp, failedThird, null)).ok, true);
+    assert.equal((await x.finish(x.user, thirdOp, failedThird, null)).ok, true);
+    assert.equal((await x.quota()).remaining, 1, 'A failed attempt and its repeated release preserve the final daily route');
+    const lastSlot = await Promise.all([x.begin(x.user, thirdOp, thirdAttempt), x.begin(x.user, randomUUID(), randomUUID(), 'suggestions')]);
+    assert.deepEqual(lastSlot.map(row => row.state), ['acquired', 'pending'], 'The final daily slot still has only one live worker');
+    assert.equal(lastSlot[0].quota.used, 2); assert.equal(lastSlot[0].quota.remaining, 0);
+    const commits = await Promise.all([x.finish(x.user, thirdOp, thirdAttempt, result), x.finish(x.user, thirdOp, thirdAttempt, result)]);
+    assert.deepEqual(commits.map(row => row.ok), [true, true]);
+    assert.equal((await x.quota()).used, 3); assert.equal((await x.quota()).remaining, 0);
+    assert.equal((await x.begin(x.user, randomUUID(), randomUUID(), 'suggestions')).state, 'limit', 'A fourth successful route is not admitted');
     const replay = await x.begin(x.user, op); assert.equal(replay.state, 'succeeded'); assert.deepEqual(replay.result, result);
+    assert.deepEqual((await x.begin(x.user, secondOp, randomUUID(), 'suggestions')).result, secondResult);
+    assert.equal((await x.quota()).used, 3, 'Replaying different successful endpoint receipts does not spend another allowance');
     assert.equal((await x.begin(x.user, op, randomUUID(), 'journey', 'b'.repeat(64))).state, 'conflict');
     assert.equal((await x.begin(x.user, op, randomUUID(), 'suggestions')).state, 'conflict');
     assert.equal((await x.begin(x.other, op)).state, 'acquired', 'Other account has its own allowance and cannot read result');
     assert.equal((await x.finish(x.other, op, second, result)).ok, false);
     assert.equal((await x.db.query('select count(*)::int as n from public.ai_route_daily_usage')).rows[0].n, 1);
+    assert.equal((await x.db.query('select sum(used)::int as n from public.ai_route_daily_usage')).rows[0].n, 3);
   } finally { await x.db.close(); }
 });
 
@@ -62,21 +89,27 @@ test('Expired leases, cancellation-before-admission and UTC resets never consume
     assert.equal((await x.begin(x.user, op, cancelled)).state, 'cancelled');
     assert.equal((await x.begin(x.user, op, old)).state, 'acquired');
     await x.db.query("update public.ai_route_operations set lease_until=now()-interval '1 second' where owner_id=$1", [x.user]);
-    assert.equal((await x.quota()).remaining, 1);
+    assert.equal((await x.quota()).remaining, 3);
     assert.equal((await x.begin(x.user, op, fresh)).state, 'acquired');
     assert.equal((await x.finish(x.user, op, old, { old: true })).ok, false);
     assert.equal((await x.finish(x.user, op, fresh, { new: true })).ok, true);
+    await x.db.exec('update public.ai_route_daily_usage set used=3');
+    assert.equal((await x.quota()).remaining, 0);
     await x.db.exec("update public.ai_route_daily_usage set day=day-1");
-    assert.equal((await x.quota()).remaining, 1);
+    assert.equal((await x.quota()).remaining, 3);
     await x.minutes(); const today = randomUUID(), attempt = randomUUID();
     assert.equal((await x.begin(x.user, today, attempt, 'suggestions')).state, 'acquired');
     assert.equal((await x.finish(x.user, today, attempt, { success: true })).ok, true);
     assert.equal((await x.quota()).used, 1);
     assert.equal((await x.begin(x.user, op)).state, 'succeeded', 'Yesterday result replays without spending again');
+    assert.equal((await x.quota()).remaining, 2);
     await x.db.query("update public.ai_route_operations set expires_at=now()-interval '1 second' where operation_id=$1", [op]);
     assert.equal((await x.begin(x.user, op)).state, 'expired');
+    const resetAt = (await x.quota()).resetAt;
     await x.db.exec("set timezone='Pacific/Honolulu'");
-    assert.match((await x.quota()).resetAt, /T00:00:00Z$/);
+    assert.equal((await x.quota()).resetAt, resetAt, 'Session time zone cannot change the UTC reset');
+    const ledger = (await x.db.query('select day::text,used from public.ai_route_daily_usage order by day')).rows;
+    assert.deepEqual(ledger, [{ day: new Date(Date.now()-86400000).toISOString().slice(0,10), used: 3 }, { day: new Date().toISOString().slice(0,10), used: 1 }], 'Yesterday remains spent and the new UTC day has its independent counter');
   } finally { await x.db.close(); }
 });
 
@@ -84,7 +117,7 @@ test('Failure retry throttling is separate from daily success; missing accounts 
   const x = await database();
   try {
     for (let i=0;i<2;i++) { const op=randomUUID(), attempt=randomUUID(); assert.equal((await x.begin(x.user,op,attempt)).state,'acquired'); await x.finish(x.user,op,attempt,null); }
-    assert.equal((await x.begin()).state,'busy'); assert.equal((await x.quota()).remaining,1);
+    assert.equal((await x.begin()).state,'busy'); assert.equal((await x.quota()).remaining,3);
     await x.minutes(); assert.equal((await x.begin()).state,'acquired');
     assert.equal((await x.begin(randomUUID())).state,'invalid'); assert.equal(await x.quota(randomUUID()),null);
     const grants=(await x.db.query("select has_function_privilege('authenticated','public.begin_ai_route_operation(uuid,uuid,text,text,uuid)','execute') as begin,has_function_privilege('anon','public.get_ai_route_quota(uuid)','execute') as status,has_function_privilege('authenticated','public.complete_ai_route_operation(uuid,uuid,uuid,jsonb)','execute') as finish,has_function_privilege('anon','public.reserve_ai_route_provider_attempt(uuid,integer)','execute') as provider,has_function_privilege('authenticated','public.settle_ai_route_provider_attempt(uuid,integer)','execute') as settle,has_table_privilege('authenticated','public.ai_route_operations','select') as read,has_table_privilege('authenticated','public.ai_route_daily_usage','insert') as write")).rows[0];
@@ -94,8 +127,70 @@ test('Failure retry throttling is separate from daily success; missing accounts 
   } finally { await x.db.close(); }
 });
 
+test('Three-route migration retains current usage, live attempts, replay receipts and provider spend without resetting on reapply', async () => {
+  const x = await database({ latest: false });
+  try {
+    const op = randomUUID(), attempt = randomUUID(), result = { summary: 'Committed before the allowance upgrade' };
+    assert.equal((await x.begin(x.user, op, attempt)).state, 'acquired');
+    assert.equal((await x.finish(x.user, op, attempt, result)).ok, true);
+    assert.equal((await x.begin()).state, 'limit', 'The installed 20261018 schema starts with one daily allowance');
+    const cancelledOp = randomUUID(), cancelledAttempt = randomUUID(), pendingOp = randomUUID(), pendingAttempt = randomUUID(), provider = randomUUID();
+    assert.equal((await x.begin(x.other, cancelledOp, cancelledAttempt)).state, 'acquired');
+    assert.equal((await x.finish(x.other, cancelledOp, cancelledAttempt, null)).ok, true);
+    assert.equal((await x.begin(x.other, pendingOp, pendingAttempt, 'suggestions')).state, 'acquired');
+    assert.equal((await x.rpc('reserve_ai_route_provider_attempt', { p_request: provider, p_tokens: 6000 })).allowed, true);
+    const receiptsBefore = (await x.db.query('select * from public.ai_route_operations order by owner_id,operation_id')).rows;
+    await x.db.exec(readFileSync(cutoverMigration, 'utf8'));
+    await x.db.exec(readFileSync(threeRouteMigration, 'utf8')); await x.db.exec(readFileSync(threeRouteMigration, 'utf8'));
+    assert.deepEqual((await x.db.query('select * from public.ai_route_operations order by owner_id,operation_id')).rows, receiptsBefore, 'Migration preserves receipt results, identities and lease deadlines');
+    assert.equal((await x.quota()).limit, 3); assert.equal((await x.quota()).used, 1); assert.equal((await x.quota()).remaining, 2);
+    assert.equal((await x.quota(x.other)).pending, true); assert.equal((await x.quota(x.other)).remaining, 0);
+    assert.equal((await x.begin(x.other)).state, 'pending', 'An in-flight old request still holds the sole account reservation');
+    assert.equal((await x.finish(x.other, pendingOp, pendingAttempt, null)).ok, true);
+    assert.equal((await x.quota(x.other)).remaining, 3, 'Failure after migration leaves all three successes available');
+    assert.equal((await x.begin(x.other, cancelledOp, cancelledAttempt)).state, 'cancelled', 'Cancelled-attempt tombstones survive');
+    assert.deepEqual((await x.begin(x.user, op)).result, result);
+    const providerRow = (await x.db.query('select tokens,reserved_tokens,settled from public.ai_route_provider_attempts where request_id=$1', [provider])).rows[0];
+    assert.deepEqual(providerRow, { tokens: 6000, reserved_tokens: 6000, settled: false }, 'Raising the account limit never resets the free-provider budget');
+    for (let used = 2; used <= 3; used++) {
+      await x.minutes(); const nextOp = randomUUID(), nextAttempt = randomUUID();
+      assert.equal((await x.begin(x.user, nextOp, nextAttempt, used === 2 ? 'suggestions' : 'journey')).state, 'acquired');
+      assert.equal((await x.finish(x.user, nextOp, nextAttempt, { summary: `Success ${used}` })).ok, true);
+      await x.db.exec(readFileSync(threeRouteMigration, 'utf8'));
+      assert.equal((await x.quota()).used, used, 'Rerunning the migration retains accumulated successes');
+      assert.equal((await x.quota()).remaining, 3 - used);
+    }
+    assert.equal((await x.begin()).state, 'limit');
+    for (const used of [0, 4]) await assert.rejects(() => x.db.query('update public.ai_route_daily_usage set used=$1 where owner_id=$2', [used, x.user]), /ai_route_daily_usage_used_check/);
+    assert.equal((await x.quota()).used, 3, 'Invalid counter writes cannot expand or erase the allowance');
+    for (const signature of ['get_ai_route_quota(uuid)', 'begin_ai_route_operation(uuid,uuid,text,text,uuid)', 'complete_ai_route_operation(uuid,uuid,uuid,jsonb)']) {
+      const grants = (await x.db.query("select has_function_privilege('service_role',$1,'execute') as service,has_function_privilege('anon',$1,'execute') as anon,has_function_privilege('authenticated',$1,'execute') as authenticated", [`public.${signature}`])).rows[0];
+      assert.deepEqual(grants, { service: true, anon: false, authenticated: false });
+    }
+  } finally { await x.db.close(); }
+});
+
+test('The successful commit itself is bounded to three even when another service-created pending receipt exists', async () => {
+  const x = await database();
+  try {
+    await x.db.query("insert into public.ai_route_daily_usage(owner_id,day,used) values($1,(clock_timestamp() at time zone 'UTC')::date,2)", [x.user]);
+    const op = randomUUID(), attempt = randomUUID(), extraOp = randomUUID(), extraAttempt = randomUUID();
+    assert.equal((await x.begin(x.user, op, attempt)).state, 'acquired');
+    // Simulate a stale service worker bypassing admission. Completion must still
+    // enforce the durable account bound rather than trusting the caller.
+    await x.db.query("insert into public.ai_route_operations(owner_id,operation_id,request_hash,kind,attempt_id,state,lease_until,expires_at) values($1,$2,$3,'suggestions',$4,'pending',clock_timestamp()+interval '90 seconds',clock_timestamp()+interval '24 hours')", [x.user, extraOp, hash, extraAttempt]);
+    const completions = await Promise.all([x.finish(x.user, op, attempt, { summary: 'Third success' }), x.finish(x.user, extraOp, extraAttempt, { summary: 'Denied fourth success' })]);
+    assert.deepEqual(completions.map(value => value.ok), [true, false]);
+    assert.equal((await x.quota()).used, 3);
+    assert.equal((await x.finish(x.user, extraOp, extraAttempt, null)).ok, true);
+    assert.equal((await x.quota()).remaining, 0, 'Releasing a denied result never refunds another committed route');
+    assert.equal((await x.begin()).state, 'limit');
+    assert.equal((await x.begin(x.user, extraOp, randomUUID(), 'suggestions')).state, 'limit');
+  } finally { await x.db.close(); }
+});
+
 test('Upgrade preserves legacy successes and result recovery, and old deployed RPC entry points cannot bypass the new allowance', async () => {
-  const x=await database();
+  const x=await database({ latest: false });
   try {
     const op=randomUUID(),attempt=randomUUID(),actor='b'.repeat(64),result={generatedBy:'ai',summary:'Previously committed'};
     await x.rpc('begin_journey_plan_operation',{p_actor:actor,p_operation:op,p_hash:hash,p_owner:x.user,p_guest:false,p_attempt:attempt});
@@ -107,8 +202,13 @@ test('Upgrade preserves legacy successes and result recovery, and old deployed R
     await x.db.exec(readFileSync(migration,'utf8')); await x.db.exec(readFileSync(migration,'utf8'));
     await x.db.exec(readFileSync(cutoverMigration,'utf8')); await x.db.exec(readFileSync(cutoverMigration,'utf8'));
     assert.equal((await x.quota()).used,1);
+    await x.db.exec(readFileSync(threeRouteMigration,'utf8')); await x.db.exec(readFileSync(threeRouteMigration,'utf8'));
+    assert.equal((await x.quota()).used,1); assert.equal((await x.quota()).remaining,2);
     assert.deepEqual((await x.begin(x.user,op)).result,result);
-    assert.equal((await x.begin()).state,'limit');
+    const next = randomUUID(), nextAttempt = randomUUID();
+    assert.equal((await x.begin(x.user,next,nextAttempt,'suggestions')).state,'acquired');
+    assert.equal((await x.finish(x.user,next,nextAttempt,{summary:'After cutover'})).ok,true);
+    assert.equal((await x.quota()).remaining,1);
     for(const signature of ['consume_journey_plan_quota(text,boolean)','reserve_journey_plan_quota(text,boolean,uuid)','finish_journey_plan_quota(text,uuid,boolean)','begin_journey_plan_operation(text,uuid,text,uuid,boolean,uuid)','complete_journey_plan_operation(text,uuid,uuid,jsonb)']) {
       assert.equal((await x.db.query("select has_function_privilege('service_role',$1,'execute') as allowed",[`public.${signature}`])).rows[0].allowed,false,signature);
     }
@@ -119,7 +219,7 @@ test('Upgrade preserves legacy successes and result recovery, and old deployed R
 });
 
 test('Cutover preserves history and payloads until the next admission cleans expired legacy receipts while active recovery survives', async () => {
-  const x=await database();
+  const x=await database({ latest: false });
   try {
     const active=randomUUID(),activeAttempt=randomUUID(),expired=randomUUID(),expiredAttempt=randomUUID(),guest=randomUUID();
     const actor='c'.repeat(64),otherActor='d'.repeat(64),result={summary:'Private legacy itinerary'};
@@ -130,6 +230,7 @@ test('Cutover preserves history and payloads until the next admission cleans exp
     await x.db.query("update public.journey_plan_operations set expires_at=now()-interval '1 second' where operation_id=$1",[expired]);
     await x.db.query("insert into public.journey_plan_operations(actor,operation_id,request_hash,attempt_id,state,result,lease_until,expires_at) values($1,$2,$3,$4,'succeeded',$5,now(),now()-interval '1 second')",['e'.repeat(64),guest,hash,randomUUID(),result]);
     await x.db.exec(readFileSync(cutoverMigration,'utf8'));
+    await x.db.exec(readFileSync(threeRouteMigration,'utf8'));
     assert.equal((await x.quota(x.other)).used,1,'Expired private result does not erase its historical successful charge');
     assert.equal((await x.db.query('select count(*)::int as n from public.journey_plan_operations')).rows[0].n,3,'Cutover itself does not purge old data');
     assert.deepEqual((await x.begin(x.user,active)).result,result,'An active copied result stays recoverable');
@@ -171,14 +272,14 @@ test('Durable provider admission serializes conservative token budgets, settles 
 });
 
 class PlanError extends Error { constructor(code,providerCapacity) { super(code); this.code=code; this.providerCapacity=providerCapacity; } }
-const quota=(used=0,pending=false)=>({limit:1,used,remaining:used||pending?0:1,pending,resetAt:'2026-10-19T00:00:00Z',timeZone:'UTC'});
+const quota=(used=0,pending=false)=>({limit:3,used,remaining:pending?0:3-used,pending,resetAt:'2026-10-19T00:00:00Z',timeZone:'UTC'});
 function apiFixture(options={}) {
   const calls=[]; let generations=0;
   const db={rpc(name,args){calls.push({name,args});const promise=Promise.resolve().then(()=>options.rpc?.(name,args)??{error:null,data:name==='begin_ai_route_operation'?{state:'acquired',quota:quota(0,true)}:name==='complete_ai_route_operation'?{ok:true,quota:quota(args.p_result?1:0)}:name==='get_ai_route_quota'?quota():{allowed:true}});promise.abortSignal=()=>promise;return promise;},from(){return {select(){return {eq(){return {maybeSingle:async()=>({data:options.cached?{output_json:options.cached}:null,error:null})};}};},upsert:async()=>({error:null})};}};
   const provider={JourneyPlanError:PlanError,journeyPlanWait:async p=>p,journeyPlanModel:()=>options.model===false?null:{},parseJourneyPlanRequest:value=>options.invalid?null:value,journeyPlanProviderError:(e)=>e instanceof PlanError?e:new PlanError('plan_failed'),createJourneyPlan:async(input,signal,limits)=>{generations++;if(options.reserve)await limits.reserveProviderAttempt(6000,signal);return options.generate?.()??{generatedBy:'ai',summary:'Plan'};}};
   const overrides={
     '@/lib/travel-assistant/journey-plan':provider,'./travel-assistant/journey-plan':provider,
-    './authenticated-user':{requireAuthenticatedUser:async request=>options.auth===false?{ok:false,response:Response.json({}, {status:401})}:{ok:true,user:{id:'verified-owner'},supabase:db}},
+    './authenticated-user':{requireAuthenticatedUser:async request=>options.auth===false?{ok:false,response:Response.json({}, {status:401})}:{ok:true,user:{id:options.owner??'verified-owner'},supabase:db}},
     '@/lib/supabaseAdmin':{getSupabaseAdmin:()=>db},
     '@/lib/travel-assistant/http':{boundedJson:r=>r.json()},
     '@/lib/travel-assistant/journey-plan-groq':{groqJourneyModel:()=>({}),generateBoundedGroqJourneyJson:async args=>{generations++;await args.reserveProviderAttempt(6000,args.signal);if(options.failLegacy)throw Error('provider down');return JSON.stringify(options.legacyResult);}},
@@ -187,14 +288,23 @@ function apiFixture(options={}) {
   const cache=new Map();const context=vm.createContext({Error,Date,URL,Request,Response,Headers,AbortSignal,AbortController,console:{warn() {},error() {}},setTimeout,clearTimeout,process:{env:{SUPABASE_SERVICE_ROLE_KEY:'fixture-only',AI_PLAN_ENABLED:'true',JOURNEY_AI_PROVIDER:'groq',GROQ_API_KEY:'fixture'}}});
   function load(filename){let full=path.resolve(filename);if(!existsSync(full))full+='.ts';if(cache.has(full))return cache.get(full).exports;const output={exports:{}};cache.set(full,output);if(full.endsWith('.json')){output.exports=JSON.parse(readFileSync(full,'utf8'));return output.exports;}const source=ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;vm.runInContext(`(function(require,module,exports){${source}\n})`,context)(name=>Object.hasOwn(overrides,name)?overrides[name]:name.startsWith('@/')?load(name.slice(2)):name.startsWith('.')?load(path.resolve(path.dirname(full),name)):require(name),output,output.exports);return output.exports;}
   const route=load('app/api/travel-assistant/journey-plan/route.ts');
-  const request=(body={},key=randomUUID(),authenticated=true)=>new Request('http://local/plan',{method:'POST',headers:{...(authenticated?{Authorization:'Bearer valid'}:{}),...(key?{'Idempotency-Key':key}:{})},body:JSON.stringify(body)});
-  return {calls,request,post:(key,body,auth)=>route.POST(request(body,key,auth)),get:authenticated=>route.GET(new Request('http://local/plan',{headers:authenticated===false?{}:{Authorization:'Bearer valid'}})),legacy:()=>load('app/api/ai-plan/route.ts'),generations:()=>generations};
+  const request=(body={},key=randomUUID(),authenticated=true)=>new Request('http://local/plan?quotaVersion=2',{method:'POST',headers:{...(authenticated?{Authorization:'Bearer valid'}:{}),...(key?{'Idempotency-Key':key}:{})},body:JSON.stringify(body)});
+  return {calls,request,post:(key,body,auth)=>route.POST(request(body,key,auth)),get:authenticated=>route.GET(new Request('http://local/plan?quotaVersion=2',{headers:authenticated===false?{}:{Authorization:'Bearer valid'}})),legacy:()=>load('app/api/ai-plan/route.ts'),generations:()=>generations};
 }
 
 test('Route requires verified account before quota/provider and returns private authoritative status',async()=>{
   for(const options of [{},{auth:false}]){const a=apiFixture(options);const response=await a.post(undefined,{},false);assert.equal(response.status,401);assert.equal((await response.json()).code,'plan_sign_in');assert.equal(a.calls.length,0);}
   const a=apiFixture();const status=await a.get();assert.equal(status.headers.get('cache-control'),'private, no-store');assert.deepEqual(await status.json(),quota());assert.equal(a.calls[0].args.p_owner,'verified-owner');
   const invalid=apiFixture({invalid:true});assert.equal((await invalid.post()).status,400);assert.equal(invalid.calls.length,0);
+});
+test('Route status accepts every three-route counter and fails closed on inconsistent or out-of-range counters',async()=>{
+  for(const used of [0,1,2,3]) for(const pending of [false,true]) {
+    const expected=quota(used,pending);const a=apiFixture({rpc:()=>({error:null,data:expected})});
+    const status=await a.get();assert.equal(status.status,200);assert.deepEqual(await status.json(),expected);
+  }
+  for(const value of [{...quota(),used:-1},{...quota(),used:4},{...quota(),used:1.5},{...quota(),used:'1'}, {...quota(2),remaining:2}, {...quota(1,true),remaining:2}, {...quota(),limit:4}]) {
+    const a=apiFixture({rpc:()=>({error:null,data:value})});assert.equal((await a.get()).status,503);
+  }
 });
 test('Route commits before delivery, refunds failures, and never refunds uncertain commits',async()=>{
   for(const [generate,status,success] of [[undefined,200,true],[()=>{throw new PlanError('plan_timeout');},504,false]]){const a=apiFixture({generate});assert.equal((await a.post()).status,status);assert.equal(a.calls[0].name,'begin_ai_route_operation');assert.equal(a.calls[1].name,'complete_ai_route_operation');assert.equal(a.calls[1].args.p_result!==null,success);assert.equal(a.calls[1].args.p_attempt,a.calls[0].args.p_attempt);}
@@ -203,7 +313,7 @@ test('Route commits before delivery, refunds failures, and never refunds uncerta
   assert.equal((await recovery.post(key)).status,503);assert.equal(recovery.calls.length,2);const replay=await recovery.post(key);assert.equal(replay.status,200);assert.deepEqual(await replay.json(),{...result,quota:quota(1)});assert.equal(recovery.generations(),1);
 });
 test('Admission denies conflicts, quota and pending without spending; malformed quota fails closed; replay works without a provider',async()=>{
-  for(const [state,status,code]of[['limit',429,'plan_limit'],['pending',409,'plan_pending'],['conflict',409,'plan_conflict'],['expired',409,'plan_expired'],['busy',429,'plan_busy']]){const a=apiFixture({rpc:()=>({error:null,data:{state,quota:quota(state==='limit'?1:0,state==='pending'),retryAfterSeconds:20}})});const response=await a.post();assert.equal(response.status,status);assert.equal((await response.json()).code,code);assert.equal(a.generations(),0);assert.equal(a.calls.length,1);}
+  for(const [state,status,code]of[['limit',429,'plan_limit'],['pending',409,'plan_pending'],['conflict',409,'plan_conflict'],['expired',409,'plan_expired'],['busy',429,'plan_busy']]){const a=apiFixture({rpc:()=>({error:null,data:{state,quota:quota(state==='limit'?3:0,state==='pending'),retryAfterSeconds:20}})});const response=await a.post();assert.equal(response.status,status);assert.equal((await response.json()).code,code);assert.equal(a.generations(),0);assert.equal(a.calls.length,1);}
   const a=apiFixture({rpc:()=>({error:null,data:{state:'acquired',quota:{...quota(),remaining:4}}})});assert.equal((await a.post()).status,503);assert.equal(a.generations(),0);
   const replay=apiFixture({model:false,rpc:()=>({error:null,data:{state:'succeeded',result:{summary:'saved'},quota:quota(1)}})});assert.equal((await replay.post()).status,200);
   const malformed=apiFixture();assert.equal((await malformed.post('broken')).status,400);assert.equal(malformed.calls.length,0);
@@ -213,6 +323,29 @@ test('Global provider failure does not consume account success and forwards a bo
 });
 const legacyInput={mode:'fixed',destination:{code:'BJV'},origin:'İstanbul',dayCount:2};
 const legacyResult={summary:'A valid trip',routes:[{name:'Bodrum',country:'Türkiye',dailyPlan:['Day 1','Day 2'],scores:{overall:80}}]};
+test('Both HTTP route handlers enforce the migrated database allowance: failures stay free, three successes pass and the fourth is denied',async()=>{
+  const x=await database();
+  try {
+    let fail=true;
+    const a=apiFixture({owner:x.user,cached:legacyResult,rpc:async(name,args)=>({error:null,data:await x.rpc(name,args)}),generate:()=>{if(fail)throw new PlanError('plan_timeout');return {generatedBy:'ai',summary:'Complete generated plan'};}});
+    assert.equal((await a.post()).status,504);
+    assert.equal((await x.quota()).used,0);assert.equal((await x.quota()).remaining,3);
+    await x.minutes();fail=false;
+    const firstKey=randomUUID(),secondKey=randomUUID(),thirdKey=randomUUID();
+    const first=await a.post(firstKey);assert.equal(first.status,200);assert.equal((await first.json()).quota.remaining,2);
+    assert.equal((await a.post(firstKey)).status,200);assert.equal(a.generations(),2,'A lost successful reply replays without another provider call');
+    const second=await a.legacy().POST(a.request(legacyInput,secondKey));assert.equal(second.status,200);assert.equal((await second.json()).quota.remaining,1);
+    await x.minutes();
+    const third=await a.post(thirdKey);assert.equal(third.status,200);assert.equal((await third.json()).quota.used,3);
+    for(const request of [()=>a.post(),()=>a.legacy().POST(a.request(legacyInput))]) {
+      const denied=await request();assert.equal(denied.status,429);const data=await denied.json();assert.equal(data.code,'plan_limit');assert.equal(data.quota.remaining,0);
+    }
+    assert.equal((await a.post(firstKey)).status,200);assert.equal((await a.legacy().POST(a.request(legacyInput,secondKey))).status,200,'Both endpoints retain successful replay at the daily cap');
+    assert.equal(a.generations(),3);assert.equal((await x.quota()).used,3);
+    const status=await a.get();assert.equal(status.status,200);assert.equal((await status.json()).used,3);
+    assert.equal((await x.quota(x.other)).remaining,3,'A different verified account keeps its separate daily allowance');
+  } finally {await x.db.close();}
+});
 test('Legacy suggestions use same account admission for cached AI results, keep real fallback free and never call Gemini on Groq',async()=>{
   const cached=apiFixture({cached:legacyResult});const c=await cached.legacy().POST(cached.request(legacyInput));assert.equal(c.status,200);assert.equal((await c.json()).isFallback,false);assert.equal(cached.calls[0].args.p_kind,'suggestions');assert.ok(cached.calls.at(-1).args.p_result);assert.equal(cached.generations(),0);
   const fail=apiFixture({failLegacy:true});const f=await fail.legacy().POST(fail.request(legacyInput));assert.equal(f.status,200);assert.equal((await f.json()).isFallback,true);assert.equal(fail.calls.at(-1).args.p_result,null);

@@ -83,7 +83,7 @@ export function CityPriceCatalog({ onOpenCountryNews, ownerId, onPrepareCockpitB
       {selectedBudget && onPrepareCockpitBudget && <button type="button" className="primary-wide" onClick={() => {
         const intent = createBudgetCockpitIntent(selected, days, people, currency, currentQuote, ownerId || null, selected.city[textLocale]);
         if (intent) { setSelectedId(null); onPrepareCockpitBudget(intent); }
-      }}><Icon name="wallet" size={18}/>{copy("Bu tahmini Kokpit’e ekle", "Add this estimate to Cockpit", "Shto këtë vlerësim në Kabinë")}</button>}
+      }}><Icon name="wallet" size={18}/>{copy("Bu tahmini seyahatlerime ekle", "Add this estimate to My trips", "Shto këtë vlerësim te Udhëtimet e mia")}</button>}
       <div className="ci-result"><span>{copy("Kaynak sepeti · 2 kişi / hafta sonu", "Source basket · 2 people / weekend")}</span><strong>{money(selected.basket)}</strong><small>{copy("Fiyat araştırması", "Survey month")}: {CITY_PRICE_MONTH}</small></div>
       <div className="detail-list"><div><span>{copy("Merkez otel · 2 kişi / 2 gece", "Central hotel · 2 people / 2 nights")}</span><strong>{money(selected.hotel)}</strong></div><div><span>{copy("Bir akşam yemeği · 2 kişi", "One dinner · 2 people")}</span><strong>{money(selected.meal)}</strong></div><div><span>{copy("48 saat ulaşım · 1 kişi", "48h transport · 1 person")}</span><strong>{money(selected.travel)}</strong></div></div>
       <p className="ci-muted">{copy("Bu üç kalem toplam 12 kalemlik sepetin alt kümesidir. Sıfır ulaşım tutarı her ulaşım biçiminin ücretsiz olduğu anlamına gelmez; kaynak kapsamını kontrol et.", "These three items are a subset of the 12-item basket. A zero transport price does not mean every transport service is free; check source conditions.")}</p>

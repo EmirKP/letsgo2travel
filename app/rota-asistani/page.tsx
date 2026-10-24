@@ -53,6 +53,16 @@ export interface AiPlanResponse {
 type Step = "welcome" | "origin" | "time" | "budget" | "who" | "vibe" | "loading" | "result" | "error";
 type PlannerAnswers = { origin: string; days: string; month: string; budget: string; accommodation: string; who: string; tempo: string; vibe: string[]; visa: string };
 type WebPlanRecovery = { owner: string; id: string; fingerprint: string; createdAt: number; answers: PlannerAnswers };
+type WebPlanQuota = { limit: 1 | 3; used: number; remaining: number; pending: boolean; resetAt: string; timeZone: "UTC" };
+function readWebPlanQuota(raw: unknown): WebPlanQuota | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const reset = typeof value.resetAt === "string" ? new Date(value.resetAt) : null;
+  if ((value.limit !== 1 && value.limit !== 3) || typeof value.used !== "number" || !Number.isInteger(value.used) || value.used < 0 || value.used > value.limit
+    || typeof value.pending !== "boolean" || value.remaining !== (value.pending ? 0 : value.limit - value.used) || value.timeZone !== "UTC"
+    || !reset || !Number.isFinite(reset.getTime()) || reset.getUTCHours() !== 0 || reset.getUTCMinutes() !== 0 || reset.getUTCSeconds() !== 0 || reset.getUTCMilliseconds() !== 0) return null;
+  return { limit: value.limit, used: value.used, remaining: value.remaining as number, pending: value.pending, resetAt: reset.toISOString(), timeZone: "UTC" };
+}
 const operationStorageKey = (owner: string) => "l2t.web.ai-route-operation.v1." + encodeURIComponent(owner);
 function readWebPlanRecovery(owner: string): WebPlanRecovery | null {
   for (const suffix of [".completed", ""]) {
@@ -96,6 +106,7 @@ export default function AIPlannerPage() {
   const [planError, setPlanError] = useState("");
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [recovery, setRecovery] = useState<WebPlanRecovery | null>(null);
+  const [quotaSnapshot, setQuotaSnapshot] = useState<{ owner: string; quota: WebPlanQuota } | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const ownerRef = useRef<string | null>(null);
   const authRevisionRef = useRef(0);
@@ -114,7 +125,7 @@ export default function AIPlannerPage() {
         requestRef.current?.abort();
         requestRef.current = null;
         resultOwnerRef.current = null; operationRef.current = null;
-        setResult(null); setSelectedRoute(null); setLastPromptStr("");
+        setResult(null); setSelectedRoute(null); setLastPromptStr(""); setQuotaSnapshot(null);
         setPlanError(""); setIsRefreshing(false); setStep("welcome");
         setRecovery(owner ? readWebPlanRecovery(owner) : null);
       }
@@ -200,7 +211,7 @@ export default function AIPlannerPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!active()) return;
-      if (!session) { setNeedsSignIn(true); throw new Error("Günde 1 ücretsiz AI rotası oluşturmak için hesabına giriş yap. Seçimlerin bu ekranda korunuyor."); }
+      if (!session) { setNeedsSignIn(true); throw new Error("Günde 3 ücretsiz AI rotası oluşturmak için hesabına giriş yap. Seçimlerin bu ekranda korunuyor."); }
       if (ownerRef.current !== null && ownerRef.current !== session.user.id) { destinationStep = "welcome"; return; }
       requestOwner = session.user.id; ownerRef.current = session.user.id;
       setRecovery(readWebPlanRecovery(session.user.id));
@@ -224,19 +235,22 @@ export default function AIPlannerPage() {
       const serializedSubmission = JSON.stringify(submitted);
       try { if (serializedSubmission.length <= 12000) sessionStorage.setItem(operationKey, serializedSubmission); } catch { /* The in-memory request remains usable. */ }
       operationRef.current = { ...operation, owner: session.user.id };
-      const response = await fetch("/api/ai-plan", {
+      setQuotaSnapshot(null);
+      const response = await fetch("/api/ai-plan?quotaVersion=2", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token, "Idempotency-Key": operation.id },
         body: promptStr, signal: controller.signal,
       });
       if (!active()) return;
       const data = await response.json();
       if (!active()) return;
+      const verifiedQuota = readWebPlanQuota(data?.quota);
+      if (verifiedQuota) setQuotaSnapshot({ owner: session.user.id, quota: verifiedQuota });
       if (!response.ok) {
         if (response.status === 401) setNeedsSignIn(true);
         if (data.code === "plan_expired" || data.code === "plan_conflict") { operationRef.current = null; try { sessionStorage.removeItem(operationKey); } catch { /* No storage reset. */ } }
         const reset = typeof data.quota?.resetAt === "string" ? new Date(data.quota.resetAt) : null;
         const resetText = reset && Number.isFinite(reset.getTime()) ? reset.toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "bir sonraki günlük yenilenmede";
-        throw new Error(data.code === "plan_limit" ? "Bugünkü rota hakkını kullandın. Yeni hakkın: " + resetText + ". Mevcut planlarını düzenleyebilirsin."
+        throw new Error(data.code === "plan_limit" ? "Bugünkü rota haklarını kullandın. Yeni hakların: " + resetText + ". Mevcut planlarını düzenleyebilirsin."
           : data.code === "plan_pending" ? "Rotan hâlâ hazırlanıyor. Biraz bekleyip aynı seçimlerle tekrar dene."
           : data.code === "plan_request_too_large" ? "Bu rota isteği ücretsiz işlem kapasitesini aşıyor. Gün sayısını veya notlarını azaltıp tekrar dene. Seçimlerin ve önceki planın korundu; günlük hakkın kullanılmadı."
           : response.status === 401 ? "Devam etmek için hesabına giriş yap. Seçimlerin korundu."
@@ -695,10 +709,12 @@ export default function AIPlannerPage() {
     );
   };
 
+  const visibleQuota = quotaSnapshot?.owner === ownerRef.current ? quotaSnapshot.quota : null;
   return (
     <div className="l2t-page l2t-route-v27">
       <div className="l2t-wrap l2t-route-v27-stage">
-        <p>Hesabınla günde 1 ücretsiz AI rotası oluşturabilirsin. Mevcut rotaları açmak ve elle düzenlemek bu hakkı kullanmaz.</p>
+        <p>Hesabınla günde 3 ücretsiz AI rotası oluşturabilirsin. Mevcut rotaları açmak ve elle düzenlemek bu hakkı kullanmaz.</p>
+        {visibleQuota && <p role="status">{visibleQuota.pending ? "Önceki rota isteğin hâlâ işleniyor; ek hak kullanılmaz." : `Bugün ${visibleQuota.remaining}/${visibleQuota.limit} yeni AI rota hakkın kaldı.`} Yeni haklar: <time dateTime={visibleQuota.resetAt}>{new Date(visibleQuota.resetAt).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}</time></p>}
         {recovery && <button className="l2t-btn l2t-btn-outline" disabled={step === "loading"} onClick={() => {
           setAnswers(recovery.answers); setStep("loading"); void generatePlan(recovery.answers, recovery);
         }}>Önceki rotamı geri aç — günlük hakkımı kullanmadan</button>}

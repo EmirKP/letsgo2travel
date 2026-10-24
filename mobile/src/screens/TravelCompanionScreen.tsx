@@ -10,6 +10,7 @@ import { getTravelNow } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
 import { readTravelCountry, selectTravelCountry } from "../lib/travelSelection";
+import { nearbyEventContext, type EventSearchContext } from "../lib/eventSearchContext";
 import { EvidenceLine } from "../components/TravelSafety";
 import type { TravelNowResult, ViewId } from "../types";
 import type { TravelAssistantTool } from "../lib/appTools";
@@ -36,20 +37,24 @@ const SPEECH_LANG: Record<string, string> = {
 const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
 const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
 
-export function TravelCompanionScreen({ initialTab = "assistant", initialTool, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
+export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', onOpenEvents, onNotice, accessToken, onSignIn, ownerId }: {
   initialTab?: CompanionTab;
   initialTool?: TravelAssistantTool;
+  initialCountry?: string;
   accessToken: string;
   ownerId?: string | null;
   onSignIn: () => void;
   onNavigate: (view: ViewId) => void;
+  onOpenEvents?: (context: EventSearchContext) => void;
   onNotice: (message: string) => void;
 }) {
   const { locale, copy, countryName } = useI18n();
   const [tab, setTab] = useState<CompanionTab>(initialTab);
-  const [countryCode, setCountryCode] = useState(() => readTravelCountry() || "XK");
+  const [countryCode, setCountryCode] = useState(() => initialCountry || readTravelCountry());
   const [budget, setBudget] = useState<"free" | "low" | "flexible">("low");
   const [interest, setInterest] = useState<"culture" | "food" | "outdoors" | "calm">("culture");
+  const [eventsLocating, setEventsLocating] = useState(false);
+  const eventsRequestId = useRef(0);
   const nowKey = `${tab}:${budget}:${interest}:${locale}`;
   const [nowState, setNowState] = useState<NowState>({ key: "", loading: false, location: null, result: null, error: "" });
   const activeNowRequest = useRef<{ key: string } | null>(null);
@@ -61,7 +66,8 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
     // Leaving the section or changing its inputs also abandons a pending GPS
     // callback, so it cannot launch a weather request for the old selection.
     setNowState({ key: nowKey, loading: false, location: null, result: null, error: "" });
-    return () => { activeNowRequest.current = null; };
+    setEventsLocating(false);
+    return () => { activeNowRequest.current = null; eventsRequestId.current++; };
   }, [nowKey]);
   const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
   const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
@@ -82,6 +88,11 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
     || fallbackEssentialProfile(countryCode, selectedCountry?.name || countryCode, flagEmoji(countryCode)), [countryCode, selectedCountry?.name]);
 
   useEffect(() => setTab(initialTab), [initialTab]);
+  useEffect(() => {
+    if (!initialCountry) return;
+    setCountryCode(initialCountry);
+    selectTravelCountry(initialCountry);
+  }, [initialCountry]);
   const focusSection = (item: CompanionTab) => {
     // Only a deliberate section click moves focus. Reactivating a retained
     // screen, changing country or changing language must keep its scroll.
@@ -173,6 +184,21 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
     }
   };
 
+  const openNearbyEvents = async () => {
+    if (!location || eventsLocating) return;
+    const requestId = ++eventsRequestId.current;
+    setEventsLocating(true);
+    try {
+      const context = await nearbyEventContext(location);
+      if (requestId !== eventsRequestId.current) return;
+      if (onOpenEvents) onOpenEvents(context);
+      else onNotice(copy("Etkinlik Radarı'nda ülkeni ve şehrini seç.", "Choose your country and city in Event Radar.", "Zgjidh shtetin dhe qytetin te Radari i Aktiviteteve."));
+    } catch {
+      if (requestId !== eventsRequestId.current) return;
+      onNotice(copy("Etkinlik konumu belirlenemedi. Yeniden dene.", "The event location could not be determined. Try again.", "Vendndodhja e aktiviteteve nuk u gjet. Provo përsëri."));
+    } finally { if (requestId === eventsRequestId.current) setEventsLocating(false); }
+  };
+
   const speak = (value: string) => {
     if (!("speechSynthesis" in window)) {
       onNotice(copy("Sesli okuma bu cihazda desteklenmiyor.", "Speech playback is not supported on this device."));
@@ -194,7 +220,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
         <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
       </header>}
 
-    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialTool={initialTool} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) setCountryCode(code); setTab("phrases"); focusSection("phrases"); }} /></Suspense>}
+    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialCountry={countryCode} initialTool={initialTool} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("phrases"); focusSection("phrases"); }} onLocalTips={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("etiquette"); focusSection("etiquette"); }} /></Suspense>}
 
     {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
       <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
@@ -208,16 +234,18 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
         <article className="now-weather"><span><Icon name={result.weather.precipitation > 0 ? "cloud" : "sun"} size={25} /></span><div><small>{result.weather.description} · {result.weather.localTime.slice(11, 16)}</small><strong>{result.weather.temperature}°</strong><p>{copy("Hissedilen", "Feels like")} {result.weather.apparentTemperature}°</p></div></article>
         <div className="now-recommendations">{result.recommendations.map((recommendation, index) => <button type="button" key={recommendation.id} onClick={() => openMap(recommendation.mapQuery)}><em>{index + 1}</em><span><strong>{recommendation.title}</strong><small>{recommendation.reason}</small><i>{recommendation.duration} · {recommendation.indoor ? copy("Kapalı alan", "Indoor") : copy("Açık alan", "Outdoor")}</i></span><Icon name="external" size={17} /></button>)}</div>
         <p className="now-privacy"><Icon name="lock" size={14} /> {result.privacy}</p>
-        <button className="secondary-wide" onClick={() => onNavigate("events")}><Icon name="calendar" size={18} /> {copy("Yakındaki etkinlikleri de gör", "See nearby events too")}</button>
+        <button className="secondary-wide" disabled={eventsLocating} onClick={() => void openNearbyEvents()}><Icon name="calendar" size={18} /> {eventsLocating ? copy("Konum hazırlanıyor…", "Preparing location…", "Po përgatitet vendndodhja…") : copy("Yakındaki etkinlikleri de gör", "See nearby events too", "Shih edhe aktivitetet pranë")}</button>
       </div>}
     </section>}
 
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" aria-label={tabLabel(tab)}>
       <CountryPicker value={countryCode} options={countryOptions} onChange={code => { setCountryCode(code); selectTravelCountry(code); }} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
+      {!countryCode && <p className="ta-muted">{copy('İfadeleri ve yerel bilgileri görmek için gideceğin ülkeyi seç.', 'Choose your destination to see its phrases and local guidance.', 'Zgjidh destinacionin për të parë shprehjet dhe këshillat vendase.')}</p>}
+      {countryCode && <>
       {supportedProfiles.has(countryCode) && <p className="essential-language-note"><Icon name="offline" size={15} /> {tab === "phrases"
         ? copy(`${profile.languageTr} ifadeler cihazda hazır`, `${profile.languageEn} phrases ready offline`, `Fraza gati pa internet: ${LANGUAGE_NAMES_SQ[profile.languageEn] || profile.languageEn}`)
         : copy("Yerel kurallar cihazda hazır", "Local guidance ready offline")}</p>}
-      {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.")}</p></div>}
+      {!supportedProfiles.has(countryCode) && <div className="essential-fallback-note" role="status"><Icon name="info" size={16} /><p>{tab === 'phrases' ? copy("Bu ülke seçilebilir ve kartlar çevrimdışı çalışır; yerel çeviri hazır olana kadar İngilizce acil ifadeler gösterilir.", "This country is available and the cards work offline; English emergency phrases are shown until its local translation is ready.") : copy('Bu ülke için genel seyahat önerileri gösteriliyor. Yerel kuralları resmî ülke rehberinden doğrula.', 'Showing general travel guidance for this country. Check local rules in its official country advice.', 'Shfaqen këshilla të përgjithshme udhëtimi. Verifiko rregullat vendase në udhëzuesin zyrtar të shtetit.')}</p></div>}
       {locale === "sq" && tab === "etiquette" && profile.etiquette.some(rule => !rule.sq) && <p className="essential-language-note" lang="sq">Disa këshilla lokale ende shfaqen në anglisht; përkthimi i tyre në shqip nuk është ende i disponueshëm.</p>}
       {tab === "phrases" ? <div className="phrase-list">{profile.phrases.map((phrase) => <article key={phrase.id}>
         <small>{copy(phrase.tr, phrase.en, PHRASE_MEANINGS_SQ[phrase.id])}</small><strong>{phrase.local}</strong>{phrase.phonetic && <em>{phrase.phonetic}</em>}
@@ -232,8 +260,9 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, o
           </button>
         </div>
       </article>)}</div>
-        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p lang={locale === "tr" ? "tr" : locale === "sq" && rule.sq ? "sq" : "en"}>{locale === "tr" ? rule.tr : locale === "sq" && rule.sq ? rule.sq : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt}}/>}</div></article>)}</div>}
+        : <div className="etiquette-list">{profile.etiquette.map((rule) => <article key={rule.id}><span><Icon name={rule.icon} size={20} /></span><div><small>{rule.kind === 'law' ? copy('Kanun / yerel düzenleme','Law / local regulation') : copy('Kültürel ve pratik tavsiye','Cultural and practical guidance')}</small><p lang={locale === "tr" ? "tr" : locale === "sq" && rule.sq ? "sq" : "en"}>{locale === "tr" ? rule.tr : locale === "sq" && rule.sq ? rule.sq : rule.en}</p>{rule.sourceUrl && rule.verifiedAt && <EvidenceLine item={{sourceUrl:rule.sourceUrl,verifiedAt:rule.verifiedAt,reviewAfter:rule.reviewAfter,validUntil:rule.validUntil}}/>}</div></article>)}</div>}
       <p className="essential-offline"><Icon name="offline" size={15} /> {copy("Bu kartlar cihazda çalışır; internet gerekmez. Kanunlar değişebilir, resmî uyarıları ayrıca doğrula.", "These cards work on-device without internet. Laws can change, so also verify official guidance.")}</p>
+      </>}
     </section>}
 
     <section className="companion-sections" aria-labelledby="companion-sections-title">

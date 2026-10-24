@@ -79,7 +79,7 @@ export function IssueReportForm({ screen, accessToken, ownerId }: { screen?: str
     home: copy("Keşfet", "Discover", "Zbulo"), trips: copy("Planlar", "Plans", "Planet"),
     community: copy("Topluluk", "Community", "Komuniteti"), profile: copy("Profil", "Profile", "Profili"),
     companion: copy("Araçlar", "Tools", "Mjetet"), route: copy("Rota oluştur", "Create a route", "Krijo itinerar"),
-    cockpit: copy("Seyahat Kokpiti", "Travel Cockpit", "Paneli i udhëtimit"), costs: copy("Ülke Maliyetleri", "Country Costs", "Kostot e vendeve"),
+    cockpit: copy("Seyahatlerim", "My trips", "Udhëtimet e mia"), costs: copy("Ülke Maliyetleri", "Country Costs", "Kostot e vendeve"),
   };
 
   return <div className="support-draft">

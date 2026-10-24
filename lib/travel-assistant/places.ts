@@ -171,12 +171,26 @@ export function filterPlaces(places: Place[], filters: { category?: string; free
     && (!filters.representedCountry || p.representedCountry === filters.representedCountry))
     .sort((a,b) => distanceKm(center,a) - distanceKm(center,b));
 }
+/** Indexed 3 km candidate bounds; callers must still enforce the circular radius. */
+export function nearbyQueryBoxes(center: Coordinates): string[] {
+  const valid = coordinates(center);
+  if (!valid) throw new Error('Invalid map query');
+  const c = coarseLocation(valid);
+  const latDelta = 3 / 110.574, lonDelta = 3 / (111.32 * Math.cos(c.latitude * Math.PI / 180));
+  const south = Math.max(-85, c.latitude - latDelta), north = Math.min(85, c.latitude + latDelta);
+  const west = c.longitude - lonDelta, east = c.longitude + lonDelta;
+  const ranges = west < -180 ? [[west + 360, 180], [-180, east]]
+    : east > 180 ? [[west, 180], [-180, east - 360]] : [[west, east]];
+  return ranges.map(([left, right]) => [south, left, north, right].map(value => value.toFixed(5)).join(','));
+}
 export function overpassQuery(center: Coordinates, mode: MapMode) {
   const valid = coordinates(center);
   if (!valid || !['needs','explore'].includes(mode)) throw new Error('Invalid map query');
-  const c = coarseLocation(valid);
   const selectors = mode === 'needs'
     ? ['[amenity~"^(hospital|pharmacy|police|atm|bureau_de_change|toilets|embassy)$"]','[office=diplomatic]','[internet_access=wlan]']
     : ['[tourism~"^(museum|viewpoint|attraction)$"]','[historic~"^(monument|memorial|castle|ruins|archaeological_site|building|palace)$"]','[artwork_type=statue]','[leisure=stadium]','[place=square]'];
-  return `[out:json][timeout:12][maxsize:4000000];(${selectors.map(s => `nwr(around:3000,${c.latitude},${c.longitude})${s};`).join('')});out center tags 250;`;
+  // maxsize is the provider's working RAM, not the HTTP response limit. Keep
+  // the independent 4 MB response cap in overpass.ts while allowing the spatial
+  // index to resolve ways and relations in dense city centres.
+  return `[out:json][timeout:12][maxsize:67108864];(${nearbyQueryBoxes(valid).flatMap(box => selectors.map(s => `nwr(${box})${s};`)).join('')});out center tags 250;`;
 }

@@ -55,12 +55,12 @@
     "gpt-tokenizer": "3.2.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.18.0",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-simple-maps": "4.0.0-beta.6",
-    "sanitize-html": "^2.17.0",
+    "sanitize-html": "^2.18.1",
     "sharp": "0.35.5",
     "workflow": "^5.2.0",
     "zustand": "^5.0.14"
@@ -79,7 +79,7 @@
     "airports-json": "1.0.0",
     "d3-geo": "3.1.1",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.3",
     "i18n-iso-countries": "7.14.0",
     "topojson-client": "3.1.0",
     "ts-node": "^10.9.2",
@@ -91,12 +91,15 @@
     "unrs-resolver@1.11.1": true
   },
   "overrides": {
-    "@next/eslint-plugin-next@16.3.8": {
+    "@next/eslint-plugin-next@16.4.3": {
       "fast-glob": "3.3.1-l2t.1"
     },
     "@workflow/core": {
       "devalue": "5.9.3",
       "nanoid": "5.1.16"
-    }
+    },
+    "follow-redirects": "1.16.1",
+    "undici": "7.30.1",
+    "zod": "4.6.6"
   }
 }

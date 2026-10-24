@@ -1,6 +1,6 @@
 import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel, eventLocalDate, hasEventTime } from "../../../lib/event-time";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CountryFlag } from "../components/CountryFlag";
 import { DateTimeField } from "../components/DateTimeField";
 import { Icon } from "../components/Icon";
@@ -11,6 +11,7 @@ import { alpha2FromAlpha3 } from "../data/countryIso";
 import { listEventCities, listTravelEvents } from "../lib/api";
 import { loadFeaturedEvents } from "../lib/featuredEvents";
 import { clampLocalDate, isValidDateRange, localIsoDate } from "../lib/dates";
+import { matchesEventCity, type EventSearchContext, type EventSearchFilters } from "../lib/eventSearchContext";
 import { cancelEventReminder, reconcileEventReminders, scheduleEventReminder } from "../lib/eventReminders";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
@@ -21,7 +22,11 @@ import "./daily-journey.css";
 
 const CATEGORY_IDS = ["all", "concert", "festival", "sport", "culture", "food", "family"] as const;
 
-export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onCreateEventTrip, onNavigate, onNotice }: {
+export function EventsScreen({ initialContext, initialFilters, onFiltersChange, onContextHandled, focusEventId, onFocusHandled, ownerId, accessToken, onOpenAccount, onOpenSaved, onCreateEventTrip, onNavigate, onNotice }: {
+  initialContext?: EventSearchContext;
+  initialFilters?: EventSearchFilters;
+  onFiltersChange?: (filters: EventSearchFilters) => void;
+  onContextHandled?: () => void;
   focusEventId?: string;
   onFocusHandled?: () => void;
   ownerId?: string | null;
@@ -33,6 +38,8 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   onNotice: (message: string) => void;
 }) {
   const { locale, copy, countryName, dateLocale } = useI18n();
+  const [entryContext] = useState(() => initialContext);
+  const [contextEdited, setContextEdited] = useState(false);
   const [focusedEvent, setFocusedEvent] = useState<TravelEvent | null>(null);
   useEffect(() => {
     if (!focusEventId) return;
@@ -41,17 +48,23 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     else onNotice(copy("Bu etkinlik artık kayıtlı değil. Güncel etkinlikleri arayabilirsin.", "This event is no longer saved. Search for current events."));
     onFocusHandled?.();
   }, [focusEventId, ownerId, onFocusHandled, onNotice, copy]);
-  const [countryCode, setCountryCode] = useState("TR");
-  const [cityPlaceCode, setCityPlaceCode] = useState("");
+  const [restoredFilters] = useState(() => entryContext ? undefined : initialFilters);
+  const [countryCode, setCountryCode] = useState(entryContext?.countryCode ?? initialFilters?.countryCode ?? "TR");
+  const [cityPlaceCode, setCityPlaceCode] = useState(entryContext ? "" : initialFilters?.cityPlaceCode || "");
   const [cities, setCities] = useState<EventCityOption[]>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState(false);
   const [citiesReloadKey, setCitiesReloadKey] = useState(0);
-  const [startDate, setStartDate] = useState(localIsoDate(0));
-  const [endDate, setEndDate] = useState(localIsoDate(120));
-  const [category, setCategory] = useState<(typeof CATEGORY_IDS)[number]>("all");
+  const [startDate, setStartDate] = useState(() => clampLocalDate(entryContext?.startDate || initialFilters?.startDate || localIsoDate(0), localIsoDate(0), localIsoDate(366)));
+  const [endDate, setEndDate] = useState(() => clampLocalDate(entryContext?.endDate || initialFilters?.endDate || localIsoDate(120), startDate, localIsoDate(366)));
+  const [contextCity, setContextCity] = useState(entryContext?.cityName || "");
+  const [contextCityUnavailable, setContextCityUnavailable] = useState(false);
+  const [contextReady, setContextReady] = useState(!entryContext?.cityName && !(initialFilters?.cityPlaceCode && !initialFilters.cityName));
+  const [contextUnknown, setContextUnknown] = useState(Boolean(entryContext && !entryContext.countryCode));
+  const [category, setCategory] = useState<(typeof CATEGORY_IDS)[number]>(entryContext ? "all" : initialFilters?.category || "all");
   const [events, setEvents] = useState<TravelEvent[]>([]);
   const [savedIds, setSavedIds] = useState(() => new Set(getSavedTravelEvents(ownerId).map((event) => event.id)));
+  const [guideSaveSuccess, setGuideSaveSuccess] = useState<{ id: string; revision: number }>({ id: '', revision: 0 });
   useEffect(() => {
     const update = () => {
       try { setSavedIds(new Set(getSavedTravelEvents(ownerId).map(event => event.id))); }
@@ -87,10 +100,28 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     .filter((country) => country.code)
     .sort((a, b) => a.name.localeCompare(b.name, locale)), [countryName, locale]);
 
-  const selectedCity = useMemo(
-    () => cities.find((option) => option.placeCode === cityPlaceCode),
-    [cities, cityPlaceCode],
-  );
+  const selectedCity = useMemo(() => {
+    const current = cities.find((option) => option.placeCode === cityPlaceCode);
+    const previous = restoredFilters;
+    // A previously selected, owner-scoped city remains usable while its option
+    // list is reloading or unavailable. Do not silently broaden that search.
+    return current || (cityPlaceCode && previous?.countryCode === countryCode && previous.cityPlaceCode === cityPlaceCode && previous.cityName
+      ? { name: previous.cityName, placeCode: cityPlaceCode } : undefined);
+  }, [cities, cityPlaceCode, countryCode, restoredFilters]);
+
+  const filterSignature = JSON.stringify([countryCode, cityPlaceCode, selectedCity?.name, startDate, endDate, category]);
+  const reportedFilters = useRef("");
+  useEffect(() => {
+    if (!contextReady || contextUnknown || !onFiltersChange || reportedFilters.current === filterSignature) return;
+    reportedFilters.current = filterSignature;
+    onFiltersChange({ countryCode, cityPlaceCode, cityName: selectedCity?.name, startDate, endDate, category });
+  }, [contextReady, contextUnknown, filterSignature, onFiltersChange, countryCode, cityPlaceCode, selectedCity?.name, startDate, endDate, category]);
+  const contextHandled = useRef(!entryContext);
+  useEffect(() => {
+    if (contextHandled.current || !contextReady || contextUnknown || !onContextHandled) return;
+    contextHandled.current = true;
+    onContextHandled();
+  }, [contextReady, contextUnknown, onContextHandled]);
 
   const countryOptions = useMemo(() => countries.map((country) => ({
     code: country.code,
@@ -112,18 +143,26 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
 
   useEffect(() => {
     let current = true;
-    setCityPlaceCode("");
     setCities([]);
     setCitiesError(false);
     if (!countryCode) {
       setCitiesLoading(false);
+      setContextReady(true);
       return () => { current = false; };
     }
     setCitiesLoading(true);
     void listEventCities(countryCode)
-      .then((options) => { if (current) setCities(options); })
-      .catch(() => { if (current) { setCities([]); setCitiesError(true); } })
-      .finally(() => { if (current) setCitiesLoading(false); });
+      .then((options) => {
+        if (!current) return;
+        setCities(options);
+        if (contextCity && countryCode === entryContext?.countryCode) {
+          const match = options.find(option => matchesEventCity(option.name, contextCity, countryCode));
+          setCityPlaceCode(match?.placeCode || "");
+          setContextCityUnavailable(!match);
+        }
+      })
+      .catch(() => { if (current) { setCities([]); setCitiesError(true); setContextCityUnavailable(Boolean(contextCity)); } })
+      .finally(() => { if (current) { setCitiesLoading(false); setContextReady(true); } });
     return () => { current = false; };
   }, [countryCode, citiesReloadKey]);
 
@@ -167,7 +206,11 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   })[value];
 
   const search = async (nextCategory = category) => {
-    if (loading) return;
+    if (loading || !contextReady) return;
+    if (contextUnknown) {
+      setError(copy("Etkinlik aramak için önce ülkeni seç.", "Choose your country before searching for events.", "Zgjidh shtetin para se të kërkosh aktivitete."));
+      return;
+    }
     const today = localIsoDate(0);
     const latest = localIsoDate(366);
     if (!isValidDateRange(startDate, endDate, today, latest)) {
@@ -216,12 +259,13 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
     }
   };
 
-  useEffect(() => { void search(); /* İlk ekran gerçek sonuçla açılır. */ }, []);
+  useEffect(() => { if (contextReady && !contextUnknown) void search(); /* Explicit nearby context resolves before the first request. */ }, [contextReady]);
 
   const save = (event: TravelEvent) => {
     try {
     const result = toggleSavedTravelEvent(event, ownerId);
     setSavedIds(new Set(result.events.map((item) => item.id)));
+    if (result.saved) setGuideSaveSuccess(previous => ({ id: event.id, revision: previous.revision + 1 }));
     if (!result.saved) void cancelEventReminder(event.id, ownerId).then(ok => { if (!ok) onNotice(copy("Hatırlatıcı iptali bekliyor; yeniden denenecek.", "Reminder cancellation is pending and will retry.")); }).catch(() => onNotice(copy("Hatırlatıcı iptal edilemedi.", "Reminder could not be cancelled.")));
     onNotice(ownerId ? copy("Etkinlik seçimin cihazda kaydedildi; hesabınla eşitlenecek.", "Your event selection is saved on this device and queued for account sync.", "Zgjedhja e aktivitetit u ruajt në këtë pajisje dhe pret sinkronizimin me llogarinë.") : result.saved ? copy("Etkinlik planına eklendi.", "Event added to your plan.") : copy("Etkinlik planından çıkarıldı.", "Event removed from your plan."));
     } catch { onNotice(copy("Etkinlik kaydı değiştirilemedi. Cihaz depolamasını kontrol et.", "Could not update saved events. Check device storage.")); }
@@ -285,46 +329,58 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
   const eventDay = tripEvent ? eventLocalDate(tripEvent) : "";
   const hasCompatibleTrip = cockpitTrips.some((trip) => Boolean(eventDay && eventDay >= trip.startDate && eventDay <= trip.endDate));
   const filtersChanged = Boolean(appliedSearch && appliedSearch.signature !== [countryCode, cityPlaceCode, startDate, endDate, category].join("|"));
+  const guideRecovery = searched && !loading && !error
+    ? !events.length && coverageStatus !== 'provider_unavailable' && coverageStatus !== 'not_configured' ? 'empty'
+      : events.length > 0 && events.every(event => savedIds.has(event.id)) ? 'saved' : undefined
+    : undefined;
 
   return <div className="screen events-screen daily-events">
     <Sheet open={Boolean(focusedEvent)} title={copy("Etkinlik ayrıntıları", "Event details")} onClose={() => setFocusedEvent(null)}>
       {focusedEvent && <div className="form-card"><h3>{focusedEvent.title}</h3><p>{focusedEvent.city} · {focusedEvent.venue}</p><p>{eventDateLabel(focusedEvent, dateLocale, undefined, formatAppDate)} · {eventTimeLabel(focusedEvent, dateLocale, formatAppDate)}</p><p>{focusedEvent.description}</p><button className="primary-wide" onClick={() => void openExternal(focusedEvent.ticketUrl || focusedEvent.sourceUrl)}>{copy("Kaynağı aç", "Open source")}</button></div>}
     </Sheet>
     <header className="daily-page-heading"><span>{copy("TAKVİMİNE BİR AN EKLE", "MAKE TIME FOR SOMETHING GOOD")}</span><h1>{copy("Oradayken ne var?", "What's on while you're there?")}</h1><p>{copy("Yerini ve tarihlerini seç; kaçırmak istemediklerini kaydet.", "Choose your place and dates. Save what you don't want to miss.")}</p></header>
+    {entryContext && !contextEdited && <p className="info-box" role="status">{contextUnknown ? copy("Yaklaşık konumundan ülke belirlenemedi. Etkinlik aramak istediğin ülkeyi seç.", "Your country could not be determined from your approximate location. Choose where to search for events.", "Shteti nuk u përcaktua nga vendndodhja e përafërt. Zgjidh ku të kërkosh aktivitete.") : contextCityUnavailable && citiesError ? copy("Şehir seçenekleri yüklenemedi; seçili ülkenin tüm şehirleri aranıyor. Şehir yüklemesini yeniden deneyebilirsin.", "City options could not be loaded; searching all cities in the selected country. You can retry loading cities.", "Qytetet nuk u ngarkuan; kërkohen të gjitha qytetet e shtetit të zgjedhur. Mund ta provosh sërish ngarkimin.") : contextCityUnavailable ? copy(`${contextCity} şehir filtresi kaynakta bulunamadı; seçili ülkenin tüm şehirleri gösteriliyor. Şehri ve tarihleri değiştirebilirsin.`, `The source has no city filter for ${contextCity}; showing all cities in the selected country. You can change the city and dates.`, `Burimi nuk ka filtër qyteti për ${contextCity}; shfaqen të gjitha qytetet e shtetit të zgjedhur. Mund të ndryshosh qytetin dhe datat.`) : copy("Yaklaşık konumun ve önümüzdeki 7 gün için açıldı. Ülkeyi, şehri ve tarihleri değiştirebilirsin.", "Opened for your approximate location and the next 7 days. You can change the country, city and dates.", "U hap për vendndodhjen tënde të përafërt dhe 7 ditët e ardhshme. Mund të ndryshosh shtetin, qytetin dhe datat.")}</p>}
     <button type="button" className="daily-event-saved" data-guide="event-saved" onClick={() => onOpenSaved ? onOpenSaved() : onNavigate("trips")}><Icon name="bookmark" size={20}/><span>{copy("Kayıtlı etkinliklerim", "My saved events")}<small>{copy(`${savedIds.size} etkinlik`, `${savedIds.size} events`, `${savedIds.size} aktivitete`)}</small></span><Icon name="chevron" size={18}/></button>
 
           <div className="chip-scroll event-categories" role="group" aria-label={copy("Etkinlik kategorisi", "Event category")}>
-        {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} disabled={loading} onClick={() => { setCategory(item); void search(item); }}>{categoryLabel(item)}</button>)}
+        {CATEGORY_IDS.map((item) => <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} disabled={loading || !contextReady} onClick={() => { setContextEdited(true);setCategory(item); void search(item); }}>{categoryLabel(item)}</button>)}
       </div>
     <details className="event-filter-disclosure" open><summary><Icon name="calendar" size={17} /><span>{copy("Ülke ve tarih seç", "Choose country and dates")}</span><Icon name="chevron" size={15} /></summary>
     <section className="event-search-card" aria-label={copy("Etkinlik araması", "Event search")}>
       <div className="event-search-grid">
         <CountryPicker value={countryCode} options={countryOptions} includeWorldwide label={copy("Ülke", "Country")} placeholder={copy("Tüm dünya", "Worldwide")} onChange={(nextCountryCode) => {
           setCountryCode(nextCountryCode);
+          setContextEdited(true);
+          setContextCity("");
+          setContextCityUnavailable(false);
+          setContextUnknown(false);
           setCityPlaceCode("");
           setCities([]);
           setCitiesError(false);
         }} />
-        <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<select value={cityPlaceCode} disabled={!countryCode || citiesLoading} onChange={(event) => setCityPlaceCode(event.target.value)}>
+        <label>{copy("Şehir (isteğe bağlı)", "City (optional)")}<select value={cityPlaceCode} disabled={!countryCode || citiesLoading} onChange={(event) => {setContextEdited(true);setCityPlaceCode(event.target.value);}}>
           <option value="">{citiesLoading ? copy("Şehirler yükleniyor…", "Loading cities…") : countryCode ? copy("Tüm şehirler", "All cities") : copy("Önce ülke seç", "Choose a country first")}</option>
+          {selectedCity && !cities.some(city => city.placeCode === selectedCity.placeCode) && <option value={selectedCity.placeCode}>{selectedCity.name}</option>}
           {cities.map((option) => <option value={option.placeCode} key={option.placeCode}>{option.name}</option>)}
         </select></label>
         <DateTimeField type="date" label={copy("Başlangıç", "From")} min={localIsoDate(0)} max={localIsoDate(366)} value={startDate} onChange={(requested) => {
+          setContextEdited(true);
           const nextStartDate = clampLocalDate(requested, localIsoDate(0), localIsoDate(366));
           setStartDate(nextStartDate);
           if (endDate && nextStartDate && endDate < nextStartDate) setEndDate(nextStartDate);
           if (requested && requested !== nextStartDate) onNotice(copy("Geçmiş bir başlangıç tarihi seçilemez.", "A past start date cannot be selected."));
         }} />
         <DateTimeField type="date" label={copy("Bitiş", "To")} min={startDate || localIsoDate(0)} max={localIsoDate(366)} value={endDate} onChange={(requested) => {
+          setContextEdited(true);
           const nextEndDate = clampLocalDate(requested, startDate || localIsoDate(0), localIsoDate(366));
           setEndDate(nextEndDate);
           if (requested && requested !== nextEndDate) onNotice(copy("Bitiş tarihi başlangıçtan önce olamaz.", "The end date cannot be before the start date."));
         }} />
       </div>
       {countryCode && !cityPlaceCode && !citiesLoading && !citiesError && <p className="event-city-scope"><Icon name="info" size={14} /> {copy("Tüm şehirler seçiliyken ülke genelindeki sonuçlar aranır; canlı kapsam sağlayıcıya göre değişebilir.", "With all cities selected, results are searched countrywide; live coverage can vary by provider.")}</p>}
-      {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
+      {citiesError && <div className="event-city-error" role="alert"><Icon name="alert" size={16} /><span>{selectedCity ? copy("Şehir seçenekleri güncellenemedi. Önceki şehir seçimin korundu; yeniden deneyebilirsin.", "City options could not be refreshed. Your previous city selection was kept; you can try again.", "Opsionet e qyteteve nuk u rifreskuan. Qyteti i zgjedhur u ruajt; mund të provosh sërish.") : copy("Şehirler yüklenemedi; tüm ülkeyi arayabilir veya yeniden deneyebilirsin.", "Cities could not be loaded; search the whole country or try again.")}</span><button type="button" onClick={() => setCitiesReloadKey((value) => value + 1)}>{copy("Yeniden dene", "Retry")}</button></div>}
 
-      <button data-guide="event-search" className="primary-wide" disabled={loading || !startDate || !endDate} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
+      <button data-guide="event-search" data-guide-event-recovery={guideRecovery} data-guide-complete={appliedSearch && !filtersChanged && !loading && !error ? "true" : undefined} className="primary-wide" disabled={loading || !startDate || !endDate || !contextReady} onClick={() => void search()}>{loading ? <span className="button-loader" /> : <Icon name="search" size={18} />} {loading ? copy("Aranıyor", "Searching") : copy("Etkinlikleri bul", "Find events")}</button>
     </section>
 
     </details>
@@ -363,7 +419,7 @@ export function EventsScreen({ focusEventId, onFocusHandled, ownerId, accessToke
             </div>
             {event.description && <p className="event-description">{event.description}</p>}
             <div className={`event-card-actions with-trip-action ${cancelled ? "two-actions" : ""}`}>
-              <button className={saved ? "saved" : ""} onClick={() => save(event)}><Icon name={saved ? "check" : "bookmark"} size={16} />{saved ? copy("Kaydedildi", "Saved") : copy("Kaydet", "Save")}</button>
+              <button data-guide="event-save" data-guide-save-success={guideSaveSuccess.id === event.id ? String(guideSaveSuccess.revision) : undefined} aria-pressed={saved} className={saved ? "saved" : ""} onClick={() => save(event)}><Icon name={saved ? "check" : "bookmark"} size={16} />{saved ? copy("Kaydedildi", "Saved") : copy("Kaydet", "Save")}</button>
               {!cancelled && <button className="event-add-to-trip" onClick={() => void openTripPicker(event)}><Icon name="suitcase" size={16} />{copy("Seyahate ekle", "Add to trip")}</button>}
               {!cancelled && <button disabled={!hasEventTime(event) || event.status !== "scheduled"} onClick={() => void remind(event)}><Icon name="bell" size={16} />{copy("Hatırlat", "Remind me")}</button>}
               <button onClick={() => void openExternal(event.ticketUrl || event.sourceUrl)}><Icon name="external" size={16} />{event.ticketUrl ? copy("Bilet / kaynak", "Tickets / source") : copy("Kaynağı doğrula", "Verify source")}</button>

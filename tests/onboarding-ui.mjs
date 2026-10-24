@@ -145,7 +145,7 @@ test('App completion opens existing auth for guests, skips auth for members and 
   const code=ts.transpileModule('const run='+handler+';run(destination);',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
   for(const ownerId of [null,'member'])for(const initial of [false,true])for(const destination of [undefined,'route','explore','companion']){
     let done=initial,open=true,resets=0,seen,accountOpen=false,pending=null,stored=null,guides=0;const navigations=[];
-    vm.runInNewContext(code,{destination,ownerId,releaseId:'current',hasCompletedOnboarding:()=>done,completeOnboarding:()=>{done=true;},markReleaseSeen:value=>{seen=value;},setOnboardingOpen:value=>{open=value;},setRouteResetToken:fn=>{resets=fn(resets);},openNavigationView:value=>navigations.push(value),rememberWelcomeDestination:value=>{stored=value;},setWelcomeDestination:value=>{pending=value;},setAccountOpen:value=>{accountOpen=value;},startGuide:()=>{guides++;}});
+    vm.runInNewContext(code,{destination,ownerId,releaseId:'current',hasCompletedOnboarding:()=>done,completeOnboarding:()=>{done=true;},markReleaseSeen:value=>{seen=value;},setOnboardingOpen:value=>{open=value;},setRouteResetToken:fn=>{resets=fn(resets);},openNavigationView:value=>navigations.push(value),rememberWelcomeDestination:value=>{stored=value;},setWelcomeDestination:value=>{pending=value;},setAccountOpen:value=>{accountOpen=value;},beginWelcomeGuide:value=>{guides++;navigations.push(value);}});
     assert.equal(done,true);assert.equal(open,false);assert.equal(seen,'current');
     assert.deepEqual(navigations,ownerId?[destination||'home']:[]);assert.equal(accountOpen,!ownerId);assert.equal(guides,ownerId?1:0);
     assert.equal(pending,ownerId?null:destination||'home');assert.equal(stored,pending);
@@ -162,7 +162,7 @@ test('Welcome auth return remembers only a valid destination and clears it after
   let handler;const visit=node=>{if(ts.isVariableDeclaration(node)&&node.name.getText(source)==='closeAccount')handler=node.initializer.arguments[0].getText(source);ts.forEachChild(node,visit);};visit(source);
   let accountOpen=true,pending='route',guide=0;const navigations=[];
   const run=ts.transpileModule('const run='+handler+';run();',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(run,{welcomeDestination:pending,setAccountOpen:v=>{accountOpen=v;},setWelcomeDestination:v=>{pending=v;},rememberWelcomeDestination:api.rememberWelcomeDestination,startGuide:()=>guide++,openNavigationView:v=>navigations.push(v)});
+  vm.runInNewContext(run,{welcomeDestination:pending,setAccountOpen:v=>{accountOpen=v;},setWelcomeDestination:v=>{pending=v;},rememberWelcomeDestination:api.rememberWelcomeDestination,beginWelcomeGuide:v=>{guide++;navigations.push(v);}});
   assert.equal(accountOpen,false);assert.equal(pending,null);assert.equal(api.readWelcomeDestination(),null);assert.equal(guide,1);assert.deepEqual(navigations,['route']);
   sessionStorage.setItem('l2t.mobile.welcome-auth.v1','admin');assert.equal(api.readWelcomeDestination(),null);
 });

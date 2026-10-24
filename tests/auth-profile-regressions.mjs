@@ -34,8 +34,10 @@ const codes=load('mobile/src/data/countryCodes.ts',{'./countries':countries});
 const iso=load('mobile/src/data/countryIso.ts',{'./countries':countries});
 const profileCountries=load('mobile/src/lib/profileCountries.ts',{'../data/countries':countries,'../data/countryCodes':codes});
 const i18n={copy:(_,en)=>en,countryName:(_,name)=>name,locale:'en'};
-function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false,holdVerifications=false,sync=load('mobile/src/lib/profileSync.ts',{})}={}){
+function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false,holdVerifications=false,locale='en',pushPermission='unsupported',devicePush=false,sync=load('mobile/src/lib/profileSync.ts',{})}={}){
  const h=host(), storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set(),verificationReads=[],storageListeners=new Set();
+ const preferenceWrites=[],pushCalls=[],shares=[];let preferences={inAppNotifications:true,haptics:true};
+ const profileI18n=locale==='en'?i18n:{...i18n,locale,copy:(tr,en,sq)=>locale==='tr'?tr:sq||en};
  const get=(owner,key)=>storage.get(`${owner}:${key}`)||[];
  const set=(owner,key,value)=>{storage.set(`${owner}:${key}`,value);storageListeners.forEach(fn=>fn());};
  set('a','visited',local);
@@ -48,17 +50,18 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   '../components/AppearancePicker':{AppearancePicker:'AppearancePicker'}, '../components/TextSizePicker':{TextSizePicker:'TextSizePicker'},
   '../../../lib/leaderboard/verified':load('lib/leaderboard/verified.ts',{'./countries':load('lib/leaderboard/countries.ts',{'../countries/isoSource':{ISO_COUNTRIES:countries.ISO_3166}})}),
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
+  '../components/SupportSheet':{SupportSheet:'SupportSheet'},
   '../data/countries':countries,'../data/countryCodes':codes,'../data/countryIso':iso,'../lib/profileCountries':profileCountries,'../lib/config':{config:{}},
-  '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async()=>true},
-  '../lib/push':{getPushPermissionState:async()=> 'unsupported',isPushEnabledForDevice:()=>false},
-  '../lib/i18n':{useI18n:()=>i18n},
+  '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;},sendTestPushNotification:async token=>{pushCalls.push({kind:'test',token});return {success:true};}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async value=>{shares.push(value);return true;}},
+  '../lib/push':{getPushPermissionState:async()=>pushPermission,isPushEnabledForDevice:()=>devicePush,enablePushForUser:async getToken=>{pushCalls.push({kind:'enable',token:getToken()});return {ok:true};},disablePush:async(getToken,owner)=>{pushCalls.push({kind:'disable',token:getToken(),owner});return true;}},
+  '../lib/i18n':{useI18n:()=>profileI18n},
   '../lib/accountResume':{onAccountResume:fn=>{resumes.add(fn);return ()=>resumes.delete(fn);}},
   '../lib/profileSync':sync,
   '../lib/supabaseData':{getUserProfile:(id,token)=>{const d=deferred();reads.push({id,token,...d});if(remote&&id==='a')d.resolve(remote);return d.promise;},updateUserProfile:(id,change,token)=>{const d=deferred();writes.push({id,change,token,...d});return d.promise;},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
-  '../lib/storage':{getPendingGuestDataSync:()=>pendingImport?{profile:true}:null,getMobilePreferences:()=>({}),getVisitedCountries:owner=>get(owner,'visited'),getFavoriteDestinations:owner=>get(owner,'favorites'),getSavedRoutePlans:()=>[],saveMobilePreferences(){},setVisitedCountries:(value,owner)=>set(owner,'visited',value),setFavoriteDestinations:(value,owner)=>set(owner,'favorites',value),toggleVisitedCountry:(country,owner)=>{const prev=get(owner,'visited');const next=prev.some(c=>c.alpha3===country.alpha3)?prev.filter(c=>c.alpha3!==country.alpha3):[...prev,{...country,createdAt:new Date().toISOString()}];set(owner,'visited',next);return next;}},
+  '../lib/storage':{getPendingGuestDataSync:()=>pendingImport?{profile:true}:null,getMobilePreferences:()=>preferences,getVisitedCountries:owner=>get(owner,'visited'),getFavoriteDestinations:owner=>get(owner,'favorites'),getSavedRoutePlans:()=>[],saveMobilePreferences(value){preferences=value;preferenceWrites.push(value);},setVisitedCountries:(value,owner)=>set(owner,'visited',value),setFavoriteDestinations:(value,owner)=>set(owner,'favorites',value),toggleVisitedCountry:(country,owner)=>{const prev=get(owner,'visited');const next=prev.some(c=>c.alpha3===country.alpha3)?prev.filter(c=>c.alpha3!==country.alpha3):[...prev,{...country,createdAt:new Date().toISOString()}];set(owner,'visited',next);return next;}},
  },{window:{addEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.add(fn);},removeEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.delete(fn);}},document:{addEventListener(){},removeEventListener(){},visibilityState:'visible'}});
  let tree;const render=(next={})=>{props={...props,...next};tree=h.render(()=>source.ProfileScreen(props));return tree;};render();
- return {h,source,reads,writes,notices,storage,verificationReads,sync,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
+ return {h,source,reads,writes,notices,storage,verificationReads,sync,preferenceWrites,pushCalls,shares,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
 }
 const base={id:'a',username:'user_a',visitedCountries:[],wishlistCountries:[],optInLeaderboard:false};
 const tr=countries.COUNTRY_LIST.find(c=>c.alpha3==='TUR');
@@ -75,6 +78,187 @@ test('normal Profile embeds the current community account while retaining travel
  assert.equal(nodes(view).some(node=>node.type==='CommunityProfileInline'),false);
  assert.match(text(view),/Keep your memories here/);
  h.h.dispose();
+});
+
+const profileHelpCopy={
+ tr:{heading:'Tercihler ve gizlilik',app:'Uygulama ve yardım',account:'Gizlilik ve hesap',guide:'Nasıl kullanılır?',support:'Destek ve sorun bildir',privacy:'Gizlilik Politikası',terms:'Kullanım Şartları',deletion:'Hesap ve veri silme'},
+ en:{heading:'Preferences & privacy',app:'App & help',account:'Privacy & account',guide:'How to use the app',support:'Support & report a problem',privacy:'Privacy Policy',terms:'Terms of Use',deletion:'Account & data deletion'},
+ sq:{heading:'Preferencat dhe privatësia',app:'Aplikacioni dhe ndihma',account:'Privatësia dhe llogaria',guide:'Si përdoret aplikacioni?',support:'Ndihmë dhe raporto një problem',privacy:'Politika e privatësisë',terms:'Kushtet e përdorimit',deletion:'Fshirja e llogarisë dhe të dhënave'},
+};
+const profileHelpButton=(view,label)=>nodes(view).find(node=>node.type==='button'&&nodes(node).some(child=>child.type==='strong'&&text(child)===label));
+
+for(const locale of ['tr','en','sq'])test(`Profile settings group help and account controls without duplicate sections in ${locale}`,()=>{
+ const h=profileHarness({locale}),labels=profileHelpCopy[locale];let guideCalls=0,accountCalls=0;
+ const onGuide=()=>guideCalls++,onAccount=()=>accountCalls++;
+ try{
+  let view=h.render({onOpenOnboarding:onGuide,onOpenAccount:onAccount});
+  const settingsSections=nodes(view).filter(node=>node.type==='section'&&node.props['aria-labelledby']==='profile-settings-heading');
+  assert.equal(settingsSections.length,1,'Preferences, help and privacy share one settings section');
+  const settings=settingsSections[0];
+  assert.ok([view.props.children].flat(Infinity).includes(settings));
+  assert.equal(nodes(settings).filter(node=>node.type==='h2').length,1);
+  assert.equal(nodes(settings).find(node=>node.type==='h2').props.children,labels.heading);
+  assert.equal(nodes(view).some(node=>node.props.id==='profile-help-heading'||node.props['aria-labelledby']==='profile-help-heading'),false,'No separate Help & support section remains');
+  const groups=nodes(settings).filter(node=>node.type==='details');assert.ok(groups.length>=2);
+  assert.ok(groups.every(group=>!group.props.open),'Settings groups start collapsed');
+  const appGroup=groups.find(group=>profileHelpButton(group,labels.guide));
+  const accountGroup=groups.find(group=>profileHelpButton(group,labels.privacy));
+  assert.ok(appGroup);assert.ok(accountGroup);assert.notEqual(appGroup,accountGroup);
+  const groupLabel=group=>nodes(nodes(group).find(node=>node.type==='summary')).find(node=>node.type==='strong')?.props.children;
+  assert.equal(groupLabel(appGroup),labels.app);assert.equal(groupLabel(accountGroup),labels.account);
+  for(const label of [labels.guide,labels.support])assert.ok(profileHelpButton(appGroup,label),`${label} belongs to app help`);
+  for(const label of [labels.privacy,labels.terms,labels.deletion])assert.ok(profileHelpButton(accountGroup,label),`${label} belongs to privacy and account`);
+  for(const label of [labels.guide,labels.support,labels.privacy,labels.terms,labels.deletion]){
+   const matches=nodes(view).filter(node=>node.type==='button'&&nodes(node).some(child=>child.type==='strong'&&text(child)===label));
+   assert.equal(matches.length,1,`${label} has one entry`);assert.equal(matches[0].props.type,'button');
+   assert.ok(profileHelpButton(settings,label),`${label} is part of settings`);
+  }
+  assert.equal(nodes(view).filter(node=>node.type==='button'&&node.props.onClick===onGuide).length,1,'The guide has a single entry');
+  assert.equal(nodes(view).filter(node=>node.type==='Legal'||node.type==='SupportSheet').length,0);
+  assert.equal(guideCalls,0);assert.equal(accountCalls,0);assert.equal(h.writes.length,0);
+
+  profileHelpButton(view,labels.guide).props.onClick();view=h.render();assert.equal(guideCalls,1);assert.equal(accountCalls,0);
+  profileHelpButton(view,labels.support).props.onClick();view=h.render();
+  let support=nodes(view).find(node=>node.type==='SupportSheet');
+  assert.ok(support);assert.equal(support.props.open,true);assert.equal(support.props.screen,'profile');
+  assert.equal(support.props.accessToken,'token-a');assert.equal(support.props.ownerId,'a');assert.equal(support.key,'a');
+  support.props.onClose();view=h.render();assert.equal(nodes(view).some(node=>node.type==='SupportSheet'),false);
+
+  for(const [label,slug] of [[labels.privacy,'gizlilik-politikasi'],[labels.terms,'kullanim-sartlari']]){
+   profileHelpButton(view,label).props.onClick();view=h.render();
+   const documents=nodes(view).filter(node=>node.type==='Legal');assert.equal(documents.length,1);
+   assert.equal(documents[0].props.open,true);assert.equal(documents[0].props.slug,slug);
+   assert.equal(nodes(view).some(node=>node.type==='SupportSheet'),false);
+   documents[0].props.onClose();view=h.render();assert.equal(nodes(view).some(node=>node.type==='Legal'),false);
+  }
+  const closedButtons=nodes(view).filter(node=>node.type==='details').flatMap(group=>nodes(group).filter(node=>node.type==='button'));
+  const oldLabels=['Gizlilik ve veri işlemleri','Privacy & data use','Uygulamayı tanı','Get to know the app','Njihu me aplikacionin'];
+  assert.equal(closedButtons.some(button=>nodes(button).some(child=>child.type==='strong'&&oldLabels.includes(text(child)))),false,'Old privacy and tour actions are not duplicated under their former labels');
+  profileHelpButton(view,labels.deletion).props.onClick();view=h.render();
+  assert.equal(accountCalls,1,'Deletion opens account management for an explicit request');
+  assert.equal(h.writes.length,0,'No account or profile deletion starts from the help entry');
+  assert.equal(nodes(view).some(node=>node.type==='Deletion'||node.type==='AccountDeletionPanel'),false);
+ }finally{h.h.dispose();}
+});
+
+test('Profile help remains available to guests and support follows the current account identity',()=>{
+ const h=profileHarness();let accountCalls=0;
+ try{
+  let view=h.render({user:null,ownerId:null,accessToken:'',onOpenAccount:()=>accountCalls++});
+  profileHelpButton(view,profileHelpCopy.en.support).props.onClick();view=h.render();
+  let support=nodes(view).find(node=>node.type==='SupportSheet');
+  assert.equal(support.props.ownerId,null);assert.equal(support.props.accessToken,'');assert.equal(support.key,'guest');
+  view=h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  support=nodes(view).find(node=>node.type==='SupportSheet');
+  assert.equal(support.props.ownerId,'b');assert.equal(support.props.accessToken,'token-b');assert.equal(support.key,'b','A changed owner remounts the support draft');
+  support.props.onClose();view=h.render({user:null,ownerId:null,accessToken:''});
+  assert.equal(accountCalls,0,'Reading help never requires an account');
+  profileHelpButton(view,profileHelpCopy.en.deletion).props.onClick();assert.equal(accountCalls,1);
+  assert.equal(h.writes.length,0);
+ }finally{h.h.dispose();}
+});
+
+for(const [locale,deviceLabel,accountLabel] of [
+ ['tr','Bu cihaz','Hesabının bildirim türleri'],
+ ['en','This device','Your account notification types'],
+ ['sq','Kjo pajisje','Llojet e njoftimeve të llogarisë'],
+])test(`Profile groups device and account notifications in one collapsed disclosure in ${locale}`,()=>{
+ const h=profileHarness({locale});
+ try{
+  const view=h.render(),settings=nodes(view).find(node=>node.props['aria-labelledby']==='profile-settings-heading');
+  const groups=nodes(settings).filter(node=>node.type==='details');
+  const notificationGroups=groups.filter(group=>nodes(group).some(node=>node.type==='NotificationPreferences'));
+  assert.equal(notificationGroups.length,1);assert.equal(notificationGroups[0].props.open,undefined);
+  const group=notificationGroups[0],headings=nodes(group).filter(node=>node.type==='h3').map(text);
+  assert.deepEqual(headings,[deviceLabel,accountLabel],'Device-wide settings and account types are explicitly separated inside one group');
+  assert.equal(nodes(settings).filter(node=>node.type==='NotificationPreferences').length,1);
+  assert.equal(nodes(group).filter(node=>node.type==='input'&&node.props.type==='checkbox').length,1,'The local in-app preference is retained');
+  assert.equal(nodes(group).find(node=>node.type==='NotificationPreferences').props.accessToken,'token-a');
+  const summaries=groups.flatMap(group=>nodes(group).filter(node=>node.type==='summary')).map(text);
+  assert.equal(summaries.some(label=>/Bildirim tercihleri|Notification preferences|Preferencat e njoftimeve/.test(label)),false,'No second notification disclosure remains');
+  assert.equal(h.writes.length,0);assert.equal(h.pushCalls.length,0);assert.equal(h.preferenceWrites.length,0,'Viewing settings must not change preferences');
+ }finally{h.h.dispose();}
+});
+
+test('Grouped notification controls retain local settings, phone push and test notification behavior',async()=>{
+ const h=profileHarness({pushPermission:'granted',devicePush:true});
+ try{
+  await tick();let view=h.render();
+  const local=nodes(view).find(node=>node.type==='label'&&text(node).includes('In-app notifications'));
+  const checkbox=nodes(local).find(node=>node.type==='input');assert.equal(checkbox.props.checked,true);
+  checkbox.props.onChange({target:{checked:false}});view=h.render();
+  assert.deepEqual(JSON.parse(JSON.stringify(h.preferenceWrites)),[{inAppNotifications:false,haptics:true}]);
+  const accountTypes=nodes(view).find(node=>node.type==='NotificationPreferences');
+  assert.equal(accountTypes.props.accessToken,'token-a','Changing a device preference retains the account preference component');
+  assert.equal(h.writes.length,0);assert.equal(h.pushCalls.length,0,'Local toggle does not mutate the account or register device push');
+
+  profileHelpButton(view,'Send test notification').props.onClick();await tick();view=h.render();
+  assert.deepEqual(h.pushCalls,[{kind:'test',token:'token-a'}]);assert.match(h.notices.at(-1),/Test notification sent/);
+  profileHelpButton(view,'Phone notifications').props.onClick();await tick();view=h.render();
+  assert.deepEqual(h.pushCalls.at(-1),{kind:'disable',token:'token-a',owner:'a'});
+  assert.equal(profileHelpButton(view,'Send test notification'),undefined);
+  profileHelpButton(view,'Phone notifications').props.onClick();await tick();view=h.render();
+  assert.deepEqual(h.pushCalls.at(-1),{kind:'enable',token:'token-a'});
+  assert.ok(profileHelpButton(view,'Send test notification'));assert.equal(h.preferenceWrites.length,1,'Push changes do not overwrite the separate in-app preference');
+ }finally{h.h.dispose();}
+});
+
+test('Account notification preferences remount for the current identity and disappear for guests without hiding device settings',()=>{
+ const h=profileHarness();
+ try{
+  let view=h.render(),preferences=nodes(view).find(node=>node.type==='NotificationPreferences');
+  assert.equal(preferences.key,'a');assert.equal(preferences.props.accessToken,'token-a');
+  view=h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  preferences=nodes(view).find(node=>node.type==='NotificationPreferences');assert.equal(preferences.key,'b');assert.equal(preferences.props.accessToken,'token-b');
+  for(const props of [{user:null,ownerId:null,accessToken:''},{user:{id:'b'},ownerId:'b',accessToken:''}]){
+   view=h.render(props);assert.equal(nodes(view).some(node=>node.type==='NotificationPreferences'),false);
+   assert.equal(nodes(view).some(node=>node.props.id==='profile-account-notifications-title'),false);
+   assert.ok(profileHelpButton(view,'Phone notifications'));
+   assert.ok(nodes(view).some(node=>node.type==='label'&&text(node).includes('In-app notifications')));
+  }
+  assert.equal(h.writes.length,0);assert.equal(h.pushCalls.length,0);
+ }finally{h.h.dispose();}
+});
+
+test('Explorer League uses the explicit league action and preserves generic community navigation as a fallback',()=>{
+ const h=profileHarness(),calls=[];
+ try{
+  let view=h.render({onOpenLeague:()=>calls.push('league'),onNavigate:view=>calls.push(`navigate:${view}`)});
+  profileHelpButton(view,'Explorer League').props.onClick();assert.deepEqual(calls,['league'],'The direct action must not also open the generic feed');
+  view=h.render({onOpenLeague:undefined});profileHelpButton(view,'Explorer League').props.onClick();
+  assert.deepEqual(calls,['league','navigate:community']);assert.equal(h.writes.length,0,'Opening league does not opt the user into public ranking');
+ }finally{h.h.dispose();}
+});
+
+for(const signedIn of [true,false])test(`Visited-country intent opens the editor once and is consumed without changing ${signedIn?'account':'guest'} data`,async()=>{
+ const h=profileHarness({remote:base});let handled=0;
+ const onHandled=()=>handled++;
+ const sheet=view=>nodes(view).find(node=>node.type==='Sheet'&&node.props.title==="Countries I've visited");
+ try{
+  await tick();let view=h.render(signedIn?{}:{user:null,ownerId:null,accessToken:''});assert.equal(sheet(view),undefined);
+  view=h.render({visitedCountriesRequest:31,onVisitedCountriesHandled:onHandled});assert.ok(sheet(view));assert.equal(handled,1);
+  assert.equal(nodes(sheet(view)).find(node=>node.type==='input').props.id,'visited-country-search');
+  assert.ok(nodes(sheet(view)).some(node=>node.type==='button'&&typeof node.props['aria-pressed']==='boolean'),'This opens the real selectable country editor');
+  h.render();assert.equal(handled,1,'The same request is not consumed again on a normal render');
+  view=h.render({visitedCountriesRequest:0});sheet(view).props.onClose();view=h.render();assert.equal(sheet(view),undefined);
+  view=h.render({onVisitedCountriesHandled:()=>onHandled()});assert.equal(sheet(view),undefined,'After parent consumption, callback identity changes must not reopen the editor');
+  view=h.render({visitedCountriesRequest:32,onVisitedCountriesHandled:onHandled});assert.ok(sheet(view));assert.equal(handled,2);
+  view=h.render({visitedCountriesRequest:0});sheet(view).props.onClose();view=h.render();
+  profileHelpButton(view,"Countries I've visited").props.onClick();assert.ok(sheet(h.render()),'The normal profile button still opens the editor');
+  assert.equal(handled,2);assert.equal(h.writes.length,0,'Opening or consuming an intent never edits countries');
+  assert.equal(h.get('a','visited').length,0);assert.equal(h.get(null,'visited').length,0);
+ }finally{h.h.dispose();}
+});
+
+test('Explorer sharing describes saved country favourites as countries rather than saved routes',async()=>{
+ const h=profileHarness();
+ try{
+  h.storage.set('b:favorites',[{alpha3:'TUR'},{alpha3:'FRA'}]);
+  const view=h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  nodes(view).find(node=>node.type==='button'&&node.props['aria-label']==='Share Explorer Card').props.onClick();await tick();
+  assert.equal(h.shares.length,1);assert.match(h.shares[0].text,/saved 2 countries/);assert.doesNotMatch(h.shares[0].text,/saved 2 routes/);
+  assert.equal(h.shares[0].url,'https://www.letsgo2travel.com.tr');
+ }finally{h.h.dispose();}
 });
 
 test('Returning to the app fetches current account countries instead of retaining another device\'s deleted visit',async()=>{

@@ -17,7 +17,7 @@ const field = (tree, name, type = 'input') => {
   return label.props.htmlFor ? find(tree, type, props => props.id === label.props.htmlFor) : find(label, type);
 };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
-const quotaValue=(changes={})=>{const reset=new Date();reset.setUTCHours(24,0,0,0);return {limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC',...changes};};
+const quotaValue=(changes={})=>{const reset=new Date();reset.setUTCHours(24,0,0,0);return {limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC',...changes};};
 
 function load(path, imports = {}, environment = {}) {
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -104,7 +104,7 @@ function fixture(options = {}) {
     './JourneyPlacePhoto': {JourneyPlacePhoto:'JourneyPlacePhoto'},
     '../lib/journeyPhotoClient': {journeyPhotoKey:place=>JSON.stringify([place.id,place.name,place.latitude,place.longitude,place.sourceUrl]),loadJourneyPhotos:(...args)=>{calls.photos.push(args);return options.photos?options.photos(...args):Promise.resolve(new Map());}},
     '../lib/journeyPlanClient': { ...planClient, hasPendingJourneyPlan:()=>!!options.recovery,hasJourneyPlanRecovery:async (...args)=>typeof options.recovery==='function'?options.recovery(...args):!!options.recovery,
-      loadJourneyPlanQuota:(...args)=>{calls.quota.push(args);if(options.quota)return options.quota(...args);const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:1,used:0,remaining:1,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};},
+      loadJourneyPlanQuota:(...args)=>{calls.quota.push(args);if(options.quota)return options.quota(...args);const reset=new Date();reset.setUTCHours(24,0,0,0);return {then(fn){fn({limit:3,used:0,remaining:3,pending:false,resetAt:reset.toISOString(),timeZone:'UTC'});return {catch(){}};}};},
       generateJourneyPlan: (...args) => { calls.generation.push(args); return options.generate ? options.generate(...args) : Promise.resolve(generated(args[0])); } },
     '../../../lib/travel-assistant/places': placeData, '../lib/travelAreas': areas,
     '../lib/travelAssistant': { locateForTravel: () => { calls.gps++; return options.gps ? options.gps() : Promise.reject(Error('denied')); }, directionsUrl: value => `https://maps.example/${value}` },
@@ -282,7 +282,7 @@ test('The signed-in owner can resume a claimed guest survey after a second commi
 });
 
 test('Used allowance disables a new AI plan but existing itineraries still open, edit and save without quota requests',async()=>{
-  const app=fixture({quota:async()=>quotaValue({used:1,remaining:0})});
+  const app=fixture({quota:async()=>quotaValue({used:3,remaining:0})});
   try{
     await tick();app.render();app.submit();app.submit();app.submit();
     assert.equal(button(app.tree,'Create my AI itinerary').props.disabled,true);app.submit();assert.equal(app.calls.generation.length,0);
@@ -292,19 +292,62 @@ test('Used allowance disables a new AI plan but existing itineraries still open,
   try{saved.click('Save');await tick();saved.render();assert.equal(saved.calls.saved.length,1);assert.equal(saved.calls.quota.length,0);assert.equal(saved.calls.generation.length,0);}finally{saved.dispose();}
 });
 
+test('Map allowance follows three successful distinct plans from 3 to 2 to 1 to 0 and a failure keeps the remaining rights',async()=>{
+  let used=0,fail=false;
+  const app=fixture({quota:async()=>quotaValue({used,remaining:3-used}),generate:async request=>{if(fail)throw Object.assign(Error('busy'),{code:'plan_busy'});used++;return generated(request);}});
+  const header=()=>text(find(find(app.tree,'aside',p=>p.className==='jsv-allowance'),'strong'));
+  try{
+    await tick();app.render();assert.equal(header(),'3 new AI itineraries available today');
+    for(let attempt=1;attempt<=3;attempt++){
+      app.submit();app.submit();app.submit();app.input('Anything else you would like?',`Distinct itinerary ${attempt}`,'textarea');
+      if(attempt===2){
+        fail=true;app.submit();await tick();app.render();await tick();app.render();
+        assert.equal(used,1);assert.equal(header(),'2 new AI itineraries available today');
+        assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'Distinct itinerary 2');
+        fail=false;
+      }
+      app.submit();await tick();app.render();assert.ok(app.map);assert.equal(used,attempt);
+      app.click('Change my preferences');await tick();app.render();
+      assert.equal(header(),attempt===3?'Today’s AI itinerary allowance is used (0 remaining)':`${3-attempt} new AI ${attempt===2?'itinerary':'itineraries'} available today`);
+    }
+    app.submit();app.submit();app.submit();
+    assert.equal(button(app.tree,'Create my AI itinerary').props.disabled,true);app.submit();
+    assert.equal(app.calls.generation.length,4,'Three successes and one failed attempt; exhausted UI cannot send a fourth new plan');
+  }finally{app.dispose();}
+});
+
+test('Map allowance numbers are localized, pending stays distinct, and a legacy one-right snapshot remains accurate',async()=>{
+  for(const locale of ['tr','en','sq']){
+    let current=quotaValue();const app=fixture({locale,quota:async()=>current});
+    const refresh={tr:'Hakkımı kontrol et',en:'Refresh allowance',sq:'Rifresko të drejtën'}[locale];
+    const header=()=>text(find(find(app.tree,'aside',p=>p.className==='jsv-allowance'),'strong'));
+    const remainingLabel=n=>locale==='tr'?`Bugün ${n} yeni AI rota hakkın var`:locale==='en'?`${n} new AI ${n===1?'itinerary':'itineraries'} available today`:n===1?'Sot ke 1 itinerar të ri me AI':`Sot ke ${n} itinerare të reja me AI`;
+    try{
+      await tick();app.render();assert.equal(header(),remainingLabel(3));
+      const reset=find(app.tree,'time').props.dateTime;
+      for(const remaining of [2,1]){current=quotaValue({used:3-remaining,remaining});app.click(refresh);await tick();app.render();assert.equal(header(),remainingLabel(remaining));assert.equal(find(app.tree,'time').props.dateTime,reset);}
+      current=quotaValue({used:3,remaining:0});app.click(refresh);await tick();app.render();assert.match(header(),/0/);
+      current=quotaValue({used:1,remaining:0,pending:true});app.click(refresh);await tick();app.render();assert.equal(header(),{tr:'Önceki rota isteğin kontrol ediliyor',en:'Your previous itinerary request is pending',sq:'Kërkesa e mëparshme është në pritje'}[locale]);
+      current=quotaValue({limit:1,used:0,remaining:1});app.click(refresh);await tick();app.render();assert.equal(header(),remainingLabel(1));
+    }finally{app.dispose();}
+    const guest=fixture({locale,ownerId:null,token:''});
+    try{assert.match(text(guest.tree),locale==='tr'?/günde 3 yeni AI rota/:locale==='en'?/3 new AI itineraries per account each day/:/3 itinerare të reja me AI në ditë/);assert.equal(guest.calls.quota.length,0);}finally{guest.dispose();}
+  }
+});
+
 test('Rotated tokens discard stale quota replies and generation results without replacing the current account plan',async()=>{
   const old=deferred(),current=deferred(),calls=[];
   const app=fixture({token:'old',quota:(token,signal)=>{calls.push({token,signal});return token==='old'?old.promise:current.promise;}});
   try{
     app.render({accessToken:'rotated'});assert.equal(calls[0].signal.aborted,true);
-    current.resolve(quotaValue({used:1,remaining:0}));await tick();app.render();
-    old.resolve(quotaValue());await tick();app.render();assert.match(text(app.tree),/allowance is used/);assert.doesNotMatch(text(app.tree),/1 new AI itinerary available today/);
+    current.resolve(quotaValue({used:3,remaining:0}));await tick();app.render();
+    old.resolve(quotaValue());await tick();app.render();assert.match(text(app.tree),/allowance is used/);assert.doesNotMatch(text(app.tree),/3 new AI itineraries available today/);
     app.render({ownerId:'another',accessToken:'another'});assert.doesNotMatch(text(app.frames[0]),/allowance is used/);
   }finally{app.dispose();}
 });
 
 test('Quota exhaustion still permits exact receipt recovery but rejects an edited intent before another POST',async()=>{
-  let expected='same notes';const app=fixture({quota:async()=>quotaValue({used:1,remaining:0}),recovery:input=>input.notes===expected});
+  let expected='same notes';const app=fixture({quota:async()=>quotaValue({used:3,remaining:0}),recovery:input=>input.notes===expected});
   try{
     await tick();app.render();app.submit();app.submit();app.submit();app.input('Anything else you would like?','changed notes','textarea');
     app.click('Open previous itinerary / result');await tick();app.render();assert.equal(app.calls.generation.length,0);assert.match(text(app.tree),/allowance is currently unavailable/);
@@ -315,7 +358,7 @@ test('Quota exhaustion still permits exact receipt recovery but rejects an edite
 
 test('Immutable submitted answers survive later edits and reload; restoring them recovers the original request language',async()=>{
   const storage=new Map();let used=false;
-  const settings={ownerId:'recovery-owner',storage,recovery:input=>input.notes==='Original wishes',quota:async()=>quotaValue(used?{used:1,remaining:0}:{})};
+  const settings={ownerId:'recovery-owner',storage,recovery:input=>input.notes==='Original wishes',quota:async()=>quotaValue(used?{used:3,remaining:0}:{})};
   const app=fixture(settings);
   try{
     await tick();app.render();app.click('Tokyo');app.submit();app.submit();app.submit();app.input('Anything else you would like?','Original wishes','textarea');app.submit();await tick();app.render();

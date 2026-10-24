@@ -23,7 +23,9 @@ export function offlineMapQuery(center: Coordinates) {
   const valid = coordinates(center);
   if (!valid) throw new Error("Invalid center");
   const c = coarseLocation(valid);
-  return `[out:json][timeout:18][maxsize:16000000];(way(around:1500,${c.latitude},${c.longitude})[highway~"^(primary|secondary|tertiary|residential|pedestrian|footway|service|unclassified|living_street)$"];nwr(around:1500,${c.latitude},${c.longitude})[amenity~"^(hospital|pharmacy|police|atm|toilets)$"];nwr(around:1500,${c.latitude},${c.longitude})[tourism~"^(museum|attraction|viewpoint)$"];);out geom 700;`;
+  // Each host needs enough of the 26s total budget to finish the declared
+  // query. An 18s query gave the second host only 7s after a first-host timeout.
+  return `[out:json][timeout:10][maxsize:16000000];(way(around:1500,${c.latitude},${c.longitude})[highway~"^(primary|secondary|tertiary|residential|pedestrian|footway|service|unclassified|living_street)$"];nwr(around:1500,${c.latitude},${c.longitude})[amenity~"^(hospital|pharmacy|police|atm|toilets)$"];nwr(around:1500,${c.latitude},${c.longitude})[tourism~"^(museum|attraction|viewpoint)$"];);out geom 700;`;
 }
 export function normalizeOfflineMap(
   raw: unknown,

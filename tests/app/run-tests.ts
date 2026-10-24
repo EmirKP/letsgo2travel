@@ -1008,8 +1008,9 @@ test("Referans tasarım: mevcut özellikler kök sekmelerin yanında erişilebil
   const route = readFileSync("mobile/src/screens/RouteAssistantScreen.tsx", "utf8");
   assert.match(app, /if \(view === "costs"\) return <CostsScreen\b/, "maliyet hedefi gerçek ekranına bağlı olmalı");
   assert.match(app, /if \(view === "airports"\) return <AirportGuideScreen\b/, "havalimanı hedefi gerçek ekranına bağlı olmalı");
-  // Real card callback identity and all four destinations are exercised in planning-ux.mjs.
-  assert.ok(home.includes("homeDestinations(locale).map(route") && home.includes("onClick={() => onBuildRoute(route)}"), "ana sayfadaki gerçek destinasyon kartı seçilen rotayı planlamaya aktarmalı");
+  // All four discovery callbacks are exercised in planning-ux.mjs; Popular Routes was deliberately removed from Home.
+  assert.ok(home.includes('className="rh-city-chips"') && home.includes('search(city.name)'), "ana sayfanın dört keşif kartı mevcut destinasyon aramasını açmalı");
+  assert.ok(!home.includes('rh-popular') && !home.includes('homeDestinations'), "kaldırılan Popüler Rotalar bölümü ana sayfada yeniden görünmemeli");
   assert.ok(app.includes('onBuildRoute={route => openSeededRoute(route, "explore")}') && app.includes('navigate("route")'), "ilham kartının uygulama bağlantısı gerçek planlama ekranına gitmeli");
   assert.ok(plans.includes('<TripCollaborationHub') && plans.includes('<JourneyToolsHub') && plans.includes('chooseSection("travel")'), "ortak seyahat ve yol araçları Kaydedilenler içindeki seyahat bölümüyle erişilebilir kalmalı");
   assert.ok(route.includes('"SJJ","FCO","BKK"') && route.includes("snapshotPlannerInput"), "ilham kartları var olan rotalardan ve plan tercihlerinden beslenmeli");
@@ -1032,8 +1033,9 @@ test("Build 19: tarih alanları, kişisel ana sayfa ve yerel yardımcı mobilde 
   assert.ok(styles.includes(".date-time-control strong") && styles.includes("text-align: left"), "tarih metni alan içinde sola hizalanmalı");
   assert.ok(home.includes("listCockpitTrips(ownerId, accessToken)") && home.includes("nextHomeJourney(items") && home.includes("homeJourneyStep(nextTrip") && home.includes('onOpenTrip(nextTrip.id, section)'), "ana sayfa kullanıcıya ait sıradaki seyahati, hazırlık adımını ve doğru seyahat ayrıntısını bağlamalı");
   assert.ok(home.includes('openTrip(step.stage === "travelling" ? "today" : undefined)') && !home.includes('openSaved("places")'), "bugünün programı genel kaydedilenler yerine tam seyahatin güncel programını açmalı; davranış planning-ux testinde çalıştırılır");
-  // Both translations and the guest CTA callback are executed in planning-ux.mjs.
-  assert.ok(home.includes('onClick={() => onNavigate("route")}') && home.includes('copy("Hemen Başla", "Get Started")'), "seyahati olmayan kullanıcı doğrudan rota planlamayı açabilmeli");
+  // The real route shortcut callback is executed for guests in planning-ux.mjs.
+  const shortcuts = readFileSync("mobile/src/lib/homeShortcuts.ts", "utf8");
+  assert.ok(shortcuts.includes('["route", "explore"') && home.includes('feature.id === "route" ? "home-route"') && home.includes("onNavigate(feature.view)"), "seyahati olmayan kullanıcı rota kısayolundan doğrudan planlamayı açabilmeli");
   assert.ok(!companion.includes("essential-heading") && companion.includes("essential-language-note"), "yerel yardımcı ülkeyi büyük kartta tekrar etmemeli");
 });
 
@@ -1049,15 +1051,14 @@ test("Build 19: pasaport haritası net tam ekran görünür ve uçuş canlı etk
   assert.ok(widget.includes('language.text("Planlanan varış", "Scheduled arrival", "Mbërritja sipas orarit")') && widget.includes(".arrivalUnknown"), "varış sayacı planlanan zamanı anlatmalı; eksik varış gerçekleşmiş sayılmamalı");
 });
 
-test("Topluluk ana sayfa ve menüden erişilir, ülke filtresi ve Kosova bayrağı korunur", () => {
+test("Topluluk ana sayfa ve alt sekmeden erişilir, ülke filtresi ve Kosova bayrağı korunur", () => {
   const app = readFileSync("mobile/src/App.tsx", "utf8");
   const home = readFileSync("mobile/src/screens/HomeScreen.tsx", "utf8");
   const community = readFileSync("mobile/src/screens/CommunityScreen.tsx", "utf8");
   const communityData = readFileSync("mobile/src/lib/community.ts", "utf8");
-  const menu = readFileSync("mobile/src/components/MenuSheet.tsx", "utf8");
   const styles = readFileSync("mobile/src/screens/daily-journey.css", "utf8");
 
-  assert.ok(home.includes('onClick={() => onOpenCommunity()}') && menu.includes('view: "community"') && menu.includes("onNavigate(view)"), "topluluk hem ana sayfanın gezginlere sor eylemiyle hem menüyle açılabilmeli");
+  assert.ok(home.includes('onClick={() => onOpenCommunity()}') && app.includes('{ id: "community", icon: "users" }') && app.includes('className="bottom-nav"'), "topluluk ana sayfanın gezginlere sor eylemiyle ve alt sekmeden açılabilmeli");
   assert.ok(app.includes('onOpenCommunity={(countryCode) => navigate("community", { communityCountryCode: countryCode })}') && app.includes("initialCountryCode={communityCountryCode}"), "topluluk yönlendirmesi isteğe bağlı ülke seçimini korumalı");
   assert.ok(community.includes("community-country-filters") && community.includes("filteredQuestions"), "topluluk soruları ülkeye göre filtrelenebilmeli");
   assert.ok(community.includes("<CountryFlag code={countryCode}") && !community.includes("flagEmoji(countryCode)"), "toplulukta Kosova dahil yerel bayrak bileşeni kullanılmalı");
@@ -1457,14 +1458,14 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   const route = readFileSync("app/api/trip-collaboration/route.ts", "utf8");
   const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
-  assert.ok(home.includes('onNavigate(feature.view)') && appTools.includes('view: "trips", group: "plan", title: ["Seyahatlerim"') && trips.includes('chooseSection("travel")') && trips.includes("Ortak planlar ve araçlar"), "ana sayfanın gerçek Seyahatlerim kısayolu Planlar üzerinden ortak planlara erişim sunmalı; kısayol planning-ux testinde çalıştırılır");
+  assert.ok(home.includes('onNavigate(feature.view)') && appTools.includes('view: "trips", group: "plan", title: ["Planlar"') && trips.includes('chooseSection("shared")') && trips.includes('copy("Ortak planlar", "Shared plans"'), "ana sayfanın gerçek Planlar kısayolu doğrudan ortak planlara erişim sunmalı; kısayol ve açık ortak plan bölümü planning-ux testinde çalıştırılır");
   assert.ok(trips.includes('<details className="daily-featured-disclosure" open={sharedToolsOpen}') && trips.includes("setSharedToolsOpen(event.currentTarget.open)") && trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak planlar açılabilir seyahat bölümünde bulunmalı, Kokpit'e gizlenmemeli");
-  assert.ok(trips.includes('if (inviteCode || initialTool) setLibraryTab("travel")') && trips.includes("if (inviteCode) setSharedToolsOpen(true)"), "davet bağlantısı ortak planlar bölümünü kendiliğinden açmalı");
+  assert.ok(trips.includes('if (inviteCode) { setLibraryTab("shared"); setSharedToolsOpen(true); }'), "davet bağlantısı ortak planlar bölümünü kendiliğinden açmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
   assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");
   assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");
   assert.ok(invite.includes("Seyahate katıl") && !invite.includes("<code>{token}</code>") && !invite.includes("Kodu yapıştır"), "davet akışı kullanıcıya ham kod kopyalatmamalı");
-  assert.ok(tools.includes('type ToolId = "journal" | "map" | "airport" | "safety" | "summary"'), "beş seyahat aracı tek merkezde bulunmalı");
+  assert.ok(tools.includes('type ToolId = JourneyToolId') && appTools.includes('export type JourneyToolId = "journal" | "map" | "airport" | "safety" | "summary"'), "arama ve ortak merkez aynı beş seyahat aracı hedefini kullanmalı");
   assert.ok(tools.includes("readJournal") && tools.includes("PassportWorldMap") && tools.includes("<TravelAssistant"), "günlük, dünya haritası ve ortak güvenlik asistanı gerçek veri akışına bağlı olmalı");
   assert.ok(trips.includes('lazy(() => import("../components/JourneyToolsHub")') && tools.includes('lazy(() => import("./PassportWorldMap")') && tools.includes('lazy(() => import("./AirportField")') && tools.includes('lazy(() => import("./TravelAssistant")'), "ağır seyahat araçları, harita, havalimanı ve güvenlik asistanı ihtiyaç anında yüklenmeli");
   assert.ok(app.includes('import("./lib/journalSync")') && !tools.includes("listUserTrips"), "günlük kuyruğu ekran kapansa da uygulama katmanında çalışmalı");

@@ -73,7 +73,7 @@ const text = value => Array.isArray(value) ? value.map(text).join('') : value?.p
 const tick = () => new Promise(setImmediate);
 const result = title => ({ data: { weather: { temperature: 20, apparentTemperature: 19, precipitation: 0, description: 'Clear', localTime: '2026-10-11T12:00' }, recommendations: [{ id: title, title, reason: 'Current selection', duration: '1h', mapQuery: title, indoor: true }], privacy: 'Approximate location only.' } });
 function harness() {
-  const slots = [], geolocations = [], requests = [];
+  const slots = [], geolocations = [], requests = [], contexts = [], openedEvents = [], notices = [];
   let cursor = 0, locale = 'en', dirty = false, effects = [], tree;
   const react = {
     useState(initial) { const at = cursor++; slots[at] ||= { value: typeof initial === 'function' ? initial() : initial }; return [slots[at].value, next => { const value = typeof next === 'function' ? next(slots[at].value) : next; if (!Object.is(value, slots[at].value)) { slots[at].value = value; dirty = true; } }]; },
@@ -92,21 +92,22 @@ function harness() {
     '../lib/api': { getTravelNow: input => new Promise((resolve, reject) => requests.push({ input, resolve, reject })) },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (_, en) => en, countryName: (_, name) => name }) },
     '../lib/native': { openExternal: async () => true }, '../lib/travelSelection': { readTravelCountry: () => '', selectTravelCountry: () => {} },
+    '../lib/eventSearchContext': { nearbyEventContext: center => new Promise((resolve,reject)=>contexts.push({center,resolve,reject})) },
     '../components/TravelSafety': { EvidenceLine: 'EvidenceLine' },
   }, { navigator: { geolocation: { getCurrentPosition: (success, error) => geolocations.push({ success, error }) } }, window: { requestAnimationFrame: () => {} } });
   const render = () => {
     for (let count = 0; count < 10; count++) {
       cursor = 0; dirty = false; effects = [];
-      tree = api.TravelCompanionScreen({ initialTab: 'now', accessToken: '', onSignIn: () => {}, onNavigate: () => {}, onNotice: () => {} });
+      tree = api.TravelCompanionScreen({ initialTab: 'now', accessToken: '', onSignIn: () => {}, onNavigate: () => {}, onOpenEvents:context=>openedEvents.push(context), onNotice:message=>notices.push(message) });
       effects.forEach(fn => fn());
       if (!dirty) return tree;
     }
     throw Error('Unstable render');
   };
-  const button = label => nodes(tree).find(n => n.type === 'button' && (text(n) === label || text(n.props.children?.[1]?.props?.children?.[0]) === label));
+  const button = label => nodes(tree).find(n => n.type === 'button' && (text(n).trim() === label || text(n.props.children?.[1]?.props?.children?.[0]) === label));
   render();
   return {
-    requests, geolocations, render, get tree() { return tree; }, get text() { return text(tree); },
+    requests, geolocations, contexts, openedEvents, notices, render, get tree() { return tree; }, get text() { return text(tree); },
     start() { const button = nodes(tree).find(n => n.props?.className === 'now-locate-button'); button.props.onClick(); render(); },
     choose(label) { const control = button(label); assert.ok(control, `Button ${label}`); control.props.onClick(); return render(); },
     locate(at = geolocations.length - 1) { geolocations[at].success({ coords: { latitude: 41.01234, longitude: 28.98765 } }); return render(); },
@@ -174,4 +175,25 @@ test('Repeated clicks share one location attempt and current failures allow a cl
   h.start(); assert.doesNotMatch(h.text, /permission was denied/); h.locate(); h.requests[0].reject(Error('offline')); await h.settle();
   assert.equal(h.loading, false); assert.match(h.text, /could not be prepared/);
   h.start(); h.locate(); h.requests[1].resolve(result('Recovered')); await h.settle(); assert.match(h.text, /Recovered/); assert.doesNotMatch(h.text, /could not be prepared/);
+});
+
+test('Nearby event handoff uses the completed coarse location and resolves once before navigation',async()=>{
+  const h=harness();h.start();h.locate();h.requests[0].resolve(result('Current area'));await h.settle();
+  h.choose('See nearby events too');
+  assert.equal(h.contexts.length,1);assert.equal(h.openedEvents.length,0);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.contexts[0].center)),{latitude:41.01,longitude:28.99});
+  const context={countryCode:'TR',cityName:'İstanbul',startDate:'2026-10-20',endDate:'2026-10-27'};
+  h.contexts[0].resolve(context);await h.settle();
+  assert.deepEqual(h.openedEvents,[context]);assert.equal(h.geolocations.length,1,'The event shortcut does not request precise GPS again');
+});
+
+test('Leaving the current-area task fences pending nearby-event successes and failures',async()=>{
+  for(const outcome of ['success','failure']){
+    const h=harness();h.start();h.locate();h.requests[0].resolve(result('Current area'));await h.settle();
+    h.choose('See nearby events too');h.choose('Tools');
+    if(outcome==='success')h.contexts[0].resolve({countryCode:'IT',startDate:'2026-10-20',endDate:'2026-10-27'});
+    else h.contexts[0].reject(Error('Abandoned country lookup'));
+    await h.settle();
+    assert.equal(h.openedEvents.length,0);assert.equal(h.notices.length,0);
+  }
 });

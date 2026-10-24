@@ -119,6 +119,160 @@ test('Tool search exposes precise existing assistant targets and localized resul
  assert.equal(search('ceviri', 'sq', [], 'tool').find(item => item.tool === 'translate').title, 'Përkthimi');
 });
 
+test('Existing journal, world map, recap and help are searchable by novice phrases in all supported languages', () => {
+ for (const [query, locale, target] of [
+  ['günlük', 'tr', 'journal'], ['gezi notlarım', 'tr', 'journal'], ['diary', 'en', 'journal'], ['ditar', 'sq', 'journal'],
+  ['dünya haritam', 'tr', 'map'], ['gittiğim ülkeler', 'tr', 'map'], ['visited countries', 'en', 'map'], ['harta ime', 'sq', 'map'],
+  ['yıllık özet', 'tr', 'summary'], ['year recap', 'en', 'summary'], ['përmbledhja vjetore', 'sq', 'summary'],
+ ]) assert.ok(search(query, locale, [], 'tool').some(item => item.journeyTool === target), `${locale}/${query}`);
+ for (const [query, locale] of [['nasıl kullanılır', 'tr'], ['yardım', 'tr'], ['how to use', 'en'], ['ndihmë', 'sq']]) {
+  assert.ok(search(query, locale, [], 'tool').some(item => item.guide), `${locale}/${query}`);
+ }
+ for (const [locale, subtitle] of [['tr', 'Ülke gündemi'], ['en', 'Country updates'], ['sq', 'Lajme nga shteti']]) {
+  const country = search('ITA', locale, [], 'country').find(item => item.countryCode === 'ITA');
+  assert.ok(country.subtitle.startsWith(subtitle));
+ }
+ const catalog = loader()('mobile/src/lib/appTools.ts');
+ assert.ok(catalog.appTools('tr').every(item => !item.journeyTool && !item.guide), 'Search expansion does not add unsupported Home shortcut targets');
+});
+
+test('Search opens each precise journey tool and help without passing through a generic Plans or Profile screen', () => {
+ const h = hooks(), d = device(), calls = [];
+ const { GlobalSearchSheet } = loader(d.globals, {
+  ...shared('en'), react: h.react,
+  '../lib/storage': { getSavedRoutePlans: () => [] }, '../lib/supabaseData': {},
+ })('mobile/src/components/GlobalSearchSheet.tsx');
+ h.start(GlobalSearchSheet, { open: true, ownerId: null, initialQuery: '', onClose: () => calls.push('close'),
+  onOpenJourneyTool: tool => calls.push(`journey:${tool}`), onOpenGuide: () => calls.push('guide'),
+  onNavigate: view => calls.push(`generic:${view}`), onOpenTool: () => calls.push('assistant'),
+ });
+ for (const [query, target] of [['journal', 'journey:journal'], ['world map', 'journey:map'], ['year recap', 'journey:summary'], ['how to use', 'guide']]) {
+  const tree = h.render({ initialQuery: query });
+  const label = search(query, 'en', [], 'tool').find(item => item.guide || item.journeyTool).title;
+  find(tree, 'button', p => text(p.children).startsWith(label)).props.onClick();
+  assert.deepEqual(calls.splice(0), ['close', target]);
+ }
+ h.dispose();
+});
+
+test('Reopening a journey tool preserves its unsaved journal draft and the same request does not reopen a dismissed sheet', () => {
+ const h = hooks(), d = device();
+ const i18n = shared('en')['../lib/i18n'].useI18n();
+ const { JourneyToolsHub } = loader(d.globals, {
+  ...shared('en'), react: { ...h.react, lazy: () => 'LazyComponent', Suspense: 'Suspense' },
+  '../lib/i18n': { useI18n: () => i18n },
+  './DateTimeField': { DateTimeField: 'DateTimeField' }, './CountryFlag': { CountryFlag: 'CountryFlag' },
+  '../lib/travelJournal': { readJournal: () => ({ entries: [], deleted: [] }), validJournalDraft: () => false },
+  '../lib/journeyTools': { readSafetyTrips: () => [], travelRecap: () => ({ trips: [], days: 0 }) },
+  '../lib/storage': { getVisitedCountries: () => [] }, '../lib/supabaseData': {}, '../lib/native': {},
+ })('mobile/src/components/JourneyToolsHub.tsx');
+ const journal = tree => find(tree, 'Sheet', p => p.title === 'Travel journal');
+ let tree = h.start(JourneyToolsHub, { initialTool: 'journal', toolRequestId: 1, user: null, accessToken: '', onNotice() {}, onNavigate() {}, onOpenAccount() {} });
+ assert.equal(journal(tree).props.open, true);
+ const title = find(tree, 'input', p => p.maxLength === 120); title.props.onChange({ target: { value: 'My unsaved memory' } }); tree = h.render();
+ journal(tree).props.onClose(); tree = h.render(); assert.equal(journal(tree).props.open, false);
+ assert.equal(journal(h.render({ toolRequestId: 1 })).props.open, false);
+ tree = h.render({ initialTool: 'map', toolRequestId: 2 });
+ assert.equal(find(tree, 'Sheet', p => p.title === 'My world map').props.open, true);
+ tree = h.render({ initialTool: 'journal', toolRequestId: 3 });
+ assert.equal(journal(tree).props.open, true);
+ assert.equal(find(tree, 'input', p => p.maxLength === 120).props.value, 'My unsaved memory');
+ h.dispose();
+});
+
+function journeyHub({ trips = [], ...initial } = {}) {
+ const h = hooks(), d = device(), calls = [], tripReads = [], snapshotWrites = [], lazyNames = ['WorldMap', 'AirportField', 'TravelAssistant'];
+ const i18n = { ...shared('en')['../lib/i18n'].useI18n(), countryName: (_, name) => name };
+ const load = loader(d.globals, {
+  ...shared('en'), react: { ...h.react, lazy: () => lazyNames.shift(), Suspense: 'Suspense' },
+  '../lib/i18n': { useI18n: () => i18n },
+  './DateTimeField': { DateTimeField: 'DateTimeField' }, './CountryFlag': { CountryFlag: 'CountryFlag' },
+  '../lib/travelJournal': { readJournal: () => ({ entries: [], deleted: [] }), validJournalDraft: () => false },
+  '../lib/journeyTools': { readSafetyTrips: () => trips, saveSafetyTrips: (...args) => snapshotWrites.push(args), travelRecap: () => ({ trips: [], days: 0 }) },
+  '../lib/storage': { getVisitedCountries: () => [{ alpha3: 'TUR', name: 'Türkiye' }] }, '../lib/supabaseData': { listCockpitTrips: (...args) => { tripReads.push(args); return Promise.resolve([]); } }, '../lib/native': {},
+ });
+ const { JourneyToolsHub } = load('mobile/src/components/JourneyToolsHub.tsx');
+ const tree = h.start(JourneyToolsHub, { user: null, accessToken: '', onNotice: message => calls.push(`notice:${message}`), onNavigate: view => calls.push(`navigate:${view}`), onOpenAccount: () => calls.push('account'), ...initial });
+ return { h, d, calls, tripReads, snapshotWrites, tree, travelSelection: load('mobile/src/lib/travelSelection.ts') };
+}
+
+test('Journey safety opens emergency help directly for the selected trip and retains the phrase shortcut', () => {
+ const cachedTrips = [
+  { id: 'uk-trip', destinationCountry: 'United Kingdom', destinationCode: 'GB', destinationCity: 'London', status: 'active', startDate: '2026-10-01', endDate: '2026-10-31' },
+  { id: 'fr-trip', destinationCountry: 'France', destinationCode: 'FR', destinationCity: 'Paris', status: 'upcoming', startDate: '2027-01-02', endDate: '2027-01-06' },
+ ];
+ const x = journeyHub({ trips: cachedTrips });
+ try {
+  let tree = x.tree;
+  const safety = view => find(view, 'Sheet', props => props.title === 'Travel safety centre');
+  assert.equal(safety(tree).props.open, false);
+  const launch = find(tree, 'button', props => nodes({ props }).some(node => node.type === 'strong' && text(node) === 'Travel safety'));
+  assert.ok(launch); launch.props.onClick(); tree = x.h.render();
+  assert.equal(safety(tree).props.open, true);
+  let assistant = find(safety(tree), 'TravelAssistant');
+  assert.equal(assistant.props.initialTool, 'safety', 'The safety entry must not show the unrelated full tool directory');
+  assert.equal(assistant.props.initialCountry, 'GB', 'Current trip country reaches emergency help');
+  assert.equal(assistant.props.accessToken, '');
+  find(safety(tree), 'select').props.onChange({ target: { value: 'fr-trip' } }); tree = x.h.render();
+  assistant = find(safety(tree), 'TravelAssistant');
+  assert.equal(assistant.props.initialCountry, 'FR'); assert.equal(assistant.props.initialTool, 'safety');
+  assistant.props.onSignIn(); assert.deepEqual(x.calls, ['account']);
+  assistant.props.onPhrases('FR'); tree = x.h.render();
+  assert.equal(safety(tree).props.open, false); assert.deepEqual(x.calls, ['account', 'navigate:phrases']);
+  assert.equal(x.travelSelection.readTravelCountry(), 'FR', 'The phrase screen keeps the explicit country selection');
+ } finally { x.h.dispose(); }
+});
+
+test('Journey tools reuse supplied trip options, update safety and journal choices and do not issue a duplicate request', async () => {
+ const first = { id: 'rome-trip', destinationCountry: 'Italy', destinationCode: 'IT', destinationCity: 'Rome', status: 'active', startDate: '2026-10-01', endDate: '2026-10-31' };
+ const next = { ...first, id: 'paris-trip', destinationCountry: 'France', destinationCode: 'FR', destinationCity: 'Paris' };
+ const x = journeyHub({ user: { id: 'a' }, ownerId: 'a', accessToken: 'token-a', initialTool: 'safety', tripOptions: [first], trips: [{ ...first, id: 'old-cache', destinationCity: 'Stale cache' }] });
+ const safety = view => find(view, 'Sheet', props => props.title === 'Travel safety centre');
+ const journal = view => find(view, 'Sheet', props => props.title === 'Travel journal');
+ const journalTripSelect = view => find(find(journal(view), 'label', props => text(props.children).startsWith('Trip')), 'select');
+ const optionValues = select => nodes(select).filter(node => node.type === 'option').map(node => node.props.value);
+ try {
+  let tree = x.tree;
+  assert.deepEqual(x.tripReads, [], 'Plans already loaded the trips; the hub must not request them again');
+  assert.deepEqual(optionValues(find(safety(tree), 'select')), ['rome-trip']);
+  assert.deepEqual(optionValues(journalTripSelect(tree)), ['', 'rome-trip']);
+  assert.equal(find(safety(tree), 'TravelAssistant').props.initialCountry, 'IT');
+  assert.doesNotMatch(text(safety(tree)), /Stale cache/);
+  tree = x.h.render({ tripOptions: [next] });
+  assert.deepEqual(optionValues(find(safety(tree), 'select')), ['paris-trip']);
+  assert.deepEqual(optionValues(journalTripSelect(tree)), ['', 'paris-trip']);
+  assert.equal(find(safety(tree), 'TravelAssistant').props.initialCountry, 'FR');
+  assert.deepEqual(x.tripReads, []);assert.deepEqual(x.snapshotWrites, [], 'Receiving a supplied list does not overwrite the offline snapshot');
+  tree = x.h.render({ tripOptions: [] });
+  assert.equal(find(safety(tree), 'select'), undefined);
+  assert.equal(journalTripSelect(tree), undefined);
+  assert.equal(find(safety(tree), 'TravelAssistant').props.initialCountry, '');
+  assert.deepEqual(x.tripReads, [], 'An explicitly empty list is authoritative and must not reload stale cached trips');
+  x.h.render({ tripOptions: undefined });
+  assert.deepEqual(x.tripReads, [['a', 'token-a', true]], 'Standalone use retains its existing authenticated loading path');
+  await Promise.resolve();x.h.render();
+ } finally { x.h.dispose(); }
+});
+
+test('World-map edit uses the visited-editor intent, closes the map and retains a profile fallback', () => {
+ const calls = [], x = journeyHub({ initialTool: 'map', toolRequestId: 10, onEditVisitedCountries: () => calls.push('visited-editor') });
+ const map = view => find(view, 'Sheet', props => props.title === 'My world map');
+ const edit = view => find(map(view), 'button', props => text(props.children).includes('Edit visited countries'));
+ try {
+  let tree = x.tree;
+  assert.equal(map(tree).props.open, true);
+  const worldMap = find(map(tree), 'WorldMap');
+  assert.equal(worldMap.props.statusFor('TUR'), 'free'); assert.equal(worldMap.props.statusFor('FRA'), 'unknown');
+  edit(tree).props.onClick(); tree = x.h.render();
+  assert.deepEqual(calls, ['visited-editor']); assert.deepEqual(x.calls, [], 'Explicit edit intent replaces general Profile navigation');
+  assert.equal(map(tree).props.open, false);
+  assert.equal(map(x.h.render({ toolRequestId: 10 })).props.open, false, 'A consumed request does not immediately reopen the map');
+  tree = x.h.render({ toolRequestId: 11, onEditVisitedCountries: undefined });
+  assert.equal(map(tree).props.open, true); edit(tree).props.onClick(); tree = x.h.render();
+  assert.equal(map(tree).props.open, false); assert.deepEqual(calls, ['visited-editor']); assert.deepEqual(x.calls, ['navigate:profile']);
+ } finally { x.h.dispose(); }
+});
+
 const route = (id, city, country = 'France') => ({ id, createdAt: '2026-10-10', plan: { summary: 'Weekend holiday', routes: [{ cityOrRegion: city, name: city, country, destinationCode: 'CDG' }] } });
 const trip = (id, owner = 'a', city = 'Paris') => ({ id, userId: owner, destinationCountry: 'France', destinationCode: 'FR', destinationCity: city, startDate: '2027-04-12', endDate: '2027-04-19' });
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
@@ -268,8 +422,8 @@ test('Home personal shortcuts open exact tools and its unified search preserves 
  load('mobile/src/lib/homeShortcuts.ts').saveHomeShortcuts(null, ['tool:translate', 'tool:money', 'cockpit']);
  const { HomeScreen } = load('mobile/src/screens/HomeScreen.tsx');
  let tree = h.start(HomeScreen, { user: null, onNavigate: view => calls.push(view), onOpenTool: tool => calls.push(tool), onOpenGlobalSearch: query => calls.push(`global:${query}`), onSearchDestination: query => calls.push(`city:${query}`), onOpenCommunity() {}, onBuildRoute() {} });
- const nav = find(tree, 'nav'), shortcuts = nodes(nav).filter(node => node.type === 'button');
- const labels = ['Translate', 'Money', 'Travel Cockpit'];
+ const nav = find(tree, 'nav', props => props['aria-label'] === 'Plan your journey'), shortcuts = nodes(nav).filter(node => node.type === 'button');
+ const labels = ['Translate', 'Money', 'My trips'];
  for (const className of ['rh-shortcut-full', 'rh-shortcut-compact']) {
   assert.deepEqual(shortcuts.map(node => text(find(node, 'span', props => props.className === className))), labels, 'Custom tools keep their own name at either screen width');
  }
@@ -282,7 +436,26 @@ test('Home personal shortcuts open exact tools and its unified search preserves 
  assert.deepEqual(calls.splice(0), ['translate', 'money', 'cockpit']);
  find(tree, 'input', props => props.id === 'home-destination-search').props.onChange({ target: { value: '  currency  ' } }); tree = h.render();
  find(tree, 'form').props.onSubmit({ preventDefault() {} }); assert.deepEqual(calls.splice(0), ['global:currency']);
- find(tree, 'button', props => text(props.children) === 'Paris').props.onClick(); assert.deepEqual(calls, ['city:Paris']); h.dispose();
+ find(tree, 'button', props => props['aria-label'] === 'Paris').props.onClick(); assert.deepEqual(calls, ['city:Paris']); h.dispose();
+});
+
+test('Home autocomplete opens the exact journal, world map and help target rather than their parent screen', () => {
+ const h = hooks(), d = device(), calls = [];
+ const { HomeScreen } = loader(d.globals, {
+  ...shared('en'), react: h.react, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+  '../components/HomeShortcutPicker': { HomeShortcutPicker: 'HomeShortcutPicker' }, '../lib/supabaseData': { listCockpitTrips: () => { throw Error('No account API call for guest'); } },
+ })('mobile/src/screens/HomeScreen.tsx');
+ let tree = h.start(HomeScreen, { user: null, onNavigate: view => calls.push(`generic:${view}`),
+  onOpenJourneyTool: tool => calls.push(`journey:${tool}`), onOpenGuide: () => calls.push('guide'),
+  onOpenCommunity() {}, onBuildRoute() {}, onSurprise() {}, onNotice() {},
+ });
+ for (const [query, target] of [['journal', 'journey:journal'], ['world map', 'journey:map'], ['how to use', 'guide']]) {
+  find(tree, 'input', props => props.id === 'home-destination-search').props.onChange({ target: { value: query } }); tree = h.render();
+  const option = nodes(tree).find(node => node.props?.role === 'option' && text(node).startsWith(search(query, 'en', [], 'tool').find(item => item.guide || item.journeyTool).title));
+  assert.ok(option); option.props.onClick(); tree = h.render();
+  assert.deepEqual(calls.splice(0), [target]);
+ }
+ h.dispose();
 });
 
 function categorySheet(locale, initial = {}, trips = null) {
@@ -344,13 +517,22 @@ test('Another account trips never create a recovery option', async () => {
  assert.equal(find(tree, 'button', props => props.className === 'global-search-widen'), undefined); assert.doesNotMatch(text(tree), /Private Alpha Harbor/); h.dispose();
 });
 
-test('Albanian hero slogan stays short and the sheet shows one clear control', () => {
- const read = file => readFileSync(file, 'utf8');
- assert.match(read('mobile/src/lib/locales/sq-part2.ts'), /"Live": "Jeto",/);
- assert.match(read('mobile/src/screens/reference-home.css'), /html\[lang="sq"\] \.editorial-app \.reference-home \.rh-handwritten \{ width: 36%/);
- assert.doesNotMatch(read('mobile/src/screens/reference-home.css'), /overflow-x:\s*hidden/, 'The overflow is fixed, not hidden');
- assert.match(read('mobile/src/components/global-search.css'), /input::-webkit-search-cancel-button[^{]*\{[^}]*display: none/);
- const { h } = categorySheet('tr', { initialQuery: 'Paris' }); const tree = h.render();
- assert.equal(nodes(find(tree, 'div', props => props.className === 'global-search-field')).filter(node => node.type === 'button').length, 1);
- h.dispose();
+test('Search sheet keeps one localized clear control that clears the query and restores input focus', () => {
+ assert.match(readFileSync('mobile/src/components/global-search.css', 'utf8'), /input::-webkit-search-cancel-button[^{]*\{[^}]*display: none/);
+ for (const [locale, label] of [['tr', 'Aramayı temizle'], ['en', 'Clear search'], ['sq', 'Pastro kërkimin']]) {
+  const { h, calls } = categorySheet(locale, { initialQuery: 'Paris' });
+  try {
+   let tree = h.render(), focused = 0;
+   const field = find(tree, 'div', props => props.className === 'global-search-field');
+   const controls = nodes(field).filter(node => node.type === 'button');
+   assert.equal(controls.length, 1);
+   assert.equal(controls[0].props['aria-label'], label);
+   find(field, 'input').props.ref.current = { focus: () => focused++ };
+   controls[0].props.onClick(); tree = h.render();
+   assert.equal(find(tree, 'input').props.value, '');
+   assert.equal(nodes(find(tree, 'div', props => props.className === 'global-search-field')).filter(node => node.type === 'button').length, 0);
+   assert.equal(focused, 1);
+   assert.deepEqual(calls, [], 'Clearing stays in search without navigation');
+  } finally { h.dispose(); }
+ }
 });

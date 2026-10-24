@@ -150,13 +150,44 @@ test('Discovery issues separate bounded category queries with coarse area coordi
     const [south, west, north, east] = query.match(/nwr\(([-\d.,]+)\)/)[1].split(',').map(Number);
     assert.ok(Math.abs((south + north) / 2 - 41.9) < 0.00001); assert.ok(Math.abs((west + east) / 2 - 12.49) < 0.00001);
     assert.ok(north - south < 0.06); assert.ok(east - west < 0.08); assert.doesNotMatch(query, /around:/);
-    assert.match(query, /out center tags 250/); assert.match(query, /timeout:12/);
+    assert.match(query, /out center tags 250/); assert.match(query, /timeout:12/); assert.match(query,/\[maxsize:67108864\]/);
     assert.equal(query, model.discoveryQuery({ latitude: 41.9, longitude: 12.49 }, group));
   }
   assert.match(model.discoveryQuery(center, 'shopping'), /boutique\|clothes\|craft\|gift\|souvenir/);
   assert.match(model.discoveryQuery(center, 'food'), /bakery\|pastry\|confectionery/);
   assert.throws(() => model.discoveryQuery({ latitude: '41.9', longitude: 12.49 }, 'food'));
   assert.throws(() => model.discoveryQuery(center, 'food];out;'));
+});
+
+test('Every discovery group shares the nearby indexed frame at coarse cells, dateline wraps and both polar edges',()=>{
+  const model=discovery();
+  for(const point of [{latitude:41.902999,longitude:12.494444},{latitude:0,longitude:179.999},{latitude:0,longitude:-179.999},{latitude:85,longitude:0},{latitude:-85,longitude:0}]){
+    for(const group of ['food','shopping','culture','nature','essentials']){
+      const query=model.discoveryQuery(point,group);
+      const boxes=[...new Set([...query.matchAll(/nwr\(([-\d.,]+)\)/g)].map(match=>match[1]))];
+      assert.deepEqual(boxes,clone(places.nearbyQueryBoxes(point)));
+      assert.equal(query,model.discoveryQuery(places.coarseLocation(point),group));
+      assert.doesNotMatch(query,/around:|41\.902999|12\.494444/);
+      for(const box of boxes){const [south,west,north,east]=box.split(',').map(Number);assert.ok(south>=-85&&north<=85&&south<north);assert.ok(west>=-180&&east<=180&&west<=east&&east-west<0.62);}
+    }
+  }
+});
+
+test('Discovery removes box corners before caching and changes the cache revision instead of serving legacy query results',async()=>{
+  const [south,west,north,east]=places.nearbyQueryBoxes(center)[0].split(',').map(Number);
+  assert.ok(places.distanceKm(center,{latitude:north,longitude:east})>3.1);
+  let calls=0;const keys=[];
+  const fetchedAt=new Date().toISOString(),legacyPlace=discovery().normalizeDiscovery({elements:[row(99,{amenity:'cafe'})]},center,'food',fetchedAt)[0];
+  const legacy={places:[{...legacyPlace,latitude:north,longitude:east}],center,radius:3000,fetchedAt,limited:false,attribution:'© OpenStreetMap contributors'};
+  const model=load('lib/travel-assistant/journey-discovery.ts',{
+    './places':places,'./overpass':{queryOverpass:async()=>{calls++;return {elements:[row(1,{amenity:'cafe'}),row(2,{amenity:'cafe'},{lat:north,lon:east}),row(3,{amenity:'cafe'},{lat:south,lon:west})]};}},
+    './result-cache':resultCache,'./journey-photos':photos(),'./journey-apple-places':{hasAppleJourneyPlaces:()=>false},
+    'next/cache':{unstable_cache:(fn,key)=>{keys.push(clone(key));return key.includes('journey-discovery-v4')?async()=>legacy:fn;}},
+  });
+  const result=await model.discoverJourneyPlaces(center,'food');
+  assert.deepEqual(keys,[['journey-discovery-v5']]);assert.deepEqual(clone(result.places.map(place=>place.id)),['node/1']);
+  assert.equal(result.radius,3000);assert.equal(result.stale,undefined);
+  assert.equal(await model.discoverJourneyPlaces(center,'food'),result);assert.equal(calls,1);
 });
 
 test('Dense-city discovery avoids broad building/artwork scans and splits dateline bounds into two small indexed areas', () => {

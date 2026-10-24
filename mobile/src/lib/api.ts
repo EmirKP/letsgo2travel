@@ -463,7 +463,7 @@ export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en"
   for(;;){
     account.signal?.throwIfAborted();
     try{
-      const response=await requestJson<{success:boolean;data:unknown;isFallback?:boolean}>("/api/ai-plan",{
+      const response=await requestJson<{success:boolean;data:unknown;isFallback?:boolean}>("/api/ai-plan?quotaVersion=2",{
         method:'POST',body:{...input,locale},headers:{Authorization:`Bearer ${account.accessToken}`,'Idempotency-Key':receipt.id},signal:account.signal,timeoutMs:Math.max(1,deadline-Date.now()),
       });
       const data=sanitizeRoutePlan(response.data,locale);

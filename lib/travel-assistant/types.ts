@@ -1,4 +1,4 @@
-export type Text = { tr: string; en: string };
+export type Text = { tr: string; en: string; sq?: string };
 export type Evidence = { sourceUrl: string; verifiedAt: string; reviewAfter?: string; validUntil?: string };
 export type EmergencyCategory = 'general' | 'police' | 'ambulance' | 'fire' | 'tourist-police' | 'coastguard' | 'gendarmerie';
 export type EmergencyContact = Evidence & { country: string; category: EmergencyCategory; number: string; note?: Text };

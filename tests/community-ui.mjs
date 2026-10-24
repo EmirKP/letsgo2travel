@@ -129,12 +129,13 @@ function harness(initial = {}) {
   h.render(); h.click(i18n[locale].copy('Forum', 'Forum', 'Forumi')); return h;
 }
 
-test('Five community tabs support arrow wrap, Home/End and one keyboard focus target', async () => {
+test('Three distinct community tabs support arrow wrap, Home/End and one keyboard focus target', async () => {
   const h = harness();
   try {
     let view = await h.feed();
-    assert.deepEqual(nodes(view).filter(node => node.props?.role === 'tab').map(node => node.props.id), ['feed', 'following', 'groups', 'questions', 'events'].map(id => `community-tab-${id}`));
-    for (const [key, id] of [['ArrowLeft', 'events'], ['ArrowRight', 'feed'], ['End', 'events'], ['Home', 'feed'], ['ArrowRight', 'following'], ['ArrowRight', 'groups'], ['ArrowRight', 'questions']]) {
+    assert.deepEqual(nodes(view).filter(node => node.props?.role === 'tab').map(node => node.props.id), ['feed', 'following', 'groups'].map(id => `community-tab-${id}`));
+    assert.equal(text(find(view, 'button', props => props.id === 'community-tab-feed')), 'Questions & Answers');
+    for (const [key, id] of [['ArrowLeft', 'groups'], ['ArrowRight', 'feed'], ['End', 'groups'], ['Home', 'feed'], ['ArrowRight', 'following'], ['ArrowRight', 'groups'], ['ArrowRight', 'feed']]) {
       let prevented = false;
       find(view, 'button', props => props.role === 'tab' && props['aria-selected']).props.onKeyDown({ key, preventDefault: () => { prevented = true; } });
       view = h.render();
@@ -145,6 +146,30 @@ test('Five community tabs support arrow wrap, Home/End and one keyboard focus ta
     }
     assert.ok(h.requests.every(request => request.path.startsWith('/api/country-community/feed')), 'Tab browsing only requests community data');
   } finally { h.dispose(); }
+});
+
+test('Profile league requests open the ranking once, are consumed, and a later request opens it again', () => {
+  let handled = 0;
+  const h = harness({ initialLeagueRequest: 1, onLeagueRequestHandled: () => handled++ });
+  const league = view => find(view, 'Sheet', props => props.title === 'Explorers League');
+  try {
+    let view = h.render();
+    assert.ok(league(view)); assert.equal(handled, 1);
+    league(view).props.onClose();
+    view = h.render({ onLeagueRequestHandled: () => handled++ });
+    assert.equal(league(view), undefined); assert.equal(handled, 1, 'The same intent cannot reopen the dismissed sheet');
+    view = h.render({ initialLeagueRequest: 0 });
+    assert.equal(league(view), undefined);
+    view = h.render({ initialLeagueRequest: 2 });
+    assert.ok(league(view)); assert.equal(handled, 2);
+    assert.equal(h.requests.filter(request => request.path === '/api/kasifler-ligi').length, 1, 'Reopening an in-flight ranking does not duplicate its request');
+    league(view).props.onClose(); h.render({ initialLeagueRequest: 0 });
+  } finally { h.dispose(); }
+  const returned = harness({ initialLeagueRequest: 0, onLeagueRequestHandled: () => handled++ });
+  try {
+    assert.equal(league(returned.render()), undefined, 'Returning normally to Community after consumption keeps the league closed');
+    assert.equal(handled, 2);
+  } finally { returned.dispose(); }
 });
 
 test('a Profile discussion intent opens the genuine topic once and community has no separate own-profile shortcut', async () => {
@@ -233,7 +258,7 @@ test('Guest composition opens sign-in; signed-in groups prefill the genuine ques
     h.render({ user: { id: 'account-a' }, accessToken: 'TOKEN_A' }); await h.feed(); view = h.tab('groups');
     const group = nodes(view).find(node => node.props?.className === 'cs-group-open' && find(node, 'CountryFlag', props => props.code === 'IT'));
     group.props.onClick(); view = h.render();
-    assert.equal(activeTab(view), 'community-tab-questions'); assert.deepEqual(postTitles(view), ['Rome museum tickets']);
+    assert.equal(activeTab(view), 'community-tab-feed'); assert.deepEqual(postTitles(view), ['Rome museum tickets']);
     view = h.click('Share a Post'); assert.equal(find(view, 'CountryPicker').props.value, 'IT');
     const form = find(view, 'Sheet', props => props.title === 'Share your experience');
     assert.ok(find(form, 'input', props => props.placeholder === 'What would you like to share?'));
@@ -312,7 +337,10 @@ test('Editorial inspiration, community search and events use their actual action
     assert.equal(button(view, 'Search community').props['aria-expanded'], true);
     assert.deepEqual(postTitles(view), [], 'Editorial content is not inserted into an empty user feed');
     h.click('Close search');
-    view = h.tab('events'); assert.equal(byClass(view, 'cs-inspiration'), undefined); h.click('Discover events');
+    const selectedTab = activeTab(view);
+    view = h.click('Event Radar');
+    assert.equal(byClass(view, 'cs-events'), undefined, 'There is no promotional step before the actual event search');
+    assert.equal(activeTab(view), selectedTab, 'Event navigation does not pretend to be a forum tab');
     assert.deepEqual(h.navigation, ['events']);
   } finally { h.dispose(); }
 });

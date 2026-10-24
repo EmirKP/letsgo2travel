@@ -1,0 +1,25 @@
+.country-guide-highlights { min-width: 0; margin-top: 28px; color: var(--theme-ink, #17243a); }
+.country-guide-highlights > header { margin-bottom: 7px; }
+.country-guide-highlights > header > p { margin: 0 0 7px; color: var(--theme-link, #1464cd); font-size: 9px; font-weight: 800; line-height: 1.5; letter-spacing: .13em; overflow-wrap: anywhere; }
+.country-guide-highlights > header > h3 { margin: 0; color: var(--theme-ink, #17243a); font-size: 23px; font-weight: 850; line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.country-guide-highlight-list { min-width: 0; }
+.country-guide-highlight { min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--theme-border, #dce6f3); }
+.country-guide-highlight:last-child { border-bottom: 0; }
+.country-guide-highlight-icon { display: grid; place-items: center; width: 36px; height: 38px; border-radius: 11px; color: var(--theme-link, #1464cd); background: var(--theme-soft, #edf4ff); }
+.country-guide-highlight-content { min-width: 0; }
+.country-guide-highlight-topic { display: block; margin: 0 0 5px; color: var(--theme-muted, #62738a); font-size: 10px; font-weight: 800; line-height: 1.3; text-transform: uppercase; letter-spacing: .07em; overflow-wrap: anywhere; }
+.country-guide-highlights .country-guide-highlight h4 { margin: 0; color: var(--theme-ink, #17243a); font-size: 16px; font-weight: 800; line-height: 1.35; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.country-guide-highlight .country-guide-highlight-summary { margin: 8px 0 0; color: var(--theme-ink, #17243a); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.country-guide-highlight-language, .country-guide-highlight-review { margin: 7px 0 0; color: var(--theme-muted, #62738a); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.country-guide-highlight-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-width: 0; margin-top: 6px; }
+.country-guide-highlight-meta > button { display: inline-flex; align-items: center; gap: 5px; min-width: 0; min-height: 44px; max-width: 100%; padding: 4px 0; border: 0; color: var(--theme-link, #1464cd); background: transparent; font: inherit; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; text-align: start; }
+.country-guide-highlight-meta > button svg { flex: none; }
+.country-guide-highlight-meta > span { color: var(--theme-muted, #62738a); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.country-guide-highlight-validity { margin: 2px 0 0; color: var(--theme-muted, #62738a); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.country-guide-highlight-more { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 5px 0; border: 0; color: var(--theme-link, #1464cd); background: transparent; font: inherit; font-size: 12px; font-weight: 750; }
+.country-guide-highlight-error { padding: 9px 12px; border: 1px solid var(--theme-border, #dce6f3); border-radius: 12px; background: var(--theme-surface, #fff); }
+.country-guide-highlight-error p { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.country-guide-highlight-error button { min-height: 44px; padding: 5px 0; border: 0; color: var(--theme-link, #1464cd); background: transparent; font: inherit; font-size: 12px; font-weight: 750; }
+.country-guide-highlights button:focus-visible { outline: 3px solid var(--theme-link, #1464cd); outline-offset: 3px; border-radius: 4px; }
+.country-guide-highlights button:disabled { opacity: .65; cursor: wait; }
+@media (max-width: 360px) { .country-guide-highlight { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; } .country-guide-highlight-icon { width: 30px; height: 34px; } }

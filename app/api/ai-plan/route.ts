@@ -475,7 +475,7 @@ export async function POST(req: Request) {
     const account = await requireAiRouteAccount(req, signal);
     operation = aiRouteOperation(account, req, input, 'suggestions');
     const admitted = await operation.begin(signal);
-    if (admitted.state === 'succeeded') return aiRouteReply({ ...admitted.result, quota: admitted.quota });
+    if (admitted.state === 'succeeded') return aiRouteReply({ ...admitted.result, quota: admitted.quota }, 200, {}, req);
     if (cached) {
       if (!expectedDailyPlans(cached, input)) return fallbackResponse(input);
       const finalizedCache = finalizePlan(cached, input);
@@ -483,7 +483,7 @@ export async function POST(req: Request) {
       if (input.mode === "fixed" && finalizedCache.routes[0]?.scores.overall === 0) return fallbackResponse(input);
       const result = { success: true, data: finalizedCache, isFallback: false, cached: true };
       signal.throwIfAborted();
-      return aiRouteReply({ ...result, quota: await operation.complete(result) });
+      return aiRouteReply({ ...result, quota: await operation.complete(result) }, 200, {}, req);
     }
 
     const provider = process.env.JOURNEY_AI_PROVIDER?.trim();
@@ -591,10 +591,10 @@ export async function POST(req: Request) {
     const quota = await operation.complete(result);
     try { await journeyPlanWait(saveCachedPlan(hash, input, finalizedPlan), AbortSignal.timeout(1500)); }
     catch { /* Successful private receipt already persists; shared cache is optional. */ }
-    return aiRouteReply({ ...result, quota });
+    return aiRouteReply({ ...result, quota }, 200, {}, req);
   } catch (error: unknown) {
     console.warn("ai_suggestions_request_failed");
     if (input?.mode === "fixed" && !input.destination) return NextResponse.json({ error: "Invalid destination" }, { status: 400 });
-    return aiRouteErrorReply(error);
+    return aiRouteErrorReply(error, req);
   } finally { await operation?.release(); }
 }
