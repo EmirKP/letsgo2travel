@@ -20,7 +20,7 @@ export type Place = Coordinates & {
   hours: string | null; free: boolean | null; accessible: boolean | null; website: string | null;
   representedCountry: string | null; sourceUrl: string; fetchedAt: string;
 };
-export type PlacesResult = { places: Place[]; center: Coordinates; fetchedAt: string; limited: boolean; radius: number; stale?: boolean };
+export type PlacesResult = { places: Place[]; center: Coordinates; fetchedAt: string; limited: boolean; radius: number; stale?: boolean; attribution?: 'Apple Maps' | '© OpenStreetMap contributors' };
 export type FxQuote = {
   base: string; quote: string; rate: number; date: string; previousRate: number | null;
   previousDate: string | null; changePercent: number | null; sourceUrl: string; fetchedAt: string;

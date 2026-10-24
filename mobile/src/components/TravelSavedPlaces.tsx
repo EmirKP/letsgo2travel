@@ -1,5 +1,5 @@
 import { formatAppDate } from "../lib/localeFormatting";
-import { useEffect, useId, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useState } from 'react';
 import { CATEGORY_LABELS, NEEDS, TOURING, DISCOVERY } from '../../../lib/travel-assistant/places';
 import { useI18n } from '../lib/i18n';
 import { openExternal } from '../lib/native';
@@ -12,6 +12,7 @@ import type { SavedPlace, SavedPlacesState } from '../lib/savedPlaces';
 import { Icon } from './Icon';
 import './saved-places.css';
 import './travel-assistant.css';
+const TravelPointMap = lazy(() => import('./TravelPointMap').then(module => ({default:module.TravelPointMap})));
 
 export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onExplore?: () => void; onExploreLabel?: string; ownerId?: string|null }) {
   const { copy, locale } = useI18n();
@@ -107,6 +108,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
         : state.items.length ? <button type="button" className="secondary-wide" onClick={() => { setCategory(''); setQuery(''); }}>{copy('Filtreleri temizle', 'Clear filters')}</button>
           : onExplore && <button type="button" className="primary-wide" onClick={onExplore}>{onExploreLabel || copy('Gezi haritasını aç', 'Open sightseeing map')}</button>}
     </div>}
+    {visible.some(item => item.place.id.startsWith('apple/')) && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…','Po ngarkohet harta…')}</p>}><TravelPointMap center={visible[0].place} places={visible.map(item => item.place)} ownerId={ownerId} onSelect={place => void visit(place.sourceUrl)}/></Suspense>}
     <ol className="tsp-list" aria-label={view === 'day' ? copy('Gezi sırası', 'Day sequence') : copy('Kaydettiğim yerler', 'Saved places')}>
       {visible.map((item, index) => <SavedPlaceCard key={item.place.id} item={item} name={label(item)}
         dayIndex={view === 'day' ? index : null} dayTotal={state.dayIds.length} inDay={state.dayIds.includes(item.place.id)}
@@ -157,8 +159,8 @@ function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote
       <p>{copy('Veri alındı', 'Data retrieved')}: <time dateTime={p.fetchedAt}>{formatAppDate(new Date(p.fetchedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</time></p>
       <p>{copy('Kaydettin', 'Saved')}: <time dateTime={item.savedAt}>{formatAppDate(new Date(item.savedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}</time></p>
       <p>{p.latitude.toFixed(5)}, {p.longitude.toFixed(5)}</p>
-      <div className="ta-actions"><button type="button" onClick={() => onVisit(p.sourceUrl)}>{copy('OpenStreetMap kaynağı', 'OpenStreetMap source')}</button>{p.website && <button type="button" onClick={() => onVisit(p.website!)}>{copy('Kayıttaki web sitesi', 'Listed website')}</button>}</div>
-      <p className="ta-muted">© OpenStreetMap contributors · ODbL</p>
+      <div className="ta-actions"><button type="button" onClick={() => onVisit(p.sourceUrl)}>{p.id.startsWith('apple/') ? copy('Apple Maps kaynağı', 'Apple Maps source', 'Burimi Apple Maps') : copy('OpenStreetMap kaynağı', 'OpenStreetMap source')}</button>{p.website && <button type="button" onClick={() => onVisit(p.website!)}>{copy('Kayıttaki web sitesi', 'Listed website')}</button>}</div>
+      <p className="ta-muted">{p.id.startsWith('apple/') ? 'Apple Maps' : '© OpenStreetMap contributors · ODbL'}</p>
     </details>
     <button type="button" className="tsp-delete" onClick={onDelete} aria-label={copy(`${name} kayıtlı yerlerden kaldır`, `Remove ${name} from saved places`)}><Icon name="trash" size={16}/>{copy('Kaydı kaldır', 'Remove saved place')}</button>
   </li>;

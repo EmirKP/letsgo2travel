@@ -15,7 +15,7 @@ import { TravelAreaPicker } from './TravelAreaPicker';
 const TravelPointMap = lazy(() => import('./TravelPointMap').then(m => ({default:m.TravelPointMap})));
 
 
-export function TravelNearby({mode,citizenship,ownerId,destinationCountry=''}: {mode:MapMode;citizenship:string;ownerId?:string|null;destinationCountry?:string}) {
+export function TravelNearby({mode,citizenship,ownerId,destinationCountry='',onEmbassies}: {mode:MapMode;citizenship:string;ownerId?:string|null;destinationCountry?:string;onEmbassies?:()=>void}) {
   const { copy, locale } = useI18n();
   const [center,setCenter] = useState<Coordinates|null>(null);
   const [savedResult,setResult] = useState<PlacesResult|null>(null);
@@ -33,6 +33,8 @@ export function TravelNearby({mode,citizenship,ownerId,destinationCountry=''}: {
   useEffect(() => () => { generation.current++; },[]);
   const name = (p:Place) => p.name || CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1];
   const filtered = useMemo(() => result && center && (!myEmbassy || citizenship) ? filterPlaces(result.places,{category,free,accessible,alwaysOpen,representedCountry:myEmbassy ? citizenship : undefined},center) : [],[result,center,category,free,accessible,alwaysOpen,myEmbassy,citizenship]);
+  const unsupportedCategory = result?.attribution === 'Apple Maps' && ['exchange','wifi','embassy'].includes(category);
+  const searchInMaps = () => center && void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${({exchange:'currency exchange',wifi:'public wifi',embassy:'embassy consulate'} as Record<string,string>)[category] || category || (mode === 'needs' ? 'pharmacy hospital' : 'sights')} near ${center.latitude},${center.longitude}`)}`);
   function selectPlace(place: Place) { setSelected(place); setSaveError(''); setSaveStatus(''); }
   function toggleSaved() {
     if (!selected) return;
@@ -89,10 +91,15 @@ export function TravelNearby({mode,citizenship,ownerId,destinationCountry=''}: {
     {result && center && <><p aria-live="polite">{filtered.length} {copy('nokta','places')} · {copy('Aranan merkez çevresinde yaklaşık 3 km; merkeze mesafeye göre','About 3 km around the searched centre; sorted by distance from centre')}</p>
       {result.stale && <p className="ta-warning" role="status">{copy('Güncel veri alınamadı veya son sonuç bir saatten eski. Aynı bölgenin en son alınan kaydı gösteriliyor; hizmet ve saatler değişmiş olabilir. Harita görüntüsü internet gerektirebilir.', 'Fresh data is unavailable or the last result is over an hour old. Showing the last retrieved result for this area; services and hours may have changed. Map images may need internet.')}</p>}
       <button type="button" className="secondary-wide" disabled={busy} onClick={() => void search(center,true)}>{copy('Bu bölgeyi yenile', 'Refresh this area')}</button>
-      {filtered.length > 0 && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…')}</p>}><TravelPointMap center={center} places={filtered} onSelect={selectPlace}/></Suspense>}
-      {!filtered.length && <div className="ta-empty"><p>{copy('Bu filtrelerde kayıt bulunamadı. Bu, çevrende hizmet olmadığı anlamına gelmez; filtreleri kaldır veya harita uygulamasında ara.','No records match these filters. This does not mean no service exists nearby; clear filters or search in your maps app.')}</p><button className="secondary-wide" type="button" onClick={() => {setCategory('');setFree(false);setAccessible(false);setAlwaysOpen(false);setMyEmbassy(false);}}>{copy('Filtreleri temizle','Clear filters','Pastro filtrat')}</button></div>}
+      {filtered.length > 0 && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…')}</p>}><TravelPointMap center={center} places={filtered} onSelect={selectPlace} ownerId={ownerId}/></Suspense>}
+      {!filtered.length && <div className="ta-empty"><p>{unsupportedCategory
+        ? copy('Bu veri kaynağı seçtiğin kategoriyi kapsamıyor. Bölgedeki yerleri harita uygulamasında arayabilirsin.', 'This data source does not cover the selected category. Search for places in your maps app.', 'Ky burim nuk mbulon kategorinë e zgjedhur. Kërko vendet në aplikacionin e hartës.')
+        : copy('Bu filtrelerde kayıt bulunamadı. Bu, çevrende hizmet olmadığı anlamına gelmez; filtreleri kaldır veya harita uygulamasında ara.','No records match these filters. This does not mean no service exists nearby; clear filters or search in your maps app.')}</p>
+        {category === 'embassy' && onEmbassies && <button className="secondary-wide" type="button" onClick={onEmbassies}>{copy('Konsolosluk bilgilerini aç','Open consulate information','Hap informacionin e konsullatës')}</button>}
+        <button className="secondary-wide" type="button" onClick={searchInMaps}>{copy('Harita uygulamasında ara','Search in maps','Kërko në hartë')}</button>
+        <button className="secondary-wide" type="button" onClick={() => {setCategory('');setFree(false);setAccessible(false);setAlwaysOpen(false);setMyEmbassy(false);}}>{copy('Filtreleri temizle','Clear filters','Pastro filtrat')}</button></div>}
       <div className="ta-place-list">{filtered.map(p => <button type="button" key={p.id} onClick={() => selectPlace(p)}><span><strong>{name(p)}</strong><small>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}{savedPlaces.items.some(item => item.place.id === p.id) && ` · ${copy('Kaydedildi', 'Saved')}`}</small></span><small>≈ {distanceKm(center,p).toFixed(1)} km</small></button>)}</div>
-      <p className="ta-muted">{copy('OSM topluluk verisi; doğruluk ve hizmet mevcudiyeti garanti değildir. Mesafeler kuş uçuşudur.','OSM community data; accuracy and service availability are not guaranteed. Distances are straight-line estimates.')} {copy('Alınma','Retrieved')}: {formatAppDate(new Date(result.fetchedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}{result.limited && ` · ${copy('Sonuç sınırına ulaşıldı; tüm noktalar gösterilmiyor.','Result limit reached; not all places are shown.')}`}</p></>}
+      <p className="ta-muted">{result.attribution || '© OpenStreetMap contributors'} · {copy('Mekân bilgileri ve hizmetler değişebilir. Mesafeler kuş uçuşudur.','Place details and services may change. Distances are straight-line estimates.','Të dhënat dhe shërbimet mund të ndryshojnë. Distancat janë në vijë të drejtë.')} {copy('Alınma','Retrieved')}: {formatAppDate(new Date(result.fetchedAt), locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })}{result.limited && ` · ${copy('Sonuç sınırına ulaşıldı; tüm noktalar gösterilmiyor.','Result limit reached; not all places are shown.')}`}</p></>}
     <Sheet open={!!selected && !!result} title={selected ? name(selected) : ''} onClose={() => setSelected(null)}>{selected && result && <div className="ta-panel">
       <button type="button" className="tsp-save-button" aria-pressed={isSelectedSaved} onClick={toggleSaved}><Icon name={isSelectedSaved ? 'check' : 'bookmark'} size={18}/>{isSelectedSaved ? copy('Kaydedildi · Kaldır', 'Saved · Remove') : copy('Bu yeri kaydet', 'Save this place')}</button>
       <p className="ta-muted">{ownerId ? copy(
@@ -110,7 +117,7 @@ export function TravelNearby({mode,citizenship,ownerId,destinationCountry=''}: {
       {center && <p>≈ {distanceKm(center,selected).toFixed(1)} km</p>}
       <p>{copy('Çalışma saati kaydı','Listed hours')}: {selected.hours || copy('Bilinmiyor','Unknown')}</p>
       <p>{selected.hours === '24/7' ? copy('24 saat açık olarak kayıtlı; geçici kapanış olabilir.','Listed 24/7; temporary closures are possible.') : copy('Şu an açık/kapalı durumu doğrulanmadı.','Current open/closed status is not verified.')}</p>
-      <div className="ta-actions"><button type="button" onClick={() => void openExternal(directionsUrl(`${selected.latitude},${selected.longitude}`))}>{copy('Yol tarifi','Directions')}</button>{selected.website && <button type="button" onClick={() => void openExternal(selected.website!)}>{copy('Kayıttaki web sitesi','Listed website')}</button>}<button type="button" onClick={() => void openExternal(selected.sourceUrl)}>{copy('OSM kaynağı','OSM source')}</button></div>
+      <div className="ta-actions"><button type="button" onClick={() => void openExternal(directionsUrl(`${selected.latitude},${selected.longitude}`))}>{copy('Yol tarifi','Directions')}</button>{selected.website && <button type="button" onClick={() => void openExternal(selected.website!)}>{copy('Kayıttaki web sitesi','Listed website')}</button>}<button type="button" onClick={() => void openExternal(selected.sourceUrl)}>{selected.id.startsWith('apple/') ? copy('Apple Maps kaynağı','Apple Maps source','Burimi Apple Maps') : copy('OSM kaynağı','OSM source','Burimi OSM')}</button></div>
     </div>}</Sheet>
   </section>;
 }

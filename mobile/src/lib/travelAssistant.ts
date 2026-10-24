@@ -4,6 +4,7 @@ import { coarseLocation, coordinates } from '../../../lib/travel-assistant/place
 import type { Coordinates, FxQuote } from '../../../lib/travel-assistant/types';
 import { createPlacesLoader, validateQuote } from '../../../lib/travel-assistant/responses';
 import { identityQuote } from '../../../lib/travel-assistant/money';
+import { discoverJourneyPlaces } from './mapJourneyClient';
 
 let locationRequest: Promise<Coordinates> | null = null;
 let lastLocation: { center: Coordinates; until: number } | null = null;
@@ -37,7 +38,7 @@ export function locateForTravel(): Promise<Coordinates> {
   return locationRequest;
 }
 export const loadPlaces = createPlacesLoader((center, mode) =>
-  requestJson<unknown>(`${config.travelAssistantApiBaseUrl}/api/travel-assistant/places`, { method: 'POST', body: { ...center, mode }, timeoutMs: 32000 }));
+  discoverJourneyPlaces(center, mode === 'needs' ? 'essentials' : 'culture'));
 const FX_KEY = 'l2t:assistant:fx:v1';
 function readQuotes(): FxQuote[] {
   try {

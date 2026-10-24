@@ -13,7 +13,7 @@ const places=load('lib/travel-assistant/places.ts');
 const centers=load('mobile/src/lib/travelAreas.ts');
 function locationHarness(mode='normal'){
  let now=1000,next=0;const timers=new Map(),calls=[];
- const api=load('mobile/src/lib/travelAssistant.ts',{'./api':{requestJson:async()=>{}},'./config':{config:{}},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{createPlacesLoader:()=>{},validateQuote:()=>null}},
+ const api=load('mobile/src/lib/travelAssistant.ts',{'./api':{requestJson:async()=>{}},'./config':{config:{}},'./mapJourneyClient':{discoverJourneyPlaces:async()=>{throw Error('A location lookup must not search for places');}},'../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{createPlacesLoader:()=>{},validateQuote:()=>null}},
   {Date:{now:()=>now},navigator:mode==='missing'?{}:{geolocation:{getCurrentPosition(success,error,options){if(mode==='throw')throw Error('provider');calls.push({success,error,options});}}},setTimeout:(fn,delay)=>{const id=++next;timers.set(id,{fn,until:now+delay});return id;},clearTimeout:id=>timers.delete(id)});
  return{api,calls,timers,tick(ms){now+=ms;for(const [id,t] of [...timers])if(t.until<=now){timers.delete(id);t.fn();}}};
 }

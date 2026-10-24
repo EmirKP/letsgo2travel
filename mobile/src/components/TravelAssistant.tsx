@@ -147,7 +147,7 @@ export function TravelAssistant({initialCountry='',initialTool,onPhrases,onLocal
     {tool && country && !['safety','embassies','guide'].includes(tool) && <p className="ta-muted">{copy('Yolculuk ülkesi', 'Travel country', 'Shteti i udhëtimit')}: {destinationLabel}</p>}
     <Suspense fallback={<p role="status">{copy('Araç açılıyor…','Opening tool…')}</p>}>
       {tool==='safety' && country && <TravelSafety country={country} onNotice={onNotice} onOpen={t => t==='phrases' ? onPhrases(country) : chooseTool(t)}/>}
-      {(tool==='needs'||tool==='explore') && <TravelNearby key={`${ownerId || 'guest'}:${tool}:${country}`} ownerId={ownerId} mode={tool} citizenship={citizenship} destinationCountry={country}/>}
+      {(tool==='needs'||tool==='explore') && <TravelNearby key={`${ownerId || 'guest'}:${tool}:${country}`} ownerId={ownerId} mode={tool} citizenship={citizenship} destinationCountry={country} onEmbassies={() => chooseTool('embassies')}/>}
       {tool==='money' && <TravelMoney key={country} initialBaseCurrency={moneyInitialCurrency || destinationCurrency} destinationCountry={country}/>}
       {tool==='translate' && <TravelTranslation onPhrases={()=>onPhrases(country)}/>}
       {tool==='transit' && <TravelTransit key={country} destinationCountry={country} destinationLabel={destinationLabel}/>}

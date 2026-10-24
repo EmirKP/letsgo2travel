@@ -326,3 +326,116 @@ test('Cancelling a map download fences a late response while a later retry can s
   h.requests[1].resolve(h.pack());await new Promise(setImmediate);
   assert.equal(h.writes,1);assert.equal(h.saved.length,1);
 });
+
+// Keep the actual classic loader, discovery validator and response validator in
+// the chain. Only the HTTP boundary is replaced; the wrong public-host route or
+// an accidental AI/quota request must fail this harness instead of being hidden.
+function classicMapAdapter(provider='apple') {
+  const calls=[];let now=Date.parse('2026-10-24T10:00:00.000Z'),writes=0;
+  class Clock extends Date {static now(){return now;}}
+  const places=load('lib/travel-assistant/places.ts',{});
+  const evidence=load('lib/travel-assistant/evidence.ts',{}, {Date:Clock});
+  const money=load('lib/travel-assistant/money.ts',{}, {Date:Clock});
+  const responses=load('lib/travel-assistant/responses.ts',{'./places':places,'./evidence':evidence,'./money':money},{Date:Clock});
+  const fixture=(body,changes={})=>{
+    const culture=body.category==='culture',id=provider==='apple'?`apple/${culture?'CULTURE':'ESSENTIALS'}_1`:`node/${culture?101:202}`;
+    const center={latitude:Math.round(body.latitude*100)/100,longitude:Math.round(body.longitude*100)/100};
+    const fetchedAt=new Date(now).toISOString(),category=culture?'museum':'pharmacy';
+    return{center,fetchedAt,radius:3000,limited:false,attribution:provider==='apple'?'Apple Maps':'© OpenStreetMap contributors',
+      places:[{...center,id,category,name:culture?'Museum fixture':'Pharmacy fixture',description:null,hours:null,free:null,accessible:null,
+        website:null,representedCountry:null,sourceUrl:provider==='apple'?`https://maps.apple.com/place?place-id=${id.slice(6)}`:`https://www.openstreetmap.org/${id}`,
+        fetchedAt,group:body.category,kind:category,address:null}],...changes};
+  };
+  let respond=(_path,options)=>fixture(options.body);
+  const requestJson=async(path,options)=>{
+    calls.push({path,options});
+    assert.equal(path,'/api/travel-assistant/discover','Classic maps use the canonical main discovery API, never the OSM-only host, AI generation or daily-quota endpoints');
+    assert.equal(options.method,'POST');
+    assert.ok(options.timeoutMs>=30000&&options.timeoutMs<=35000);
+    return respond(path,options);
+  };
+  const journey=load('mobile/src/lib/mapJourneyClient.ts',{
+    './api':{requestJson},'./travelAreas':{TRAVEL_CENTRES:[]},'./searchText':{normalizeSearchText:value=>value.trim().toLowerCase()},
+    '../../../lib/travel-assistant/places':places,
+  },{Date:Clock});
+  const api=load('mobile/src/lib/travelAssistant.ts',{
+    './api':{requestJson},'./config':{config:{apiBaseUrl:'https://canonical.example.test',travelAssistantApiBaseUrl:'https://osm-only.example.test'}},
+    './mapJourneyClient':journey,'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':responses,
+    '../../../lib/travel-assistant/money':money,
+  },{Date:Clock,localStorage:{getItem:()=>null,setItem:()=>{writes++;},removeItem:()=>{writes++;}}});
+  return{api,calls,fixture,responses,setResponder(next){respond=next;},advance(ms){now+=ms;},get writes(){return writes;}};
+}
+
+test('Classic sightseeing and essentials maps use the real main discovery adapter with exact Apple or OSM provenance and no AI allowance request',async()=>{
+  for(const provider of ['apple','osm']){
+    const h=classicMapAdapter(provider),point={latitude:48.86012,longitude:2.35028};
+    const sightseeing=await h.api.loadPlaces(point,'explore');
+    assert.equal(h.calls[0].path,'/api/travel-assistant/discover');
+    assert.deepEqual(JSON.parse(JSON.stringify(h.calls[0].options.body)),{latitude:48.86,longitude:2.35,category:'culture',placeCategoryVersion:3});
+    assert.equal(sightseeing.places[0].category,'museum');
+    assert.equal(sightseeing.attribution,provider==='apple'?'Apple Maps':'© OpenStreetMap contributors');
+    assert.equal(sightseeing.places[0].id,provider==='apple'?'apple/CULTURE_1':'node/101');
+    assert.equal(sightseeing.places[0].sourceUrl,provider==='apple'?'https://maps.apple.com/place?place-id=CULTURE_1':'https://www.openstreetmap.org/node/101');
+    for(const field of ['hours','free','accessible','website'])assert.equal(sightseeing.places[0][field],null,'Unknown provider attributes must not be invented during adaptation');
+    const essentials=await h.api.loadPlaces(point,'needs');
+    assert.equal(h.calls[1].options.body.category,'essentials');assert.equal(essentials.places[0].category,'pharmacy');
+    assert.equal(essentials.attribution,sightseeing.attribution);assert.equal(h.calls.length,2);
+    assert.equal(h.writes,0,'Public map discovery neither stores a quota marker nor writes an AI operation');
+  }
+});
+
+test('The classic adapter shares in-flight work and fresh same-cell results while keeping map modes isolated',async()=>{
+  const h=classicMapAdapter(),waits=[];
+  h.setResponder((_path,options)=>{const wait=deferred();waits.push({wait,body:options.body});return wait.promise;});
+  const first=h.api.loadPlaces({latitude:48.8601,longitude:2.3501},'explore');
+  const same=h.api.loadPlaces({latitude:48.8602,longitude:2.3502},'explore');
+  const other=h.api.loadPlaces({latitude:48.8601,longitude:2.3501},'needs');
+  const completed=Promise.all([first,same,other]);void completed.catch(()=>{});
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(h.calls.length,2);assert.deepEqual(h.calls.map(call=>call.options.body.category),['culture','essentials']);
+  for(const pending of waits)pending.wait.resolve(h.fixture(pending.body));
+  const [a,b,c]=await completed;assert.equal(a,b);
+  assert.equal(a.places[0].category,'museum');assert.equal(c.places[0].category,'pharmacy');
+  await h.api.loadPlaces({latitude:48.8603,longitude:2.3503},'needs');assert.equal(h.calls.length,2,'A fresh same-cell snapshot must avoid another HTTP request');
+  const invalidBefore=h.calls.length;
+  await assert.rejects(h.api.loadPlaces({latitude:'48.86',longitude:2.35},'explore'));
+  await assert.rejects(h.api.loadPlaces({latitude:48.86,longitude:2.35},'culture'));
+  assert.equal(h.calls.length,invalidBefore,'Invalid coordinates and map modes fail before any network work');
+});
+
+test('Discovery failures remain failures on a cold cell and cannot turn into empty successful classic maps',async()=>{
+  for(const kind of ['upstream','malformed','wrong-provider','wrong-category','wrong-cell']){
+    const h=classicMapAdapter();
+    const outage=Object.assign(new Error('Places temporarily unavailable'),{status:503,code:'discovery_unavailable'});
+    h.setResponder((_path,options)=>{
+      if(kind==='upstream')throw outage;
+      if(kind==='malformed')return{error:'provider unavailable'};
+      const result=h.fixture(options.body);
+      if(kind==='wrong-provider')result.attribution='© OpenStreetMap contributors';
+      if(kind==='wrong-category')result.places[0].category='restaurant';
+      if(kind==='wrong-cell')result.center={latitude:52.52,longitude:13.4};
+      return result;
+    });
+    await assert.rejects(h.api.loadPlaces({latitude:48.86,longitude:2.35},'explore'),error=>kind!=='upstream'||error===outage);
+    assert.equal(h.calls.length,1,'Failure must not fall back to the old OSM-only API or an AI route');assert.equal(h.writes,0);
+    h.setResponder((_path,options)=>h.fixture(options.body));
+    assert.equal((await h.api.loadPlaces({latitude:48.86,longitude:2.35},'explore')).places.length,1,'A deliberate retry can recover after failed validation');
+    assert.equal(h.calls.length,2);
+  }
+  const empty=classicMapAdapter();empty.setResponder((_path,options)=>empty.fixture(options.body,{places:[]}));
+  const result=await empty.api.loadPlaces({latitude:48.86,longitude:2.35},'explore');
+  assert.equal(result.places.length,0);assert.equal(result.stale,false);assert.equal(result.attribution,'Apple Maps','A genuine valid empty response stays distinct from a failed request');
+});
+
+test('Classic discovery outage fallback preserves the original provider and date only for the same cell and mode, then expires',async()=>{
+  const h=classicMapAdapter(),point={latitude:48.86,longitude:2.35};
+  const first=await h.api.loadPlaces(point,'explore');h.advance(60000);
+  const outage=Object.assign(new Error('Unavailable'),{status:503});h.setResponder(()=>{throw outage;});
+  const stale=await h.api.loadPlaces({latitude:48.8602,longitude:2.3502},'explore',{refresh:true});
+  assert.equal(stale.stale,true);assert.equal(stale.fetchedAt,first.fetchedAt);assert.equal(stale.attribution,'Apple Maps');assert.equal(stale.places[0].sourceUrl,first.places[0].sourceUrl);
+  await assert.rejects(h.api.loadPlaces(point,'needs'),error=>error===outage);
+  await assert.rejects(h.api.loadPlaces({latitude:52.52,longitude:13.4},'explore'),error=>error===outage);
+  h.advance(6*3600000);
+  await assert.rejects(h.api.loadPlaces(point,'explore'),error=>error===outage,'Expired Apple data cannot be revived during an outage');
+  assert.ok(h.calls.every(call=>call.path==='/api/travel-assistant/discover'));assert.equal(h.writes,0);
+});

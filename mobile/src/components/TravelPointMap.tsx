@@ -3,8 +3,28 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Coordinates, Place } from '../../../lib/travel-assistant/types';
 import { useI18n } from '../lib/i18n';
+import { JourneyMap } from './JourneyMap';
 
-export function TravelPointMap({ center, places, onSelect }: {center:Coordinates; places:Place[]; onSelect:(place:Place)=>void}) {
+type PointMapProps = {center:Coordinates; places:Place[]; onSelect:(place:Place)=>void; ownerId?:string|null};
+
+export function TravelPointMap(props: PointMapProps) {
+  return props.places.some(place => place.id.startsWith('apple/'))
+    ? <ApplePointMap {...props}/> : <OpenStreetPointMap {...props}/>;
+}
+
+function ApplePointMap({ center, places, onSelect, ownerId }: PointMapProps) {
+  const { copy } = useI18n();
+  return <div className="ta-map"><JourneyMap center={center} ownerId={ownerId} stops={[]} discoveredPlaces={places}
+    onSelectPlace={point => { const place = places.find(item => item.id === point.id); if (place) onSelect(place); }}
+    labels={{map:copy('Yakındaki noktalar haritası','Nearby places map','Harta e vendeve pranë'),
+      zoomIn:copy('Yakınlaştır','Zoom in','Zmadho'),zoomOut:copy('Uzaklaştır','Zoom out','Zvogëlo'),
+      tilesUnavailable:copy('Harita yüklenemedi.','Map could not load.','Harta nuk u ngarkua.'),
+      retryTiles:copy('Haritayı tekrar dene','Retry map','Provo hartën përsëri'),
+      stop:(_order,_day,name)=>name,place:name=>name,
+      cluster:count=>copy(`${count} yer`,`${count} places`,`${count} vende`)}}/></div>;
+}
+
+function OpenStreetPointMap({ center, places, onSelect }: PointMapProps) {
   const { copy } = useI18n();
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);

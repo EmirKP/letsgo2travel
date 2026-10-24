@@ -307,8 +307,9 @@ test("actual Vite config: Maps dev target accepts canonical loopback only withou
   });
 });
 
-test("assistant requests: optional host changes only public routes and carries no authentication", async () => {
+test("assistant requests: classic maps use canonical discovery while FX preserves its optional public host without authentication", async () => {
   const assistantFile = fileURLToPath(new URL("../mobile/src/lib/travelAssistant.ts", import.meta.url)).replaceAll("\\", "/");
+  const discoveryFile = fileURLToPath(new URL("../mobile/src/lib/mapJourneyClient.ts", import.meta.url)).replaceAll("\\", "/");
   for (const override of ["", "https://assistant.example.com"]) {
     await withEnv({ VITE_TRAVEL_ASSISTANT_API_BASE_URL: override }, async () => {
       const result = await build({
@@ -317,16 +318,20 @@ test("assistant requests: optional host changes only public routes and carries n
           name: "assistant-routing-fixture", enforce: "pre",
           resolveId(id, importer) {
             if (id === "virtual:assistant-routing-fixture") return id;
-            if (id === "./api" && importer?.replaceAll("\\", "/") === assistantFile) return "virtual:assistant-request-spy";
+            // Both real clients share the same HTTP boundary. Intercept that
+            // boundary for each entry, retaining the discovery adapter and its
+            // validator instead of bundling unrelated browser locale/CSS setup.
+            if (id === "./api" && [assistantFile, discoveryFile].includes(importer?.replaceAll("\\", "/"))) return "virtual:assistant-request-spy";
           },
           load(id) {
             if (id === "virtual:assistant-request-spy") return `export async function requestJson(path, options) {
               globalThis.travelCalls.push({path, options});
               const fetchedAt = new Date().toISOString();
-              if (options?.method === 'POST') return {places:[],center:{latitude:options.body.latitude,longitude:options.body.longitude},fetchedAt,limited:false,radius:3000};
+              if (path === '/api/travel-assistant/discover') return {places:[],center:{latitude:options.body.latitude,longitude:options.body.longitude},fetchedAt,limited:false,radius:3000,attribution:'Apple Maps'};
+              if (!path.endsWith('/api/travel-assistant/rates?base=EUR&quote=TRY')) throw new Error('Unexpected public API request');
               return {base:'EUR',quote:'TRY',rate:1,date:fetchedAt.slice(0,10),previousRate:null,previousDate:null,changePercent:null,fetchedAt,sourceUrl:'https://frankfurter.dev/'};
             }`;
-            if (id === "virtual:assistant-routing-fixture") return `import { loadPlaces, loadQuote } from ${JSON.stringify(assistantFile)}; globalThis.travelReady = (async () => { await loadPlaces({latitude:52.523,longitude:13.405},'needs'); await loadQuote('EUR','TRY'); })();`;
+            if (id === "virtual:assistant-routing-fixture") return `import { loadPlaces, loadQuote } from ${JSON.stringify(assistantFile)}; globalThis.travelReady = (async () => { await loadPlaces({latitude:52.523,longitude:13.405},'needs'); await loadPlaces({latitude:52.523,longitude:13.405},'explore'); await loadQuote('EUR','TRY'); })();`;
           },
         }],
         build: { write: false, rolldownOptions: { input: "virtual:assistant-routing-fixture", output: { format: "iife" } } },
@@ -337,11 +342,19 @@ test("assistant requests: optional host changes only public routes and carries n
       const sandbox = { travelCalls: [], URLSearchParams };
       runInNewContext(entry.code, sandbox);
       await sandbox.travelReady;
-      assert.equal(sandbox.travelCalls[0].path, `${override}/api/travel-assistant/places`);
-      assert.equal(sandbox.travelCalls[1].path, `${override}/api/travel-assistant/rates?base=EUR&quote=TRY`);
-      for (const call of sandbox.travelCalls) assert.equal(call.options.headers, undefined);
-      assert.equal(sandbox.travelCalls[0].options.body.latitude, 52.52);
-      assert.equal(sandbox.travelCalls[0].options.body.longitude, 13.41);
+      assert.equal(sandbox.travelCalls.length, 3, 'Map discovery cannot issue an AI, allowance or legacy OSM-only request');
+      for (const [index, category] of ['essentials', 'culture'].entries()) {
+        const call = sandbox.travelCalls[index];
+        assert.equal(call.path, '/api/travel-assistant/discover', 'Both map modes stay on the main API even when an optional assistant host is configured');
+        assert.equal(call.options.method, 'POST');
+        assert.deepEqual(JSON.parse(JSON.stringify(call.options.body)), { latitude: 52.52, longitude: 13.41, category, placeCategoryVersion: 3 });
+      }
+      assert.equal(sandbox.travelCalls[2].path, `${override}/api/travel-assistant/rates?base=EUR&quote=TRY`);
+      for (const call of sandbox.travelCalls) {
+        assert.equal(call.options.headers, undefined);
+        assert.equal(call.options.credentials, undefined);
+        assert.equal(call.options.accessToken, undefined);
+      }
     });
   }
 });

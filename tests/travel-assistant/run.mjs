@@ -163,6 +163,66 @@ test('Map responses reject wrong cells, unsafe points, old data and malformed ti
   assert.equal(validatePlaces({...result,places:[place,place]},berlin,'needs',fixedNow),null);
   assert.equal(validatePlaces({...result,places:[place]},berlin,'explore',fixedNow),null);
 });
+
+function appleMapPlace(fields={}) {
+  return { ...berlin, id:'apple/BERLIN_MUSEUM_1',category:'museum',name:'Museum on Apple Maps',description:null,
+    hours:null,free:null,accessible:null,website:null,representedCountry:null,
+    sourceUrl:'https://maps.apple.com/place?place-id=BERLIN_MUSEUM_1',fetchedAt:new Date(fixedNow).toISOString(),...fields };
+}
+
+test('Classic map validation preserves exact Apple identities and derives provenance without changing legacy OSM results',()=>{
+  const apple=appleMapPlace(),raw={...resultAt(),places:[apple],attribution:'Apple Maps'};
+  const checked=validatePlaces(raw,berlin,'explore',fixedNow);
+  assert.ok(checked);assert.equal(checked.attribution,'Apple Maps');
+  assert.equal(checked.places[0].id,apple.id);assert.equal(checked.places[0].sourceUrl,apple.sourceUrl);
+  assert.equal(checked.places[0].free,null);assert.equal(checked.places[0].hours,null);
+  const withoutLabel={...raw};delete withoutLabel.attribution;
+  assert.equal(validatePlaces(withoutLabel,berlin,'explore',fixedNow)?.attribution,'Apple Maps','An exact source identity also identifies an older unlabelled Apple snapshot');
+  const osm=normalizePlaces({elements:[{type:'node',id:123,lat:berlin.latitude,lon:berlin.longitude,tags:{tourism:'museum',name:'OSM museum'}}]},'explore',raw.fetchedAt)[0];
+  const legacy=validatePlaces({...resultAt(),places:[osm]},berlin,'explore',fixedNow);
+  assert.ok(legacy);assert.equal(legacy.attribution,'© OpenStreetMap contributors');assert.equal(legacy.places[0].id,'node/123');
+  assert.equal(validatePlaces({...resultAt(),attribution:'Apple Maps'},berlin,'explore',fixedNow)?.attribution,'Apple Maps','A legitimate empty result retains the declared provider');
+});
+
+test('Classic maps reject cross-provider labels, forged source links and substituted identities',()=>{
+  const apple=appleMapPlace(),base={...resultAt(),places:[apple],attribution:'Apple Maps'};
+  for(const change of [
+    {id:'apple/OTHER_ID'},
+    {sourceUrl:'https://maps.apple.com/place?place-id=OTHER_ID'},
+    {sourceUrl:`${apple.sourceUrl}&q=substituted`},
+    {sourceUrl:'https://maps.apple.com/place?coordinate=52.52,13.4'},
+    {sourceUrl:'https://maps.apple.com.evil.test/place?place-id=BERLIN_MUSEUM_1'},
+    {id:'node/123',sourceUrl:'https://www.openstreetmap.org/node/123'},
+  ])assert.equal(validatePlaces({...base,places:[{...apple,...change}]},berlin,'explore',fixedNow),null,JSON.stringify(change));
+  assert.equal(validatePlaces({...base,attribution:'© OpenStreetMap contributors'},berlin,'explore',fixedNow),null);
+  assert.equal(validatePlaces({...base,attribution:'Unverified map provider'},berlin,'explore',fixedNow),null);
+  const osm={...apple,id:'node/123',sourceUrl:'https://www.openstreetmap.org/node/123'};
+  assert.ok(validatePlaces({...resultAt(),places:[osm],attribution:'© OpenStreetMap contributors'},berlin,'explore',fixedNow));
+  assert.equal(validatePlaces({...resultAt(),places:[osm],attribution:'Apple Maps'},berlin,'explore',fixedNow),null);
+  assert.equal(validatePlaces({...resultAt(),places:[osm,apple]},berlin,'explore',fixedNow),null,'A single-provider response cannot silently mix Apple and OSM attribution');
+  assert.equal(validatePlaces({...resultAt(),places:[{...osm,id:'node/9007199254740992',sourceUrl:'https://www.openstreetmap.org/node/9007199254740992'}]},berlin,'explore',fixedNow),null);
+});
+
+test('Apple map support does not loosen radius, category, duplicate, timestamp or coarse-cell validation',()=>{
+  const apple=appleMapPlace(),base={...resultAt(),places:[apple],attribution:'Apple Maps'};
+  for(const change of [
+    {latitude:48.86,longitude:2.35},
+    {category:'pharmacy'},
+    {category:'restaurant'},
+    {fetchedAt:new Date(fixedNow-1).toISOString()},
+    {latitude:'52.52'},
+    {website:'javascript:alert(1)'},
+  ])assert.equal(validatePlaces({...base,places:[{...apple,...change}]},berlin,'explore',fixedNow),null,JSON.stringify(change));
+  for(const change of [
+    {radius:5000},{limited:'false'},{stale:'true'},
+    {center:{latitude:52.53,longitude:13.4}},
+    {fetchedAt:'2026-02-30T12:00:00.000Z'},
+    {places:[apple,apple]},
+    {places:Array.from({length:251},(_,index)=>appleMapPlace({id:`apple/ID_${index}`,sourceUrl:`https://maps.apple.com/place?place-id=ID_${index}`}))},
+  ])assert.equal(validatePlaces({...base,...change},berlin,'explore',fixedNow),null);
+  const pharmacy=appleMapPlace({category:'pharmacy'});
+  assert.ok(validatePlaces({...base,places:[pharmacy]},berlin,'needs',fixedNow));
+});
 test('Offline map fallback is bounded to one result, its original time, mode and coarse cell',async()=>{
   let fail=false,now=fixedNow;
   const load=createPlacesLoader(async center=>{if(fail)throw Error('offline');return resultAt(now,center);},()=>now);

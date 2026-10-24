@@ -1,6 +1,6 @@
 import { dateStamp } from './evidence';
 import { CURRENCIES } from './money';
-import { coordinates, coarseLocation, NEEDS, TOURING, safeWebsite } from './places';
+import { coordinates, coarseLocation, distanceKm, NEEDS, TOURING, safeWebsite, validJourneyPlaceSource } from './places';
 import type { Coordinates, FxQuote, MapMode, Place, PlacesResult } from './types';
 
 export const PLACES_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -26,23 +26,29 @@ export function validatePlaces(raw: unknown, center: Coordinates, mode: MapMode,
     || value.radius !== 3000 || typeof value.limited !== 'boolean'
     || (value.stale !== undefined && typeof value.stale !== 'boolean')
     || !Array.isArray(value.places) || value.places.length > 250) return null;
+  if (value.attribution !== undefined && value.attribution !== 'Apple Maps' && value.attribution !== '© OpenStreetMap contributors') return null;
+  let attribution = value.attribution;
   const ids = new Set<string>();
   const places: Place[] = [];
   for (const p of value.places) {
     if (!p || !coordinates(p) || !(mode === 'needs' ? NEEDS : TOURING).includes(p.category)
-      || typeof p.id !== 'string' || !/^(node|way|relation)\/[1-9]\d*$/.test(p.id) || ids.has(p.id)
-      || p.sourceUrl !== `https://www.openstreetmap.org/${p.id}` || p.fetchedAt !== value.fetchedAt
+      || !validJourneyPlaceSource(p.id, p.sourceUrl) || ids.has(p.id) || distanceKm(point, p) > 3.1
+      || p.fetchedAt !== value.fetchedAt
       || !text(p.name, 180) || !nullableText(p.description, 500) || !nullableText(p.hours, 180)
       || !nullableBool(p.free) || !nullableBool(p.accessible)
       || !(p.website === null || safeWebsite(p.website))
       || !(p.representedCountry === null || typeof p.representedCountry === 'string' && /^[A-Z]{2}$/.test(p.representedCountry))) return null;
+    const source = p.id.startsWith('apple/') ? 'Apple Maps' : '© OpenStreetMap contributors';
+    if (attribution !== undefined && attribution !== source) return null;
+    attribution = source;
     ids.add(p.id);
     places.push({ id: p.id, category: p.category, name: p.name, description: p.description, hours: p.hours,
       free: p.free, accessible: p.accessible, website: p.website, representedCountry: p.representedCountry,
       latitude: p.latitude, longitude: p.longitude, sourceUrl: p.sourceUrl, fetchedAt: p.fetchedAt });
   }
   return { center: point, places, fetchedAt: value.fetchedAt, radius: 3000, limited: value.limited,
-    stale: value.stale === true || now - fetched >= PLACES_REFRESH_MS };
+    stale: value.stale === true || now - fetched >= PLACES_REFRESH_MS,
+    attribution: attribution || '© OpenStreetMap contributors' };
 }
 
 export function validateQuote(raw: unknown, base: string, quote: string, now = Date.now()): FxQuote | null {
