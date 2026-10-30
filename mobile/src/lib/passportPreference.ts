@@ -1,4 +1,4 @@
-import { PASSPORTS, passportStatus } from "../../../lib/country-intelligence/passports";
+import { PASSPORTS, passportStatus, passportEntry } from "../../../lib/country-intelligence/passports";
 import type { VisaStatus } from "../types";
 import { translateCopy, type AppLocale } from './locale';
 
@@ -33,7 +33,9 @@ const LABELS: Record<VisaStatus, [string, string]> = {
   free: ["Vizesiz", "Visa-free"], id_card: ["Kimlikle", "ID card"], required: ["Vize gerekli", "Visa required"],
   evisa: ["e-Vize", "e-Visa"], on_arrival: ["Kapıda vize", "Visa on arrival"], unknown: ["Bilinmiyor", "Unknown"],
 };
-export function preferredEntry(preference: { country: string; type: string }, destination: string, locale: AppLocale) {
-  const status = passportStatus(preference.country, preference.type, destination);
-  return { status, label: translateCopy(locale, ...LABELS[status]), visaFree: status === "free" || status === "id_card" };
+export function preferredEntry(preference: { country: string; type: string }, destination: string, locale: AppLocale, travelDate?: string) {
+  const status = passportStatus(preference.country, preference.type, destination, travelDate);
+  const entry = passportEntry(preference.country, preference.type, destination, travelDate);
+  const upcoming = entry.upcoming ? translateCopy(locale, ' · 1 Kasım 2026’dan itibaren vize gerekli', ' · Visa required from 1 November 2026', ' · Vizë nga 1 nëntori 2026') : '';
+  return { status, label: translateCopy(locale, ...LABELS[status]) + upcoming, visaFree: status === "free" || status === "id_card" };
 }

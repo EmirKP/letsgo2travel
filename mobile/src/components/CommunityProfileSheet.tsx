@@ -27,6 +27,12 @@ type ProfileSheetProps = {
   onOpenQuestion: (id: string) => void;
   onOpenAccount: () => void;
   onEditProfile: () => void;
+  identityFullName?: string;
+  identityNeedsCompletion?: boolean;
+  onSaveIdentity?: (fullName: string, username: string) => Promise<void>;
+  editRequest?: number;
+  onEditRequestHandled?: () => void;
+  onEditingChange?: (editing: boolean) => void;
   onSafety?: (target: CommunitySafetyTarget) => void;
   onFollowChanged?: () => void;
   onProfileChanged?: () => void;
@@ -77,7 +83,7 @@ function ProfileNavigation(props: ProfileSheetProps & { profileKey: string }) {
 
 type SectionState = Pick<CommunityProfilePage, "items" | "nextOffset">;
 
-function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked, inline = false, externalRevision = 0 }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void; inline?: boolean; externalRevision?: number }) {
+function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpenQuestion, onOpenAccount, onEditProfile, identityFullName = "", identityNeedsCompletion = false, onSaveIdentity, editRequest = 0, onEditRequestHandled, onEditingChange, onSafety, onFollowChanged, onProfileChanged, onAddPlace, onBlocked, inline = false, externalRevision = 0 }: ProfileSheetProps & { profileKey: string; onOpenProfile: (key: string) => void; inline?: boolean; externalRevision?: number }) {
   const { copy, dateLocale } = useI18n();
   const id = useId();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
@@ -94,6 +100,8 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [showAvatar, setShowAvatar] = useState(false);
   const [saved, setSaved] = useState(false);
   const alive = useRef(false);
@@ -102,6 +110,12 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   const moreRequest = useRef<AbortController | null>(null);
   const metadataRevision = useRef(0);
   const readGeneration = useRef(0);
+  const handledEditRequest = useRef(0);
+  const editorActive = editing || editRequest > 0;
+  useEffect(() => {
+    onEditingChange?.(editorActive);
+    return () => onEditingChange?.(false);
+  }, [editorActive, onEditingChange]);
 
   useEffect(() => {
     alive.current = true;
@@ -185,11 +199,28 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
 
   const saveBio = async () => {
     if (!profile?.isOwn || profile.userId !== userId || !accessToken || pending.current) return;
+    const normalizedName = fullName.replace(/\s+/g, " ").trim();
+    const normalizedUsername = username.trim().toLowerCase();
+    if (onSaveIdentity && (normalizedName.length < 2 || normalizedName.length > 100)) {
+      setMutationError(copy("Ad soyad 2–100 karakter arasında olmalı.", "Full name must be between 2 and 100 characters.", "Emri i plotë duhet të ketë nga 2 deri në 100 karaktere."));
+      return;
+    }
+    if (onSaveIdentity && !/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
+      setMutationError(copy("Kullanıcı adı 3–20 karakter olmalı; küçük harf, rakam ve alt çizgi kullan.", "Username must be 3–20 characters; use lowercase letters, numbers and underscores.", "Emri i përdoruesit duhet të ketë 3–20 karaktere; përdor shkronja të vogla, numra dhe nënviza."));
+      return;
+    }
     pending.current = true;
     ++metadataRevision.current;
     setBusy(true);
     setMutationError("");
+    let identityCommitted = false;
     try {
+      if (onSaveIdentity && (identityNeedsCompletion || normalizedName !== identityFullName.replace(/\s+/g, " ").trim() || normalizedUsername !== profile.username)) {
+        await onSaveIdentity(normalizedName, normalizedUsername);
+        if (!alive.current) return;
+        identityCommitted = true;
+        setProfile(previous => previous ? { ...previous, username: normalizedUsername } : previous);
+      }
       const result = await saveCommunityProfileBio(profileKey, bio.trim(), showAvatar, accessToken, mutations.current?.signal);
       if (!alive.current) return;
       setProfile(previous => previous ? { ...previous, bio: result.bio, showAvatar: result.showAvatar, avatarUrl: result.showAvatar ? previous.avatarUrl : null } : previous);
@@ -198,7 +229,10 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
       onProfileChanged?.();
     } catch (error) {
       if (alive.current) {
-        setMutationError(copy("Profil kaydedilemedi. Yazdıkların burada duruyor; tekrar deneyebilirsin.", "Profile not saved. Your changes are still here; try again.", "Profili nuk u ruajt. Ndryshimet e tua janë këtu; provo sërish."));
+        setMutationError(identityCommitted
+          ? copy("Adın ve kullanıcı adın kaydedildi. Diğer değişiklikler tamamlanamadı; yazdıkların burada duruyor, tekrar deneyebilirsin.", "Your name and username were saved. The other changes could not be completed; your draft is still here, so you can retry.", "Emri dhe emri i përdoruesit u ruajtën. Ndryshimet e tjera nuk përfunduan; shkrimi yt është këtu, mund të provosh sërish.")
+          : onSaveIdentity && error instanceof Error && !(error instanceof ApiError) ? error.message
+          : copy("Profil kaydedilemedi. Yazdıkların burada duruyor; tekrar deneyebilirsin.", "Profile not saved. Your changes are still here; try again.", "Profili nuk u ruajt. Ndryshimet e tua janë këtu; provo sërish."));
         if (error instanceof ApiError && error.status === 401) onOpenAccount();
       }
     } finally {
@@ -207,7 +241,21 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
   };
 
   const ownProfile = !!profile?.isOwn && profile.userId === userId;
-  const hasUnsavedEdits = !!profile && (bio.trim() !== profile.bio || showAvatar !== (profile.showAvatar === true));
+  const hasUnsavedEdits = !!profile && (bio.trim() !== profile.bio || showAvatar !== (profile.showAvatar === true) || !!onSaveIdentity && (fullName.replace(/\s+/g, " ").trim() !== identityFullName.replace(/\s+/g, " ").trim() || username.trim().toLowerCase() !== profile.username));
+  const photoNeedsSave = !inline && hasUnsavedEdits;
+  useEffect(() => {
+    if (!editRequest) { handledEditRequest.current = 0; return; }
+    if (!ownProfile || !profile || handledEditRequest.current === editRequest) return;
+    handledEditRequest.current = editRequest;
+    setFullName(identityFullName);
+    setUsername(profile.username);
+    setBio(profile.bio);
+    setShowAvatar(profile.showAvatar === true);
+    setMutationError("");
+    setSaved(false);
+    setEditing(true);
+    onEditRequestHandled?.();
+  }, [editRequest, ownProfile, profile, identityFullName, onEditRequestHandled]);
   const page = pages[section];
   const title = gallery ? copy("Gönderiler", "Posts", "Postimet") : section === "posts" ? copy("Forum", "Forum", "Forumi") : section === "answers" ? copy("Cevaplar", "Answers", "Përgjigjet") : section === "followers" ? copy("Takipçiler", "Followers", "Ndjekësit") : copy("Takip edilenler", "Following", "Të ndjekurit");
   const empty = section === "posts" ? copy("Henüz bir paylaşım yok.", "No posts yet.", "Nuk ka ende postime.") : section === "answers" ? copy("Henüz bir cevap yok.", "No answers yet.", "Nuk ka ende përgjigje.") : section === "followers" ? copy("Henüz takipçi yok.", "No followers yet.", "Nuk ka ende ndjekës.") : copy("Henüz kimseyi takip etmiyor.", "Not following anyone yet.", "Nuk ndjek ende askënd.");
@@ -246,19 +294,25 @@ function ProfileContent({ profileKey, accessToken, userId, onOpenProfile, onOpen
           {profile.bio && <p className="community-profile-bio">{profile.bio}</p>}
         </div>
         <div className="community-profile-actions">
-          {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={18} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
+          {ownProfile ? <button className="community-profile-edit" type="button" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(value => !value); setFullName(identityFullName); setUsername(profile.username); setBio(profile.bio); setShowAvatar(profile.showAvatar === true); setMutationError(""); setSaved(false); }}><Icon name="user" size={18} />{copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button>
             : <button className={`community-profile-follow${profile.isFollowing ? " is-following" : ""}`} type="button" aria-pressed={profile.isFollowing} disabled={busy} onClick={() => void follow()}><Icon name={profile.isFollowing ? "check" : "plus"} size={18} />{busy ? copy("Güncelleniyor…", "Updating…", "Po përditësohet…") : profile.isFollowing ? copy("Takip ediliyor", "Following", "Po e ndjek") : copy("Takip et", "Follow", "Ndiq")}</button>}
           {onSafety && profile.safetyTarget && !ownProfile && <button type="button" className="community-profile-options" onClick={() => onSafety(profile.safetyTarget!)} aria-label={copy("Kullanıcı seçenekleri", "User options", "Opsionet e përdoruesit")}><span aria-hidden="true">•••</span></button>}
         </div>
       </div>
       {ownProfile && <button type="button" className="primary-wide community-profile-share" onClick={() => setCompose(true)}><Icon name="camera" size={20}/>{copy("Gönderi paylaş", "Share a post", "Ndaj një postim")}</button>}
       {editing && ownProfile && <form className="community-profile-editor" onSubmit={event => { event.preventDefault(); void saveBio(); }}>
+        {onSaveIdentity && <>
+          <label htmlFor={`${id}-full-name`}>{copy("Ad soyad", "Full name", "Emri i plotë")}</label>
+          <input id={`${id}-full-name`} type="text" value={fullName} minLength={2} maxLength={100} autoComplete="name" disabled={busy} onChange={event => setFullName(event.target.value)}/>
+          <label htmlFor={`${id}-username`}>{copy("Kullanıcı adı", "Username", "Emri i përdoruesit")}</label>
+          <input id={`${id}-username`} type="text" value={username} minLength={3} maxLength={20} autoCapitalize="none" autoComplete="username" spellCheck={false} disabled={busy} onChange={event => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20))}/>
+        </>}
         <label htmlFor={`${id}-bio`}>{copy("Hakkımda", "About me", "Rreth meje")}</label>
         <textarea id={`${id}-bio`} value={bio} maxLength={300} rows={3} disabled={busy} onChange={event => setBio(event.target.value)} placeholder={copy("Seyahat tarzından ve sevdiğin yerlerden bahset…", "Share your travel style and favourite places…", "Trego stilin e udhëtimit dhe vendet e tua të preferuara…")} />
         <small>{bio.length}/300</small>
         <label className="community-profile-photo-choice"><input type="checkbox" checked={showAvatar} disabled={busy} onChange={event => setShowAvatar(event.target.checked)} /><span>{copy("Profil fotoğrafımı toplulukta göster", "Show my profile photo in the community", "Shfaq foton time të profilit në komunitet")}</span></label>
-        <button type="button" className="community-profile-photo-edit" disabled={busy || hasUnsavedEdits} aria-describedby={hasUnsavedEdits ? `${id}-photo-hint` : undefined} onClick={onEditProfile}><Icon name="camera" size={18} />{copy("Profil fotoğrafını değiştir", "Change profile photo", "Ndrysho foton e profilit")}</button>
-        {hasUnsavedEdits && <p id={`${id}-photo-hint`} className="community-profile-editor-hint">{copy("Fotoğraf ekranına geçmeden önce değişikliklerini kaydet veya vazgeç.", "Save or cancel your changes before opening the photo editor.", "Ruaj ose anulo ndryshimet para se të hapësh redaktuesin e fotos.")}</p>}
+        <button type="button" className="community-profile-photo-edit" disabled={busy || photoNeedsSave} aria-describedby={photoNeedsSave ? `${id}-photo-hint` : undefined} onClick={onEditProfile}><Icon name="camera" size={18} />{copy("Profil fotoğrafını değiştir", "Change profile photo", "Ndrysho foton e profilit")}</button>
+        {photoNeedsSave && <p id={`${id}-photo-hint`} className="community-profile-editor-hint">{copy("Fotoğraf ekranına geçmeden önce değişikliklerini kaydet veya vazgeç.", "Save or cancel your changes before opening the photo editor.", "Ruaj ose anulo ndryshimet para se të hapësh redaktuesin e fotos.")}</p>}
         <div className="community-profile-editor-actions"><button type="submit" disabled={busy}>{busy ? copy("Kaydediliyor…", "Saving…", "Po ruhet…") : copy("Kaydet", "Save", "Ruaj")}</button><button type="button" disabled={busy} onClick={() => { setEditing(false); setMutationError(""); }}>{copy("Vazgeç", "Cancel", "Anulo")}</button></div>
       </form>}
       {saved && <p className="community-profile-notice" role="status">{copy("Profilin güncellendi.", "Your profile was updated.", "Profili yt u përditësua.")}</p>}

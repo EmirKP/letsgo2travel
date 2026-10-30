@@ -142,3 +142,33 @@
   box-shadow: none;
 }
 .saved-route-updated{display:block;margin-top:6px;color:var(--theme-muted,#64748b);font-size:12px;line-height:1.5}
+.plans-library .plans-shared-entry { margin: 0 0 18px; padding: 17px; border: 1px solid var(--theme-border, #cce1f7); border-radius: 20px; background: var(--theme-soft, #eef7ff); }
+.plans-shared-entry > div:first-child { display: flex; align-items: center; gap: 12px; }
+.plans-shared-entry h2 { margin: 0; color: var(--theme-ink, #093459); font-size: 21px; }
+.plans-shared-entry p { margin: 5px 0 0; color: var(--theme-muted, #536b83); font-size: 12px; line-height: 1.5; }
+.plans-shared-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.plans-shared-actions button, .plans-shared-open { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px; padding: 10px; border: 1px solid var(--theme-border, #bfd6f0); border-radius: 12px; background: var(--theme-surface, #fff); color: var(--theme-ink, #093459); font-size: 12px; font-weight: 750; }
+.plans-shared-actions button:first-child { background: var(--brand-yellow, #ffda24); color: #091832; border-color: transparent; }
+.plans-shared-open { margin: 10px auto 0; min-height: 38px; padding: 7px; background: transparent; border: 0; color: var(--theme-link, #0875e7); }
+.plans-library .saved-travel-tools:has(.trip-collaboration-hub) { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.plans-library .trip-collaboration-hub { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+@media(max-width: 359px) { .plans-shared-actions { grid-template-columns: 1fr; } }
+
+/* Primary destinations and saved collections are visible before inspiration. */
+.plans-library .plans-page-heading { margin-bottom: 17px; }
+.plans-library .plans-new-route { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: none; min-height: 44px; padding: 10px 12px; border: 0; border-radius: 13px; background: #ffda24; color: #091832; font: inherit; font-size: 12px; font-weight: 750; }
+.plans-primary-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-bottom: 22px; }
+.plans-primary-actions > button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 94px; padding: 11px 7px; border: 1px solid var(--theme-border,#dce8f7); border-radius: 17px; background: var(--theme-soft,#f4f8ff); color: var(--theme-ink,#091832); text-align: center; }
+.plans-primary-actions > button > svg { flex: none; }
+.plans-primary-actions strong { font-size: 11px; line-height: 1.4; overflow-wrap: normal; word-break: normal; }
+.plans-library .plans-section-heading { margin-bottom: 12px; }
+.plans-library #plans-collections-title { scroll-margin-top: 92px; }
+.plans-library .plans-category-grid { gap: 10px; margin-bottom: 20px; }
+.plans-library .plans-category-picture { height: 57px; }
+.plans-library .plans-category-icon { width: 40px; height: 40px; bottom: -10px; left: 10px; }
+.plans-library .plans-category-copy { gap: 4px; padding: 17px 11px 11px; }
+.plans-library .plans-category-title strong { font-size: 14px; }
+.plans-library .plans-category-copy > small { font-size: 10px; }
+.plans-library .plans-category-copy > em { font-size: 9px; }
+.plans-library .plans-primary-actions button:focus-visible,.plans-library .plans-new-route:focus-visible { outline: 3px solid var(--theme-link,#0066ff); outline-offset: 3px; }
+@media(min-width:600px) { .plans-library .plans-category-picture { height: 82px; } .plans-library .plans-category-copy { padding: 19px 15px 14px; } .plans-primary-actions strong { font-size: 13px; } }

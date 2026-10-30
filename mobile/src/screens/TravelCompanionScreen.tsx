@@ -1,32 +1,25 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
-import { TravelToolArtwork } from "../components/TravelToolArtwork";
-import { PageHero } from "../components/PageHero";
+import { CompanionShortcutArtwork } from "../components/CompanionShortcutArtwork";
 import { CountryPicker } from "../components/CountryPicker";
+import type { Coordinates, PointCategory } from "../../../lib/travel-assistant/types";
 import { COUNTRY_LIST } from "../data/countries";
 import { alpha2FromAlpha3, flagEmoji } from "../data/countryIso";
 import { TRAVEL_ESSENTIALS, essentialProfile, fallbackEssentialProfile } from "../data/travelEssentials";
-import { getTravelNow } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { openExternal } from "../lib/native";
 import { readTravelCountry, selectTravelCountry } from "../lib/travelSelection";
-import { nearbyEventContext, type EventSearchContext } from "../lib/eventSearchContext";
+import { type EventSearchContext } from "../lib/eventSearchContext";
 import { EvidenceLine } from "../components/TravelSafety";
-import type { TravelNowResult, ViewId } from "../types";
+import type { ViewId } from "../types";
 import type { TravelAssistantTool } from "../lib/appTools";
 import "./companion-usability.css";
 import "../components/feature-entry-artwork.css";
 
 const TravelAssistant = lazy(() => import("../components/TravelAssistant").then(m => ({ default: m.TravelAssistant })));
 
+const MapNearbyIdeas=lazy(()=>import('../components/MapNearbyIdeas').then(m=>({default:m.MapNearbyIdeas})));
+
 type CompanionTab = "assistant" | "now" | "phrases" | "etiquette";
-type NowState = {
-  key: string;
-  loading: boolean;
-  location: { latitude: number; longitude: number } | null;
-  result: TravelNowResult | null;
-  error: string;
-};
 
 const SPEECH_LANG: Record<string, string> = {
   XK: "sq-AL", AL: "sq-AL", BA: "bs-BA", RS: "sr-RS", DE: "de-DE", IT: "it-IT", FR: "fr-FR",
@@ -37,7 +30,7 @@ const SPEECH_LANG: Record<string, string> = {
 const LANGUAGE_NAMES_SQ: Record<string, string> = {"Albanian": "Shqip", "German": "Gjermanisht", "Italian": "Italisht", "French": "Frëngjisht", "Spanish": "Spanjisht", "Japanese": "Japonisht", "Thai": "Tajlandisht", "English": "Anglisht", "Bosnian": "Boshnjakisht", "Serbian": "Serbisht", "Portuguese": "Portugalisht", "Dutch": "Holandisht", "Greek": "Greqisht", "Korean": "Koreanisht", "Arabic": "Arabisht", "Georgian": "Gjeorgjisht", "Azerbaijani": "Azerbajxhanisht", "English emergency fallback": "Fraza urgjence në anglisht"};
 const PHRASE_MEANINGS_SQ: Record<string, string> = {"help": "Kam nevojë për ndihmë.", "hospital": "Duhet të shkoj në spital.", "allergy": "A ka alergjenë në këtë ushqim?", "airport": "Dua të shkoj në aeroport.", "bill": "A mund ta marr faturën, ju lutem?", "hello": "Përshëndetje.", "police": "Telefononi policinë.", "directions": "Si mund të shkoj këtu?", "price": "Sa kushton kjo?"};
 
-export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', onOpenEvents, onNotice, accessToken, onSignIn, ownerId }: {
+export function TravelCompanionScreen({ initialTab = "assistant", initialTool, initialCountry = '', onOpenEvents, onNavigate, onNotice, accessToken, onSignIn, ownerId }: {
   initialTab?: CompanionTab;
   initialTool?: TravelAssistantTool;
   initialCountry?: string;
@@ -51,24 +44,11 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
   const { locale, copy, countryName } = useI18n();
   const [tab, setTab] = useState<CompanionTab>(initialTab);
   const [countryCode, setCountryCode] = useState(() => initialCountry || readTravelCountry());
-  const [budget, setBudget] = useState<"free" | "low" | "flexible">("low");
-  const [interest, setInterest] = useState<"culture" | "food" | "outdoors" | "calm">("culture");
-  const [eventsLocating, setEventsLocating] = useState(false);
-  const eventsRequestId = useRef(0);
-  const nowKey = `${tab}:${budget}:${interest}:${locale}`;
-  const [nowState, setNowState] = useState<NowState>({ key: "", loading: false, location: null, result: null, error: "" });
-  const activeNowRequest = useRef<{ key: string } | null>(null);
-  // Key the visible state as well as fencing callbacks: even the first render
-  // after a selection/language change cannot show the previous recommendation.
-  const { loading, location, result, error } = nowState.key === nowKey
-    ? nowState : { loading: false, location: null, result: null, error: "" };
-  useEffect(() => {
-    // Leaving the section or changing its inputs also abandons a pending GPS
-    // callback, so it cannot launch a weather request for the old selection.
-    setNowState({ key: nowKey, loading: false, location: null, result: null, error: "" });
-    setEventsLocating(false);
-    return () => { activeNowRequest.current = null; eventsRequestId.current++; };
-  }, [nowKey]);
+  const [requestedTool,setRequestedTool]=useState<{tool:TravelAssistantTool|undefined;id:number}|null>(null);
+  const toolRequestId=useRef(0);
+  const [activeTool,setActiveTool]=useState<TravelAssistantTool|null>(initialTool||null);
+  const [nearbySearch,setNearbySearch]=useState<{id:number;query:string;center:Coordinates;category?:PointCategory}>();
+  const nearbySearchId=useRef(0);
   const supportedProfiles = useMemo(() => new Map(TRAVEL_ESSENTIALS.map((item) => [item.code, item])), []);
   const countryOptions = useMemo(() => COUNTRY_LIST.map((country) => {
     const code = alpha2FromAlpha3(country.alpha3);
@@ -88,6 +68,7 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     || fallbackEssentialProfile(countryCode, selectedCountry?.name || countryCode, flagEmoji(countryCode)), [countryCode, selectedCountry?.name]);
 
   useEffect(() => setTab(initialTab), [initialTab]);
+  useEffect(()=>setRequestedTool(null),[initialTool,initialTab]);
   useEffect(() => {
     if (!initialCountry) return;
     setCountryCode(initialCountry);
@@ -109,8 +90,15 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
   const openSection = (item: CompanionTab) => {
     const selected = readTravelCountry();
     if (selected) setCountryCode(selected);
+    if(item==='assistant')setRequestedTool({tool:undefined,id:++toolRequestId.current});
     setTab(item);
     focusSection(item);
+  };
+  const openCountryGuide=()=>{
+    const selected=readTravelCountry();
+    if(selected)setCountryCode(selected);
+    setRequestedTool({tool:'guide',id:++toolRequestId.current});
+    setTab('assistant');
   };
 
   const tabLabel = (value: CompanionTab) => ({
@@ -125,55 +113,6 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     phrases: copy("Konuş, kopyala veya dinlet. İfadeler internetsiz de yanında.", "Read, copy or play a phrase. The cards work offline too."),
     etiquette: copy("Yerel alışkanlıkları ve dikkat etmen gerekenleri öğren.", "Get to know local customs and useful guidance."),
   })[value];
-  const tabArtwork = (value: CompanionTab) => ({ assistant: "explore", now: "explore", phrases: "translate", etiquette: "guide" } as const)[value];
-
-  const locate = () => {
-    if (activeNowRequest.current?.key === nowKey) return;
-    const request = { key: nowKey };
-    activeNowRequest.current = request;
-    const current = () => activeNowRequest.current === request;
-    const fail = (message: string) => {
-      if (!current()) return;
-      activeNowRequest.current = null;
-      setNowState({ key: nowKey, loading: false, location: null, result: null, error: message });
-    };
-    if (!navigator.geolocation) {
-      fail(copy("Bu cihaz konum paylaşımını desteklemiyor.", "This device does not support location sharing."));
-      return;
-    }
-    setNowState({ key: nowKey, loading: true, location: null, result: null, error: "" });
-    try {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        if (!current()) return;
-        // Hava ve yakındaki arama için hassas GPS gerekmez. Cihazdan çıktığı
-        // anda ~1 km düzeyine yuvarlayarak yalnız yaklaşık konumla devam et.
-        const coordinates = {
-          latitude: Math.round(position.coords.latitude * 100) / 100,
-          longitude: Math.round(position.coords.longitude * 100) / 100,
-        };
-        try {
-          const response = await getTravelNow({ ...coordinates, budget, interest, locale });
-          if (!current()) return;
-          activeNowRequest.current = null;
-          setNowState({ key: nowKey, loading: false, location: coordinates, result: response.data, error: "" });
-        } catch {
-          fail(copy("Anlık öneri hazırlanamadı. İnternet bağlantını kontrol et.", "Your live suggestion could not be prepared. Check your connection."));
-        }
-      }, (geolocationError) => {
-        fail(geolocationError.code === 1
-          ? copy("Konum izni verilmedi. Ayarlardan yalnızca uygulamayı kullanırken izin verebilirsin.", "Location permission was denied. You can allow it only while using the app in Settings.")
-          : copy("Konumun belirlenemedi. Açık bir alanda tekrar dene.", "Your location could not be determined. Try again in an open area."));
-      }, { enableHighAccuracy: false, timeout: 12_000, maximumAge: 10 * 60 * 1000 });
-    } catch {
-      fail(copy("Konumun belirlenemedi. Açık bir alanda tekrar dene.", "Your location could not be determined. Try again in an open area."));
-    }
-  };
-
-  const openMap = (query: string) => {
-    if (!location) return;
-    const mapQuery = encodeURIComponent(`${query} near ${location.latitude.toFixed(5)},${location.longitude.toFixed(5)}`);
-    void openExternal(`https://www.google.com/maps/search/?api=1&query=${mapQuery}`);
-  };
 
   const copyPhrase = async (value: string) => {
     try {
@@ -182,21 +121,6 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     } catch {
       onNotice(copy("İfade kopyalanamadı.", "Phrase could not be copied."));
     }
-  };
-
-  const openNearbyEvents = async () => {
-    if (!location || eventsLocating) return;
-    const requestId = ++eventsRequestId.current;
-    setEventsLocating(true);
-    try {
-      const context = await nearbyEventContext(location);
-      if (requestId !== eventsRequestId.current) return;
-      if (onOpenEvents) onOpenEvents(context);
-      else onNotice(copy("Etkinlik Radarı'nda ülkeni ve şehrini seç.", "Choose your country and city in Event Radar.", "Zgjidh shtetin dhe qytetin te Radari i Aktiviteteve."));
-    } catch {
-      if (requestId !== eventsRequestId.current) return;
-      onNotice(copy("Etkinlik konumu belirlenemedi. Yeniden dene.", "The event location could not be determined. Try again.", "Vendndodhja e aktiviteteve nuk u gjet. Provo përsëri."));
-    } finally { if (requestId === eventsRequestId.current) setEventsLocating(false); }
   };
 
   const speak = (value: string) => {
@@ -211,32 +135,17 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     window.speechSynthesis.speak(utterance);
   };
 
+  const nearbyIdeas=<MapNearbyIdeas countryCode={countryCode} onOpenEvents={onOpenEvents} onNotice={onNotice} onSearch={(query,center,category)=>setNearbySearch({id:++nearbySearchId.current,query,center,category})}/>;
+
   return <div className="screen companion-screen" data-section={tab} tabIndex={-1}>
-    {tab === "assistant"
-      ? <PageHero scene="city" title={copy("Yolculukta elinin altında", "A little help along the way")} subtitle={tabDescription("assistant")} note={copy("Keşfet, rahat et.", "Explore with ease.")} />
-      : <header className="companion-section-header">
+    {tab !== "assistant" && tab !== "now" && <header className="companion-section-header">
         <button type="button" onClick={() => openSection("assistant")}><Icon name="back" size={18} />{tabLabel("assistant")}</button>
-        <span className="companion-section-symbol" aria-hidden="true"><TravelToolArtwork kind={tabArtwork(tab)} size={56} /></span>
+        <span className="companion-section-symbol" aria-hidden="true"><CompanionShortcutArtwork kind={tab === 'phrases' ? 'phrases' : 'etiquette'} size={56} /></span>
         <h1 id="companion-section-title" tabIndex={-1}>{tabLabel(tab)}</h1><p>{tabDescription(tab)}</p>
       </header>}
 
-    {tab === "assistant" && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialCountry={countryCode} initialTool={initialTool} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNotice={onNotice} onPhrases={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("phrases"); focusSection("phrases"); }} onLocalTips={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("etiquette"); focusSection("etiquette"); }} /></Suspense>}
+    {(tab === "assistant" || tab === "now") && <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}><TravelAssistant initialCountry={countryCode} initialTool={tab === "now" ? "nearby" : requestedTool ? requestedTool.tool : initialTool} toolRequestId={requestedTool?.id||0} onToolChange={setActiveTool} nearbyIdeas={nearbyIdeas} nearbySearch={nearbySearch} onNearbySearchHandled={id=>setNearbySearch(current=>current?.id===id?undefined:current)} ownerId={ownerId} accessToken={accessToken} onSignIn={onSignIn} onNavigate={onNavigate} onNotice={onNotice} onPhrases={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("phrases"); focusSection("phrases"); }} onLocalTips={code => { if (code) { setCountryCode(code); selectTravelCountry(code); } setTab("etiquette"); focusSection("etiquette"); }} /></Suspense>}
 
-    {tab === "now" && <section className="companion-panel" aria-label={tabLabel('now')}>
-      <div className="now-intro"><div><small>{copy("KONUM + SAAT + HAVA", "LOCATION + TIME + WEATHER")}</small><h2>{copy("Şu anda ne yapabilirim?", "What can I do right now?")}</h2><p>{copy("Yaklaşık konumunu yalnız o anki hava ve uygun etkinlik türünü bulmak için kullanırız; kaydetmeyiz.", "We use your approximate location only to match current weather and suitable activity types; we do not store it.")}</p></div><Icon name="sun" size={31} /></div>
-      <div className="now-choices">
-        <fieldset><legend>{copy("Bütçem", "My budget")}</legend>{(["free", "low", "flexible"] as const).map((item) => <button type="button" key={item} className={budget === item ? "active" : ""} aria-pressed={budget === item} onClick={() => setBudget(item)}>{item === "free" ? copy("Ücretsiz", "Free") : item === "low" ? copy("Ekonomik", "Low") : copy("Esnek", "Flexible")}</button>)}</fieldset>
-        <fieldset><legend>{copy("Bugünkü modum", "My mood today")}</legend>{(["culture", "food", "outdoors", "calm"] as const).map((item) => <button type="button" key={item} className={interest === item ? "active" : ""} aria-pressed={interest === item} onClick={() => setInterest(item)}>{item === "culture" ? copy("Kültür", "Culture") : item === "food" ? copy("Lezzet", "Food") : item === "outdoors" ? copy("Açık hava", "Outdoors") : copy("Sakin", "Calm")}</button>)}</fieldset>
-      </div>
-      <button className="now-locate-button" onClick={() => void locate()} disabled={loading}>{loading ? <span className="button-loader" /> : <Icon name="map" size={19} />}{loading ? copy("Şu anın hesaplanıyor…", "Reading the moment…") : copy("Konumuma göre öner", "Suggest from my location")}</button>
-      {error && <div className="info-box error" role="alert"><Icon name="alert" size={18} /><p>{error}</p></div>}
-      {result && <div className="now-results">
-        <article className="now-weather"><span><Icon name={result.weather.precipitation > 0 ? "cloud" : "sun"} size={25} /></span><div><small>{result.weather.description} · {result.weather.localTime.slice(11, 16)}</small><strong>{result.weather.temperature}°</strong><p>{copy("Hissedilen", "Feels like")} {result.weather.apparentTemperature}°</p></div></article>
-        <div className="now-recommendations">{result.recommendations.map((recommendation, index) => <button type="button" key={recommendation.id} onClick={() => openMap(recommendation.mapQuery)}><em>{index + 1}</em><span><strong>{recommendation.title}</strong><small>{recommendation.reason}</small><i>{recommendation.duration} · {recommendation.indoor ? copy("Kapalı alan", "Indoor") : copy("Açık alan", "Outdoor")}</i></span><Icon name="external" size={17} /></button>)}</div>
-        <p className="now-privacy"><Icon name="lock" size={14} /> {result.privacy}</p>
-        <button className="secondary-wide" disabled={eventsLocating} onClick={() => void openNearbyEvents()}><Icon name="calendar" size={18} /> {eventsLocating ? copy("Konum hazırlanıyor…", "Preparing location…", "Po përgatitet vendndodhja…") : copy("Yakındaki etkinlikleri de gör", "See nearby events too", "Shih edhe aktivitetet pranë")}</button>
-      </div>}
-    </section>}
 
     {(tab === "phrases" || tab === "etiquette") && <section className="companion-panel" aria-label={tabLabel(tab)}>
       <CountryPicker value={countryCode} options={countryOptions} onChange={code => { setCountryCode(code); selectTravelCountry(code); }} label={copy("Gideceğin ülke", "Destination")} placeholder={copy("Ülke seç", "Choose a country")} />
@@ -266,10 +175,15 @@ export function TravelCompanionScreen({ initialTab = "assistant", initialTool, i
     </section>}
 
     <section className="companion-sections" aria-labelledby="companion-sections-title">
-      <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" ? copy("Yolculuk için kısa yollar", "Travel shortcuts") : copy("Diğer yardımcılar", "More travel help")}</h2></div>
+      <div className="companion-section-heading"><h2 id="companion-sections-title">{tab === "assistant" && !activeTool ? copy("Yolculuk için kısa yollar", "Travel shortcuts") : copy("Diğer yardımcılar", "More travel help")}</h2></div>
       <nav aria-label={copy("Seyahat Asistanı bölümleri", "Travel Assistant sections")}>
-        {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).filter(item => item !== "assistant" && item !== tab).map((item) => <button type="button" className={`companion-section-card companion-section-${item}`} onClick={() => openSection(item)} key={item}>
-          <span className="companion-section-art" aria-hidden="true"><TravelToolArtwork kind={tabArtwork(item)} size={56} /></span>
+        {((tab !== 'assistant' && tab !== 'now') || activeTool !== 'guide') && <button type="button" className="companion-section-card companion-section-guide" data-guide="travel-tool" data-guide-tool="guide" onClick={openCountryGuide}>
+          <span className="companion-section-art" aria-hidden="true"><CompanionShortcutArtwork kind="guide" size={56}/></span>
+          <span className="companion-section-card-copy"><strong>{copy('Ülke Rehberi','Country Guide','Udhëzues shteti')}</strong><small>{copy('Priz, para, trafik ve saat farkı','Plugs, currency, driving and time','Prizat, monedha, trafiku dhe ora')}</small></span>
+          <Icon name="chevron" size={18}/>
+        </button>}
+        {(["assistant", "now", "phrases", "etiquette"] as CompanionTab[]).filter(item => item !== "assistant" && item !== "now" && item !== tab).map((item) => <button type="button" className={`companion-section-card companion-section-${item}`} onClick={() => openSection(item)} key={item}>
+          <span className="companion-section-art" aria-hidden="true"><CompanionShortcutArtwork kind={item === 'phrases' ? 'phrases' : 'etiquette'} size={56} /></span>
           <span className="companion-section-card-copy"><strong>{tabLabel(item)}</strong><small>{tabDescription(item)}</small></span>
           <Icon name="chevron" size={18} />
         </button>)}

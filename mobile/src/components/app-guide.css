@@ -6,7 +6,7 @@
 .app-guide-heading svg { flex:none; color:var(--theme-link,#0875e7); }
 .app-guide-card p { margin:8px 0 12px; color:var(--theme-muted,#62718a); }
 .app-guide-card ol { display:grid; gap:7px; margin:0 0 14px; padding-left:21px; color:var(--theme-ink,#173657); font-size:12px; }
-.app-guide-actions { display:flex; justify-content:space-between; gap:8px; }
+.app-guide-actions { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .app-guide-actions button { min-height:44px; border:0; border-radius:12px; padding:8px 12px; background:transparent; color:inherit; font-size:12px; font-weight:700; }
 .app-guide-actions button:disabled { opacity:.4; cursor:default; }
 .app-guide-actions .app-guide-next { display:flex; align-items:center; gap:7px; color:#102744; background:#ffdf20; }
@@ -34,6 +34,7 @@
 .app-guide-minimized > button { min-height:44px; border:0; padding:8px; border-radius:10px; background:transparent; color:var(--theme-link,#0875e7); font-size:12px; font-weight:700; }
 .app-guide-minimized > button:last-child { display:grid; place-items:center; min-width:44px; padding:8px; }
 .app-guide-minimized > button:focus-visible { outline:3px solid var(--theme-link,#0875e7); outline-offset:2px; }
+.app-guide-card .app-guide-waiting-step { padding:10px; border-radius:12px; background:var(--theme-soft,#edf4ff); color:var(--theme-ink,#173657); }
 .guide-example { display:grid; gap:16px; color:var(--theme-ink,#173657); }
 .guide-example > h2 { margin:0; font-size:24px; line-height:1.25; }
 .guide-example > p { margin:0; color:var(--theme-muted,#62718a); line-height:1.6; }

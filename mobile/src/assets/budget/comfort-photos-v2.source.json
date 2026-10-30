@@ -1,0 +1,30 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "skill": "imagegen",
+  "created": "2026-10-26",
+  "usage": "Illustrative travel spending experiences, not actual booked venues, accommodation classes or included services.",
+  "processing": "Resized to width 640 and encoded as WebP. Original composition retained; responsive cover crop in cards.",
+  "assets": [
+    {
+      "key": "economical",
+      "file": "comfort-economical-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/comfort-economical-v2.webp",
+      "original": "C:\\Users\\emirk\\.codex\\generated_images\\01a0de1a-7713-7561-8967-222b602afd19\\exec-3390ed9b-9789-4ae9-95aa-6b4f96c88eaf.png",
+      "prompt": "Create ONE landscape editorial travel photograph for the economical travel option in a refined blue-and-yellow travel budgeting app. Photorealistic, natural, tasteful, sunny daytime. Close medium view of a delicious simple street-food lunch: crusty sandwich in brown paper with tomatoes and a small plain glass of water on a modest warm stone counter at a charming Mediterranean street food stall. A blue tram and pedestrian street pleasantly blurred in the background. Carefully composed: the sandwich is the focal point centered in the LOWER middle, recognisable at thumbnail size; fills enough of image to read at 100 pixels wide. Restrained rich blue and warm neutral palette, inviting rather than shabby. Landscape 4:3 composition, no frames, no UI, absolutely no lettering, no labels, no prices, no logos, no watermark. This image communicates an affordable local travel experience, not accommodation class. Not a 3D miniature, not a suitcase, not a backpack, not an isolated product cutout."
+    },
+    {
+      "key": "standard",
+      "file": "comfort-standard-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/comfort-standard-v2.webp",
+      "original": "C:\\Users\\emirk\\.codex\\generated_images\\01a0de1a-7713-7561-8967-222b602afd19\\exec-a5ae5f4d-4fbb-4eec-a90f-5dc75399b806.png",
+      "prompt": "Create ONE landscape editorial travel photograph for the standard travel option in a refined blue-and-yellow travel budgeting app. Photorealistic, natural, tasteful, sunny daytime. Close medium view of a charming European outdoor bistro table set for a relaxed casual lunch: a blue ceramic plate with fresh pasta and a white coffee cup on a small round wooden table, woven cafe chair behind it, old pale stone streetscape softly blurred. The cafe experience is the clear centered focal point, recognisable at thumbnail size, objects fill enough of image to read at 100 pixels wide. Restrained natural blue details and warm neutral palette. Inviting, comfortable, midrange travel. Landscape 4:3 composition, no frames, no UI, absolutely no lettering, no labels, no prices, no logos, no watermark. This image communicates everyday comfortable travel spending, not hotel star category. Not a 3D miniature, not a suitcase, not a backpack, not an isolated product cutout."
+    },
+    {
+      "key": "comfort",
+      "file": "comfort-comfort-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/comfort-comfort-v2.webp",
+      "original": "C:\\Users\\emirk\\.codex\\generated_images\\01a0de1a-7713-7561-8967-222b602afd19\\exec-61cd3148-2d41-4df7-9a00-d7cdce7d3b95.png",
+      "prompt": "Create ONE landscape editorial travel photograph for the comfort travel option in a refined blue-and-yellow travel budgeting app. Photorealistic, elegant, natural, late afternoon sunlight. Close medium view of a beautiful restaurant terrace overlooking a vivid blue Mediterranean bay, an elegantly set linen-covered table in foreground with fine white plate, neatly folded napkin and clear water glass, a plush warm-beige terrace dining chair. Sunlit blue sea and coastline softly visible behind. This is visibly a more indulgent travel experience and feels premium but welcoming. Clear simplified composition with the table and blue bay as large visual shapes, recognisable at 100 pixels wide. Restrained cobalt sea blue and cream palette. Landscape 4:3 composition, no frames, no UI, absolutely no lettering, no labels, no prices, no logos, no watermark. Not a hotel room, not a 3D miniature, not a suitcase, not a backpack, not an isolated lounge-chair cutout."
+    }
+  ]
+}

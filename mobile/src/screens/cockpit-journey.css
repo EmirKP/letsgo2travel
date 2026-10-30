@@ -43,3 +43,11 @@
 #cockpit-checklist { scroll-margin-top:100px; }
 .cockpit-native-screen button:focus-visible,.cockpit-ticket-import button:focus-visible { outline:3px solid #0875e7; outline-offset:3px; }
 @media(max-width:380px) { .cockpit-journey-steps { font-size:10px; gap:4px; }.cockpit-journey-steps li { padding:8px 3px; }.cockpit-next-action { align-items:stretch; flex-direction:column; }.cockpit-next-action button { width:100%; }.cockpit-journey-route { gap:10px; } }
+.cockpit-airport-info { margin: 14px 0; }
+.cockpit-airport-info h3 { font-size: 14px; color: var(--theme-ink, #093459); }
+.cockpit-airport-info > div { display: grid; gap: 8px; }
+.cockpit-airport-info button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 48px; padding: 10px; border: 1px solid var(--theme-border, #cbddef); border-radius: 12px; background: var(--theme-soft, #eef7ff); color: var(--theme-ink, #093459); text-align: left; }
+.cockpit-airport-info button > span { flex: 1; font-size: 12px; }
+.cockpit-save-acknowledgement { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; padding: 12px; border: 1px solid var(--theme-border, #bfd6f0); border-radius: 14px; background: var(--theme-soft, #eef7ff); color: var(--theme-ink, #093459); }
+.cockpit-save-acknowledgement > span { flex: 1; display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.cockpit-save-acknowledgement button { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px; border: 0; border-radius: 9px; background: var(--theme-surface, #fff); color: var(--theme-link, #0875e7); font-size: 12px; font-weight: 700; }

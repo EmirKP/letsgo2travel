@@ -3,7 +3,7 @@ import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { homeSearchDestinations } from "../data/homeDestinations";
 import { appRegionName, formatAppDate } from "./localeFormatting";
 import { normalizeSearchText } from "./searchText";
-import { searchableAppTools, type JourneyToolId, type TravelAssistantTool } from "./appTools";
+import { searchableAppTools, travelMapSectionForTool, type JourneyToolId, type TravelAssistantTool } from "./appTools";
 import type { AppLocale } from "./locale";
 import type { SavedRoutePlan, ViewId } from "../types";
 import type { TravelToolArtworkKind } from "../components/TravelToolArtwork";
@@ -54,7 +54,7 @@ function catalog(locale: AppLocale): Entry[] {
     });
   }
   const tools: Entry[] = searchableAppTools(locale).map(tool => ({
-    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: "tool" in tool ? tool.tool : undefined, journeyTool: "journeyTool" in tool ? tool.journeyTool : undefined, guide: "guide" in tool ? tool.guide : undefined, icon: tool.icon },
+    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: "tool" in tool ? travelMapSectionForTool(tool.tool) ? 'map' : tool.tool : undefined, journeyTool: "journeyTool" in tool ? tool.journeyTool : undefined, guide: "guide" in tool ? tool.guide : undefined, icon: tool.icon },
     names: [...tool.title],
     terms: [...tool.title, ...tool.caption, tool.keywords].join(" "),
   }));

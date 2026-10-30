@@ -24,7 +24,7 @@ const interestDetails: Record<WelcomeInterest, { artwork: WelcomeArtworkKind; en
   "Macera": { artwork: "adventure", en: "Adventure", sq: "Aventurë" },
 };
 
-export function Onboarding({ onComplete, signedIn = false }: { onComplete: (destination?: WelcomeIntent) => void; signedIn?: boolean }) {
+export function Onboarding({ onComplete, signedIn = false, guestAllowed = true }: { onComplete: (destination?: WelcomeIntent, options?: { guest: boolean }) => void; signedIn?: boolean; guestAllowed?: boolean }) {
   const { locale, setLocale, pendingLocale, failedLocale, copy } = useI18n();
   const { preference, setPreference } = useTheme();
   const [step, setStep] = useState(0);
@@ -81,7 +81,7 @@ export function Onboarding({ onComplete, signedIn = false }: { onComplete: (dest
     return () => dialog.removeEventListener("keydown", trapFocus);
   }, []);
 
-  function finish(destination?: WelcomeIntent, skipPassport = false) {
+  function finish(destination?: WelcomeIntent, skipPassport = false, guest = false) {
     if (finished.current) return;
     if (!skipPassport && passportChanged) {
       if (!hasPassportPreference(passport)) return;
@@ -89,7 +89,7 @@ export function Onboarding({ onComplete, signedIn = false }: { onComplete: (dest
     }
     finished.current = true;
     saveWelcomePreferences(preferences);
-    onComplete(destination);
+    onComplete(destination, guest ? { guest: true } : undefined);
   }
   function toggleInterest(interest: WelcomeInterest) {
     setPreferences(previous => ({ ...previous, interests: previous.interests.includes(interest)
@@ -129,7 +129,8 @@ export function Onboarding({ onComplete, signedIn = false }: { onComplete: (dest
     </section>
     <footer className="welcome-footer">
       <div className="welcome-footer-inner"><div className="welcome-footer-main">{step > 0 && <button type="button" className="welcome-back" onClick={() => setStep(Math.max(0, step - 1))} aria-label={copy("Geri", "Back", "Prapa")}><Icon name="back" size={21}/></button>}<button type="button" className="welcome-next" disabled={Boolean(pendingLocale) || (last && passportChanged && !hasPassportPreference(passport))} onClick={() => last ? finish(intent) : setStep(Math.min(4, step + 1))}>{last ? finishLabel : copy("Devam et", "Continue", "Vazhdo")}<Icon name="chevron" size={20}/></button></div>
-        {step === 2 || last ? <button type="button" className="welcome-skip" onClick={() => last ? finish(intent, true) : setStep(3)}>{copy("Bu adımı geç", "Skip this step", "Kalo këtë hap")}</button> : step === 3 ? <p className="welcome-footer-note">{copy("Seçim yapmak zorunlu değil. Sonradan değiştirebilirsin.", "Choosing interests is optional. You can change them later.", "Interesat janë sipas dëshirës. Mund t'i ndryshosh më vonë.")}</p> : <p className="welcome-footer-note">{step === 0 ? copy("Dilini daha sonra ekranın üstündeki bayrak düğmesinden değiştirebilirsin.", "You can change language later using the flag button at the top.", "Gjuhën mund ta ndryshosh më vonë nga butoni me flamur lart.") : copy("Seçtiğin görünüm hemen uygulanır.", "Your chosen appearance applies immediately.", "Pamja që zgjedh zbatohet menjëherë.")}</p>}
+        {step === 2 || last ? <button type="button" className="welcome-skip" onClick={() => last ? finish(intent, true, !signedIn) : setStep(3)}>{last ? copy('Pasaportu sonra seç', 'Choose passport later', 'Zgjidhe pasaportën më vonë') : copy("Bu adımı geç", "Skip this step", "Kalo këtë hap")}</button> : step === 3 ? <p className="welcome-footer-note">{copy("Seçim yapmak zorunlu değil. Sonradan değiştirebilirsin.", "Choosing interests is optional. You can change them later.", "Interesat janë sipas dëshirës. Mund t'i ndryshosh më vonë.")}</p> : <p className="welcome-footer-note">{step === 0 ? copy("Dilini daha sonra ekranın üstündeki bayrak düğmesinden değiştirebilirsin.", "You can change language later using the flag button at the top.", "Gjuhën mund ta ndryshosh më vonë nga butoni me flamur lart.") : copy("Seçtiğin görünüm hemen uygulanır.", "Your chosen appearance applies immediately.", "Pamja që zgjedh zbatohet menjëherë.")}</p>}
+        {!signedIn && !last && <button type="button" className="welcome-guest" disabled={Boolean(pendingLocale) || !guestAllowed} onClick={() => finish(intent, true, true)}>{copy('Misafir olarak keşfet', 'Explore as a guest', 'Eksploro si vizitor')}<Icon name="chevron" size={17}/></button>}
 
       </div>
     </footer>

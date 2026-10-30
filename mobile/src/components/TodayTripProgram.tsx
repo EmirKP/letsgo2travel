@@ -6,6 +6,7 @@ import type { CockpitTrip } from "../lib/supabaseData";
 import { savedRouteDisplay } from "../lib/savedRouteDisplay";
 import { RouteTranslation } from "./RouteTranslation";
 import { eventLocalDate } from "../../../lib/event-time";
+import { JourneyLiveGuide } from "./JourneyLiveGuide";
 
 export function TodayTripProgram({ trip, details, ready, requestedTripId, onHandled, accessToken, loading = false }: {
   trip: CockpitTrip | null; details: CockpitJourneyDetails | null; ready: boolean;
@@ -35,6 +36,7 @@ export function TodayTripProgram({ trip, details, ready, requestedTripId, onHand
     <p>{trip.destinationCity} · {today}{active ? ` · ${copy(`${day}. gün`, `Day ${day}`, `Dita ${day}`)}` : ""}</p>
     {!ready ? <p role="status">{loading ? copy("Program yükleniyor…", "Loading itinerary…", "Po ngarkohet programi…") : copy("Program şu an okunamadı. Aşağıdaki Yenile düğmesiyle tekrar dene.", "The itinerary is unavailable. Use Reload below to try again.", "Programi nuk është i disponueshëm. Provo Rifresko më poshtë.")}</p>
       : <>{program && <p>{route?.mapJourney ? program : <RouteTranslation text={program} accessToken={accessToken}/>}</p>}{events.length > 0 && <ul>{events.map(item => <li key={item.id}><strong>{item.label}</strong>{item.eventVenue && <span> · {item.eventVenue}</span>}</li>)}</ul>}
+        {active && route?.mapJourney && routeDay >= 1 && routeDay <= route.mapJourney.dayCount && <JourneyLiveGuide journey={route.mapJourney} day={routeDay} ownerId={trip.userId} tripId={trip.id}/>}
         {!program && !events.length && <p>{copy("Bu seyahatte bugün için kayıtlı bir program yok. Planlar'dan rotanı bu seyahate ekleyebilirsin.", "This trip has no saved itinerary for today. Attach a route from Plans to this trip.", "Ky udhëtim nuk ka program të ruajtur për sot. Shto një itinerar nga Planet.")}</p>}</>}
   </article>;
 }

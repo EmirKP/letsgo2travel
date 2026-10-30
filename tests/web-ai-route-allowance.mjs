@@ -30,16 +30,16 @@ function fixture({ session = { user: { id: 'owner-a' }, access_token: 'token-a' 
     '../components/PlaneLoader': { default: 'loader' }, '../components/AiDestinationCard': { default: 'route-card' },
     '@/lib/supabase-client': { supabase: { auth: { getSession: async () => getSession ? getSession() : ({ data: { session } }), onAuthStateChange: cb => { authChanged = cb; return { data: { subscription: { unsubscribe() {} } } }; } } } },
   };
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, {
     AbortController, crypto: { randomUUID: () => webcrypto.randomUUID(), subtle: { digest: (...args) => digest ? digest(...args) : webcrypto.subtle.digest(...args) } }, TextEncoder, Uint8Array, Date, URLSearchParams, console,
     window: { location: { search }, setTimeout, clearTimeout },
     sessionStorage: { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },
     fetch: async (url, options) => { calls.push({ url, ...options }); return fetch(url, options); },
-  })(name => { if (!(name in imports)) throw Error(name); return imports[name]; }, module, module.exports);
+  })(name => { if (!(name in imports)) throw Error(name); return imports[name]; }, fixtureModule, fixtureModule.exports);
   const view = {
     calls, stored,
-    render() { for (let n = 0; n < 15; n++) { cursor = 0; dirty = false; effects = []; const tree = module.exports.default(); effects.forEach(fn => fn()); if (!dirty) return tree; } throw Error('render loop'); },
+    render() { for (let n = 0; n < 15; n++) { cursor = 0; dirty = false; effects = []; const tree = fixtureModule.exports.default(); effects.forEach(fn => fn()); if (!dirty) return tree; } throw Error('render loop'); },
     async settle(predicate = () => true) { let tree; for (let n = 0; n < 30; n++) { await tick(); tree = this.render(); if (predicate(tree)) return tree; } throw Error('expected UI not reached'); },
     async retry() { const tree = this.render(), retry = nodes(tree).find(node => node.type === 'button' && text(node).includes('Aynı seçimlerle tekrar dene')); assert.ok(retry); retry.props.onClick(); return this.settle(); },
     account(next, event = next ? 'SIGNED_IN' : 'SIGNED_OUT') { session = next; authChanged(event, next); },

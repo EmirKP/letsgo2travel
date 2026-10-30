@@ -18,6 +18,7 @@ type SocialContext = {
   userId?: string | null; accessToken?: string | null; onOpenAccount: () => void;
   onOpenProfile: (key: string) => void; onAddPlace?: (place: SocialPlace) => void;
   onBlocked?: (userId: string) => void;
+  searchQuery?: string;
 };
 
 export function SocialHub(props: SocialContext & { revision?: number; initialPostId?: string; initialCommentId?: string; onIntentHandled?: () => void }) {
@@ -50,9 +51,11 @@ export function SocialGallery(props: SocialContext & { authorRef: string; revisi
   return <SocialBrowser key={`${props.authorRef}:${props.userId || "guest"}`} {...props} gallery />;
 }
 
-function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, authorRef, feed = "discover", collectionId, gallery = false, revision = 0, initialPostId, initialCommentId, onIntentHandled }: SocialContext & { authorRef?: string; feed?: "discover" | "following"; collectionId?: string; gallery?: boolean; revision?: number; initialPostId?: string; initialCommentId?: string; onIntentHandled?: () => void }) {
+function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAddPlace, onBlocked, authorRef, feed = "discover", collectionId, gallery = false, revision = 0, initialPostId, initialCommentId, onIntentHandled, searchQuery = "" }: SocialContext & { authorRef?: string; feed?: "discover" | "following"; collectionId?: string; gallery?: boolean; revision?: number; initialPostId?: string; initialCommentId?: string; onIntentHandled?: () => void }) {
   const { copy } = useI18n();
   const [page, setPage] = useState<SocialPage>({ items: [], nextOffset: null });
+  const [query, setQuery] = useState(searchQuery.trim());
+  const requestedQuery = useRef(query);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -64,16 +67,18 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
   const more = useRef<AbortController | null>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; more.current?.abort(); }; }, []);
+  useEffect(() => { const timer = setTimeout(() => setQuery(searchQuery.trim()), 250); return () => clearTimeout(timer); }, [searchQuery]);
   useEffect(() => { if (initialPostId) { setDetailId(initialPostId); setFocusComment(initialCommentId); onIntentHandled?.(); } }, [initialPostId, initialCommentId]);
   useEffect(() => {
     const controller = new AbortController();
     more.current?.abort(); more.current = null;
     setLoading(true); setError("");
-    void socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: 0 }, accessToken, controller.signal).then(data => {
+    if (requestedQuery.current !== query) { requestedQuery.current = query; setPage({ items: [], nextOffset: null }); }
+    void socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: 0, q: query || undefined }, accessToken, controller.signal).then(data => {
       if (!controller.signal.aborted) setPage(data);
     }).catch(failure => { if (!controller.signal.aborted) { if (failure instanceof ApiError && [401, 403, 404].includes(failure.status)) setPage({ items: [], nextOffset: null }); setError(copy("Gönderiler yüklenemedi. Tekrar deneyebilirsin.", "Could not load posts. You can try again.", "Postimet nuk u ngarkuan. Mund të provosh sërish.")); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [feed, authorRef, collectionId, accessToken, revision, attempt, copy]);
+  }, [feed, authorRef, collectionId, accessToken, revision, attempt, copy, query]);
   useEffect(() => {
     if (!undo) return;
     const timer = setTimeout(() => setUndo(null), Math.max(0, Date.parse(undo.until) - Date.now()));
@@ -84,7 +89,7 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
     const controller = new AbortController(); more.current = controller;
     setLoading(true); setError("");
     try {
-      const next = await socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: page.nextOffset }, accessToken, controller.signal);
+      const next = await socialRead<SocialPage>({ feed: collectionId ? undefined : feed, authorRef, collectionId, offset: page.nextOffset, q: query || undefined }, accessToken, controller.signal);
       if (!controller.signal.aborted) setPage(previous => ({ items: mergeSocialItems(previous.items, next.items), nextOffset: next.nextOffset }));
     } catch { if (!controller.signal.aborted) setError(copy("Diğer gönderiler yüklenemedi.", "Could not load more posts.", "Postimet e tjera nuk u ngarkuan.")); }
     finally { if (more.current === controller) { more.current = null; if (alive.current) setLoading(false); } }
@@ -97,8 +102,9 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
     finally { if (alive.current) setRestoring(false); }
   };
   return <div className={gallery ? "social-gallery-region" : "social-feed"} aria-busy={loading}>
+    {query && !loading && !error && <p className="social-muted" role="status">{page.nextOffset !== null ? copy(`“${query}” için kontrol edilen gönderilerde ${page.items.length} sonuç. Diğer gönderilerde aramaya devam edebilirsin.`, `${page.items.length} matches for “${query}” in the posts checked so far. Continue to search other posts.`, `${page.items.length} rezultate për “${query}” në postimet e kontrolluara. Vazhdo kërkimin në postime të tjera.`) : page.items.length ? copy(`“${query}” için ${page.items.length} gönderi bulundu.`, `${page.items.length} posts found for “${query}”.`, `${page.items.length} postime u gjetën për “${query}”.`) : copy(`“${query}” için gönderi bulunamadı. Başka bir yer veya gezgin adı deneyebilirsin.`, `No posts found for “${query}”. Try another place or traveller name.`, `Nuk u gjetën postime për “${query}”. Provo një vend ose udhëtar tjetër.`)}</p>}
     {loading && !page.items.length && <div className="social-loading" role="status"><span className="button-loader dark"/>{copy("Gönderiler yükleniyor…", "Loading posts…", "Duke ngarkuar postimet…")}</div>}
-    {!loading && !error && !page.items.length && <SocialEmpty icon={gallery ? "camera" : "compass"} title={copy("Henüz gönderi yok", "No posts yet", "Ende nuk ka postime")} text={gallery ? authorRef === `user:${userId}` ? copy("Paylaştığın fotoğraflar burada görünecek.", "Your shared photos will appear here.", "Fotot që ndan do të shfaqen këtu.") : copy("Bu gezginin fotoğrafları burada görünecek.", "This traveller's photos will appear here.", "Fotot e këtij udhëtari do të shfaqen këtu.") : collectionId ? copy("Beğendiğin gönderileri bu koleksiyona kaydet.", "Save posts you like to this collection.", "Ruaj postimet që pëlqen në këtë koleksion.") : feed === "following" ? copy("Gezgin profillerini takip ederek akışını oluştur.", "Follow traveller profiles to build your feed.", "Ndiq profile udhëtarësh për të krijuar rrjedhën tënde.") : copy("İlk seyahat fotoğrafını paylaşarak başla.", "Start by sharing your first travel photo.", "Fillo duke ndarë foton e parë të udhëtimit.")}/>}
+    {!query && !loading && !error && !page.items.length && <SocialEmpty icon={gallery ? "camera" : "compass"} title={copy("Henüz gönderi yok", "No posts yet", "Ende nuk ka postime")} text={gallery ? authorRef === `user:${userId}` ? copy("Paylaştığın fotoğraflar burada görünecek.", "Your shared photos will appear here.", "Fotot që ndan do të shfaqen këtu.") : copy("Bu gezginin fotoğrafları burada görünecek.", "This traveller's photos will appear here.", "Fotot e këtij udhëtari do të shfaqen këtu.") : collectionId ? copy("Beğendiğin gönderileri bu koleksiyona kaydet.", "Save posts you like to this collection.", "Ruaj postimet që pëlqen në këtë koleksion.") : feed === "following" ? copy("Gezgin profillerini takip ederek akışını oluştur.", "Follow traveller profiles to build your feed.", "Ndiq profile udhëtarësh për të krijuar rrjedhën tënde.") : copy("İlk seyahat fotoğrafını paylaşarak başla.", "Start by sharing your first travel photo.", "Fillo duke ndarë foton e parë të udhëtimit.")}/>}
     <div className={gallery ? "social-gallery" : "social-post-list"}>{page.items.map(post => gallery ? <div className="social-gallery-tile" key={post.id}>
       <SocialPhoto photoUrl={post.photoUrl} accessToken={accessToken || ""} alt={post.caption || post.place?.name || copy("Gönderiyi aç", "Open post", "Hap postimin")} onOpen={() => { setFocusComment(undefined); setDetailId(post.id); }}/>
       {post.status !== "published" && <span className="social-gallery-status">{copy("İncelemede", "In review", "Në shqyrtim")}</span>}
@@ -108,7 +114,7 @@ function SocialBrowser({ userId, accessToken, onOpenAccount, onOpenProfile, onAd
       <div className="social-card-summary">{post.status === "pending" && <span className="social-muted">{copy("İncelemede · Yalnızca sen görüyorsun", "In review · Only visible to you", "Në shqyrtim · Vetëm ti e sheh")}</span>}<button type="button" className="social-card-engagement" onClick={() => { setFocusComment(undefined); setDetailId(post.id); }}><Icon name="heart" size={21}/><span>{post.likeCount}</span><Icon name="message" size={21}/><span>{post.commentCount}</span><span className="sr-only">{copy("Gönderiyi ve yorumları aç", "Open post and comments", "Hap postimin dhe komentet")}</span></button>{post.caption && <ForumTranslation text={post.caption} accessToken={accessToken || ""}>{display => <p>{display}</p>}</ForumTranslation>}{post.place && <button type="button" className="social-place" onClick={() => { setFocusComment(undefined); setDetailId(post.id); }}><Icon name="map" size={15}/>{post.place.name}</button>}</div>
     </article>)}</div>
     {error && <div className="social-error" role="alert"><p>{error}</p><button type="button" className="social-text-button" disabled={loading} onClick={() => setAttempt(value => value + 1)}>{copy("Tekrar dene", "Try again", "Provo sërish")}</button></div>}
-    {page.nextOffset !== null && <button type="button" className="secondary-wide" disabled={loading} onClick={() => void loadMore()}>{copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
+    {page.nextOffset !== null && <button type="button" className="secondary-wide" disabled={loading} onClick={() => void loadMore()}>{query ? copy("Diğer gönderilerde ara", "Search other posts", "Kërko në postime të tjera") : copy("Daha fazla göster", "Show more", "Shfaq më shumë")}</button>}
     {undo && <div className="social-undo" role="status"><span>{copy("Gönderi silindi", "Post deleted", "Postimi u fshi")}</span><button type="button" disabled={restoring} onClick={() => void restore()}>{copy("Geri al", "Undo", "Zhbëj")}</button></div>}
     {blocked && <p role="status" className="social-notice">{copy("Kullanıcı engellendi. Engellenenler bölümünden geri alabilirsin.", "User blocked. You can undo this in Blocked users.", "Përdoruesi u bllokua. Mund ta zhbësh te Përdoruesit e bllokuar.")}</p>}
     {detailId && <SocialPostSheet key={`${detailId}:${userId || "guest"}`} postId={detailId} focusCommentId={focusComment} accessToken={accessToken} userId={userId} onOpenAccount={onOpenAccount} onOpenProfile={onOpenProfile} onAddPlace={onAddPlace} onBlocked={blockedId => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.author.userId !== blockedId) })); setDetailId(null); setBlocked(true); setAttempt(value => value + 1); onBlocked?.(blockedId); }} onClose={() => { setDetailId(null); setFocusComment(undefined); }} onChanged={post => setPage(previous => ({ ...previous, items: previous.items.map(item => item.id === post.id ? post : item) }))} onDeleted={(post, until) => { setPage(previous => ({ ...previous, items: previous.items.filter(item => item.id !== post.id) })); setDetailId(null); setUndo({ post, until }); }}/>}

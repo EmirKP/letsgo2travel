@@ -361,7 +361,13 @@ test('Money currency labels, historical dates and input errors stay Albanian on 
     } });
     const money = app.mount(app.load('mobile/src/components/TravelMoney.tsx').TravelMoney);
     await Promise.resolve(); let tree = money.render();
-    assert.equal(text(find(tree, 'div', props => props.className === 'tm-pair')), 'EUR/TRYEuroja → Lira turke');
+    const pair=find(tree,'div',props=>props.className==='tm-pair');
+    assert.equal(text(find(pair,'strong')),'EUR/TRY');
+    assert.ok(find(pair,'span',props=>text(props.children)==='Euroja → Lira turke'));
+    const converter=find(tree,'section',props=>props.className==='tm-converter');
+    const reverse=find(converter,'button',props=>props['aria-label']==='Ndërro monedhat');
+    assert.ok(reverse,'The calculator keeps its Albanian swap action accessible beside the amount controls');
+    assert.equal(text(reverse),'Ndërro kahun');assert.equal(typeof reverse.props.onClick,'function');
     assert.match(text(find(tree, 'div', props => props.className === 'tm-rate-context')), /30 sht 2026/);
     assert.doesNotMatch(text(tree), /Türk lirası|Eyl|GÜNLÜK REFERANS/);
     find(tree, 'input', props => props.id === 'tm-amount').props.onChange({ target: { value: '-2' } }); tree = money.render();
@@ -446,7 +452,7 @@ test('Mobile visible dates use the fallback formatter while machine timezone and
 
 test('Every static copy() interface message without an explicit third translation is covered by the Albanian catalog', async t => {
   const app = await readyFixture(); const { SQ_MESSAGES } = app.load('mobile/src/lib/locales/sq.ts');
-  const keys = new Set(), missing = []; let explicit = 0;
+  const keys = new Set(), allStaticKeys = new Set(), missing = []; let explicit = 0;
   function walk(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = path.join(directory, entry.name);
@@ -457,6 +463,7 @@ test('Every static copy() interface message without an explicit third translatio
         if (ts.isCallExpression(node)) {
           const name = ts.isIdentifier(node.expression) ? node.expression.text : ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : '';
           if (name === 'copy' && node.arguments.length >= 2) {
+            if (ts.isStringLiteralLike(node.arguments[1])) allStaticKeys.add(node.arguments[1].text);
             if (node.arguments.length >= 3) explicit++;
             // Dynamic templates, user posts, provider/source text and metadata
             // are outside a literal UI catalog; explicit third translations win.
@@ -474,7 +481,7 @@ test('Every static copy() interface message without an explicit third translatio
     }
   }
   walk('mobile/src');
-  assert.ok(keys.size > 1800, 'The audit must cover the complete mobile interface, not a small sample');
+  assert.ok(allStaticKeys.size > 1800, 'The audit must cover the complete mobile interface, including explicitly translated messages');
   assert.deepEqual(missing, []);
-  t.diagnostic(`${keys.size} unique static interface keys covered; ${explicit} explicit third-language calls excluded.`);
+  t.diagnostic(`${allStaticKeys.size} unique static interface keys audited; ${keys.size} require the catalog and ${explicit} explicit third-language calls are covered inline.`);
 });

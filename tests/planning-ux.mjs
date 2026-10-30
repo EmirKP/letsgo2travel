@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve, relative } from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
 
@@ -931,24 +932,235 @@ test('Saved plan detail transfers the chosen route to Cockpit for its signed-in 
   }
 });
 
-test('City budget detail sends its selected city, travellers and duration as a dated estimate, retaining GBP without a usable foreign rate',()=>{
-  const host=hooks(),intents=[];
-  const benchmarks=load('lib/country-intelligence/city-benchmarks.ts');
-  const budget=load('lib/country-intelligence/trip-budget.ts');
-  const intentModule=load('mobile/src/lib/budgetCockpitIntent.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/trip-budget':budget});
+function costNodes(tree) {
+  if(!tree||typeof tree!=='object'||tree.props?.hidden||tree.type==='Sheet'&&!tree.props.open)return [];
+  return [tree,...[tree.props?.children].flat(Infinity).flatMap(costNodes)];
+}
+const bundledImages=load('mobile/src/lib/bundledImageSource.ts');
+let budgetCityPhotoModule;
+function loadBudgetCityPhotos() {
+  if (budgetCityPhotoModule) return budgetCityPhotoModule;
+  const path = 'mobile/src/data/budgetCityPhotos.ts';
+  const imports = Object.fromEntries(ts.preProcessFile(readFileSync(path, 'utf8')).importedFiles.map(({ fileName }) => {
+    if(fileName==='../lib/bundledImageSource')return[fileName,bundledImages];
+    const asset = relative(process.cwd(), resolve(dirname(path), fileName)).replaceAll('\\', '/');
+    assert.match(fileName, /\.(?:webp|jpg|png|json)$/, 'Budget city photos only import bundled assets and credits');
+    return [fileName, { default: fileName.endsWith('.json') ? JSON.parse(readFileSync(asset, 'utf8')) : asset }];
+  }));
+  budgetCityPhotoModule = load(path, imports);
+  return budgetCityPhotoModule;
+}
+const costLabels={
+  en:{days:'Days',adults:'Adults',children:'Children',rooms:'Rooms / units',departure:'Departure',return:'Return',currency:'Currency',party:'Edit travellers and rooms',dates:'Edit duration and dates',clearDates:'Clear dates',done:'Done',show:'Show my budget',compare:'Show budgets',details:'View details',useTrip:'Use trip details',addTrip:'Add this estimate to My trips',accommodation:'Accommodation type',stars:'Hotel category',style:'Travel style',season:'Season',hotel:'Hotel',apartment:'Apartment',hostel:'Hostel',economical:'Economical',standard:'Standard',comfort:'Comfort',auto:'By date',low:'Quiet period',normal:'Normal period',high:'Busy period',extra:'Food and transport',roomType:'Room type',food:'Food',transport:'Local transport',activities:'Activities',allowance:'Activity allowance',buffer:'Contingency',holiday:'Holiday / major event',partial:'Activity budget missing'},
+  tr:{days:'Gün',adults:'Yetişkin',children:'Çocuk',rooms:'Oda / daire',departure:'Gidiş',return:'Dönüş',currency:'Para birimi',party:'Kişi ve odaları düzenle',dates:'Süreyi ve tarihleri düzenle',clearDates:'Tarihleri kaldır',done:'Tamam',show:'Bütçemi göster',compare:'Bütçeleri göster',details:'Detayı gör',useTrip:'Bilgilerimi kullan',addTrip:'Bu tahmini seyahatlerime ekle',accommodation:'Konaklama türü',stars:'Otel sınıfı',style:'Seyahat tarzı',season:'Sezon',hotel:'Otel',apartment:'Daire',hostel:'Hostel',economical:'Ekonomik',standard:'Standart',comfort:'Konfor',auto:'Tarihe göre',low:'Sakin dönem',normal:'Normal dönem',high:'Yoğun dönem',extra:'Yemek ve ulaşım',roomType:'Oda türü',food:'Yeme içme',transport:'Şehir içi ulaşım',activities:'Etkinlikler',allowance:'Etkinlik payı',buffer:'Yedek bütçe',holiday:'Tatil / büyük etkinlik dönemi',partial:'Etkinlik bütçesi eksik'},
+  sq:{days:'Ditë',adults:'Të rritur',children:'Fëmijë',rooms:'Dhoma / njësi',departure:'Nisja',return:'Kthimi',currency:'Monedha',party:'Ndrysho udhëtarët dhe dhomat',dates:'Ndrysho kohëzgjatjen dhe datat',clearDates:'Hiq datat',done:'U krye',show:'Shiko buxhetin',compare:'Shiko buxhetet',details:'Shiko hollësitë',useTrip:'Përdor të dhënat',addTrip:'Shto këtë vlerësim te Udhëtimet e mia',accommodation:'Lloji i akomodimit',stars:'Kategoria e hotelit',style:'Stili i udhëtimit',season:'Sezoni',hotel:'Hotel',apartment:'Apartament',hostel:'Hostel',economical:'Ekonomik',standard:'Standard',comfort:'Rehati',auto:'Sipas datës',low:'Periudhë e qetë',normal:'Periudhë normale',high:'Periudhë e ngarkuar',extra:'Ushqimi dhe transporti',roomType:'Lloji i dhomës',food:'Ushqimi',transport:'Transporti lokal',activities:'Aktivitetet',allowance:'Aktivitete ·',buffer:'Buxhet rezervë',holiday:'Festë / event i madh',partial:'Mungon buxheti i aktiviteteve'},
+};
+function costHarness({preferences={},locale:initialLocale='en',activeTrip=null,dailyFactory,quote=null,ownerId='owner-a'}={}){
+  const host=hooks(),intents=[],saved=[],openedNews=[],openedExternal=[];let locale=initialLocale,active=activeTrip;
+  const benchmarks=load('lib/country-intelligence/city-benchmarks.ts'),personal=load('lib/country-intelligence/personal-budget.ts'),budget=load('lib/country-intelligence/trip-budget.ts');
+  const photos=loadBudgetCityPhotos();
+  const destinationSearch=load('mobile/src/lib/budgetDestinationSearch.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'./localeFormatting':localeFormatting,'./searchText':search});
+  const activityInput=load('mobile/src/lib/budgetActivityInput.ts');
+  const intentModule=load('mobile/src/lib/budgetCockpitIntent.ts',{'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/trip-budget':budget,'../../../lib/country-intelligence/personal-budget':personal});
+  const fakeDaily={useDailyBudgetRate:currency=>({quote,rate:budget.usableBudgetRate(quote,currency),loading:false,failed:currency!=='GBP'&&budget.usableBudgetRate(quote,currency)===null})};
   const {CityPriceCatalog}=load('mobile/src/components/CityPriceCatalog.tsx',{
-    ...common(host),'../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/currencies':{COST_CURRENCIES:{}},'../../../lib/country-intelligence/cost-model':{},
-    '../lib/countryIntelligence':{useAdvisories:()=>[],useCountryData:()=>({data:null,loading:false,error:null})},'../lib/native':{},'./Sheet':{Sheet:'Sheet'},'./CountryFlag':{CountryFlag:'Flag'},'./CountryAdvisory':{CountryRiskBadge:'Risk',CountryAdvisory:'Advisory'},'./CostCalculators':{LocationCalculator:'Location'},'./Icon':{Icon:'Icon'},
-    '../../../lib/country-intelligence/trip-budget':budget,'../lib/budgetPreferences':{readBudgetPreferences:()=>({currency:'GBP',days:'3',people:'3'}),saveBudgetPreferences(){}},'../lib/travelAssistant':{},'../lib/budgetCockpitIntent':intentModule,
-  },{window:{setInterval:()=>1,clearInterval(){}}});
-  try {
-    host.start(CityPriceCatalog,{ownerId:'owner-a',onOpenCountryNews(){},onPrepareCockpitBudget:intent=>intents.push(intent)});
-    const city=nodes(host.render()).find(node=>node.type==='button'&&node.props.className==='budget-city-row');
-    const name=text(find(city,'strong'));city.props.onClick();
-    const view=host.render();assert.match(text(view),/Estimate for 3 days · 3 travellers/);
-    button(view,'Add this estimate to My trips').props.onClick();
-    assert.equal(intents.length,1);const intent=intents[0];assert.equal(intent.city,name);assert.equal(intent.ownerId,'owner-a');assert.equal(intent.estimate.days,3);assert.equal(intent.estimate.people,3);assert.equal(intent.displayCurrency,'GBP');assert.equal(intent.displayTotal,intent.estimate.total);assert.equal(intent.sourceMonth,'2026-05');
-  }finally{host.dispose();}
+    ...common(host),'../lib/i18n':{useI18n:()=>({locale,copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?sq||en:en})},
+    '../data/budgetCityPhotos':photos,
+    '../lib/budgetDestinationSearch':destinationSearch,
+    '../lib/budgetActivityInput':activityInput,
+    '../lib/bundledImageSource':bundledImages,
+    '../../../lib/country-intelligence/city-benchmarks':benchmarks,'../../../lib/country-intelligence/personal-budget':personal,'../../../lib/country-intelligence/trip-budget':budget,
+    '../../../lib/country-intelligence/route-budget':{routeCityBenchmark:route=>benchmarks.CITY_BENCHMARKS.find(row=>[row.city.en,row.city.tr].includes(route.name)&&row.code===route.country)||null},
+    '../lib/activeTripContext':{useActiveTripContext:()=>active},'../lib/useDailyBudgetRate':dailyFactory?dailyFactory(host,budget):fakeDaily,
+    '../lib/personalBudgetPreferences':{readPersonalBudgetPreferences:()=>({...personal.DEFAULT_PERSONAL_BUDGET,currency:'GBP',...preferences}),savePersonalBudgetPreferences:(value,owner)=>saved.push({value:{...value},owner})},
+    '../lib/budgetCockpitIntent':intentModule,'../lib/native':{openExternal:url=>openedExternal.push(url)},'./Sheet':{Sheet:'Sheet'},'./CountryFlag':{CountryFlag:'Flag'},'./CountryAdvisory':{CountryAdvisory:'Advisory'},'./Icon':{Icon:'Icon'},'./DestinationPhoto':{DestinationPhoto:'DestinationPhoto'},
+    '../assets/budget/hotel-v2.webp':{default:'mock://budget/hotel-v2.webp'},'../assets/budget/apartment-v2.webp':{default:'mock://budget/apartment-v2.webp'},'../assets/budget/hostel-v2.webp':{default:'mock://budget/hostel-v2.webp'},
+    '../assets/budget/comfort-economical-v2.webp':{default:'mock://budget/comfort-economical-v2.webp'},
+    '../assets/budget/comfort-standard-v2.webp':{default:'mock://budget/comfort-standard-v2.webp'},
+    '../assets/budget/comfort-comfort-v2.webp':{default:'mock://budget/comfort-comfort-v2.webp'},
+  });
+  const h={host,intents,saved,personal,benchmarks,budget,photos:photos.BUDGET_CITY_PHOTOS,destinationSearch,intentModule,openedNews,openedExternal,
+    get labels(){return costLabels[locale];},get locale(){return locale;},
+    render:()=>host.render(),nodes:()=>costNodes(host.render()),text:()=>text(host.render()),
+    findButton(name){return costNodes(host.render()).find(node=>node.type==='button'&&(node.props['aria-label']===name||text(node).trim()===name||text(node).startsWith(name)));},
+    tap(name){const target=h.findButton(name);assert.ok(target,`Visible cost action: ${name}`);assert.notEqual(target.props.disabled,true,`${name} is enabled`);target.props.onClick();return host.render();},
+    field(name,required=true){const label=costNodes(host.render()).find(node=>node.type==='label'&&text(node).trim().startsWith(name));const control=label&&costNodes(label).find(node=>node.type==='input'||node.type==='select');if(required)assert.ok(control,`Visible cost field: ${name}`);return control;},
+    change(name,value){h.field(name).props.onChange({target:{value}});return host.render();},
+    check(name,value){h.field(name).props.onChange({target:{checked:value}});return host.render();},
+    group(name,required=true){const group=costNodes(host.render()).find(node=>node.props.role==='group'&&node.props['aria-label']===name);if(required)assert.ok(group,`Visible choice group: ${name}`);return group;},
+    choices(name){return costNodes(h.group(name)).filter(node=>node.type==='button');},
+    selected(name){const selected=h.choices(name).filter(node=>node.props['aria-pressed']===true);assert.equal(selected.length,1,`Exactly one selected choice in ${name}`);return selected[0].props['aria-label'];},
+    choose(name,label){const choice=h.choices(name).find(node=>node.props['aria-label']===label);assert.ok(choice,`Visible ${name} option: ${label}`);assert.notEqual(choice.props.disabled,true);choice.props.onClick();return host.render();},
+    starLabel(value){return locale==='tr'?`${value} yıldızlı otel`:locale==='sq'?`Hotel me ${value} yje`:`${value}-star hotel`;},
+    extra(){const disclosure=costNodes(host.render()).find(node=>node.type==='details'&&costNodes(node).some(child=>child.type==='summary'&&text(child).includes(h.labels.extra)));assert.ok(disclosure,`Native disclosure: ${h.labels.extra}`);return disclosure;},
+    additional(){const disclosure=costNodes(host.render()).find(node=>node.type==='details'&&node.props.className?.split(' ').includes('budget-additional-options'));assert.ok(disclosure,'Activities and contingency use their own disclosure');return disclosure;},
+    extraField(name,required=true){const section=[h.labels.activities,h.labels.allowance,h.labels.buffer].includes(name)?h.additional():h.extra();const label=costNodes(section).find(node=>node.type==='label'&&text(node).trim().startsWith(name));const control=label&&costNodes(label).find(node=>node.type==='input'||node.type==='select');if(required)assert.ok(control,`Secondary cost field: ${name}`);return control;},
+    changeExtra(name,value){h.extraField(name).props.onChange({target:{value}});return host.render();},
+    summary(name){const action=h.findButton(name),id=action?.props['aria-describedby'];assert.ok(id,`Accessible summary for ${name}`);return text(costNodes(host.render()).find(node=>node.props.id===id));},
+    rows(){return costNodes(host.render()).filter(node=>node.type==='button'&&text(node).includes(h.labels.details));},
+    rowName(row){return text(costNodes(row).find(node=>node.type==='strong'&&benchmarks.CITY_BENCHMARKS.some(item=>[item.city.tr,item.city.en].includes(text(node)))));},
+    range(row){return text(costNodes(row).find(node=>node.type==='strong'&&!benchmarks.CITY_BENCHMARKS.some(item=>[item.city.tr,item.city.en].includes(text(node)))));},
+    rowSource(row){const name=h.rowName(row);return benchmarks.CITY_BENCHMARKS.find(item=>[item.city.tr,item.city.en].includes(name));},
+    query(value){costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search').props.onChange({target:{value}});return host.render();},
+    queryValue(){return costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search').props.value;},
+    searchInput(){return costNodes(host.render()).find(node=>node.type==='input'&&node.props.type==='search');},
+    focusSearch(){h.searchInput().props.onFocus();return host.render();},
+    searchOptions(){return costNodes(host.render()).filter(node=>node.props.role==='option');},
+    searchOption(name){return h.searchOptions().find(node=>text(costNodes(node).find(child=>child.type==='strong'))===name);},
+    chooseSearchOption(name){const option=h.searchOption(name);assert.ok(option,`Visible destination suggestion: ${name}`);option.props.onClick();return host.render();},
+    keySearch(key,extra={}){let prevented=false;h.searchInput().props.onKeyDown({key,preventDefault(){prevented=true;},stopPropagation(){},nativeEvent:{isComposing:false},...extra});host.render();return prevented;},
+    blurSearch(inside=false){const wrapper=costNodes(host.render()).find(node=>node.props.className==='budget-destination-search');wrapper.props.onBlur({currentTarget:{contains:()=>inside},relatedTarget:{}});return host.render();},
+    openSheet(){return costNodes(host.render()).findLast(node=>node.type==='Sheet');},
+    close(){const sheet=h.openSheet();assert.ok(sheet,'A cost editor or detail is open');sheet.props.onClose();return host.render();},
+    openDetail(row=h.rows()[0]){assert.ok(row,'A real city estimate is visible');row.props.onClick();return host.render();},
+    detailTotal(){const total=costNodes(h.openSheet()).find(node=>node.props.className==='budget-detail-total');return text(costNodes(total).find(node=>node.type==='strong'));},
+    setActive(value){active=value;return host.render();},language(value){locale=value;return host.render();},dispose:()=>host.dispose(),
+  };
+  host.start(CityPriceCatalog,{ownerId,onOpenCountryNews:code=>openedNews.push(code),onPrepareCockpitBudget:intent=>intents.push(intent)});return h;
+}
+
+test('Costs destination suggestions find Serbia from plain or Turkish keyboards and choose its real Belgrade estimate without saving preferences',()=>{
+  const h=costHarness({locale:'tr',preferences:{days:'5',adults:'3',rooms:'2',style:'comfort',season:'low'}});
+  try{
+    const duration=h.summary(h.labels.dates),party=h.summary(h.labels.party);
+    for(const query of ['sır','sir','sirbistan','SIRBISTAN','  Sırbistan  ']){
+      h.focusSearch();h.query(query);
+      assert.equal(h.searchInput().props.role,'combobox');assert.equal(h.searchInput().props['aria-expanded'],true);
+      const option=h.searchOption('Sırbistan');assert.ok(option,`Serbia is offered for ${query}`);assert.equal(text(costNodes(option).find(node=>node.type==='small')),'Belgrad');
+      assert.ok(h.rows().some(row=>h.rowSource(row).id==='RS-belgrade'),'Typing and suggestions use the same country aliases');
+      h.chooseSearchOption('Sırbistan');assert.equal(h.queryValue(),'Sırbistan');assert.equal(h.searchInput().props['aria-expanded'],false);assert.equal(h.searchOptions().length,0);
+      assert.equal(h.rows().length,1);const row=h.rows()[0];assert.equal(h.rowSource(row).id,'RS-belgrade');const photo=costNodes(row).find(node=>node.type==='DestinationPhoto');assert.equal(photo.props.src,h.photos['RS-belgrade'].src);assert.equal(photo.props.countryCode,'RS');
+      assert.equal(h.summary(h.labels.dates),duration);assert.equal(h.summary(h.labels.party),party);assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.equal(h.selected(h.labels.season),h.labels.low);
+    }
+    assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+  }finally{h.dispose();}
+});
+
+test('Costs country suggestions filter all researched cities and city suggestions resolve one exact place in every language',()=>{
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale});
+    try{
+      const france=localeFormatting.appRegionName('FR',locale);h.focusSearch();h.query('France');assert.ok(h.searchOption(france),'Country aliases work independently of UI language');h.chooseSearchOption(france);
+      assert.equal(h.queryValue(),france);const expected=h.benchmarks.CITY_BENCHMARKS.filter(row=>row.code==='FR').map(row=>row.id).sort();assert.deepEqual(h.rows().map(row=>h.rowSource(row).id).sort(),Array.from(expected));
+      h.focusSearch();h.query('Roma');const rome=locale==='tr'?'Roma':'Rome';assert.ok(h.searchOption(rome));h.chooseSearchOption(rome);assert.equal(h.rows().length,1);assert.equal(h.rowSource(h.rows()[0]).id,'IT-rome');assert.equal(h.searchInput().props['aria-expanded'],false);
+      h.query('sir');const serbia=localeFormatting.appRegionName('RS',locale);assert.ok(h.searchOption(serbia));h.chooseSearchOption(serbia);assert.equal(h.rowSource(h.rows()[0]).id,'RS-belgrade','Changing a selected city clears its exact-place filter');
+      h.focusSearch();h.query('Definitely-no-city-84721');assert.equal(h.searchOptions().length,0);assert.equal(h.rows().length,0);assert.equal(h.nodes().some(node=>node.type==='DestinationPhoto'),false);assert.ok(h.nodes().some(node=>node.props.role==='status'),'Unavailable destination feedback is announced next to search');
+      h.query('');assert.equal(h.searchInput().props['aria-expanded'],false);assert.equal(h.searchOptions().length,0);assert.ok(h.rows().length>1);assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+    }finally{h.dispose();}
+  }
+});
+
+test('Costs combobox supports keyboard selection, Escape, Tab, composition and focus leaving the suggestion group',()=>{
+  const h=costHarness({locale:'tr'});
+  try{
+    h.focusSearch();h.query('Roma');const options=h.searchOptions();assert.ok(options.length>1);assert.equal(text(costNodes(options[0]).find(node=>node.type==='strong')),'Roma','An exact city match precedes a partial country match');
+    assert.equal(h.searchInput().props['aria-autocomplete'],'list');const popup=h.nodes().find(node=>node.props.role==='listbox');assert.equal(h.searchInput().props['aria-controls'],popup.props.id);
+    assert.equal(h.keySearch('ArrowDown'),true);const active=h.searchOptions().filter(node=>node.props['aria-selected']);assert.equal(active.length,1);assert.equal(h.searchInput().props['aria-activedescendant'],active[0].props.id);
+    h.keySearch('ArrowUp');assert.equal(h.searchOptions().at(-1).props['aria-selected'],true,'Up wraps to the final visible suggestion');h.keySearch('ArrowDown');assert.equal(h.searchOptions()[0].props['aria-selected'],true);
+    h.keySearch('Enter',{nativeEvent:{isComposing:true}});assert.equal(h.queryValue(),'Roma');assert.equal(h.searchInput().props['aria-expanded'],true,'IME confirmation cannot accidentally select a destination');
+    assert.equal(h.keySearch('Enter'),true);assert.equal(h.rows().length,1);assert.equal(h.rowSource(h.rows()[0]).id,'IT-rome');assert.equal(h.searchInput().props['aria-expanded'],false);
+    h.focusSearch();h.query('sir');assert.equal(h.keySearch('Escape'),true);assert.equal(h.searchInput().props['aria-expanded'],false);assert.equal(h.queryValue(),'sir');assert.equal(h.rows().length,1);
+    h.focusSearch();h.keySearch('Tab');assert.equal(h.searchInput().props['aria-expanded'],false);assert.equal(h.queryValue(),'sir');
+    h.focusSearch();h.blurSearch(true);assert.equal(h.searchInput().props['aria-expanded'],true,'Moving within the suggestion group keeps options available');h.blurSearch(false);assert.equal(h.searchInput().props['aria-expanded'],false,'Moving outside closes suggestions without clearing text');assert.equal(h.queryValue(),'sir');
+    h.focusSearch();assert.equal(h.searchOptions().length,1);assert.equal(h.keySearch('Enter'),true,'A single suggestion can be accepted directly');assert.equal(h.queryValue(),'Sırbistan');assert.equal(h.rowSource(h.rows()[0]).id,'RS-belgrade');
+    assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+  }finally{h.dispose();}
+});
+
+test('Choosing a suggested country or city keeps first-time users in the configuration until they deliberately show the budget',()=>{
+  const h=costHarness({locale:'tr'}),focus=[],scroll=[];
+  try{
+    const heading=h.nodes().find(node=>node.type==='h2'&&node.props.ref);heading.props.ref.current={focus:options=>focus.push(options),scrollIntoView:options=>scroll.push(options)};
+    h.focusSearch();h.query('sir');h.chooseSearchOption('Sırbistan');assert.equal(h.rowSource(h.rows()[0]).id,'RS-belgrade');assert.equal(h.searchInput().props['aria-expanded'],false);
+    h.focusSearch();h.query('Paris');h.keySearch('ArrowDown');h.keySearch('Enter');assert.equal(h.rowSource(h.rows()[0]).id,'FR-paris');
+    assert.equal(focus.length,0,'Picking a place does not skip over dates, party or preferences');assert.equal(scroll.length,0);
+    assert.equal(h.summary(h.labels.dates),'3 gün · 2 gece');assert.equal(h.summary(h.labels.party),'2 yetişkin · 1 oda');
+    h.tap(h.labels.show);assert.equal(focus.length,1);assert.equal(scroll.length,1);assert.equal(scroll[0].block,'start');assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+  }finally{h.dispose();}
+});
+
+test('Accommodation exposes the room type directly and optional food and extra budgets stay in correctly named separate sections',()=>{
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale});
+    try{
+      assert.deepEqual(h.choices(h.labels.accommodation).map(node=>node.props['aria-label']),[h.labels.hostel,h.labels.apartment,h.labels.hotel]);
+      const stay=h.nodes().find(node=>node.type==='fieldset'&&node.props.className?.includes('budget-accommodation-options'));
+      assert.ok(costNodes(stay).some(node=>node.type==='label'&&text(node).trim().startsWith(h.labels.roomType)),'Room type is visible with accommodation');
+      assert.equal(costNodes(h.extra()).some(node=>node.type==='label'&&[h.labels.roomType,h.labels.activities,h.labels.buffer].some(label=>text(node).trim().startsWith(label))),false,'Food and transport does not hide unrelated settings');
+      const additional=h.additional();assert.notEqual(additional.props.open,true);for(const label of [h.labels.activities,h.labels.buffer])assert.ok(costNodes(additional).some(node=>node.type==='label'&&text(node).trim().startsWith(label)));
+      h.choose(h.labels.accommodation,h.labels.hostel);assert.equal(h.field(h.labels.roomType,false),undefined);assert.equal(h.group(h.labels.stars,false),undefined);
+      h.choose(h.labels.accommodation,h.labels.apartment);assert.equal(h.field(h.labels.roomType).props.value,'double');assert.equal(h.group(h.labels.stars,false),undefined);
+      h.choose(h.labels.accommodation,h.labels.hotel);h.change(h.labels.roomType,'family');assert.equal(h.field(h.labels.roomType).props.value,'family');h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms).props.value,'1');h.close();
+    }finally{h.dispose();}
+  }
+});
+
+test('Missing budget labels name the unpriced item instead of presenting an unexplained partial estimate',()=>{
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale});
+    try{
+      h.query('Paris');h.changeExtra(h.labels.activities,'paid');
+      const tag=()=>text(costNodes(h.rows()[0]).find(node=>node.props.className==='budget-estimate-tag'));
+      assert.equal(tag(),h.labels.partial);h.changeExtra(h.labels.allowance,'0');assert.notEqual(tag(),h.labels.partial,'An explicitly free activity allowance completes this item');
+      h.changeExtra(h.labels.activities,'free');h.query('Serbia');h.changeExtra(h.labels.transport,'taxi');
+      assert.equal(tag(),{tr:'Taksi bütçesi eksik',en:'Taxi budget missing',sq:'Mungon buxheti i taksisë'}[locale]);assert.equal(h.rowSource(h.rows()[0]).id,'RS-belgrade');
+      assert.equal(h.intents.length,0);
+    }finally{h.dispose();}
+  }
+});
+
+test('Activity allowance follows the usable display currency while retaining canonical GBP values and the exact amount being typed',()=>{
+  let quote=null;
+  const h=costHarness({preferences:{currency:'TRY',activities:'paid',activityAllowance:'10.50'},dailyFactory:(_host,budget)=>({useDailyBudgetRate:currency=>({quote,rate:budget.usableBudgetRate(quote,currency),loading:false,failed:currency!=='GBP'&&budget.usableBudgetRate(quote,currency)===null})})});
+  try{
+    h.query('Paris');assert.match(h.extraField(h.labels.allowance).props['aria-label'],/GBP/);assert.equal(Number(h.extraField(h.labels.allowance).props.value),10.5);assert.equal(h.saved.length,0);
+    quote={base:'GBP',quote:'TRY',rate:66,date:new Date().toISOString().slice(0,10)};h.render();assert.match(h.extraField(h.labels.allowance).props['aria-label'],/TRY/);assert.equal(Number(h.extraField(h.labels.allowance).props.value),693);assert.equal(h.saved.length,0,'A quote appearing cannot rewrite a saved allowance');
+    h.changeExtra(h.labels.allowance,'660');assert.equal(h.extraField(h.labels.allowance).props.value,'660');assert.equal(Number(h.saved.at(-1).value.activityAllowance),10);
+    h.changeExtra(h.labels.allowance,'0.01');assert.equal(h.extraField(h.labels.allowance).props.value,'0.01','Sub-pound local amounts do not jump while being typed');const canonical=Number(h.saved.at(-1).value.activityAllowance);assert.ok(canonical>0&&Math.abs(canonical-0.01/66)<0.000001);
+    h.openDetail();h.tap(h.labels.addTrip);const intent=h.intents.at(-1);assert.equal(Number(intent.personalPreferences.activityAllowance),canonical);assert.equal(intent.estimate.activities,canonical*6);assert.equal(h.intentModule.validateBudgetCockpitIntent(intent),true);
+    h.change(h.labels.currency,'GBP');assert.match(h.extraField(h.labels.allowance).props['aria-label'],/GBP/);h.changeExtra(h.labels.allowance,'5.50');assert.equal(h.extraField(h.labels.allowance).props.value,'5.50');assert.equal(h.saved.at(-1).value.activityAllowance,'5.50','Existing GBP input and snapshots preserve their original precision');
+    quote={base:'GBP',quote:'EUR',rate:2,date:new Date().toISOString().slice(0,10)};h.change(h.labels.currency,'EUR');assert.match(h.extraField(h.labels.allowance).props['aria-label'],/EUR/);assert.equal(Number(h.extraField(h.labels.allowance).props.value),11);assert.equal(h.saved.at(-1).value.activityAllowance,'5.50','Changing display currency never reinterprets the stored GBP amount');
+  }finally{h.dispose();}
+});
+
+test('Spending style explains its scope and automatic season names the period while retaining a deliberate manual choice',()=>{
+  const words={tr:{style:'Harcama tarzı',scope:'Konaklama, yemek ve ulaşım',normal:'Tarihe göre: Normal',low:'Tarihe göre: Sakin',high:'Tarihe göre: Yoğun'},en:{style:'Spending style',scope:'accommodation, food and transport',normal:'By date: Normal',low:'By date: Quiet',high:'By date: Busy'},sq:{style:'Stili i shpenzimeve',scope:'akomodim, ushqim dhe transport',normal:'Sipas datës: Normal',low:'Sipas datës: E qetë',high:'Sipas datës: E ngarkuar'}};
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale});
+    try{
+      const style=h.nodes().find(node=>node.type==='fieldset'&&node.props.className?.includes('budget-comfort-options'));assert.equal(text(costNodes(style).find(node=>node.type==='legend')),words[locale].style);assert.ok(text(style).includes(words[locale].scope));
+      const autoName=()=>text(costNodes(h.choices(h.labels.season).find(node=>node.props['aria-label']===h.labels.auto)).find(node=>node.type==='strong'));
+      assert.equal(autoName(),words[locale].normal);
+      h.tap(h.labels.dates);h.change(h.labels.departure,'2027-01-02');h.change(h.labels.return,'2027-01-05');h.close();assert.equal(autoName(),words[locale].low);
+      h.choose(h.labels.season,h.labels.low);h.tap(h.labels.dates);h.change(h.labels.departure,'2027-07-02');h.change(h.labels.return,'2027-07-05');h.close();assert.equal(autoName(),words[locale].high);assert.equal(h.selected(h.labels.season),h.labels.low,'Date changes do not silently override a deliberate manual period');
+      h.choose(h.labels.season,h.labels.auto);assert.equal(h.selected(h.labels.season),h.labels.auto);assert.equal(autoName(),words[locale].high);
+    }finally{h.dispose();}
+  }
+});
+
+test('Result totals identify the whole party and their edit action returns to the existing preferences without saving or resetting them',()=>{
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale,preferences:{days:'5',adults:'3',rooms:'2',style:'comfort',season:'low'}}),focus=[],scroll=[];
+    try{
+      h.query('Paris');const row=h.rows()[0],total=costNodes(row).find(node=>node.props.className==='budget-row-total');
+      assert.equal(text(costNodes(total).find(node=>node.type==='small')),{tr:'3 kişi için toplam · uçuş hariç',en:'Total for 3 people · flights excluded',sq:'Totali për 3 persona · pa fluturime'}[locale]);
+      const action=h.findButton(h.labels.dates);assert.ok(action.props.ref);action.props.ref.current={focus:options=>focus.push(options),scrollIntoView:options=>scroll.push(options)};
+      const edit={tr:'Bütçe tercihlerini düzenle',en:'Edit budget preferences',sq:'Ndrysho preferencat e buxhetit'}[locale];const range=h.range(row);h.tap(edit);assert.equal(focus.length,1);assert.equal(focus[0].preventScroll,true);assert.equal(scroll.length,1);assert.equal(scroll[0].block,'center');
+      assert.equal(h.queryValue(),'Paris');assert.equal(h.range(h.rows()[0]),range);assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.equal(h.selected(h.labels.season),h.labels.low);assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+      h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.value,'5');h.close();h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'3');assert.equal(h.field(h.labels.rooms).props.value,'2');h.close();
+    }finally{h.dispose();}
+  }
+});
+
+test('City budget detail sends its selected city, travellers and duration as a dated estimate, retaining GBP without a usable foreign rate',()=>{
+  const h=costHarness({preferences:{adults:'3',rooms:'2'}});
+  try{
+    const city=h.rows()[0],name=h.rowName(city);h.openDetail(city);
+    assert.match(h.text(),/Estimate for 3 days · 3 travellers/);
+    h.tap(h.labels.addTrip);
+    assert.equal(h.intents.length,1);const intent=h.intents[0];assert.equal(intent.city,name);assert.equal(intent.ownerId,'owner-a');assert.equal(intent.estimate.days,3);assert.equal(intent.estimate.people,3);assert.equal(intent.displayCurrency,'GBP');assert.equal(intent.displayTotal,intent.estimate.total);assert.equal(intent.sourceMonth,'2026-05');
+    assert.equal(intent.model,'personal-budget-v1');assert.equal(intent.estimate.rooms,2);assert.ok(intent.estimate.totalRange.high>intent.displayTotal);assert.equal(h.intentModule.validateBudgetCockpitIntent(intent),true);
+  }finally{h.dispose();}
 });
 
 
@@ -1047,48 +1259,343 @@ test('Route cost result changes currency safely, ignores an obsolete rate reply,
 });
 
 
-test('Country costs recover FX failure, recalculate duration and party, sort both ways and keep detail totals consistent', async () => {
-  const host = hooks(), waiting = [];
-  const benchmarks = load('lib/country-intelligence/city-benchmarks.ts');
-  const budget = load('lib/country-intelligence/trip-budget.ts');
-  const { CityPriceCatalog } = load('mobile/src/components/CityPriceCatalog.tsx', {
-    ...common(host), '../../../lib/country-intelligence/city-benchmarks': benchmarks,
-    '../../../lib/country-intelligence/currencies': { COST_CURRENCIES: {} }, '../../../lib/country-intelligence/cost-model': {},
-    '../lib/countryIntelligence': { useAdvisories: () => [], useCountryData: () => ({ data: null, loading: false, error: null }) },
-    '../lib/native': {}, './Sheet': { Sheet: 'Sheet' }, './CountryFlag': { CountryFlag: 'Flag' }, './CountryAdvisory': { CountryRiskBadge: 'Risk', CountryAdvisory: 'Advisory' }, './CostCalculators': { LocationCalculator: 'Location' }, './Icon': { Icon: 'Icon' },
-    '../../../lib/country-intelligence/trip-budget': budget,
-    '../lib/budgetPreferences': { readBudgetPreferences: () => ({ currency: 'EUR', days: '7', people: '3' }), saveBudgetPreferences() {} },
-    '../lib/travelAssistant': { storedQuote: () => null, loadQuote: (base, quote) => new Promise((resolve, reject) => waiting.push({ base, quote, resolve, reject })) },
-    '../lib/budgetCockpitIntent': {},
-  }, { window: { setInterval: () => 1, clearInterval() {} } });
-  const rows = tree => nodes(tree).filter(node => node.type === 'button' && node.props.className === 'budget-city-row');
-  const total = row => text(find(row, 'span', p => p.className === 'budget-row-total'));
-  try {
-    host.start(CityPriceCatalog, { onOpenCountryNews() {} });
-    waiting[0].reject(Error('offline')); await tick();
-    let tree = host.render();
-    assert.match(text(tree), /Estimates are shown in GBP/); assert.match(total(rows(tree)[0]), /£/); assert.doesNotMatch(total(rows(tree)[0]), /€/);
-    button(tree, 'Refresh rate').props.onClick(); tree = host.render();
-    waiting[1].resolve({ base: 'GBP', quote: 'EUR', rate: 2, date: new Date().toISOString().slice(0,10) }); await tick();
-    tree = host.render(); assert.match(total(rows(tree)[0]), /€/); assert.doesNotMatch(text(tree), /Estimates are shown in GBP/);
-    const before = total(rows(tree)[0]);
-    find(tree, 'label', p => text(p.children).startsWith('Days')).props.children[1].props.onChange({ target: { value: '2' } }); tree = host.render();
-    assert.notEqual(total(rows(tree)[0]), before);
-    find(tree, 'label', p => text(p.children).startsWith('Travellers')).props.children[1].props.onChange({ target: { value: '1' } }); tree = host.render();
-    const firstCity = text(find(rows(tree)[0], 'strong'));
-    const source = benchmarks.CITY_BENCHMARKS.find(row => row.city.en === firstCity);
-    const expected = new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(budget.tripBudget(source, 2, 1).total * 2);
-    assert.ok(total(rows(tree)[0]).includes(expected));
-    rows(tree)[0].props.onClick(); tree = host.render();
-    assert.equal(text(find(find(tree, 'section', p => p.className === 'budget-detail-total'), 'strong')), expected);
-    find(tree, 'Sheet').props.onClose(); tree = host.render();
-    find(tree, 'select', p => p['aria-label'] === 'City order').props.onChange({ target: { value: 'high' } }); tree = host.render();
-    assert.notEqual(text(find(rows(tree)[0], 'strong')), firstCity);
-    find(tree, 'select', p => p['aria-label'] === 'City order').props.onChange({ target: { value: 'price' } }); tree = host.render();
-    assert.equal(text(find(rows(tree)[0], 'strong')), firstCity);
-    find(tree, 'label', p => text(p.children).startsWith('Days')).props.children[1].props.onChange({ target: { value: '' } }); tree = host.render();
-    assert.match(text(tree), /Enter whole numbers/); assert.match(total(rows(tree)[0]), /—/);
-  } finally { host.dispose(); }
+test('Personal costs recover FX automatically, recalculate party and rooms, sort consistently and retain detail ranges',async()=>{
+  const waiting=[],events=new Map();
+  const h=costHarness({preferences:{currency:'EUR',days:'7',adults:'3',rooms:'2'},dailyFactory:(host,budget)=>load('mobile/src/lib/useDailyBudgetRate.ts',{
+    react:host.react,'../../../lib/country-intelligence/trip-budget':budget,'./travelAssistant':{storedQuote:()=>null,loadQuote:(base,quote)=>new Promise((resolve,reject)=>waiting.push({base,quote,resolve,reject}))},
+  },{window:{setInterval:()=>1,clearInterval(){},addEventListener:(name,fn)=>events.set(name,fn),removeEventListener:name=>events.delete(name)}})});
+  try{
+    assert.equal(h.openSheet(),undefined,'Optional form controls start closed');
+    const nodes=h.nodes(),search=nodes.find(node=>node.type==='input'&&node.props.type==='search'),heading=nodes.find(node=>node.type==='h2'&&text(node)==='City budgets'),firstScene=nodes.find(node=>node.type==='button'&&text(node).includes(h.labels.details));
+    assert.ok(heading,'The initial comparison has an accessible results heading');
+    assert.ok(nodes.indexOf(search)<nodes.indexOf(heading),'Destination search precedes the comparison results in reading order');
+    assert.ok(nodes.indexOf(heading)<nodes.indexOf(firstScene),'The results heading precedes its priced city scenes');
+    assert.equal(h.field(h.labels.adults,false),undefined);assert.equal(h.field(h.labels.departure,false),undefined);assert.equal(h.field(h.labels.accommodation,false),undefined);
+    assert.ok(h.rows().length,'Real budget ranges are available before opening an editor');
+    waiting[0].reject(Error('offline'));await tick();
+    assert.match(h.text(),/Estimates are shown in GBP/);assert.match(h.range(h.rows()[0]),/£/);assert.doesNotMatch(h.range(h.rows()[0]),/€/);
+    assert.equal(h.findButton('Refresh rate'),undefined);assert.doesNotMatch(h.text(),/Source basket|Reference rate|CPI/);
+    events.get('online')();h.render();waiting[1].resolve({base:'GBP',quote:'EUR',rate:2,date:new Date().toISOString().slice(0,10)});await tick();
+    assert.match(h.range(h.rows()[0]),/€/);assert.doesNotMatch(h.text(),/Estimates are shown in GBP/);
+    const before=h.range(h.rows()[0]);h.tap(h.labels.dates);h.change(h.labels.days,'2');h.tap(h.labels.done);assert.notEqual(h.range(h.rows()[0]),before);
+    h.tap(h.labels.party);h.change(h.labels.adults,'1');assert.equal(h.field(h.labels.rooms).props.value,'1');h.tap(h.labels.done);
+    const firstCity=h.rowName(h.rows()[0]),source=h.rowSource(h.rows()[0]),expected=h.personal.personalTripBudget(source,{...h.personal.DEFAULT_PERSONAL_BUDGET,days:'2',adults:'1'});
+    const format=n=>new Intl.NumberFormat('en',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n*2),expectedRange=`${format(expected.totalRange.low)} – ${format(expected.totalRange.high)}`;
+    assert.equal(h.range(h.rows()[0]),expectedRange);h.openDetail();assert.equal(h.detailTotal(),expectedRange);assert.match(h.text(),/Food · all meals/);h.close();
+    const sort=()=>costNodes(h.render()).find(node=>node.type==='select'&&node.props['aria-label']==='City order');
+    sort().props.onChange({target:{value:'high'}});h.render();assert.notEqual(h.rowName(h.rows()[0]),firstCity);
+    sort().props.onChange({target:{value:'price'}});h.render();assert.equal(h.rowName(h.rows()[0]),firstCity);
+    h.change(h.labels.currency,'USD');assert.equal(waiting[2].quote,'USD');assert.match(h.range(h.rows()[0]),/£/);assert.doesNotMatch(h.range(h.rows()[0]),/€|\$/,'A previous EUR rate never prices the new USD selection');
+    waiting[2].resolve({base:'GBP',quote:'USD',rate:3,date:new Date().toISOString().slice(0,10)});await tick();assert.match(h.range(h.rows()[0]),/\$/);
+    h.tap(h.labels.dates);h.change(h.labels.days,'');assert.match(h.text(),/Choose 1–30 whole days/);assert.equal(h.range(h.rows()[0]),'—');assert.equal(h.findButton(h.labels.compare).props.disabled,true);
+  }finally{h.dispose();}
+});
+
+test('Costs use selected trip dates and party only on request and preserve edits when the active trip changes',()=>{
+  const h=costHarness();
+  try{
+    h.tap(h.labels.party);h.change(h.labels.adults,'4');h.tap(h.labels.done);
+    h.setActive({tripId:'rome',title:'Rome holiday',city:'Rome',countryCode:'IT',startDate:'2027-07-01',endDate:'2027-07-04',adults:2,children:1});
+    h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'4');h.close();
+    h.tap(h.labels.dates);assert.equal(h.field(h.labels.departure).props.value,'');h.close();
+    h.tap(h.labels.useTrip);assert.equal(h.queryValue(),'Rome');h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.value,4);assert.equal(h.field(h.labels.days).props.disabled,true);h.close();
+    h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'2');assert.equal(h.field(h.labels.children).props.value,'1');assert.equal(h.field(h.labels.rooms).props.value,'2');
+    h.change(h.labels.adults,'3');h.close();h.setActive({tripId:'paris',title:'Paris',city:'Paris',countryCode:'FR',startDate:'2027-08-01',endDate:'2027-08-03',adults:1});
+    h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'3');h.close();assert.equal(h.queryValue(),'Rome');assert.doesNotMatch(h.text(),/Trip details applied/);
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs labelled rows and direct choices expose their values and scope, and estimate actions only move focus',()=>{
+  const expected={
+    en:{rows:['Duration','Guests / rooms'],duration:'3 days · 2 nights',party:'2 adults · 1 room',scope:'Accommodation, food and local transport estimate.',excluded:'Flights excluded.'},
+    tr:{rows:['Süre','Kişi / oda'],duration:'3 gün · 2 gece',party:'2 yetişkin · 1 oda',scope:'Konaklama, yemek ve şehir içi ulaşım tahmini.',excluded:'Uçuş hariç.'},
+    sq:{rows:['Kohëzgjatja','Persona / dhoma'],duration:'3 ditë · 2 net',party:'2 të rritur · 1 dhomë',scope:'Vlerësim për akomodimin, ushqimin dhe transportin lokal.',excluded:'Pa fluturime.'},
+  };
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale}),focus=[],scroll=[];
+    try{
+      assert.equal(h.openSheet(),undefined);for(const name of [h.labels.days,h.labels.adults,h.labels.children,h.labels.rooms])assert.equal(h.field(name,false),undefined,'Dates and party fields render only in their chosen sheet');
+      for(const [index,action]of [h.labels.dates,h.labels.party].entries())assert.ok(text(h.findButton(action)).includes(expected[locale].rows[index]),`Visible row label: ${action}`);
+      assert.equal(h.summary(h.labels.dates),expected[locale].duration);assert.equal(h.summary(h.labels.party),expected[locale].party);
+      for(const [group,count,selected]of [[h.labels.accommodation,3,h.labels.hotel],[h.labels.stars,4,h.starLabel('3')],[h.labels.style,3,h.labels.standard],[h.labels.season,4,h.labels.auto]]){assert.equal(h.choices(group).length,count);assert.equal(h.selected(group),selected);}
+      const photos=costNodes(h.group(h.labels.accommodation)).filter(node=>node.type==='img');assert.equal(photos.length,3);assert.equal(new Set(photos.map(photo=>photo.props.src)).size,3,'Accommodation choices cannot silently reuse the same room image');
+      for(const [label,asset]of [[h.labels.hotel,'hotel'],[h.labels.apartment,'apartment'],[h.labels.hostel,'hostel']]){const choice=h.choices(h.labels.accommodation).find(node=>node.props['aria-label']===label),photo=costNodes(choice).find(node=>node.type==='img');assert.equal(photo.props.src,`mock://budget/${asset}-v2.webp`);assert.equal(photo.props.alt,'','The visible choice name labels the decorative photo without repeated screen-reader text');assert.ok(Number(photo.props.width)>0&&Number(photo.props.height)>0,'Photo dimensions reserve space before loading');}
+      assert.notEqual(h.extra().props.open,true,'Food and transport starts in its own closed native disclosure');assert.ok(h.field(h.labels.roomType));for(const name of [h.labels.food,h.labels.transport,h.labels.activities,h.labels.buffer])assert.ok(h.extraField(name));assert.equal(h.field(h.labels.holiday).props.checked,false);
+      assert.ok(h.text().includes(expected[locale].scope));assert.ok(h.text().includes(expected[locale].excluded));assert.equal(h.field(h.labels.currency).props.value,'GBP');
+      const heading=h.nodes().find(node=>node.type==='h2'&&node.props.ref);assert.ok(heading);assert.equal(heading.props.tabIndex,-1);heading.props.ref.current={focus:options=>focus.push(options),scrollIntoView:options=>scroll.push(options)};
+      for(const query of ['', 'Paris']){
+        h.query(query);const range=h.range(h.rows()[0]),saved=h.saved.length,action=query?h.labels.show:h.labels.compare;
+        for(const reduce of [false,true]){reducedMotion=reduce;h.tap(action);assert.equal(focus.at(-1).preventScroll,true);assert.equal(scroll.at(-1).block,'start');assert.equal(scroll.at(-1).behavior,reduce?'instant':'smooth');}
+        assert.equal(h.range(h.rows()[0]),range);assert.equal(h.saved.length,saved,'Viewing the current estimate never rewrites preferences');assert.equal(h.intents.length,0,'Viewing results never attaches a trip budget');
+      }
+    }finally{reducedMotion=false;h.dispose();}
+  }
+});
+
+test('Progressive Costs food and transport subtitle follows current choices and language without replacing stored values',()=>{
+  const h=costHarness();
+  const subtitle=()=>text(costNodes(costNodes(h.extra()).find(node=>node.type==='summary')).find(node=>node.type==='small'));
+  try{
+    assert.equal(subtitle(),'Local food · Public transport');
+    h.changeExtra(h.labels.food,'self-catering');assert.equal(subtitle(),'Groceries · Public transport');h.changeExtra(h.labels.transport,'walk');assert.equal(subtitle(),'Groceries · Walking');
+    h.language('tr');assert.equal(subtitle(),'Market · Yürüyüş');h.changeExtra(h.labels.food,'restaurants');assert.equal(subtitle(),'Restoran · Yürüyüş');h.changeExtra(h.labels.transport,'taxi');assert.equal(subtitle(),'Restoran · Taksi');
+    h.language('sq');assert.equal(subtitle(),'Restorante · Taksi');assert.equal(h.extraField(h.labels.food).props.value,'restaurants');assert.equal(h.extraField(h.labels.transport).props.value,'taxi');
+    h.tap(h.labels.dates);h.close();assert.equal(subtitle(),'Restorante · Taksi');assert.equal(h.saved.at(-1).value.food,'restaurants');assert.equal(h.saved.at(-1).value.transport,'taxi');assert.equal(h.saved.at(-1).owner,'owner-a');
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs distinct comfort photos and named period choices retain independent selections and price effects in every locale',()=>{
+  for(const locale of ['tr','en','sq']){
+    const h=costHarness({locale});
+    try{
+      h.query('Paris');
+      const duration=h.summary(h.labels.dates),party=h.summary(h.labels.party);
+      const comfortOptions=[['economical',h.labels.economical],['standard',h.labels.standard],['comfort',h.labels.comfort]],photoSources=[],comfortHints=[];
+      for(const [value,label]of comfortOptions){
+        const choice=h.choices(h.labels.style).find(node=>node.props['aria-label']===label);
+        assert.ok(choice,`Readable ${h.labels.style} choice: ${label}`);
+        const images=costNodes(choice).filter(node=>node.type==='img');
+        assert.equal(images.length,1,'Each named comfort option has one photo');
+        assert.equal(images[0].props.src,`mock://budget/comfort-${value}-v2.webp`);assert.equal(images[0].props.alt,'');
+        assert.ok(costNodes(choice).some(node=>String(node.props['aria-hidden'])==='true'&&costNodes(node).includes(images[0])),'Decorative photos cannot duplicate the visible option name');
+        assert.equal(images[0].props.loading,'lazy');assert.equal(images[0].props.decoding,'async');
+        const name=costNodes(choice).find(node=>node.type==='strong'),hint=costNodes(choice).find(node=>node.type==='small');
+        assert.equal(text(name),label);assert.ok(text(hint).trim(),'The spending style is explained directly on the option');
+        photoSources.push(images[0].props.src);comfortHints.push(text(hint));
+      }
+      assert.equal(new Set(photoSources).size,comfortOptions.length,'Comfort options use distinct photo files instead of the same cropped sprite');
+      assert.equal(new Set(comfortHints).size,comfortOptions.length,'Comfort choices explain different spending styles');
+      const seasonChoices=h.choices(h.labels.season),seasonNames=[h.labels.auto,h.labels.low,h.labels.normal,h.labels.high];
+      const visibleNames={tr:['Tarihe göre: Normal','Sakin','Normal','Yoğun'],en:['By date: Normal','Quiet','Normal','Busy'],sq:['Sipas datës: Normal','E qetë','Normal','E ngarkuar']}[locale];
+      assert.equal(seasonChoices.length,4,'Automatic and manual periods remain in one accessible group');
+      for(const [index,label]of seasonNames.entries()){
+        const choice=seasonChoices.find(node=>node.props['aria-label']===label);assert.ok(choice,`Readable period choice: ${label}`);
+        assert.equal(text(costNodes(choice).find(node=>node.type==='strong')),visibleNames[index],'Every period is named directly on its button');
+        if(index>0)assert.ok(text(costNodes(choice).find(node=>node.type==='small')).trim(),'Manual periods explain the demand level on the option');
+        assert.equal(costNodes(choice).some(node=>node.type==='img'),false,'Period choices do not rely on destination illustrations');
+      }
+      assert.equal(h.saved.length,0,'Rendering visual choices cannot rewrite preferences');assert.equal(h.intents.length,0);
+      h.choose(h.labels.style,h.labels.economical);assert.equal(h.selected(h.labels.style),h.labels.economical);const economical=h.range(h.rows()[0]);
+      h.choose(h.labels.style,h.labels.comfort);assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.notEqual(h.range(h.rows()[0]),economical);
+      h.choose(h.labels.season,h.labels.low);assert.equal(h.selected(h.labels.season),h.labels.low);const low=h.range(h.rows()[0]);
+      h.choose(h.labels.season,h.labels.high);assert.equal(h.selected(h.labels.season),h.labels.high);assert.notEqual(h.range(h.rows()[0]),low);
+      assert.equal(h.selected(h.labels.style),h.labels.comfort,'Changing the period does not reset the comfort choice');
+      assert.equal(h.summary(h.labels.dates),duration);assert.equal(h.summary(h.labels.party),party);assert.equal(h.openSheet(),undefined);assert.equal(h.intents.length,0);
+    }finally{h.dispose();}
+  }
+});
+
+test('Progressive Costs dates preserve edits on close, derive nights, clear back to duration and enforce duration boundaries',()=>{
+  const h=costHarness();
+  try{
+    assert.equal(h.field(h.labels.days,false),undefined,'Duration is edited through its labelled row');h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.value,'3');h.change(h.labels.days,'5');h.close();assert.equal(h.summary(h.labels.dates),'5 days · 4 nights');
+    h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.value,'5');h.change(h.labels.departure,'2027-07-01');assert.match(h.text(),/Choose 1–30 whole days/);assert.equal(h.summary(h.labels.dates),'Complete duration or dates');assert.equal(h.findButton(h.labels.compare).props.disabled,true);
+    h.change(h.labels.return,'2027-07-04');assert.equal(h.field(h.labels.days).props.value,4);assert.equal(h.field(h.labels.days).props.disabled,true);
+    assert.match(h.text(),/4 days · 3 nights/);assert.equal(h.findButton(h.labels.compare).props.disabled,false);
+    h.close();assert.equal(h.field(h.labels.departure,false),undefined);h.tap(h.labels.dates);assert.equal(h.field(h.labels.departure).props.value,'2027-07-01');assert.equal(h.field(h.labels.return).props.value,'2027-07-04');
+    h.tap(h.labels.clearDates);assert.equal(h.field(h.labels.departure).props.value,'');assert.equal(h.field(h.labels.return).props.value,'');assert.equal(h.field(h.labels.days).props.value,'4');assert.equal(h.field(h.labels.days).props.disabled,false);h.tap(h.labels.done);assert.equal(h.summary(h.labels.dates),'4 days · 3 nights');
+    h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.min,'1');assert.equal(h.field(h.labels.days).props.max,'30');
+    for(const invalid of ['0','31','1.5','']){h.change(h.labels.days,invalid);assert.match(h.text(),/Choose 1–30 whole days/);assert.equal(h.range(h.rows()[0]),'—');assert.equal(h.findButton(h.labels.compare).props.disabled,true);}
+    h.change(h.labels.days,'1');assert.equal(h.findButton(h.labels.compare).props.disabled,false);assert.match(h.summary(h.labels.dates),/^1 days? · 0 nights?$/);
+    h.change(h.labels.days,'30');assert.equal(h.findButton(h.labels.compare).props.disabled,false);h.close();assert.equal(h.summary(h.labels.dates),'30 days · 29 nights');h.tap(h.labels.dates);assert.equal(h.field(h.labels.days).props.value,'30');h.change(h.labels.days,'29');h.tap(h.labels.done);assert.equal(h.summary(h.labels.dates),'29 days · 28 nights');
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs party capacity remains actionable and room/hostel choices survive editor transitions',()=>{
+  const h=costHarness();
+  try{
+    h.query('Rome');
+    h.tap(h.labels.party);h.change(h.labels.children,'1');assert.equal(h.field(h.labels.rooms).props.value,'2');assert.equal(h.summary(h.labels.party),'2 adults · 1 child · 2 rooms');
+    h.change(h.labels.rooms,'1');assert.match(h.text(),/needs at least 2 rooms/);assert.equal(h.range(h.rows()[0]),'—');h.close();
+    h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms).props.value,'1');assert.equal(h.field(h.labels.children).props.value,'0','Closing an invalid party editor restores its previous valid settings');h.change(h.labels.children,'1');h.tap(h.labels.done);
+    const shared=h.range(h.rows()[0]);h.tap(h.labels.party);h.change(h.labels.rooms,'3');h.close();assert.notEqual(h.range(h.rows()[0]),shared,'Explicit additional rooms affect the total');
+    h.change(h.labels.roomType,'family');h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms).props.value,'1');assert.equal(h.summary(h.labels.party),'2 adults · 1 child · 1 room');h.close();
+    h.choose(h.labels.accommodation,h.labels.hostel);assert.equal(h.summary(h.labels.party),'2 adults · 1 child · Hostel stay');assert.equal(h.selected(h.labels.accommodation),h.labels.hostel);assert.equal(h.group(h.labels.stars,false),undefined);assert.equal(h.field(h.labels.roomType,false),undefined);h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms,false),undefined);assert.equal(h.field(h.labels.children).props.value,'1');h.close();
+    h.choose(h.labels.accommodation,h.labels.hotel);assert.equal(h.field(h.labels.roomType).props.value,'family');h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms).props.value,'1');
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs direct accommodation, class and comfort choices retain settings and charge hostel stays per bed',()=>{
+  const initial={adults:'3',children:'1',rooms:'3',stars:'4',food:'restaurants',buffer:'15'},h=costHarness({preferences:initial});
+  try{
+    h.query('Rome');const source=h.rowSource(h.rows()[0]);let preferences={...h.personal.DEFAULT_PERSONAL_BUDGET,...initial};
+    const format=n=>new Intl.NumberFormat('en',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n);
+    const estimate=()=>{const expected=h.personal.personalTripBudget(source,preferences);assert.ok(expected);assert.equal(h.range(h.rows()[0]),`${format(expected.totalRange.low)} – ${format(expected.totalRange.high)}`);return expected;};
+    const classTotals=[];
+    for(const stars of ['2','3','4','5']){h.choose(h.labels.stars,h.starLabel(stars));preferences={...preferences,stars};assert.equal(h.selected(h.labels.stars),h.starLabel(stars));assert.equal(h.summary(h.labels.party),'3 adults · 1 child · 3 rooms','Changing hotel class does not replace an explicit extra room');classTotals.push(estimate().hotel);}
+    assert.ok(classTotals.every((value,index)=>index===0||value>classTotals[index-1]));
+    const comfortTotals=[];
+    for(const [style,label]of [['economical',h.labels.economical],['standard',h.labels.standard],['comfort',h.labels.comfort]]){h.choose(h.labels.style,label);preferences={...preferences,style};assert.equal(h.selected(h.labels.style),label);assert.equal(h.summary(h.labels.party),'3 adults · 1 child · 3 rooms');comfortTotals.push(estimate().total);}
+    assert.ok(comfortTotals[0]<comfortTotals[1]&&comfortTotals[1]<comfortTotals[2]);
+    h.choose(h.labels.season,h.labels.high);preferences={...preferences,season:'high'};assert.equal(h.summary(h.labels.party),'3 adults · 1 child · 3 rooms','Changing the season also retains explicit room counts');estimate();
+    for(const [accommodation,label]of [['hostel',h.labels.hostel],['apartment',h.labels.apartment],['hotel',h.labels.hotel]]){
+      h.choose(h.labels.accommodation,label);preferences={...preferences,accommodation,rooms:'2'};assert.equal(h.selected(h.labels.accommodation),label);assert.equal(h.openSheet(),undefined);
+      assert.equal(h.extraField(h.labels.food).props.value,'restaurants');assert.equal(h.extraField(h.labels.buffer).props.value,'15');assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.equal(h.selected(h.labels.season),h.labels.high);
+      const expected=estimate();
+      if(accommodation==='hostel'){
+        assert.equal(h.group(h.labels.stars,false),undefined);assert.equal(h.field(h.labels.roomType,false),undefined);assert.equal(expected.rooms,0);assert.equal(expected.hotel,source.hotel/2*expected.nights*expected.people*.3*1.25*1.25);
+        h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms,false),undefined);h.close();
+      }else{
+        assert.equal(h.field(h.labels.roomType).props.value,'double');assert.equal(expected.rooms,2);h.tap(h.labels.party);assert.equal(h.field(h.labels.rooms).props.value,'2');h.close();
+        if(accommodation==='hotel')assert.equal(h.selected(h.labels.stars),h.starLabel('5'),'The prior hotel class survives other accommodation types');else assert.equal(h.group(h.labels.stars,false),undefined);
+      }
+    }
+    const expected=estimate();h.openDetail();assert.equal(h.detailTotal(),h.range(h.rows()[0]));h.tap(h.labels.addTrip);assert.equal(h.intents.length,1);const intent=h.intents[0];
+    assert.equal(intent.estimate.hotel,expected.hotel);assert.equal(intent.estimate.rooms,2);assert.equal(intent.personalPreferences.stars,'5');assert.equal(intent.personalPreferences.style,'comfort');assert.equal(intent.personalPreferences.season,'high');assert.equal(h.intentModule.validateBudgetCockpitIntent(intent),true);
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs direct seasons expose planning assumptions and preserve manual overrides when dates change',()=>{
+  const h=costHarness();
+  try{
+    h.query('Rome');const source=h.rowSource(h.rows()[0]);let preferences={...h.personal.DEFAULT_PERSONAL_BUDGET};
+    const format=n=>new Intl.NumberFormat('en',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n);
+    const estimate=()=>{const expected=h.personal.personalTripBudget(source,preferences);assert.ok(expected);assert.equal(h.range(h.rows()[0]),`${format(expected.totalRange.low)} – ${format(expected.totalRange.high)}`);return expected;};
+    assert.equal(h.selected(h.labels.season),h.labels.auto);assert.match(h.text(),/Without dates, normal season is used/);const initial=estimate();assert.equal(initial.season,'normal');
+    const seasonalHotels=[];
+    for(const [season,label]of [['low',h.labels.low],['normal',h.labels.normal],['high',h.labels.high]]){h.choose(h.labels.season,label);preferences={...preferences,season};assert.equal(h.selected(h.labels.season),label);const selected=estimate();assert.equal(selected.season,season);seasonalHotels.push(selected.hotel);}
+    assert.ok(seasonalHotels[0]<seasonalHotels[1]&&seasonalHotels[1]<seasonalHotels[2]);
+    h.choose(h.labels.season,h.labels.auto);preferences={...preferences,season:'auto'};assert.equal(estimate().total,initial.total);
+    h.tap(h.labels.dates);h.change(h.labels.departure,'2027-07-01');h.change(h.labels.return,'2027-07-04');h.close();preferences={...preferences,startDate:'2027-07-01',endDate:'2027-07-04'};
+    assert.equal(estimate().season,'high');assert.equal(h.selected(h.labels.season),h.labels.auto);assert.match(h.text(),/General calendar estimate; local seasons may differ/);
+    h.choose(h.labels.season,h.labels.low);preferences={...preferences,season:'low'};const manualLow=estimate();assert.equal(manualLow.season,'low');
+    h.tap(h.labels.dates);h.change(h.labels.departure,'2027-08-01');h.change(h.labels.return,'2027-08-04');h.close();preferences={...preferences,startDate:'2027-08-01',endDate:'2027-08-04'};assert.equal(h.selected(h.labels.season),h.labels.low);assert.equal(estimate().hotel,manualLow.hotel,'Changing dates cannot erase a manual season scenario');
+    h.choose(h.labels.season,h.labels.auto);preferences={...preferences,season:'auto'};assert.equal(estimate().season,'high');h.tap(h.labels.dates);h.tap(h.labels.clearDates);h.tap(h.labels.done);preferences={...preferences,startDate:'',endDate:'',days:'4'};assert.equal(estimate().season,'normal');assert.match(h.text(),/Without dates, normal season is used/);
+    h.choose(h.labels.season,h.labels.high);preferences={...preferences,season:'high'};const noHoliday=estimate();h.check(h.labels.holiday,true);preferences={...preferences,holiday:true};const holiday=estimate();assert.ok(holiday.hotel>noHoliday.hotel);
+    h.openDetail();h.tap(h.labels.addTrip);assert.equal(h.intents[0].personalPreferences.season,'high');assert.equal(h.intents[0].personalPreferences.holiday,true);assert.equal(h.intents[0].estimate.hotel,holiday.hotel);assert.equal(h.intentModule.validateBudgetCockpitIntent(h.intents[0]),true);
+  }finally{h.dispose();}
+});
+
+test('Every researched budget city has its own packaged city photo, including destinations outside the old quick-pick list',()=>{
+  const {BUDGET_CITY_PHOTOS:photos}=loadBudgetCityPhotos();
+  const {CITY_BENCHMARKS:benchmarks}=load('lib/country-intelligence/city-benchmarks.ts');
+  assert.equal(benchmarks.length,50);
+  assert.deepEqual(Object.keys(photos).sort(),Array.from(benchmarks,row=>row.id).sort(),'Photo coverage exactly matches the researched cities');
+  assert.equal(new Set(Object.values(photos).map(photo=>photo.src)).size,benchmarks.length,'Different cities cannot silently share one destination photo');
+  for(const row of benchmarks){
+    const photo=photos[row.id];
+    assert.match(photo.src,/^mobile\/src\/assets\/.+\.(?:webp|jpg|png)$/,'Each city photo is bundled for offline use');
+    assert.ok(readFileSync(photo.src).byteLength>1024,`${row.id} has an actual image asset`);
+    if(photo.src.includes('/budget/cities/'))assert.ok(photo.credit,`${row.id} retains its downloaded photo attribution`);
+    if(photo.credit){
+      for(const key of ['author','title','license'])assert.ok(photo.credit[key]?.trim(),`${row.id} retains ${key}`);
+      for(const key of ['source','licenseUrl'])assert.match(photo.credit[key],/^https?:\/\//,`${row.id} retains its ${key}`);
+    }
+  }
+});
+
+for(const locale of ['tr','en','sq'])test(`Every Costs result uses its own city photo and retains its matching detail in ${locale}`,()=>{
+  const h=costHarness({locale});
+  try{
+    for(const source of h.benchmarks.CITY_BENCHMARKS){
+      const label=source.city[locale==='tr'?'tr':'en'];
+      h.query(label);
+      const row=h.rows().find(candidate=>h.rowSource(candidate).id===source.id);
+      assert.ok(row,`${source.id} can be found by its city name`);
+      assert.ok(row.props.className.split(' ').includes('has-photo'),`${source.id} shows the photo layout`);
+      const photos=costNodes(row).filter(node=>node.type==='DestinationPhoto');
+      assert.equal(photos.length,1,`${source.id} shows one destination photo`);
+      assert.equal(photos[0].props.src,h.photos[source.id].src,`${source.id} uses its own bundled photo`);
+      assert.equal(photos[0].props.label,label);
+      assert.equal(photos[0].props.countryCode,source.code);
+      const range=h.range(row);
+      h.openDetail(row);assert.equal(h.openSheet().props.title,label);assert.equal(h.detailTotal(),range);
+      const credit=h.photos[source.id].credit;
+      if(credit){
+        const disclosure=costNodes(h.openSheet()).find(node=>node.type==='details'&&node.props.className==='budget-photo-credit');
+        assert.ok(disclosure,`${source.id} keeps photo attribution in its detail`);assert.ok(text(disclosure).includes(credit.author));
+        const actions=costNodes(disclosure).filter(node=>node.type==='button');
+        assert.equal(actions.length,2);actions[0].props.onClick();actions[1].props.onClick();
+        assert.deepEqual(h.openedExternal.slice(-2),[credit.source,credit.licenseUrl],`${source.id} opens its actual source and license`);
+      }
+      h.close();
+    }
+    h.query('Definitely-unsupported-city-998');
+    assert.equal(h.rows().length,0);assert.equal(h.nodes().some(node=>node.type==='DestinationPhoto'),false,'An unknown city cannot retain the last photo');
+    assert.equal(h.saved.length,0,'Photo browsing and opening details cannot change saved preferences');
+    assert.equal(h.intents.length,0,'Photo browsing never attaches an estimate to a trip');
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs city scene, detail and saved snapshot agree without retaining a stale city after an unknown search',()=>{
+  const h=costHarness({preferences:{days:'4',adults:'3',rooms:'2'}});
+  try{
+    h.query('Paris');h.tap('Edit duration and dates');assert.equal(h.openSheet().props.title,'Duration and dates');
+    const durationLabel=costNodes(h.openSheet()).find(node=>node.type==='label'&&text(node).trim().startsWith(h.labels.days)),durationInput=costNodes(durationLabel).find(node=>node.type==='input');
+    assert.ok(durationInput,'The duration row exposes an editable duration inside its sheet');assert.equal(durationInput.props.value,'4');durationInput.props.onChange({target:{value:'5'}});h.render();h.close();assert.equal(h.summary(h.labels.dates),'5 days · 4 nights');
+    h.tap(h.labels.party);h.change(h.labels.children,'1');assert.equal(h.field(h.labels.rooms).props.value,'2');h.tap(h.labels.done);
+    h.changeExtra(h.labels.food,'restaurants');assert.equal(h.selected(h.labels.style),h.labels.standard);
+    const beforeStyle=h.range(h.rows()[0]);h.choose(h.labels.style,h.labels.comfort);assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.notEqual(h.range(h.rows()[0]),beforeStyle);
+    assert.equal(h.openSheet(),undefined,'Main comfort choices do not open another menu');h.tap(h.labels.dates);h.close();assert.equal(h.selected(h.labels.style),h.labels.comfort,'Other editors retain the directly selected style');
+    const preferences={...h.personal.DEFAULT_PERSONAL_BUDGET,days:'5',adults:'3',children:'1',rooms:'2',food:'restaurants',style:'comfort'};
+    const format=n=>new Intl.NumberFormat('en',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n);
+    for(const [index,city,country,photoCode]of [[0,'Paris','FR','PAR'],[1,'Rome','IT','FCO']]){
+      h.query(city);assert.equal(h.rows().length,1);assert.equal(h.rowName(h.rows()[0]),city);
+      assert.ok(h.nodes().some(node=>node.type==='h2'&&text(node)==='Your estimated trip budget'));
+      const row=h.rows()[0],source=h.rowSource(row),expected=h.personal.personalTripBudget(source,preferences),range=`${format(expected.totalRange.low)} – ${format(expected.totalRange.high)}`;
+      const photo=costNodes(row).find(node=>node.type==='DestinationPhoto');assert.equal(photo.props.label,city);assert.equal(photo.props.countryCode,country);assert.equal(photo.props.code,photoCode);
+      assert.equal(h.range(row),range);assert.match(text(row),/5 days · 4 nights · 4 people/);
+      h.openDetail(row);assert.equal(h.openSheet().props.title,city);assert.equal(h.detailTotal(),range);h.tap(h.labels.addTrip);
+      const intent=h.intents[index];assert.equal(intent.city,city);assert.equal(intent.countryCode,country);assert.equal(intent.sourceBenchmarkId,source.id);assert.equal(intent.model,'personal-budget-v1');
+      assert.deepEqual(JSON.parse(JSON.stringify(intent.estimate)),JSON.parse(JSON.stringify(expected)));assert.equal(h.intentModule.validateBudgetCockpitIntent(intent),true);
+      h.query('Definitely-unsupported-city-998');assert.equal(h.rows().length,0);assert.equal(h.openSheet(),undefined);
+      assert.equal(h.nodes().some(node=>node.type==='DestinationPhoto'),false,'An unsupported destination cannot retain the previous photo');
+      assert.equal(h.text().includes(range),false,'An unsupported destination cannot retain the previous budget range');
+      assert.equal(h.intents.length,index+1,'Searching never attaches a different city in the background');
+    }
+  }finally{h.dispose();}
+});
+
+test('Progressive Costs search distinguishes unsupported cities and quick picks retain the exact researched city and photo',()=>{
+  const h=costHarness();
+  try{
+    h.query('Definitely-unsupported-city-998');assert.equal(h.rows().length,0);assert.match(h.text(),/never substitute another city's prices/);assert.equal(h.openSheet(),undefined);assert.equal(h.findButton(h.labels.compare).props.disabled,true);assert.match(h.text(),/We have no price data for this search/);
+    h.tap('Show all cities');assert.equal(h.queryValue(),'');assert.ok(h.rows().length>1);h.tap('Paris');assert.equal(h.queryValue(),'Paris');assert.equal(h.rows().length,1);assert.equal(h.rowName(h.rows()[0]),'Paris');
+    const photo=costNodes(h.rows()[0]).find(node=>node.type==='DestinationPhoto');assert.ok(photo);assert.equal(photo.props.code,'PAR');assert.equal(photo.props.countryCode,'FR');
+    const range=h.range(h.rows()[0]);h.openDetail();assert.equal(h.openSheet().props.title,'Paris');assert.equal(h.detailTotal(),range);
+  }finally{h.dispose();}
+});
+
+for(const locale of ['tr','en','sq'])test(`Progressive Costs trip entry shortcuts and typed country searches retain the current trip choices in ${locale}`,()=>{
+  const h=costHarness({locale,preferences:{days:'4',adults:'3',rooms:'2',style:'comfort',season:'low'}});
+  const picks=locale==='tr'?[['Paris','FR-paris','PAR'],['Roma','IT-rome','FCO'],['Tiran','AL-tirana','TIA']]:locale==='sq'?[['Paris','FR-paris','PAR'],['Roma','IT-rome','FCO'],['Tirana','AL-tirana','TIA']]:[['Paris','FR-paris','PAR'],['Rome','IT-rome','FCO'],['Tirana','AL-tirana','TIA']];
+  try{
+    const duration=h.summary(h.labels.dates),party=h.summary(h.labels.party);
+    for(const [label,id,photoCode]of picks){
+      h.query('');const writes=h.saved.length;h.tap(label);assert.equal(h.queryValue(),label);assert.equal(h.rows().length,1,'A destination shortcut identifies one city instead of matching unrelated country names');const row=h.rows()[0];assert.equal(h.rowSource(row).id,id);assert.equal(costNodes(row).find(node=>node.type==='DestinationPhoto').props.code,photoCode);
+      const range=h.range(row),resultIds=h.rows().map(candidate=>h.rowSource(candidate).id);
+      for(const action of [h.labels.dates,h.labels.party]){h.tap(action);assert.ok(h.openSheet());h.close();assert.equal(h.queryValue(),label);assert.deepEqual(h.rows().map(candidate=>h.rowSource(candidate).id),resultIds);assert.equal(h.range(h.rows().find(candidate=>h.rowSource(candidate).id===id)),range);}
+      h.query(`  ${label.slice(0,3)}  `);assert.ok(h.rows().some(candidate=>h.rowSource(candidate).id===id),'A typed prefix and its shortcut find the same researched city');
+      assert.equal(h.summary(h.labels.dates),duration);assert.equal(h.summary(h.labels.party),party);assert.equal(h.selected(h.labels.style),h.labels.comfort);assert.equal(h.selected(h.labels.season),h.labels.low);assert.equal(h.saved.length,writes,'Searches and editor roundtrips cannot rewrite preferences');assert.equal(h.intents.length,0,'Exploring a destination cannot attach a budget to a trip');
+    }
+    h.query('');h.tap(picks[1][0]);assert.equal(h.rows().length,1);assert.equal(h.rowSource(h.rows()[0]).id,'IT-rome');
+    if(locale==='tr'){h.query('Roma ');assert.ok(h.rows().some(row=>h.rowSource(row).id==='IT-rome'));assert.ok(h.rows().some(row=>h.rowSource(row).code==='RO'),'Editing Roma uses the ordinary broad search, including Romanian country-name matches');}
+    const country=localeFormatting.appRegionName('FR',locale);h.query(country);assert.ok(h.rows().length>1,'Typing a country after a shortcut clears the exact city intent');assert.ok(h.rows().every(row=>h.rowSource(row).code==='FR'),'A typed country filters researched cities within that country');
+    const ids=h.rows().map(row=>h.rowSource(row).id);for(const action of [h.labels.dates,h.labels.party]){h.tap(action);h.close();assert.equal(h.queryValue(),country);assert.deepEqual(h.rows().map(row=>h.rowSource(row).id),ids);}
+    assert.equal(h.saved.length,0);assert.equal(h.intents.length,0);
+    h.query('');h.tap('Paris');assert.equal(h.rowSource(h.rows()[0]).id,'FR-paris');
+    h.setActive({tripId:'entry-rome',title:'Rome holiday',city:'Rome',countryCode:'IT',startDate:'2027-07-01',endDate:'2027-07-04',adults:2,children:1});assert.equal(h.rowSource(h.rows()[0]).id,'FR-paris','An available trip cannot replace a deliberately selected shortcut before import');assert.equal(h.saved.length,0);
+    h.tap(h.labels.useTrip);assert.equal(h.queryValue(),locale==='tr'?'Roma':'Rome');assert.ok(h.rows().some(row=>h.rowSource(row).id==='IT-rome'),'Explicit trip import clears the previous exact shortcut');assert.ok(h.rows().every(row=>h.rowSource(row).code!=='FR'));
+    h.tap(h.labels.dates);assert.equal(h.field(h.labels.departure).props.value,'2027-07-01');assert.equal(h.field(h.labels.return).props.value,'2027-07-04');h.close();h.tap(h.labels.party);assert.equal(h.field(h.labels.adults).props.value,'2');assert.equal(h.field(h.labels.children).props.value,'1');assert.equal(h.field(h.labels.rooms).props.value,'2');h.close();
+    assert.equal(h.saved.length,1);assert.equal(h.saved[0].owner,'owner-a');assert.equal(h.saved[0].value.style,'comfort');assert.equal(h.saved[0].value.season,'low');assert.equal(h.intents.length,0);
+  }finally{h.dispose();}
+});
+
+for(const locale of ['tr','en','sq'])test(`Progressive Costs preferences retain every choice and produce the same complete snapshot in ${locale}`,()=>{
+  const h=costHarness({locale});
+  try{
+    h.query('Rome');assert.equal(h.rows().length,1);h.choose(h.labels.style,h.labels.comfort);assert.equal(h.selected(h.labels.style),h.labels.comfort);
+    h.choose(h.labels.stars,h.starLabel('4'));h.change(h.labels.roomType,'family');h.changeExtra(h.labels.food,'restaurants');h.changeExtra(h.labels.transport,'taxi');h.changeExtra(h.labels.activities,'paid');assert.equal(h.openSheet(),undefined);
+    assert.ok(text(h.rows()[0]).includes(h.labels.partial),'Unpriced paid activities are still partial');
+    assert.equal(h.selected(h.labels.stars),h.starLabel('4'));assert.equal(h.extraField(h.labels.allowance).props.value,'');h.changeExtra(h.labels.allowance,'5.50');h.choose(h.labels.season,h.labels.high);h.changeExtra(h.labels.buffer,'15');h.check(h.labels.holiday,true);
+    const preferences={...h.personal.DEFAULT_PERSONAL_BUDGET,style:'comfort',stars:'4',roomType:'family',food:'restaurants',transport:'taxi',activities:'paid',activityAllowance:'5.50',season:'high',buffer:'15',holiday:true};
+    const expected=h.personal.personalTripBudget(h.rowSource(h.rows()[0]),preferences),format=n=>new Intl.NumberFormat(locale,{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n),expectedRange=`${format(expected.totalRange.low)} – ${format(expected.totalRange.high)}`;
+    assert.equal(h.range(h.rows()[0]),expectedRange);
+    for(const [label,value]of [[h.labels.roomType,'family'],[h.labels.food,'restaurants'],[h.labels.transport,'taxi'],[h.labels.activities,'paid'],[h.labels.allowance,'5.50'],[h.labels.buffer,'15']])assert.equal((label===h.labels.roomType?h.field(label):h.extraField(label)).props.value,value,label);assert.equal(h.field(h.labels.holiday).props.checked,true);assert.equal(h.selected(h.labels.season),h.labels.high);assert.equal(h.selected(h.labels.stars),h.starLabel('4'));assert.equal(h.selected(h.labels.style),h.labels.comfort);
+    h.openDetail();assert.equal(h.detailTotal(),expectedRange);h.tap(h.labels.addTrip);assert.equal(h.intents.length,1);const intent=h.intents[0];assert.equal(intent.estimate.partial,false);assert.equal(intent.estimate.activities,33);assert.equal(intent.personalPreferences.activityAllowance,'5.50');assert.equal(h.intentModule.validateBudgetCockpitIntent(intent),true);
+    for(const key of Object.keys(preferences))assert.equal(intent.personalPreferences[key],preferences[key],key);
+    h.changeExtra(h.labels.allowance,'0');assert.equal(text(h.rows()[0]).includes(h.labels.partial),false,'An explicitly zero paid-activity allowance is complete');h.openDetail();h.tap(h.labels.addTrip);assert.equal(h.intents[1].estimate.activities,0);assert.equal(h.intents[1].estimate.partial,false);assert.equal(h.intents[1].personalPreferences.activities,'paid');
+  }finally{h.dispose();}
 });
 
 
@@ -1151,6 +1658,45 @@ function plansUXHarness({ saved = [], events = [], maps = { status: 'ready', cou
   host.start(TripsScreen, { user: null, accessToken: '', onNavigate: view => navigations.push(view), onNotice() {}, onOpenAccount: () => signIns.push(true), onOpenDestination() {}, ...initial });
   return { host, requests, cockpitRequests, cachedTrips, signIns, scopes, navigations };
 }
+
+test('Saved map detail shows an identical summary once while keeping map actions, duration and every scheduled day', () => {
+  const map = load('mobile/src/lib/mapJourney.ts', { '../../../lib/travel-assistant/places': load('lib/travel-assistant/places.ts'), './id': { createId: () => 'fixture-map-id' } });
+  for (const locale of ['tr', 'en', 'sq']) {
+    const journey = map.createMapJourney({ city: 'Kişinev', center: { latitude: 47.01, longitude: 28.86 }, dayCount: 2, startDate: null });
+    const saved = map.mapJourneyToSavedRoute(journey, locale);
+    saved.plan.summary = ` \n ${saved.plan.routes[0].why.replaceAll(' ', '  ')} \t `;
+    const original = JSON.stringify(saved), h = plansUXHarness({ saved: [saved], locale, initial: { initialSection: 'routes' } });
+    try {
+      find(h.host.render(), 'button', props => props['data-guide'] === 'saved-route-open').props.onClick();
+      const detail = nodes(h.host.render()).find(node => typeof node.type === 'function' && node.type.name === 'PlanDetail');
+      const view = detail.type(detail.props), translated = nodes(view).filter(node => node.type === 'RouteTranslation');
+      assert.equal(translated.filter(node => node.props.text.normalize('NFC').replace(/\s+/g, ' ').trim() === saved.plan.routes[0].why).length, 1);
+      const edit = { tr: 'Haritada aç ve düzenle', en: 'Open and edit on map', sq: 'Hap dhe ndrysho në hartë' }[locale];
+      assert.ok(button(view, edit));
+      assert.equal(nodes(view).filter(node => node.props.className === 'saved-plan-days')[0].props.children[1].length, 2);
+      assert.match(text(view), /2/);
+      button(view, edit).props.onClick();
+      assert.ok(find(h.host.render(), 'Sheet', props => props.className === 'mj-sheet'));
+      assert.equal(JSON.stringify(saved), original, 'Display deduplication never rewrites the saved map record');
+    } finally { h.host.dispose(); }
+  }
+});
+
+test('Saved detail preserves distinct legacy route descriptions even when they share words or punctuation differs', () => {
+  for (const why of ['Main summary with a museum stop', 'Main summary?', 'Main Summary', undefined]) {
+    const saved = { id: 'legacy-detail', createdAt: '2026-10-01T08:00:00Z', input: { days: '3 days' }, plan: { summary: 'Main summary.', routes: [{ ...route, why }] } };
+    const original = JSON.stringify(saved), h = plansUXHarness({ saved: [saved], initial: { initialSection: 'routes' } });
+    try {
+      button(h.host.render(), 'Open plan').props.onClick();
+      const detail = nodes(h.host.render()).find(node => typeof node.type === 'function' && node.type.name === 'PlanDetail');
+      const view = detail.type(detail.props);
+      assert.ok(find(view, 'RouteTranslation', props => props.text === why));
+      assert.ok(find(view, 'RouteTranslation', props => props.text === saved.plan.summary));
+      assert.ok(find(view, 'div', props => props.className === 'saved-plan-days'));
+      assert.equal(JSON.stringify(saved), original);
+    } finally { h.host.dispose(); }
+  }
+});
 
 test('Plans lists routes and events once while offline maps retain their actual status and destination', () => {
   const offline = [], saved = [{ id: 'ready-route', createdAt: '2026-10-01T10:00:00Z', input: { days: '2 days' }, plan: { summary: 'Saved trip', routes: [{ ...route, name: 'Rome' }] } }];
@@ -1240,18 +1786,20 @@ test('A cloud failure preserves the usable device route while the overview marks
   } finally { h.host.dispose(); }
 });
 
-test('Shared plans opens its own expanded section without first presenting a personal travel card', () => {
+test('Shared plans stays in the primary choices beside personal trips and saved collections and opens directly', () => {
   const h = plansUXHarness();
   try {
-    button(h.host.render(), 'Shared plansPlan with friends and share expenses').props.onClick();
+    const overview=h.host.render(), sharedEntry=find(overview,'nav',p=>p.className==='plans-primary-actions');
+    assert.ok(button(sharedEntry,'My trips'));assert.ok(button(sharedEntry,'Saved items'));assert.ok(button(sharedEntry,'Shared plans'));
+    assert.ok(nodes(overview).indexOf(sharedEntry)<nodes(overview).findIndex(node=>node.props?.className==='plans-collections'),'The three destinations precede the saved collections');
+    button(sharedEntry, 'Shared plans').props.onClick();
     const view = h.host.render();
     assert.equal(text(find(view, 'h1')), 'Shared plans');
     assert.equal(find(view, 'PersonalTravelCards'), undefined);
-    const shared = find(view, 'details'); assert.equal(shared.props.open, true);
-    assert.match(text(shared), /Join the same trip with friends/);
-    find(shared, 'button', p => p.className?.includes('trips-collaboration-entry')).props.onClick();
+    assert.match(text(view), /Join the same trip with friends/);
+    find(view, 'button', p => p.className?.includes('trips-collaboration-entry')).props.onClick();
     assert.deepEqual(h.signIns, [true]);
-    assert.equal(nodes(view).filter(node => node.type === 'details').length, 1, 'Other tools do not precede or obscure the requested shared plans');
+    assert.equal(nodes(view).filter(node => node.type === 'details').length, 0, 'Shared plans opens directly without nested cards or disclosures');
   } finally { h.host.dispose(); }
 });
 
@@ -1282,12 +1830,16 @@ test('Country discovery exposes country updates and costs with precise navigatio
       ...common(host), '../lib/i18n': { useI18n: () => i18n },
       '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
       '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
+      '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
+      '../components/DestinationPhoto': { DestinationPhoto: 'DestinationPhoto' }, '../components/DestinationSearchFallback': { DestinationSearchFallback: 'DestinationSearchFallback' },
+      '../lib/activeTripContext': { useActiveTripContext: () => null },
       '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/artwork': { destinationArtwork: () => '' },
       '../data/discovery': load('mobile/src/data/discovery.ts'), '../data/routes': { routeByDestinationCode: () => null }, '../data/homeDestinations': { homeSearchDestinations: () => [] },
       '../data/countryCodes': {}, '../lib/profileCountries': {}, '../lib/profileSync': {}, '../lib/searchText': search,
       '../lib/storage': { getFavoriteDestinations: () => [] }, '../lib/supabaseData': {},
       '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: '', type: '' }) },
-      '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify entry conditions', visaFree: false }) },
+      '../lib/passportPreference': { hasPassportPreference: value => Boolean(value.country && value.type), preferredEntry: () => ({ label: 'Verify entry conditions', visaFree: false }) },
+      '../../../lib/country-intelligence/passports': { PASSPORTS: [] },
       '../data/passport-index.json': { default: { asOf: '2026-10-01' } },
       '../../../lib/planner-passport': { plannerPassportLabel: () => 'Passport not selected' },
     }, { document: { visibilityState: 'visible', addEventListener() {}, removeEventListener() {} } });
@@ -1315,17 +1867,74 @@ test('Country discovery exposes country updates and costs with precise navigatio
   }
 });
 
-test('Plans preparation exposes the airport guide with localized direct navigation for guests', () => {
+function exploreUXHarness(locale='en',initialQuery='') {
+  const host=hooks(),navigation=[],built=[],notices=[];let favorites=[];
+  const i18n={locale,copy:(tr,en,sq)=>locale==='tr'?tr:locale==='sq'?sq||en:en};
+  const {ExploreScreen}=load('mobile/src/screens/ExploreScreen.tsx',{
+    ...common(host),'../lib/i18n':{useI18n:()=>i18n},
+    '../components/Icon':{Icon:'Icon'},'../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},'../components/PageHero':{PageHero:'PageHero'},'../components/CountryFlag':{CountryFlag:'CountryFlag'},
+    '../components/CountryPicker':{CountryPicker:'CountryPicker'},'../../../lib/country-intelligence/passports':{PASSPORTS:[]},
+    '../components/DestinationPhoto':{DestinationPhoto:'DestinationPhoto'},'../components/DestinationSearchFallback':{DestinationSearchFallback:'DestinationSearchFallback'},'../lib/activeTripContext':{useActiveTripContext:()=>null},
+    '../data/countryIso':{alpha2FromAlpha3:code=>({ALB:'AL',JPN:'JP',GEO:'GE',AZE:'AZ',BIH:'BA',SRB:'RS'})[code]||'TR'},'../data/artwork':{destinationArtwork:()=>''},
+    '../data/discovery':load('mobile/src/data/discovery.ts'),'../data/routes':routeCatalog,'../data/homeDestinations':homeData,
+    '../data/countryCodes':{},'../lib/profileCountries':{},'../lib/profileSync':{},'../lib/searchText':search,
+    '../lib/storage':{getFavoriteDestinations:()=>favorites,addRecentDestination(){},toggleFavoriteDestination:country=>{favorites=favorites.some(item=>item.alpha3===country.alpha3)?favorites.filter(item=>item.alpha3!==country.alpha3):[...favorites,country];return favorites;}},
+    '../lib/supabaseData':{getUserProfile:()=>{throw Error('Guest discovery must not request account data');}},
+    '../hooks/usePassportPreference':{usePassportPreference:()=>({country:'DE',type:'ordinary'})},'../lib/passportPreference':{hasPassportPreference:value=>Boolean(value.country&&value.type),preferredEntry:()=>({label:'Verify entry conditions',visaFree:false})},
+    '../data/passport-index.json':{default:{asOf:'2026-10-01'}},'../../../lib/planner-passport':{plannerPassportLabel:(_passport,_locale,country)=>`${country} · Ordinary`},
+  },{document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
+  host.start(ExploreScreen,{initialSearchQuery:initialQuery,accessToken:'',onNavigate:view=>navigation.push(view),onSurprise(){},onBuildRoute:route=>built.push(route),onNotice:message=>notices.push(message)});
+  return {host,navigation,built,notices,get favorites(){return favorites;},query:value=>{find(host.render(),'input',props=>props.type==='search').props.onChange({target:{value}});return host.render();}};
+}
+
+test('Explore finds visible Albanian country names and Tiranë aliases, and only real inspectable results complete its search lesson',()=>{
+  const h=exploreUXHarness('sq');try{
+    for(const query of ['Shqipëria','Shqiperi','Tiranë','Tirane','Tirana','Albania','Arnavutluk']){
+      const view=h.query(query),field=find(view,'input',props=>props.type==='search');
+      assert.equal(field.props['data-guide-discovery'],'ready',query);assert.equal(field.props['data-guide-complete'],'true',query);
+      const open=find(view,'button',props=>props['data-guide']==='explore-place');assert.ok(open,query);assert.match(open.props['aria-label'],/Tirana/);
+    }
+    const view=h.host.render();assert.match(text(view),/Pasaporta jote:Gjermani\b/);assert.match(text(view),/Shtetet e preferuara: 0/);
+    find(view,'button',props=>props['data-guide']==='explore-place').props.onClick();
+    let opened=h.host.render();const save=find(opened,'button',props=>props['data-guide']==='explore-save');assert.equal(save.props['aria-pressed'],false);
+    save.props.onClick();opened=h.host.render();assert.equal(find(opened,'button',props=>props['data-guide']==='explore-save').props['aria-pressed'],true);
+    assert.equal(h.favorites[0].alpha3,'ALB');assert.deepEqual(h.built,[]);assert.deepEqual(h.navigation,[]);
+    assert.equal(find(opened,'input',props=>props.type==='search').props['data-guide-return-complete'],'false','The saved details must actually close before the return lesson can complete');
+    find(opened,'Sheet',props=>props.open).props.onClose();opened=h.host.render();
+    assert.equal(find(opened,'input',props=>props.type==='search').props['data-guide-return-complete'],'true','Sheet X, Escape and native dismissal share the real onClose state');
+  }finally{h.host.dispose();}
+});
+
+test('Paris and zero-result searches put genuine results ahead of auxiliary tools, preserve the route action and offer a local recovery',()=>{
+  const h=exploreUXHarness('en','Paris');try{
+    let view=h.host.render(),field=find(view,'input',props=>props.type==='search');
+    assert.equal(field.props['data-guide-discovery'],'route-only');assert.equal(field.props['data-guide-complete'],'false');assert.equal(find(view,'PageHero'),undefined);
+    assert.equal(find(view,'section',props=>props.className==='daily-discovery'),undefined);
+    const flattened=nodes(view),resultIndex=flattened.findIndex(node=>node.props?.id==='explore-search-results'),toolIndex=flattened.findIndex(node=>node.props?.className==='explore-actions');
+    assert.ok(resultIndex>=0&&toolIndex>resultIndex,'Search results precede the compact country tools');assert.match(text(view),/Your passport:Germany/);assert.match(text(view),/Favourite countries: 0/);
+    const plan=find(view,'button',props=>props['aria-label']?.startsWith('Plan Paris'));assert.ok(plan);plan.props.onClick();assert.equal(h.built.length,1);assert.equal(h.built[0].destinationCode,'CDG');
+    view=h.query('No such destination');field=find(view,'input',props=>props.type==='search');assert.equal(field.props['data-guide-discovery'],'empty');assert.equal(field.props['data-guide-complete'],'false');
+    button(view,'Try Tirana').props.onClick();view=h.host.render();assert.equal(find(view,'input',props=>props.type==='search').props.value,'Tirana');assert.equal(find(view,'input',props=>props.type==='search').props['data-guide-complete'],'true');
+    find(view,'button',props=>props['data-guide']==='explore-place').props.onClick();view=h.host.render();find(view,'Sheet',props=>props.open).props.onClose();view=h.host.render();
+    assert.equal(find(view,'input',props=>props.type==='search').props['data-guide-return-complete'],'false','Closing an unsaved country cannot pretend the saving task succeeded');
+    assert.equal(h.built.length,1,'The example search cannot generate or replace a route');assert.deepEqual(h.favorites,[]);
+    view=h.query('');assert.ok(find(view,'PageHero'),'Clearing the search restores normal discovery');assert.equal(nodes(find(view,'section',props=>props.className==='explore-actions')).filter(node=>node.type==='button').length,6);
+  }finally{h.host.dispose();}
+});
+
+test('Plans removes the standalone airport entry and keeps the trip details destination accessible for guests', () => {
   const labels = { tr: 'Havalimanı Rehberi', en: 'Airport Guide', sq: 'Udhëzues aeroportesh' };
   for (const locale of ['tr', 'en', 'sq']) {
     const h = plansUXHarness({ locale });
     try {
-      const list = find(h.host.render(), 'div', props => props.className === 'plans-tool-list');
+      const view=h.host.render(),list = find(view, 'div', props => props.className === 'plans-tool-list');
       const airport = find(list, 'button', props => text(props.children).startsWith(labels[locale]));
-      assert.ok(airport, `${locale}: airport guide is visible in the preparation list`);
-      airport.props.onClick();
-      assert.deepEqual(h.navigations, ['airports']);
-      assert.deepEqual(h.signIns, [], 'Opening the guide does not require sign-in');
+      assert.equal(airport, undefined, `${locale}: the standalone guide is removed from preparation`);
+      const primary=find(view,'nav',props=>props.className==='plans-primary-actions');
+      const tripLabels={tr:'Seyahatler',en:'My trips',sq:'Udhëtimet'};
+      button(primary,tripLabels[locale]).props.onClick();
+      assert.deepEqual(h.navigations, ['cockpit']);
+      assert.deepEqual(h.signIns, [], 'Opening the trip destination does not require a separate sign-in step');
     } finally { h.host.dispose(); }
   }
 });

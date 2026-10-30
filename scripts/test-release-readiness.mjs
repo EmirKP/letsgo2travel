@@ -1,8 +1,14 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const checks = [
+  ["--test", "tests/ux14-first-use.mjs", "tests/ux14-community-events.mjs"],
+  ["--test", "tests/usability-budget-guide-money.mjs"],
+  ["--test", "tests/map-place-search.mjs", "tests/travel-map-services.mjs", "tests/open-map-offline.mjs"],
+  ["--test", "tests/travel-assistant/personal-map-pins.mjs", "tests/travel-assistant/map-downloads-ui.mjs", "tests/unified-map-ui.mjs"],
   ["--test", "tests/web-ai-route-allowance.mjs"],
   ["--test", "tests/mobile-dev-api.mjs"],
+  ["--test", "tests/mobile-event-community-dev.mjs"],
   ["--test", "tests/journey-photos.mjs"],
   ["--test", "tests/travel-assistant/apple-journey-places.mjs", "tests/travel-assistant/journey-plan.mjs", "tests/travel-assistant/journey-plan-groq.mjs", "tests/journey-plan-quota.mjs", "tests/ai-route-quota.mjs", "tests/ai-route-quota-compat.mjs", "tests/journey-setup-survey.mjs", "tests/journey-plan-client.mjs"],
   ["--test", "tests/mapkit-token.mjs"],
@@ -24,9 +30,10 @@ const checks = [
   ["--test", "tests/travel-assistant/network-reliability.mjs"],
   ["--test", "tests/travel-assistant/entur.mjs"],
   ["--test", "tests/navigation-ux.mjs"],
+  ["--test", "tests/destination-search-fallback.mjs", "tests/bundled-image-source.mjs"],
   ["--test", "tests/onboarding-ui.mjs", "tests/contextual-guide-ui.mjs", "tests/guide-first-success.mjs"],
   ["--test", "tests/first-use-context.mjs"],
-  ["--test", "tests/auth-profile-regressions.mjs"],
+  ["--test", "tests/auth-profile-regressions.mjs", "tests/budget-sign-in-resume.mjs"],
   ["--test", "tests/profile-completion-db.mjs"],
   ["--test", "tests/native-oauth.mjs"],
   ["--test", "tests/community-discovery.mjs"],
@@ -62,9 +69,16 @@ const checks = [
   ["--test", "tests/route-cockpit-handoff.mjs"],
   ["--test", "tests/web-saved-plan.mjs"],
   ["--test", "tests/route-costs-customization.mjs"],
+  ["--test", "tests/personal-budget.mjs", "tests/active-trip-shared-flow.mjs"],
+  ["--test", "tests/journey-live-activity.mjs", "tests/journey-live-native-contract.mjs"],
+  ["--test", "tests/journey-guide-deeplink.mjs"],
+  ["--test", "tests/17-visa-money-profile.mjs"],
   ["--test", "tests/albanian-locale.mjs"],
   ["--test", "tests/mobile-startup.mjs"],
   ["--test", "tests/events-featured.mjs"],
+  ["--test", "tests/event-community-api.mjs"],
+  ["--test", "tests/event-preview-relay.mjs"],
+  ["tests/event-community-db.mjs"],
   ["--test", "tests/flight-lookup.mjs"],
   ["--test", "tests/flight-lookup-db.mjs"],
   ["--test", "tests/flight-retention-db.mjs"],
@@ -104,7 +118,18 @@ const checks = [
   ["--test", "tests/support/issues.mjs"],
   ["--test", "tests/ios-privacy.test.mjs"],
 ];
+// Node's test runner can silently skip an explicitly named missing test file.
+// Verify all file arguments before starting any checks; flags remain untouched.
 for (const args of checks) {
+  for (const path of args.filter(value => /\.(?:mjs|cjs|js|ts)$/.test(value))) {
+    if (!existsSync(path)) throw new Error(`Release test is missing: ${path}`);
+  }
+}
+const requestedStart = process.argv.indexOf('--from');
+const startFile = requestedStart < 0 ? null : process.argv[requestedStart + 1];
+const startAt = startFile ? checks.findIndex(args => args.includes(startFile)) : 0;
+if (requestedStart >= 0 && (!startFile || startAt < 0)) throw new Error('Specify an existing release test after --from.');
+for (const args of checks.slice(startAt)) {
   const result = spawnSync(process.execPath, args, {
     stdio: "inherit", env: { ...process.env, NODE_ENV: "test",
       TS_NODE_COMPILER_OPTIONS: JSON.stringify({ module: "CommonJS", moduleResolution: "Node", target: "ES2022", esModuleInterop: true, strict: true }),

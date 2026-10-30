@@ -10,10 +10,22 @@ import tokyoArtwork from "../assets/destination-artwork/tokyo.webp";
 import baliArtwork from "../assets/home-reference/bali.webp";
 import cappadociaArtwork from "../assets/home-reference/cappadocia.webp";
 import santoriniArtwork from "../assets/home-reference/santorini-hero.webp";
-import fallbackArtwork from "../assets/launch-travel-poster.webp";
+import parisArtwork from "../assets/home-reference/paris-eiffel-v3.webp";
+import newYorkArtwork from "../assets/community-reference/region-americas.webp";
+import istanbulArtwork from "../assets/destination-artwork/istanbul-bosphorus.jpg";
+import { bundledImageSource, type BundledImage } from "../lib/bundledImageSource";
 
-const DESTINATION_ARTWORK: Record<string, string> = {
+// Unknown destinations keep a neutral surface, never a logo or another city's photo.
+const fallbackArtwork = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='400'%3E%3Crect width='640' height='400' fill='%231c3c60'/%3E%3C/svg%3E";
+
+const DESTINATION_ARTWORK: Record<string, BundledImage> = {
   BEG: belgradeArtwork,
+  CDG: parisArtwork,
+  PAR: parisArtwork,
+  JFK: newYorkArtwork,
+  NYC: newYorkArtwork,
+  IST: istanbulArtwork,
+  SAW: istanbulArtwork,
   BKK: bangkokArtwork,
   DPS: baliArtwork,
   DXB: dubaiArtwork,
@@ -28,9 +40,7 @@ const DESTINATION_ARTWORK: Record<string, string> = {
 };
 
 export function destinationArtwork(code?: string) {
-  // Bu görseller uygulama paketindedir: Keşfet ekranı ilk açılışta
-  // tam boy web JPEG'lerini indirmez ve bağlantısızken de anlamlı bir
-  // görsel kalır. Bilinmeyen bir kod başka bir şehir (eski sürümde
-  // Tokyo) gibi gösterilmez; markalı genel seyahat görseline döner.
-  return (code && DESTINATION_ARTWORK[code.toUpperCase()]) || fallbackArtwork;
+  // Packaged photos work offline. Each airport/city alias resolves to its own
+  // destination; unmatched codes never borrow a misleading destination photo.
+  return bundledImageSource((code && DESTINATION_ARTWORK[code.toUpperCase()]) || fallbackArtwork);
 }

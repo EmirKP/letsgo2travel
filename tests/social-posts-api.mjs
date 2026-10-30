@@ -269,3 +269,16 @@ test('saved collection ignores following feed; comment actions validate and mode
  assert.equal((await h.route.POST(body({action:'comment-delete',postId:id,commentId:b}))).status,200);
  assert.equal((await h.route.POST(body({action:'comment-edit',postId:id,commentId:b,body:'   '}))).status,400);
 });
+
+
+test('Post search checks at most two privacy-filtered pages, retains original pagination and matches captions, travellers and places',async()=>{
+ const h=harness({user:null});const offsets=[];
+ h.db.rpc=async(name,input)=>{assert.equal(name,'read_travel_social');assert.equal(input.p_viewer,null);const offset=input.p_input.offset;offsets.push(offset);return{data:{items:[{id:'p'+offset,caption:offset===0?'İSTANBUL café':'Other',author:{username:offset===20?'emir':'traveller'},place:{name:offset===40?'Paris':'Oslo'}}],nextOffset:offset<40?offset+20:null},error:null};};
+ const get=async(q,offset=0)=>{const r=await h.route.GET(new Request('https://example.com?feed=discover&q='+encodeURIComponent(q)+'&offset='+offset));assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'private, no-store');return(await r.json()).data;};
+ const first=await get('istanbul');assert.deepEqual(offsets,[0,20]);assert.equal(first.items.length,1);assert.equal(first.items[0].id,'p0');assert.equal(first.nextOffset,40);assert.equal(first.searchPartial,true);
+ offsets.length=0;const last=await get('paris',40);assert.deepEqual(offsets,[40]);assert.equal(last.items[0].id,'p40');assert.equal(last.nextOffset,null);assert.equal(last.searchPartial,false);
+ offsets.length=0;const traveller=await get('emir');assert.equal(traveller.items[0].id,'p20');assert.deepEqual(offsets,[0,20]);
+ offsets.length=0;const missing=await get('missing');assert.equal(missing.items.length,0);assert.equal(missing.nextOffset,40);assert.equal(missing.searchPartial,true);assert.equal(offsets.length,2);
+ assert.equal((await h.route.GET(new Request('https://example.com?q=x&section=collections'))).status,401);
+ for(const suffix of ['q='+encodeURIComponent('x'.repeat(121)), 'q=x&postId='+id])assert.equal((await h.route.GET(new Request('https://example.com?'+suffix))).status,400);
+});

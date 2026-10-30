@@ -1,0 +1,23 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "created": "2026-10-26",
+  "usage": "Illustrative accommodation types; not actual hotel listings or live quotes.",
+  "assets": [
+    {
+      "file": "hotel-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/hotel-v2.webp",
+      "prompt": "Use case: photorealistic-natural. Create one square editorial photograph for a HOTEL accommodation-type selection card in a travel budget app. Show the exterior entrance of an inviting modest European city hotel: pale stone facade with several rows of windows, a deep navy-blue entrance awning, warm golden interior light at the doorway, one small potted olive tree. Medium-wide straight-on view, facade and clear hotel entrance fill the image. Crisp natural late-afternoon light, navy and warm sandstone tones. It must remain recognizable at a 100-pixel thumbnail and look very different from a living room and a bunk-bed dorm. No people, no cars in foreground, no pool, no luxury resort, no hotel name, no readable signs, no text, no brand, no watermark, no UI. High quality realistic architectural travel photography, not a 3D render. Square 1024x1024."
+    },
+    {
+      "file": "apartment-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/apartment-v2.webp",
+      "prompt": "Use case: photorealistic-natural. Create one square editorial photograph for an APARTMENT accommodation-type selection card in a travel budget app. Bright airy private vacation apartment, with a prominent warm terracotta-orange sofa in the foreground, a compact pale sage-green kitchen clearly visible behind it, a small round dining table beside a sunny window and one leafy indoor plant. Show the living space and the kitchen together, medium-wide eye-level view. No beds visible. Warm daylight, white walls, sage, terracotta and natural light wood. Strong clear composition recognizable at a 100-pixel thumbnail, distinctly a private home rather than a hotel room or a dorm. No people, no text, no brand, no watermark, no UI. Tasteful realistic interior travel photography, not a 3D render. Square 1024x1024."
+    },
+    {
+      "file": "hostel-v2.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/hostel-v2.webp",
+      "prompt": "Use case: photorealistic-natural. Create one square editorial photograph for a HOSTEL shared accommodation-type selection card in a travel budget app. A clean modern shared dorm with two unmistakable stacked bunk-bed units, dark forest-green metal frames with visible ladders, simple white single mattresses, mustard-yellow personal lockers along the back wall, pale neutral floor. Three-quarter side angle: the full upper and lower beds plus ladder dominate the composition, clearly shared sleeping accommodation, not one double bed and not an apartment. Cool bright daylight with green and yellow accents, crisp and welcoming, not luxurious. Strong clear composition recognizable at a 100-pixel thumbnail. No people, no readable room numbers or text, no brand, no watermark, no UI. Realistic hostel interior travel photography, not a 3D render. Square 1024x1024."
+    }
+  ],
+  "delivery": "WebP encoding only; original square framing retained."
+}

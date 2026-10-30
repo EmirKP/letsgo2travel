@@ -300,6 +300,90 @@ test('own edit preserves failed draft and saves public-avatar choice explicitly'
   h.dispose();
 });
 
+test('one inline profile editor saves identity before bio, retains photo access and waits for both acknowledgements', async () => {
+  const identity = deferred(), identityWrites = [], editing = []; let photos = 0;
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: (...values) => { identityWrites.push(values); return identity.promise; }, onEditProfile: () => photos++, onEditingChange: value => editing.push(value) }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, bio: 'Original bio', showAvatar: true }), items: [], nextOffset: null });
+    h.click('Edit profile');
+    assert.equal(editing.at(-1), true);
+    const field = suffix => find(h.tree, 'input', props => props.id?.endsWith(suffix));
+    assert.equal(field('-full-name').props.value, 'Original Name'); assert.equal(field('-username').props.value, 'me');
+    field('-full-name').props.onChange({ target: { value: '  Updated  Name ' } });
+    field('-username').props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Updated bio' } }); h.render();
+    assert.equal(button(h.tree, 'Change profile photo').props.disabled, false);
+    h.click('Change profile photo'); assert.equal(photos, 1); assert.equal(find(h.tree, 'textarea').props.value, 'Updated bio');
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render();
+    assert.deepEqual(identityWrites, [['Updated Name', 'new_name']]); assert.equal(h.requests.length, 1, 'No bio write runs before identity acknowledgement');
+    assert.equal(find(h.tree, 'textarea').props.disabled, true); assert.equal(h.calls.profile, 0);
+    identity.resolve(); await tick(); h.render();
+    assert.equal(editing.at(-1), true, 'Auth completion cannot release the parent resume guard while bio is pending');
+    assert.equal(h.requests[1].options.method, 'PATCH'); assert.equal(h.requests[1].options.body.bio, 'Updated bio');
+    await h.resolve(1, { success: true, bio: 'Updated bio', showAvatar: true });
+    assert.equal(h.calls.profile, 1); assert.equal(find(h.tree, 'form'), undefined); assert.match(text(h.tree), /@new_name/);
+    assert.equal(editing.at(-1), false);
+  } finally { h.dispose(); }
+});
+
+test('An incomplete auth identity is explicitly completed even when its displayed values already match the profile row', async () => {
+  const identity=deferred(),writes=[];
+  const h=harness({profileKey:'user:me',identityFullName:'Original Name',identityNeedsCompletion:true,onSaveIdentity:(...values)=>{writes.push(values);return identity.promise;}},{inline:true});
+  try {
+    await h.resolve(0,{profile:sample('user:me',{isOwn:true,username:'valid_user',bio:'Original bio',showAvatar:true}),items:[],nextOffset:null});
+    h.click('Edit profile');find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
+    assert.deepEqual(writes,[['Original Name','valid_user']]);assert.equal(h.requests.length,1);
+    identity.resolve();await tick();h.render();assert.equal(h.requests[1].options.method,'PATCH');
+    await h.resolve(1,{success:true,bio:'Original bio',showAvatar:true});assert.equal(h.calls.profile,1);
+  } finally {h.dispose();}
+});
+
+test('invalid or rejected identity leaves the unified draft available and never reports a successful profile save', async () => {
+  const writes = [], identity = deferred();
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: (...values) => { writes.push(values); return identity.promise; } }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'original_name' }), items: [], nextOffset: null }); h.click('Edit profile');
+    const name = () => find(h.tree, 'input', props => props.id?.endsWith('-full-name'));
+    const username = () => find(h.tree, 'input', props => props.id?.endsWith('-username'));
+    name().props.onChange({ target: { value: 'X' } }); h.render(); find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render();
+    assert.equal(writes.length, 0); assert.match(text(h.tree), /Full name must/);
+    name().props.onChange({ target: { value: 'New Name' } }); username().props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Draft retained' } }); h.render();
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render(); identity.reject(new ApiError('conflict', 409)); await tick(); h.render();
+    assert.equal(h.requests.length, 2, 'Failure triggers a read refresh, never a bio PATCH');
+    assert.ok(h.requests.every(request => request.options.method !== 'PATCH')); assert.equal(h.calls.profile, 0);
+    assert.equal(name().props.value, 'New Name'); assert.equal(username().props.value, 'new_name'); assert.equal(find(h.tree, 'textarea').props.value, 'Draft retained');
+    assert.ok(button(h.tree, 'Save')); assert.doesNotMatch(text(h.tree), /Your profile was updated/);
+  } finally { h.dispose(); }
+});
+
+test('a bio failure after identity acknowledgement reports partial completion and retains the remaining draft', async () => {
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: async () => {} }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'original_name' }), items: [], nextOffset: null }); h.click('Edit profile');
+    find(h.tree, 'input', props => props.id?.endsWith('-full-name')).props.onChange({ target: { value: 'New Name' } });
+    find(h.tree, 'input', props => props.id?.endsWith('-username')).props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Remaining draft' } }); h.render();
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); await tick(); h.render(); await h.reject(1);
+    assert.match(text(h.tree), /Your name and username were saved/); assert.equal(find(h.tree, 'textarea').props.value, 'Remaining draft'); assert.equal(h.calls.profile, 0);
+  } finally { h.dispose(); }
+});
+
+test('an account edit request waits for the owned profile and cannot reset a draft or open another account editor', async () => {
+  let handled = 0;
+  const h = harness({ profileKey: 'user:me', editRequest: 1, onEditRequestHandled: () => handled++, identityFullName: 'Own Name', onSaveIdentity: async () => {} }, { inline: true });
+  try {
+    assert.equal(find(h.tree, 'form'), undefined);
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'own_name' }), items: [], nextOffset: null });
+    assert.equal(handled, 1); assert.ok(find(h.tree, 'form'));
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Do not reset this' } }); h.render({ identityFullName: 'Refreshed Name' });
+    assert.equal(handled, 1); assert.equal(find(h.tree, 'textarea').props.value, 'Do not reset this');
+    h.render({ profileKey: 'user:other', userId: 'other', editRequest: 0 });
+    await h.resolve(h.requests.length - 1, { profile: sample('user:other', { isOwn: true }), items: [], nextOffset: null });
+    assert.equal(find(h.tree, 'form'), undefined); assert.doesNotMatch(text(h.tree), /Do not reset this/);
+  } finally { h.dispose(); }
+});
+
 test('followers navigate into the selected profile and provide a route back', async () => {
   const h = harness();
   await h.resolve(0, { profile: sample(undefined, { followerCount: 1 }), items: [], nextOffset: null });

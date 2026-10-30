@@ -11,6 +11,12 @@ import styles from "./Cockpit.module.css";
 export function JourneyContent({ journey, trip }: { journey: WebJourney; trip: Trip }) {
   const money = (amount: number, currency: string) => new Intl.NumberFormat("tr-TR", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
   const { route, budget } = journey;
+  const personal = budget?.model === "personal-budget-v1" && "totalRange" in budget.estimate ? budget.estimate : null;
+  // A saved snapshot keeps the rate used when it was created, including when
+  // today's rate is unavailable. It is not a newly priced booking quote.
+  const budgetCurrency = budget?.displayTotal === null ? "GBP" : budget?.displayCurrency || "GBP";
+  const budgetRate = budget?.displayTotal === null ? 1 : budget?.exchangeRate?.rate ?? 1;
+  const range = (value: { low: number; high: number }) => `${money(value.low * budgetRate, budgetCurrency)} – ${money(value.high * budgetRate, budgetCurrency)}`;
   return <>
     {route && <article className={`${styles.card} ${styles.journeyCard}`}>
       <span className={styles.cardEyebrow}>KAYITLI SEYAHAT PROGRAMIN</span><h2>{route.route.name}</h2><p>{route.route.why}</p>
@@ -20,10 +26,11 @@ export function JourneyContent({ journey, trip }: { journey: WebJourney; trip: T
     </article>}
     {budget && <article className={`${styles.card} ${styles.journeyCard}`}>
       <span className={styles.cardEyebrow}>KAYITLI BÜTÇE TAHMİNİN</span><h2>{budget.city}</h2>
-      <strong className={styles.budgetTotal}>{money(budget.displayTotal ?? budget.estimate.total, budget.displayTotal === null ? "GBP" : budget.displayCurrency)}</strong>
-      <p>{budget.estimate.days} gün · {budget.estimate.people} kişi · {budget.estimate.nights} gece · {budget.estimate.rooms} oda</p>
-      <dl><div><dt>Konaklama</dt><dd>{money(budget.estimate.hotel, "GBP")}</dd></div><div><dt>Akşam yemeği</dt><dd>{money(budget.estimate.meals, "GBP")}</dd></div><div><dt>Toplu taşıma</dt><dd>{money(budget.estimate.travel, "GBP")}</dd></div></dl>
-      <p>Kısmi tahmin; uçuş ve diğer harcamalar dahil değildir. Bu tutar harcama kaydı veya belirlenmiş bütçe hedefi değildir.</p>
+      <strong className={styles.budgetTotal}>{personal ? range(personal.totalRange) : money(budget.displayTotal ?? budget.estimate.total, budgetCurrency)}</strong>
+      <p>{budget.estimate.days} gün · {budget.estimate.people} kişi · {budget.estimate.nights} gece{personal && budget.personalPreferences?.accommodation === "hostel" ? <> · {personal.people} yatak</> : <> · {budget.estimate.rooms} oda</>}</p>
+      {personal && <p>Kişi başı seyahat: {range(personal.perPersonRange)} · Kişi başı günlük: {range(personal.perPersonDayRange)}</p>}
+      <dl><div><dt>Konaklama</dt><dd>{personal ? range(personal.ranges.hotel) : money(budget.estimate.hotel, "GBP")}</dd></div><div><dt>{personal ? "Yeme içme (tüm öğünler)" : "Akşam yemeği"}</dt><dd>{personal ? range(personal.ranges.meals) : money(budget.estimate.meals, "GBP")}</dd></div><div><dt>{personal ? "Şehir içi ulaşım" : "Toplu taşıma"}</dt><dd>{personal ? range(personal.ranges.travel) : money(budget.estimate.travel, "GBP")}</dd></div>{personal && <><div><dt>Etkinlik payı</dt><dd>{personal.ranges.activities ? range(personal.ranges.activities) : "Henüz eklenmedi"}</dd></div><div><dt>Yedek bütçe</dt><dd>{range(personal.ranges.contingency)}</dd></div></>}</dl>
+      <p>{personal ? personal.partial ? "Etkinlik veya ulaşım fiyatları eksik olduğundan kısmi planlama aralığıdır. Uçuş ve şehirler arası ulaşım dahil değildir." : "Planlama aralığıdır; canlı otel teklifi değildir. Uçuş ve şehirler arası ulaşım dahil değildir." : "Kısmi tahmin; uçuş ve diğer harcamalar dahil değildir."} Bu tutar harcama kaydı veya belirlenmiş bütçe hedefi değildir.</p>
       <p>Kaynak fiyat ayı: {budget.sourceMonth}. {budget.exchangeRate && <>Kur: 1 GBP = {budget.exchangeRate.rate} {budget.displayCurrency} · {budget.exchangeRate.date} · {budget.exchangeRate.provider}.</>}</p>
       <a href={budget.sourceUrl} target="_blank" rel="noopener noreferrer">Kaynak fiyat araştırması</a>
     </article>}

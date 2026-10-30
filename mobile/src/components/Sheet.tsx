@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { isTopSheet, registerSheet, subscribeSheetStack, unregisterSheet } from "../lib/sheetStack";
 import { Icon } from "./Icon";
@@ -31,7 +31,7 @@ function unlockBodyScroll() {
   else root.setAttribute("aria-hidden", rootAriaHidden);
 }
 
-export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true, className = "" }: {
+export function Sheet({ open, title, onClose, children, size = "normal", dismissible = true, className = "", renderHeader }: {
   open: boolean;
   title: string;
   onClose: () => void;
@@ -39,6 +39,7 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
   size?: "normal" | "large";
   dismissible?: boolean;
   className?: string;
+  renderHeader?: (close: () => void) => ReactNode;
 }) {
   const { copy } = useI18n();
   const sheetRef = useRef<HTMLElement>(null);
@@ -46,16 +47,15 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
   const sheetToken = useRef(Symbol("sheet"));
   const titleId = useId();
   const [topSheet, setTopSheet] = useState(open);
-
-  useEffect(() => {
-    onCloseRef.current = () => {
-      if (!dismissible) return;
-      // Editors may explain unsaved changes before any dismissal path (including
-      // native Back) closes this exact sheet. Nested sheets stay scoped.
-      if (sheetRef.current && !sheetRef.current.dispatchEvent(new Event("sheet:before-close", { cancelable: true }))) return;
-      onClose();
-    };
-  }, [onClose, dismissible]);
+  const requestClose = useCallback(() => {
+    if (!dismissible) return;
+    // Resolve this sheet by its unique accessible title. The callback can also
+    // be supplied to a custom header without exposing refs during rendering.
+    const sheet = document.getElementById(titleId)?.closest('.sheet');
+    if (sheet && !sheet.dispatchEvent(new Event("sheet:before-close", { cancelable: true }))) return;
+    onClose();
+  }, [onClose, dismissible, titleId]);
+  useEffect(() => { onCloseRef.current = requestClose; }, [requestClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -120,8 +120,8 @@ export function Sheet({ open, title, onClose, children, size = "normal", dismiss
       <section ref={sheetRef} className={`sheet ${size === "large" ? "sheet-large" : ""} ${className}`} role="dialog" aria-modal={topSheet || undefined} aria-labelledby={titleId}>
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-header">
-          <h2 id={titleId}>{title}</h2>
-          <button className="icon-button compact" disabled={!dismissible} onClick={() => onCloseRef.current()} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>
+          <h2 id={titleId} className={renderHeader ? "sr-only" : undefined}>{title}</h2>
+          {renderHeader ? renderHeader(requestClose) : <button className="icon-button compact" disabled={!dismissible} onClick={requestClose} aria-label={copy("Kapat", "Close")}><Icon name="close" size={20} /></button>}
         </header>
         <div className="sheet-body">{children}</div>
       </section>

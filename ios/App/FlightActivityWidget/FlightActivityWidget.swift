@@ -4,7 +4,7 @@ import WidgetKit
 
 @main
 struct FlightActivityWidgetBundle: WidgetBundle {
-    var body: some Widget { FlightActivityWidget() }
+    var body: some Widget { FlightActivityWidget(); JourneyActivityWidget() }
 }
 
 private extension Color {
@@ -331,6 +331,82 @@ private struct LockScreenView: View {
                 }
                 FlightObservation(readout: readout)
             }.padding(.horizontal, 17).padding(.vertical, 12)
+        }
+    }
+}
+
+// The journey surface represents only manual stop completion and a saved plan.
+// Its expiry view never shows a stale destination or next-stop name.
+private struct JourneyReadout {
+    let context: ActivityViewContext<JourneyActivityAttributes>
+    let now: Date
+    var language: FlightLanguage { FlightLanguage(context.state.language) }
+    var expired: Bool { context.isStale || context.state.ended || now >= context.attributes.expiresAt }
+    var label: String { expired ? language.text("Gezi rehberi sona erdi", "Itinerary guide ended", "Udhëzuesi përfundoi") : language.text("Sıradaki durak", "Next stop", "Ndalesa tjetër") }
+    var progress: String { "\(context.state.completed)/\(context.state.total)" }
+}
+
+private struct JourneySummary: View {
+    let readout: JourneyReadout
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Label("LETSGO2TRAVEL", systemImage: "map.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.l2tGold)
+                Spacer()
+                if !readout.expired { Text(readout.progress).font(.system(size: 13, weight: .bold, design: .rounded)).monospacedDigit().foregroundStyle(Color.l2tGold) }
+            }
+            Text(readout.label).font(.caption).foregroundStyle(.white.opacity(0.75))
+            if !readout.expired {
+                Text(readout.context.state.nextStopName).font(.system(size: 18, weight: .semibold, design: .rounded)).lineLimit(2).foregroundStyle(.white)
+                if !readout.context.state.nextScheduledTime.isEmpty {
+                    Text(readout.language.text("Planlanan saat", "Planned time", "Ora e planifikuar") + " · " + readout.context.state.nextScheduledTime + (readout.context.state.provisional ? readout.language.text(" · tahmini", " · estimate", " · vlerësim") : ""))
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.75))
+                }
+                ProgressView(value: Double(readout.context.state.completed), total: Double(max(1, readout.context.state.total))).tint(.l2tGold)
+                Text(readout.language.text("Durakları uygulamada tamamla", "Mark stops complete in the app", "Shëno ndalesat e kryera në aplikacion"))
+                    .font(.system(size: 10)).foregroundStyle(.white.opacity(0.6))
+            }
+        }
+    }
+}
+
+struct JourneyActivityWidget: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: JourneyActivityAttributes.self) { context in
+            TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                JourneySummary(readout: JourneyReadout(context: context, now: timeline.date)).padding(16)
+            }
+            .activityBackgroundTint(.l2tNight)
+            .activitySystemActionForegroundColor(.l2tGold)
+            .widgetURL(URL(string: context.attributes.deepLink))
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) { Image(systemName: "map.fill").foregroundStyle(Color.l2tGold) }
+                DynamicIslandExpandedRegion(.trailing) {
+                    if !context.isStale && !context.state.ended && Date() < context.attributes.expiresAt {
+                        Text("\(context.state.completed)/\(context.state.total)").monospacedDigit().font(.caption.bold()).foregroundStyle(Color.l2tGold)
+                    }
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                        JourneySummary(readout: JourneyReadout(context: context, now: timeline.date))
+                    }
+                }
+            } compactLeading: {
+                Image(systemName: "map.fill").foregroundStyle(Color.l2tGold)
+                    .accessibilityLabel(FlightLanguage(context.state.language).text("Gezi rehberi", "Itinerary guide", "Udhëzuesi"))
+            } compactTrailing: {
+                if context.isStale || context.state.ended || Date() >= context.attributes.expiresAt {
+                    Image(systemName: "stop.circle").foregroundStyle(Color.l2tGold)
+                } else {
+                    Text("\(context.state.completed)/\(context.state.total)").font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(Color.l2tGold)
+                }
+            } minimal: {
+                Image(systemName: context.isStale || context.state.ended || Date() >= context.attributes.expiresAt ? "stop.circle" : "map.fill")
+                    .foregroundStyle(Color.l2tGold)
+            }
+            .keylineTint(.l2tGold)
+            .widgetURL(URL(string: context.attributes.deepLink))
         }
     }
 }

@@ -1,0 +1,18 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "created": "2026-10-26",
+  "usage": "Small decorative travel illustrations; labels carry all choice meaning. Season scenes illustrate tourism density, not local weather or a live forecast.",
+  "assets": [
+    {
+      "file": "comfort-scenes-v1.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/comfort-scenes-v1.webp",
+      "prompt": "Use case: product-mockup. Asset type: ONE transparent-background horizontal 3:1 sprite sheet for THREE small travel spending choice illustrations in a polished blue-and-yellow travel app. Exact composition: divide the canvas into three perfectly equal square cells, no gutters or dividing lines; put one separate compact object group centered within each cell, with generous clear transparent padding so no object crosses its cell boundary. Left cell, ECONOMICAL: a tidy olive-green fabric backpack and a rolled travel blanket beside it, clearly budget travel. Middle cell, STANDARD: an attractive cobalt-blue hard-shell cabin suitcase with a visible handle and small tan travel tag, a small folded map beside it. Right cell, COMFORT: a welcoming cream upholstered lounge chair with a mustard travel pillow and a small soft travel bag at its foot, relaxed travel. Use tasteful realistic miniature product photography, soft natural light, precise tangible fabrics and materials, gentle grounding shadow, restrained colors. Each group must read at 42 pixels, emphasize clear silhouettes and few objects. No lettering, no symbols or currency signs, no borders, no card backgrounds, no circles behind objects, no UI, no emoji, no logos, no watermark. Genuinely transparent background for the entire sprite sheet; preserve alpha. Wide 1536x512 composition."
+    },
+    {
+      "file": "season-scenes-v1.webp",
+      "path": "C:/Projects/letsgo2travel-claude-20260917/mobile/src/assets/budget/season-scenes-v1.webp",
+      "prompt": "Use case: stylized-concept. Asset type: ONE transparent-background square 2-by-2 sprite sheet for FOUR restrained small travel season/demand choice illustrations in a travel app. Exact composition: four equal square cells, no gutters or dividing lines; each illustration centered wholly inside its quadrant with consistent apparent size and generous transparent padding. TOP LEFT, automatic dates: an upright physical white desk calendar with a blue top binding and a small yellow location pin leaning beside it; completely blank calendar page, no numbers or letters. TOP RIGHT, low-demand travel period: a tiny quiet sandy island scene with ONE teal beach parasol and one empty lounge chair, a narrow turquoise shoreline. BOTTOM LEFT, normal-demand travel period: a similar tiny sandy island scene with TWO blue-and-white parasols and two lounge chairs, narrow turquoise shoreline. BOTTOM RIGHT, high-demand travel period: a similar tiny sandy island scene with FIVE tightly grouped yellow-and-blue parasols and lounge chairs, narrow turquoise shoreline. The three beach miniatures use the SAME clear daylight, no weather or seasons like snow/leaves; distinguish the density of tourism rather than climate. A tasteful miniature diorama with realistic natural materials, elegant soft dimensional product photography, clear large silhouettes, limited detail, consistent camera angle. Designed to read at 38 pixels. No people, no text, no numbers, no labels, no UI, no borders, no card backgrounds, no emoji, no logos, no watermark. Genuinely transparent background outside the small dioramas and calendar; preserve alpha."
+    }
+  ],
+  "delivery": "WebP encoding only; generated alpha transparency and original framing retained."
+}

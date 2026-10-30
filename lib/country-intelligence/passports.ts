@@ -8,16 +8,29 @@ export const DESTINATION_INDEX = new Map(passportIndex.destinations.split(",").m
 export const MFA_CHECKED = REVIEWED_AT;
 const TYPES: PassportType[] = ["ordinary", "special", "service", "diplomatic"];
 const STATUS: Record<string, EntryStatus> = { f: "free", a: "on_arrival", e: "evisa", v: "required", t: "eta", n: "restricted" };
-export type PassportEntry = { status: EntryStatus; provenance: "official" | "dated-index" | "unavailable"; sourceUrl: string; checkedAt: string | null; stay: string | null; note: [string, string]; };
+export type PassportEntry = { status: EntryStatus; provenance: "official" | "dated-index" | "unavailable"; sourceUrl: string; checkedAt: string | null; stay: string | null; note: [string, string]; upcoming?: { effectiveOn: string; status: EntryStatus }; };
 function unavailable(note?: [string, string]): PassportEntry {
   return { status: "unknown", provenance: "unavailable", sourceUrl: "https://www.iatatravelcentre.com/", checkedAt: null, stay: null, note: note || ["Bu pasaport türü ve ülke eşleşmesi için resmî sınıflandırma henüz yok. Konsolosluktan doğrula.", "No reviewed official classification is available for this passport type and destination. Check with the consulate."] };
 }
-export function passportEntry(passportInput: string, type: string, destinationInput: string): PassportEntry {
+export function passportEntry(passportInput: string, type: string, destinationInput: string, travelDate?: string): PassportEntry {
   const passport = passportInput.trim().toUpperCase();
   const destination = destinationInput.trim().toUpperCase();
   const typeIndex = TYPES.indexOf(type as PassportType);
   if (!Object.hasOwn(PASSPORTS, passport) || typeIndex < 0 || !DESTINATION_INDEX.has(destination)) return unavailable();
   if (passport === destination) return { ...unavailable(), status: "domestic", note: ["Pasaportunun düzenlendiği ülke; yabancı ziyaretçi vize hesabına katılmaz.", "Your passport's issuing country; excluded from foreign-entry visa totals."] };
+  if (passport === 'TR' && destination === 'ME') {
+    const effectiveOn = '2026-11-01';
+    const validDay = typeof travelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(travelDate) && Number.isFinite(Date.parse(travelDate)) && new Date(travelDate).toISOString().slice(0, 10) === travelDate;
+    const day = validDay ? travelDate! : new Date().toISOString().slice(0, 10);
+    const required = type === 'ordinary' && day >= effectiveOn;
+    return { status: required ? 'required' : 'free', provenance: 'official',
+      sourceUrl: 'https://www.gov.me/en/diplomatic-missions/embassies-and-consulates-of-montenegro/turkey', checkedAt: '2026-10-24',
+      stay: required ? null : type === 'ordinary' ? '30' : '90/180',
+      ...(type === 'ordinary' && !required ? { upcoming: { effectiveOn, status: 'required' as const } } : {}),
+      note: type !== 'ordinary' ? ['Hususi, hizmet ve diplomatik pasaportlarda kısa kalış muafiyeti ayrı değerlendirilir. Seyahat öncesinde resmî kaynaktan türüne uygun koşulları doğrula.', 'Special, service and diplomatic passport exemptions are separate. Confirm the rules for your passport type with the official source before travel.']
+        : [required ? '1 Kasım 2026’dan itibaren umuma mahsus Türk pasaportuyla vize gerekir. Geçerli Schengen, ABD, Birleşik Krallık veya İrlanda vizesi/oturumuyla en fazla 30 günlük koşullu muafiyet olabilir; belge türünü, geçerliliğini ve güncel koşulları resmî kaynaktan doğrula.' : '31 Ekim 2026’ya kadar en fazla 30 gün vizesiz giriş; 1 Kasım 2026’dan itibaren umuma mahsus Türk pasaportuyla vize gerekir. Vize/oturum belgesine bağlı istisnaları resmî kaynaktan doğrula.',
+          required ? 'Ordinary Turkish passports require a visa from 1 November 2026. A valid Schengen, US, UK or Irish visa/residence permit may allow a conditional exemption for up to 30 days; verify document type, validity and current conditions officially.' : 'Visa-free visits of up to 30 days until 31 October 2026; ordinary Turkish passports require a visa from 1 November 2026. Verify visa/residence-based exceptions with the official source.'] };
+  }
   const reviewed = passport === "TR" ? TURKISH_RULES[destination] : undefined;
   if (reviewed) return { status: reviewed.statuses[typeIndex], provenance: "official", sourceUrl: reviewed.sourceUrl || MFA_SOURCE, checkedAt: REVIEWED_AT, stay: reviewed.stays?.[typeIndex] || null, note: reviewed.note || ["Kısa turistik seyahat içindir. Çalışma, eğitim, görevlendirme ve transit için farklı koşullar olabilir; pasaport geçerliliğini kontrol et.", "For short tourist visits. Work, study, official duties and transit may have different requirements; check passport validity."] };
   if (type !== "ordinary") return unavailable();
@@ -42,8 +55,8 @@ export function passportEntry(passportInput: string, type: string, destinationIn
 }
 // Existing recommendation consumers cannot confuse ETA or restricted entry with
 // unconditionally visa-free travel. The passport map uses the full entry model.
-export function passportStatus(passport: string, type: string, destination: string): VisaStatus {
-  const status = passportEntry(passport, type, destination).status;
+export function passportStatus(passport: string, type: string, destination: string, travelDate?: string): VisaStatus {
+  const status = passportEntry(passport, type, destination, travelDate).status;
   return status === "eta" || status === "restricted" || status === "domestic" ? "unknown" : status;
 }
 export function passportStayLabel(value: string | null, english = false) {

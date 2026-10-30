@@ -87,14 +87,15 @@ const sharedImports={
  '../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,locale:'en'})},'../hooks/useCurrentTime':{useCurrentTime:()=>1000},
  '../lib/native':{openExternal:async()=>true},'./Icon':{Icon:'Icon'},'../lib/config':{config:{}},'../lib/api':{requestJson:async()=>{}},
 };
-test('manual nearby area selection interrupts a pending GPS request and prevents an old automatic network search',async()=>{
+test('Nearby waits for an explicit action and manual area selection interrupts a pending GPS request',async()=>{
  let finish;const pending=new Promise(done=>{finish=done;});const calls=[];const h=hooks();
  const api=load('mobile/src/components/TravelNearby.tsx',{...sharedImports,react:h.react,
   '../../../lib/travel-assistant/money':load('lib/travel-assistant/money.ts'),'../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':{validatePlaces:data=>data},
   '../lib/travelAssistant':{locateForTravel:()=>pending,loadPlaces:async center=>{calls.push(center);return{places:[]};},directionsUrl:()=>''},
   '../lib/savedPlaces':{readSavedPlaces:()=>({items:[]}),subscribeSavedPlaces:()=>()=>{}},'./Sheet':{Sheet:'Sheet'},'./TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},
  });
- const render=()=>h.render(()=>api.TravelNearby({mode:'explore',citizenship:'TR'}));render();
+ const render=()=>h.render(()=>api.TravelNearby({mode:'explore',citizenship:'TR'}));
+ assert.equal(calls.length,0); nodes(render()).find(n=>n.type==='button'&&text(n)==='Find places near me').props.onClick();
  const picker=node(render(),'TravelAreaPicker');assert.notEqual(picker.props.disabled,true);
  picker.props.onChange({latitude:51.51,longitude:-.13});finish({latitude:41.01,longitude:28.98});await new Promise(setImmediate);
  assert.equal(calls.length,0);assert.deepEqual(plain(node(render(),'TravelAreaPicker').props.value),{latitude:51.51,longitude:-.13});
@@ -161,4 +162,16 @@ test('Country map framing uses on-device boundaries, including dateline areas, a
   assert.ok(bounds[1][1]-bounds[0][1]<=360);
  }
  assert.equal(await api.countryMapBounds('ZZ'),null);assert.equal(locations,0);
+});
+
+
+test('A controlled area picker honours the caller map state without changing the legacy default', () => {
+  const h=hooks(); const changes=[];
+  const api=load('mobile/src/components/TravelAreaPicker.tsx',{...sharedImports,react:h.react,leaflet:{default:{}},'../../../lib/travel-assistant/places':places,'../lib/travelAreas':centers,'../lib/deviceArea':{countryMapBounds:async()=>null}});
+  let open=false;
+  const render=()=>h.render(()=>api.TravelAreaPicker({value:null,country:'FR',mapOpen:open,onMapOpenChange:value=>changes.push(value),onChange:()=>{}}));
+  let view=render();assert.equal(nodes(view).some(node=>node.type?.name==='AreaMap'),false);
+  nodes(view).find(node=>node.type==='button').props.onClick();assert.deepEqual(changes,[true]);
+  view=render();assert.equal(nodes(view).some(node=>node.type?.name==='AreaMap'),false,'Controlled false keeps the result-map phase exclusive until parent accepts the change');
+  open=true;view=render();assert.equal(nodes(view).some(node=>node.type?.name==='AreaMap'),true);h.unmount();
 });

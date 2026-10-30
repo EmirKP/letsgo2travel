@@ -61,8 +61,8 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
-  onNotice: (message: string) => void;
+export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', placeArea, mapRequestId = 0 }: {
+  onNotice: (message: string, action?: import('../lib/notices').NoticeAction) => void;
   onNavigate: (view: ViewId) => void;
   onOpenSavedRoutes?: () => void;
   onOpenAccount?: () => void;
@@ -71,6 +71,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   ownerId?: string | null;
   accessToken: string;
   placeName?: string;
+  placeArea?: import('../lib/mapJourneyClient').JourneyArea;
   mapRequestId?: number;
 }) {
   const { copy, locale } = useI18n();
@@ -346,7 +347,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
       const current = getSavedRoutePlans(ownerId);
       if (matchingSavedRoute(current, plan, input)) {
         setSavedRoutes(current);
-        return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
+        return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."), onOpenSavedRoutes ? { label: copy("Planlar'da aç", "Open in Plans", "Hape te Planet"), onClick: onOpenSavedRoutes } : undefined);
       }
       const next = saveRoutePlan(newSavedRoute(plan, input), ownerId);
       const saved = next[0];
@@ -359,7 +360,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
         setSaveLocation("account");
       }
       await hapticSuccess();
-      onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."));
+      onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."), onOpenSavedRoutes ? { label: copy("Planlar'da aç", "Open in Plans", "Hape te Planet"), onClick: onOpenSavedRoutes } : undefined);
     } catch (error) {
       let queued = false;
       try { queued = Boolean(ownerId && readRouteOutbox(ownerId)[clientKey]?.kind === "save"); } catch { /* Preserve unreadable storage. */ }
@@ -374,7 +375,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
-      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
         <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>

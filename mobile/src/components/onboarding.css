@@ -79,3 +79,5 @@ html:has(.welcome-setup), body:has(.welcome-setup) { overflow:hidden!important; 
   .welcome-footer { padding-top:11px; padding-bottom:calc(11px + env(safe-area-inset-bottom)); }
   .welcome-footer-note { margin-top:9px; }
 }
+.welcome-guest { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 7px; padding: 8px; border: 0; background: transparent; color: var(--brand-blue, #0869f5); font: inherit; font-size: 14px; font-weight: 650; }
+.welcome-guest:disabled { opacity: .5; }

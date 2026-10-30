@@ -8,6 +8,7 @@ import { Sheet } from "../components/Sheet";
 import { CommunityBlocksSheet, CommunitySafetySheet } from "../components/CommunitySafetySheet";
 import { CommunityPostPhoto } from "../components/CommunityPostPhoto";
 import { CommunityProfileSheet } from "../components/CommunityProfileSheet";
+import { JoinedEventChats } from "../components/EventCompanionsPanel";
 import { SocialHub } from "../components/SocialHub";
 import { ForumTranslation } from "../components/ForumTranslation";
 import { createId } from "../lib/id";
@@ -55,6 +56,9 @@ type CommunityAnswer = {
   profileKey?: string | null;
   avatarUrl?: string | null;
 };
+
+type ReplyOperation = { body: string; requestId: string };
+type ReplyDraft = { body: string; revision: number; operation: ReplyOperation | null };
 
 type CommunityQuestionDetail = Omit<CommunityQuestion, "answerCount"> & {
   answers: CommunityAnswer[];
@@ -177,6 +181,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [region, setRegion] = useState<CommunityRegionId>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [socialQuery, setSocialQuery] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [followedCountries, setFollowedCountries] = useState(() => readCommunityFollows(user?.id || null));
@@ -215,7 +220,12 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   const [answerPosting, setAnswerPosting] = useState(false);
   const answerInput = useRef<HTMLTextAreaElement>(null);
   const answerPending = useRef(false);
-  const answerOperation = useRef<{ questionId: string; body: string; requestId: string } | null>(null);
+  // Text and its retry identity stay in this account's mounted screen only.
+  // Closing a sheet, opening another topic or changing language does not erase
+  // them; account changes discard the keyed instance and its private drafts.
+  const answerDrafts = useRef(new Map<string, ReplyDraft>());
+  const answerRevision = useRef(0);
+  const currentDetailId = useRef("");
   const questionOperation = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [safetyTarget, setSafetyTarget] = useState<CommunitySafetyTarget | null>(null);
@@ -372,7 +382,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     // Feed refreshes must not invalidate an in-flight detail or league request.
     // Account changes still remount the keyed screen and invalidate all three.
     return () => { feedGeneration.current += 1; };
-  }, [loadFeed]);
+  }, [loadFeed, mode]);
 
   useEffect(() => {
     // Lig verisi, kullanıcı yalnız akışa bakarken gereksiz bir ağ ve veri
@@ -380,14 +390,25 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     if (leagueOpen && (!loaded || (leagueLoadedAt.current > 0 && Date.now() - leagueLoadedAt.current > 60_000)) && !loading) void load();
   }, [load, loaded, loading, leagueOpen]);
 
+  const updateAnswerDraft = (body: string) => {
+    if (!detailId) return;
+    const previous = answerDrafts.current.get(detailId);
+    answerDrafts.current.set(detailId, {
+      body, revision: ++answerRevision.current,
+      operation: previous?.operation?.body === body.trim() ? previous.operation : null,
+    });
+    setAnswerBody(body);
+  };
+
   const openDetail = useCallback(async (questionId: string) => {
     const generation = ++detailGeneration.current;
+    currentDetailId.current = questionId;
     setDetailId(questionId);
     setDetail(null);
     setAnswersLoading(false);
     setAnswersError("");
     setDetailError("");
-    setAnswerBody("");
+    setAnswerBody(answerDrafts.current.get(questionId)?.body || "");
     setDetailLoading(true);
     try {
       const response = await requestJson<{ data?: CommunityQuestionDetail }>(`/api/country-community/questions/${encodeURIComponent(questionId)}`, {
@@ -442,6 +463,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
 
   const closeDetail = () => {
     detailGeneration.current += 1;
+    currentDetailId.current = "";
     setDetailId("");
     setDetail(null);
     setAnswersLoading(false);
@@ -515,10 +537,10 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     if (body.length < 3) return onNotice(copy("Cevap en az 3 karakter olmalı.", "Your answer must be at least 3 characters."));
     if (answerPending.current) return;
     const generation = detailGeneration.current;
-    if (answerOperation.current?.questionId !== detail.id || answerOperation.current.body !== body) {
-      answerOperation.current = { questionId: detail.id, body, requestId: createId() };
-    }
-    const operation = answerOperation.current;
+    const existingDraft = answerDrafts.current.get(detail.id);
+    const operation = existingDraft?.operation?.body === body ? existingDraft.operation : { body, requestId: createId() };
+    const submittedDraft: ReplyDraft = { body: answerBody, revision: existingDraft?.revision ?? ++answerRevision.current, operation };
+    answerDrafts.current.set(detail.id, submittedDraft);
     answerPending.current = true;
     setAnswerPosting(true);
     try {
@@ -527,13 +549,17 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { countryCode: detail.countryCode, questionId: detail.id, body, requestId: operation.requestId },
       });
-      if (answerOperation.current === operation) answerOperation.current = null;
+      const currentDraft = answerDrafts.current.get(detail.id);
+      const unchangedDraft = currentDraft?.revision === submittedDraft.revision && currentDraft.operation === operation;
+      if (unchangedDraft) answerDrafts.current.delete(detail.id);
       if (!active.current) return;
       // Even if the sheet closed while sending, this account's feed must
       // reflect the saved reply. A late response must never reopen the sheet.
       if (result.moderation?.action === "visible") void loadFeed();
+      // A same-topic sheet may have been reopened while sending. Clear only
+      // that confirmed draft, never a newer edit or another topic's text.
+      if (unchangedDraft && currentDetailId.current === detail.id) setAnswerBody("");
       if (generation !== detailGeneration.current) return;
-      setAnswerBody("");
       onNotice(result.moderation?.action === "visible" ? copy("Cevabın yayınlandı.", "Your answer is live.") : copy("Cevabın incelemeye alındı.", "Your answer was sent for review."));
       if (result.moderation?.action === "visible") {
         await openDetail(detail.id);
@@ -556,7 +582,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     const mention = `@${answer.username.replace(/ · Örnek profil$/, "")} `;
     if (!answerBody.startsWith(mention)) {
       if (mention.length + answerBody.length > 4000) return onNotice(copy("Cevabını biraz kısaltıp tekrar dene.", "Shorten your answer a little and try again.", "Shkurto pak përgjigjen dhe provo sërish."));
-      setAnswerBody(mention + answerBody);
+      updateAnswerDraft(mention + answerBody);
     }
     window.requestAnimationFrame(() => answerInput.current?.focus());
   };
@@ -651,7 +677,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
   return <div className="screen community-native-screen reference-community community-social">
     <section className="cs-hero" aria-labelledby="community-welcome-title">
       <img className="cs-hero-image" src={communityCover} alt="" width={1600} height={800} fetchPriority="high"/>
-      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setMode("forum"); setSearchOpen(open => !open); if (searchOpen) setSearch(""); if (tab === "groups") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
+      <div className="cs-hero-tools"><p>{copy("Gezginler bir arada, dünya daha yakın.", "Travellers together, the world closer.")}</p><button type="button" aria-label={copy("Toplulukta ara", "Search community")} aria-expanded={searchOpen} aria-controls="community-search" onClick={() => { setSearchOpen(open => !open); if (searchOpen) { if (mode === "social") setSocialQuery(""); else setSearch(""); } if (mode === "forum" && tab === "groups") setTab("feed"); }}><Icon name="search" size={23}/></button></div>
       <div className="cs-hero-copy"><h1 id="community-welcome-title">{copy("Topluluk", "Community")}</h1><p>{copy("Aynı tutkuyu paylaşan gezginlerle tanış, ilham al, deneyimlerini paylaş.", "Meet travellers who share your passion, find inspiration and share experiences.")}</p></div>
       <p className="cs-handwritten" aria-hidden="true">{copy("Daha Fazla", "More")}<br/>{copy("Hikâye", "Stories")}<br/><span>{copy("Daha Fazla Sen", "More You")}</span></p>
       <div className="cs-stats" aria-label={copy("Son yüklenen topluluk akışı", "Latest loaded community feed")}>
@@ -662,35 +688,30 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
     </section>
 
     <div className="cs-surface">
+      {!searchOpen && <button type="button" className="cs-search-entry" onClick={() => { setSearchOpen(true); if (mode === "forum" && tab === "groups") setTab("feed"); }}><Icon name="search" size={20}/>{mode === "social" ? copy("Gönderilerde ara", "Search posts", "Kërko postime") : copy("Soru ve cevaplarda ara", "Search questions and answers", "Kërko pyetje dhe përgjigje")}</button>}
+      <div id="community-search" className="cs-search-panel" hidden={!searchOpen}>
+        <label htmlFor="community-search-input">{mode === "social" ? copy("Gönderilerde ara", "Search posts", "Kërko postime") : copy("Soru ve cevaplarda ara", "Search questions and answers", "Kërko pyetje dhe përgjigje")}</label><div><Icon name="search" size={20}/><input ref={searchInput} id="community-search-input" type="search" autoComplete="off" maxLength={120} value={mode === "social" ? socialQuery : search} onChange={event => mode === "social" ? setSocialQuery(event.target.value) : setSearch(event.target.value)} placeholder={mode === "social" ? copy("Yer, gezgin veya fotoğraf açıklaması…", "Place, traveller or photo caption…", "Vend, udhëtar ose përshkrim fotografie…") : copy("Ülke, konu veya gezgin…", "Country, topic or traveller…")}/><button type="button" aria-label={copy("Aramayı kapat", "Close search")} onClick={() => { setSearchOpen(false); if (mode === "social") setSocialQuery(""); else setSearch(""); }}><Icon name="close" size={20}/></button></div>
+      </div>
+
       <div className="community-mode-switch" role="group" aria-label={copy("Topluluk görünümü", "Community view", "Pamja e komunitetit")}><button type="button" aria-pressed={mode === "forum"} onClick={() => setMode("forum")}>{copy("Forum", "Forum", "Forumi")}</button><button type="button" aria-pressed={mode === "social"} onClick={() => setMode("social")}>{copy("Gönderiler", "Posts", "Postimet")}</button></div>
-      {mode === "social" ? <SocialHub userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} initialCommentId={initialSocialCommentId} onIntentHandled={onSocialIntentHandled}/> : <>
+      <JoinedEventChats ownerId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onNotice={onNotice} onOpenProfile={setProfileKey}/>
+      {mode === "social" ? <SocialHub searchQuery={socialQuery} userId={user?.id} accessToken={accessToken} onOpenAccount={onOpenAccount} onOpenProfile={setProfileKey} onBlocked={onBlocked} onAddPlace={onAddSocialPlace || (place => onSearchDestination(place.name))} revision={socialRevision} initialPostId={initialSocialPostId} initialCommentId={initialSocialCommentId} onIntentHandled={onSocialIntentHandled}/> : <>
       <div className="cs-tabs" role="tablist" aria-label={copy("Topluluk bölümleri", "Community sections")}>
         {tabs.map(item => <button key={item.id} id={`community-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`community-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "active" : ""} onKeyDown={handleTabKeyDown} onClick={() => setTab(item.id)}><Icon name={item.icon} size={20}/>{item.label}</button>)}
       </div>
-      <button type="button" className="cs-event-entry" onClick={() => onNavigate("events")}><Icon name="calendar" size={19}/>{copy("Etkinlik Radarı", "Event Radar", "Radar aktivitetesh")}<Icon name="chevron" size={17}/></button>
+      <button type="button" className="cs-compose" onClick={startQuestion} aria-label={copy("Gönderi Paylaş", "Share a Post")} aria-haspopup="dialog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/></svg>{copy("Soru sor veya deneyimini paylaş", "Ask a question or share your experience", "Bëj pyetje ose ndaj përvojën")}</button>
+      <details className="cs-region-disclosure"><summary><Icon name="globe" size={18}/>{copy("Bölgeye göre filtrele", "Filter by region", "Filtro sipas rajonit")}<Icon name="chevron" size={17}/></summary>
       <div className="cs-regions" role="group" aria-label={copy("Bölgeye göre keşfet", "Discover by region")}>
         {regions.map(item => <button key={item.id} type="button" className={region === item.id ? "active" : ""} aria-pressed={region === item.id} onClick={() => { setRegion(item.id); setCountryFilter(""); }}><span className={item.id === "all" ? "cs-region-world" : undefined}>{item.id !== "all" && item.image ? <img src={item.image} alt="" width={80} height={80} loading="lazy"/> : <TravelToolArtwork kind="globe" size={64}/>}</span><strong>{item.label}</strong></button>)}
       </div>
-      <section className="cs-league-banner" aria-labelledby="cs-league-title">
-        <img src={leagueCover} alt="" width={1200} height={300} loading="lazy"/>
-        <span className="cs-trophy" aria-hidden="true"><TravelToolArtwork kind="league" size={56}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Ziyaretini doğrula, ligde yerini al!", "Verify your visits and join the league!", "Verifiko vizitat dhe hyr në ligë!")}</p></div>
-        <button type="button" aria-haspopup="dialog" onClick={() => setLeagueOpen(true)}>{copy("Ligi Keşfet", "Explore League")}<Icon name="chevron" size={20}/></button>
-      </section>
+      </details>
 
-      <div id="community-search" className="cs-search-panel" hidden={!searchOpen}>
-        <label htmlFor="community-search-input">{copy("Toplulukta ara", "Search community")}</label><div><Icon name="search" size={20}/><input ref={searchInput} id="community-search-input" type="search" autoComplete="off" value={search} onChange={event => setSearch(event.target.value)} placeholder={copy("Ülke, konu veya gezgin…", "Country, topic or traveller…")}/><button type="button" aria-label={copy("Aramayı kapat", "Close search")} onClick={() => { setSearchOpen(false); setSearch(""); }}><Icon name="close" size={20}/></button></div>
-      </div>
 
-      {tab === "feed" && region === "all" && !countryFilter && !search && <section className="cs-inspiration" aria-labelledby="cs-inspiration-title">
-        <div className="cs-section-heading"><h2 id="cs-inspiration-title">{copy("Keşfetmeye Değer", "Worth Exploring")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü Gör", "See All")}<Icon name="chevron" size={17}/></button></div>
-        <div className="cs-inspiration-grid">{inspirations.map(item => <article key={item.code}><button type="button" className="cs-inspiration-open" onClick={() => onSearchDestination(item.query)}><div className="cs-inspiration-photo"><img src={item.image} alt="" width={320} height={205} loading="lazy" decoding="async"/><span>{item.label}</span></div><div className="cs-inspiration-copy"><h3>{item.title}</h3><p>{item.body}</p><small><CountryFlag code={item.code} label={item.country}/>{item.country}<Icon name="chevron" size={16}/></small></div></button></article>)}</div>
-        <p className="cs-editorial-note">{copy("LetsGo2Travel’den seyahat fikirleri", "Travel ideas from LetsGo2Travel")}</p>
-      </section>}
 
       {tab === "groups" && <section id="community-panel-groups" role="tabpanel" aria-labelledby="community-tab-groups" className="cs-groups" tabIndex={0}>
         <div className="cs-section-heading"><h2>{copy("Ülke Grupları", "Country Groups")}</h2><span>{groups.length}</span></div><p className="cs-section-intro">{copy("Bir ülke seç, gezginlerin sorularına katıl. Takip ettiğin gruplar bu cihazda saklanır.", "Choose a country and join the conversation. Followed groups are saved on this device.")}</p>
         <label className="cs-group-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Ülke ara", "Search countries")}</span><input type="search" value={groupSearch} onChange={event => setGroupSearch(event.target.value)} placeholder={copy("Ülke ara", "Search countries")}/></label>
-        <div className="cs-group-grid">{groups.map(country => <article key={country.alpha2}><button type="button" className="cs-group-open" onClick={() => { setCountryFilter(country.alpha2); setRegion("all"); setSearch(""); setTab("feed"); }}><CountryFlag code={country.alpha2} label={country.name}/><span><strong>{country.name}</strong><small>{copy("Sohbete katıl", "Join the conversation")}</small></span></button><button type="button" className="cs-follow" aria-label={copy(`${country.name} grubunu ${followedCountries.includes(country.alpha2) ? "takipten çıkar" : "takip et"}`, `${followedCountries.includes(country.alpha2) ? "Unfollow" : "Follow"} ${country.name} group`, `${followedCountries.includes(country.alpha2) ? "Mos e ndiq më" : "Ndiq"} grupin ${country.name}`)} aria-pressed={followedCountries.includes(country.alpha2)} onClick={() => toggleFollow(country.alpha2)}><Icon name={followedCountries.includes(country.alpha2) ? "check" : "plus"} size={20}/></button></article>)}</div>
+        <div className="cs-group-grid">{groups.map(country => <article key={country.alpha2}><button type="button" className="cs-group-open" onClick={() => { setCountryFilter(country.alpha2); setRegion("all"); setSearch(""); setTab("feed"); }}><CountryFlag code={country.alpha2} label={country.name}/><span><strong>{country.name}</strong><small>{copy("Soruları gör", "View questions", "Shiko pyetjet")}</small></span></button><button type="button" className="cs-follow" aria-label={copy(`${country.name} grubunu ${followedCountries.includes(country.alpha2) ? "takipten çıkar" : "takip et"}`, `${followedCountries.includes(country.alpha2) ? "Unfollow" : "Follow"} ${country.name} group`, `${followedCountries.includes(country.alpha2) ? "Mos e ndiq më" : "Ndiq"} grupin ${country.name}`)} aria-pressed={followedCountries.includes(country.alpha2)} onClick={() => toggleFollow(country.alpha2)}><Icon name={followedCountries.includes(country.alpha2) ? "check" : "plus"} size={20}/></button></article>)}</div>
         {!groups.length && <div className="empty-state"><Icon name="search" size={28}/><strong>{copy("Bu aramada ülke bulunamadı", "No countries found")}</strong><button type="button" className="secondary-button" onClick={() => { setGroupSearch(""); setRegion("all"); }}>{copy("Tüm ülkeleri göster", "Show all countries")}</button></div>}
       </section>}
 
@@ -725,7 +746,18 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
         {feedNextOffset !== null && <button type="button" className="secondary-wide" disabled={feedLoading} onClick={() => void loadFeed(feedNextOffset)}>{copy("Daha fazla paylaşım yükle", "Load more posts", "Ngarko më shumë postime")}</button>}
         {sort !== "newest" && feedNextOffset !== null && <p className="field-hint">{copy("Sıralama yüklenen paylaşımlara uygulanır. Diğer sonuçlar için daha fazla yükle.", "Sorting applies to loaded posts. Load more to see other results.", "Renditja zbatohet për postimet e ngarkuara. Ngarko më shumë për rezultatet e tjera.")}</p>}
       </section>}
-      <button type="button" className="cs-compose" onClick={startQuestion} aria-label={copy("Gönderi Paylaş", "Share a Post")} aria-haspopup="dialog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/></svg>{copy("Deneyimini paylaş", "Share your experience")}</button>
+      <details className="cs-extras"><summary>{copy("Lig ve seyahat fikirleri", "League and travel ideas", "Liga dhe ide udhëtimi")}<Icon name="chevron" size={17}/></summary>
+      <section className="cs-league-banner" aria-labelledby="cs-league-title">
+        <img src={leagueCover} alt="" width={1200} height={300} loading="lazy"/>
+        <span className="cs-trophy" aria-hidden="true"><TravelToolArtwork kind="league" size={56}/></span><div><h2 id="cs-league-title">{copy("Kaşifler Ligi", "Explorers League")}</h2><p>{copy("Ziyaretini doğrula, ligde yerini al!", "Verify your visits and join the league!", "Verifiko vizitat dhe hyr në ligë!")}</p></div>
+        <button type="button" aria-haspopup="dialog" onClick={() => setLeagueOpen(true)}>{copy("Ligi Keşfet", "Explore League")}<Icon name="chevron" size={20}/></button>
+      </section>
+      {tab === "feed" && region === "all" && !countryFilter && !search && <section className="cs-inspiration" aria-labelledby="cs-inspiration-title">
+        <div className="cs-section-heading"><h2 id="cs-inspiration-title">{copy("Keşfetmeye Değer", "Worth Exploring")}</h2><button type="button" onClick={() => onNavigate("explore")}>{copy("Tümünü Gör", "See All")}<Icon name="chevron" size={17}/></button></div>
+        <div className="cs-inspiration-grid">{inspirations.map(item => <article key={item.code}><button type="button" className="cs-inspiration-open" onClick={() => onSearchDestination(item.query)}><div className="cs-inspiration-photo"><img src={item.image} alt="" width={320} height={205} loading="lazy" decoding="async"/><span>{item.label}</span></div><div className="cs-inspiration-copy"><h3>{item.title}</h3><p>{item.body}</p><small><CountryFlag code={item.code} label={item.country}/>{item.country}<Icon name="chevron" size={16}/></small></div></button></article>)}</div>
+        <p className="cs-editorial-note">{copy("LetsGo2Travel’den seyahat fikirleri", "Travel ideas from LetsGo2Travel")}</p>
+      </section>}
+      </details>
       </>}
       <div className="community-safety-toolbar" aria-label={copy("Topluluk güvenliği ve destek", "Community safety and support")}>
         <button type="button" onClick={() => user && accessToken ? setBlocksOpen(true) : onOpenAccount()}><Icon name="unlock" size={17}/><span>{copy("Engellenenler", "Blocked users")}<small>{copy("Engeli kaldır", "Unblock")}</small></span></button>
@@ -824,7 +856,7 @@ function CommunityScreenForAccount({ user, accessToken, initialCountryCode = "",
             <span><Icon name="users" size={18} /></span>
             <div><strong>{copy("Deneyimini paylaş", "Share your experience")}</strong><small>{copy("Kısa, açık ve kişisel bilgi içermeyen bir cevap yaz.", "Write a clear answer without personal information.")}</small></div>
           </div>
-          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea ref={answerInput} disabled={answerPosting} id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => setAnswerBody(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
+          <label htmlFor="community-answer-body"><span>{copy("Cevabın", "Your answer")}</span><textarea ref={answerInput} disabled={answerPosting} id="community-answer-body" value={answerBody} maxLength={4000} onChange={(event) => updateAnswerDraft(event.target.value)} placeholder={copy("Yaşadığın deneyimi ve faydalı ayrıntıları buraya yaz…", "Write your experience and useful details here…")} /></label>
           <div className="community-answer-form-meta"><small>{answerBody.trim().length < 3 ? copy("Göndermek için en az 3 karakter yaz.", "Write at least 3 characters to send.") : copy("Göndermeye hazır", "Ready to send")}</small><span>{answerRemaining}</span></div>
           <button type="button" className="primary-wide" disabled={answerPosting || answerBody.trim().length < 3} onClick={() => void submitAnswer()}>{answerPosting ? <span className="button-loader" /> : <Icon name="users" size={17} />} {answerPosting ? copy("Gönderiliyor", "Sending") : copy("Cevabı gönder", "Send answer")}</button>
         </div> : <button className="secondary-wide" onClick={onOpenAccount}><Icon name="user" size={17} /> {copy("Cevap yazmak için giriş yap", "Sign in to answer")}</button>}

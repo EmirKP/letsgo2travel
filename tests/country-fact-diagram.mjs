@@ -11,14 +11,14 @@ const clockSource = ts.transpileModule(readFileSync('mobile/src/lib/countryFactC
 vm.runInNewContext(`(function(module,exports){${clockSource}\n})`, { Intl, Date, Number })(clockModule, clockModule.exports);
 const { countryFactClockHands, countryFactClockTime } = clockModule.exports;
 const imports = { react: { useId: () => `diagram-${++nextId}` }, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../lib/countryFactClock': clockModule.exports, './country-fact-diagram.css': {} };
-const module = { exports: {} };
+const fixtureModule = { exports: {} };
 const source = ts.transpileModule(readFileSync('mobile/src/components/CountryFactDiagram.tsx', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Intl, Date, Number, String, Set })(name => {
   assert.ok(Object.hasOwn(imports, name), `Unexpected dependency: ${name}`); return imports[name];
-}, module, module.exports);
-const { CountryFactDiagram } = module.exports;
+}, fixtureModule, fixtureModule.exports);
+const { CountryFactDiagram } = fixtureModule.exports;
 function render(node) {
   if (Array.isArray(node)) return node.map(render);
   if (!node || typeof node !== 'object') return node;

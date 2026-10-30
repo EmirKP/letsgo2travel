@@ -5,16 +5,17 @@ import { useI18n } from '../lib/i18n';
 import { openExternal } from '../lib/native';
 import { directionsUrl } from '../lib/travelAssistant';
 import {
-  MAX_DAY_STOPS, MAX_PLACE_NOTE, MAX_SAVED_PLACES, deleteTravelPlace, moveTravelDayStop,
+  MAX_DAY_STOPS, MAX_PLACE_NOTE, MAX_SAVED_PLACES, removeTravelPlaceWithUndo, restoreTravelPlace, moveTravelDayStop,
   readSavedPlaces, resetSavedPlaces, setTravelDayStop, subscribeSavedPlaces, updateTravelPlaceNote,
 } from '../lib/savedPlaces';
-import type { SavedPlace, SavedPlacesState } from '../lib/savedPlaces';
+import type { RemovedTravelPlace, SavedPlace, SavedPlacesState } from '../lib/savedPlaces';
+import type { Place } from '../../../lib/travel-assistant/types';
 import { Icon } from './Icon';
 import './saved-places.css';
 import './travel-assistant.css';
 const TravelPointMap = lazy(() => import('./TravelPointMap').then(module => ({default:module.TravelPointMap})));
 
-export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onExplore?: () => void; onExploreLabel?: string; ownerId?: string|null }) {
+export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId, hideMap = false, onSelectPlace, onDirections }: { onExplore?: () => void; onExploreLabel?: string; ownerId?: string|null; hideMap?: boolean; onSelectPlace?: (place: Place) => void; onDirections?: (place: Place) => void }) {
   const { copy, locale } = useI18n();
   const [state, setState] = useState(() => readSavedPlaces(ownerId));
   const [view, setView] = useState<'saved' | 'day'>('saved');
@@ -23,6 +24,8 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [removed, setRemoved] = useState<RemovedTravelPlace|null>(null);
+  useEffect(() => { setRemoved(null); }, [ownerId]);
   useEffect(() => { setState(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setState(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
   const label = (item: SavedPlace) => item.place.name || CATEGORY_LABELS[item.place.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1];
   const fold = (value: string) => value.toLocaleLowerCase(locale).normalize('NFD').replace(/\p{M}/gu, '');
@@ -56,19 +59,27 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
   async function visit(url: string) {
     if (!await openExternal(url)) setError(copy('Bağlantı açılamadı. İnternetini kontrol edip tekrar dene.', 'Could not open the link. Check your connection and try again.'));
   }
+  function removePlace(id: string) {
+    let token: RemovedTravelPlace | null = null;
+    if (change(() => { const removal = removeTravelPlaceWithUndo(id, ownerId); token = removal.removed; return removal.state; }, copy('Yer, notu ve gezi sırasından kaldırıldı.', 'Place, note and day position removed.', 'Vendi, shënimi dhe rendi i vizitës u hoqën.'))) setRemoved(token);
+  }
+  function undoRemoval() {
+    if (removed && change(() => restoreTravelPlace(removed, ownerId), copy('Yer, notun ve gezi sıran geri alındı.', 'Place, note and day position restored.', 'Vendi, shënimi dhe rendi i vizitës u rikthyen.'))) setRemoved(null);
+  }
   return <section className="ta-panel tsp-panel">
     <header className="tsp-heading">
       <span className="tsp-heading-icon" aria-hidden="true"><Icon name="bookmark" size={26}/></span>
       <div><h3>{copy('Kaydet, sırala, keşfet', 'Save, arrange, explore')}</h3><p>{copy('Beğendiğin yerler ve sana özel gezi sıran, internet olmasa da yanında.', 'Your favourite places and personal day list stay with you, even offline.')}</p></div>
     </header>
-    <p className="ta-muted">{ownerId ? copy(
+    <details className="tsp-storage-details"><summary>{copy('Kayıtlarım nasıl saklanır?', 'How are my records stored?', 'Si ruhen regjistrimet e mia?')}</summary><p className="ta-muted">{ownerId ? copy(
       'Kaydettiğin yerler, notlar ve gezi sıran bu hesabınla diğer cihazlarına eşitlenir. Sildiğin kayıtlar eşitleme sonrası diğer cihazlarından da kaldırılır. İnternet yokken değişikliklerin bu cihazda bekler. Arama ve konum geçmişi kaydedilmez.',
       'Your saved places, notes and day list sync with this account on your other devices. Deleted records are also removed from other devices after syncing. Offline changes wait on this device. Search and location history are not saved.',
       'Vendet, shënimet dhe rendi i vizitave sinkronizohen me këtë llogari në pajisjet e tua. Regjistrimet e fshira hiqen edhe nga pajisjet e tjera pas sinkronizimit. Ndryshimet pa internet presin në këtë pajisje. Historiku i kërkimit dhe vendndodhjes nuk ruhet.',
     ) : copy(
       `Yalnız Kaydet dediğin yerler ve notların bu cihazda saklanır; arama ve konum geçmişi kaydedilmez. Hesabına yüklenmez ve giriş/çıkış yaptığında kalır. Aynı cihazı kullanan kişiler görebilir. Uygulama verilerini temizlemek kayıtları siler. En fazla ${MAX_SAVED_PLACES} yer.`,
       `Only places you tap Save on and your notes are stored on this device; search and location history are not saved. They are not uploaded to your account and remain when you sign in or out. Other people using this device can see them. Clearing app data deletes them. Up to ${MAX_SAVED_PLACES} places.`,
-    )}</p>
+      `Vetëm vendet ku prek Ruaj dhe shënimet e tua ruhen në këtë pajisje; historiku i kërkimit dhe vendndodhjes nuk ruhet. Nuk ngarkohen në llogarinë tënde dhe mbeten kur hyn ose del. Personat e tjerë që përdorin këtë pajisje mund t'i shohin. Pastrimi i të dhënave të aplikacionit i fshin. Deri në ${MAX_SAVED_PLACES} vende.`,
+    )}</p></details>
     {ownerId && <p className="ta-muted" role="status">{state.pending ? copy('Eşitleme bekliyor · Bu cihazdaki kopyan güvende.', 'Waiting to sync · Your copy on this device is safe.', 'Në pritje të sinkronizimit · Kopja në këtë pajisje është e sigurt.') : copy('Hesabındaki kayıtlı yerler', 'Saved places in your account', 'Vendet e ruajtura në llogarinë tënde')}</p>}
     <div className="tsp-views" role="group" aria-label={copy('Liste görünümü', 'List view')}>
       <button type="button" aria-pressed={view === 'saved'} onClick={() => setView('saved')}><Icon name="bookmark" size={17}/>{copy('Kaydettiğim yerler', 'Saved places')}<span>{state.items.length}</span></button>
@@ -96,6 +107,7 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
     )}</p>}
     {error && <p className="ta-warning" role="alert">{error}</p>}
     <p className="tsp-status" role="status" aria-live="polite">{status}</p>
+    {removed && removed.ownerId === (ownerId || null) && <div className="tsp-undo" role="status"><span>{copy('Son kaldırdığın yeri notu ve gezi sırasıyla geri alabilirsin.', 'Restore the last removed place with its note and day position.', 'Rikthe vendin e fundit me shënimin dhe rendin e vizitës.')}</span><button type="button" onClick={undoRemoval}>{copy('Geri al','Undo','Zhbëj')}</button><button type="button" onClick={() => setRemoved(null)} aria-label={copy('Geri almayı kapat','Dismiss undo','Mbyll zhbërjen')}><Icon name="close" size={17}/></button></div>}
     {!state.error && visible.length === 0 && <div className="tsp-empty">
       <Icon name={view === 'day' ? 'route' : 'bookmark'} size={32}/>
       <h4>{view === 'day' ? copy('İlk durağını seç', 'Choose your first stop') : state.items.length ? copy('Eşleşen yer bulunamadı', 'No matching places') : copy('Yeni yerler seni bekliyor', 'New places are waiting')}</h4>
@@ -103,18 +115,21 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
         ? copy('Kaydettiğim yerler sekmesinde bir yerin “Gezi sırama ekle” düğmesine dokun.', 'Tap “Add to day list” on a place in Saved places.')
         : state.items.length
           ? copy('Aramayı veya kategori filtresini değiştir.', 'Try another search or category.')
-          : copy('Gezi ya da İhtiyaç haritasında bir noktayı açıp Kaydet’e dokun. Sonra burada not ekleyip gezi sıranı oluşturabilirsin.', 'Open a place on the Sightseeing or Essentials map and tap Save. Then add notes and arrange your day here.')}</p>
+          : hideMap
+            ? copy('Haritada bir yeri açıp Kaydet’e dokun. Burada not ekleyip gezi sıranı oluşturabilirsin.', 'Open a place on the map and tap Save. Add notes and arrange your day here.', 'Hap një vend në hartë dhe prek Ruaj. Shto shënime dhe rendit ditën këtu.')
+            : copy('Gezi ya da İhtiyaç haritasında bir noktayı açıp Kaydet’e dokun. Sonra burada not ekleyip gezi sıranı oluşturabilirsin.', 'Open a place on the Sightseeing or Essentials map and tap Save. Then add notes and arrange your day here.')}</p>
       {view === 'day' ? <button type="button" className="secondary-wide" onClick={() => setView('saved')}>{copy('Kaydettiğim yerlere git', 'Go to saved places')}</button>
         : state.items.length ? <button type="button" className="secondary-wide" onClick={() => { setCategory(''); setQuery(''); }}>{copy('Filtreleri temizle', 'Clear filters')}</button>
           : onExplore && <button type="button" className="primary-wide" onClick={onExplore}>{onExploreLabel || copy('Gezi haritasını aç', 'Open sightseeing map')}</button>}
     </div>}
-    {visible.some(item => item.place.id.startsWith('apple/')) && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…','Po ngarkohet harta…')}</p>}><TravelPointMap center={visible[0].place} places={visible.map(item => item.place)} ownerId={ownerId} onSelect={place => void visit(place.sourceUrl)}/></Suspense>}
+    {!hideMap && visible.some(item => item.place.id.startsWith('apple/')) && <Suspense fallback={<p role="status">{copy('Harita yükleniyor…','Loading map…','Po ngarkohet harta…')}</p>}><TravelPointMap center={visible[0].place} places={visible.map(item => item.place)} ownerId={ownerId} onSelect={place => onSelectPlace ? onSelectPlace(place) : void visit(place.sourceUrl)}/></Suspense>}
     <ol className="tsp-list" aria-label={view === 'day' ? copy('Gezi sırası', 'Day sequence') : copy('Kaydettiğim yerler', 'Saved places')}>
       {visible.map((item, index) => <SavedPlaceCard key={item.place.id} item={item} name={label(item)}
         dayIndex={view === 'day' ? index : null} dayTotal={state.dayIds.length} inDay={state.dayIds.includes(item.place.id)}
         onVisit={url => void visit(url)}
+        onSelect={onSelectPlace ? () => onSelectPlace(item.place) : undefined} onDirections={onDirections ? () => onDirections(item.place) : undefined}
         onNote={note => change(() => updateTravelPlaceNote(item.place.id, note, ownerId), copy('Not kaydedildi.', 'Note saved.'))}
-        onDelete={() => change(() => deleteTravelPlace(item.place.id, ownerId), ownerId ? copy(`${label(item)} cihazdaki kayıtlarından kaldırıldı. Silme işlemi hesabınla eşitlenecek.`, `${label(item)} was removed on this device. The removal is queued for account sync.`, `${label(item)} u hoq nga kjo pajisje. Heqja pret sinkronizimin me llogarinë.`) : copy(`${label(item)} kayıtlı yerlerden kaldırıldı.`, `${label(item)} removed from saved places.`, `${label(item)} u hoq nga vendet e ruajtura.`))}
+        onDelete={() => removePlace(item.place.id)}
         onDay={() => change(() => setTravelDayStop(item.place.id, !state.dayIds.includes(item.place.id), ownerId), state.dayIds.includes(item.place.id) ? copy('Gezi sırasından çıkarıldı.', 'Removed from day list.') : copy('Gezi sırasına eklendi.', 'Added to day list.'))}
         onMove={direction => change(() => moveTravelDayStop(item.place.id, direction, ownerId), copy(`${label(item)} ${index + direction + 1}. sıraya taşındı.`, `${label(item)} moved to position ${index + direction + 1}.`))}
       />)}
@@ -123,10 +138,11 @@ export function TravelSavedPlaces({ onExplore, onExploreLabel, ownerId }: { onEx
   </section>;
 }
 
-function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote, onDelete, onDay, onMove }: {
+function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote, onDelete, onDay, onMove, onSelect, onDirections }: {
   item: SavedPlace; name: string; dayIndex: number | null; dayTotal: number; inDay: boolean;
   onVisit: (url: string) => void; onNote: (note: string) => boolean; onDelete: () => void;
   onDay: () => void; onMove: (direction: -1 | 1) => void;
+  onSelect?: () => void; onDirections?: () => void;
 }) {
   const { copy, locale } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -136,7 +152,7 @@ function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote
   return <li className="tsp-card">
     <div className="tsp-card-heading">
       {dayIndex !== null && <span className="tsp-stop-number" aria-label={copy(`${dayIndex + 1}. durak`, `Stop ${dayIndex + 1}`)}>{dayIndex + 1}</span>}
-      <div><h4>{name}</h4><p>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}{dayIndex === null && inDay && <span className="tsp-day-tag">{copy('Gezi sırasında', 'In day list')}</span>}</p></div>
+      <div><h4>{onSelect ? <button type="button" className="tsp-select-place" onClick={onSelect}>{name}<Icon name="map" size={15}/></button> : name}</h4><p>{CATEGORY_LABELS[p.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}{dayIndex === null && inDay && <span className="tsp-day-tag">{copy('Gezi sırasında', 'In day list')}</span>}</p></div>
     </div>
     {item.note && !editing && <p className="tsp-note">{item.note}</p>}
     {editing ? <form className="tsp-note-editor" onSubmit={event => { event.preventDefault(); if (onNote(draft)) setEditing(false); }}>
@@ -146,7 +162,7 @@ function SavedPlaceCard({ item, name, dayIndex, dayTotal, inDay, onVisit, onNote
       <div className="ta-actions"><button type="submit">{copy('Notu kaydet', 'Save note')}</button><button type="button" onClick={() => setEditing(false)}>{copy('Vazgeç', 'Cancel')}</button></div>
     </form> : <button type="button" className="tsp-text-button" onClick={() => { setDraft(item.note); setEditing(true); }}>{item.note ? copy('Notu düzenle', 'Edit note') : copy('Not ekle', 'Add note')}</button>}
     <div className="ta-actions tsp-main-actions">
-      <button type="button" onClick={() => onVisit(directionsUrl(`${p.latitude},${p.longitude}`))}><Icon name="route" size={16}/>{copy('Yol tarifi', 'Directions')}</button>
+      <button type="button" onClick={() => onDirections ? onDirections() : onVisit(directionsUrl(`${p.latitude},${p.longitude}`))}><Icon name="route" size={16}/>{copy('Yol tarifi', 'Directions')}</button>
       <button type="button" onClick={onDay} aria-pressed={inDay}>{inDay ? copy('Gezi sırasından çıkar', 'Remove from day list') : copy('Gezi sırama ekle', 'Add to day list')}</button>
     </div>
     {dayIndex !== null && <div className="tsp-order" role="group" aria-label={copy(`${name} ziyaret sırası`, `${name} visit order`)}>

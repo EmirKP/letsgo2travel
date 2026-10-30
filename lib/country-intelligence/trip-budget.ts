@@ -28,6 +28,8 @@ export function tripBudget(row: Pick<CityBenchmark, "hotel" | "meal" | "travel">
 export function usableBudgetRate(value: { base: string; quote: string; date: string; rate: number } | null, currency: BudgetCurrency, now = Date.now()) {
   if (currency === "GBP") return 1;
   if (!value || value.base !== "GBP" || value.quote !== currency || !/^\d{4}-\d{2}-\d{2}$/.test(value.date)) return null;
-  const age = now - Date.parse(`${value.date}T00:00:00Z`);
+  const timestamp = Date.parse(`${value.date}T00:00:00Z`);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== value.date) return null;
+  const age = now - timestamp;
   return Number.isFinite(value.rate) && value.rate > 0 && age >= 0 && age <= 7 * 86400000 ? value.rate : null;
 }

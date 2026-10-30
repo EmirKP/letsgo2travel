@@ -23,6 +23,9 @@ export async function listTravelEvents(params: {
   category?: TravelEvent["category"] | "all";
   featured?: boolean;
   limit?: number;
+  query?: string;
+  cursor?: string;
+  paginated?: boolean;
 }) {
   const query = new URLSearchParams();
   if (params.countryCode) query.set("countryCode", params.countryCode);
@@ -32,6 +35,9 @@ export async function listTravelEvents(params: {
   if (params.endDate) query.set("endDate", params.endDate);
   if (params.category && params.category !== "all") query.set("category", params.category);
   if (params.featured) query.set("featured", "true");
+  if (params.query?.trim()) query.set('q', params.query.trim());
+  if (params.paginated) query.set('paged', 'true');
+  if (params.cursor) query.set('cursor', params.cursor);
   query.set("timeZone", Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   query.set("limit", String(params.limit || 24));
   return requestJson<{
@@ -44,6 +50,8 @@ export async function listTravelEvents(params: {
       coverageStatus?: "live" | "no_results" | "provider_unavailable" | "limited" | "not_configured";
       partial: boolean;
       updatedAt: string;
+      nextCursor?: string | null;
+      paginationLimited?: boolean;
     };
   }>(`/api/events?${query}`, { timeoutMs: 18_000 });
 }

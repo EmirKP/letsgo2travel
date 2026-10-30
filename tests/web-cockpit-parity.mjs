@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'CommonJS', moduleResolution: 'node', resolveJsonModule: true, esModuleInterop: true } });
 const zones = require('../lib/zoned-time.ts');
 const budgetMath = require('../lib/country-intelligence/trip-budget.ts');
-const budgets = load('mobile/src/lib/budgetCockpitIntent.ts', { '../../../lib/country-intelligence/trip-budget': budgetMath, '../../../lib/country-intelligence/city-benchmarks': require('../lib/country-intelligence/city-benchmarks.ts') });
+const budgets = load('mobile/src/lib/budgetCockpitIntent.ts', { '../../../lib/country-intelligence/trip-budget': budgetMath, '../../../lib/country-intelligence/city-benchmarks': require('../lib/country-intelligence/city-benchmarks.ts'), '../../../lib/country-intelligence/personal-budget': require('../lib/country-intelligence/personal-budget.ts') });
 const mapJourney = load('mobile/src/lib/mapJourney.ts', { '../../../lib/travel-assistant/places': require('../lib/travel-assistant/places.ts'), './id': load('mobile/src/lib/id.ts', {}) });
 const routeValidator = load('mobile/src/lib/routeCockpitIntent.ts', { './mapJourney': mapJourney });
 const data = load('lib/cockpit/web-data.ts', { '../../mobile/src/lib/routeCockpitIntent': routeValidator, '../../mobile/src/lib/budgetCockpitIntent': budgets, '../airport-time-zones': require('../lib/airport-time-zones.ts'), '../zoned-time': zones });
@@ -79,6 +79,20 @@ test('Snapshot validation rejects another account, forged total and malformed ro
   for (const mutate of [value => { value.owner_id = 'owner-b'; }, value => { value.route_snapshot.ownerId = 'owner-b'; }, value => { value.budget_snapshot.estimate.total += 1; }, value => { value.route_snapshot.route.dailyPlan = [{ html: '<bad>' }]; }]) {
     const f = clientFixture(), value = snapshot(); mutate(value); const wait = data.readWebJourney(f.client, trip()); f.pending[0].resolve({ data: value }); await assert.rejects(wait, /doğrulanamadı/);
   }
+});
+test('Web personal budgets retain the saved currency and range, itemize full meals and mark missing allowances without changing legacy snapshots', () => {
+  const personal = require('../lib/country-intelligence/personal-budget.ts');
+  const now=Date.parse('2026-10-04T12:00:00Z');
+  const budget=budgets.createPersonalBudgetCockpitIntent(benchmark,{...personal.DEFAULT_PERSONAL_BUDGET,adults:'2',children:'1',roomType:'family',activities:'paid'},'EUR',{base:'GBP',quote:'EUR',rate:1.2,date:'2026-10-02'},owner,benchmark.city.en,now);
+  const Content=load('app/components/cockpit/CockpitJourney.tsx',{...shared,react:{},'@/lib/supabase-client':{supabase:{}}}).JourneyContent;
+  const view=Content({journey:{route:null,budget,updatedAt:'2026-10-04T12:00:00Z'},trip:trip()});
+  const output=text(view),format=n=>new Intl.NumberFormat('tr-TR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n*1.2);
+  const article=find(view,'article'),mainTotal=find(article,'strong');
+  assert.equal(text(mainTotal),`${format(budget.estimate.totalRange.low)} – ${format(budget.estimate.totalRange.high)}`);
+  assert.match(output,/Yeme içme \(tüm öğünler\)/);assert.match(output,/Şehir içi ulaşım/);assert.match(output,/Etkinlik payıHenüz eklenmedi/);assert.match(output,/Yedek bütçe/);assert.match(output,/kısmi planlama aralığı/);assert.match(output,/Kişi başı günlük/);
+  assert.doesNotMatch(output,/Akşam yemeği|Toplu taşıma/);assert.equal(find(view,'a').props.href,budget.sourceUrl);
+  const missingRate=budgets.createPersonalBudgetCockpitIntent(benchmark,personal.DEFAULT_PERSONAL_BUDGET,'EUR',null,owner);
+  assert.match(text(Content({journey:{route:null,budget:missingRate},trip:trip()})),/£/,'No saved conversion must retain GBP, never label it EUR');
 });
 test('Checklist and deletion use owner plus exact server revision CAS, preserving event metadata and attachments', async () => {
   const f = clientFixture(), base = trip(); const checklist = base.checklistItems.map(item => ({ ...item, completed: true }));

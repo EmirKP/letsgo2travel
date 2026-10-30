@@ -60,7 +60,7 @@ function hooks() {
   dispose() { slots.forEach(slot => slot?.cleanup?.()); },
  };
 }
-const shared = locale => ({ '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) }, './Sheet': { Sheet: 'Sheet' }, './Icon': { Icon: 'Icon' }, './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' } });
+const shared = locale => ({ '../lib/i18n': { useI18n: () => ({ locale, dateLocale: locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) }, './Sheet': { Sheet: 'Sheet' }, './Icon': { Icon: 'Icon' }, './TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, './DestinationSearchFallback': { DestinationSearchFallback: 'DestinationSearchFallback' } });
 
 test('Shortcut selections persist in order while guest and exact account identities remain separate', () => {
  const d = device(), load = loader(d.globals), store = load('mobile/src/lib/homeShortcuts.ts');
@@ -70,7 +70,7 @@ test('Shortcut selections persist in order while guest and exact account identit
  assert.equal(store.saveHomeShortcuts('ownera', ['events']), true);
  const fresh = loader(d.globals)('mobile/src/lib/homeShortcuts.ts');
  assert.deepEqual(plain(fresh.readHomeShortcuts()), ['tool:translate', 'tool:money', 'route']);
- assert.deepEqual(plain(fresh.readHomeShortcuts('owner/a')), ['cockpit', 'tool:offline']);
+ assert.deepEqual(plain(fresh.readHomeShortcuts('owner/a')), ['cockpit', 'tool:map']);
  assert.deepEqual(plain(fresh.readHomeShortcuts('ownera')), ['events']);
  assert.deepEqual(plain(fresh.readHomeShortcuts('another')), ['route', 'explore', 'passport', 'trips', 'companion']);
 });
@@ -85,6 +85,38 @@ test('Invalid shortcut data is bounded and repaired; denied storage never report
  assert.deepEqual(plain(store.readHomeShortcuts('a')), plain(store.DEFAULT_HOME_SHORTCUTS));
 });
 
+test('Old map shortcuts migrate to one visible map without losing order or touching another account',()=>{
+ const d=device(),load=loader(d.globals),store=load('mobile/src/lib/homeShortcuts.ts'),catalog=load('mobile/src/lib/appTools.ts');
+ d.values.set(store.homeShortcutKey('a'),JSON.stringify(['tool:offline','tool:needs','route','tool:saved','tool:explore','tool:translate']));
+ const original=d.values.get(store.homeShortcutKey('a'));
+ assert.deepEqual(plain(store.readHomeShortcuts('a')),['tool:map','route','tool:translate']);
+ assert.equal(d.values.get(store.homeShortcutKey('a')),original,'A compatibility read does not mutate stored data');
+ assert.equal(catalog.appTools('tr').filter(item=>['map','explore','needs','saved','offline'].includes(item.tool)).length,1);
+ assert.equal(catalog.appTools('tr').find(item=>item.tool==='map').label,'Harita');
+ for(const query of ['eczane','gezi haritası','kayıtlı yerler','nearby','offline map','Starbucks marka','restoran','yol tarifi']){
+  const words=query==='Starbucks marka'?'marka':query,results=search(words,'tr',[],'tool');
+  assert.equal(results.filter(item=>item.tool==='map').length,1,query);
+  assert.equal(results.some(item=>['explore','needs','offline','saved'].includes(item.tool)),false,query);
+ }
+});
+
+test('Stored consulate shortcuts merge into Map while retired transport shortcuts are removed safely per account',()=>{
+ const d=device(),load=loader(d.globals),store=load('mobile/src/lib/homeShortcuts.ts'),catalog=load('mobile/src/lib/appTools.ts');
+ const original=['tool:embassies','tool:transit','tool:photo','tool:map','route'];
+ d.values.set(store.homeShortcutKey('a'),JSON.stringify(original));
+ d.values.set(store.homeShortcutKey('b'),JSON.stringify(['events','tool:money']));
+ assert.deepEqual(plain(store.readHomeShortcuts('a')),['tool:map','tool:photo','route']);
+ assert.deepEqual(plain(store.readHomeShortcuts('b')),['events','tool:money']);
+ assert.deepEqual(JSON.parse(d.values.get(store.homeShortcutKey('a'))),original,'Compatibility reads preserve the stored source');
+ assert.equal(catalog.canonicalAppShortcutId('tool:transit'),null);
+ assert.equal(catalog.canonicalAppShortcutId('tool:embassies'),'tool:map');
+ assert.equal(catalog.travelMapSectionForTool('embassies'),'embassies');
+ assert.ok(catalog.appTools('en').some(item=>item.tool==='photo'));
+ assert.equal(catalog.appTools('en').some(item=>item.tool==='transit'||item.tool==='embassies'),false,'The shortcut picker has no retired standalone entry');
+ d.values.set(store.homeShortcutKey('retired-only'),JSON.stringify(['tool:transit']));
+ assert.deepEqual(plain(store.readHomeShortcuts('retired-only')),plain(store.DEFAULT_HOME_SHORTCUTS),'An entirely retired selection recovers to usable defaults');
+});
+
 test('Shortcut hook never renders the prior account and follows saved or cross-tab changes only for its owner', () => {
  const d = device(), h = hooks(), load = loader(d.globals, { react: h.react });
  const store = load('mobile/src/lib/homeShortcuts.ts'), { useHomeShortcuts } = load('mobile/src/hooks/useHomeShortcuts.ts');
@@ -95,7 +127,7 @@ test('Shortcut hook never renders the prior account and follows saved or cross-t
  store.saveHomeShortcuts('a', ['events']); assert.deepEqual(plain(h.render().views), ['cockpit']);
  d.values.set(store.homeShortcutKey('b'), JSON.stringify(['tool:offline']));
  d.window.dispatchEvent({ type: 'storage', key: store.homeShortcutKey('b'), storageArea: d.window.localStorage });
- assert.deepEqual(plain(h.render().views), ['tool:offline']);
+ assert.deepEqual(plain(h.render().views), ['tool:map']);
  h.dispose(); assert.ok([...d.listeners.values()].every(listeners => listeners.size === 0));
 });
 
@@ -111,12 +143,23 @@ test('Real country and city catalogs match Turkish, English and Albanian names w
 });
 
 test('Tool search exposes precise existing assistant targets and localized result labels', () => {
- for (const [query, locale, tool] of [['ceviri', 'tr', 'translate'], ['translation', 'en', 'translate'], ['perkthim', 'sq', 'translate'], ['doviz', 'tr', 'money'], ['offline', 'en', 'offline'], ['eczane', 'tr', 'needs']]) {
+ for (const [query, locale, tool] of [['ceviri', 'tr', 'translate'], ['translation', 'en', 'translate'], ['perkthim', 'sq', 'translate'], ['doviz', 'tr', 'money'], ['offline', 'en', 'map'], ['eczane', 'tr', 'map']]) {
   const results = search(query, locale, [], 'tool');
   assert.ok(results.some(item => item.view === 'companion' && item.tool === tool), `${locale}/${query}`);
   assert.ok(results.every(item => item.kind === 'tool'));
  }
  assert.equal(search('ceviri', 'sq', [], 'tool').find(item => item.tool === 'translate').title, 'Përkthimi');
+});
+
+test('Consulate searches in all supported languages expose one Map result and no retired transport tool',()=>{
+ for(const [query,locale] of [['konsolosluk','tr'],['büyükelçilik','tr'],['consulate','en'],['embassy','en'],['konsullatë','sq'],['ambasadë','sq']]){
+  const results=search(query,locale,[],'tool');
+  assert.equal(results.filter(item=>item.tool==='map').length,1,`${locale}/${query}`);
+  assert.equal(results.some(item=>item.tool==='embassies'||item.tool==='transit'),false);
+ }
+ for(const [query,locale] of [['ulaşım','tr'],['transport','en'],['metro','tr'],['transporti','sq']]){
+  assert.equal(search(query,locale,[],'tool').some(item=>item.tool==='transit'),false,`${locale}/${query}`);
+ }
 });
 
 test('Existing journal, world map, recap and help are searchable by novice phrases in all supported languages', () => {
@@ -535,4 +578,23 @@ test('Search sheet keeps one localized clear control that clears the query and r
    assert.deepEqual(calls, [], 'Clearing stays in search without navigation');
   } finally { h.dispose(); }
  }
+});
+
+test('An unknown city keeps a planning exit and passes the searched name or chosen geographic area without generating a plan', () => {
+ for(const locale of ['tr','en','sq']){
+  const planned=[];const h=categorySheet(locale,{initialQuery:'  Novi Sad  ',onPlanPlace:(...args)=>planned.push(args)});
+  try{
+   let tree=h.h.render();const fallback=find(tree,'DestinationSearchFallback');assert.ok(fallback);assert.equal(fallback.props.query,'  Novi Sad  ');
+   find(tree,'button',props=>props.className==='global-search-plan-place').props.onClick();assert.deepEqual(h.calls,['close']);assert.deepEqual(planned,[['Novi Sad',undefined]]);
+   const area={name:'Novi Sad',latitude:45.267,longitude:19.834,countryCode:'RS'};
+   fallback.props.onPlanPlace('Novi Sad',area);assert.equal(planned[1][1],area);assert.equal(planned[1][0],'Novi Sad');assert.deepEqual(h.calls,['close','close']);
+  }finally{h.h.dispose();}
+ }
+});
+
+test('Place planning fallback is not shown for private saved-item categories or an empty query', () => {
+ const h=categorySheet('en',{initialQuery:'Novi Sad'});try{
+  for(const label of ['Saved trips','Saved routes','Tools']){pick(h.h.render(),label).props.onClick();assert.equal(find(h.h.render(),'DestinationSearchFallback'),undefined,label);}
+  h.h.render({initialQuery:''});assert.equal(find(h.h.render(),'DestinationSearchFallback'),undefined);
+ }finally{h.h.dispose();}
 });

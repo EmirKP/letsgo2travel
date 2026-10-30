@@ -1,0 +1,37 @@
+.editorial-app .screen.passport-polished { gap:18px; }
+.passport-page-heading { display:flex;align-items:center;gap:12px;margin:2px 0; }
+.passport-page-heading>span { display:grid;place-items:center;flex:none;width:48px;height:54px;border-radius:15px;background:var(--theme-soft,#edf5ff);color:var(--theme-link,#0066ff); }
+.passport-page-heading h1 { margin:0;color:var(--theme-ink,#173653);font-size:26px;line-height:1.2; }
+.passport-page-heading p { margin:5px 0 0;color:var(--theme-muted,#65748a);font-size:13px;line-height:1.4; }
+.editorial-app .screen.passport-polished .passport-overview-card { padding:14px;border-radius:18px;box-shadow:none; }
+.passport-compact-context { display:flex;align-items:center;gap:10px;min-width:0; }
+.passport-compact-context>.country-flag { width:34px; }
+.passport-compact-context>div { flex:1;min-width:0; }
+.passport-compact-context h2 { margin:0;color:var(--theme-ink,#173653);font-size:16px;line-height:1.35; }
+.passport-compact-context span { color:var(--theme-muted,#65748a);font-size:12px; }
+.passport-compact-context>button { min-height:44px;padding:8px 12px;border:1px solid var(--theme-border,#dce8fa);border-radius:12px;background:var(--theme-surface,#fff);color:var(--theme-link,#0066ff);font-size:12px;font-weight:700; }
+.editorial-app .screen.passport-polished .passport-identity { gap:14px;margin-bottom:12px; }
+.editorial-app .screen.passport-polished .passport-book { width:44px;height:62px;gap:4px;border-radius:4px 9px 9px 4px;box-shadow:none;transform:rotate(-5deg); }
+.editorial-app .screen.passport-polished .passport-book>span { display:none; }
+.editorial-app .screen.passport-polished .passport-book svg { width:22px;height:22px; }
+.editorial-app .screen.passport-polished .passport-book>svg:last-child,.editorial-app .screen.passport-polished .passport-book i { display:none; }
+.editorial-app .screen.passport-polished .passport-identity h2 { margin:0 0 5px;font-size:20px; }
+.editorial-app .screen.passport-polished .passport-eyebrow { display:none; }
+.editorial-app .screen.passport-polished .passport-selection { padding:0;margin:0;border:0;background:transparent; }
+.editorial-app .screen.passport-polished .passport-travel-date { display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0 0;font-size:12px; }
+.editorial-app .screen.passport-polished .passport-travel-date input { width:155px;min-width:0;min-height:44px;margin:0;padding:8px;border-radius:12px; }
+.editorial-app .screen.passport-polished .passport-overview-card>.info-box { margin:12px 0 0;padding:10px 12px;font-size:12px;line-height:1.4; }
+.passport-overview-extra { margin-top:10px;border-top:1px solid var(--theme-border,#e0e9f5); }
+.passport-overview-extra>summary { display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;list-style:none;color:var(--theme-muted,#65748a);font-size:12px;cursor:pointer; }
+.passport-overview-extra>summary::-webkit-details-marker,.passport-map-disclosure>summary::-webkit-details-marker { display:none; }
+.passport-overview-extra[open]>summary>svg,.passport-map-disclosure[open]>summary>svg:last-child { transform:rotate(90deg); }
+.editorial-app .screen.passport-polished .passport-stats>div { min-height:80px;gap:4px; }
+.editorial-app .screen.passport-polished .passport-stats strong { font-size:23px; }
+.editorial-app .screen.passport-polished .passport-section-heading { margin-bottom:10px; }
+.editorial-app .screen.passport-polished .passport-section-heading h2 { font-size:20px; }
+.passport-map-disclosure { margin:16px 0;border:1px solid var(--theme-border,#dce8fa);border-radius:16px;background:var(--theme-surface,#fff);overflow:hidden; }
+.passport-map-disclosure>summary { display:flex;align-items:center;gap:10px;min-height:52px;padding:12px 14px;list-style:none;color:var(--theme-link,#0066ff);font-size:14px;font-weight:700;cursor:pointer; }
+.passport-map-disclosure>summary>span { flex:1; }
+.passport-map-disclosure>.passport-map-help { margin-inline:14px; }
+.editorial-app .screen.passport-polished .passport-discovery>.country-results-summary { margin-top:14px; }
+@media(max-width:380px) { .passport-page-heading h1 { font-size:23px; }.editorial-app .screen.passport-polished .passport-travel-date { align-items:flex-start; } }

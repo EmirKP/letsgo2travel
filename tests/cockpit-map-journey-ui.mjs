@@ -46,7 +46,7 @@ function fixture(detail = snapshot(), saveResult) {
     './RouteTranslation': { RouteTranslation: 'RouteTranslation' }, '../lib/savedRouteDisplay': require('../mobile/src/lib/savedRouteDisplay.ts'),
     './Sheet': { Sheet: 'Sheet' }, './LazyOverlay': { LazyOverlay: 'LazyOverlay' }, '../lib/id': { createId: () => 'new-map-copy' },
     '../lib/routeCockpitIntent': handoff, '../lib/mapJourney': model, '../lib/api': { ApiError: class ApiError extends Error {} }, '../lib/cockpitJourney': api,
-    '../lib/i18n': { useI18n: () => language } };
+    '../lib/activeTripContext': {readActiveTripContext:()=>null,activeTripContextFromTrip:()=>null,writeActiveTripContext:()=>false}, '../lib/i18n': { useI18n: () => language } };
   const file = 'mobile/src/components/CockpitJourneySection.tsx';
   const source = ts.transpileModule(readFileSync(file, 'utf8'), { fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const loaded = { exports: {} };
@@ -78,6 +78,17 @@ test('Cockpit opens the exact trip snapshot for an explicit version-checked upda
     assert.equal(h.saves.length, 0);
     find(tree, 'Sheet').props.onClose(); assert.equal(find(h.host.render(), 'MapJourneyPlanner'), undefined);
   } finally { h.host.close(); }
+});
+
+test('A journey activity request opens only the matching trip/map/day and preserves its existing version guard on repeat taps',async()=>{
+  const f=fixture();let guideHandled=0;
+  try{
+    f.reads[0](f.detail);await tick();const map=f.detail.route.route.mapJourney;
+    f.host.render({journeyGuideRequest:{journeyId:map.id,day:2,tripId:'trip-a',requestId:1},onJourneyGuideHandled:()=>{guideHandled++;}});
+    let editor=find(f.host.render(),'MapJourneyPlanner');assert.ok(editor);assert.equal(editor.props.initialJourney.id,map.id);assert.equal(editor.props.initialDay,2);assert.equal(editor.props.tripId,'trip-a');assert.equal(guideHandled,1);const first=editor.props.initialJourney;
+    f.host.render({journeyGuideRequest:{journeyId:map.id,day:3,tripId:'trip-a',requestId:2}});editor=find(f.host.render(),'MapJourneyPlanner');assert.equal(editor.props.initialDay,3);assert.equal(editor.props.initialDayRequestId,2);assert.equal(editor.props.initialJourney,first,'Repeated requests retain the already open edit snapshot and CAS base');assert.equal(f.saves.length,0);
+  }finally{f.host.close();}
+  const wrong=fixture();try{wrong.reads[0](wrong.detail);await tick();wrong.host.render({journeyGuideRequest:{journeyId:'another-map',day:2,tripId:'trip-a',requestId:1},onJourneyGuideHandled(){}});const tree=wrong.host.render();assert.equal(find(tree,'MapJourneyPlanner'),undefined);assert.match(text(tree),/requested itinerary day is unavailable/);}finally{wrong.host.close();}
 });
 
 test('Account or trip changes close private map copies, while token rotation preserves the open draft', async () => {
@@ -182,6 +193,7 @@ test('Today itinerary shows only the selected trip day and its dated events, nev
   const loaded = { exports: {} };
   const imports = { react: host.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../lib/dates': { localIsoDate: () => '2026-10-14', isCalendarDate: value => /^\d{4}-\d{2}-\d{2}$/.test(value) },
     '../../../lib/event-time': require('../lib/event-time.ts'),
+    './JourneyLiveGuide': { JourneyLiveGuide: 'JourneyLiveGuide' },
     '../lib/i18n': { useI18n: () => ({ copy: (_tr, en) => en }) }, './RouteTranslation': { RouteTranslation: 'RouteTranslation' },
     '../lib/savedRouteDisplay': { savedRouteDisplay: route => route } };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date })(name => { if (imports[name]) return imports[name]; throw Error(name); }, loaded, loaded.exports);
@@ -236,5 +248,87 @@ test('Attached legacy route title, description and every day use display-only tr
     assert.deepEqual(translations.map(node => node.props.text), ['Roma kültür gezisi', 'Müzelere yakın bir rota.', 'İlk gün müze', 'İkinci gün park']);
     assert.ok(translations.every(node => node.props.accessToken === 'token-a'));
     assert.equal(h.saves.length, 0); assert.equal(JSON.stringify(detail), original);
+  } finally { h.host.close(); }
+});
+
+function savedBudgetDetail({ currency = 'TRY', rate = 66.5, legacy = false, activities = 'paid' } = {}) {
+  const prices = require('../lib/country-intelligence/city-benchmarks.ts').CITY_BENCHMARKS.find(row => row.id === 'FR-paris');
+  const budgets = require('../mobile/src/lib/budgetCockpitIntent.ts');
+  const preferences = { ...require('../lib/country-intelligence/personal-budget.ts').DEFAULT_PERSONAL_BUDGET, activities, activityAllowance: activities === 'paid' ? '5.50' : '' };
+  // The display must retain this saved quote; it is older than a live quote's TTL.
+  const quote = currency === 'GBP' || rate === null ? null : { base: 'GBP', quote: currency, date: '2026-10-15', rate };
+  const now = Date.parse('2026-10-16T12:00:00Z');
+  const budget = legacy ? budgets.createBudgetCockpitIntent(prices, '3', '2', currency, quote, 'owner-a', prices.city.en, now)
+    : budgets.createPersonalBudgetCockpitIntent(prices, preferences, currency, quote, 'owner-a', prices.city.en, now);
+  assert.ok(budgets.validateBudgetCockpitIntent(budget));
+  return { ...snapshot(), route: null, budget };
+}
+
+function budgetArticle(tree) {
+  return nodes(tree).find(node => node.type === 'article' && node.props.className === 'cockpit-attached-budget');
+}
+
+test('Saved personal budget totals and every breakdown use the same saved currency and dated rate in all locales', async () => {
+  for (const locale of ['tr', 'en', 'sq']) for (const [currency, rate] of [['TRY', 66.5], ['EUR', 1.2], ['USD', 1.3], ['GBP', 1]]) {
+    const detail = savedBudgetDetail({ currency, rate }), original = JSON.stringify(detail), h = fixture(detail);
+    try {
+      h.language(locale); h.reads.at(-1)(detail); await tick();
+      const article = budgetArticle(h.host.render()); assert.ok(article);
+      const expected = amount => new Intl.NumberFormat(locale === 'tr' ? 'tr-TR' : locale === 'sq' ? 'sq-AL' : 'en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount * rate);
+      const estimate = detail.budget.estimate;
+      const total = nodes(article).find(node => node.props?.className === 'cockpit-budget-total');
+      assert.equal(text(total), `${expected(estimate.totalRange.low)} – ${expected(estimate.totalRange.high)}`);
+      assert.deepEqual(nodes(article).filter(node => node.type === 'dd').map(text), [estimate.hotel, estimate.meals, estimate.travel, estimate.activities, estimate.contingency].map(expected));
+      if (currency !== 'GBP') assert.match(text(article), /2026-10-15/, 'The applied exchange date remains the saved snapshot date');
+      assert.equal(JSON.stringify(detail), original, 'Display conversion must not rewrite source prices or the saved estimate');
+      assert.equal(h.saves.length, 0);
+    } finally { h.host.close(); }
+  }
+});
+
+test('Saved legacy budget totals and all three components convert together, including a clear all-GBP fallback without a saved quote', async () => {
+  for (const legacy of [false, true]) for (const rate of [66.5, null]) {
+    const detail = savedBudgetDetail({ legacy, rate }), h = fixture(detail);
+    try {
+      h.reads[0](detail); await tick();
+      const article = budgetArticle(h.host.render()), estimate = detail.budget.estimate, currency = rate === null ? 'GBP' : 'TRY';
+      const expected = amount => new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount * (rate ?? 1));
+      const values = [estimate.hotel, estimate.meals, estimate.travel, ...(!legacy ? [estimate.activities, estimate.contingency] : [])];
+      assert.deepEqual(nodes(article).filter(node => node.type === 'dd').map(text), values.map(expected));
+      const total = nodes(article).find(node => node.props?.className === 'cockpit-budget-total');
+      assert.equal(text(total), legacy ? expected(estimate.total) : `${expected(estimate.totalRange.low)} – ${expected(estimate.totalRange.high)}`);
+      assert.equal(nodes(article).some(node => node.props?.role === 'status'), rate === null);
+      if (rate === null) assert.match(text(article), /all amounts are shown in GBP/);
+      assert.equal(h.saves.length, 0);
+    } finally { h.host.close(); }
+  }
+});
+
+test('Budget display preserves missing activity labels and never formats invalid saved exchange rates as money', async () => {
+  const partial = savedBudgetDetail({ activities: 'mixed' }), partialHost = fixture(partial);
+  try {
+    partialHost.reads[0](partial); await tick();
+    assert.equal(text(nodes(budgetArticle(partialHost.host.render())).filter(node => node.type === 'dd')[3]), 'Allowance not set');
+  } finally { partialHost.host.close(); }
+  for (const invalid of [0, -1, NaN, Infinity]) {
+    const detail = savedBudgetDetail(); detail.budget.exchangeRate.rate = invalid;
+    const h = fixture(detail);
+    try {
+      h.reads[0](detail); await tick(); const article = budgetArticle(h.host.render());
+      assert.match(text(article), /all amounts are shown in GBP/);
+      assert.doesNotMatch(text(article), /NaN|Infinity|TRY/);
+      assert.ok(nodes(article).filter(node => node.type === 'dd').every(node => text(node).includes('£')));
+    } finally { h.host.close(); }
+  }
+});
+
+test('An account switch hides the previous saved budget and rejects a late response from that owner without writes', async () => {
+  const detail = savedBudgetDetail(), h = fixture(detail);
+  try {
+    h.reads[0](detail); await tick(); assert.ok(budgetArticle(h.host.render()));
+    assert.equal(budgetArticle(h.host.render({ ownerId: 'owner-b', accessToken: 'token-b' })), undefined);
+    h.reads.at(-1)(detail); await tick();
+    assert.equal(budgetArticle(h.host.render()), undefined);
+    assert.equal(h.saves.length, 0);
   } finally { h.host.close(); }
 });

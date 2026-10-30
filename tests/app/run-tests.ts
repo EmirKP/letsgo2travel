@@ -985,7 +985,26 @@ test("Build 18: öneri kartlarında şehirle eşleşen yerel görseller bulunur"
     const image = statSync(`mobile/src/assets/destination-artwork/${name}.webp`);
     assert.ok(image.size > 30_000 && image.size < 250_000, `${name} görseli gerçek içerik taşımalı ve mobil boyutta kalmalı`);
   }
-  assert.ok(artwork.includes('fallbackArtwork from "../assets/launch-travel-poster.webp"'), "bilinmeyen şehir başka bir destinasyon gibi gösterilmemeli");
+  const imageHelper = { exports: {} as { bundledImageSource: (image: string | { src: string }) => string } };
+  const helperCode = ts.transpileModule(readFileSync("mobile/src/lib/bundledImageSource.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  runInNewContext(`(function(require,module,exports){${helperCode}\n})`, {})(
+    () => { throw new Error("Görsel URL yardımcısı bağımlılıksız olmalı"); }, imageHelper, imageHelper.exports,
+  );
+  const code = ts.transpileModule(artwork, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  for (const bundler of ["vite", "next"] as const) {
+    const loaded = { exports: {} as { destinationArtwork: (code?: string) => string } };
+    const imports: Record<string, unknown> = Object.fromEntries([...artwork.matchAll(/from "([^"]+\.(?:webp|jpe?g|png))"/g)].map(([, name]) => [name, { default: bundler === "next" ? { src: name, width: 960, height: 640 } : name }]));
+    imports["../lib/bundledImageSource"] = imageHelper.exports;
+    runInNewContext(`(function(require,module,exports){${code}\n})`, {})(
+      (name: string) => { assert.ok(imports[name], `Gerçek paket görseli veya URL yardımcısı bulunmalı: ${name}`); return imports[name]; }, loaded, loaded.exports,
+    );
+    for (const [cityCode, name] of [["BKK", "bangkok"], ["TIA", "tirana"], ["TYO", "tokyo"]] as const) {
+      assert.ok(loaded.exports.destinationArtwork(cityCode).endsWith(`${name}.webp`), `${bundler}: ${name} kendi yerel fotoğraf URL'sini vermeli`);
+    }
+    assert.match(loaded.exports.destinationArtwork("UNKNOWN_CITY"), /^data:image\/svg\+xml,/, "bilinmeyen şehir marka posteri veya başka destinasyon fotoğrafı yerine nötr yüzey kullanmalı");
+    assert.ok(loaded.exports.destinationArtwork("IST").endsWith("istanbul-bosphorus.jpg"), "İstanbul kendi Boğaz görselini kullanmalı");
+    assert.notEqual(loaded.exports.destinationArtwork("UNKNOWN_CITY"), loaded.exports.destinationArtwork("FCO"), "bilinmeyen şehir Roma görselini kullanmamalı");
+  }
 });
 
 test("Referans tasarım: tüm ISO ülke bayrakları ağsız SVG olarak paketlenir", () => {
@@ -1459,8 +1478,8 @@ test("Build 23: ortak plan görünür, davet bağlantısı çalışır ve seyaha
   const invite = readFileSync("app/davet/[token]/InviteActions.tsx", "utf8");
   const codemagic = readFileSync("codemagic.yaml", "utf8");
   assert.ok(home.includes('onNavigate(feature.view)') && appTools.includes('view: "trips", group: "plan", title: ["Planlar"') && trips.includes('chooseSection("shared")') && trips.includes('copy("Ortak planlar", "Shared plans"'), "ana sayfanın gerçek Planlar kısayolu doğrudan ortak planlara erişim sunmalı; kısayol ve açık ortak plan bölümü planning-ux testinde çalıştırılır");
-  assert.ok(trips.includes('<details className="daily-featured-disclosure" open={sharedToolsOpen}') && trips.includes("setSharedToolsOpen(event.currentTarget.open)") && trips.includes("<TripCollaborationHub") && !cockpit.includes("<TripCollaborationHub"), "ortak planlar açılabilir seyahat bölümünde bulunmalı, Kokpit'e gizlenmemeli");
-  assert.ok(trips.includes('if (inviteCode) { setLibraryTab("shared"); setSharedToolsOpen(true); }'), "davet bağlantısı ortak planlar bölümünü kendiliğinden açmalı");
+  assert.ok(trips.includes('{libraryTab === "shared" && (user && accessToken ? <TripCollaborationHub') && trips.includes('initialEntry={sharedEntry}') && !cockpit.includes("<TripCollaborationHub"), "ortak planlar gerçek ortak seyahat bölümünde doğrudan açılmalı, Kokpit'e gizlenmemeli");
+  assert.ok(trips.includes('if (inviteCode) { setLibraryTab("shared"); setSharedEntry("join"); }'), "davet bağlantısı ortak planların katılım akışını kendiliğinden açmalı");
   assert.ok(trips.includes("onOpenAccount") && trips.includes("Giriş yaptıktan sonra davet otomatik açılacak"), "giriş gerektiren davet kodu kaybolmadan korunmalı");
   assert.ok(app.includes('if (inviteCode) navigate("trips")') && app.includes("onOpenAccount={() => setAccountOpen(true)}"), "native davet Seyahatlerim'e ve gerekirse giriş ekranına gitmeli");
   assert.ok(route.includes("/davet/${encodeURIComponent(rawToken)}") && invite.includes("tr.com.letsgo2travel.app://open?tripInvite="), "paylaşılan HTTPS bağlantısı güvenli uygulama açma sayfasına gitmeli");

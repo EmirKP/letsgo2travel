@@ -62,7 +62,7 @@ export function TravelSafety({ country, onOpen, onNotice }: {
     <button className="secondary-wide" type="button" disabled={sharing} onClick={() => void share()}><Icon name="share" size={18}/>{sharing ? copy('Konum alınıyor…','Getting location…') : copy('Yaklaşık konumumu paylaş','Share my approximate location')}</button>
   </section>;
 }
-export function EmbassyCards({ country, citizenship }: {country:string; citizenship:string}) {
+export function EmbassyCards({ country, citizenship, onShowMap, onDirections }: {country:string; citizenship:string; onShowMap?:(address:string)=>void; onDirections?:(address:string)=>void}) {
   const { copy, locale } = useI18n();
   const rows = embassiesFor(citizenship, country);
   return <section className="ta-panel"><h3>{copy('Konsolosluk ve büyükelçilik', 'Consulates and embassies')}</h3>
@@ -73,8 +73,8 @@ export function EmbassyCards({ country, citizenship }: {country:string; citizens
       <div className="ta-actions"><a href={dialUrl(e.phone) || undefined}>{copy('Telefon','Phone')}: {e.phone}</a>{e.emergencyPhone && (e.emergencyChannel === 'whatsapp'
         ? <button type="button" onClick={() => void openExternal(`https://wa.me/${e.emergencyPhone!.replace(/^\+/, '')}`)}>{copy('Acil WhatsApp','Emergency WhatsApp')}: {e.emergencyPhone}</button>
         : <a href={dialUrl(e.emergencyPhone) || undefined}>{copy('Acil telefon','Emergency phone')}: {e.emergencyPhone}</a>)}
-      <button type="button" onClick={() => void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.address)}`)}>{copy('Haritada göster','Show on map')}</button>
-      <button type="button" onClick={() => void openExternal(directionsUrl(e.address))}>{copy('Yol tarifi','Directions')}</button></div>
+      <button type="button" onClick={() => onShowMap ? onShowMap(e.address) : void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.address)}`)}>{copy('Haritada göster','Show on map','Shfaq në hartë')}</button>
+      <button type="button" onClick={() => onDirections ? onDirections(e.address) : void openExternal(directionsUrl(e.address))}>{copy('Yol tarifi','Directions','Udhëzime')}</button></div>
       {!e.emergencyPhone && <small>{copy('Ayrı acil telefon doğrulanmadı.', 'Separate emergency phone not verified.')}</small>}<EvidenceLine item={e}/></article>)}
     {MISSION_DIRECTORIES[citizenship] && <button className="secondary-wide" type="button" onClick={() => void openExternal(MISSION_DIRECTORIES[citizenship])}>{copy('Resmî temsilcilik dizini','Official mission directory')}<Icon name="external" size={16}/></button>}
   </section>;

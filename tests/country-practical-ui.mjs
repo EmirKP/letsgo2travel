@@ -21,7 +21,7 @@ const tick = () => new Promise(setImmediate);
 function load(path, imports = {}, globals = {}) {
   const file = resolve(path);
   if (file.endsWith('.json')) return { __esModule: true, default: JSON.parse(readFileSync(file, 'utf8')) };
-  const module = { exports: {} };
+  const fixtureModule = { exports: {} };
   const output = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${output}\n})`, { Date, Intl, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
@@ -34,8 +34,8 @@ function load(path, imports = {}, globals = {}) {
       return load(target);
     }
     throw Error(`Unstubbed import: ${name}`);
-  }, module, module.exports);
-  return module.exports;
+  }, fixtureModule, fixtureModule.exports);
+  return fixtureModule.exports;
 }
 
 const practical = load('lib/travel-assistant/country-practical.ts');
@@ -57,7 +57,7 @@ function limitedAlbanianIntl() {
 // run unmount cleanups, so pending source requests are checked across countries.
 function harness({ country = 'TR', locale: initialLocale = 'en', assistant = false, highlightsOnly = false, safetyOnly = false, savedCountry = '', locate = async () => { throw Error('denied'); }, openExternal = async () => true, info = practical.countryPracticalInfo, deviceZone = 'Europe/Istanbul', now: initialNow = Date.parse('2026-10-20T12:00:00Z'), guides = [], intl = Intl } = {}) {
   const frames = new Map(), focused = [], scrolled = [], selections = [], phrases = [], external = [], animationFrames = [];
-  let current, cursor, dirty, activePaths, effects, tree, refs = [], locale = initialLocale, now = initialNow, id = 0, stateUpdates = 0, unmounted = false, detailOpens = 0;
+  let current, cursor, dirty, activePaths, effects, tree, refs = [], locale = initialLocale, now = initialNow, id = 0, stateUpdates = 0, unmounted = false, detailOpens = 0, guideRequests = 0;
   const slot = initial => { const at = cursor++; return current.slots[at] ||= initial(); };
   const react = {
     useState(initial) { const owner = current, item = slot(() => ({ value: typeof initial === 'function' ? initial() : initial })); return [item.value, next => { stateUpdates++; const result = typeof next === 'function' ? next(item.value) : next; if (!Object.is(result, item.value)) { item.value = result; if (owner.active) dirty = true; } }]; },
@@ -134,6 +134,7 @@ function harness({ country = 'TR', locale: initialLocale = 'en', assistant = fal
     click(control) { assert.ok(control, 'Visible clickable control'); assert.notEqual(control.props.disabled, true); control.props.onClick(); return h.render(); },
     label(label) { return buttons(tree).find(node => node.props['aria-label'] === label || text(node).trim() === label || text(find(node, 'strong')) === label); },
     fact(label) { return fact(tree, label); },
+    openGuide() { return h.render({initialTool:'guide',toolRequestId:++guideRequests}); },
     language(next) { locale = next; return h.render(); },
     clock(next) { now = next; return h.render(); },
     unmount() { frames.forEach(frame => { frame.active = false; frame.slots.forEach(item => item.cleanup?.()); }); frames.clear(); unmounted = true; },
@@ -166,6 +167,30 @@ test('Six real country cards and every disclosure are localized in Turkish, Engl
   }
 });
 
+test('Six compact summaries retain values without miniature data diagrams or added image resources; details show the full real data',()=>{
+ const h=harness({country:'TH',now:Date.parse('2026-10-21T12:00:00Z')}),expected=practical.countryPracticalInfo('TH').plugs.types;
+ const summaries=factCards(h.tree());assert.equal(summaries.length,6);
+ for(const card of summaries){
+  assert.equal(card.type,'button');assert.equal(card.props.type,'button');
+  assert.ok(text(byClass(card,'country-fact-label')).length>0);assert.ok(value(card).length>0);
+  assert.ok(nodes(card).some(node=>node.type==='small'&&text(node).length>0));
+  assert.equal(nodes(card).some(node=>node.type==='img'||node.props['data-diagram']),false,'Summary artwork is a compact pictogram; real diagrams belong to the expanded detail');
+ }
+ assert.equal(value(h.fact('Plugs & power')),expected.join(' · '));
+ h.click(h.fact('Plugs & power'));
+ assert.deepEqual(nodes(byClass(h.tree(),'country-fact-detail')).filter(node=>node.props['data-socket-type']).map(node=>node.props['data-socket-type']),Array.from(expected),'All registered socket types are inspectable at full detail size');
+ assert.equal(nodes(h.tree()).some(node=>node.type==='img'),false);assert.deepEqual(h.external,[]);
+ h.render({country:'CA',countryLabel:'Canada'});h.click(h.fact('Time difference'));
+ const clockFor=city=>nodes(byClass(h.tree(),'country-fact-detail')).find(node=>node.type==='figure'&&text(node).includes(city));
+ assert.equal(nodes(byClass(h.tree(),'country-fact-detail')).filter(node=>node.type==='figure').length,2);
+ assert.ok(find(clockFor('Toronto'),'svg',props=>props['data-clock-hour']===8&&props['data-clock-minute']===0));
+ assert.ok(find(clockFor('You'),'svg',props=>props['data-clock-hour']===15&&props['data-clock-minute']===0));
+ h.clock(Date.parse('2026-11-20T12:00:00Z'));
+ assert.equal(value(h.fact('Time difference')),'−8 h');
+ assert.ok(find(clockFor('Toronto'),'svg',props=>props['data-clock-hour']===7&&props['data-clock-minute']===0),'Expanded destination clock follows real daylight-saving changes');
+ assert.deepEqual(h.external,[]);h.unmount();
+});
+
 test('Visible summaries explain the currency and local operators while diagrams follow the selected country', async () => {
   for (const [locale, currencyLabel, internetLabel] of [['tr', 'Para birimi', 'İnternet'], ['en', 'Currency', 'Internet'], ['sq', 'Monedha', 'Interneti']]) {
     const h = harness({ country: 'TR', locale }); const data = practical.countryPracticalInfo('TR');
@@ -174,13 +199,17 @@ test('Visible summaries explain the currency and local operators while diagrams 
     h.click(h.fact(internetLabel)); const sources = byClass(h.tree(), 'country-fact-sources');
     assert.deepEqual(buttons(sources).map(button => text(button)), [...data.internet.sources, ...(data.communication?.sources || [])].map(source => source.label));
     h.click(buttons(sources)[0]); await tick(); h.render(); assert.deepEqual(h.external, [data.internet.sources[0].url]);
-    const sockets = nodes(h.tree()).filter(node => node.type === 'svg' && node.props['data-socket-type']);
+    h.click(h.fact({tr:'Priz ve elektrik',en:'Plugs & power',sq:'Prizat dhe rryma'}[locale]));
+    const sockets = nodes(byClass(h.tree(),'country-fact-detail')).filter(node => node.type === 'svg' && node.props['data-socket-type']);
     assert.deepEqual(sockets.map(socket => socket.props['data-socket-type']), ['C', 'F']);
-    assert.equal(find(h.tree(), 'svg', props => props['data-driving-side']).props['data-driving-side'], 'right');
+    h.click(h.fact({tr:'Trafik yönü',en:'Driving side',sq:'Ana e drejtimit'}[locale]));
+    assert.equal(find(byClass(h.tree(),'country-fact-detail'), 'svg', props => props['data-driving-side']).props['data-driving-side'], 'right');
     h.render({ country: 'GB' });
     assert.equal(value(h.fact(currencyLabel)), 'GBP'); assert.match(text(h.fact(currencyLabel)), /£/);
-    assert.equal(find(h.tree(), 'svg', props => props['data-driving-side']).props['data-driving-side'], 'left');
-    assert.deepEqual(nodes(h.tree()).filter(node => node.type === 'svg' && node.props['data-socket-type']).map(socket => socket.props['data-socket-type']), ['G']);
+    h.click(h.fact({tr:'Trafik yönü',en:'Driving side',sq:'Ana e drejtimit'}[locale]));
+    assert.equal(find(byClass(h.tree(),'country-fact-detail'), 'svg', props => props['data-driving-side']).props['data-driving-side'], 'left');
+    h.click(h.fact({tr:'Priz ve elektrik',en:'Plugs & power',sq:'Prizat dhe rryma'}[locale]));
+    assert.deepEqual(nodes(byClass(h.tree(),'country-fact-detail')).filter(node => node.type === 'svg' && node.props['data-socket-type']).map(socket => socket.props['data-socket-type']), ['G']);
     h.render({ country: 'JP' }); assert.equal(value(h.fact({ tr: 'Acil numaralar', en: 'Emergency', sq: 'Urgjenca' }[locale])), '110 / 119', 'Separate services are not mislabelled as a universal general number');
     h.unmount();
   }
@@ -355,18 +384,71 @@ test('Country, detail and unmount changes fence late source failures instead of 
   }
 });
 
-test('Country Guide preserves detailed advice, all-information focus and existing tool/phrase paths', () => {
+test('Country Guide keeps one practical record with useful tool links and preserves fact/tool/phrase paths', () => {
   const h = harness({ assistant: true, country: 'TR', savedCountry: 'GB', guides: [guideCard('TR', 'Turkey', { category: 'water' }), guideCard('GB', 'Britain', { category: 'water' }), guideCard('TR', 'Expired', { category: 'water', validUntil: '2026-10-19' })] });
   assert.equal(factCards(h.tree()).length, 6); assert.equal(value(h.fact('Currency')), 'TRY');
   assert.match(text(h.tree()), /Detailed advice Turkey/); assert.doesNotMatch(text(h.tree()), /Detailed advice Expired|Detailed advice Britain/);
-  h.click(h.label('See all country information'));
-  assert.equal(h.focused().node.type, 'h3'); assert.equal(text(h.focused().node), 'Country guide details'); assert.equal(h.scrolled().node.props.className, 'ta-guide-details-heading'); assert.equal(h.focused().options.preventScroll, true);
+  assert.equal(h.label('See all country information'),undefined,'The guide does not jump to duplicate country content');
+  assert.equal(nodes(h.tree()).filter(node=>node.type==='h3'&&text(node)==='Country guide details').length,0);
+  assert.equal(nodes(h.tree()).filter(node=>node.type==='h3'&&text(node)==='Related links').length,1);
+  assert.equal(nodes(h.tree()).filter(node=>node.type==='h4'&&text(node)==='Advice Turkey').length,1);
   h.click(h.label('Open useful phrases')); assert.deepEqual(h.phrases, ['TR']);
   h.click(h.fact('Plugs & power')); find(h.tree(), 'CountryPicker').props.onChange('GB'); h.render();
   assert.equal(byClass(h.tree(), 'country-fact-detail'), undefined); assert.equal(value(h.fact('Currency')), 'GBP');
   assert.match(text(h.tree()), /Detailed advice Britain/); assert.doesNotMatch(text(h.tree()), /Detailed advice Turkey/); assert.deepEqual(h.selections, ['GB']);
   h.click(h.label('Emergency numbers and help')); assert.equal(find(h.tree(), 'TravelSafety').props.country, 'GB'); assert.equal(factCards(h.tree()).length, 0);
   h.click(h.label('All tools')); h.click(h.label('Money')); assert.ok(find(h.tree(), 'TravelMoney')); assert.equal(find(h.tree(), 'CountryPicker'), undefined); h.unmount();
+});
+
+test('Removing the top guide strip keeps directory search connected to the real six-fact guide and explicit shared country',()=>{
+ const h=harness({assistant:true,country:'GB',savedCountry:'TR'});
+ h.click(h.label('All tools'));
+ assert.equal(byClass(h.tree(),'ta-guide-shortcut'),undefined);assert.equal(h.label('Country Guide'),undefined,'The directory has no second top guide entry');
+ find(h.tree(),'input',props=>props.type==='search').props.onChange({target:{value:'country guide'}});h.render();
+ assert.ok(h.label('Country Guide'));h.click(h.label('Country Guide'));
+ assert.equal(factCards(h.tree()).length,6);assert.equal(value(h.fact('Currency')),'GBP');assert.equal(find(h.tree(),'CountryPicker').props.value,'GB');
+ h.click(h.fact('Plugs & power'));assert.equal(value(h.fact('Plugs & power')),'G');assert.ok(byClass(h.tree(),'country-fact-detail'));
+ assert.deepEqual(h.selections,[]);assert.deepEqual(h.external,[]);h.unmount();
+});
+
+test('Standalone six-fact callers retain the optional all-information callback without forcing it into the guide',()=>{
+ let opens=0;const h=harness({country:'TR'});h.render({onOpenAll:()=>opens++});
+ assert.equal(factCards(h.tree()).length,6);h.click(h.label('See all country information'));assert.equal(opens,1);
+ assert.equal(factCards(h.tree()).length,6);assert.deepEqual(h.external,[]);h.unmount();
+});
+
+test('The rendered Guide shows each water, tax-free and hours record once and expands full text inside that same article in every locale',()=>{
+ const records=[
+  guideCard('TR','Water record',{category:'water',text:{tr:'Su özeti. Su ayrıntısı.',en:'Water summary. Water extended detail.',sq:'Përmbledhje për ujin. Hollësi për ujin.'}}),
+  guideCard('TR','Tax record',{category:'tax-free',validUntil:'2026-10-31',text:{tr:'Vergi özeti. Vergi ayrıntısı.',en:'Tax summary. Tax extended detail.',sq:'Përmbledhje për taksën. Hollësi për taksën.'}}),
+  guideCard('TR','Hours record',{category:'hours',text:{tr:'Saat özeti. Saat ayrıntısı.',en:'Hours summary. Hours extended detail.',sq:'Përmbledhje për oraret. Hollësi për oraret.'}}),
+  guideCard('TR','Second hours record',{category:'hours'}),
+ ];
+ for(const locale of ['tr','en','sq']){
+  const h=harness({assistant:true,locale,guides:[...records,guideCard('TR','Law',{category:'law'}),guideCard('TR','Culture',{category:'culture'}),guideCard('GB','Other',{category:'water'})]});
+  const articles=()=>nodes(h.tree()).filter(node=>node.type==='article');
+  const articleFor=record=>articles().find(article=>text(find(article,'h4'))===record.title[locale]);
+  assert.equal(factCards(h.tree()).length,6);assert.equal(articles().length,records.length);
+  for(const record of records)assert.equal(nodes(h.tree()).filter(node=>node.type==='h4'&&text(node)===record.title[locale]).length,1);
+  assert.equal(byClass(h.tree(),'ta-guide-details-heading'),undefined);assert.equal(h.label({tr:'Tüm ülke bilgilerini gör',en:'See all country information',sq:'Shiko të gjitha informacionet e shtetit'}[locale]),undefined);
+  const water=records[0],collapsed=articleFor(water),initialKey=collapsed.key;
+  const expand=find(collapsed,'button',props=>props['aria-expanded']===false);assert.ok(expand);
+  assert.equal(text(byClass(collapsed,'country-guide-highlight-summary')),water.text[locale].split('. ')[0]+'.');
+  const controlledId=expand.props['aria-controls'];assert.ok(controlledId);h.click(expand);
+  const expanded=articleFor(water);assert.equal(expanded.key,initialKey);assert.equal(articles().length,records.length);
+  assert.equal(byClass(expanded,'country-guide-highlight-summary'),undefined,'Full text replaces the summary paragraph');
+  assert.equal(text(byClass(expanded,'country-guide-highlight-full')),water.text[locale]);
+  assert.ok(nodes(expanded).some(node=>node.props.id===controlledId));assert.equal(find(expanded,'time').props.dateTime,water.verifiedAt);
+  assert.equal(nodes(h.tree()).filter(node=>node.type==='p'&&text(node)===water.text[locale]).length,1,'The old lower article loop does not repeat the full text');
+  assert.equal(nodes(h.tree()).filter(node=>node.type==='h4'&&text(node)===water.title[locale]).length,1);
+  const collapse=find(expanded,'button',props=>props['aria-expanded']===true);h.click(collapse);
+  assert.equal(byClass(articleFor(water),'country-guide-highlight-full'),undefined);assert.equal(articles().length,records.length);
+  assert.equal(byClass(articleFor(water),'country-guide-highlight-hours-note'),undefined,'Water records do not inherit a generic business-hours caveat');
+  h.click(find(articleFor(records[2]),'button',props=>props['aria-expanded']===false));
+  assert.ok(text(byClass(articleFor(records[2]),'country-guide-highlight-hours-note')).length>0,'An expanded hours record without its own qualification gets one local caution');
+  assert.equal(nodes(h.tree()).filter(node=>node.props.className==='country-guide-highlight-hours-note').length,1);
+  assert.deepEqual(h.external,[]);h.unmount();
+ }
 });
 
 test('Country Guide excludes duplicate law and culture previews but keeps practical highlights and all six facts', () => {
@@ -387,7 +469,7 @@ test('Currency and emergency detail actions open the existing tools with the sel
   const h = harness({ assistant: true, country: 'GB' });
   h.click(h.fact('Currency')); h.click(h.label('Convert currency'));
   assert.ok(find(h.tree(), 'TravelMoney')); assert.equal(find(h.tree(), 'TravelMoney').props.initialBaseCurrency, 'GBP'); assert.equal(factCards(h.tree()).length, 0);
-  h.click(h.label('All tools')); h.click(find(h.tree(), 'button', props => props['aria-controls'] === 'ta-other-tools')); h.click(h.label('Country Guide'));
+  h.click(h.label('All tools'));h.openGuide();
   assert.equal(value(h.fact('Currency')), 'GBP'); h.click(h.fact('Emergency')); h.click(h.label('Open emergency help'));
   assert.equal(find(h.tree(), 'TravelSafety').props.country, 'GB'); assert.deepEqual(h.selections, []); assert.deepEqual(h.external, []); h.unmount();
 });
@@ -431,7 +513,9 @@ test('A multi-zone country changes its reference clock on selection and resets t
   assert.equal(find(h.tree(), 'select').props.value, 'America/Vancouver');
   assert.equal(value(h.fact('Time difference')), '−10 h');
   assert.match(text(h.fact('Time difference')), /Vancouver 05:00/);
-  assert.ok(find(h.fact('Time difference'), 'svg', props => props['data-clock-hour'] === 5 && props['data-clock-minute'] === 0));
+  const vancouverClock=nodes(byClass(h.tree(),'country-fact-detail')).find(node=>node.type==='figure'&&text(node).includes('Vancouver'));
+  assert.ok(vancouverClock);assert.ok(find(vancouverClock, 'svg', props => props['data-clock-hour'] === 5 && props['data-clock-minute'] === 0));
+  assert.equal(find(h.fact('Time difference'),'svg',props=>props['data-clock-hour']!==undefined),undefined,'Compact summaries do not squeeze an unreadable duplicate analog clock');
   assert.match(text(byClass(h.tree(), 'country-fact-detail')), /named reference location/);
   h.render({ country: 'GB' });
   assert.equal(byClass(h.tree(), 'country-fact-detail'), undefined);
@@ -449,6 +533,7 @@ test('Antarctica shows no country-wide clock until a station is chosen, and retu
   assert.equal(find(h.fact('Time difference'), 'svg', props => props['data-clock-hour'] !== undefined), undefined);
   h.click(h.fact('Time difference'));
   assert.match(text(byClass(h.tree(), 'country-fact-detail')), /Antarctica has no single clock/);
+  assert.equal(find(byClass(h.tree(),'country-fact-detail'),'svg',props=>props['data-clock-hour']!==undefined),undefined,'No target or device-clock illustration is borrowed before a station is selected');
   const selector = find(h.tree(), 'select');
   assert.equal(selector.props.value, '');
   assert.ok(find(selector, 'option', props => props.value === '' && props.disabled));
@@ -456,8 +541,10 @@ test('Antarctica shows no country-wide clock until a station is chosen, and retu
   selector.props.onChange({ target: { value: 'Antarctica/Syowa' } }); h.render();
   assert.equal(value(h.fact('Time difference')), 'Same time');
   assert.match(text(h.fact('Time difference')), /Syowa 15:00/);
-  assert.ok(byClass(h.tree(), 'country-guide-local-time'));
-  assert.ok(find(h.fact('Time difference'), 'svg', props => props['data-clock-hour'] === 15));
+  assert.equal(byClass(h.tree(), 'country-guide-local-time'), undefined, 'The selected station has no duplicated heading clock');
+  const stationClock=nodes(byClass(h.tree(),'country-fact-detail')).find(node=>node.type==='figure'&&text(node).includes('Syowa'));
+  assert.ok(stationClock);assert.ok(find(stationClock, 'svg', props => props['data-clock-hour'] === 15 && props['data-clock-minute']===0));
+  assert.equal(find(h.fact('Time difference'),'svg',props=>props['data-clock-hour']!==undefined),undefined);
   h.render({ country: 'CA' }); h.render({ country: 'AQ' }); h.click(h.fact('Time difference'));
   assert.equal(find(h.tree(), 'select').props.value, '');
   assert.equal(value(h.fact('Time difference')), 'By station');
@@ -480,7 +567,7 @@ test('A saved explicit country survives assistant remount and tool cycles until 
   assert.equal(find(h.tree(), 'CountryPicker').props.value, 'GB'); assert.equal(value(h.fact('Currency')), 'GBP');
   assert.equal(locations.length, 0, 'Reading an explicit travel country must not launch GPS');
   h.click(h.label('All tools')); h.click(h.label('Money')); h.click(h.label('All tools'));
-  h.click(find(h.tree(), 'button', props => props['aria-controls'] === 'ta-other-tools')); h.click(h.label('Country Guide'));
+  h.openGuide();
   assert.equal(locations.length, 0); assert.equal(value(h.fact('Currency')), 'GBP');
   h.click(h.label('Use my location')); assert.equal(locations.length, 1);
   locations[0]({ country: 'TR' }); await tick(); h.render();
@@ -492,37 +579,46 @@ test('A saved explicit country survives assistant remount and tool cycles until 
   assert.deepEqual(h.selections, ['GB']); h.unmount();
 });
 
-test('Country highlights show at most three distinct useful topics with intact sentence previews and real detail navigation', () => {
-  const guides = [
-    guideCard('TR', 'Law', { category: 'law' }),
-    guideCard('TR', 'Hours', { category: 'hours' }),
-    guideCard('TR', 'Culture', { text: { tr: 'Kültür bilgisi. Sonraki cümle.', en: 'A complete local custom. A second detail remains in the full guide.', sq: 'Një zakon i plotë. Një hollësi tjetër.' } }),
-    guideCard('TR', 'Water', { category: 'water', text: { tr: 'Suyun yerel koşullarını kontrol et.', en: 'Check local water notices before drinking. This follow-up belongs in the full guide.', sq: 'Kontrollo njoftimet lokale për ujin.' } }),
-    guideCard('TR', 'Second water', { category: 'water' }),
-    guideCard('TR', 'Tax', { category: 'tax-free' }),
-    guideCard('GB', 'Other country', { category: 'water' }),
-  ];
-  const h = harness({ highlightsOnly: true, guides });
-  const articles = nodes(h.tree()).filter(node => node.type === 'article');
-  assert.equal(articles.length, 3);
-  assert.deepEqual(articles.map(article => text(byClass(article, 'country-guide-highlight-topic'))), ['Tap water', 'Tax Free', 'Local customs']);
-  assert.equal(text(byClass(articles[0], 'country-guide-highlight-summary')), 'Check local water notices before drinking.');
-  assert.equal(text(byClass(articles[2], 'country-guide-highlight-summary')), 'A complete local custom.');
-  assert.doesNotMatch(text(h.tree()), /Second water|Other country|Advice Law|Advice Hours|A second detail|This follow-up/);
-  assert.ok(articles.every(article => find(article, 'time').props.dateTime === '2026-10-20'));
-  assert.ok(articles.every(article => buttons(article).some(button => text(button) === 'example.test')));
-  h.click(h.label('Open details')); assert.equal(h.detailOpens(), 1); assert.equal(h.external.length, 0); h.unmount();
+test('Country highlights preserve every distinct verified record and replace each summary with local full text', () => {
+  const water=guideCard('TR','Water',{category:'water',text:{tr:'Su cümlesi. İkinci ayrıntı.',en:'Check local water notices before drinking. This follow-up stays in the same card.',sq:'Kontrollo njoftimet për ujin. Hollësi shtesë.'}});
+  const guides=[guideCard('TR','Law',{category:'law'}),guideCard('TR','Hours',{category:'hours'}),guideCard('TR','Culture',{text:{tr:'Kültür bilgisi. Sonraki cümle.',en:'A complete local custom. A second detail in the same card.',sq:'Një zakon i plotë. Një hollësi tjetër.'}}),water,guideCard('TR','Second water',{category:'water'}),guideCard('TR','Tax',{category:'tax-free'}),water,guideCard('GB','Other country',{category:'water'})];
+  const h=harness({highlightsOnly:true,guides});
+  const articles=()=>nodes(h.tree()).filter(node=>node.type==='article');
+  assert.equal(articles().length,6,'Exact duplicate records are removed; separate records for the same topic remain');
+  assert.deepEqual(articles().map(article=>text(byClass(article,'country-guide-highlight-topic'))),['Tap water','Tap water','Tax Free','Local customs','Local rules','Daily hours']);
+  assert.equal(text(byClass(articles()[0],'country-guide-highlight-summary')),'Check local water notices before drinking.');
+  assert.equal(text(byClass(articles()[3],'country-guide-highlight-summary')),'A complete local custom.');
+  assert.doesNotMatch(text(h.tree()),/Other country|A second detail|This follow-up/);
+  assert.ok(articles().every(article=>find(article,'time').props.dateTime==='2026-10-20'));
+  assert.ok(articles().every(article=>buttons(article).some(button=>text(button)==='example.test')));
+  const key=articles()[0].key;h.click(find(articles()[0],'button',props=>props['aria-expanded']===false));
+  assert.equal(articles()[0].key,key);assert.equal(articles().length,6);
+  assert.equal(byClass(articles()[0],'country-guide-highlight-summary'),undefined);
+  assert.equal(text(byClass(articles()[0],'country-guide-highlight-full')),water.text.en);
+  assert.equal(nodes(articles()[0]).filter(node=>node.type==='p'&&text(node)===water.text.en).length,1);
+  assert.equal(h.detailOpens(),0,'A local disclosure never invokes the legacy parent jump callback');
+  h.render({country:'GB'});assert.equal(articles().length,1);assert.equal(byClass(h.tree(),'country-guide-highlight-full'),undefined);
+  h.render({country:'TR'});assert.equal(articles().length,6);assert.equal(find(articles()[0],'button',props=>props['aria-expanded']===false).props['aria-expanded'],false);
+  assert.equal(h.external.length,0);h.unmount();
 });
 
-test('Highlight coverage never borrows another country and invalid or expired content is omitted entirely', () => {
-  const guides = [guideCard('TR', 'Expired', { validUntil: '2026-10-19' }), guideCard('TR', 'Future', { verifiedAt: '2099-01-01', category: 'water' }), guideCard('TR', 'Invalid', { verifiedAt: 'invalid', category: 'tax-free' }), guideCard('GB', 'Other')];
-  const h = harness({ highlightsOnly: true, guides }); assert.equal(h.tree(), null);
-  h.render({ country: 'ZZ' }); assert.equal(h.tree(), null); assert.equal(h.external.length, 0); h.unmount();
-  const japan = harness({ highlightsOnly: true, country: 'JP', guides: [guideCard('JP', 'Timed tax-free', { category: 'tax-free', verifiedAt: '2026-09-16', validUntil: '2026-10-31' })] });
-  assert.match(text(japan.tree()), /Timed tax-free/);
-  assert.match(text(byClass(japan.tree(), 'country-guide-highlight-validity')), /Applies through: 31 Oct 2026/);
-  assert.equal(find(byClass(japan.tree(), 'country-guide-highlight-validity'), 'time').props.dateTime, '2026-10-31');
-  japan.clock(Date.parse('2026-11-01T00:00:00Z')); assert.equal(japan.tree(), null); japan.unmount();
+test('Unavailable guide records retain source/date access while hiding factual titles and bodies instead of borrowing or showing stale claims', () => {
+  const guides=[guideCard('TR','Expired factual title',{validUntil:'2026-10-19'}),guideCard('TR','Future factual title',{verifiedAt:'2099-01-01',category:'water'}),guideCard('TR','Invalid factual title',{verifiedAt:'invalid',category:'tax-free'}),guideCard('GB','Other')];
+  const h=harness({highlightsOnly:true,guides});const articles=nodes(h.tree()).filter(node=>node.type==='article');assert.equal(articles.length,3);
+  assert.doesNotMatch(text(h.tree()),/Expired factual title|Future factual title|Invalid factual title|Detailed advice|Other/);
+  assert.ok(articles.every(article=>find(article,'p',props=>props.role==='status')),'Every unavailable record explains why factual content is hidden');
+  assert.ok(articles.every(article=>buttons(article).some(button=>text(button)==='example.test')));
+  assert.ok(articles.every(article=>!find(article,'button',props=>props['aria-expanded']!==undefined)),'Unverified factual content cannot be expanded');
+  assert.ok(nodes(h.tree()).some(node=>node.type==='time'&&node.props.dateTime==='2026-10-19'),'Original expiration metadata remains inspectable');
+  assert.ok(nodes(h.tree()).filter(node=>node.type==='time').every(node=>node.props.dateTime!=='invalid'),'Malformed dates never become a misleading machine time');
+  h.render({country:'ZZ'});assert.equal(h.tree(),null);assert.equal(h.external.length,0);h.unmount();
+  const japan=harness({highlightsOnly:true,country:'JP',guides:[guideCard('JP','Timed tax-free',{category:'tax-free',verifiedAt:'2026-09-16',validUntil:'2026-10-31',text:{tr:'Özet. Ayrıntı.',en:'Tax summary. Original qualified tax detail.',sq:'Përmbledhje. Hollësi tatimore.'}})]});
+  assert.match(text(japan.tree()),/Timed tax-free/);assert.match(text(byClass(japan.tree(),'country-guide-highlight-validity')),/Applies through: 31 Oct 2026/);
+  assert.equal(find(byClass(japan.tree(),'country-guide-highlight-validity'),'time').props.dateTime,'2026-10-31');
+  japan.click(find(japan.tree(),'button',props=>props['aria-expanded']===false));assert.match(text(byClass(japan.tree(),'country-guide-highlight-full')),/Original qualified tax detail/);
+  japan.clock(Date.parse('2026-11-01T00:00:00Z'));
+  assert.doesNotMatch(text(japan.tree()),/Timed tax-free|Tax summary|Original qualified tax detail/);
+  assert.equal(byClass(japan.tree(),'country-guide-highlight-full'),undefined);assert.ok(japan.label('example.test'));assert.equal(find(byClass(japan.tree(),'country-guide-highlight-validity'),'time').props.dateTime,'2026-10-31');japan.unmount();
 });
 
 test('Highlight review notices, real source dates and explicit Albanian fallback survive reduced-locale devices', () => {
@@ -538,6 +634,13 @@ test('Highlight review notices, real source dates and explicit Albanian fallback
   assert.equal(text(find(articles[1], 'time')), '20 tet 2026');
   assert.equal(text(byClass(articles[1], 'country-guide-highlight-validity')), 'Vlen deri më: 31 tet 2026');
   assert.doesNotMatch(text(h.tree()), /Tem|Eki/);
+  h.click(find(articles[1],'button',props=>props['aria-expanded']===false));
+  const expanded=nodes(h.tree()).find(node=>node.type==='article'&&text(find(node,'h4'))==='English only');
+  assert.equal(byClass(expanded,'country-guide-highlight-summary'),undefined);
+  assert.equal(text(byClass(expanded,'country-guide-highlight-full')),fallback.text.en);assert.equal(byClass(expanded,'country-guide-highlight-full').props.lang,'en');
+  assert.match(text(byClass(expanded,'country-guide-highlight-language')),/ende shfaqet në anglisht/);
+  assert.equal(text(byClass(expanded,'country-guide-highlight-validity')),'Vlen deri më: 31 tet 2026');
+  assert.equal(find(expanded,'time').props.dateTime,'2026-10-20');
   h.language('tr'); assert.match(text(byClass(h.tree(), 'country-guide-highlight-validity')), /Kapsadığı son tarih: 31 Eki 2026/); h.unmount();
 });
 
@@ -550,9 +653,18 @@ test('All five real Japan guide topics have complete Albanian text without refre
   assert.match(byTopic('hours').text.sq, /10:00–20:00.*09:00–17:00.*festat bëjnë përjashtim/);
   assert.match(byTopic('tax-free').text.sq, /1 nëntori 2026.*dogana.*blerësi përjashtohen/); assert.equal(byTopic('tax-free').validUntil, '2026-10-31');
   const h = harness({ country: 'JP', highlightsOnly: true, locale: 'sq', guides, intl: limitedAlbanianIntl() });
-  assert.equal(nodes(h.tree()).filter(node => node.type === 'article').length, 3);
+  assert.equal(nodes(h.tree()).filter(node => node.type === 'article').length, 5);
   assert.ok(nodes(h.tree()).filter(node => node.type === 'h4').every(heading => heading.props.lang === 'sq'));
-  assert.doesNotMatch(text(h.tree()), /ende shfaqet në anglisht/); assert.match(text(h.tree()), /Vlen deri më: 31 tet 2026/); h.unmount();
+  assert.doesNotMatch(text(h.tree()), /ende shfaqet në anglisht/); assert.match(text(h.tree()), /Vlen deri më: 31 tet 2026/);
+  for(const record of guides){
+   const article=nodes(h.tree()).find(node=>node.type==='article'&&text(find(node,'h4'))===record.title.sq);assert.ok(article);
+   const toggle=find(article,'button',props=>props['aria-expanded']===false);if(toggle)h.click(toggle);
+   const current=nodes(h.tree()).find(node=>node.type==='article'&&text(find(node,'h4'))===record.title.sq);
+   assert.equal(text(byClass(current,'country-guide-highlight-full')||byClass(current,'country-guide-highlight-summary')),record.text.sq,'All qualified source text remains reachable within its original card');
+   assert.equal(find(current,'time').props.dateTime,record.verifiedAt);
+   if(record.category==='hours')assert.equal(byClass(current,'country-guide-highlight-hours-note'),undefined,'The source’s own business-hours qualification is not repeated');
+  }
+  h.unmount();
 });
 
 test('Highlight source failures can retry, while country changes and unmount fence late source responses', async () => {

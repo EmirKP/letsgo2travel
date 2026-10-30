@@ -13,12 +13,22 @@ export const runtime = "nodejs";
 // Expired-upload cleanup waits twice this enforced invocation lifetime.
 export const maxDuration = 60;
 const reply = (data: unknown, status = 200) => Response.json({ data }, { status, headers: COMMUNITY_PRIVATE_HEADERS });
+const searchText = (value: unknown): string => typeof value === "string" ? value.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i") : "";
+
+function matchesPostSearch(value: unknown, query: string) {
+  const post = socialRecord(value);
+  const author = socialRecord(post.author);
+  const place = socialRecord(post.place);
+  return searchText([post.caption, author.username, place.name, place.countryCode].filter(item => typeof item === "string").join(" ")).includes(query);
+}
 
 export async function GET(request: Request) {
   try {
     const viewer = await communityViewer(request); if (!viewer.ok) return viewer.response;
     const db = getSupabaseAdmin(); if (!db) return socialError();
     const params = new URL(request.url).searchParams;
+    const query = (params.get("q") || "").trim();
+    if (query.length > 120 || /[\x00-\x1f\x7f]/.test(query)) return socialError({ code: "22023" });
     const input: Record<string, unknown> = { offset: 0 };
     const offset = params.get("offset");
     if (offset !== null && (!/^\d{1,5}$/.test(offset) || Number(offset) > 10000)) return socialError({ code: "22023" });
@@ -35,6 +45,24 @@ export async function GET(request: Request) {
     const author = params.get("authorRef");
     if (author !== null) { if (!validCommunityProfileKey(author)) return socialError({ code: "22023" }); input.authorRef = author; }
     if (!viewer.userId && (section || feed === "following" || input.collectionId)) return Response.json({ error: "Oturum gerekli." }, { status: 401, headers: COMMUNITY_PRIVATE_HEADERS });
+    if (query && (section || input.postId || input.commentId)) return socialError({ code: "22023" });
+    if (query) {
+      // Reuse the privacy-filtered RPC in bounded pages. The returned offset is
+      // the original feed cursor, so matches never skip unseen public posts.
+      const items: unknown[] = [];
+      let nextOffset: number | null = Number(input.offset);
+      for (let scanned = 0; scanned < 2 && nextOffset !== null; scanned++) {
+        const pageOffset: number = nextOffset;
+        const { data, error } = await db.rpc("read_travel_social", { p_viewer: viewer.userId, p_input: { ...input, offset: pageOffset } });
+        if (error) return socialError(error);
+        if (data === null) return socialError({ code: "P0002" });
+        const page = socialRecord(await hydrateSocialData(db, data));
+        if (!Array.isArray(page.items)) return socialError();
+        items.push(...page.items.filter(item => matchesPostSearch(item, searchText(query))));
+        nextOffset = typeof page.nextOffset === "number" && Number.isInteger(page.nextOffset) && page.nextOffset > pageOffset && page.nextOffset <= 10000 ? page.nextOffset : null;
+      }
+      return reply({ items, nextOffset, searchPartial: nextOffset !== null });
+    }
     const { data, error } = await db.rpc("read_travel_social", { p_viewer: viewer.userId, p_input: input });
     if (error) return socialError(error);
     if (data === null) return socialError({ code: "P0002" });

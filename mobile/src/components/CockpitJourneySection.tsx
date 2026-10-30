@@ -9,6 +9,8 @@ import { readCockpitJourney, saveCockpitJourney, validJourneyIntent, type Cockpi
 import type { CockpitTrip } from "../lib/supabaseData";
 import { createRouteCockpitIntent } from "../lib/routeCockpitIntent";
 import { mapJourneyToSavedRoute, validateMapJourney, type MapJourney } from "../lib/mapJourney";
+import { activeTripContextFromTrip, readActiveTripContext, writeActiveTripContext } from "../lib/activeTripContext";
+import type { JourneyGuideRequest } from "../lib/journeyGuideIntent";
 import { Sheet } from "./Sheet";
 import { LazyOverlay } from "./LazyOverlay";
 import "./cockpit-journey-details.css";
@@ -16,12 +18,13 @@ import "./map-journey-planner.css";
 
 const MapJourneyPlanner = lazy(() => import("./MapJourneyPlanner").then(module => ({ default: module.MapJourneyPlanner })));
 
-export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTrip, intent, onSelectTrip, onCreateTrip, onHandled, onRefreshTrips, todayTripId, onTodayHandled, onOpenAccount }: {
+export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTrip, intent, onSelectTrip, onCreateTrip, onHandled, onRefreshTrips, todayTripId, onTodayHandled, onOpenAccount,journeyGuideRequest,onJourneyGuideHandled }: {
   ownerId: string; accessToken: string; trips: CockpitTrip[]; selectedTrip: CockpitTrip | null; intent?: CockpitJourneyIntent | null;
   onSelectTrip: (id: string) => void; onCreateTrip: (intent: CockpitJourneyIntent) => void; onHandled: () => void;
   onRefreshTrips?: () => Promise<void>;
   todayTripId?: string; onTodayHandled?: () => void;
   onOpenAccount?: () => void;
+  journeyGuideRequest?:JourneyGuideRequest|null;onJourneyGuideHandled?:()=>void;
 }) {
   const { copy, dateLocale, locale } = useI18n();
   const [storedDetails, setDetails] = useState<CockpitJourneyDetails | null>(null);
@@ -30,13 +33,19 @@ export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTri
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
-  const [mapCopy, setMapCopy] = useState<{ ownerId: string; tripId: string; journey: MapJourney; base: CockpitJourneyDetails; startDate: string; endDate: string } | null>(null);
+  const [mapCopy, setMapCopy] = useState<{ ownerId: string; tripId: string; journey: MapJourney; base: CockpitJourneyDetails; startDate: string; endDate: string;initialDay?:number;dayRequestId?:number } | null>(null);
   const [mapNotice, setMapNotice] = useState("");
   const generation = useRef(0), pending = useRef(false);
   const tripId = selectedTrip?.id || "";
   const live = useRef({ ownerId, tripId, active: true });
   useEffect(() => { live.current = { ownerId, tripId, active: true }; return () => { live.current.active = false; }; }, [ownerId, tripId]);
   const details = storedDetails?.ownerId === ownerId && storedDetails.tripId === tripId ? storedDetails : null;
+  useEffect(() => {
+    if (!selectedTrip || readActiveTripContext(ownerId)?.tripId !== selectedTrip.id) return;
+    const base = activeTripContextFromTrip(selectedTrip);
+    const preferences = details?.budget?.personalPreferences;
+    if (base && preferences) writeActiveTripContext(ownerId, { ...base, adults: Number(preferences.adults), children: Number(preferences.children), rooms: Number(preferences.rooms), currency: details.budget!.displayCurrency });
+  }, [ownerId, selectedTrip, details?.budget]);
   useEffect(() => { setMapCopy(null); setMapNotice(""); }, [ownerId, tripId]);
   useEffect(() => {
     const version = ++generation.current, controller = new AbortController();
@@ -51,6 +60,19 @@ export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTri
     return () => { generation.current++; controller.abort(); };
   }, [ownerId, accessToken, tripId, reload, copy]);
   const validIntent = intent && validJourneyIntent(intent, ownerId) ? intent : null;
+  useEffect(()=>{
+    if(!journeyGuideRequest||!selectedTrip||journeyGuideRequest.tripId!==selectedTrip.id||!ready||loading)return;
+    const map=details?.route?.route.mapJourney;
+    if(!map||!validateMapJourney(map)||map.id!==journeyGuideRequest.journeyId||journeyGuideRequest.day>map.dayCount){
+      setError(copy('İstenen gezi günü bu seyahatte bulunamadı. Programı kontrol edip yeniden aç.','The requested itinerary day is unavailable in this trip. Check the itinerary and reopen it.','Dita e kërkuar nuk gjendet në këtë udhëtim. Kontrollo itinerarin dhe rihape.'));
+      onJourneyGuideHandled?.();return;
+    }
+    const journey:MapJourney={...JSON.parse(JSON.stringify(map)),startDate:selectedTrip.startDate};
+    setMapCopy(previous=>previous?.ownerId===ownerId&&previous.tripId===selectedTrip.id&&previous.journey.id===map.id
+      ?{...previous,initialDay:journeyGuideRequest.day,dayRequestId:journeyGuideRequest.requestId}
+      :{ownerId,tripId:selectedTrip.id,journey,base:details!,startDate:selectedTrip.startDate,endDate:selectedTrip.endDate,initialDay:journeyGuideRequest.day,dayRequestId:journeyGuideRequest.requestId});setMapNotice('');
+    onJourneyGuideHandled?.();
+  },[journeyGuideRequest,selectedTrip,ready,loading,details,ownerId,onJourneyGuideHandled,copy]);
   const attach = async () => {
     if (!validIntent || !selectedTrip || !ready || pending.current) return;
     const days = Math.round((Date.parse(selectedTrip.endDate) - Date.parse(selectedTrip.startDate)) / 86400000) + 1;
@@ -110,6 +132,14 @@ export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTri
     } finally { if (current()) pending.current = false; }
   };
   const money = (amount: number, currency: string) => new Intl.NumberFormat(dateLocale, { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+  const budget = details?.budget;
+  const personalEstimate = budget?.model === "personal-budget-v1" && "totalRange" in budget.estimate ? budget.estimate : null;
+  // Saved estimates retain their original exchange rate, even when opened later.
+  const savedBudgetRate = budget?.exchangeRate?.rate;
+  const budgetRate = budget?.displayCurrency === "GBP" ? 1
+    : typeof savedBudgetRate === "number" && Number.isFinite(savedBudgetRate) && savedBudgetRate > 0 ? savedBudgetRate : null;
+  const budgetCurrency = budget && budgetRate !== null ? budget.displayCurrency : "GBP";
+  const budgetMoney = (amount: number) => money(amount * (budgetRate ?? 1), budgetCurrency);
   return <section className="cockpit-journey-details" aria-label={copy("Seyahat programın", "Your itinerary", "Programi yt i udhëtimit")}>
     <TodayTripProgram accessToken={accessToken} loading={loading} trip={selectedTrip} details={details} ready={ready} requestedTripId={todayTripId} onHandled={onTodayHandled}/>
     {validIntent && <div className="cockpit-import-card">
@@ -127,8 +157,14 @@ export function CockpitJourneySection({ ownerId, accessToken, trips, selectedTri
     {error && <div className="cockpit-journey-error" role="alert"><p>{error}</p><button className="secondary-button" disabled={loading || saving} onClick={async () => { setLoading(true); try { await onRefreshTrips?.(); } finally { setReload(value => value + 1); } }}>{copy("Yenile", "Reload", "Rifresko")}</button></div>}
     {routeDatesChanged && <p role="status">{copy("Seyahat tarihlerin değişti. Kayıtlı programın günlerini yeni tarihlerine göre gözden geçir.", "Your trip dates changed. Review the saved itinerary days against the new dates.", "Datat e udhëtimit ndryshuan. Kontrollo ditët e programit sipas datave të reja.")}</p>}
     {displayRoute && <article className="cockpit-attached-route"><span className="cockpit-section-label"><Icon name="route" size={18}/>{copy("SEYAHAT PROGRAMIN", "YOUR ITINERARY", "PROGRAMI YT")}</span><h2>{savedMap?.city === displayRoute.name ? displayRoute.name : <RouteTranslation text={displayRoute.name} accessToken={accessToken}/>}</h2><p><RouteTranslation text={displayRoute.why} sourceLocale={savedMap?.planning && !savedMap.planning.edited ? savedMap.planning.locale : savedMap ? locale : undefined} accessToken={accessToken}/></p>{savedMap && validateMapJourney(savedMap) && <><button className="secondary-button" onClick={openMap}><Icon name="map" size={18}/>{copy("Haritada aç", "Open on map", "Hap në hartë")}</button><p>{copy("Duraklarını düzenle ve “Bu seyahati güncelle” ile aynı seyahate kaydet. İstersen ayrı bir kopya da saklayabilirsin.", "Edit the stops and choose “Update this trip” to save them to this trip. You can also save a separate copy.", "Ndrysho ndalesat dhe zgjidh “Përditëso këtë udhëtim”. Mund të ruash edhe një kopje të veçantë.")}</p></>}<ol>{displayRoute.dailyPlan.map((day, index) => <li key={index}><strong>{copy(`${index + 1}. gün`, `Day ${index + 1}`, `Dita ${index + 1}`)}</strong><span>{savedMap ? day : <RouteTranslation text={day} accessToken={accessToken}/>}</span></li>)}</ol></article>}
-    {details?.budget && <article className="cockpit-attached-budget"><span className="cockpit-section-label"><Icon name="wallet" size={18}/>{copy("BÜTÇE TAHMİNİN", "YOUR BUDGET ESTIMATE", "VLERËSIMI I BUXHETIT")}</span><h2>{details.budget.city}</h2><strong className="cockpit-budget-total">{details.budget.displayTotal !== null ? money(details.budget.displayTotal, details.budget.displayCurrency) : money(details.budget.estimate.total, "GBP")}</strong><p>{details.budget.estimate.days} {copy("gün", "days", "ditë")} · {details.budget.estimate.people} {copy("kişi", "travellers", "persona")} · {details.budget.estimate.nights} {copy("gece", "nights", "netë")}</p><dl><div><dt>{copy("Konaklama", "Accommodation", "Akomodimi")}</dt><dd>{money(details.budget.estimate.hotel, "GBP")}</dd></div><div><dt>{copy("Akşam yemeği", "Dinner", "Darka")}</dt><dd>{money(details.budget.estimate.meals, "GBP")}</dd></div><div><dt>{copy("Toplu taşıma", "Public transport", "Transporti publik")}</dt><dd>{money(details.budget.estimate.travel, "GBP")}</dd></div></dl><p>{copy("Kısmi tahmin; uçuş ve diğer harcamalar dahil değildir.", "Partial estimate; flights and other expenses are excluded.", "Vlerësim i pjesshëm; fluturimet dhe shpenzimet e tjera nuk përfshihen.")} {copy("Kaynak fiyat ayı", "Source price month", "Muaji i çmimeve burimore")}: {details.budget.sourceMonth}.{details.budget.exchangeRate && <> {copy("Kur tarihi", "Exchange date", "Data e kursit")}: {details.budget.exchangeRate.date}.</>}</p></article>}
+    {budget && <article className="cockpit-attached-budget"><span className="cockpit-section-label"><Icon name="wallet" size={18}/>{copy("BÜTÇE TAHMİNİN", "YOUR BUDGET ESTIMATE", "VLERËSIMI I BUXHETIT")}</span><h2>{budget.city}</h2>
+      <strong className="cockpit-budget-total">{personalEstimate ? `${budgetMoney(personalEstimate.totalRange.low)} – ${budgetMoney(personalEstimate.totalRange.high)}` : budgetMoney(budget.estimate.total)}</strong>
+      <p>{budget.estimate.days} {copy("gün", "days", "ditë")} · {budget.estimate.people} {copy("kişi", "travellers", "persona")} · {budget.estimate.nights} {copy("gece", "nights", "netë")}</p>
+      {budget.displayCurrency !== "GBP" && budgetRate === null && <p role="status">{copy("Kayıtlı kur bulunamadığı için tüm tutarlar GBP olarak gösteriliyor.", "The saved exchange rate is unavailable, so all amounts are shown in GBP.", "Kursi i ruajtur mungon, ndaj të gjitha shumat shfaqen në GBP.")}</p>}
+      <dl><div><dt>{copy("Konaklama", "Accommodation", "Akomodimi")}</dt><dd>{budgetMoney(budget.estimate.hotel)}</dd></div><div><dt>{personalEstimate ? copy("Yeme içme (tüm öğünler)", "Food (all meals)", "Ushqimi (të gjitha vaktet)") : copy("Akşam yemeği", "Dinner", "Darka")}</dt><dd>{budgetMoney(budget.estimate.meals)}</dd></div><div><dt>{personalEstimate ? copy("Şehir içi ulaşım", "Local transport", "Transporti lokal") : copy("Toplu taşıma", "Public transport", "Transporti publik")}</dt><dd>{budgetMoney(budget.estimate.travel)}</dd></div>{personalEstimate && <><div><dt>{copy("Aktiviteler", "Activities", "Aktivitetet")}</dt><dd>{personalEstimate.activities === null ? copy("Bütçe belirtilmedi", "Allowance not set", "Buxheti nuk është caktuar") : budgetMoney(personalEstimate.activities)}</dd></div><div><dt>{copy("Beklenmedik gider payı", "Contingency", "Shpenzime të paparashikuara")}</dt><dd>{budgetMoney(personalEstimate.contingency)}</dd></div></>}</dl>
+      <p>{personalEstimate ? personalEstimate.partial ? copy("Aktivite veya ulaşım fiyatları eksik olduğu için tahmin kısmi. Uçuşlar dahil değildir.", "The estimate is partial because some activity or transport costs are missing. Flights are excluded.", "Vlerësimi është i pjesshëm sepse mungojnë disa kosto aktivitetesh ose transporti. Fluturimet përjashtohen.") : copy("Planlama aralığıdır; uçuşlar dahil değildir.", "A planning range; flights are excluded.", "Interval planifikimi; fluturimet përjashtohen.") : copy("Kısmi tahmin; uçuş ve diğer harcamalar dahil değildir.", "Partial estimate; flights and other expenses are excluded.", "Vlerësim i pjesshëm; fluturimet dhe shpenzimet e tjera nuk përfshihen.")} {copy("Kaynak fiyat ayı", "Source price month", "Muaji i çmimeve burimore")}: {budget.sourceMonth}.{budgetCurrency !== "GBP" && budget.exchangeRate && <> {copy("Kur tarihi", "Exchange date", "Data e kursit")}: {budget.exchangeRate.date}.</>}</p>
+    </article>}
     {mapNotice && !mapCopy && <p role="status">{mapNotice}</p>}
-    {mapCopy && mapCopy.ownerId === ownerId && mapCopy.tripId === tripId && <LazyOverlay title={copy("Haritalı plan", "Map itinerary", "Plani në hartë")} loadingMessage={copy("Harita açılıyor…", "Opening map…", "Po hapet harta…")} onClose={() => setMapCopy(null)}><Sheet open size="large" className="mj-sheet" title={copy("Haritalı plan", "Map itinerary", "Plani në hartë")} onClose={() => setMapCopy(null)}><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapCopy(null)} ownerId={ownerId} accessToken={accessToken} initialJourney={mapCopy.journey} onUpdateTrip={updateMap} onNotice={setMapNotice}/></Sheet></LazyOverlay>}
+    {mapCopy && mapCopy.ownerId === ownerId && mapCopy.tripId === tripId && <LazyOverlay title={copy("Haritalı plan", "Map itinerary", "Plani në hartë")} loadingMessage={copy("Harita açılıyor…", "Opening map…", "Po hapet harta…")} onClose={() => setMapCopy(null)}><Sheet open size="large" className="mj-sheet" title={copy("Haritalı plan", "Map itinerary", "Plani në hartë")} onClose={() => setMapCopy(null)}><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapCopy(null)} ownerId={ownerId} accessToken={accessToken} initialJourney={mapCopy.journey} initialDay={mapCopy.initialDay} initialDayRequestId={mapCopy.dayRequestId} tripId={tripId} onUpdateTrip={updateMap} onNotice={setMapNotice}/></Sheet></LazyOverlay>}
   </section>;
 }
