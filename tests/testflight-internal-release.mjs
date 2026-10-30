@@ -30,9 +30,13 @@ test('the tag build retains the full release gate before Apple numbering, iOS pa
 test('the uploaded-build access check reuses the integration without building, uploading or changing distribution',()=>{
  const check=workflows['letsgo2travel-testflight-83-verify'];
  assert.deepEqual(check.integrations,{app_store_connect:'LetsGo2Travel'});
- assert.deepEqual(check.scripts,[{name:'Verify processed build and existing internal access',script:'python3 scripts/verify-testflight-distribution.py'}]);
+ assert.deepEqual(check.scripts.map(item=>item.name),['Read Apple build and internal testing state','Verify processed build and existing internal access']);
+ assert.match(check.scripts[0].script,/app-store-connect builds get 6a6a7aad-c91c-433d-bb3a-25b9906c5204 --json/);
+ assert.match(check.scripts[0].script,/app-store-connect builds beta-details 6a6a7aad-c91c-433d-bb3a-25b9906c5204 --json/);
+ assert.doesNotMatch(check.scripts[0].script,/publish|submit|add-build|modify/);
+ assert.equal(check.scripts[1].script,'python3 scripts/verify-testflight-distribution.py');
  assert.equal(check.publishing,undefined);
  assert.equal(check.environment,undefined);
  assert.equal(check.triggering,undefined);
- assert.deepEqual(check.artifacts,['testflight-distribution-83.json']);
+ assert.deepEqual(check.artifacts,['testflight-distribution-83.json','apple-build-83.json','apple-beta-details-83.json']);
 });

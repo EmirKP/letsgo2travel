@@ -169,10 +169,17 @@ workflows:
     integrations:
       app_store_connect: LetsGo2Travel
     scripts:
+      - name: Read Apple build and internal testing state
+        script: |
+          set -euo pipefail
+          app-store-connect builds get 6a6a7aad-c91c-433d-bb3a-25b9906c5204 --json --log-stream stderr --no-color > apple-build-83.json
+          app-store-connect builds beta-details 6a6a7aad-c91c-433d-bb3a-25b9906c5204 --json --log-stream stderr --no-color > apple-beta-details-83.json
       - name: Verify processed build and existing internal access
         script: python3 scripts/verify-testflight-distribution.py
     artifacts:
       - testflight-distribution-83.json
+      - apple-build-83.json
+      - apple-beta-details-83.json
 
   # Manual APK checks use the same UI source, account project and public API
   # settings as iOS. A Play account / upload key is not needed for this test APK.

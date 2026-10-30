@@ -4,6 +4,10 @@
 import json
 import logging
 import os
+import re
+import shlex
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +20,14 @@ GROUP_NAME = "LetsGo2Travel İç Test"
 API = "https://api.appstoreconnect.apple.com/v1"
 REPORT = Path("testflight-distribution-83.json")
 MAX_PAGES = 10
+SAFE_EXCEPTION_TYPES = {
+    "AppStoreConnectApiError", "ArgumentTypeError", "AttributeError",
+    "ConnectionError", "ConnectTimeout", "FileNotFoundError", "ImportError",
+    "InvalidKeyError", "KeyError", "ModuleNotFoundError", "OSError",
+    "JSONDecodeError", "PermissionError", "ReadTimeout", "RuntimeError",
+    "Timeout", "TimeoutExpired", "TypeError", "UnicodeDecodeError",
+    "UnsupportedAlgorithm", "ValueError",
+}
 
 
 class VerificationError(Exception):
@@ -25,6 +37,37 @@ class VerificationError(Exception):
 def require(condition, reason):
     if not condition:
         raise VerificationError(reason)
+
+
+def import_sdk(report):
+    report["stage"] = "import_sdk"
+    try:
+        from codemagic.apple.app_store_connect import AppStoreConnectApiClient
+        from codemagic.tools.app_store_connect.arguments import Types
+        return AppStoreConnectApiClient, Types
+    except ImportError:
+        # CLI tools may be installed under a different Python from `python3`.
+        # Reuse only that existing entrypoint's Python; never install packages.
+        if os.environ.get("LETSGO_TF_VERIFIER_REEXEC") != "1":
+            entrypoint = shutil.which("app-store-connect")
+            if entrypoint:
+                with open(entrypoint, encoding="utf-8") as script:
+                    shebang = script.readline(512).strip()
+                if shebang.startswith("#!"):
+                    parts = shlex.split(shebang[2:])
+                    interpreter = None
+                    if parts and Path(parts[0]).name == "env":
+                        names = [part for part in parts[1:] if not part.startswith("-")]
+                        if names:
+                            interpreter = shutil.which(names[0])
+                    elif len(parts) == 1:
+                        interpreter = parts[0]
+                    if (interpreter and re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", Path(interpreter).name)
+                            and Path(interpreter).is_file()
+                            and Path(interpreter).absolute() != Path(sys.executable).absolute()):
+                        os.environ["LETSGO_TF_VERIFIER_REEXEC"] = "1"
+                        os.execv(interpreter, [interpreter, str(Path(__file__).resolve())])
+        raise
 
 
 def get_json(client, path_or_url, params=None):
@@ -44,6 +87,20 @@ def get_json(client, path_or_url, params=None):
     result = response.json()
     require(isinstance(result, dict), "Apple returned an unexpected response format.")
     return result
+
+
+def read_cli_resource(action):
+    result = subprocess.run(
+        ["app-store-connect", "builds", action, BUILD_ID,
+         "--json", "--log-stream", "stderr", "--no-color"],
+        capture_output=True, text=True, timeout=90, check=False,
+    )
+    require(result.returncode == 0, "The existing App Store Connect CLI could not read the build.")
+    payload = json.loads(result.stdout)
+    require(isinstance(payload, dict), "The Apple CLI returned an unexpected response format.")
+    resource = payload.get("data", payload)
+    require(isinstance(resource, dict), "The Apple CLI returned an unexpected resource format.")
+    return resource
 
 
 def read_pages(client, path, params):
@@ -66,30 +123,9 @@ def read_pages(client, path, params):
 
 
 def verify(report):
-    # The existing Codemagic integration supplies these values. Never print them.
-    from codemagic.apple.app_store_connect import (
-        AppStoreConnectApiClient,
-        IssuerId,
-        KeyIdentifier,
-    )
-
-    names = (
-        "APP_STORE_CONNECT_KEY_IDENTIFIER",
-        "APP_STORE_CONNECT_ISSUER_ID",
-        "APP_STORE_CONNECT_PRIVATE_KEY",
-    )
-    require(all(os.environ.get(name) for name in names), "The existing Apple integration is unavailable.")
     logging.disable(logging.CRITICAL)
-    client = AppStoreConnectApiClient(
-        KeyIdentifier(os.environ[names[0]]),
-        IssuerId(os.environ[names[1]]),
-        os.environ[names[2]],
-        log_requests=False,
-        unauthorized_request_retries=0,
-        server_error_retries=0,
-        enable_jwt_cache=False,
-    )
-    build = get_json(client, "/builds/" + BUILD_ID)["data"]
+    report["stage"] = "read_build"
+    build = read_cli_resource("get")
     attrs = build["attributes"]
     report["build"] = {
         "id": build["id"],
@@ -101,11 +137,30 @@ def verify(report):
     require(attrs.get("processingState") == "VALID", "Build 83 has not completed Apple processing successfully.")
     require(attrs.get("expired") is False, "Build 83 is expired or its expiry state is unavailable.")
 
-    details = get_json(client, "/builds/" + BUILD_ID + "/buildBetaDetail")["data"]
+    report["stage"] = "read_internal_state"
+    details = read_cli_resource("beta-details")
     state = details["attributes"].get("internalBuildState")
     report["internalBuildState"] = state
     require(state == "IN_BETA_TESTING", "Build 83 is not currently in internal beta testing.")
 
+    # The existing integration supplies these values; use official CLI normalization.
+    AppStoreConnectApiClient, Types = import_sdk(report)
+    report["stage"] = "normalize_credentials"
+    normalized = [argument.from_environment_variable_default() for argument in (
+        Types.KeyIdentifierArgument, Types.IssuerIdArgument, Types.PrivateKeyArgument,
+    )]
+    require(all(value is not None for value in normalized), "The existing Apple integration is unavailable.")
+    report["stage"] = "create_client"
+    client = AppStoreConnectApiClient(
+        normalized[0].value,
+        normalized[1].value,
+        normalized[2].value,
+        log_requests=False,
+        unauthorized_request_retries=0,
+        server_error_retries=0,
+        enable_jwt_cache=False,
+    )
+    report["stage"] = "read_groups"
     groups = read_pages(client, "/apps/" + APP_ID + "/betaGroups", {
         "fields[betaGroups]": "name,isInternalGroup,hasAccessToAllBuilds",
         "limit": 200,
@@ -123,6 +178,7 @@ def verify(report):
     require(attrs.get("isInternalGroup") is True, "The selected test group is not an internal group.")
     require(attrs.get("hasAccessToAllBuilds") is True, "Automatic distribution is not enabled for the internal group.")
 
+    report["stage"] = "read_group_builds"
     builds = read_pages(client, "/betaGroups/" + group["id"] + "/builds", {
         "fields[builds]": "version,processingState,expired",
         "limit": 200,
@@ -131,6 +187,7 @@ def verify(report):
     report["buildIsInGroup"] = membership
     require(membership, "Apple has not associated build 83 with the existing internal test group.")
     report["verified"] = True
+    report["stage"] = "complete"
 
 
 def main():
@@ -140,21 +197,25 @@ def main():
         "expectedBuildId": BUILD_ID,
         "expectedBuildNumber": BUILD_NUMBER,
         "verified": False,
+        "stage": "start",
     }
     try:
         verify(report)
     except VerificationError as error:
         report["failure"] = str(error)
-    except Exception:
+    except Exception as error:
         # API exceptions may contain request or authentication details.
         report["failure"] = "Apple distribution verification could not complete; no Apple data was changed."
+        name = type(error).__name__
+        report["exceptionType"] = name if name in SAFE_EXCEPTION_TYPES else "UnexpectedError"
     try:
         REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     except OSError:
         print("Could not save the public TestFlight verification report.", file=sys.stderr)
         return 1
     if not report["verified"]:
-        print("TestFlight verification: " + report["failure"], file=sys.stderr)
+        diagnostic = report["stage"] + "/" + report.get("exceptionType", "VerificationError")
+        print("TestFlight verification [" + diagnostic + "]: " + report["failure"], file=sys.stderr)
         return 1
     print("TestFlight build 83 is valid, in internal testing, and available to the automatic internal group.")
     return 0
