@@ -11,10 +11,10 @@ test('the requested internal release triggers only its single exact tag',()=>{
  assert.deepEqual(target.triggering,{events:['tag'],tag_patterns:[{pattern:'testflight-20261030-live-chat',include:true}]});
  for(const [name,workflow] of Object.entries(workflows))if(name!=='letsgo2travel-ios-testflight')assert.equal(workflow.triggering,undefined);
 });
-test('TestFlight distribution retains existing signing and internal group without submitting any review',()=>{
+test('TestFlight upload retains signing and automatic internal distribution without a redundant group assignment or review',()=>{
  assert.equal(target.integrations.app_store_connect,'LetsGo2Travel');
  assert.equal(target.environment.ios_signing.bundle_identifier,'tr.com.letsgo2travel.app');
- assert.deepEqual(target.publishing.app_store_connect,{auth:'integration',submit_to_testflight:false,submit_to_app_store:false,beta_groups:['LetsGo2Travel İç Test']});
+ assert.deepEqual(target.publishing.app_store_connect,{auth:'integration',submit_to_testflight:false,submit_to_app_store:false});
  assert.equal(workflows['letsgo2travel-ios'].publishing.app_store_connect.submit_to_app_store,undefined);
 });
 test('the tag build retains the full release gate before Apple numbering, iOS packaging and publishing',()=>{
@@ -25,4 +25,14 @@ test('the tag build retains the full release gate before Apple numbering, iOS pa
  assert.ok(gate>=0&&numbering>gate&&packaging>numbering);
  assert.equal(target.environment.vars.VITE_TRAVEL_ASSISTANT_API_BASE_URL,'https://testflight.letsgo2travel.com.tr');
  assert.equal(target.environment.vars.VITE_API_BASE_URL,undefined);
+});
+
+test('the uploaded-build access check reuses the integration without building, uploading or changing distribution',()=>{
+ const check=workflows['letsgo2travel-testflight-83-verify'];
+ assert.deepEqual(check.integrations,{app_store_connect:'LetsGo2Travel'});
+ assert.deepEqual(check.scripts,[{name:'Verify processed build and existing internal access',script:'python3 scripts/verify-testflight-distribution.py'}]);
+ assert.equal(check.publishing,undefined);
+ assert.equal(check.environment,undefined);
+ assert.equal(check.triggering,undefined);
+ assert.deepEqual(check.artifacts,['testflight-distribution-83.json']);
 });

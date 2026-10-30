@@ -153,13 +153,26 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        # Upload for internal testing; choose the verified tester group in Apple.
+        # The existing internal group receives uploaded builds automatically.
+        # Apple rejects a redundant beta_groups assignment for automatic groups.
         submit_to_testflight: false
         submit_to_app_store: false
-        beta_groups:
-          - LetsGo2Travel İç Test
         # Cancellation and expiration are omitted: both default to false and
         # Codemagic only accepts those options when review submission is enabled.
+
+  # Read-only confirmation of the already uploaded 30 October build. This does
+  # not rebuild, upload, submit for review, or change any tester/group settings.
+  letsgo2travel-testflight-83-verify:
+    name: LetsGo2Travel TestFlight 83 Access Check
+    instance_type: mac_mini_m2
+    max_build_duration: 10
+    integrations:
+      app_store_connect: LetsGo2Travel
+    scripts:
+      - name: Verify processed build and existing internal access
+        script: python3 scripts/verify-testflight-distribution.py
+    artifacts:
+      - testflight-distribution-83.json
 
   # Manual APK checks use the same UI source, account project and public API
   # settings as iOS. A Play account / upload key is not needed for this test APK.
