@@ -176,6 +176,8 @@ const controlled = {
   VITE_API_BASE_URL: "https://www.letsgo2travel.com.tr",
   VITE_TRAVEL_ASSISTANT_API_BASE_URL: "",
   L2T_MAPS_DEV_API_URL: "",
+  L2T_EVENTS_DEV_API_URL: "",
+  L2T_EVENT_COMMUNITY_DEV_API_URL: "",
   VITE_SUPABASE_URL: fixture.NEXT_PUBLIC_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: publicKey,
   VITE_SUPPORT_EMAIL: "hello@letsgo2travel.com.tr",
@@ -240,8 +242,8 @@ test("actual Vite config: assistant host uses a dedicated dev proxy without movi
   });
 });
 
-test("actual Vite config: local Maps proxy redirects only five planner endpoints and stays out of release clients", async () => {
-  const paths = ["/api/maps/token", "/api/travel-assistant/journey-route", "/api/travel-assistant/discover", "/api/travel-assistant/journey-search", "/api/travel-assistant/journey-plan"];
+test("actual Vite config: exact local planner and event-community proxies stay out of release clients", async () => {
+  const paths = ["/api/event-community", "/api/maps/token", "/api/travel-assistant/journey-route", "/api/travel-assistant/discover", "/api/travel-assistant/journey-search", "/api/travel-assistant/journey-plan"];
   const keys = paths.map(path => `^${path}(?:\\?|$)`);
   await withEnv({ L2T_MAPS_DEV_API_URL: "http://127.0.0.1:3000" }, async () => {
     const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
@@ -251,7 +253,7 @@ test("actual Vite config: local Maps proxy redirects only five planner endpoints
       const matches = new RegExp(key);
       assert.equal(matches.test(paths[index]), true);
       assert.equal(matches.test(`${paths[index]}?check=1`), true);
-      for (const path of ["/api/profile", "/api/travel-assistant/places", "/api/travel-assistant/emergency", "/api/travel-assistant/rates",
+      for (const path of ["/api/profile", "/api/country-community", "/api/event-community/other", "/api/event-community-malicious", "/api/event-communities", "/api/travel-assistant/places", "/api/travel-assistant/emergency", "/api/travel-assistant/rates",
         "/api/maps/tokens", "/api/maps/token/other", "/api/maps/token-malicious", "/api/travel-assistant/journey-routes",
         "/api/travel-assistant/journey-route/other", "/api/travel-assistant/journey-route-malicious", "/__travel-assistant/api/travel-assistant/journey-route",
         "/api/travel-assistant/discovery", "/api/travel-assistant/discover/other", "/api/travel-assistant/journey-search/other",
@@ -280,6 +282,79 @@ test("actual Vite config: local Maps proxy redirects only five planner endpoints
     assert.equal(serve.server.proxy["/__travel-assistant"].target, "https://assistant.example.com");
     assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
   });
+});
+
+test("actual Vite config: protected event preview has its own loopback relay without moving other APIs or exposing its target", async () => {
+  await withEnv({ L2T_MAPS_DEV_API_URL: "http://127.0.0.1:3000", L2T_EVENT_COMMUNITY_DEV_API_URL: "http://127.0.0.1:3984" }, async () => {
+    const serve = await resolveConfig({ configFile, logLevel: "silent" }, "serve", "development");
+    assert.equal(serve.server.proxy["^/api/event-community(?:\\?|$)"].target, "http://127.0.0.1:3984");
+    assert.equal(serve.server.proxy["^/api/maps/token(?:\\?|$)"].target, "http://127.0.0.1:3000");
+    assert.equal(serve.server.proxy["/api"].target, controlled.VITE_API_BASE_URL);
+    assert.equal(serve.env.L2T_EVENT_COMMUNITY_DEV_API_URL, undefined);
+    assert.equal(serve.define.__L2T_CONFIG__.includes("3984"), false);
+    const release = await resolveConfig({ configFile, logLevel: "silent" }, "build", "production");
+    assert.equal("^/api/event-community(?:\\?|$)" in release.server.proxy, false);
+    assert.equal(release.define.__L2T_CONFIG__.includes("3984"), false);
+  });
+  await withEnv({ L2T_EVENT_COMMUNITY_DEV_API_URL: "https://private-preview.example" }, async () => {
+    await assert.rejects(resolveConfig({ configFile, logLevel: "silent" }, "serve", "development"), /L2T_EVENT_COMMUNITY_DEV_API_URL/);
+  });
+});
+
+test('actual Vite config: unified map endpoints use only the exact development loopback relay',async()=>{
+ const key='^/api/maps/(?:resource|places|directions|search)(?:\\?|$)';
+ await withEnv({L2T_MAPS_DEV_API_URL:'http://127.0.0.1:3000'},async()=>{
+  const serve=await resolveConfig({configFile,logLevel:'silent'},'serve','development');
+  assert.equal(serve.server.proxy[key].target,'http://127.0.0.1:3000');
+  for(const endpoint of ['resource','places','directions','search']){
+   const pattern=new RegExp(key);assert.equal(pattern.test(`/api/maps/${endpoint}`),true);assert.equal(pattern.test(`/api/maps/${endpoint}?q=Paris`),true);
+   assert.equal(pattern.test(`/api/maps/${endpoint}/private`),false);assert.equal(pattern.test(`/api/maps/${endpoint}-other`),false);
+  }
+  assert.equal(new RegExp(key).test('/api/maps/token'),false);assert.equal(new RegExp(key).test('/api/profile'),false);
+  assert.equal(serve.define.__L2T_CONFIG__.includes('127.0.0.1:3000'),false);
+  const release=await resolveConfig({configFile,logLevel:'silent'},'build','production');assert.equal(key in release.server.proxy,false);
+ });
+});
+
+test('actual Vite config: Maps development never diverts live events from the configured public API',async()=>{
+ await withEnv({L2T_MAPS_DEV_API_URL:'http://127.0.0.1:3000',VITE_API_BASE_URL:'https://configured-api.example.com'},async()=>{
+  const serve=await resolveConfig({configFile,logLevel:'silent'},'serve','development');
+  assert.equal('^/api/events(?:\\?|$)' in serve.server.proxy,false);
+  assert.equal(serve.server.proxy['/api'].target,'https://configured-api.example.com');
+  assert.equal(serve.server.proxy['^/api/maps/token(?:\\?|$)'].target,'http://127.0.0.1:3000');
+ });
+});
+
+test('actual Vite config: Events source testing has an independent exact loopback override that never enters release clients',async()=>{
+ const key='^/api/events(?:\\?|$)';
+ await withEnv({L2T_MAPS_DEV_API_URL:'http://127.0.0.1:3000',L2T_EVENTS_DEV_API_URL:'http://127.0.0.1:3100',L2T_EVENT_COMMUNITY_DEV_API_URL:'http://127.0.0.1:3984'},async()=>{
+  const serve=await resolveConfig({configFile,logLevel:'silent'},'serve','development');
+  assert.equal(serve.server.proxy[key].target,'http://127.0.0.1:3100');
+  assert.ok(Object.keys(serve.server.proxy).indexOf(key)<Object.keys(serve.server.proxy).indexOf('/api'));
+  assert.equal(serve.server.proxy['^/api/maps/token(?:\\?|$)'].target,'http://127.0.0.1:3000');
+  assert.equal(serve.server.proxy['^/api/event-community(?:\\?|$)'].target,'http://127.0.0.1:3984');
+  assert.equal(serve.server.proxy['/api'].target,controlled.VITE_API_BASE_URL);
+  const match=new RegExp(key);for(const input of ['/api/events','/api/events?countryCode=TR'])assert.equal(match.test(input),true);
+  for(const input of ['/api/events/private','/api/events-other','/api/event-community','/api/event-cities','/api/profile'])assert.equal(match.test(input),false);
+  assert.equal(serve.env.L2T_EVENTS_DEV_API_URL,undefined);assert.equal(serve.define.__L2T_CONFIG__.includes('127.0.0.1:3100'),false);
+  const release=await resolveConfig({configFile,logLevel:'silent'},'build','production');
+  assert.equal(key in release.server.proxy,false);assert.equal(release.env.L2T_EVENTS_DEV_API_URL,undefined);assert.equal(release.define.__L2T_CONFIG__.includes('127.0.0.1:3100'),false);
+ });
+});
+
+test('actual Vite config: Events development accepts canonical loopback only and release ignores invalid dev settings',async()=>{
+ const key='^/api/events(?:\\?|$)';
+ for(const host of ['localhost','127.0.0.1','[::1]'])await withEnv({L2T_EVENTS_DEV_API_URL:`http://${host}:3100`},async()=>{
+  const serve=await resolveConfig({configFile,logLevel:'silent'},'serve','development');assert.equal(serve.server.proxy[key].target,`http://${host}:3100`);
+ });
+ for(const value of ['https://127.0.0.1:3100','http://remote.example','http://user:PRIVATE_CANARY@localhost:3100','http://localhost:3100/path','http://localhost:3100/','http://localhost:3100?q=PRIVATE_CANARY'])await withEnv({L2T_EVENTS_DEV_API_URL:value},async()=>{
+  await assert.rejects(resolveConfig({configFile,logLevel:'silent'},'serve','development'),error=>{
+   assert.match(error.message,/L2T_EVENTS_DEV_API_URL/);assert.equal(error.message.includes(value),false);assert.equal(error.message.includes('PRIVATE_CANARY'),false);return true;
+  });
+ });
+ await withEnv({L2T_EVENTS_DEV_API_URL:'INVALID_EVENTS_DEV_CANARY'},async()=>{
+  const release=await resolveConfig({configFile,logLevel:'silent'},'build','production');assert.equal(key in release.server.proxy,false);assert.equal(release.define.__L2T_CONFIG__.includes('INVALID_EVENTS_DEV_CANARY'),false);
+ });
 });
 
 test("actual Vite config: Maps dev target accepts canonical loopback only without disclosing invalid values", async () => {

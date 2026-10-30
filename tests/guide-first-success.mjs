@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props, key) => ({ type, props, key });
 const nodes = value => !value || typeof value !== 'object' ? [] : [value, ...[value.props?.children].flat(Infinity).flatMap(nodes)];
@@ -13,7 +14,7 @@ function load(file, imports = {}, globals = {}) {
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { ...globals })(name => {
     if (name.endsWith('.css')) return {};
     if (Object.hasOwn(imports, name)) return imports[name];
-    throw Error(`Unexpected lesson dependency: ${name}`);
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;throw Error(`Unexpected lesson dependency: ${name}`);
   }, result, result.exports);
   return result.exports;
 }

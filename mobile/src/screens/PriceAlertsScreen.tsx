@@ -81,7 +81,7 @@ function errorText(error: unknown, fallback: string, locale: AppLocale) {
 function responseNotice(result: AlertMutationResponse, fallback: string, locale: AppLocale, preferServerMessage = false) {
   if (locale !== "tr") {
     const hasWarning = Boolean(result.warning?.trim()) || Boolean(result.warnings?.some((item) => item?.trim()));
-    return hasWarning ? `${fallback} ${locale === "sq" ? "Një ose më shumë kanale njoftimesh duhen kontrolluar." : "One or more delivery channels may need attention."}` : fallback;
+    return hasWarning ? `${fallback} ${translateCopy(locale, "Bir veya daha fazla bildirim kanalını kontrol etmen gerekiyor.", "One or more delivery channels may need attention.", "Një ose më shumë kanale njoftimesh duhen kontrolluar.")}` : fallback;
   }
   const warnings = [result.warning, ...(Array.isArray(result.warnings) ? result.warnings : [])]
     .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))

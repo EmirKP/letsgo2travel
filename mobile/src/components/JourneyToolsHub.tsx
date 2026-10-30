@@ -13,6 +13,7 @@ import { COUNTRY_LIST } from "../data/countries";
 import "./travel-assistant.css";
 import "./feature-entry-artwork.css";
 import type { AirportOption } from "../lib/airports";
+import { useActiveTripContext } from "../lib/activeTripContext";
 import { isCalendarDate, localIsoDate } from "../lib/dates";
 import { createId } from "../lib/id";
 import { useI18n } from "../lib/i18n";
@@ -60,7 +61,7 @@ function tripLabel(trip: SafetyTrip) {
   return [trip.destinationCity, trip.destinationCountry].filter(Boolean).join(", ");
 }
 
-export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId, accessToken, onNavigate, onNotice, onOpenAccount, onEditVisitedCountries, tripOptions }: {
+export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId, accessToken, onNavigate, onNotice, onOpenAccount, onEditVisitedCountries, tripOptions, hideOverview = false, initialAirportCode }: {
   initialTool?: ToolId;
   toolRequestId?: number;
   user: AuthUser | null;
@@ -69,10 +70,13 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   onOpenAccount: () => void;
   onEditVisitedCountries?: () => void;
   tripOptions?: readonly SafetyTrip[];
+  hideOverview?: boolean;
+  initialAirportCode?: string;
   onNavigate: (view: ViewId) => void;
   onNotice: (message: string) => void;
 }) {
   const { copy, locale, countryName, dateLocale } = useI18n();
+  const activeTrip = useActiveTripContext(ownerId);
   const [active, setActive] = useState<ToolId | null>(initialTool || null);
   useEffect(() => { if (initialTool) setActive(initialTool); }, [initialTool, toolRequestId]);
   const [trips, setTrips] = useState<SafetyTrip[]>(() => readSafetyTrips(ownerId));
@@ -90,6 +94,12 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   const [separateTickets, setSeparateTickets] = useState(false);
   const [terminalChange, setTerminalChange] = useState(false);
   const [safetyTripId, setSafetyTripId] = useState("");
+  useEffect(() => {
+    if (!initialAirportCode) return;
+    let live = true;
+    void import("../lib/airports").then(module => module.searchAirports(initialAirportCode)).then(items => { if (live) setTransferAirport(items.find(item => item.iata === initialAirportCode) || null); }).catch(() => { /* Keep manual airport selection. */ });
+    return () => { live = false; };
+  }, [initialAirportCode]);
   const visited = useMemo(() => getVisitedCountries(ownerId), [ownerId, active]);
   const visitedCodes = useMemo(() => new Set(visited.map((item) => item.alpha3)), [visited]);
 
@@ -118,7 +128,7 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
   }, [accessToken, copy, onNotice, user, ownerId, tripOptions]);
 
   const selectedJournalTrip = trips.find((trip) => trip.id === journalTripId);
-  const safetyTrip = trips.find((trip) => trip.id === safetyTripId) || trips.find((trip) => trip.status === "active") || trips.find((trip) => trip.status !== "cancelled" && trip.endDate >= localIsoDate()) || trips[0];
+  const safetyTrip = trips.find((trip) => trip.id === safetyTripId) || trips.find((trip) => trip.id === activeTrip?.tripId) || trips.find((trip) => trip.status === "active") || trips.find((trip) => trip.status !== "cancelled" && trip.endDate >= localIsoDate()) || trips[0];
   const safetyCode = safetyTrip?.destinationCode || "";
   const year = new Date().getFullYear();
   const recap = travelRecap(trips, year);
@@ -164,9 +174,9 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
     onNotice(shared ? copy("Yıllık özetin paylaşmaya hazır.", "Your yearly recap is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
   };
 
-  return <section className="journey-tools" aria-labelledby="journey-tools-title">
-    <div className="journey-tools-heading"><div><small>{copy("YENİ · SEYAHATİNİN TAMAMI", "NEW · YOUR WHOLE JOURNEY")}</small><h2 id="journey-tools-title">{copy("Seyahat araçlarım", "My travel tools")}</h2><p>{copy("Anından güvenliğine kadar her şey tek yerde; aramana gerek yok.", "Everything from memories to safety in one place—no hunting around.")}</p></div><span><Icon name="sparkles" size={22} /></span></div>
-    <div className="journey-tool-grid">{tools.map((tool) => <button type="button" key={tool.id} onClick={() => setActive(tool.id)}><span className="journey-feature-art"><TravelToolArtwork kind={tool.artwork} size={72} /></span><strong>{copy(tool.tr, tool.en, ({journal:"Ditari i udhëtimeve",map:"Harta ime e botës",airport:"Ndihmësi i tranzitit",safety:"Siguria në udhëtim",summary:"Viti im në udhëtim"})[tool.id])}</strong><small>{copy(tool.detailTr, tool.detailEn, ({journal:"Ruaj kujtimet dhe shënimet",map:"Shiko shtetet e vizituara në një hartë",airport:"Kontrollo kohën dhe hapat e tranzitit",safety:"Numrat e urgjencës dhe plani pa internet",summary:"Shiko rrugët dhe kujtimet e këtij viti"})[tool.id])}</small><Icon name="chevron" size={15} /></button>)}</div>
+  return <section className="journey-tools" aria-labelledby={hideOverview ? undefined : "journey-tools-title"} aria-label={hideOverview ? copy("Aktarma yardımcısı", "Transfer assistant", "Ndihmësi i tranzitit") : undefined}>
+    {!hideOverview && <><div className="journey-tools-heading"><div><small>{copy("YENİ · SEYAHATİNİN TAMAMI", "NEW · YOUR WHOLE JOURNEY")}</small><h2 id="journey-tools-title">{copy("Seyahat araçlarım", "My travel tools")}</h2><p>{copy("Anından güvenliğine kadar her şey tek yerde; aramana gerek yok.", "Everything from memories to safety in one place—no hunting around.")}</p></div><span><Icon name="sparkles" size={22} /></span></div>
+    <div className="journey-tool-grid">{tools.map((tool) => <button type="button" key={tool.id} onClick={() => setActive(tool.id)}><span className="journey-feature-art"><TravelToolArtwork kind={tool.artwork} size={72} /></span><strong>{copy(tool.tr, tool.en, ({journal:"Ditari i udhëtimeve",map:"Harta ime e botës",airport:"Ndihmësi i tranzitit",safety:"Siguria në udhëtim",summary:"Viti im në udhëtim"})[tool.id])}</strong><small>{copy(tool.detailTr, tool.detailEn, ({journal:"Ruaj kujtimet dhe shënimet",map:"Shiko shtetet e vizituara në një hartë",airport:"Kontrollo kohën dhe hapat e tranzitit",safety:"Numrat e urgjencës dhe plani pa internet",summary:"Shiko rrugët dhe kujtimet e këtij viti"})[tool.id])}</small><Icon name="chevron" size={15} /></button>)}</div></>}
 
     <Sheet open={active === "journal"} title={copy("Seyahat günlüğüm", "Travel journal")} size="large" onClose={() => setActive(null)}>
       <div className="journey-sheet-intro journey-artwork-intro"><span><TravelToolArtwork kind="guide" size={64} /></span><div><small>{copy("ANILARIN SENİNLE KALSIN", "KEEP YOUR MEMORIES")}</small><h3>{copy("Bugünden bir şey yaz", "Write something from today")}</h3><p>{copy("Giriş yaptıysan kayıtların hesabınla eşitlenir.", "When signed in, entries sync with your account.")}</p></div></div>
@@ -200,7 +210,7 @@ export function JourneyToolsHub({ initialTool, toolRequestId = 0, user, ownerId,
       <div className="journey-sheet-intro safety journey-artwork-intro"><span><TravelToolArtwork kind="safety" size={64} /></span><div><small>{copy("ÇEVRİMDIŞI DA YANINDA", "READY OFFLINE")}</small><h3>{copy("Acil durumda önce doğru numara", "The right number in an emergency")}</h3><p>{copy("Hayati tehlikede bulunduğun ülkenin resmî acil hattını ara.", "In immediate danger, call the official local emergency service.")}</p></div></div>
       {trips.length > 0 && <label className="safety-trip-select">{copy("Seyahat seç", "Choose trip")}<select value={safetyTrip?.id || ""} onChange={(event) => { setSafetyTripId(event.target.value); }}>{trips.map((trip) => <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>)}</select></label>}
       <Suspense fallback={<p role="status">{copy("Asistan açılıyor…", "Opening assistant…")}</p>}>
-        <TravelAssistant initialTool="safety" accessToken={accessToken} onSignIn={onOpenAccount} key={safetyCode} initialCountry={safetyCode} onNotice={onNotice} onPhrases={country => { selectTravelCountry(country); setActive(null); onNavigate("phrases"); }} />
+        <TravelAssistant initialTool="safety" accessToken={accessToken} onSignIn={onOpenAccount} key={safetyCode} initialCountry={safetyCode} onNotice={onNotice} onNavigate={onNavigate} onPhrases={country => { selectTravelCountry(country); setActive(null); onNavigate("phrases"); }} />
       </Suspense>
     </Sheet>
 

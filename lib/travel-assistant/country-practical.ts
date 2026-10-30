@@ -60,7 +60,7 @@ const CURRENCIES: Record<string, CurrencyProfile> = {
 };
 
 function catalogueCurrency(code: string): CurrencyProfile {
-  const name = (language: 'tr' | 'en' | 'sq') => {
+  const name = (language: 'tr' | 'en' | 'sq' | 'ro') => {
     try { return new Intl.DisplayNames([language], { type: 'currency' }).of(code) ?? code; }
     catch { return code; }
   };

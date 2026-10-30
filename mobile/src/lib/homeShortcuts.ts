@@ -1,4 +1,4 @@
-import { APP_TOOLS, appToolId, type AppShortcutId } from "./appTools";
+import { APP_TOOLS, appToolId, canonicalAppShortcutId, type AppShortcutId } from "./appTools";
 
 export const DEFAULT_HOME_SHORTCUTS: readonly AppShortcutId[] = ["route", "explore", "passport", "trips", "companion"];
 export const HOME_SHORTCUT_LIMIT = 5;
@@ -12,7 +12,7 @@ export function homeShortcutKey(ownerId?: string | null) {
 
 export function normalizeHomeShortcuts(value: unknown): AppShortcutId[] {
   if (!Array.isArray(value)) return [...DEFAULT_HOME_SHORTCUTS];
-  const valid = [...new Set(value.filter((item): item is AppShortcutId => typeof item === "string" && allowed.has(item as AppShortcutId)))].slice(0, HOME_SHORTCUT_LIMIT);
+  const valid = [...new Set(value.map(canonicalAppShortcutId).filter((item): item is AppShortcutId => item !== null && allowed.has(item)))].slice(0, HOME_SHORTCUT_LIMIT);
   return valid.length ? valid : [...DEFAULT_HOME_SHORTCUTS];
 }
 

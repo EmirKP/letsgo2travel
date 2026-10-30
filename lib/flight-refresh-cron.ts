@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { translateAppCopy } from './locale-copy';
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LiveActivityUpdatePayload, LiveActivityEndPayload } from "./push/apns";
 import type { FlightMatch } from "./flight-lookup";
@@ -56,8 +57,10 @@ export async function runFlightRefreshCron(supabase: SupabaseClient, settings: S
           provider: { status: p!.status, updatedAtMs: Date.parse(p!.sourceUpdatedAt!), freshUntilMs: Date.parse(p!.freshUntil!), expiresAtMs: Date.parse(latest.expiresAt!),
             ...(p!.departure.revisedAt ? { revisedDepartureAtMs: Date.parse(p!.departure.revisedAt), departureKind: p!.departure.revisedKind || "unknown" } : {}),
             ...(p!.arrival.revisedAt ? { revisedArrivalAtMs: Date.parse(p!.arrival.revisedAt), arrivalKind: p!.arrival.revisedKind || "unknown" } : {}) },
-          ...(changed ? { alert: latest.language === "sq" ? { title: "Përditësim fluturimi", body: "Ka një përditësim për fluturimin tënd. Hap hollësitë e fundit." } : latest.language === "en" ? { title: "Flight update", body: "Your flight has an update. Open the latest details." }
-            : { title: "Uçuş güncellemesi", body: "Uçuşunda güncelleme var. Güncel bilgileri aç." } } : {}) };
+          ...(changed ? { alert: {
+            title: translateAppCopy(latest.language, 'Uçuş güncellemesi', 'Flight update', 'Përditësim fluturimi'),
+            body: translateAppCopy(latest.language, 'Uçuşunda güncelleme var. Güncel bilgileri aç.', 'Your flight has an update. Open the latest details.', 'Ka një përditësim për fluturimin tënd. Hap hollësitë e fundit.'),
+          } } : {}) };
       const deliver = async (token: { id: string }) => {
         if (clock() > deadline - 12000) { summary.deferred++; return; }
         const claim = randomUUID();

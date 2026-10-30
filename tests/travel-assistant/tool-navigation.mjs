@@ -47,7 +47,7 @@ const practical = load('lib/travel-assistant/country-practical.ts', {
 // are replaced. Refs attach during a simulated commit, before animation frames.
 function harness({ initialCountry = '', savedCountry = '', locale: initialLocale = 'en', selection, guides = [], locate = async () => {throw Error('unavailable');} } = {}) {
   const slots = [], frames = [], selectedCountries = [], phrases = [], localTips = [], effects = [];
-  let cursor = 0, locale = initialLocale, view, focused, focusOptions, scrolled, scrollOptions, oldRefs = [], signIns = 0;
+  let cursor = 0, locale = initialLocale, view, focused, focusOptions, scrolled, scrollOptions, oldRefs = [], signIns = 0, guideRequests = 0;
   const react = {
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { slots[i].value = typeof next === 'function' ? next(slots[i].value) : next; }]; },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
@@ -64,7 +64,7 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'TUR', name: 'Türkiye' }, { alpha3: 'GBR', name: 'United Kingdom' }] },
     '../data/countryIso': { alpha2FromAlpha3: code => ({ TUR: 'TR', GBR: 'GB' })[code] },
     '../hooks/usePassportPreference': { usePassportPreference: () => ({ country: 'TR' }) },
-    '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en, countryName: (_, fallback) => fallback }) },
+    '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq || en : en, countryName: (_, fallback) => fallback }) },
     './CountryPicker': { CountryPicker: 'CountryPicker' },
     './CountryQuickFacts': { CountryQuickFacts: 'CountryQuickFacts' },
     '../lib/travelSelection': selection || { readTravelCountry: () => savedCountry, selectTravelCountry: code => selectedCountries.push(code) },
@@ -90,11 +90,44 @@ function harness({ initialCountry = '', savedCountry = '', locale: initialLocale
     },
     choose(label) { const control = button(view, label); assert.ok(control, `Visible control: ${label}`); control.props.onClick(); return h.render(); },
     search(query) { find(view, 'input', props => props.type === 'search').props.onChange({ target: { value: query } }); return h.render(); },
-    expand() { const control = find(view, 'button', props => props['aria-controls'] === 'ta-other-tools'); if (!control.props['aria-expanded']) { control.props.onClick(); h.render(); } return view; },
+    openGuide() { h.render({initialTool:'guide',toolRequestId:++guideRequests});return h.render(); },
+    expand() { const control = find(view, 'button', props => props['aria-controls'] === 'ta-other-tools'); if (control && !control.props['aria-expanded']) { control.props.onClick(); h.render(); } return view; },
     language(next) { locale = next; return h.render(); },
     focused: () => focused, focusOptions: () => focusOptions, scrolled: () => scrolled, scrollOptions: () => scrollOptions, selectedCountries, phrases, localTips, signIns: () => signIns,
   };
   h.render(); return h;
+}
+
+function companionHarness(initial = {}) {
+  const slots=[],effects=[],selection=load('mobile/src/lib/travelSelection.ts',{});
+  let cursor=0,dirty=false,view,props={initialCountry:'GB',accessToken:'',onSignIn(){},onNavigate(){},onNotice(){},...initial};
+  const react={
+    useState(initial){const at=cursor++;slots[at]||={value:typeof initial==='function'?initial():initial};return[slots[at].value,next=>{const value=typeof next==='function'?next(slots[at].value):next;if(!Object.is(value,slots[at].value)){slots[at].value=value;dirty=true;}}];},
+    useRef(initial){const at=cursor++;return slots[at]||={current:initial};},
+    useMemo:factory=>factory(),
+    useEffect(callback,deps){const at=cursor++,old=slots[at];if(!old||deps.some((value,index)=>!Object.is(value,old.deps[index]))){const next={deps};slots[at]=next;effects.push(()=>{old?.cleanup?.();next.cleanup=callback();});}},
+    lazy(loader){const name=loader.toString().match(/components\/([^'"]+)/)?.[1];assert.ok(name);return name;},Suspense:'Suspense',
+  };
+  const profile=code=>({code,languageTr:'Test',languageEn:'Test',phrases:[],etiquette:[]});
+  const {TravelCompanionScreen}=load('mobile/src/screens/TravelCompanionScreen.tsx',{
+    react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
+    '../components/Icon':{Icon:'Icon'},'../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
+    '../components/CompanionShortcutArtwork':{CompanionShortcutArtwork:'CompanionShortcutArtwork'},
+    '../components/CountryPicker':{CountryPicker:'CountryPicker'},'../components/TravelSafety':{EvidenceLine:'EvidenceLine'},
+    '../data/countries':{COUNTRY_LIST:[{alpha3:'TUR',name:'Türkiye'},{alpha3:'GBR',name:'United Kingdom'}]},
+    '../data/countryIso':{alpha2FromAlpha3:code=>({TUR:'TR',GBR:'GB'})[code],flagEmoji:code=>code},
+    '../data/travelEssentials':{TRAVEL_ESSENTIALS:[profile('TR'),profile('GB')],essentialProfile:profile,fallbackEssentialProfile:profile},
+    '../lib/i18n':{useI18n:()=>({locale:'en',copy:(_tr,en)=>en,countryName:(_code,fallback)=>fallback})},
+    '../lib/travelSelection':selection,
+  },{window:{requestAnimationFrame:callback=>callback()},document:{querySelector:()=>null}});
+  const h={
+    render(next={}){props={...props,...next};for(let pass=0;pass<20;pass++){cursor=0;dirty=false;effects.length=0;view=TravelCompanionScreen(props);effects.splice(0).forEach(callback=>callback());if(!dirty)return view;}throw Error('Companion fixture did not settle');},
+    click(label){const control=button(view,label);assert.ok(control,`Visible Companion control: ${label}`);control.props.onClick();return h.render();},
+    assistant:()=>find(view,'TravelAssistant'),
+    footer:()=>find(view,'section',props=>props.className==='companion-sections'),
+    country(code){find(view,'CountryPicker').props.onChange(code);return h.render();},
+    selection,view:()=>view,
+  };h.render();return h;
 }
 
 test('Auto country never overrides a manual country or an abandoned tool; denied location leaves manual selection usable',async()=>{
@@ -110,27 +143,101 @@ test('Auto country never overrides a manual country or an abandoned tool; denied
  assert.equal(find(directory,'TravelSafety'),undefined,'Returning to the directory must not reopen a country-dependent tool');
 });
 
-test('Four main tools and all remaining tools stay reachable without an unrelated country gate', () => {
+test('Four primary tools are visible immediately without More or a separate transport/consulate entry', () => {
   const h = harness();
-  assert.deepEqual(cardLabels(h.render()), ['Sightseeing map', 'Translate', 'Money', 'Saved places']);
+  assert.deepEqual(cardLabels(h.render()), ['Map', 'Photo guide', 'Translate', 'Money']);
   const optionalCountry=find(h.render(),'CountryPicker',props=>props.label==='Travel country (optional)');
   assert.ok(optionalCountry);assert.equal(optionalCountry.props.value,'');assert.notEqual(optionalCountry.props.required,true);
-  assert.equal(cardLabels(h.expand()).length, 10);
+  assert.equal(button(h.render(), 'Country Guide'),undefined,'The guide no longer duplicates a top directory strip');
+  assert.equal(find(h.render(),'button',props=>props['aria-controls']==='ta-other-tools'),undefined,'No hidden More menu is needed for the four visible tools');
+  assert.equal(button(h.render(),'Transport'),undefined);assert.equal(button(h.render(),'Consulate'),undefined);
   for (const [label, component, mode] of [
-    ['Sightseeing map', 'TravelNearby', 'explore'], ['Essentials map', 'TravelNearby', 'needs'],
-    ['Translate', 'TravelTranslation'], ['Money', 'TravelMoney'], ['Saved places', 'TravelSavedPlaces'],
-    ['Transport', 'TravelTransit'], ['Photo guide', 'TravelPhotoGuide'], ['Offline map', 'TravelOfflineMap'],
+    ['Map', 'TravelMap', 'map'],
+    ['Translate', 'TravelTranslation'], ['Money', 'TravelMoney'],
+    ['Photo guide', 'TravelPhotoGuide'],
   ]) {
     const view = h.choose(label);
     assert.ok(find(view, component), `${label} renders its real child boundary`);
     assert.equal(find(view, 'CountryPicker'), undefined, `${label} does not require country selection`);
-    if (mode) assert.equal(find(view, component).props.mode, mode);
+    if (mode) assert.equal(find(view, component).props.initialSection, mode);
     h.choose('All tools');
-    assert.equal(cardLabels(h.render()).length, 10, 'Returning preserves the expanded directory');
+    assert.deepEqual(cardLabels(h.render()), ['Map', 'Photo guide', 'Translate', 'Money'], 'Returning restores the same four direct entries');
   }
   assert.ok(button(h.render(), 'Emergency help'));
-  assert.ok(button(h.render(), 'Consulate'));
-  assert.ok(button(h.render(), 'Country Guide'));
+  assert.equal(find(h.render(),'TravelTransit'),undefined);assert.equal(find(h.render(),'EmbassyCards'),undefined);
+  assert.equal(button(h.render(), 'Country Guide'),undefined);
+  find(h.render(),'CountryPicker',props=>props.label==='Travel country (optional)').props.onChange('GB');h.render();
+  assert.ok(button(h.search('country guide'),'Country Guide'),'Guide remains reachable by directory search');
+  assert.equal(find(h.choose('Country Guide'),'CountryQuickFacts').props.country,'GB');
+});
+
+test('Bottom Guide, phrases and local tips have distinct artwork and explicit Guide requests reopen a dismissed real child',()=>{
+ const parent=companionHarness();
+ const footer=parent.footer(),cards=nodes(footer).filter(node=>node.type==='button');
+ assert.equal(cards.length,3);assert.deepEqual(cards.map(card=>text(find(card,'strong'))),['Country Guide','Useful phrases','Local tips']);
+ assert.deepEqual(cards.map(card=>find(card,'CompanionShortcutArtwork').props.kind),['guide','phrases','etiquette']);
+ assert.equal(nodes(footer).filter(node=>node.type==='TravelToolArtwork').length,0,'These shortcuts use their new artwork instead of repeating old tool assets');
+ assert.equal(parent.assistant().props.initialTool,undefined);
+ parent.click('Country Guide');let request=parent.assistant().props;
+ assert.equal(request.initialTool,'guide');assert.equal(request.initialCountry,'GB');assert.ok(request.toolRequestId>0);
+ const child=harness({selection:parent.selection});
+ child.render(request);let childView=child.render();parent.render();assert.equal(find(childView,'CountryQuickFacts').props.country,'GB');
+ assert.equal(button(parent.footer(),'Country Guide'),undefined,'The currently open guide does not repeat its own footer shortcut');
+ child.choose('All tools');childView=child.render(request);parent.render();assert.equal(find(childView,'CountryQuickFacts'),undefined,'The handled request cannot reopen a guide the user deliberately closed');
+ const firstId=request.toolRequestId;parent.click('Country Guide');request=parent.assistant().props;
+ assert.ok(request.toolRequestId>firstId);child.render(request);childView=child.render();parent.render();assert.equal(find(childView,'CountryQuickFacts').props.country,'GB');
+ parent.click('Useful phrases');parent.country('TR');parent.click('Country Guide');request=parent.assistant().props;
+ assert.equal(request.initialCountry,'TR');child.render(request);childView=child.render();parent.render();assert.equal(find(childView,'CountryQuickFacts').props.country,'TR');
+ parent.click('Local tips');parent.country('GB');parent.click('Country Guide');request=parent.assistant().props;
+ assert.equal(request.initialCountry,'GB');child.render(request);childView=child.render();assert.equal(find(childView,'CountryQuickFacts').props.country,'GB');
+});
+
+test('External guide links remain valid while Tools explicitly returns to the directory and fresh external props supersede local requests',()=>{
+ const parent=companionHarness({initialTool:'guide'}),child=harness({selection:parent.selection});
+ let request=parent.assistant().props;assert.equal(request.initialTool,'guide');child.render(request);assert.ok(find(child.render(),'CountryQuickFacts'));parent.render();
+ parent.click('Useful phrases');parent.click('Tools');request=parent.assistant().props;
+ assert.equal(request.initialTool,undefined,'Returning to Tools is explicit even when the incoming link requested the guide');
+ child.render(request);assert.equal(find(child.render(),'CountryQuickFacts'),undefined);parent.render();
+ parent.click('Country Guide');assert.equal(parent.assistant().props.initialTool,'guide');
+ parent.render({initialTool:'money',initialCountry:'TR'});request=parent.assistant().props;
+ assert.equal(request.initialTool,'money');assert.equal(request.initialCountry,'TR');child.render(request);assert.equal(find(child.render(),'TravelMoney').props.destinationCountry,'TR');
+ parent.render({initialTab:'etiquette',initialTool:'guide',initialCountry:'GB'});assert.equal(parent.view().props['data-section'],'etiquette');assert.equal(find(parent.view(),'CountryPicker').props.value,'GB');
+ parent.click('Country Guide');assert.equal(parent.assistant().props.initialTool,'guide');assert.equal(parent.assistant().props.initialCountry,'GB');
+});
+
+test('Legacy map entry IDs open the correct unified section and account changes remount private map state', () => {
+  const h=harness({initialCountry:'GB'}), ideas={type:'NearbyIdeas',props:{}};
+  for(const [tool,section] of [['map','map'],['explore','map'],['needs','needs'],['saved','saved'],['offline','offline'],['nearby','nearby'],['embassies','embassies']]){
+    h.render({initialTool:tool,ownerId:'owner-a',nearbyIdeas:ideas});
+    const child=find(h.render(),'TravelMap');assert.ok(child);assert.equal(child.props.initialSection,section);assert.equal(child.key,'owner-a');assert.equal(child.props.ownerId,'owner-a');assert.equal(child.props.destinationCountry,'GB');assert.equal(child.props.nearbyIdeas,ideas);
+    assert.equal(find(h.render(),'TravelNearby'),undefined);assert.equal(find(h.render(),'TravelOfflineMap'),undefined);assert.equal(find(h.render(),'TravelSavedPlaces'),undefined);
+  }
+  assert.equal(find(h.render({ownerId:'owner-b'}),'TravelMap').key,'owner-b');
+  assert.equal(find(h.render({ownerId:null}),'TravelMap').key,'guest');
+});
+
+test('Legacy transport requests return to the usable directory without mounting the removed tool or losing destination',()=>{
+ const h=harness({initialCountry:'GB'});
+ h.render({initialTool:'transit'});let view=h.render();
+ assert.deepEqual(cardLabels(view),['Map','Photo guide','Translate','Money']);
+ assert.equal(find(view,'TravelTransit'),undefined);assert.equal(find(view,'TravelMap'),undefined);
+ assert.equal(find(view,'CountryPicker',props=>props.label==='Travel country (optional)').props.value,'GB');
+ view=h.choose('Photo guide');assert.ok(find(view,'TravelPhotoGuide'));h.choose('All tools');
+ assert.equal(find(h.choose('Map'),'TravelMap').props.destinationCountry,'GB');
+});
+
+test('Tools search opens canonical budget and visa screens and retains destination context for the guide', () => {
+  const destinations = [];
+  const h = harness({ initialCountry: 'JP', locale: 'tr' });
+  h.render({ onNavigate: view => destinations.push(view) });
+  for (const [query, target] of [['bütçe', 'costs'], ['vize', 'passport']]) {
+    const result = find(h.search(query), 'button', props => props['data-app-view'] === target);
+    assert.ok(result, `${query} offers the main app screen`);
+    result.props.onClick();
+  }
+  assert.deepEqual(destinations, ['costs', 'passport']);
+  h.search('');
+  assert.equal(find(h.openGuide(), 'CountryQuickFacts').props.country, 'JP');
 });
 
 test('An optional directory country carries into country-dependent tools without gating independent tools or asking for GPS again',()=>{
@@ -147,11 +254,12 @@ test('An optional directory country carries into country-dependent tools without
 
 test('Search handles either language, Turkish keyboard variants, and the example pharmacy query', () => {
   const h = harness();
-  for (const [query, expected] of [['  ÇEVİRİ  ', 'Translate'], ['IHTIYAC', 'Essentials map'], ['kayitli', 'Saved places'], ['pharmacy', 'Essentials map'], ['dolar', 'Money'], ['museum', 'Sightseeing map'], ['metro', 'Transport'], ['ambulans', 'Emergency']]) {
+  for (const [query, expected] of [['  ÇEVİRİ  ', 'Translate'], ['IHTIYAC', 'Map'], ['kayitli', 'Map'], ['pharmacy', 'Map'], ['dolar', 'Money'], ['museum', 'Map'], ['consulate','Map'],['konsolosluk','Map'],['ambulans', 'Emergency']]) {
     assert.ok(cardLabels(h.search(query)).includes(expected), `${query} finds ${expected}`);
   }
+  for(const query of ['metro','ulaşım','transport']){const view=h.search(query);assert.equal(cardLabels(view).includes('Transport'),false);assert.equal(find(view,'TravelTransit'),undefined);}
   h.language('tr');
-  assert.ok(cardLabels(h.search('offline')).includes('Çevrimdışı harita'));
+  assert.ok(cardLabels(h.search('offline')).includes('Harita'));
   const empty = h.search('no matching tool');
   assert.equal(cardLabels(empty).length, 0);
   assert.match(text(find(empty, 'p', props => props.role === 'status')), /^0 /);
@@ -159,7 +267,7 @@ test('Search handles either language, Turkish keyboard variants, and the example
   assert.equal(find(h.choose('Acil yardım'), 'CountryPicker').props.value, '');
 });
 
-test('Country-dependent tools share an explicit destination and keep citizenship separate', () => {
+test('Emergency-to-consulate navigation uses the common map with the selected country and keeps guide/phrase actions usable', () => {
   const h = harness();
   let view = h.choose('Emergency help');
   assert.equal(find(view, 'TravelSafety'), undefined, 'No country-specific emergency data without a country');
@@ -167,12 +275,12 @@ test('Country-dependent tools share an explicit destination and keep citizenship
   assert.equal(find(view, 'TravelSafety').props.country, 'GB');
   assert.deepEqual(h.selectedCountries, ['GB']);
   find(view, 'TravelSafety').props.onOpen('embassies'); view = h.render();
-  assert.equal(find(view, 'EmbassyCards').props.country, 'GB');
-  assert.equal(find(view, 'EmbassyCards').props.citizenship, '', 'A travel passport does not silently set citizenship');
-  find(view, 'CountryPicker', props => props.label === 'Your citizenship').props.onChange('GB');
-  assert.equal(find(h.render(), 'EmbassyCards').props.citizenship, 'GB');
-  assert.deepEqual(h.selectedCountries, ['GB'], 'Citizenship changes do not overwrite the destination');
-  h.choose('All tools'); h.expand(); view = h.choose('Country Guide');
+  assert.equal(find(view,'TravelMap').props.initialSection,'embassies');
+  assert.equal(find(view,'TravelMap').props.destinationCountry,'GB');
+  assert.equal(find(view,'EmbassyCards'),undefined,'Consulate content is owned by the map section');
+  assert.equal(find(view,'CountryPicker',props=>props.label==='Your citizenship'),undefined,'The old standalone parent form is removed');
+  assert.deepEqual(h.selectedCountries, ['GB'], 'Opening the map does not overwrite the explicit destination');
+  h.choose('All tools'); h.expand(); view = h.openGuide();
   assert.equal(find(view, 'CountryPicker').props.value, 'GB');
   h.choose('Open useful phrases'); assert.deepEqual(h.phrases, ['GB']);
   h.choose('Local tips and rules'); assert.deepEqual(h.localTips, ['GB']);
@@ -182,16 +290,16 @@ test('Country-dependent tools share an explicit destination and keep citizenship
 
 test('Country Guide and directory Money share the destination currency and preserve manual converter storage', () => {
   const h = harness({ initialCountry: 'JP' }); h.expand();
-  let view = h.choose('Country Guide'); assert.equal(find(view, 'CountryQuickFacts').props.country, 'JP');
+  let view = h.openGuide(); assert.equal(find(view, 'CountryQuickFacts').props.country, 'JP');
   find(view, 'CountryQuickFacts').props.onOpenMoney('JPY'); view = h.render();
   assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'JPY');
   assert.equal(find(h.render({ accessToken: 'ANOTHER_SESSION' }), 'TravelMoney').props.initialBaseCurrency, 'JPY', 'Unrelated parent updates preserve the handoff');
   h.choose('All tools'); view = h.choose('Money'); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'JPY', 'The explicitly selected journey country also applies to directory entry');
-  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
+  h.choose('All tools'); view = h.openGuide(); find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
   find(view, 'CountryQuickFacts').props.onOpenMoney('GBP'); view = h.render(); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'GBP');
-  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('BG'); view = h.render();
+  h.choose('All tools'); view = h.openGuide(); find(view, 'CountryPicker').props.onChange('BG'); view = h.render();
   find(view, 'CountryQuickFacts').props.onOpenMoney('EUR'); view = h.render(); assert.equal(find(view, 'TravelMoney').props.initialBaseCurrency, 'EUR', 'Bulgaria uses the practical guide’s reviewed EUR record rather than the older cost catalogue');
-  h.choose('All tools'); view = h.choose('Country Guide'); find(view, 'CountryPicker').props.onChange('ZZ'); view = h.render();
+  h.choose('All tools'); view = h.openGuide(); find(view, 'CountryPicker').props.onChange('ZZ'); view = h.render();
   find(view, 'CountryQuickFacts').props.onOpenMoney(); view = h.render();
   assert.equal(find(view, 'TravelMoney'), undefined, 'An absent currency never navigates to an unrelated saved pair');
   assert.equal(find(view, 'CountryQuickFacts').props.country, 'ZZ');
@@ -199,7 +307,7 @@ test('Country Guide and directory Money share the destination currency and prese
 
 test('Country-guide handoffs validate the actual currency argument, including a supported second currency', () => {
   const h = harness({ initialCountry: 'PA' }); h.expand();
-  let view = h.choose('Country Guide');
+  let view = h.openGuide();
   assert.equal(practical.countryPracticalInfo('PA').currency.code, 'PAB');
   assert.deepEqual(Array.from(practical.countryPracticalInfo('PA').currency.codes), ['PAB', 'USD']);
   for (const unsupported of ['PAB', 'IDR', 'ZZZ', '', undefined]) {
@@ -238,14 +346,14 @@ test('Opening and leaving a result focus its heading and preserve the previous s
 
 test('Tool callbacks retain navigation, phrase context, and guest sign-in behavior', () => {
   const h = harness({ savedCountry: 'GB' });
-  let view = h.choose('Saved places'); find(view, 'TravelSavedPlaces').props.onExplore(); view = h.render();
-  assert.equal(find(view, 'TravelNearby').props.mode, 'explore');
+  let view = h.choose('Map');
+  assert.equal(find(view, 'TravelMap').props.initialSection, 'map');
   h.choose('All tools'); view = h.choose('Translate'); find(view, 'TravelTranslation').props.onPhrases();
   assert.deepEqual(h.phrases, ['GB']);
   h.choose('All tools'); view = h.choose('Emergency help'); find(view, 'TravelSafety').props.onOpen('phrases');
   assert.deepEqual(h.phrases, ['GB', 'GB']);
   find(view, 'TravelSafety').props.onOpen('needs'); view = h.render();
-  assert.equal(find(view, 'TravelNearby').props.mode, 'needs');
+  assert.equal(find(view, 'TravelMap').props.initialSection, 'needs');
   h.choose('All tools'); h.expand(); view = h.choose('Photo guide');
   assert.equal(find(view, 'TravelPhotoGuide').props.accessToken, '');
   assert.equal(find(view, 'TravelPhotoGuide').key, 'guest');
@@ -259,13 +367,15 @@ test('Explicit country selections follow the user between phrases, assistant and
   const selection = load('mobile/src/lib/travelSelection.ts', {});
   const slots = []; let cursor = 0;
   const react = {
-    useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = value; }]; },
+    useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
     useRef(initial) { const i = cursor++; return slots[i] ||= { current: initial }; },
     useMemo: factory => factory(), useEffect: () => {}, lazy: () => 'TravelAssistant', Suspense: 'Suspense',
   };
   const profile = code => ({ code, languageTr: 'Test', languageEn: 'Test', phrases: [], etiquette: [] });
   const api = load('mobile/src/screens/TravelCompanionScreen.tsx', {
+    '../components/TravelAreaPicker':{TravelAreaPicker:'TravelAreaPicker'},'../lib/capacitor':{isNativePlatform:()=>false},
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
+    '../components/CompanionShortcutArtwork':{CompanionShortcutArtwork:'CompanionShortcutArtwork'},
     '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../data/countries': { COUNTRY_LIST: [{ alpha3: 'TUR', name: 'Türkiye' }, { alpha3: 'GBR', name: 'United Kingdom' }] },
@@ -287,6 +397,13 @@ test('Explicit country selections follow the user between phrases, assistant and
   assert.equal(selection.readTravelCountry(), 'GB', 'Phrase selection is available to the assistant');
   button(view, 'Tools').props.onClick(); view = render();
   assert.ok(find(view, 'TravelAssistant'));
+  find(view,'TravelAssistant').props.nearbyIdeas.props.onSearch('',{latitude:48.86,longitude:2.35},'museum');view=render();
+  const firstSearch=find(view,'TravelAssistant').props.nearbySearch;
+  assert.equal(firstSearch.category,'museum');
+  find(view,'TravelAssistant').props.onNearbySearchHandled(firstSearch.id+1);view=render();
+  assert.equal(find(view,'TravelAssistant').props.nearbySearch.id,firstSearch.id,'An unrelated acknowledgment cannot discard a newer intent');
+  find(view,'TravelAssistant').props.onNearbySearchHandled(firstSearch.id);view=render();
+  assert.equal(find(view,'TravelAssistant').props.nearbySearch,undefined,'Consumed map searches cannot replay when Map remounts');
   // The parent conditionally mounts the assistant when the Tools section opens.
   const assistant = harness({ selection }); let tool = assistant.choose('Emergency help');
   assert.equal(find(tool, 'TravelSafety').props.country, 'GB');
@@ -304,35 +421,39 @@ test('Explicit country selections follow the user between phrases, assistant and
 });
 
 
-test('Guide cards use available Albanian text and mark English fallback only for untranslated cards', () => {
+test('The guide delegates country notes to its real six-fact child and does not render a second translated article list', () => {
   const cards = [
     { country: 'TR', category: 'water', title: { tr: 'Başlık', en: 'English title', sq: 'Titull shqip' }, text: { tr: 'Metin', en: 'English body', sq: 'Tekst shqip' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
     { country: 'GB', category: 'hours', title: { tr: 'Saatler', en: 'English fallback' }, text: { tr: 'Metin', en: 'Untranslated body' }, sourceUrl: 'https://example.test/source', verifiedAt: '2026-10-04' },
   ];
   const h = harness({ initialCountry: 'TR', locale: 'sq', guides: cards });
-  h.expand(); let view = h.choose('Country Guide');
-  assert.match(text(view), /Titull shqip.*Tekst shqip/);
-  assert.doesNotMatch(text(view), /English title|English body|Disa karta ende/);
-  assert.equal(find(view, 'article').props.lang, 'sq');
+  h.expand(); let view = h.openGuide();
+  assert.equal(find(view,'CountryQuickFacts').props.country,'TR');
+  assert.equal(find(view,'CountryQuickFacts').props.includeLocalAdvice,false);
+  assert.equal(find(view,'CountryQuickFacts').props.onOpenAll,undefined);
+  assert.equal(find(view,'article'),undefined,'The parent has no duplicate country facts below the child');
+  assert.doesNotMatch(text(view), /Titull shqip|Tekst shqip|English title|English body|Disa karta ende/);
+  assert.equal(text(find(view,'h3')),'Lidhje të dobishme');
   find(view, 'CountryPicker').props.onChange('GB'); view = h.render();
-  assert.match(text(view), /Disa karta ende/); assert.match(text(view), /English fallback.*Untranslated body/);
-  assert.equal(find(view, 'article').props.lang, 'en');
-  view = h.language('tr'); assert.match(text(view), /Saatler.*Metin/); assert.equal(find(view, 'article').props.lang, 'tr');
+  assert.equal(find(view,'CountryQuickFacts').props.country,'GB');assert.equal(find(view,'article'),undefined);
+  assert.doesNotMatch(text(view),/English fallback|Untranslated body/);
+  view=h.language('tr');assert.equal(find(view,'CountryQuickFacts').props.country,'GB');assert.equal(find(view,'article'),undefined);
+  assert.equal(text(find(view,'h3')),'İlgili bağlantılar');
 });
 
-test('A selected destination reaches area tools and transit without fabricating a city point', () => {
+test('A selected destination reaches the common map without fabricating a city point', () => {
   const h = harness({ initialCountry: 'FR' }); h.expand();
-  for (const [label, component] of [['Sightseeing map', 'TravelNearby'], ['Essentials map', 'TravelNearby'], ['Transport', 'TravelTransit'], ['Offline map', 'TravelOfflineMap']]) {
+  for (const [label, component] of [['Map', 'TravelMap']]) {
     const child = find(h.choose(label), component);
     assert.equal(child.props.destinationCountry, 'FR');
     assert.equal(child.props.initialArea, undefined, 'A country is never treated as a precise search point');
     h.choose('All tools');
   }
   const h2 = harness({ initialCountry: 'GB' }); h2.expand();
-  assert.equal(find(h2.choose('Transport'), 'TravelTransit').props.destinationLabel, 'United Kingdom');
+  assert.equal(find(h2.choose('Map'), 'TravelMap').props.destinationCountry, 'GB');
   h2.choose('All tools');
   h2.render({ initialCountry: 'TR' });
-  assert.equal(find(h2.choose('Transport'), 'TravelTransit').props.destinationCountry, 'TR', 'A new explicit destination reaches retained screens');
+  assert.equal(find(h2.choose('Map'), 'TravelMap').props.destinationCountry, 'TR', 'A new explicit destination reaches retained screens');
 });
 
 test('Country guide keeps the six-fact entry, has one phrase action and routes laws/culture to Local tips', () => {
@@ -340,8 +461,9 @@ test('Country guide keeps the six-fact entry, has one phrase action and routes l
     {country:'TR',category:'law',title:{tr:'Kanun',en:'Law'},text:{tr:'Kural',en:'Law advice'}},
     {country:'TR',category:'culture',title:{tr:'Kültür',en:'Culture'},text:{tr:'Gelenek',en:'Culture advice'}},
   ] }); h.expand();
-  let view = h.choose('Country Guide');
+  let view = h.openGuide();
   assert.equal(find(view, 'CountryQuickFacts').props.country, 'TR');
+  assert.equal(find(view,'CountryQuickFacts').props.onOpenAll,undefined,'The guide cannot jump to another copy of the same notes');
   assert.equal(nodes(view).filter(node => node.type === 'button' && /Open useful phrases/.test(text(node))).length, 1);
   assert.equal(find(view, 'article'), undefined, 'Law and culture are no longer duplicated below practical facts');
   assert.doesNotMatch(text(view), /not ready|Phrases and cultural guidance|Law advice|Culture advice/);
@@ -365,7 +487,7 @@ test('Moving local advice out of the country guide preserves it even without a l
 });
 
 function nearbyComponent(props, provider='Apple Maps') {
-  const slots=[],effects=[],calls=[],opened=[];let cursor=0,view;
+  const slots=[],effects=[],calls=[],opened=[];let cursor=0,view;let activeProvider=provider;
   const now=Date.parse('2026-10-24T12:00:00.000Z');
   const places=load('lib/travel-assistant/places.ts',{});
   const responses=load('lib/travel-assistant/responses.ts',{});
@@ -381,10 +503,10 @@ function nearbyComponent(props, provider='Apple Maps') {
     '../../../lib/travel-assistant/places':places,'../../../lib/travel-assistant/responses':responses,
     '../lib/travelAssistant':{
       locateForTravel:async()=>{throw Error('This destination task must not request device location');},
-      loadPlaces:async(center,mode)=>{calls.push({center,mode});const id=provider==='Apple Maps'?'apple/LONDON_PHARMACY':'node/123';const fetchedAt=new Date(now).toISOString();return{
-        center,fetchedAt,radius:3000,limited:false,attribution:provider,
-        places:[{...center,id,category:'pharmacy',name:'Pharmacy fixture',description:null,hours:null,free:null,accessible:null,website:null,representedCountry:null,
-          sourceUrl:provider==='Apple Maps'?'https://maps.apple.com/place?place-id=LONDON_PHARMACY':'https://www.openstreetmap.org/node/123',fetchedAt}],
+      loadPlaces:async(center,mode)=>{calls.push({center,mode});const id=activeProvider==='Apple Maps'?'apple/LONDON_PHARMACY':'node/123';const fetchedAt=new Date(now).toISOString();return{
+        center,fetchedAt,radius:3000,limited:false,attribution:activeProvider,
+        places:[{...center,id,category:mode==='needs'?'pharmacy':'museum',name:mode==='needs'?'Pharmacy fixture':'Museum fixture',description:null,hours:null,free:null,accessible:null,website:null,representedCountry:null,
+          sourceUrl:activeProvider==='Apple Maps'?'https://maps.apple.com/place?place-id=LONDON_PHARMACY':'https://www.openstreetmap.org/node/123',fetchedAt}],
       };},directionsUrl:()=>'',
     },
     '../lib/i18n':{useI18n:()=>({locale:'en',copy:(_tr,en)=>en})},
@@ -398,20 +520,19 @@ function nearbyComponent(props, provider='Apple Maps') {
     click(label){const target=button(view,label);assert.ok(target,`Nearby action: ${label}`);assert.notEqual(target.props.disabled,true);target.props.onClick();return h.render();},
     category(value){find(view,'select').props.onChange({target:{value}});return h.render();},
     async search(){find(view,'TravelAreaPicker').props.onChange({latitude:51.51,longitude:-.13});h.render();h.click('Search selected area');await new Promise(setImmediate);return h.render();},
+    setProvider(value){activeProvider=value;},
     calls,opened,dispose(){slots.forEach(slot=>slot?.cleanup?.());},
   };
   h.render();return h;
 }
 
-test('Apple-only missing categories explain coverage and open an explicit same-area maps search, while consulates reach the existing tool',async()=>{
+test('Legacy Apple-only categories retain explicit coverage and source search recovery, while consulates reach the existing tool',async()=>{
   const app=harness({initialCountry:'GB'});app.expand();
-  const nearby=find(app.choose('Essentials map'),'TravelNearby');
-  assert.equal(typeof nearby.props.onEmbassies,'function');
-  const map=nearbyComponent(nearby.props);let view=await map.search();
+  const map=nearbyComponent({mode:'needs',citizenship:'',destinationCountry:'GB',onEmbassies:()=>{app.render({initialTool:'embassies'});app.render();}});let view=await map.search();
   assert.match(text(view),/Pharmacy fixture/);assert.equal(map.calls.length,1);
   for(const [category,query] of [['exchange','currency exchange'],['wifi','public wifi'],['embassy','embassy consulate']]){
     view=map.category(category);
-    assert.match(text(view),/This data source does not cover the selected category/);
+    assert.match(text(view),/This source does not cover the selected category separately/);
     assert.doesNotMatch(text(view),/No records match these filters/,'An unsupported category is not a confirmed empty search');
     map.click('Search in maps');
     const target=new URL(map.opened.at(-1));assert.equal(target.origin,'https://www.google.com');assert.equal(target.pathname,'/maps/search/');
@@ -420,9 +541,10 @@ test('Apple-only missing categories explain coverage and open an explicit same-a
   }
   map.click('Open consulate information');view=app.render();
   assert.equal(find(view,'TravelNearby'),undefined);
-  assert.equal(find(view,'EmbassyCards').props.country,'GB','The real parent callback keeps the selected destination');
-  assert.equal(find(view,'EmbassyCards').props.citizenship,'','Consulate access does not silently infer citizenship');
-  assert.equal(text(find(view,'h2')),'Consulate');
+  assert.equal(find(view,'TravelMap').props.destinationCountry,'GB','The real parent callback keeps the selected destination');
+  assert.equal(find(view,'TravelMap').props.initialSection,'embassies');
+  assert.equal(find(view,'EmbassyCards'),undefined,'The parent no longer renders a separate consulate surface');
+  assert.equal(text(find(view,'h2')),'Map');
   assert.deepEqual(app.phrases,[],'The consulate action must not navigate to phrases or an unrelated screen');
   map.dispose();
 });
@@ -508,4 +630,35 @@ test('TravelPointMap renders Apple and mixed saved points through JourneyMap whi
   assert.ok(find(osmView,'div',props=>props.className==='ta-map'&&/accessible list/.test(props['aria-label'])));
   assert.ok(effects>0,'OSM points retain the existing effect-driven Leaflet implementation');
   assert.equal(leafletCalls,0,'No renderer-choice test performs network work');
+});
+
+
+test('Apple capabilities disable unsupported categories and metadata filters while genuine results remain visible', async () => {
+  for (const mode of ['needs','explore']) {
+    const map = nearbyComponent({mode,citizenship:'TR',destinationCountry:'GB'});
+    let view=map.render();
+    const checks=nodes(view).filter(n=>n.type==='input'&&n.props.type==='checkbox');
+    for(const check of checks) check.props.onChange({target:{checked:true}});
+    map.category(mode==='needs'?'embassy':'palace'); view=await map.search();
+    const label=mode==='needs'?'Pharmacy fixture':'Museum fixture';
+    assert.match(text(view),new RegExp(label)); assert.match(text(view),/Showing all places/);
+    for(const check of nodes(view).filter(n=>n.type==='input'&&n.props.type==='checkbox')) { assert.equal(check.props.disabled,true); assert.equal(check.props.checked,false); }
+    const unsupported=mode==='needs'?['exchange','wifi','embassy']:['statue','palace','square','viewpoint'];
+    for(const value of unsupported) assert.equal(find(view,'option',p=>p.value===value).props.disabled,true,value);
+    assert.doesNotMatch(text(view),/No records match these filters/);
+    map.dispose();
+  }
+  const map=nearbyComponent({mode:'needs',citizenship:'TR',destinationCountry:'GB'},'© OpenStreetMap contributors');
+  let view=await map.search(); const check=nodes(view).find(n=>n.type==='input'&&n.props.type==='checkbox');
+  assert.notEqual(check.props.disabled,true);check.props.onChange({target:{checked:true}});view=map.render();
+  assert.match(text(view),/No records match these filters/,'OSM retains its existing metadata-filter semantics'); map.dispose();
+});
+
+test('Area selection and result maps are mutually exclusive and a completed search collapses the area map', async () => {
+  const map=nearbyComponent({mode:'needs',citizenship:'',destinationCountry:'GB'});
+  let view=map.render(); assert.equal(find(view,'TravelAreaPicker').props.mapOpen,false);
+  find(view,'TravelAreaPicker').props.onMapOpenChange(true);view=map.render(); assert.equal(find(view,'TravelPointMap'),undefined);
+  view=await map.search(); assert.equal(find(view,'TravelAreaPicker').props.mapOpen,false); assert.ok(find(view,'TravelPointMap'));
+  find(view,'TravelAreaPicker').props.onMapOpenChange(true);view=map.render(); assert.equal(find(view,'TravelPointMap'),undefined);assert.match(text(view),/Pharmacy fixture/);
+  find(view,'TravelAreaPicker').props.onMapOpenChange(false);view=map.render();assert.ok(find(view,'TravelPointMap'));map.dispose();
 });

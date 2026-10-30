@@ -3,8 +3,8 @@ import { DISCOVERY_DESTINATIONS, localizedDiscovery } from "../data/discovery";
 import { homeSearchDestinations } from "../data/homeDestinations";
 import { appRegionName, formatAppDate } from "./localeFormatting";
 import { normalizeSearchText } from "./searchText";
-import { searchableAppTools, type JourneyToolId, type TravelAssistantTool } from "./appTools";
-import type { AppLocale } from "./locale";
+import { searchableAppTools, travelMapSectionForTool, type JourneyToolId, type TravelAssistantTool } from "./appTools";
+import { translateCopy, type AppLocale } from "./locale";
 import type { SavedRoutePlan, ViewId } from "../types";
 import type { TravelToolArtworkKind } from "../components/TravelToolArtwork";
 import type { CockpitTrip } from "./supabaseData";
@@ -21,7 +21,7 @@ export type GlobalSearchResult = BaseResult & (
 );
 export type GlobalSearchKind = GlobalSearchResult["kind"];
 type Entry = { result: GlobalSearchResult; terms: string; names?: string[] };
-const locales: AppLocale[] = ["tr", "en", "sq"];
+const locales: AppLocale[] = ["tr", "en", "sq", "ro"];
 const catalogs = new Map<AppLocale, Entry[]>();
 const clean = (value: unknown) => typeof value === "string" ? value : "";
 
@@ -29,7 +29,7 @@ function catalog(locale: AppLocale): Entry[] {
   const cached = catalogs.get(locale);
   if (cached) return cached;
   const countries: Entry[] = ISO_3166.map(country => ({
-    result: { kind: "country", id: `country:${country.alpha3}`, countryCode: country.alpha3, title: appRegionName(country.alpha2, locale, country.name), subtitle: `${({ tr: "Ülke gündemi", en: "Country updates", sq: "Lajme nga shteti" })[locale]} · ${country.alpha2}` },
+    result: { kind: "country", id: `country:${country.alpha3}`, countryCode: country.alpha3, title: appRegionName(country.alpha2, locale, country.name), subtitle: `${translateCopy(locale, "Ülke gündemi", "Country updates", "Lajme nga shteti")} · ${country.alpha2}` },
     names: [country.name, ...locales.map(language => appRegionName(country.alpha2, language, country.name))],
     terms: [country.name, country.alpha2, country.alpha3, ...locales.map(language => appRegionName(country.alpha2, language, country.name))].join(" "),
   }));
@@ -54,9 +54,9 @@ function catalog(locale: AppLocale): Entry[] {
     });
   }
   const tools: Entry[] = searchableAppTools(locale).map(tool => ({
-    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: "tool" in tool ? tool.tool : undefined, journeyTool: "journeyTool" in tool ? tool.journeyTool : undefined, guide: "guide" in tool ? tool.guide : undefined, icon: tool.icon },
-    names: [...tool.title],
-    terms: [...tool.title, ...tool.caption, tool.keywords].join(" "),
+    result: { kind: "tool", id: `tool:${tool.id}`, title: tool.label, subtitle: tool.text, view: tool.view, tool: "tool" in tool ? travelMapSectionForTool(tool.tool) ? 'map' : tool.tool : undefined, journeyTool: "journeyTool" in tool ? tool.journeyTool : undefined, guide: "guide" in tool ? tool.guide : undefined, icon: tool.icon },
+    names: [tool.label, ...tool.title],
+    terms: [tool.label, tool.text, ...tool.title, ...tool.caption, tool.keywords].join(" "),
   }));
   const entries = [...tools, ...countries, ...cities.values()].map(entry => ({ ...entry, terms: normalizeSearchText(entry.terms), names: entry.names?.map(normalizeSearchText) }));
   catalogs.set(locale, entries);
@@ -91,7 +91,7 @@ export function searchApp(query: string, locale: AppLocale, savedRoutes: readonl
     const countryNames = /^[A-Z]{2}$/.test(code) ? locales.map(language => appRegionName(code, language, clean(item.destinationCountry))) : [];
     const country = countryNames[locales.indexOf(locale)] || clean(item.destinationCountry);
     const dates = [clean(item.startDate), clean(item.endDate)];
-    const title = clean(item.destinationCity) || country || ({ tr: "Seyahat", en: "Trip", sq: "Udhëtim" }[locale]);
+    const title = clean(item.destinationCity) || country || translateCopy(locale, "Seyahat", "Trip", "Udhëtim");
     const subtitle = [country, dates.map(dateLabel).filter(Boolean).join(" – ")].filter(Boolean).join(" · ");
     trips.set(item.id, {
       result: { kind: "saved-trip", id: `trip:${item.id}`, tripId: item.id, title, subtitle },

@@ -19,3 +19,5 @@
 .cockpit-edit-form { padding-bottom:16px; }
 .cockpit-edit-form .primary-wide { min-height:48px; }
 @media(max-width:380px) { .cockpit-journey-actions { flex-direction:column; }.cockpit-import-card,.cockpit-attached-route,.cockpit-attached-budget { padding:16px; } }
+.cockpit-journey-details .cockpit-budget-context-note { padding:12px 14px;border:1px solid var(--theme-border,#dce7f5);border-left:3px solid #e6b820;border-radius:12px;background:var(--theme-soft,#f4f7fc);font-size:13px;line-height:1.5; }
+.cockpit-journey-details .cockpit-budget-context-note p { margin:5px 0; }

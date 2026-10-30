@@ -1,3 +1,4 @@
+import { translateCopy } from "../lib/locale";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CountryPicker } from "./CountryPicker";
 import { Icon } from "./Icon";
@@ -39,7 +40,7 @@ export function VerificationForm({ accessToken, onSubmitted, onNotice }: Verific
   const countryOptions = useMemo(() => countries.map((country) => ({
     code: country.code,
     flagCode: country.code,
-    name: country.code === "XK" ? (locale === "en" ? "Kosovo" : "Kosova") : regionNames.of(country.code) || country.name,
+    name: country.code === "XK" ? (translateCopy(locale, "Kosova", "Kosovo", "Kosova")) : regionNames.of(country.code) || country.name,
   })), [countries, locale, regionNames]);
 
   useEffect(() => {

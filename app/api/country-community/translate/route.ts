@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     if (quota.data !== true) return rateLimited(60);
   } catch { return reply({ code: "unavailable" }, 503); }
 
-  const target = input.targetLanguage === "tr" ? "Turkish" : input.targetLanguage === "sq" ? "Albanian" : "English";
+  const target = input.targetLanguage === 'ro' ? 'Romanian (România)' : input.targetLanguage === "tr" ? "Turkish" : input.targetLanguage === "sq" ? "Albanian" : "English";
   const signal = AbortSignal.timeout(20_000);
   try {
     const client = new GoogleGenAI({ apiKey });

@@ -1,3 +1,4 @@
+import { translateCopy } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel } from "../../../lib/event-time";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -11,7 +12,8 @@ import { DISCOVERY_DESTINATIONS } from "../data/discovery";
 import { Sheet } from "../components/Sheet";
 import { LazyOverlay } from "../components/LazyOverlay";
 import { TripCollaborationHub } from "../components/TripCollaborationHub";
-import { TravelSavedPlaces } from "../components/TravelSavedPlaces";
+import { readPersonalMapPins, subscribePersonalMapPins } from "../lib/personalMapPins";
+import { listOpenMapPacks, subscribeOpenMapPacks } from "../lib/openMapOffline";
 import { readSafetyTrips, saveSafetyTrips, type SafetyTrip } from "../lib/journeyTools";
 import { PersonalTravelCards } from "../components/PersonalTravelCards";
 import { RouteBudgetAnalysis } from "../components/RouteBudgetAnalysis";
@@ -33,7 +35,7 @@ import {
 import type { AuthUser, PlannerInput, RoutePlan, RouteSuggestion, SavedRoutePlan, TravelEvent, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
 import { openExternal } from "../lib/native";
-import { queueRouteDelete, readRouteOutbox } from "../lib/routeOutbox";
+import { queueRouteDelete, readRouteOutbox, type RouteOutbox } from "../lib/routeOutbox";
 import { syncSavedRoutes } from "../lib/routeSync";
 import { cancelEventReminder } from "../lib/eventReminders";
 import { createRouteCockpitIntent, type RouteCockpitIntent } from "../lib/routeCockpitIntent";
@@ -48,6 +50,7 @@ import type { JourneyToolId } from "../lib/appTools";
 import { readOfflineMapStatus } from "../lib/offlineMaps";
 
 const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then((module) => ({ default: module.JourneyToolsHub })));
+const TravelMap = lazy(() => import("../components/TravelMap").then(module => ({ default: module.TravelMap })));
 const MapJourneyPlanner = lazy(() => import("../components/MapJourneyPlanner").then(module => ({ default: module.MapJourneyPlanner })));
 
 type PendingDelete =
@@ -64,7 +67,7 @@ type SelectedPlan = {
   plan: RoutePlan;
 };
 
-function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq"): SelectedPlan | null {
+function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq" | "ro"): SelectedPlan | null {
   const candidate = item.tripData?.plan;
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
   const record = candidate as Record<string, unknown>;
@@ -74,11 +77,11 @@ function cloudRoutePlan(item: UserTripData, locale: "tr" | "en" | "sq"): Selecte
   const input = item.tripData?.input;
   return {
     id: item.clientKey || `remote-${item.id}`,
-    title: item.title || item.destination || (locale === "tr" ? "Kayıtlı rota" : locale === "sq" ? "Rrugë e ruajtur" : "Saved route"),
+    title: item.title || item.destination || (translateCopy(locale, "Kayıtlı rota", "Saved route", "Rrugë e ruajtur")),
     createdAt: typeof item.tripData.saved_at === "string" ? item.tripData.saved_at : item.createdAt,
     input: input && typeof input === "object" && !Array.isArray(input) ? input as PlannerInput : undefined,
     plan: {
-      summary: typeof record.summary === "string" ? record.summary : (locale === "tr" ? "Kayıtlı rota önerin." : locale === "sq" ? "Sugjerimi yt i ruajtur i rrugës." : "Your saved route suggestion."),
+      summary: typeof record.summary === "string" ? record.summary : (translateCopy(locale, "Kayıtlı rota önerin.", "Your saved route suggestion.", "Sugjerimi yt i ruajtur i rrugës.")),
       routes: routes as RoutePlan["routes"],
     },
   };
@@ -92,7 +95,7 @@ function date(value: string, locale = "tr-TR") {
   }
 }
 
-export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, sectionRequestId = 0, guideRequest = 0, initialRouteId, onInitialRouteHandled, onOpenDestination, onOpenEvent, onOpenOfflineMap, onEditVisitedCountries, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
+export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, sectionRequestId = 0, guideRequest = 0, initialRouteId, onInitialRouteHandled, onOpenDestination, onOpenEvent, onOpenOfflineMap, onOpenCountryMap, onEditVisitedCountries, user, ownerId, accessToken, inviteCode, onInviteHandled, onOpenAccount, onNavigate, onNotice, onPrepareCockpit }: {
   onPrepareCockpit?: (intent: RouteCockpitIntent) => void;
   initialTool?: JourneyToolId;
   toolRequestId?: number;
@@ -102,6 +105,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   initialRouteId?: string;
   onInitialRouteHandled?: () => void;
   onOpenDestination: (code: string) => void;
+  onOpenCountryMap?: (alpha2: string) => void;
   onOpenEvent?: (id: string) => void;
   onOpenOfflineMap?: () => void;
   onEditVisitedCountries?: () => void;
@@ -119,7 +123,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const [favorites, setFavorites] = useState(() => getFavoriteDestinations(ownerId));
   const [libraryTab, setLibraryTab] = useState<LibrarySection>(inviteCode ? "shared" : initialTool ? "travel" : initialSection || "all");
   const [query, setQuery] = useState("");
-  const [sharedToolsOpen, setSharedToolsOpen] = useState(Boolean(inviteCode) || initialSection === "shared");
+  const [sharedEntry, setSharedEntry] = useState<"create" | "join" | undefined>();
   const localToolRequestCounter = useRef(0);
   const [consumedToolRequest, setConsumedToolRequest] = useState<{ tool: JourneyToolId; id: number } | null>(null);
   const [localToolRequest, setLocalToolRequest] = useState<{
@@ -143,11 +147,12 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
     if (changed) setLocalToolRequest(null);
     if (initialSection && changed) {
       setLibraryTab(initialSection); setQuery("");
-      if (initialSection === "shared") setSharedToolsOpen(true);
     }
     lastInitialSection.current = { section: initialSection, request: sectionRequestId };
   }, [initialSection, sectionRequestId]);
   const [savedPlaces, setSavedPlaces] = useState(() => readSavedPlaces(ownerId));
+  const [personalPins, setPersonalPins] = useState(() => readPersonalMapPins(ownerId));
+  const [routeQueue, setRouteQueue] = useState<RouteOutbox | null>(ownerId ? null : {});
   const [otherToolsOpen, setOtherToolsOpen] = useState(true);
   // A newer external request wins immediately, before its effect runs. Local
   // requests use negative IDs so reopening a tool cannot reuse an external ID.
@@ -161,9 +166,10 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const requestedTool = activeLocalToolRequest?.tool || externalTool;
   const requestedToolId = activeLocalToolRequest?.requestId ?? toolRequestId;
   useEffect(() => { setSavedPlaces(readSavedPlaces(ownerId)); return subscribeSavedPlaces(() => setSavedPlaces(readSavedPlaces(ownerId)), ownerId); }, [ownerId]);
+  useEffect(() => { setPersonalPins(readPersonalMapPins(ownerId)); return subscribePersonalMapPins(() => setPersonalPins(readPersonalMapPins(ownerId)), ownerId); }, [ownerId]);
   useEffect(() => {
     setLocalToolRequest(null);
-    if (inviteCode) { setLibraryTab("shared"); setSharedToolsOpen(true); }
+    if (inviteCode) { setLibraryTab("shared"); setSharedEntry("join"); }
     else if (initialTool) { setLibraryTab("travel"); setOtherToolsOpen(true); setQuery(""); }
   }, [inviteCode, initialTool, toolRequestId]);
   const [savedEvents, setSavedEvents] = useState<TravelEvent[]>([]);
@@ -207,12 +213,31 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
 
   const refreshLocal = useCallback(() => {
     let routeError = false, eventError = false;
-    try { setRoutes(getSavedRoutePlans(ownerId)); } catch { routeError = true; }
+    try { setRouteQueue(ownerId ? readRouteOutbox(ownerId) : {}); setRoutes(getSavedRoutePlans(ownerId)); }
+    catch { routeError = true; setRouteQueue(null); }
     setFavorites(getFavoriteDestinations(ownerId));
     try { setSavedEvents(getSavedTravelEvents(ownerId)); } catch { eventError = true; }
     setLocalReadError({ routes: routeError, events: eventError });
-    setOfflineStatus(readOfflineMapStatus());
   }, [ownerId]);
+
+  useEffect(() => {
+    let active = true, revision = 0;
+    const refresh = async () => {
+      const request = ++revision;
+      const legacy = readOfflineMapStatus();
+      try {
+        const packs = await listOpenMapPacks();
+        if (active && request === revision) setOfflineStatus(legacy.status === 'ready' ? { status: 'ready', count: legacy.count + packs.length } : { status: 'unavailable', count: null });
+      } catch { if (active && request === revision) setOfflineStatus({ status: 'unavailable', count: null }); }
+    };
+    const update = () => { void refresh(); };
+    void refresh();
+    const unsubscribe = subscribeOpenMapPacks(update);
+    window.addEventListener('storage', update);
+    window.addEventListener('focus', update);
+    window.addEventListener('l2t:storage-change', update);
+    return () => { active = false; revision++; unsubscribe(); window.removeEventListener('storage', update); window.removeEventListener('focus', update); window.removeEventListener('l2t:storage-change', update); };
+  }, []);
 
   useEffect(() => {
     refreshLocal();
@@ -311,9 +336,8 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
     } catch { onNotice(copy("Kayıt geri alınamadı. Depolama alanını kontrol edip tekrar dene.", "Could not restore this item. Check device storage and retry.")); }
   };
 
-  const routeQueue = ownerId ? readRouteOutbox(ownerId) : {};
-  const pendingRoutes = Object.values(routeQueue).filter(item => item.pending).length;
-  const cloudRoutes = cloudItems.filter((item) => item.mobileKind === "route_plan" && routeQueue[item.clientKey || ""]?.kind !== "delete" && !routes.some((route) => route.id === item.clientKey));
+  const pendingRoutes = Object.values(routeQueue || {}).filter(item => item.pending).length;
+  const cloudRoutes = routeQueue ? cloudItems.filter((item) => item.mobileKind === "route_plan" && routeQueue[item.clientKey || ""]?.kind !== "delete" && !routes.some((route) => route.id === item.clientKey)) : [];
   const searchText = normalizeSearchText(query);
   const matches = (...parts: (string | undefined)[]) => !searchText || normalizeSearchText(parts.filter(Boolean).join(" ")).includes(searchText);
   const visibleRoutes = routes.filter(item => matches(item.plan.summary, ...item.plan.routes.map(route => `${route.name} ${route.country}`)));
@@ -322,7 +346,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   const visibleFavorites = favorites.filter(country => matches(country.name, country.alpha3));
   const categories: { id: LibrarySection; icon: TravelToolArtworkKind; title: string; note: string; count: number }[] = [
     { id: "routes", icon: "explore", title: copy("Rotalarım", "My routes"), note: copy("Kaydettiğin gezi planları", "Your saved travel plans"), count: routes.length + cloudRoutes.length },
-    { id: "places", icon: "saved", title: copy("Yerlerim", "My places"), note: copy("Haritadan kaydettiğin yerler", "Places saved from the map"), count: savedPlaces.items.length },
+    { id: "places", icon: "saved", title: copy("Yerlerim", "My places"), note: copy("Kaydettiğin yerler ve kişisel işaretlerin", "Saved places and your personal pins", "Vendet dhe shenjat e tua të ruajtura"), count: savedPlaces.items.length + personalPins.items.length },
     { id: "events", icon: "events", title: copy("Etkinliklerim", "My events"), note: copy("Kaçırmak istemediklerin", "The things you don't want to miss"), count: savedEvents.length },
     { id: "countries", icon: "globe", title: copy("Ülkelerim", "My countries"), note: copy("Gitmek istediğin ülkeler", "Countries on your wishlist"), count: favorites.length },
   ];
@@ -347,16 +371,16 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
   return (
     <div className="screen saved-screen daily-saved plans-library">
       {libraryTab === "all" ? <>
-        <header className="plans-page-heading"><div><span>{copy("HAYALDEN YOLCULUĞA", "FROM IDEAS TO ADVENTURES")}</span><h1>{copy("Planların", "Your Plans")}</h1></div><span className="plans-heading-icon" aria-hidden="true"><TravelToolArtwork kind="trips" size={56}/></span></header>
-        <section className="plans-hero" aria-labelledby="plans-hero-title">
-          <div className="plans-hero-copy"><span className="plans-hero-kicker"><Icon name="compass" size={16}/>{copy("SIRADAKİ GÜZEL YOLCULUĞA", "FOR YOUR NEXT GREAT JOURNEY")}</span><h2 id="plans-hero-title">{copy("Bir hayalle başla.", "Start with a little daydream.")}<br/><span>{copy("Rotanı birlikte çizelim.", "Let's make it a plan.")}</span></h2><p>{copy("Zamanına, bütçene ve seyahat tarzına uygun bir rota oluştur.", "Build a route around your time, budget and travel style.")}</p><button type="button" className="plans-create-button" onClick={() => onNavigate("route")}><Icon name="plus" size={19}/>{copy("Yeni rota oluştur", "Create a new route")}<Icon name="chevron" size={18}/></button></div>
-        </section>
-        <button type="button" className="plans-trip-entry" onClick={() => onNavigate("cockpit")}><span className="plans-trip-icon"><TravelToolArtwork kind="trips" size={56}/></span><span><strong>{copy("Seyahatlerim", "My trips", "Udhëtimet e mia")}</strong><small>{copy("Uçuşun, tarihlerin ve hazırlık listen bir arada.", "Your flight, dates and checklist, together.")}</small></span><Icon name="chevron" size={20}/></button>
-        <TravelReadinessCard maps={{ count: offlineStatus?.count ?? null, loading: !offlineStatus, unavailable: offlineStatus?.status === "unavailable" }} onMaps={onOpenOfflineMap || (() => onNavigate("companion"))}/>
-        <section className="plans-collections" aria-labelledby="plans-collections-title"><div className="plans-section-heading"><div><h2 id="plans-collections-title">{copy("Kaydettiklerin", "Your saved discoveries")}</h2><p>{copy("Aklında kalan her şey, elinin altında.", "All the ideas you want to come back to.")}</p></div><Icon name="bookmark" size={20}/></div>
+        <header className="plans-page-heading"><div><span>{copy("HAYALDEN YOLCULUĞA", "FROM IDEAS TO ADVENTURES")}</span><h1>{copy("Planların", "Your Plans")}</h1></div><button type="button" className="plans-new-route" onClick={() => onNavigate("route")}><Icon name="plus" size={17}/>{copy("Yeni rota", "New route", "Itinerar i ri")}</button></header>
+        <nav className="plans-primary-actions" aria-label={copy("Planlarına eriş", "Open your plans", "Hap planet e tua")}>
+          <button type="button" onClick={() => onNavigate("cockpit")}><TravelToolArtwork kind="trips" size={37}/><strong>{copy("Seyahatler", "My trips", "Udhëtimet")}</strong></button>
+          <button type="button" onClick={() => { const heading = document.getElementById("plans-collections-title"); heading?.focus({ preventScroll: true }); heading?.scrollIntoView({ block: "start", behavior: "instant" }); }}><TravelToolArtwork kind="saved" size={37}/><strong>{copy("Kayıtlar", "Saved items", "Të ruajturat")}</strong></button>
+          <button type="button" onClick={() => { setSharedEntry(undefined); chooseSection("shared"); }}><TravelToolArtwork kind="community" size={37}/><strong>{copy("Ortak planlar", "Shared plans", "Planet e përbashkëta")}</strong></button>
+        </nav>
+        <section className="plans-collections" aria-labelledby="plans-collections-title"><div className="plans-section-heading"><div><h2 id="plans-collections-title" tabIndex={-1}>{copy("Kaydettiklerin", "Your saved discoveries")}</h2><p>{copy("Aklında kalan her şey, elinin altında.", "All the ideas you want to come back to.")}</p></div><Icon name="bookmark" size={20}/></div>
           <div className="plans-category-grid">{categories.map(item => {
             const pendingCount = item.id === "routes" && cloudLoading;
-            const unavailableCount = item.id === "places" ? Boolean(savedPlaces.error) : item.id === "routes" ? Boolean(cloudError) || localReadError.routes : item.id === "events" && localReadError.events;
+            const unavailableCount = item.id === "places" ? Boolean(savedPlaces.error || personalPins.error) : item.id === "routes" ? Boolean(cloudError) || localReadError.routes : item.id === "events" && localReadError.events;
             return <button type="button" className="plans-category" data-guide={item.id === "routes" ? "saved-library" : item.id === "countries" ? "saved-countries" : undefined} data-section={item.id} key={item.id} onClick={() => chooseSection(item.id)}>
               <span className="plans-category-picture" aria-hidden="true"><span className="plans-category-icon"><TravelToolArtwork kind={item.icon} size={72}/></span></span>
               <span className="plans-category-copy"><span className="plans-category-title"><strong>{item.title}</strong><span className="plans-category-count" aria-label={pendingCount ? copy("Kayıtlar yükleniyor", "Loading saved items") : unavailableCount ? copy("Liste okunamadı", "The list couldn't be read") : copy(`${item.count} kayıt`, `${item.count} saved`, `${item.count} të ruajtura`)}>{pendingCount ? "…" : unavailableCount ? "!" : item.count}</span></span><small>{item.note}</small>
@@ -366,13 +390,12 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
             </button>;
           })}</div>
         </section>
+        <TravelReadinessCard maps={{ count: offlineStatus?.count ?? null, loading: !offlineStatus, unavailable: offlineStatus?.status === "unavailable" }} onMaps={onOpenOfflineMap || (() => onNavigate("companion"))}/>
         <section className="plans-essentials" aria-labelledby="plans-essentials-title">
           <div className="plans-section-heading"><div><h2 id="plans-essentials-title">{copy("Yolculukta yanında", "Ready for the journey")}</h2><p>{copy("Küçük hazırlıklar, daha rahat bir seyahat.", "A little preparation goes a long way.")}</p></div></div>
           <div className="plans-tool-list">
             <button type="button" onClick={() => chooseSection("travel")}><span className="plans-tool-icon"><TravelToolArtwork kind="offline" size={56}/></span><span><strong>{copy("Kişisel kartlar ve seyahat araçları", "Personal cards & travel tools", "Kartat personale dhe mjetet e udhëtimit")}</strong><small>{copy("Otel kartın, dünya haritan ve güvenlik araçların", "Your hotel card, world map and safety tools", "Karta e hotelit, harta e botës dhe mjetet e sigurisë")}</small></span><Icon name="chevron" size={18}/></button>
-            <button type="button" onClick={() => { setLocalToolRequest(null); onNavigate("airports"); }}><span className="plans-tool-icon"><TravelToolArtwork kind="flight" size={56}/></span><span><strong>{copy("Havalimanı Rehberi", "Airport Guide", "Udhëzues aeroportesh")}</strong><small>{copy("Havalimanını bul, aktarmana hazırlan", "Find your airport and prepare for transfers", "Gjej aeroportin dhe përgatitu për tranzit")}</small></span><Icon name="chevron" size={18}/></button>
             <button type="button" onClick={openJournal}><span className="plans-tool-icon"><TravelToolArtwork kind="guide" size={56}/></span><span><strong>{copy("Seyahat günlüğüm", "Travel journal", "Ditari im i udhëtimit")}</strong><small>{copy("Anılarını ve gezi notlarını yaz", "Write your memories and travel notes", "Shkruaj kujtimet dhe shënimet e udhëtimit")}</small></span><Icon name="chevron" size={18}/></button>
-            <button type="button" onClick={() => { setSharedToolsOpen(true); chooseSection("shared"); }}><span className="plans-tool-icon"><TravelToolArtwork kind="community" size={56}/></span><span><strong>{copy("Ortak planlar", "Shared plans", "Planet e përbashkëta")}</strong><small>{copy("Arkadaşlarla planla, masrafları paylaş", "Plan with friends and share expenses")}</small></span><Icon name="chevron" size={18}/></button>
           </div>
         </section>
         <p className="plans-storage-note"><Icon name="offline" size={16}/>{copy("Bu cihazdaki rotalarını, yerlerini ve etkinliklerini internetsiz de açabilirsin.", "Routes, places and events on this device can also be opened offline.")}</p>
@@ -382,21 +405,19 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
       {((localReadError.routes && (libraryTab === "all" || libraryTab === "routes")) || (localReadError.events && (libraryTab === "all" || libraryTab === "events"))) && <div className="daily-load-error" role="status"><p>{copy("Cihazdaki kayıtların kontrol edilemedi. Kayıtların değiştirilmedi; yeniden okuyabilirsin.", "On-device records could not be checked. Nothing was changed; you can retry reading them.", "Regjistrimet në pajisje nuk u kontrolluan. Asgjë nuk u ndryshua; provo t’i lexosh përsëri.")}</p><button type="button" onClick={refreshLocal}>{copy("Yeniden oku", "Read again", "Lexo përsëri")}</button></div>}
       {selectedCategory && libraryTab !== "places" && selectedCategory.count > 0 && <label className="daily-library-search"><Icon name="search" size={20}/><span className="sr-only">{copy("Kayıtlarında ara", "Search saved items")}</span><input type="search" value={query} placeholder={copy("Kayıtlarında ara…", "Search your saved items…")} onChange={event => setQuery(event.target.value)}/>{query && <button type="button" onClick={() => setQuery("")} aria-label={copy("Aramayı temizle", "Clear search")}><Icon name="close" size={17}/></button>}</label>}
       {selectedCategory && libraryTab !== "places" && searchText && visibleCount === 0 && <div className="daily-search-empty" role="status"><p>{copy("Bu aramayla eşleşen kaydın yok.", "No saved items match this search.")}</p><button type="button" onClick={() => setQuery("")}>{copy("Aramayı temizle", "Clear search")}</button></div>}
-      {libraryTab === "places" && <div className="travel-assistant"><TravelSavedPlaces key={ownerId || "guest"} ownerId={ownerId} onExplore={() => onNavigate("companion")} onExploreLabel={copy("Seyahat Asistanını aç", "Open Travel Assistant")}/></div>}
+      {libraryTab === "places" && <div className="travel-assistant"><Suspense fallback={<p role="status">{copy("Yerlerin açılıyor…", "Opening your places…", "Po hapen vendet e tua…")}</p>}><TravelMap key={ownerId || "guest"} ownerId={ownerId} initialSection="saved"/></Suspense></div>}
       {(libraryTab === "travel" || libraryTab === "shared") && <section className="saved-travel-tools">
       {libraryTab === "travel" && <PersonalTravelCards ownerId={ownerId} trips={cardTrips.map(trip => ({ id: trip.id, title: trip.destinationCity || trip.destinationCountry, startDate: trip.startDate }))}/>}
-      {libraryTab === "shared" && <details className="daily-featured-disclosure" open={sharedToolsOpen} onToggle={event => setSharedToolsOpen(event.currentTarget.open)}><summary><Icon name="users" size={18}/>{copy("Ortak seyahat planları", "Shared trip plans")}<Icon name="chevron" size={16}/></summary>
-      {sharedToolsOpen && (user && accessToken ? <TripCollaborationHub
+      {libraryTab === "shared" && (user && accessToken ? <TripCollaborationHub
         key={user.id}
         accessToken={accessToken}
         userId={user.id}
         refreshKey={cloudItems.map((item) => `${item.id}:${item.createdAt}`).join("|")}
         initialInviteCode={inviteCode}
+        initialEntry={sharedEntry}
         onInviteHandled={onInviteHandled}
         onNotice={onNotice}
       /> : <button className={`trips-collaboration-entry${inviteCode ? " has-invite" : ""}`} type="button" onClick={onOpenAccount}><span className="plans-collaboration-artwork"><TravelToolArtwork kind="community" size={56}/></span><div><small>{inviteCode ? copy("DAVETİN HAZIR", "YOUR INVITE IS READY") : copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><strong>{inviteCode ? copy("Katılmak için hesabına giriş yap", "Sign in to join the trip") : copy("Arkadaşlarınla aynı seyahate katıl", "Join the same trip with friends")}</strong><p>{inviteCode ? copy("Giriş yaptıktan sonra davet otomatik açılacak; kodu yeniden girmeyeceksin.", "Your invitation will open automatically after sign-in—no need to enter the code again.") : copy("Davet bağlantısı, oylama ve ortak masraflar için giriş yap.", "Sign in for invitations, voting and shared expenses.")}</p></div><Icon name="chevron" size={17} /></button>)}
-
-      </details>}
       {libraryTab === "travel" && <details className="daily-featured-disclosure" open={otherToolsOpen} onToggle={event => setOtherToolsOpen(event.currentTarget.open)}><summary><Icon name="compass" size={18}/>{copy("Diğer seyahat araçları", "Other travel tools")}<Icon name="chevron" size={16}/></summary>
       {otherToolsOpen && <Suspense fallback={<section className="journey-tools-loading" role="status" aria-live="polite"><span className="button-loader dark" /><div><strong>{copy("Seyahat araçların hazırlanıyor", "Preparing your travel tools")}</strong><small>{copy("Yalnız gerekli bölüm yükleniyor.", "Only the required section is loading.")}</small></div></section>}>
         <JourneyToolsHub tripOptions={cardTrips} onEditVisitedCountries={onEditVisitedCountries} onOpenAccount={onOpenAccount} initialTool={requestedTool} toolRequestId={requestedToolId} user={user} ownerId={ownerId} accessToken={accessToken} onNavigate={onNavigate} onNotice={onNotice} />
@@ -431,7 +452,7 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
         {pendingRoutes > 0 && <div className="info-box" role="status"><p>{copy(`${pendingRoutes} kayıt işlemi eşitleme bekliyor.`, `${pendingRoutes} changes waiting to sync.`)}</p><button type="button" className="secondary-wide" onClick={() => { if (ownerId && accessToken) void syncSavedRoutes(ownerId, accessToken).catch(() => onNotice(copy("Bağlantı kurulamadı; kayıtlar cihazda korundu.", "Could not connect; on-device records were kept."))); }}>{copy("Tekrar dene", "Retry")}</button></div>}
         {visibleRoutes.map((saved) => <article className="saved-card" key={saved.id}>
           <div className="saved-card-head"><img className="saved-route-thumbnail" src={destinationArtwork(saved.plan.routes[0]?.destinationCode)} alt="" loading="lazy" width="64" height="54" /><button className="saved-card-open" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}><small>{date(saved.createdAt, dateLocale)} · {saved.input?.days}</small><strong>{saved.plan.routes.map((route) => route.name).join(" · ")}</strong></button><button disabled={Boolean(busyCloud)} onClick={() => setPendingDelete({ kind: "route", item: saved })} aria-label={copy("Rotayı sil", "Delete route")}><Icon name="trash" size={18} /></button></div>
-          <small role="status">{!ownerId ? copy("Bu cihazda", "On this device") : routeQueue[saved.id]?.pending || !routeQueue[saved.id] ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesaba kaydedildi", "Saved to account")}</small>
+          <small role="status">{!ownerId ? copy("Bu cihazda", "On this device") : routeQueue?.[saved.id]?.pending || !routeQueue?.[saved.id] ? copy("Eşitleme bekliyor", "Waiting to sync") : copy("Hesaba kaydedildi", "Saved to account")}</small>
           <small className="saved-route-updated">{copy("Çevrimdışı kopya · Son kayıt:", "Offline copy · Last saved:", "Kopje pa internet · Ruajtur së fundmi:")} <time dateTime={saved.createdAt}>{formatAppDate(new Date(saved.createdAt), dateLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></small>
           <p><RouteTranslation text={saved.plan.summary} sourceLocale={saved.plan.routes[0]?.mapJourney?.planning?.locale} accessToken={accessToken}/></p>
           <button className="saved-card-detail-action" data-guide="saved-route-open" onClick={() => setSelectedPlan({ id: saved.id, title: saved.plan.routes.map((route) => route.name).join(" · "), createdAt: saved.createdAt, input: saved.input, plan: saved.plan })}>{copy("Planı aç", "Open plan")} <Icon name="chevron" size={16} /></button>
@@ -461,8 +482,9 @@ export function TripsScreen({ initialTool, toolRequestId = 0, initialSection, se
         {unavailableCountry && <div className="saved-plan-detail">
           <CountryFlag code={alpha2FromAlpha3(unavailableCountry.alpha3)} label={unavailableCountry.name}/>
           <h3>{copy("Bu ülke için hazır rota henüz yok", "No ready-made route for this country yet")}</h3>
-          <p>{copy("Ülke favorilerinde kayıtlı kalıyor. Rota Asistanı'nda tercihlerinle farklı destinasyon önerileri bulabilirsin.", "This country stays in your favourites. You can find ideas for other destinations with your preferences in Route Assistant.")}</p>
-          <button type="button" className="primary-wide" onClick={() => { setUnavailableCountry(null); onNavigate("route"); }}>{copy("Farklı rota fikirleri bul", "Find other route ideas")}</button>
+          <p>{copy("Ülke favorilerinde kayıtlı kalıyor. Haritada yerlerini keşfedip kaydedebilir ve kendi gezi sıranı oluşturabilirsin.", "This country stays in your favourites. Explore its places on the map, save them and make your own day list.", "Ky shtet mbetet te të preferuarat. Eksploro vendet e tij në hartë, ruaji dhe krijo rendin tënd të vizitave.")}</p>
+          {onOpenCountryMap && <button type="button" className="primary-wide" onClick={() => { const country = alpha2FromAlpha3(unavailableCountry.alpha3); setUnavailableCountry(null); onOpenCountryMap(country); }}>{copy("Bu ülkeyi haritada keşfet", "Explore this country on the map", "Eksploro këtë shtet në hartë")}</button>}
+          <button type="button" className="secondary-wide" onClick={() => { setUnavailableCountry(null); onNavigate("route"); }}>{copy("Farklı rota fikirleri bul", "Find other route ideas")}</button>
           <button type="button" className="secondary-wide" onClick={() => setUnavailableCountry(null)}>{copy("Favorilerime dön", "Back to favourites")}</button>
         </div>}
       </Sheet>
@@ -496,6 +518,7 @@ function DeleteConfirmation({ pending, account, onCancel, onConfirm }: {
 
 function PlanDetail({ selected, accessToken, onClose, onPrepareCockpit, onOpenMap }: { selected: SelectedPlan | null; accessToken: string; onClose: () => void; onPrepareCockpit?: (index: number) => void; onOpenMap?: (journey: MapJourney) => void }) {
   const { copy, dateLocale, locale } = useI18n();
+  const normalizedSummary = typeof selected?.plan.summary === 'string' ? selected.plan.summary.normalize('NFC').replace(/\s+/g, ' ').trim() : null;
   const displayRoutes = selected?.plan.routes.map(route => {
     const display = savedRouteDisplay(route, locale);
     return route.mapJourney ? display : { ...display, ...plannerEntry(normalizePlannerPassport(selected.input || {}), route.country, locale) };
@@ -507,7 +530,7 @@ function PlanDetail({ selected, accessToken, onClose, onPrepareCockpit, onOpenMa
       {selected.input?.party && <p className="saved-planner-preferences">{copy(`${selected.input.party.adults} yetişkin, ${selected.input.party.children} çocuk`, `${selected.input.party.adults} adults, ${selected.input.party.children} children`, `${selected.input.party.adults} të rritur, ${selected.input.party.children} fëmijë`)}{selected.input.party.children > 0 ? ` · ${copy("Çocuk yaşları", "Child ages", "Moshat e fëmijëve")}: ${selected.input.party.childAges.join(", ")}` : ""} · {selected.input.tier === "economy" ? copy("Ekonomik", "Economy", "Ekonomik") : selected.input.tier === "plus" ? "Plus" : copy("Orta", "Balanced", "Mesatar")}</p>}
       {displayRoutes.map((route, index) => <article key={`${route.name}-${index}`}>
         <div className="saved-plan-route-head"><span>{index + 1}</span><div><small>{route.mapJourney ? copy('Haritalı günlük plan','Daily map itinerary','Program ditor në hartë') : `${route.country} · ${route.visaStatus}`}</small><strong>{route.name}</strong></div></div>
-        <p><RouteTranslation text={route.why} sourceLocale={route.mapJourney?.planning && !route.mapJourney.planning.edited ? route.mapJourney.planning.locale : route.mapJourney ? locale : undefined} accessToken={accessToken}/></p>
+        {(typeof route.why !== 'string' || route.why.normalize('NFC').replace(/\s+/g, ' ').trim() !== normalizedSummary) && <p><RouteTranslation text={route.why} sourceLocale={route.mapJourney?.planning && !route.mapJourney.planning.edited ? route.mapJourney.planning.locale : route.mapJourney ? locale : undefined} accessToken={accessToken}/></p>}
         {route.mapJourney && onOpenMap && <button className="primary-wide" onClick={() => onOpenMap(route.mapJourney!)}><Icon name="map" size={18}/>{copy('Haritada aç ve düzenle','Open and edit on map','Hap dhe ndrysho në hartë')}</button>}
         {onPrepareCockpit && <button type="button" className="primary-wide" onClick={() => onPrepareCockpit(index)}><Icon name="calendar" size={18}/>{copy("Bu rotayı seyahatlerime ekle", "Add this route to My trips", "Shto këtë itinerar te Udhëtimet e mia")}</button>}
         {route.visaNote && <p><RouteTranslation text={route.visaNote} accessToken={accessToken}/></p>}

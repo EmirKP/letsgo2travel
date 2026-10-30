@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 const require=createRequire(import.meta.url);
-require('ts-node').register({transpileOnly:true,compilerOptions:{module:'CommonJS',moduleResolution:'node',esModuleInterop:true}});
+require('ts-node').register({transpileOnly:true,moduleTypes:{'**':'cjs'},compilerOptions:{module:'CommonJS',moduleResolution:'node',esModuleInterop:true}});
 const {runFlightRefreshCron}=require('../lib/flight-refresh-cron.ts');
 const {flightLookupSettings}=require('../lib/flight-lookup-access.ts');
 const clock=Date.parse('2026-09-28T10:00Z'), trip='10000000-0000-4000-8000-000000000001', owner='20000000-0000-4000-8000-000000000001',lease='30000000-0000-4000-8000-000000000001';

@@ -1,3 +1,4 @@
+import { translateCopy, translateTuple } from "../lib/locale";
 import { ISO_3166 } from "./countries";
 import cappadociaImage from "../assets/home-reference/cappadocia.webp";
 import parisImage from "../assets/community-reference/region-europe.webp";
@@ -9,7 +10,7 @@ import oceaniaImage from "../assets/community-reference/region-oceania.webp";
 
 export type CommunityRegionId = "all" | "turkey" | "europe" | "asia" | "americas" | "middle-east" | "africa" | "oceania";
 type CountryRegionId = Exclude<CommunityRegionId, "all">;
-type Locale = "tr" | "en" | "sq";
+type Locale = "tr" | "en" | "sq" | "ro";
 
 export type CommunityRegion = {
   id: CommunityRegionId;
@@ -48,9 +49,9 @@ export function communityRegions(locale: Locale = "tr"): CommunityRegion[] {
     const artwork = REGION_IMAGES[id];
     return {
       id,
-      label: locale === "sq" ? SQ_LABELS[id] : locale === "en" ? en : tr,
+      label: locale === "sq" ? SQ_LABELS[id] : translateCopy(locale, tr, en, tr),
       ...(artwork ? { image: artwork.image } : {}),
-      ...(artwork?.location ? { imageLocation: artwork.location[locale === "sq" ? 2 : locale === "en" ? 1 : 0] } : {}),
+      ...(artwork?.location ? { imageLocation: translateTuple(locale, artwork.location) } : {}),
     };
   });
 }

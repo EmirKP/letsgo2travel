@@ -93,16 +93,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     locale, setLocale, pendingLocale, failedLocale, ...localized,
   }), [locale, setLocale, pendingLocale, failedLocale, localized]);
 
-  return <I18nContext.Provider value={value}>{ready ? children : <main className="locale-startup" lang="sq" aria-busy={pendingLocale !== null}>
+  const startupRomanian = locale === 'ro';
+  return <I18nContext.Provider value={value}>{ready ? children : <main className="locale-startup" lang={locale} aria-busy={pendingLocale !== null}>
     <strong className="locale-startup-brand">LetsGo<span>2</span>Travel</strong>
     {failedLocale ? <>
-      <p role="alert">Gjuha nuk u ngarkua. Provo përsëri ose zgjidh një gjuhë tjetër.</p>
+      <p role="alert">{startupRomanian ? 'Limba nu s-a încărcat. Încearcă din nou sau alege altă limbă.' : 'Gjuha nuk u ngarkua. Provo përsëri ose zgjidh një gjuhë tjetër.'}</p>
       <div className="locale-startup-actions">
-        <button type="button" onClick={() => void setLocale('sq')}>Provo përsëri</button>
+        <button type="button" onClick={() => void setLocale(locale)}>{startupRomanian ? 'Încearcă din nou' : 'Provo përsëri'}</button>
         <button type="button" lang="en" onClick={() => void setLocale('en')}>English</button>
         <button type="button" lang="tr" onClick={() => void setLocale('tr')}>Türkçe</button>
       </div>
-    </> : <p role="status">Duke ngarkuar gjuhën…</p>}
+    </> : <p role="status">{startupRomanian ? 'Se încarcă limba…' : 'Duke ngarkuar gjuhën…'}</p>}
   </main>}</I18nContext.Provider>;
 }
 

@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 function load(path, imports, globals = {}) {
   const out = { exports: {} };
@@ -10,7 +11,7 @@ function load(path, imports, globals = {}) {
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URLSearchParams, AbortSignal, ...globals })(name => {
     if (name.endsWith('.css')) return {};
     if (name in imports) return imports[name];
-    throw Error(`Missing import: ${name}`);
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;throw Error(`Missing import: ${name}`);
   }, out, out.exports);
   return out.exports;
 }
@@ -72,9 +73,10 @@ const nodes = value => !value || typeof value !== 'object' ? [] : [value, ...[va
 const text = value => Array.isArray(value) ? value.map(text).join('') : value?.props ? text(value.props.children) : typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 const tick = () => new Promise(setImmediate);
 const result = title => ({ data: { weather: { temperature: 20, apparentTemperature: 19, precipitation: 0, description: 'Clear', localTime: '2026-10-11T12:00' }, recommendations: [{ id: title, title, reason: 'Current selection', duration: '1h', mapQuery: title, indoor: true }], privacy: 'Approximate location only.' } });
-function harness() {
-  const slots = [], geolocations = [], requests = [], contexts = [], openedEvents = [], notices = [];
-  let cursor = 0, locale = 'en', dirty = false, effects = [], tree;
+function harness({native = false} = {}) {
+  const slots = [], geolocations = [], requests = [], contexts = [], openedEvents = [], notices = [], mapSearches = [];
+  const centres = [{name:'Paris',latitude:48.86,longitude:2.35},{name:'Tirana',latitude:41.33,longitude:19.82}];
+  let cursor = 0, locale = 'en', dirty = false, effects = [], tree, mounted = true;
   const react = {
     useState(initial) { const at = cursor++; slots[at] ||= { value: typeof initial === 'function' ? initial() : initial }; return [slots[at].value, next => { const value = typeof next === 'function' ? next(slots[at].value) : next; if (!Object.is(value, slots[at].value)) { slots[at].value = value; dirty = true; } }]; },
     useRef(initial) { const at = cursor++; return slots[at] ||= { current: initial }; },
@@ -83,9 +85,11 @@ function harness() {
     lazy: () => 'TravelAssistant', Suspense: 'Suspense',
   };
   const profile = { code: 'XK', phrases: [], etiquette: [] };
-  const api = load('mobile/src/screens/TravelCompanionScreen.tsx', {
+  const api = load('mobile/src/components/MapNearbyIdeas.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
-    '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    './Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
+    '../lib/travelAreas': { TRAVEL_CENTRES: centres },
+    '../components/TravelAreaPicker': { TravelAreaPicker: 'TravelAreaPicker' }, '../lib/capacitor': { isNativePlatform: () => native },
     '../components/PageHero': { PageHero: 'PageHero' }, '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../data/countries': { COUNTRY_LIST: [] }, '../data/countryIso': { alpha2FromAlpha3: code => code, flagEmoji: () => '' },
     '../data/travelEssentials': { TRAVEL_ESSENTIALS: [], essentialProfile: () => profile, fallbackEssentialProfile: () => profile },
@@ -96,9 +100,10 @@ function harness() {
     '../components/TravelSafety': { EvidenceLine: 'EvidenceLine' },
   }, { navigator: { geolocation: { getCurrentPosition: (success, error) => geolocations.push({ success, error }) } }, window: { requestAnimationFrame: () => {} } });
   const render = () => {
+    if (!mounted) return tree = {type:'button',props:{children:'Around me',onClick(){mounted=true;slots.length=0;}}};
     for (let count = 0; count < 10; count++) {
       cursor = 0; dirty = false; effects = [];
-      tree = api.TravelCompanionScreen({ initialTab: 'now', accessToken: '', onSignIn: () => {}, onNavigate: () => {}, onOpenEvents:context=>openedEvents.push(context), onNotice:message=>notices.push(message) });
+      tree = api.MapNearbyIdeas({ onSearch:(query,center,category)=>mapSearches.push({query,center,category}), onOpenEvents:context=>openedEvents.push(context), onNotice:message=>notices.push(message) });
       effects.forEach(fn => fn());
       if (!dirty) return tree;
     }
@@ -107,14 +112,16 @@ function harness() {
   const button = label => nodes(tree).find(n => n.type === 'button' && (text(n).trim() === label || text(n.props.children?.[1]?.props?.children?.[0]) === label));
   render();
   return {
-    requests, geolocations, contexts, openedEvents, notices, render, get tree() { return tree; }, get text() { return text(tree); },
-    start() { const button = nodes(tree).find(n => n.props?.className === 'now-locate-button'); button.props.onClick(); render(); },
-    choose(label) { const control = button(label); assert.ok(control, `Button ${label}`); control.props.onClick(); return render(); },
+    requests, geolocations, contexts, openedEvents, notices, mapSearches, render, get tree() { return tree; }, get text() { return text(tree); },
+    start() { const button = nodes(tree).find(n => n.props?.className?.split(' ').includes('now-locate-button')); button.props.onClick(); render(); },
+    choose(label) { if(label==='Tools'){slots.forEach(slot=>slot.cleanup?.());mounted=false;return render();} const control = button(label); assert.ok(control, `Button ${label}`); control.props.onClick(); return render(); },
     locate(at = geolocations.length - 1) { geolocations[at].success({ coords: { latitude: 41.01234, longitude: 28.98765 } }); return render(); },
+    deny() { geolocations.at(-1).error({code:1}); return render(); },
+    area(point) { const city=centres.find(c=>Math.round(point.latitude*100)/100===c.latitude&&Math.round(point.longitude*100)/100===c.longitude);assert.ok(city);nodes(tree).find(n=>n.type==='select').props.onChange({target:{value:city.name}});return render(); },
     language(value) { locale = value; return render(); },
     async settle() { await tick(); return render(); },
-    unmount() { slots.forEach(slot => slot.cleanup?.()); },
-    get loading() { return nodes(tree).find(n => n.props?.className === 'now-locate-button')?.props.disabled; },
+    unmount() { slots.forEach(slot => slot.cleanup?.()); mounted=false; },
+    get loading() { return nodes(tree).find(n => n.props?.className?.split(' ').includes('now-locate-button'))?.props.disabled; },
   };
 }
 
@@ -171,8 +178,8 @@ test('Leaving the section and unmounting fence both GPS callbacks and weather re
 
 test('Repeated clicks share one location attempt and current failures allow a clean retry', async () => {
   const h = harness(); h.start(); h.start(); assert.equal(h.geolocations.length, 1);
-  h.geolocations[0].error({ code: 1 }); h.render(); assert.equal(h.loading, false); assert.match(h.text, /permission was denied/);
-  h.start(); assert.doesNotMatch(h.text, /permission was denied/); h.locate(); h.requests[0].reject(Error('offline')); await h.settle();
+  h.geolocations[0].error({ code: 1 }); h.render(); assert.equal(h.loading, false); assert.match(h.text, /browser blocked location/);
+  h.start(); assert.doesNotMatch(h.text, /browser blocked location/); h.locate(); h.requests[0].reject(Error('offline')); await h.settle();
   assert.equal(h.loading, false); assert.match(h.text, /could not be prepared/);
   h.start(); h.locate(); h.requests[1].resolve(result('Recovered')); await h.settle(); assert.match(h.text, /Recovered/); assert.doesNotMatch(h.text, /could not be prepared/);
 });
@@ -196,4 +203,36 @@ test('Leaving the current-area task fences pending nearby-event successes and fa
     await h.settle();
     assert.equal(h.openedEvents.length,0);assert.equal(h.notices.length,0);
   }
+});
+
+
+test('Denied browser/native location leaves manual city suggestions fully usable without another GPS request', async () => {
+  for (const native of [false, true]) {
+    const h = harness({native}); h.start(); h.deny();
+    assert.match(h.text, native ? /device settings/ : /address bar/);
+    assert.match(h.text, /choose a city to continue/);
+    h.area({latitude:48.8566,longitude:2.3522}); h.choose('Suggest for selected area');
+    assert.equal(h.geolocations.length, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.requests[0].input)), {latitude:48.86,longitude:2.35,budget:'low',interest:'culture',locale:'en'});
+    h.requests[0].resolve(result('Paris manual suggestion')); await h.settle();
+    assert.match(h.text,/Paris manual suggestion/); assert.doesNotMatch(h.text,/permission was denied|browser blocked/); h.unmount();
+  }
+});
+
+test('A manual area selection fences old GPS and weather results and uses the same event context as GPS', async () => {
+  const h = harness(); h.start(); h.area({latitude:48.86,longitude:2.35}); h.locate(0);
+  assert.equal(h.requests.length, 0, 'An abandoned GPS callback cannot issue weather requests');
+  h.choose('Suggest for selected area'); h.area({latitude:41.33,longitude:19.82}); h.choose('Suggest for selected area');
+  h.requests[0].reject(Error('old area')); await h.settle(); assert.equal(h.loading,true);
+  h.requests[1].resolve(result('Tirana manual suggestion')); await h.settle();
+  assert.match(h.text,/Tirana manual suggestion/); assert.doesNotMatch(h.text,/could not be prepared/);
+  h.choose('See nearby events too'); assert.deepEqual(JSON.parse(JSON.stringify(h.contexts[0].center)),{latitude:41.33,longitude:19.82}); h.unmount();
+});
+
+test('Live suggestions search actual map categories and event recommendations use the same nearby Event Radar context', async()=>{
+ const h=harness();h.start();h.locate();
+ h.requests[0].resolve({data:{...result('Unused').data,recommendations:[{id:'museum',title:'Museum idea',reason:'Rain',duration:'1h',mapQuery:'museum',indoor:true},{id:'calm',title:'Cafe idea',reason:'Rest',duration:'1h',mapQuery:'quiet cafe library',indoor:true},{id:'event',title:'Event idea',reason:'Today',duration:'Varies',mapQuery:'events today',indoor:true}]}});await h.settle();
+ h.choose('Museum idea');h.choose('Cafe idea');
+ assert.deepEqual(JSON.parse(JSON.stringify(h.mapSearches)),[{query:'',center:{latitude:41.01,longitude:28.99},category:'museum'},{query:'',center:{latitude:41.01,longitude:28.99},category:'cafe'}]);
+ h.choose('Event idea');assert.equal(h.contexts.length,1);assert.equal(h.mapSearches.length,2);
 });

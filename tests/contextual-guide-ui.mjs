@@ -13,28 +13,45 @@ function load(file,imports,globals={}) {
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`,globals)(name=>name.endsWith('.css')?{}:imports[name],fixture,fixture.exports);
   return fixture.exports;
 }
-function harness(view = 'home', { task, intent, navigationTop } = {}) {
-  const slots=[];let cursor,dirty,effects,tree,active=true,paused=false,revision=0,frames=[];const observers=new Set(),windowEvents=new Map(),docEvents=new Map(),examples=[];
+function harness(view = 'home', { task, intent, navigationTop, initialProgress, initialActive = true } = {}) {
+  const slots=[];let cursor,dirty,effects,tree,active=initialActive,paused=false,keyboardOpen=false,revision=0,frames=[];const observers=new Set(),windowEvents=new Map(),docEvents=new Map(),examples=[];
   const react={
     useState(initial){const i=cursor++;if(!slots[i])slots[i]={value:typeof initial==='function'?initial():initial};return[slots[i].value,next=>{const v=typeof next==='function'?next(slots[i].value):next;if(!Object.is(v,slots[i].value)){slots[i].value=v;dirty=true;}}];},
     useCallback(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((v,j)=>!Object.is(v,old.deps[j])))slots[i]={value:fn,deps};return slots[i].value;},
     useEffect(fn,deps){const i=cursor++,old=slots[i];if(!old||deps.some((v,j)=>!Object.is(v,old.deps[j]))){slots[i]={...old,deps};effects.push(()=>{old?.cleanup?.();slots[i].cleanup=fn();});}},
   };
   const store=new Map(),storage={getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)};
-  const progress=load('mobile/src/lib/appGuide.ts',{}, {window:{localStorage:storage}});progress.saveGuideProgress({active:true,seen:[]});
+  const progress=load('mobile/src/lib/appGuide.ts',{}, {window:{localStorage:storage}});progress.saveGuideProgress(initialProgress || {active:true,seen:[]});
   const body={},sheet={getBoundingClientRect:()=>({top:40,left:0,width:390,height:700})},targets=[];
   const nav={closest:()=>null,getClientRects:()=>[{}],getBoundingClientRect:()=>({top:navigationTop})};
   const doc={body,querySelectorAll:selector=>selector==='nav.bottom-nav'?(navigationTop?[nav]:[]):targets.filter(t=>`[data-guide="${t.guide}"]`===selector),addEventListener:(key,fn)=>docEvents.set(key,fn),removeEventListener:key=>docEvents.delete(key)};
   const win={innerWidth:390,innerHeight:844,requestAnimationFrame:fn=>{frames.push(fn);return frames.length;},cancelAnimationFrame:()=>{},addEventListener:(key,fn)=>windowEvents.set(key,fn),removeEventListener:key=>windowEvents.delete(key)};
   class Observer { constructor(fn){this.fn=fn;}observe(){observers.add(this);}disconnect(){observers.delete(this);} }
   const {AppGuide}=load('mobile/src/components/AppGuide.tsx',{react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:(children,host)=>({type:'portal',props:{children,host}})},'../lib/appGuide':progress,'../lib/i18n':{useI18n:()=>({copy:(tr,en)=>en})},'./Icon':{Icon:'Icon'}},{document:doc,window:win,MutationObserver:Observer});
-  const h={progress,targets,sheet,body,observers,windowEvents,docEvents,examples,get tree(){return tree;},render(){for(let n=0;n<25;n++){cursor=0;dirty=false;effects=[];tree=AppGuide({active,revision,paused,view,task,intent,onOpenExample:()=>examples.push('example'),onStop:()=>{active=false;progress.saveGuideProgress({...progress.readGuideProgress(),active:false});}});effects.forEach(fn=>fn());if(!dirty)return tree;}throw Error('render loop');},
+  const h={progress,targets,sheet,body,observers,windowEvents,docEvents,examples,get tree(){return tree;},render(){for(let n=0;n<25;n++){cursor=0;dirty=false;effects=[];tree=AppGuide({active,revision,paused,keyboardOpen,view,task,intent,onOpenExample:()=>examples.push('example'),onStop:()=>{active=false;progress.saveGuideProgress({...progress.readGuideProgress(),active:false});}});effects.forEach(fn=>fn());if(!dirty)return tree;}throw Error('render loop');},
     mutate(){for(const observer of observers)observer.fn();const pending=frames;frames=[];pending.forEach(fn=>fn());return h.render();},
     target(guide,{inert=false,insideSheet=false,top=180,hidden=false}={}){const events=new Map(),classes=new Set(),attrs=new Map([['aria-describedby','existing-description'],['data-guide',guide]]);const t={guide,inert,top,hidden,insideSheet,actions:0,scrolls:0,classes,attrs,
       closest:selector=>selector==='.event-search-card'&&t.filterControl?{querySelector:()=>t.filterControl}:selector==='[data-guide="event-save"]'&&guide==='event-save'?t:selector.startsWith('[inert]')?(t.inert?{}:null):(t.insideSheet?sheet:null),getClientRects:()=>t.hidden?[]:[{}],getBoundingClientRect:()=>({left:30,top:t.top,width:300,height:48,bottom:t.top+48}),classList:{add:v=>classes.add(v),remove:v=>classes.delete(v)},getAttribute:key=>attrs.get(key)||null,setAttribute:(key,v)=>attrs.set(key,v),removeAttribute:key=>attrs.delete(key),addEventListener:(key,fn)=>events.set(key,fn),removeEventListener:key=>events.delete(key),focus(){t.focused=true;},scrollIntoView(options){t.scrolls++;t.scrollOptions=options;t.top=180;},act(key){t.actions++;events.get(key)?.();}};targets.push(t);return t;},
-    click(label){const b=nodes(tree).find(n=>n.type==='button'&&(text(n)===label||n.props['aria-label']===label));assert.ok(b,label);assert.notEqual(b.props.disabled,true);b.props.onClick();h.render();},pause(value){paused=value;return h.render();},reopen(){active=true;progress.saveGuideProgress({active:true,seen:[]});revision++;return h.render();},dispose(){slots.forEach(slot=>slot?.cleanup?.());},
+    click(label){const b=nodes(tree).find(n=>n.type==='button'&&(text(n)===label||n.props['aria-label']===label));assert.ok(b,label);assert.notEqual(b.props.disabled,true);b.props.onClick();h.render();},keyboard(value,height=400){keyboardOpen=value;win.visualViewport={height:value?height:844,offsetTop:0,addEventListener(){},removeEventListener(){}};return h.mutate();},pause(value){paused=value;return h.render();},reopen(){active=true;progress.saveGuideProgress({active:true,seen:[]});revision++;return h.render();},dispose(){slots.forEach(slot=>slot?.cleanup?.());},
   };return h;
 }
+
+test('Restarting a previously completed lesson waits for the new revision instead of completing it with old progress',()=>{
+  const completed=['exploreSearch','explorePlace','exploreSave','exploreBack','plans','savedCountries','savedCountryOpen'];
+  for(const previous of [{seen:completed,skipped:[]},{seen:completed.slice(0,3),skipped:completed.slice(3)}]){
+  const h=harness('explore',{task:'inspiration',initialActive:false,initialProgress:{active:false,...previous,task:'inspiration'}});try{
+    h.target('explore-search');h.render();assert.equal(h.tree,null);
+    h.reopen();
+    assert.equal(h.progress.readGuideProgress().active,true,'Starting again must not immediately call the completion/stop callback with stale seen steps');
+    assert.deepEqual([...h.progress.readGuideProgress().seen],[]);assert.deepEqual(h.progress.readGuideProgress().skipped || [],[]);
+    assert.match(text(h.tree),/Start exploring with a place/);
+    assert.ok(nodes(h.tree).some(node=>node.type==='button'&&text(node)==='Skip'));
+    assert.ok(nodes(h.tree).some(node=>node.type==='button'&&node.props['aria-label']==='Close tour'));
+    h.click('Skip');assert.deepEqual([...h.progress.readGuideProgress().skipped],['exploreSearch']);
+    h.reopen();assert.equal(h.progress.readGuideProgress().active,true);assert.match(text(h.tree),/Start exploring with a place/);
+  }finally{h.dispose();}
+  }
+});
 
 test('Guide follows actual visible controls into the active Sheet outside inert root, without blocking their actions',()=>{
   const h=harness();try{
@@ -125,16 +142,73 @@ test('Guide menu separates the isolated example from the retained route and incl
 
 test('Inspiration follows the selected task instead of unrelated visible navigation and focus is not completion',()=>{
   const h=harness('explore',{intent:'explore'});try{
-    h.target('nav-plans',{top:760});h.render();assert.equal(h.tree,null,'No unrelated Plans tip while Explore loads');
+    h.target('nav-plans',{top:760});h.render();assert.match(text(h.tree),/not open on this screen/);assert.doesNotMatch(text(h.tree),/Your plans live here/,'Loading does not substitute an unrelated Plans task');
     const search=h.target('explore-search');h.mutate();assert.match(text(h.tree),/Start exploring with a place/);
     h.click('Let me try');assert.equal(search.focused,true);assert.deepEqual([...h.progress.readGuideProgress().seen],[]);assert.match(nodes(h.tree).find(node=>node.type==='aside').props.className,/app-guide-minimized/);h.click('Show guide');assert.match(text(h.tree),/Start exploring/);
     search.value='I';search.act('input');h.render();assert.match(text(h.tree),/Start exploring/);
-    search.value='Italy';search.act('input');h.render();assert.equal(h.tree,null,'Wait for the matching real result, do not fall through to Plans');
-    const place=h.target('explore-place');h.mutate();assert.match(text(h.tree),/Open a place/);place.act('click');h.render();
+    search.value='Italy';search.act('input');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],[],'Typing is not a confirmed searchable result');
+    search.attrs.set('data-guide-complete','true');const place=h.target('explore-place');h.mutate();assert.match(text(h.tree),/Open a place/);place.act('click');h.render();
     const save=h.target('explore-save',{insideSheet:true});h.mutate();assert.match(text(h.tree),/Keep a country/);
     save.act('click');h.render();assert.match(text(h.tree),/Keep a country/,'A pending or failed save is not completion');
-    save.attrs.set('aria-pressed','true');h.mutate();assert.equal(h.tree,null);
+    save.attrs.set('aria-pressed','true');h.mutate();assert.match(text(h.tree),/not open on this screen/,'The next unavailable control still offers Skip and Close');
     assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch','explorePlace','exploreSave']);
+  }finally{h.dispose();}
+});
+
+test('Paris ready-route and zero-result searches retain an actionable explanation, Skip and Close without completing the country lesson',()=>{
+  const h=harness('explore',{task:'inspiration'});try{
+    const search=h.target('explore-search');search.value='Paris';search.attrs.set('data-guide-discovery','route-only');search.attrs.set('data-guide-complete','false');h.render();
+    assert.match(text(h.tree),/This result is a ready-made route/);assert.match(text(h.tree),/save a country as a favourite/);assert.deepEqual([...h.progress.readGuideProgress().seen],[]);
+    h.click('Edit search');assert.equal(search.focused,true);assert.equal(search.actions,0);assert.match(nodes(h.tree).find(node=>node.type==='aside').props.className,/app-guide-minimized/);
+    assert.ok(nodes(h.tree).find(node=>node.type==='button'&&text(node)==='Skip'));h.click('Show guide');
+    search.value='No matching place';search.attrs.set('data-guide-discovery','empty');h.mutate();assert.match(text(h.tree),/No ready-made place matched/);assert.match(text(h.tree),/Tirana/);
+    h.click('Skip');assert.deepEqual([...h.progress.readGuideProgress().seen],[]);assert.deepEqual([...h.progress.readGuideProgress().skipped],['exploreSearch']);
+    h.click('Back');assert.match(text(h.tree),/No ready-made place matched/);h.click('Close tour');assert.equal(h.tree,null);assert.equal(h.progress.readGuideProgress().active,false);
+  }finally{h.dispose();}
+});
+
+test('A successful Tiranë result, actual View and confirmed favourite advance separately, and Back does not rerun the real control',()=>{
+  const h=harness('explore',{task:'inspiration'});try{
+    const search=h.target('explore-search');search.attrs.set('data-guide-discovery','empty');search.attrs.set('data-guide-complete','false');h.render();
+    search.value='Tiranë';search.act('input');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],[]);
+    search.attrs.set('data-guide-discovery','ready');search.attrs.set('data-guide-complete','true');const place=h.target('explore-place');h.mutate();
+    assert.match(text(h.tree),/Open a place/);assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch']);
+    h.click('Back');assert.match(text(h.tree),/Start exploring with a place/);assert.equal(place.actions,0);h.click('Skip');assert.match(text(h.tree),/Open a place/);
+    place.act('click');const save=h.target('explore-save',{insideSheet:true});h.mutate();assert.match(text(h.tree),/Keep a country/);
+    save.act('click');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch','explorePlace']);
+    save.attrs.set('aria-pressed','true');h.mutate();assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch','explorePlace','exploreSave']);
+    assert.equal(h.progress.readGuideProgress().seen.includes('exploreBack'),false,'An open details view is not a completed return');
+    save.hidden=true;search.attrs.set('data-guide-return-complete','true');const plans=h.target('nav-plans',{top:760});h.mutate();
+    assert.equal(h.progress.readGuideProgress().seen.includes('exploreBack'),true,'Any real successful details dismissal can return to Explore');assert.match(text(h.tree),/Your plans live here/);assert.equal(plans.actions,0);
+  }finally{h.dispose();}
+});
+
+test('Closing details without a confirmed View and favourite cannot fabricate completion of the return step',()=>{
+  const h=harness('explore',{task:'inspiration'});try{
+    const search=h.target('explore-search');search.attrs.set('data-guide-return-complete','true');h.render();
+    h.click('Skip');h.click('Skip');h.click('Skip');
+    assert.deepEqual([...h.progress.readGuideProgress().seen],[]);assert.equal(h.progress.readGuideProgress().seen.includes('exploreBack'),false);
+    assert.match(text(h.tree),/not open on this screen/);assert.ok(nodes(h.tree).find(node=>node.props?.['aria-label']==='Close tour'));
+  }finally{h.dispose();}
+});
+
+test('A hidden lesson target never receives focus or highlighting while the waiting lesson still offers Skip and Close',()=>{
+  const h=harness('explore',{task:'inspiration'});try{
+    const hidden=h.target('explore-search',{hidden:true});h.render();assert.match(text(h.tree),/not open on this screen/);
+    assert.equal(hidden.classes.size,0);assert.equal(hidden.focused,undefined);assert.equal(hidden.actions,0);
+    h.click('Skip');assert.deepEqual([...h.progress.readGuideProgress().skipped],['exploreSearch']);h.click('Close tour');assert.equal(h.tree,null);
+  }finally{h.dispose();}
+});
+
+test('An optimistic favourite is not completed while account storage is pending, and rollback keeps the same lesson actionable',()=>{
+  const h=harness('explore',{task:'inspiration'});try{
+    const search=h.target('explore-search');search.attrs.set('data-guide-complete','true');const place=h.target('explore-place');h.render();place.act('click');
+    const save=h.target('explore-save',{insideSheet:true});h.mutate();
+    save.attrs.set('aria-pressed','true');save.attrs.set('aria-busy','true');h.mutate();
+    assert.match(text(h.tree),/Keep a country/);assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch','explorePlace']);
+    save.attrs.set('aria-pressed','false');save.attrs.set('aria-busy','false');h.mutate();assert.match(text(h.tree),/Keep a country/);
+    save.attrs.set('aria-pressed','true');save.attrs.set('aria-busy','true');h.mutate();assert.equal(h.progress.readGuideProgress().seen.includes('exploreSave'),false);
+    save.attrs.set('aria-busy','false');h.mutate();assert.equal(h.progress.readGuideProgress().seen.includes('exploreSave'),true,'Only the confirmed successful write advances the lesson');
   }finally{h.dispose();}
 });
 
@@ -174,11 +248,16 @@ test('Event lesson waits for successful search and successful save before openin
   }finally{h.dispose();}
 });
 
-test('Hiding a task card for the phone keyboard still observes actual search typing',()=>{
+test('The phone keyboard keeps compact Skip and Close controls while actual successful search results advance the lesson',()=>{
   const h=harness('explore',{task:'inspiration'});try{
-    const search=h.target('explore-search');h.render();h.pause(true);assert.equal(h.tree,null);assert.equal(search.classes.size,0);
-    search.value='Rome';search.act('input');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch']);
-    h.target('explore-place');h.pause(false);assert.match(text(h.tree),/Open a place/);
+    const search=h.target('explore-search');h.render();h.keyboard(true);
+    assert.match(nodes(h.tree).find(node=>node.type==='aside').props.className,/app-guide-minimized/);assert.equal(search.classes.size,0);
+    assert.ok(nodes(h.tree).find(node=>node.type==='button'&&text(node)==='Skip'));assert.ok(nodes(h.tree).find(node=>node.props?.['aria-label']==='Close tour'));
+    const card=nodes(h.tree).find(node=>node.type==='aside');assert.ok(card.props.style.bottom>=844-400,'The capsule stays above the visible keyboard viewport');
+    search.value='Tirana';search.act('input');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],[]);
+    search.attrs.set('data-guide-complete','true');h.target('explore-place');h.mutate();assert.deepEqual([...h.progress.readGuideProgress().seen],['exploreSearch']);
+    h.keyboard(false);assert.match(text(h.tree),/Open a place/);
+    h.keyboard(true);h.click('Skip');assert.deepEqual([...h.progress.readGuideProgress().skipped],['explorePlace']);h.click('Close tour');assert.equal(h.tree,null);
   }finally{h.dispose();}
 });
 
@@ -206,8 +285,8 @@ test('Offscreen task stays inside its actual Sheet and never advertises hidden o
 
 test('A confirmed empty saved-route lesson offers the isolated example without claiming a successful open',()=>{
   const h=harness('trips',{task:'saved'});try{
-    const library=h.target('saved-library');h.render();library.act('click');h.render();assert.equal(h.tree,null,'A loading or failed read without a confirmed empty anchor is not treated as empty');
-    const empty=h.target('saved-routes-empty',{hidden:true});h.mutate();assert.equal(h.tree,null,'Hidden empty state is never taught');
+    const library=h.target('saved-library');h.render();library.act('click');h.render();assert.match(text(h.tree),/not open on this screen/);assert.doesNotMatch(text(h.tree),/You do not have a saved route yet/,'Loading does not masquerade as confirmed empty');
+    const empty=h.target('saved-routes-empty',{hidden:true});h.mutate();assert.doesNotMatch(text(h.tree),/You do not have a saved route yet/,'Hidden empty state is never taught');
     empty.hidden=false;h.mutate();assert.match(text(h.tree),/You do not have a saved route yet/);assert.match(text(h.tree),/without using your AI allowance/);
     empty.act('click');h.render();assert.deepEqual([...h.progress.readGuideProgress().seen],['library'],'Clicking the empty placeholder is not a successful saved-route open');
     h.click('Learn with an example');assert.deepEqual(h.examples,['example']);assert.deepEqual([...h.progress.readGuideProgress().seen],['library']);assert.equal(h.progress.readGuideProgress().active,true,'App owns switching to the isolated example; this task is not falsely completed');
@@ -219,7 +298,7 @@ test('Empty event results keep filter guidance without marking a save; pending a
     const search=h.target('event-search');search.attrs.set('data-guide-complete','true');search.attrs.set('data-guide-event-recovery','empty');h.render();
     assert.match(text(h.tree),/Your last search found no events/);assert.match(text(h.tree),/Change the country, dates or category/);assert.deepEqual([...h.progress.readGuideProgress().seen],['eventSearch']);
     h.click('Show filters');assert.equal(search.scrolls,1);assert.equal(search.actions,0);assert.deepEqual([...h.progress.readGuideProgress().seen],['eventSearch']);
-    search.attrs.delete('data-guide-event-recovery');search.attrs.delete('data-guide-complete');h.mutate();assert.equal(h.tree,null,'No empty marker is fabricated for loading or failed requests');
+    search.attrs.delete('data-guide-event-recovery');search.attrs.delete('data-guide-complete');h.mutate();assert.doesNotMatch(text(h.tree),/Your last search found no events/,'No empty marker is fabricated for loading or failed requests');assert.match(text(h.tree),/not open on this screen/);
     search.attrs.set('data-guide-event-recovery','empty');h.mutate();h.click('Show guide');assert.match(text(h.tree),/Your last search found no events/);
   }finally{h.dispose();}
 });

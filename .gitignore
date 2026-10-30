@@ -88,3 +88,6 @@ tests/app/_mobile/
 .vercel
 .env*
 /.swc
+
+# Local QA evidence and release working files
+/outputs/

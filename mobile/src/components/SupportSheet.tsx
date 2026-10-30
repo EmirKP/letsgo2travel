@@ -80,6 +80,9 @@ export function IssueReportForm({ screen, accessToken, ownerId }: { screen?: str
     community: copy("Topluluk", "Community", "Komuniteti"), profile: copy("Profil", "Profile", "Profili"),
     companion: copy("Araçlar", "Tools", "Mjetet"), route: copy("Rota oluştur", "Create a route", "Krijo itinerar"),
     cockpit: copy("Seyahatlerim", "My trips", "Udhëtimet e mia"), costs: copy("Ülke Maliyetleri", "Country Costs", "Kostot e vendeve"),
+    map: copy("Harita", "Map", "Harta"), events: copy("Etkinlikler", "Events", "Aktivitetet"),
+    money: copy("Para Merkezi", "Money", "Qendra e parave"), translate: copy("Çeviri", "Translate", "Përkthimi"),
+    other: copy("Diğer", "Other", "Tjetër"),
   };
 
   return <div className="support-draft">
@@ -90,7 +93,12 @@ export function IssueReportForm({ screen, accessToken, ownerId }: { screen?: str
       <button type="button" className="secondary-button" onClick={() => { const next = readIssueDraft(screen, ownerId); draftRef.current = next; setDraft(next); setReceipt(""); }}>{copy("Yeni bildirim", "New report", "Raportim i ri")}</button>
     </div> : <form className="support-report-form" onSubmit={event => void submit(event)}>
       <p>{copy("Nerede takıldığını kısaca anlat. Ekran görüntüsü eklemek isteğe bağlı.", "Briefly describe what went wrong. Adding a screenshot is optional.", "Përshkruaj shkurt çfarë nuk funksionoi. Pamja e ekranit është opsionale.")}</p>
-      <p className="support-report-context"><strong>{copy("İlgili ekran", "Related screen", "Ekrani përkatës")}: {screenNames[draft.screen] || draft.screen}</strong><small>LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</small></p>
+      <label htmlFor={`${formId}-screen`}>{copy("Sorun hangi ekranda?", "Which screen has the problem?", "Në cilin ekran është problemi?")}</label>
+      <select id={`${formId}-screen`} value={draft.screen} disabled={sending} onChange={event => updateDraft({ screen: event.target.value })}>
+        {!screenNames[draft.screen] && <option value={draft.screen}>{draft.screen}</option>}
+        {Object.entries(screenNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+      <p className="support-report-context"><small>LetsGo2Travel {config.appVersion} · Build {config.buildNumber}</small></p>
       <label htmlFor={`${formId}-description`}>{copy("Ne oldu?", "What happened?", "Çfarë ndodhi?")}</label>
       <textarea ref={descriptionRef} id={`${formId}-description`} value={draft.description} rows={5} maxLength={3000} required disabled={sending} aria-describedby={`${formId}-privacy`} onChange={event => updateDraft({ description: event.target.value })} placeholder={copy("Örn. Rotamı kaydederken hata gördüm…", "For example, I saw an error while saving my route…", "P.sh., pashë një gabim kur po ruaja itinerarin…")} />
       <label htmlFor={`${formId}-reply`}>{copy("Yanıt için e-posta (isteğe bağlı)", "Email for a reply (optional)", "Email për përgjigje (opsional)")}</label>

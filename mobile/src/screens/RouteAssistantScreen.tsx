@@ -1,3 +1,4 @@
+import { DATE_LOCALES } from "../lib/locale";
 import { formatAppDate } from '../lib/localeFormatting';
 import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "../components/Sheet";
@@ -61,8 +62,8 @@ function scoreColor(score: number) {
   return "fair";
 }
 
-export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', mapRequestId = 0 }: {
-  onNotice: (message: string) => void;
+export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, onOpenAccount, surpriseRoute, routeSeedKind = "surprise", ownerId, accessToken, placeName = '', placeArea, mapRequestId = 0 }: {
+  onNotice: (message: string, action?: import('../lib/notices').NoticeAction) => void;
   onNavigate: (view: ViewId) => void;
   onOpenSavedRoutes?: () => void;
   onOpenAccount?: () => void;
@@ -71,6 +72,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   ownerId?: string | null;
   accessToken: string;
   placeName?: string;
+  placeArea?: import('../lib/mapJourneyClient').JourneyArea;
   mapRequestId?: number;
 }) {
   const { copy, locale } = useI18n();
@@ -346,7 +348,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
       const current = getSavedRoutePlans(ownerId);
       if (matchingSavedRoute(current, plan, input)) {
         setSavedRoutes(current);
-        return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."));
+        return onNotice(copy("Bu rota zaten kayıtlı.", "This route is already saved."), onOpenSavedRoutes ? { label: copy("Planlar'da aç", "Open in Plans", "Hape te Planet"), onClick: onOpenSavedRoutes } : undefined);
       }
       const next = saveRoutePlan(newSavedRoute(plan, input), ownerId);
       const saved = next[0];
@@ -359,7 +361,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
         setSaveLocation("account");
       }
       await hapticSuccess();
-      onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."));
+      onNotice(ownerId && accessToken ? copy("Rota web ve mobil hesabına kaydedildi.", "Route saved to your web and mobile account.") : copy("Rota bu cihaza kaydedildi.", "Route saved on this device."), onOpenSavedRoutes ? { label: copy("Planlar'da aç", "Open in Plans", "Hape te Planet"), onClick: onOpenSavedRoutes } : undefined);
     } catch (error) {
       let queued = false;
       try { queued = Boolean(ownerId && readRouteOutbox(ownerId)[clientKey]?.kind === "save"); } catch { /* Preserve unreadable storage. */ }
@@ -374,7 +376,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
   return (
     <div className="screen route-screen">
       <PageHero scene="journey" title={copy("Hayalindeki rotayı planla", "Plan your next adventure")} subtitle={copy("Birkaç seçimle sana uygun yerleri birlikte bulalım.", "A few choices to find the places that suit you.")} note={copy("Hayal et,\nyola çık!", "Dream it,\nlive it!")} />
-      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} onNotice={onNotice} /></Sheet></LazyOverlay>}
+      {mapPlannerOpen && <LazyOverlay title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} loadingMessage={copy("Harita hazırlanıyor…", "Preparing map…", "Duke përgatitur hartën…")} onClose={() => setMapPlannerOpen(false)}><Sheet open title={copy("Haritada planla", "Plan on the map", "Planifiko në hartë")} onClose={() => setMapPlannerOpen(false)} size="large" className="mj-sheet"><MapJourneyPlanner onOpenAccount={onOpenAccount} onClose={() => setMapPlannerOpen(false)} ownerId={ownerId} accessToken={accessToken} initialCity={placeName || selectedRoute?.cityOrRegion} initialArea={placeArea} onOpenSaved={onOpenSavedRoutes ? () => { setMapPlannerOpen(false); onOpenSavedRoutes(); } : undefined} onNotice={onNotice} /></Sheet></LazyOverlay>}
 
       {!selectedRoute && <section className="planner-start" aria-label={copy("Rotanı planla", "Plan your trip", "Planifiko udhëtimin")}>
         <button type="button" data-guide="route-entry" className="planner-start-primary" aria-haspopup="dialog" aria-expanded={mapPlannerOpen} onClick={() => setMapPlannerOpen(true)}>
@@ -449,7 +451,7 @@ export function RouteAssistantScreen({ onNotice, onNavigate, onOpenSavedRoutes, 
             :copy('Bugünkü AI rota haklarını kullandın (0 kaldı)','Today’s AI itinerary allowance is used (0 remaining)','E drejta e sotme për itinerar me AI është përdorur (0 të mbetura)')
             :allowance.state==='error'?copy('Günlük hakkın doğrulanamadı','Could not check your daily allowance','E drejta ditore nuk u verifikua')
             :copy('Günlük hakkın kontrol ediliyor…','Checking your daily allowance…','Po kontrollohet e drejta ditore…')}</strong>
-          {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{formatAppDate(new Date(quota.resetAt),locale==='tr'?'tr-TR':locale==='sq'?'sq-AL':'en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</time></p>}
+          {quota&&<p>{copy('Yeni hak: ','Next allowance: ','E drejta e radhës: ')}<time dateTime={quota.resetAt}>{formatAppDate(new Date(quota.resetAt),DATE_LOCALES[locale],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</time></p>}
           <p>{copy('Haritalı planlama ve bu bölüm aynı günlük hakkı kullanır. Yalnız başarıyla hazırlanan yeni AI rota hakkından düşer; mevcut planları elle düzenlemek ve kaydetmek ücretsizdir.','Map planning and this section share the daily allowance. Only a successfully created new AI itinerary uses it; manually editing and saving existing plans is free.','Planifikimi në hartë dhe kjo pjesë ndajnë të njëjtën të drejtë ditore. Vetëm një itinerar i ri me AI i krijuar me sukses e përdor; ndryshimi manual dhe ruajtja e planeve ekzistuese janë falas.')}</p>
           {!needsSignIn&&canRecover&&readPlannerRecoveryDraft(ownerId)&&<button type="button" disabled={loading} onClick={()=>{const previous=readPlannerRecoveryDraft(ownerId);if(previous){setForm(snapshotPlannerInput(previous.form));setOriginAirport(previous.origin);setDestinationAirport(previous.destination);void generate(previous);}}}>{copy('Önceki isteğimin sonucunu getir','Recover my previous result','Rikthe rezultatin e mëparshëm')}</button>}
           {!needsSignIn&&allowance.state!=='loading'&&<button type="button" disabled={loading} onClick={()=>setQuotaRefresh(value=>value+1)}>{copy('Hakkımı kontrol et','Refresh allowance','Rifresko të drejtën')}</button>}

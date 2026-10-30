@@ -3,6 +3,7 @@ import test from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const moduleUrl = new URL('../mobile/src/data/communityDiscovery.ts', import.meta.url);
 const iso = JSON.parse(readFileSync(new URL('../mobile/src/data/iso3166.json', import.meta.url), 'utf8'));
@@ -12,6 +13,7 @@ const source = ts.transpileModule(readFileSync(moduleUrl, 'utf8'), {
 const loadedAssets = [];
 const output = { exports: {} };
 vm.runInNewContext(`(function(require,module,exports){${source}\n})`, {})(name => {
+  const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
   if (name === './countries') return { ISO_3166: iso };
   if (/\.(webp|jpg)$/.test(name)) {
     const url = new URL(name, moduleUrl);

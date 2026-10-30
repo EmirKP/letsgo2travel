@@ -1,3 +1,4 @@
+import { translateAppCopy } from '../locale-copy';
 import { countTokens } from 'gpt-tokenizer/model/gpt-oss-20b';
 import { journeyInterestLabel } from './journey-plan-labels';
 import type { JourneyDiscoveryPlace } from './journey-types';
@@ -63,7 +64,7 @@ export type GroqJourneyRequest = ReturnType<typeof buildGroqJourneyRequest>;
  * records supply display metadata; the model never writes coordinates/URLs.
  * Budget includes exact harmony BPE text counts plus 256 framing tokens. */
 export function buildGroqJourneyRequest(input: JourneyPlanRequest, source: JourneyDiscoveryPlace[], dayBudgets: number[], correction?: string) {
-  const locale = input.locale === 'tr' ? 'Turkish' : input.locale === 'sq' ? 'Albanian' : 'English';
+  const locale = input.locale === 'ro' ? 'Romanian (România), using informal second-person singular' : input.locale === 'tr' ? 'Turkish' : input.locale === 'sq' ? 'Albanian' : 'English';
   const maxStops = input.pace === 'relaxed' ? 4 : input.pace === 'busy' ? 8 : 6;
   const aim = input.pace === 'relaxed' ? 3 : input.pace === 'busy' ? 5 : 4;
   const minimumChoices = Math.min(source.length, Math.max(input.dayCount * aim, 8));
@@ -171,7 +172,7 @@ export async function generateBoundedGroqJourneyJson(options: {
 export function expandGroqJourneyOutput(raw: unknown, input: JourneyPlanRequest, candidates: JourneyDiscoveryPlace[]) {
   const row = record(raw);
   if (!Array.isArray(row.days)) return raw;
-  const local = (tr: string, en: string, sq: string) => input.locale === 'tr' ? tr : input.locale === 'sq' ? sq : en;
+  const local = (tr: string, en: string, sq: string) => translateAppCopy(input.locale, tr, en, sq);
   const interestFor = (place: JourneyDiscoveryPlace) => input.interests.find(interest => matchesInterest(place, interest));
   return { summary: row.summary, days: row.days.map((value, index) => {
     const day = record(value);

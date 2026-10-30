@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   catch (error) { return Response.json({ error: 'Invalid request' }, { status: error instanceof Error && error.message === 'too-large' ? 413 : 400 }); }
   const input = body && typeof body === 'object' ? body as Record<string, unknown> : {};
   const query = journeySearchQuery(input.query), locale = input.locale ?? 'en';
-  if (!query || !['tr', 'en', 'sq'].includes(String(locale))) return Response.json({ error: 'Invalid place search' }, { status: 400 });
+  if (!query || !['tr', 'en', 'sq', 'ro'].includes(String(locale))) return Response.json({ error: 'Invalid place search' }, { status: 400 });
   try { return Response.json(await searchJourneyPlaces(query, String(locale)), { headers: { 'Cache-Control': 'private, no-store' } }); }
   catch { return Response.json({ code: 'geocoding_unavailable', error: 'Address search is temporarily unavailable' }, { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } }); }
 }

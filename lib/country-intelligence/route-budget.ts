@@ -17,7 +17,7 @@ const cityKey = (value: string) => value.toLocaleLowerCase("tr").normalize("NFD"
 const AIRPORT_CITIES: Record<string, string> = { SJJ: "Sarajevo", FCO: "Rome", CIA: "Rome", TIA: "Tirana", BEG: "Belgrade", BUD: "Budapest", IST: "Istanbul", SAW: "Istanbul", CDG: "Paris", ORY: "Paris", LHR: "London", LGW: "London", ATH: "Athens", DUB: "Dublin", VIE: "Vienna", PRG: "Prague", AMS: "Amsterdam", BCN: "Barcelona", MAD: "Madrid", LIS: "Lisbon", OPO: "Porto", BKK: "Bangkok", BJV: "Bodrum", GYD: "Baku", TBS: "Tbilisi", DXB: "Dubai", SKP: "Skopje", RMO: "Chisinau" };
 const CITY_ALIASES: Record<string, string> = { tirane: "Tirana", sarajeve: "Sarajevo", londer: "London", stamboll: "Istanbul", arnavutkoyistanbul: "Istanbul", pendikistanbul: "Istanbul", beograd: "Belgrade", vjene: "Vienna", athine: "Athens", bukuresht: "Bucharest", bruksel: "Brussels", kopenhage: "Copenhagen", varshave: "Warsaw", lisbona: "Lisbon", mynih: "Munich" };
 const canonicalCityKey = (value: string) => cityKey(CITY_ALIASES[cityKey(value)] || value);
-const countryNames = ["tr", "en", "sq"].map(locale => new Intl.DisplayNames([locale], { type: "region" }));
+const countryNames = ["tr", "en", "sq", "ro"].map(locale => new Intl.DisplayNames([locale], { type: "region" }));
 const COUNTRY_ALIASES: Record<string, string[]> = { GB: ["UK", "England", "İngiltere", "Britain"], US: ["USA", "ABD", "United States of America"], TR: ["Turkey", "Türkiye"], AE: ["BAE", "UAE"] };
 export function routeCityBenchmark(route: { name: string; cityOrRegion?: string; destinationCode?: string; country?: string }) {
   const lookup = (name: string) => CITY_BENCHMARKS.find(row => canonicalCityKey(name) === cityKey(row.city.en) || canonicalCityKey(name) === cityKey(row.city.tr));

@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -14,6 +15,7 @@ function load(path, imports, globals = {}, expose = '') {
   vm.runInNewContext(`(function(require,module,exports){${code}\n${expose}})`, { Date, Intl, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, ...globals })(name => {
     if (name.endsWith('.css')) return {}; if(name.endsWith('.webp')) return 'empty-art.webp';
     if (Object.hasOwn(imports, name)) return imports[name];
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     throw Error(`Missing import ${name}`);
   }, loaded, loaded.exports);
   return loaded.exports;
@@ -298,5 +300,15 @@ test('GET started during a write cannot overwrite that write after it completes'
   find(h.tree,'textarea').props.onChange({target:{value:'Beautiful!'}});h.render();find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
   h.render({accessToken:'REFRESHED'});await h.resolve(1,sampleComment());await h.resolve(2,{post:samplePost(),comments:{items:[],nextOffset:null}});
   assert.match(text(h.tree),/Beautiful!/);
+ }finally{h.dispose();}
+});
+
+
+test('Post search scopes real paged reads, clears stale query matches and preserves current rows during same-query refresh',async()=>{
+ const h=harness('SocialBrowser',{searchQuery:'Paris'});try{
+  assert.equal(new URL(h.requests[0].path,'https://test').searchParams.get('q'),'Paris');await h.resolve(0,{items:[samplePost(1,{caption:'Paris walk'})],nextOffset:20});
+  h.render({revision:1});assert.match(text(h.tree),/Paris walk/,'A same-query refresh keeps unaffected visible posts');await h.resolve(1,{items:[samplePost(1,{caption:'Paris walk'})],nextOffset:20});
+  h.render({searchQuery:'Tokyo'});await new Promise(resolve=>setTimeout(resolve,275));h.render();assert.doesNotMatch(text(h.tree),/Paris walk/,'Old-query results disappear before the new query completes');assert.equal(new URL(h.requests[2].path,'https://test').searchParams.get('q'),'Tokyo');
+  await h.resolve(2,{items:[],nextOffset:40});assert.match(text(h.tree),/posts checked so far/);h.click('Search other posts');const params=new URL(h.requests[3].path,'https://test').searchParams;assert.equal(params.get('q'),'Tokyo');assert.equal(params.get('offset'),'40');await h.reject(3);assert.ok(button(h.tree,'Search other posts'));
  }finally{h.dispose();}
 });

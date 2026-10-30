@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 const languages = [['tr', 'Türkçe'], ['en', 'English'], ['de', 'Deutsch'], ['ar', 'العربية']];
 function transpile(path) {
@@ -114,6 +115,8 @@ function editorHarness() {
     react,
     'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../lib/i18n': { useI18n: () => ({ copy: (tr, en) => en, locale: 'en' }) },
+    '../lib/capacitor': { isIOSNative: () => false },
+    '../lib/accountResume': { onAccountResume: () => () => {} },
     '../lib/offlineTranslation': { TRANSLATION_LANGUAGES: languages, translationStatus: async () => 'installed', translateOffline: () => new Promise(done => { resolve = done; }) },
   };
   vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelTranslation.tsx')}\nexports.editorForTest = TranslationEditor;})`, {})(name => imports[name] || {}, testModule, testModule.exports);
@@ -210,7 +213,7 @@ test('Offline point search and category filtering update map points and clear hi
     '../lib/localeFormatting': localeFormatting,
     '../../../lib/travel-assistant/places': { CATEGORY_LABELS: { pharmacy: ['Eczane', 'Pharmacy'], museum: ['Müze', 'Museum'] } },
   };
-  vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelOfflineMap.tsx')}\nexports.explorerForTest = OfflinePackExplorer;})`, { requestAnimationFrame: fn => fn() })(name => imports[name] || {}, testModule, testModule.exports);
+  vm.runInNewContext(`(function(require,module,exports){${transpile('mobile/src/components/TravelOfflineMap.tsx')}\nexports.explorerForTest = OfflinePackExplorer;})`, { requestAnimationFrame: fn => fn() })(name => realLocaleModule(name) || imports[name] || {}, testModule, testModule.exports);
   const base = { latitude: 52.52, longitude: 13.4, sourceUrl: 'https://www.openstreetmap.org/node/1', description: null, hours: null };
   const pack = { downloadedAt: new Date().toISOString(), places: [{ ...base, id: 'a', name: 'Central Pharmacy', category: 'pharmacy' }, { ...base, id: 'b', name: 'Art Museum', category: 'museum' }] };
   const render = () => { index = 0; return testModule.exports.explorerForTest({ pack }); };

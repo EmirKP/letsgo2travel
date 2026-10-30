@@ -1,6 +1,9 @@
+import { translateCopy } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
 import { eventDateLabel, eventTimeLabel, eventLocalDate } from "../../../lib/event-time";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { activeTripContextFromTrip, clearActiveTripContext, readActiveTripContext, writeActiveTripContext } from "../lib/activeTripContext";
+import type { JourneyGuideRequest } from "../lib/journeyGuideIntent";
 import { onAccountResume } from "../lib/accountResume";
 import { AirportField } from "../components/AirportField";
 import { CountryPicker } from "../components/CountryPicker";
@@ -52,6 +55,9 @@ import "./cockpit-journey.css";
 import "./travel-flow-polish.css";
 import "../components/feature-entry-artwork.css";
 
+const AirportGuideScreen = lazy(() => import("./AirportGuideScreen").then(module => ({ default: module.AirportGuideScreen })));
+const JourneyToolsHub = lazy(() => import("../components/JourneyToolsHub").then(module => ({ default: module.JourneyToolsHub })));
+
 type CockpitScreenProps = {
   user: AuthUser | null;
   accessToken: string;
@@ -64,6 +70,9 @@ type CockpitScreenProps = {
   onFocusHandled?: () => void;
   onOpenAccount: () => void;
   onNotice: (message: string) => void;
+  onOpenPlans?: () => void;
+  journeyGuideRequest?:JourneyGuideRequest|null;
+  onJourneyGuideHandled?:()=>void;
   journeyIntent?: CockpitJourneyIntent | null;
   onJourneyHandled?: () => void;
 };
@@ -115,9 +124,9 @@ const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   other: "Diğer",
 };
 
-function defaultChecklist(locale: "tr" | "en" | "sq" = "tr"): ChecklistItem[] {
+function defaultChecklist(locale: "tr" | "en" | "sq" | "ro" = "tr"): ChecklistItem[] {
   const createdAt = new Date().toISOString();
-  const labels = locale === "sq" ? CHECKLIST_SQ : locale === "en" ? [
+  const labels = locale === "sq" ? CHECKLIST_SQ : locale === "ro" ? CHECKLIST_RO : locale === "en" ? [
     "Check passport / ID validity",
     "Download flight and accommodation documents",
     "Pack a plug adapter",
@@ -153,19 +162,20 @@ const DEFAULT_CHECKLIST_LABELS = new Map<string, { tr: string; en: string }>([
 ]);
 
 const CHECKLIST_SQ = ['Kontrollo vlefshmërinë e pasaportës / letërnjoftimit', 'Shkarko dokumentet e fluturimit dhe akomodimit', 'Përgatit një përshtatës prize', 'Përgatit ilaçet dhe recetat', 'Aktivizo eSIM-in ose paketën e internetit'];
-CHECKLIST_SQ.forEach((label, index) => {
+const CHECKLIST_RO = ['Verifică valabilitatea pașaportului / cărții de identitate', 'Descarcă documentele zborului și ale cazării', 'Ia un adaptor de priză', 'Ia medicamentele și rețetele', 'Configurează un eSIM sau un plan de date'];
+[CHECKLIST_SQ, CHECKLIST_RO].forEach(labels => labels.forEach((label, index) => {
   const entry = [...DEFAULT_CHECKLIST_LABELS.values()][index * 2];
   if (entry) DEFAULT_CHECKLIST_LABELS.set(label, entry);
-});
+}));
 
-function checklistLabel(label: string, locale: "tr" | "en" | "sq") {
+function checklistLabel(label: string, locale: "tr" | "en" | "sq" | "ro") {
   const entry = DEFAULT_CHECKLIST_LABELS.get(label);
   if (!entry) return label;
   if (locale === 'sq') {
     const index = [...DEFAULT_CHECKLIST_LABELS.keys()].slice(0, 10).findIndex(key => key === entry.tr);
     return CHECKLIST_SQ[Math.floor(index / 2)] || label;
   }
-  return entry[locale];
+  return translateCopy(locale, entry.tr, entry.en);
 }
 
 function formatDate(value: string, locale = "tr-TR") {
@@ -200,12 +210,12 @@ function nativeFlightView(trip: CockpitTrip) {
   return { flight, expiresAt };
 }
 
-function reminderTrips(items: CockpitTrip[], language: "tr" | "en" | "sq") {
+function reminderTrips(items: CockpitTrip[], language: "tr" | "en" | "sq" | "ro") {
   return items.map(trip => {
     const native = nativeFlightView(trip), flight = native?.flight;
     const p = flight?.progress;
     const manual = !trip.flightLookupManaged;
-    return { id: trip.id, title: flight ? [flight.destination.city, flight.destination.country].join(", ") : manual ? tripTitle(trip) : trip.flightNumber || (language === "sq" ? "Udhëtim" : language === "tr" ? "Seyahat" : "Trip"),
+    return { id: trip.id, title: flight ? [flight.destination.city, flight.destination.country].join(", ") : manual ? tripTitle(trip) : trip.flightNumber || (translateCopy(language, "Seyahat", "Trip", "Udhëtim")),
       departureAt: flight?.departureAt || (manual ? trip.departureAt : null), arrivalAt: flight?.arrivalAt || (manual ? trip.arrivalAt : null), status: trip.status,
       originIata: flight?.origin.iata || (manual ? trip.originIata : null), destinationIata: flight?.destination.iata || (manual ? trip.destinationIata : null),
       originTimeZone: flight?.origin.timeZone || (manual ? airportTimeZone(trip.originIata || "") : undefined),
@@ -234,7 +244,7 @@ type CockpitSessionSnapshot = {
   userId: string;
 };
 
-export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice, journeyIntent, onJourneyHandled, todayTripId, onTodayHandled, eventIntent, onEventHandled }: CockpitScreenProps) {
+export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, onOpenAccount, onNotice, onOpenPlans, journeyIntent, onJourneyHandled, todayTripId, onTodayHandled, eventIntent, onEventHandled,journeyGuideRequest,onJourneyGuideHandled }: CockpitScreenProps) {
   const { copy, countryName, dateLocale, locale } = useI18n();
   const pastDepartureMessage = copy(
     "Planlanan kalkış saati geçti ve devam eden uçuş bilgisi doğrulanamadı. Biletindeki bilgilerle elle devam edebilirsin.",
@@ -248,7 +258,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     name: countryName(country.alpha3, country.name),
   })), [countryName, countryOptions]);
   const [trips, setTrips] = useState<CockpitTrip[]>([]);
-  const [selectedTripId, setSelectedTripId] = useState("");
+  const [loadedOwner,setLoadedOwner]=useState("");
+  const [selectedTripId, setSelectedTripId] = useState(() => user?.id ? readActiveTripContext(user.id)?.tripId || "" : "");
+  const [airportGuideCode, setAirportGuideCode] = useState("");
+  const [transferRequest, setTransferRequest] = useState<{ code: string; id: number } | null>(null);
+  const [savedAcknowledgement, setSavedAcknowledgement] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -305,7 +319,9 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       // Bir hesabın özel kokpit verisi diğer hesap yüklenirken bir kare bile
       // görünmesin; eski hesaba ait cihaz hatırlatmaları da taşınmasın.
       setTrips([]);
+      setLoadedOwner("");
       setSelectedTripId("");
+      setAirportGuideCode(""); setTransferRequest(null); setSavedAcknowledgement(false);
       setForm(EMPTY_FORM);
       pendingCreate.current = null; preparedEvent.current = null;
       setManualFlight(false);
@@ -384,6 +400,12 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     [selectedTripId, trips],
   );
   const selectedTripEvents = useMemo(() => selectedTrip?.checklistItems.filter((item) => item.kind === "event") || [], [selectedTrip]);
+  useEffect(() => {
+    if (!selectedTripId || !selectedTrip || selectedTrip.id !== selectedTripId || selectedTrip.userId !== userId) return;
+    const context = activeTripContextFromTrip(selectedTrip);
+    if (context) writeActiveTripContext(userId, context);
+    else { const previous=readActiveTripContext(userId);if(previous&&previous.tripId!==selectedTrip.id)clearActiveTripContext(userId,previous.tripId); }
+  }, [selectedTripId, selectedTrip, userId]);
   const selectedChecklistItems = useMemo(() => selectedTrip?.checklistItems.filter((item) => item.kind !== "event") || [], [selectedTrip]);
 
   const load = useCallback(async () => {
@@ -404,6 +426,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       const next = await listCockpitTrips(session.userId, session.accessToken, true, true);
       if (generation !== loadGeneration.current || !isCurrentSession(session)) return;
       setTrips(next);
+      setLoadedOwner(session.userId);
       // Yaklaşan uçuşlar için hatırlatma/Live Activity eşitle (izin istemez).
       syncRemindersForSession(session, next);
       setSelectedTripId((current) => next.some((trip) => trip.id === current) ? current : next[0]?.id || "");
@@ -437,6 +460,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       onFocusHandled?.();
     }
   }, [focusTripId, loading, onFocusHandled, trips]);
+  useEffect(()=>{
+    if(!journeyGuideRequest?.tripId||loadedOwner!==userId||loading||trips.some(trip=>trip.id===journeyGuideRequest.tripId))return;
+    onNotice(copy('Bu geziye bağlı seyahat bu hesapta bulunamadı. Kaydı veya hesabını kontrol et.','The trip for this itinerary is unavailable in this account. Check the trip or your account.','Udhëtimi i këtij itinerari nuk gjendet në këtë llogari. Kontrollo udhëtimin ose llogarinë.'));
+    onJourneyGuideHandled?.();
+  },[journeyGuideRequest,loadedOwner,userId,loading,trips,onJourneyGuideHandled,onNotice,copy]);
 
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -566,6 +594,10 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       setTrips(next);
       syncRemindersForSession(session, next);
       setSelectedTripId(created.id);
+      const context = activeTripContextFromTrip(created);
+      if (context) writeActiveTripContext(session.userId, context);
+      else { const previous=readActiveTripContext(session.userId);if(previous&&previous.tripId!==created.id)clearActiveTripContext(session.userId,previous.tripId); }
+      setSavedAcknowledgement(true);
       setForm(EMPTY_FORM);
       setMatchedFlight(null);
       setManualFlight(false);
@@ -717,6 +749,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       await deleteCockpitTrip(session.userId, trip.id, session.accessToken, trip.updatedAt);
       if (!isCurrentSession(session)) return;
       const next = trips.filter((item) => item.id !== trip.id);
+      clearActiveTripContext(session.userId, trip.id);
       setTrips(next);
       // Silinen kayıt liste dışında kaldığı için son bir iptal mezar taşıyla
       // cihazdaki olası Live Activity de kapatılır.
@@ -792,7 +825,8 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
     const country = journeyCountry(intent);
     setForm({ ...EMPTY_FORM, mode: "other", countryAlpha3: country?.alpha3 || "", destinationCode: country ? alpha2FromAlpha3(country.alpha3) : "",
       destinationCountry: country ? countryName(country.alpha3, country.name) : "", destinationCity: (intent.kind === "saved-route" ? intent.route.cityOrRegion : intent.city) || "",
-      startDate: intent.kind === "saved-route" ? intent.dates?.startDate || "" : "", endDate: intent.kind === "saved-route" ? intent.dates?.endDate || "" : "" });
+      startDate: (intent.kind === "saved-route" ? intent.dates?.startDate : intent.personalPreferences?.startDate) || "",
+      endDate: (intent.kind === "saved-route" ? intent.dates?.endDate : intent.personalPreferences?.endDate) || "" });
     setMatchedFlight(null); setManualFlight(false); setFormOpen(true); setError("");
     window.requestAnimationFrame(() => document.getElementById("cockpit-trip-form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
@@ -822,11 +856,11 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
       </button>
     </div>
 
-    <CockpitJourneySection onOpenAccount={onOpenAccount} todayTripId={todayTripId} onTodayHandled={onTodayHandled} ownerId={userId} accessToken={accessToken} trips={trips} selectedTrip={selectedTrip} intent={journeyIntent} onSelectTrip={setSelectedTripId} onCreateTrip={prepareJourneyTrip} onHandled={() => onJourneyHandled?.()} onRefreshTrips={load}/>
+    <CockpitJourneySection journeyGuideRequest={journeyGuideRequest} onJourneyGuideHandled={onJourneyGuideHandled} onOpenAccount={onOpenAccount} todayTripId={todayTripId} onTodayHandled={onTodayHandled} ownerId={userId} accessToken={accessToken} trips={trips} selectedTrip={selectedTrip} intent={journeyIntent} onSelectTrip={setSelectedTripId} onCreateTrip={prepareJourneyTrip} onHandled={() => onJourneyHandled?.()} onRefreshTrips={load}/>
 
     {formOpen && <form ref={eventForm} tabIndex={-1} id="cockpit-trip-form" className="form-card cockpit-trip-form" onSubmit={createTrip}>
       {validEventTripIntent(eventIntent, userId) && <div className="info-box" role="status"><Icon name="calendar" size={20}/><div><strong>{eventIntent.event.title}</strong><p>{eventIntent.event.city} · {eventLocalDate(eventIntent.event)}</p>{eventIntent.event.status === "postponed" && <p>{copy("Etkinlik ertelenmiş. Yeni tarihini kaynağından doğrula.", "This event was postponed. Confirm the new date with its source.", "Aktiviteti është shtyrë. Konfirmo datën e re te burimi.")}</p>}<p>{copy("Bu etkinlik, seyahatinle birlikte kaydedilecek.", "This event will be saved with your trip.", "Ky aktivitet do të ruhet me udhëtimin.")}</p><button type="button" className="text-button" disabled={Boolean(busy)} onClick={() => { if (!busy && !pendingCreate.current) onEventHandled?.(); }}>{copy("Etkinliği kaldır", "Remove event", "Hiq aktivitetin")}</button></div></div>}
-      <ol className="cockpit-journey-steps" aria-label={copy("Seyahat ekleme adımları", "Add a trip steps")}><li className={!matchedFlight && !manualFlight ? "current" : "done"}>1 · {copy("Uçuşunu bul", "Find your flight")}</li><li className={matchedFlight || manualFlight || form.mode === "other" ? "current" : ""}>2 · {copy("Doğrula ve tamamla", "Review and complete")}</li><li>3 · {copy("Yolculuğun hazır", "Your trip is ready")}</li></ol>
+      <ol className="cockpit-journey-steps" aria-label={copy("Seyahat ekleme adımları", "Add a trip steps")}><li className={form.mode === "other" ? form.destinationCode ? "done" : "current" : !matchedFlight && !manualFlight ? "current" : "done"}>1 · {form.mode === "other" ? copy("Gideceğin yeri seç", "Choose destination", "Zgjidh destinacionin") : copy("Uçuşunu bul", "Find your flight")}</li><li className={form.mode === "other" ? form.destinationCode ? "current" : "" : matchedFlight || manualFlight ? "current" : ""}>2 · {form.mode === "other" ? copy("Tarihlerini seç", "Choose your dates", "Zgjidh datat") : copy("Doğrula ve tamamla", "Review and complete")}</li><li>3 · {form.mode === "other" ? copy("Seyahatini kaydet", "Save your trip", "Ruaj udhëtimin") : copy("Yolculuğun hazır", "Your trip is ready")}</li></ol>
       <div className="cockpit-mode-tabs" role="group" aria-label={copy("Seyahat türü", "Trip type")}>
         <button type="button" disabled={Boolean(busy)} aria-pressed={form.mode === "flight"} className={form.mode === "flight" ? "active" : ""} onClick={() => changeTripMode("flight")}><Icon name="plane" size={16} /> {copy("Uçuşlu", "Flight")}</button>
         <button type="button" disabled={Boolean(busy)} aria-pressed={form.mode === "other"} className={form.mode === "other" ? "active" : ""} onClick={() => changeTripMode("other")}><Icon name="suitcase" size={16} /> {copy("Uçuşsuz", "No flight")}</button>
@@ -971,6 +1005,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           </button>)}
         </div>
 
+        {savedAcknowledgement && <div className="cockpit-save-acknowledgement" role="status"><span><Icon name="check" size={18}/>{copy("Seyahatin kaydedildi.", "Your trip was saved.", "Udhëtimi yt u ruajt.")}</span>{onOpenPlans && <button type="button" onClick={onOpenPlans}>{copy("Planlar’da aç", "Open in Plans", "Hap te Planet")}<Icon name="chevron" size={16}/></button>}<button type="button" onClick={() => setSavedAcknowledgement(false)} aria-label={copy("Bildirimi kapat", "Dismiss notice", "Mbyll njoftimin")}><Icon name="close" size={16}/></button></div>}
         {selectedTrip && <article className="cockpit-native-card">
           <header className="cockpit-native-card-head">
             <span className="saved-icon cockpit-feature-artwork"><TravelToolArtwork kind={selectedTrip.originIata || selectedTrip.flightNumber || selectedTrip.flightLookupManaged ? "flight" : "trips"} size={56} /></span>
@@ -986,6 +1021,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
             {selectedDisplay?.arrivalAt && <div><span>{copy("Planlanan varış", "Scheduled arrival")}</span><strong>{formatAppDate(new Date(selectedDisplay.arrivalAt), dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: airportTimeZone(selectedDisplay.destinationIata || "", selectedDisplay.providerFlight?.destination.timeZone) || "UTC", timeZoneName: "short" })}</strong></div>}
           </div>
           {selectedTrip.providerFlight && selectedDisplay?.arrivalAt && <CockpitFlightDetails flight={selectedTrip.providerFlight} now={clock}/>}
+          {(selectedDisplay?.originIata || selectedDisplay?.destinationIata) && <section className="cockpit-airport-info" aria-label={copy("Bu uçuşun havalimanları", "Airports for this flight", "Aeroportet e këtij fluturimi")}><h3>{copy("Uçuşun için havalimanı bilgileri", "Airport information for your flight", "Informacion aeroporti për fluturimin")}</h3><div>{[...new Set([selectedDisplay?.originIata, selectedDisplay?.destinationIata].filter((code): code is string => Boolean(code)))].map(code => <button type="button" key={code} onClick={() => setAirportGuideCode(code)}><Icon name="plane" size={18}/><strong>{code}</strong><span>{copy("Yolcu rehberi ve aktarma", "Passenger guide and transfers", "Udhëzuesi i pasagjerit dhe tranziti")}</span><Icon name="chevron" size={16}/></button>)}</div></section>}
           {autoTrip && <p className="form-hint">{copy("Bu ekran açık ve internete bağlıyken uçuş bilgisi aralıklarla güncellenir.", "Flight details update periodically while this screen is open and online.")}</p>}
           {selectedTrip.flightLookupManaged && !selectedClosed && <button type="button" className="secondary-wide" disabled={Boolean(busy) || loading || (refreshAfter[selectedTrip.id] || 0) > clock} onClick={() => void refreshFlight(selectedTrip)}><Icon name="refresh" size={17}/>{busy === `refresh-${selectedTrip.id}` ? copy("Yenileniyor…", "Refreshing…") : (refreshAfter[selectedTrip.id] || 0) > clock ? copy("Son bilgi alındı · biraz sonra yenilenebilir", "Latest details retrieved · refresh again shortly") : copy("Uçuş bilgisini yenile", "Refresh flight details")}</button>}
           {selectedTrip.flightLookupManaged && (selectedDisplay?.arrivalAt
@@ -1006,6 +1042,7 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
           </label>
 
           <PersonalTravelCards ownerId={user?.id} tripId={selectedTrip.id} trips={trips.map(trip => ({ id: trip.id, title: trip.destinationCity || trip.destinationCountry, startDate: trip.startDate }))}/>
+          <button type="button" className="secondary-wide" onClick={() => { const context = activeTripContextFromTrip(selectedTrip); if (context && writeActiveTripContext(userId, context)) { setSelectedTripId(selectedTrip.id); onNotice(copy("Bu seyahat seçildi. Diğer araçlarda bilgilerini kullanabilirsin.", "Trip selected. You can use its details in the other tools.", "Udhëtimi u zgjodh. Mund t’i përdorësh të dhënat në mjetet e tjera.")); } else onNotice(copy("Seyahat seçimi kaydedilemedi.", "The trip selection could not be saved.", "Zgjedhja e udhëtimit nuk u ruajt.")); }}><Icon name="check" size={18}/>{copy("Bu seyahati kullan", "Use this trip", "Përdor këtë udhëtim")}</button>
           <button type="button" className="secondary-wide" disabled={Boolean(busy) || loading} onClick={() => { setEditError(""); setEditConflict(false); setEditingTrip(selectedTrip); }}><Icon name="settings" size={18}/>{copy("Seyahati düzenle", "Edit trip", "Ndrysho udhëtimin")}</button>
 
           {selectedTripEvents.length > 0 && <section className="cockpit-events-section">
@@ -1044,5 +1081,9 @@ export function CockpitScreen({ user, accessToken, focusTripId, onFocusHandled, 
         </>}
       </Sheet>
       {editingTrip && <CockpitTripEditor key={editingTrip.id} trip={editingTrip} busy={Boolean(busy)} error={editError} conflict={editConflict} onReload={reloadTripForEdit} onSave={saveTripEdits} onClose={() => setEditingTrip(null)}/>}
+      <Sheet open={Boolean(airportGuideCode)} title={copy("Uçuşunun havalimanı", "Your flight's airport", "Aeroporti i fluturimit")} size="large" onClose={() => setAirportGuideCode("")}>
+        {airportGuideCode && <Suspense fallback={<p role="status">{copy("Havalimanı bilgileri açılıyor…", "Opening airport information…", "Po hapet informacioni i aeroportit…")}</p>}><AirportGuideScreen initialAirportCode={airportGuideCode} onNotice={onNotice} onOpenTransfer={() => { setTransferRequest({ code: airportGuideCode, id: Date.now() }); setAirportGuideCode(""); }}/></Suspense>}
+      </Sheet>
+      {transferRequest && <Suspense fallback={<p role="status">{copy("Aktarma yardımcısı açılıyor…", "Opening transfer assistant…", "Po hapet ndihmësi i tranzitit…")}</p>}><JourneyToolsHub key={transferRequest.id} hideOverview initialAirportCode={transferRequest.code} initialTool="airport" user={user} ownerId={userId} accessToken={accessToken} onOpenAccount={onOpenAccount} onNotice={onNotice} onNavigate={() => {}}/></Suspense>}
   </div>;
 }

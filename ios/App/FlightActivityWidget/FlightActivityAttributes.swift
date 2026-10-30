@@ -38,3 +38,26 @@ struct FlightActivityAttributes: ActivityAttributes {
     var destinationTimeZone: String?
     var flightNumber: String?
 }
+
+// A user-controlled sightseeing guide. No flight/provider status, GPS or booking
+// details are shared with this distinct ActivityKit type.
+@available(iOS 16.2, *)
+struct JourneyActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        var title: String
+        var city: String
+        var nextStopName: String
+        var nextScheduledTime: String
+        var provisional: Bool
+        var completed: Int
+        var total: Int
+        var language: String
+        var ended: Bool
+    }
+    var ownerId: String
+    var journeyId: String
+    var day: Int
+    var startedAt: Date
+    var expiresAt: Date
+    var deepLink: String
+}

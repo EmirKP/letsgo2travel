@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { countTokens } from 'gpt-tokenizer/model/gpt-oss-20b';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 function load(path, imports = {}, globals = {}) {
   const output = { exports: {} };
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Error, Date, Intl, URL, Response, Request, Headers,
     AbortSignal, AbortController, setTimeout, clearTimeout, Buffer, process: { env: {} }, ...globals })(name => {
-    if (name in imports) return imports[name]; throw Error(`Missing import ${name}`);
+    if (name in imports) return imports[name]; const localeModule=realLocaleModule(name);if(localeModule)return localeModule;throw Error(`Missing import ${name}`);
   }, output, output.exports);
   return output.exports;
 }

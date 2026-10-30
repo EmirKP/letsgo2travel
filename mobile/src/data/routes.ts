@@ -1,3 +1,4 @@
+import { translateCopy, translateBundledCopy } from "../lib/locale";
 import { normalizePlannerPassport, plannerEntry } from "../../../lib/planner-passport";
 import type { PlannerInput, RoutePlan, RouteSuggestion } from "../types";
 
@@ -311,9 +312,9 @@ const ROUTE_SQ: Record<string, Partial<RouteSuggestion>> = {
   BKK: { name: "Bangkok", country: "Tajlandë", cityOrRegion: "Bangkok", why: "Një udhëtim i larmishëm me ushqim rruge, kulturë dhe mundësi për të bashkuar qytetin me ishujt.", visaStatus: "Kontrollo rregullat aktuale të përjashtimit nga viza", estimatedBudget: "Mesatar", idealDuration: "7–10 ditë", bestFor: "Udhëtime të largëta, ushqim dhe kulturë", difficulty: "Mesatar", transportEase: "Mesatar", safetyNote: "Përdor aplikacione ose agjenci zyrtare për taksi dhe ekskursione.", dailyPlan: ["Ditët 1–2: Tempujt e Bangkokut, lumi dhe tregjet e natës.", "Dita 3: Ekskursion ditor në Ayutthaya.", "Ditët 4–7: Shto Phuket, Krabi ose Koh Samui."], warnings: ["Kontrollo sezonin e shirave dhe rregullat e bagazheve për fluturimet e brendshme."] },
 };
 
-function presentRoute(route: RouteSuggestion, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
+function presentRoute(route: RouteSuggestion, locale: "tr" | "en" | "sq" | "ro" = "tr"): RouteSuggestion {
   const translated = locale !== "tr" && route.destinationCode ? (locale === "sq" ? ROUTE_SQ : ROUTE_EN)[route.destinationCode] : undefined;
-  const value = translated ? { ...route, ...translated } : route;
+  const value = translated ? { ...route, ...translateBundledCopy(locale, translated) } : route;
   return {
     ...value,
     scores: { ...value.scores },
@@ -355,21 +356,19 @@ function scoreRoute(route: CatalogRoute, input: PlannerInput) {
   return score;
 }
 
-export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr"): RoutePlan {
+export function createFallbackPlan(input: PlannerInput, locale: "tr" | "en" | "sq" | "ro" = "tr"): RoutePlan {
   const routes = [...ROUTE_CATALOG]
     .sort((a, b) => scoreRoute(b, input) - scoreRoute(a, input))
     .slice(0, 3)
     .map(({ budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...route }) => ({ ...presentRoute(route, locale), ...plannerEntry(normalizePlannerPassport(input), route.country, locale) }));
 
   return {
-    summary: locale === "sq" ? "Kemi marrë parasysh buxhetin, kushtet e hyrjes dhe stilin tënd të udhëtimit. Kontrollo rregullat zyrtare më të fundit të hyrjes përpara se të vendosësh." : locale === "en"
-      ? "We considered your budget, entry preference and travel style together. Check the latest official entry rules before deciding."
-      : "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.",
+    summary: translateCopy(locale, "Seçimlerine göre bütçe, giriş kolaylığı ve seyahat tarzını birlikte değerlendirdik. Karar vermeden önce güncel giriş koşullarını kontrol et.", "We considered your budget, entry preference and travel style together. Check the latest official entry rules before deciding.", "Kemi marrë parasysh buxhetin, kushtet e hyrjes dhe stilin tënd të udhëtimit. Kontrollo rregullat zyrtare më të fundit të hyrjes përpara se të vendosësh."),
     routes,
   };
 }
 
-export function randomRoute(locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion {
+export function randomRoute(locale: "tr" | "en" | "sq" | "ro" = "tr"): RouteSuggestion {
   const route = ROUTE_CATALOG[Math.floor(Math.random() * ROUTE_CATALOG.length)];
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;
   return presentRoute(suggestion, locale);
@@ -381,7 +380,7 @@ export function randomRouteFor(preferences: {
   pace: "easy" | "balanced" | "adventure";
   passportCountry?: string;
   passportType?: string;
-}, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion | null {
+}, locale: "tr" | "en" | "sq" | "ro" = "tr"): RouteSuggestion | null {
   const budgetMap = { economy: 1, balanced: 2, premium: 3 } as const;
   const candidates = ROUTE_CATALOG.filter((route) => {
     const entry = plannerEntry(normalizePlannerPassport(preferences), route.country, locale).verifiedEntryStatus;
@@ -397,7 +396,7 @@ export function randomRouteFor(preferences: {
   return { ...presentRoute(suggestion, locale), ...plannerEntry(normalizePlannerPassport(preferences), route.country, locale) };
 }
 
-export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" | "sq" = "tr"): RouteSuggestion | null {
+export function routeByDestinationCode(destinationCode: string, locale: "tr" | "en" | "sq" | "ro" = "tr"): RouteSuggestion | null {
   const route = ROUTE_CATALOG.find((item) => item.destinationCode === destinationCode.trim().toUpperCase());
   if (!route) return null;
   const { budgetTier: _budgetTier, tags: _tags, visaEase: _visaEase, months: _months, ...suggestion } = route;

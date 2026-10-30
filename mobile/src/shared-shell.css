@@ -67,14 +67,13 @@
 .animated-splash-copy .animated-splash-brand { display: flex; align-items: baseline; justify-content: center; width: 100%; white-space: nowrap; font-family: 'Inter', system-ui, sans-serif; font-size: clamp(32px, 9vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.3; }
 .animated-splash-copy .animated-splash-brand strong { margin: 0; font-size: 1.18em; font-weight: 900; }
 
-/* The home composition owns its chrome. Other screens keep their existing
-   shared surfaces, dimensions and navigation behaviour. */
+/* Home keeps its sky palette while using the same header dimensions. */
 .app-shell.editorial-app.shared-shell.view-home {
   --header-sky: #079be0;
 }
 .app-shell.editorial-app.shared-shell.view-home .topbar.shared-topbar {
-  min-height: calc(clamp(78px, 12.7vw, 108px) + env(safe-area-inset-top));
-  padding: calc(12px + env(safe-area-inset-top)) max(clamp(12px, 3vw, 28px), env(safe-area-inset-right)) 12px max(clamp(12px, 3vw, 28px), env(safe-area-inset-left));
+  min-height: calc(76px + env(safe-area-inset-top));
+  padding-block: calc(10px + env(safe-area-inset-top)) 10px;
   background: linear-gradient(110deg, #079de3 0%, #0798dc 100%);
   border-bottom: 1px solid rgb(255 255 255 / 17%);
   box-shadow: none;
@@ -82,28 +81,26 @@
   backdrop-filter: none;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-brand-group {
-  flex: 1 1 auto;
-  margin-right: clamp(8px, 2vw, 20px);
+  flex: 1;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .brand-button {
-  flex: 0 1 390px;
-  width: min(100%, 390px);
+  flex: 0 1 210px;
+  width: min(100%, 210px);
   min-height: 44px;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .brand-logo {
-  max-height: 82px;
+  max-height: 56px;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .topbar-actions {
   align-items: center;
-  gap: clamp(4px, 1.2vw, 10px);
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar :is(.icon-button, .language-toggle, .theme-toggle-header) {
   display: grid;
   place-items: center;
-  flex: 0 0 clamp(44px, 6.6vw, 56px);
-  width: clamp(44px, 6.6vw, 56px);
+  flex: 0 0 44px;
+  width: 44px;
   min-width: 44px;
-  height: clamp(44px, 6.6vw, 56px);
+  height: 44px;
   min-height: 44px;
   padding: 0;
   color: #fff;
@@ -113,17 +110,20 @@
   box-shadow: inset 0 1px 2px rgb(255 255 255 / 14%);
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .language-toggle {
-  border-radius: 16px;
+  width: 48px;
+  min-width: 48px;
+  flex-basis: 48px;
+  border-radius: 14px;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .language-flag {
-  width: clamp(29px, 4.1vw, 35px);
-  height: clamp(21px, 3vw, 25px);
+  width: 30px;
+  height: 21px;
   border-radius: 5px;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 15%);
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .icon-button svg {
-  width: clamp(22px, 3vw, 27px);
-  height: clamp(22px, 3vw, 27px);
+  width: 21px;
+  height: 21px;
   stroke-width: 1.7;
 }
 .app-shell.editorial-app.shared-shell.view-home .shared-topbar .notification-badge {

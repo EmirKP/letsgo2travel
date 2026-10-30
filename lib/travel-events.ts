@@ -36,8 +36,12 @@ export type EventSearch = {
   endDate: string;
   category?: TravelEventCategory;
   featured?: boolean;
+  query?: string;
   limit: number;
 };
+
+type ProviderPageState = { offset: number; endOffset: number; hasMore: boolean; positions: Map<string, number>; limited?: boolean };
+const pageState = (offset: number): ProviderPageState => ({ offset, endOffset: offset, hasMore: false, positions: new Map() });
 
 type TicketmasterEvent = {
   id?: unknown;
@@ -76,6 +80,7 @@ type PredictHqEvent = {
   postponed?: unknown;
   url?: unknown;
   rank?: unknown;
+  geo?: { address?: { locality?: unknown } };
   entities?: PredictHqEntity[];
 };
 
@@ -165,17 +170,19 @@ export function ticketmasterSupportsCountry(countryCode?: string) {
   return !countryCode || TICKETMASTER_COUNTRIES.has(countryCode.toUpperCase());
 }
 
-export async function ticketmasterEvents(search: EventSearch): Promise<TravelEvent[]> {
+export async function ticketmasterEvents(search: EventSearch, page?: ProviderPageState): Promise<TravelEvent[]> {
   const apiKey = process.env.TICKETMASTER_API_KEY?.trim();
   if (!apiKey) return [];
   const params = new URLSearchParams({
     apikey: apiKey,
     startDateTime: `${search.startDate}T00:00:00Z`,
     endDateTime: `${search.endDate}T23:59:59Z`,
-    size: String(Math.min(search.limit, 50)),
+    size: String(page ? 50 : Math.min(search.limit, 50)),
     sort: search.featured ? "relevance,desc" : "date,asc",
   });
   if (search.countryCode) params.set("countryCode", search.countryCode);
+  if (search.query?.trim()) params.set("keyword", search.query.trim());
+  if (page) params.set("page", String(Math.floor(page.offset / 50)));
   if (search.city) params.set("city", search.city);
   if (search.category === "concert") params.set("classificationName", "music");
   if (search.category === "sport") params.set("classificationName", "sports");
@@ -186,9 +193,18 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
     next: { revalidate: 900 },
   });
   if (!response.ok) throw new Error(`ticketmaster_${response.status}`);
-  const payload = await response.json() as { _embedded?: { events?: TicketmasterEvent[] } };
+  const payload = await response.json() as { _embedded?: { events?: TicketmasterEvent[] }; page?: { number?: number; totalPages?: number }; _links?: { next?: unknown } };
   const events = Array.isArray(payload._embedded?.events) ? payload._embedded.events : [];
-  return events.flatMap((event) => {
+  if (page) {
+    page.endOffset = Math.floor(page.offset / 50) * 50 + events.length;
+    const more = Boolean(payload._links?.next) || (typeof payload.page?.totalPages === 'number' ? Math.floor(page.offset / 50) + 1 < payload.page.totalPages : events.length === 50);
+    if (more && !events.length) throw new Error('ticketmaster_empty_page');
+    page.hasMore = more && page.endOffset < 1000;
+    page.limited = more && page.endOffset >= 1000;
+  }
+  return events.flatMap((event, index) => {
+    const position = page ? Math.floor(page.offset / 50) * 50 + index : index;
+    if (page && position < page.offset) return [];
     const id = text(event.id, 160);
     const title = text(event.name, 240);
     const sourceUrl = httpsUrl(event.url);
@@ -226,6 +242,7 @@ export async function ticketmasterEvents(search: EventSearch): Promise<TravelEve
     } satisfies TravelEvent;
     if (search.category && mapped.category !== search.category) return [];
     if (search.featured && (mapped.category !== "concert" || mapped.status !== "scheduled")) return [];
+    page?.positions.set(mapped.id, position);
     return [mapped];
   });
 }
@@ -269,7 +286,7 @@ function predictHqLocation(event: PredictHqEvent, search: EventSearch) {
   const venue = entities.find((entity) => text(entity.type, 40).toLocaleLowerCase("en") === "venue");
   const locality = entities.find((entity) => ["locality", "city"].includes(text(entity.type, 40).toLocaleLowerCase("en")));
   return {
-    city: text(search.city || locality?.name, 120),
+    city: text(event.geo?.address?.locality || locality?.name || (search.placeCode ? search.city : ''), 120),
     venue: text(venue?.name, 180),
   };
 }
@@ -279,18 +296,20 @@ function eventVerificationUrl(title: string, city: string, startsAt: string) {
   return `https://www.google.com/search?${new URLSearchParams({ q: query })}`;
 }
 
-export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[]> {
+export async function predictHqEvents(search: EventSearch, page?: ProviderPageState): Promise<TravelEvent[]> {
   const accessToken = process.env.PREDICTHQ_ACCESS_TOKEN?.trim();
   if (!accessToken) return [];
   const params = new URLSearchParams({
     "start.gte": search.startDate,
     "start.lte": search.endDate,
     category: predictHqCategories(search.category),
-    limit: String(Math.min(search.limit, 50)),
+    limit: String(page ? 50 : Math.min(search.limit, 50)),
     sort: "start",
     "brand_unsafe.exclude": "true",
     "private.include": "false",
   });
+  if (search.query?.trim()) params.set("q", search.query.trim());
+  if (page) params.set("offset", String(page.offset));
   const kosovoSearch = search.countryCode?.toUpperCase() === "XK";
   // PredictHQ ülke filtresi resmî ISO-3166 alpha-2 bekler. Kosova için
   // yaygın kullanılan XK atanmış bir ISO kodu olmadığından ülke filtresi
@@ -313,10 +332,14 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     next: { revalidate: 900 },
   });
   if (!response.ok) throw new Error(`predicthq_${response.status}`);
-  const payload = await response.json() as { results?: PredictHqEvent[] };
+  const payload = await response.json() as { results?: PredictHqEvent[]; next?: string | null; overflow?: boolean };
   const events = Array.isArray(payload.results) ? payload.results : [];
+  if (page) {
+    if (payload.next && !events.length) throw new Error('predicthq_empty_page');
+    page.endOffset = page.offset + events.length; page.hasMore = Boolean(payload.next); page.limited = payload.overflow === true;
+  }
 
-  return events.flatMap((event) => {
+  return events.flatMap((event, index) => {
     const id = text(event.id, 160);
     const title = text(event.title, 240);
     const startsAt = validDate(event.start);
@@ -324,6 +347,9 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     const category = categoryFromPredictHq(event, search.featured ? "concert" : search.category);
     if (search.category && category !== search.category) return [];
     const location = predictHqLocation(event, search);
+    // A typed city has no airport scope. Never relabel unrelated countrywide
+    // results with the requested city, including records without a locality.
+    if (search.city && !search.placeCode && normalizedEventText(location.city) !== normalizedEventText(search.city)) return [];
     const rank = impactRank(event.rank);
     if (search.featured && (rank === null || rank < 55)) return [];
     const directUrl = httpsUrl(event.url);
@@ -331,6 +357,7 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
     const timeZone = validTimeZone(event.timezone) ? event.timezone : null;
     const local = timeZone ? zonedParts(Date.parse(startsAt), timeZone) : { date: text(event.start_local || event.start, 40).slice(0, 10), time: "00:00:00" };
     const exact = Boolean(timeZone && event.state !== "predicted" && local.time !== "00:00:00");
+    page?.positions.set(`predicthq:${id}`, (page?.offset || 0) + index);
     return [{
       id: `predicthq:${id}`,
       provider: "predicthq" as const,
@@ -356,7 +383,7 @@ export async function predictHqEvents(search: EventSearch): Promise<TravelEvent[
   });
 }
 
-export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]> {
+export async function curatedEvents(search: EventSearch, page?: ProviderPageState): Promise<TravelEvent[]> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return [];
   let query = supabase
@@ -365,18 +392,23 @@ export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]>
     .eq("published", true)
     .gte("starts_at", `${search.startDate}T00:00:00Z`)
     .lte("starts_at", `${search.endDate}T23:59:59Z`)
-    .order("starts_at", { ascending: true })
-    .limit(search.limit);
+    .order("starts_at", { ascending: true });
+  query = page ? query.order('id', { ascending: true }).range(page.offset, page.offset + 49) : query.limit(search.limit);
   if (search.countryCode) query = query.eq("country_code", search.countryCode);
   if (search.city) query = query.ilike("city", `%${search.city.replace(/[%_]/g, "")}%`);
   if (search.category) query = query.eq("category", search.category);
   if (search.featured) query = query.eq("featured", true);
+  const keyword = search.query?.replace(/[%_(),."\\]/g, ' ').trim().slice(0, 120);
+  if (keyword) query = query.or(`title.ilike.%${keyword}%,description.ilike.%${keyword}%,venue.ilike.%${keyword}%`);
   const { data, error } = await query;
   if (error) {
     if (error.code === "42P01") return [];
     throw error;
   }
-  return (data || []).map((item) => ({
+  if (page) { page.endOffset = page.offset + (data?.length || 0); page.hasMore = data?.length === 50; }
+  return (data || []).map((item, index) => {
+    page?.positions.set(String(item.id), (page?.offset || 0) + index);
+    return ({
     id: String(item.id),
     // Haricî sağlayıcı sonuçları veritabanına yazılmaz. Eski/veri dışı bir
     // değer görülürse güvenli biçimde editoryal kayıt kabul edilir.
@@ -398,7 +430,7 @@ export async function curatedEvents(search: EventSearch): Promise<TravelEvent[]>
     sourceUrl: httpsUrl(item.source_url) || "https://www.letsgo2travel.com.tr",
     featured: Boolean(item.featured),
     updatedAt: String(item.updated_at),
-  }));
+  }); });
 }
 
 async function automaticProviderEvents(search: EventSearch): Promise<AutomaticProviderResult> {
@@ -477,7 +509,7 @@ function normalizedEventText(value: string) {
     .toLocaleLowerCase("en")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
 
@@ -489,6 +521,96 @@ function sameEvent(left: TravelEvent, right: TravelEvent) {
   const leftCity = normalizedEventText(left.city);
   const rightCity = normalizedEventText(right.city);
   return !leftCity || !rightCity || leftCity === rightCity;
+}
+
+type EventPageCursor = { v: 1; scope: string; curated: number; automatic: number; provider: 'ticketmaster' | 'predicthq' | 'none'; unavailable?: boolean };
+
+/** Public, stateless offsets only. A cursor never contains event facts or an
+ * upstream URL; every page is fetched again through the same source filters. */
+export async function searchTravelEventPage(search: EventSearch, rawCursor?: string) {
+  const scope = JSON.stringify([search.countryCode || '', search.city || '', search.placeCode || '', search.startDate, search.endDate, search.category || '', search.query?.trim() || '', search.limit]);
+  let cursor: EventPageCursor | null = null;
+  if (rawCursor) {
+    try {
+      const value = JSON.parse(decodeURIComponent(rawCursor)) as EventPageCursor;
+      if (value.v !== 1 || value.scope !== scope || !['ticketmaster', 'predicthq', 'none'].includes(value.provider)
+        || value.unavailable !== undefined && typeof value.unavailable !== 'boolean'
+        || ![value.curated, value.automatic].every(offset => Number.isInteger(offset) && offset >= -1 && offset <= 10000)
+        || value.provider === 'ticketmaster' && value.automatic >= 1000) throw Error();
+      cursor = value;
+    } catch { throw new Error('event_cursor_invalid'); }
+  }
+  const providers = {
+    ticketmaster: { configured: Boolean(process.env.TICKETMASTER_API_KEY?.trim()), attempted: false, succeeded: false },
+    predicthq: { configured: Boolean(process.env.PREDICTHQ_ACCESS_TOKEN?.trim()), attempted: false, succeeded: false },
+  };
+  const curatedPage = pageState(cursor?.curated ?? 0), automaticPage = pageState(cursor?.automatic ?? 0);
+  let provider: EventPageCursor['provider'] = cursor?.provider || 'none';
+  let partial = false, fallbackUsed = false;
+  const readAutomatic = async () => {
+    if (cursor?.automatic === -1) return [];
+    const read = async (source: 'ticketmaster' | 'predicthq') => {
+      if (!providers[source].configured) throw new Error('event_provider_unavailable');
+      providers[source].attempted = true;
+      const events = await (source === 'ticketmaster' ? ticketmasterEvents : predictHqEvents)(search, automaticPage);
+      providers[source].succeeded = true;
+      provider = source;
+      return events;
+    };
+    if (cursor) return cursor.provider === 'none' ? [] : read(cursor.provider);
+    if (providers.ticketmaster.configured && ticketmasterSupportsCountry(search.countryCode)) {
+      try {
+        const events = await read('ticketmaster');
+        if (events.length || automaticPage.hasMore || !providers.predicthq.configured) return events;
+      } catch { partial = true; }
+    }
+    if (providers.predicthq.configured) {
+      fallbackUsed = true;
+      automaticPage.positions.clear(); automaticPage.endOffset = 0; automaticPage.hasMore = false; automaticPage.limited = false;
+      return read('predicthq');
+    }
+    if (Object.values(providers).some(item => item.attempted) && !Object.values(providers).some(item => item.succeeded)) throw new Error('event_provider_unavailable');
+    return [];
+  };
+  const [curatedResult, automaticResult] = await Promise.allSettled([
+    cursor?.curated === -1 ? Promise.resolve([] as TravelEvent[]) : curatedEvents(search, curatedPage),
+    readAutomatic(),
+  ]);
+  // Later pages cannot silently change provider, drop a failed source's offset,
+  // or erase the already displayed list. The client can retry the same cursor.
+  const curated = curatedResult.status === 'fulfilled' ? curatedResult.value : [];
+  const unavailable = automaticResult.status === 'rejected' || cursor?.unavailable === true;
+  if (automaticResult.status === 'rejected' && (cursor || !curated.length)) throw new Error('event_provider_unavailable');
+  if (automaticResult.status === 'rejected') { partial = true; provider = 'none'; }
+  const automatic = automaticResult.status === 'fulfilled' ? automaticResult.value : [];
+  if (curatedResult.status === 'rejected' && !automatic.length) throw new Error('event_provider_unavailable');
+  if (curatedResult.status === 'rejected') { partial = true; curatedPage.hasMore = true; }
+  const lists = [curated, automatic], consumed = [0, 0], events: TravelEvent[] = [];
+  while (events.length < search.limit && (consumed[0] < curated.length || consumed[1] < automatic.length)) {
+    const left = curated[consumed[0]], right = automatic[consumed[1]];
+    const source = !right || left && left.startsAt.localeCompare(right.startsAt) <= 0 ? 0 : 1;
+    const event = lists[source][consumed[source]++];
+    if (!events.some(previous => sameEvent(previous, event))) events.push(event);
+  }
+  const advance = (items: TravelEvent[], state: ProviderPageState, index: number) => {
+    if (state.offset === -1) return -1;
+    if (index < items.length) return state.positions.get(items[index].id) ?? state.offset;
+    return state.hasMore ? state.endOffset : -1;
+  };
+  const nextCurated = advance(curated, curatedPage, consumed[0]);
+  const nextAutomatic = provider === 'none' ? -1 : advance(automatic, automaticPage, consumed[1]);
+  const atSafetyLimit = nextCurated >= 10000 || nextAutomatic >= 10000;
+  const next: EventPageCursor = { v: 1, scope, curated: nextCurated >= 10000 ? -1 : nextCurated, automatic: nextAutomatic >= 10000 ? -1 : nextAutomatic, provider, ...(unavailable ? { unavailable: true } : {}) };
+  const providerConfigured = Object.values(providers).some(item => item.configured);
+  const succeeded = Object.values(providers).some(item => item.succeeded) || Boolean(cursor && provider !== 'none');
+  const coverageLimited = unavailable || !succeeded;
+  return {
+    events, providerConfigured, providers, fallbackUsed, partial: partial || unavailable,
+    coverageLimited,
+    coverageStatus: unavailable ? 'provider_unavailable' : !providerConfigured ? 'not_configured' : coverageLimited ? 'limited' : events.length || next.automatic !== -1 ? 'live' : 'no_results',
+    nextCursor: next.curated === -1 && next.automatic === -1 ? null : encodeURIComponent(JSON.stringify(next)),
+    paginationLimited: Boolean(automaticPage.limited || atSafetyLimit),
+  };
 }
 
 export async function searchTravelEvents(search: EventSearch) {

@@ -9,9 +9,11 @@ import type { PhotoGuide } from "../../../lib/travel-assistant/photo";
 
 export function TravelPhotoGuide({
   accessToken,
+  ownerId,
   onSignIn,
 }: {
   accessToken: string;
+  ownerId?: string | null;
   onSignIn: () => void;
 }) {
   const { copy, locale } = useI18n();
@@ -28,6 +30,9 @@ export function TravelPhotoGuide({
   const generation = useRef(0);
   const pending = useRef(false);
   const mounted = useRef(true);
+  const currentToken = useRef(accessToken);
+  const signedIn = Boolean(accessToken);
+  useEffect(() => { currentToken.current = accessToken; setNeedsSignIn(false); }, [accessToken]);
   useEffect(() => {
     mounted.current = true;
     const recheck = () => setCheckVersion((value) => value + 1);
@@ -46,7 +51,7 @@ export function TravelPhotoGuide({
     setConsent(false);
     setNeedsSignIn(false);
     setClearedDuringAnalysis(false);
-  }, [locale, accessToken]);
+  }, [locale, ownerId, signedIn]);
   useEffect(() => {
     let active = true;
     setAvailable(null);
@@ -117,13 +122,14 @@ export function TravelPhotoGuide({
       if (id === generation.current) setResult(value);
     } catch (e) {
       if (id === generation.current) {
-        setNeedsSignIn(e instanceof ApiError && e.status === 401);
+        const refreshed = e instanceof ApiError && e.status === 401 && accessToken !== currentToken.current;
+        setNeedsSignIn(e instanceof ApiError && e.status === 401 && !refreshed);
         if (e instanceof ApiError && e.status === 503) {
           setAvailable(false);
           setAvailabilityReason("service");
         }
         setError(
-          e instanceof ApiError && e.status === 429
+          refreshed ? copy('Oturumun yenilendi. Fotoğrafın korunuyor; analizi tekrar başlatabilirsin.', 'Your session was refreshed. Your photo is kept; you can start the analysis again.', 'Sesioni u rifreskua. Fotoja ruhet; mund ta nisësh analizën sërish.') : e instanceof ApiError && e.status === 429
             ? copy(
                 "Günlük analiz sınırına ulaşıldı. Sınır Türkiye saatiyle 03.00’te yenilenir.",
                 "The daily analysis limit has been reached. It resets at 00:00 UTC.",

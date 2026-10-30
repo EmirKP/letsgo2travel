@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const compile = path => ts.transpileModule(readFileSync(path, 'utf8'), { fileName: path,
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -12,7 +13,7 @@ const componentSource = compile('mobile/src/components/AppleJourneyMap.tsx');
 const placesModule = { exports: {} };
 vm.runInNewContext(`(function(module,exports){${compile('lib/travel-assistant/places.ts')}\n})`, { URL })(placesModule, placesModule.exports);
 const categoryModule = { exports: {} };
-vm.runInNewContext(`(function(require,module,exports){${compile('mobile/src/components/journeyMapCategory.ts')}\n})`)(() => placesModule.exports, categoryModule, categoryModule.exports);
+vm.runInNewContext(`(function(require,module,exports){${compile('mobile/src/components/journeyMapCategory.ts')}\n})`)(name => realLocaleModule(name) || placesModule.exports, categoryModule, categoryModule.exports);
 const json = value => JSON.parse(JSON.stringify(value));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };

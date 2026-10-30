@@ -1,0 +1,9 @@
+{
+  "asset": "stay-types-v1.webp",
+  "generator": "OpenAI built-in image_gen",
+  "created": "2026-10-25",
+  "usage": "Illustrative accommodation type choices, not actual hotel listings or quotes.",
+  "panels": ["hotel", "apartment", "hostel"],
+  "delivery": "WebP encoding, original dimensions retained: 2172 x 724",
+  "prompt": "Use case: photorealistic-natural. Asset type: one horizontal three-panel photo strip for accommodation type selection in the LetsGo2Travel travel budget app. Create a single continuous 3:1 image, 1536x512 if possible, divided exactly into three equal-width square photographic panels with no gaps, borders or overlaid text. LEFT third: a tasteful attainable three-star hotel bedroom with a neatly made white double bed, blue runner, warm bedside light, daylight window. MIDDLE third: a bright compact vacation apartment showing sofa, small kitchenette and dining table, warm natural wood and blue accents. RIGHT third: a clean modern hostel shared room, two clearly visible wooden bunk beds, tidy white bedding, blue accents, daylight. Each interior should be framed to remain immediately identifiable in a small 95px-wide UI thumbnail. Consistent natural editorial photography, realistic room scale, welcoming and calm, no people, no brand names, no logos, no typography, no labels, no icons, no watermarks, no UI. Keep each scene wholly within its equal panel, do not blend rooms across panel boundaries."
+}

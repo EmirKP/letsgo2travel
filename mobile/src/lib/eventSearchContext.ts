@@ -18,6 +18,7 @@ export type EventSearchFilters = {
   startDate: string;
   endDate: string;
   category: 'all' | 'concert' | 'festival' | 'sport' | 'culture' | 'food' | 'family';
+  query?: string;
 };
 
 /** Match known local spellings only inside the selected country. */

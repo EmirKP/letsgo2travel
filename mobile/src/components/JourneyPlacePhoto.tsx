@@ -1,3 +1,4 @@
+import { translateTuple } from "../lib/locale";
 import { useState } from 'react';
 import { useI18n } from '../lib/i18n';
 import { openExternal } from '../lib/native';
@@ -8,7 +9,7 @@ import { Icon, type IconName } from './Icon';
 export function JourneyPlacePhoto({ place, compact = false }: { place: JourneyPlace; compact?: boolean }) {
   const { copy, locale } = useI18n();
   const [failed, setFailed] = useState('');
-  const category = CATEGORY_LABELS[place.category]?.[locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1] || place.category;
+  const category = translateTuple(locale, CATEGORY_LABELS[place.category]) || place.category;
   const icon: IconName = ['park', 'garden', 'hiking'].includes(place.category) ? 'leaf'
     : ['cafe', 'bakery', 'restaurant', 'sweets', 'market'].includes(place.category) ? 'smile'
     : ['museum', 'historic', 'palace', 'monument'].includes(place.category) ? 'book'

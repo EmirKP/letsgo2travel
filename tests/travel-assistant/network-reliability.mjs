@@ -3,11 +3,12 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 function load(path, imports, globals = {}) {
   const output = { exports: {} };
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL, URLSearchParams, AbortController, AbortSignal, DOMException, Date, Response, Request, ...globals })(name => imports[name] || {}, output, output.exports);
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL, URLSearchParams, AbortController, AbortSignal, DOMException, Date, Response, Request, ...globals })(name => imports[name] || realLocaleModule(name) || {}, output, output.exports);
   return output.exports;
 }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }

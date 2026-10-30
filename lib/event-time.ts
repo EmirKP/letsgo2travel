@@ -13,9 +13,9 @@ export function hasEventTime(event: EventTime) {
 }
 export function eventDateLabel(event: EventTime, locale: string, options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" }, formatter: DateLabelFormatter = defaultDateFormatter) {
   const date = new Date(`${eventLocalDate(event)}T12:00:00Z`);
-  return Number.isFinite(date.getTime()) ? formatter(date, locale, { ...options, timeZone: "UTC" }) : (locale.startsWith("tr") ? "Tarih açıklanmadı" : locale.startsWith("sq") ? "Data nuk është njoftuar" : "Date not announced");
+  return Number.isFinite(date.getTime()) ? formatter(date, locale, { ...options, timeZone: "UTC" }) : (locale.startsWith('ro') ? 'Data nu a fost anunțată' : locale.startsWith("tr") ? "Tarih açıklanmadı" : locale.startsWith("sq") ? "Data nuk është njoftuar" : "Date not announced");
 }
 export function eventTimeLabel(event: EventTime, locale: string, formatter: DateLabelFormatter = defaultDateFormatter) {
-  if (!hasEventTime(event)) return locale.startsWith("tr") ? "Saat açıklanmadı" : locale.startsWith("sq") ? "Ora nuk është njoftuar" : "Time not announced";
+  if (!hasEventTime(event)) return locale.startsWith('ro') ? 'Ora nu a fost anunțată' : locale.startsWith("tr") ? "Saat açıklanmadı" : locale.startsWith("sq") ? "Ora nuk është njoftuar" : "Time not announced";
   return formatter(new Date(event.startsAt), locale, { hour: "2-digit", minute: "2-digit", timeZone: validTimeZone(event.timeZone) ? event.timeZone : "UTC", timeZoneName: "short" });
 }

@@ -131,7 +131,7 @@ export function HomeScreen({ user, ownerId, accessToken, refreshToken, onNavigat
   const compactShortcutLabels: Record<string, string> = {
     route: copy("Rota", "Route", "Itinerar"), explore: copy("Ülkeler", "Explore", "Shtete"),
     passport: copy("Vize", "Visa", "Viza"), trips: copy("Planlar", "Plans", "Planet"),
-    companion: copy("Araçlar", "Tools", "Mjete"),
+    companion: copy("Araçlar", "Tools", "Mjete"), costs: copy("Bütçe", "Budget", "Buxheti"),
   };
   return <div className="screen home-screen reference-home">
     <section className="rh-hero" aria-labelledby="rh-title">

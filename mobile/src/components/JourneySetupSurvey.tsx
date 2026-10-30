@@ -26,6 +26,8 @@ type Props = {
   ownerId?: string | null;
   draftScope?: string;
   initialCity?: string;
+  initialArea?: JourneyArea;
+  initialTrip?: { startDate: string; endDate: string; adults?: number; children?: number };
   initialValues?: JourneySurveyValues;
   initialDraft?: JourneySurveyDraft;
   busy?: boolean;
@@ -68,20 +70,20 @@ export function JourneySetupSurvey(props: Props) {
   return <SurveyForm key={JSON.stringify([props.ownerId ?? null, props.draftScope || 'new'])} {...props} />;
 }
 
-function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', initialValues, initialDraft, busy = false, error = '', allowance, generationDisabled=false, generationLabel, onSignIn, onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
+function SurveyForm({ ownerId = null, draftScope = 'new', initialCity = '', initialArea, initialTrip, initialValues, initialDraft, busy = false, error = '', allowance, generationDisabled=false, generationLabel, onSignIn, onGenerate, onCancel, savedPlans = [], onOpenSaved }: Props) {
   const { copy, locale } = useI18n();
   const [restored] = useState(() => readJourneySurveyDraft(ownerId, draftScope));
   const draft = restored.draft || initialDraft;
   const [step, setStep] = useState(draft?.step ?? 0);
-  const [query, setQuery] = useState(draft?.query ?? initialValues?.area.name ?? initialCity);
-  const [area, setArea] = useState<JourneyArea | null>(() => draft ? draft.area : initialValues?.area || knownJourneyArea(initialCity));
+  const [query, setQuery] = useState(draft?.query ?? initialValues?.area.name ?? initialArea?.name ?? initialCity);
+  const [area, setArea] = useState<JourneyArea | null>(() => draft ? draft.area : initialValues?.area || initialArea || knownJourneyArea(initialCity));
   const [results, setResults] = useState<JourneyArea[]>([]);
   const [searchState, setSearchState] = useState<SearchState>('idle');
-  const [dayText, setDayText] = useState(draft?.dayText ?? String(initialValues?.dayCount ?? 3));
-  const [startDate, setStartDate] = useState(draft?.startDate ?? initialValues?.startDate ?? '');
-  const [dateMode, setDateMode] = useState<'flexible' | 'specific'>(draft?.dateMode ?? (initialValues?.startDate ? 'specific' : 'flexible'));
+  const [dayText, setDayText] = useState(draft?.dayText ?? String(initialValues?.dayCount ?? (initialTrip ? Math.min(14, Math.max(1, Math.round((Date.parse(initialTrip.endDate) - Date.parse(initialTrip.startDate)) / 86400000) + 1)) : 3)));
+  const [startDate, setStartDate] = useState(draft?.startDate ?? initialValues?.startDate ?? initialTrip?.startDate ?? '');
+  const [dateMode, setDateMode] = useState<'flexible' | 'specific'>(draft?.dateMode ?? (initialValues?.startDate || initialTrip?.startDate ? 'specific' : 'flexible'));
   const [firstDayStartTime, setFirstDayStartTime] = useState(draft?.firstDayStartTime ?? initialValues?.firstDayStartTime ?? '');
-  const [party, setParty] = useState<JourneySurveyValues['party']>(draft?.party ?? initialValues?.party ?? 'solo');
+  const [party, setParty] = useState<JourneySurveyValues['party']>(draft?.party ?? initialValues?.party ?? ((initialTrip?.children || 0) > 0 ? 'family' : (initialTrip?.adults || 1) > 2 ? 'friends' : initialTrip?.adults === 2 ? 'couple' : 'solo'));
   const [budget, setBudget] = useState<JourneySurveyValues['budget']>(draft?.budget ?? initialValues?.budget ?? 'moderate');
   const [pace, setPace] = useState<JourneySurveyValues['pace']>(draft?.pace ?? initialValues?.pace ?? 'balanced');
   const [walking, setWalking] = useState<JourneySurveyValues['walking']>(draft?.walking ?? initialValues?.walking ?? 'standard');

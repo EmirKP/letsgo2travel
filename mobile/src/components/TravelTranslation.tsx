@@ -7,6 +7,7 @@ import { copySupportText } from "../lib/native";
 import { deleteSavedTranslation, MAX_SAVED_TRANSLATIONS, readSavedTranslationState, resetSavedTranslations, saveTranslation } from "../lib/savedTranslations";
 import type { TranslationCard } from "../lib/savedTranslations";
 import { Sheet } from "./Sheet";
+import { onAccountResume } from "../lib/accountResume";
 import "./travel-translation.css";
 
 const languageName = (code: string) => TRANSLATION_LANGUAGES.find(([value]) => value === code)?.[1] || code;
@@ -131,16 +132,23 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
   const [result, setResult] = useState<TranslationCard | null>(initial || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [statusReload, setStatusReload] = useState(0);
   const active = useRef(true);
   const running = useRef(false);
   const revision = useRef(0);
+  const statusRevision = useRef(0);
   // Results retain the exact text/pair that produced them. Never save against a changed draft.
   const current = result?.source === source && result.target === target && result.text === text.trim() ? result : null;
   useEffect(() => {
     active.current = true;
-    void translationStatus(source, target).then((s) => { if (active.current) setStatus(s); }).catch(() => { if (active.current) setStatus("unsupported"); });
-    return () => { active.current = false; revision.current++; };
-  }, [source, target]);
+    const check = ++statusRevision.current;
+    setStatus('checking');
+    void translationStatus(source, target).then((s) => { if (active.current && check === statusRevision.current) setStatus(s); }).catch(() => { if (active.current && check === statusRevision.current) setStatus("unsupported"); });
+    return () => { active.current = false; revision.current++; statusRevision.current++; };
+  }, [source, target, statusReload]);
+  useEffect(() => onAccountResume(() => {
+    if (!running.current) setStatusReload(value => value + 1);
+  }), []);
   async function run(prepare: boolean) {
     if (running.current) return;
     running.current = true;
@@ -158,7 +166,10 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
         if (active.current && operation === revision.current) setResult({ source, target, text: input, translation });
       }
     } catch {
-      if (active.current && operation === revision.current) setError(copy("İşlem tamamlanamadı. Paket indirmek için Wi-Fi bağlantını, çeviri için paketlerin hazır olduğunu kontrol et.", "Could not complete. Check Wi-Fi for downloads and make sure the language packs are ready before translating."));
+      if (active.current && operation === revision.current) {
+        setError(copy("İşlem tamamlanamadı. Paket durumunu yeniden kontrol ediyoruz; metnin korunuyor.", "Could not complete. Rechecking language packs; your text is kept.", "Veprimi nuk u krye. Po rikontrollohen paketat; teksti ruhet."));
+        setStatusReload(value => value + 1);
+      }
     } finally {
       running.current = false;
       if (active.current) setBusy(false);
@@ -167,6 +178,7 @@ function TranslationEditor({ source, target, text, onTextChange, initial, onSave
   return <>
     <p role="status">{status === "checking" ? copy("Dil desteği kontrol ediliyor…", "Checking language support…") : status === "installed" ? copy("Dil paketleri hazır. İnternetsiz çevirebilirsin.", "Language packs ready. You can translate offline.") : status === "supported" ? copy("Bu dil çifti için paket indirmek gerekiyor. Wi-Fi kullan; indirme birkaç dakika sürebilir.", "This language pair needs a download. Use Wi-Fi; this can take several minutes.") : copy("Bu cihazda bu dil çifti için çevrimdışı çeviri kullanılamıyor. Hazır ifadeleri veya kayıtlı çevirilerini kullanabilir ya da başka bir dil çifti seçebilirsin.", "Offline translation is unavailable for this language pair on this device. Use phrase cards or saved translations, or choose another pair.")}</p>
     {status === "supported" && <button className="primary-wide" disabled={busy} onClick={() => void run(true)}>{busy ? copy("Paket hazırlanıyor…", "Preparing pack…") : copy("Dil paketlerini indir", "Download language packs")}</button>}
+    {(isIOSNative() || status === 'installed' || status === 'supported' || error) && <button type="button" className="secondary-wide" disabled={busy || status === 'checking'} onClick={() => setStatusReload(value => value + 1)}>{copy('Paket durumunu kontrol et', 'Check language packs', 'Kontrollo paketat e gjuhëve')}</button>}
     <label>{copy("Çevrilecek metin", "Text to translate")}
       <textarea rows={4} maxLength={2000} value={text} disabled={busy} lang={source} dir="auto" onChange={(event) => { revision.current++; onTextChange(event.target.value); setResult(null); setError(""); }} />
     </label>

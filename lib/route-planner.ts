@@ -1,7 +1,8 @@
+import { translateAppCopy } from './planner-copy';
 /** Shared, provider-independent rules for a traveller's fixed destination. */
 import { starterPreferenceNote, type PlannerPreferences } from "./planner-preferences";
 export type PlanDestination = { code: string; name: string; country: string; countryCode: string };
-export type PlanLocale = "tr" | "en" | "sq";
+export type PlanLocale = "tr" | "en" | "sq" | "ro";
 export type FixedPlanInput = PlannerPreferences & { destination?: PlanDestination; origin: string; dayCount?: number; budget: string; vibe: string[]; who: string; tempo: string };
 
 export function validPlanDays(value: unknown): number | null {
@@ -20,7 +21,7 @@ export function routeMatchesDestination(route: { name?: unknown; cityOrRegion?: 
 export function fixedDestinationStarter(input: FixedPlanInput, locale: PlanLocale = "tr") {
   const destination = input.destination;
   if (!destination) throw new Error("A fixed plan needs a destination");
-  const copy = (tr: string, en: string, sq: string) => locale === "tr" ? tr : locale === "sq" ? sq : en;
+  const copy = (tr: string, en: string, sq: string) => translateAppCopy(locale, tr, en, sq);
   const days = validPlanDays(input.dayCount) || 3;
   const interests = input.vibe.join(" ");
   const middle = /Deniz|Doğa/.test(interests)

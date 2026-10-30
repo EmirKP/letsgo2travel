@@ -38,7 +38,7 @@ const namedButton = (tree, name) => find(tree, node => node.type === 'button' &&
 function mount({ response = quote(), saved = null, loader, locale = 'en', initialPair = null, initialBaseCurrency, destinationCountry, locate = () => Promise.reject(Error('denied')) } = {}) {
   const slots = []; let cursor = 0, dirty = false, effects = [], tree;
   let props = { initialBaseCurrency, destinationCountry };
-  const calls = [], opened = [], choices = []; let locationCalls = 0;
+  const calls = [], opened = [], choices = [], listeners = new Map(); let locationCalls = 0;
   const react = {
     useRef(initial) { const index = cursor++; if (!slots[index]) slots[index] = { current: initial }; return slots[index]; },
     useState(initial) {
@@ -72,7 +72,7 @@ function mount({ response = quote(), saved = null, loader, locale = 'en', initia
   };
   const output = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
-    Date: FixedDate, Intl, window: { setInterval: () => 1, clearInterval() {} },
+    Date: FixedDate, Intl, window: { setInterval: () => 1, clearInterval() {}, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: (name, callback) => { if (listeners.get(name) === callback) listeners.delete(name); } },
   })(name => { if (!(name in imports)) throw Error(`Unexpected import ${name}`); return imports[name]; }, output, output.exports);
   function render(next = {}) {
     props = { ...props, ...next };
@@ -84,8 +84,23 @@ function mount({ response = quote(), saved = null, loader, locale = 'en', initia
     throw Error('Money render did not settle');
   }
   render();
-  return { get tree() { return tree; }, render, calls, opened, choices, get locationCalls() { return locationCalls; }, async settle() { await tick(); return render(); }, dispose() { slots.forEach(slot => slot?.cleanup?.()); } };
+  return { get tree() { return tree; }, render, calls, opened, choices, emit: name => listeners.get(name)?.(), get locationCalls() { return locationCalls; }, async settle() { await tick(); return render(); }, dispose() { slots.forEach(slot => slot?.cleanup?.()); } };
 }
+
+test('Amount, both currencies and a real conversion are available before optional rate details', async () => {
+  const app = mount(); await app.settle();
+  const converter = byClass(app.tree, 'tm-converter');
+  const details = byClass(app.tree, 'tm-rate-details');
+  const ordered = nodes(app.tree);
+  assert.ok(ordered.indexOf(converter) < ordered.indexOf(details));
+  assert.ok(nodes(converter).some(node => node.type === 'input' && node.props.inputMode === 'decimal'));
+  assert.equal(nodes(converter).filter(node => node.type === 'select').length, 2);
+  assert.ok(byClass(converter, 'tm-conversion'));
+  assert.ok(namedButton(converter, 'Swap currencies'));
+  assert.notEqual(details.props.open, true, 'References never cover the calculator on first use');
+  assert.ok(byClass(details, 'tm-board'), 'Reference dates, comparisons and sources remain accessible');
+  app.dispose();
+});
 
 test('Dated real comparisons distinguish rising, falling and unchanged reference rates', async () => {
   for (const [rate, changePercent, direction, label] of [[44, 10, 'up', 'Increase: 10%'], [36, -10, 'down', 'Decrease: 10%'], [40, 0, 'flat', 'Unchanged: 0%']]) {
@@ -144,6 +159,24 @@ test('A cached old rate remains dated but cannot create a current conversion', a
   app.dispose();
 });
 
+test('Failed refresh exposes the saved date and retry beside the calculator, and reconnect preserves the amount and pair', async () => {
+  let offline = true;
+  const app = mount({ initialPair: { base: 'EUR', quote: 'TRY' }, saved: quote(), loader: () => offline ? Promise.reject(Error('offline')) : Promise.resolve(quote({ rate: 45 })) });
+  try {
+    await app.settle();
+    const alert = byClass(byClass(app.tree, 'tm-converter'), 'tm-rate-alert');
+    assert.match(text(alert), /Rate update failed.*28 Sep 2026|Rate update failed.*Sep 28, 2026/);
+    assert.ok(find(alert, node => node.type === 'button' && text(node) === 'Try again'));
+    find(app.tree, node => node.type === 'input').props.onChange({ target: { value: '2.5' } }); app.render();
+    assert.match(text(byClass(app.tree, 'tm-conversion')), /110/);
+    offline = false; app.emit('online'); app.render(); await app.settle();
+    assert.equal(byClass(byClass(app.tree, 'tm-converter'), 'tm-rate-alert'), undefined);
+    assert.equal(find(app.tree, node => node.type === 'input').props.value, '2.5');
+    assert.deepEqual(app.calls, [['EUR', 'TRY'], ['EUR', 'TRY']]);
+    assert.match(text(byClass(app.tree, 'tm-conversion')), /112.5/);
+  } finally { app.dispose(); }
+});
+
 test('Pair shortcuts suppress old results and ignore late responses for the previous pair', async () => {
   const pending = [];
   const app = mount({ loader: (base, target) => new Promise(resolve => pending.push({ base, target, resolve })) });
@@ -165,6 +198,7 @@ test('Missing rates show no number; refresh and the source control remain usable
   assert.equal(namedButton(app.tree, 'Refresh rate').props.disabled, true);
   await app.settle();
   assert.match(text(app.tree), /The rate is unavailable/);
+  assert.match(text(byClass(byClass(app.tree, 'tm-converter'), 'tm-rate-alert')), /The rate is unavailable.*Try again/);
   assert.equal(namedButton(app.tree, 'Refresh rate').props.disabled, false);
   namedButton(app.tree, 'Refresh rate').props.onClick(); app.render();
   assert.equal(app.calls.length, 2);
@@ -193,7 +227,7 @@ test('A saved manual choice suppresses GPS and late GPS never overwrites a manua
   find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.onChange({ target: { value: 'CHF' } }); app.render();
   resolveLocation({ country: 'TR' }); await app.settle();
   assert.deepEqual(app.calls.at(-1), ['CHF', 'TRY']); assert.equal(app.choices.at(-1).base, 'CHF');
-  assert.match(text(app.tree), /choices are remembered/); app.dispose();
+  assert.equal(byClass(app.tree, 'tm-location-note'), undefined, 'A saved manual pair does not need repeated explanatory copy'); app.dispose();
 });
 
 test('A validated guide currency opens the real converter without GPS or saving, and never reapplies over manual edits', async () => {
@@ -208,7 +242,7 @@ test('A validated guide currency opens the real converter without GPS or saving,
     app.render({ initialBaseCurrency: 'EUR' }); assert.equal(app.calls.length, 1, 'An unrelated rerender cannot reset the initial handoff');
     find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.onChange({ target: { value: 'CHF' } });
     await app.settle(); assert.deepEqual(app.calls.at(-1), ['CHF', expectedQuote]); assert.equal(app.choices.length, 1);
-    assert.match(text(byClass(app.tree, 'tm-location-note')), /choices are remembered/);
+    assert.equal(byClass(app.tree, 'tm-location-note'), undefined, 'The guide handoff explanation disappears after a deliberate manual change');
     app.render({ initialBaseCurrency: 'JPY' });
     assert.equal(find(app.tree, node => node.type === 'select' && node.props['aria-label'] === 'From').props.value, 'CHF');
     assert.equal(app.locationCalls, 0); app.dispose();

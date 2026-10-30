@@ -1,4 +1,18 @@
 /* Destination discovery shares the photographic, blue-and-yellow home style. */
+.editorial-app .explore-search-heading h1 { margin: 4px 0 0; font-size: 24px; line-height: 1.25; color: var(--theme-ink, #091832); }
+.editorial-app .explore-screen.explore-searching .discovery-search { margin: 12px 0 16px; }
+.editorial-app .explore-screen.explore-searching #explore-search-results { margin-top: 0; padding-top: 0; }
+.editorial-app .explore-screen.explore-searching #explore-search-results > .section-heading { margin-top: 0; }
+.editorial-app .explore-screen.explore-searching .explore-passport-context { margin: 8px 0 12px; }
+.editorial-app .explore-screen .explore-passport-context { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; padding: 10px 12px; text-align: left; font-size: 12px; line-height: 1.4; }
+.editorial-app .explore-passport-context > span:first-child { color: var(--theme-muted, #53647c); }
+.editorial-app .explore-passport-context > strong { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.editorial-app .explore-passport-context > span:last-child { color: var(--theme-link, #0066ff); }
+.editorial-app .explore-screen.explore-searching .favorite-count { font-size: 10px; white-space: normal; text-align: right; }
+.editorial-app .explore-screen.explore-searching .explore-actions { margin-top: 20px; }
+.editorial-app .explore-screen.explore-searching .explore-actions > button { min-height: 44px; padding: 10px; gap: 3px; border-radius: 14px; box-shadow: none; }
+.editorial-app .explore-screen.explore-searching .explore-actions .explore-feature-artwork { display: none; }
+.editorial-app .explore-screen.explore-searching .explore-actions small { font-size: 11px; }
 .editorial-app:not(.view-home) .explore-screen .page-hero {
   min-height: 230px; display: flex; align-items: flex-end; padding: 32px 24px;
   background-image: linear-gradient(0deg, rgb(7 34 70 / 78%), rgb(7 34 70 / 6%) 100%), url('../assets/home-reference/santorini-hero.webp');
@@ -41,3 +55,17 @@
   .editorial-app .explore-screen .discovery-visual h3 { font-size: 18px; }
   .editorial-app .explore-screen .discovery-body { flex-wrap: wrap; gap: 0; }
 }
+/* Detail sheets render in a portal outside .explore-screen. Keep their photo inside the hero. */
+.destination-detail-hero { position: relative; overflow: hidden; }
+.destination-detail-hero > .destination-photo { align-self: stretch; padding: 0; border: 0; border-radius: 0; backdrop-filter: none; background: #1c3c60; font-weight: inherit; }
+.destination-detail-hero > :not(.destination-photo) { position: relative; z-index: 1; }
+.destination-passport-inline { display: grid; gap: 10px; margin: 18px 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.destination-passport-inline > p { display: flex; align-items: flex-start; gap: 9px; margin: 0; font-size: 13px; line-height: 1.5; }
+.destination-passport-inline > p > svg { flex: none; color: var(--brand-blue); }
+.destination-passport-inline form, .destination-passport-inline form > label { display: grid; gap: 9px; font-size: 13px; font-weight: 650; }
+.destination-passport-inline select { width: 100%; min-height: 46px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface); font: inherit; }
+.destination-passport-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.destination-passport-actions > button { flex: 1; }
+.destination-detail-actions .destination-save-country { font-size: 13px; line-height: 1.4; }
+.discovery-route-save { display: grid; gap: 8px; padding: 0 14px 14px; }
+.discovery-route-save button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--brand-blue); font-size: 13px; font-weight: 650; }

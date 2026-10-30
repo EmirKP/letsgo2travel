@@ -3,6 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import vm from 'node:vm';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 const repo=process.cwd().replaceAll('\\','/');
 const require=createRequire(`${repo}/package.json`);
 const ts=require('typescript');
@@ -12,7 +13,7 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{reso
 function load(path,imports,globals={},append=''){
  const code=ts.transpileModule(readFileSync(`${repo}/${path}`,'utf8')+append,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  const m={exports:{}};
- vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Error,Date,Intl,console,URL,URLSearchParams,TextEncoder,crypto:globalThis.crypto,...globals})(name=>{if(Object.hasOwn(imports,name))return imports[name];if(/\.(webp|css)$/.test(name))return name;throw Error(`Missing ${name}`);},m,m.exports);
+ vm.runInNewContext(`(function(require,module,exports){${code}\n})`,{Error,Date,Intl,console,URL,URLSearchParams,TextEncoder,crypto:globalThis.crypto,...globals})(name=>{if(Object.hasOwn(imports,name))return imports[name];const localeModule=realLocaleModule(name);if(localeModule)return localeModule;if(/\.(webp|css)$/.test(name))return name;throw Error(`Missing ${name}`);},m,m.exports);
  return m.exports;
 }
 function host(){
@@ -34,16 +35,18 @@ const codes=load('mobile/src/data/countryCodes.ts',{'./countries':countries});
 const iso=load('mobile/src/data/countryIso.ts',{'./countries':countries});
 const profileCountries=load('mobile/src/lib/profileCountries.ts',{'../data/countries':countries,'../data/countryCodes':codes});
 const i18n={copy:(_,en)=>en,countryName:(_,name)=>name,locale:'en'};
-function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false,holdVerifications=false,locale='en',pushPermission='unsupported',devicePush=false,sync=load('mobile/src/lib/profileSync.ts',{})}={}){
- const h=host(), storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set(),verificationReads=[],storageListeners=new Set();
+function profileHarness({remote,local=[],verificationRows=[],verificationFailure=false,pendingImport=false,holdVerifications=false,holdPush=false,holdShare=false,locale='en',pushPermission='unsupported',devicePush=false,sync=load('mobile/src/lib/profileSync.ts',{})}={}){
+ let h=host(),editorKey;
+ const storage=new Map(),reads=[],writes=[],notices=[],resumes=new Set(),verificationReads=[],storageListeners=new Set();
  const preferenceWrites=[],pushCalls=[],shares=[];let preferences={inAppNotifications:true,haptics:true};
  const profileI18n=locale==='en'?i18n:{...i18n,locale,copy:(tr,en,sq)=>locale==='tr'?tr:sq||en};
  const get=(owner,key)=>storage.get(`${owner}:${key}`)||[];
  const set=(owner,key,value)=>{storage.set(`${owner}:${key}`,value);storageListeners.forEach(fn=>fn());};
  set('a','visited',local);
+ const react=Object.fromEntries(['useState','useRef','useMemo','useCallback','useEffect'].map(name=>[name,(...args)=>h.react[name](...args)]));
  let props={user:{id:'a',email:'a@example.invalid',user_metadata:{full_name:'User A'}},ownerId:'a',accessToken:'token-a',isAdmin:false,onOpenAccount(){},onNavigate(){},onOpenRelease(){},onOpenOnboarding(){},onNotice:v=>notices.push(v)};
  const source=load('mobile/src/screens/ProfileScreen.tsx',{
-  react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
+  react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
   '../components/TravelToolArtwork':{TravelToolArtwork:'TravelToolArtwork'},
   '../components/NotificationPreferences':{NotificationPreferences:'NotificationPreferences'},
   '../components/CommunityProfileSheet':{CommunityProfileInline:'CommunityProfileInline'},
@@ -52,16 +55,16 @@ function profileHarness({remote,local=[],verificationRows=[],verificationFailure
   '../components/Icon':{Icon:'Icon'},'../components/ProfilePhoto':{ProfilePhoto:'ProfilePhoto'},'../components/Sheet':{Sheet:'Sheet'},'../components/CommunitySafetySheet':{CommunityBlocksSheet:'Blocks'},'../components/LegalSheet':{LegalSheet:'Legal'},'../components/VerificationForm':{VerificationForm:'VerificationForm'},
   '../components/SupportSheet':{SupportSheet:'SupportSheet'},
   '../data/countries':countries,'../data/countryCodes':codes,'../data/countryIso':iso,'../lib/profileCountries':profileCountries,'../lib/config':{config:{}},
-  '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;},sendTestPushNotification:async token=>{pushCalls.push({kind:'test',token});return {success:true};}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async value=>{shares.push(value);return true;}},
-  '../lib/push':{getPushPermissionState:async()=>pushPermission,isPushEnabledForDevice:()=>devicePush,enablePushForUser:async getToken=>{pushCalls.push({kind:'enable',token:getToken()});return {ok:true};},disablePush:async(getToken,owner)=>{pushCalls.push({kind:'disable',token:getToken(),owner});return true;}},
+  '../lib/api':{getTravelVerifications:async token=>{if(holdVerifications){const d=deferred();verificationReads.push({token,...d});return d.promise;}if(verificationFailure)throw Error('HTTP 503');return verificationRows;},sendTestPushNotification:async token=>{const wait=holdPush?deferred():null;pushCalls.push({kind:'test',token,...wait});return wait?wait.promise:{success:true};}},'../lib/capacitor':{plugin:()=>null,addPluginListener:async()=>null},'../lib/native':{shareContent:async value=>{const wait=holdShare?deferred():null;shares.push({...value,...wait});return wait?wait.promise:true;}},
+  '../lib/push':{getPushPermissionState:async()=>pushPermission,isPushEnabledForDevice:()=>devicePush,enablePushForUser:async getToken=>{const wait=holdPush?deferred():null;pushCalls.push({kind:'enable',token:getToken(),...wait});return wait?wait.promise:{ok:true};},disablePush:async(getToken,owner)=>{const wait=holdPush?deferred():null;pushCalls.push({kind:'disable',token:getToken(),owner,...wait});return wait?wait.promise:true;}},
   '../lib/i18n':{useI18n:()=>profileI18n},
   '../lib/accountResume':{onAccountResume:fn=>{resumes.add(fn);return ()=>resumes.delete(fn);}},
   '../lib/profileSync':sync,
   '../lib/supabaseData':{getUserProfile:(id,token)=>{const d=deferred();reads.push({id,token,...d});if(remote&&id==='a')d.resolve(remote);return d.promise;},updateUserProfile:(id,change,token)=>{const d=deferred();writes.push({id,change,token,...d});return d.promise;},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
   '../lib/storage':{getPendingGuestDataSync:()=>pendingImport?{profile:true}:null,getMobilePreferences:()=>preferences,getVisitedCountries:owner=>get(owner,'visited'),getFavoriteDestinations:owner=>get(owner,'favorites'),getSavedRoutePlans:()=>[],saveMobilePreferences(value){preferences=value;preferenceWrites.push(value);},setVisitedCountries:(value,owner)=>set(owner,'visited',value),setFavoriteDestinations:(value,owner)=>set(owner,'favorites',value),toggleVisitedCountry:(country,owner)=>{const prev=get(owner,'visited');const next=prev.some(c=>c.alpha3===country.alpha3)?prev.filter(c=>c.alpha3!==country.alpha3):[...prev,{...country,createdAt:new Date().toISOString()}];set(owner,'visited',next);return next;}},
  },{window:{addEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.add(fn);},removeEventListener:(event,fn)=>{if(event==='l2t:storage-change')storageListeners.delete(fn);}},document:{addEventListener(){},removeEventListener(){},visibilityState:'visible'}});
- let tree;const render=(next={})=>{props={...props,...next};tree=h.render(()=>source.ProfileScreen(props));return tree;};render();
- return {h,source,reads,writes,notices,storage,verificationReads,sync,preferenceWrites,pushCalls,shares,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
+ let tree;const render=(next={})=>{props={...props,...next};const child=source.ProfileScreen(props);if(child.key!==editorKey){h.dispose();h=host();editorKey=child.key;}tree=h.render(()=>child.type(child.props));return tree;};render();
+ return {get h(){return h;},source,reads,writes,notices,storage,verificationReads,sync,preferenceWrites,pushCalls,shares,render,resume:()=>resumes.forEach(fn=>fn()),get tree(){return tree;},get};
 }
 const base={id:'a',username:'user_a',visitedCountries:[],wishlistCountries:[],optInLeaderboard:false};
 const tr=countries.COUNTRY_LIST.find(c=>c.alpha3==='TUR');
@@ -78,6 +81,49 @@ test('normal Profile embeds the current community account while retaining travel
  assert.equal(nodes(view).some(node=>node.type==='CommunityProfileInline'),false);
  assert.match(text(view),/Keep your memories here/);
  h.h.dispose();
+});
+
+test('Profile has a direct Settings action before the feed and focuses the existing preferences heading',()=>{
+ const h=profileHarness(),actions=[];
+ try{
+  const view=h.render(),toolbar=nodes(view).find(node=>node.props?.className==='profile-top-bar');
+  assert.equal([view.props.children].flat(Infinity)[0],toolbar);
+  const heading=nodes(view).find(node=>node.props?.id==='profile-settings-heading');
+  assert.equal(heading.props.tabIndex,-1);
+  heading.props.ref.current={focus:options=>actions.push(['focus',options]),scrollIntoView:options=>actions.push(['scroll',options])};
+  const settings=nodes(toolbar).find(node=>node.type==='button');assert.equal(text(settings),'Settings');assert.equal(settings.props['aria-controls'],'profile-settings-heading');settings.props.onClick();
+  assert.deepEqual(JSON.parse(JSON.stringify(actions)),[['focus',{preventScroll:true}],['scroll',{block:'start',behavior:'instant'}]]);
+  assert.equal(h.writes.length,0);
+ }finally{h.h.dispose();}
+});
+
+test('Profile forwards the identity and edit request into its unified current-account editor',()=>{
+ const h=profileHarness(),save=async()=>{},handled=()=>{};
+ try{
+  const view=h.render({user:{id:'a',user_metadata:{full_name:'Own Name'}},onSaveProfileIdentity:save,profileEditRequest:7,onProfileEditHandled:handled});
+  const editor=nodes(view).find(node=>node.type==='CommunityProfileInline');
+  assert.equal(editor.props.identityFullName,'Own Name');assert.equal(editor.props.onSaveIdentity,save);assert.equal(editor.props.editRequest,7);assert.equal(editor.props.onEditRequestHandled,handled);
+ }finally{h.h.dispose();}
+});
+
+test('Account profile editing delegates to the unified editor without rendering a second set of fields',()=>{
+ const h=host();let opened=0;
+ const {AccountSheet}=load('mobile/src/components/AccountSheet.tsx',{
+  react:h.react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},
+  '../lib/capacitor':{isIOSNative:()=>false},'../lib/config':{config:{appleAuthEnabled:false}},
+  '../lib/localeFormatting':{formatAppDate:()=> '14 Jun 2026'},'../lib/i18n':{useI18n:()=>({copy:(_,en)=>en,dateLocale:'en-GB'})},
+  '../lib/supabaseData':{completeUserProfile(){throw Error('No write during navigation');},getSupabaseDataErrorMessage:(_,fallback)=>fallback},
+  './LegalSheet':{LegalSheet:'Legal'},'./Icon':{Icon:'Icon'},'./Sheet':{Sheet:'Sheet'},'./AccountDeletionPanel':{AccountDeletionPanel:'AccountDeletionPanel'},
+ });
+ try{
+  for(const metadata of [{full_name:'Own Name',username:'own_name'},{}]){
+   const view=h.render(()=>AccountSheet({open:true,onClose(){},onEditProfile:()=>opened++,onNotice(){},auth:{user:{id:'a',email:'a@example.invalid',created_at:'2026-06-14',user_metadata:metadata},accessToken:'token',recoveryPending:false}}));
+   assert.equal(nodes(view).filter(node=>node.type==='input').length,0);
+   const action=nodes(view).find(node=>node.type==='button'&&/^(Edit profile|Complete your profile)$/.test(text(node)));
+   assert.ok(action);action.props.onClick();
+  }
+  assert.equal(opened,2);
+ }finally{h.dispose();}
 });
 
 const profileHelpCopy={
@@ -149,6 +195,8 @@ test('Profile help remains available to guests and support follows the current a
   let support=nodes(view).find(node=>node.type==='SupportSheet');
   assert.equal(support.props.ownerId,null);assert.equal(support.props.accessToken,'');assert.equal(support.key,'guest');
   view=h.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  assert.equal(nodes(view).some(node=>node.type==='SupportSheet'),false,'Changing account closes the previous owner\'s editor');
+  profileHelpButton(view,profileHelpCopy.en.support).props.onClick();view=h.render();
   support=nodes(view).find(node=>node.type==='SupportSheet');
   assert.equal(support.props.ownerId,'b');assert.equal(support.props.accessToken,'token-b');assert.equal(support.key,'b','A changed owner remounts the support draft');
   support.props.onClose();view=h.render({user:null,ownerId:null,accessToken:''});
@@ -354,6 +402,114 @@ test('The profile read barrier includes concurrent writes and cannot be cleared 
  first.resolve();await tick();assert.equal(settled,false);assert.ok(sync.pendingProfileWrites('a'));
  sync.trackProfileWrite('a',third.promise);second.reject(Error('503'));await tick();assert.equal(settled,false);
  third.resolve();await waiting;assert.equal(settled,true);assert.equal(sync.pendingProfileWrites('a'),null);
+});
+
+for(const operation of ['country','league'])for(const succeeds of [true,false])test(`A late ${operation} ${succeeds?'success':'failure'} cannot alter another account's profile, notices or pending write`,async()=>{
+ const x=profileHarness();
+ const league=()=>nodes(x.tree).find(node=>node.type==='label'&&text(node).includes('Appear in Explorer League')).props.children.at(-1);
+ try{
+  x.reads[0].resolve(base);await tick();x.render();
+  if(operation==='country'){
+   profileHelpButton(x.tree,"Countries I've visited").props.onClick();x.render();
+   nodes(x.tree).find(node=>node.type==='button'&&typeof node.props['aria-pressed']==='boolean').props.onClick();
+  }else league().props.onChange({target:{checked:true}});
+  x.render();const old=x.writes[0];assert.equal(old.id,'a');
+  x.render({user:null,ownerId:null,accessToken:''});
+  x.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  const profileB={...base,id:'b',username:'user_b',visitedCountries:['FRA'],optInLeaderboard:true};
+  x.reads.findLast(read=>read.id==='b').resolve(profileB);await tick();x.render();
+  assert.equal(league().props.checked,true);assert.equal(league().props.disabled,false,'The old account does not keep B busy');
+  league().props.onChange({target:{checked:false}});x.render();const current=x.writes[1];
+  assert.equal(current.id,'b');assert.equal(league().props.disabled,true);assert.equal(league().props.checked,false);
+  if(succeeds)old.resolve({...base,...old.change});else old.reject(Error('Old account request failed'));
+  await tick();x.render();
+  assert.equal(league().props.checked,false,'An old successful response or rollback cannot replace B\'s optimistic profile');
+  assert.equal(league().props.disabled,true,'An old finally block cannot release B\'s busy flag');
+  assert.equal(x.notices.length,0,'Old-account success and failure notices stay silent');
+  assert.deepEqual(x.get('b','visited').map(country=>country.alpha3),['FRA']);
+  if(operation==='country')assert.equal(x.get('a','visited').length,succeeds?1:0,'A failure rolls back only the original owner\'s local selection');
+  current.resolve({...profileB,optInLeaderboard:false});await tick();x.render();
+  assert.equal(league().props.disabled,false);assert.equal(league().props.checked,false);assert.equal(x.notices.length,1);
+ }finally{x.h.dispose();}
+});
+
+test('Returning to the original account waits for its old failed country write and reads after its own rollback',async()=>{
+ const x=profileHarness();
+ try{
+  x.reads[0].resolve(base);await tick();x.render();profileHelpButton(x.tree,"Countries I've visited").props.onClick();x.render();
+  nodes(x.tree).find(node=>node.type==='button'&&typeof node.props['aria-pressed']==='boolean').props.onClick();x.render();assert.equal(x.get('a','visited').length,1);
+  x.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  x.render({user:{id:'a'},ownerId:'a',accessToken:'token-a-returned'});
+  assert.equal(x.reads.filter(read=>read.id==='a').length,1,'A returning editor waits for the shared owner barrier');
+  x.writes[0].reject(Error('Offline'));await tick();x.render();
+  assert.equal(x.get('a','visited').length,0);assert.equal(x.notices.length,0);
+  const returned=x.reads.findLast(read=>read.id==='a');assert.equal(returned.token,'token-a-returned');
+  returned.resolve(base);await tick();x.render();
+  assert.equal(x.get('a','visited').length,0);assert.equal(x.writes.length,1,'No automatic write reintroduces the rolled-back visit');
+ }finally{x.h.dispose();}
+});
+
+for(const operation of ['enable','disable','test','share'])test(`Late profile ${operation} completion cannot show an old-account notice or unlock another account's operation`,async()=>{
+ const x=profileHarness({holdPush:true,holdShare:true,pushPermission:'granted',devicePush:operation!=='enable'});
+ const action=()=>operation==='share'?nodes(x.tree).find(node=>node.type==='button'&&node.props['aria-label']==='Share Explorer Card'):profileHelpButton(x.tree,operation==='test'?'Send test notification':'Phone notifications');
+ try{
+  await tick();x.render();action().props.onClick();x.render();
+  const first=operation==='share'?x.shares[0]:x.pushCalls[0];
+  x.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});await tick();x.render();action().props.onClick();x.render();
+  const second=operation==='share'?x.shares[1]:x.pushCalls[1];assert.ok(second);
+  first.resolve(operation==='enable'?{ok:true}:operation==='test'?{success:true}:true);await tick();x.render();
+  assert.equal(x.notices.length,0);
+  if(operation!=='share')assert.equal(action().props.disabled,true,'B\'s pending phone action remains busy');
+  second.resolve(operation==='enable'?{ok:true}:operation==='test'?{success:true}:true);await tick();x.render();
+  assert.equal(x.notices.length,1,'Only the current account gets the result notice');
+ }finally{x.h.dispose();}
+});
+
+test('A failed old-account test notification stays silent after logout and does not block the guest UI',async()=>{
+ const x=profileHarness({holdPush:true,pushPermission:'granted',devicePush:true});
+ try{
+  await tick();x.render();profileHelpButton(x.tree,'Send test notification').props.onClick();x.render();
+  x.render({user:null,ownerId:null,accessToken:''});x.pushCalls[0].reject(Error('Offline'));await tick();x.render();
+  assert.equal(x.notices.length,0);assert.equal(profileHelpButton(x.tree,'Send test notification'),undefined);
+  assert.ok(profileHelpButton(x.tree,'Phone notifications'));assert.equal(x.writes.length,0);
+ }finally{x.h.dispose();}
+});
+
+test('Delayed profile child callbacks cannot reload another account or announce its predecessor’s result',async()=>{
+ const x=profileHarness();
+ try{
+  x.reads[0].resolve(base);await tick();x.render();
+  const oldPhoto=nodes(x.tree).find(node=>node.type==='ProfilePhoto');
+  profileHelpButton(x.tree,'Verified Traveller').props.onClick();x.render();
+  const oldVerification=nodes(x.tree).find(node=>node.type==='VerificationForm');
+  profileHelpButton(x.tree,'Blocked users').props.onClick();x.render();
+  const oldBlocks=nodes(x.tree).find(node=>node.type==='Blocks');
+  x.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});
+  const profileB={...base,id:'b',visitedCountries:['FRA']};x.reads.at(-1).resolve(profileB);await tick();x.render();
+  const readCount=x.reads.length;
+  oldPhoto.props.onNotice('Old photo saved');oldVerification.props.onNotice('Old document saved');
+  oldVerification.props.onSubmitted();oldBlocks.props.onChanged();x.render();await tick();x.render();
+  assert.equal(x.notices.length,0);assert.equal(x.reads.length,readCount,'Old child completion does not trigger an unrelated account refresh');
+  assert.deepEqual(x.get('b','visited').map(country=>country.alpha3),['FRA']);
+  profileHelpButton(x.tree,'Verified Traveller').props.onClick();x.render();
+  const current=nodes(x.tree).find(node=>node.type==='VerificationForm');
+  current.props.onNotice('Current document saved');current.props.onSubmitted();x.render();await tick();x.render();
+  assert.deepEqual(x.notices,['Current document saved']);assert.equal(x.reads.length,readCount+1,'The current account still refreshes after a submitted document');
+  assert.equal(x.reads.at(-1).id,'b');
+ }finally{x.h.dispose();}
+});
+
+test('Unexpected phone-setting failure keeps current controls usable and an old-account failure silent',async()=>{
+ const x=profileHarness({holdPush:true,pushPermission:'granted',devicePush:false});
+ try{
+  await tick();x.render();profileHelpButton(x.tree,'Phone notifications').props.onClick();x.render();
+  x.pushCalls[0].reject(Error('Native plugin rejected'));await tick();x.render();
+  assert.equal(profileHelpButton(x.tree,'Phone notifications').props.disabled,false);assert.match(x.notices.at(-1),/could not be changed/);
+  profileHelpButton(x.tree,'Phone notifications').props.onClick();x.render();
+  x.render({user:{id:'b'},ownerId:'b',accessToken:'token-b'});await tick();x.render();const noticeCount=x.notices.length;
+  x.pushCalls[1].reject(Error('Old native plugin rejected'));await tick();x.render();
+  assert.equal(x.notices.length,noticeCount);assert.equal(profileHelpButton(x.tree,'Phone notifications').props.disabled,false);
+ }finally{x.h.dispose();}
 });
 
 

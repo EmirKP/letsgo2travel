@@ -1,3 +1,4 @@
+import { translateCopy } from "./locale";
 import { ApiError, requestJson } from "./api";
 import { config, isSupabaseConfigured } from "./config";
 import { localIsoDate } from "./dates";
@@ -68,7 +69,7 @@ export class SupabaseDataError extends Error {
 
 export function getSupabaseDataErrorMessage(error: unknown, fallback?: string) {
   const locale = localeFromStorage();
-  const messages = locale === "sq" ? ERROR_MESSAGES_SQ : locale === "en" ? ERROR_MESSAGES_EN : ERROR_MESSAGES;
+  const messages = Object.fromEntries(Object.keys(ERROR_MESSAGES).map(key => [key, translateCopy(locale, ERROR_MESSAGES[key as SupabaseDataErrorCode], ERROR_MESSAGES_EN[key as SupabaseDataErrorCode], ERROR_MESSAGES_SQ[key as SupabaseDataErrorCode])])) as Record<SupabaseDataErrorCode, string>;
   if (!(error instanceof SupabaseDataError)) return fallback ?? messages.service_unavailable;
   return messages[error.code];
 }
@@ -138,7 +139,7 @@ export type CockpitTrip = {
   endDate: string;
   departureAt: string | null;
   arrivalAt: string | null;
-  appLanguage: "tr" | "en" | "sq";
+  appLanguage: "tr" | "en" | "sq" | "ro";
   flightPnr: string | null;
   originIata: string | null;
   destinationIata: string | null;
@@ -163,7 +164,7 @@ export type CreateCockpitTripInput = {
   endDate: string;
   departureAt?: string | null;
   arrivalAt?: string | null;
-  appLanguage?: "tr" | "en" | "sq";
+  appLanguage?: "tr" | "en" | "sq" | "ro";
   flightPnr?: string;
   originIata?: string;
   destinationIata?: string;
@@ -432,7 +433,7 @@ function normalizeTrip(row: TripRow): CockpitTrip | null {
     endDate,
     departureAt: managed ? null : nullableString(row.departure_at, 40),
     arrivalAt: managed ? null : nullableString(row.arrival_at, 40),
-    appLanguage: row.app_language === "sq" ? "sq" : row.app_language === "en" ? "en" : "tr",
+    appLanguage: row.app_language === "ro" ? "ro" : row.app_language === "sq" ? "sq" : row.app_language === "en" ? "en" : "tr",
     flightPnr: nullableString(row.flight_pnr, 20),
     originIata: managed ? null : nullableString(row.origin_iata, 3)?.toUpperCase() || null,
     destinationIata: managed ? null : nullableString(row.destination_iata, 3)?.toUpperCase() || null,

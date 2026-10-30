@@ -1,0 +1,9 @@
+outputs/
+node_modules/
+mobile/node_modules/
+mobile/dist/
+mobile-dist/
+android/
+ios/
+.git/
+.env*

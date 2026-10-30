@@ -1,4 +1,4 @@
-export const FORUM_TRANSLATION_LANGUAGES = ["tr", "en", "sq"] as const;
+export const FORUM_TRANSLATION_LANGUAGES = ["tr", "en", "sq", "ro"] as const;
 export type ForumTranslationLanguage = typeof FORUM_TRANSLATION_LANGUAGES[number];
 export const FORUM_TRANSLATION_MAX_TEXT = 8_000;
 export type ForumTranslationItem = { id: string; text: string; title?: string };

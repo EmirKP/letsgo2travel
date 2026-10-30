@@ -1,0 +1,370 @@
+{
+  "source": "https://tiles.openfreemap.org/planet/20261025_080012_pt/14/8298/5636.pbf",
+  "attribution": "OpenFreeMap © OpenMapTiles Data from OpenStreetMap, ODbL",
+  "sampledAt": "2026-10-30T12:42:04.823Z",
+  "z": 14,
+  "x": 8298,
+  "y": 5636,
+  "features": [
+    {
+      "id": 541889942,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.324085831642151,
+          48.8658157741213
+        ]
+      },
+      "properties": {
+        "name": "Jeu de Paume",
+        "name_en": "Jeu de Paume",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 631787532,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3265856504440308,
+          48.85991872367197
+        ]
+      },
+      "properties": {
+        "name": "Musée d'Orsay",
+        "name_en": "Museum of Orsay",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 129775669991,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3247241973876953,
+          48.86029635334987
+        ]
+      },
+      "properties": {
+        "name": "Musée de la Légion d'Honneur et des Ordres de Chevalerie",
+        "name_en": "Musée de la Légion d'Honneur et des Ordres de Chevalerie",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 14262153401,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3249012231826782,
+          48.85477279424197
+        ]
+      },
+      "properties": {
+        "name": "Musée Maillol",
+        "name_en": "Musée Maillol",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 133978083551,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.328302264213562,
+          48.851670157316335
+        ]
+      },
+      "properties": {
+        "name": "La Maison des histoires",
+        "name_en": "La Maison des histoires",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 2475844521,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3329532146453857,
+          48.863169069021296
+        ]
+      },
+      "properties": {
+        "name": "Musée des Arts Décoratifs",
+        "name_en": "Musée des Arts Décoratifs",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 110811696541,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.331145405769348,
+          48.85744464941837
+        ]
+      },
+      "properties": {
+        "name": "Maison Gainsbourg",
+        "name_en": "Maison Gainsbourg",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 1702268102,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3340100049972534,
+          48.84857085817396
+        ]
+      },
+      "properties": {
+        "name": "Musée du Luxembourg",
+        "name_en": "Musée du Luxembourg",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 75154263,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3380279541015625,
+          48.861146892002296
+        ]
+      },
+      "properties": {
+        "name": "Musée du Louvre",
+        "name_en": "Louvre Museum",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 132603535061,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3382318019866943,
+          48.86211740600376
+        ]
+      },
+      "properties": {
+        "name": "Fondation Cartier pour l'art contemporain",
+        "name_en": "Fondation Cartier pour l'art contemporain",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 9676643,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.338494658470154,
+          48.85639992513936
+        ]
+      },
+      "properties": {
+        "name": "Hôtel de la Monnaie",
+        "name_en": "Hôtel de la Monnaie",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 3957856032,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.335394024848938,
+          48.85464219792928
+        ]
+      },
+      "properties": {
+        "name": "Musée national Eugène Delacroix",
+        "name_en": "Musée national Eugène Delacroix",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 14260938371,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3350024223327637,
+          48.85222786959602
+        ]
+      },
+      "properties": {
+        "name": "Musée-Librairie du Compagnonnage",
+        "name_en": "Musée-Librairie du Compagnonnage",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 124248738491,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.33933687210083,
+          48.85104184110361
+        ]
+      },
+      "properties": {
+        "name": "Maison d'Auguste Comte",
+        "name_en": "Maison d'Auguste Comte",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 81000218221,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.334648370742798,
+          48.85018407084766
+        ]
+      },
+      "properties": {
+        "name": "Mundolingua",
+        "name_en": "Mundolingua",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 198567222,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.34283447265625,
+          48.86281616443205
+        ]
+      },
+      "properties": {
+        "name": "Bourse de Commerce",
+        "name_en": "Bourse de Commerce",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 42498999361,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3420995473861694,
+          48.860144595971235
+        ]
+      },
+      "properties": {
+        "name": "Musée en Herbe",
+        "name_en": "Musée en Herbe",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 566401632,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.343564033508301,
+          48.850650021945654
+        ]
+      },
+      "properties": {
+        "name": "Musée de Cluny",
+        "name_en": "The Cluny Museum",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 14261760591,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3409032821655273,
+          48.851324231388276
+        ]
+      },
+      "properties": {
+        "name": "Musée d'Histoire de la Médecine",
+        "name_en": "Musée d'Histoire de la Médecine",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    },
+    {
+      "id": 85552090921,
+      "sourceLayer": "poi",
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.349979877471924,
+          48.86330670113662
+        ]
+      },
+      "properties": {
+        "name": "Musée de l'illusion",
+        "name_en": "Musée de l'illusion",
+        "class": "museum",
+        "subclass": "museum"
+      }
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { translateTuple } from "./locale";
+import { translateCopy } from "./locale";
 import type { Coordinates, Place } from '../../../lib/travel-assistant/types';
 import { NEEDS, TOURING, DISCOVERY, CATEGORY_LABELS, validJourneyPhoto, validJourneyPlaceSource } from '../../../lib/travel-assistant/places';
 import type { JourneyPlanResult } from '../../../lib/travel-assistant/journey-plan-types';
@@ -94,7 +96,7 @@ export function validateMapJourney(value: unknown): value is MapJourney {
 export function validateJourneyPlanning(value: unknown, dayCount:number): value is JourneyPlanning {
   if (!value || typeof value !== 'object') return false;
   const p=value as JourneyPlanning, prefs=p.preferences;
-  return p.generatedBy==='ai' && ['tr','en','sq'].includes(p.locale) && iso(p.fetchedAt)
+  return p.generatedBy==='ai' && ['tr','en','sq', 'ro'].includes(p.locale) && iso(p.fetchedAt)
     && text(p.summary,1600) && Boolean(p.summary.trim()) && text(p.attribution,240)
     && (p.edited===undefined||typeof p.edited==='boolean')
     && Boolean(prefs) && ['solo','couple','friends','family'].includes(prefs.party)
@@ -170,7 +172,7 @@ export function encodeStoredMapJourney(value: MapJourney): MapJourney {
 function checked(journey: MapJourney) { if (!validateMapJourney(journey)) throw new Error('invalid'); return journey; }
 export function journeyStopNoteLocale(journey: MapJourney, stop: JourneyStop): JourneyPlanning['locale'] | undefined {
   const origin = stop.noteOrigin;
-  if (origin !== undefined) return origin && ['tr', 'en', 'sq'].includes(origin.locale) && origin.text === stop.note ? origin.locale : undefined;
+  if (origin !== undefined) return origin && ['tr', 'en', 'sq', 'ro'].includes(origin.locale) && origin.text === stop.note ? origin.locale : undefined;
   return journey.planning && !journey.planning.edited ? journey.planning.locale : undefined;
 }
 function changed(journey: MapJourney, stops: JourneyStop[]): MapJourney {
@@ -414,12 +416,12 @@ export function mapJourneyFromSavedRoute(saved: SavedRoutePlan): MapJourney | nu
   const journey = saved.plan?.routes?.find(route => route.mapJourney)?.mapJourney;
   return decodeStoredMapJourney(journey);
 }
-export function mapJourneyToSavedRoute(journey: MapJourney, locale: 'tr' | 'en' | 'sq' = 'tr', previous?: SavedRoutePlan): SavedRoutePlan {
+export function mapJourneyToSavedRoute(journey: MapJourney, locale: 'tr' | 'en' | 'sq' | 'ro' = 'tr', previous?: SavedRoutePlan): SavedRoutePlan {
   checked(journey);
-  const label = (tr: string, en: string, sq: string) => locale === 'tr' ? tr : locale === 'sq' ? sq : en;
+  const label = (tr: string, en: string, sq: string) => translateCopy(locale, tr, en, sq);
   const dailyPlan = Array.from({ length: journey.dayCount }, (_, index) => {
     const stops = journeyDayStops(journey, index + 1);
-    return `${label(`${index + 1}. Gün`, `Day ${index + 1}`, `Dita ${index + 1}`)}: ${stops.length ? stops.map(stop => `${stop.fixedTime ? `${stop.fixedTime} ` : ''}${stop.place.name || CATEGORY_LABELS[stop.place.category][locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1]}`).join(' → ') : label('Serbest zaman', 'Free time', 'Kohë e lirë')}`.slice(0, 590);
+    return `${label(`${index + 1}. Gün`, `Day ${index + 1}`, `Dita ${index + 1}`)}: ${stops.length ? stops.map(stop => `${stop.fixedTime ? `${stop.fixedTime} ` : ''}${stop.place.name || translateTuple(locale, CATEGORY_LABELS[stop.place.category])}`).join(' → ') : label('Serbest zaman', 'Free time', 'Kohë e lirë')}`.slice(0, 590);
   });
   return { id: journey.id, createdAt: previous?.createdAt || journey.createdAt,
     input: previous?.input || { origin: '', days: String(journey.dayCount), dayCount: journey.dayCount, month: journey.startDate?.slice(0, 7) || '',

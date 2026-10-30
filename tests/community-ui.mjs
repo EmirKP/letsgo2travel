@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 class ApiError extends Error {
@@ -15,6 +16,7 @@ function load(path, imports, globals = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, Intl, URLSearchParams, ...globals })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     if (name === '../lib/localeFormatting') return localeFormatting;
     if (/\.(webp|jpg|css)$/.test(name)) return name;
     throw Error(`Unstubbed import: ${name}`);
@@ -82,9 +84,10 @@ function harness(initial = {}) {
   const requestJson = (path, options = {}) => { const wait = deferred(); requests.push({ path, options, ...wait }); return wait.promise; };
   const prepareCommunityPhoto = file => { const wait = deferred(); photoPreparations.push({ file, ...wait }); return wait.promise; };
   const preferences = load('mobile/src/lib/communityPreferences.ts', { '../data/countries': countries }, { window });
-  const community = load('mobile/src/lib/community.ts', { './api': { requestJson } });
+  const community = load('mobile/src/lib/community.ts', { './api': { requestJson }, './communityVisibility': load('mobile/src/lib/communityVisibility.ts') });
   const react = Object.fromEntries(['useState', 'useRef', 'useEffect', 'useMemo', 'useCallback'].map(name => [name, (...args) => host.react[name](...args)]));
   const source = load('mobile/src/screens/CommunityScreen.tsx', {
+    '../components/EventCompanionsPanel': { JoinedEventChats: 'JoinedEventChats' },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' },
     '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/Sheet': { Sheet: 'Sheet' },
@@ -324,8 +327,8 @@ test('Question details carry bearer, ignore late selections and retain filtered 
   } finally { h.dispose(); }
 });
 
-test('Editorial inspiration, community search and events use their actual actions without becoming user posts', async () => {
-  const h = harness();
+test('Editorial inspiration and community search remain real actions while joined chats receive the exact account without unrelated event promotion', async () => {
+  const h = harness({ user: { id: 'chat-member' }, accessToken: 'CHAT_SESSION' });
   try {
     let view = await h.feed([]);
     assert.deepEqual(postTitles(view), []);
@@ -338,10 +341,15 @@ test('Editorial inspiration, community search and events use their actual action
     assert.deepEqual(postTitles(view), [], 'Editorial content is not inserted into an empty user feed');
     h.click('Close search');
     const selectedTab = activeTab(view);
-    view = h.click('Event Radar');
-    assert.equal(byClass(view, 'cs-events'), undefined, 'There is no promotional step before the actual event search');
-    assert.equal(activeTab(view), selectedTab, 'Event navigation does not pretend to be a forum tab');
-    assert.deepEqual(h.navigation, ['events']);
+    const chats=find(h.render(),'JoinedEventChats');
+    assert.ok(chats,'Community exposes actual joined event memberships');
+    assert.equal(chats.props.ownerId,'chat-member');assert.equal(chats.props.accessToken,'CHAT_SESSION');
+    chats.props.onOpenAccount();assert.equal(h.accountOpened,1);
+    chats.props.onNotice('Chat unavailable');assert.deepEqual(h.notices,['Chat unavailable']);
+    chats.props.onOpenProfile('user:chat-member');view=h.render();
+    assert.equal(find(view,'CommunityProfileSheet').props.profileKey,'user:chat-member');
+    assert.equal(button(view,'Event Radar'),undefined,'An unrelated event-search promotion is not added to the forum');
+    assert.equal(activeTab(view),selectedTab);assert.deepEqual(h.navigation,[]);
   } finally { h.dispose(); }
 });
 
@@ -360,6 +368,17 @@ test('Community reflects application locale changes in both directions while kee
     assert.ok(button(view, 'Search community'));
     assert.deepEqual(postTitles(view), ['Tokyo train advice']);
   } finally { h.dispose(); }
+});
+
+test('Joined event conversations remain reachable when switching between forum and photo posts',async()=>{
+ const h=harness({user:{id:'chat-member'},accessToken:'CHAT_SESSION'});
+ try{
+  await h.feed([]);
+  for(const mode of ['Posts','Forum','Posts']){
+   const view=h.click(mode),chats=nodes(view).filter(n=>n.type==='JoinedEventChats');
+   assert.equal(chats.length,1);assert.equal(chats[0].props.ownerId,'chat-member');assert.equal(chats[0].props.accessToken,'CHAT_SESSION');
+  }
+ }finally{h.dispose();}
 });
 
 test('Closing search from its header control removes the hidden text filter', async () => {
@@ -691,6 +710,79 @@ test('A reply finishing after detail closes refreshes its real feed count withou
   } finally { h.dispose(); }
 });
 
+test('Reply drafts survive the shared sheet close/back handler, topic changes and locale changes without mixing questions',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async index=>{h.click(`Open question: ${rows[index].title}`);h.requests.at(-1).resolve({data:{...rows[index],answers:[]}});return h.settle();};
+ const body=view=>find(view,'textarea',props=>props.id==='community-answer-body').props.value;
+ const close=()=>{find(h.render(),'Sheet',props=>props.title==='Question details').props.onClose();return h.render();};
+ try{
+  await h.feed();await open(2);h.change('textarea',props=>props.id==='community-answer-body','My Tokyo train advice');close();
+  let view=await open(3);assert.equal(body(view),'');h.change('textarea',props=>props.id==='community-answer-body','My separate Rome museum advice');close();
+  view=await open(2);assert.equal(body(view),'My Tokyo train advice');
+  view=h.language('sq');assert.equal(body(view),'My Tokyo train advice');view=h.language('en');assert.equal(body(view),'My Tokyo train advice');
+  close();view=await open(3);assert.equal(body(view),'My separate Rome museum advice');
+  assert.equal(h.requests.filter(request=>request.options.method==='POST').length,0,'Keeping a draft never submits it');
+ }finally{h.dispose();}
+});
+
+test('A failed reply keeps its body and retry identity through another discussion; confirmed success clears only that draft',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async index=>{h.click(`Open question: ${rows[index].title}`);h.requests.at(-1).resolve({data:{...rows[index],answers:[]}});return h.settle();};
+ const close=()=>{find(h.render(),'Sheet',props=>props.title==='Question details').props.onClose();h.render();};
+ const body=view=>find(view,'textarea',props=>props.id==='community-answer-body').props.value;
+ try{
+  await h.feed();await open(2);h.change('textarea',props=>props.id==='community-answer-body','Tokyo reply awaiting confirmation');h.click('Send answer');
+  const first=h.requests.at(-1);close();first.reject(Error('Response lost after server commit'));await h.settle();
+  await open(3);h.change('textarea',props=>props.id==='community-answer-body','Rome draft that stays private');close();
+  let view=await open(2);assert.equal(body(view),'Tokyo reply awaiting confirmation');h.click('Send answer');const retry=h.requests.at(-1);
+  assert.equal(retry.options.body.requestId,first.options.body.requestId,'Reopening a failed draft must not create a duplicate server operation');
+  assert.equal(retry.options.body.questionId,'jp');retry.resolve({moderation:{action:'pending_review'}});view=await h.settle();assert.equal(body(view),'');
+  close();view=await open(2);assert.equal(body(view),'','Confirmed submissions do not reappear as unsent drafts');
+  close();view=await open(3);assert.equal(body(view),'Rome draft that stays private');
+ }finally{h.dispose();}
+});
+
+test('A closed-topic reply success cannot clear the currently open topic draft or reopen the previous sheet',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async index=>{h.click(`Open question: ${rows[index].title}`);h.requests.at(-1).resolve({data:{...rows[index],answers:[]}});return h.settle();};
+ const close=()=>{find(h.render(),'Sheet',props=>props.title==='Question details').props.onClose();h.render();};
+ const body=view=>find(view,'textarea',props=>props.id==='community-answer-body').props.value;
+ try{
+  await h.feed();await open(3);h.change('textarea',props=>props.id==='community-answer-body','Unsent Rome advice');close();
+  await open(2);h.change('textarea',props=>props.id==='community-answer-body','Send this Tokyo advice');h.click('Send answer');const pending=h.requests.at(-1);close();
+  let view=await open(3);assert.equal(body(view),'Unsent Rome advice');assert.equal(find(view,'textarea',props=>props.id==='community-answer-body').props.disabled,true);
+  pending.resolve({moderation:{action:'visible'}});view=await h.settle();
+  assert.equal(body(view),'Unsent Rome advice');assert.match(text(find(view,'Sheet',props=>props.title==='Question details')),/Rome museum tickets/);
+  assert.equal(h.requests.filter(request=>request.path==='/api/country-community/questions/jp').length,1,'A late send must not reload or reopen its former topic');
+  close();view=await open(2);assert.equal(body(view),'','The closed topic\'s acknowledged draft is cleared');
+ }finally{h.dispose();}
+});
+
+test('Success clears the same unchanged draft if its sheet was reopened during submission',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async()=>{h.click('Open question: Tokyo train advice');h.requests.at(-1).resolve({data:{...rows[2],answers:[]}});return h.settle();};
+ try{
+  await h.feed();await open();h.change('textarea',props=>props.id==='community-answer-body','One Tokyo reply');h.click('Send answer');const pending=h.requests.at(-1);
+  find(h.render(),'Sheet',props=>props.title==='Question details').props.onClose();h.render();let view=await open();
+  assert.equal(find(view,'textarea',props=>props.id==='community-answer-body').props.value,'One Tokyo reply');
+  pending.resolve({moderation:{action:'pending_review'}});view=await h.settle();assert.equal(find(view,'textarea',props=>props.id==='community-answer-body').props.value,'');
+  assert.equal(h.requests.filter(request=>request.options.method==='POST').length,1);
+ }finally{h.dispose();}
+});
+
+test('Reply drafts and pending sends never leak through logout, account switches or a return to the old account',async()=>{
+ const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
+ const open=async()=>{h.click('Open question: Tokyo train advice');h.requests.at(-1).resolve({data:{...rows[2],answers:[]}});return h.settle();};
+ const body=view=>find(view,'textarea',props=>props.id==='community-answer-body').props.value;
+ try{
+  await h.feed();await open();h.change('textarea',props=>props.id==='community-answer-body','Private account A reply');h.click('Send answer');const old=h.requests.at(-1);
+  h.render({user:null,accessToken:''});await h.feed();let view=await open();assert.equal(find(view,'textarea',props=>props.id==='community-answer-body'),undefined);
+  h.render({user:{id:'account-b'},accessToken:'TOKEN_B'});await h.feed();view=await open();assert.equal(body(view),'');h.change('textarea',props=>props.id==='community-answer-body','Private account B reply');
+  old.resolve({moderation:{action:'visible'}});view=await h.settle();assert.equal(body(view),'Private account B reply');assert.equal(h.notices.length,0);
+  h.render({user:{id:'account-a'},accessToken:'TOKEN_A_NEW'});await h.feed();view=await open();assert.equal(body(view),'','Private draft memory is discarded when its account instance ends');
+ }finally{h.dispose();}
+});
+
 test('answer retry preserves operation identity after a lost response, rotates for edited intent and isolates accounts',async()=>{
  const h=harness({user:{id:'account-a'},accessToken:'TOKEN_A'});
  const open=async()=>{h.click('Open question: Tokyo train advice');h.requests.at(-1).resolve({data:{...rows[2],answers:[]}});await h.settle();};
@@ -830,5 +922,27 @@ test('question retry preserves operation identity until country, body, title or 
   assert.equal(new Set(fingerprints).size,5);
   h.requests.at(-1).resolve({data:{status:'rejected'},moderation:{action:'pending_review'}});await h.settle();assert.match(h.notices.at(-1),/rejected/);
   composeDraft(h);h.click('Post to community');assert.ok(!fingerprints.includes(h.requests.at(-1).options.body.requestId));
+ }finally{h.dispose();}
+});
+
+
+test('Search remains at the top, preserves Posts or Forum and keeps their real queries separate',async()=>{
+ const h=harness();try{
+  let view=await h.feed();assert.ok(button(view,'Search questions and answers'));
+  h.click('Posts');const before=h.requests.length;view=h.click('Search community');
+  assert.ok(find(view,'SocialHub'));assert.equal(button(view,'Posts').props['aria-pressed'],true);
+  view=h.change('input',p=>p.id==='community-search-input','Paris');assert.equal(find(view,'SocialHub').props.searchQuery,'Paris');assert.equal(h.requests.length,before,'Posts typing never queries the unrelated question feed');
+  view=h.click('Forum');assert.equal(find(view,'input',p=>p.id==='community-search-input').props.value,'');
+  h.change('input',p=>p.id==='community-search-input','train');view=h.click('Posts');assert.equal(find(view,'SocialHub').props.searchQuery,'Paris');
+  view=h.click('Close search');assert.equal(find(view,'SocialHub').props.searchQuery,'');assert.equal(button(view,'Posts').props['aria-pressed'],true);
+ }finally{h.dispose();}
+});
+
+test('Question actions and real discussion precede collapsed promotions; country buttons promise questions',async()=>{
+ const h=harness();try{
+  const view=await h.feed(),all=nodes(view),index=className=>all.findIndex(n=>n.props?.className===className);
+  assert.ok(index('cs-compose')<index('cs-extras'));assert.ok(index('community-feed cs-feed')<index('cs-extras'));
+  const extras=find(view,'details',p=>p.className==='cs-extras');assert.ok(extras);assert.equal(extras.props.open,undefined);
+  const groups=h.tab('groups');assert.match(text(groups),/View questions/);assert.doesNotMatch(text(groups),/Join the conversation/);
  }finally{h.dispose();}
 });

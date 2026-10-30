@@ -5,16 +5,17 @@ import { Icon } from './Icon';
 import { Sheet } from './Sheet';
 import './language-picker.css';
 
-const LANGUAGES: { id: AppLocale; name: string; code: string }[] = [
-  { id: 'tr', name: 'Türkçe', code: 'TR' },
-  { id: 'en', name: 'English', code: 'EN' },
-  { id: 'sq', name: 'Shqip', code: 'SQ' },
+const LANGUAGES: { id: AppLocale; name: string }[] = [
+  { id: 'tr', name: 'Türkçe' },
+  { id: 'en', name: 'English' },
+  { id: 'sq', name: 'Shqip' },
+  { id: 'ro', name: 'Română' },
 ];
 
 export function LanguageFlag({ locale }: { locale: AppLocale }) {
   return <span className={`language-flag language-flag-${locale}`} aria-hidden="true">
     {locale === 'sq' ? <><img src={countryFlagAsset('XK')} alt=""/><img className="language-flag-al" src={countryFlagAsset('AL')} alt=""/></>
-      : <img src={countryFlagAsset(locale === 'tr' ? 'TR' : 'GB')} alt=""/>}
+      : <img src={countryFlagAsset(locale === 'tr' ? 'TR' : locale === 'ro' ? 'RO' : 'GB')} alt=""/>}
   </span>;
 }
 
@@ -28,7 +29,7 @@ export function LanguagePicker() {
     <Sheet open={open} title={copy('Dil seç', 'Choose language', 'Zgjidh gjuhën')} onClose={() => setOpen(false)}>
       <div className="language-options" role="group" aria-label={copy('Uygulama dili', 'App language')}>
         {LANGUAGES.map(language => <button type="button" key={language.id} lang={language.id} aria-pressed={locale === language.id} aria-busy={pendingLocale === language.id} onClick={async () => { if (await setLocale(language.id)) setOpen(false); }}>
-          <LanguageFlag locale={language.id}/><span><strong>{language.name}</strong><small>{language.code}</small></span>{locale === language.id && <Icon name="check" size={21}/>}
+          <LanguageFlag locale={language.id}/><span><strong>{language.name}</strong></span>{locale === language.id && <Icon name="check" size={21}/>}
         </button>)}
       </div>
       {pendingLocale && <p role="status">{copy('Dil yükleniyor…', 'Loading language…', 'Duke ngarkuar gjuhën…')}</p>}

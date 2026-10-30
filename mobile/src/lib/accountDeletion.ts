@@ -1,3 +1,4 @@
+import { translateCopy } from "./locale";
 import { requestJson } from "./api";
 
 export type AccountDeletionRequest = {
@@ -14,8 +15,8 @@ export type AppleDeletionStatus = {
   status: "not_required" | "configuration_missing" | "authorization_required" | "ready" | "revoked" | "unavailable";
 };
 
-export function deletionConfirmationMatches(value: string, locale: "tr" | "en" | "sq") {
-  return value.trim().toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US") === (locale === "tr" ? "SİL" : locale === "sq" ? "FSHI" : "DELETE");
+export function deletionConfirmationMatches(value: string, locale: "tr" | "en" | "sq" | "ro") {
+  return value.trim().toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US") === (translateCopy(locale, "SİL", "DELETE", "FSHI"));
 }
 
 export function hasPendingDeletion(request: AccountDeletionRequest | null) {
@@ -54,12 +55,12 @@ export async function getAccountDeletionRequest(accessToken: string) {
   return readDeletionRequest(result.request);
 }
 
-export async function submitAccountDeletionRequest(accessToken: string, locale: "tr" | "en" | "sq", confirmation: string) {
+export async function submitAccountDeletionRequest(accessToken: string, locale: "tr" | "en" | "sq" | "ro", confirmation: string) {
   if (!deletionConfirmationMatches(confirmation, locale)) throw new Error("deletion_confirmation_required");
   const result = await requestJson<{ success: boolean; request: AccountDeletionRequest }>("/api/kvkk-requests", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
-    body: { requestType: "Hesabımı kapatmak istiyorum", confirmed: true, locale: locale === "tr" ? "tr" : "en" },
+    body: { requestType: "Hesabımı kapatmak istiyorum", confirmed: true, locale },
   });
   if (!result.success || !result.request?.id) throw new Error("deletion_request_not_confirmed");
   const request = readDeletionRequest(result.request);

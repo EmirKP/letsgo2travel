@@ -1,3 +1,4 @@
+import { translateCopy } from "../lib/locale";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { config, isSupabaseConfigured } from "../lib/config";
 import { ApiError, requestJson } from "../lib/api";
@@ -45,7 +46,7 @@ type RefreshInFlight = {
 
 function authCopy(tr: string, en: string, sq: string) {
   const locale = localeFromStorage();
-  return locale === "sq" ? sq : locale === "en" ? en : tr;
+  return translateCopy(locale, tr, en, sq);
 }
 
 function storageGet(key: string) {

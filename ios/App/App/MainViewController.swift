@@ -9,9 +9,11 @@ class MainViewController: CAPBridgeViewController {
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(FlightLiveActivityPlugin())
+        bridge?.registerPluginInstance(JourneyLiveActivityPlugin())
         bridge?.registerPluginInstance(OfflineTranslationPlugin())
         bridge?.registerPluginInstance(TicketImportPlugin())
         bridge?.registerPluginInstance(WebAuthenticationPlugin())
+        bridge?.registerPluginInstance(AppSettingsPlugin())
         bridge?.registerPluginInstance(journeyMap)
     }
 

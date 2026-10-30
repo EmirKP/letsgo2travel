@@ -111,7 +111,7 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 originIata: call.getString("originIata") ?? "",
                 destinationIata: call.getString("destinationIata") ?? "",
                 deepLink: call.getString("deepLink") ?? "letsgo2travel://cockpit",
-                language: ["tr", "en", "sq"].contains(call.getString("language") ?? "") ? call.getString("language")! : "tr",
+                language: ["tr", "en", "sq", "ro"].contains(call.getString("language") ?? "") ? call.getString("language")! : "tr",
                 originTimeZone: safeZone(call.getString("originTimeZone")),
                 destinationTimeZone: safeZone(call.getString("destinationTimeZone")),
                 flightNumber: call.getString("flightNumber").map { String($0.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.prefix(8)) }
@@ -210,5 +210,165 @@ public class FlightLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         #endif
         call.resolve()
+    }
+}
+
+// Kept in the existing compiled bridge source, with an independent plugin name,
+// attributes type, session history and expiry tasks. Never touches flight activities.
+@objc(JourneyLiveActivityPlugin)
+public class JourneyLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "JourneyLiveActivityPlugin"
+    public let jsName = "JourneyLiveActivity"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setJourneyOwner", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncJourneyActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endJourneyActivity", returnType: CAPPluginReturnPromise),
+    ]
+    private let ownerKey = "l2t.journeyLive.owner.v1"
+    private let sessionKey = "l2t.journeyLive.created.v1"
+    private var expiryTasks: [String: Task<Void, Never>] = [:]
+
+    @objc func isAvailable(_ call: CAPPluginCall) {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            call.resolve(["available": ActivityAuthorizationInfo().areActivitiesEnabled])
+            return
+        }
+        #endif
+        call.resolve(["available": false])
+    }
+
+    private func journeyDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+
+    @objc func setJourneyOwner(_ call: CAPPluginCall) {
+        let ownerId = String((call.getString("ownerId") ?? "").prefix(80))
+        Task { @MainActor in
+            let previous = UserDefaults.standard.string(forKey: self.ownerKey)
+            UserDefaults.standard.set(ownerId, forKey: self.ownerKey)
+            if previous != ownerId { UserDefaults.standard.removeObject(forKey: self.sessionKey) }
+            #if canImport(ActivityKit)
+            if #available(iOS 16.2, *) {
+                for activity in Activity<JourneyActivityAttributes>.activities
+                    where ownerId.isEmpty || activity.attributes.ownerId != ownerId || activity.attributes.expiresAt <= Date() {
+                    self.expiryTasks[activity.id]?.cancel()
+                    self.expiryTasks.removeValue(forKey: activity.id)
+                    await activity.end(ActivityContent(state: self.endedState(activity.content.state), staleDate: Date()), dismissalPolicy: .immediate)
+                }
+            }
+            #endif
+            call.resolve()
+        }
+    }
+
+    @objc func syncJourneyActivity(_ call: CAPPluginCall) {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            guard ActivityAuthorizationInfo().areActivitiesEnabled,
+                  let ownerId = call.getString("ownerId"), !ownerId.isEmpty, ownerId.count <= 80,
+                  let journeyId = call.getString("journeyId"), !journeyId.isEmpty, journeyId.count <= 160,
+                  let day = call.getInt("day"), (1...14).contains(day),
+                  let startedAt = journeyDate(call.getString("startedAt")),
+                  let expiresAt = journeyDate(call.getString("expiresAt")),
+                  abs(expiresAt.timeIntervalSince(startedAt) - 8 * 3600) < 0.01,
+                  startedAt <= Date().addingTimeInterval(5), expiresAt > Date(),
+                  let completed = call.getInt("completed"), let total = call.getInt("total"),
+                  (1...120).contains(total), completed >= 0, completed < total,
+                  let deepLink = call.getString("deepLink"), let url = URL(string: deepLink),
+                  url.scheme == "letsgo2travel", url.host == "journey", deepLink.count <= 700,
+                  UserDefaults.standard.string(forKey: ownerKey) == ownerId else {
+                call.reject("Invalid or expired itinerary guide")
+                return
+            }
+            let language = ["tr", "en", "sq", "ro"].contains(call.getString("language") ?? "") ? call.getString("language")! : "tr"
+            let scheduledTime = call.getString("nextScheduledTime") ?? ""
+            let safeTime = scheduledTime.range(of: "^([01][0-9]|2[0-3]):[0-5][0-9]$", options: .regularExpression) != nil ? scheduledTime : ""
+            let state = JourneyActivityAttributes.ContentState(title: String((call.getString("title") ?? "").prefix(100)),
+                city: String((call.getString("city") ?? "").prefix(80)), nextStopName: String((call.getString("nextStopName") ?? "").prefix(100)),
+                nextScheduledTime: safeTime, provisional: call.getBool("provisional") ?? true,
+                completed: completed, total: total, language: language, ended: false)
+            let attributes = JourneyActivityAttributes(ownerId: ownerId, journeyId: journeyId, day: day, startedAt: startedAt, expiresAt: expiresAt, deepLink: deepLink)
+            let content = ActivityContent(state: state, staleDate: expiresAt)
+            Task { @MainActor in
+                guard UserDefaults.standard.string(forKey: self.ownerKey) == ownerId, expiresAt > Date() else { call.reject("Itinerary owner changed"); return }
+                var replacing = false
+                for activity in Activity<JourneyActivityAttributes>.activities {
+                    if activity.attributes.ownerId == ownerId && activity.attributes.journeyId == journeyId && activity.attributes.day == day && activity.attributes.startedAt == startedAt && activity.attributes.deepLink == deepLink && activity.attributes.expiresAt == expiresAt {
+                        guard activity.activityState == .active || activity.activityState == .stale else { continue }
+                        await activity.update(content)
+                        if UserDefaults.standard.string(forKey: self.ownerKey) != ownerId {
+                            await activity.end(ActivityContent(state: self.endedState(state), staleDate: Date()), dismissalPolicy: .immediate)
+                            call.reject("Itinerary owner changed"); return
+                        }
+                        self.scheduleExpiry(activity)
+                        call.resolve(["active": true]); return
+                    }
+                    replacing = replacing || (activity.attributes.ownerId == ownerId && activity.attributes.journeyId == journeyId && activity.attributes.day == day && activity.attributes.startedAt == startedAt)
+                    self.expiryTasks[activity.id]?.cancel()
+                    self.expiryTasks.removeValue(forKey: activity.id)
+                    await activity.end(ActivityContent(state: self.endedState(activity.content.state), staleDate: Date()), dismissalPolicy: .immediate)
+                }
+                guard UserDefaults.standard.string(forKey: self.ownerKey) == ownerId, expiresAt > Date() else { call.reject("Itinerary owner changed"); return }
+                let identity = "\(ownerId):\(journeyId):\(day)"
+                let session = String(startedAt.timeIntervalSince1970)
+                let history = UserDefaults.standard.dictionary(forKey: self.sessionKey) as? [String: String] ?? [:]
+                // Respect an OS/user dismissal. A foreground resume updates a
+                // surviving activity, never silently starts the same session again.
+                if history[identity] == session && !replacing { call.resolve(["active": false]); return }
+                do {
+                    let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+                    UserDefaults.standard.set([identity: session], forKey: self.sessionKey)
+                    self.scheduleExpiry(activity)
+                    call.resolve(["active": true])
+                } catch { call.reject("Itinerary Live Activity could not start") }
+            }
+            return
+        }
+        #endif
+        call.resolve(["active": false])
+    }
+
+    #if canImport(ActivityKit)
+    @available(iOS 16.2, *)
+    private func endedState(_ state: JourneyActivityAttributes.ContentState) -> JourneyActivityAttributes.ContentState {
+        var ended = state
+        ended.title = ""; ended.city = ""; ended.nextStopName = ""; ended.nextScheduledTime = ""; ended.ended = true
+        return ended
+    }
+    @available(iOS 16.2, *)
+    @MainActor private func scheduleExpiry(_ activity: Activity<JourneyActivityAttributes>) {
+        expiryTasks[activity.id]?.cancel()
+        expiryTasks[activity.id] = Task { @MainActor [weak self] in
+            let seconds = max(0, activity.attributes.expiresAt.timeIntervalSinceNow)
+            do { try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000)) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            await activity.end(ActivityContent(state: self.endedState(activity.content.state), staleDate: Date()), dismissalPolicy: .immediate)
+            self.expiryTasks.removeValue(forKey: activity.id)
+        }
+    }
+    #endif
+
+    @objc func endJourneyActivity(_ call: CAPPluginCall) {
+        let ownerId = call.getString("ownerId") ?? ""
+        let journeyId = call.getString("journeyId")
+        let day = call.getInt("day")
+        Task { @MainActor in
+            #if canImport(ActivityKit)
+            if #available(iOS 16.2, *) {
+                for activity in Activity<JourneyActivityAttributes>.activities where activity.attributes.ownerId == ownerId &&
+                    (journeyId == nil || activity.attributes.journeyId == journeyId) && (day == nil || activity.attributes.day == day) {
+                    self.expiryTasks[activity.id]?.cancel()
+                    self.expiryTasks.removeValue(forKey: activity.id)
+                    await activity.end(ActivityContent(state: self.endedState(activity.content.state), staleDate: Date()), dismissalPolicy: .immediate)
+                }
+            }
+            #endif
+            call.resolve()
+        }
     }
 }

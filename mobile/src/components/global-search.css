@@ -23,3 +23,9 @@
 .global-search-result-copy strong { font-size: 14px; line-height: 1.35; }
 .global-search-result-copy small { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .global-search li button > svg { flex: none; }
+.global-search-place-fallback { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.global-search-plan-place { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; text-align: start; color: var(--ink); background: var(--surface); }
+.global-search-plan-place > svg { flex: none; color: var(--brand-blue); }
+.global-search-plan-place > span { flex: 1; min-width: 0; }
+.global-search-plan-place strong { display: block; overflow-wrap: anywhere; font-size: 15px; }
+.global-search-plan-place small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }

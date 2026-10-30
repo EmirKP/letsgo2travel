@@ -10,14 +10,22 @@ import { Icon } from "./Icon";
 import { CountryFactDiagram } from "./CountryFactDiagram";
 import { countryFactClockTime } from "../lib/countryFactClock";
 import { CountryGuideHighlights } from "./CountryGuideHighlights";
-import currencyArtwork from "../assets/country-guide/currency-v2.webp";
-import emergencyArtwork from "../assets/country-guide/emergency-v2.webp";
-import internetArtwork from "../assets/country-guide/internet-v2.webp";
 import "./country-quick-facts.css";
 
 type FactId = "currency" | "plugs" | "emergency" | "driving" | "internet" | "time";
 type Source = { label: string; url: string; checkedAt?: string };
 type CountryQuickFactsProps = { country: string; countryLabel?: string; onOpenAll?: () => void; onOpenMoney?: (currency: string) => void; onOpenSafety?: () => void; includeLocalAdvice?: boolean };
+
+function FactPictogram({ kind }: {kind:FactId}) {
+  return <svg className="country-fact-pictogram" viewBox="0 0 40 40" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    {kind === "currency" && <><path d="m9 11 18-4v9H9z" fill="var(--fact-icon-soft)"/><rect x="6" y="12" width="27" height="20" rx="5" fill="var(--fact-icon-soft)"/><path d="M27 19h7v8h-7a4 4 0 0 1 0-8Z" fill="var(--fact-icon-accent)"/><path d="M28 23h.01M11 17h9"/></>}
+    {kind === "plugs" && <><path d="M14 5v9M25 5v9"/><path d="M10 14h19v6a9.5 9.5 0 0 1-19 0z" fill="var(--fact-icon-soft)"/><path d="M19.5 29v6"/><path d="M16 20h7" stroke="var(--fact-icon-accent)" strokeWidth="3"/></>}
+    {kind === "emergency" && <><path d="M13 7 8 10c-3 7 10 22 18 21l5-5-7-6-4 4a25 25 0 0 1-7-8l4-3z" fill="var(--fact-icon-soft)"/><circle cx="29" cy="11" r="7" fill="var(--fact-icon-accent)" stroke="none"/><path d="M29 8v6m-3-3h6"/></>}
+    {kind === "driving" && <><path d="m10 17 3-8h14l3 8" fill="var(--fact-icon-soft)"/><rect x="7" y="17" width="26" height="14" rx="4" fill="var(--fact-icon-soft)"/><path d="M11 31v4m18-4v4M16 26h8"/><path d="M11 22h3m12 0h3" stroke="var(--fact-icon-accent)" strokeWidth="3"/></>}
+    {kind === "internet" && <><path d="M11 5h14l6 6v22a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" fill="var(--fact-icon-soft)"/><rect x="14" y="18" width="12" height="12" rx="2" fill="var(--fact-icon-accent)"/><path d="M20 18v12m-6-6h12M14 11h6"/></>}
+    {kind === "time" && <><circle cx="20" cy="20" r="14" fill="var(--fact-icon-soft)"/><path d="M20 11v9l6 4M20 6v2m14 12h-2M20 34v-2M6 20h2"/><circle cx="20" cy="20" r="2.7" fill="var(--fact-icon-accent)" stroke="none"/></>}
+  </svg>;
+}
 
 /** A new country starts a fresh disclosure, including its source-opening state. */
 export function CountryQuickFacts(props: CountryQuickFactsProps) {
@@ -25,9 +33,8 @@ export function CountryQuickFacts(props: CountryQuickFactsProps) {
 }
 
 function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMoney, onOpenSafety, includeLocalAdvice = true }: CountryQuickFactsProps) {
-  const { locale, copy } = useI18n();
-  const language = locale === "tr" ? "tr" : locale === "sq" ? "sq" : "en";
-  const dateLocale = language === "tr" ? "tr-TR" : language === "sq" ? "sq-AL" : "en-GB";
+  const { locale, copy, dateLocale } = useI18n();
+  const noteCopy = (note: {tr:string;en:string;sq?:string} | undefined) => note ? copy(note.tr, note.en, note.sq) : "";
   const info = countryPracticalInfo(country);
   const [selected, setSelected] = useState<FactId | null>(null);
   const [selectedTimeZone, setSelectedTimeZone] = useState("");
@@ -55,7 +62,7 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
   const reviewNotice = copy("Bu bilgi için yeniden kontrol zamanı geldi. Kullanmadan önce kaynağını kontrol et.", "This information is due for review. Check the source before using it.", "Ka ardhur koha për rishikimin e informacionit. Kontrollo burimin para përdorimit.");
   const unavailableNotice = copy("Kayıt güncelliği doğrulanamadığı için değer gösterilmiyor. Güncel bilgiyi kaynağından kontrol et.", "The value is hidden because its verification is no longer valid. Check the source for current information.", "Vlera është fshehur sepse verifikimi nuk është i vlefshëm. Kontrollo burimin për informacionin aktual.");
   const sourceStatus = (source: Source) => evidenceStatus({ sourceUrl: source.url, verifiedAt: source.checkedAt || "" }, new Date(now));
-  const fieldNote = (field:FactId) => info.context?.[field]?.note?.[language];
+  const fieldNote = (field:FactId) => noteCopy(info.context?.[field]?.note);
   const missingBody = (field:FactId) => fieldNote(field) || unknownBody;
   const missingValue = (field:FactId) => {
     const status = info.context?.[field]?.status;
@@ -93,7 +100,7 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
       "Emergency lines operate in Vietnamese; language assistance may be needed.": "Linjat e urgjencës shërbejnë në vietnamisht; mund të nevojitet ndihmë gjuhësore.",
       "Number for calls from a mobile phone.": "Numri për telefonata nga telefoni celular.",
     };
-    return language === "sq" ? note.sq || albanian[note.en] || note.en : note[language];
+    return copy(note.tr, note.en, note.sq || albanian[note.en]);
   }
   const emergency = contacts.find(item => item.category === "general") || contacts[0];
   const mainEmergency = contacts.find(item => item.category === "general");
@@ -101,14 +108,14 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
   const emergencyValue = mainEmergency?.number || emergencyNumbers.slice(0, 2).join(" / ") || missingValue("emergency");
   const emergencyHint = mainEmergency ? emergencyLabel("general") : emergencyNumbers.slice(0, 2).map(number => contacts.filter(item => item.number === number).map(item => emergencyLabel(item.category)).join(" / ")).join(" · ");
   const internet = info.internet.kind === "operator-options" ? info.internet : null;
-  const currencyName = info.currency ? info.currency.name[language] || appCurrencyName(info.currency.code, language) : "";
+  const currencyName = info.currency ? locale === "ro" ? appCurrencyName(info.currency.code, locale) : noteCopy(info.currency.name) || appCurrencyName(info.currency.code, locale) : "";
   const currencyCodes = info.currency?.codes?.length ? info.currency.codes : info.currency ? [info.currency.code] : [];
   const convertibleCurrency = currencyCodes.find(code => CURRENCIES.includes(code));
   const currencySymbol = info.currency?.symbol || "";
   const targetClock = difference ? countryFactClockTime(difference.timeZone, now) : null;
   const deviceClock = deviceZone ? countryFactClockTime(deviceZone, now) : null;
   const emergencySources: Source[] = Array.from(new Map([...info.emergency.map(item => ({ label: copy("Acil numara kaynağı", "Emergency number source", "Burimi i numrit të urgjencës"), url: item.sourceUrl, checkedAt: item.verifiedAt })),...(!info.emergency.length ? info.context?.emergency?.sources || [] : [])].map(source=>[source.url,source])).values());
-  const timeCity = difference?.referenceCity[language] || info.time?.referenceCity[language] || "";
+  const timeCity = noteCopy(difference?.referenceCity) || noteCopy(info.time?.referenceCity) || "";
   const communication = info.communication;
   const powerHint = power ? `${(power.voltages || [power.voltage]).join(" / ")} V · ${power.frequency.join(" / ")} Hz` : copy("Adaptörünü kontrol et", "Check your adapter", "Kontrollo përshtatësin");
   const internetBody = copy("Cihazının eSIM desteğini, SIM kilidini ve operatörünün bu ülkedeki paketini kontrol et. Şebeke kapsaması ve dolaşım ücretleri bölgeye ve operatöre göre değişir.", "Check your device’s eSIM support, SIM lock and your operator’s plan for this country. Coverage and roaming fees vary by area and operator.", "Kontrollo mbështetjen eSIM, kyçjen e SIM-it dhe paketën e operatorit për këtë shtet. Mbulimi dhe tarifat roaming ndryshojnë sipas zonës dhe operatorit.");
@@ -144,13 +151,13 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
       id: "internet", label: communication && !internet ? copy("İnternet ve iletişim", "Internet & calling", "Interneti dhe telefonatat") : copy("İnternet", "Internet", "Interneti"),
       value: internet ? internet.operators.slice(0, 2).map(operator => operator.name).join(" · ") : communication?.callingCodes.length ? communication.callingCodes.join(" / ") : communication ? copy("Sefer bağlantısı", "Local arrangements", "Kushtet lokale") : "SIM / eSIM",
       hint: internet ? internet.operators.slice(2).map(operator => operator.name).join(" · ") || copy("Yerel operatör seçenekleri", "Local operator options", "Operatorë vendas") : communication?.callingCodes.length ? copy("Uluslararası arama kodu", "International calling code", "Kodi ndërkombëtar telefonik") : copy("Cihaz ve paket kontrolü", "Check device & plan", "Pajisja dhe paketa"),
-      body: communication?.note?.[language] || internetBody,
+      body: noteCopy(communication?.note) || internetBody,
       sources: internet ? [...internet.sources, ...(communication?.sources || [])] : communication?.sources || [],
       provenance: internet ? copy("Yerel operatör örnekleri. Paket, eSIM desteği ve cihaz uyumluluğunu operatörün resmî sayfasından karşılaştır.", "Examples of local operators. Compare plans, eSIM support and device compatibility on their official sites.", "Shembuj operatorësh vendas. Krahaso paketat, eSIM dhe përputhshmërinë në faqet e tyre zyrtare.") : communication ? copy("Arama kodu bir operatör veya eSIM paket önerisi değildir. Bu ülke için operatör örnekleri henüz doğrulanmadı. Paket ve kapsama bilgisini sağlayıcından kontrol et.", "A calling code is not a carrier or eSIM plan recommendation. Operator examples have not yet been verified here. Check plans and coverage with your provider.", "Kodi telefonik nuk është rekomandim operatori ose pakete eSIM. Shembujt e operatorëve këtu ende nuk janë verifikuar. Kontrollo paketën dhe mbulimin me ofruesin.") : copy("Genel kontrol listesi · Ülkeye özel kapsama veya operatör uyumluluğu doğrulanmadı.", "General checklist · Country coverage and operator compatibility have not been verified.", "Listë e përgjithshme kontrolli · Mbulimi dhe përputhshmëria e operatorit nuk janë verifikuar."),
     },
     {
       id: "time", label: copy("Saat farkı", "Time difference", "Diferenca e orës"), value: difference ? differenceLabel(difference.minutes) : missingValue("time"),
-      hint: difference ? `${timeCity} ${localTime(difference.timeZone)} · ${copy("Sen", "You", "Ti")} ${localTime(deviceZone)}` : copy("Yerel saat düzeni", "Local time arrangements", "Kushtet e orës lokale"),
+      hint: difference ? `${timeCity} ${localTime(difference.timeZone)}` : copy("Yerel saat düzeni", "Local time arrangements", "Kushtet e orës lokale"),
       body: difference ? copy(`${timeCity}: ${localTime(difference.timeZone)}. Bu cihaz: ${localTime(deviceZone)}. Fark, bu cihazın saat dilimine göre ve güncel yaz/kış saatiyle hesaplanır.`, `${timeCity}: ${localTime(difference.timeZone)}. This device: ${localTime(deviceZone)}. The difference uses this device’s time zone and current daylight-saving rules.`, `${timeCity}: ${localTime(difference.timeZone)}. Kjo pajisje: ${localTime(deviceZone)}. Diferenca llogaritet me zonën e pajisjes dhe rregullat aktuale të orës verore.`) : missingBody("time"),
       provenance: difference?.multipleZones ? fieldNote("time") || copy("Ülkede birden fazla saat dilimi var; gideceğin şehri ayrıca kontrol et.", "This country has several time zones; check your destination city separately.", "Ky shtet ka disa zona orare; kontrollo veçmas qytetin ku do të shkosh.") : undefined,
       sources: info.context?.time?.sources || (info.time ? [{ label: "IANA / Intl", url: info.time.sourceUrl }] : []),
@@ -174,15 +181,15 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
     if (request === sourceRequest.current) setSourceState({ url, busy: false, error: !opened });
   }
 
-  return <section className="country-quick-facts" aria-labelledby={`${id}-heading`}>
-    <header className="country-quick-facts-heading"><div><span className="country-guide-eyebrow">{copy("BİR BAKIŞTA", "AT A GLANCE", "ME NJË VËSHTRIM")}</span><h3 id={`${id}-heading`}>{countryLabel || country.toUpperCase()}</h3><p>{copy("Cebinde olsun, aklında soru kalmasın.", "Travel essentials, ready when you need them.", "Gjërat e nevojshme, gati kur të duhen.")}</p></div>{difference && <span className="country-guide-local-time"><Icon name="clock" size={16}/><strong>{localTime(difference.timeZone)}</strong><small>{timeCity}</small></span>}</header>
+  return <section className="country-quick-facts country-quick-facts--compact" aria-labelledby={`${id}-heading`}>
+    <header className="country-quick-facts-heading"><span className="country-guide-marker" aria-hidden="true"><Icon name="compass" size={24}/></span><div><span className="country-guide-eyebrow">{copy("Seyahat bilgileri", "Travel essentials", "Informacione udhëtimi")}</span><h3 id={`${id}-heading`}>{countryLabel || country.toUpperCase()}</h3></div></header>
     <div className="country-quick-facts-grid">{facts.map(fact => <button key={fact.id} ref={node => { if (node) cards.current[fact.id] = node; else delete cards.current[fact.id]; }} type="button" className={`country-fact-card country-fact-${fact.id}`} aria-expanded={selected === fact.id} aria-controls={detailId} onClick={() => toggleDetail(fact.id)}>
+      <span className="country-fact-art" aria-hidden="true"><FactPictogram kind={fact.id}/></span>
       <span className="country-fact-label">{fact.label}</span>
-      <span className="country-fact-art" aria-hidden="true">{fact.id === "currency" ? <><img src={currencyArtwork} alt="" width={124} height={86}/>{currencySymbol && <span className="country-currency-symbol">{currencySymbol}</span>}</> : fact.id === "emergency" ? <img src={emergencyArtwork} alt="" width={124} height={86}/> : fact.id === "internet" ? <img src={internetArtwork} alt="" width={112} height={86}/> : fact.id === "plugs" && power ? <><CountryFactDiagram kind="plugs" plugTypes={power.types.slice(0, 2)}/>{power.types.length > 2 && <span className="country-fact-extra-types">+{power.types.length - 2}</span>}</> : fact.id === "driving" && driving ? <CountryFactDiagram kind="driving" drivingSide={driving.side}/> : fact.id === "time" && difference ? <CountryFactDiagram kind="time" targetClock={targetClock || undefined} deviceClock={deviceClock || undefined} targetLabel={timeCity} deviceLabel={copy("Sen", "You", "Ti")}/> : <Icon name="globe" size={46}/>}</span>
-      <strong>{fact.value}</strong><small>{fact.hint}</small><span className="country-fact-chevron">{copy("Ayrıntılar", "Details", "Hollësi")}<Icon name="chevron" size={14}/></span>
+      <strong className={fact.value.length > 18 ? "country-fact-value-long" : undefined}>{fact.value}</strong><small>{fact.hint}</small><span className="country-fact-chevron" aria-hidden="true"><Icon name="chevron" size={14}/></span>
     </button>)}</div>
     <section className="country-fact-detail" id={detailId} hidden={!detail} aria-labelledby={`${detailId}-heading`} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); closeDetail(); } }}>
-      {detail && <><div className="country-fact-detail-heading"><h4 id={`${detailId}-heading`} ref={headingRef} tabIndex={-1}>{detail.label}</h4><button type="button" onClick={closeDetail} aria-label={copy("Bilgi ayrıntısını kapat", "Close fact details", "Mbyll hollësitë")}><Icon name="close" size={18}/></button></div>{detail.id === "plugs" && power && <div className="country-fact-detail-visual"><CountryFactDiagram kind="plugs" plugTypes={power.types}/></div>}{detail.id === "driving" && driving && <div className="country-fact-detail-visual"><CountryFactDiagram kind="driving" drivingSide={driving.side}/></div>}<p>{detail.body}</p>{detail.notice && <p className="country-fact-provenance" role="status">{detail.notice}</p>}
+      {detail && <><div className="country-fact-detail-heading"><h4 id={`${detailId}-heading`} ref={headingRef} tabIndex={-1}>{detail.label}</h4><button type="button" onClick={closeDetail} aria-label={copy("Bilgi ayrıntısını kapat", "Close fact details", "Mbyll hollësitë")}><Icon name="close" size={18}/></button></div>{detail.id === "plugs" && power && <div className="country-fact-detail-visual"><CountryFactDiagram kind="plugs" plugTypes={power.types}/></div>}{detail.id === "driving" && driving && <div className="country-fact-detail-visual"><CountryFactDiagram kind="driving" drivingSide={driving.side}/></div>}{detail.id === "time" && difference && <div className="country-fact-detail-visual"><CountryFactDiagram kind="time" targetClock={targetClock || undefined} deviceClock={deviceClock || undefined} targetLabel={timeCity} deviceLabel={copy("Sen", "You", "Ti")}/></div>}<p>{detail.body}</p>{detail.notice && <p className="country-fact-provenance" role="status">{detail.notice}</p>}
         {detail.id === "emergency" && contacts.length > 0 && <ul className="country-fact-numbers">{contacts.map(item => <li key={`${item.category}-${item.number}`}><div><span>{emergencyLabel(item.category)}</span>{item.note && <small>{emergencyNote(item.note)}</small>}</div><strong>{item.number}</strong></li>)}</ul>}
         {detail.provenance && <p className="country-fact-provenance">{detail.provenance}</p>}
         {detail.id === "time" && difference && <p className="country-fact-provenance">{copy("Hesaplandı: ", "Calculated: ", "Llogaritur: ")}<time dateTime={new Date(now).toISOString()}>{formatAppDate(new Date(now), dateLocale, {day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</time></p>}
@@ -194,7 +201,7 @@ function CountryQuickFactsContent({ country, countryLabel, onOpenAll, onOpenMone
         {sourceState?.error && <div className="country-fact-source-error" role="alert"><p>{copy("Kaynak açılamadı. İnternet bağlantını kontrol edip tekrar dene.", "Could not open the source. Check your connection and retry.", "Burimi nuk u hap. Kontrollo lidhjen dhe provo sërish.")}</p><button type="button" disabled={sourceState.busy} onClick={() => void openSource(sourceState.url)}><Icon name="refresh" size={16}/>{sourceState.busy ? copy("Açılıyor…", "Opening…", "Duke hapur…") : copy("Tekrar dene", "Retry", "Provo sërish")}</button></div>}
       </>}
     </section>
-    <CountryGuideHighlights country={country} onOpenDetails={onOpenAll} includeLocalAdvice={includeLocalAdvice}/>
+    <CountryGuideHighlights country={country} includeLocalAdvice={includeLocalAdvice}/>
     {onOpenAll && <button type="button" className="country-quick-facts-all" onClick={onOpenAll}>{copy("Tüm ülke bilgilerini gör", "See all country information", "Shiko të gjitha informacionet e shtetit")}<Icon name="chevron" size={17}/></button>}
   </section>;
 }

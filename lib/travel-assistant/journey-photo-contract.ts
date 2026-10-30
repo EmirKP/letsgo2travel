@@ -3,7 +3,7 @@ import type { Coordinates } from './types';
 import type { JourneyPhoto } from './journey-types';
 
 export type JourneyPhotoPlace = Coordinates & { id: string; name: string; sourceUrl: string };
-export type JourneyPhotoRequest = { places: JourneyPhotoPlace[]; locale: 'tr' | 'en' | 'sq' };
+export type JourneyPhotoRequest = { places: JourneyPhotoPlace[]; locale: 'tr' | 'en' | 'sq' | 'ro' };
 export type JourneyPhotoMatch = JourneyPhotoPlace & JourneyPhoto;
 export type JourneyPhotoResult = { photos: JourneyPhotoMatch[]; complete: boolean };
 export const JOURNEY_PHOTO_BATCH = 8;
@@ -13,7 +13,7 @@ export const journeyPhotoKey = (place: JourneyPhotoPlace) => JSON.stringify([pla
 export function parseJourneyPhotoRequest(value: unknown): JourneyPhotoRequest | null {
   if (!value || typeof value !== 'object') return null;
   const input = value as JourneyPhotoRequest;
-  if (!['tr', 'en', 'sq'].includes(input.locale) || !Array.isArray(input.places) || input.places.length < 1 || input.places.length > JOURNEY_PHOTO_BATCH) return null;
+  if (!['tr', 'en', 'sq', 'ro'].includes(input.locale) || !Array.isArray(input.places) || input.places.length < 1 || input.places.length > JOURNEY_PHOTO_BATCH) return null;
   const ids = new Set<string>(), places: JourneyPhotoPlace[] = [];
   for (const place of input.places) {
     const point = coordinates(place);

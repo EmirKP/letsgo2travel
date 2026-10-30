@@ -19,3 +19,9 @@
 @media(max-width:340px){.ta-tool-grid{grid-template-columns:minmax(0,1fr)}.travel-assistant .ta-tool-card{min-height:108px;gap:8px;flex-direction:row;align-items:center}.ta-tool-card>.ta-tool-icon{flex-shrink:0}.ta-tool-card>svg{display:none}}
 
 .ta-guide-tool-header{gap:10px;margin-bottom:14px}.ta-guide-tool-header h2{font-size:22px}.ta-guide-country-context{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:8px;align-items:end;margin-bottom:14px}.ta-guide-country-context>p{grid-column:1/-1;margin:0}.ta-guide-country-context>p:empty{display:none}.ta-guide-country-context .country-picker-field{margin:0}.ta-guide-country-context .country-picker-field>span{font-size:11px;margin-bottom:0}.ta-guide-country-context .country-picker-trigger{min-height:48px;padding:9px 12px;border-radius:15px}.ta-guide-locate{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--theme-border,#dce6f3);background:var(--theme-soft,#edf4ff);border-radius:15px;color:var(--theme-link,#1467e8)}
+
+.editorial-app .screen .ta-guide-shortcut { display:flex;align-items:center;gap:12px;width:100%;min-height:76px;margin:12px 0;padding:12px 14px;border:1px solid var(--theme-border,#d8e7fa);border-radius:18px;background:var(--theme-soft,#f1f7ff);color:var(--theme-ink,#173653);text-align:start; }
+.editorial-app .screen .ta-guide-shortcut>span { flex:1;min-width:0; }
+.editorial-app .screen .ta-guide-shortcut strong { display:block;font-size:16px;font-weight:750; }
+.editorial-app .screen .ta-guide-shortcut small { display:block;margin-top:4px;color:var(--theme-muted,#65748a);font-size:12px;line-height:1.4; }
+.editorial-app .screen .ta-guide-shortcut>svg { flex:none;color:var(--theme-link,#0066ff); }

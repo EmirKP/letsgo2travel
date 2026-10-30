@@ -20,6 +20,7 @@ function load(path, imports, extra = {}) {
   const testModule = { exports: {} };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date: ClockDate, Intl, AbortController, setTimeout, clearTimeout, document: { addEventListener() {}, removeEventListener() {} }, ...extra })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    if (name === '../lib/activeTripContext') return {readActiveTripContext:()=>null,activeTripContextFromTrip:()=>null,writeActiveTripContext:()=>false,clearActiveTripContext:()=>{}};
     if (name === '../lib/accountResume') return { onAccountResume: () => () => {} };
     if (name === '../lib/localeFormatting') return load('mobile/src/lib/localeFormatting.ts', {}, extra);
     if (name === './locales/sq-regions') return load('mobile/src/lib/locales/sq-regions.ts', {}, extra);
@@ -42,6 +43,7 @@ function hookHost() {
   };
   const memoHook = (factory, deps) => { const i = cursor++; if (!slots[i] || changed(slots[i].deps, deps)) slots[i] = { value: factory(), deps }; return slots[i].value; };
   const react = {
+    lazy: () => 'LazyComponent', Suspense: 'Suspense',
     useState(initial) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, next => { const value = typeof next === 'function' ? next(slots[i].value) : next; if (!Object.is(slots[i].value, value)) { slots[i].value = value; dirty = true; } }]; },
     useRef(initial) { const i = cursor++; if (!slots[i]) slots[i] = { current: initial }; return slots[i]; },
     useMemo: memoHook, useCallback: (fn, deps) => memoHook(() => fn, deps), useEffect, useLayoutEffect: useEffect,
@@ -161,8 +163,10 @@ test('Malformed and mismatched flight responses never render selectable routes',
   }
 });
 
-function cockpitHarness(initialTrips = [], missingAirportZone = "") {
+function cockpitHarness(initialTrips = [], missingAirportZone = "", initialContexts = []) {
   const host = hookHost(), creates = [], updates = [], deletes = [], notices = [], reminders = [], loadArgs = [], timers = [], refreshes = [];
+  const contexts=new Map(initialContexts),contextWrites=[],contextClears=[];
+  const contextModel=load('mobile/src/lib/activeTripContext.ts',{react:{},'./dates':dates,'../data/countryIso':countryIso});
   let interval;
   let id = 0, timerId = 0;
   const jobs = new Map(), events = new Map();
@@ -172,6 +176,7 @@ function cockpitHarness(initialTrips = [], missingAirportZone = "") {
   const document = { visibilityState: 'visible', addEventListener: on, removeEventListener: off, getElementById: () => null };
   const navigator = { onLine: true };
   const testModule = load('mobile/src/screens/CockpitScreen.tsx', {
+    '../lib/activeTripContext':{...contextModel,readActiveTripContext:owner=>contexts.get(owner)||null,writeActiveTripContext:(owner,value)=>{const normalized=contextModel.normalizeActiveTripContext(value);contextWrites.push({owner,value:normalized});if(normalized)contexts.set(owner,normalized);return !!normalized;},clearActiveTripContext:(owner,id)=>{contextClears.push({owner,id});if(!id||contexts.get(owner)?.tripId===id)contexts.delete(owner);}},
     react: host.react, 'react/jsx-runtime': jsxRuntime, '../../../lib/event-time': require('../lib/event-time.ts'),
     '../components/AirportField': { AirportField: 'AirportField' }, '../components/CountryPicker': { CountryPicker: 'CountryPicker' },
     '../components/DateTimeField': { DateTimeField: 'DateTimeField' }, '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' },
@@ -190,9 +195,24 @@ function cockpitHarness(initialTrips = [], missingAirportZone = "") {
       createCockpitTrip: (user, payload, token) => { const wait = deferred(); creates.push({ user, payload, token, ...wait }); return wait.promise; } },
   }, { navigator, setTimeout: (fn, delay) => { timers.push(delay); jobs.set(++timerId, { fn, delay }); return timerId; }, clearTimeout: key => jobs.delete(key), window: { addEventListener: on, removeEventListener: off, setInterval: fn => { interval = fn; return 1; }, clearInterval: () => {}, requestAnimationFrame: fn => fn(), confirm: () => { throw new Error('Native popup unavailable'); } }, document });
   host.start(testModule.CockpitScreen, { user: { id: 'test-user-a' }, accessToken: 'UNIT_TEST_SESSION_A', onOpenAccount: () => {}, onNotice: value => notices.push(value) });
-  return { host, creates, updates, deletes, notices, reminders, loadArgs, timers, refreshes, jobs, runTimer(delay) { const job = [...jobs].find(([, job]) => job.delay === delay); assert.ok(job, `No timer for ${delay}`); jobs.delete(job[0]); job[1].fn(); }, visibility(value) { document.visibilityState = value; fire('visibilitychange'); }, online(value) { navigator.onLine = value; fire(value ? 'online' : 'offline'); }, advance(milliseconds) { now += milliseconds; interval?.(); fire('visibilitychange'); return host.render(); }, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
+  return { host, creates, updates, deletes, notices, reminders, loadArgs, timers, refreshes, jobs, contexts,contextWrites,contextClears, runTimer(delay) { const job = [...jobs].find(([, job]) => job.delay === delay); assert.ok(job, `No timer for ${delay}`); jobs.delete(job[0]); job[1].fn(); }, visibility(value) { document.visibilityState = value; fire('visibilitychange'); }, online(value) { navigator.onLine = value; fire(value ? 'online' : 'offline'); }, advance(milliseconds) { now += milliseconds; interval?.(); fire('visibilitychange'); return host.render(); }, async open() { await tick(); button(host.render(), 'Add trip').props.onClick(); return host.render(); } };
 }
 const lookup = tree => find(tree, 'CockpitFlightLookup');
+
+test('Flightless trip progress uses destination and date steps and restores flight steps when switching back', async () => {
+  const h = cockpitHarness();
+  try {
+    let view = await h.open();
+    const steps = tree => text(find(tree, 'ol', props => props.className === 'cockpit-journey-steps'));
+    assert.match(steps(view), /Find your flight/);
+    button(view, 'No flight').props.onClick(); view = h.host.render();
+    assert.match(steps(view), /Choose destination/); assert.match(steps(view), /Choose your dates/); assert.match(steps(view), /Save your trip/);
+    assert.doesNotMatch(steps(view), /flight|Review and complete/);
+    assert.equal(lookup(view), undefined); assert.equal(h.creates.length, 0);
+    button(view, 'Flight').props.onClick(); view = h.host.render();
+    assert.match(steps(view), /Find your flight/); assert.ok(lookup(view));
+  } finally { h.host.dispose(); }
+});
 const tripForm = tree => find(tree, 'form', props => props.id === 'cockpit-trip-form');
 const dateField = (tree, label) => find(tree, 'DateTimeField', props => props.label === label);
 
@@ -510,6 +530,29 @@ test('Saved provider arrivals use the verified airport timezone when the bundled
     const arrival = nodes(h.host.render()).find(node => node.type === 'div' && text(node).startsWith('Scheduled arrival'));
     assert.equal(text(arrival), 'Scheduled arrival' + expected);
   } finally { h.host.dispose(); }
+});
+test('Managed flights expose airport guides from the authorized display only and remove them on expiry without persisting provider fields',async()=>{
+  const previousNow=now,providerFlight=flight();
+  const base={id:'managed-trip',userId:'test-user-a',destinationCountry:'',destinationCode:'',destinationCity:null,startDate:'2026-09-28',endDate:'2026-10-10',departureAt:null,arrivalAt:null,appLanguage:'en',flightPnr:'USERPNR',originIata:null,destinationIata:null,airline:null,flightNumber:'TK1985',checklistItems:[],status:'upcoming',createdAt:new ClockDate().toISOString(),updatedAt:new ClockDate().toISOString(),flightLookupManaged:true,flightLookupExpiresAt:providerFlight.expiresAt,providerFlight};
+  const before=JSON.stringify(base),h=cockpitHarness([base]);
+  try{
+    await tick();let tree=h.host.render(),airports=find(tree,'section',p=>p.className==='cockpit-airport-info');assert.ok(airports);assert.match(text(airports),/IST/);assert.match(text(airports),/LHR/);
+    find(airports,'button').props.onClick();tree=h.host.render();assert.ok(find(tree,'LazyComponent',p=>p.initialAirportCode==='IST'),'The actual guide receives the selected display airport');
+    assert.equal(JSON.stringify(base),before);assert.equal(h.contextWrites.length,0);assert.equal(h.updates.length,0);assert.equal(h.creates.length,0);
+    tree=h.advance(Date.parse(providerFlight.expiresAt)-now+1);assert.equal(find(tree,'section',p=>p.className==='cockpit-airport-info'),undefined);assert.equal(h.contextWrites.length,0);
+  }finally{now=previousNow;h.host.dispose();}
+});
+test('Selecting a managed trip with no saved destination clears an unrelated active trip only for the current owner',async()=>{
+  const manual={id:'manual-trip',userId:'test-user-a',destinationCountry:'France',destinationCode:'FR',destinationCity:'Paris',startDate:'2026-09-28',endDate:'2026-10-10',departureAt:null,arrivalAt:null,appLanguage:'en',flightPnr:null,originIata:null,destinationIata:null,airline:null,flightNumber:null,checklistItems:[],status:'upcoming',createdAt:new ClockDate().toISOString(),updatedAt:new ClockDate().toISOString()};
+  const providerFlight=flight(),managed={...manual,id:'managed-trip',destinationCountry:'',destinationCode:'',destinationCity:null,flightNumber:'TK1985',flightLookupManaged:true,flightLookupExpiresAt:providerFlight.expiresAt,providerFlight};
+  const context={tripId:manual.id,title:'Paris, France',countryCode:'FR',startDate:manual.startDate,endDate:manual.endDate},other={...context,tripId:'other-owner-trip'};
+  const h=cockpitHarness([manual,managed],'',[['test-user-a',context],['test-user-b',other]]);
+  try{
+    await tick();let tree=h.host.render();assert.equal(h.contexts.get('test-user-a').tripId,manual.id);
+    const selector=find(tree,'div',p=>p.className?.includes('cockpit-trip-selector'));nodes(selector).filter(n=>n.type==='button')[1].props.onClick();tree=h.host.render();
+    assert.equal(h.contexts.has('test-user-a'),false,'An unrelated previous trip must not remain the default for Tools, Events or Budget');assert.equal(h.contexts.get('test-user-b').tripId,'other-owner-trip');
+    assert.deepEqual(h.contextClears,[{owner:'test-user-a',id:'manual-trip'}]);assert.ok(h.contextWrites.every(write=>write.value?.tripId==='manual-trip'),'Managed provider destination never enters context storage');assert.equal(managed.destinationCode,'');
+  }finally{h.host.dispose();}
 });
 
 

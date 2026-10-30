@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
     if (requestType === ACCOUNT_DELETION_TYPE) {
       const result = await supabase.rpc('create_account_deletion_request', {
-        p_user_id: user.id, p_locale: body.locale === 'en' ? 'en' : 'tr',
+        p_user_id: user.id, p_locale: ['en', 'sq', 'ro'].includes(String(body.locale)) ? body.locale : 'tr',
       });
       const record = result.data?.[0];
       if (result.error || !record) return NextResponse.json({ error: 'Hesap silme talebi şu anda kaydedilemiyor. Lütfen tekrar deneyin.' }, { status: 503 });

@@ -14,7 +14,7 @@ const clean = (value: unknown, max: number): string => typeof value === 'string'
   ? value.replace(/<[^>]*>/g, ' ').replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 const address = (row: Record<string, unknown>) => Array.isArray(row.formattedAddressLines)
   ? row.formattedAddressLines.slice(0, 8).map(line => clean(line, 160)).filter(Boolean).join(', ').slice(0, 260) || null : null;
-const languages: Record<string, string> = { tr: 'tr-TR', en: 'en-US', sq: 'sq-AL' };
+const languages: Record<string, string> = { tr: 'tr-TR', en: 'en-US', sq: 'sq-AL', ro: 'ro-RO' };
 function page(raw: unknown): { rows: unknown[]; limited: boolean } {
   const value = record(raw);
   if (!Array.isArray(value.results) || value.results.length > 100 || value.error || value.errorMessage) throw unavailable();

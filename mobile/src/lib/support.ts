@@ -1,14 +1,12 @@
+import { translateCopy } from "./locale";
 export type SupportDraft = { email: string; subject: string; body: string };
 export type MailDraftResult = "handoff" | "unavailable";
 
-export function createSupportDraft(email: string, appVersion: string, buildNumber: string, locale: "tr" | "en" | "sq"): SupportDraft {
+export function createSupportDraft(email: string, appVersion: string, buildNumber: string, locale: "tr" | "en" | "sq" | "ro"): SupportDraft {
   return {
     email,
-    subject: locale === "sq" ? "Kërkesë për ndihmë nga LetsGo2Travel" : locale === "tr" ? "LetsGo2Travel destek talebi" : "LetsGo2Travel support request",
-    body: locale === "tr"
-      ? `Yaşadığım sorun:\n\n\nUygulama: ${appVersion}\nBuild: ${buildNumber}`
-      : locale === "sq" ? `Problemi që po has:\n\n\nAplikacioni: ${appVersion}\nVersioni i ndërtimit: ${buildNumber}`
-      : `The problem I am experiencing:\n\n\nApp: ${appVersion}\nBuild: ${buildNumber}`,
+    subject: translateCopy(locale, "LetsGo2Travel destek talebi", "LetsGo2Travel support request", "Kërkesë për ndihmë nga LetsGo2Travel"),
+    body: translateCopy(locale, `Yaşadığım sorun:\n\n\nUygulama: ${appVersion}\nBuild: ${buildNumber}`, `The problem I am experiencing:\n\n\nApp: ${appVersion}\nBuild: ${buildNumber}`, `Problemi që po has:\n\n\nAplikacioni: ${appVersion}\nVersioni i ndërtimit: ${buildNumber}`),
   };
 }
 

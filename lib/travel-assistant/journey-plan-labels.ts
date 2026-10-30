@@ -1,13 +1,13 @@
 import type { JourneyPlanInterest, JourneyPlanLocale } from "./journey-plan-types";
 
 const labels: Record<JourneyPlanInterest, Record<JourneyPlanLocale, string>> = {
-  city: { tr: "şehir keşfi", en: "city exploration", sq: "eksplorimi i qytetit" },
-  culture: { tr: "kültür", en: "culture", sq: "kultura" },
-  food: { tr: "yeme içme", en: "food and drink", sq: "ushqimi dhe pijet" },
-  shopping: { tr: "alışveriş", en: "shopping", sq: "blerjet" },
-  nature: { tr: "doğa", en: "nature", sq: "natyra" },
-  sea: { tr: "deniz", en: "seaside", sq: "bregdeti" },
-  adventure: { tr: "macera", en: "adventure", sq: "aventura" },
+  city: { tr: "şehir keşfi", en: "city exploration", sq: "eksplorimi i qytetit", ro: 'explorarea orașului' },
+  culture: { tr: "kültür", en: "culture", sq: "kultura", ro: 'cultură' },
+  food: { tr: "yeme içme", en: "food and drink", sq: "ushqimi dhe pijet", ro: 'mâncare și băuturi' },
+  shopping: { tr: "alışveriş", en: "shopping", sq: "blerjet", ro: 'cumpărături' },
+  nature: { tr: "doğa", en: "nature", sq: "natyra", ro: 'natură' },
+  sea: { tr: "deniz", en: "seaside", sq: "bregdeti", ro: 'litoral' },
+  adventure: { tr: "macera", en: "adventure", sq: "aventura", ro: 'aventură' },
 };
 
 export function journeyInterestLabel(interest: JourneyPlanInterest, locale: JourneyPlanLocale) {

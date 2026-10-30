@@ -1,3 +1,4 @@
+import { translateBundledCopy } from "../lib/locale";
 export type DiscoveryDestination = {
   name: string;
   country: string;
@@ -155,9 +156,9 @@ const DISCOVERY_SQ: Record<string, Partial<DiscoveryDestination>> = {
   TYO: { name: 'Tokio', country: 'Japonia', tag: 'Kulturë · Udhëtim i largët', entry: 'Pa vizë', description: 'Një udhëtim i madh që bashkon traditën, teknologjinë dhe kuzhinën.', bestMonths: 'Mars–Maj · Tetor–Nëntor', budget: 'I lartë', highlights: ['Asakusa', 'Shibuya', 'Tregjet e lagjeve'], localTip: 'Vizito lagjet pranë njëra-tjetrës në të njëjtën ditë; kështu kursen kohë dhe kosto transporti në Tokio.' },
 };
 
-export function localizedDiscovery(destination: DiscoveryDestination, locale: "tr" | "en" | "sq" = "tr"): DiscoveryDestination {
+export function localizedDiscovery(destination: DiscoveryDestination, locale: "tr" | "en" | "sq" | "ro" = "tr"): DiscoveryDestination {
   if (locale === "tr") return destination;
-  const translated = (locale === 'sq' ? DISCOVERY_SQ : DISCOVERY_EN)[destination.code];
+  const translated = translateBundledCopy(locale, (locale === 'sq' ? DISCOVERY_SQ : DISCOVERY_EN)[destination.code]);
   return translated ? { ...destination, ...translated } : destination;
 }
 

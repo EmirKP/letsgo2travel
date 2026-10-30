@@ -50,7 +50,7 @@ function SafetyForm({ target, accessToken, userId, onClose, onBlocked, onManageB
         await reportCommunityContent(accessToken, target, reason, note.trim());
         if (active.current) setMode("success");
       } else {
-        const result = await blockCommunityAuthor(accessToken, target);
+        const result = await blockCommunityAuthor(accessToken, target, userId);
         if (active.current) onBlocked(result.userId);
       }
     } catch (failure) {

@@ -27,7 +27,6 @@ writeFileSync(path.join(mirrorDir, "guestDataSyncCore.ts"), readFileSync("mobile
 writeFileSync(path.join(mirrorDir, "plannerState.ts"), readFileSync("mobile/src/lib/plannerState.ts", "utf8"));
 writeFileSync(path.join(mirrorDir, "pushSession.ts"), readFileSync("mobile/src/lib/pushSession.ts", "utf8"));
 
-const tsNodeCli = path.join(process.cwd(), "node_modules", "ts-node", "dist", "bin.js");
 const compilerOptions = {
   module: "CommonJS",
   moduleResolution: "Node",
@@ -36,7 +35,8 @@ const compilerOptions = {
   strict: true,
   resolveJsonModule: true,
 };
-const result = spawnSync(process.execPath, [tsNodeCli, "tests/app/run-tests.ts"], {
+const bootstrap = `require("ts-node").register(${JSON.stringify({ compilerOptions, moduleTypes: { "**": "cjs" } })}); require("./tests/app/run-tests.ts");`;
+const result = spawnSync(process.execPath, ["-e", bootstrap], {
   cwd: process.cwd(),
   env: {
     ...process.env,

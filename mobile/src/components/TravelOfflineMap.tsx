@@ -1,3 +1,4 @@
+import { translateTuple } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
@@ -262,13 +263,13 @@ function OfflinePackExplorer({ pack }: { pack: OfflineMapPack }) {
   const [selectedId, setSelectedId] = useState("");
   const [focusRevision, setFocusRevision] = useState(0);
   const [notice, setNotice] = useState("");
-  const categoryLabel = (value: Place["category"]) => CATEGORY_LABELS[value]?.[locale === "tr" ? 0 : locale === "sq" ? 2 : 1] || value;
+  const categoryLabel = (value: Place["category"]) => translateTuple(locale, CATEGORY_LABELS[value]) || value;
   const name = (place: Place) => place.name || categoryLabel(place.category);
   const categories = [...new Set(pack.places.map((place) => place.category))];
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase(locale);
     return pack.places.filter((place) => (category === "all" || place.category === category) &&
-      (!needle || `${place.name} ${CATEGORY_LABELS[place.category]?.[locale === "tr" ? 0 : locale === "sq" ? 2 : 1] || place.category}`.toLocaleLowerCase(locale).includes(needle)));
+      (!needle || `${place.name} ${translateTuple(locale, CATEGORY_LABELS[place.category]) || place.category}`.toLocaleLowerCase(locale).includes(needle)));
   }, [pack, query, category, locale]);
   const selected = visible.find((place) => place.id === selectedId) || null;
   const selectPoint = useCallback((id: string) => { setSelectedId(id); setFocusRevision((revision) => revision + 1); setNotice(""); }, []);
@@ -327,7 +328,7 @@ function OfflineCanvas({ pack, places, selected, focusRevision, onSelect }: { pa
       const text = document.createElement("span");
       text.textContent =
         p.name ||
-        CATEGORY_LABELS[p.category]?.[locale === "tr" ? 0 : locale === "sq" ? 2 : 1] ||
+        translateTuple(locale, CATEGORY_LABELS[p.category]) ||
         p.category;
       const marker = L.circleMarker([p.latitude, p.longitude], {
         radius: 6,

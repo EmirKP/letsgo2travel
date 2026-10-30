@@ -1,3 +1,4 @@
+import { translateCopy } from "./locale";
 import { isNativePlatform, plugin } from "./capacitor";
 import { config } from "./config";
 import { localeFromStorage } from "./i18n";
@@ -23,6 +24,9 @@ export async function listTravelEvents(params: {
   category?: TravelEvent["category"] | "all";
   featured?: boolean;
   limit?: number;
+  query?: string;
+  cursor?: string;
+  paginated?: boolean;
 }) {
   const query = new URLSearchParams();
   if (params.countryCode) query.set("countryCode", params.countryCode);
@@ -32,6 +36,9 @@ export async function listTravelEvents(params: {
   if (params.endDate) query.set("endDate", params.endDate);
   if (params.category && params.category !== "all") query.set("category", params.category);
   if (params.featured) query.set("featured", "true");
+  if (params.query?.trim()) query.set('q', params.query.trim());
+  if (params.paginated) query.set('paged', 'true');
+  if (params.cursor) query.set('cursor', params.cursor);
   query.set("timeZone", Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   query.set("limit", String(params.limit || 24));
   return requestJson<{
@@ -44,6 +51,8 @@ export async function listTravelEvents(params: {
       coverageStatus?: "live" | "no_results" | "provider_unavailable" | "limited" | "not_configured";
       partial: boolean;
       updatedAt: string;
+      nextCursor?: string | null;
+      paginationLimited?: boolean;
     };
   }>(`/api/events?${query}`, { timeoutMs: 18_000 });
 }
@@ -59,7 +68,7 @@ export async function getTravelNow(params: {
   longitude: number;
   budget: "free" | "low" | "flexible";
   interest: "culture" | "food" | "outdoors" | "calm";
-  locale: "tr" | "en" | "sq";
+  locale: "tr" | "en" | "sq" | "ro";
 }) {
   return requestJson<{ data: TravelNowResult }>("/api/travel-now", {
     method: "POST",
@@ -96,7 +105,7 @@ function absoluteUrl(path: string) {
 
 function apiCopy(tr: string, en: string, sq: string) {
   const locale = localeFromStorage();
-  return locale === "sq" ? sq : locale === "en" ? en : tr;
+  return translateCopy(locale, tr, en, sq);
 }
 
 function errorMessage(data: unknown, fallback: string) {
@@ -373,8 +382,8 @@ function cleanStringList(value: unknown, fallback: string[] = []) {
   return items.length ? items : fallback;
 }
 
-function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" | "sq" = "tr"): RoutePlan | null {
-  const fallback = (tr: string, en: string, sq: string) => locale === "sq" ? sq : locale === "en" ? en : tr;
+function sanitizeRoutePlan(value: unknown, locale: "tr" | "en" | "sq" | "ro" = "tr"): RoutePlan | null {
+  const fallback = (tr: string, en: string, sq: string) => translateCopy(locale, tr, en, sq);
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   if (!Array.isArray(record.routes)) return null;
@@ -449,7 +458,7 @@ async function plannerFingerprint(input:PlannerInput,locale:string) {
 export async function hasRoutePlanRecovery(input:PlannerInput,locale:string,ownerId:string) {
   return readPlannerReceipt(ownerId)?.fingerprint===await plannerFingerprint(input,locale);
 }
-export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" | "sq" = "tr", account?:{ownerId:string;accessToken:string;signal?:AbortSignal}) {
+export async function generateRoutePlan(input: PlannerInput, locale: "tr" | "en" | "sq" | "ro" = "tr", account?:{ownerId:string;accessToken:string;signal?:AbortSignal}) {
   if(!account?.ownerId||!account.accessToken)throw new ApiError(apiCopy('Giriş yapıp devam et.','Sign in to continue.','Hyr dhe vazhdo.'),401,'plan_sign_in');
   const fingerprint=await plannerFingerprint(input,locale),saved=readPlannerReceipt(account.ownerId);
   const receipt=saved?.fingerprint===fingerprint?saved:{id:crypto.randomUUID(),fingerprint,createdAt:Date.now()};
@@ -560,11 +569,11 @@ const WEATHER_CODES_SQ: Record<number, string> = {
   95: "Stuhi me bubullima", 96: "Mundësi breshëri", 99: "Rrezik breshëri të fortë",
 };
 
-export async function getWeather(place: string, locale: "tr" | "en" | "sq" = "tr"): Promise<WeatherSummary> {
+export async function getWeather(place: string, locale: "tr" | "en" | "sq" | "ro" = "tr"): Promise<WeatherSummary> {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=${locale}&format=json`;
   const geo = await requestJson<{ results?: Array<{ name: string; country?: string; latitude: number; longitude: number }> }>(geocodingUrl, { timeoutMs: 12_000 });
   const result = geo.results?.[0];
-  if (!result) throw new ApiError(locale === "sq" ? "Moti për këtë vendndodhje nuk është i disponueshëm." : locale === "en" ? "Weather is unavailable for this location." : "Bu konum için hava durumu bulunamadı.");
+  if (!result) throw new ApiError(translateCopy(locale, "Bu konum için hava durumu bulunamadı.", "Weather is unavailable for this location.", "Moti për këtë vendndodhje nuk është i disponueshëm."));
 
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${result.latitude}&longitude=${result.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
   const weather = await requestJson<{
@@ -572,13 +581,13 @@ export async function getWeather(place: string, locale: "tr" | "en" | "sq" = "tr
     daily?: { temperature_2m_max: number[]; temperature_2m_min: number[] };
   }>(weatherUrl, { timeoutMs: 12_000 });
 
-  if (!weather.current) throw new ApiError(locale === "sq" ? "Të dhënat e motit nuk janë të disponueshme." : locale === "en" ? "Weather data is unavailable." : "Hava durumu verisi alınamadı.");
+  if (!weather.current) throw new ApiError(translateCopy(locale, "Hava durumu verisi alınamadı.", "Weather data is unavailable.", "Të dhënat e motit nuk janë të disponueshme."));
   return {
     place: [result.name, result.country].filter(Boolean).join(", "),
     temperature: Math.round(weather.current.temperature_2m),
     windSpeed: Math.round(weather.current.wind_speed_10m),
     weatherCode: weather.current.weather_code,
-    description: (locale === "sq" ? WEATHER_CODES_SQ : locale === "en" ? WEATHER_CODES_EN : WEATHER_CODES)[weather.current.weather_code] || (locale === "sq" ? "Mot i ndryshueshëm" : locale === "en" ? "Variable weather" : "Değişken hava"),
+    description: translateCopy(locale, WEATHER_CODES[weather.current.weather_code] || "Değişken hava", WEATHER_CODES_EN[weather.current.weather_code] || "Variable weather", WEATHER_CODES_SQ[weather.current.weather_code]) || (translateCopy(locale, "Değişken hava", "Variable weather", "Mot i ndryshueshëm")),
     min: Math.round(weather.daily?.temperature_2m_min?.[0] ?? weather.current.temperature_2m),
     max: Math.round(weather.daily?.temperature_2m_max?.[0] ?? weather.current.temperature_2m),
   };

@@ -12,11 +12,14 @@ import { countryMapBounds } from '../lib/deviceArea';
 
 
 /** Deliberate area selection: no location request or geocoding service required. */
-export function TravelAreaPicker({ value, onChange, disabled = false, country = '' }: {
+export function TravelAreaPicker({ value, onChange, disabled = false, country = '', mapOpen, onMapOpenChange }: {
   value: Coordinates | null; onChange: (point: Coordinates) => void; disabled?: boolean; country?: string;
+  mapOpen?: boolean; onMapOpenChange?: (open: boolean) => void;
 }) {
   const { copy } = useI18n();
-  const [expanded, setExpanded] = useState(Boolean(country));
+  const [internalExpanded, setExpanded] = useState(Boolean(country));
+  const expanded = mapOpen ?? internalExpanded;
+  const toggleMap = () => { const next = !expanded; setExpanded(next); onMapOpenChange?.(next); };
   const centres = country ? TRAVEL_CENTRES.filter(city => city.country === country) : TRAVEL_CENTRES;
   const matching = TRAVEL_CENTRES.find(c => c.latitude === value?.latitude && c.longitude === value?.longitude);
   return <div className="ta-area-picker">
@@ -28,7 +31,7 @@ export function TravelAreaPicker({ value, onChange, disabled = false, country = 
         {centres.map(c => <option key={c.name}>{c.name}</option>)}
       </select>
     </label>}
-    <button type="button" className="secondary-wide" disabled={disabled} aria-expanded={expanded} onClick={() => setExpanded(v => !v)}><Icon name="map" size={18}/>{expanded ? copy('Bölge haritasını kapat', 'Close area map', 'Mbyll hartën e zonës') : copy('Başka bir bölgeyi haritada seç', 'Choose another area on the map', 'Zgjidh një zonë tjetër në hartë')}</button>
+    <button type="button" className="secondary-wide" disabled={disabled} aria-expanded={expanded} onClick={toggleMap}><Icon name="map" size={18}/>{expanded ? copy('Bölge haritasını kapat', 'Close area map', 'Mbyll hartën e zonës') : copy('Başka bir bölgeyi haritada seç', 'Choose another area on the map', 'Zgjidh një zonë tjetër në hartë')}</button>
     {expanded && <>
       <p className="ta-muted">{copy('Haritayı kaydır, yakınlaştır ve istediğin merkeze dokun. Seçimin yaklaşık 1 km hassasiyetle kullanılır.', 'Move and zoom the map, then tap your centre. The selection is rounded to about 1 km.', 'Lëviz dhe zmadho hartën, pastaj prek qendrën. Zgjedhja rrumbullakohet në rreth 1 km.')}</p>
       <AreaMap value={value} country={country} disabled={disabled} onChange={onChange}/>

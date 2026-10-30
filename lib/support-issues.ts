@@ -7,7 +7,7 @@ export const SUPPORT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f
 
 export type SupportIssue = {
   requestId: string; description: string; email: string; screen: string;
-  locale: "tr" | "en" | "sq"; version: string; build: string;
+  locale: "tr" | "en" | "sq" | "ro"; version: string; build: string;
   screenshot: string | null;
 };
 
@@ -21,7 +21,7 @@ export function parseSupportIssue(value: unknown): SupportIssue | null {
   const email = typeof data.email === "string" ? data.email.trim() : "";
   if (email.length > 254 || (email && !/^[^\s@\r\n]+@[^\s@\r\n]+\.[^\s@\r\n]+$/.test(email))) return null;
   if (typeof data.screen !== "string" || !/^[a-z][a-z0-9-]{0,49}$/.test(data.screen)) return null;
-  if (!["tr", "en", "sq"].includes(String(data.locale))) return null;
+  if (!["tr", "en", "sq", "ro"].includes(String(data.locale))) return null;
   if (typeof data.version !== "string" || !/^[\w.+-]{1,40}$/.test(data.version)) return null;
   if (typeof data.build !== "string" || !/^[\w.+-]{1,40}$/.test(data.build)) return null;
   if (data.screenshot != null && (typeof data.screenshot !== "string" || data.screenshot.length > 2_000_000 || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(data.screenshot))) return null;

@@ -234,15 +234,15 @@ test('Storage write failure keeps the chosen language usable for this session', 
   assert.equal(app.storage.size, 0);
 });
 
-test('Language picker exposes all three languages, selects Albanian and closes its dialog', async () => {
+test('Language picker exposes all four languages, selects Albanian and closes its dialog', async () => {
   const app = await readyFixture({ language: 'tr-TR' });
   const { LanguagePicker } = app.load('mobile/src/components/LanguagePicker.tsx');
   const picker = app.mount(LanguagePicker);
   find(picker.render(), 'button', props => props.className === 'language-toggle').props.onClick();
   let tree = picker.render(); assert.equal(find(tree, 'Sheet').props.open, true);
   const options = nodes(tree).filter(node => node.type === 'button' && node.props.lang);
-  assert.deepEqual(options.map(node => node.props.lang), ['tr', 'en', 'sq']);
-  assert.deepEqual(options.map(node => text(node.props.children)), ['TürkçeTR', 'EnglishEN', 'ShqipSQ']);
+  assert.deepEqual(options.map(node => node.props.lang), ['tr', 'en', 'sq', 'ro']);
+  assert.deepEqual(options.map(node => text(node.props.children)), ['Türkçe', 'English', 'Shqip', 'Română']);
   await options[2].props.onClick(); app.value(); tree = picker.render();
   assert.equal(find(tree, 'Sheet').props.open, false);
   assert.equal(find(tree, 'Sheet').props.title, 'Zgjidh gjuhën');
@@ -253,7 +253,7 @@ test('Language picker exposes all three languages, selects Albanian and closes i
 
 test('Flags use bundled Turkish and British SVGs and diagonally layered Kosovo/Albania artwork', async () => {
   const app = await readyFixture(); const { LanguageFlag } = app.load('mobile/src/components/LanguagePicker.tsx');
-  for (const [locale, expected] of [['tr', ['tr']], ['en', ['gb']], ['sq', ['xk', 'al']]]) {
+  for (const [locale, expected] of [['tr', ['tr']], ['en', ['gb']], ['sq', ['xk', 'al']], ['ro', ['ro']]]) {
     const tree = LanguageFlag({ locale }); const images = nodes(tree).filter(node => node.type === 'img');
     assert.equal(tree.props['aria-hidden'], 'true');
     assert.deepEqual(images.map(node => node.props.src), expected.map(code => `/flags/${code}.svg`));
@@ -361,7 +361,13 @@ test('Money currency labels, historical dates and input errors stay Albanian on 
     } });
     const money = app.mount(app.load('mobile/src/components/TravelMoney.tsx').TravelMoney);
     await Promise.resolve(); let tree = money.render();
-    assert.equal(text(find(tree, 'div', props => props.className === 'tm-pair')), 'EUR/TRYEuroja → Lira turke');
+    const pair=find(tree,'div',props=>props.className==='tm-pair');
+    assert.equal(text(find(pair,'strong')),'EUR/TRY');
+    assert.ok(find(pair,'span',props=>text(props.children)==='Euroja → Lira turke'));
+    const converter=find(tree,'section',props=>props.className==='tm-converter');
+    const reverse=find(converter,'button',props=>props['aria-label']==='Ndërro monedhat');
+    assert.ok(reverse,'The calculator keeps its Albanian swap action accessible beside the amount controls');
+    assert.equal(text(reverse),'Ndërro kahun');assert.equal(typeof reverse.props.onClick,'function');
     assert.match(text(find(tree, 'div', props => props.className === 'tm-rate-context')), /30 sht 2026/);
     assert.doesNotMatch(text(tree), /Türk lirası|Eyl|GÜNLÜK REFERANS/);
     find(tree, 'input', props => props.id === 'tm-amount').props.onChange({ target: { value: '-2' } }); tree = money.render();
@@ -446,7 +452,7 @@ test('Mobile visible dates use the fallback formatter while machine timezone and
 
 test('Every static copy() interface message without an explicit third translation is covered by the Albanian catalog', async t => {
   const app = await readyFixture(); const { SQ_MESSAGES } = app.load('mobile/src/lib/locales/sq.ts');
-  const keys = new Set(), missing = []; let explicit = 0;
+  const keys = new Set(), allStaticKeys = new Set(), missing = []; let explicit = 0;
   function walk(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const file = path.join(directory, entry.name);
@@ -457,6 +463,7 @@ test('Every static copy() interface message without an explicit third translatio
         if (ts.isCallExpression(node)) {
           const name = ts.isIdentifier(node.expression) ? node.expression.text : ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : '';
           if (name === 'copy' && node.arguments.length >= 2) {
+            if (ts.isStringLiteralLike(node.arguments[1])) allStaticKeys.add(node.arguments[1].text);
             if (node.arguments.length >= 3) explicit++;
             // Dynamic templates, user posts, provider/source text and metadata
             // are outside a literal UI catalog; explicit third translations win.
@@ -474,7 +481,106 @@ test('Every static copy() interface message without an explicit third translatio
     }
   }
   walk('mobile/src');
-  assert.ok(keys.size > 1800, 'The audit must cover the complete mobile interface, not a small sample');
+  assert.ok(allStaticKeys.size > 1800, 'The audit must cover the complete mobile interface, including explicitly translated messages');
   assert.deepEqual(missing, []);
-  t.diagnostic(`${keys.size} unique static interface keys covered; ${explicit} explicit third-language calls excluded.`);
+  t.diagnostic(`${allStaticKeys.size} unique static interface keys audited; ${keys.size} require the catalog and ${explicit} explicit third-language calls are covered inline.`);
+});
+
+test('Romanian cold start loads its own catalog and keeps the selected language across a failed download', async () => {
+  let requests = 0;
+  const app = fixture({ language: 'ro-RO', beforeImport: async name => { assert.equal(name, './locales/ro'); if (++requests === 1) throw Error('Offline'); } });
+  await tick();
+  assert.equal(app.value().locale, 'ro');
+  assert.match(text(app.provider.render()), /Limba nu s-a încărcat/);
+  assert.equal(await app.value().setLocale('ro'), true);
+  assert.equal(app.value().copy('Kaydet', 'Save'), 'Salvează');
+  assert.equal(app.value().countryName('ROU', ''), 'România');
+  assert.equal(app.value().dateLocale, 'ro-RO');
+  assert.equal(app.document.documentElement.lang, 'ro');
+  assert.equal(app.storage.get('l2t-language-v1'), 'ro');
+  assert.equal(app.loadedFiles().some(file => /locales[\\/]sq(?:-part\d)?\.ts$/.test(file)), false);
+});
+
+test('Romanian selection remains explicit, names have no abbreviations and an old download cannot overwrite a newer choice', async () => {
+  const wait = deferred();
+  const app = await readyFixture({ language: 'tr-TR', beforeImport: () => wait.promise });
+  const { LanguagePicker } = app.load('mobile/src/components/LanguagePicker.tsx');
+  const picker = app.mount(LanguagePicker);
+  find(picker.render(), 'button', props => props.className === 'language-toggle').props.onClick();
+  const romanian = find(picker.render(), 'button', props => props.lang === 'ro');
+  assert.equal(text(romanian), 'Română'); assert.equal(find(romanian, 'small'), undefined);
+  const selecting = romanian.props.onClick(); app.value();
+  assert.equal(find(picker.render(), 'button', props => props.lang === 'ro').props['aria-busy'], true);
+  await app.value().setLocale('en'); wait.resolve(); await selecting;
+  assert.equal(app.value().locale, 'en');
+  assert.equal(find(picker.render(), 'Sheet').props.open, true);
+  await find(picker.render(), 'button', props => props.lang === 'ro').props.onClick(); app.value();
+  assert.equal(app.value().locale, 'ro');
+  assert.equal(find(picker.render(), 'Sheet').props.open, false);
+  assert.equal(find(picker.render(), 'button', props => props.lang === 'ro').props['aria-pressed'], true);
+});
+
+test('Romanian interpolation chooses a specific message and preserves names, symbols, newlines and unknown source text', async () => {
+  const app = await readyFixture({ language: 'ro-RO' });
+  const api = app.load('mobile/src/lib/locale.ts');
+  const catalog = { '{{0}} {{1}}': '{{0}} {{1}}', '{{0}} saved': '{{0}} salvat', 'Saved {{0}} places': 'Ai salvat {{0}} locuri', 'Price ({{0}}) is {{1}}.': 'Prețul ({{0}}) este {{1}}.' };
+  assert.equal(api.translateMessageTemplates(catalog, 'Saved 3 places'), 'Ai salvat 3 locuri');
+  assert.equal(api.translateMessageTemplates(catalog, 'Price (Ana $5\nB) is €42.'), 'Prețul (Ana $5\nB) este €42.');
+  assert.equal(api.translateMessageTemplates(catalog, 'Unrelated private user note'), 'Unrelated private user note');
+  assert.equal(api.translateTuple('ro', ['Kaydet', 'Save', 'Ruaj']), 'Salvează');
+  assert.equal(api.isAppLocale('ro'), true); assert.equal(api.isAppLocale('unsupported'), false);
+  assert.equal(app.value().copy('Katılımcılar', 'Participants'), 'Participanți');
+});
+
+test('Romanian covers every bundled literal and parameterized copy call with exact placeholder counts', async t => {
+  const app = await readyFixture({language:'ro-RO'});
+  const {RO_MESSAGES} = app.load('mobile/src/lib/locales/ro.ts');
+  const found = new Set(), missing = [];
+  function walk(directory) {
+    for (const entry of readdirSync(directory,{withFileTypes:true})) {
+      const file=path.join(directory,entry.name);
+      if(entry.isDirectory()){ if(entry.name!=='locales')walk(file); continue; }
+      if(!/\.tsx?$/.test(file))continue;
+      const source=ts.createSourceFile(file,readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true);
+      const visit=node=>{
+        if(ts.isCallExpression(node)){
+          const name=ts.isIdentifier(node.expression)?node.expression.text:ts.isPropertyAccessExpression(node.expression)?node.expression.name.text:'';
+          const english=node.arguments[name==='translateCopy'?2:1];
+          if(['copy','translateCopy'].includes(name)&&english){
+            let key;
+            if(ts.isStringLiteralLike(english))key=english.text;
+            else if(ts.isTemplateExpression(english))key=english.head.text+english.templateSpans.map((part,i)=>`{{${i}}}${part.literal.text}`).join('');
+            if(key){found.add(key);if(!Object.hasOwn(RO_MESSAGES,key))missing.push(`${file}: ${key}`);}
+          }
+        }
+        ts.forEachChild(node,visit);
+      };visit(source);
+    }
+  }
+  walk('mobile/src'); assert.ok(found.size>3300); assert.deepEqual(missing,[]);
+  const tokens=value=>(value.match(/\{\{\d+\}\}/g)||[]).sort().join('|');
+  for(const[key,value]of Object.entries(RO_MESSAGES)){assert.ok(value.trim(),key);assert.equal(tokens(value),tokens(key),key);}
+  t.diagnostic(`${found.size} interface messages and ${Object.keys(RO_MESSAGES).length} Romanian catalog entries checked.`);
+});
+
+test('Romanian default checklists translate back to other languages without changing a custom note', async () => {
+  const app=await readyFixture({language:'ro-RO'}),api=app.load('mobile/src/lib/locale.ts');
+  const source=ts.createSourceFile('CockpitScreen.tsx',readFileSync('mobile/src/screens/CockpitScreen.tsx','utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+  const names=['DEFAULT_CHECKLIST_LABELS','CHECKLIST_SQ','CHECKLIST_RO','defaultChecklist','checklistLabel'];
+  const statements=source.statements.filter(n=>ts.isFunctionDeclaration(n)?names.includes(n.name?.text):ts.isVariableStatement(n)?n.declarationList.declarations.some(d=>names.includes(d.name.getText(source))):ts.isExpressionStatement(n)&&n.getText(source).startsWith('[CHECKLIST_SQ, CHECKLIST_RO].forEach'));
+  const code=ts.transpileModule(statements.map(n=>n.getText(source)).join('\n')+'\n({defaultChecklist,checklistLabel});',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  const {defaultChecklist,checklistLabel}=vm.runInNewContext(code,{translateCopy:api.translateCopy,createId:()=>crypto.randomUUID(),Date,Map});
+  const checklist=defaultChecklist('ro');assert.equal(checklist.length,5);assert.match(checklist[0].label,/^Verifică/);
+  assert.equal(checklistLabel(checklist[0].label,'tr'),'Pasaport / kimlik geçerliliğini kontrol et');
+  assert.equal(checklistLabel(checklist[0].label,'en'),'Check passport / ID validity');
+  assert.equal(checklistLabel('My own plan Ω','ro'),'My own plan Ω');
+});
+
+test('Romanian account confirmation and request language stay aligned without sending an invalid confirmation', async () => {
+  const sent=[];
+  const app=await readyFixture({language:'ro-RO',imports:{'./api':{requestJson:async(path,options)=>{sent.push({path,options});return{success:true,request:{id:'fixture-request',status:'pending',createdAt:'2026-10-30T12:00:00Z'}};}}}});
+  const api=app.load('mobile/src/lib/accountDeletion.ts'),word=app.value().copy('SİL','DELETE','FSHI');
+  assert.equal(api.deletionConfirmationMatches(word,'ro'),true);
+  await assert.rejects(api.submitAccountDeletionRequest('fixture-token','ro','wrong'),/deletion_confirmation_required/);assert.equal(sent.length,0);
+  await api.submitAccountDeletionRequest('fixture-token','ro',word);assert.equal(sent.length,1);assert.equal(sent[0].options.body.locale,'ro');assert.equal(sent[0].options.body.confirmed,true);
 });

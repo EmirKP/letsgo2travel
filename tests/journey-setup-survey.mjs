@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const jsx = (type, props, key) => ({ type, props, key });
@@ -24,7 +25,7 @@ function fixture(options = {}) {
   const localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (options.storageFails) throw Error('quota'); storage.set(key, value); }, removeItem: key => storage.delete(key), key: i => [...storage.keys()][i], get length() { return storage.size; } };
   const load = (path, imports = {}) => {
     const fixtureModule = { exports: {} }, source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: { localStorage }, Date })(name => imports[name], fixtureModule, fixtureModule.exports);
+    vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { window: { localStorage }, Date })(name => realLocaleModule(name) || imports[name], fixtureModule, fixtureModule.exports);
     return fixtureModule.exports;
   };
   const draftLib = load('mobile/src/lib/journeySurveyDraft.ts');

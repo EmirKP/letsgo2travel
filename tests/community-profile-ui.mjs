@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props, key) => ({ type, props: type === 'ForumTranslation' && typeof props.children === 'function' ? { ...props, children: props.children(props.text, props.title) } : props, key });
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -14,6 +15,7 @@ function load(path, imports, globals = {}) {
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Date, Intl, URL, URLSearchParams, AbortController, ...globals })(name => {
     if (name.endsWith('.css')) return {};
     if (Object.hasOwn(imports, name)) return imports[name];
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     throw Error(`Missing import ${name}`);
   }, result, result.exports);
   return result.exports;
@@ -298,6 +300,134 @@ test('own edit preserves failed draft and saves public-avatar choice explicitly'
   assert.equal(find(h.tree, 'textarea'), undefined);
   assert.match(text(h.tree), /A different bio/);
   h.dispose();
+});
+
+test('one inline profile editor saves identity before bio, retains photo access and waits for both acknowledgements', async () => {
+  const identity = deferred(), identityWrites = [], editing = []; let photos = 0;
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: (...values) => { identityWrites.push(values); return identity.promise; }, onEditProfile: () => photos++, onEditingChange: value => editing.push(value) }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, bio: 'Original bio', showAvatar: true }), items: [], nextOffset: null });
+    h.click('Edit profile');
+    assert.equal(editing.at(-1), true);
+    const field = suffix => find(h.tree, 'input', props => props.id?.endsWith(suffix));
+    assert.equal(field('-full-name').props.value, 'Original Name'); assert.equal(field('-username').props.value, 'me');
+    field('-full-name').props.onChange({ target: { value: '  Updated  Name ' } });
+    field('-username').props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Updated bio' } }); h.render();
+    assert.equal(button(h.tree, 'Change profile photo').props.disabled, false);
+    h.click('Change profile photo'); assert.equal(photos, 1); assert.equal(find(h.tree, 'textarea').props.value, 'Updated bio');
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render();
+    assert.deepEqual(identityWrites, [['Updated Name', 'new_name']]); assert.equal(h.requests.length, 1, 'No bio write runs before identity acknowledgement');
+    assert.equal(find(h.tree, 'textarea').props.disabled, true); assert.equal(h.calls.profile, 0);
+    identity.resolve(); await tick(); h.render();
+    assert.equal(editing.at(-1), true, 'Auth completion cannot release the parent resume guard while bio is pending');
+    assert.equal(h.requests[1].options.method, 'PATCH'); assert.equal(h.requests[1].options.body.bio, 'Updated bio');
+    await h.resolve(1, { success: true, bio: 'Updated bio', showAvatar: true });
+    assert.equal(h.calls.profile, 1); assert.equal(find(h.tree, 'form'), undefined); assert.match(text(h.tree), /@new_name/);
+    assert.equal(editing.at(-1), false);
+  } finally { h.dispose(); }
+});
+
+test('An incomplete auth identity is explicitly completed even when its displayed values already match the profile row', async () => {
+  const identity=deferred(),writes=[];
+  const h=harness({profileKey:'user:me',identityFullName:'Original Name',identityNeedsCompletion:true,onSaveIdentity:(...values)=>{writes.push(values);return identity.promise;}},{inline:true});
+  try {
+    await h.resolve(0,{profile:sample('user:me',{isOwn:true,username:'valid_user',bio:'Original bio',showAvatar:true}),items:[],nextOffset:null});
+    h.click('Edit profile');find(h.tree,'form').props.onSubmit({preventDefault(){}});h.render();
+    assert.deepEqual(writes,[['Original Name','valid_user']]);assert.equal(h.requests.length,1);
+    identity.resolve();await tick();h.render();assert.equal(h.requests[1].options.method,'PATCH');
+    await h.resolve(1,{success:true,bio:'Original bio',showAvatar:true});assert.equal(h.calls.profile,1);
+  } finally {h.dispose();}
+});
+
+test('invalid or rejected identity leaves the unified draft available and never reports a successful profile save', async () => {
+  const writes = [], identity = deferred();
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: (...values) => { writes.push(values); return identity.promise; } }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'original_name' }), items: [], nextOffset: null }); h.click('Edit profile');
+    const name = () => find(h.tree, 'input', props => props.id?.endsWith('-full-name'));
+    const username = () => find(h.tree, 'input', props => props.id?.endsWith('-username'));
+    name().props.onChange({ target: { value: 'X' } }); h.render(); find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render();
+    assert.equal(writes.length, 0); assert.match(text(h.tree), /Full name must/);
+    name().props.onChange({ target: { value: 'New Name' } }); username().props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Draft retained' } }); h.render();
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); h.render(); identity.reject(new ApiError('conflict', 409)); await tick(); h.render();
+    assert.equal(h.requests.length, 2, 'Failure triggers a read refresh, never a bio PATCH');
+    assert.ok(h.requests.every(request => request.options.method !== 'PATCH')); assert.equal(h.calls.profile, 0);
+    assert.equal(name().props.value, 'New Name'); assert.equal(username().props.value, 'new_name'); assert.equal(find(h.tree, 'textarea').props.value, 'Draft retained');
+    assert.ok(button(h.tree, 'Save')); assert.doesNotMatch(text(h.tree), /Your profile was updated/);
+  } finally { h.dispose(); }
+});
+
+test('a bio failure after identity acknowledgement reports partial completion and retains the remaining draft', async () => {
+  const h = harness({ profileKey: 'user:me', identityFullName: 'Original Name', onSaveIdentity: async () => {} }, { inline: true });
+  try {
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'original_name' }), items: [], nextOffset: null }); h.click('Edit profile');
+    find(h.tree, 'input', props => props.id?.endsWith('-full-name')).props.onChange({ target: { value: 'New Name' } });
+    find(h.tree, 'input', props => props.id?.endsWith('-username')).props.onChange({ target: { value: 'new_name' } });
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Remaining draft' } }); h.render();
+    find(h.tree, 'form').props.onSubmit({ preventDefault() {} }); await tick(); h.render(); await h.reject(1);
+    assert.match(text(h.tree), /Your name and username were saved/); assert.equal(find(h.tree, 'textarea').props.value, 'Remaining draft'); assert.equal(h.calls.profile, 0);
+  } finally { h.dispose(); }
+});
+
+test('an account edit request waits for the owned profile and cannot reset a draft or open another account editor', async () => {
+  let handled = 0;
+  const h = harness({ profileKey: 'user:me', editRequest: 1, onEditRequestHandled: () => handled++, identityFullName: 'Own Name', onSaveIdentity: async () => {} }, { inline: true });
+  try {
+    assert.equal(find(h.tree, 'form'), undefined);
+    await h.resolve(0, { profile: sample('user:me', { isOwn: true, username: 'own_name' }), items: [], nextOffset: null });
+    assert.equal(handled, 1); assert.ok(find(h.tree, 'form'));
+    find(h.tree, 'textarea').props.onChange({ target: { value: 'Do not reset this' } }); h.render({ identityFullName: 'Refreshed Name' });
+    assert.equal(handled, 1); assert.equal(find(h.tree, 'textarea').props.value, 'Do not reset this');
+    h.render({ profileKey: 'user:other', userId: 'other', editRequest: 0 });
+    await h.resolve(h.requests.length - 1, { profile: sample('user:other', { isOwn: true }), items: [], nextOffset: null });
+    assert.equal(find(h.tree, 'form'), undefined); assert.doesNotMatch(text(h.tree), /Do not reset this/);
+  } finally { h.dispose(); }
+});
+
+test('a missing own public profile can complete identity without requiring the missing profile to load first', async () => {
+  const identities=[];
+  const h=harness({profileKey:'user:me',identityFullName:'Own Name',editRequest:1,onSaveIdentity:async(name,username)=>identities.push({name,username})},{inline:true});
+  try{
+    await h.reject(0,new ApiError('Missing profile',404));
+    assert.match(text(h.tree),/Complete your profile/);assert.equal(find(h.tree,'SocialGallery'),undefined);
+    find(h.tree,'input',p=>p.name==='recovery-full-name').props.onChange({target:{value:'Recovered Traveller'}});
+    find(h.tree,'input',p=>p.name==='recovery-username').props.onChange({target:{value:'recovered_traveller'}});h.render();
+    find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')).props.onSubmit({preventDefault(){}});await tick();h.render();
+    assert.deepEqual(identities,[{name:'Recovered Traveller',username:'recovered_traveller'}]);
+    assert.equal(h.requests.length,2);await h.resolve(1,{profile:sample('user:me',{isOwn:true,username:'recovered_traveller',followerCount:7}),items:[],nextOffset:null});
+    assert.ok(button(h.tree,'7Followers'));assert.equal(find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')),undefined);
+  }finally{h.dispose();}
+});
+
+test('profile recovery never treats a forbidden or another person profile as an own missing identity', async()=>{
+  for(const [profileKey,status] of [['user:me',403],['user:other',404]]){
+    const h=harness({profileKey,onSaveIdentity:async()=>{throw Error('Must not write')}},{inline:true});
+    try{await h.reject(0,new ApiError('Unavailable',status));assert.equal(find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')),undefined);assert.match(text(h.tree),/currently unavailable/);}finally{h.dispose();}
+  }
+});
+
+test('a missing own profile keeps its recovery draft and edit intent during token refresh and a failed save', async()=>{
+  const editing=[], identities=[];
+  const h=harness({profileKey:'user:me',identityFullName:'Own Name',onEditingChange:value=>editing.push(value),onSaveIdentity:async(...values)=>{identities.push(values);throw Error('Username is already taken');}},{inline:true});
+  try{
+    await h.reject(0,new ApiError('Missing profile',404));
+    find(h.tree,'input',p=>p.name==='recovery-username').props.onChange({target:{value:'retained_name'}});h.render();
+    const before=editing.length;h.render({accessToken:'fresh-token'});
+    assert.equal(find(h.tree,'input',p=>p.name==='recovery-username')?.props.value,'retained_name');
+    assert.deepEqual(editing.slice(before),[],'A background reread cannot cancel the active completion flow');
+    await h.reject(1,new ApiError('Missing profile',404));
+    find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')).props.onSubmit({preventDefault(){}});await tick();h.render();
+    assert.deepEqual(identities,[['Own Name','retained_name']]);assert.match(text(h.tree),/Could not complete your profile/);
+    assert.equal(find(h.tree,'input',p=>p.name==='recovery-username').props.value,'retained_name');
+    assert.equal(editing.at(-1),true);
+    h.click('Cancel');assert.equal(editing.at(-1),false);
+    assert.equal(find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')),undefined);
+    h.click('Try again');await h.reject(2,new ApiError('Forbidden',403));
+    assert.equal(find(h.tree,'form',p=>p.className?.includes('community-profile-recovery')),undefined,'A forbidden reread cannot reopen missing-profile completion');
+  }finally{h.dispose();}
+  assert.equal(editing.at(-1),false,'Closing the completion flow releases its parent edit intent');
 });
 
 test('followers navigate into the selected profile and provide a route back', async () => {

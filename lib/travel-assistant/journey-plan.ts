@@ -1,3 +1,4 @@
+import { translateAppCopy } from '../locale-copy';
 import { GoogleGenAI } from '@google/genai';
 import { coordinates, distanceKm } from './places';
 import { discoverJourneyPlaces } from './journey-discovery';
@@ -25,7 +26,7 @@ export function parseJourneyPlanRequest(raw: unknown): JourneyPlanRequest | null
   const row = record(raw), destination = record(row.destination), point = coordinates(destination);
   const date = row.startDate;
   if (!point || !text(destination.name, 160) || !Number.isInteger(row.dayCount) || Number(row.dayCount) < 1 || Number(row.dayCount) > 14
-    || !oneOf(row.locale, ['tr', 'en', 'sq']) || !oneOf(row.party, ['solo', 'couple', 'friends', 'family'])
+    || !oneOf(row.locale, ['tr', 'en', 'sq', 'ro']) || !oneOf(row.party, ['solo', 'couple', 'friends', 'family'])
     || !oneOf(row.budget, ['economical', 'moderate', 'comfortable']) || !oneOf(row.pace, ['relaxed', 'balanced', 'busy'])
     || !oneOf(row.walking, ['light', 'standard']) || !text(row.notes, 1000, true)
     || !Array.isArray(row.interests) || row.interests.length < 1 || row.interests.length > 4
@@ -241,7 +242,7 @@ export function selectJourneyPlanCandidates(input: JourneyPlanRequest, found: Jo
   }
   return [...selected.values()];
 }
-const copy = (input: JourneyPlanRequest, tr: string, en: string, sq: string) => input.locale === 'tr' ? tr : input.locale === 'sq' ? sq : en;
+const copy = (input: JourneyPlanRequest, tr: string, en: string, sq: string) => translateAppCopy(input.locale, tr, en, sq);
 const repairGuidance: Record<JourneyPlanOutputIssue, string> = {
   empty_output: 'Return the complete JSON itinerary, not an empty response.',
   output_too_large: 'Return a concise complete itinerary. Keep every text field short.',
@@ -345,7 +346,7 @@ export async function createJourneyPlan(input: JourneyPlanRequest, signal: Abort
   // Longer, multi-day plans need room to finish; the route's shared 50-second
   // deadline still bounds discovery + generation together.
   const aiSignal = AbortSignal.any([signal, AbortSignal.timeout(40_000)]);
-  const target = input.locale === 'tr' ? 'Turkish' : input.locale === 'sq' ? 'Albanian' : 'English';
+  const target = input.locale === 'ro' ? 'Romanian (România), using informal second-person singular' : input.locale === 'tr' ? 'Turkish' : input.locale === 'sq' ? 'Albanian' : 'English';
   try {
     const client = settings.provider === 'gemini' ? new GoogleGenAI({ apiKey: settings.apiKey }) : null;
     const parsed = await journeyPlanTransientRetry(async (repairIssue) => {

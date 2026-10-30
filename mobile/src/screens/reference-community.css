@@ -201,3 +201,26 @@
 .community-content-options:focus-visible { outline:2px solid var(--theme-link, #0067e8); outline-offset:2px; }
 .community-answer-meta { display:flex; align-items:center; justify-content:flex-end; gap:4px; flex-shrink:0; }
 @media (max-width:380px) { .community-answer-meta { flex-direction:column-reverse; align-items:flex-end; gap:0; } }
+
+/* Keep the community's core actions ahead of discovery promotions. */
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero{min-height:168px;padding:16px 22px 38px}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-tools>p{display:none}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-copy{margin:0;max-width:calc(100% - 50px);width:auto}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-copy h1{font-size:36px;letter-spacing:-1px}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-copy p{font-size:14px;line-height:1.5;max-width:480px}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-tools{position:absolute;right:20px;top:16px}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-handwritten,.editorial-app.shared-shell.view-community .screen.community-social .cs-stats{display:none}
+.editorial-app.shared-shell.view-community .screen.community-social .cs-surface{padding-top:14px}
+.cs-surface>.cs-search-panel{margin:0 0 14px}
+.cs-search-panel input{font-size:16px!important;min-width:0}
+.cs-surface>.cs-compose{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:8px 0 14px;min-height:46px;font-size:13px}
+.cs-region-disclosure{margin:4px 0 16px;border-bottom:1px solid var(--theme-border,#dce7f4)}
+.cs-region-disclosure>summary,.cs-extras>summary{display:flex;align-items:center;gap:8px;list-style:none;min-height:44px;cursor:pointer;color:var(--theme-muted,#63718c);font-size:13px;font-weight:650}
+.cs-region-disclosure>summary::-webkit-details-marker,.cs-extras>summary::-webkit-details-marker{display:none}
+.cs-region-disclosure>summary svg:last-child,.cs-extras>summary svg{margin-left:auto}
+.cs-region-disclosure[open]>summary svg:last-child,.cs-extras[open]>summary svg{transform:rotate(90deg)}
+.cs-extras{margin:24px 0 0;border-top:1px solid var(--theme-border,#dce7f4);padding-top:8px}
+.cs-extras .cs-league-banner{margin:10px 0 22px}
+@media(min-width:700px){.editorial-app.shared-shell.view-community .screen.community-social .cs-hero{min-height:168px;padding-inline:25px}.editorial-app.shared-shell.view-community .screen.community-social .cs-hero-copy h1{font-size:40px}}
+
+.cs-search-entry{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;margin:0 0 14px;padding:11px 14px;border:1px solid var(--theme-border,#dce7f4);border-radius:15px;background:var(--theme-soft,#f1f6fc);color:var(--theme-muted,#63718c);text-align:left;font:inherit;font-size:14px}.cs-search-entry svg{color:var(--theme-link,#0066ff)}

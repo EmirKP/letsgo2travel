@@ -1,7 +1,8 @@
+import { translateCopy, translateBundledCopy } from "../lib/locale";
 import type { RouteSuggestion } from "../types";
 import { routeByDestinationCode } from "./routes";
 
-type Locale = "tr" | "en" | "sq";
+type Locale = "tr" | "en" | "sq" | "ro";
 type DestinationDraft = {
   code: string;
   country: [string, string];
@@ -99,38 +100,36 @@ const DRAFTS_SQ: Record<string, { name: string; country: string; why: string; be
 
 function entryFields(locale: Locale, visaSourceUrl: string, domestic = false) {
   return {
-    visaStatus: locale === 'sq' ? 'Kontrollo kushtet e hyrjes' : locale === "en" ? "Check entry rules" : "Giriş koşullarını kontrol et",
+    visaStatus: translateCopy(locale, "Giriş koşullarını kontrol et", "Check entry rules", 'Kontrollo kushtet e hyrjes'),
     verifiedEntryStatus: "unknown" as const,
     visaVerifiedAt: null,
     visaSourceUrl,
     visaNote: locale === 'sq' ? (domestic ? 'Për udhëtimet brenda Turqisë, kontrollo kërkesat e identifikimit të transportuesit. Nëse vjen nga jashtë, verifiko kushtet e hyrjes për pasaportën tënde te burimi zyrtar.' : 'Para rezervimit, verifiko te burimi zyrtar kushtet e hyrjes sipas pasaportës, shtetësisë dhe datave të udhëtimit.') : domestic
-      ? locale === "en" ? "For travel within Türkiye, check your carrier's identity requirements. If arriving from abroad, confirm entry rules for your passport with the official source."
-        : "Türkiye içi yolculukta taşıyıcının kimlik koşullarını kontrol et. Yurt dışından geliyorsan pasaportuna uygun giriş koşullarını resmî kaynaktan doğrula."
-      : locale === "en" ? "Confirm entry requirements for your passport, nationality and travel dates with the official source before booking."
-        : "Rezervasyon öncesinde pasaportuna, uyruğuna ve seyahat tarihine uygun giriş koşullarını resmî kaynaktan doğrula.",
+      ? translateCopy(locale, "Türkiye içi yolculukta taşıyıcının kimlik koşullarını kontrol et. Yurt dışından geliyorsan pasaportuna uygun giriş koşullarını resmî kaynaktan doğrula.", "For travel within Türkiye, check your carrier's identity requirements. If arriving from abroad, confirm entry rules for your passport with the official source.", "Türkiye içi yolculukta taşıyıcının kimlik koşullarını kontrol et. Yurt dışından geliyorsan pasaportuna uygun giriş koşullarını resmî kaynaktan doğrula.")
+      : translateCopy(locale, "Rezervasyon öncesinde pasaportuna, uyruğuna ve seyahat tarihine uygun giriş koşullarını resmî kaynaktan doğrula.", "Confirm entry requirements for your passport, nationality and travel dates with the official source before booking.", "Rezervasyon öncesinde pasaportuna, uyruğuna ve seyahat tarihine uygun giriş koşullarını resmî kaynaktan doğrula."),
   };
 }
 
 function draftMetadata(locale: Locale) {
   return {
-    estimatedBudget: locale === 'sq' ? 'Varet nga datat dhe preferencat' : locale === "en" ? "Depends on dates and preferences" : "Tarihe ve tercihlere bağlı",
+    estimatedBudget: translateCopy(locale, "Tarihe ve tercihlere bağlı", "Depends on dates and preferences", 'Varet nga datat dhe preferencat'),
     scores: { budget: 0, visaEase: 0, firstTime: 0, transport: 0, overall: 0 },
-    warnings: [locale === 'sq' ? 'Plan fillestar: kontrollo oraret e hapjes dhe transportin për datat e udhëtimit.' : locale === "en" ? "Starting itinerary: check opening times and transport for your travel dates." : "Başlangıç planı: ziyaret ve ulaşım saatlerini seyahat tarihin için kontrol et."],
+    warnings: [translateCopy(locale, "Başlangıç planı: ziyaret ve ulaşım saatlerini seyahat tarihin için kontrol et.", "Starting itinerary: check opening times and transport for your travel dates.", 'Plan fillestar: kontrollo oraret e hapjes dhe transportin për datat e udhëtimit.')],
   };
 }
 
 function buildDraft(draft: DestinationDraft, locale: Locale): RouteSuggestion {
   const index = locale === "tr" ? 0 : 1;
   const sq = locale === 'sq' ? DRAFTS_SQ[draft.code] : undefined;
-  return {
+  return translateBundledCopy(locale, {
     name: sq?.name || draft.name[index], country: sq?.country || draft.country[index], cityOrRegion: sq?.name || draft.name[index], destinationCode: draft.code,
     why: sq?.why || draft.why[index], ...entryFields(locale, draft.visaSourceUrl, draft.code === "NAV" || draft.code === "IST"),
-    ...draftMetadata(locale), idealDuration: `${draft.days} ${locale === 'sq' ? 'ditë' : locale === "en" ? "days" : "gün"}`,
-    bestFor: sq?.bestFor || draft.bestFor[index], difficulty: locale === 'sq' ? 'Përshtate me ritmin tënd' : locale === "en" ? "Adapt to your pace" : "Tempona göre düzenle", firstTimeFriendly: false,
-    transportEase: locale === 'sq' ? 'Planifiko transferimet lokale' : locale === "en" ? "Plan local transfers" : "Yerel transferleri planla",
-    safetyNote: locale === 'sq' ? 'Kontrollo udhëzimet lokale dhe motin para aktiviteteve në natyrë.' : locale === "en" ? "Check local guidance and weather before outdoor activities." : "Açık hava etkinlikleri öncesinde yerel yönlendirmeleri ve hava durumunu kontrol et.",
+    ...draftMetadata(locale), idealDuration: `${draft.days} ${translateCopy(locale, "gün", "days", 'ditë')}`,
+    bestFor: sq?.bestFor || draft.bestFor[index], difficulty: translateCopy(locale, "Tempona göre düzenle", "Adapt to your pace", 'Përshtate me ritmin tënd'), firstTimeFriendly: false,
+    transportEase: translateCopy(locale, "Yerel transferleri planla", "Plan local transfers", 'Planifiko transferimet lokale'),
+    safetyNote: translateCopy(locale, "Açık hava etkinlikleri öncesinde yerel yönlendirmeleri ve hava durumunu kontrol et.", "Check local guidance and weather before outdoor activities.", 'Kontrollo udhëzimet lokale dhe motin para aktiviteteve në natyrë.'),
     dailyPlan: [...(sq?.dailyPlan || draft.dailyPlan[index])],
-  };
+  });
 }
 
 /** Stable card order and correct destination identity for onBuildRoute(route).

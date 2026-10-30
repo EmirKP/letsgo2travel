@@ -35,7 +35,7 @@ export function readMapJourneys(ownerId?: string | null): { items: MapJourney[];
   catch (error) { return { items: [], error: error instanceof Error && ['corrupt', 'invalid_owner'].includes(error.message) ? 'corrupt' : 'unavailable' }; }
 }
 /** Uses the same account outbox as saved routes. Queued is never presented as cloud-confirmed. */
-export function saveMapJourney(journey: MapJourney, ownerId?: string | null, locale: 'tr' | 'en' | 'sq' = 'tr'): { journey: MapJourney; status: 'device' | 'queued' } {
+export function saveMapJourney(journey: MapJourney, ownerId?: string | null, locale: 'tr' | 'en' | 'sq' | 'ro' = 'tr'): { journey: MapJourney; status: 'device' | 'queued' } {
   if (!validateMapJourney(journey)) throw new Error('invalid');
   const routes = readRoutes(ownerId);
   // Resaving a deliberately deleted plan creates a new identity before either

@@ -18,6 +18,7 @@
 // =====================================================================
 
 import { randomUUID } from "node:crypto";
+import { translateAppCopy } from './locale-copy';
 
 export const LIVE_ACTIVITY_LEAD_MS = 3 * 60 * 60 * 1000; // kalkışa 3 saat kala start
 export const LIVE_ACTIVITY_TAIL_MS = 60 * 60 * 1000; // kalkıştan 1 saat sonra end
@@ -41,7 +42,7 @@ export type CronTrip = {
   originTimeZone?: string;
   destinationTimeZone?: string;
   flightNumber?: string;
-  language?: "tr" | "en" | "sq";
+  language?: "tr" | "en" | "sq" | "ro";
 };
 
 export type CronToken = {
@@ -153,17 +154,18 @@ export function activityArrivalAtMs(trip: Pick<CronTrip, "departureAtMs" | "arri
 }
 
 export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
-  const english = trip.language === "en";
+  const language = trip.language && ['tr', 'en', 'sq', 'ro'].includes(trip.language) ? trip.language : 'tr';
+  const copy = (tr: string, en: string, sq: string) => translateAppCopy(language, tr, en, sq);
   return {
     event: "start",
     tripId: trip.id,
     attributes: {
       tripId: trip.id,
-      title: trip.title || (trip.language === "sq" ? "Fluturimi i ardhshëm" : english ? "Upcoming flight" : "Yaklaşan uçuş"),
+      title: trip.title || copy('Yaklaşan uçuş', 'Upcoming flight', 'Fluturimi i ardhshëm'),
       originIata: trip.originIata || "",
       destinationIata: trip.destinationIata || "",
       deepLink: cockpitDeepLinkFor(trip.id),
-      language: trip.language === "sq" ? "sq" : english ? "en" : "tr",
+      language,
       originTimeZone: trip.originTimeZone,
       destinationTimeZone: trip.destinationTimeZone,
       flightNumber: trip.flightNumber,
@@ -171,10 +173,8 @@ export function buildStartPayload(trip: CronTrip): LiveActivitySendPayload {
     departureAtMs: trip.departureAtMs,
     arrivalAtMs: Number.isFinite(trip.arrivalAtMs) && Number(trip.arrivalAtMs) > trip.departureAtMs ? trip.arrivalAtMs : undefined,
     alert: {
-      title: trip.language === "sq" ? "Fluturimi yt po afron ✈️" : english ? "Your flight is coming up ✈️" : "Uçuşun yaklaşıyor ✈️",
-      body: trip.language === "sq" ? `Fluturimi yt ${trip.title || "i ardhshëm"} po afron. Kontrollo orarin e ruajtur te udhëtimet.` : english
-        ? `Your ${trip.title || "upcoming"} flight is approaching. Check the saved schedule in Cockpit.`
-        : `${trip.title || "Yaklaşan uçuş"} uçuşun yaklaşıyor. Kaydettiğin saatleri Kokpit'te kontrol et.`,
+      title: copy('Uçuşun yaklaşıyor ✈️', 'Your flight is coming up ✈️', 'Fluturimi yt po afron ✈️'),
+      body: copy(`${trip.title || 'Yaklaşan uçuş'} uçuşun yaklaşıyor. Kaydettiğin saatleri Kokpit'te kontrol et.`, `Your ${trip.title || 'upcoming'} flight is approaching. Check the saved schedule in Cockpit.`, `Fluturimi yt ${trip.title || 'i ardhshëm'} po afron. Kontrollo orarin e ruajtur te udhëtimet.`),
     },
   };
 }

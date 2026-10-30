@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { webcrypto } from 'node:crypto';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, moduleTypes: { '**': 'cjs' }, compilerOptions: { module: 'CommonJS', moduleResolution: 'node' } });
@@ -32,7 +33,7 @@ function client(requestJson = async () => response(), environment = {}) {
   const source = ts.transpileModule(readFileSync('mobile/src/lib/journeyPlanClient.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const imports = { './api': { requestJson }, '../../../lib/travel-assistant/places': places, './mapJourney': model };
   vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Error, Date, JSON, crypto:webcrypto, TextEncoder, Uint8Array, setTimeout, clearTimeout, ...environment })(name => {
-    if (name in imports) return imports[name]; throw Error(`Missing import ${name}`);
+    if (name in imports) return imports[name]; const localeModule=realLocaleModule(name);if(localeModule)return localeModule;throw Error(`Missing import ${name}`);
   }, output, output.exports);
   return output.exports;
 }
@@ -231,7 +232,7 @@ test('Successful map response retains exact owner-scoped recovery across reload,
 function legacyClient(fetch,localStorage) {
   const source=ts.transpileModule(readFileSync('mobile/src/lib/api.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   const result={exports:{}},imports={'./capacitor':{isNativePlatform:()=>false},'./config':{config:{apiBaseUrl:'https://fixture.test'}},'./i18n':{localeFromStorage:()=> 'en'}};
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Error,Date,Intl,JSON,URL,AbortController,DOMException,crypto:webcrypto,TextEncoder,Uint8Array,fetch,setTimeout,clearTimeout,window:{localStorage,setTimeout,clearTimeout}})(name=>{assert.ok(name in imports,name);return imports[name];},result,result.exports);
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Error,Date,Intl,JSON,URL,AbortController,DOMException,crypto:webcrypto,TextEncoder,Uint8Array,fetch,setTimeout,clearTimeout,window:{localStorage,setTimeout,clearTimeout}})(name=>{const localeModule=realLocaleModule(name);if(localeModule)return localeModule;assert.ok(name in imports,name);return imports[name];},result,result.exports);
   return result.exports;
 }
 const legacyInput={origin:'Istanbul',days:'3 gün',dayCount:3,month:'Ekim',budget:'Orta',accommodation:'Otel',who:'Tek başıma',tempo:'Dengeli',vibe:['Kültür'],visa:'Fark etmez'};

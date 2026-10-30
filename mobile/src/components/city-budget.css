@@ -1,2 +1,368 @@
-.ci-city-catalog .budget-intro{display:flex;align-items:center;gap:14px;margin:8px 0 20px}.budget-intro>span{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:17px;color:var(--theme-link, #0066ff);background:var(--theme-soft, #eaf3ff)}.ci-city-catalog .budget-intro h2{margin:0 0 5px;font-size:23px;letter-spacing:-.6px}.ci-city-catalog .budget-intro p{margin:0;font-size:13px;line-height:1.55;color:var(--theme-muted, #5a6b82)}.budget-controls{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:12px;padding:18px;border:1px solid var(--theme-border, #dce8f8);border-radius:23px;background:linear-gradient(140deg,var(--theme-soft, #f1f7ff),var(--theme-surface, #fff));box-shadow:0 8px 24px rgb(17 67 128 / 4%)}.budget-controls label{display:grid;gap:7px;min-width:0;color:var(--theme-ink, #314965);font-size:12px;font-weight:700}.budget-controls input,.budget-controls select{box-sizing:border-box;width:100%;min-width:0;height:48px;border:1px solid var(--theme-border, #d5e3f5);border-radius:13px;background:var(--theme-surface, #fff);color:var(--theme-ink, #0c2745);font:inherit;font-size:16px;padding:9px 10px}.budget-controls input:focus-visible,.budget-controls select:focus-visible{outline:3px solid var(--theme-link, #0066ff);outline-offset:2px}.budget-context{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:13px 0 18px;font-size:12px;color:var(--theme-muted, #5b6b81)}.budget-context button{min-height:40px;border:0;padding:6px 8px;color:var(--theme-link, #005bdd);background:transparent;font:inherit;font-weight:700}.budget-context p{flex-basis:100%;margin:0}.budget-view-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:5px;margin:16px 0;border-radius:16px;background:var(--theme-soft, #edf3fd)}.budget-view-mode button{padding:11px 7px;min-height:44px;border:0;border-radius:12px;background:transparent;color:var(--theme-muted, #50637d);font:inherit;font-size:13px;font-weight:700}.budget-view-mode button[aria-pressed=true]{color:#fff;background:#0066ff;box-shadow:0 3px 10px #0066ff24}.ci-city-catalog .budget-city-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto;column-gap:12px;row-gap:12px;align-items:center;padding:17px 16px;border:1px solid var(--theme-border, #e1e8f3);border-radius:20px;background:var(--theme-surface, #fff);text-align:left;box-shadow:0 4px 16px rgb(14 53 106 / 3%);color:var(--theme-ink, #102947);min-width:0;width:100%;font:inherit}.budget-city-row>.ci-cost-place{min-width:0}.budget-city-row .ci-cost-place strong{font-size:17px}.budget-city-row .ci-cost-place small{font-size:12px}.budget-row-total{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--theme-border, #edf1f7)}.budget-row-total>span{font-size:11px;color:var(--theme-muted, #60728a)}.budget-row-total>strong{font-size:23px;line-height:1.2;letter-spacing:-.5px;text-align:right}.budget-row-total small{display:block;font-size:11px;font-weight:400;letter-spacing:0;color:var(--theme-muted, #60728a);margin-top:5px}.budget-model-note{padding:13px 15px;border-radius:15px;background:var(--theme-warning-bg, #fff9dc);color:var(--theme-warning, #62531f);font-size:12px;line-height:1.6;margin:15px 0}.budget-detail-total{display:grid;gap:8px;padding:22px;border-radius:22px;background:linear-gradient(135deg,#0066ff,#298afb);color:#fff}.budget-detail-total>strong{font-size:34px;letter-spacing:-1px}.budget-detail-total>span{font-size:14px}.budget-detail-total small{color:#e5efff;line-height:1.6}.budget-breakdown{display:grid;gap:12px;margin:18px 0}.budget-breakdown>div{display:flex;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--theme-border, #e7edf6);font-size:14px}.budget-breakdown small{display:block;color:var(--theme-muted, #687a91);font-size:11px;margin-top:4px}.budget-breakdown strong{white-space:nowrap}.budget-input-error{font-size:13px;line-height:1.5;color:var(--theme-danger, #a13942)}@media(max-width:360px){.budget-controls{gap:8px;padding:13px;grid-template-columns:1fr 1fr}.budget-controls label:first-child{grid-column:1/-1}.ci-city-catalog .budget-city-row{padding:14px 12px;gap:10px}.budget-row-total>strong{font-size:21px}}@media(min-width:680px){.ci-city-catalog>.ci-cost-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
-.budget-context .budget-rate-warning{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border:1px solid var(--theme-border,#dce7f5);border-radius:12px;background:var(--theme-soft,#f1f6ff);line-height:1.55;color:var(--theme-ink,#183b63)}.budget-rate-warning>svg{flex:none;margin-top:2px}.budget-detail-total>span{line-height:1.5}
+/* A destination estimate with compact, directly editable trip choices. */
+.budget-studio,.costs-compact-header,.budget-options-sheet{--budget-ink:var(--theme-ink,#17314f);--budget-muted:var(--theme-muted,#718096);--budget-paper:var(--theme-surface,#fff);--budget-soft:var(--theme-soft,#f5f8fc);--budget-line:var(--theme-border,#e4ebf4);--budget-blue:var(--theme-link,#0766ef)}
+.editorial-app.view-costs .screen.costs-screen{display:block;max-width:1120px;margin:0 auto;padding-top:27px}
+.editorial-app.view-costs .costs-compact-header{display:block;margin:0 0 25px;padding:0}
+.editorial-app.view-costs .costs-compact-header h1{display:inline-block;position:relative;margin:0;color:var(--budget-ink);font-size:34px;line-height:1.15;letter-spacing:-1.3px;font-weight:850;isolation:isolate}
+.editorial-app.view-costs .costs-compact-header p{margin:11px 0 0;color:var(--budget-muted);font-size:13px;line-height:1.55}
+.editorial-app.view-costs .ci-city-catalog.budget-studio{display:block;padding:0}
+.budget-workbench{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"destination" "results";gap:17px}
+.budget-destination{grid-area:destination;min-width:0}
+.budget-setup{grid-area:setup;min-width:0;display:none}
+.budget-results{grid-area:results;min-width:0}
+.budget-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.editorial-app.view-costs .budget-section-heading h2{margin:0;color:var(--budget-ink);font-size:14px;font-weight:750;line-height:1.4;letter-spacing:-.25px}
+.budget-coverage{padding:3px 7px;border-radius:7px;color:var(--budget-muted);background:var(--budget-soft);font-size:9px;font-weight:650}
+.budget-city-search{display:flex;align-items:center;gap:11px;min-width:0;min-height:55px;padding:0 16px;border:1px solid var(--budget-line);border-radius:17px;background:var(--budget-paper);color:var(--budget-muted);box-shadow:0 4px 15px rgb(25 60 99 / 3%);transition:border-color .15s,box-shadow .15s}
+.budget-city-search>svg{flex:none;color:var(--budget-blue)}
+.editorial-app.view-costs .budget-city-search input{display:block;flex:1;min-width:0;width:100%;height:53px;min-height:0;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--budget-ink);font:inherit;font-size:17px;font-weight:600;outline:0;appearance:none}
+.editorial-app.view-costs .budget-city-search input:focus,.editorial-app.view-costs .budget-city-search input:focus-visible{outline:0;box-shadow:none;border:0}
+.budget-city-search:focus-within{border-color:var(--budget-blue);box-shadow:0 0 0 3px rgb(7 102 239 / 9%)}
+.budget-city-search input::placeholder{color:var(--budget-muted);font-weight:400;opacity:.85}
+.budget-city-ideas{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.budget-city-ideas button{display:flex;align-items:center;gap:6px;min-height:34px;padding:6px 10px;border:1px solid var(--budget-line);border-radius:30px;background:var(--budget-paper);color:var(--budget-muted);font:inherit;font-size:11px;font-weight:650}
+.budget-city-ideas .country-flag{width:17px;height:13px;font-size:13px;flex:none;object-fit:cover;border-radius:3px}
+.budget-city-ideas svg{color:var(--budget-blue)}
+.budget-basics>.budget-section-heading,.budget-style-section>.budget-section-heading{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.budget-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.budget-duration-card,.budget-party-card{display:flex;flex-direction:column;min-width:0;min-height:99px;margin:0;padding:12px 14px;border:1px solid var(--budget-line);border-radius:17px;background:var(--budget-paper);color:var(--budget-ink);text-align:left;font:inherit}
+.budget-choice-label{display:flex;align-items:center;gap:7px;color:var(--budget-muted);font-size:10px;font-weight:650;line-height:1.4}
+.budget-choice-label svg{flex:none;color:var(--budget-blue);width:15px;height:15px}
+.budget-days-stepper{display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0;height:39px;margin:2px -4px 0}
+.budget-days-stepper>button{display:grid;place-items:center;flex:none;width:30px;height:34px;padding:0;border:0;border-radius:10px;background:var(--budget-soft);color:var(--budget-blue);font:inherit;font-size:20px;font-weight:500}
+.budget-days-stepper>button:disabled{opacity:.3}
+.budget-days-stepper label{display:flex;align-items:baseline;justify-content:center;gap:4px;min-width:0}
+.editorial-app.view-costs .budget-days-stepper input{box-sizing:border-box;display:block;width:33px;height:35px;min-height:0;margin:0;padding:0;border:0;border-radius:5px;background:transparent;color:var(--budget-ink);font:inherit;font-size:24px;font-weight:800;letter-spacing:-.8px;text-align:center;appearance:textfield;box-shadow:none}
+.budget-days-stepper input::-webkit-inner-spin-button,.budget-days-stepper input::-webkit-outer-spin-button{appearance:none;margin:0}
+.budget-days-stepper label>span:last-child{font-size:11px;color:var(--budget-muted)}
+.budget-date-link{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:24px;margin-top:auto;padding:0;border:0;background:transparent;color:var(--budget-blue);font:inherit;font-size:9px;font-weight:650;text-align:left}
+.budget-party-card{position:relative}
+.budget-party-card>strong{margin-top:7px;color:var(--budget-ink);font-size:24px;font-weight:800;line-height:1.2;letter-spacing:-.7px}
+.budget-party-card>strong small{font-size:11px;font-weight:500;letter-spacing:0;color:var(--budget-muted)}
+.budget-party-summary{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.budget-party-edit{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:24px;margin-top:auto;color:var(--budget-blue);font-size:9px;font-weight:650}
+.budget-style-section{margin-top:12px}
+.budget-style-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin:0;padding:4px;border:1px solid var(--budget-line);border-radius:15px;background:var(--budget-soft)}
+.budget-style-options button{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:39px;padding:7px 4px;border:0;border-radius:11px;background:transparent;color:var(--budget-muted);font:inherit}
+.budget-style-options button>svg{width:15px;height:15px;flex:none}
+.budget-style-options strong{font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.budget-style-options button[aria-pressed=true]{background:var(--budget-paper);color:var(--budget-blue);box-shadow:0 2px 8px rgb(20 53 92 / 9%)}
+.budget-style-check{display:none}
+.budget-preferences-entry{display:grid;grid-template-columns:20px minmax(0,1fr) 16px;align-items:center;gap:8px;width:100%;min-height:43px;margin-top:8px;padding:6px 3px;border:0;background:transparent;color:var(--budget-ink);font:inherit;text-align:left}
+.budget-preferences-icon{display:grid;place-items:center;color:var(--budget-blue)}
+.budget-preferences-entry strong{display:block;font-size:11px;font-weight:650;line-height:1.5}
+.budget-preferences-entry small{display:none}
+.budget-preferences-entry>svg{color:var(--budget-muted)}
+.budget-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px;margin-bottom:11px}
+.budget-result-kicker{display:none}
+.editorial-app.view-costs .budget-results-heading h2{margin:0;color:var(--budget-ink);font-size:16px;font-weight:750;line-height:1.3;letter-spacing:-.3px}
+.budget-currency{flex:none}
+.budget-currency select{box-sizing:border-box;min-height:36px;max-width:83px;padding:5px 23px 5px 9px;border:1px solid var(--budget-line);border-radius:11px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;font-size:11px;font-weight:750}
+.budget-results-sort{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;margin:0 0 12px}
+.budget-results-sort>small{color:var(--budget-muted);font-size:10px}
+.budget-results-sort select{box-sizing:border-box;width:auto;min-width:0;max-width:56%;min-height:36px;padding:6px 22px 6px 8px;border:0;border-radius:10px;background:var(--budget-soft);color:var(--budget-muted);font:inherit;font-size:10px}
+:is(.editorial-app.view-costs,.country-tools-web) .budget-studio .ci-cost-list{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;margin:0}
+:is(.editorial-app.view-costs,.country-tools-web) .budget-studio .budget-city-row{position:relative;display:block;min-width:0;width:100%;padding:0;border:1px solid var(--budget-line);border-radius:25px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;text-align:left;overflow:hidden;box-shadow:0 10px 35px rgb(21 52 86 / 7%);content-visibility:visible}
+.budget-city-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:91px;padding:20px}
+.budget-city-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.budget-city-identity>.country-flag{display:block;width:27px;height:20px;flex:none;font-size:20px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 3px rgb(255 255 255 / 20%)}
+.budget-city-identity strong{display:block;font-size:27px;line-height:1.15;font-weight:800;letter-spacing:-.7px;overflow-wrap:anywhere}
+.budget-city-identity small{display:block;margin-top:5px;color:var(--budget-muted);font-size:11px;line-height:1.3}
+.budget-estimate-tag{flex:none;max-width:110px;padding:7px 10px;border-radius:20px;background:var(--budget-soft);color:var(--budget-muted);font-size:8px;font-weight:750;text-align:center;line-height:1.4}
+.budget-city-photo{position:absolute;inset:0 0 auto;display:block;height:204px;overflow:hidden;pointer-events:none}
+.budget-city-photo .destination-photo{display:block;position:static;width:100%;height:100%;min-height:0;border-radius:0}
+.budget-city-photo img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 48%}
+.budget-city-photo .destination-photo-unavailable{min-height:204px}
+.budget-photo-credit{margin-top:18px;color:var(--theme-muted,#718096);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.budget-photo-credit>summary{cursor:pointer;min-height:44px;align-content:center}
+.budget-photo-credit>div{display:flex;flex-wrap:wrap;gap:8px 16px}
+.budget-photo-credit>small{display:block;margin-top:8px}
+.has-photo .budget-city-top{align-items:flex-end;min-height:204px;padding-bottom:42px;background:linear-gradient(0deg,rgb(8 30 57 / 80%),rgb(8 30 57 / 10%) 70%);color:#fff}
+.has-photo .budget-city-identity strong{font-size:35px}
+.has-photo .budget-city-identity small{color:rgb(255 255 255 / 85%)}
+.has-photo .budget-estimate-tag{position:absolute;top:17px;right:17px;color:#19384d;background:#ffe269;box-shadow:0 3px 12px rgb(0 0 0 / 8%)}
+.budget-row-total{position:relative;z-index:2;display:block;margin:0;padding:20px 22px 19px;background:var(--budget-paper)}
+.has-photo .budget-row-total{margin:-23px 11px 0;padding:19px 17px 18px;border-radius:20px 20px 0 0}
+.budget-row-total>span{display:block;color:var(--budget-muted);font-size:10px;line-height:1.5}
+.budget-row-total>strong{display:block;margin:9px 0 6px;color:var(--budget-ink);font-size:clamp(23px,6.8vw,33px);line-height:1.2;letter-spacing:-1.2px;font-weight:850;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.budget-row-total>small{display:block;font-size:10px;color:var(--budget-muted);line-height:1.5}
+.budget-card-footer{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px dashed var(--budget-line);color:var(--budget-muted);background:var(--budget-paper);font-size:11px;font-weight:750;line-height:1.5}
+.budget-card-footer small{font-size:9px;font-weight:400}
+.budget-card-footer>span:last-child{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex:none;padding:7px 9px;border-radius:10px;background:var(--budget-soft);color:var(--budget-blue);font-size:9px}
+.budget-estimate-note{display:flex;align-items:flex-start;gap:7px;margin:13px 3px;color:var(--budget-muted);font-size:10px;line-height:1.6}
+.budget-estimate-note svg{flex:none;margin-top:2px}
+.budget-empty{padding:30px 18px;text-align:center;border:1px dashed var(--budget-line);border-radius:22px;background:var(--budget-paper);color:var(--budget-muted)}
+.budget-empty>svg{margin:auto;color:var(--budget-blue)}
+.budget-empty h3{color:var(--budget-ink);font-size:17px;line-height:1.4}
+.budget-empty p{font-size:13px;line-height:1.7}
+.budget-empty button{min-height:44px;padding:10px 15px;border:0;border-radius:12px;background:var(--budget-soft);color:var(--budget-blue);font:inherit;font-size:12px;font-weight:750}
+.budget-active-trip{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:12px;border-radius:15px;background:var(--budget-soft);color:var(--budget-ink)}
+.budget-active-trip>span{display:grid;grid-template-columns:18px minmax(0,1fr);gap:4px 7px;min-width:0}
+.budget-active-trip strong{font-size:12px;overflow-wrap:anywhere}
+.budget-active-trip small{grid-column:2;color:var(--budget-muted);font-size:10px}
+.budget-active-trip button{min-height:44px;flex:none;max-width:45%;padding:7px 9px;border:0;border-radius:11px;background:var(--budget-paper);color:var(--budget-blue);font:inherit;font-size:10px;font-weight:750}
+.budget-small-note{margin:10px 0;font-size:11px;line-height:1.6;color:var(--budget-muted)}
+.budget-rate-warning,.budget-input-error{display:flex;align-items:flex-start;gap:8px;margin:12px 0;padding:12px;border-radius:13px;background:var(--theme-soft,#f3f7fc);color:var(--theme-danger,#a13942);font-size:12px;line-height:1.6}
+.budget-input-error svg{flex:none;margin-top:2px}
+.budget-method{margin-top:15px}
+.budget-method summary{cursor:pointer;color:var(--budget-muted)}
+.budget-method p{font-size:12px;line-height:1.7;color:var(--budget-muted)}
+.budget-editor{padding:20px;color:var(--budget-ink)}
+.budget-editor>p:first-child{margin:0 0 20px;font-size:13px;line-height:1.7;color:var(--budget-muted)}
+.budget-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px;margin:0;padding:0;border:0;background:none}
+.budget-controls label{display:grid;align-content:start;gap:8px;min-width:0;color:var(--budget-ink);font-size:12px;font-weight:700;line-height:1.5}
+.budget-controls input,.budget-controls select{box-sizing:border-box;display:block;min-width:0;width:100%;height:50px;min-height:50px;margin:0;padding:10px 12px;border:1px solid var(--budget-line);border-radius:13px;background:var(--budget-soft);color:var(--budget-ink);font:inherit;font-size:16px;font-weight:550}
+.budget-controls small{font-size:11px;line-height:1.5;font-weight:400;color:var(--budget-muted)}
+.budget-controls .budget-holiday-check{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;background:var(--budget-soft);border-radius:13px}
+.budget-holiday-check input{flex:none;width:20px;min-height:20px;height:20px;padding:0;accent-color:var(--budget-blue)}
+.budget-model-note{margin:18px 0;padding:13px;border-radius:13px;background:var(--budget-soft);color:var(--budget-muted);font-size:12px;line-height:1.7}
+.budget-editor-done{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:50px;margin:22px 0 0;padding:12px;border:0;border-radius:15px;background:#ffe32f;color:#163552;font:inherit;font-size:15px;font-weight:800}
+.budget-studio button:focus-visible,.budget-studio select:focus-visible,.budget-options-sheet button:focus-visible,.budget-options-sheet input:focus-visible,.budget-options-sheet select:focus-visible{outline:3px solid var(--budget-blue);outline-offset:3px}
+.budget-detail-total{display:grid;gap:8px;padding:24px;border-radius:22px;background:#123e76;color:#fff}
+.budget-detail-total>strong{font-size:30px;line-height:1.3;font-weight:850;letter-spacing:-1px;overflow-wrap:anywhere}
+.budget-detail-total>span{font-size:13px;line-height:1.5}
+.budget-detail-total small{color:#d1e2f9;font-size:12px;line-height:1.8}
+.budget-breakdown{display:grid;gap:14px;margin:23px 0}
+.budget-breakdown>div{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-bottom:14px;border-bottom:1px solid var(--theme-border,#e4ebf4);font-size:13px;line-height:1.5}
+.budget-breakdown small{display:block;margin-top:4px;font-size:11px;color:var(--theme-muted,#718096)}
+.budget-breakdown strong{max-width:55%;white-space:normal;overflow-wrap:anywhere;text-align:right}
+
+@media(min-width:720px){.budget-setup{display:block}.budget-workbench{grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);grid-template-rows:auto 1fr;grid-template-areas:"destination results" "setup results";column-gap:36px;row-gap:22px;align-items:start}.budget-destination{padding:21px 20px 0;border:1px solid var(--budget-line);border-bottom:0;border-radius:24px 24px 0 0;background:var(--budget-paper)}.budget-setup{position:static;margin-top:-22px;padding:22px 20px 14px;border:1px solid var(--budget-line);border-top:0;border-radius:0 0 24px 24px;background:var(--budget-paper)}.budget-choice-grid{grid-template-columns:minmax(0,1fr)}.budget-duration-card,.budget-party-card{min-height:101px;background:var(--budget-soft);border:0}.budget-style-options{grid-template-columns:minmax(0,1fr);gap:4px;background:none;border:0;padding:0}.budget-style-options button{justify-content:flex-start;gap:10px;min-height:42px;padding-inline:13px;border:1px solid var(--budget-line)}.budget-style-options button[aria-pressed=true]{background:#164781;border-color:#164781;color:#fff}.budget-style-options [aria-pressed=true]>svg{color:#ffe269}.budget-style-options strong{font-size:12px}.budget-style-options .budget-style-check{display:none}.budget-results-heading{min-height:40px}.budget-city-photo,.has-photo .budget-city-top{height:248px;min-height:248px}.budget-city-identity strong{font-size:38px}.has-photo .budget-row-total{margin:-26px 16px 0;padding:23px 19px}.budget-row-total>strong{font-size:32px}.budget-card-footer{padding:17px 25px}.editorial-app.view-costs .costs-compact-header h1{font-size:39px}.editorial-app.view-costs .costs-compact-header{margin-bottom:30px}}
+@media(max-width:380px){.editorial-app.view-costs .screen.costs-screen{padding-top:22px}.editorial-app.view-costs .costs-compact-header h1{font-size:30px}.editorial-app.view-costs .costs-compact-header p{font-size:12px}.budget-workbench{gap:14px}.budget-duration-card,.budget-party-card{padding:10px 12px;min-height:97px}.budget-days-stepper>button{width:28px}.budget-style-options button>svg{width:13px;height:13px}.budget-style-options strong{font-size:9px}.budget-controls{grid-template-columns:minmax(0,1fr)}.budget-party-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.budget-controls .budget-holiday-check{grid-column:1/-1}.budget-editor{padding:18px}.budget-row-total>strong{font-size:24px}.budget-card-footer{padding:12px 16px;font-size:10px}.budget-card-footer>span:last-child{padding:6px;font-size:8px}.budget-city-photo,.has-photo .budget-city-top{height:184px;min-height:184px}}
+@media(prefers-reduced-motion:reduce){.budget-city-search{transition:none}}
+.budget-scene-actions{display:flex;align-items:center;gap:7px;margin:0 0 13px;min-width:0}.budget-scene-actions button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:36px;padding:7px 9px;border:1px solid var(--budget-line);border-radius:20px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;font-size:10px;font-weight:650;white-space:nowrap}.budget-scene-actions button>svg:first-child{color:var(--budget-blue);flex:none}.budget-scene-actions button>svg:last-child{color:var(--budget-muted);flex:none}.budget-setup{padding-top:16px;border-top:1px solid var(--budget-line)}@media(min-width:720px){.budget-setup{border-top:0;padding-top:22px}.budget-scene-actions{margin-bottom:14px}}@media(max-width:380px){.budget-scene-actions{gap:5px}.budget-scene-actions button{gap:4px;font-size:9px;padding:7px 8px}}
+.budget-date-controls>label:first-child{grid-column:1/-1}.budget-editor>.budget-style-options{margin-bottom:20px}.budget-destination>.budget-active-trip{margin:12px 0 0}
+
+/* Explain the inputs before presenting an estimate. */
+.editorial-app.view-costs .costs-compact-header h1{font-size:30px;letter-spacing:-.8px;line-height:1.2}
+.editorial-app.view-costs .costs-compact-header{margin-bottom:20px}
+.editorial-app.view-costs .costs-compact-header p{max-width:560px;margin-top:9px;font-size:13px;line-height:1.6}
+.budget-config{padding:18px;border:1px solid var(--budget-line);border-radius:22px;background:var(--budget-paper)}
+.budget-config .budget-section-heading{margin-bottom:10px}
+.editorial-app.view-costs .budget-config .budget-section-heading h2{font-size:14px;line-height:1.5}
+.budget-config .budget-city-search{background:var(--budget-soft);box-shadow:none;min-height:52px;border-radius:13px;padding-inline:13px}
+.editorial-app.view-costs .budget-config .budget-city-search input{height:50px;font-size:16px;font-weight:450}
+.budget-config .budget-city-ideas{align-items:center;gap:10px;margin:8px 0 0}
+.budget-examples-label{color:var(--budget-muted);font-size:11px;line-height:1.5}
+.budget-config .budget-city-ideas button{min-height:44px;gap:5px;padding:2px 0;border:0;border-radius:4px;background:transparent;color:var(--budget-blue);font-size:12px}
+.budget-config .budget-city-ideas button>svg{display:none}
+.budget-config .budget-city-ideas button>span{display:flex;align-items:center}
+.budget-config-choices{overflow:hidden;margin-top:18px;border:1px solid var(--budget-line);border-radius:16px;background:var(--budget-paper)}
+.budget-config-row{display:grid;grid-template-columns:34px minmax(0,1fr) 18px;align-items:center;gap:11px;min-height:77px;width:100%;margin:0;padding:13px 12px;border:0;background:transparent;color:var(--budget-ink);font:inherit;text-align:left}
+.budget-config-row+.budget-config-row{border-top:1px solid var(--budget-line)}
+.budget-config-row>svg{color:var(--budget-blue)}
+.budget-config-icon{display:grid;place-items:center;width:34px;height:36px;border-radius:11px;background:var(--budget-soft);color:var(--budget-blue)}
+.budget-config-text{display:grid;gap:4px;min-width:0}
+.budget-config-text>span{font-size:12px;line-height:1.4;color:var(--budget-muted);font-weight:550}
+.budget-config-text>strong{color:var(--budget-ink);font-size:15px;line-height:1.5;font-weight:750;overflow-wrap:anywhere}
+.budget-config-text>small{font-size:11px;line-height:1.5;color:var(--budget-muted)}
+.budget-config-row:hover{background:var(--budget-soft)}
+.budget-config-currency{display:grid;gap:7px;margin-top:17px;color:var(--budget-ink);font-size:12px;font-weight:650}
+.budget-config-currency select{box-sizing:border-box;width:100%;min-width:0;height:46px;padding:9px 12px;border:1px solid var(--budget-line);border-radius:12px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;font-size:16px;font-weight:500}
+.budget-calculation-scope{display:flex;align-items:flex-start;gap:9px;margin:16px 0;padding:12px;border-radius:12px;background:var(--budget-soft);color:var(--budget-muted)}
+.budget-calculation-scope>svg{flex:none;margin-top:1px;color:var(--budget-blue)}
+.budget-calculation-scope p{margin:0;font-size:12px;line-height:1.7}
+.budget-calculation-scope strong{color:var(--budget-ink);font-weight:650}
+.budget-calculate{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:50px;padding:12px;border:0;border-radius:14px;background:#0766ef;color:#fff;font:inherit;font-size:14px;font-weight:750;line-height:1.45}
+.budget-calculate>svg{flex:none}
+.budget-calculate:disabled{opacity:.45;cursor:default}
+.budget-results-heading h2{scroll-margin-top:105px}
+.budget-results-heading h2:focus{outline:none}
+.budget-results-heading h2:focus-visible{outline:2px solid var(--budget-blue);outline-offset:5px;border-radius:3px}
+.budget-results-heading p{margin:5px 0 0;color:var(--budget-muted);font-size:11px;line-height:1.5}
+.budget-editor>.budget-style-options{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:720px){.budget-workbench{grid-template-areas:"destination results";grid-template-rows:auto;grid-template-columns:minmax(300px,.95fr) minmax(0,1.05fr);gap:26px}.budget-destination.budget-config{padding:20px;border:1px solid var(--budget-line);border-radius:22px}.budget-config{position:sticky;top:95px}.editorial-app.view-costs .costs-compact-header h1{font-size:34px}}
+@media(max-width:380px){.budget-config{padding:15px}.budget-config-row{grid-template-columns:31px minmax(0,1fr) 15px;gap:9px;padding:12px 10px}.budget-config-icon{width:31px;height:34px}.budget-config-text>strong{font-size:13px}.editorial-app.view-costs .costs-compact-header h1{font-size:27px}.budget-calculate{font-size:13px}}
+
+/* Keep the three primary budget choices visible and directly selectable. */
+.budget-config-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;border:0;border-radius:0;overflow:visible}
+.budget-config-choices .budget-config-row{grid-template-columns:minmax(0,1fr) 14px;align-content:start;gap:8px;min-height:98px;padding:12px;border:1px solid var(--budget-line);border-radius:14px;background:var(--budget-soft)}
+.budget-config-choices .budget-config-row+.budget-config-row{border:1px solid var(--budget-line)}
+.budget-config-choices .budget-config-icon{justify-content:start;width:auto;height:22px;background:none;border-radius:0}
+.budget-config-choices .budget-config-icon>svg{width:18px;height:18px}
+.budget-config-choices .budget-config-row>svg{grid-column:2;grid-row:1;align-self:center}
+.budget-config-choices .budget-config-text{grid-column:1/-1;gap:4px}
+.budget-config-choices .budget-config-text>span{font-size:11px}
+.budget-config-choices .budget-config-text>strong{font-size:13px}
+.budget-visible-options{min-width:0;margin:23px 0 0;padding:0;border:0}
+.budget-visible-options>legend{display:block;float:left;width:100%;padding:0;margin:0 0 11px;color:var(--budget-ink);font-size:15px;font-weight:750;line-height:1.45}
+.budget-visible-options>legend+*{clear:both}
+.budget-stay-cards,.budget-comfort-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;min-width:0}
+.budget-stay-card,.budget-comfort-cards>button,.budget-season-cards>button{position:relative;min-width:0;margin:0;border:1px solid var(--budget-line);border-radius:13px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;text-align:left}
+.budget-stay-card{overflow:hidden;padding:0 0 9px}
+.budget-stay-photo{position:relative;display:block;width:100%;height:76px;overflow:hidden;background:var(--budget-soft)}
+.budget-stay-photo>img{position:absolute;display:block;max-width:none;width:300%;height:auto;min-height:100%;left:0;top:50%;transform:translateY(-50%)}
+.budget-stay-apartment .budget-stay-photo>img{left:-100%}
+.budget-stay-hostel .budget-stay-photo>img{left:-200%}
+.budget-option-copy{display:grid;gap:4px;min-width:0}
+.budget-stay-card .budget-option-copy{margin:10px 7px 0}
+.budget-option-copy>strong{color:var(--budget-ink);font-size:12px;line-height:1.4;font-weight:750;overflow-wrap:anywhere}
+.budget-option-copy>small{font-size:10px;line-height:1.5;color:var(--budget-muted);overflow-wrap:anywhere}
+.budget-stay-card[aria-pressed=true],.budget-comfort-cards>button[aria-pressed=true],.budget-season-cards>button[aria-pressed=true]{border-color:var(--budget-blue);box-shadow:0 0 0 1px var(--budget-blue);background:var(--budget-soft)}
+.budget-option-check{position:absolute;top:7px;right:7px;display:grid;place-items:center;width:18px;height:18px;border:2px solid var(--budget-paper);border-radius:50%;background:#ffe14c;color:#153759;box-shadow:0 1px 5px rgb(0 0 0 / 15%)}
+.budget-hotel-class{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px 14px;margin-top:12px}
+.budget-hotel-class>span{font-size:12px;font-weight:650;color:var(--budget-muted)}
+.budget-hotel-class>div{display:flex;flex-wrap:wrap;gap:6px}
+.budget-hotel-class button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:43px;min-height:44px;padding:8px;border:1px solid var(--budget-line);border-radius:11px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;font-size:12px;font-weight:750}
+.budget-hotel-class button>span{color:#c19121}
+.budget-hotel-class button[aria-pressed=true]{background:var(--budget-soft);border-color:var(--budget-blue);box-shadow:0 0 0 1px var(--budget-blue);color:var(--budget-blue)}
+.budget-room-type{display:flex;align-items:center;gap:14px;min-width:0;margin-top:12px;color:var(--budget-muted);font-size:12px;font-weight:650}
+.budget-room-type>span{flex:none}
+.budget-room-type>select{box-sizing:border-box;flex:1;min-width:0;max-width:240px;min-height:44px;margin:0;padding:9px 12px;border:1px solid var(--budget-line);border-radius:11px;background:var(--budget-paper);color:var(--budget-ink);font:inherit;font-size:12px;font-weight:550}
+.budget-option-note{clear:both;margin:0 0 10px;font-size:10px;line-height:1.5;color:var(--budget-muted)}
+.budget-comfort-cards>button{display:grid;align-content:start;gap:8px;min-height:118px;padding:12px 8px}
+.budget-comfort-art{display:grid;place-items:center;width:39px;height:38px;border-radius:12px;background:linear-gradient(145deg,#edf5ff,#d9eaff);color:#0766df}
+.budget-comfort-economical{background:linear-gradient(145deg,#e8f7f0,#d1eee4);color:#287b65}
+.budget-comfort-comfort{background:linear-gradient(145deg,#fff3c5,#ffe6a5);color:#9b6b13}
+.budget-season-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.budget-season-cards>button{display:flex;align-items:center;gap:9px;min-height:72px;padding:11px 8px}
+.budget-season-cards .budget-option-check{top:4px;right:4px;width:15px;height:15px;border-width:1px}
+.budget-season-art{display:grid;place-items:center;flex:none;width:31px;height:36px;border-radius:10px;background:#e9f2ff;color:#0964d5}
+.budget-season-low{background:#e9f5ec;color:#337e59}.budget-season-normal{background:#e9f2f7;color:#48768a}.budget-season-high{background:#fff3d0;color:#bd8514}
+.budget-season-cards .budget-option-copy>strong{font-size:11px;padding-right:5px}
+.budget-season-cards .budget-option-copy>small{font-size:10px}
+.budget-holiday-option{display:flex;align-items:center;gap:9px;min-height:46px;margin-top:10px;color:var(--budget-ink);font-size:11px;line-height:1.5}
+.budget-holiday-option input{flex:none;width:18px;height:18px;margin:0;accent-color:var(--budget-blue)}
+.budget-season-note{margin:3px 0 0;color:var(--budget-muted);font-size:10px;line-height:1.6}
+.budget-extra-options{margin:22px 0 0;border-top:1px solid var(--budget-line);border-bottom:1px solid var(--budget-line)}
+.budget-extra-options>summary{display:grid;grid-template-columns:18px minmax(0,1fr) 17px;align-items:center;gap:9px;min-height:66px;padding:12px 0;list-style:none;cursor:pointer;color:var(--budget-blue)}
+.budget-extra-options>summary::-webkit-details-marker{display:none}
+.budget-extra-options>summary>span{display:grid;gap:4px;min-width:0}
+.budget-extra-options strong{color:var(--budget-ink);font-size:12px;line-height:1.5;font-weight:700}
+.budget-extra-options small{color:var(--budget-muted);font-size:10px;line-height:1.5}
+.budget-extra-options[open]>summary>svg:last-child{transform:rotate(90deg)}
+.budget-extra-options>.budget-controls{padding:9px 0 18px}
+.budget-additional-options{margin-top:0;border-top:0}
+.budget-extra-options .budget-controls select,.budget-extra-options .budget-controls input{font-size:14px}
+.budget-extra-options>summary:focus-visible{outline:3px solid var(--budget-blue);outline-offset:3px;border-radius:6px}
+@media(min-width:720px){.budget-config{position:static}.budget-stay-photo{height:90px}}
+@media(max-width:380px){.budget-config-choices{gap:8px}.budget-config-choices .budget-config-row{padding:10px;min-height:92px}.budget-stay-cards,.budget-comfort-cards{gap:6px}.budget-stay-photo{height:67px}.budget-stay-card .budget-option-copy{margin-inline:6px}.budget-option-copy>strong{font-size:11px}.budget-option-copy>small{font-size:9px}.budget-comfort-cards>button{padding:11px 7px}.budget-season-cards{gap:6px}.budget-season-cards>button{gap:6px;padding:11px 7px}.budget-season-art{width:26px}.budget-season-art>svg{width:21px;height:21px}}
+
+/* Fewer words and a shorter path through the same budget choices. */
+.editorial-app.view-costs .costs-compact-header h1{font-size:29px}
+.editorial-app.view-costs .costs-compact-header{margin-bottom:18px}
+.budget-config-choices .budget-config-row{min-height:76px;align-content:center;gap:8px}
+.budget-config-choices .budget-config-text{grid-column:1;grid-row:1}
+.budget-config-choices .budget-config-row>svg{align-self:center}
+.budget-visible-options{margin-top:19px}
+.budget-visible-options>legend{margin-bottom:9px}
+.budget-stay-card .budget-option-copy{justify-items:center;align-content:center;min-height:34px;margin:7px 5px 0;gap:2px;text-align:center}
+.budget-stay-card .budget-option-copy>strong{font-size:13px}
+.budget-stay-card .budget-option-copy>small{font-size:10px}
+.budget-comfort-cards>button{min-height:84px;justify-items:center;gap:7px;padding:11px 7px;text-align:center}
+.budget-comfort-art{width:33px;height:33px;border-radius:10px}
+.budget-comfort-art>svg{width:22px;height:22px}
+.budget-comfort-cards .budget-option-copy>strong{font-size:12px}
+.budget-season-cards>button{min-height:54px;gap:8px;padding:9px 8px}
+.budget-season-art{width:28px;height:30px;border-radius:9px}
+.budget-season-art>svg{width:21px;height:21px}
+.budget-season-cards .budget-option-copy>strong{font-size:12px}
+.budget-holiday-option{margin-top:7px;font-size:12px}
+.budget-season-note{margin-top:0;font-size:11px}
+.budget-extra-options{margin-top:17px}
+.budget-extra-options>summary{min-height:58px;padding-block:10px}
+.budget-extra-options small{font-size:11px}
+.budget-config-currency{grid-template-columns:auto minmax(0,1fr);align-items:center;gap:14px;margin-top:14px}
+.budget-config-currency select{font-size:14px}
+.budget-calculation-scope{margin-block:13px;padding:10px}
+.budget-calculation-scope p{font-size:11px;line-height:1.6}
+@media(max-width:380px){.editorial-app.view-costs .costs-compact-header h1{font-size:27px}.budget-config-choices .budget-config-row{min-height:72px}.budget-stay-card .budget-option-copy>strong{font-size:12px}.budget-comfort-cards .budget-option-copy>strong{font-size:11px}.budget-season-cards>button{gap:6px;padding:9px 7px}.budget-season-cards .budget-option-copy>strong{font-size:11px}}
+
+/* A single booking-style entry for destination, duration and party. */
+.editorial-app.view-costs .budget-destination.budget-config{padding:0;border:0;border-radius:0;background:transparent}
+.budget-trip-entry{padding:16px;border:1px solid var(--budget-line);border-radius:20px;background:var(--budget-soft);box-shadow:0 8px 24px rgb(25 65 110 / 4%)}
+.budget-trip-entry>.budget-section-heading{margin:0 0 11px}
+.budget-destination-search{min-width:0}
+.budget-destination-suggestions{margin-top:8px;overflow:hidden;border:1px solid var(--budget-line);border-radius:14px;background:var(--budget-paper);box-shadow:0 5px 18px rgb(25 65 110 / 5%)}
+.budget-suggestion-list{max-height:min(280px,40dvh);overflow-y:auto;overscroll-behavior:contain}
+.budget-suggestion-list>button{display:flex;align-items:center;gap:10px;width:100%;min-width:0;min-height:58px;margin:0;padding:10px 12px;border:0;border-radius:0;background:var(--budget-paper);color:var(--budget-ink);font:inherit;text-align:left}
+.budget-suggestion-list>button+button{border-top:1px solid var(--budget-line)}
+.budget-suggestion-flag{display:flex;align-items:center;flex:none}
+.budget-suggestion-flag>.country-flag{width:25px;height:18px;font-size:18px;border-radius:3px;object-fit:cover}
+.budget-suggestion-copy{display:grid;gap:3px;flex:1;min-width:0}
+.budget-suggestion-copy>strong{font-size:13px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.budget-suggestion-copy>small{font-size:11px;line-height:1.4;color:var(--budget-muted);overflow-wrap:anywhere}
+.budget-suggestion-list>button>svg{flex:none;color:var(--budget-blue)}
+.budget-suggestion-list>button[aria-selected=true],.budget-suggestion-list>button:hover{background:var(--budget-soft)}
+.budget-suggestion-list>button[aria-selected=true] strong{color:var(--budget-blue)}
+.budget-destination-suggestions>p{margin:0;padding:13px;font-size:12px;line-height:1.5;color:var(--budget-muted)}
+.editorial-app.view-costs .budget-trip-entry .budget-section-heading h2{font-size:15px}
+.budget-config .budget-trip-entry .budget-city-search{min-height:58px;padding-inline:14px;border:1px solid var(--budget-line);border-radius:14px;background:var(--budget-paper);box-shadow:0 3px 9px rgb(25 65 110 / 3%)}
+.editorial-app.view-costs .budget-trip-entry .budget-city-search input{height:56px;font-size:16px}
+.budget-config .budget-trip-entry .budget-city-ideas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 0}
+.budget-config .budget-trip-entry .budget-city-ideas button{justify-content:center;gap:6px;min-width:0;min-height:44px;padding:7px 5px;border:1px solid var(--budget-line);border-radius:12px;background:var(--budget-paper);color:var(--budget-ink);font-size:12px;font-weight:650;line-height:1.4;overflow-wrap:anywhere}
+.budget-trip-entry .budget-city-ideas .country-flag{width:18px;height:14px;font-size:14px;border-radius:3px}
+.budget-trip-entry .budget-config-choices{gap:0;margin-top:12px;overflow:hidden;border:1px solid var(--budget-line);border-radius:14px;background:var(--budget-paper)}
+.budget-trip-entry .budget-config-choices .budget-config-row{min-height:82px;padding:12px;gap:7px;border:0;border-radius:0;background:transparent}
+.budget-trip-entry .budget-config-choices .budget-config-row+.budget-config-row{border:0;border-left:1px solid var(--budget-line)}
+.budget-trip-entry .budget-config-text>span{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.45;color:var(--budget-muted)}
+.budget-trip-entry .budget-config-text>span>svg{flex:none;color:var(--budget-blue)}
+.budget-trip-entry .budget-config-text>strong{font-size:13px;line-height:1.5}
+.budget-trip-entry .budget-config-row:hover{background:var(--budget-soft)}
+.budget-trip-entry .budget-config-row:focus-visible{position:relative;outline-offset:-4px}
+.budget-trip-entry .budget-config-choices .budget-config-row:focus-visible{outline:2px solid var(--budget-blue);outline-offset:-3px;border-radius:11px;box-shadow:none}
+.budget-trip-entry>.budget-active-trip{margin-top:12px;background:var(--budget-paper)}
+.budget-trip-entry~.budget-visible-options{margin-top:23px}
+.budget-stay-photo{height:90px}
+.budget-stay-photo>img{position:static;display:block;left:auto;top:auto;width:100%;max-width:100%;height:100%;min-height:0;object-fit:cover;object-position:center;transform:none}
+.budget-stay-hotel .budget-stay-photo>img{object-position:center 65%}
+.budget-stay-apartment .budget-stay-photo>img,.budget-stay-hostel .budget-stay-photo>img{left:auto}
+@media(min-width:720px){.budget-trip-entry{padding:18px}.budget-stay-photo{height:104px}}
+@media(max-width:380px){.budget-trip-entry{padding:13px}.budget-config .budget-trip-entry .budget-city-ideas{gap:6px}.budget-config .budget-trip-entry .budget-city-ideas button{font-size:11px;gap:5px;padding-inline:3px}.budget-trip-entry .budget-config-choices .budget-config-row{min-height:82px;padding:11px 10px;gap:5px}.budget-trip-entry .budget-config-text>span{font-size:10px;gap:5px}.budget-trip-entry .budget-config-text>strong{font-size:12px}.budget-stay-photo{height:80px}}
+
+/* Travel experiences give each comfort level a distinct, readable photo. */
+.budget-comfort-cards{gap:9px}
+.budget-comfort-cards>button{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;min-height:131px;padding:0;overflow:hidden;border-radius:14px;text-align:left;box-shadow:0 3px 12px rgb(20 53 92 / 3%)}
+.budget-comfort-photo{display:block;flex:none;width:100%;height:80px;overflow:hidden;background:var(--budget-soft)}
+.budget-comfort-photo>img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.budget-comfort-cards .budget-option-copy{display:grid;justify-items:start;align-content:start;gap:3px;min-height:50px;padding:9px 10px 10px}
+.budget-comfort-cards .budget-option-copy>strong{font-size:13px;line-height:1.4;font-weight:750}
+.budget-comfort-cards .budget-option-copy>small{font-size:10px;line-height:1.4}
+.budget-comfort-cards>button[aria-pressed=true]{background:var(--budget-soft);border-color:var(--budget-blue);box-shadow:0 0 0 1px var(--budget-blue)}
+.budget-comfort-cards>button[aria-pressed=true] .budget-option-copy>strong{color:var(--budget-blue)}
+.budget-comfort-cards .budget-option-check{top:7px;right:7px;width:19px;height:19px}
+.budget-comfort-cards>button:hover{border-color:var(--budget-blue)}
+
+/* Automatic dates sit beside the heading; manual periods stay separate. */
+.budget-season-options{position:relative}
+.budget-season-options>legend{display:flex;align-items:center;min-height:44px;padding-right:145px;margin-bottom:8px}
+.budget-season-cards.budget-season-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;overflow:visible;border:0;background:none}
+.budget-season-choices>button.budget-season-auto-option{position:absolute;top:0;right:0;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;max-width:70%;padding:8px 11px;border-radius:12px;background:var(--budget-paper);color:var(--budget-muted);box-shadow:none}
+.budget-season-choices .budget-season-auto-option .budget-option-copy>strong{font-size:11px;font-weight:650;color:inherit;padding:0}
+.budget-season-choices>button.budget-season-auto-option[aria-pressed=true]{color:var(--budget-blue);background:var(--budget-soft);border-color:var(--budget-line);box-shadow:none}
+.budget-season-choices>button.budget-season-auto-option{max-width:72%;min-height:44px}
+.budget-season-choices .budget-season-auto-option .budget-option-copy>strong{font-size:10px}
+.budget-season-choices>button.budget-season-period{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;min-height:100px;padding:12px 11px;border-radius:14px;background:var(--budget-paper)}
+.budget-season-choices .budget-option-copy{gap:3px}
+.budget-season-choices .budget-option-copy>strong{padding:0;font-size:12px;line-height:1.4}
+.budget-season-choices .budget-option-copy>small{font-size:10px;line-height:1.4}
+.budget-season-demand{display:flex;align-items:flex-end;gap:4px;width:27px;height:24px}
+.budget-season-demand>span{display:block;width:6px;height:8px;border-radius:2px;background:var(--budget-line)}
+.budget-season-demand>span:nth-child(2){height:15px}
+.budget-season-demand>span:nth-child(3){height:22px}
+.budget-season-demand>span.is-active{background:#77abec}
+.budget-season-demand>span.is-active:nth-child(2){background:#2679e5}
+.budget-season-demand>span.is-active:nth-child(3){background:#eab827}
+.budget-season-choices>button.budget-season-period[aria-pressed=true]{background:var(--budget-soft);border-color:var(--budget-blue);box-shadow:0 0 0 1px var(--budget-blue)}
+.budget-season-period[aria-pressed=true] .budget-option-copy>strong{color:var(--budget-blue)}
+.budget-season-tick{display:grid;place-items:center;flex:none;width:16px;height:16px;color:var(--budget-blue)}
+.budget-season-period>.budget-season-tick{position:absolute;top:9px;right:8px;width:17px;height:17px;border-radius:50%;background:#ffe14c;color:#17314f}
+.budget-season-choices>button:hover{border-color:var(--budget-blue)}
+.budget-comfort-cards>button:focus-visible,.budget-season-choices>button:focus-visible{outline:3px solid var(--budget-blue);outline-offset:3px}
+@media(min-width:720px){.budget-comfort-photo{height:85px}}
+@media(max-width:380px){.budget-comfort-cards,.budget-season-cards.budget-season-choices{gap:7px}.budget-comfort-photo{height:72px}.budget-comfort-cards .budget-option-copy{padding:8px 7px 9px}.budget-comfort-cards .budget-option-copy>strong{font-size:12px}.budget-comfort-cards .budget-option-copy>small,.budget-season-choices .budget-option-copy>small{font-size:9px}.budget-season-choices>button.budget-season-period{padding:11px 8px}.budget-season-choices>button.budget-season-auto-option{padding-inline:9px}.budget-season-options>legend{padding-right:139px}}
+.budget-results-heading>div{flex:1;min-width:0}
+.budget-edit-settings{display:flex;align-items:center;justify-content:center;gap:5px;flex:none;min-height:44px;margin:0;padding:8px 10px;border:1px solid var(--budget-line);border-radius:11px;background:var(--budget-paper);color:var(--budget-blue);font:inherit;font-size:10px;font-weight:650}
+.budget-edit-settings:focus-visible{outline:3px solid var(--budget-blue);outline-offset:3px}
+
+/* Keep the calculation reachable while the full set of choices stays visible. */
+.budget-action-bar{display:flex;align-items:center;gap:12px;margin:16px 0;padding:12px;border:1px solid var(--budget-line);border-radius:17px;background:var(--budget-paper);box-shadow:0 4px 22px rgb(13 39 72 / 8%)}
+.budget-action-bar[hidden]{display:none}
+.budget-action-summary{flex:1;min-width:0;display:grid;gap:3px}
+.budget-action-summary small{color:var(--budget-muted);font-size:11px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.budget-action-summary strong{font-size:13px;line-height:1.4;color:var(--budget-ink);overflow-wrap:anywhere}
+.budget-action-bar .budget-calculate{width:auto;flex:none;min-height:46px;margin:0;padding:10px 12px;font-size:12px;gap:6px}
+body:has(.editorial-app.view-costs) .budget-action-bar{position:fixed;z-index:61;left:50%;bottom:var(--budget-navigation-offset,calc(82px + env(safe-area-inset-bottom)));width:min(calc(100% - 24px),708px);transform:translateX(-50%);margin:0;background:var(--budget-paper)}
+body:has(.editorial-app.view-costs) .budget-config{padding-bottom:90px}
+.keyboard-open .budget-action-bar{display:none}
+@media(max-width:359px){.budget-action-bar{gap:8px;padding:10px}.budget-action-bar .budget-calculate{font-size:11px;padding-inline:9px}.budget-action-summary strong{font-size:12px}}
+.budget-options-sheet .budget-editor-done:disabled { cursor: not-allowed; opacity: .5; box-shadow: none; }

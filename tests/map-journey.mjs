@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 const require = createRequire(import.meta.url);
 require('ts-node').register({ transpileOnly: true, moduleTypes: { '**': 'cjs' }, compilerOptions: { module: 'CommonJS', moduleResolution: 'node' } });
 const model = require('../mobile/src/lib/mapJourney.ts');
@@ -311,6 +312,7 @@ test('Map save passes the real account service validation and round-trips withou
   };
   vm.runInNewContext(`(function(require,module,exports){${serviceSource}\n})`, { URLSearchParams })(name => {
     if (Object.hasOwn(serviceImports, name)) return serviceImports[name];
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     throw Error(`Unexpected service import ${name}`);
   }, serviceModule, serviceModule.exports);
   const source = ts.transpileModule(readFileSync(new URL('../mobile/src/lib/routeSync.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

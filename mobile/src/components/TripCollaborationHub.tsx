@@ -1,3 +1,4 @@
+import { DATE_LOCALES, isAppLocale } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { isCalendarDate, localIsoDate } from "../lib/dates";
@@ -14,6 +15,11 @@ import {
   type TripMemberRole,
 } from "../lib/tripCollaboration";
 import { DateTimeField } from "./DateTimeField";
+import { CountryPicker } from "./CountryPicker";
+import { COUNTRY_LIST } from "../data/countries";
+import { alpha2FromAlpha3 } from "../data/countryIso";
+import { createCockpitTrip, getSupabaseDataErrorMessage } from "../lib/supabaseData";
+import { activeTripContextFromTrip, writeActiveTripContext } from "../lib/activeTripContext";
 import { createId } from "../lib/id";
 import { Icon } from "./Icon";
 import { TravelToolArtwork } from "./TravelToolArtwork";
@@ -28,6 +34,7 @@ type TripCollaborationHubProps = {
   userId: string;
   refreshKey: string;
   initialInviteCode?: string;
+  initialEntry?: "create" | "join";
   onInviteHandled?: () => void;
   onNotice: (message: string) => void;
 };
@@ -44,7 +51,7 @@ function errorText(error: unknown, fallback: string) {
 
 function moneyText(value: number, currency: string, locale: string) {
   try {
-    return new Intl.NumberFormat(locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+    return new Intl.NumberFormat(DATE_LOCALES[isAppLocale(locale) ? locale : "tr"], { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
   } catch {
     return `${value.toFixed(2)} ${currency}`;
   }
@@ -52,14 +59,14 @@ function moneyText(value: number, currency: string, locale: string) {
 
 function dateText(value: string, locale: string) {
   try {
-    return formatAppDate(new Date(`${value}T12:00:00`), locale === "sq" ? "sq-AL" : locale === "en" ? "en-US" : "tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+    return formatAppDate(new Date(`${value}T12:00:00`), DATE_LOCALES[isAppLocale(locale) ? locale : "tr"], { day: "2-digit", month: "short", year: "numeric" });
   } catch {
     return value;
   }
 }
 
-export function TripCollaborationHub({ accessToken, userId, refreshKey, initialInviteCode, onInviteHandled, onNotice }: TripCollaborationHubProps) {
-  const { copy, locale } = useI18n();
+export function TripCollaborationHub({ accessToken, userId, refreshKey, initialInviteCode, initialEntry, onInviteHandled, onNotice }: TripCollaborationHubProps) {
+  const { copy, locale, countryName } = useI18n();
   const [trips, setTrips] = useState<SharedTripSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -79,6 +86,15 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const [expenseDate, setExpenseDate] = useState(localIsoDate(0));
   const [paidBy, setPaidBy] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [entry, setEntry] = useState<"create" | "join" | null>(initialInviteCode ? "join" : initialEntry || null);
+  const [newCountry, setNewCountry] = useState("");
+  const [newCity, setNewCity] = useState("");
+  const [newStart, setNewStart] = useState("");
+  const [newEnd, setNewEnd] = useState("");
+  // React's busy state disables the next render; the ref also guards two
+  // taps/submits delivered before that render commits.
+  const actionPending = useRef(false);
+  const countryOptions = useMemo(() => COUNTRY_LIST.map(country => ({ code: country.alpha3, name: countryName(country.alpha3, country.name), flagCode: alpha2FromAlpha3(country.alpha3) })).sort((a,b) => a.name.localeCompare(b.name, locale)), [countryName, locale]);
   const selectedRef = useRef("");
   const workspaceRequest = useRef(0);
   const tripRequest = useRef(0);
@@ -105,7 +121,9 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   useEffect(() => {
     if (!initialInviteCode) return;
     setInviteCode(initialInviteCode);
+    setEntry("join");
   }, [initialInviteCode]);
+  useEffect(() => { if (initialEntry) setEntry(initialEntry); }, [initialEntry]);
 
   const loadWorkspace = useCallback(async (tripId: string) => {
     const request = ++workspaceRequest.current;
@@ -138,6 +156,35 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     void loadWorkspace(tripId);
   };
 
+  const createSharedTrip = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const country = COUNTRY_LIST.find(item => item.alpha3 === newCountry);
+    if (!country || !isCalendarDate(newStart) || !isCalendarDate(newEnd) || newEnd < newStart || busy || actionPending.current) return;
+    actionPending.current = true;
+    setBusy("create"); setError("");
+    try {
+      // Reuse the ordinary trip and its existing owner membership; invitations,
+      // votes and expenses remain on the same backend record.
+      const trip = await createCockpitTrip(userId, { destinationCountry: countryName(country.alpha3, country.name), destinationCode: alpha2FromAlpha3(country.alpha3), destinationCity: newCity.trim(), startDate: newStart, endDate: newEnd, appLanguage: locale }, accessToken);
+      if (!mounted.current) return;
+      const context = activeTripContextFromTrip(trip);
+      if (context) writeActiveTripContext(userId, context);
+      setEntry(null); setNewCity(""); setNewCountry(""); setNewStart(""); setNewEnd("");
+      await loadTrips();
+      openTrip(trip.id);
+      onNotice(copy("Ortak seyahatin hazır. Arkadaşlarını davet edebilirsin.", "Your shared trip is ready. Invite your friends.", "Udhëtimi i përbashkët është gati. Fto miqtë e tu."));
+    } catch (requestError) {
+      if (mounted.current) setError(getSupabaseDataErrorMessage(requestError, copy("Seyahat oluşturulamadı. Bilgilerin duruyor; yeniden deneyebilirsin.", "The trip could not be created. Your details are kept; retry when ready.", "Udhëtimi nuk u krijua. Të dhënat ruhen; provo përsëri.")));
+    } finally { actionPending.current = false; if (mounted.current) setBusy(current => current === "create" ? "" : current); }
+  };
+
+  const useTrip = () => {
+    if (!workspace) return;
+    const context = activeTripContextFromTrip(workspace.trip);
+    if (context && writeActiveTripContext(userId, context)) onNotice(copy("Bu seyahat seçildi. Diğer araçlarda bilgilerini kullanabilirsin.", "Trip selected. You can use its details in the other tools.", "Udhëtimi u zgjodh. Mund t’i përdorësh të dhënat në mjetet e tjera."));
+    else onNotice(copy("Seyahat seçimi kaydedilemedi.", "The trip selection could not be saved.", "Zgjedhja e udhëtimit nuk u ruajt."));
+  };
+
   const closeWorkspace = () => {
     selectedRef.current = "";
     workspaceRequest.current++;
@@ -149,7 +196,8 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   };
 
   const mutate = async (key: string, body: Record<string, unknown>, notice?: string, closeAfter = false) => {
-    if (busy) return false;
+    if (busy || actionPending.current) return false;
+    actionPending.current = true;
     const operationTrip = selectedRef.current;
     const stillHere = () => mounted.current && selectedRef.current === operationTrip;
     setBusy(key);
@@ -166,6 +214,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       if (stillHere()) setError(errorText(requestError, copy("İşlem tamamlanamadı.", "The action could not be completed.")));
       return false;
     } finally {
+      actionPending.current = false;
       if (stillHere()) setBusy("");
     }
   };
@@ -173,7 +222,8 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
   const acceptInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const code = tripInviteFromUrl(inviteCode);
-    if (!code || busy) return;
+    if (!code || busy || actionPending.current) return;
+    actionPending.current = true;
     setBusy("accept");
     setError("");
     try {
@@ -183,17 +233,20 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
       rememberTripInvite("");
       onInviteHandled?.();
       onNotice(copy("Ortak seyahate katıldın.", "You joined the shared trip."));
+      setEntry(null);
       await loadTrips();
       openTrip(result.data.tripId);
     } catch (requestError) {
       setError(errorText(requestError, copy("Davet kabul edilemedi.", "The invitation could not be accepted.")));
     } finally {
+      actionPending.current = false;
       if (mounted.current && !selectedRef.current) setBusy("");
     }
   };
 
   const createInvite = async () => {
-    if (!workspace || busy) return;
+    if (!workspace || busy || actionPending.current) return;
+    actionPending.current = true;
     setBusy("invite");
     setError("");
     try {
@@ -209,6 +262,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
     } catch (requestError) {
       setError(errorText(requestError, copy("Davet oluşturulamadı.", "The invitation could not be created.")));
     } finally {
+      actionPending.current = false;
       if (mounted.current && selectedRef.current === workspace.trip.id) setBusy("");
     }
   };
@@ -252,15 +306,20 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
 
   return <>
     <section className="trip-collaboration-hub">
-      <div className="trip-collaboration-heading">
-        <span className="trip-collaboration-artwork"><TravelToolArtwork kind="community" size={64} /></span>
-        <div><small>{copy("BİRLİKTE PLANLA", "PLAN TOGETHER")}</small><h2>{copy("Ortak seyahat", "Shared trip")}</h2><p>{copy("Arkadaşlarını davet et; rotayı oylayın ve masrafları birlikte takip edin.", "Invite friends, vote on the route and track expenses together.")}</p></div>
-      </div>
+      <div className="trip-entry-actions"><button type="button" onClick={() => { setError(""); setEntry("create"); }}><Icon name="plus" size={18}/>{copy("Ortak seyahat oluştur", "Create shared trip", "Krijo udhëtim të përbashkët")}</button><button type="button" onClick={() => { setError(""); setEntry("join"); }}><Icon name="users" size={18}/>{copy("Davetle katıl", "Join an invite", "Bashkohu me ftesë")}</button></div>
 
-      <form className="trip-invite-join" onSubmit={acceptInvite}>
+      {entry === "join" && <form className="trip-invite-join" onSubmit={acceptInvite}>
         <label>{copy("Davet bağlantısı veya kodu", "Invitation link or code")}<input value={inviteCode} maxLength={600} autoCapitalize="none" autoCorrect="off" onChange={(event) => setInviteCode(event.target.value.trim())} placeholder={copy("Arkadaşının bağlantısını buraya yapıştır", "Paste your friend’s invitation here")} /></label>
         <button type="submit" disabled={Boolean(busy) || !tripInviteFromUrl(inviteCode)}>{busy === "accept" ? <span className="button-loader dark" /> : <Icon name="users" size={18} />} {copy("Katıl", "Join")}</button>
-      </form>
+      </form>}
+
+      {entry === "create" && <form className="trip-create-form" onSubmit={createSharedTrip}>
+        <CountryPicker label={copy("Gidilecek ülke", "Destination country", "Shteti i destinacionit")} placeholder={copy("Ülke seç", "Choose country", "Zgjidh shtetin")} value={newCountry} options={countryOptions} onChange={setNewCountry} disabled={Boolean(busy)}/>
+        <label>{copy("Şehir (isteğe bağlı)", "City (optional)", "Qyteti (opsional)")}<input value={newCity} maxLength={100} onChange={event => setNewCity(event.target.value)} disabled={Boolean(busy)}/></label>
+        <div className="trip-create-dates"><DateTimeField required type="date" label={copy("Başlangıç", "Start date", "Data e fillimit")} value={newStart} onChange={value => { setNewStart(value); if (!newEnd || newEnd < value) setNewEnd(value); }}/><DateTimeField required type="date" label={copy("Bitiş", "End date", "Data e mbarimit")} value={newEnd} min={newStart || undefined} onChange={setNewEnd}/></div>
+        <p>{copy("Mevcut bir seyahate davet için aşağıdaki seyahati aç. Yeni seyahatin rotası, katılımcıları ve masrafları aynı yerde tutulur.", "To invite friends to an existing trip, open it below. A new trip keeps its route, people and expenses together.", "Për të ftuar miq në një udhëtim ekzistues, hape më poshtë. Rruga, pjesëmarrësit dhe shpenzimet ruhen bashkë.")}</p>
+        <button type="submit" disabled={Boolean(busy) || !newCountry || !isCalendarDate(newStart) || !isCalendarDate(newEnd) || newEnd < newStart}>{busy === "create" ? <span className="button-loader dark"/> : <Icon name="plus" size={18}/>} {copy("Oluştur ve arkadaşlarını davet et", "Create and invite friends", "Krijo dhe fto miqtë")}</button>
+      </form>}
 
       {error && !selectedTripId && <div className="trip-collaboration-error" role="alert"><Icon name="alert" size={18} /><span>{error}</span><button onClick={() => void loadTrips()}>{copy("Yenile", "Retry")}</button></div>}
       {loading ? <div className="trip-collaboration-loading" role="status"><span className="button-loader dark" /> {copy("Ortak seyahatler yükleniyor", "Loading shared trips")}</div>
@@ -272,7 +331,7 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
             <Icon name="chevron" size={18} />
           </button>)}
         </div>
-        : <p className="trip-collaboration-empty">{copy("Bir seyahat eklediğinde burada davet oluşturabilir; arkadaşından gelen kodla da doğrudan katılabilirsin.", "Add a trip to create an invitation here, or join directly with a friend's code.")}</p>}
+        : <p className="trip-collaboration-empty">{copy("İlk ortak seyahatini oluştur veya arkadaşının davetiyle katıl.", "Create your first shared trip or join with a friend's invitation.", "Krijo udhëtimin e parë ose bashkohu me ftesën e një miku.")}</p>}
     </section>
 
     <Sheet open={Boolean(selectedTripId)} title={copy("Ortak seyahat", "Shared trip")} size="large" onClose={closeWorkspace}>
@@ -283,6 +342,8 @@ export function TripCollaborationHub({ accessToken, userId, refreshKey, initialI
           <div><small>{copy("ORTAK SEYAHAT", "SHARED TRIP")}</small><h3>{workspace.trip.title}</h3><p>{dateText(workspace.trip.startDate, locale)} – {dateText(workspace.trip.endDate, locale)} · {workspace.members.length} {copy("kişi", "people")}</p></div>
           {workspace.myRole === "owner" && <button type="button" onClick={() => void createInvite()} disabled={Boolean(busy)} aria-label={copy("Arkadaş davet et", "Invite a friend")}><Icon name="share" size={19} /></button>}
         </header>
+        <div className="trip-workspace-actions"><button type="button" onClick={useTrip}><Icon name="check" size={17}/>{copy("Bu seyahati kullan", "Use this trip", "Përdor këtë udhëtim")}</button>{workspace.myRole === "owner" && <button type="button" onClick={() => void createInvite()} disabled={Boolean(busy)}><Icon name="share" size={17}/>{copy("Arkadaş davet et", "Invite friends", "Fto miqtë")}</button>}</div>
+        <p className="trip-route-summary"><Icon name="route" size={18}/>{[workspace.trip.originIata, workspace.trip.destinationIata].filter(Boolean).join(" → ") || [workspace.trip.destinationCity, workspace.trip.destinationCountry].filter(Boolean).join(", ")}</p>
 
         {shareCode && <div className="trip-share-code"><span><small>{copy("7 gün geçerli davet bağlantısı", "Invitation link valid for 7 days")}</small><strong>{shareCode}</strong></span><button type="button" onClick={() => void copyInvite()}>{copy("Kopyala", "Copy")}</button></div>}
 

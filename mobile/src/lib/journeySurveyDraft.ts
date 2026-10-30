@@ -14,7 +14,7 @@ const CLAIM_PREFIX='l2t.journey-survey-sign-in-claim.v1:';
 type ClaimedSurvey={createdAt:number;scope:string;draft:JourneySurveyDraft};
 const claimedSurveys=new Map<string,ClaimedSurvey>();
 const RECOVERY_SCOPE_PREFIX = 'l2t.journey-survey-recovery.v1:';
-type RecoverySurvey={scope:string;createdAt:number;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq'};
+type RecoverySurvey={scope:string;createdAt:number;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq' | 'ro'};
 const recoveryScopes = new Map<string,RecoverySurvey>();
 type SignInDraft = { createdAt:number; draft:JourneySurveyDraft };
 let signInDraft:SignInDraft|null=null;
@@ -71,17 +71,17 @@ export function saveJourneySurveyDraft(ownerId: string | null, draft: JourneySur
   } catch { return false; }
 }
 /** The last submitted scope allows exact-input receipt recovery after reload. */
-export function rememberJourneyRecoveryScope(ownerId:string,scope:string,draft:JourneySurveyDraft,locale:'tr'|'en'|'sq') {
+export function rememberJourneyRecoveryScope(ownerId:string,scope:string,draft:JourneySurveyDraft,locale:'tr'|'en'|'sq' | 'ro') {
   try { key(ownerId,scope); } catch { return; }
-  if(!valid(draft)||!['tr','en','sq'].includes(locale))return;
+  if(!valid(draft)||!['tr','en','sq', 'ro'].includes(locale))return;
   const value={scope,createdAt:Date.now(),draft:JSON.parse(JSON.stringify(draft)) as JourneySurveyDraft,locale};recoveryScopes.set(ownerId,value);
   try { window.localStorage.setItem(`${RECOVERY_SCOPE_PREFIX}${encodeURIComponent(ownerId)}`,JSON.stringify(value)); } catch { /* Session recovery remains available. */ }
 }
-export function readJourneyRecoveryDraft(ownerId:string|null|undefined):{scope:string;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq'}|null {
+export function readJourneyRecoveryDraft(ownerId:string|null|undefined):{scope:string;draft:JourneySurveyDraft;locale:'tr'|'en'|'sq' | 'ro'}|null {
   if(!ownerId)return null;
   try {
     const raw=recoveryScopes.get(ownerId)||JSON.parse(window.localStorage.getItem(`${RECOVERY_SCOPE_PREFIX}${encodeURIComponent(ownerId)}`)||'null');
-    if(!raw||!valid(raw.draft)||!['tr','en','sq'].includes(raw.locale)||!Number.isFinite(raw.createdAt)||Date.now()-raw.createdAt<0||Date.now()-raw.createdAt>=24*3600_000)return null;
+    if(!raw||!valid(raw.draft)||!['tr','en','sq', 'ro'].includes(raw.locale)||!Number.isFinite(raw.createdAt)||Date.now()-raw.createdAt<0||Date.now()-raw.createdAt>=24*3600_000)return null;
     // Restore into a new editable scope; later edits cannot mutate the submitted snapshot.
     return {scope:`recovery:${Date.now()}:${Math.random().toString(36).slice(2,10)}`,draft:JSON.parse(JSON.stringify(raw.draft)) as JourneySurveyDraft,locale:raw.locale};
   } catch {return null;}

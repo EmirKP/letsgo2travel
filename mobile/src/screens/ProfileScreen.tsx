@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { countApprovedCountries } from "../../../lib/leaderboard/verified";
 import { Icon } from "../components/Icon";
 import { TravelToolArtwork } from "../components/TravelToolArtwork";
@@ -38,7 +38,6 @@ import {
 import type { AuthUser, FavoriteDestination, MobilePreferences, TravelVerification, ViewId } from "../types";
 import { useI18n } from "../lib/i18n";
 import type { SocialPlace } from "../lib/social";
-import profileCover from "../assets/reference/coastal-traveler.webp";
 import "./reference-community-profile.css";
 import "./profile-passport-polish.css";
 import "./profile-feature-artwork.css";
@@ -60,7 +59,7 @@ function profileIdsForDestinations(original: string[], destinations: FavoriteDes
   return profileIdsForAlpha3(original, destinations.map(country => country.alpha3));
 }
 
-export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCountriesRequest = 0, onVisitedCountriesHandled, onOpenLeague, onOpenAccount, onNavigate, onOpenRelease, onOpenOnboarding, onNotice, onOpenCommunityQuestion, onAddSocialPlace }: {
+type ProfileScreenProps = {
   user: AuthUser | null;
   ownerId?: string | null;
   accessToken: string;
@@ -69,16 +68,29 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
   onVisitedCountriesHandled?: () => void;
   onOpenLeague?: () => void;
   onOpenAccount: () => void;
+  onSaveProfileIdentity?: (fullName: string, username: string) => Promise<void>;
+  profileEditRequest?: number;
+  onProfileEditHandled?: () => void;
+  onProfileEditingChange?: (editing: boolean) => void;
   onNavigate: (view: ViewId) => void;
   onOpenRelease: () => void;
   onOpenOnboarding: () => void;
   onNotice: (message: string) => void;
   onOpenCommunityQuestion: (id: string) => void;
   onAddSocialPlace?: (place: SocialPlace) => void;
-}) {
+};
+
+export function ProfileScreen(props: ProfileScreenProps) {
+  // Every account gets a separate editor instance. Token rotation within the
+  // same account keeps its existing write barrier and optimistic draft.
+  return <ProfileScreenForAccount key={`${props.user?.id || "guest"}:${props.ownerId || "guest"}`} {...props}/>;
+}
+
+function ProfileScreenForAccount({ user, ownerId, accessToken, isAdmin, visitedCountriesRequest = 0, onVisitedCountriesHandled, onOpenLeague, onOpenAccount, onSaveProfileIdentity, profileEditRequest = 0, onProfileEditHandled, onProfileEditingChange, onNavigate, onOpenRelease, onOpenOnboarding, onNotice, onOpenCommunityQuestion, onAddSocialPlace }: ProfileScreenProps) {
   const { copy, countryName, locale } = useI18n();
   const [tick, setTick] = useState(0);
   const identityRef = useRef<HTMLElement>(null);
+  const settingsHeadingRef = useRef<HTMLHeadingElement>(null);
   const [visitedOpen, setVisitedOpen] = useState(false);
   useEffect(() => {
     if (!visitedCountriesRequest) return;
@@ -97,6 +109,19 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
   const [profileReload, setProfileReload] = useState(0);
   const [profileBusy, setProfileBusy] = useState("");
   const profileWrite = useRef<Promise<UserProfileData> | null>(null);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      // The shared owner-scoped barrier still tracks the server operation.
+      // Only this discarded editor's pointer is released.
+      profileWrite.current = null;
+    };
+  }, []);
+  const guardedNotice = useCallback((message: string) => {
+    if (active.current) onNotice(message);
+  }, [onNotice]);
   const [verificationState, setVerificationState] = useState<{ owner: string | null; rows: TravelVerification[]; status: "loading" | "ready" | "error" }>({ owner: null, rows: [], status: "ready" });
   const verificationOwnerMatches = verificationState.owner === (user?.id || null);
   const verifications = verificationOwnerMatches ? verificationState.rows : [];
@@ -227,11 +252,12 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
         : copy("Kapalı · Telefon bildirimlerini aç", "Off · Turn on phone notifications");
 
   const togglePushSetting = async () => {
-    if (pushBusy || pushState === "unsupported") return;
+    if (!active.current || pushBusy || pushState === "unsupported") return;
     setPushBusy(true);
     try {
       if (pushEnabled) {
-        const ok = await disablePush(() => accessToken, user?.id || "");
+        const ok = await disablePush(() => active.current ? accessToken : "", user?.id || "");
+        if (!active.current) return;
         setPushEnabled(false);
         onNotice(ok ? copy("Telefon bildirimleri kapatıldı.", "Phone notifications are off.") : copy("Telefon bildirimleri bu cihazda kapatıldı.", "Phone notifications are off on this device."));
         return;
@@ -240,7 +266,8 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
         onOpenAccount();
         return;
       }
-      const result = await enablePushForUser(() => accessToken);
+      const result = await enablePushForUser(() => active.current ? accessToken : "");
+      if (!active.current) return;
       if (result.ok) {
         setPushEnabled(true);
         setPushState("granted");
@@ -254,16 +281,19 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       } else {
         onNotice(copy("Telefon bildirimleri şu an açılamadı. Daha sonra tekrar dene.", "Phone notifications could not be enabled. Try again later."));
       }
+    } catch {
+      if (active.current) onNotice(copy("Telefon bildirimleri değiştirilemedi. Yeniden dene.", "Phone notifications could not be changed. Try again.", "Njoftimet e telefonit nuk mund të ndryshoheshin. Provo sërish."));
     } finally {
-      setPushBusy(false);
+      if (active.current) setPushBusy(false);
     }
   };
 
   const sendTestPush = async () => {
-    if (testBusy || !user || !accessToken) return;
+    if (!active.current || testBusy || !user || !accessToken) return;
     setTestBusy(true);
     try {
       const result = await sendTestPushNotification(accessToken);
+      if (!active.current) return;
       onNotice(
         locale === "tr" && result.message
           ? result.message
@@ -272,14 +302,14 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
             : copy("Test bildirimi gönderilemedi.", "Test notification could not be sent."),
       );
     } catch {
-      onNotice(copy("Test bildirimi şu an gönderilemedi. Biraz sonra tekrar dene.", "The test notification could not be sent. Try again shortly."));
+      if (active.current) onNotice(copy("Test bildirimi şu an gönderilemedi. Biraz sonra tekrar dene.", "The test notification could not be sent. Try again shortly."));
     } finally {
-      setTestBusy(false);
+      if (active.current) setTestBusy(false);
     }
   };
 
   const toggleCountry = async (country: Omit<FavoriteDestination, "createdAt">) => {
-    if (profileWrite.current || profileBusy || (user && (profileLoading || profileError || !profile))) return;
+    if (!active.current || profileWrite.current || profileBusy || (user && (profileLoading || profileError || !profile))) return;
     const previous = getVisitedCountries(ownerId);
     const next = toggleVisitedCountry(country, ownerId);
     setTick((value) => value + 1);
@@ -293,20 +323,23 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       profileWrite.current = pending;
       const updated = await pending;
       if (!updated) throw new Error("profile missing");
+      if (!active.current) return;
       setProfile(updated);
       onNotice(copy("Ziyaret haritan web hesabınla eşitlendi.", "Your visited map is synced with your web account."));
     } catch (error) {
+      // Roll back only the original owner's optimistic device selection. A
+      // new instance for that owner waits for this operation before reading.
       setVisitedCountries(previous, ownerId);
+      if (!active.current) return;
       setTick((value) => value + 1);
       onNotice(getSupabaseDataErrorMessage(error, copy("Ziyaret kaydedilemedi; değişiklik geri alındı.", "The visit could not be saved; the change was reverted.")));
     } finally {
-      profileWrite.current = null;
-      setProfileBusy("");
+      if (active.current) { profileWrite.current = null; setProfileBusy(""); }
     }
   };
 
   const toggleLeaderboard = async (enabled: boolean) => {
-    if (!user || !accessToken || !profile || profileWrite.current || profileBusy || profileLoading || profileError) return;
+    if (!active.current || !user || !accessToken || !profile || profileWrite.current || profileBusy || profileLoading || profileError) return;
     setProfileBusy("leaderboard");
     const previous = profile;
     setProfile({ ...profile, optInLeaderboard: enabled });
@@ -315,31 +348,39 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       profileWrite.current = pending;
       const updated = await pending;
       if (!updated) throw new Error("profile missing");
+      if (!active.current) return;
       setProfile(updated);
       onNotice(enabled ? copy("Kaşifler Ligi'ne katıldın.", "You joined the Explorer League.") : copy("Profilin ligden gizlendi.", "Your profile is hidden from the league."));
     } catch (error) {
+      if (!active.current) return;
       setProfile(previous);
       onNotice(getSupabaseDataErrorMessage(error, copy("Lig tercihi kaydedilemedi.", "Your league preference could not be saved.")));
     } finally {
-      profileWrite.current = null;
-      setProfileBusy("");
+      if (active.current) { profileWrite.current = null; setProfileBusy(""); }
     }
   };
 
   const shareCard = async () => {
+    if (!active.current) return;
     const shared = await shareContent({
       title: copy("LetsGo2Travel Kaşif Kartım", "My LetsGo2Travel Explorer Card"),
       text: copy(`${name} · ${level}\n${visited.length} ülke ziyaret ettim, ${favorites.length} ülkeyi favoriledim.`, `${name} · ${localizedLevel}\nI visited ${visited.length} countries and saved ${favorites.length} countries.`, `${name} · ${localizedLevel}\nKam vizituar ${visited.length} shtete dhe kam ruajtur ${favorites.length} shtete.`),
       url: "https://www.letsgo2travel.com.tr",
     });
-    onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
+    if (active.current) onNotice(shared ? copy("Kaşif kartın paylaşmaya hazır.", "Your Explorer Card is ready to share.") : copy("Paylaşım açılamadı.", "Sharing could not be opened."));
   };
 
   return <div className="screen profile-screen reference-profile profile-polished">
-    <div className="profile-cover" aria-hidden="true"><img src={profileCover} alt="" width={1200} height={800}/><span><small>{copy("SENİN YOLCULUĞUN", "YOUR JOURNEY")}</small>{copy("Daha fazla keşfet.\nDaha fazla yaşa.", "Discover more.\nLive more.")}</span></div>
+    <div className="profile-top-bar"><strong>{copy("Profil", "Profile", "Profili")}</strong><button type="button" aria-controls="profile-settings-heading" onClick={() => { settingsHeadingRef.current?.focus({ preventScroll: true }); settingsHeadingRef.current?.scrollIntoView({ block: "start", behavior: "instant" }); }}><Icon name="settings" size={18}/>{copy("Ayarlar", "Settings", "Cilësimet")}</button></div>
+    <section className="explorer-card">
+      <div className="explorer-card-head"><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={48} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
+      <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
+      <p className="explorer-verification-note">{verificationStatusText || copy(`${approvedCount} doğrulanmış ülke · ${approvedCount * 10} lig puanı`, `${approvedCount} verified countries · ${approvedCount * 10} league points`, `${approvedCount} shtete të verifikuara · ${approvedCount * 10} pikë lige`)}</p>
+      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{approvedCount >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - approvedCount)} doğrulanmış ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - approvedCount)} verified countries to World Traveller`, `Edhe ${Math.max(0, 25 - approvedCount)} shtete për Eksplorues të Botës`)}</small></div>
+    </section>
     <section className="profile-hero" ref={identityRef}>
       <div className="profile-identity">
-        <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={onNotice}/>
+        <ProfilePhoto key={user?.id || "guest"} userId={user?.id} accessToken={accessToken} name={name} onSignIn={onOpenAccount} onNotice={guardedNotice}/>
         <div><small>{user ? approvedCount > 0 ? copy("BELGELİ GEZGİN", "VERIFIED TRAVELLER") : copy("HESAP AÇIK", "SIGNED IN") : copy("MİSAFİR MODU", "GUEST MODE")}</small><h1>{name}</h1><p>{user?.email || copy("Kayıtlarını bu cihazda güvenle saklıyorsun.", "Your saved items are kept safely on this device.")}</p></div>
       </div>
       <button className="profile-account-action" onClick={onOpenAccount} aria-label={user ? copy("Hesabı yönet", "Manage account") : copy("Giriş yap", "Sign in")}><Icon name={user ? "settings" : "user"} size={18} /><span>{user ? copy("Hesap", "Account") : copy("Giriş yap", "Sign in")}</span></button>
@@ -348,6 +389,10 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
     {user && accessToken ? <CommunityProfileInline
       profileKey={`user:${user.id}`} userId={user.id} accessToken={accessToken}
       revision={profileReload} onOpenAccount={onOpenAccount}
+      identityFullName={String(user.user_metadata?.full_name || user.user_metadata?.name || "")}
+      identityNeedsCompletion={!String(user.user_metadata?.full_name || '').trim() || !String(user.user_metadata?.username || '').trim()}
+      onSaveIdentity={onSaveProfileIdentity} editRequest={profileEditRequest} onEditRequestHandled={onProfileEditHandled}
+      onEditingChange={onProfileEditingChange}
       onOpenQuestion={onOpenCommunityQuestion} onAddPlace={onAddSocialPlace}
       onEditProfile={() => {
         const photo = identityRef.current?.querySelector<HTMLButtonElement>(".profile-photo");
@@ -358,13 +403,6 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       <button type="button" className="secondary-wide" onClick={onOpenAccount}>{copy("Giriş yap", "Sign in", "Hyr")}</button>
     </section>}
 
-    <section className="explorer-card">
-      <div className="explorer-card-head"><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={48} /></span><div><small>{copy("KAŞİF KARTIN", "YOUR EXPLORER CARD")}</small><strong>{localizedLevel}</strong></div><button onClick={() => void shareCard()} aria-label={copy("Kaşif kartını paylaş", "Share Explorer Card")}><Icon name="share" size={18} /></button></div>
-      <div className="explorer-stats"><div><strong>{visited.length}</strong><span>{copy("Ülke", "Countries")}</span></div><div><strong>{routes.length}</strong><span>{copy("Rota", "Routes")}</span></div><div><strong>{favorites.length}</strong><span>{copy("Favori", "Favourites")}</span></div></div>
-      <p className="explorer-verification-note">{verificationStatusText || copy(`${approvedCount} doğrulanmış ülke · ${approvedCount * 10} lig puanı`, `${approvedCount} verified countries · ${approvedCount * 10} league points`, `${approvedCount} shtete të verifikuara · ${approvedCount * 10} pikë lige`)}</p>
-      <div className="explorer-progress"><span><i style={{ width: `${progress}%` }} /></span><small>{approvedCount >= 25 ? copy("Dünya Gezgini seviyesindesin", "You are a World Traveller") : copy(`${Math.max(0, 25 - approvedCount)} doğrulanmış ülke sonra Dünya Gezgini`, `${Math.max(0, 25 - approvedCount)} verified countries to World Traveller`, `Edhe ${Math.max(0, 25 - approvedCount)} shtete për Eksplorues të Botës`)}</small></div>
-    </section>
-
     <section className="profile-section">
       {profileError && <div className="info-box error" role="alert"><p>{copy("Profil bilgilerin yüklenemedi. Cihazdaki kayıtların korunuyor.", "Your profile could not load. Your saved device data is kept.", "Profili nuk u ngarkua. Të dhënat në pajisje ruhen.")}</p><button type="button" onClick={() => setProfileReload(value => value + 1)}>{copy("Tekrar dene", "Retry", "Provo sërish")}</button></div>}
       <div className="section-heading"><div><span>{copy("SEYAHAT PROFİLİN", "YOUR TRAVEL PROFILE")}</span><h2>{copy("Kaşif alanın", "Explorer space")}</h2></div></div>
@@ -372,8 +410,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       <div className="profile-action-list profile-travel-shortcuts">
         <button onClick={() => onNavigate("passport")}><span className="profile-feature-artwork"><TravelToolArtwork kind="passport" size={76} /></span><div><strong>{copy("Pasaport tercihim", "My passport preference", "Preferenca ime e pasaportës")}</strong><small>{copy("Seyahatte kullanacağın ülke ve pasaport türü", "Issuing country and passport type for your trip", "Shteti lëshues dhe lloji i pasaportës për udhëtimin")}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => setVisitedOpen(true)}><span className="profile-feature-artwork"><TravelToolArtwork kind="globe" size={76} /></span><div><strong>{copy("Ziyaret ettiğim ülkeler", "Countries I've visited")}</strong><small>{visited.length ? visited.map((item) => countryName(item.alpha3, item.name)).slice(0, 3).join(" · ") : copy("Haritana ilk ülkeyi ekle", "Add your first country")}</small></div><Icon name="chevron" size={17} /></button>
-        <button onClick={() => onNavigate("cockpit")}><span className="profile-feature-artwork"><TravelToolArtwork kind="trips" size={76} /></span><div><strong>{copy("Seyahatlerim", "My Trips")}</strong><small>{copy("Uçuşların, tarihler ve hazırlık listelerin", "Your flights, dates and checklists")}</small></div><Icon name="chevron" size={17} /></button>
-        <button onClick={() => onNavigate("trips")}><span className="profile-feature-artwork"><TravelToolArtwork kind="saved" size={76} /></span><div><strong>{copy("Kaydedilenler", "Saved")}</strong><small>{copy("Kaydettiğin rotalar, ülkeler ve etkinlikler", "Your saved routes, countries and events")}</small></div><Icon name="chevron" size={17} /></button>
+        <button onClick={() => onNavigate("trips")}><span className="profile-feature-artwork"><TravelToolArtwork kind="saved" size={76} /></span><div><strong>{copy("Kaydedilenler", "Saved")}</strong><small>{copy("Seyahatlerin, uçuşların, rotaların ve diğer kayıtların", "Your trips, flights, routes and saved items", "Udhëtimet, fluturimet, itineraret dhe ruajtjet e tua")}</small></div><Icon name="chevron" size={17} /></button>
         <button onClick={() => onNavigate("alerts")}><span className="profile-feature-artwork"><TravelToolArtwork kind="alerts" size={76} /></span><div><strong>{copy("Fiyat Alarmlarım", "Price Alerts")}</strong><small>{copy("Takip ettiğin rotalar ve hedef fiyatlar", "Tracked routes and target prices")}</small></div><Icon name="chevron" size={17} /></button>
       </div>
     </section>
@@ -387,7 +424,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
     </section>
 
     <section className="profile-section profile-settings" aria-labelledby="profile-settings-heading">
-      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS", "SIPAS TEJE")}</span><h2 id="profile-settings-heading">{copy("Tercihler ve gizlilik", "Preferences & privacy", "Preferencat dhe privatësia")}</h2></div></div>
+      <div className="section-heading"><div><span>{copy("SANA GÖRE", "MAKE IT YOURS", "SIPAS TEJE")}</span><h2 id="profile-settings-heading" tabIndex={-1} ref={settingsHeadingRef}>{copy("Tercihler ve gizlilik", "Preferences & privacy", "Preferencat dhe privatësia")}</h2></div></div>
       <details className="profile-preference-group">
         <summary><span className="profile-preference-icon profile-feature-artwork"><TravelToolArtwork kind="alerts" size={56}/></span><span><strong>{copy("Bildirimler", "Notifications")}</strong><small>{copy("Uygulama içi ve telefon bildirimleri", "In-app and phone notifications")}</small></span><Icon name="chevron" size={18}/></summary>
       <h3 className="profile-notification-subheading">{copy("Bu cihaz", "This device", "Kjo pajisje")}</h3>
@@ -423,7 +460,7 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
       </details>
     </section>
 
-    {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { setProfileReload(value => value + 1); onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked.")); }} />}
+    {blocksOpen && user && accessToken && <CommunityBlocksSheet key={user.id} accessToken={accessToken} onClose={() => setBlocksOpen(false)} onChanged={() => { if (active.current) { setProfileReload(value => value + 1); onNotice(copy("Kullanıcının engeli kaldırıldı.", "User unblocked.")); } }} />}
     {legalSlug && <LegalSheet open slug={legalSlug} onClose={() => setLegalSlug(null)} />}
     {supportOpen && <SupportSheet key={ownerId || "guest"} open onClose={() => setSupportOpen(false)} accessToken={accessToken} ownerId={ownerId} screen="profile" />}
 
@@ -445,9 +482,9 @@ export function ProfileScreen({ user, ownerId, accessToken, isAdmin, visitedCoun
 
       {user && accessToken && <VerificationForm
         accessToken={accessToken}
-        onNotice={onNotice}
+        onNotice={guardedNotice}
         onSubmitted={() => {
-          setProfileReload(value => value + 1);
+          if (active.current) setProfileReload(value => value + 1);
         }}
       />}
 

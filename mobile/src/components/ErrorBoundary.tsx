@@ -14,13 +14,20 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 
   render() {
     if (!this.state.error) return this.props.children;
-    const english = document.documentElement.lang === "en";
+    const messages = {
+      tr: ["Uygulama açılırken bir sorun oluştu", "Tekrar denediğinde kayıtların korunur.", "Tekrar dene"],
+      en: ["The app could not be opened", "Your saved items are kept when you try again.", "Try again"],
+      sq: ["Aplikacioni nuk u hap", "Regjistrimet e tua ruhen kur provon përsëri.", "Provo përsëri"],
+      ro: ["Aplicația nu s-a putut deschide", "Datele salvate se păstrează când încerci din nou.", "Încearcă din nou"],
+    };
+    const language = document.documentElement.lang;
+    const [title, description, retry] = messages[language as keyof typeof messages] || messages.tr;
     return (
       <main className="fatal-screen">
         <div className="fatal-logo"><BrandMark /></div>
-        <h1>{english ? "The app could not be opened" : "Uygulama açılırken bir sorun oluştu"}</h1>
-        <p>{this.state.error.message || (english ? "An unexpected error occurred." : "Beklenmeyen bir hata oluştu.")}</p>
-        <button onClick={() => window.location.reload()}>{english ? "Try again" : "Tekrar dene"}</button>
+        <h1>{title}</h1>
+        <p>{description}</p>
+        <button onClick={() => window.location.reload()}>{retry}</button>
       </main>
     );
   }

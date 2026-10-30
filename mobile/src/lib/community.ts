@@ -1,4 +1,5 @@
 import { requestJson } from "./api";
+import { communityVisibilityChanged } from './communityVisibility';
 
 export type CommunityQuestion = {
   id: string;
@@ -113,18 +114,22 @@ export async function reportCommunityContent(accessToken: string, target: Commun
   });
 }
 
-export async function blockCommunityAuthor(accessToken: string, target: CommunitySafetyTarget) {
-  return requestJson<{ success: boolean; userId: string }>("/api/country-community/blocks", {
+export async function blockCommunityAuthor(accessToken: string, target: CommunitySafetyTarget, ownerId?: string) {
+  const result = await requestJson<{ success: boolean; userId: string }>("/api/country-community/blocks", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
     body: { targetType: target.targetType, targetId: target.targetId },
   });
+  if (result.success) communityVisibilityChanged({ ownerId, blockedUserId: result.userId });
+  return result;
 }
 
 export async function unblockCommunityAuthor(accessToken: string, userId: string) {
-  return requestJson<{ success: boolean }>("/api/country-community/blocks", {
+  const result = await requestJson<{ success: boolean }>("/api/country-community/blocks", {
     method: "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` },
     body: { userId },
   });
+  if (result.success) communityVisibilityChanged();
+  return result;
 }

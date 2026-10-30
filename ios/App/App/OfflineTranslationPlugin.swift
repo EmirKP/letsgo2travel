@@ -15,7 +15,7 @@ public class OfflineTranslationPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "translate", returnType: CAPPluginReturnPromise)
     ]
     private var busy = false
-    private let languages: Set<String> = ["tr", "en", "de", "fr", "es", "it", "pt", "ar", "ja", "ko", "zh", "ru", "nl", "pl", "uk", "hi", "th", "vi", "id", "el"]
+    private let languages: Set<String> = ["tr", "en", "ro", "de", "fr", "es", "it", "pt", "ar", "ja", "ko", "zh", "ru", "nl", "pl", "uk", "hi", "th", "vi", "id", "el"]
     private func pair(_ call: CAPPluginCall) -> (String, String)? {
         guard let source = call.getString("source"), let target = call.getString("target"),
               languages.contains(source), languages.contains(target), source != target else { return nil }
@@ -96,8 +96,8 @@ private struct OfflineTranslationView: View {
     var body: some View {
         VStack(spacing: 24) {
             ProgressView()
-            Text(locale == "tr" ? (download ? "Dil paketi hazırlanıyor…" : "Cihazda çevriliyor…") : locale == "sq" ? (download ? "Po përgatitet paketa e gjuhës…" : "Po përkthehet në pajisje…") : (download ? "Preparing language pack…" : "Translating on device…"))
-            Button(locale == "tr" ? "İptal" : locale == "sq" ? "Anulo" : "Cancel") { finish(.failure(CancellationError())) }
+            Text(locale == "ro" ? (download ? "Se pregătește pachetul de limbă…" : "Se traduce pe dispozitiv…") : locale == "tr" ? (download ? "Dil paketi hazırlanıyor…" : "Cihazda çevriliyor…") : locale == "sq" ? (download ? "Po përgatitet paketa e gjuhës…" : "Po përkthehet në pajisje…") : (download ? "Preparing language pack…" : "Translating on device…"))
+            Button(locale == "ro" ? "Anulează" : locale == "tr" ? "İptal" : locale == "sq" ? "Anulo" : "Cancel") { finish(.failure(CancellationError())) }
         }
         .padding()
         .onAppear { configuration = .init(source: source, target: target) }

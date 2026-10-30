@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!onlyNotification && (!targetUserId || principal.subject === targetUserId)) return failure("Hesap bulunamadı veya yönetici kendi hesabını bu ekrandan silemez.", 403);
     if (!previous) {
       const prepared = await supabase.from("account_deletion_jobs").upsert({
-        request_id: id, target_user_id: targetUserId, locale: deletionRequest.request_locale === "en" ? "en" : "tr",
+        request_id: id, target_user_id: targetUserId, locale: ['en', 'sq', 'ro'].includes(deletionRequest.request_locale) ? deletionRequest.request_locale : 'tr',
       }, { onConflict: "request_id", ignoreDuplicates: true });
       if (prepared.error) return failure("Silme işlem kaydı oluşturulamadı; hesap silinmedi.", 503);
     }

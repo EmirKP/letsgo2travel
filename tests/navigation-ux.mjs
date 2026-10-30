@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const jsx = (type, props, key) => ({ type, props, key });
 function nodes(value) {
@@ -30,11 +31,11 @@ function notificationBadge(view) {
   return nodes(headerButton(view, 'bell')).find(node => node.props?.className === 'notification-badge');
 }
 
-function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, runNavigationEffects = false, pendingWelcome = null } = {}) {
+function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', nativeStatus = false, inAppNotifications = true, onboardingDone = true, runWelcomeEffects = false, runNavigationEffects = false, runOwnerEffects = false, pendingWelcome = null } = {}) {
   // Run the real App event handlers. Native services and effects are excluded;
   // React state/ref slots and JSX keys let this catch an accidental remount.
   const slots = []; let cursor = 0;
-  const calls = { history: [], scroll: [], focus: 0, releaseSeen: [], statusStyle: [], statusBackground: [], statusOverlay: [] };
+  const calls = { history: [], scroll: [], focus: 0, releaseSeen: [], statusStyle: [], statusBackground: [], statusOverlay: [], identity: [], metadata: [] };
   const react = {
     useState(initial) {
       const index = cursor++;
@@ -49,12 +50,13 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
       slots[index] = { deps };
       // Execute only the native status-bar effects with their real dependencies.
       // The rest of App's lifecycle would require unrelated native services.
-      if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")) || (runNavigationEffects && effect.toString().includes("previousRestoration")))) effect();
+      if (changed && ((nativeStatus && effect.toString().includes('"StatusBar"')) || (runWelcomeEffects && effect.toString().includes("auth.user.user_metadata")) || (runNavigationEffects && effect.toString().includes("previousRestoration")) || (runOwnerEffects && effect.toString().includes('const nextOwner')) || effect.toString().includes('profileOwnerRef.current = ownerId'))) effect();
     },
     useLayoutEffect(effect, deps) { return react.useEffect(effect, deps); },
     lazy: loader => `Lazy:${loader.toString()}`, Suspense: 'Suspense', Activity: 'Activity',
   };
-  const auth = { user: null, accessToken: '' };
+  const auth = { user: null, accessToken: '', updateProfile: async (name, username) => { calls.metadata.push({name, username}); } };
+  const identityApi = { completeUserProfile: async (owner, username, token) => { calls.identity.push({owner, username, token}); }, getSupabaseDataErrorMessage: (failure, fallback) => failure?.message || fallback };
   const theme = { resolved: 'light', preference: 'system' };
   const savedByOwner = new Map();
   const storage = {
@@ -77,10 +79,17 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
   if (pendingWelcome) guideModule.exports.rememberWelcomeDestination(pendingWelcome);
   const imports = {
     './lib/appGuide': guideModule.exports,
+    './lib/activeTripContext': { useActiveTripContext: () => null },
+    './lib/journeyLiveActivity': { syncJourneyLiveActivityOwner: async () => {} },
+    './lib/dates': { localIsoDate: (offset = 0) => { const date = new Date(); date.setDate(date.getDate() + offset); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; } },
     './lib/onboardingPreferences': welcomeModule.exports,
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
     'react-dom': { createPortal: value => value },
     './hooks/useAuth': { useAuth: () => auth },
+    './lib/supabaseData': identityApi,
+    // The authenticated budget lifecycle has its own hook/component tests.
+    './hooks/useBudgetSignInResume': { useBudgetSignInResume: options => { calls.budgetResume = options; } },
+    './lib/budgetSignInResume': { clearBudgetSignInResume: () => {}, hasBudgetSignInResume: () => false, prepareBudgetSignInResume: () => true },
     './lib/useTheme': { useTheme: () => theme },
     './lib/i18n': { useI18n: () => ({ locale, copy: (tr, en) => locale === 'tr' ? tr : en, setLocale: () => {} }) },
     './lib/native': { impact: async () => {} },
@@ -109,14 +118,14 @@ function appHarness({ releaseSeen = true, initialView = 'route', locale = 'tr', 
       setTimeout: () => 1, clearTimeout: () => {},
   };
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
-    URL, navigator: { onLine: true }, document: { body: {} }, window,
+    URL, Error, navigator: { onLine: true }, document: { body: {} }, window,
   })(name => imports[name] || new Proxy({}, { get: (_, key) => String(key) }), output, output.exports);
   const render = () => { cursor = 0; return output.exports.default(); };
   const planner = view => nodes(view).find(node => typeof node.type === 'string' && node.type.startsWith('Lazy:') && node.type.includes('RouteAssistantScreen'));
   const bottomButton = (view, label) => nodes(nodes(view).find(node => node.type === 'nav' && node.props.className === 'bottom-nav')).find(node => node.type === 'button' && text(node.props.children) === label);
   const screen = (view, name) => nodes(view).find(node => typeof node.type === 'string' && (node.type === name || (node.type.startsWith('Lazy:') && node.type.includes(name))));
   const plannerPane = view => nodes(view).find(node => node.type === 'NavigationPane' && planner(node));
-  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, theme, storage, savedByOwner, navigationListeners, guide: guideModule.exports, welcome: welcomeModule.exports };
+  return { render, planner, bottomButton, screen, plannerPane, calls, window, auth, identityApi, theme, storage, savedByOwner, navigationListeners, guide: guideModule.exports, welcome: welcomeModule.exports };
 }
 
 test('Planner preserves its draft across repeated Plans selection and home shortcut round trips without duplicate history', () => {
@@ -489,6 +498,7 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     const output = { exports: {} };
     vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Intl, ...environment })(name => {
       if (Object.hasOwn(imports, name)) return imports[name];
+      const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
       if (name.endsWith('.css')) return {};
       throw Error(`Missing Explore fixture: ${name}`);
     }, output, output.exports);
@@ -502,11 +512,13 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const routes = load('data/routes.ts', { '../../../lib/planner-passport': passport });
   const home = load('data/homeDestinations.ts', { './routes': routes });
   const artworkSource = readFileSync(new URL('../mobile/src/data/artwork.ts', import.meta.url), 'utf8');
-  const artwork = load('data/artwork.ts', Object.fromEntries(
-    [...artworkSource.matchAll(/from "([^"]+\.webp)"/g)].map(([, path]) => [path, { default: path }]),
-  ));
+  const artwork = load('data/artwork.ts', {
+    ...Object.fromEntries([...artworkSource.matchAll(/from "([^"]+\.(?:webp|jpe?g|png))"/g)].map(([, path]) => [path, { default: path }])),
+    '../lib/bundledImageSource': load('lib/bundledImageSource.ts'),
+  });
   const discovery = load('data/discovery.ts');
   const search = load('lib/searchText.ts');
+  const localeFormatting = load('lib/localeFormatting.ts', { './locales/sq-regions': load('lib/locales/sq-regions.ts') });
   const slots = []; let cursor = 0, effects = [], dirty = false;
   const changed = (a, b) => !a || !b || a.length !== b.length || b.some((value, i) => !Object.is(value, a[i]));
   const react = {
@@ -522,19 +534,24 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
   const i18n = { locale, copy: (tr, en) => locale === 'tr' ? tr : en };
   let favorites = profileFixture.local || [];
   const profileWrites = [];
+  const entryCalls = [];
   const imports = {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     '../components/Icon': { Icon: 'Icon' }, '../components/TravelToolArtwork': { TravelToolArtwork: 'TravelToolArtwork' }, '../components/PageHero': { PageHero: 'PageHero' },
     '../components/CountryFlag': { CountryFlag: 'CountryFlag' }, '../components/Sheet': { Sheet: 'Sheet' },
+    '../components/DestinationPhoto': { DestinationPhoto: 'DestinationPhoto' },
+    '../components/DestinationSearchFallback': { DestinationSearchFallback: 'DestinationSearchFallback' },
+    '../lib/activeTripContext': { useActiveTripContext: () => profileFixture.activeTrip || null },
     '../data/countryIso': { alpha2FromAlpha3: () => 'TR' }, '../data/discovery': discovery,
     '../data/countries': countries, '../data/countryCodes': countryCodes, '../lib/profileCountries': profileCountries,
     '../lib/accountResume': { onAccountResume: () => () => {} },
     '../lib/profileSync': profileSync,
     '../data/artwork': artwork, '../data/routes': routes, '../../../lib/planner-passport': passport,
-    '../data/homeDestinations': home, '../lib/searchText': search,
+    '../data/homeDestinations': home, '../lib/searchText': search, '../lib/localeFormatting': localeFormatting,
     '../lib/storage': { getFavoriteDestinations: () => favorites, setFavoriteDestinations: next => { favorites = next; }, toggleFavoriteDestination: destination => { favorites = favorites.some(item => item.alpha3 === destination.alpha3) ? favorites.filter(item => item.alpha3 !== destination.alpha3) : [...favorites, { ...destination, createdAt: '2026-10-10' }]; return favorites; }, getPendingGuestDataSync: () => profileFixture.pending ? { profile: true } : null, addRecentDestination() {} }, '../lib/supabaseData': { getUserProfile: profileFixture.read || (async () => profileFixture.remote), updateUserProfile: (...args) => { profileWrites.push(args); return profileFixture.write?.(...args); }, getSupabaseDataErrorMessage: (_, fallback) => fallback },
     '../lib/i18n': { useI18n: () => i18n }, '../hooks/usePassportPreference': { usePassportPreference: () => (profileFixture.passport || { country: 'TR', type: 'ordinary' }) },
-    '../lib/passportPreference': { preferredEntry: () => ({ label: 'Verify current entry rules', visaFree: true }) }, '../data/passport-index.json': {},
+    '../components/CountryPicker': { CountryPicker: 'CountryPicker' }, '../../../lib/country-intelligence/passports': { PASSPORTS: {} },
+    '../lib/passportPreference': { hasPassportPreference: value => Boolean(value.country && value.type), preferredEntry: (...args) => { entryCalls.push(args); return { label: 'Verify current entry rules', visaFree: true }; } }, '../data/passport-index.json': {},
   };
   const listeners = { addEventListener() {}, removeEventListener() {} };
   const { ExploreScreen } = load('screens/ExploreScreen.tsx', imports, { window: listeners, document: listeners });
@@ -550,8 +567,25 @@ function exploreHarness(initialQuery, locale = 'tr', profileFixture = {}) {
     }
     throw Error('Unstable Explore fixture');
   };
-  return { render, calls, profileWrites, profileSync, get favorites() { return favorites; }, reactivate: () => { slots.forEach(slot => { if (slot?.effect) { slot.cleanup?.(); slot.cleanup = slot.effect(); } }); return render(); }, dispose: () => slots.forEach(slot => slot?.cleanup?.()) };
+  return { render, calls, profileWrites, profileSync, entryCalls, get favorites() { return favorites; }, reactivate: () => { slots.forEach(slot => { if (slot?.effect) { slot.cleanup?.(); slot.cleanup = slot.effect(); } }); return render(); }, dispose: () => slots.forEach(slot => slot?.cleanup?.()) };
 }
+
+test('Explore fallback forwards the typed place and real country actions while active travel dates affect entry labels only', () => {
+  const h = exploreHarness('Bergen', 'en', { activeTrip: { startDate: '2026-11-05', city: 'Tirana', countryCode: 'AL' } });
+  const places = [], guides = [], events = [];
+  try {
+    const view = h.render({ onPlanPlace: (...args) => places.push(args), onOpenCountryGuide: code => guides.push(code), onOpenCountryEvents: (...args) => events.push(args) });
+    const field = nodes(view).find(node => node.type === 'input' && node.props.type === 'search');
+    assert.equal(field.props.value, 'Bergen'); assert.equal(field.props['data-guide-complete'], 'false');
+    assert.ok(h.entryCalls.length > 0); assert.ok(h.entryCalls.every(args => args[3] === '2026-11-05'));
+    const fallback = nodes(view).find(node => node.type === 'DestinationSearchFallback');
+    assert.equal(fallback.props.query, 'Bergen');
+    const area = { name: 'Bergen', latitude: 60.39, longitude: 5.32, address: 'Bergen, Norway' };
+    fallback.props.onPlanPlace('Bergen', area); fallback.props.onOpenCountryGuide('NOR'); fallback.props.onOpenCountryEvents('NO', 'Bergen');
+    assert.deepEqual(places, [['Bergen', area]]); assert.deepEqual(guides, ['NOR']); assert.deepEqual(events, [['NO', 'Bergen']]);
+    assert.deepEqual(h.calls.navigated, []); assert.equal(nodes(h.render()).find(node => node.type === 'input').props.value, 'Bergen');
+  } finally { h.dispose(); }
+});
 
 test('Home destination searches use real catalog data, translated aliases and deduplicated route drafts', () => {
   for (const [query, expected, code, locale = 'tr'] of [['Roma', 'Roma', 'FCO'], ['Tokyo', 'Tokyo'], ['Bali', 'Bali', 'DPS'], ['CAPPADOCIA', 'Kapadokya', 'NAV'], ['SANTORINI', 'Santorini', 'JTR'], ['Paris', 'Paris', 'CDG'], ['New York', 'New York', 'JFK'], ['FRANCE', 'Paris', 'CDG'], ['UNITED STATES', 'New York', 'JFK'], ['Paris', 'Paris', 'CDG', 'en'], ['New York', 'New York', 'JFK', 'en']]) {
@@ -571,7 +605,7 @@ test('Home destination searches use real catalog data, translated aliases and de
         assert.equal(calls.planned[0].idealDuration, locale === 'en' ? '3 days' : '3 gün');
         assert.equal(calls.planned[0].scores.overall, 0);
         assert.equal(calls.planned[0].visaVerifiedAt, null);
-        assert.match(nodes(cards[0]).find(node => node.props?.style?.backgroundImage).props.style.backgroundImage, /launch-travel-poster\.webp/, 'A city without specific artwork must use the generic image, not a different city');
+        assert.equal(nodes(cards[0]).find(node => node.type === 'DestinationPhoto').props.code, code, 'Each ready route uses the matching destination photo with a neutral runtime fallback');
       }
     }
   }
@@ -640,6 +674,85 @@ test('Profile opens the exact forum discussion and consumes the intent once', ()
   assert.equal(community.props.initialQuestionId, 'question-from-profile');
   community.props.onQuestionIntentHandled(); view = render();
   assert.equal(screen(view, 'CommunityScreen').props.initialQuestionId, undefined);
+});
+
+test('Account edit opens the single Profile editor and the request is consumed without losing its owner', () => {
+  const h = appHarness({ initialView: 'profile', locale: 'en' });
+  h.auth.user = { id: 'a' }; h.auth.accessToken = 'token-a'; let view = h.render();
+  h.screen(view, 'ProfileScreen').props.onOpenAccount(); view = h.render();
+  h.screen(view, 'AccountSheet').props.onEditProfile(); view = h.render();
+  assert.equal(h.screen(view, 'AccountSheet'), undefined);
+  const profile = h.screen(view, 'ProfileScreen'); assert.ok(profile.props.profileEditRequest > 0);
+  profile.props.onProfileEditHandled(); view = h.render(); assert.equal(h.screen(view, 'ProfileScreen').props.profileEditRequest, 0);
+  h.auth.user = { id: 'b' }; h.auth.accessToken = 'token-b'; view = h.render(); assert.equal(h.screen(view, 'ProfileScreen').props.profileEditRequest, 0);
+});
+
+test('Unified Profile identity waits for the server before updating auth metadata and rejects invalid, failed or stale saves', async () => {
+  const h = appHarness({ initialView: 'profile', locale: 'en' });
+  h.auth.user = { id: 'a' }; h.auth.accessToken = 'token-a'; let view = h.render();
+  const profile = h.screen(view, 'ProfileScreen');
+  await assert.rejects(profile.props.onSaveProfileIdentity('A', 'INVALID!'), /Check your name/); assert.equal(h.calls.identity.length, 0);
+  let acknowledge; h.identityApi.completeUserProfile = (owner, username, token) => { h.calls.identity.push({owner, username, token}); return new Promise(resolve => acknowledge = resolve); };
+  const saving = profile.props.onSaveProfileIdentity('  User   Name  ', ' NEW_NAME ');
+  assert.equal(h.calls.metadata.length, 0); assert.deepEqual(h.calls.identity[0], {owner:'a',username:'new_name',token:'token-a'});
+  acknowledge(); await saving; assert.deepEqual(h.calls.metadata, [{name:'User Name',username:'new_name'}]);
+  h.identityApi.completeUserProfile = async () => { throw Error('Username unavailable'); };
+  await assert.rejects(profile.props.onSaveProfileIdentity('User Name', 'taken_name'), /Username unavailable/); assert.equal(h.calls.metadata.length, 1);
+  h.identityApi.completeUserProfile = () => new Promise(resolve => acknowledge = resolve);
+  const stale = profile.props.onSaveProfileIdentity('User Name', 'another_name');
+  h.auth.user = {id:'b'}; h.auth.accessToken = 'token-b'; h.render(); acknowledge();
+  await assert.rejects(stale, /session changed/); assert.equal(h.calls.metadata.length, 1);
+  h.auth.user = {id:'a'};h.auth.accessToken='token-a-new';view=h.render();
+  const backAgain=h.screen(view,'ProfileScreen').props.onSaveProfileIdentity('User Name','after_return');
+  h.auth.user={id:'b'};h.render();h.auth.user={id:'a'};h.render();acknowledge();
+  await assert.rejects(backAgain,/session changed/);assert.equal(h.calls.metadata.length,1,'Returning to the same owner cannot revive a save from the prior session');
+});
+
+test('Event add-to-trip intent survives guest sign-in keyed remount, is consumed once and does not transfer to another account', () => {
+  const h = appHarness({ initialView: 'events', locale: 'en', runOwnerEffects: true }); let view = h.render();
+  const event = { id:'real-provider-event', title:'Concert', startsAt:'2027-06-10T19:00:00.000Z' };
+  const events = h.screen(view, 'EventsScreen'); events.props.onTripIntentPending(event); events.props.onOpenAccount(); view = h.render();
+  const guestKey = h.screen(view, 'EventsScreen').key; assert.equal(h.screen(view, 'EventsScreen').props.pendingTripEvent, event);
+  h.auth.user = {id:'a'}; h.auth.accessToken = 'token-a'; h.render(); view = h.render();
+  assert.notEqual(h.screen(view, 'EventsScreen').key, guestKey); assert.equal(h.screen(view, 'EventsScreen').props.pendingTripEvent, event);
+  h.screen(view, 'EventsScreen').props.onTripIntentHandled(); view = h.render(); assert.equal(h.screen(view, 'EventsScreen').props.pendingTripEvent, null);
+  h.screen(view, 'EventsScreen').props.onTripIntentPending(event); h.render();
+  h.auth.user = {id:'b'}; h.auth.accessToken = 'token-b'; h.render(); view = h.render();
+  assert.equal(h.screen(view, 'EventsScreen').props.pendingTripEvent, null);
+});
+
+test('Explicit account cancel and sign-out discard event trip intents before any later sign-in', () => {
+  for (const mode of ['cancel', 'signout']) {
+    const h = appHarness({ initialView:'events',locale:'en',runOwnerEffects:true }); let view = h.render();
+    if (mode === 'signout') { h.auth.user={id:'a'};h.auth.accessToken='token-a';h.render();view=h.render(); }
+    const events = h.screen(view,'EventsScreen'); events.props.onTripIntentPending({id:'cancelled-intent'}); events.props.onOpenAccount(); view=h.render();
+    if (mode === 'cancel') h.screen(view,'AccountSheet').props.onClose();
+    else { h.auth.user=null;h.auth.accessToken='';h.render(); }
+    view=h.render();assert.equal(h.screen(view,'EventsScreen').props.pendingTripEvent,null);
+    h.auth.user={id:'b'};h.auth.accessToken='token-b';h.render();view=h.render();assert.equal(h.screen(view,'EventsScreen').props.pendingTripEvent,null);
+  }
+});
+
+test('Budget resume waits until the complete inline profile editor has closed and does not reopen Account over it', () => {
+  const h = appHarness({initialView:'profile',locale:'en'});
+  h.auth.user={id:'a',user_metadata:{full_name:'User A',username:'user_a'}};h.auth.accessToken='token-a';let view=h.render();
+  assert.equal(h.calls.budgetResume.profileComplete,true);
+  h.screen(view,'ProfileScreen').props.onProfileEditingChange(true);view=h.render();assert.equal(h.calls.budgetResume.profileComplete,false);
+  h.calls.budgetResume.onRequireProfile();view=h.render();assert.equal(h.screen(view,'AccountSheet'),undefined);
+  h.auth.user={...h.auth.user,user_metadata:{full_name:'Updated Name',username:'updated_name'}};view=h.render();
+  assert.equal(h.calls.budgetResume.profileComplete,false,'Metadata acknowledgement alone must not navigate away from the remaining bio save');
+  h.screen(view,'ProfileScreen').props.onProfileEditingChange(false);h.render();assert.equal(h.calls.budgetResume.profileComplete,true);
+});
+
+test('Welcome continuation also waits for the inline editor instead of leaving after identity acknowledgement', () => {
+  const h=appHarness({initialView:'profile',locale:'en',pendingWelcome:'companion',runWelcomeEffects:true});
+  h.auth.user={id:'a',user_metadata:{}};h.auth.accessToken='token-a';let view=h.render();
+  h.screen(view,'AccountSheet').props.onEditProfile();view=h.render();
+  h.auth.user={id:'a',user_metadata:{full_name:'Updated Name',username:'updated_name'}};view=h.render();
+  assert.equal(h.screen(view,'TravelCompanionScreen'),undefined,'Welcome continuation must not interrupt the pending bio/visibility save');
+  assert.ok(h.screen(view,'ProfileScreen').props.profileEditRequest>0);
+  h.screen(view,'ProfileScreen').props.onProfileEditingChange(false);h.render();view=h.render();
+  assert.ok(h.screen(view,'TravelCompanionScreen'));
 });
 
 for(const refresh of ['token rotation','Activity return'])for(const succeeds of [true,false])test(`Explore ${refresh} waits for a favourite to ${succeeds?'save':'roll back'} before reading the account`,async()=>{

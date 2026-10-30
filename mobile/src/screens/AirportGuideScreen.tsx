@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AirportField } from "../components/AirportField";
 import { Icon, type IconName } from "../components/Icon";
 import { PageHero } from "../components/PageHero";
 import { AIRPORT_PICKS } from "../data/airportPicks";
 import type { AirportOption } from "../lib/airports";
+import { searchAirports } from "../lib/airports";
 import { useI18n } from "../lib/i18n";
 import { AIRPORT_GUIDES } from "../data/airportGuides";
 import { openExternal } from "../lib/native";
@@ -16,9 +17,15 @@ const topics: { icon: IconName; tr: string; en: string; sq: string; detailTr: st
   {icon:"wallet",tr:"Yeme & içme",en:"Food & drink",sq:"Ushqim dhe pije",detailSq:"Kontrollo vendet e hapura pas kontrollit të sigurisë dhe kohën për të ecur deri te porta e nisjes.",detailTr:"Güvenlikten sonra açık seçenekleri ve uçuş kapına yürüme süresini kontrol et.",detailEn:"Check open options after security and walking time to your gate."},
   {icon:"info",tr:"Yardım",en:"Assistance",sq:"Ndihma",detailSq:"Organizo ndihmën e posaçme me kompaninë ajrore para udhëtimit; në aeroport drejtohu te pika zyrtare e informacionit.",detailTr:"Özel yardım ihtiyacını uçuş öncesinde havayoluna bildir; havalimanında resmî danışma noktasına başvur.",detailEn:"Arrange special assistance with your airline before travel; use the official airport information desk."},
 ];
-export function AirportGuideScreen({ onOpenTransfer, onNotice }: { onOpenTransfer: () => void; onNotice: (message: string) => void }) {
+export function AirportGuideScreen({ onOpenTransfer, onNotice, initialAirportCode }: { onOpenTransfer: () => void; onNotice: (message: string) => void; initialAirportCode?: string }) {
   const { copy } = useI18n();
   const [airport,setAirport] = useState<AirportOption | null>(null);
+  useEffect(() => {
+    if (!initialAirportCode) return;
+    let live = true;
+    void searchAirports(initialAirportCode).then(items => { if (live) setAirport(items.find(item => item.iata === initialAirportCode) || null); }).catch(() => { /* Manual airport search remains available. */ });
+    return () => { live = false; };
+  }, [initialAirportCode]);
   const [region,setRegion] = useState("popular");
   const picks = AIRPORT_PICKS.filter(item => region === "tr" ? item.countryCode === "TR" : region === "eu" ? ["GB","FR","IT"].includes(item.countryCode) : region === "world" ? item.countryCode !== "TR" : ["IST","SAW","LHR","CDG","DXB"].includes(item.iata));
   const [topic,setTopic] = useState<number | null>(null);

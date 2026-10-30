@@ -1,3 +1,4 @@
+import { translateAppCopy } from './planner-copy';
 export type TravelTier = "economy" | "balanced" | "plus";
 export type TravelParty = { adults: number; children: number; childAges: number[] };
 export type PlannerPreferences = {
@@ -39,9 +40,9 @@ export function plannerPreferenceInstructions(input: Parameters<typeof normalize
   return `${style}\nParty: ${party.adults} adults, ${party.children} children${party.children ? `; child ages: ${party.childAges.join(", ")}. Plan short nearby stops, regular meal/rest breaks and age-appropriate activities; avoid nightlife for children and reduce pace for young children.` : "."}\nThe itinerary, accommodation and transport suggestions must reflect this tier and party. Do not invent monetary totals; the separate sourced cost analysis handles prices.`;
 }
 
-export function starterPreferenceNote(input: Parameters<typeof normalizePlannerPreferences>[0], locale: "tr" | "en" | "sq") {
+export function starterPreferenceNote(input: Parameters<typeof normalizePlannerPreferences>[0], locale: "tr" | "en" | "sq" | "ro") {
   const { tier, party } = normalizePlannerPreferences(input);
-  const copy = (tr: string, en: string, sq: string) => locale === "tr" ? tr : locale === "sq" ? sq : en;
+  const copy = (tr: string, en: string, sq: string) => translateAppCopy(locale, tr, en, sq);
   const style = tier === "economy" ? copy("Ücretsiz duraklar, yerel yemek ve toplu taşımayı önceliklendir.", "Prioritise free stops, local food and public transport.", "Jep përparësi ndalesave falas, ushqimit lokal dhe transportit publik.")
     : tier === "plus" ? copy("Konforlu transfer ve isteğe bağlı rehberli deneyim için rezervasyonları karşılaştır.", "Compare reservations for comfortable transfers and an optional guided experience.", "Krahaso rezervimet për transferta të rehatshme dhe një përvojë opsionale me udhërrëfyes.")
       : copy("Yakın durakları birleştir; ücretsiz keşif ve ücretli etkinliği dengele.", "Group nearby stops and balance free exploring with a paid activity.", "Bashko ndalesat pranë dhe balanco eksplorimin falas me një aktivitet me pagesë.");

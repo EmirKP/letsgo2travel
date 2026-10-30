@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 const require = createRequire(import.meta.url);
 require('ts-node').register({transpileOnly:true,compilerOptions:{module:'CommonJS',moduleResolution:'node'}});
 const {normalizeOfflineMap, validateOfflinePack, offlineMapQuery} = require('../../lib/travel-assistant/offline-map.ts');
@@ -14,7 +15,7 @@ const raw = {elements:[{type:'way',id:1,tags:{highway:'residential',name:'Street
 function moduleFrom(path,imports={},globals={}) {
   const source = ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   const loaded={exports:{}};
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name],loaded,loaded.exports);
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`,{Date,URL,URLSearchParams,Response,Request,Buffer,AbortSignal,TextDecoder,...globals})(name=>imports[name]||realLocaleModule(name),loaded,loaded.exports);
   return loaded.exports;
 }
 

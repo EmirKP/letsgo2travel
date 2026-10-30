@@ -1,3 +1,4 @@
+import { translateTuple, isAppLocale } from "../lib/locale";
 import { CATEGORY_LABELS } from '../../../lib/travel-assistant/places';
 import type { PointCategory } from '../../../lib/travel-assistant/types';
 
@@ -32,6 +33,5 @@ const categoryIcons: Record<PointCategory, Icon> = {
 export function journeyMapCategory(value: unknown, locale = 'en') {
   const category = typeof value === 'string' && Object.prototype.hasOwnProperty.call(categoryIcons, value) ? value as PointCategory : null;
   const [symbol, path] = icons[category ? categoryIcons[category] : 'place'];
-  const index = locale === 'tr' ? 0 : locale === 'sq' ? 2 : 1;
-  return { symbol, path, label: category ? CATEGORY_LABELS[category][index] : ['Mekân', 'Place', 'Vend'][index] };
+  return { symbol, path, label: translateTuple(isAppLocale(locale) ? locale : 'en', category ? CATEGORY_LABELS[category] : ['Mekân', 'Place', 'Vend']) };
 }

@@ -39,7 +39,7 @@ test('All passport rows, every destination and all four types resolve determinis
     for (const type of ['ordinary','special','service','diplomatic']) for (const destination of destinations) {
       const entry = passports.passportEntry(passport,type,destination);
       assert.ok(allowed.has(entry.status));
-      if (entry.provenance === 'official') { official++; assert.equal(entry.checkedAt,'2026-10-11'); assert.ok(entry.sourceUrl.startsWith('https://')); }
+      if (entry.provenance === 'official') { official++; assert.equal(entry.checkedAt,passport==='TR'&&destination==='ME'?'2026-10-24':'2026-10-11'); assert.ok(entry.sourceUrl.startsWith('https://')); }
       if (passport === destination) assert.equal(entry.status,'domestic');
       if (passport !== 'TR' && type !== 'ordinary' && passport !== destination) assert.equal(entry.provenance,'unavailable');
     }

@@ -166,6 +166,44 @@ export function deleteTravelPlace(id: string, ownerId?: string | null): SavedPla
   return persist(doc);
 }
 
+export type RemovedTravelPlace = { ownerId: string | null; item: SavedPlace; itemIndex: number; dayIds: string[] };
+
+/** The undo token belongs to exactly one account/guest scope and is returned
+ * only after the removal has been persisted successfully. */
+export function removeTravelPlaceWithUndo(id: string, ownerId?: string | null): { state: SavedPlacesState; removed: RemovedTravelPlace | null } {
+  const doc = currentDocument(ownerId);
+  const itemIndex = doc.items.findIndex(item => item.place.id === id);
+  const removed = itemIndex < 0 ? null : { ownerId: ownerId || null, item: doc.items[itemIndex], itemIndex, dayIds: [...doc.dayIds] };
+  return { state: deleteTravelPlace(id, ownerId), removed };
+}
+
+/** Restore only this removal. Never replace a later re-save or rewind changes
+ * to other places. The account item and its day position are one queue write. */
+export function restoreTravelPlace(removed: RemovedTravelPlace, ownerId?: string | null): SavedPlacesState {
+  if (removed.ownerId !== (ownerId || null) || !validateDocument({ version: 1, items: [removed.item], dayIds: [] })) throw new Error('invalid');
+  const doc = currentDocument(ownerId), id = removed.item.place.id;
+  if (doc.items.some(item => item.place.id === id)) return readSavedPlaces(ownerId);
+  if (doc.items.length >= MAX_SAVED_PLACES) throw new Error('full');
+  const oldIndex = removed.dayIds.indexOf(id);
+  const dayIds = [...doc.dayIds];
+  if (oldIndex >= 0) {
+    if (dayIds.length >= MAX_DAY_STOPS) throw new Error('day-full');
+    const following = removed.dayIds.slice(oldIndex + 1).find(key => dayIds.includes(key));
+    const preceding = removed.dayIds.slice(0, oldIndex).reverse().find(key => dayIds.includes(key));
+    const at = following ? dayIds.indexOf(following) : preceding ? dayIds.indexOf(preceding) + 1 : Math.min(oldIndex, dayIds.length);
+    dayIds.splice(at, 0, id);
+  }
+  if (ownerId) {
+    const edits: Array<Omit<CollectionOperation, 'id'>> = [{ action: 'add', key: id, value: encodeSavedPlace(removed.item) }];
+    if (oldIndex >= 0) edits.push({ action: 'day-add', key: id }, { action: 'day-before', key: id, value: dayIds[dayIds.indexOf(id) + 1] || null });
+    queueCollectionChange(ownerId, 'saved_places', edits);
+    return readSavedPlaces(ownerId);
+  }
+  doc.items.splice(Math.min(removed.itemIndex, doc.items.length), 0, removed.item);
+  doc.dayIds = dayIds;
+  return persist(doc);
+}
+
 export function updateTravelPlaceNote(id: string, note: string, ownerId?: string | null): SavedPlacesState {
   if (!text(note, MAX_PLACE_NOTE)) throw new Error('invalid');
   const doc = currentDocument(ownerId);

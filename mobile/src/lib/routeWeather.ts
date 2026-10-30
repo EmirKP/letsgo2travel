@@ -6,13 +6,13 @@ export function staleRouteWeather(reading: RouteWeatherReading | undefined, now 
     || new Date(now).toDateString() !== new Date(reading.fetchedAt).toDateString();
 }
 /** Cache only this app session, keyed by place and language. Reopening never hides an expired reading. */
-export function createRouteWeatherStore(fetchWeather: (place: string, locale: 'tr' | 'en' | 'sq') => Promise<WeatherSummary>) {
+export function createRouteWeatherStore(fetchWeather: (place: string, locale: 'tr' | 'en' | 'sq' | 'ro') => Promise<WeatherSummary>) {
   const cache = new Map<string, RouteWeatherReading>();
   const pending = new Map<string, Promise<RouteWeatherReading>>();
   const key = (place: string, locale: string) => JSON.stringify([place, locale]);
   return {
     peek: (place: string, locale: string) => cache.get(key(place, locale)),
-    load(place: string, locale: 'tr' | 'en' | 'sq') {
+    load(place: string, locale: 'tr' | 'en' | 'sq' | 'ro') {
       const id = key(place, locale);
       const running = pending.get(id);
       if (running) return running;

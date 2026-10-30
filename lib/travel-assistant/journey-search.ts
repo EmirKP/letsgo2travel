@@ -33,7 +33,7 @@ const pending = new Map<string, Promise<JourneySearchResult>>();
 let nextRequest = 0;
 export async function searchJourneyPlaces(query: string, locale: string): Promise<JourneySearchResult> {
   const q = journeySearchQuery(query);
-  if (!q || !['tr', 'en', 'sq'].includes(locale)) throw new Error('Invalid search');
+  if (!q || !['tr', 'en', 'sq', 'ro'].includes(locale)) throw new Error('Invalid search');
   if (hasAppleJourneyPlaces()) return searchAppleJourneyPlaces(q, locale);
   const configured = process.env.TRAVEL_GEOCODER_URL?.trim();
   if (!configured) throw new Error('Search provider not configured');

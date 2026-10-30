@@ -3,12 +3,13 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import ts from "typescript";
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 const require = createRequire(import.meta.url);
 function loadSource(path, imports) {
   const compiled = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const sourceModule = { exports: {} };
-  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? (name === '../lib/localeFormatting' ? localeFormatting : require(name)), URL }, { filename: path });
+  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? realLocaleModule(name) ?? (name === '../lib/localeFormatting' ? localeFormatting : require(name)), URL }, { filename: path });
   return sourceModule.exports;
 }
 const localeFormatting = loadSource('mobile/src/lib/localeFormatting.ts', {
@@ -37,7 +38,7 @@ await test("Albanian deletion requires FSHI and does not accept another locale's
   response = { success: true, request: fixture };
   assert.equal((await helpers.submitAccountDeletionRequest("test-token", "sq", "FSHI")).id, fixture.id);
   assert.equal(calls[0].options.body.confirmed, true);
-  assert.equal(calls[0].options.body.locale, "en", "Server notifications keep their supported language contract");
+  assert.equal(calls[0].options.body.locale, "sq", "The supported Albanian request and server notification language must be preserved");
 });
 await test("deletion submits verified bearer, explicit confirmation and locale without account identity overrides", async () => {
   response = { success: true, request: fixture };

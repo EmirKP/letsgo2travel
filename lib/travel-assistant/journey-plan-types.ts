@@ -1,6 +1,6 @@
 import type { JourneyDiscoveryPlace } from './journey-types';
 
-export type JourneyPlanLocale = 'tr' | 'en' | 'sq';
+export type JourneyPlanLocale = 'tr' | 'en' | 'sq' | 'ro';
 export type JourneyPlanInterest = 'city' | 'culture' | 'food' | 'shopping' | 'nature' | 'sea' | 'adventure';
 export type JourneyPlanDestination = { name: string; latitude: number; longitude: number; sourceUrl?: string };
 export type JourneyPlanPreferences = {

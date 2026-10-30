@@ -1,3 +1,4 @@
+import { translateCopy } from "../lib/locale";
 import { formatAppDate } from "../lib/localeFormatting";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "../lib/api";
@@ -44,7 +45,7 @@ export function AccountDeletionPanel({ accessToken, email, ownerId, onBusyChange
   const operation = useRef(false);
   const confirmationId = useId();
   const pending = hasPendingDeletion(request);
-  const deleteWord = locale === "tr" ? "SİL" : locale === "sq" ? "FSHI" : "DELETE";
+  const deleteWord = translateCopy(locale, "SİL", "DELETE", "FSHI");
 
   useEffect(() => {
     active.current = true;

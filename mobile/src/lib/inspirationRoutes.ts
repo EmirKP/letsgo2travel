@@ -1,4 +1,4 @@
-import type { RouteSuggestion, SavedRoutePlan } from "../types";
+import type { PlannerInput, RouteSuggestion, SavedRoutePlan } from "../types";
 import { createId } from "./id";
 import { deleteRoutePlan, getSavedRoutePlans, saveRoutePlan } from "./storage";
 
@@ -12,8 +12,13 @@ export function inspirationRouteCodes(ownerId?: string | null): string[] {
   }))];
 }
 
+export function savedInspirationRoute(destinationCode: string, ownerId?: string | null): SavedRoutePlan | undefined {
+  const code = destinationCode.toUpperCase();
+  return getSavedRoutePlans(ownerId).find(saved => matches(saved, code));
+}
+
 /** Returns whether the destination is now saved. Explicit saves get a new generation. */
-export function toggleInspirationRoute(route: RouteSuggestion, ownerId?: string | null) {
+export function toggleInspirationRoute(route: RouteSuggestion, ownerId?: string | null, passport?: Pick<PlannerInput, 'passportCountry' | 'passportType'>) {
   const code = route.destinationCode?.toUpperCase();
   if (!code || !/^[A-Z0-9]{2,8}$/.test(code)) throw new Error("Invalid inspiration destination");
   const existing = getSavedRoutePlans(ownerId).filter(saved => matches(saved, code));
@@ -23,7 +28,7 @@ export function toggleInspirationRoute(route: RouteSuggestion, ownerId?: string 
   }
   saveRoutePlan({
     id: `inspiration.${code}:${createId()}`, createdAt: new Date().toISOString(),
-    input: { origin: "", days: route.idealDuration, month: "", budget: route.estimatedBudget, accommodation: "", who: "", tempo: "", vibe: [], visa: route.visaStatus },
+    input: { origin: "", days: route.idealDuration, month: "", budget: route.estimatedBudget, accommodation: "", who: "", tempo: "", vibe: [], visa: route.visaStatus, ...(passport ? { passportCountry: passport.passportCountry, passportType: passport.passportType } : {}) },
     plan: { summary: route.why, routes: [route] },
   }, ownerId);
   return true;

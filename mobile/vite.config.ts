@@ -15,7 +15,7 @@ const releaseManifest = JSON.parse(
 const commitId = resolveMobileSourceIdentity(rootDir);
 const artifactIdentity = { ...releaseManifest, sourceCommit:commitId, builtAt:new Date().toISOString(), updateId:"unified-20260908" };
 
-function mapsDevApiOrigin(value: string | undefined) {
+function mapsDevApiOrigin(value: string | undefined, settingName = "L2T_MAPS_DEV_API_URL") {
   const raw = value?.trim();
   if (!raw) return "";
   try {
@@ -23,13 +23,15 @@ function mapsDevApiOrigin(value: string | undefined) {
     if (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
       && url.origin === raw) return url.origin;
   } catch { /* Report the setting name only; never echo environment values. */ }
-  throw new Error("L2T_MAPS_DEV_API_URL must be a canonical HTTP loopback origin.");
+  throw new Error(`${settingName} must be a canonical HTTP loopback origin.`);
 }
 
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, rootDir, "");
   const publicConfig = resolveMobilePublicConfig(env, { production: command === "build" });
   const mapsDevApiUrl = command === "serve" ? mapsDevApiOrigin(env.L2T_MAPS_DEV_API_URL) : "";
+  const eventsDevApiUrl = command === "serve" ? mapsDevApiOrigin(env.L2T_EVENTS_DEV_API_URL, "L2T_EVENTS_DEV_API_URL") : "";
+  const eventCommunityDevApiUrl = command === "serve" ? mapsDevApiOrigin(env.L2T_EVENT_COMMUNITY_DEV_API_URL || env.L2T_MAPS_DEV_API_URL, env.L2T_EVENT_COMMUNITY_DEV_API_URL ? "L2T_EVENT_COMMUNITY_DEV_API_URL" : "L2T_MAPS_DEV_API_URL") : "";
   // Only the public-data assistant endpoints can use a separate test host.
   // Browser development keeps them same-origin through this dedicated proxy.
   const travelProxyPrefix = "/__travel-assistant";
@@ -79,9 +81,31 @@ export default defineConfig(({ mode, command }) => {
       allowedHosts: ["terminal.local"],
       port: 5173,
       proxy: {
-        // Only the map-planner endpoints use the local development server.
+        // Exact development-only routes use the local development server.
         // Existing assistant tools and account APIs retain their configured hosts.
+        ...(eventCommunityDevApiUrl ? {
+          "^/api/event-community(?:\\?|$)": {
+            target: eventCommunityDevApiUrl,
+            changeOrigin: true,
+          },
+        } : {}),
+        // Local map testing must not replace the configured live event source.
+        // Opt into a local Events handler separately when testing that source.
+        ...(eventsDevApiUrl ? {
+          "^/api/events(?:\\?|$)": {
+            target: eventsDevApiUrl,
+            changeOrigin: true,
+          },
+        } : {}),
         ...(mapsDevApiUrl ? {
+          "^/api/maps/(?:resource|places|directions|search)(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
+          "^/api/country-community/social(?:\\?|$)": {
+            target: mapsDevApiUrl,
+            changeOrigin: true,
+          },
           "^/api/maps/token(?:\\?|$)": {
             target: mapsDevApiUrl,
             changeOrigin: true,

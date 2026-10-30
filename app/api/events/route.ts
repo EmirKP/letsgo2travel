@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchTravelEvents, type TravelEventCategory } from "@/lib/travel-events";
+import { searchTravelEvents, searchTravelEventPage, type TravelEventCategory } from "@/lib/travel-events";
 import { listEventCities } from "@/lib/airport-search";
 import { isValidTimeZone, isoDateAfterDays, sanitizeTimeZone, todayIsoInTimeZone } from "@/lib/date-utils";
 
@@ -15,6 +15,12 @@ function validIsoDate(value: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const paginated = url.searchParams.get('paged') === 'true' && url.searchParams.get('featured') !== 'true';
+  const query = (url.searchParams.get('q') || '').trim();
+  const cursor = url.searchParams.get('cursor') || undefined;
+  if (query.length > 120 || /[\u0000-\u001f\u007f]/.test(query) || cursor && (cursor.length > 4000 || !paginated)) {
+    return NextResponse.json({ error: 'Geçersiz etkinlik araması.', code: 'EVENT_SEARCH_INVALID' }, { status: 400 });
+  }
   const rawTimeZone = url.searchParams.get("timeZone");
   if (rawTimeZone && !isValidTimeZone(rawTimeZone.trim())) {
     return NextResponse.json({ error: "Geçersiz saat dilimi.", code: "EVENT_TIME_ZONE_INVALID" }, { status: 400 });
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Geçersiz etkinlik tarihi.", code: "EVENT_DATE_INVALID" }, { status: 400 });
   }
   const startDate = rawStartDate || today;
-  const endDate = rawEndDate || isoDateAfterDays(120, timeZone);
+  const endDate = rawEndDate || isoDateAfterDays(paginated ? 7 : 120, timeZone);
   if (startDate < today) {
     return NextResponse.json({ error: "Etkinlik başlangıcı geçmiş bir tarih olamaz.", code: "EVENT_DATE_PAST" }, { status: 400 });
   }
@@ -67,7 +73,7 @@ export async function GET(request: Request) {
   const limit = Math.max(1, Math.min(Math.floor(Number(url.searchParams.get("limit")) || 24), 50));
 
   try {
-    const result = await searchTravelEvents({
+    const search = {
       countryCode,
       city,
       placeCode,
@@ -76,7 +82,9 @@ export async function GET(request: Request) {
       category,
       featured,
       limit,
-    });
+      query: query || undefined,
+    };
+    const result = paginated ? await searchTravelEventPage(search, cursor) : await searchTravelEvents(search);
     return NextResponse.json({
       data: result.events,
       meta: {
@@ -87,13 +95,15 @@ export async function GET(request: Request) {
         coverageStatus: result.coverageStatus,
         partial: result.partial,
         updatedAt: new Date().toISOString(),
+        ...('nextCursor' in result && 'paginationLimited' in result ? { nextCursor: result.nextCursor, paginationLimited: result.paginationLimited } : {}),
       },
     }, {
       headers: { "Cache-Control": result.coverageStatus === "provider_unavailable" || result.coverageStatus === "not_configured"
         ? "no-store"
         : "public, max-age=120, s-maxage=900, stale-while-revalidate=1800" },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === 'event_cursor_invalid') return NextResponse.json({ error: 'Arama değişti. İlk sayfadan tekrar ara.', code: 'EVENT_CURSOR_INVALID' }, { status: 400 });
     return NextResponse.json({ error: "Etkinlikler şu anda alınamadı." }, { status: 503 });
   }
 }

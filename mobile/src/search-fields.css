@@ -1,0 +1,71 @@
+/* Composite searches have one rounded focus boundary. Ordinary form fields
+   and the buttons inside each search keep their own keyboard indicators. */
+@media (max-width: 767px) {
+  /* iOS enlarges focused fields below 16px. Keep zoom available to the user. */
+  :root .editorial-app input:is([type="search"], [type="text"], [type="email"], [type="password"], [type="number"], :not([type])),
+  :root .editorial-app select,
+  :root .editorial-app textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+@supports selector(:has(input)) {
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :is(
+    .rh-search, .global-search-field, .country-picker-search,
+    .search-input, .editorial-search, .guide-search,
+    .daily-library-search, .discovery-search, .event-name-search,
+    .ta-tool-search, .ta-offline-search, .um-search, .jsv-search,
+    .cs-group-search, .budget-city-search
+  ):has(> input) {
+    transition: border-color .16s ease, box-shadow .16s ease;
+  }
+
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :is(
+    .rh-search, .global-search-field, .country-picker-search,
+    .search-input, .editorial-search, .guide-search,
+    .daily-library-search, .discovery-search, .event-name-search,
+    .ta-tool-search, .ta-offline-search, .um-search, .jsv-search,
+    .cs-group-search, .budget-city-search
+  ) > input:is(:focus, :focus-visible) {
+    outline: none;
+    box-shadow: none;
+  }
+
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :is(
+    .rh-search, .global-search-field, .country-picker-search,
+    .search-input, .editorial-search, .guide-search,
+    .daily-library-search, .discovery-search, .event-name-search,
+    .ta-tool-search, .ta-offline-search, .um-search, .jsv-search,
+    .cs-group-search, .budget-city-search
+  ):has(> input:focus) {
+    border-color: var(--theme-link, #166deb);
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-link, #166deb) 10%, transparent);
+  }
+
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :is(
+    .rh-search, .global-search-field, .country-picker-search,
+    .search-input, .editorial-search, .guide-search,
+    .daily-library-search, .discovery-search, .event-name-search,
+    .ta-tool-search, .ta-offline-search, .um-search, .jsv-search,
+    .cs-group-search, .budget-city-search
+  ):has(> input:focus-visible) {
+    outline: 2px solid color-mix(in srgb, var(--theme-link, #166deb) 75%, transparent);
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :has(> input[type="search"]) {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  :root :is(.app-shell.editorial-app, body:has(.editorial-app) .sheet) :has(> input[type="search"]:focus) {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

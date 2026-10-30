@@ -1,3 +1,4 @@
+import { translateTuple } from "../lib/locale";
 import { useState } from 'react';
 import { emergencyContacts, emergencyGuidance, dialUrl } from '../../../lib/travel-assistant/emergency';
 import { embassiesFor, MISSION_DIRECTORIES } from '../../../lib/travel-assistant/guides';
@@ -33,7 +34,7 @@ export function TravelSafety({ country, onOpen, onNotice }: {
   const [sharing, setSharing] = useState(false);
   const contacts = emergencyContacts(country);
   const guidance = emergencyGuidance(country);
-  const localizedNote = (note: {tr:string;en:string;sq?:string} | undefined) => note?.[locale === 'sq' && note.sq ? 'sq' : locale === 'tr' ? 'tr' : 'en'] || '';
+  const localizedNote = (note: {tr:string;en:string;sq?:string} | undefined) => note ? copy(note.tr, note.en, note.sq) : '';
   const profileNote = localizedNote(guidance?.note);
   async function share() {
     setSharing(true);
@@ -51,7 +52,7 @@ export function TravelSafety({ country, onOpen, onNotice }: {
     {(profileNote || !contacts.length) && <p role="status" className={contacts.length ? 'ta-warning' : 'ta-empty'}>{profileNote || copy('Bu ülke için doğrulanmış numara henüz yok. Genel bir numara varsaymıyoruz; yerel resmî kaynağa başvur.', 'Verified numbers are not yet available for this country. No universal number is assumed; consult local official guidance.')}</p>}
     {locale === "sq" && ((guidance?.note && !guidance.note.sq) || contacts.some(contact => contact.note && !contact.note.sq)) && <p className="ta-muted" lang="sq">Shënimet nga burimi zyrtar janë në anglisht.</p>}
     <div className="ta-call-grid">{contacts.map(c => <article key={`${c.country}-${c.category}-${c.number}`}>
-      <a href={dialUrl(c.number) || undefined} aria-label={`${serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]} ${c.number}`}><span>{serviceLabels[c.category][locale === 'sq' ? 2 : locale === 'tr' ? 0 : 1]}</span><strong>{c.number}</strong><small>{copy('Ara', 'Call')}</small></a>
+      <a href={dialUrl(c.number) || undefined} aria-label={`${translateTuple(locale, serviceLabels[c.category])} ${c.number}`}><span>{translateTuple(locale, serviceLabels[c.category])}</span><strong>{c.number}</strong><small>{copy('Ara', 'Call')}</small></a>
       {localizedNote(c.note) && localizedNote(c.note) !== profileNote && <small>{localizedNote(c.note)}</small>}
     </article>)}</div>
     {contacts[0] && <EvidenceLine item={contacts[0]}/>}
@@ -62,7 +63,7 @@ export function TravelSafety({ country, onOpen, onNotice }: {
     <button className="secondary-wide" type="button" disabled={sharing} onClick={() => void share()}><Icon name="share" size={18}/>{sharing ? copy('Konum alınıyor…','Getting location…') : copy('Yaklaşık konumumu paylaş','Share my approximate location')}</button>
   </section>;
 }
-export function EmbassyCards({ country, citizenship }: {country:string; citizenship:string}) {
+export function EmbassyCards({ country, citizenship, onShowMap, onDirections }: {country:string; citizenship:string; onShowMap?:(address:string)=>void; onDirections?:(address:string)=>void}) {
   const { copy, locale } = useI18n();
   const rows = embassiesFor(citizenship, country);
   return <section className="ta-panel"><h3>{copy('Konsolosluk ve büyükelçilik', 'Consulates and embassies')}</h3>
@@ -73,8 +74,8 @@ export function EmbassyCards({ country, citizenship }: {country:string; citizens
       <div className="ta-actions"><a href={dialUrl(e.phone) || undefined}>{copy('Telefon','Phone')}: {e.phone}</a>{e.emergencyPhone && (e.emergencyChannel === 'whatsapp'
         ? <button type="button" onClick={() => void openExternal(`https://wa.me/${e.emergencyPhone!.replace(/^\+/, '')}`)}>{copy('Acil WhatsApp','Emergency WhatsApp')}: {e.emergencyPhone}</button>
         : <a href={dialUrl(e.emergencyPhone) || undefined}>{copy('Acil telefon','Emergency phone')}: {e.emergencyPhone}</a>)}
-      <button type="button" onClick={() => void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.address)}`)}>{copy('Haritada göster','Show on map')}</button>
-      <button type="button" onClick={() => void openExternal(directionsUrl(e.address))}>{copy('Yol tarifi','Directions')}</button></div>
+      <button type="button" onClick={() => onShowMap ? onShowMap(e.address) : void openExternal(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.address)}`)}>{copy('Haritada göster','Show on map','Shfaq në hartë')}</button>
+      <button type="button" onClick={() => onDirections ? onDirections(e.address) : void openExternal(directionsUrl(e.address))}>{copy('Yol tarifi','Directions','Udhëzime')}</button></div>
       {!e.emergencyPhone && <small>{copy('Ayrı acil telefon doğrulanmadı.', 'Separate emergency phone not verified.')}</small>}<EvidenceLine item={e}/></article>)}
     {MISSION_DIRECTORIES[citizenship] && <button className="secondary-wide" type="button" onClick={() => void openExternal(MISSION_DIRECTORIES[citizenship])}>{copy('Resmî temsilcilik dizini','Official mission directory')}<Icon name="external" size={16}/></button>}
   </section>;

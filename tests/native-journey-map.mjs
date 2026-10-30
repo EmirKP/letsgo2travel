@@ -3,11 +3,12 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 function loadCategory(path, imports = {}) {
   const output = { exports: {} };
   const source = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL })(name => imports[name], output, output.exports);
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { URL })(name => realLocaleModule(name) || imports[name], output, output.exports);
   return output.exports;
 }
 const categories = loadCategory('mobile/src/components/journeyMapCategory.ts', { '../../../lib/travel-assistant/places': loadCategory('lib/travel-assistant/places.ts') });

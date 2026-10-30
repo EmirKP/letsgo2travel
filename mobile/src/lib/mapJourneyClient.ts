@@ -199,7 +199,7 @@ export function validateJourneySearch(raw: unknown): JourneyArea[] {
   });
 }
 
-export async function searchJourneyArea(query: string, signal?: AbortSignal, locale: 'tr' | 'en' | 'sq' = 'tr'): Promise<JourneyArea[]> {
+export async function searchJourneyArea(query: string, signal?: AbortSignal, locale: 'tr' | 'en' | 'sq' | 'ro' = 'tr'): Promise<JourneyArea[]> {
   const known = knownJourneyArea(query);
   if (known) return [known];
   const result = await requestJson<unknown>('/api/travel-assistant/journey-search', {method:'POST',body:{query:query.trim(),locale},signal,timeoutMs:15000});

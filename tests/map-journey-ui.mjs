@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from './fixtures/real-locale-modules.mjs';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -26,6 +27,7 @@ function load(path, imports = {}, environment = {}) {
     Error, Date, Intl, URL, AbortController, setTimeout, clearTimeout, requestAnimationFrame: fn => fn(), window:{addEventListener(){},removeEventListener(){}}, ...environment,
   })(name => {
     if (Object.hasOwn(imports, name)) return imports[name];
+    const localeModule=realLocaleModule(name);if(localeModule)return localeModule;
     if (name.endsWith('.css')) return {};
     throw Error(`Missing fixture import: ${name}`);
   }, fixtureModule, fixtureModule.exports);
@@ -97,10 +99,12 @@ function fixture(options = {}) {
   });
   const Main = load('mobile/src/components/MapJourneyPlanner.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' },
+    '../lib/activeTripContext': { useActiveTripContext: () => options.activeTrip || null },
     '../lib/i18n': { useI18n: () => ({ locale, copy: (tr, en, sq) => locale === 'tr' ? tr : locale === 'sq' ? sq : en }) },
     '../lib/localeFormatting':{formatAppDate:(date,locale,options)=>new Intl.DateTimeFormat(locale,options).format(date)},
     './Icon': { Icon: 'Icon' }, './JourneyMap': { JourneyMap: 'JourneyMap' }, './JourneySetupSurvey': survey,
     './RouteTranslation': { RouteTranslation: ({text}) => text },
+    './JourneyLiveGuide': {JourneyLiveGuide:'JourneyLiveGuide'},
     './JourneyPlacePhoto': {JourneyPlacePhoto:'JourneyPlacePhoto'},
     '../lib/journeyPhotoClient': {journeyPhotoKey:place=>JSON.stringify([place.id,place.name,place.latitude,place.longitude,place.sourceUrl]),loadJourneyPhotos:(...args)=>{calls.photos.push(args);return options.photos?options.photos(...args):Promise.resolve(new Map());}},
     '../lib/journeyPlanClient': { ...planClient, hasPendingJourneyPlan:()=>!!options.recovery,hasJourneyPlanRecovery:async (...args)=>typeof options.recovery==='function'?options.recovery(...args):!!options.recovery,
@@ -124,7 +128,7 @@ function fixture(options = {}) {
       loadWalkingRoute: (...args) => { calls.route.push(args); return options.route ? options.route(...args) : Promise.reject(Object.assign(Error('Unavailable'), { code: 'routing_unavailable' })); },
     },
   }).MapJourneyPlanner;
-  root = Main; props = { ownerId: Object.hasOwn(options,'ownerId')?options.ownerId:'fixture-owner', accessToken: Object.hasOwn(options,'token')?options.token:'fixture-token', initialCity: 'Roma', initialJourney: options.initialJourney, onUpdateTrip: options.updateTrip,onOpenAccount:()=>calls.signIn++, onNotice: value => calls.notices.push(value) };
+  root = Main; props = { ownerId: Object.hasOwn(options,'ownerId')?options.ownerId:'fixture-owner', accessToken: Object.hasOwn(options,'token')?options.token:'fixture-token', initialCity: options.initialCity ?? 'Roma', initialArea:options.initialArea, initialJourney: options.initialJourney, initialDay:options.initialDay,initialDayRequestId:options.initialDayRequestId,tripId:options.tripId,onUpdateTrip: options.updateTrip,onOpenAccount:()=>calls.signIn++, onNotice: value => calls.notices.push(value) };
   function resolve(node, path, visited) {
     if (Array.isArray(node)) return node.map((child, index) => resolve(child, `${path}/${child?.key ?? index}`, visited));
     if (!node || typeof node !== 'object') return node;
@@ -189,6 +193,41 @@ test('Map and day list share selected place identity, and moving the selected st
     app.click('Day 2');
     assert.equal(app.map.activeDay, 2);
   } finally { app.dispose(); }
+});
+
+test('A live-guide link opens the exact initial day and repeat explicit requests select that day without replacing open edits',()=>{
+  const plan=journey(),app=fixture({initialJourney:plan,initialDay:2,initialDayRequestId:1,tripId:'trip-a'});
+  try{
+    assert.equal(app.map.activeDay,2);let guide=find(app.tree,'JourneyLiveGuide');assert.equal(guide.props.day,2);assert.equal(guide.props.tripId,'trip-a');assert.equal(guide.props.journey.id,plan.id);
+    const picker=find(app.tree,'select',props=>props['aria-label']==='Choose day');picker.props.onChange({target:{value:'1'}});app.render();assert.equal(app.map.activeDay,1);
+    app.render({initialDay:2,initialDayRequestId:2});assert.equal(app.map.activeDay,2);guide=find(app.tree,'JourneyLiveGuide');assert.equal(guide.props.journey.id,plan.id);assert.equal(app.calls.saved.length,0);assert.equal(app.calls.generation.length,0);
+  }finally{app.dispose();}
+});
+test('The map guide saves its exact durable journey before start and refuses failed or reidentified saves',async()=>{
+  const plan=journey(),app=fixture({initialJourney:plan,initialDay:2});
+  try{const allowed=await find(app.tree,'JourneyLiveGuide').props.beforeStart();assert.equal(allowed,true);assert.equal(app.calls.saved.length,1);assert.equal(app.calls.saved[0][0].id,plan.id);assert.equal(app.calls.saved[0][1],'fixture-owner');assert.equal(app.calls.generation.length,0);assert.equal(app.calls.gps,0);}finally{app.dispose();}
+  const failed=fixture({initialJourney:plan,save:()=>{throw Error('storage blocked');}});
+  try{assert.equal(await find(failed.tree,'JourneyLiveGuide').props.beforeStart(),false);failed.render();assert.match(text(failed.tree),/Plan could not save/);}finally{failed.dispose();}
+  const renamed=fixture({initialJourney:plan,save:next=>({journey:{...next,id:'reidentified-plan'},status:'queued'})});
+  try{assert.equal(await find(renamed.tree,'JourneyLiveGuide').props.beforeStart(),false);renamed.render();assert.equal(find(renamed.tree,'JourneyLiveGuide').props.journey.id,'reidentified-plan');assert.match(text(renamed.tree),/Tap Start again/);}finally{renamed.dispose();}
+});
+test('A pending pre-start save cannot authorize a guide after its owner editor unmounts',async()=>{
+  const wait=deferred(),app=fixture({initialJourney:journey(),sync:()=>wait.promise});
+  try{const saving=find(app.tree,'JourneyLiveGuide').props.beforeStart();app.render({ownerId:'different-owner'});wait.resolve();assert.equal(await saving,false);}finally{app.dispose();}
+});
+test('An explicit new area never inherits another city memory or stored survey, while reopening the same area restores its exact draft',async()=>{
+  const storage=new Map(),tokyo=client.knownJourneyArea('Tokyo'),paris=client.knownJourneyArea('Paris');
+  const app=fixture({storage,initialCity:'Tokyo',initialArea:tokyo});let originalId;
+  try{
+    app.submit();app.submit();app.submit();app.input('Anything else you would like?','Tokyo draft for this precise area','textarea');app.click('Create my AI itinerary');await tick();app.render();
+    originalId=find(app.tree,'JourneyLiveGuide').props.journey.id;assert.equal(app.map.center.latitude,tokyo.latitude);
+    app.render({initialCity:'Paris',initialArea:paris});assert.equal(app.map,undefined);assert.match(text(app.tree),/Where would you like to go/);assert.doesNotMatch(text(app.tree),/Tokyo draft|Return to my open plan/);
+    app.submit();app.submit();app.submit();assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'','The old city notes are not prefilled into the new area');
+    app.render({initialCity:'Tokyo',initialArea:tokyo});assert.equal(field(app.tree,'Anything else you would like?','textarea').props.value,'Tokyo draft for this precise area');
+    app.click('Return to my open plan · Tokyo');assert.equal(find(app.tree,'JourneyLiveGuide').props.journey.id,originalId);assert.equal(app.calls.generation.length,1,'Reopening its draft never generates again');
+  }finally{app.dispose();}
+  const freshOther=fixture({storage,initialCity:'Paris',initialArea:paris});try{assert.doesNotMatch(text(freshOther.tree),/Tokyo draft|Return to my open plan/);assert.equal(field(freshOther.tree,'Anything else you would like?','textarea').props.value,'');}finally{freshOther.dispose();}
+  const freshSame=fixture({storage,initialCity:'Tokyo',initialArea:tokyo});try{assert.equal(field(freshSame.tree,'Anything else you would like?','textarea').props.value,'Tokyo draft for this precise area');assert.equal(freshSame.calls.generation.length,0);}finally{freshSame.dispose();}
 });
 
 test('Optional venue photos enrich the active map and cards without delaying editing, changing the plan or marking it dirty', async () => {
@@ -1130,19 +1169,22 @@ test('The explicit day picker reaches the last day even when its horizontal tab 
 });
 
 test('Every Sheet dismissal path honors its scoped cancellable editor event',()=>{
+ for(const customHeader of [false,true]){
   const effects=[],refs=[],keyHandlers=new Map();let registeredClose,closed=0;
   const sheet=new EventTarget();Object.assign(sheet,{contains:()=>false,querySelector:()=>null,querySelectorAll:()=>[]});
-  const fakeDocument={activeElement:null,body:{classList:{add(){},remove(){}}},getElementById:()=>null};
+  const fakeDocument={activeElement:null,body:{classList:{add(){},remove(){}}},getElementById:id=>id==='sheet-title'?{closest:selector=>selector==='.sheet'?sheet:null}:null};
   const component=load('mobile/src/components/Sheet.tsx',{
-    react:{useEffect:fn=>effects.push(fn),useRef:value=>{const ref={current:value};refs.push(ref);return ref;},useState:value=>[value,()=>{}],useId:()=> 'sheet-title'},
+    react:{useCallback:fn=>fn,useEffect:fn=>effects.push(fn),useRef:value=>{const ref={current:value};refs.push(ref);return ref;},useState:value=>[value,()=>{}],useId:()=> 'sheet-title'},
     'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node},'./Icon':{Icon:'Icon'},'../lib/i18n':{useI18n:()=>({copy:(_tr,en)=>en})},
     '../lib/sheetStack':{isTopSheet:()=>true,registerSheet:(_token,close)=>{registeredClose=close;},unregisterSheet(){},subscribeSheetStack:()=>()=>{}},
   },{document:fakeDocument,Event,HTMLElement:class{},window:{addEventListener:(name,fn)=>keyHandlers.set(name,fn),removeEventListener:name=>keyHandlers.delete(name),requestAnimationFrame:fn=>{fn();return 1;},cancelAnimationFrame(){}}}).Sheet;
-  const tree=component({open:true,title:'Map',onClose:()=>closed++,children:'Editor'});
+  const tree=component({open:true,title:'Map',onClose:()=>closed++,children:'Editor',...(customHeader?{renderHeader:close=>jsx('button',{onClick:close,children:'Back'})}:{})});
+  assert.equal(find(tree,'section').props['aria-labelledby'],'sheet-title');assert.equal(find(tree,'h2').props.id,'sheet-title');
   refs[0].current=sheet;const cleanup=effects.map(fn=>fn());
   const block=event=>event.preventDefault();sheet.addEventListener('sheet:before-close',block);
   find(tree,'button').props.onClick();registeredClose();keyHandlers.get('keydown')({key:'Escape',preventDefault(){}});
   tree.props.onMouseDown({currentTarget:sheet,target:sheet});assert.equal(closed,0);
   sheet.removeEventListener('sheet:before-close',block);registeredClose();assert.equal(closed,1);
   cleanup.forEach(fn=>fn?.());
+ }
 });

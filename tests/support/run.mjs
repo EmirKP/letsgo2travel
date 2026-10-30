@@ -3,13 +3,14 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import ts from "typescript";
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 
 const require = createRequire(import.meta.url);
 function loadSource(path, imports = {}, globals = {}) {
   const source = readFileSync(path, "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const sourceModule = { exports: {} };
-  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? require(name), URL, ...globals }, { filename: path });
+  vm.runInNewContext(compiled, { module: sourceModule, exports: sourceModule.exports, require: (name) => imports[name] ?? realLocaleModule(name) ?? require(name), URL, ...globals }, { filename: path });
   return sourceModule.exports;
 }
 

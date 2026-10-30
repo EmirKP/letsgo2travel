@@ -10,9 +10,11 @@ import { Sheet } from "./Sheet";
 import { useI18n } from "../lib/i18n";
 import { AccountDeletionPanel } from "./AccountDeletionPanel";
 
-export function AccountSheet({ open, onClose, auth, onNotice }: {
+export function AccountSheet({ open, onClose, onAuthenticated, onEditProfile, auth, onNotice }: {
   open: boolean;
   onClose: () => void;
+  onAuthenticated?: () => void;
+  onEditProfile?: () => void;
   auth: ReturnTypeUseAuth;
   onNotice: (message: string) => void;
 }) {
@@ -86,7 +88,8 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
         await auth.signInWithEmail(email, password);
         setPassword("");
         onNotice(copy("Giriş yapıldı.", "Signed in."));
-        handleClose();
+        if (onAuthenticated) { clearSensitiveState(); onAuthenticated(); }
+        else handleClose();
       } else if (mode === "register") {
         const message = await auth.signUpWithEmail(email, password, { fullName, username });
         setEmail("");
@@ -193,14 +196,14 @@ export function AccountSheet({ open, onClose, auth, onNotice }: {
         <h3>{displayName}</h3>
         <p>{user.email}</p>
         <div className="detail-list"><div><span>{copy("E-posta doğrulaması", "Email verification")}</span><strong>{user.email_confirmed_at ? copy("Tamamlandı", "Complete") : copy("Bekliyor", "Pending")}</strong></div><div><span>{copy("Üyelik tarihi", "Joined")}</span><strong>{formatAppDate(new Date(user.created_at), dateLocale, {})}</strong></div></div>
-        {(needsProfileCompletion || profileEditMode) && <div className="account-profile-edit">
+        {!onEditProfile && (needsProfileCompletion || profileEditMode) && <div className="account-profile-edit">
           <div className="info-box"><Icon name="info" size={19} /><p>{copy("Apple isim bilgisini yalnız ilk yetkilendirmede paylaşabilir. Adını ve kullanıcı adını burada tamamlayarak iki platformda aynı profili kullan.", "Apple may share your name only on first authorisation. Complete your name and username here to use the same profile on both platforms.")}</p></div>
           <label>{copy("Ad soyad", "Full name")}<input value={profileFullName} maxLength={100} autoComplete="name" onChange={(event) => setProfileFullName(event.target.value)} placeholder={copy("Adın ve soyadın", "Your full name")} /></label>
           <label>{copy("Kullanıcı adı", "Username")}<input value={profileUsername} minLength={3} maxLength={20} autoCapitalize="none" spellCheck={false} onChange={(event) => setProfileUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20))} placeholder="example_traveller" /></label>
           <button className="primary-wide" disabled={busy} onClick={() => void submitProfile()}>{busy ? <span className="button-loader" /> : <Icon name="check" size={18} />} {copy("Profili tamamla", "Complete profile")}</button>
           {!needsProfileCompletion && <button className="secondary-wide" disabled={busy} onClick={() => setProfileEditMode(false)}>{copy("Vazgeç", "Cancel")}</button>}
         </div>}
-        {!needsProfileCompletion && !profileEditMode && <button className="secondary-wide" onClick={() => setProfileEditMode(true)}><Icon name="settings" size={18} /> {copy("Profil bilgilerini düzenle", "Edit profile")}</button>}
+        {onEditProfile ? <button type="button" className="secondary-wide" disabled={busy} onClick={onEditProfile}><Icon name="user" size={18}/>{needsProfileCompletion ? copy("Profilini tamamla", "Complete your profile", "Plotëso profilin") : copy("Profili düzenle", "Edit profile", "Ndrysho profilin")}</button> : !needsProfileCompletion && !profileEditMode && <button className="secondary-wide" onClick={() => setProfileEditMode(true)}><Icon name="settings" size={18} /> {copy("Profil bilgilerini düzenle", "Edit profile")}</button>}
         <AccountDeletionPanel key={user.id} ownerId={user.id} accessToken={auth.accessToken || ""} email={user.email || ""} onBusyChange={setBusy} />
         <button className="danger-wide" disabled={busy} onClick={() => void submitSignOut()}>{busy ? <span className="button-loader dark" /> : <Icon name="logout" size={18} />} {copy("Çıkış yap", "Sign out")}</button>
       </div>

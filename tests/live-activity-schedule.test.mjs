@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
-require('ts-node').register({ transpileOnly: true, compilerOptions: { module: 'CommonJS', moduleResolution: 'node', esModuleInterop: true } });
+require('ts-node').register({ transpileOnly: true, moduleTypes: { '**': 'cjs' }, compilerOptions: { module: 'CommonJS', moduleResolution: 'node', esModuleInterop: true } });
 const { buildStartPayload, activityArrivalAtMs } = require('../lib/live-activity-cron.ts');
 const { liveActivityAps } = require('../lib/push/apns.ts');
 const departureAt = '2026-10-10T10:00:00.000Z';
@@ -23,7 +23,7 @@ function mobileFixture() {
       ? { isAvailable: async () => ({ available: true }), startFlightActivity: async value => { starts.push(value); }, endFlightActivity: async value => { ends.push(value); } }
       : { checkPermissions: async () => ({ display: 'denied' }) },
   };
-  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date })(() => bridge, testModule, testModule.exports);
+  vm.runInNewContext(`(function(require,module,exports){${source}\n})`, { Date })((id) => id === './locale' ? require('../mobile/src/lib/locale.ts') : bridge, testModule, testModule.exports);
   return { ...testModule.exports, starts, ends };
 }
 
@@ -176,7 +176,7 @@ test('Native source preserves legacy decoding, fractional dates, safe countdowns
   assert.ok(widget.includes('Locale(identifier: text("tr_TR", "en_GB", "sq_AL"))'));
   assert.ok(widget.includes('formatter.locale = language.locale'));
   assert.ok(widget.includes('environment(\\.locale, readout.language.locale)'));
-  assert.ok(bridge.includes('["tr", "en", "sq"].contains(call.getString("language") ?? "")'));
+  assert.ok(bridge.includes('["tr", "en", "sq", "ro"].contains(call.getString("language") ?? "")'));
   for (const label of ['Nisja sipas orarit', 'Mbërritja sipas orarit', 'Statusi duhet përditësuar', 'Hap udhëtimin për ta rifreskuar', 'Fluturimi yt']) assert.ok(widget.includes(label), label);
   assert.ok(!widget.includes('"Flying"') && !widget.includes('"Arrived"') && !widget.includes('checkmark.circle.fill'));
 });

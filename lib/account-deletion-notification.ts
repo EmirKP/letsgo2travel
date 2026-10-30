@@ -1,22 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendMail } from "./mail";
+import { translateAppCopy } from './locale-copy';
 
 export type DeletionJob = {
   request_id: string; target_user_id: string | null; recipient_email: string | null;
-  locale: "tr" | "en"; phase: "prepared" | "cleaned" | "deleted" | "notified";
+  locale: "tr" | "en" | "sq" | "ro"; phase: "prepared" | "cleaned" | "deleted" | "notified";
   completed_at: string | null;
 };
 
 export function completionMail(job: DeletionJob) {
-  const english = job.locale === "en";
   // No account name, travel content, tokens, PNR or identifiers in the email.
   return {
     to: job.recipient_email!, category: "account_deletion_completion",
     idempotencyKey: `account-deletion-completed/${job.request_id}`,
-    subject: english ? "Your LetsGo2Travel account has been deleted" : "LetsGo2Travel hesabın silindi",
-    html: english
-      ? "<h1>Your account has been deleted</h1><p>Your LetsGo2Travel account and associated private records have been deleted. Your community content has been removed or anonymised. This email confirms that your deletion request is complete.</p>"
-      : "<h1>Hesabın silindi</h1><p>LetsGo2Travel hesabın ve hesaba bağlı özel kayıtların silindi. Topluluk içeriklerin kaldırıldı veya anonimleştirildi. Bu e-posta, hesap silme talebinin tamamlandığını bildirir.</p>",
+    subject: translateAppCopy(job.locale, 'LetsGo2Travel hesabın silindi', 'Your LetsGo2Travel account has been deleted', 'Llogaria jote LetsGo2Travel u fshi'),
+    html: translateAppCopy(job.locale,
+      "<h1>Hesabın silindi</h1><p>LetsGo2Travel hesabın ve hesaba bağlı özel kayıtların silindi. Topluluk içeriklerin kaldırıldı veya anonimleştirildi. Bu e-posta, hesap silme talebinin tamamlandığını bildirir.</p>",
+      "<h1>Your account has been deleted</h1><p>Your LetsGo2Travel account and associated private records have been deleted. Your community content has been removed or anonymised. This email confirms that your deletion request is complete.</p>",
+      '<h1>Llogaria jote u fshi</h1><p>Llogaria jote LetsGo2Travel dhe të dhënat private të lidhura me të u fshinë. Përmbajtja jote në komunitet u hoq ose u anonimizua. Ky email konfirmon përfundimin e kërkesës së fshirjes.</p>'),
   };
 }
 

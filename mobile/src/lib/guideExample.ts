@@ -1,8 +1,9 @@
+import { translateCopy } from "./locale";
 import type { SavedRoutePlan } from '../types';
 
 /** An explicitly labelled local lesson, separate from the retained planner and AI requests. */
-export function createGuideExample(locale: 'tr' | 'en' | 'sq', now = new Date()): SavedRoutePlan {
-  const copy = (tr: string, en: string, sq: string) => locale === 'tr' ? tr : locale === 'sq' ? sq : en;
+export function createGuideExample(locale: 'tr' | 'en' | 'sq' | 'ro', now = new Date()): SavedRoutePlan {
+  const copy = (tr: string, en: string, sq: string) => translateCopy(locale, tr, en, sq);
   const city = copy('Roma', 'Rome', 'Romë');
   const name = copy('Eğitim örneği', 'Learning example', 'Shembull mësimor');
   return {

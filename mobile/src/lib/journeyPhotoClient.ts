@@ -22,7 +22,7 @@ export function validateJourneyPhotoResult(raw: unknown, places: JourneyPhotoPla
 }
 
 /** Public imagery is independent of account data and never mutates a trip. */
-export async function loadJourneyPhotos(places: JourneyPhotoPlace[], locale: 'tr' | 'en' | 'sq', signal?: AbortSignal): Promise<Map<string, JourneyPhoto>> {
+export async function loadJourneyPhotos(places: JourneyPhotoPlace[], locale: 'tr' | 'en' | 'sq' | 'ro', signal?: AbortSignal): Promise<Map<string, JourneyPhoto>> {
   const result = new Map<string, JourneyPhoto>();
   const valid = places.filter(place => parseJourneyPhotoRequest({ places: [place], locale }));
   const unique = [...new Map(valid.map(place => [journeyPhotoKey(place), place])).values()].slice(0, 120);

@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { realLocaleModule } from '../fixtures/real-locale-modules.mjs';
 const require=createRequire(import.meta.url);
-function load(path,imports={}) {const output=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const loadedModule={exports:{}};vm.runInNewContext(output,{module:loadedModule,exports:loadedModule.exports,require:name=>imports[name]??require(name),Request,Response,URL,console,Date,AbortSignal},{filename:path});return loadedModule.exports;}
+function load(path,imports={}) {const output=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const loadedModule={exports:{}};vm.runInNewContext(output,{module:loadedModule,exports:loadedModule.exports,require:name=>imports[name]??realLocaleModule(name)??require(name),Request,Response,URL,console,Date,AbortSignal},{filename:path});return loadedModule.exports;}
 const NextResponse={json:(body,init)=>Response.json(body,init)};
 const policy=load('lib/account-deletion-policy.ts');
 const id='10000000-0000-4000-8000-000000000001', owner='20000000-0000-4000-8000-000000000001';

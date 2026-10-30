@@ -2,7 +2,7 @@ import type { PlannerInput } from '../types';
 import type { AirportOption } from './airports';
 import { validTravelParty } from '../../../lib/planner-preferences';
 
-export type PlannerRecoveryDraft={form:PlannerInput;origin:AirportOption|null;destination:AirportOption|null;locale?:'tr'|'en'|'sq'};
+export type PlannerRecoveryDraft={form:PlannerInput;origin:AirportOption|null;destination:AirportOption|null;locale?:'tr'|'en'|'sq' | 'ro'};
 type Draft=PlannerRecoveryDraft;
 const key='l2t.planner-sign-in.v1';
 const claimPrefix='l2t.planner-sign-in-claim.v1:';
@@ -22,7 +22,7 @@ function validDraft(value:unknown):value is Draft {
   if(!value||typeof value!=='object')return false;
   const row=value as Draft,form=row.form;
   return !!form&&typeof form==='object'&&['origin','days','month','budget','accommodation','who','tempo','visa'].every(field=>text((form as unknown as Record<string,unknown>)[field]))
-    &&(row.locale===undefined||['tr','en','sq'].includes(row.locale))
+    &&(row.locale===undefined||['tr','en','sq', 'ro'].includes(row.locale))
     &&Array.isArray(form.vibe)&&form.vibe.length<=4&&form.vibe.every(item=>text(item,100))&&validAirport(row.origin)&&validAirport(row.destination)
     &&(form.party===undefined||validTravelParty(form.party))&&(form.dayCount===undefined||Number.isInteger(form.dayCount)&&form.dayCount>=1&&form.dayCount<=14)
     &&(form.destination===undefined||!!form.destination&&typeof form.destination==='object'&&['code','name','country','countryCode'].every(field=>text((form.destination as unknown as Record<string,unknown>)[field],260)));

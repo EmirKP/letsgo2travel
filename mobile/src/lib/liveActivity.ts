@@ -1,3 +1,4 @@
+import { translateCopy } from "./locale";
 import { addPluginListener, isIOSNative, isNativePlatform, plugin } from "./capacitor";
 
 // Yaklaşan ve devam eden Kokpit uçuşları için Live Activity katmanı.
@@ -21,7 +22,7 @@ export type FlightReminderTrip = {
   originTimeZone?: string | null;
   destinationTimeZone?: string | null;
   flightNumber?: string | null;
-  language?: "tr" | "en" | "sq";
+  language?: "tr" | "en" | "sq" | "ro";
   /** Present only for a server-authorized commercial flight, never a trial. */
   provider?: {
     status: string;
@@ -121,10 +122,8 @@ export function plannedReminders(trips: FlightReminderTrip[], now: Date = new Da
     .map((trip, index) => ({
       id: REMINDER_ID_BASE + index,
       tripId: trip.id,
-      title: trip.language === "sq" ? "Fluturimi yt po afron" : trip.language === "en" ? "Your flight is coming up" : "Uçuşun yaklaşıyor",
-      body: trip.language === "sq" ? `Kanë mbetur 3 orë deri në fluturimin tënd për ${trip.title}. Lista e përgatitjeve është gati te udhëtimi yt.` : trip.language === "en"
-        ? `3 hours until your ${trip.title} flight. Your checklist is ready in Cockpit.`
-        : `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`,
+      title: translateCopy(trip.language || "tr", "Uçuşun yaklaşıyor", "Your flight is coming up", "Fluturimi yt po afron"),
+      body: translateCopy(trip.language || "tr", `${trip.title} uçuşuna 3 saat kaldı. Kokpitte hazırlık listen seni bekliyor.`, `3 hours until your ${trip.title} flight. Your checklist is ready in Cockpit.`, `Kanë mbetur 3 orë deri në fluturimin tënd për ${trip.title}. Lista e përgatitjeve është gati te udhëtimi yt.`),
       at: new Date(Date.parse(trip.departureAt!) - ACTIVITY_LEAD_MS),
     }));
 }

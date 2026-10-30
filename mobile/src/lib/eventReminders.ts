@@ -1,3 +1,4 @@
+import { translateCopy } from "./locale";
 import { addPluginListener, isNativePlatform, plugin } from "./capacitor";
 import { hasEventTime } from "../../../lib/event-time";
 import type { TravelEvent } from "../types";
@@ -8,6 +9,7 @@ type LocalNotificationsSurface = {
   requestPermissions?: () => Promise<{ display?: string }>;
   schedule?: (options: { notifications: Array<Record<string, unknown>> }) => Promise<void>;
   cancel?: (options: { notifications: Array<{ id: number }> }) => Promise<void>;
+  getPending?: () => Promise<{ notifications: Array<{ id: number }> }>;
 };
 const REMINDER_STORE_KEY = "l2t.mobile.event-reminders.v1";
 type StoredReminder = { id: number; eventId: string; startsAt: string; updatedAt: string; status: TravelEvent["status"]; ownerId?: string; pendingCancel?: boolean; timePrecision?: "exact" | "date" };
@@ -25,6 +27,31 @@ function notificationId(value: string) {
   return 520_000 + (hash % 1_500_000_000);
 }
 const sameOwner = (item: StoredReminder, owner: string) => (item.ownerId || "guest") === owner;
+export type EventReminderSummary = { eventId: string; state: 'scheduled' | 'recorded' | 'pending-cancel' };
+export async function readEventReminderState(ownerId?: string | null): Promise<{ items: EventReminderSummary[]; error: boolean }> {
+  try {
+    if (!isNativePlatform()) return { items: [], error: false };
+    const records = readReminders().filter(item => item && typeof item.eventId === 'string' && sameOwner(item, ownerId || 'guest') && item.timePrecision === 'exact');
+    const notifications = plugin('LocalNotifications') as LocalNotificationsSurface | undefined;
+    const pending = notifications?.getPending ? new Set((await notifications.getPending()).notifications.map(item => item.id)) : null;
+    return { items: records.filter(item => item.pendingCancel || !pending || pending.has(item.id)).map(item => ({ eventId: item.eventId, state: item.pendingCancel ? 'pending-cancel' : pending ? 'scheduled' : 'recorded' })), error: false };
+  } catch { return { items: [], error: true }; }
+}
+/** Checks only; permission prompts and scheduling remain explicit user actions. */
+export async function eventReminderPermission(): Promise<'granted' | 'denied' | 'prompt' | 'unavailable'> {
+  const notifications = plugin('LocalNotifications') as LocalNotificationsSurface | undefined;
+  if (!isNativePlatform() || !notifications?.checkPermissions) return 'unavailable';
+  try {
+    const permission = (await notifications.checkPermissions()).display;
+    return permission === 'granted' || permission === 'denied' ? permission : permission === 'prompt' || permission === 'prompt-with-rationale' ? 'prompt' : 'unavailable';
+  } catch { return 'unavailable'; }
+}
+export async function openEventNotificationSettings(): Promise<boolean> {
+  const settings = plugin('AppSettings');
+  if (!isNativePlatform() || !settings?.openNotificationSettings) return false;
+  try { const result = await settings.openNotificationSettings() as { opened?: boolean }; return result?.opened === true; }
+  catch { return false; }
+}
 async function cancel(reminder: StoredReminder) {
   writeReminders(readReminders().map(item => item.id === reminder.id ? { ...item, pendingCancel: true } : item));
   const notifications = plugin("LocalNotifications") as LocalNotificationsSurface | undefined;
@@ -34,7 +61,7 @@ async function cancel(reminder: StoredReminder) {
   writeReminders(readReminders().filter(item => item.id !== reminder.id));
   return true;
 }
-export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en" | "sq", ownerId?: string | null) {
+export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en" | "sq" | "ro", ownerId?: string | null) {
   return serial(async () => {
     if (!hasEventTime(event)) return { ok: false, reason: "time" as const };
     if (event.status !== "scheduled") return { ok: false, reason: "status" as const };
@@ -59,7 +86,7 @@ export function scheduleEventReminder(event: TravelEvent, locale: "tr" | "en" | 
     // Durable before native scheduling. A crash or quota error cannot leave an
     // untracked notification, and failed schedule calls remain cancellable.
     writeReminders([...registered, record]);
-    await notifications.schedule({ notifications: [{ id, title: locale === "sq" ? "Ngjarja jote po afron" : locale === "tr" ? "Etkinliğin yaklaşıyor" : "Your event is coming up", body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
+    await notifications.schedule({ notifications: [{ id, title: locale === "ro" ? "Evenimentul tău se apropie" : translateCopy(locale, "Etkinliğin yaklaşıyor", "Your event is coming up", "Ngjarja jote po afron"), body: `${event.title} · ${event.city}`, schedule: { at }, extra: { screen: "events", eventId: event.id, ownerId: owner } }] });
     writeReminders(readReminders().map(item => item.id === id ? { ...item, pendingCancel: false } : item));
     return { ok: true as const, at };
   });
@@ -70,7 +97,7 @@ export function cancelEventReminder(eventId: string, ownerId?: string | null) {
     return reminder ? cancel(reminder) : true;
   });
 }
-export async function reconcileEventReminders(events: TravelEvent[], locale: "tr" | "en" | "sq", ownerId?: string | null) {
+export async function reconcileEventReminders(events: TravelEvent[], locale: "tr" | "en" | "sq" | "ro", ownerId?: string | null) {
   const registered = readReminders().filter(item => sameOwner(item, ownerId || "guest"));
   let changes = 0;
   for (const reminder of registered) {

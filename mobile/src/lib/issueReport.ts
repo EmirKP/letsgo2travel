@@ -71,7 +71,7 @@ export async function prepareIssueScreenshot(file: File): Promise<string> {
   } finally { URL.revokeObjectURL(url); }
 }
 
-export async function sendIssueReport(draft: IssueDraft, context: { locale: "tr" | "en" | "sq"; version: string; build: string }, accessToken?: string) {
+export async function sendIssueReport(draft: IssueDraft, context: { locale: "tr" | "en" | "sq" | "ro"; version: string; build: string }, accessToken?: string) {
   const result = await requestJson<{ id?: string }>("/api/support/issues", {
     method: "POST", body: { ...draft, ...context },
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
