@@ -1002,7 +1002,7 @@ test("Build 18: öneri kartlarında şehirle eşleşen yerel görseller bulunur"
       assert.ok(loaded.exports.destinationArtwork(cityCode).endsWith(`${name}.webp`), `${bundler}: ${name} kendi yerel fotoğraf URL'sini vermeli`);
     }
     assert.match(loaded.exports.destinationArtwork("UNKNOWN_CITY"), /^data:image\/svg\+xml,/, "bilinmeyen şehir marka posteri veya başka destinasyon fotoğrafı yerine nötr yüzey kullanmalı");
-    assert.ok(loaded.exports.destinationArtwork("IST").endsWith("istanbul-bosphorus.jpg"), "İstanbul kendi Boğaz görselini kullanmalı");
+    assert.ok(loaded.exports.destinationArtwork("IST").endsWith("istanbul-bosphorus.webp"), "İstanbul kendi Boğaz görselini kullanmalı");
     assert.notEqual(loaded.exports.destinationArtwork("UNKNOWN_CITY"), loaded.exports.destinationArtwork("FCO"), "bilinmeyen şehir Roma görselini kullanmamalı");
   }
 });
