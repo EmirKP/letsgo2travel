@@ -1,8 +1,9 @@
 import { config } from './config';
 import { coordinates, validJourneyPlaceSource } from '../../../lib/travel-assistant/places';
 import type { Coordinates, Place } from '../../../lib/travel-assistant/types';
+import { normalizeMapAreaResult, type MapSearchResult } from '../../../lib/maps/map-search-result';
 export type MapPlace=Place&{address?:string|null;brand?:string|null};
-export type MapAreaResult=Coordinates&{name:string;address:string|null;sourceUrl:string;osmId:string;kind:'area'|'place';category?:Place['category']};
+export type MapAreaResult=MapSearchResult;
 export type MapDirections={mode:'walking'|'driving';distanceMeters:number;durationSeconds:number;coordinates:Array<[number,number]>;steps:Array<{instruction:string;distanceMeters:number;durationSeconds:number}>;sourceUrl:string;attribution:string};
 async function json<T>(path:string,signal?:AbortSignal,body?:unknown):Promise<T>{
   const r=await fetch(`${config.apiBaseUrl}${path}`,{method:body?'POST':'GET',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}),credentials:'omit',signal:AbortSignal.any([AbortSignal.timeout(38_000),...(signal?[signal]:[])])});
@@ -17,7 +18,7 @@ export async function findMapPlaces(center:Coordinates,category='all',query='',s
 export async function searchMapAreas(query:string,center:Coordinates,locale:string,signal?:AbortSignal){
   const params=new URLSearchParams({q:query,lat:String(center.latitude),lon:String(center.longitude),lang:locale});
   const result=await json<{data:MapAreaResult[]}>(`/api/maps/search?${params}`,signal);
-  return Array.isArray(result.data)?result.data.filter(p=>coordinates(p)&&validJourneyPlaceSource(p.osmId,p.sourceUrl)).slice(0,6):[];
+  return Array.isArray(result.data)?result.data.flatMap(p=>{const result=normalizeMapAreaResult(p);return result?[result]:[];}).slice(0,6):[];
 }
 export async function getMapDirections(origin:Coordinates,destination:Coordinates,mode:'walking'|'driving',locale:string,signal?:AbortSignal){
   const result=await json<{data:MapDirections}>('/api/maps/directions',signal,{origin,destination,mode,locale});

@@ -11,6 +11,17 @@ const model = require('../lib/maps/map-place-search.ts');
 const params = value => model.parseMapSearchInput(new URLSearchParams(value));
 const row = (overrides = {}) => ({ osm_type: 'relation', osm_id: 1741311, lat: '44.8178131', lon: '20.4568974', name: 'Belgrad', display_name: 'Belgrad, Sırbistan', category: 'boundary', type: 'administrative', addresstype: 'city', ...overrides });
 const response = value => Response.json(value);
+const contract = () => require('../lib/maps/map-search-result.ts');
+function appleHarness({ configured = true, raw, fail = false, mode = 'production' } = {}) {
+  const calls = [], fixtureModule = { exports: {} };
+  const code = ts.transpileModule(readFileSync(new URL('../lib/maps/map-place-search.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Error, Date, URL, URLSearchParams, AbortController, TextDecoder, setTimeout, clearTimeout,
+    process: { env: { NODE_ENV: mode } }, fetch: () => { throw Error('Public fallback must not run'); } })(name => name === './apple-maps-server'
+    ? { appleMapsServerConfigured: () => configured, appleMapsServerIdentity: () => 'fixture-key', appleMapsSearch: async (params, deadline) => {
+      calls.push({ params, deadline }); if (fail) throw Error('private provider error'); return raw;
+    } } : require(`../lib/maps/${name.slice(2)}.ts`), fixtureModule, fixtureModule.exports);
+  return { model: fixtureModule.exports, calls };
+}
 
 function harness(fetcher) {
   let time = 100_000;
@@ -165,4 +176,61 @@ test('HTTP route rejects invalid input before search and returns only bounded co
   assert.deepEqual(calls[0], { query: 'Belgrad', locale: 'en', latitude: 41, longitude: 29 });
   assert.equal((await ok.json()).data[0].osmId, 'relation/1741311');
   assert.equal(exports.OPTIONS().status, 204);
+});
+
+test('configured Apple is primary in development and production with coarse location and real area/POI identities', async () => {
+  const city = { name: 'Paris', coordinate: { latitude: 48.8567879, longitude: 2.3510768 }, formattedAddressLines: ['Paris', 'France'] };
+  const museum = { id: 'I_REAL_MUSEUM', poiCategory: 'Museum', name: 'Musée du Louvre', coordinate: { latitude: 48.8606, longitude: 2.3376 }, formattedAddressLines: ['Paris'] };
+  for (const mode of ['development', 'production']) {
+    const h = appleHarness({ mode, raw: { results: [city, museum, museum] } });
+    const input = { query: 'Paris', locale: 'tr', latitude: 41.0082376, longitude: 28.9783589 };
+    const [first, second] = await Promise.all([h.model.getMapPlaceSearch(input), h.model.getMapPlaceSearch(input)]);
+    assert.equal(h.calls.length, 1); assert.equal(first.length, 2); assert.equal(second.length, 2);
+    assert.equal(h.calls[0].params.get('lang'), 'tr-TR'); assert.equal(h.calls[0].params.get('searchLocation'), '41,29');
+    assert.equal(h.calls[0].params.has('userLocation'), false); assert.equal(h.calls[0].params.has('resultTypeFilter'), false);
+    assert.equal(first[0].id, 'apple-area/48.8567879,2.3510768'); assert.equal(first[0].kind, 'area');
+    assert.equal(first[0].sourceUrl, 'https://maps.apple.com/place?coordinate=48.8567879,2.3510768');
+    assert.equal(first[1].id, 'apple/I_REAL_MUSEUM'); assert.equal(first[1].kind, 'place'); assert.equal(first[1].category, 'museum');
+    assert.equal(first[1].sourceUrl, 'https://maps.apple.com/place?place-id=I_REAL_MUSEUM');
+    assert.ok(first.every(p => p.source === 'apple' && p.osmId === undefined && contract().normalizeMapAreaResult(p)));
+    first[0].name = 'mutated'; assert.equal(second[0].name, 'Paris');
+  }
+});
+
+test('Apple errors and malformed responses never fall through to public Nominatim; absent Apple retains production guard', async () => {
+  for (const options of [{ fail: true }, { raw: { results: [], error: 'private' } }, { raw: {} }]) {
+    const h = appleHarness(options);
+    await assert.rejects(h.model.getMapPlaceSearch({ query: 'Paris', locale: 'en' }), error => error.code === 'search-unavailable');
+    assert.equal(h.calls.length, 1);
+  }
+  const h = appleHarness({ configured: false });
+  assert.throws(() => h.model.getMapPlaceSearch({ query: 'Paris', locale: 'en' }), /search-not-configured/);
+  const empty = appleHarness({ raw: { results: [] } });
+  assert.equal((await empty.model.getMapPlaceSearch({ query: 'Paris', locale: 'en' })).length, 0);
+});
+
+test('shared client contract accepts legacy OSM and real Apple identities without allowing coordinate IDs as saved POIs', () => {
+  const normalize = contract().normalizeMapAreaResult;
+  const osm = model.normalizeMapSearchResults([row()])[0];
+  assert.equal(normalize(osm).id, 'relation/1741311');
+  const legacy = { ...osm }; delete legacy.id; delete legacy.source;
+  assert.equal(normalize(legacy).id, 'relation/1741311');
+  const apple = { name: 'Paris', address: 'France', latitude: 48.85, longitude: 2.35, source: 'apple', kind: 'area', id: 'apple-area/48.85,2.35', sourceUrl: 'https://maps.apple.com/place?coordinate=48.85,2.35' };
+  assert.ok(normalize(apple));
+  for (const invalid of [{ ...apple, kind: 'place' }, { ...apple, longitude: 3 }, { ...apple, sourceUrl: 'https://evil.test' }, { ...apple, osmId: 'relation/1' }, { ...apple, source: 'openstreetmap' }]) assert.equal(normalize(invalid), null);
+  const h = appleHarness({ raw: { results: [{ name: 'Missing real ID', poiCategory: 'Museum', coordinate: { latitude: 48.85, longitude: 2.35 } }, { name: 'Bad ID', id: '../unsafe', poiCategory: 'Museum', coordinate: { latitude: 48.85, longitude: 2.35 } }] } });
+  assert.equal(h.model.normalizeAppleMapSearchResults({ results: [] }).length, 0);
+  return h.model.getMapPlaceSearch({ query: 'Paris', locale: 'en' }).then(results => assert.equal(results.length, 0));
+});
+
+test('mobile search retains Apple cities and POIs while filtering forged provider links', async () => {
+  const raw = { results: [{ name: 'Paris', coordinate: { latitude: 48.85, longitude: 2.35 } }, { id: 'I_LOUVRE', poiCategory: 'Museum', name: 'Louvre', coordinate: { latitude: 48.86, longitude: 2.34 } }] };
+  const rows = appleHarness({ raw }).model.normalizeAppleMapSearchResults(raw), calls = [], fixtureModule = { exports: {} };
+  const code = ts.transpileModule(readFileSync(new URL('../mobile/src/lib/travelMapClient.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(`(function(require,module,exports){${code}\n})`, { Error, URLSearchParams, AbortSignal, fetch: async (url, options) => {
+    calls.push({ url, options }); return Response.json({ data: [...rows, { ...rows[0], sourceUrl: 'https://evil.test' }] });
+  } })(name => name === './config' ? { config: { apiBaseUrl: 'https://app.test' } } : name.includes('map-search-result') ? contract() : require('../lib/travel-assistant/places.ts'), fixtureModule, fixtureModule.exports);
+  const results = await fixtureModule.exports.searchMapAreas('Paris', { latitude: 41, longitude: 29 }, 'tr');
+  assert.deepEqual(Array.from(results, p => p.id), ['apple-area/48.85,2.35', 'apple/I_LOUVRE']);
+  assert.match(calls[0].url, /^https:\/\/app.test\/api\/maps\/search\?/); assert.equal(calls[0].options.credentials, 'omit');
 });

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const checks = [
+  ["--test", "tests/testflight-internal-release.mjs"],
   ["--test", "tests/ux14-first-use.mjs", "tests/ux14-community-events.mjs"],
   ["--test", "tests/usability-budget-guide-money.mjs"],
   ["--test", "tests/map-place-search.mjs", "tests/travel-map-services.mjs", "tests/open-map-offline.mjs"],

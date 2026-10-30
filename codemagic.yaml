@@ -136,6 +136,13 @@ workflows:
   letsgo2travel-ios-testflight:
     <<: *ios_app_store
     name: LetsGo2Travel iOS TestFlight
+    # One immutable tag for the explicitly requested 30 October internal release.
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: testflight-20261030-live-chat
+          include: true
     environment:
       <<: *ios_environment
       vars:
@@ -149,6 +156,8 @@ workflows:
         # Upload for internal testing; choose the verified tester group in Apple.
         submit_to_testflight: false
         submit_to_app_store: false
+        beta_groups:
+          - LetsGo2Travel İç Test
         # Cancellation and expiration are omitted: both default to false and
         # Codemagic only accepts those options when review submission is enabled.
 

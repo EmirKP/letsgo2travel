@@ -1,7 +1,9 @@
 import type { PointCategory } from '../travel-assistant/types';
+import { appleMapsSearch, appleMapsServerConfigured, appleMapsServerIdentity } from './apple-maps-server';
+import { normalizeMapAreaResult, type MapSearchResult } from './map-search-result';
+export type { MapSearchResult } from './map-search-result';
 
 export type MapSearchInput = { query: string; locale: 'tr' | 'en' | 'sq'; latitude?: number; longitude?: number };
-export type MapSearchResult = { name: string; latitude: number; longitude: number; address: string; sourceUrl: string; osmId: string; kind: 'area' | 'place'; category?: PointCategory };
 export class MapSearchError extends Error {
   constructor(readonly code: string, readonly status = 503, readonly retryAfter = 30) { super(code); }
 }
@@ -78,7 +80,7 @@ export function normalizeMapSearchResults(raw: unknown): MapSearchResult[] {
     seen.add(osmId);
     const category = text(row.category ?? row.class, 50), type = text(row.type, 50), addressType = text(row.addresstype, 50);
     const area = areaTypes.has(addressType) || areaTypes.has(type) && ['place', 'boundary'].includes(category);
-    return [{ name, latitude, longitude, address: address || name, sourceUrl: `https://www.openstreetmap.org/${osmId}`, osmId, kind: area ? 'area' : 'place', ...(!area ? { category: searchCategory(category, type) } : {}) }];
+    return [{ id: osmId, source: 'openstreetmap', name, latitude, longitude, address: address || name, sourceUrl: `https://www.openstreetmap.org/${osmId}`, osmId, kind: area ? 'area' : 'place', ...(!area ? { category: searchCategory(category, type) } : {}) }];
   }).slice(0, 6);
 }
 
@@ -163,10 +165,55 @@ export function createMapPlaceSearch(options: SearchOptions = {}) {
 }
 
 let service: ReturnType<typeof createMapPlaceSearch> | undefined;
+const appleCache = new Map<string, { until: number; data: MapSearchResult[] }>();
+const applePending = new Map<string, Promise<MapSearchResult[]>>();
+const appleCategories: Record<string, PointCategory> = { Museum: 'museum', Cafe: 'cafe', Restaurant: 'restaurant', Bakery: 'bakery', Store: 'store', FoodMarket: 'market', Hospital: 'hospital', Pharmacy: 'pharmacy', Police: 'police', ATM: 'atm', Bank: 'bank', PublicTransport: 'transit', Restroom: 'toilets', Park: 'park', NationalPark: 'park', Beach: 'beach', Hiking: 'hiking', Castle: 'historic', Fortress: 'historic', NationalMonument: 'monument', Stadium: 'stadium' };
+export function normalizeAppleMapSearchResults(raw: unknown): MapSearchResult[] {
+  const page = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+  if (!Array.isArray(page.results) || page.results.length > 100 || page.error || page.errorMessage) throw new MapSearchError('search-unavailable');
+  const seen = new Set<string>();
+  return page.results.flatMap((value): MapSearchResult[] => {
+    if (!value || typeof value !== 'object') return [];
+    const row = value as Record<string, unknown>, point = row.coordinate as Record<string, unknown> | undefined;
+    if (!point || typeof point !== 'object') return [];
+    const name = text(row.name, 161), poi = typeof row.poiCategory === 'string' && Boolean(row.poiCategory);
+    const id = poi ? `apple/${row.id}` : `apple-area/${point.latitude},${point.longitude}`;
+    const result = normalizeMapAreaResult({ ...point, name, id, source: 'apple', kind: poi ? 'place' : 'area',
+      sourceUrl: poi ? `https://maps.apple.com/place?place-id=${row.id}` : `https://maps.apple.com/place?coordinate=${point.latitude},${point.longitude}`,
+      address: Array.isArray(row.formattedAddressLines) ? row.formattedAddressLines.slice(0, 8).map(line => text(line, 160)).filter(Boolean).join(', ').slice(0, 500) || null : null,
+      ...(poi ? { category: appleCategories[String(row.poiCategory)] || 'attraction' } : {}) });
+    if (!result || poi && typeof row.id !== 'string' || seen.has(id)) return [];
+    seen.add(id); return [result];
+  }).slice(0, 6);
+}
+async function searchAppleMapPlaces(input: MapSearchInput): Promise<MapSearchResult[]> {
+  try {
+    const identity = appleMapsServerIdentity(), now = Date.now(), key = JSON.stringify([identity, input]);
+    const cached = appleCache.get(key);
+    if (cached && cached.until > now) return cached.data.map(row => ({ ...row }));
+    const waiting = applePending.get(key);
+    if (waiting) return (await waiting).map(row => ({ ...row }));
+    if (applePending.size >= 4) throw new MapSearchError('busy');
+    const operation = (async () => {
+      const params = new URLSearchParams({ q: input.query, lang: ({ tr: 'tr-TR', en: 'en-US', sq: 'sq-AL' })[input.locale] });
+      if (input.latitude !== undefined && input.longitude !== undefined) params.set('searchLocation', `${input.latitude},${input.longitude}`);
+      const raw = await appleMapsSearch(params, now + 12_000);
+      if (appleMapsServerIdentity() !== identity) throw new MapSearchError('search-unavailable');
+      const data = normalizeAppleMapSearchResults(raw);
+      appleCache.set(key, { data, until: Date.now() + 3600_000 });
+      if (appleCache.size > 256) appleCache.delete(appleCache.keys().next().value!);
+      return data;
+    })();
+    applePending.set(key, operation);
+    try { return (await operation).map(row => ({ ...row })); } finally { applePending.delete(key); }
+  } catch (error) { throw error instanceof MapSearchError ? error : new MapSearchError('search-unavailable'); }
+}
 export function getMapPlaceSearch(input: MapSearchInput) {
-  const endpoint = process.env.MAP_SEARCH_PROVIDER_URL || PUBLIC_PROVIDER;
+  const safe = normalizedInput(input);
+  if (appleMapsServerConfigured()) return searchAppleMapPlaces(safe);
+  const endpoint = process.env.MAP_SEARCH_PROVIDER_URL || process.env.TRAVEL_GEOCODER_URL?.trim() || PUBLIC_PROVIDER;
   // Public limits apply to the whole app. Do not silently multiply them on serverless workers.
   if (new URL(endpoint).hostname === 'nominatim.openstreetmap.org' && process.env.NODE_ENV === 'production' && process.env.MAP_SEARCH_SINGLE_GATEWAY !== '1') throw new MapSearchError('search-not-configured');
   service ??= createMapPlaceSearch({ endpoint });
-  return service(input);
+  return service(safe);
 }

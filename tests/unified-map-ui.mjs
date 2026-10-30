@@ -113,6 +113,26 @@ test('A place chosen from global search keeps the previous map point as its rout
   app.dispose();
 });
 
+test('Apple city selection moves to its real coordinates, retains attribution and never saves an area as a POI',async()=>{
+  const app=fixture();app.search('Paris');
+  const city={id:'apple-area/48.85,2.35',source:'apple',kind:'area',name:'Paris',address:'France',latitude:48.85,longitude:2.35,sourceUrl:'https://maps.apple.com/place?coordinate=48.85,2.35'};
+  app.calls.areas[0].resolve([city]);await app.flush();
+  const result=nodes(app.tree).find(node=>node.type==='button'&&node.key===city.id);assert.ok(result);assert.match(text(result),/Apple Maps/);
+  result.props.onClick();app.render();assert.equal(app.map.props.center.latitude,48.85);assert.equal(app.map.props.center.longitude,2.35);
+  assert.match(text(app.tree),/Apple Maps/);assert.equal(app.calls.providerSaves.length,0);assert.equal(app.map.props.selectedId,undefined);app.dispose();
+});
+
+test('Apple POI selection preserves its provider ID and source through save, offline reopening and route actions',async()=>{
+  const app=fixture('account-a');app.search('Louvre');
+  const museum={id:'apple/I_LOUVRE',source:'apple',kind:'place',category:'museum',name:'Louvre',address:'Paris',latitude:48.86,longitude:2.34,sourceUrl:'https://maps.apple.com/place?place-id=I_LOUVRE'};
+  app.calls.areas[0].resolve([museum]);await app.flush();nodes(app.tree).find(node=>node.type==='button'&&node.key===museum.id).props.onClick();app.render();
+  assert.equal(app.map.props.selectedId,museum.id);app.click('Save');app.click('Add to my route');app.click('Show directions');
+  assert.equal(app.calls.routes[0].destination.id,museum.id);assert.equal(app.saved.readSavedPlaces('account-a').items[0].place.sourceUrl,museum.sourceUrl);
+  app.network(false);nodes(app.tree).find(node=>node.type==='button'&&node.key==='saved').props.onClick();app.render();
+  nodes(app.tree).find(node=>node.type==='TravelMapLibrary').props.onSelectPlace(app.saved.readSavedPlaces('account-a').items[0].place);app.render();
+  assert.equal(app.map.props.selectedId,museum.id);assert.match(text(app.tree),/Apple Maps/);app.dispose();
+});
+
 test('Opening a saved library or downloaded map cancels an earlier search before it can replace that view',async()=>{
   const app=fixture();app.click('Search this area');
   nodes(app.tree).find(node=>node.type==='button'&&node.key==='saved').props.onClick();app.render();
