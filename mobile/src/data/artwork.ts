@@ -12,7 +12,7 @@ import cappadociaArtwork from "../assets/home-reference/cappadocia.webp";
 import santoriniArtwork from "../assets/home-reference/santorini-hero.webp";
 import parisArtwork from "../assets/home-reference/paris-eiffel-v3.webp";
 import newYorkArtwork from "../assets/community-reference/region-americas.webp";
-import istanbulArtwork from "../assets/destination-artwork/istanbul-bosphorus.jpg";
+import istanbulArtwork from "../assets/destination-artwork/istanbul-bosphorus.webp";
 import { bundledImageSource, type BundledImage } from "../lib/bundledImageSource";
 
 // Unknown destinations keep a neutral surface, never a logo or another city's photo.

@@ -81,6 +81,7 @@ const destinationArtworkFiles = [
   "bangkok.webp",
   "belgrade.webp",
   "dubai.webp",
+  "istanbul-bosphorus.webp",
   "rome.webp",
   "sarajevo.webp",
   "tbilisi.webp",

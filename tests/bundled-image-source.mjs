@@ -61,7 +61,30 @@ test('Destination artwork retains aliases and the neutral unknown-place fallback
     assert.match(rome, /rome\.webp$/);
     assert.equal(destinationArtwork('CDG'), paris);
     assert.notEqual(rome, paris);
+    const istanbul = destinationArtwork('IST');
+    assert.match(istanbul, /istanbul-bosphorus\.webp$/);
+    assert.equal(destinationArtwork('saw'), istanbul);
+    assert.notEqual(istanbul, paris);
     assert.ok(destinationArtwork('UNKNOWN').startsWith('data:image/svg+xml,'));
     assert.equal(destinationArtwork(), destinationArtwork('UNKNOWN'));
   }
+});
+
+test('Destination artwork uses optimized local WebP files and includes Istanbul in the packaged-artwork check', () => {
+  const file = 'mobile/src/data/artwork.ts';
+  const importedImages = ts.preProcessFile(readFileSync(file, 'utf8')).importedFiles
+    .map(({ fileName }) => fileName).filter(name => name.includes('/assets/'));
+  assert.ok(importedImages.length > 0);
+  for (const name of importedImages) assert.match(name, /\.webp$/, 'Destination mappings must use the optimized WebP assets');
+  const istanbul = importedImages.find(name => basename(name) === 'istanbul-bosphorus.webp');
+  assert.ok(istanbul, 'Both Istanbul airport aliases need the bundled Istanbul image');
+  const bytes = readFileSync(resolve(dirname(file), istanbul));
+  assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
+  assert.ok(bytes.length <= 170 * 1024, 'The Istanbul photo must stay within the existing per-image mobile budget');
+  const doctor = readFileSync('scripts/mobile-doctor.mjs', 'utf8');
+  assert.match(doctor, /["']istanbul-bosphorus\.webp["']/, 'Doctor must verify that the exact optimized Istanbul bytes reach the package');
+  const checkedImages = [...doctor.match(/const destinationArtworkFiles = \[([\s\S]*?)\];/)[1].matchAll(/"([^"]+)"/g)].map(match => match[1]);
+  const totalBytes = checkedImages.reduce((total, name) => total + readFileSync(resolve('mobile/src/assets/destination-artwork', name)).length, 0);
+  assert.ok(totalBytes <= 550 * 1024, 'Adding Istanbul must preserve the existing total mobile artwork budget');
 });
